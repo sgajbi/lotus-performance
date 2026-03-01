@@ -2,5 +2,9 @@ services:
   performance-analytics:
     build: .
     container_name: performance-analytics
+    environment:
+      CORE_QUERY_BASE_URL: "${CORE_QUERY_BASE_URL:-http://host.docker.internal:8201}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "${PA_HOST_PORT:-8002}:8000"
