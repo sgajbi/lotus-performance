@@ -195,13 +195,83 @@ def test_returns_series_rejects_duplicate_dates():
     assert body["detail"]["code"] == "INVALID_REQUEST"
 
 
-def test_returns_series_core_api_ref_not_yet_available():
+def test_returns_series_core_api_ref_fetches_benchmark_and_risk_free(monkeypatch):
+    async def _mock_get_performance_input(self, portfolio_id, as_of_date, lookback_days, consumer_system):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_id": portfolio_id,
+                "performance_start_date": "2026-02-23",
+                "valuation_points": [
+                    {"day": 1, "perf_date": "2026-02-23", "begin_mv": 1000.0, "end_mv": 1010.0},
+                    {"day": 2, "perf_date": "2026-02-24", "begin_mv": 1010.0, "end_mv": 1015.0},
+                    {"day": 3, "perf_date": "2026-02-25", "begin_mv": 1015.0, "end_mv": 1012.46},
+                    {"day": 4, "perf_date": "2026-02-26", "begin_mv": 1012.46, "end_mv": 1015.49738},
+                    {"day": 5, "perf_date": "2026-02-27", "begin_mv": 1015.49738, "end_mv": 1017.02062607},
+                ],
+            },
+        )
+
+    async def _mock_get_benchmark_assignment(self, portfolio_id, as_of_date, reporting_currency=None):  # noqa: ARG001
+        return 200, {"benchmark_id": "BMK_GLOBAL_1"}
+
+    async def _mock_get_benchmark_return_series(
+        self, benchmark_id, as_of_date, start_date, end_date, frequency="daily"
+    ):  # noqa: ARG001
+        return (
+            200,
+            {
+                "points": [
+                    {"series_date": "2026-02-23", "benchmark_return": "0.0010"},
+                    {"series_date": "2026-02-24", "benchmark_return": "0.0012"},
+                    {"series_date": "2026-02-25", "benchmark_return": "-0.0004"},
+                    {"series_date": "2026-02-26", "benchmark_return": "0.0008"},
+                    {"series_date": "2026-02-27", "benchmark_return": "0.0005"},
+                ]
+            },
+        )
+
+    async def _mock_get_risk_free_series(
+        self, currency, as_of_date, start_date, end_date, frequency="daily", series_mode="return_series"
+    ):  # noqa: ARG001
+        return (
+            200,
+            {
+                "points": [
+                    {"series_date": "2026-02-23", "value": "0.0001"},
+                    {"series_date": "2026-02-24", "value": "0.0001"},
+                    {"series_date": "2026-02-25", "value": "0.0001"},
+                    {"series_date": "2026-02-26", "value": "0.0001"},
+                    {"series_date": "2026-02-27", "value": "0.0001"},
+                ]
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.api.endpoints.returns_series.PasInputService.get_performance_input",
+        _mock_get_performance_input,
+    )
+    monkeypatch.setattr(
+        "app.api.endpoints.returns_series.PasInputService.get_benchmark_assignment",
+        _mock_get_benchmark_assignment,
+    )
+    monkeypatch.setattr(
+        "app.api.endpoints.returns_series.PasInputService.get_benchmark_return_series",
+        _mock_get_benchmark_return_series,
+    )
+    monkeypatch.setattr(
+        "app.api.endpoints.returns_series.PasInputService.get_risk_free_series",
+        _mock_get_risk_free_series,
+    )
+
     payload = {
         "portfolio_id": "DEMO_DPM_EUR_001",
         "as_of_date": "2026-02-27",
         "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-27"},
         "frequency": "DAILY",
         "metric_basis": "NET",
+        "reporting_currency": "USD",
+        "series_selection": {"include_portfolio": True, "include_benchmark": True, "include_risk_free": True},
         "source": {
             "input_mode": "core_api_ref",
         },
@@ -210,9 +280,52 @@ def test_returns_series_core_api_ref_not_yet_available():
     with TestClient(app) as client:
         response = client.post("/integration/returns/series", json=payload)
 
-    assert response.status_code == 503
+    assert response.status_code == 200
     body = response.json()
-    assert body["detail"]["code"] == "SOURCE_UNAVAILABLE"
+    assert len(body["series"]["portfolio_returns"]) == 5
+    assert len(body["series"]["benchmark_returns"]) == 5
+    assert len(body["series"]["risk_free_returns"]) == 5
+    assert body["provenance"]["input_mode"] == "core_api_ref"
+    assert {source["service"] for source in body["provenance"]["upstream_sources"]} == {"lotus-core"}
+
+
+def test_returns_series_core_api_ref_requires_reporting_currency_for_risk_free(monkeypatch):
+    async def _mock_get_performance_input(self, portfolio_id, as_of_date, lookback_days, consumer_system):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_id": portfolio_id,
+                "performance_start_date": "2026-02-23",
+                "valuation_points": [
+                    {"day": 1, "perf_date": "2026-02-23", "begin_mv": 1000.0, "end_mv": 1010.0},
+                    {"day": 2, "perf_date": "2026-02-24", "begin_mv": 1010.0, "end_mv": 1015.0},
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.api.endpoints.returns_series.PasInputService.get_performance_input",
+        _mock_get_performance_input,
+    )
+
+    payload = {
+        "portfolio_id": "DEMO_DPM_EUR_001",
+        "as_of_date": "2026-02-27",
+        "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-27"},
+        "frequency": "DAILY",
+        "metric_basis": "NET",
+        "series_selection": {"include_portfolio": True, "include_risk_free": True},
+        "source": {
+            "input_mode": "core_api_ref",
+        },
+    }
+
+    with TestClient(app) as client:
+        response = client.post("/integration/returns/series", json=payload)
+
+    assert response.status_code == 400
+    body = response.json()
+    assert body["detail"]["code"] == "INVALID_REQUEST"
 
 
 def test_returns_series_strict_intersection_no_overlap_fails():
