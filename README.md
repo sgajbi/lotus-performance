@@ -62,6 +62,7 @@ An API for calculating portfolio performance metrics, aligned with the `lotus-co
 
 Docker runtime note:
 - `docker compose up` exposes container port `8000` on host `${PA_HOST_PORT:-8002}` by default.
+- Stateful integration mode resolves lotus-core using `CORE_QUERY_BASE_URL` (defaults to `http://host.docker.internal:8201` in compose).
 - Example Swagger URL with default compose port: `http://127.0.0.1:8002/docs`
 
 ---
