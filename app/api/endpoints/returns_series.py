@@ -27,10 +27,9 @@ from app.models.returns_series import (
     ReturnsSeriesResponse,
     SeriesCoverage,
     SeriesGap,
-    UpstreamSourceRef,
 )
 from app.observability import correlation_id_var, request_id_var, trace_id_var
-from app.services.pas_input_service import PasInputService
+from app.services.core_integration_service import CoreIntegrationService
 from common.enums import Frequency, PeriodType
 from core.repro import generate_canonical_hash
 from engine.compute import run_calculations
@@ -201,13 +200,59 @@ def _core_points_to_dataframe(
     return _to_dataframe(normalized_points, series_type=series_type)
 
 
-def _daily_ror_from_performance_input(
+def _portfolio_timeseries_to_valuation_points(*, observations: list[dict[str, object]]) -> list[dict[str, object]]:
+    valuation_points: list[dict[str, object]] = []
+    for point in observations:
+        valuation_date = point.get("valuation_date")
+        begin_mv = point.get("beginning_market_value")
+        end_mv = point.get("ending_market_value")
+        cash_flows_raw = point.get("cash_flows", [])
+        if not isinstance(valuation_date, str) or begin_mv is None or end_mv is None:
+            continue
+        bod_cf = Decimal("0")
+        eod_cf = Decimal("0")
+        if isinstance(cash_flows_raw, list):
+            for flow in cash_flows_raw:
+                if not isinstance(flow, dict):
+                    continue
+                amount = flow.get("amount")
+                timing = flow.get("timing")
+                if amount is None or timing not in {"bod", "eod"}:
+                    continue
+                dec_amount = Decimal(str(amount))
+                if timing == "bod":
+                    bod_cf += dec_amount
+                else:
+                    eod_cf += dec_amount
+        valuation_points.append(
+            {
+                "day": 0,
+                "perf_date": valuation_date,
+                "begin_mv": Decimal(str(begin_mv)),
+                "end_mv": Decimal(str(end_mv)),
+                "bod_cf": bod_cf,
+                "eod_cf": eod_cf,
+            }
+        )
+    if not valuation_points:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "code": "INSUFFICIENT_DATA",
+                "message": "No valid valuation observations after canonical normalization.",
+            },
+        )
+    return valuation_points
+
+
+def _daily_ror_from_portfolio_timeseries(
     *,
-    valuation_points: list[dict[str, object]],
+    observations: list[dict[str, object]],
     performance_start_date: date,
     resolved_window: ResolvedWindow,
     metric_basis: str,
 ) -> pd.DataFrame:
+    valuation_points = _portfolio_timeseries_to_valuation_points(observations=observations)
     request_model = PerformanceRequest.model_validate(
         {
             "portfolio_id": "INTEGRATION_SERIES",
@@ -255,85 +300,74 @@ def _daily_ror_from_performance_input(
     summary="Get canonical return series for downstream analytics",
     description=(
         "Returns canonical portfolio/benchmark/risk-free return time series for stateful analytics consumers. "
-        "Supports inline_bundle and lotus-core-backed core_api_ref source modes."
+        "Supports stateless (request-supplied inputs) and stateful (platform-sourced inputs) modes."
     ),
 )
 async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResponse:
     resolved_window = _resolve_window(request)
     benchmark_df = None
     risk_free_df = None
-    upstream_sources: list[UpstreamSourceRef] = []
-
-    if request.source.input_mode == InputMode.CORE_API_REF:
-        pas_service = PasInputService(
-            base_url=settings.PAS_QUERY_BASE_URL,
-            timeout_seconds=settings.PAS_TIMEOUT_SECONDS,
-            max_retries=settings.PAS_MAX_RETRIES,
-            retry_backoff_seconds=settings.PAS_RETRY_BACKOFF_SECONDS,
+    if request.input_mode == InputMode.STATEFUL:
+        core_service = CoreIntegrationService(
+            base_url=settings.CORE_QUERY_BASE_URL,
+            timeout_seconds=settings.CORE_TIMEOUT_SECONDS,
+            max_retries=settings.CORE_MAX_RETRIES,
+            retry_backoff_seconds=settings.CORE_RETRY_BACKOFF_SECONDS,
         )
-
-        upstream_status, upstream_payload = await pas_service.get_performance_input(
+        stateful_input = request.stateful_input
+        if stateful_input is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"code": "INVALID_REQUEST", "message": "stateful_input is required in stateful mode."},
+            )
+        upstream_status, upstream_payload = await core_service.get_portfolio_analytics_timeseries(
             portfolio_id=request.portfolio_id,
             as_of_date=request.as_of_date,
-            lookback_days=2000,
-            consumer_system="lotus-performance",
+            start_date=resolved_window.start_date,
+            end_date=resolved_window.end_date,
+            reporting_currency=request.reporting_currency,
+            consumer_system=stateful_input.consumer_system,
         )
         if upstream_status >= status.HTTP_400_BAD_REQUEST:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail={
                     "code": "SOURCE_UNAVAILABLE",
-                    "message": f"lotus-core performance-input unavailable ({upstream_status}).",
+                    "message": f"stateful portfolio timeseries source unavailable ({upstream_status}).",
                 },
             )
-
-        valuation_points = upstream_payload.get("valuation_points", upstream_payload.get("valuationPoints"))
-        if not isinstance(valuation_points, list) or not valuation_points:
+        observations = upstream_payload.get("observations")
+        if not isinstance(observations, list) or not observations:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={
-                    "code": "INSUFFICIENT_DATA",
-                    "message": "lotus-core performance-input returned no valuation_points.",
-                },
+                detail={"code": "INSUFFICIENT_DATA", "message": "Stateful source returned no observations."},
             )
-        start_raw = upstream_payload.get("performance_start_date", upstream_payload.get("performanceStartDate"))
-        if not isinstance(start_raw, str):
+        open_date_raw = upstream_payload.get("portfolio_open_date")
+        if not isinstance(open_date_raw, str):
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={
-                    "code": "INSUFFICIENT_DATA",
-                    "message": "lotus-core performance-input missing performance_start_date.",
-                },
+                detail={"code": "INSUFFICIENT_DATA", "message": "Stateful source missing portfolio_open_date."},
             )
         try:
-            performance_start_date = date.fromisoformat(start_raw)
+            performance_start_date = date.fromisoformat(open_date_raw)
         except ValueError as exc:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={"code": "INSUFFICIENT_DATA", "message": "Invalid performance_start_date from lotus-core."},
+                detail={"code": "INSUFFICIENT_DATA", "message": "Invalid portfolio_open_date from stateful source."},
             ) from exc
-
         portfolio_df = _resample_returns(
-            _daily_ror_from_performance_input(
-                valuation_points=valuation_points,
+            _daily_ror_from_portfolio_timeseries(
+                observations=observations,
                 performance_start_date=performance_start_date,
                 resolved_window=resolved_window,
                 metric_basis=request.metric_basis.value,
             ),
             frequency=request.frequency,
         )
-        upstream_sources.append(
-            UpstreamSourceRef(
-                service="lotus-core",
-                endpoint="/integration/portfolios/{portfolio_id}/performance-input",
-                contract_version="v1",
-                as_of_date=request.as_of_date,
-            )
-        )
 
         benchmark_id = request.benchmark.benchmark_id if request.benchmark else None
         if request.series_selection.include_benchmark and not benchmark_id:
-            assignment_status, assignment_payload = await pas_service.get_benchmark_assignment(
+            assignment_status, assignment_payload = await core_service.get_benchmark_assignment(
                 portfolio_id=request.portfolio_id,
                 as_of_date=request.as_of_date,
                 reporting_currency=request.reporting_currency,
@@ -348,7 +382,7 @@ async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResp
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                     detail={
                         "code": "SOURCE_UNAVAILABLE",
-                        "message": f"lotus-core benchmark-assignment unavailable ({assignment_status}).",
+                        "message": f"Benchmark assignment source unavailable ({assignment_status}).",
                     },
                 )
             benchmark_id_raw = assignment_payload.get("benchmark_id")
@@ -358,20 +392,11 @@ async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResp
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail={
                         "code": "CONTRACT_VIOLATION_UPSTREAM",
-                        "message": "lotus-core benchmark-assignment payload missing benchmark_id.",
+                        "message": "Benchmark assignment payload missing benchmark_id.",
                     },
                 )
-            upstream_sources.append(
-                UpstreamSourceRef(
-                    service="lotus-core",
-                    endpoint="/integration/portfolios/{portfolio_id}/benchmark-assignment",
-                    contract_version="rfc_062_v1",
-                    as_of_date=request.as_of_date,
-                )
-            )
-
         if request.series_selection.include_benchmark and benchmark_id:
-            benchmark_status, benchmark_payload = await pas_service.get_benchmark_return_series(
+            benchmark_status, benchmark_payload = await core_service.get_benchmark_return_series(
                 benchmark_id=benchmark_id,
                 as_of_date=request.as_of_date,
                 start_date=resolved_window.start_date,
@@ -388,7 +413,7 @@ async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResp
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                     detail={
                         "code": "SOURCE_UNAVAILABLE",
-                        "message": f"lotus-core benchmark return-series unavailable ({benchmark_status}).",
+                        "message": f"Benchmark return-series source unavailable ({benchmark_status}).",
                     },
                 )
             benchmark_points = benchmark_payload.get("points")
@@ -397,7 +422,7 @@ async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResp
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail={
                         "code": "CONTRACT_VIOLATION_UPSTREAM",
-                        "message": "lotus-core benchmark return-series payload missing points list.",
+                        "message": "Benchmark return-series payload missing points list.",
                     },
                 )
             benchmark_df = _resample_returns(
@@ -412,25 +437,16 @@ async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResp
                 ),
                 frequency=request.frequency,
             )
-            upstream_sources.append(
-                UpstreamSourceRef(
-                    service="lotus-core",
-                    endpoint="/integration/benchmarks/{benchmark_id}/return-series",
-                    contract_version="rfc_062_v1",
-                    as_of_date=request.as_of_date,
-                )
-            )
-
         if request.series_selection.include_risk_free:
             if not request.reporting_currency:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail={
                         "code": "INVALID_REQUEST",
-                        "message": "reporting_currency is required for risk-free series in core_api_ref mode.",
+                        "message": "reporting_currency is required for risk-free series in stateful mode.",
                     },
                 )
-            risk_free_status, risk_free_payload = await pas_service.get_risk_free_series(
+            risk_free_status, risk_free_payload = await core_service.get_risk_free_series(
                 currency=request.reporting_currency,
                 as_of_date=request.as_of_date,
                 start_date=resolved_window.start_date,
@@ -451,7 +467,7 @@ async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResp
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                     detail={
                         "code": "SOURCE_UNAVAILABLE",
-                        "message": f"lotus-core risk-free-series unavailable ({risk_free_status}).",
+                        "message": f"Risk-free series source unavailable ({risk_free_status}).",
                     },
                 )
             risk_free_points = risk_free_payload.get("points")
@@ -460,7 +476,7 @@ async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResp
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail={
                         "code": "CONTRACT_VIOLATION_UPSTREAM",
-                        "message": "lotus-core risk-free-series payload missing points list.",
+                        "message": "Risk-free series payload missing points list.",
                     },
                 )
             risk_free_df = _resample_returns(
@@ -475,28 +491,21 @@ async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResp
                 ),
                 frequency=request.frequency,
             )
-            upstream_sources.append(
-                UpstreamSourceRef(
-                    service="lotus-core",
-                    endpoint="/integration/reference/risk-free-series",
-                    contract_version="rfc_062_v1",
-                    as_of_date=request.as_of_date,
-                )
-            )
     else:
-        bundle = request.source.inline_bundle
-        if bundle is None:
+        stateless_input = request.stateless_input
+        if stateless_input is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
                     "code": "INVALID_REQUEST",
-                    "message": "source.inline_bundle is required in inline_bundle mode.",
+                    "message": "stateless_input is required in stateless mode.",
                 },
             )
 
         portfolio_df = _resample_returns(
             _filter_window(
-                _to_dataframe(bundle.portfolio_returns, series_type="portfolio"), resolved_window=resolved_window
+                _to_dataframe(stateless_input.portfolio_returns, series_type="portfolio"),
+                resolved_window=resolved_window,
             ),
             frequency=request.frequency,
         )
@@ -504,7 +513,7 @@ async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResp
         if request.series_selection.include_benchmark:
             benchmark_df = _resample_returns(
                 _filter_window(
-                    _to_dataframe(bundle.benchmark_returns or [], series_type="benchmark"),
+                    _to_dataframe(stateless_input.benchmark_returns or [], series_type="benchmark"),
                     resolved_window=resolved_window,
                 ),
                 frequency=request.frequency,
@@ -512,19 +521,11 @@ async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResp
         if request.series_selection.include_risk_free:
             risk_free_df = _resample_returns(
                 _filter_window(
-                    _to_dataframe(bundle.risk_free_returns or [], series_type="risk_free"),
+                    _to_dataframe(stateless_input.risk_free_returns or [], series_type="risk_free"),
                     resolved_window=resolved_window,
                 ),
                 frequency=request.frequency,
             )
-        upstream_sources.append(
-            UpstreamSourceRef(
-                service="inline_bundle",
-                endpoint="request.source.inline_bundle",
-                contract_version="v1",
-                as_of_date=request.as_of_date,
-            )
-        )
 
     if request.data_policy.missing_data_policy == MissingDataPolicy.STRICT_INTERSECTION:
         common_dates = set(portfolio_df["date"])
@@ -611,8 +612,7 @@ async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResp
             risk_free_returns=_points_from_df(risk_free_df) if risk_free_df is not None else None,
         ),
         provenance=ReturnsProvenance(
-            input_mode=request.source.input_mode,
-            upstream_sources=upstream_sources,
+            input_mode=request.input_mode,
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
         ),

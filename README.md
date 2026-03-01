@@ -149,10 +149,11 @@ pytest --benchmark-only "tests/benchmarks/"
   - **Endpoint:** `GET /integration/capabilities`
   - **Description:** Returns backend-governed lotus-performance capability and workflow metadata for lotus-gateway/lotus-core/lotus-manage integration.
 
-### 6\. lotus-core-Input TWR
+### 6\. Returns Series Integration
 
-  - **Endpoint:** `POST /performance/twr/pas-input`
-  - **Description:** Fetches lotus-core Core Snapshot (`PERFORMANCE` section) and returns lotus-performance-normalized period results for UI/lotus-gateway consumption.
+  - **Endpoint:** `POST /integration/returns/series`
+  - **Description:** Returns canonical portfolio/benchmark/risk-free return series for downstream analytics consumers.
+  - **Input Modes:** `input_mode: "stateless" | "stateful"` using `stateless_input` / `stateful_input` envelopes.
 
 -----
 

@@ -35,7 +35,7 @@ class IntegrationCapabilitiesResponse(BaseModel):
     as_of_date: date
     policy_version: str
     supported_input_modes: list[str] = Field(
-        description="Supported execution input modes: core_api_ref (lotus-core API-backed) and inline_bundle (stateless payload).",
+        description="Supported execution input modes: stateful and stateless.",
     )
     features: list[FeatureCapability]
     workflows: list[WorkflowCapability]
@@ -66,8 +66,8 @@ async def get_integration_capabilities(
     mwr_enabled = _env_bool("PA_CAP_MWR_ENABLED", True)
     contribution_enabled = _env_bool("PA_CAP_CONTRIBUTION_ENABLED", True)
     attribution_enabled = _env_bool("PA_CAP_ATTRIBUTION_ENABLED", True)
-    core_api_ref_mode_enabled = _env_bool("PLATFORM_INPUT_MODE_CORE_API_REFERENCE_ENABLED", True)
-    inline_bundle_mode_enabled = _env_bool("PLATFORM_INPUT_MODE_INLINE_BUNDLE_ENABLED", True)
+    stateful_mode_enabled = _env_bool("PLATFORM_INPUT_MODE_STATEFUL_ENABLED", True)
+    stateless_mode_enabled = _env_bool("PLATFORM_INPUT_MODE_STATELESS_ENABLED", True)
 
     features = [
         FeatureCapability(
@@ -95,16 +95,16 @@ async def get_integration_capabilities(
             description="Attribution analytics APIs.",
         ),
         FeatureCapability(
-            key="pa.execution.stateful_core_api_ref",
-            enabled=core_api_ref_mode_enabled,
+            key="pa.execution.stateful",
+            enabled=stateful_mode_enabled,
             owner_service="lotus-performance",
-            description="lotus-performance resolves analytics inputs by API-calling lotus-core contracts.",
+            description="lotus-performance executes using platform-managed stateful input retrieval.",
         ),
         FeatureCapability(
-            key="pa.execution.stateless_inline_bundle",
-            enabled=inline_bundle_mode_enabled,
+            key="pa.execution.stateless",
+            enabled=stateless_mode_enabled,
             owner_service="lotus-performance",
-            description="lotus-performance executes analytics from request-supplied inline input bundle.",
+            description="lotus-performance executes analytics from request-supplied stateless input data.",
         ),
     ]
 
@@ -120,22 +120,22 @@ async def get_integration_capabilities(
             required_features=["pa.analytics.contribution", "pa.analytics.attribution"],
         ),
         WorkflowCapability(
-            workflow_key="execution_stateful_core_api_ref",
-            enabled=core_api_ref_mode_enabled,
-            required_features=["pa.execution.stateful_core_api_ref"],
+            workflow_key="execution_stateful",
+            enabled=stateful_mode_enabled,
+            required_features=["pa.execution.stateful"],
         ),
         WorkflowCapability(
-            workflow_key="execution_stateless_inline_bundle",
-            enabled=inline_bundle_mode_enabled,
-            required_features=["pa.execution.stateless_inline_bundle"],
+            workflow_key="execution_stateless",
+            enabled=stateless_mode_enabled,
+            required_features=["pa.execution.stateless"],
         ),
     ]
 
     supported_input_modes: list[str] = []
-    if core_api_ref_mode_enabled:
-        supported_input_modes.append("core_api_ref")
-    if inline_bundle_mode_enabled:
-        supported_input_modes.append("inline_bundle")
+    if stateful_mode_enabled:
+        supported_input_modes.append("stateful")
+    if stateless_mode_enabled:
+        supported_input_modes.append("stateless")
 
     return IntegrationCapabilitiesResponse(
         contract_version="v1",

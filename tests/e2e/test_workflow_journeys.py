@@ -16,8 +16,8 @@ def test_e2e_platform_readiness_and_capabilities_contract() -> None:
     body = capabilities.json()
     assert body["contract_version"] == "v1"
     assert body["source_service"] == "lotus-performance"
-    assert "core_api_ref" in body["supported_input_modes"]
-    assert "inline_bundle" in body["supported_input_modes"]
+    assert "stateful" in body["supported_input_modes"]
+    assert "stateless" in body["supported_input_modes"]
 
 
 def test_e2e_performance_twr_and_mwr_workflow() -> None:
@@ -110,75 +110,6 @@ def test_e2e_contribution_attribution_and_lineage() -> None:
     assert attribution_lineage.status_code == 200
 
 
-def test_e2e_pas_connected_modes(monkeypatch) -> None:
-    async def _mock_get_performance_input(self, portfolio_id, as_of_date, lookback_days, consumer_system):  # noqa: ARG001
-        return (
-            200,
-            {
-                "contract_version": "v1",
-                "consumer_system": "lotus-gateway",
-                "portfolio_id": portfolio_id,
-                "performance_start_date": "2026-01-01",
-                "valuation_points": [
-                    {"day": 1, "perf_date": "2026-02-01", "begin_mv": 100.0, "end_mv": 101.0},
-                    {"day": 2, "perf_date": "2026-02-23", "begin_mv": 101.0, "end_mv": 102.0},
-                ],
-            },
-        )
-
-    monkeypatch.setattr(
-        "app.api.endpoints.performance.PasInputService.get_performance_input",
-        _mock_get_performance_input,
-    )
-
-    twr_pas_payload = {"portfolio_id": "PORT-1001", "as_of_date": "2026-02-23", "periods": ["YTD"]}
-
-    with TestClient(app) as client:
-        twr_pas_response = client.post("/performance/twr/pas-input", json=twr_pas_payload)
-
-    assert twr_pas_response.status_code == 200
-    assert twr_pas_response.json()["source_mode"] == "core_api_ref"
-
-
-def test_e2e_core_api_ref_capability_and_execution_contract(monkeypatch) -> None:
-    async def _mock_get_performance_input(self, portfolio_id, as_of_date, lookback_days, consumer_system):  # noqa: ARG001
-        return (
-            200,
-            {
-                "contract_version": "v1",
-                "consumer_system": consumer_system,
-                "portfolio_id": portfolio_id,
-                "performance_start_date": "2026-01-01",
-                "valuation_points": [
-                    {"day": 1, "perf_date": "2026-02-01", "begin_mv": 100.0, "end_mv": 101.0},
-                    {"day": 2, "perf_date": "2026-02-23", "begin_mv": 101.0, "end_mv": 102.0},
-                ],
-            },
-        )
-
-    monkeypatch.setattr(
-        "app.api.endpoints.performance.PasInputService.get_performance_input",
-        _mock_get_performance_input,
-    )
-    with TestClient(app) as client:
-        capabilities = client.get("/integration/capabilities?consumer_system=lotus-gateway&tenant_id=default")
-        twr_pas = client.post(
-            "/performance/twr/pas-input",
-            json={
-                "portfolio_id": "PORT-1002",
-                "as_of_date": "2026-02-23",
-                "consumer_system": "lotus-gateway",
-                "periods": ["YTD"],
-            },
-        )
-
-    assert capabilities.status_code == 200
-    assert twr_pas.status_code == 200
-    assert "core_api_ref" in capabilities.json()["supported_input_modes"]
-    assert twr_pas.json()["source_mode"] == "core_api_ref"
-    assert "YTD" in twr_pas.json()["results_by_period"]
-
-
 def test_e2e_health_endpoints_contract() -> None:
     with TestClient(app) as client:
         live = client.get("/health/live")
@@ -188,25 +119,6 @@ def test_e2e_health_endpoints_contract() -> None:
     assert ready.status_code == 200
     assert live.json()["status"] == "live"
     assert ready.json()["status"] == "ready"
-
-
-def test_e2e_core_api_ref_upstream_failure_passthrough(monkeypatch) -> None:
-    async def _mock_get_performance_input(self, portfolio_id, as_of_date, lookback_days, consumer_system):  # noqa: ARG001
-        return 503, {"detail": "lotus-core unavailable"}
-
-    monkeypatch.setattr(
-        "app.api.endpoints.performance.PasInputService.get_performance_input",
-        _mock_get_performance_input,
-    )
-
-    with TestClient(app) as client:
-        response = client.post(
-            "/performance/twr/pas-input",
-            json={"portfolio_id": "PORT-DOWN", "as_of_date": "2026-02-23", "consumer_system": "lotus-gateway"},
-        )
-
-    assert response.status_code == 503
-    assert "lotus-core unavailable" in response.json()["detail"]
 
 
 def test_e2e_contribution_lineage_roundtrip() -> None:
@@ -291,8 +203,8 @@ def test_e2e_mwr_lineage_roundtrip() -> None:
 
 
 def test_e2e_capabilities_toggle_disables_input_modes(monkeypatch) -> None:
-    monkeypatch.setenv("PLATFORM_INPUT_MODE_CORE_API_REFERENCE_ENABLED", "false")
-    monkeypatch.setenv("PLATFORM_INPUT_MODE_INLINE_BUNDLE_ENABLED", "false")
+    monkeypatch.setenv("PLATFORM_INPUT_MODE_STATEFUL_ENABLED", "false")
+    monkeypatch.setenv("PLATFORM_INPUT_MODE_STATELESS_ENABLED", "false")
     monkeypatch.setenv("PA_CAP_ATTRIBUTION_ENABLED", "false")
 
     with TestClient(app) as client:
@@ -303,42 +215,6 @@ def test_e2e_capabilities_toggle_disables_input_modes(monkeypatch) -> None:
     assert body["supported_input_modes"] == []
     features = {item["key"]: item["enabled"] for item in body["features"]}
     assert features["pa.analytics.attribution"] is False
-
-
-def test_e2e_pas_input_metadata_fallback_contract(monkeypatch) -> None:
-    async def _mock_get_performance_input(self, portfolio_id, as_of_date, lookback_days, consumer_system):  # noqa: ARG001
-        return (
-            200,
-            {
-                "performance_start_date": "2026-01-01",
-                "valuation_points": [
-                    {"day": 1, "perf_date": "2026-02-01", "begin_mv": 100.0, "end_mv": 101.0},
-                    {"day": 2, "perf_date": "2026-02-23", "begin_mv": 101.0, "end_mv": 102.0},
-                ],
-            },
-        )
-
-    monkeypatch.setattr(
-        "app.api.endpoints.performance.PasInputService.get_performance_input",
-        _mock_get_performance_input,
-    )
-
-    with TestClient(app) as client:
-        response = client.post(
-            "/performance/twr/pas-input",
-            json={
-                "portfolio_id": "PORT-E2E-FALLBACK",
-                "as_of_date": "2026-02-23",
-                "consumer_system": "lotus-gateway",
-                "periods": ["YTD"],
-            },
-        )
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body["portfolio_id"] == "PORT-E2E-FALLBACK"
-    assert body["consumer_system"] == "lotus-gateway"
-    assert body["pas_contract_version"] == "v1"
 
 
 def test_e2e_contribution_rejects_empty_analyses_contract() -> None:

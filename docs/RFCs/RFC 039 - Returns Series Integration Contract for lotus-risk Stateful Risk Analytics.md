@@ -21,7 +21,7 @@ Stateful risk analytics requires deterministic return series inputs with audit-g
 - benchmark return series (for beta/tracking error/information ratio)
 - optional risk-free series (for Sharpe/Sortino under non-constant assumptions)
 
-Current lotus-performance APIs are analytics-result oriented (`/performance/twr`, `/performance/twr/pas-input`) and are not a dedicated cross-service return-series boundary for risk engines.
+Current lotus-performance analytics APIs are result-oriented and are not a dedicated cross-service return-series boundary for risk engines.
 
 ## 2. Decision
 Introduce a dedicated integration endpoint in lotus-performance:
@@ -102,8 +102,7 @@ Ownership boundary:
   - `benchmark_returns[]: {date, return_value}` optional
   - `risk_free_returns[]: {date, return_value}` optional
 - `provenance`
-  - `input_mode: core_api_ref | inline_bundle`
-  - `upstream_sources[]` (service, endpoint, contract_version, as_of_date)
+  - `input_mode: stateful | stateless`
   - `input_fingerprint: str`
   - `calculation_hash: str`
 - `diagnostics`
@@ -205,7 +204,10 @@ No internal stack traces in response payloads.
 - Future: multi-factor and stress analytics consumers requiring canonical series payloads.
 
 ## 14. Dependencies on lotus-core
-Existing lotus-core contracts are sufficient for portfolio valuation-series sourcing (`/integration/portfolios/{portfolio_id}/performance-input`).
+Lotus-performance stateful sourcing depends on lotus-core analytics timeseries contracts:
+1. portfolio analytics timeseries
+2. benchmark assignment and return series
+3. risk-free reference series
 
 For benchmark/risk-free, lotus-performance requires standardized upstream reference-data contracts (not precomputed benchmark performance):
 1. benchmark assignment resolution (`portfolio_id` + `as_of_date` -> benchmark context)
