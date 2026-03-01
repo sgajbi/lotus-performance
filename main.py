@@ -94,7 +94,7 @@ app = FastAPI(
     openapi_tags=[
         {
             "name": "Performance",
-            "description": "lotus-performance-owned performance analytics APIs including lotus-core-input execution mode.",
+            "description": "lotus-performance-owned performance analytics APIs.",
         },
         {
             "name": "Integration",

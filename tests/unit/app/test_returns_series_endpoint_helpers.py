@@ -8,11 +8,13 @@ import pytest
 from fastapi import HTTPException
 
 from app.api.endpoints.returns_series import (
+    _core_points_to_dataframe,
     _date_range_count,
     _detect_gaps,
     _filter_window,
     _period_start,
     _points_from_df,
+    _portfolio_timeseries_to_valuation_points,
     _resample_returns,
     _resolve_window,
     _to_dataframe,
@@ -105,6 +107,55 @@ def test_dataframe_and_window_helpers_handle_error_paths():
         _to_dataframe([], series_type="portfolio")
     assert exc.value.status_code == 422
 
+
+def test_core_points_to_dataframe_skips_invalid_points_and_bad_values():
+    with pytest.raises(HTTPException):
+        _core_points_to_dataframe(
+            points=[
+                {"series_date": None, "benchmark_return": "0.01"},
+                {"series_date": "bad", "benchmark_return": "0.01"},
+            ],
+            date_key="series_date",
+            value_key="benchmark_return",
+            series_type="benchmark",
+        )
+
+    df = _core_points_to_dataframe(
+        points=[
+            {"series_date": "2026-02-24", "benchmark_return": "0.01"},
+            {"series_date": "2026-02-25", "benchmark_return": "0.02"},
+        ],
+        date_key="series_date",
+        value_key="benchmark_return",
+        series_type="benchmark",
+    )
+    assert list(df["date"].dt.date) == [date(2026, 2, 24), date(2026, 2, 25)]
+
+
+def test_portfolio_timeseries_to_valuation_points_handles_cashflow_variants():
+    points = _portfolio_timeseries_to_valuation_points(
+        observations=[
+            {"valuation_date": "2026-02-24", "beginning_market_value": "100", "ending_market_value": "101"},
+            {
+                "valuation_date": "2026-02-25",
+                "beginning_market_value": "101",
+                "ending_market_value": "102",
+                "cash_flows": [
+                    {"amount": "1.2", "timing": "bod"},
+                    {"amount": "0.3", "timing": "eod"},
+                    {"amount": "999", "timing": "invalid"},
+                    "not-a-dict",
+                ],
+            },
+        ]
+    )
+    assert len(points) == 2
+    assert points[1]["bod_cf"] == Decimal("1.2")
+    assert points[1]["eod_cf"] == Decimal("0.3")
+
+    with pytest.raises(HTTPException):
+        _portfolio_timeseries_to_valuation_points(observations=[{"valuation_date": None}])
+
     with pytest.raises(HTTPException) as exc:
         _to_dataframe(
             [
@@ -184,6 +235,32 @@ async def test_get_returns_series_guards_stateless_mode_without_input():
         input_mode=InputMode.STATELESS,
         stateless_input=None,
         stateful_input=StatefulInput.model_construct(consumer_system="lotus-performance"),
+    )
+    with pytest.raises(HTTPException) as exc:
+        await get_returns_series(request)
+    assert exc.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_get_returns_series_guards_stateful_mode_without_input():
+    request = ReturnsSeriesRequest.model_construct(
+        portfolio_id="P1",
+        as_of_date=date(2026, 2, 27),
+        window=ReturnsWindow.model_construct(
+            mode=ReturnsWindowMode.EXPLICIT,
+            from_date=date(2026, 2, 24),
+            to_date=date(2026, 2, 27),
+        ),
+        frequency=ReturnsFrequency.DAILY,
+        metric_basis="NET",
+        reporting_currency=None,
+        series_selection=SeriesSelection(),
+        benchmark=None,
+        risk_free=None,
+        data_policy=DataPolicy(),
+        input_mode=InputMode.STATEFUL,
+        stateless_input=StatelessInput.model_construct(portfolio_returns=[]),
+        stateful_input=None,
     )
     with pytest.raises(HTTPException) as exc:
         await get_returns_series(request)
