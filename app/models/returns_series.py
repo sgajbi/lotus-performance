@@ -55,8 +55,8 @@ class CalendarPolicy(str, Enum):
 
 
 class InputMode(str, Enum):
-    INLINE_BUNDLE = "inline_bundle"
-    CORE_API_REF = "core_api_ref"
+    STATELESS = "stateless"
+    STATEFUL = "stateful"
 
 
 class DayCountBasis(str, Enum):
@@ -118,21 +118,18 @@ class DataPolicy(BaseModel):
     max_gap_days: int | None = Field(default=None, ge=1, le=365)
 
 
-class InlineBundle(BaseModel):
+class StatelessInput(BaseModel):
     portfolio_returns: list[ReturnPoint]
     benchmark_returns: list[ReturnPoint] | None = None
     risk_free_returns: list[ReturnPoint] | None = None
 
 
-class SeriesSource(BaseModel):
-    input_mode: InputMode = InputMode.INLINE_BUNDLE
-    inline_bundle: InlineBundle | None = None
-
-    @model_validator(mode="after")
-    def validate_inline_bundle(self) -> "SeriesSource":
-        if self.input_mode == InputMode.INLINE_BUNDLE and self.inline_bundle is None:
-            raise ValueError("inline_bundle is required when input_mode=inline_bundle")
-        return self
+class StatefulInput(BaseModel):
+    consumer_system: str = Field(
+        default="lotus-performance",
+        description="Consumer system used for stateful upstream retrieval policy and lineage.",
+        examples=["lotus-performance"],
+    )
 
 
 class ReturnsSeriesRequest(BaseModel):
@@ -146,16 +143,26 @@ class ReturnsSeriesRequest(BaseModel):
     benchmark: BenchmarkSpec | None = None
     risk_free: RiskFreeSpec | None = None
     data_policy: DataPolicy = Field(default_factory=DataPolicy)
-    source: SeriesSource = Field(default_factory=SeriesSource)
+    input_mode: InputMode = InputMode.STATELESS
+    stateless_input: StatelessInput | None = None
+    stateful_input: StatefulInput | None = None
 
     @model_validator(mode="after")
     def validate_selection(self) -> "ReturnsSeriesRequest":
-        if self.series_selection.include_benchmark and self.source.input_mode == InputMode.INLINE_BUNDLE:
-            if not self.source.inline_bundle or not self.source.inline_bundle.benchmark_returns:
-                raise ValueError("benchmark_returns are required when include_benchmark=true in inline mode")
-        if self.series_selection.include_risk_free and self.source.input_mode == InputMode.INLINE_BUNDLE:
-            if not self.source.inline_bundle or not self.source.inline_bundle.risk_free_returns:
-                raise ValueError("risk_free_returns are required when include_risk_free=true in inline mode")
+        if self.input_mode == InputMode.STATELESS and self.stateless_input is None:
+            raise ValueError("stateless_input is required when input_mode=stateless")
+        if self.input_mode == InputMode.STATEFUL and self.stateful_input is None:
+            raise ValueError("stateful_input is required when input_mode=stateful")
+        if self.input_mode == InputMode.STATELESS and self.stateful_input is not None:
+            raise ValueError("stateful_input must be null when input_mode=stateless")
+        if self.input_mode == InputMode.STATEFUL and self.stateless_input is not None:
+            raise ValueError("stateless_input must be null when input_mode=stateful")
+        if self.series_selection.include_benchmark and self.input_mode == InputMode.STATELESS:
+            if not self.stateless_input or not self.stateless_input.benchmark_returns:
+                raise ValueError("benchmark_returns are required when include_benchmark=true in stateless mode")
+        if self.series_selection.include_risk_free and self.input_mode == InputMode.STATELESS:
+            if not self.stateless_input or not self.stateless_input.risk_free_returns:
+                raise ValueError("risk_free_returns are required when include_risk_free=true in stateless mode")
         return self
 
 
@@ -186,16 +193,8 @@ class ReturnsDiagnostics(BaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
-class UpstreamSourceRef(BaseModel):
-    service: str
-    endpoint: str
-    contract_version: str
-    as_of_date: dt_date | None = None
-
-
 class ReturnsProvenance(BaseModel):
     input_mode: InputMode
-    upstream_sources: list[UpstreamSourceRef] = Field(default_factory=list)
     input_fingerprint: str
     calculation_hash: str
 

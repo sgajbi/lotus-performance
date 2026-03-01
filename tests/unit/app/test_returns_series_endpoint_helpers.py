@@ -21,7 +21,7 @@ from app.api.endpoints.returns_series import (
 from app.models.returns_series import (
     CalendarPolicy,
     DataPolicy,
-    InlineBundle,
+    InputMode,
     ResolvedWindow,
     ReturnPoint,
     ReturnsFrequency,
@@ -30,7 +30,8 @@ from app.models.returns_series import (
     ReturnsWindow,
     ReturnsWindowMode,
     SeriesSelection,
-    SeriesSource,
+    StatefulInput,
+    StatelessInput,
 )
 
 
@@ -68,11 +69,9 @@ def test_resolve_window_relative_success_and_missing_period_error():
             "portfolio_id": "P1",
             "as_of_date": "2026-02-27",
             "window": {"mode": "RELATIVE", "period": "MTD"},
-            "source": {
-                "input_mode": "inline_bundle",
-                "inline_bundle": {
-                    "portfolio_returns": [{"date": "2026-02-27", "return_value": "0.0010"}],
-                },
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_returns": [{"date": "2026-02-27", "return_value": "0.0010"}],
             },
         }
     )
@@ -92,10 +91,9 @@ def test_resolve_window_relative_success_and_missing_period_error():
         benchmark=None,
         risk_free=None,
         data_policy=DataPolicy(),
-        source=SeriesSource.model_construct(
-            input_mode="inline_bundle",
-            inline_bundle=InlineBundle.model_construct(portfolio_returns=[]),
-        ),
+        input_mode=InputMode.STATELESS,
+        stateless_input=StatelessInput.model_construct(portfolio_returns=[]),
+        stateful_input=None,
     )
     with pytest.raises(HTTPException) as exc:
         _resolve_window(invalid_request)
@@ -167,7 +165,7 @@ def test_resample_count_gap_and_point_helpers_cover_monthly_paths():
 
 
 @pytest.mark.asyncio
-async def test_get_returns_series_guards_inline_mode_without_bundle():
+async def test_get_returns_series_guards_stateless_mode_without_input():
     request = ReturnsSeriesRequest.model_construct(
         portfolio_id="P1",
         as_of_date=date(2026, 2, 27),
@@ -183,7 +181,9 @@ async def test_get_returns_series_guards_inline_mode_without_bundle():
         benchmark=None,
         risk_free=None,
         data_policy=DataPolicy(),
-        source=SeriesSource.model_construct(input_mode="inline_bundle", inline_bundle=None),
+        input_mode=InputMode.STATELESS,
+        stateless_input=None,
+        stateful_input=StatefulInput.model_construct(consumer_system="lotus-performance"),
     )
     with pytest.raises(HTTPException) as exc:
         await get_returns_series(request)

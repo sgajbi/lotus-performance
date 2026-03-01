@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-03-01T12:24:13.047065+00:00",
+  "generatedAt": "2026-03-01T14:39:42.594557+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.amount",
@@ -90,15 +90,14 @@
       "semanticId": "lotus.as_of_date",
       "canonicalTerm": "as_of_date",
       "preferredName": "as_of_date",
-      "description": "Business date for lotus-core core snapshot retrieval.",
-      "example": "2025-03-31",
+      "description": "Business date for as of date.",
+      "example": "2026-02-27",
       "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "string",
-        "object"
+        "string"
       ]
     },
     {
@@ -354,16 +353,15 @@
       "semanticId": "lotus.consumer_system",
       "canonicalTerm": "consumer_system",
       "preferredName": "consumer_system",
-      "description": "Consumer system identifier forwarded to lotus-core integration contract.",
-      "example": "STANDARD_VALUE",
+      "description": "Canonical consumer system used by lotus-performance APIs.",
+      "example": null,
       "type": "string",
       "locations": [
-        "body",
-        "query"
+        "query",
+        "body"
       ],
       "observedTypes": [
-        "string",
-        "object"
+        "string"
       ]
     },
     {
@@ -640,20 +638,6 @@
       ],
       "observedTypes": [
         "number"
-      ]
-    },
-    {
-      "semanticId": "lotus.endpoint",
-      "canonicalTerm": "endpoint",
-      "preferredName": "endpoint",
-      "description": "upstream source ref field: endpoint.",
-      "example": "example_endpoint",
-      "type": "string",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "string"
       ]
     },
     {
@@ -1035,20 +1019,6 @@
       ]
     },
     {
-      "semanticId": "lotus.inline_bundle",
-      "canonicalTerm": "inline_bundle",
-      "preferredName": "inline_bundle",
-      "description": "series source field: inline bundle.",
-      "example": "example_inline_bundle",
-      "type": "object",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "object"
-      ]
-    },
-    {
       "semanticId": "lotus.input_fingerprint",
       "canonicalTerm": "input_fingerprint",
       "preferredName": "input_fingerprint",
@@ -1068,7 +1038,7 @@
       "canonicalTerm": "input_mode",
       "preferredName": "input_mode",
       "description": "Canonical input mode used by lotus-performance APIs.",
-      "example": "inline_bundle",
+      "example": "stateless",
       "type": "InputMode",
       "locations": [
         "body"
@@ -1120,20 +1090,6 @@
       ],
       "observedTypes": [
         "LinkingMethod"
-      ]
-    },
-    {
-      "semanticId": "lotus.lookback_days",
-      "canonicalTerm": "lookback_days",
-      "preferredName": "lookback_days",
-      "description": "Maximum days of lotus-core raw valuation history requested for lotus-performance calculation.",
-      "example": 1,
-      "type": "integer",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "integer"
       ]
     },
     {
@@ -1432,20 +1388,6 @@
       ]
     },
     {
-      "semanticId": "lotus.pas_contract_version",
-      "canonicalTerm": "pas_contract_version",
-      "preferredName": "pas_contract_version",
-      "description": "pas connected twr response field: pas contract version.",
-      "example": "example_pas_contract_version",
-      "type": "string",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "string"
-      ]
-    },
-    {
       "semanticId": "lotus.perf_date",
       "canonicalTerm": "perf_date",
       "preferredName": "perf_date",
@@ -1492,8 +1434,10 @@
       "semanticId": "lotus.periods",
       "canonicalTerm": "periods",
       "preferredName": "periods",
-      "description": "Optional list of period keys to keep (for example: YTD, MTD).",
-      "example": "STANDARD_VALUE",
+      "description": "meta field: periods.",
+      "example": {
+        "key": "value"
+      },
       "type": "object",
       "locations": [
         "body"
@@ -1593,8 +1537,8 @@
       "semanticId": "lotus.portfolio_id",
       "canonicalTerm": "portfolio_id",
       "preferredName": "portfolio_id",
-      "description": "Portfolio identifier in lotus-core.",
-      "example": "ENTITY_001",
+      "description": "A unique identifier for the portfolio being analyzed.",
+      "example": "DEMO_DPM_EUR_001",
       "type": "string",
       "locations": [
         "body"
@@ -1872,7 +1816,7 @@
       "semanticId": "lotus.results_by_period",
       "canonicalTerm": "results_by_period",
       "preferredName": "results_by_period",
-      "description": "pas connected twr response field: results by period.",
+      "description": "performance response field: results by period.",
       "example": {
         "key": "value"
       },
@@ -2057,20 +2001,6 @@
       ]
     },
     {
-      "semanticId": "lotus.service",
-      "canonicalTerm": "service",
-      "preferredName": "service",
-      "description": "upstream source ref field: service.",
-      "example": "example_service",
-      "type": "string",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "string"
-      ]
-    },
-    {
       "semanticId": "lotus.smoothing",
       "canonicalTerm": "smoothing",
       "preferredName": "smoothing",
@@ -2103,40 +2033,10 @@
       ]
     },
     {
-      "semanticId": "lotus.source",
-      "canonicalTerm": "source",
-      "preferredName": "source",
-      "description": "Canonical source used by lotus-performance APIs.",
-      "example": {
-        "key": "value"
-      },
-      "type": "SeriesSource",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "SeriesSource"
-      ]
-    },
-    {
-      "semanticId": "lotus.source_mode",
-      "canonicalTerm": "source_mode",
-      "preferredName": "source_mode",
-      "description": "pas connected twr response field: source mode.",
-      "example": "example_source_mode",
-      "type": "string",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "string"
-      ]
-    },
-    {
       "semanticId": "lotus.source_service",
       "canonicalTerm": "source_service",
       "preferredName": "source_service",
-      "description": "pas connected twr response field: source service.",
+      "description": "integration capabilities response field: source service.",
       "example": "lotus-performance",
       "type": "string",
       "locations": [
@@ -2161,6 +2061,34 @@
       ]
     },
     {
+      "semanticId": "lotus.stateful_input",
+      "canonicalTerm": "stateful_input",
+      "preferredName": "stateful_input",
+      "description": "returns series request field: stateful input.",
+      "example": "example_stateful_input",
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.stateless_input",
+      "canonicalTerm": "stateless_input",
+      "preferredName": "stateless_input",
+      "description": "returns series request field: stateless input.",
+      "example": "example_stateless_input",
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
       "semanticId": "lotus.sum_of_parts_vs_total_bp",
       "canonicalTerm": "sum_of_parts_vs_total_bp",
       "preferredName": "sum_of_parts_vs_total_bp",
@@ -2178,7 +2106,7 @@
       "semanticId": "lotus.supported_input_modes",
       "canonicalTerm": "supported_input_modes",
       "preferredName": "supported_input_modes",
-      "description": "Supported execution input modes: core_api_ref (lotus-core API-backed) and inline_bundle (stateless payload).",
+      "description": "Supported execution input modes: stateful and stateless.",
       "example": [
         "example_supported_input_modes_item"
       ],
@@ -2344,22 +2272,6 @@
       ],
       "observedTypes": [
         "string"
-      ]
-    },
-    {
-      "semanticId": "lotus.upstream_sources",
-      "canonicalTerm": "upstream_sources",
-      "preferredName": "upstream_sources",
-      "description": "returns provenance field: upstream sources.",
-      "example": [
-        "example_upstream_sources_item"
-      ],
-      "type": "array",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "array"
       ]
     },
     {
@@ -2577,117 +2489,6 @@
       },
       "response": {
         "fields": []
-      }
-    },
-    {
-      "domain": "performance",
-      "method": "POST",
-      "path": "/performance/twr/pas-input",
-      "operationId": "calculate_twr_from_pas_input_performance_twr_pas_input_post",
-      "summary": "Calculate TWR from lotus-core raw performance input contract",
-      "request": {
-        "fields": [
-          {
-            "name": "portfolio_id",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.portfolio_id",
-            "attributeRef": "#/attributeCatalog/lotus.portfolio_id"
-          },
-          {
-            "name": "as_of_date",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.as_of_date",
-            "attributeRef": "#/attributeCatalog/lotus.as_of_date"
-          },
-          {
-            "name": "periods",
-            "location": "body",
-            "required": false,
-            "type": "object",
-            "semanticId": "lotus.periods",
-            "attributeRef": "#/attributeCatalog/lotus.periods"
-          },
-          {
-            "name": "consumer_system",
-            "location": "body",
-            "required": false,
-            "type": "string",
-            "semanticId": "lotus.consumer_system",
-            "attributeRef": "#/attributeCatalog/lotus.consumer_system"
-          },
-          {
-            "name": "lookback_days",
-            "location": "body",
-            "required": false,
-            "type": "integer",
-            "semanticId": "lotus.lookback_days",
-            "attributeRef": "#/attributeCatalog/lotus.lookback_days"
-          }
-        ]
-      },
-      "response": {
-        "fields": [
-          {
-            "name": "portfolio_id",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.portfolio_id",
-            "attributeRef": "#/attributeCatalog/lotus.portfolio_id"
-          },
-          {
-            "name": "as_of_date",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.as_of_date",
-            "attributeRef": "#/attributeCatalog/lotus.as_of_date"
-          },
-          {
-            "name": "source_mode",
-            "location": "body",
-            "required": false,
-            "type": "string",
-            "semanticId": "lotus.source_mode",
-            "attributeRef": "#/attributeCatalog/lotus.source_mode"
-          },
-          {
-            "name": "source_service",
-            "location": "body",
-            "required": false,
-            "type": "string",
-            "semanticId": "lotus.source_service",
-            "attributeRef": "#/attributeCatalog/lotus.source_service"
-          },
-          {
-            "name": "pas_contract_version",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.pas_contract_version",
-            "attributeRef": "#/attributeCatalog/lotus.pas_contract_version"
-          },
-          {
-            "name": "consumer_system",
-            "location": "body",
-            "required": false,
-            "type": "object",
-            "semanticId": "lotus.consumer_system",
-            "attributeRef": "#/attributeCatalog/lotus.consumer_system"
-          },
-          {
-            "name": "results_by_period",
-            "location": "body",
-            "required": true,
-            "type": "object",
-            "semanticId": "lotus.results_by_period",
-            "attributeRef": "#/attributeCatalog/lotus.results_by_period"
-          }
-        ]
       }
     },
     {
@@ -5565,15 +5366,7 @@
             "attributeRef": "#/attributeCatalog/lotus.max_gap_days"
           },
           {
-            "name": "source",
-            "location": "body",
-            "required": false,
-            "type": "SeriesSource",
-            "semanticId": "lotus.source",
-            "attributeRef": "#/attributeCatalog/lotus.source"
-          },
-          {
-            "name": "source.input_mode",
+            "name": "input_mode",
             "location": "body",
             "required": false,
             "type": "InputMode",
@@ -5581,12 +5374,20 @@
             "attributeRef": "#/attributeCatalog/lotus.input_mode"
           },
           {
-            "name": "source.inline_bundle",
+            "name": "stateless_input",
             "location": "body",
             "required": false,
             "type": "object",
-            "semanticId": "lotus.inline_bundle",
-            "attributeRef": "#/attributeCatalog/lotus.inline_bundle"
+            "semanticId": "lotus.stateless_input",
+            "attributeRef": "#/attributeCatalog/lotus.stateless_input"
+          },
+          {
+            "name": "stateful_input",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.stateful_input",
+            "attributeRef": "#/attributeCatalog/lotus.stateful_input"
           }
         ]
       },
@@ -5735,46 +5536,6 @@
             "type": "InputMode",
             "semanticId": "lotus.input_mode",
             "attributeRef": "#/attributeCatalog/lotus.input_mode"
-          },
-          {
-            "name": "provenance.upstream_sources",
-            "location": "body",
-            "required": false,
-            "type": "array",
-            "semanticId": "lotus.upstream_sources",
-            "attributeRef": "#/attributeCatalog/lotus.upstream_sources"
-          },
-          {
-            "name": "provenance.upstream_sources[].service",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.service",
-            "attributeRef": "#/attributeCatalog/lotus.service"
-          },
-          {
-            "name": "provenance.upstream_sources[].endpoint",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.endpoint",
-            "attributeRef": "#/attributeCatalog/lotus.endpoint"
-          },
-          {
-            "name": "provenance.upstream_sources[].contract_version",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.contract_version",
-            "attributeRef": "#/attributeCatalog/lotus.contract_version"
-          },
-          {
-            "name": "provenance.upstream_sources[].as_of_date",
-            "location": "body",
-            "required": false,
-            "type": "object",
-            "semanticId": "lotus.as_of_date",
-            "attributeRef": "#/attributeCatalog/lotus.as_of_date"
           },
           {
             "name": "provenance.input_fingerprint",

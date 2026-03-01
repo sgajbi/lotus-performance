@@ -12,11 +12,6 @@ from app.models.attribution_requests import AttributionRequest
 from app.models.attribution_responses import AttributionResponse
 from app.models.mwr_requests import MoneyWeightedReturnRequest
 from app.models.mwr_responses import MoneyWeightedReturnResponse
-from app.models.pas_connected_requests import PasInputTwrRequest
-from app.models.pas_connected_responses import (
-    PasInputPeriodResult,
-    PasInputTwrResponse,
-)
 from app.models.requests import PerformanceRequest
 from app.models.responses import (
     PerformanceResponse,
@@ -25,7 +20,6 @@ from app.models.responses import (
     SinglePeriodPerformanceResult,
 )
 from app.services.lineage_service import lineage_service
-from app.services.pas_input_service import PasInputService
 from core.envelope import Audit, Diagnostics, Meta
 from core.periods import resolve_periods
 from core.repro import generate_canonical_hash
@@ -124,114 +118,6 @@ def _calculate_total_return_from_slice(
         return _calculate_total_return_from_reset_slice(df_slice, daily_results_df)
 
     return _calculate_total_return_from_non_reset_slice(df_slice)
-
-
-@router.post(
-    "/twr/pas-input",
-    response_model=PasInputTwrResponse,
-    summary="Calculate TWR from lotus-core raw performance input contract",
-    description=(
-        "Computes lotus-performance-owned TWR analytics from lotus-core-provided raw valuation input series. "
-        "lotus-core acts as data provider; lotus-performance remains analytics authority."
-    ),
-    responses={
-        200: {"description": "lotus-performance TWR result computed from lotus-core input contract."},
-        404: {"description": "Requested periods not available for the requested as-of context."},
-        502: {"description": "Invalid lotus-core payload for lotus-performance analytics computation."},
-    },
-)
-async def calculate_twr_from_pas_input(request: PasInputTwrRequest):
-    """
-    Retrieves lotus-core raw performance input series and computes lotus-performance-owned TWR analytics.
-    lotus-core acts as data provider only; performance metrics are computed in lotus-performance.
-    """
-    pas_service = PasInputService(
-        base_url=settings.PAS_QUERY_BASE_URL,
-        timeout_seconds=settings.PAS_TIMEOUT_SECONDS,
-        max_retries=settings.PAS_MAX_RETRIES,
-        retry_backoff_seconds=settings.PAS_RETRY_BACKOFF_SECONDS,
-    )
-    upstream_status, upstream_payload = await pas_service.get_performance_input(
-        portfolio_id=request.portfolio_id,
-        as_of_date=request.as_of_date,
-        lookback_days=request.lookback_days,
-        consumer_system=request.consumer_system,
-    )
-    if upstream_status >= status.HTTP_400_BAD_REQUEST:
-        raise HTTPException(status_code=upstream_status, detail=str(upstream_payload))
-
-    valuation_points = upstream_payload.get("valuation_points", upstream_payload.get("valuationPoints"))
-    if not isinstance(valuation_points, list) or not valuation_points:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Invalid lotus-core performance input payload: missing valuation_points.",
-        )
-
-    performance_start_date = upstream_payload.get(
-        "performance_start_date", upstream_payload.get("performanceStartDate")
-    )
-    if not isinstance(performance_start_date, str):
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Invalid lotus-core performance input payload: missing performance_start_date.",
-        )
-
-    requested_periods = request.periods or ["YTD"]
-    analyses = [{"period": period_key, "frequencies": ["monthly"]} for period_key in requested_periods]
-    try:
-        performance_request = PerformanceRequest.model_validate(
-            {
-                "portfolio_id": upstream_payload.get(
-                    "portfolio_id", upstream_payload.get("portfolioId", request.portfolio_id)
-                ),
-                "performance_start_date": performance_start_date,
-                "metric_basis": "NET",
-                "report_end_date": str(request.as_of_date),
-                "analyses": analyses,
-                "valuation_points": valuation_points,
-            }
-        )
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Invalid lotus-core performance input payload: {exc}",
-        ) from exc
-
-    computed = await calculate_twr_endpoint(performance_request, BackgroundTasks())
-    results_by_period: dict[str, PasInputPeriodResult] = {}
-    for period_key in requested_periods:
-        period_result = computed.results_by_period.get(period_key)
-        if period_result is None:
-            continue
-        summary = None
-        for items in period_result.breakdowns.values():
-            if items:
-                summary = items[-1].summary
-                break
-        if summary is None:
-            continue
-        results_by_period[period_key] = PasInputPeriodResult(
-            period=period_key,
-            start_date=None,
-            end_date=None,
-            net_cumulative_return=summary.period_return_pct,
-            net_annualized_return=summary.annualized_return_pct,
-            gross_cumulative_return=None,
-            gross_annualized_return=None,
-        )
-
-    if not results_by_period:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Requested periods not found.")
-
-    return PasInputTwrResponse(
-        portfolio_id=performance_request.portfolio_id,
-        as_of_date=request.as_of_date,
-        pas_contract_version=upstream_payload.get(
-            "pas_contract_version", upstream_payload.get("contractVersion", "v1")
-        ),
-        consumer_system=upstream_payload.get("consumer_system", request.consumer_system),
-        results_by_period=results_by_period,
-    )
 
 
 @router.post("/twr", response_model=PerformanceResponse, summary="Calculate Time-Weighted Return")

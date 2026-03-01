@@ -13,12 +13,12 @@ def test_integration_capabilities_default_contract():
     assert body["source_service"] == "lotus-performance"
     assert body["consumer_system"] == "lotus-gateway"
     assert body["tenant_id"] == "default"
-    assert body["supported_input_modes"] == ["core_api_ref", "inline_bundle"]
+    assert body["supported_input_modes"] == ["stateful", "stateless"]
     assert len(body["features"]) >= 4
     assert len(body["workflows"]) >= 3
     features = {item["key"] for item in body["features"]}
-    assert "pa.execution.stateful_core_api_ref" in features
-    assert "pa.execution.stateless_inline_bundle" in features
+    assert "pa.execution.stateful" in features
+    assert "pa.execution.stateless" in features
     assert response.headers.get("X-Correlation-Id")
     assert response.headers.get("X-Request-Id")
     assert response.headers.get("X-Trace-Id")
@@ -26,7 +26,7 @@ def test_integration_capabilities_default_contract():
 
 def test_integration_capabilities_env_override(monkeypatch):
     monkeypatch.setenv("PA_CAP_ATTRIBUTION_ENABLED", "false")
-    monkeypatch.setenv("PLATFORM_INPUT_MODE_INLINE_BUNDLE_ENABLED", "false")
+    monkeypatch.setenv("PLATFORM_INPUT_MODE_STATELESS_ENABLED", "false")
     monkeypatch.setenv("PA_POLICY_VERSION", "tenant-a-v4")
     with TestClient(app) as client:
         response = client.get("/integration/capabilities?consumer_system=lotus-manage&tenant_id=tenant-a")
@@ -38,7 +38,7 @@ def test_integration_capabilities_env_override(monkeypatch):
     assert body["policy_version"] == "tenant-a-v4"
     features = {item["key"]: item["enabled"] for item in body["features"]}
     assert features["pa.analytics.attribution"] is False
-    assert body["supported_input_modes"] == ["core_api_ref"]
+    assert body["supported_input_modes"] == ["stateful"]
 
 
 def test_integration_capabilities_limit_guardrails():
