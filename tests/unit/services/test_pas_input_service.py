@@ -157,3 +157,60 @@ async def test_text_error_payload_is_mapped_to_detail():
     )
     assert status_code == 503
     assert payload["detail"] == "upstream unavailable"
+
+
+@pytest.mark.asyncio
+async def test_get_benchmark_assignment_posts_contract_payload():
+    service = PasInputService(base_url="http://pas", timeout_seconds=2.0)
+    _FakeAsyncClient.queue_json(200, {"benchmark_id": "BMK_1"})
+
+    status_code, payload = await service.get_benchmark_assignment(
+        portfolio_id="PORT-5",
+        as_of_date=date(2026, 2, 24),
+        reporting_currency="USD",
+    )
+
+    assert status_code == 200
+    assert payload["benchmark_id"] == "BMK_1"
+    assert _FakeAsyncClient.calls[0]["url"] == "http://pas/integration/portfolios/PORT-5/benchmark-assignment"
+    assert _FakeAsyncClient.calls[0]["json"]["as_of_date"] == "2026-02-24"
+    assert _FakeAsyncClient.calls[0]["json"]["reporting_currency"] == "USD"
+
+
+@pytest.mark.asyncio
+async def test_get_benchmark_return_series_posts_contract_payload():
+    service = PasInputService(base_url="http://pas", timeout_seconds=2.0)
+    _FakeAsyncClient.queue_json(200, {"points": []})
+
+    status_code, payload = await service.get_benchmark_return_series(
+        benchmark_id="BMK_2",
+        as_of_date=date(2026, 2, 24),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 2, 24),
+    )
+
+    assert status_code == 200
+    assert payload["points"] == []
+    assert _FakeAsyncClient.calls[0]["url"] == "http://pas/integration/benchmarks/BMK_2/return-series"
+    assert _FakeAsyncClient.calls[0]["json"]["window"]["start_date"] == "2026-01-01"
+    assert _FakeAsyncClient.calls[0]["json"]["window"]["end_date"] == "2026-02-24"
+    assert _FakeAsyncClient.calls[0]["json"]["frequency"] == "daily"
+
+
+@pytest.mark.asyncio
+async def test_get_risk_free_series_posts_contract_payload():
+    service = PasInputService(base_url="http://pas", timeout_seconds=2.0)
+    _FakeAsyncClient.queue_json(200, {"points": []})
+
+    status_code, payload = await service.get_risk_free_series(
+        currency="USD",
+        as_of_date=date(2026, 2, 24),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 2, 24),
+    )
+
+    assert status_code == 200
+    assert payload["points"] == []
+    assert _FakeAsyncClient.calls[0]["url"] == "http://pas/integration/reference/risk-free-series"
+    assert _FakeAsyncClient.calls[0]["json"]["currency"] == "USD"
+    assert _FakeAsyncClient.calls[0]["json"]["series_mode"] == "return_series"

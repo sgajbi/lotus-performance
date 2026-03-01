@@ -89,3 +89,75 @@ class PasInputService:
             max_retries=self._max_retries,
             backoff_seconds=self._retry_backoff_seconds,
         )
+
+    async def get_benchmark_assignment(
+        self,
+        portfolio_id: str,
+        as_of_date: date,
+        reporting_currency: str | None = None,
+    ) -> tuple[int, dict[str, Any]]:
+        url = f"{self._base_url}/integration/portfolios/{portfolio_id}/benchmark-assignment"
+        payload: dict[str, Any] = {"as_of_date": str(as_of_date)}
+        if reporting_currency:
+            payload["reporting_currency"] = reporting_currency
+        headers = propagation_headers()
+        return await post_with_retry(
+            url=url,
+            timeout_seconds=self._timeout,
+            json_body=payload,
+            headers=headers,
+            max_retries=self._max_retries,
+            backoff_seconds=self._retry_backoff_seconds,
+        )
+
+    async def get_benchmark_return_series(
+        self,
+        benchmark_id: str,
+        as_of_date: date,
+        start_date: date,
+        end_date: date,
+        frequency: str = "daily",
+    ) -> tuple[int, dict[str, Any]]:
+        url = f"{self._base_url}/integration/benchmarks/{benchmark_id}/return-series"
+        payload = {
+            "as_of_date": str(as_of_date),
+            "window": {"start_date": str(start_date), "end_date": str(end_date)},
+            "frequency": frequency,
+        }
+        headers = propagation_headers()
+        return await post_with_retry(
+            url=url,
+            timeout_seconds=self._timeout,
+            json_body=payload,
+            headers=headers,
+            max_retries=self._max_retries,
+            backoff_seconds=self._retry_backoff_seconds,
+        )
+
+    async def get_risk_free_series(
+        self,
+        currency: str,
+        as_of_date: date,
+        start_date: date,
+        end_date: date,
+        *,
+        frequency: str = "daily",
+        series_mode: str = "return_series",
+    ) -> tuple[int, dict[str, Any]]:
+        url = f"{self._base_url}/integration/reference/risk-free-series"
+        payload = {
+            "currency": currency,
+            "series_mode": series_mode,
+            "as_of_date": str(as_of_date),
+            "window": {"start_date": str(start_date), "end_date": str(end_date)},
+            "frequency": frequency,
+        }
+        headers = propagation_headers()
+        return await post_with_retry(
+            url=url,
+            timeout_seconds=self._timeout,
+            json_body=payload,
+            headers=headers,
+            max_retries=self._max_retries,
+            backoff_seconds=self._retry_backoff_seconds,
+        )
