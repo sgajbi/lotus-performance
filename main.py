@@ -11,7 +11,6 @@ from fastapi.staticfiles import StaticFiles
 from starlette.responses import JSONResponse
 
 from app.api.endpoints import (
-    analytics,
     contribution,
     health,
     integration_capabilities,
@@ -98,10 +97,6 @@ app = FastAPI(
             "description": "lotus-performance-owned performance analytics APIs including lotus-core-input execution mode.",
         },
         {
-            "name": "Analytics",
-            "description": "lotus-performance-owned advanced analytics contracts (including migration-phase endpoints).",
-        },
-        {
             "name": "Integration",
             "description": "Capabilities and cross-service integration metadata.",
         },
@@ -144,7 +139,6 @@ app.add_exception_handler(PerformanceCalculatorError, performance_calculator_exc
 app.include_router(performance.router, prefix="/performance")
 app.include_router(contribution.router, prefix="/performance")
 app.include_router(lineage.router, prefix="/performance")
-app.include_router(analytics.router, prefix="/analytics")
 app.include_router(integration_capabilities.router, prefix="/integration")
 app.include_router(returns_series.router, prefix="/integration")
 app.include_router(health.router)

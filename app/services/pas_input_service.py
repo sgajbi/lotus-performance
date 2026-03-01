@@ -69,27 +69,6 @@ class PasInputService:
             backoff_seconds=self._retry_backoff_seconds,
         )
 
-    async def get_positions_analytics(
-        self,
-        portfolio_id: str,
-        as_of_date: date,
-        sections: list[str],
-        performance_periods: list[str] | None,
-    ) -> tuple[int, dict[str, Any]]:
-        url = f"{self._base_url}/portfolios/{portfolio_id}/positions-analytics"
-        payload: dict[str, Any] = {"as_of_date": str(as_of_date), "sections": sections}
-        if performance_periods:
-            payload["performance_options"] = {"periods": performance_periods}
-        headers = propagation_headers()
-        return await post_with_retry(
-            url=url,
-            timeout_seconds=self._timeout,
-            json_body=payload,
-            headers=headers,
-            max_retries=self._max_retries,
-            backoff_seconds=self._retry_backoff_seconds,
-        )
-
     async def get_benchmark_assignment(
         self,
         portfolio_id: str,

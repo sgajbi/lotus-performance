@@ -126,42 +126,18 @@ def test_e2e_pas_connected_modes(monkeypatch) -> None:
             },
         )
 
-    async def _mock_get_positions_analytics(self, portfolio_id, as_of_date, sections, performance_periods):  # noqa: ARG001
-        return (
-            200,
-            {
-                "portfolio_id": portfolio_id,
-                "as_of_date": str(as_of_date),
-                "total_market_value": 1000.0,
-                "positions": [{"securityId": "EQ_1", "quantity": 10}],
-            },
-        )
-
     monkeypatch.setattr(
         "app.api.endpoints.performance.PasInputService.get_performance_input",
         _mock_get_performance_input,
     )
-    monkeypatch.setattr(
-        "app.api.endpoints.analytics.PasInputService.get_positions_analytics",
-        _mock_get_positions_analytics,
-    )
 
     twr_pas_payload = {"portfolio_id": "PORT-1001", "as_of_date": "2026-02-23", "periods": ["YTD"]}
-    positions_payload = {
-        "portfolio_id": "PORT-1001",
-        "as_of_date": "2026-02-23",
-        "sections": ["BASE", "VALUATION"],
-        "performancePeriods": ["YTD"],
-    }
 
     with TestClient(app) as client:
         twr_pas_response = client.post("/performance/twr/pas-input", json=twr_pas_payload)
-        positions_response = client.post("/analytics/positions", json=positions_payload)
 
     assert twr_pas_response.status_code == 200
-    assert positions_response.status_code == 200
     assert twr_pas_response.json()["source_mode"] == "core_api_ref"
-    assert positions_response.json()["portfolio_id"] == "PORT-1001"
 
 
 def test_e2e_core_api_ref_capability_and_execution_contract(monkeypatch) -> None:
@@ -231,25 +207,6 @@ def test_e2e_core_api_ref_upstream_failure_passthrough(monkeypatch) -> None:
 
     assert response.status_code == 503
     assert "lotus-core unavailable" in response.json()["detail"]
-
-
-def test_e2e_positions_pas_payload_contract_failure(monkeypatch) -> None:
-    async def _mock_get_positions_analytics(self, portfolio_id, as_of_date, sections, performance_periods):  # noqa: ARG001
-        return 200, {"portfolio_id": portfolio_id, "as_of_date": str(as_of_date)}
-
-    monkeypatch.setattr(
-        "app.api.endpoints.analytics.PasInputService.get_positions_analytics",
-        _mock_get_positions_analytics,
-    )
-
-    with TestClient(app) as client:
-        response = client.post(
-            "/analytics/positions",
-            json={"portfolio_id": "P-CONTRACT", "as_of_date": "2026-02-24", "sections": ["BASE"]},
-        )
-
-    assert response.status_code == 502
-    assert "Invalid lotus-core positions analytics payload" in response.json()["detail"]
 
 
 def test_e2e_contribution_lineage_roundtrip() -> None:
