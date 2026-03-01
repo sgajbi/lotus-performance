@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-03-01T04:32:02.430211+00:00",
+  "generatedAt": "2026-03-01T12:24:13.047065+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.amount",
@@ -1460,20 +1460,6 @@
       ]
     },
     {
-      "semanticId": "lotus.performance_periods",
-      "canonicalTerm": "performance_periods",
-      "preferredName": "performance_periods",
-      "description": "Performance metric value for performance periods.",
-      "example": "example_performance_periods",
-      "type": "object",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "object"
-      ]
-    },
-    {
       "semanticId": "lotus.performance_start_date",
       "canonicalTerm": "performance_start_date",
       "preferredName": "performance_start_date",
@@ -1645,24 +1631,6 @@
       ],
       "observedTypes": [
         "string"
-      ]
-    },
-    {
-      "semanticId": "lotus.positions",
-      "canonicalTerm": "positions",
-      "preferredName": "positions",
-      "description": "Position-level analytics rows normalized under lotus-performance contract.",
-      "example": [
-        {
-          "key": "value"
-        }
-      ],
-      "type": "array",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "array"
       ]
     },
     {
@@ -2043,22 +2011,6 @@
       ]
     },
     {
-      "semanticId": "lotus.sections",
-      "canonicalTerm": "sections",
-      "preferredName": "sections",
-      "description": "position analytics request field: sections.",
-      "example": [
-        "example_sections_item"
-      ],
-      "type": "array",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "array"
-      ]
-    },
-    {
       "semanticId": "lotus.series",
       "canonicalTerm": "series",
       "preferredName": "series",
@@ -2350,20 +2302,6 @@
       ],
       "observedTypes": [
         "integer"
-      ]
-    },
-    {
-      "semanticId": "lotus.total_market_value",
-      "canonicalTerm": "total_market_value",
-      "preferredName": "total_market_value",
-      "description": "Monetary value for total market value.",
-      "example": 0.1234,
-      "type": "number",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "number"
       ]
     },
     {
@@ -5255,109 +5193,6 @@
             "type": "object",
             "semanticId": "lotus.artifacts",
             "attributeRef": "#/attributeCatalog/lotus.artifacts"
-          }
-        ]
-      }
-    },
-    {
-      "domain": "analytics",
-      "method": "POST",
-      "path": "/analytics/positions",
-      "operationId": "get_positions_analytics_analytics_positions_post",
-      "summary": "Get position analytics via lotus-performance contract",
-      "request": {
-        "fields": [
-          {
-            "name": "portfolio_id",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.portfolio_id",
-            "attributeRef": "#/attributeCatalog/lotus.portfolio_id"
-          },
-          {
-            "name": "as_of_date",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.as_of_date",
-            "attributeRef": "#/attributeCatalog/lotus.as_of_date"
-          },
-          {
-            "name": "sections",
-            "location": "body",
-            "required": false,
-            "type": "array",
-            "semanticId": "lotus.sections",
-            "attributeRef": "#/attributeCatalog/lotus.sections"
-          },
-          {
-            "name": "performance_periods",
-            "location": "body",
-            "required": false,
-            "type": "object",
-            "semanticId": "lotus.performance_periods",
-            "attributeRef": "#/attributeCatalog/lotus.performance_periods"
-          },
-          {
-            "name": "consumer_system",
-            "location": "body",
-            "required": false,
-            "type": "string",
-            "semanticId": "lotus.consumer_system",
-            "attributeRef": "#/attributeCatalog/lotus.consumer_system"
-          }
-        ]
-      },
-      "response": {
-        "fields": [
-          {
-            "name": "source_mode",
-            "location": "body",
-            "required": false,
-            "type": "string",
-            "semanticId": "lotus.source_mode",
-            "attributeRef": "#/attributeCatalog/lotus.source_mode"
-          },
-          {
-            "name": "source_service",
-            "location": "body",
-            "required": false,
-            "type": "string",
-            "semanticId": "lotus.source_service",
-            "attributeRef": "#/attributeCatalog/lotus.source_service"
-          },
-          {
-            "name": "portfolio_id",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.portfolio_id",
-            "attributeRef": "#/attributeCatalog/lotus.portfolio_id"
-          },
-          {
-            "name": "as_of_date",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.as_of_date",
-            "attributeRef": "#/attributeCatalog/lotus.as_of_date"
-          },
-          {
-            "name": "total_market_value",
-            "location": "body",
-            "required": true,
-            "type": "number",
-            "semanticId": "lotus.total_market_value",
-            "attributeRef": "#/attributeCatalog/lotus.total_market_value"
-          },
-          {
-            "name": "positions",
-            "location": "body",
-            "required": true,
-            "type": "array",
-            "semanticId": "lotus.positions",
-            "attributeRef": "#/attributeCatalog/lotus.positions"
           }
         ]
       }
