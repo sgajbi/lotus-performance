@@ -1,38 +1,99 @@
-# Metric: TWR FX Return
+## Metric
+TWR FX Return (`portfolio_return.fx`)
 
-## Quantitative Conventions
-- Unless explicitly noted otherwise, endpoint-level performance and attribution outputs are expressed in **percentage points**.
-- `returns/series` payload values are expressed in **decimal return form** (`0.0012 = 12 bps`).
-- Geometric linking uses `Π(1+r_t)-1`.
-- Annualization uses the configured day-count basis and annualization factor.
-
-## Lotus-Performance Endpoint(s)
-- `POST /performance/twr` (when `currency_mode=BOTH`).
-
-## Supported Calculation Modes
-- Stateless request payload with FX rates.
-
-## Upstream Data Sources and Exact Data Points
-- Request `fx.rates[]` by date/currency; optional hedge ratios from request.
+## Endpoint and Mode Coverage
+- Endpoint: `POST /performance/twr`
+- Request mode: stateless payload
+- Availability condition: FX leg exists only when engine FX path is active:
+  - `currency_mode` provided and not `BASE_ONLY`
+  - `fx.rates[]` present
+- If FX path is inactive, `portfolio_return.fx` is `0.0`.
 
 ## Inputs
-- Start and end FX rates per day (`start_rate`, `end_rate`) and optional hedge ratio.
+- `valuation_points[]` (for local/base return context)
+- `performance_start_date` (used to build one-day lookback for start rates)
+- `currency_mode`
+- `fx.rates[]`: each row has `date`, `ccy`, `rate`
+- Optional hedge inputs:
+  - `hedging.mode=RATIO`
+  - `hedging.series[]` with `date`, `ccy`, `hedge_ratio` in `[0,1]`
+
+## Upstream Data Sources
+- No runtime upstream call.
+- FX time series is client-supplied via request.
+
+## Unit Conventions
+- FX daily and period returns are percentage points in outputs.
+- Internal rate ratios are decimal values before conversion to pp.
+
+## Variable Dictionary
+- `S_t`: start FX rate for day `t` (rate at `t-1` after forward-fill reindex)
+- `E_t`: end FX rate for day `t` (rate at `t` after forward-fill reindex)
+- `h_t`: hedge ratio for day `t` (default `0` when missing)
+- `f_t`: unhedged daily FX return in decimal
+- `f_t_hedged`: hedged daily FX return in decimal
+- `f_t_pp`: daily FX return in pp
+- `R_base_pp`: period base return in pp
+- `R_local_pp`: period local return in pp
+- `F_P_pp`: period FX return in pp
 
 ## Methodology and Formulas
-- Daily FX return: `fx_ror_t = (end_rate_t/start_rate_t - 1)`, adjusted by hedge: `fx_ror_t *= (1-hedge_ratio_t)` when configured.
-- Base return relation: `(1+R_base) = (1+R_local)*(1+R_fx)`, so period FX return reported as `R_fx = ((1+R_base)/(1+R_local)-1)*100`.
+1. Build aligned FX curve from `fx.rates[]`:
+- de-duplicate by (`date`,`ccy`) keeping last
+- set index by date and forward-fill over full daily range from `performance_start_date - 1` to max perf date
 
-## Outputs
-- `results_by_period[*].portfolio_return.fx`.
+2. Daily FX return (engine):
+- `f_t = (E_t / S_t) - 1`
+- missing values are filled with `0`
+- if hedge series provided: `f_t_hedged = f_t * (1 - h_t)` else `f_t_hedged = f_t`
+- `f_t_pp = 100 * f_t_hedged`
+
+3. Period FX return (endpoint decomposition):
+- First compute period base and local totals.
+- `F_P_pp = 100 * (((1 + R_base_pp/100) / (1 + R_local_pp/100)) - 1)`
+- If `1 + R_local_pp/100 == 0`, implementation returns `0.0` for FX period return.
+
+## Step-by-Step Computation
+1. Validate base request and resolve periods.
+2. Activate FX path only if `currency_mode != BASE_ONLY` and `fx` block exists.
+3. Construct start/end rates per valuation date from forward-filled rate timeline.
+4. Compute daily `fx_ror` (and apply hedge if provided).
+5. Compute slice-level `portfolio_return.base` and `portfolio_return.local`.
+6. Derive `portfolio_return.fx` from base/local decomposition identity.
+
+## Validation and Failure Behavior
+- Same base endpoint validation and error handling.
+- Missing or non-active FX inputs do not error by themselves; FX metric becomes `0.0` because local/fx columns are absent.
+- Missing daily rate points are forward-filled on constructed daily range; unresolved values are treated as zero-return rows.
+- If local period denominator is zero in decomposition formula, FX period return is forced to `0.0`.
 
 ## Configuration Options
-- `currency_mode`, `fx.rates`, `hedging.mode/series`.
+- `currency_mode`: must be non-`BASE_ONLY` for FX decomposition path.
+- `fx.rates[]`: determines FX leg behavior and continuity via forward-fill.
+- `hedging.series[]`: scales FX daily returns by `(1 - hedge_ratio)`.
+- `metric_basis`, `data_policy`, `annualization`, and output flags affect base/local context and breakdowns.
 
-## Assumptions and Edge Cases
-- Input series are expected to be date-valid, sortable, and semantically aligned with the request window.
-- For insufficient observations or invalid denominator conditions, the engine returns deterministic error semantics (HTTP validation error and/or metric-level error details depending on endpoint contract).
-- Where configured, policy controls (missing-data policy, fill method, reset rules, robustness policies) can materially change results and must be interpreted with diagnostics.`r`n`r`n## Worked Example
-- If period base=4.98228% and local=3.02%, then `fx=((1.0498228/1.0302)-1)*100=1.90476%`.
+## Outputs
+Primary metric field:
+- `results_by_period.<period>.portfolio_return.fx`
 
+Supporting fields used in decomposition identity:
+- `results_by_period.<period>.portfolio_return.base`
+- `results_by_period.<period>.portfolio_return.local`
 
+## Worked Example
+Assume for period `ITD` after linking daily rows:
+- `R_local_pp = 3.0200`
+- `R_base_pp = 4.98228`
 
+Intermediate decomposition:
+
+| Quantity | Formula | Value |
+|---|---|---:|
+| Local growth factor | `1 + R_local_pp/100` | 1.0302000 |
+| Base growth factor | `1 + R_base_pp/100` | 1.0498228 |
+| FX growth factor | `Base / Local` | 1.0190476 |
+| `F_P_pp` | `100 * (FX growth factor - 1)` | 1.90476 |
+
+Output mapping:
+- `results_by_period.ITD.portfolio_return.fx = 1.90476`

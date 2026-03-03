@@ -1,39 +1,80 @@
-# Metric: Attribution Allocation Effect
+## Metric
+Attribution Allocation Effect (`levels[].groups[].allocation`)
 
-## Quantitative Conventions
-- Unless explicitly noted otherwise, endpoint-level performance and attribution outputs are expressed in **percentage points**.
-- `returns/series` payload values are expressed in **decimal return form** (`0.0012 = 12 bps`).
-- Geometric linking uses `Π(1+r_t)-1`.
-- Annualization uses the configured day-count basis and annualization factor.
-
-## Lotus-Performance Endpoint(s)
-- `POST /performance/attribution`.
-
-## Supported Calculation Modes
-- Stateless (`by_group` or `by_instrument`).
-
-## Upstream Data Sources and Exact Data Points
-- Request payload portfolio/benchmark grouped observations; optional instrument metadata path.
+## Endpoint and Mode Coverage
+- Endpoint: `POST /performance/attribution`
+- Modes: `BY_GROUP` and `BY_INSTRUMENT`
+- Computed per group, then aggregated to level totals for each resolved period.
 
 ## Inputs
-- Portfolio and benchmark start weights (`w_p`, `w_b`), benchmark return terms, model choice.
+- Group-level weights and returns from aligned panel:
+  - portfolio weights `w_p`
+  - benchmark weights `w_b`
+  - benchmark group return `r_base_b`
+  - benchmark total return `r_b_total`
+- `model` (`BRINSON_FACHLER` or `BRINSON_HOOD_BEEBOWER`)
+- `linking`
+
+## Upstream Data Sources
+- Request payload only.
+
+## Unit Conventions
+- Effect calculations are decimal in engine.
+- Response allocation values are percentage points (`*100`).
+
+## Variable Dictionary
+- `w_p`, `w_b`: portfolio/benchmark BOP weights by group and period
+- `r_b`: benchmark group return (decimal)
+- `r_b_total`: benchmark total return (decimal)
+- `A`: allocation effect (decimal)
 
 ## Methodology and Formulas
-- Brinson-Fachler: `Allocation = (w_p - w_b) * (r_b_group - r_b_total)`.
-- Brinson-Hood-Beebower: `Allocation = (w_p - w_b) * r_b_group`.
-- Aggregated across requested hierarchy and optionally linked across periods.
+1. Single-period allocation by model:
+- Brinson-Fachler:
+  - `A = (w_p - w_b) * (r_b - r_b_total)`
+- Brinson-Hood-Beebower:
+  - `A = (w_p - w_b) * r_b`
 
-## Outputs
-- `levels[].groups[].allocation`, level totals, reconciliation block.
+2. Multi-period linking behavior:
+- `linking=NONE`: sum arithmetic effects across periods.
+- `linking!=NONE`: top-down scaling is applied:
+  - `scale = geometric_active_return / arithmetic_active_return`
+  - linked allocation effect = arithmetic allocation effect * `scale`
+
+## Step-by-Step Computation
+1. Build aligned portfolio/benchmark panel by date and group.
+2. Compute benchmark total return per date (`r_b_total`).
+3. Compute single-period `allocation` using selected model.
+4. If linking enabled, scale effects using top-down factor.
+5. Aggregate by hierarchy levels and scale to pp for response.
+
+## Validation and Failure Behavior
+- Empty aligned panel produces no period results.
+- Invalid model/mode paths return HTTP 400.
+- If arithmetic active return is zero in linking path, scaling is skipped (effects unchanged).
 
 ## Configuration Options
-- `model` (`BRINSON_FACHLER|BRINSON_HOOD_BEEBOWER`), `linking` (`NONE|...`).
+- `model`
+- `linking`
+- `group_by`
+- `frequency`
 
-## Assumptions and Edge Cases
-- Input series are expected to be date-valid, sortable, and semantically aligned with the request window.
-- For insufficient observations or invalid denominator conditions, the engine returns deterministic error semantics (HTTP validation error and/or metric-level error details depending on endpoint contract).
-- Where configured, policy controls (missing-data policy, fill method, reset rules, robustness policies) can materially change results and must be interpreted with diagnostics.`r`n`r`n## Worked Example
-- `w_p=0.6`, `w_b=0.5`, `r_b_group=4%`, `r_b_total=3%` => BF allocation `0.1*(0.04-0.03)=0.10%`.
+## Outputs
+- `results_by_period.<period>.levels[].groups[].allocation`
+- `results_by_period.<period>.levels[].totals.allocation`
 
+## Worked Example
+Brinson-Fachler example:
 
+| input | value |
+|---|---:|
+| `w_p` | 0.60 |
+| `w_b` | 0.50 |
+| `r_b` | 0.0400 |
+| `r_b_total` | 0.0300 |
 
+- `A = (0.60 - 0.50) * (0.0400 - 0.0300) = 0.0010`
+- Output pp: `0.0010 * 100 = 0.10`
+
+Output mapping:
+- `levels[...].groups[...].allocation = 0.10`

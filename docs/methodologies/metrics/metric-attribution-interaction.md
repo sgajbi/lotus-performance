@@ -1,37 +1,66 @@
-# Metric: Attribution Interaction Effect
+## Metric
+Attribution Interaction Effect (`levels[].groups[].interaction`)
 
-## Quantitative Conventions
-- Unless explicitly noted otherwise, endpoint-level performance and attribution outputs are expressed in **percentage points**.
-- `returns/series` payload values are expressed in **decimal return form** (`0.0012 = 12 bps`).
-- Geometric linking uses `Π(1+r_t)-1`.
-- Annualization uses the configured day-count basis and annualization factor.
-
-## Lotus-Performance Endpoint(s)
-- `POST /performance/attribution`.
-
-## Supported Calculation Modes
-- Stateless.
-
-## Upstream Data Sources and Exact Data Points
-- Request payload grouped returns and weights.
+## Endpoint and Mode Coverage
+- Endpoint: `POST /performance/attribution`
+- Modes: `BY_GROUP` and `BY_INSTRUMENT`
+- Interaction is computed for both Brinson models using the same formula.
 
 ## Inputs
-- Weight difference and relative return difference.
+- Group weights: `w_p`, `w_b`
+- Group returns: `r_base_p`, `r_base_b`
+- `linking`
+
+## Upstream Data Sources
+- Request payload only.
+
+## Unit Conventions
+- Engine computes interaction in decimal.
+- Response interaction values are pp (`*100`).
+
+## Variable Dictionary
+- `w_p`, `w_b`: portfolio and benchmark BOP weights
+- `r_p`, `r_b`: portfolio and benchmark group returns (decimal)
+- `I`: interaction effect (decimal)
 
 ## Methodology and Formulas
-- Both models: `Interaction = (w_p - w_b) * (r_p - r_b)`.
+1. Single-period interaction (both models):
+- `I = (w_p - w_b) * (r_p - r_b)`
 
-## Outputs
-- `levels[].groups[].interaction` and totals.
+2. Linking behavior:
+- `NONE`: arithmetic sum across periods.
+- non-`NONE`: top-down scaling by `geometric_active/arithmetic_active`.
+
+## Step-by-Step Computation
+1. Build aligned panel and compute single-period effects.
+2. Extract interaction per group-date row.
+3. Apply linking scaling if enabled.
+4. Aggregate by requested hierarchy levels.
+5. Convert to pp in response objects.
+
+## Validation and Failure Behavior
+- Empty aligned inputs lead to no period output.
+- Invalid mode/model paths return HTTP 400.
+- If arithmetic active return is zero, no top-down scaling is applied.
 
 ## Configuration Options
-- `group_by`, `linking`.
+- `linking`
+- `group_by`, `frequency`
+- `model` (does not change interaction formula but affects other effects and totals)
 
-## Assumptions and Edge Cases
-- Input series are expected to be date-valid, sortable, and semantically aligned with the request window.
-- For insufficient observations or invalid denominator conditions, the engine returns deterministic error semantics (HTTP validation error and/or metric-level error details depending on endpoint contract).
-- Where configured, policy controls (missing-data policy, fill method, reset rules, robustness policies) can materially change results and must be interpreted with diagnostics.`r`n`r`n## Worked Example
-- `w_p-w_b=0.1`, `r_p-r_b=1%` => interaction `0.10%`.
+## Outputs
+- `results_by_period.<period>.levels[].groups[].interaction`
+- `results_by_period.<period>.levels[].totals.interaction`
 
+## Worked Example
 
+| input | value |
+|---|---:|
+| `w_p - w_b` | 0.10 |
+| `r_p - r_b` | 0.0100 |
 
+- `I = 0.10 * 0.0100 = 0.0010`
+- Output pp: `0.0010 * 100 = 0.10`
+
+Output mapping:
+- `levels[...].groups[...].interaction = 0.10`

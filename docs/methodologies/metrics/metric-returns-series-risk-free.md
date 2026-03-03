@@ -1,38 +1,89 @@
-# Metric: Canonical Risk-Free Return Series
+## Metric
+Canonical Risk-Free Return Series (`series.risk_free_returns`)
 
-## Quantitative Conventions
-- Unless explicitly noted otherwise, endpoint-level performance and attribution outputs are expressed in **percentage points**.
-- `returns/series` payload values are expressed in **decimal return form** (`0.0012 = 12 bps`).
-- Geometric linking uses `Π(1+r_t)-1`.
-- Annualization uses the configured day-count basis and annualization factor.
-
-## Lotus-Performance Endpoint(s)
-- `POST /integration/returns/series` with `series_selection.include_risk_free=true`.
-
-## Supported Calculation Modes
-- Stateless or stateful.
-
-## Upstream Data Sources and Exact Data Points
-- Stateless: `stateless_input.risk_free_returns[]`.
-- Stateful lotus-core: `POST /integration/reference/risk-free-series` (`series_mode=return_series`, currency required).
+## Endpoint and Mode Coverage
+- Endpoint: `POST /integration/returns/series`
+- Inclusion condition: `series_selection.include_risk_free=true`
+- Modes:
+  - `stateless`: request supplies `risk_free_returns`
+  - `stateful`: lotus-core risk-free return series is sourced by reporting currency
 
 ## Inputs
-- Risk-free return points, reporting currency (stateful), policy/window controls.
+- Shared controls: `window`, `frequency`, `data_policy`, `as_of_date`
+- Stateless input: `stateless_input.risk_free_returns[]`
+- Stateful inputs:
+  - `reporting_currency` (required)
+  - stateful source request with `series_mode="return_series"`
+
+## Upstream Data Sources
+- Stateless: request payload.
+- Stateful: `get_risk_free_series(currency, ..., series_mode="return_series")`.
+
+## Unit Conventions
+- Risk-free series values are decimal returns.
+- Frequency aggregation uses geometric linking in decimal form.
+
+## Variable Dictionary
+- `rf_t`: daily risk-free return (decimal)
+- `RF_k`: aggregated risk-free return for bucket `k`
+- `W`: resolved window
 
 ## Methodology and Formulas
-- Normalize/filter/resample risk-free points; apply fill/alignment policy relative to portfolio series dates where requested.
+1. Normalize risk-free points:
+- stateless: from `ReturnPoint`
+- stateful: upstream fields (`series_date`, `value`)
 
-## Outputs
-- `series.risk_free_returns[]` and diagnostics.
+2. Filter to window and sort.
+
+3. Resample:
+- `DAILY`: unchanged
+- `WEEKLY`/`MONTHLY`: `RF_k = prod_{t in k}(1 + rf_t) - 1`
+
+4. Apply optional alignment/fill relative to portfolio date set:
+- strict intersection
+- forward-fill / zero-fill according to `data_policy.fill_method`
+
+## Step-by-Step Computation
+1. Validate request and resolve window.
+2. Retrieve risk-free source data (stateless or stateful).
+3. Normalize to canonical return points and window-filter.
+4. Resample to requested frequency.
+5. Apply data-policy alignment/fill.
+6. Emit `series.risk_free_returns`.
+
+## Validation and Failure Behavior
+- `include_risk_free=true` with missing stateless risk-free input: validation error.
+- Stateful mode without `reporting_currency`: HTTP 400.
+- Stateful risk-free source not found: HTTP 404.
+- Stateful source unavailable: HTTP 503.
+- Upstream payload missing points list: HTTP 422 (`CONTRACT_VIOLATION_UPSTREAM`).
+- No observations in resolved window: HTTP 422 (`INSUFFICIENT_DATA`).
 
 ## Configuration Options
-- `reporting_currency` (required in stateful), `series_selection.include_risk_free`, `data_policy.*`.
+- `series_selection.include_risk_free`
+- `reporting_currency` (stateful)
+- `window.*`, `frequency`
+- `data_policy.missing_data_policy`, `fill_method`, `calendar_policy`
 
-## Assumptions and Edge Cases
-- Input series are expected to be date-valid, sortable, and semantically aligned with the request window.
-- For insufficient observations or invalid denominator conditions, the engine returns deterministic error semantics (HTTP validation error and/or metric-level error details depending on endpoint contract).
-- Where configured, policy controls (missing-data policy, fill method, reset rules, robustness policies) can materially change results and must be interpreted with diagnostics.`r`n`r`n## Worked Example
-- Daily risk-free points 0.01%,0.01%,0.01% => 3-day linked `(1.0001^3)-1=0.030003%`.
+## Outputs
+Primary metric field:
+- `series.risk_free_returns[]` (`date`, `return_value` decimal)
 
+Diagnostics impact:
+- risk-free gaps contribute to `diagnostics.gaps[]`
+- fill/alignment policies can change returned points
 
+## Worked Example
+Daily risk-free points:
 
+| date | `rf_t` |
+|---|---:|
+| 2026-02-25 | 0.0001 |
+| 2026-02-26 | 0.0001 |
+| 2026-02-27 | 0.0001 |
+
+Linked 3-day return:
+- `RF = (1.0001^3) - 1 = 0.00030003`
+
+Output mapping:
+- `series.risk_free_returns[0].return_value = 0.00030003` (if aggregated into one bucket)
