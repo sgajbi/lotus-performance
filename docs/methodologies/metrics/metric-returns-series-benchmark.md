@@ -1,40 +1,90 @@
-# Metric: Canonical Benchmark Return Series
+## Metric
+Canonical Benchmark Return Series (`series.benchmark_returns`)
 
-## Quantitative Conventions
-- Unless explicitly noted otherwise, endpoint-level performance and attribution outputs are expressed in **percentage points**.
-- `returns/series` payload values are expressed in **decimal return form** (`0.0012 = 12 bps`).
-- Geometric linking uses `Π(1+r_t)-1`.
-- Annualization uses the configured day-count basis and annualization factor.
-
-## Lotus-Performance Endpoint(s)
-- `POST /integration/returns/series` with `series_selection.include_benchmark=true`.
-
-## Supported Calculation Modes
-- Stateless or stateful.
-
-## Upstream Data Sources and Exact Data Points
-- Stateless: `stateless_input.benchmark_returns[]`.
-- Stateful lotus-core:
-  - `POST /integration/portfolios/{portfolio_id}/benchmark-assignment` (if benchmark not provided)
-  - `POST /integration/benchmarks/{benchmark_id}/return-series`.
+## Endpoint and Mode Coverage
+- Endpoint: `POST /integration/returns/series`
+- Inclusion condition: `series_selection.include_benchmark=true`
+- Modes:
+  - `stateless`: request supplies `benchmark_returns`
+  - `stateful`: lotus-core benchmark assignment/series are sourced
 
 ## Inputs
-- Benchmark point list (`series_date`, `benchmark_return`) and window/policy controls.
+- Shared controls: `window`, `frequency`, `data_policy`, `as_of_date`
+- Stateless benchmark input: `stateless_input.benchmark_returns[]`
+- Stateful benchmark controls:
+  - optional `benchmark.benchmark_id`
+  - if missing, benchmark assignment lookup by portfolio
+
+## Upstream Data Sources
+- Stateless: request payload.
+- Stateful:
+  - `get_benchmark_assignment` (when benchmark id not provided)
+  - `get_benchmark_return_series` (daily benchmark points)
+
+## Unit Conventions
+- Benchmark return points are decimal returns (`0.0012 = 12 bps`).
+- Aggregation uses geometric linking in decimal space.
+
+## Variable Dictionary
+- `b_t`: daily benchmark return (decimal)
+- `B_k`: aggregated benchmark return for bucket `k`
+- `W`: resolved window
 
 ## Methodology and Formulas
-- Normalize points, enforce window, resample by geometric linking, optionally align/fill against portfolio date set.
+1. Normalize benchmark points:
+- stateless: from `ReturnPoint`
+- stateful: normalize upstream fields (`series_date`, `benchmark_return`)
+- reject duplicates and empty lists
 
-## Outputs
-- `series.benchmark_returns[]`; diagnostics include gap and coverage effects.
+2. Filter to window `W` and sort by date.
+
+3. Resample by frequency:
+- `DAILY`: unchanged
+- `WEEKLY`/`MONTHLY`: `B_k = prod_{t in k}(1 + b_t) - 1`
+
+4. Apply post-processing policies relative to portfolio dates:
+- strict intersection
+- optional forward-fill / zero-fill reindexing
+
+## Step-by-Step Computation
+1. Validate request and resolve window.
+2. Retrieve benchmark source data (stateless or stateful).
+3. Normalize to canonical DataFrame, enforce uniqueness, and window filter.
+4. Resample to requested frequency.
+5. Apply data-policy alignment/fill rules.
+6. Serialize as `series.benchmark_returns`.
+
+## Validation and Failure Behavior
+- `include_benchmark=true` with missing stateless benchmark input: validation error.
+- Stateful assignment not found: HTTP 404.
+- Stateful benchmark source unavailable: HTTP 503.
+- Upstream payload missing required `points` list: HTTP 422 (`CONTRACT_VIOLATION_UPSTREAM`).
+- No observations in resolved window: HTTP 422 (`INSUFFICIENT_DATA`).
 
 ## Configuration Options
-- `benchmark.benchmark_id`, `series_selection.include_benchmark`, `data_policy.*`.
+- `series_selection.include_benchmark`
+- `benchmark.benchmark_id`
+- `window.*`, `frequency`
+- `data_policy.missing_data_policy`, `fill_method`, `calendar_policy`
 
-## Assumptions and Edge Cases
-- Input series are expected to be date-valid, sortable, and semantically aligned with the request window.
-- For insufficient observations or invalid denominator conditions, the engine returns deterministic error semantics (HTTP validation error and/or metric-level error details depending on endpoint contract).
-- Where configured, policy controls (missing-data policy, fill method, reset rules, robustness policies) can materially change results and must be interpreted with diagnostics.`r`n`r`n## Worked Example
-- Two daily benchmark returns 0.1%, 0.2% => 2-day linked = `(1.001*1.002)-1=0.3002%`.
+## Outputs
+Primary metric field:
+- `series.benchmark_returns[]` (`date`, `return_value` decimal)
 
+Diagnostics impact:
+- benchmark gaps are included in `diagnostics.gaps[]`
+- alignment/fill affects returned benchmark points
 
+## Worked Example
+Daily benchmark points:
 
+| date | `b_t` |
+|---|---:|
+| 2026-02-26 | 0.0010 |
+| 2026-02-27 | 0.0020 |
+
+Two-day linked return:
+- `B = (1.0010 * 1.0020) - 1 = 0.003002`
+
+Output mapping (if weekly/monthly bucketed to single period):
+- `series.benchmark_returns[0].return_value = 0.003002`
