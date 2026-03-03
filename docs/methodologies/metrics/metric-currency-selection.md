@@ -1,37 +1,65 @@
-# Metric: Currency Attribution Currency Selection
+## Metric
+Currency Attribution Currency Selection (`currency_attribution[].effects.currency_selection`)
 
-## Quantitative Conventions
-- Unless explicitly noted otherwise, endpoint-level performance and attribution outputs are expressed in **percentage points**.
-- `returns/series` payload values are expressed in **decimal return form** (`0.0012 = 12 bps`).
-- Geometric linking uses `Π(1+r_t)-1`.
-- Annualization uses the configured day-count basis and annualization factor.
-
-## Lotus-Performance Endpoint(s)
-- `POST /performance/attribution` with `currency_mode=BOTH`.
-
-## Supported Calculation Modes
-- Stateless.
-
-## Upstream Data Sources and Exact Data Points
-- Request currency local/FX components.
+## Endpoint and Mode Coverage
+- Endpoint: `POST /performance/attribution`
+- Available only when currency-attribution branch is active (`currency_mode=BOTH` and required data present).
 
 ## Inputs
-- `w_b`, `(r_local_p-r_local_b)`, `r_fx_b`.
+- `w_b`
+- `r_local_p`, `r_local_b`
+- `r_fx_b`
+
+## Upstream Data Sources
+- Request payload only.
+
+## Unit Conventions
+- Computed in decimal, emitted as percentage points (`*100`).
+
+## Variable Dictionary
+- `w_b,c,t`: benchmark weight
+- `r_local_p,c,t`: portfolio local return
+- `r_local_b,c,t`: benchmark local return
+- `r_fx_b,c,t`: benchmark FX return
+- `CS_c,t`: currency selection effect (decimal)
 
 ## Methodology and Formulas
-- Currency selection: `w_b * (r_local_p - r_local_b) * r_fx_b`.
+- Implemented formula:
+- `CS_c,t = w_b,c,t * (r_local_p,c,t - r_local_b,c,t) * r_fx_b,c,t`
 
-## Outputs
-- `currency_attribution[].effects.currency_selection`; total effect is sum of four currency effects.
+Aggregation and total effect:
+- `CS_c = sum_t CS_c,t`
+- response field = `100 * CS_c`
+- per-currency `total_effect` is sum of four currency effects:
+  - `local_allocation + local_selection + currency_allocation + currency_selection`
+
+## Step-by-Step Computation
+1. Compute local return spread per currency-date.
+2. Multiply by benchmark weight.
+3. Multiply by benchmark FX return.
+4. Sum across dates and convert to pp.
+5. Add into per-currency total effect.
+
+## Validation and Failure Behavior
+- Currency attribution omitted if prerequisites are not met.
+- Standard endpoint error behavior applies for invalid inputs/exceptions.
 
 ## Configuration Options
-- `currency_mode=BOTH`.
+- `currency_mode=BOTH`
+- `frequency`
 
-## Assumptions and Edge Cases
-- Input series are expected to be date-valid, sortable, and semantically aligned with the request window.
-- For insufficient observations or invalid denominator conditions, the engine returns deterministic error semantics (HTTP validation error and/or metric-level error details depending on endpoint contract).
-- Where configured, policy controls (missing-data policy, fill method, reset rules, robustness policies) can materially change results and must be interpreted with diagnostics.`r`n`r`n## Worked Example
-- `w_b=0.5`, local excess=0.5%, `r_fx_b=1%` => `0.5*0.005*0.01=0.0025%`.
+## Outputs
+- `results_by_period.<period>.currency_attribution[].effects.currency_selection`
+- contributes to `results_by_period.<period>.currency_attribution[].effects.total_effect`
 
+## Worked Example
 
+| quantity | formula | value |
+|---|---|---:|
+| Local spread | `r_local_p - r_local_b` | `0.0250 - 0.0200 = 0.0050` |
+| Weighted spread | `w_b * spread` | `0.50 * 0.0050 = 0.0025` |
+| Currency selection (decimal) | `weighted_spread * r_fx_b` | `0.0025 * 0.0100 = 0.000025` |
+| Response pp | `0.000025 * 100` | 0.0025 |
 
+Output mapping:
+- `currency_attribution[<ccy>].effects.currency_selection = 0.0025`

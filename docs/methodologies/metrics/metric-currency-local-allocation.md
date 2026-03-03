@@ -1,37 +1,67 @@
-# Metric: Currency Attribution Local Allocation
+## Metric
+Currency Attribution Local Allocation (`currency_attribution[].effects.local_allocation`)
 
-## Quantitative Conventions
-- Unless explicitly noted otherwise, endpoint-level performance and attribution outputs are expressed in **percentage points**.
-- `returns/series` payload values are expressed in **decimal return form** (`0.0012 = 12 bps`).
-- Geometric linking uses `Π(1+r_t)-1`.
-- Annualization uses the configured day-count basis and annualization factor.
-
-## Lotus-Performance Endpoint(s)
-- `POST /performance/attribution` with `currency_mode=BOTH`.
-
-## Supported Calculation Modes
-- Stateless.
-
-## Upstream Data Sources and Exact Data Points
-- Request benchmark/portfolio local and FX return inputs by currency group.
+## Endpoint and Mode Coverage
+- Endpoint: `POST /performance/attribution`
+- Availability conditions:
+  - `currency_mode="BOTH"`
+  - aligned effects contain required local/FX columns
+  - grouped data includes `currency` key
 
 ## Inputs
-- `w_p`, `w_b`, benchmark local return `r_local_b`.
+- Per-currency aggregated series by date:
+  - `w_p` (portfolio weight)
+  - `w_b` (benchmark weight)
+  - `r_local_b` (benchmark local return)
+
+## Upstream Data Sources
+- Request payload only.
+
+## Unit Conventions
+- Engine computes in decimal.
+- Response local allocation is scaled to percentage points (`*100`).
+
+## Variable Dictionary
+- `w_p,c,t`: portfolio weight for currency `c` at period `t`
+- `w_b,c,t`: benchmark weight for currency `c` at period `t`
+- `r_local_b,c,t`: benchmark local return (decimal)
+- `LA_c,t`: local allocation effect (decimal)
 
 ## Methodology and Formulas
-- Karnosky-Singer local allocation: `(w_p - w_b) * r_local_b`.
+- Karnosky-Singer local allocation (implemented formula):
+- `LA_c,t = (w_p,c,t - w_b,c,t) * r_local_b,c,t`
 
-## Outputs
-- `currency_attribution[].effects.local_allocation`.
+Period/currency aggregation in response:
+- `LA_c = sum_t LA_c,t`
+- Response field value: `100 * LA_c`
+
+## Step-by-Step Computation
+1. Build daily attribution panel and aggregate by (`date`, `currency`).
+2. Compute `LA_c,t` for each currency/date row.
+3. Sum across dates per currency.
+4. Convert to pp and populate `currency_attribution[].effects.local_allocation`.
+
+## Validation and Failure Behavior
+- If currency attribution prerequisites are missing (required columns or currency key), `currency_attribution` block is omitted.
+- Invalid attribution request/mode handling follows endpoint-level HTTP 400/500 behavior.
 
 ## Configuration Options
-- `currency_mode=BOTH`, grouped currency data present.
+- `currency_mode` must be `BOTH`.
+- `frequency` controls period bucketing before currency-effect aggregation.
 
-## Assumptions and Edge Cases
-- Input series are expected to be date-valid, sortable, and semantically aligned with the request window.
-- For insufficient observations or invalid denominator conditions, the engine returns deterministic error semantics (HTTP validation error and/or metric-level error details depending on endpoint contract).
-- Where configured, policy controls (missing-data policy, fill method, reset rules, robustness policies) can materially change results and must be interpreted with diagnostics.`r`n`r`n## Worked Example
-- `w_p=0.55`, `w_b=0.50`, `r_local_b=2%` => `0.05*0.02=0.10%`.
+## Outputs
+- `results_by_period.<period>.currency_attribution[].effects.local_allocation`
 
+## Worked Example
 
+| input | value |
+|---|---:|
+| `w_p` | 0.55 |
+| `w_b` | 0.50 |
+| `r_local_b` | 0.0200 |
 
+- `LA = (0.55 - 0.50) * 0.0200 = 0.0010`
+- Output pp: `0.0010 * 100 = 0.10`
+
+Output mapping:
+- `currency_attribution[<ccy>].effects.local_allocation = 0.10`

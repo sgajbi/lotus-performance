@@ -1,37 +1,62 @@
-# Metric: Currency Attribution Currency Allocation
+## Metric
+Currency Attribution Currency Allocation (`currency_attribution[].effects.currency_allocation`)
 
-## Quantitative Conventions
-- Unless explicitly noted otherwise, endpoint-level performance and attribution outputs are expressed in **percentage points**.
-- `returns/series` payload values are expressed in **decimal return form** (`0.0012 = 12 bps`).
-- Geometric linking uses `Π(1+r_t)-1`.
-- Annualization uses the configured day-count basis and annualization factor.
-
-## Lotus-Performance Endpoint(s)
-- `POST /performance/attribution` with `currency_mode=BOTH`.
-
-## Supported Calculation Modes
-- Stateless.
-
-## Upstream Data Sources and Exact Data Points
-- Request currency benchmark return components.
+## Endpoint and Mode Coverage
+- Endpoint: `POST /performance/attribution`
+- Available only in currency attribution path (`currency_mode=BOTH` + required fields + `currency` key).
 
 ## Inputs
-- `w_p`, `w_b`, `r_local_b`, `r_fx_b`.
+- `w_p`, `w_b`
+- `r_local_b`
+- `r_fx_b` (benchmark FX return by currency)
+
+## Upstream Data Sources
+- Request payload only.
+
+## Unit Conventions
+- Engine computes decimal effect.
+- Response is percentage points (`*100`).
+
+## Variable Dictionary
+- `w_p,c,t`, `w_b,c,t`: portfolio/benchmark weights
+- `r_local_b,c,t`: benchmark local return (decimal)
+- `r_fx_b,c,t`: benchmark FX return (decimal)
+- `CA_c,t`: currency allocation effect (decimal)
 
 ## Methodology and Formulas
-- Currency allocation: `(w_p - w_b) * (1 + r_local_b) * r_fx_b`.
+- Implemented formula:
+- `CA_c,t = (w_p,c,t - w_b,c,t) * (1 + r_local_b,c,t) * r_fx_b,c,t`
 
-## Outputs
-- `currency_attribution[].effects.currency_allocation`.
+Aggregation:
+- `CA_c = sum_t CA_c,t`
+- response field = `100 * CA_c`
+
+## Step-by-Step Computation
+1. Build currency-level panel by date.
+2. Compute weight active term `(w_p - w_b)`.
+3. Compute local-growth term `(1 + r_local_b)`.
+4. Multiply with benchmark FX return to get `CA_c,t`.
+5. Sum over dates and scale to pp.
+
+## Validation and Failure Behavior
+- If currency effects cannot be computed (missing required columns), field is absent with entire currency-attribution block.
+- Endpoint handles invalid requests/errors as HTTP 400/500.
 
 ## Configuration Options
-- `currency_mode=BOTH`.
+- `currency_mode=BOTH`
+- `frequency`
 
-## Assumptions and Edge Cases
-- Input series are expected to be date-valid, sortable, and semantically aligned with the request window.
-- For insufficient observations or invalid denominator conditions, the engine returns deterministic error semantics (HTTP validation error and/or metric-level error details depending on endpoint contract).
-- Where configured, policy controls (missing-data policy, fill method, reset rules, robustness policies) can materially change results and must be interpreted with diagnostics.`r`n`r`n## Worked Example
-- `w diff=0.05`, `r_local_b=2%`, `r_fx_b=1%` => `0.05*1.02*0.01=0.051%`.
+## Outputs
+- `results_by_period.<period>.currency_attribution[].effects.currency_allocation`
 
+## Worked Example
 
+| quantity | formula | value |
+|---|---|---:|
+| Active weight | `w_p - w_b` | `0.55 - 0.50 = 0.05` |
+| Local growth | `1 + r_local_b` | `1 + 0.0200 = 1.0200` |
+| Currency allocation (decimal) | `active_weight * local_growth * r_fx_b` | `0.05 * 1.0200 * 0.0100 = 0.00051` |
+| Response pp | `0.00051 * 100` | 0.051 |
 
+Output mapping:
+- `currency_attribution[<ccy>].effects.currency_allocation = 0.051`

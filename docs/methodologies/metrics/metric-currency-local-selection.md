@@ -1,37 +1,60 @@
-# Metric: Currency Attribution Local Selection
+## Metric
+Currency Attribution Local Selection (`currency_attribution[].effects.local_selection`)
 
-## Quantitative Conventions
-- Unless explicitly noted otherwise, endpoint-level performance and attribution outputs are expressed in **percentage points**.
-- `returns/series` payload values are expressed in **decimal return form** (`0.0012 = 12 bps`).
-- Geometric linking uses `Π(1+r_t)-1`.
-- Annualization uses the configured day-count basis and annualization factor.
-
-## Lotus-Performance Endpoint(s)
-- `POST /performance/attribution` with `currency_mode=BOTH`.
-
-## Supported Calculation Modes
-- Stateless.
-
-## Upstream Data Sources and Exact Data Points
-- Request local return series by currency.
+## Endpoint and Mode Coverage
+- Endpoint: `POST /performance/attribution`
+- Availability requires currency attribution path to be active (`currency_mode=BOTH`, required columns present, `currency` dimension available).
 
 ## Inputs
-- `w_b`, `r_local_p`, `r_local_b`.
+- `w_b` (benchmark currency weight)
+- `r_local_p` (portfolio local return by currency)
+- `r_local_b` (benchmark local return by currency)
+
+## Upstream Data Sources
+- Request payload only.
+
+## Unit Conventions
+- Formula computed in decimal.
+- Response value is percentage points (`*100`).
+
+## Variable Dictionary
+- `w_b,c,t`: benchmark weight for currency `c`, period `t`
+- `r_local_p,c,t`: portfolio local return (decimal)
+- `r_local_b,c,t`: benchmark local return (decimal)
+- `LS_c,t`: local selection effect (decimal)
 
 ## Methodology and Formulas
-- Local selection: `w_b * (r_local_p - r_local_b)`.
+- Karnosky-Singer local selection:
+- `LS_c,t = w_b,c,t * (r_local_p,c,t - r_local_b,c,t)`
 
-## Outputs
-- `currency_attribution[].effects.local_selection`.
+Aggregation:
+- `LS_c = sum_t LS_c,t`
+- response field = `100 * LS_c`
+
+## Step-by-Step Computation
+1. Aggregate aligned panel by (`date`, `currency`).
+2. Compute local return spread per row.
+3. Multiply by benchmark weight to get `LS_c,t`.
+4. Sum across dates and convert to pp in response.
+
+## Validation and Failure Behavior
+- Currency-attribution block is omitted when prerequisites are not met.
+- Endpoint-level invalid input errors map to HTTP 400/500 paths.
 
 ## Configuration Options
-- `currency_mode=BOTH`.
+- `currency_mode=BOTH`
+- `frequency` (controls aggregation horizon)
 
-## Assumptions and Edge Cases
-- Input series are expected to be date-valid, sortable, and semantically aligned with the request window.
-- For insufficient observations or invalid denominator conditions, the engine returns deterministic error semantics (HTTP validation error and/or metric-level error details depending on endpoint contract).
-- Where configured, policy controls (missing-data policy, fill method, reset rules, robustness policies) can materially change results and must be interpreted with diagnostics.`r`n`r`n## Worked Example
-- `w_b=0.5`, local excess=0.5% => `0.25%`.
+## Outputs
+- `results_by_period.<period>.currency_attribution[].effects.local_selection`
 
+## Worked Example
 
+| quantity | formula | value |
+|---|---|---:|
+| Local spread | `r_local_p - r_local_b` | `0.0250 - 0.0200 = 0.0050` |
+| Weighted local selection | `w_b * spread` | `0.50 * 0.0050 = 0.0025` |
+| Response pp | `0.0025 * 100` | 0.25 |
 
+Output mapping:
+- `currency_attribution[<ccy>].effects.local_selection = 0.25`
