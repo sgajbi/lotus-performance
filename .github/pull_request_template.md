@@ -1,21 +1,28 @@
 ## Summary
+- 
 
-- What changed:
-- Why:
+## Why
+- 
 
-## Validation
+## Scope
+- [ ] Single RFC/slice scope
+- [ ] No unrelated refactors mixed in
 
-- [ ] `make check`
-- [ ] `make ci-local` (or explain why not run)
+## Validation (local)
+- [ ] `make lint`
+- [ ] `make typecheck`
+- [ ] `make test-unit`
+- [ ] Additional targeted checks for changed area
 
-## Documentation Sync (Required)
+## CI Expectations
+- [ ] Fast PR gates are green
+- [ ] Heavy gates run in scheduled/manual tier where applicable
 
-- [ ] Docs updated to match code changes in this PR
-- [ ] API contract/examples updated (if endpoint behavior changed)
-- [ ] README/runbook commands updated (if tooling/commands changed)
-- [ ] RFC/ADR/ownership docs updated (if architecture/boundary changed)
+## Governance/Docs
+- [ ] RFC/docs updated where behavior or standards changed
+- [ ] API/OpenAPI/vocabulary updates included if contract changed
 
-## Risk
-
-- Risk level: low / medium / high
-- Rollback plan:
+## Post-Merge Hygiene
+- [ ] Delete remote feature branch
+- [ ] Delete local feature branch
+- [ ] Sync local main with origin/main (`local = remote = main`)
