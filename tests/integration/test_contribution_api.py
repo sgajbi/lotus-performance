@@ -1,17 +1,41 @@
-# tests/integration/test_contribution_api.py
+import os
+import shutil
+
 import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.config import get_settings
+from app.services.compute_job_store import compute_job_store
+from app.services.execution_registry import execution_registry
+from app.services.lineage_metadata_store import lineage_metadata_store
 from engine.exceptions import EngineCalculationError
 from main import app
-from tests.conftest import drain_lineage_queue
+from tests.conftest import drain_compute_queue, drain_lineage_queue
+
+settings = get_settings()
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def client():
+    if os.path.exists(settings.LINEAGE_STORAGE_PATH):
+        shutil.rmtree(settings.LINEAGE_STORAGE_PATH)
+    os.makedirs(settings.LINEAGE_STORAGE_PATH, exist_ok=True)
+    execution_registry.create_schema()
+    execution_registry.clear_all_records()
+    compute_job_store.create_schema()
+    compute_job_store.clear_all_records()
+    lineage_metadata_store.create_schema()
+    lineage_metadata_store.clear_all_records()
+
     with TestClient(app) as c:
         yield c
+
+    if os.path.exists(settings.LINEAGE_STORAGE_PATH):
+        shutil.rmtree(settings.LINEAGE_STORAGE_PATH)
+    compute_job_store.clear_all_records()
+    execution_registry.clear_all_records()
+    lineage_metadata_store.clear_all_records()
 
 
 def test_contribution_endpoint_happy_path_and_envelope(client, happy_path_payload):
@@ -145,7 +169,7 @@ def test_contribution_endpoint_hierarchy_happy_path(client, happy_path_payload):
 def test_contribution_endpoint_error_handling(client, mocker):
     """Tests that a generic server error is raised for calculation failures."""
     mocker.patch(
-        "app.api.endpoints.contribution._prepare_hierarchical_data", side_effect=EngineCalculationError("Test Error")
+        "app.services.contribution_service._prepare_hierarchical_data", side_effect=EngineCalculationError("Test Error")
     )
     payload = {
         "portfolio_id": "ERROR",
@@ -174,14 +198,14 @@ def test_contribution_endpoint_no_resolved_periods_returns_400(client):
         },
         "positions_data": [],
     }
-    from app.api.endpoints import contribution as contribution_endpoint
+    from app.services import contribution_service
 
-    original_resolve_periods = contribution_endpoint.resolve_periods
-    contribution_endpoint.resolve_periods = lambda periods, end_date, inception_date: []  # type: ignore[assignment]
+    original_resolve_periods = contribution_service.resolve_periods
+    contribution_service.resolve_periods = lambda periods, end_date, inception_date: []  # type: ignore[assignment]
     try:
         response = client.post("/performance/contribution", json=payload)
     finally:
-        contribution_endpoint.resolve_periods = original_resolve_periods  # type: ignore[assignment]
+        contribution_service.resolve_periods = original_resolve_periods  # type: ignore[assignment]
 
     assert response.status_code == 400
     assert "No valid periods could be resolved." in response.json()["detail"]
@@ -204,10 +228,10 @@ def test_contribution_endpoint_skips_empty_period_slice(client):
             }
         ],
     }
-    from app.api.endpoints import contribution as contribution_endpoint
+    from app.services import contribution_service
 
-    original_prepare = contribution_endpoint._prepare_hierarchical_data
-    original_daily = contribution_endpoint._calculate_daily_instrument_contributions
+    original_prepare = contribution_service._prepare_hierarchical_data
+    original_daily = contribution_service._calculate_daily_instrument_contributions
 
     def _mock_prepare(_request):
         portfolio_df = pd.DataFrame(
@@ -228,13 +252,59 @@ def test_contribution_endpoint_skips_empty_period_slice(client):
             ]
         )
 
-    contribution_endpoint._prepare_hierarchical_data = _mock_prepare  # type: ignore[assignment]
-    contribution_endpoint._calculate_daily_instrument_contributions = _mock_daily  # type: ignore[assignment]
+    contribution_service._prepare_hierarchical_data = _mock_prepare  # type: ignore[assignment]
+    contribution_service._calculate_daily_instrument_contributions = _mock_daily  # type: ignore[assignment]
     try:
         response = client.post("/performance/contribution", json=payload)
     finally:
-        contribution_endpoint._prepare_hierarchical_data = original_prepare  # type: ignore[assignment]
-        contribution_endpoint._calculate_daily_instrument_contributions = original_daily  # type: ignore[assignment]
+        contribution_service._prepare_hierarchical_data = original_prepare  # type: ignore[assignment]
+        contribution_service._calculate_daily_instrument_contributions = original_daily  # type: ignore[assignment]
 
     assert response.status_code == 200
     assert response.json()["results_by_period"] == {}
+
+
+def test_contribution_async_result_retrieval(client, happy_path_payload):
+    original_threshold = settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT
+    settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = 0
+
+    try:
+        accepted = client.post("/performance/contribution", json=happy_path_payload)
+        assert accepted.status_code == 202
+        calculation_id = accepted.json()["calculation_id"]
+
+        pending = client.get(f"/performance/contribution/results/{calculation_id}")
+        assert pending.status_code == 202
+
+        assert drain_compute_queue() == 1
+
+        complete = client.get(f"/performance/contribution/results/{calculation_id}")
+        assert complete.status_code == 200
+        body = complete.json()
+        assert body["calculation_id"] == calculation_id
+        assert "ITD" in body["results_by_period"]
+    finally:
+        settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = original_threshold
+
+
+def test_contribution_async_result_not_found_and_failed(client, happy_path_payload, mocker):
+    original_threshold = settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT
+    settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = 0
+
+    mocker.patch("app.workers.compute_executor_worker.calculate_contribution", side_effect=RuntimeError("explode"))
+
+    try:
+        missing = client.get("/performance/contribution/results/00000000-0000-0000-0000-000000000000")
+        assert missing.status_code == 404
+
+        accepted = client.post("/performance/contribution", json=happy_path_payload)
+        assert accepted.status_code == 202
+        calculation_id = accepted.json()["calculation_id"]
+
+        assert drain_compute_queue() == 1
+
+        failed = client.get(f"/performance/contribution/results/{calculation_id}")
+        assert failed.status_code == 409
+        assert failed.json()["detail"] == "explode"
+    finally:
+        settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = original_threshold

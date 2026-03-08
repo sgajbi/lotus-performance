@@ -98,3 +98,11 @@ class ContributionResponse(BaseModel):
     meta: Meta
     diagnostics: Diagnostics
     audit: Audit
+
+
+class ContributionAcceptedResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    calculation_id: UUID
+    poll_path: str
+    result_path: str

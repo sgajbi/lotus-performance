@@ -2,8 +2,9 @@ from uuid import uuid4
 
 import pytest
 
+from app.models.contribution_requests import ContributionRequest
 from app.models.returns_series import ReturnsSeriesRequest
-from app.services import returns_series_service
+from app.services import contribution_service, returns_series_service
 from app.services.compute_job_store import ComputeJobStatus, ComputeJobStore
 from app.services.execution_registry import ExecutionRegistry
 from app.workers import compute_executor_worker
@@ -49,6 +50,68 @@ def test_compute_executor_worker_processes_pending_returns_series_job(tmp_path, 
     job_store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type="ReturnsSeries",
+        request_payload=request.model_dump(mode="json"),
+    )
+
+    assert compute_executor_worker.process_pending_jobs(limit=10) == 1
+
+    job = job_store.get_job(calculation_id)
+    assert job is not None
+    assert job.job_status == ComputeJobStatus.COMPLETE
+    assert job.response_payload is not None
+
+    execution = execution_store.get_execution(calculation_id)
+    assert execution is not None
+    assert execution.status.value == "complete"
+
+
+def test_compute_executor_worker_processes_pending_contribution_job(tmp_path, monkeypatch):
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    monkeypatch.setattr(compute_executor_worker, "execution_registry", execution_store)
+    monkeypatch.setattr(contribution_service, "execution_registry", execution_store)
+
+    job_store = ComputeJobStore(f"sqlite:///{tmp_path / 'jobs.db'}")
+    job_store.create_schema()
+    monkeypatch.setattr(compute_executor_worker, "compute_job_store", job_store)
+
+    calculation_id = uuid4()
+    request = ContributionRequest.model_validate(
+        {
+            "calculation_id": str(calculation_id),
+            "portfolio_id": "P1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [
+                    {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                    {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1030},
+                ],
+            },
+            "positions_data": [
+                {
+                    "position_id": "Stock_A",
+                    "valuation_points": [
+                        {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                        {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1030},
+                    ],
+                }
+            ],
+        }
+    )
+
+    execution_store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="Contribution",
+        portfolio_id="P1",
+        execution_mode="async",
+        requested_window={},
+    )
+    job_store.enqueue_job(
+        calculation_id=calculation_id,
+        analytics_type="Contribution",
         request_payload=request.model_dump(mode="json"),
     )
 
