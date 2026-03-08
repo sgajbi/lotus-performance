@@ -102,7 +102,7 @@ async def get_contribution_result(calculation_id: UUID) -> ContributionResponse 
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Async contribution result not found for the given calculation_id.",
         )
-    if job.job_status in {ComputeJobStatus.PENDING, ComputeJobStatus.RUNNING}:
+    if job.job_status in {ComputeJobStatus.PENDING, ComputeJobStatus.LEASED, ComputeJobStatus.RUNNING}:
         accepted = _accepted_response(calculation_id)
         return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=accepted.model_dump(mode="json"))
     if job.job_status == ComputeJobStatus.FAILED:

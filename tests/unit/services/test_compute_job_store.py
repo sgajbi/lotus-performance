@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
@@ -19,11 +20,16 @@ def test_compute_job_store_lifecycle(tmp_path):
     assert pending is not None
     assert pending.job_status == ComputeJobStatus.PENDING
 
-    store.mark_running(calculation_id)
+    leased = store.lease_pending_jobs(worker_id="worker-a", limit=10, lease_seconds=30)
+    assert len(leased) == 1
+    assert leased[0].job_status == ComputeJobStatus.LEASED
+
+    store.mark_running(calculation_id, worker_id="worker-a")
     running = store.get_job(calculation_id)
     assert running is not None
     assert running.job_status == ComputeJobStatus.RUNNING
     assert running.attempt_count == 1
+    assert running.worker_id == "worker-a"
 
     store.mark_complete(calculation_id, response_payload={"calculation_id": str(calculation_id)})
     complete = store.get_job(calculation_id)
@@ -41,17 +47,77 @@ def test_compute_job_store_failure_and_filters(tmp_path):
     store.enqueue_job(calculation_id=calc_one, analytics_type="ReturnsSeries", request_payload={"a": 1})
     store.enqueue_job(calculation_id=calc_two, analytics_type="OtherAnalytics", request_payload={"b": 2})
 
-    pending = store.list_pending_jobs(analytics_type="ReturnsSeries", limit=1)
-    assert len(pending) == 1
-    assert pending[0].calculation_id == calc_one
+    leased = store.lease_pending_jobs(worker_id="worker-a", analytics_type="ReturnsSeries", limit=1, lease_seconds=30)
+    assert len(leased) == 1
+    assert leased[0].calculation_id == calc_one
 
-    store.mark_failed(calc_one, error_message="boom")
+    store.mark_failed(calc_one, error_message="boom", error_type="RuntimeError")
     failed = store.get_job(calc_one)
     assert failed is not None
     assert failed.job_status == ComputeJobStatus.FAILED
     assert failed.error_message == "boom"
+    assert failed.error_type == "RuntimeError"
 
     store.clear_all_records()
     assert store.get_job(calc_one) is None
     with pytest.raises(KeyError):
-        store.mark_running(calc_one)
+        store.mark_running(calc_one, worker_id="worker-a")
+
+
+def test_compute_job_store_retry_and_expired_lease_reclaim(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+
+    store.enqueue_job(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        request_payload={"portfolio_id": "P1"},
+        max_attempts=2,
+    )
+
+    leased = store.lease_pending_jobs(worker_id="worker-a", limit=10, lease_seconds=30)
+    assert len(leased) == 1
+    store.mark_running(calculation_id, worker_id="worker-a")
+
+    will_retry = store.mark_retryable_failure(
+        calculation_id,
+        error_message="temporary boom",
+        error_type="RuntimeError",
+    )
+    assert will_retry is True
+    pending_again = store.get_job(calculation_id)
+    assert pending_again is not None
+    assert pending_again.job_status == ComputeJobStatus.PENDING
+    assert pending_again.attempt_count == 1
+    assert pending_again.completed_at_utc is None
+
+    leased_again = store.lease_pending_jobs(worker_id="worker-b", limit=10, lease_seconds=30)
+    assert len(leased_again) == 1
+    assert leased_again[0].worker_id == "worker-b"
+
+    store.mark_running(calculation_id, worker_id="worker-b")
+    will_retry = store.mark_retryable_failure(
+        calculation_id,
+        error_message="still broken",
+        error_type="RuntimeError",
+    )
+    assert will_retry is False
+    failed = store.get_job(calculation_id)
+    assert failed is not None
+    assert failed.job_status == ComputeJobStatus.FAILED
+    assert failed.attempt_count == 2
+
+    another_id = uuid4()
+    store.enqueue_job(
+        calculation_id=another_id,
+        analytics_type="ReturnsSeries",
+        request_payload={"portfolio_id": "P2"},
+    )
+    store.lease_pending_jobs(worker_id="worker-a", limit=10, lease_seconds=30)
+    with store._session() as session:
+        row = store._get_model(session, another_id)
+        row.lease_expires_at_utc = datetime.now(timezone.utc) - timedelta(seconds=1)
+    reclaimed = store.lease_pending_jobs(worker_id="worker-c", limit=10, lease_seconds=30)
+    assert len(reclaimed) == 1
+    assert reclaimed[0].calculation_id == another_id

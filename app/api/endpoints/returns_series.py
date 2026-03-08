@@ -125,7 +125,7 @@ async def get_returns_series_result(calculation_id: UUID) -> ReturnsSeriesRespon
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Async returns-series result not found for the given calculation_id.",
         )
-    if job.job_status in {ComputeJobStatus.PENDING, ComputeJobStatus.RUNNING}:
+    if job.job_status in {ComputeJobStatus.PENDING, ComputeJobStatus.LEASED, ComputeJobStatus.RUNNING}:
         accepted = _accepted_response(calculation_id)
         return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=accepted.model_dump(mode="json"))
     if job.job_status == ComputeJobStatus.FAILED:

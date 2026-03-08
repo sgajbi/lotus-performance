@@ -393,7 +393,9 @@ def test_attribution_async_result_retrieval(client):
 
 def test_attribution_async_result_not_found_and_failed(client, mocker):
     original_threshold = settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT
+    original_attempts = settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS
     settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = 0
+    settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS = 1
     payload = {
         "portfolio_id": "ATTRIB_ASYNC_FAIL_01",
         "mode": "by_group",
@@ -433,3 +435,4 @@ def test_attribution_async_result_not_found_and_failed(client, mocker):
         assert failed.json()["detail"] == "explode"
     finally:
         settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = original_threshold
+        settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS = original_attempts

@@ -4,6 +4,9 @@ import asyncio
 import logging
 import time
 
+from fastapi import HTTPException
+from pydantic import ValidationError
+
 from app.core.config import get_settings
 from app.models.attribution_requests import AttributionRequest
 from app.models.contribution_requests import ContributionRequest
@@ -14,6 +17,7 @@ from app.services.contribution_service import calculate_contribution
 from app.services.execution_registry import execution_registry
 from app.services.returns_series_service import calculate_returns_series
 from core.repro import generate_canonical_hash
+from engine.exceptions import EngineCalculationError, InvalidEngineInputError
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -21,10 +25,14 @@ settings = get_settings()
 
 def process_pending_jobs(*, limit: int | None = None) -> int:
     batch_size = limit or settings.COMPUTE_EXECUTOR_BATCH_SIZE
-    pending = compute_job_store.list_pending_jobs(limit=batch_size)
+    pending = compute_job_store.lease_pending_jobs(
+        worker_id=settings.COMPUTE_EXECUTOR_WORKER_ID,
+        limit=batch_size,
+        lease_seconds=settings.COMPUTE_EXECUTOR_LEASE_SECONDS,
+    )
     processed = 0
     for job in pending:
-        compute_job_store.mark_running(job.calculation_id)
+        compute_job_store.mark_running(job.calculation_id, worker_id=settings.COMPUTE_EXECUTOR_WORKER_ID)
         try:
             if job.analytics_type == "ReturnsSeries":
                 request = ReturnsSeriesRequest.model_validate(job.request_payload)
@@ -49,13 +57,41 @@ def process_pending_jobs(*, limit: int | None = None) -> int:
                 raise ValueError(f"Unsupported compute job analytics_type: {job.analytics_type}")
             compute_job_store.mark_complete(job.calculation_id, response_payload=response.model_dump(mode="json"))
         except Exception as exc:
-            compute_job_store.mark_failed(job.calculation_id, error_message=str(exc))
-            try:
-                execution_registry.mark_failed(job.calculation_id, str(exc))
-            except KeyError:
-                logger.exception("Execution record missing for compute job %s", job.calculation_id)
+            if _is_retryable_exception(exc):
+                will_retry = compute_job_store.mark_retryable_failure(
+                    job.calculation_id,
+                    error_message=str(exc),
+                    error_type=type(exc).__name__,
+                )
+                if will_retry:
+                    logger.warning("Retrying compute job %s after %s", job.calculation_id, type(exc).__name__)
+                else:
+                    try:
+                        execution_registry.mark_failed(job.calculation_id, str(exc))
+                    except KeyError:
+                        logger.exception("Execution record missing for compute job %s", job.calculation_id)
+            else:
+                compute_job_store.mark_failed(
+                    job.calculation_id,
+                    error_message=str(exc),
+                    error_type=type(exc).__name__,
+                )
+                try:
+                    execution_registry.mark_failed(job.calculation_id, str(exc))
+                except KeyError:
+                    logger.exception("Execution record missing for compute job %s", job.calculation_id)
         processed += 1
     return processed
+
+
+def _is_retryable_exception(exc: Exception) -> bool:
+    if isinstance(
+        exc, (ValidationError, InvalidEngineInputError, EngineCalculationError, ValueError, NotImplementedError)
+    ):
+        return False
+    if isinstance(exc, HTTPException):
+        return exc.status_code >= 500
+    return True
 
 
 def run_forever() -> None:
