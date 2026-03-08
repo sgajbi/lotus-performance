@@ -7,6 +7,8 @@ from app.models.returns_series import ReturnsSeriesRequest
 from app.services import contribution_service, returns_series_service
 from app.services.compute_job_store import ComputeJobStatus, ComputeJobStore
 from app.services.execution_registry import ExecutionRegistry
+from app.services.lineage_metadata_store import LineageMetadataStore
+from app.services.lineage_service import LineageService
 from app.workers import compute_executor_worker
 
 
@@ -70,6 +72,13 @@ def test_compute_executor_worker_processes_pending_contribution_job(tmp_path, mo
     execution_store.create_schema()
     monkeypatch.setattr(compute_executor_worker, "execution_registry", execution_store)
     monkeypatch.setattr(contribution_service, "execution_registry", execution_store)
+    lineage_store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    lineage_store.create_schema()
+    monkeypatch.setattr(
+        contribution_service,
+        "lineage_service",
+        LineageService(storage_path=str(tmp_path / "lineage"), metadata_store=lineage_store),
+    )
 
     job_store = ComputeJobStore(f"sqlite:///{tmp_path / 'jobs.db'}")
     job_store.create_schema()
