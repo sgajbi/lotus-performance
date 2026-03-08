@@ -1,0 +1,154 @@
+from __future__ import annotations
+
+import pandas as pd
+from fastapi import HTTPException, status
+
+from app.core.config import get_settings
+from app.models.attribution_requests import AttributionRequest
+from app.models.attribution_responses import AttributionResponse
+from app.services.execution_registry import execution_registry
+from app.services.lineage_service import lineage_service
+from core.envelope import Meta
+from core.periods import resolve_periods
+from engine.attribution import aggregate_attribution_results, run_attribution_calculations
+from engine.exceptions import EngineCalculationError, InvalidEngineInputError
+
+settings = get_settings()
+
+
+def _record_execution_failure(
+    *,
+    calculation_id,
+    message: str,
+    execution_stage_started: bool = False,
+    lineage_stage_started: bool = False,
+) -> None:
+    if lineage_stage_started:
+        execution_registry.fail_stage(calculation_id, "lineage_materialization", message)
+    elif execution_stage_started:
+        execution_registry.fail_stage(calculation_id, "execution", message)
+    execution_registry.mark_failed(calculation_id, message)
+
+
+def calculate_attribution(
+    request: AttributionRequest,
+    *,
+    input_fingerprint: str,
+    calculation_hash: str,
+) -> AttributionResponse:
+    execution_registry.mark_running(request.calculation_id)
+    execution_stage_started = False
+    lineage_stage_started = False
+
+    try:
+        execution_registry.start_stage(request.calculation_id, "execution")
+        execution_stage_started = True
+        periods_to_resolve = [analysis.period for analysis in request.analyses]
+        resolved_periods = resolve_periods(periods_to_resolve, request.report_end_date, request.report_start_date)
+
+        if not resolved_periods:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No valid periods could be resolved.")
+
+        master_start_date = min(p.start_date for p in resolved_periods)
+        master_end_date = max(p.end_date for p in resolved_periods)
+
+        master_request = request.model_copy(deep=True)
+        master_request.report_start_date = master_start_date
+        master_request.report_end_date = master_end_date
+
+        effects_df, lineage_data = run_attribution_calculations(master_request)
+
+        results_by_period = {}
+        for period in resolved_periods:
+            period_slice_df = effects_df[
+                (effects_df.index.get_level_values("date") >= pd.to_datetime(period.start_date))
+                & (effects_df.index.get_level_values("date") <= pd.to_datetime(period.end_date))
+            ].copy()
+
+            if period_slice_df.empty:
+                continue
+
+            period_result, aggregation_lineage = aggregate_attribution_results(period_slice_df, request)
+            if aggregation_lineage:
+                lineage_data.update({f"{period.name}_{key}": value for key, value in aggregation_lineage.items()})
+            results_by_period[period.name] = period_result
+
+        meta = Meta(
+            calculation_id=request.calculation_id,
+            engine_version=settings.APP_VERSION,
+            precision_mode=request.precision_mode,
+            annualization=request.annualization,
+            calendar=request.calendar,
+            periods={
+                "requested": [p.value for p in periods_to_resolve],
+                "master_start": str(master_start_date),
+                "master_end": str(master_end_date),
+            },
+            input_fingerprint=input_fingerprint,
+            calculation_hash=calculation_hash,
+        )
+
+        response_model = AttributionResponse(
+            calculation_id=request.calculation_id,
+            portfolio_id=request.portfolio_id,
+            model=request.model,
+            linking=request.linking,
+            results_by_period=results_by_period,
+            meta=meta,
+        )
+
+        execution_registry.complete_stage(
+            request.calculation_id,
+            "execution",
+            details={"period_count": len(results_by_period)},
+        )
+        execution_stage_started = False
+        execution_registry.start_stage(request.calculation_id, "lineage_materialization")
+        lineage_stage_started = True
+        lineage_service.enqueue_capture(
+            calculation_id=request.calculation_id,
+            calculation_type="Attribution",
+            request_model=request,
+            response_model=response_model,
+            calculation_details=lineage_data,
+        )
+        execution_registry.mark_complete(request.calculation_id)
+        return response_model
+    except (InvalidEngineInputError, ValueError, NotImplementedError) as exc:
+        _record_execution_failure(
+            calculation_id=request.calculation_id,
+            message=str(exc),
+            execution_stage_started=execution_stage_started,
+            lineage_stage_started=lineage_stage_started,
+        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except EngineCalculationError as exc:
+        _record_execution_failure(
+            calculation_id=request.calculation_id,
+            message=f"Calculation Error: {exc.message}",
+            execution_stage_started=execution_stage_started,
+            lineage_stage_started=lineage_stage_started,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Calculation Error: {exc.message}",
+        ) from exc
+    except HTTPException as exc:
+        _record_execution_failure(
+            calculation_id=request.calculation_id,
+            message=str(exc.detail),
+            execution_stage_started=execution_stage_started,
+            lineage_stage_started=lineage_stage_started,
+        )
+        raise
+    except Exception as exc:
+        _record_execution_failure(
+            calculation_id=request.calculation_id,
+            message=f"An unexpected server error occurred: {str(exc)}",
+            execution_stage_started=execution_stage_started,
+            lineage_stage_started=lineage_stage_started,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An unexpected server error occurred: {str(exc)}",
+        ) from exc

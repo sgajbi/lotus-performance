@@ -5,8 +5,10 @@ import logging
 import time
 
 from app.core.config import get_settings
+from app.models.attribution_requests import AttributionRequest
 from app.models.contribution_requests import ContributionRequest
 from app.models.returns_series import ReturnsSeriesRequest
+from app.services.attribution_service import calculate_attribution
 from app.services.compute_job_store import compute_job_store
 from app.services.contribution_service import calculate_contribution
 from app.services.execution_registry import execution_registry
@@ -27,6 +29,14 @@ def process_pending_jobs(*, limit: int | None = None) -> int:
             if job.analytics_type == "ReturnsSeries":
                 request = ReturnsSeriesRequest.model_validate(job.request_payload)
                 response = asyncio.run(calculate_returns_series(request))
+            elif job.analytics_type == "Attribution":
+                request = AttributionRequest.model_validate(job.request_payload)
+                input_fingerprint, calculation_hash = generate_canonical_hash(request, settings.APP_VERSION)
+                response = calculate_attribution(
+                    request,
+                    input_fingerprint=input_fingerprint,
+                    calculation_hash=calculation_hash,
+                )
             elif job.analytics_type == "Contribution":
                 request = ContributionRequest.model_validate(job.request_payload)
                 input_fingerprint, calculation_hash = generate_canonical_hash(request, settings.APP_VERSION)

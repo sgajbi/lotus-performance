@@ -244,3 +244,55 @@ def test_execution_api_tracks_async_contribution_job_state(client, happy_path_pa
         assert execution_body_after_worker["compute_job"]["job_status"] == "complete"
     finally:
         settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = original_threshold
+
+
+def test_execution_api_tracks_async_attribution_job_state(client):
+    original_threshold = settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT
+    settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = 0
+    payload = {
+        "portfolio_id": "ATTRIB_EXEC_01",
+        "mode": "by_group",
+        "group_by": ["sector"],
+        "linking": "none",
+        "frequency": "daily",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "portfolio_groups_data": [
+            {
+                "key": {"sector": "Tech"},
+                "observations": [{"date": "2025-01-01", "return_base": 0.015, "weight_bop": 1.0}],
+            }
+        ],
+        "benchmark_groups_data": [
+            {
+                "key": {"sector": "Tech"},
+                "observations": [{"date": "2025-01-01", "return_base": 0.01, "weight_bop": 1.0}],
+            }
+        ],
+    }
+
+    try:
+        response = client.post("/performance/attribution", json=payload)
+        assert response.status_code == 202
+        calculation_id = response.json()["calculation_id"]
+
+        execution_response = client.get(f"/performance/executions/{calculation_id}")
+        assert execution_response.status_code == 200
+        execution_body = execution_response.json()
+        assert execution_body["analytics_type"] == "Attribution"
+        assert execution_body["execution_mode"] == "async"
+        assert execution_body["status"] == "pending"
+        assert execution_body["compute_job"]["job_status"] == "pending"
+        submission_stage = {stage["stage_name"]: stage for stage in execution_body["stages"]}["submission"]
+        assert submission_stage["status"] == "complete"
+
+        assert drain_compute_queue() == 1
+
+        execution_after_worker = client.get(f"/performance/executions/{calculation_id}")
+        assert execution_after_worker.status_code == 200
+        execution_body_after_worker = execution_after_worker.json()
+        assert execution_body_after_worker["status"] == "complete"
+        assert execution_body_after_worker["compute_job"]["job_status"] == "complete"
+    finally:
+        settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = original_threshold

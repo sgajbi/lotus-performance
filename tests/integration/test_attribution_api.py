@@ -1,17 +1,41 @@
-# tests/integration/test_attribution_api.py
+import os
+import shutil
+
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.config import get_settings
+from app.services.compute_job_store import compute_job_store
+from app.services.execution_registry import execution_registry
+from app.services.lineage_metadata_store import lineage_metadata_store
 from core.periods import ResolvedPeriod
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
 from main import app
-from tests.conftest import drain_lineage_queue
+from tests.conftest import drain_compute_queue, drain_lineage_queue
+
+settings = get_settings()
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def client():
+    if os.path.exists(settings.LINEAGE_STORAGE_PATH):
+        shutil.rmtree(settings.LINEAGE_STORAGE_PATH)
+    os.makedirs(settings.LINEAGE_STORAGE_PATH, exist_ok=True)
+    execution_registry.create_schema()
+    execution_registry.clear_all_records()
+    compute_job_store.create_schema()
+    compute_job_store.clear_all_records()
+    lineage_metadata_store.create_schema()
+    lineage_metadata_store.clear_all_records()
+
     with TestClient(app) as c:
         yield c
+
+    if os.path.exists(settings.LINEAGE_STORAGE_PATH):
+        shutil.rmtree(settings.LINEAGE_STORAGE_PATH)
+    compute_job_store.clear_all_records()
+    execution_registry.clear_all_records()
+    lineage_metadata_store.clear_all_records()
 
 
 def test_attribution_endpoint_by_instrument_happy_path(client):
@@ -247,7 +271,7 @@ def test_attribution_endpoint_currency_attribution(client):
 )
 def test_attribution_endpoint_error_handling(client, mocker, error_class, expected_status):
     """Tests that the attribution endpoint correctly handles engine exceptions."""
-    mocker.patch("app.api.endpoints.performance.run_attribution_calculations", side_effect=error_class("Test Error"))
+    mocker.patch("app.services.attribution_service.run_attribution_calculations", side_effect=error_class("Test Error"))
     payload = {
         "portfolio_id": "ERROR",
         "mode": "by_group",
@@ -266,7 +290,7 @@ def test_attribution_endpoint_error_handling(client, mocker, error_class, expect
 
 def test_attribution_endpoint_returns_400_when_no_resolved_periods(client, mocker):
     """Tests explicit 400 path when period resolution yields no valid periods."""
-    mocker.patch("app.api.endpoints.performance.resolve_periods", return_value=[])
+    mocker.patch("app.services.attribution_service.resolve_periods", return_value=[])
     payload = {
         "portfolio_id": "ATTRIB_NO_PERIODS",
         "mode": "by_group",
@@ -286,7 +310,7 @@ def test_attribution_endpoint_returns_400_when_no_resolved_periods(client, mocke
 def test_attribution_endpoint_skips_empty_period_slice(client, mocker):
     """Tests empty-slice branch where a resolved period has no matching effect rows."""
     mocker.patch(
-        "app.api.endpoints.performance.resolve_periods",
+        "app.services.attribution_service.resolve_periods",
         return_value=[
             ResolvedPeriod(name="ITD", start_date="2025-01-01", end_date="2025-01-31"),
             ResolvedPeriod(name="MTD", start_date="2025-02-01", end_date="2025-02-28"),
@@ -322,3 +346,90 @@ def test_attribution_endpoint_skips_empty_period_slice(client, mocker):
     results = response.json()["results_by_period"]
     assert "ITD" in results
     assert "MTD" not in results
+
+
+def test_attribution_async_result_retrieval(client):
+    original_threshold = settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT
+    settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = 0
+    payload = {
+        "portfolio_id": "ATTRIB_ASYNC_01",
+        "mode": "by_group",
+        "group_by": ["sector"],
+        "linking": "none",
+        "frequency": "daily",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "portfolio_groups_data": [
+            {
+                "key": {"sector": "Tech"},
+                "observations": [{"date": "2025-01-01", "return_base": 0.015, "weight_bop": 1.0}],
+            }
+        ],
+        "benchmark_groups_data": [
+            {
+                "key": {"sector": "Tech"},
+                "observations": [{"date": "2025-01-01", "return_base": 0.01, "weight_bop": 1.0}],
+            }
+        ],
+    }
+
+    try:
+        accepted = client.post("/performance/attribution", json=payload)
+        assert accepted.status_code == 202
+        calculation_id = accepted.json()["calculation_id"]
+
+        pending = client.get(f"/performance/attribution/results/{calculation_id}")
+        assert pending.status_code == 202
+
+        assert drain_compute_queue() == 1
+
+        complete = client.get(f"/performance/attribution/results/{calculation_id}")
+        assert complete.status_code == 200
+        assert complete.json()["calculation_id"] == calculation_id
+    finally:
+        settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = original_threshold
+
+
+def test_attribution_async_result_not_found_and_failed(client, mocker):
+    original_threshold = settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT
+    settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = 0
+    payload = {
+        "portfolio_id": "ATTRIB_ASYNC_FAIL_01",
+        "mode": "by_group",
+        "group_by": ["sector"],
+        "linking": "none",
+        "frequency": "daily",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "portfolio_groups_data": [
+            {
+                "key": {"sector": "Tech"},
+                "observations": [{"date": "2025-01-01", "return_base": 0.015, "weight_bop": 1.0}],
+            }
+        ],
+        "benchmark_groups_data": [
+            {
+                "key": {"sector": "Tech"},
+                "observations": [{"date": "2025-01-01", "return_base": 0.01, "weight_bop": 1.0}],
+            }
+        ],
+    }
+    mocker.patch("app.workers.compute_executor_worker.calculate_attribution", side_effect=RuntimeError("explode"))
+
+    try:
+        missing = client.get("/performance/attribution/results/00000000-0000-0000-0000-000000000000")
+        assert missing.status_code == 404
+
+        accepted = client.post("/performance/attribution", json=payload)
+        assert accepted.status_code == 202
+        calculation_id = accepted.json()["calculation_id"]
+
+        assert drain_compute_queue() == 1
+
+        failed = client.get(f"/performance/attribution/results/{calculation_id}")
+        assert failed.status_code == 409
+        assert failed.json()["detail"] == "explode"
+    finally:
+        settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = original_threshold

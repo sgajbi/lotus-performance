@@ -1,6 +1,9 @@
 # app/api/endpoints/performance.py
+from uuid import UUID
+
 import pandas as pd
 from fastapi import APIRouter, HTTPException, status
+from fastapi.responses import JSONResponse
 
 from adapters.api_adapter import (
     create_engine_config,
@@ -9,7 +12,7 @@ from adapters.api_adapter import (
 )
 from app.core.config import get_settings
 from app.models.attribution_requests import AttributionRequest
-from app.models.attribution_responses import AttributionResponse
+from app.models.attribution_responses import AttributionAcceptedResponse, AttributionResponse
 from app.models.mwr_requests import MoneyWeightedReturnRequest
 from app.models.mwr_responses import MoneyWeightedReturnResponse
 from app.models.requests import PerformanceRequest
@@ -19,12 +22,13 @@ from app.models.responses import (
     ResetEvent,
     SinglePeriodPerformanceResult,
 )
+from app.services.attribution_service import calculate_attribution
+from app.services.compute_job_store import ComputeJobStatus, compute_job_store
 from app.services.execution_registry import execution_registry
 from app.services.lineage_service import lineage_service
 from core.envelope import Audit, Diagnostics, Meta
 from core.periods import resolve_periods
 from core.repro import generate_canonical_hash
-from engine.attribution import aggregate_attribution_results, run_attribution_calculations
 from engine.breakdown import generate_performance_breakdowns
 from engine.compute import run_calculations
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
@@ -417,136 +421,95 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnRequest):
 
 
 @router.post(
-    "/attribution", response_model=AttributionResponse, summary="Calculate Multi-Level Performance Attribution"
+    "/attribution",
+    response_model=AttributionResponse | AttributionAcceptedResponse,
+    summary="Calculate Multi-Level Performance Attribution",
 )
-async def calculate_attribution_endpoint(request: AttributionRequest):
+async def calculate_attribution_endpoint(request: AttributionRequest) -> AttributionResponse | JSONResponse:
     """
     Calculates multi-level, Brinson-style performance attribution, decomposing
     active return into allocation, selection, and interaction effects.
     """
     input_fingerprint, calculation_hash = generate_canonical_hash(request, settings.APP_VERSION)
+    execution_registry.create_schema()
+    compute_job_store.create_schema()
+    execution_mode = "async" if _should_offload_attribution(request) else "sync"
     execution_registry.create_execution(
         calculation_id=request.calculation_id,
         analytics_type="Attribution",
         portfolio_id=request.portfolio_id,
+        execution_mode=execution_mode,
         requested_window={
             "report_start_date": str(request.report_start_date),
             "report_end_date": str(request.report_end_date),
             "requested_periods": [analysis.period.value for analysis in request.analyses],
+            "input_count": _attribution_input_count(request),
+            "mode": request.mode.value,
+            "group_by": request.group_by,
         },
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
     )
-    execution_registry.mark_running(request.calculation_id)
-    execution_stage_started = False
-    lineage_stage_started = False
-
-    try:
-        execution_registry.start_stage(request.calculation_id, "execution")
-        execution_stage_started = True
-        periods_to_resolve = [analysis.period for analysis in request.analyses]
-        resolved_periods = resolve_periods(periods_to_resolve, request.report_end_date, request.report_start_date)
-
-        if not resolved_periods:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No valid periods could be resolved.")
-
-        master_start_date = min(p.start_date for p in resolved_periods)
-        master_end_date = max(p.end_date for p in resolved_periods)
-
-        master_request = request.model_copy(deep=True)
-        master_request.report_start_date = master_start_date
-        master_request.report_end_date = master_end_date
-
-        effects_df, lineage_data = run_attribution_calculations(master_request)
-
-        results_by_period = {}
-        for period in resolved_periods:
-            period_slice_df = effects_df[
-                (effects_df.index.get_level_values("date") >= pd.to_datetime(period.start_date))
-                & (effects_df.index.get_level_values("date") <= pd.to_datetime(period.end_date))
-            ].copy()
-
-            if period_slice_df.empty:
-                continue
-
-            period_result, aggregation_lineage = aggregate_attribution_results(period_slice_df, request)
-            if aggregation_lineage:
-                lineage_data.update({f"{period.name}_{k}": v for k, v in aggregation_lineage.items()})
-            results_by_period[period.name] = period_result
-
-        meta = Meta(
+    if execution_mode == "async":
+        execution_registry.start_stage(request.calculation_id, "submission")
+        compute_job_store.enqueue_job(
             calculation_id=request.calculation_id,
-            engine_version=settings.APP_VERSION,
-            precision_mode=request.precision_mode,
-            annualization=request.annualization,
-            calendar=request.calendar,
-            periods={
-                "requested": [p.value for p in periods_to_resolve],
-                "master_start": str(master_start_date),
-                "master_end": str(master_end_date),
-            },
-            input_fingerprint=input_fingerprint,
-            calculation_hash=calculation_hash,
+            analytics_type="Attribution",
+            request_payload=request.model_dump(mode="json"),
         )
-
-        response_model = AttributionResponse(
-            calculation_id=request.calculation_id,
-            portfolio_id=request.portfolio_id,
-            model=request.model,
-            linking=request.linking,
-            results_by_period=results_by_period,
-            meta=meta,
-        )
-
         execution_registry.complete_stage(
             request.calculation_id,
-            "execution",
-            details={"period_count": len(results_by_period)},
+            "submission",
+            details={"offload_reason": "large_attribution_input_set"},
         )
-        execution_stage_started = False
-        execution_registry.start_stage(request.calculation_id, "lineage_materialization")
-        lineage_stage_started = True
-        lineage_service.enqueue_capture(
-            calculation_id=request.calculation_id,
-            calculation_type="Attribution",
-            request_model=request,
-            response_model=response_model,
-            calculation_details=lineage_data,
-        )
-        execution_registry.mark_complete(request.calculation_id)
-        return response_model
-    except (InvalidEngineInputError, ValueError, NotImplementedError) as e:
-        _record_execution_failure(
-            calculation_id=request.calculation_id,
-            message=str(e),
-            execution_stage_started=execution_stage_started,
-            lineage_stage_started=lineage_stage_started,
-        )
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except EngineCalculationError as e:
-        _record_execution_failure(
-            calculation_id=request.calculation_id,
-            message=f"Calculation Error: {e.message}",
-            execution_stage_started=execution_stage_started,
-            lineage_stage_started=lineage_stage_started,
-        )
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Calculation Error: {e.message}")
-    except HTTPException:
-        _record_execution_failure(
-            calculation_id=request.calculation_id,
-            message="HTTPException raised during attribution execution.",
-            execution_stage_started=execution_stage_started,
-            lineage_stage_started=lineage_stage_started,
-        )
-        raise
-    except Exception as e:
-        _record_execution_failure(
-            calculation_id=request.calculation_id,
-            message=f"An unexpected server error occurred: {str(e)}",
-            execution_stage_started=execution_stage_started,
-            lineage_stage_started=lineage_stage_started,
-        )
+        accepted = _accepted_attribution_response(request.calculation_id)
+        return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=accepted.model_dump(mode="json"))
+
+    return calculate_attribution(
+        request,
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+    )
+
+
+def _attribution_input_count(request: AttributionRequest) -> int:
+    return (
+        len(request.instruments_data or [])
+        + len(request.portfolio_groups_data or [])
+        + len(request.benchmark_groups_data)
+    )
+
+
+def _should_offload_attribution(request: AttributionRequest) -> bool:
+    return _attribution_input_count(request) >= settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT
+
+
+def _accepted_attribution_response(calculation_id) -> AttributionAcceptedResponse:
+    return AttributionAcceptedResponse(
+        calculation_id=calculation_id,
+        poll_path=f"/performance/executions/{calculation_id}",
+        result_path=f"/performance/attribution/results/{calculation_id}",
+    )
+
+
+@router.get(
+    "/attribution/results/{calculation_id}",
+    response_model=AttributionResponse | AttributionAcceptedResponse,
+    summary="Retrieve async attribution result",
+)
+async def get_attribution_result(calculation_id: UUID) -> AttributionResponse | JSONResponse:
+    job = compute_job_store.get_job(calculation_id)
+    if job is None:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An unexpected server error occurred: {str(e)}",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Async attribution result not found for the given calculation_id.",
         )
+    if job.job_status in {ComputeJobStatus.PENDING, ComputeJobStatus.RUNNING}:
+        accepted = _accepted_attribution_response(calculation_id)
+        return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=accepted.model_dump(mode="json"))
+    if job.job_status == ComputeJobStatus.FAILED:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=job.error_message or "Async attribution execution failed.",
+        )
+    return AttributionResponse.model_validate(job.response_payload)
