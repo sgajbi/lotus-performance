@@ -261,6 +261,21 @@ class ExecutionRegistry:
             stage.completed_at_utc = now
             stage.error_message = error_message
 
+    def fail_in_progress_stages(self, calculation_id: UUID, error_message: str) -> None:
+        with self._session() as session:
+            self._get_execution_model(session, calculation_id)
+            statement = select(AnalyticsExecutionStageModel).where(
+                (AnalyticsExecutionStageModel.calculation_id == str(calculation_id))
+                & (AnalyticsExecutionStageModel.status == ExecutionStageStatus.IN_PROGRESS.value)
+            )
+            now = datetime.now(timezone.utc)
+            rows = session.execute(statement).scalars().all()
+            for stage in rows:
+                stage.status = ExecutionStageStatus.FAILED.value
+                stage.started_at_utc = stage.started_at_utc or now
+                stage.completed_at_utc = now
+                stage.error_message = error_message
+
     def get_execution(self, calculation_id: UUID) -> ExecutionRecord | None:
         with self._session() as session:
             statement = select(AnalyticsExecutionModel).where(

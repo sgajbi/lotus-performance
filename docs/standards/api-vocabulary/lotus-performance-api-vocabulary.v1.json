@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-03-08T06:13:20.228273+00:00",
+  "generatedAt": "2026-03-08T07:04:29.871458+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.amount",
@@ -112,6 +112,20 @@
       ],
       "observedTypes": [
         "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.async_result",
+      "canonicalTerm": "async_result",
+      "preferredName": "async_result",
+      "description": "execution response field: async result.",
+      "example": "example_async_result",
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
       ]
     },
     {
@@ -4671,6 +4685,14 @@
             "type": "object",
             "semanticId": "lotus.compute_job",
             "attributeRef": "#/attributeCatalog/lotus.compute_job"
+          },
+          {
+            "name": "async_result",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.async_result",
+            "attributeRef": "#/attributeCatalog/lotus.async_result"
           }
         ]
       }

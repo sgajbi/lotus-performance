@@ -11,6 +11,7 @@ from app.models.returns_series import (
     ReturnsSeriesRequest,
     ReturnsSeriesResponse,
 )
+from app.services.async_result_store import AsyncResultStatus, async_result_store
 from app.services.compute_job_store import ComputeJobStatus, compute_job_store
 from app.services.core_integration_service import CoreIntegrationService  # noqa: F401
 from app.services.execution_registry import execution_registry
@@ -83,6 +84,7 @@ async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResp
     input_fingerprint, calculation_hash = generate_canonical_hash(request, "returns-series-v1")
     execution_registry.create_schema()
     compute_job_store.create_schema()
+    async_result_store.create_schema()
     execution_mode = "async" if _should_offload_returns_series(request) else "sync"
     execution_registry.create_execution(
         calculation_id=request.calculation_id,
@@ -119,6 +121,14 @@ async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResp
     description="Returns the final returns-series payload for an async executor job, or a pending handle while execution is in progress.",
 )
 async def get_returns_series_result(calculation_id: UUID) -> ReturnsSeriesResponse | JSONResponse:
+    async_result = async_result_store.get_result(calculation_id)
+    if async_result is not None:
+        if async_result.result_status == AsyncResultStatus.FAILED:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=async_result.error_message or "Async returns-series execution failed.",
+            )
+        return ReturnsSeriesResponse.model_validate(async_result.response_payload)
     job = compute_job_store.get_job(calculation_id)
     if job is None:
         raise HTTPException(

@@ -22,6 +22,7 @@ from app.models.responses import (
     ResetEvent,
     SinglePeriodPerformanceResult,
 )
+from app.services.async_result_store import AsyncResultStatus, async_result_store
 from app.services.attribution_service import calculate_attribution
 from app.services.compute_job_store import ComputeJobStatus, compute_job_store
 from app.services.execution_registry import execution_registry
@@ -433,6 +434,7 @@ async def calculate_attribution_endpoint(request: AttributionRequest) -> Attribu
     input_fingerprint, calculation_hash = generate_canonical_hash(request, settings.APP_VERSION)
     execution_registry.create_schema()
     compute_job_store.create_schema()
+    async_result_store.create_schema()
     execution_mode = "async" if _should_offload_attribution(request) else "sync"
     execution_registry.create_execution(
         calculation_id=request.calculation_id,
@@ -498,6 +500,14 @@ def _accepted_attribution_response(calculation_id) -> AttributionAcceptedRespons
     summary="Retrieve async attribution result",
 )
 async def get_attribution_result(calculation_id: UUID) -> AttributionResponse | JSONResponse:
+    async_result = async_result_store.get_result(calculation_id)
+    if async_result is not None:
+        if async_result.result_status == AsyncResultStatus.FAILED:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=async_result.error_message or "Async attribution execution failed.",
+            )
+        return AttributionResponse.model_validate(async_result.response_payload)
     job = compute_job_store.get_job(calculation_id)
     if job is None:
         raise HTTPException(

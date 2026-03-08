@@ -121,3 +121,48 @@ def test_compute_job_store_retry_and_expired_lease_reclaim(tmp_path):
     reclaimed = store.lease_pending_jobs(worker_id="worker-c", limit=10, lease_seconds=30)
     assert len(reclaimed) == 1
     assert reclaimed[0].calculation_id == another_id
+
+
+def test_compute_job_store_reconciles_stale_running_job(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+
+    store.enqueue_job(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        request_payload={"portfolio_id": "P1"},
+        max_attempts=2,
+    )
+    store.lease_pending_jobs(worker_id="worker-a", limit=10, lease_seconds=30)
+    store.mark_running(calculation_id, worker_id="worker-a", lease_seconds=30)
+
+    with store._session() as session:
+        row = store._get_model(session, calculation_id)
+        row.lease_expires_at_utc = datetime.now(timezone.utc) - timedelta(seconds=1)
+
+    reconciled = store.reconcile_stale_jobs()
+    assert len(reconciled) == 1
+    assert reconciled[0].previous_status == ComputeJobStatus.RUNNING
+    assert reconciled[0].reconciled_status == ComputeJobStatus.PENDING
+
+    pending = store.get_job(calculation_id)
+    assert pending is not None
+    assert pending.job_status == ComputeJobStatus.PENDING
+    assert pending.error_type == "LeaseExpired"
+    assert pending.worker_id is None
+
+    store.lease_pending_jobs(worker_id="worker-b", limit=10, lease_seconds=30)
+    store.mark_running(calculation_id, worker_id="worker-b", lease_seconds=30)
+    with store._session() as session:
+        row = store._get_model(session, calculation_id)
+        row.lease_expires_at_utc = datetime.now(timezone.utc) - timedelta(seconds=1)
+
+    reconciled_again = store.reconcile_stale_jobs()
+    assert len(reconciled_again) == 1
+    assert reconciled_again[0].reconciled_status == ComputeJobStatus.FAILED
+
+    failed = store.get_job(calculation_id)
+    assert failed is not None
+    assert failed.job_status == ComputeJobStatus.FAILED
+    assert failed.error_message == "Compute job execution lease expired after exhausting retry budget."

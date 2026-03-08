@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
+from app.services.async_result_store import async_result_store
 from main import app
 from tests.conftest import drain_compute_queue
 
@@ -331,6 +332,63 @@ def test_returns_series_async_result_retrieval(monkeypatch):
             body = complete_result.json()
             assert body["calculation_id"] == calculation_id
             assert len(body["series"]["portfolio_returns"]) == 3
+    finally:
+        settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = original_threshold
+
+
+def test_returns_series_async_result_retrieval_uses_durable_store(monkeypatch):
+    original_threshold = settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS
+    settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = 0
+
+    async def _mock_get_portfolio_analytics_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2026-02-23",
+                "observations": [
+                    {"valuation_date": "2026-02-23", "beginning_market_value": "1000", "ending_market_value": "1010"},
+                    {"valuation_date": "2026-02-24", "beginning_market_value": "1010", "ending_market_value": "1015"},
+                    {
+                        "valuation_date": "2026-02-25",
+                        "beginning_market_value": "1015",
+                        "ending_market_value": "1012.46",
+                    },
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.returns_series_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
+        _mock_get_portfolio_analytics_timeseries,
+    )
+
+    payload = {
+        "portfolio_id": "DEMO_DPM_EUR_001",
+        "as_of_date": "2026-02-25",
+        "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-25"},
+        "frequency": "DAILY",
+        "metric_basis": "NET",
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    try:
+        with TestClient(app) as client:
+            accepted = client.post("/integration/returns/series", json=payload)
+            assert accepted.status_code == 202
+            calculation_id = accepted.json()["calculation_id"]
+
+            assert drain_compute_queue() == 1
+
+            from app.services.compute_job_store import compute_job_store
+
+            compute_job_store.clear_all_records()
+            result = async_result_store.get_result(UUID(calculation_id))
+            assert result is not None
+
+            complete_result = client.get(f"/integration/returns/series/results/{calculation_id}")
+            assert complete_result.status_code == 200
+            assert complete_result.json()["calculation_id"] == calculation_id
     finally:
         settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = original_threshold
 

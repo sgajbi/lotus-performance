@@ -67,6 +67,18 @@ class ComputeJobRecord:
     completed_at_utc: str | None
 
 
+@dataclass(frozen=True)
+class ReconciledJobRecord:
+    calculation_id: UUID
+    analytics_type: str
+    previous_status: ComputeJobStatus
+    reconciled_status: ComputeJobStatus
+    attempt_count: int
+    max_attempts: int
+    error_message: str
+    error_type: str
+
+
 def _format_timestamp(value: datetime | None) -> str | None:
     if value is None:
         return None
@@ -172,7 +184,7 @@ class ComputeJobStore:
                 leased.append(self._to_record(row))
             return leased
 
-    def mark_running(self, calculation_id: UUID, *, worker_id: str | None = None) -> None:
+    def mark_running(self, calculation_id: UUID, *, worker_id: str | None = None, lease_seconds: int | None = None) -> None:
         with self._session() as session:
             row = self._get_model(session, calculation_id)
             if row.job_status == ComputeJobStatus.FAILED.value:
@@ -185,7 +197,12 @@ class ComputeJobStore:
             row.attempt_count += 1
             row.error_message = None
             row.error_type = None
-            row.started_at_utc = row.started_at_utc or datetime.now(timezone.utc)
+            now = datetime.now(timezone.utc)
+            row.started_at_utc = row.started_at_utc or now
+            row.leased_at_utc = now
+            row.lease_expires_at_utc = (
+                now + timedelta(seconds=lease_seconds) if lease_seconds is not None else row.lease_expires_at_utc
+            )
             row.completed_at_utc = None
 
     def mark_complete(self, calculation_id: UUID, *, response_payload: dict[str, Any]) -> None:
@@ -242,6 +259,47 @@ class ComputeJobStore:
             row.job_status = ComputeJobStatus.FAILED.value
             row.completed_at_utc = now
             return False
+
+    def reconcile_stale_jobs(self, *, now: datetime | None = None) -> list[ReconciledJobRecord]:
+        reconcile_now = now or datetime.now(timezone.utc)
+        reconciled: list[ReconciledJobRecord] = []
+        with self._session() as session:
+            statement = select(ComputeJobModel).where(
+                (ComputeJobModel.job_status.in_([ComputeJobStatus.LEASED.value, ComputeJobStatus.RUNNING.value]))
+                & (ComputeJobModel.lease_expires_at_utc.is_not(None))
+                & (ComputeJobModel.lease_expires_at_utc < reconcile_now)
+            )
+            rows = session.execute(statement).scalars().all()
+            for row in rows:
+                previous_status = ComputeJobStatus(row.job_status)
+                exhausted_retries = previous_status == ComputeJobStatus.RUNNING and row.attempt_count >= row.max_attempts
+                row.worker_id = None
+                row.leased_at_utc = None
+                row.lease_expires_at_utc = None
+                row.last_error_at_utc = reconcile_now
+                row.error_message = (
+                    "Compute job reconciliation detected an expired worker lease."
+                    if not exhausted_retries
+                    else "Compute job execution lease expired after exhausting retry budget."
+                )
+                row.error_type = "LeaseExpired"
+                row.completed_at_utc = reconcile_now if exhausted_retries else None
+                row.job_status = (
+                    ComputeJobStatus.FAILED.value if exhausted_retries else ComputeJobStatus.PENDING.value
+                )
+                reconciled.append(
+                    ReconciledJobRecord(
+                        calculation_id=UUID(row.calculation_id),
+                        analytics_type=row.analytics_type,
+                        previous_status=previous_status,
+                        reconciled_status=ComputeJobStatus(row.job_status),
+                        attempt_count=row.attempt_count,
+                        max_attempts=row.max_attempts,
+                        error_message=row.error_message,
+                        error_type=row.error_type or "LeaseExpired",
+                    )
+                )
+        return reconciled
 
     def get_job(self, calculation_id: UUID) -> ComputeJobRecord | None:
         with self._session() as session:
