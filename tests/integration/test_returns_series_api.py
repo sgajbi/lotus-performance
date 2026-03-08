@@ -178,8 +178,12 @@ def test_returns_series_stateful_fetches_benchmark_and_risk_free(monkeypatch):
 
 
 def test_returns_series_stateful_long_window_uses_chunked_portfolio_retrieval(monkeypatch):
-    original_chunk_days = __import__("app.api.endpoints.returns_series", fromlist=["settings"]).settings.STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS
-    __import__("app.api.endpoints.returns_series", fromlist=["settings"]).settings.STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS = 2
+    original_chunk_days = __import__(
+        "app.api.endpoints.returns_series", fromlist=["settings"]
+    ).settings.STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS
+    __import__(
+        "app.api.endpoints.returns_series", fromlist=["settings"]
+    ).settings.STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS = 2
     calls: list[tuple[str, str]] = []
 
     async def _mock_get_portfolio_analytics_timeseries(self, **kwargs):  # noqa: ARG001
@@ -222,7 +226,9 @@ def test_returns_series_stateful_long_window_uses_chunked_portfolio_retrieval(mo
         with TestClient(app) as client:
             response = client.post("/integration/returns/series", json=payload)
     finally:
-        __import__("app.api.endpoints.returns_series", fromlist=["settings"]).settings.STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS = original_chunk_days
+        __import__(
+            "app.api.endpoints.returns_series", fromlist=["settings"]
+        ).settings.STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS = original_chunk_days
 
     assert response.status_code == 200
     assert calls == [

@@ -17,7 +17,6 @@ class _CoreServiceStub:
         self.portfolio_calls.append(kwargs)
         page_token = kwargs.get("page_token")
         start_date = kwargs["start_date"]
-        end_date = kwargs["end_date"]
         if start_date == date(2026, 1, 1) and page_token is None:
             return (
                 200,
@@ -44,7 +43,7 @@ class _CoreServiceStub:
                             "beginning_market_value": "101",
                             "ending_market_value": "102",
                         }
-                    ]
+                    ],
                 },
             )
         return (
