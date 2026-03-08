@@ -12,6 +12,7 @@ from starlette.responses import JSONResponse
 
 from app.api.endpoints import (
     contribution,
+    executions,
     health,
     integration_capabilities,
     lineage,
@@ -24,6 +25,7 @@ from app.core.handlers import performance_calculator_exception_handler
 from app.enterprise_readiness import build_enterprise_audit_middleware, validate_enterprise_runtime_config
 from app.observability import setup_observability
 from app.openapi_enrichment import enrich_openapi_schema
+from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import lineage_metadata_store
 
 
@@ -84,6 +86,7 @@ settings = get_settings()
 @asynccontextmanager
 async def _app_lifespan(application: FastAPI) -> AsyncIterator[None]:
     application.state.is_draining = False
+    execution_registry.create_schema()
     lineage_metadata_store.create_schema()
     yield
     application.state.is_draining = True
@@ -140,6 +143,7 @@ app.add_exception_handler(PerformanceCalculatorError, performance_calculator_exc
 # Add a prefix to group performance-related endpoints
 app.include_router(performance.router, prefix="/performance")
 app.include_router(contribution.router, prefix="/performance")
+app.include_router(executions.router, prefix="/performance")
 app.include_router(lineage.router, prefix="/performance")
 app.include_router(integration_capabilities.router, prefix="/integration")
 app.include_router(returns_series.router, prefix="/integration")

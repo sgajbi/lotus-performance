@@ -9,6 +9,7 @@ from app.models.contribution_responses import (
     PositionContribution,
     SinglePeriodContributionResult,
 )
+from app.services.execution_registry import execution_registry
 from app.services.lineage_service import lineage_service
 from core.envelope import Audit, Diagnostics, Meta
 from core.periods import resolve_periods
@@ -38,6 +39,20 @@ async def calculate_contribution_endpoint(request: ContributionRequest):
     for one or more requested periods.
     """
     input_fingerprint, calculation_hash = generate_canonical_hash(request, settings.APP_VERSION)
+    execution_registry.create_execution(
+        calculation_id=request.calculation_id,
+        analytics_type="Contribution",
+        portfolio_id=request.portfolio_id,
+        requested_window={
+            "report_start_date": str(request.report_start_date),
+            "report_end_date": str(request.report_end_date),
+            "requested_periods": [analysis.period.value for analysis in request.analyses],
+        },
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+    )
+    execution_registry.mark_running(request.calculation_id)
+    execution_registry.start_stage(request.calculation_id, "execution")
 
     periods_to_resolve = [analysis.period for analysis in request.analyses]
     inception_date = (
@@ -131,6 +146,10 @@ async def calculate_contribution_endpoint(request: ContributionRequest):
                 )
 
     except Exception as e:
+        execution_registry.fail_stage(request.calculation_id, "execution", str(e))
+        execution_registry.mark_failed(
+            request.calculation_id, f"An unexpected error occurred during contribution calculation: {str(e)}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An unexpected error occurred during contribution calculation: {str(e)}",
@@ -163,6 +182,12 @@ async def calculate_contribution_endpoint(request: ContributionRequest):
         audit=audit,
     )
 
+    execution_registry.complete_stage(
+        request.calculation_id,
+        "execution",
+        details={"input_positions": len(request.positions_data)},
+    )
+    execution_registry.start_stage(request.calculation_id, "lineage_materialization")
     lineage_service.enqueue_capture(
         calculation_id=request.calculation_id,
         calculation_type="Contribution",
@@ -173,5 +198,6 @@ async def calculate_contribution_endpoint(request: ContributionRequest):
             "daily_contributions.csv": daily_contributions_df,
         },
     )
+    execution_registry.mark_complete(request.calculation_id)
 
     return response_model

@@ -19,6 +19,7 @@ from app.models.responses import (
     ResetEvent,
     SinglePeriodPerformanceResult,
 )
+from app.services.execution_registry import execution_registry
 from app.services.lineage_service import lineage_service
 from core.envelope import Audit, Diagnostics, Meta
 from core.periods import resolve_periods
@@ -32,6 +33,20 @@ from engine.schema import PortfolioColumns
 
 router = APIRouter(tags=["Performance"])
 settings = get_settings()
+
+
+def _record_execution_failure(
+    *,
+    calculation_id,
+    message: str,
+    execution_stage_started: bool = False,
+    lineage_stage_started: bool = False,
+) -> None:
+    if lineage_stage_started:
+        execution_registry.fail_stage(calculation_id, "lineage_materialization", message)
+    elif execution_stage_started:
+        execution_registry.fail_stage(calculation_id, "execution", message)
+    execution_registry.mark_failed(calculation_id, message)
 
 
 def _as_numeric(value: object, default=0):
@@ -127,8 +142,25 @@ async def calculate_twr_endpoint(request: PerformanceRequest):
     and provides performance breakdowns by requested frequencies.
     """
     input_fingerprint, calculation_hash = generate_canonical_hash(request, settings.APP_VERSION)
+    execution_registry.create_execution(
+        calculation_id=request.calculation_id,
+        analytics_type="TWR",
+        portfolio_id=request.portfolio_id,
+        requested_window={
+            "report_start_date": str(request.report_start_date) if request.report_start_date else None,
+            "report_end_date": str(request.report_end_date),
+            "requested_periods": [analysis.period.value for analysis in request.analyses],
+        },
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+    )
+    execution_registry.mark_running(request.calculation_id)
+    execution_stage_started = False
+    lineage_stage_started = False
 
     try:
+        execution_registry.start_stage(request.calculation_id, "execution")
+        execution_stage_started = True
         periods_to_resolve = [analysis.period for analysis in request.analyses]
         freqs_by_period = {analysis.period.value: analysis.frequencies for analysis in request.analyses}
 
@@ -186,12 +218,36 @@ async def calculate_twr_endpoint(request: PerformanceRequest):
             results_by_period[period.name] = period_result
 
     except InvalidEngineInputError as e:
+        _record_execution_failure(
+            calculation_id=request.calculation_id,
+            message=f"Invalid Input: {e.message}",
+            execution_stage_started=execution_stage_started,
+            lineage_stage_started=lineage_stage_started,
+        )
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid Input: {e.message}")
     except EngineCalculationError as e:
+        _record_execution_failure(
+            calculation_id=request.calculation_id,
+            message=f"Calculation Error: {e.message}",
+            execution_stage_started=execution_stage_started,
+            lineage_stage_started=lineage_stage_started,
+        )
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Calculation Error: {e.message}")
     except HTTPException:
+        _record_execution_failure(
+            calculation_id=request.calculation_id,
+            message="HTTPException raised during TWR execution.",
+            execution_stage_started=execution_stage_started,
+            lineage_stage_started=lineage_stage_started,
+        )
         raise
     except Exception as e:
+        _record_execution_failure(
+            calculation_id=request.calculation_id,
+            message=f"An unexpected server error occurred: {str(e)}",
+            execution_stage_started=execution_stage_started,
+            lineage_stage_started=lineage_stage_started,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An unexpected server error occurred: {str(e)}",
@@ -231,6 +287,14 @@ async def calculate_twr_endpoint(request: PerformanceRequest):
         audit=audit,
     )
 
+    execution_registry.complete_stage(
+        request.calculation_id,
+        "execution",
+        details={"input_rows": len(request.valuation_points), "output_rows": len(daily_results_df)},
+    )
+    execution_stage_started = False
+    execution_registry.start_stage(request.calculation_id, "lineage_materialization")
+    lineage_stage_started = True
     lineage_service.enqueue_capture(
         calculation_id=request.calculation_id,
         calculation_type="TWR",
@@ -238,6 +302,7 @@ async def calculate_twr_endpoint(request: PerformanceRequest):
         response_model=response_model,
         calculation_details={"twr_calculation_details.csv": daily_results_df},
     )
+    execution_registry.mark_complete(request.calculation_id)
 
     return response_model
 
@@ -246,8 +311,21 @@ async def calculate_twr_endpoint(request: PerformanceRequest):
 async def calculate_mwr_endpoint(request: MoneyWeightedReturnRequest):
     """Calculates the money-weighted return (MWR) for a portfolio over a given period."""
     input_fingerprint, calculation_hash = generate_canonical_hash(request, settings.APP_VERSION)
+    execution_registry.create_execution(
+        calculation_id=request.calculation_id,
+        analytics_type="MWR",
+        portfolio_id=request.portfolio_id,
+        requested_window={"as_of": str(request.as_of)},
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+    )
+    execution_registry.mark_running(request.calculation_id)
+    execution_stage_started = False
+    lineage_stage_started = False
 
     try:
+        execution_registry.start_stage(request.calculation_id, "execution")
+        execution_stage_started = True
         mwr_result = calculate_money_weighted_return(
             begin_mv=request.begin_mv,
             end_mv=request.end_mv,
@@ -257,8 +335,20 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnRequest):
             as_of=request.as_of,
         )
     except HTTPException:
+        _record_execution_failure(
+            calculation_id=request.calculation_id,
+            message="HTTPException raised during MWR execution.",
+            execution_stage_started=execution_stage_started,
+            lineage_stage_started=lineage_stage_started,
+        )
         raise
     except Exception as e:
+        _record_execution_failure(
+            calculation_id=request.calculation_id,
+            message=f"An unexpected error occurred during MWR calculation: {str(e)}",
+            execution_stage_started=execution_stage_started,
+            lineage_stage_started=lineage_stage_started,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An unexpected error occurred during MWR calculation: {str(e)}",
@@ -306,6 +396,14 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnRequest):
     lineage_df_data.append({"date": str(request.as_of), "type": "end_mv", "amount": request.end_mv})
     lineage_df = pd.DataFrame(lineage_df_data)
 
+    execution_registry.complete_stage(
+        request.calculation_id,
+        "execution",
+        details={"cashflows": len(request.cash_flows)},
+    )
+    execution_stage_started = False
+    execution_registry.start_stage(request.calculation_id, "lineage_materialization")
+    lineage_stage_started = True
     lineage_service.enqueue_capture(
         calculation_id=request.calculation_id,
         calculation_type="MWR",
@@ -313,6 +411,7 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnRequest):
         response_model=response_model,
         calculation_details={"mwr_cashflow_schedule.csv": lineage_df},
     )
+    execution_registry.mark_complete(request.calculation_id)
 
     return response_model
 
@@ -326,8 +425,25 @@ async def calculate_attribution_endpoint(request: AttributionRequest):
     active return into allocation, selection, and interaction effects.
     """
     input_fingerprint, calculation_hash = generate_canonical_hash(request, settings.APP_VERSION)
+    execution_registry.create_execution(
+        calculation_id=request.calculation_id,
+        analytics_type="Attribution",
+        portfolio_id=request.portfolio_id,
+        requested_window={
+            "report_start_date": str(request.report_start_date),
+            "report_end_date": str(request.report_end_date),
+            "requested_periods": [analysis.period.value for analysis in request.analyses],
+        },
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+    )
+    execution_registry.mark_running(request.calculation_id)
+    execution_stage_started = False
+    lineage_stage_started = False
 
     try:
+        execution_registry.start_stage(request.calculation_id, "execution")
+        execution_stage_started = True
         periods_to_resolve = [analysis.period for analysis in request.analyses]
         resolved_periods = resolve_periods(periods_to_resolve, request.report_end_date, request.report_start_date)
 
@@ -382,6 +498,14 @@ async def calculate_attribution_endpoint(request: AttributionRequest):
             meta=meta,
         )
 
+        execution_registry.complete_stage(
+            request.calculation_id,
+            "execution",
+            details={"period_count": len(results_by_period)},
+        )
+        execution_stage_started = False
+        execution_registry.start_stage(request.calculation_id, "lineage_materialization")
+        lineage_stage_started = True
         lineage_service.enqueue_capture(
             calculation_id=request.calculation_id,
             calculation_type="Attribution",
@@ -389,14 +513,39 @@ async def calculate_attribution_endpoint(request: AttributionRequest):
             response_model=response_model,
             calculation_details=lineage_data,
         )
+        execution_registry.mark_complete(request.calculation_id)
         return response_model
     except (InvalidEngineInputError, ValueError, NotImplementedError) as e:
+        _record_execution_failure(
+            calculation_id=request.calculation_id,
+            message=str(e),
+            execution_stage_started=execution_stage_started,
+            lineage_stage_started=lineage_stage_started,
+        )
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except EngineCalculationError as e:
+        _record_execution_failure(
+            calculation_id=request.calculation_id,
+            message=f"Calculation Error: {e.message}",
+            execution_stage_started=execution_stage_started,
+            lineage_stage_started=lineage_stage_started,
+        )
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Calculation Error: {e.message}")
     except HTTPException:
+        _record_execution_failure(
+            calculation_id=request.calculation_id,
+            message="HTTPException raised during attribution execution.",
+            execution_stage_started=execution_stage_started,
+            lineage_stage_started=lineage_stage_started,
+        )
         raise
     except Exception as e:
+        _record_execution_failure(
+            calculation_id=request.calculation_id,
+            message=f"An unexpected server error occurred: {str(e)}",
+            execution_stage_started=execution_stage_started,
+            lineage_stage_started=lineage_stage_started,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An unexpected server error occurred: {str(e)}",
