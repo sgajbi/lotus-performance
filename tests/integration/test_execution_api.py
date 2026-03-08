@@ -71,3 +71,78 @@ def test_execution_api_returns_404_for_missing_calculation(client):
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Execution data not found for the given calculation_id."
+
+
+def test_execution_api_tracks_returns_series_stateful_stages(client, monkeypatch):
+    async def _mock_get_portfolio_analytics_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2026-02-23",
+                "observations": [
+                    {"valuation_date": "2026-02-23", "beginning_market_value": "1000", "ending_market_value": "1010"},
+                    {"valuation_date": "2026-02-24", "beginning_market_value": "1010", "ending_market_value": "1015"},
+                    {
+                        "valuation_date": "2026-02-25",
+                        "beginning_market_value": "1015",
+                        "ending_market_value": "1012.46",
+                    },
+                ],
+            },
+        )
+
+    async def _mock_get_benchmark_assignment(self, **kwargs):  # noqa: ARG001
+        return 200, {"benchmark_id": "BMK_GLOBAL_1"}
+
+    async def _mock_get_benchmark_return_series(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "points": [
+                    {"series_date": "2026-02-23", "benchmark_return": "0.0010"},
+                    {"series_date": "2026-02-24", "benchmark_return": "0.0012"},
+                    {"series_date": "2026-02-25", "benchmark_return": "-0.0004"},
+                ]
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.api.endpoints.returns_series.CoreIntegrationService.get_portfolio_analytics_timeseries",
+        _mock_get_portfolio_analytics_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.api.endpoints.returns_series.CoreIntegrationService.get_benchmark_assignment",
+        _mock_get_benchmark_assignment,
+    )
+    monkeypatch.setattr(
+        "app.api.endpoints.returns_series.CoreIntegrationService.get_benchmark_return_series",
+        _mock_get_benchmark_return_series,
+    )
+
+    payload = {
+        "portfolio_id": "DEMO_DPM_EUR_001",
+        "as_of_date": "2026-02-25",
+        "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-25"},
+        "frequency": "DAILY",
+        "metric_basis": "NET",
+        "series_selection": {"include_portfolio": True, "include_benchmark": True},
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    response = client.post("/integration/returns/series", json=payload)
+
+    assert response.status_code == 200
+    calculation_id = response.json()["calculation_id"]
+    execution_response = client.get(f"/performance/executions/{calculation_id}")
+
+    assert execution_response.status_code == 200
+    execution_body = execution_response.json()
+    assert execution_body["analytics_type"] == "ReturnsSeries"
+    assert execution_body["status"] == "complete"
+    stages = {stage["stage_name"]: stage for stage in execution_body["stages"]}
+    assert stages["retrieval"]["status"] == "complete"
+    assert stages["normalization"]["status"] == "complete"
+    assert stages["execution"]["status"] == "complete"
+    assert stages["retrieval"]["details"]["portfolio_observations"] == 3
+    assert stages["normalization"]["details"]["benchmark_points"] == 3
