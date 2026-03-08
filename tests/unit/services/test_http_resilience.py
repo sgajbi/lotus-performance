@@ -3,7 +3,7 @@ import json as jsonlib
 import httpx
 import pytest
 
-from app.services.http_resilience import post_with_retry
+from app.services.http_resilience import post_with_retry, response_payload
 
 
 class _FlakyAsyncClient:
@@ -91,3 +91,16 @@ async def test_post_with_retry_returns_exhausted_retries_for_invalid_retry_confi
     )
     assert status == 503
     assert payload["detail"] == "upstream communication failure: exhausted retries"
+
+
+def test_response_payload_wraps_non_json_and_non_dict_payloads():
+    text_response = httpx.Response(502, text="bad gateway", request=httpx.Request("POST", "http://test"))
+    assert response_payload(text_response) == {"detail": "bad gateway"}
+
+    list_response = httpx.Response(
+        200,
+        content=jsonlib.dumps(["a", "b"]).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        request=httpx.Request("POST", "http://test"),
+    )
+    assert response_payload(list_response) == {"detail": ["a", "b"]}
