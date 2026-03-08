@@ -356,6 +356,7 @@ async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResp
                 end_date=resolved_window.end_date,
                 reporting_currency=request.reporting_currency,
                 consumer_system=stateful_input.consumer_system,
+                calculation_id=request.calculation_id,
             )
             if upstream_status >= status.HTTP_400_BAD_REQUEST:
                 raise HTTPException(
@@ -420,6 +421,7 @@ async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResp
                     start_date=resolved_window.start_date,
                     end_date=resolved_window.end_date,
                     frequency=_core_frequency_label(request.frequency),
+                    calculation_id=request.calculation_id,
                 )
                 if benchmark_status == status.HTTP_404_NOT_FOUND:
                     raise HTTPException(
@@ -464,6 +466,7 @@ async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResp
                     end_date=resolved_window.end_date,
                     frequency=_core_frequency_label(request.frequency),
                     series_mode="return_series",
+                    calculation_id=request.calculation_id,
                 )
                 if risk_free_status == status.HTTP_404_NOT_FOUND:
                     raise HTTPException(

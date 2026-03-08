@@ -34,6 +34,7 @@ class ExecutionResponse(BaseModel):
     started_at_utc: str | None
     completed_at_utc: str | None
     stages: list[ExecutionStageResponse]
+    upstream_snapshots: list[dict[str, Any]]
 
 
 @router.get(
@@ -73,5 +74,19 @@ async def get_execution(calculation_id: UUID) -> ExecutionResponse:
                 error_message=stage.error_message,
             )
             for stage in record.stages
+        ],
+        upstream_snapshots=[
+            {
+                "snapshot_id": snapshot.snapshot_id,
+                "upstream_endpoint": snapshot.upstream_endpoint,
+                "source_identifier": snapshot.source_identifier,
+                "as_of_date": snapshot.as_of_date,
+                "request_fingerprint": snapshot.request_fingerprint,
+                "response_fingerprint": snapshot.response_fingerprint,
+                "retrieval_status": snapshot.retrieval_status,
+                "paging_metadata": snapshot.paging_metadata,
+                "created_at_utc": snapshot.created_at_utc,
+            }
+            for snapshot in record.upstream_snapshots
         ],
     )

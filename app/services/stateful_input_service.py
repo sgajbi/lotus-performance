@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any, Awaitable, Callable
+from uuid import UUID
 
 from app.services.core_integration_service import CoreIntegrationService
+from app.services.execution_registry import ExecutionRegistry, execution_registry
 
 
 @dataclass(frozen=True)
@@ -19,11 +23,13 @@ class StatefulInputService:
         self,
         *,
         core_service: CoreIntegrationService,
+        execution_store: ExecutionRegistry | None = None,
         portfolio_chunk_days: int = 90,
         reference_chunk_days: int = 365,
         max_concurrent_chunks: int = 4,
     ) -> None:
         self._core_service = core_service
+        self._execution_store = execution_store or execution_registry
         self._portfolio_chunk_days = max(1, portfolio_chunk_days)
         self._reference_chunk_days = max(1, reference_chunk_days)
         self._max_concurrent_chunks = max(1, max_concurrent_chunks)
@@ -47,6 +53,7 @@ class StatefulInputService:
         end_date: date,
         reporting_currency: str | None,
         consumer_system: str,
+        calculation_id: UUID | None = None,
     ) -> tuple[int, dict[str, Any]]:
         chunks = self.plan_chunks(
             start_date=start_date,
@@ -61,6 +68,7 @@ class StatefulInputService:
                 chunk=chunk,
                 reporting_currency=reporting_currency,
                 consumer_system=consumer_system,
+                calculation_id=calculation_id,
             ),
         )
         failure = self._first_failure(responses)
@@ -107,6 +115,7 @@ class StatefulInputService:
         start_date: date,
         end_date: date,
         frequency: str = "daily",
+        calculation_id: UUID | None = None,
     ) -> tuple[int, dict[str, Any]]:
         chunks = self.plan_chunks(
             start_date=start_date,
@@ -123,6 +132,21 @@ class StatefulInputService:
                 frequency=frequency,
             ),
         )
+        if calculation_id is not None:
+            for chunk, response in zip(chunks, responses):
+                self._record_snapshot(
+                    calculation_id=calculation_id,
+                    upstream_endpoint="benchmark_return_series",
+                    source_identifier=benchmark_id,
+                    as_of_date=as_of_date,
+                    request_payload={
+                        "benchmark_id": benchmark_id,
+                        "start_date": str(chunk.start_date),
+                        "end_date": str(chunk.end_date),
+                        "frequency": frequency,
+                    },
+                    response=response,
+                )
         failure = self._first_failure(responses)
         if failure is not None:
             return failure
@@ -147,6 +171,7 @@ class StatefulInputService:
         end_date: date,
         frequency: str = "daily",
         series_mode: str = "return_series",
+        calculation_id: UUID | None = None,
     ) -> tuple[int, dict[str, Any]]:
         chunks = self.plan_chunks(
             start_date=start_date,
@@ -164,6 +189,22 @@ class StatefulInputService:
                 series_mode=series_mode,
             ),
         )
+        if calculation_id is not None:
+            for chunk, response in zip(chunks, responses):
+                self._record_snapshot(
+                    calculation_id=calculation_id,
+                    upstream_endpoint="risk_free_series",
+                    source_identifier=currency,
+                    as_of_date=as_of_date,
+                    request_payload={
+                        "currency": currency,
+                        "start_date": str(chunk.start_date),
+                        "end_date": str(chunk.end_date),
+                        "frequency": frequency,
+                        "series_mode": series_mode,
+                    },
+                    response=response,
+                )
         failure = self._first_failure(responses)
         if failure is not None:
             return failure
@@ -187,6 +228,7 @@ class StatefulInputService:
         chunk: DateChunk,
         reporting_currency: str | None,
         consumer_system: str,
+        calculation_id: UUID | None = None,
     ) -> tuple[int, dict[str, Any]]:
         page_token: str | None = None
         merged_observations: list[dict[str, Any]] = []
@@ -202,6 +244,22 @@ class StatefulInputService:
                 consumer_system=consumer_system,
                 page_token=page_token,
             )
+            if calculation_id is not None:
+                self._record_snapshot(
+                    calculation_id=calculation_id,
+                    upstream_endpoint="portfolio_timeseries",
+                    source_identifier=portfolio_id,
+                    as_of_date=as_of_date,
+                    request_payload={
+                        "portfolio_id": portfolio_id,
+                        "start_date": str(chunk.start_date),
+                        "end_date": str(chunk.end_date),
+                        "reporting_currency": reporting_currency,
+                        "consumer_system": consumer_system,
+                        "page_token": page_token,
+                    },
+                    response=(status_code, payload),
+                )
             if status_code >= 400:
                 return status_code, payload
 
@@ -259,3 +317,33 @@ class StatefulInputService:
             if isinstance(record_date, str):
                 deduped[record_date] = record
         return [deduped[key] for key in sorted(deduped)]
+
+    def _record_snapshot(
+        self,
+        *,
+        calculation_id: UUID,
+        upstream_endpoint: str,
+        source_identifier: str,
+        as_of_date: date,
+        request_payload: dict[str, Any],
+        response: tuple[int, dict[str, Any]],
+    ) -> None:
+        status_code, payload = response
+        request_json = json.dumps(request_payload, sort_keys=True)
+        response_json = json.dumps(payload, sort_keys=True)
+        request_fingerprint = hashlib.sha256(request_json.encode("utf-8")).hexdigest()
+        response_fingerprint = hashlib.sha256(response_json.encode("utf-8")).hexdigest()
+        snapshot_id = hashlib.sha256(
+            f"{calculation_id}:{upstream_endpoint}:{source_identifier}:{request_fingerprint}".encode("utf-8")
+        ).hexdigest()
+        self._execution_store.record_upstream_snapshot(
+            calculation_id=calculation_id,
+            snapshot_id=snapshot_id,
+            upstream_endpoint=upstream_endpoint,
+            source_identifier=source_identifier,
+            as_of_date=str(as_of_date),
+            request_fingerprint=request_fingerprint,
+            response_fingerprint=response_fingerprint,
+            retrieval_status=str(status_code),
+            paging_metadata=request_payload,
+        )

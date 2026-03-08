@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from datetime import date
+from uuid import uuid4
 
 import pytest
 
+from app.services.execution_registry import ExecutionRegistry
 from app.services.stateful_input_service import StatefulInputService
 
 
@@ -173,3 +175,48 @@ async def test_reference_series_merge_chunked_points():
         "2026-01-03",
         "2026-01-04",
     ]
+
+
+@pytest.mark.asyncio
+async def test_stateful_input_service_records_upstream_snapshots(tmp_path):
+    core_service = _CoreServiceStub()
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    calculation_id = uuid4()
+    execution_store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        portfolio_id="PORT_1",
+    )
+    service = StatefulInputService(
+        core_service=core_service,
+        execution_store=execution_store,
+        portfolio_chunk_days=2,
+        reference_chunk_days=2,
+        max_concurrent_chunks=2,
+    )
+
+    await service.get_portfolio_timeseries(
+        portfolio_id="PORT_1",
+        as_of_date=date(2026, 1, 3),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 3),
+        reporting_currency="USD",
+        consumer_system="lotus-performance",
+        calculation_id=calculation_id,
+    )
+    await service.get_benchmark_return_series(
+        benchmark_id="BMK_1",
+        as_of_date=date(2026, 1, 4),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 4),
+        calculation_id=calculation_id,
+    )
+
+    snapshots = execution_store.list_upstream_snapshots(calculation_id)
+
+    assert len(snapshots) >= 5
+    assert {snapshot.upstream_endpoint for snapshot in snapshots} >= {
+        "portfolio_timeseries",
+        "benchmark_return_series",
+    }

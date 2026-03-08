@@ -71,6 +71,25 @@ class AnalyticsExecutionStageModel(Base):
     execution: Mapped[AnalyticsExecutionModel] = relationship(back_populates="stages")
 
 
+class AnalyticsUpstreamSnapshotModel(Base):
+    __tablename__ = "analytics_upstream_snapshot"
+
+    snapshot_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    calculation_id: Mapped[str] = mapped_column(
+        ForeignKey("analytics_execution.calculation_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    upstream_endpoint: Mapped[str] = mapped_column(String(255), nullable=False)
+    source_identifier: Mapped[str] = mapped_column(String(255), nullable=False)
+    as_of_date: Mapped[str] = mapped_column(String(32), nullable=False)
+    request_fingerprint: Mapped[str] = mapped_column(Text, nullable=False)
+    response_fingerprint: Mapped[str] = mapped_column(Text, nullable=False)
+    retrieval_status: Mapped[str] = mapped_column(String(32), nullable=False)
+    paging_metadata_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at_utc: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 @dataclass(frozen=True)
 class ExecutionStageRecord:
     stage_name: str
@@ -79,6 +98,19 @@ class ExecutionStageRecord:
     completed_at_utc: str | None
     details: dict[str, Any] | None
     error_message: str | None
+
+
+@dataclass(frozen=True)
+class UpstreamSnapshotRecord:
+    snapshot_id: str
+    upstream_endpoint: str
+    source_identifier: str
+    as_of_date: str
+    request_fingerprint: str
+    response_fingerprint: str
+    retrieval_status: str
+    paging_metadata: dict[str, Any] | None
+    created_at_utc: str
 
 
 @dataclass(frozen=True)
@@ -96,6 +128,7 @@ class ExecutionRecord:
     started_at_utc: str | None
     completed_at_utc: str | None
     stages: list[ExecutionStageRecord]
+    upstream_snapshots: list[UpstreamSnapshotRecord]
 
 
 def _format_timestamp(value: datetime | None) -> str | None:
@@ -261,7 +294,61 @@ class ExecutionRegistry:
                 started_at_utc=_format_timestamp(execution.started_at_utc),
                 completed_at_utc=_format_timestamp(execution.completed_at_utc),
                 stages=stage_records,
+                upstream_snapshots=self.list_upstream_snapshots(calculation_id),
             )
+
+    def record_upstream_snapshot(
+        self,
+        *,
+        calculation_id: UUID,
+        snapshot_id: str,
+        upstream_endpoint: str,
+        source_identifier: str,
+        as_of_date: str,
+        request_fingerprint: str,
+        response_fingerprint: str,
+        retrieval_status: str,
+        paging_metadata: dict[str, Any] | None = None,
+    ) -> None:
+        with self._session() as session:
+            self._get_execution_model(session, calculation_id)
+            session.merge(
+                AnalyticsUpstreamSnapshotModel(
+                    snapshot_id=snapshot_id,
+                    calculation_id=str(calculation_id),
+                    upstream_endpoint=upstream_endpoint,
+                    source_identifier=source_identifier,
+                    as_of_date=as_of_date,
+                    request_fingerprint=request_fingerprint,
+                    response_fingerprint=response_fingerprint,
+                    retrieval_status=retrieval_status,
+                    paging_metadata_json=json.dumps(paging_metadata, sort_keys=True) if paging_metadata else None,
+                    created_at_utc=datetime.now(timezone.utc),
+                )
+            )
+
+    def list_upstream_snapshots(self, calculation_id: UUID) -> list[UpstreamSnapshotRecord]:
+        with self._session() as session:
+            statement = (
+                select(AnalyticsUpstreamSnapshotModel)
+                .where(AnalyticsUpstreamSnapshotModel.calculation_id == str(calculation_id))
+                .order_by(AnalyticsUpstreamSnapshotModel.created_at_utc.asc())
+            )
+            rows = session.execute(statement).scalars().all()
+            return [
+                UpstreamSnapshotRecord(
+                    snapshot_id=row.snapshot_id,
+                    upstream_endpoint=row.upstream_endpoint,
+                    source_identifier=row.source_identifier,
+                    as_of_date=row.as_of_date,
+                    request_fingerprint=row.request_fingerprint,
+                    response_fingerprint=row.response_fingerprint,
+                    retrieval_status=row.retrieval_status,
+                    paging_metadata=json.loads(row.paging_metadata_json) if row.paging_metadata_json else None,
+                    created_at_utc=_format_timestamp(row.created_at_utc) or "",
+                )
+                for row in rows
+            ]
 
     def _get_execution_model(self, session: Session, calculation_id: UUID) -> AnalyticsExecutionModel:
         execution = session.get(AnalyticsExecutionModel, str(calculation_id))
