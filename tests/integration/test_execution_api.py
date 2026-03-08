@@ -6,10 +6,11 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
+from app.services.compute_job_store import compute_job_store
 from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import lineage_metadata_store
 from main import app
-from tests.conftest import drain_lineage_queue
+from tests.conftest import drain_compute_queue, drain_lineage_queue
 
 settings = get_settings()
 
@@ -21,6 +22,8 @@ def client():
     os.makedirs(settings.LINEAGE_STORAGE_PATH, exist_ok=True)
     execution_registry.create_schema()
     execution_registry.clear_all_records()
+    compute_job_store.create_schema()
+    compute_job_store.clear_all_records()
     lineage_metadata_store.create_schema()
     lineage_metadata_store.clear_all_records()
 
@@ -29,6 +32,7 @@ def client():
 
     if os.path.exists(settings.LINEAGE_STORAGE_PATH):
         shutil.rmtree(settings.LINEAGE_STORAGE_PATH)
+    compute_job_store.clear_all_records()
     execution_registry.clear_all_records()
     lineage_metadata_store.clear_all_records()
 
@@ -151,3 +155,62 @@ def test_execution_api_tracks_returns_series_stateful_stages(client, monkeypatch
         "portfolio_timeseries",
         "benchmark_return_series",
     }
+
+
+def test_execution_api_tracks_async_returns_series_job_state(client, monkeypatch):
+    original_threshold = settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS
+    settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = 1
+
+    async def _mock_get_portfolio_analytics_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2026-02-23",
+                "observations": [
+                    {"valuation_date": "2026-02-23", "beginning_market_value": "1000", "ending_market_value": "1010"},
+                    {"valuation_date": "2026-02-24", "beginning_market_value": "1010", "ending_market_value": "1015"},
+                    {
+                        "valuation_date": "2026-02-25",
+                        "beginning_market_value": "1015",
+                        "ending_market_value": "1012.46",
+                    },
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.returns_series_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
+        _mock_get_portfolio_analytics_timeseries,
+    )
+
+    payload = {
+        "portfolio_id": "DEMO_DPM_EUR_001",
+        "as_of_date": "2026-02-25",
+        "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-25"},
+        "frequency": "DAILY",
+        "metric_basis": "NET",
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    try:
+        response = client.post("/integration/returns/series", json=payload)
+        assert response.status_code == 202
+        calculation_id = response.json()["calculation_id"]
+
+        execution_response = client.get(f"/performance/executions/{calculation_id}")
+        assert execution_response.status_code == 200
+        execution_body = execution_response.json()
+        assert execution_body["execution_mode"] == "async"
+        assert execution_body["status"] == "pending"
+        assert execution_body["compute_job"]["job_status"] == "pending"
+
+        assert drain_compute_queue() == 1
+
+        execution_response_after_worker = client.get(f"/performance/executions/{calculation_id}")
+        assert execution_response_after_worker.status_code == 200
+        execution_body_after_worker = execution_response_after_worker.json()
+        assert execution_body_after_worker["status"] == "complete"
+        assert execution_body_after_worker["compute_job"]["job_status"] == "complete"
+    finally:
+        settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = original_threshold

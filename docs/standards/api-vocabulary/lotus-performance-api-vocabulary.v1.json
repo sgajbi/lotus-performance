@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-03-08T04:59:25.007685+00:00",
+  "generatedAt": "2026-03-08T05:22:19.281501+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.amount",
@@ -190,20 +190,6 @@
       ]
     },
     {
-      "semanticId": "lotus.benchmark_returns",
-      "canonicalTerm": "benchmark_returns",
-      "preferredName": "benchmark_returns",
-      "description": "Performance metric value for benchmark returns.",
-      "example": "example_benchmark_returns",
-      "type": "object",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "object"
-      ]
-    },
-    {
       "semanticId": "lotus.bod_cf",
       "canonicalTerm": "bod_cf",
       "preferredName": "bod_cf",
@@ -270,8 +256,7 @@
         "body"
       ],
       "observedTypes": [
-        "object",
-        "string"
+        "object"
       ]
     },
     {
@@ -378,6 +363,20 @@
       ]
     },
     {
+      "semanticId": "lotus.compute_job",
+      "canonicalTerm": "compute_job",
+      "preferredName": "compute_job",
+      "description": "execution response field: compute job.",
+      "example": "example_compute_job",
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
       "semanticId": "lotus.consumer_system",
       "canonicalTerm": "consumer_system",
       "preferredName": "consumer_system",
@@ -421,20 +420,6 @@
       ]
     },
     {
-      "semanticId": "lotus.correlation_id",
-      "canonicalTerm": "correlation_id",
-      "preferredName": "correlation_id",
-      "description": "Unique correlation identifier.",
-      "example": "corr_123456789abc",
-      "type": "object",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "object"
-      ]
-    },
-    {
       "semanticId": "lotus.counts",
       "canonicalTerm": "counts",
       "preferredName": "counts",
@@ -448,36 +433,6 @@
       ],
       "observedTypes": [
         "object"
-      ]
-    },
-    {
-      "semanticId": "lotus.coverage",
-      "canonicalTerm": "coverage",
-      "preferredName": "coverage",
-      "description": "Canonical coverage used by lotus-performance APIs.",
-      "example": {
-        "key": "value"
-      },
-      "type": "SeriesCoverage",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "SeriesCoverage"
-      ]
-    },
-    {
-      "semanticId": "lotus.coverage_ratio",
-      "canonicalTerm": "coverage_ratio",
-      "preferredName": "coverage_ratio",
-      "description": "series coverage field: coverage ratio.",
-      "example": "example_coverage_ratio",
-      "type": "string",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "string"
       ]
     },
     {
@@ -607,8 +562,7 @@
       ],
       "observedTypes": [
         "Diagnostics",
-        "object",
-        "ReturnsDiagnostics"
+        "object"
       ]
     },
     {
@@ -898,8 +852,7 @@
         "body"
       ],
       "observedTypes": [
-        "object",
-        "string"
+        "object"
       ]
     },
     {
@@ -914,36 +867,6 @@
       ],
       "observedTypes": [
         "object"
-      ]
-    },
-    {
-      "semanticId": "lotus.gap_days",
-      "canonicalTerm": "gap_days",
-      "preferredName": "gap_days",
-      "description": "series gap field: gap days.",
-      "example": 1,
-      "type": "integer",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "integer"
-      ]
-    },
-    {
-      "semanticId": "lotus.gaps",
-      "canonicalTerm": "gaps",
-      "preferredName": "gaps",
-      "description": "returns diagnostics field: gaps.",
-      "example": [
-        "example_gaps_item"
-      ],
-      "type": "array",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "array"
       ]
     },
     {
@@ -1113,8 +1036,7 @@
         "body"
       ],
       "observedTypes": [
-        "object",
-        "string"
+        "object"
       ]
     },
     {
@@ -1238,22 +1160,6 @@
       ]
     },
     {
-      "semanticId": "lotus.metadata",
-      "canonicalTerm": "metadata",
-      "preferredName": "metadata",
-      "description": "Canonical metadata used by lotus-performance APIs.",
-      "example": {
-        "key": "value"
-      },
-      "type": "ReturnsMetadata",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "ReturnsMetadata"
-      ]
-    },
-    {
       "semanticId": "lotus.method",
       "canonicalTerm": "method",
       "preferredName": "method",
@@ -1308,20 +1214,6 @@
       ],
       "observedTypes": [
         "MissingDataPolicy"
-      ]
-    },
-    {
-      "semanticId": "lotus.missing_points",
-      "canonicalTerm": "missing_points",
-      "preferredName": "missing_points",
-      "description": "series coverage field: missing points.",
-      "example": 1,
-      "type": "integer",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "integer"
       ]
     },
     {
@@ -1559,22 +1451,6 @@
       ]
     },
     {
-      "semanticId": "lotus.policy_applied",
-      "canonicalTerm": "policy_applied",
-      "preferredName": "policy_applied",
-      "description": "Canonical policy applied used by lotus-performance APIs.",
-      "example": {
-        "key": "value"
-      },
-      "type": "DataPolicy-Output",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "DataPolicy-Output"
-      ]
-    },
-    {
       "semanticId": "lotus.policy_version",
       "canonicalTerm": "policy_version",
       "preferredName": "policy_version",
@@ -1633,22 +1509,6 @@
       ]
     },
     {
-      "semanticId": "lotus.portfolio_returns",
-      "canonicalTerm": "portfolio_returns",
-      "preferredName": "portfolio_returns",
-      "description": "Performance metric value for portfolio returns.",
-      "example": [
-        "example_portfolio_returns_item"
-      ],
-      "type": "array",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "array"
-      ]
-    },
-    {
       "semanticId": "lotus.position_id",
       "canonicalTerm": "position_id",
       "preferredName": "position_id",
@@ -1690,22 +1550,6 @@
       ],
       "observedTypes": [
         "string"
-      ]
-    },
-    {
-      "semanticId": "lotus.provenance",
-      "canonicalTerm": "provenance",
-      "preferredName": "provenance",
-      "description": "Canonical provenance used by lotus-performance APIs.",
-      "example": {
-        "key": "value"
-      },
-      "type": "ReturnsProvenance",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "ReturnsProvenance"
       ]
     },
     {
@@ -1763,34 +1607,6 @@
       ],
       "observedTypes": [
         "object"
-      ]
-    },
-    {
-      "semanticId": "lotus.request_id",
-      "canonicalTerm": "request_id",
-      "preferredName": "request_id",
-      "description": "Unique request identifier.",
-      "example": "REQ_0001",
-      "type": "object",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "object"
-      ]
-    },
-    {
-      "semanticId": "lotus.requested_points",
-      "canonicalTerm": "requested_points",
-      "preferredName": "requested_points",
-      "description": "series coverage field: requested points.",
-      "example": 1,
-      "type": "integer",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "integer"
       ]
     },
     {
@@ -1884,36 +1700,6 @@
       ]
     },
     {
-      "semanticId": "lotus.resolved_period_label",
-      "canonicalTerm": "resolved_period_label",
-      "preferredName": "resolved_period_label",
-      "description": "resolved window field: resolved period label.",
-      "example": "example_resolved_period_label",
-      "type": "object",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "object"
-      ]
-    },
-    {
-      "semanticId": "lotus.resolved_window",
-      "canonicalTerm": "resolved_window",
-      "preferredName": "resolved_window",
-      "description": "Canonical resolved window used by lotus-performance APIs.",
-      "example": {
-        "key": "value"
-      },
-      "type": "ResolvedWindow",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "ResolvedWindow"
-      ]
-    },
-    {
       "semanticId": "lotus.results_by_period",
       "canonicalTerm": "results_by_period",
       "preferredName": "results_by_period",
@@ -1972,53 +1758,11 @@
       ]
     },
     {
-      "semanticId": "lotus.return_value",
-      "canonicalTerm": "return_value",
-      "preferredName": "return_value",
-      "description": "Simple period return value in decimal form (for example 0.0012 = 12 bps).",
-      "example": "STANDARD_VALUE",
-      "type": "string",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "string"
-      ]
-    },
-    {
-      "semanticId": "lotus.returned_points",
-      "canonicalTerm": "returned_points",
-      "preferredName": "returned_points",
-      "description": "Performance metric value for returned points.",
-      "example": 1,
-      "type": "integer",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "integer"
-      ]
-    },
-    {
       "semanticId": "lotus.risk_free",
       "canonicalTerm": "risk_free",
       "preferredName": "risk_free",
       "description": "returns series request field: risk free.",
       "example": "example_risk_free",
-      "type": "object",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "object"
-      ]
-    },
-    {
-      "semanticId": "lotus.risk_free_returns",
-      "canonicalTerm": "risk_free_returns",
-      "preferredName": "risk_free_returns",
-      "description": "Performance metric value for risk free returns.",
-      "example": "example_risk_free_returns",
       "type": "object",
       "locations": [
         "body"
@@ -2056,22 +1800,6 @@
       ]
     },
     {
-      "semanticId": "lotus.series",
-      "canonicalTerm": "series",
-      "preferredName": "series",
-      "description": "Canonical series used by lotus-performance APIs.",
-      "example": {
-        "key": "value"
-      },
-      "type": "ReturnsSeriesPayload",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "ReturnsSeriesPayload"
-      ]
-    },
-    {
       "semanticId": "lotus.series_selection",
       "canonicalTerm": "series_selection",
       "preferredName": "series_selection",
@@ -2085,20 +1813,6 @@
       ],
       "observedTypes": [
         "SeriesSelection"
-      ]
-    },
-    {
-      "semanticId": "lotus.series_type",
-      "canonicalTerm": "series_type",
-      "preferredName": "series_type",
-      "description": "series gap field: series type.",
-      "example": "portfolio",
-      "type": "string",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "string"
       ]
     },
     {
@@ -2346,8 +2060,7 @@
         "body"
       ],
       "observedTypes": [
-        "object",
-        "string"
+        "object"
       ]
     },
     {
@@ -2390,20 +2103,6 @@
       ],
       "observedTypes": [
         "integer"
-      ]
-    },
-    {
-      "semanticId": "lotus.trace_id",
-      "canonicalTerm": "trace_id",
-      "preferredName": "trace_id",
-      "description": "Unique trace identifier.",
-      "example": "0123456789abcdef0123456789abcdef",
-      "type": "object",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "object"
       ]
     },
     {
@@ -2459,22 +2158,6 @@
       "description": "performance request field: valuation points.",
       "example": [
         "example_valuation_points_item"
-      ],
-      "type": "array",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "array"
-      ]
-    },
-    {
-      "semanticId": "lotus.warnings",
-      "canonicalTerm": "warnings",
-      "preferredName": "warnings",
-      "description": "returns diagnostics field: warnings.",
-      "example": [
-        "example_warnings_item"
       ],
       "type": "array",
       "locations": [
@@ -2665,6 +2348,18 @@
       "allowedValues": [],
       "semanticId": "lotus.workflow_limit",
       "attributeRef": "#/attributeCatalog/lotus.workflow_limit"
+    },
+    {
+      "name": "calculation_id",
+      "kind": "request_option",
+      "location": "path",
+      "required": true,
+      "type": "string",
+      "description": "Canonical calculation id used by lotus-performance APIs.",
+      "example": "ENTITY_001",
+      "allowedValues": [],
+      "semanticId": "lotus.calculation_id",
+      "attributeRef": "#/attributeCatalog/lotus.calculation_id"
     }
   ],
   "endpoints": [
@@ -5312,6 +5007,14 @@
             "type": "array",
             "semanticId": "lotus.upstream_snapshots",
             "attributeRef": "#/attributeCatalog/lotus.upstream_snapshots"
+          },
+          {
+            "name": "compute_job",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.compute_job",
+            "attributeRef": "#/attributeCatalog/lotus.compute_job"
           }
         ]
       }
@@ -5789,352 +5492,29 @@
         ]
       },
       "response": {
+        "fields": []
+      }
+    },
+    {
+      "domain": "integration",
+      "method": "GET",
+      "path": "/integration/returns/series/results/{calculation_id}",
+      "operationId": "get_returns_series_result_integration_returns_series_results__calculation_id__get",
+      "summary": "Retrieve async returns-series result",
+      "request": {
         "fields": [
           {
             "name": "calculation_id",
-            "location": "body",
+            "location": "path",
             "required": true,
             "type": "string",
             "semanticId": "lotus.calculation_id",
             "attributeRef": "#/attributeCatalog/lotus.calculation_id"
-          },
-          {
-            "name": "source_service",
-            "location": "body",
-            "required": false,
-            "type": "string",
-            "semanticId": "lotus.source_service",
-            "attributeRef": "#/attributeCatalog/lotus.source_service"
-          },
-          {
-            "name": "contract_version",
-            "location": "body",
-            "required": false,
-            "type": "string",
-            "semanticId": "lotus.contract_version",
-            "attributeRef": "#/attributeCatalog/lotus.contract_version"
-          },
-          {
-            "name": "portfolio_id",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.portfolio_id",
-            "attributeRef": "#/attributeCatalog/lotus.portfolio_id"
-          },
-          {
-            "name": "as_of_date",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.as_of_date",
-            "attributeRef": "#/attributeCatalog/lotus.as_of_date"
-          },
-          {
-            "name": "frequency",
-            "location": "body",
-            "required": true,
-            "type": "ReturnsFrequency",
-            "semanticId": "lotus.frequency",
-            "attributeRef": "#/attributeCatalog/lotus.frequency"
-          },
-          {
-            "name": "metric_basis",
-            "location": "body",
-            "required": true,
-            "type": "MetricBasis",
-            "semanticId": "lotus.metric_basis",
-            "attributeRef": "#/attributeCatalog/lotus.metric_basis"
-          },
-          {
-            "name": "resolved_window",
-            "location": "body",
-            "required": true,
-            "type": "ResolvedWindow",
-            "semanticId": "lotus.resolved_window",
-            "attributeRef": "#/attributeCatalog/lotus.resolved_window"
-          },
-          {
-            "name": "resolved_window.start_date",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.start_date",
-            "attributeRef": "#/attributeCatalog/lotus.start_date"
-          },
-          {
-            "name": "resolved_window.end_date",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.end_date",
-            "attributeRef": "#/attributeCatalog/lotus.end_date"
-          },
-          {
-            "name": "resolved_window.resolved_period_label",
-            "location": "body",
-            "required": false,
-            "type": "object",
-            "semanticId": "lotus.resolved_period_label",
-            "attributeRef": "#/attributeCatalog/lotus.resolved_period_label"
-          },
-          {
-            "name": "series",
-            "location": "body",
-            "required": true,
-            "type": "ReturnsSeriesPayload",
-            "semanticId": "lotus.series",
-            "attributeRef": "#/attributeCatalog/lotus.series"
-          },
-          {
-            "name": "series.portfolio_returns",
-            "location": "body",
-            "required": true,
-            "type": "array",
-            "semanticId": "lotus.portfolio_returns",
-            "attributeRef": "#/attributeCatalog/lotus.portfolio_returns"
-          },
-          {
-            "name": "series.portfolio_returns[].date",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.date",
-            "attributeRef": "#/attributeCatalog/lotus.date"
-          },
-          {
-            "name": "series.portfolio_returns[].return_value",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.return_value",
-            "attributeRef": "#/attributeCatalog/lotus.return_value"
-          },
-          {
-            "name": "series.benchmark_returns",
-            "location": "body",
-            "required": false,
-            "type": "object",
-            "semanticId": "lotus.benchmark_returns",
-            "attributeRef": "#/attributeCatalog/lotus.benchmark_returns"
-          },
-          {
-            "name": "series.risk_free_returns",
-            "location": "body",
-            "required": false,
-            "type": "object",
-            "semanticId": "lotus.risk_free_returns",
-            "attributeRef": "#/attributeCatalog/lotus.risk_free_returns"
-          },
-          {
-            "name": "provenance",
-            "location": "body",
-            "required": true,
-            "type": "ReturnsProvenance",
-            "semanticId": "lotus.provenance",
-            "attributeRef": "#/attributeCatalog/lotus.provenance"
-          },
-          {
-            "name": "provenance.input_mode",
-            "location": "body",
-            "required": true,
-            "type": "InputMode",
-            "semanticId": "lotus.input_mode",
-            "attributeRef": "#/attributeCatalog/lotus.input_mode"
-          },
-          {
-            "name": "provenance.input_fingerprint",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.input_fingerprint",
-            "attributeRef": "#/attributeCatalog/lotus.input_fingerprint"
-          },
-          {
-            "name": "provenance.calculation_hash",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.calculation_hash",
-            "attributeRef": "#/attributeCatalog/lotus.calculation_hash"
-          },
-          {
-            "name": "diagnostics",
-            "location": "body",
-            "required": true,
-            "type": "ReturnsDiagnostics",
-            "semanticId": "lotus.diagnostics",
-            "attributeRef": "#/attributeCatalog/lotus.diagnostics"
-          },
-          {
-            "name": "diagnostics.coverage",
-            "location": "body",
-            "required": true,
-            "type": "SeriesCoverage",
-            "semanticId": "lotus.coverage",
-            "attributeRef": "#/attributeCatalog/lotus.coverage"
-          },
-          {
-            "name": "diagnostics.coverage.requested_points",
-            "location": "body",
-            "required": true,
-            "type": "integer",
-            "semanticId": "lotus.requested_points",
-            "attributeRef": "#/attributeCatalog/lotus.requested_points"
-          },
-          {
-            "name": "diagnostics.coverage.returned_points",
-            "location": "body",
-            "required": true,
-            "type": "integer",
-            "semanticId": "lotus.returned_points",
-            "attributeRef": "#/attributeCatalog/lotus.returned_points"
-          },
-          {
-            "name": "diagnostics.coverage.missing_points",
-            "location": "body",
-            "required": true,
-            "type": "integer",
-            "semanticId": "lotus.missing_points",
-            "attributeRef": "#/attributeCatalog/lotus.missing_points"
-          },
-          {
-            "name": "diagnostics.coverage.coverage_ratio",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.coverage_ratio",
-            "attributeRef": "#/attributeCatalog/lotus.coverage_ratio"
-          },
-          {
-            "name": "diagnostics.gaps",
-            "location": "body",
-            "required": false,
-            "type": "array",
-            "semanticId": "lotus.gaps",
-            "attributeRef": "#/attributeCatalog/lotus.gaps"
-          },
-          {
-            "name": "diagnostics.gaps[].series_type",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.series_type",
-            "attributeRef": "#/attributeCatalog/lotus.series_type"
-          },
-          {
-            "name": "diagnostics.gaps[].from_date",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.from_date",
-            "attributeRef": "#/attributeCatalog/lotus.from_date"
-          },
-          {
-            "name": "diagnostics.gaps[].to_date",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.to_date",
-            "attributeRef": "#/attributeCatalog/lotus.to_date"
-          },
-          {
-            "name": "diagnostics.gaps[].gap_days",
-            "location": "body",
-            "required": true,
-            "type": "integer",
-            "semanticId": "lotus.gap_days",
-            "attributeRef": "#/attributeCatalog/lotus.gap_days"
-          },
-          {
-            "name": "diagnostics.policy_applied",
-            "location": "body",
-            "required": true,
-            "type": "DataPolicy-Output",
-            "semanticId": "lotus.policy_applied",
-            "attributeRef": "#/attributeCatalog/lotus.policy_applied"
-          },
-          {
-            "name": "diagnostics.policy_applied.missing_data_policy",
-            "location": "body",
-            "required": false,
-            "type": "MissingDataPolicy",
-            "semanticId": "lotus.missing_data_policy",
-            "attributeRef": "#/attributeCatalog/lotus.missing_data_policy"
-          },
-          {
-            "name": "diagnostics.policy_applied.fill_method",
-            "location": "body",
-            "required": false,
-            "type": "FillMethod",
-            "semanticId": "lotus.fill_method",
-            "attributeRef": "#/attributeCatalog/lotus.fill_method"
-          },
-          {
-            "name": "diagnostics.policy_applied.calendar_policy",
-            "location": "body",
-            "required": false,
-            "type": "CalendarPolicy",
-            "semanticId": "lotus.calendar_policy",
-            "attributeRef": "#/attributeCatalog/lotus.calendar_policy"
-          },
-          {
-            "name": "diagnostics.policy_applied.max_gap_days",
-            "location": "body",
-            "required": false,
-            "type": "object",
-            "semanticId": "lotus.max_gap_days",
-            "attributeRef": "#/attributeCatalog/lotus.max_gap_days"
-          },
-          {
-            "name": "diagnostics.warnings",
-            "location": "body",
-            "required": false,
-            "type": "array",
-            "semanticId": "lotus.warnings",
-            "attributeRef": "#/attributeCatalog/lotus.warnings"
-          },
-          {
-            "name": "metadata",
-            "location": "body",
-            "required": true,
-            "type": "ReturnsMetadata",
-            "semanticId": "lotus.metadata",
-            "attributeRef": "#/attributeCatalog/lotus.metadata"
-          },
-          {
-            "name": "metadata.generated_at",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.generated_at",
-            "attributeRef": "#/attributeCatalog/lotus.generated_at"
-          },
-          {
-            "name": "metadata.correlation_id",
-            "location": "body",
-            "required": false,
-            "type": "object",
-            "semanticId": "lotus.correlation_id",
-            "attributeRef": "#/attributeCatalog/lotus.correlation_id"
-          },
-          {
-            "name": "metadata.request_id",
-            "location": "body",
-            "required": false,
-            "type": "object",
-            "semanticId": "lotus.request_id",
-            "attributeRef": "#/attributeCatalog/lotus.request_id"
-          },
-          {
-            "name": "metadata.trace_id",
-            "location": "body",
-            "required": false,
-            "type": "object",
-            "semanticId": "lotus.trace_id",
-            "attributeRef": "#/attributeCatalog/lotus.trace_id"
           }
         ]
+      },
+      "response": {
+        "fields": []
       }
     },
     {

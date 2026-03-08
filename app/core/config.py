@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS: int = 90
     STATEFUL_INPUT_REFERENCE_CHUNK_DAYS: int = 365
     STATEFUL_INPUT_MAX_CONCURRENT_CHUNKS: int = 4
+    COMPUTE_EXECUTOR_POLL_SECONDS: float = 1.0
+    COMPUTE_EXECUTOR_BATCH_SIZE: int = 10
+    RETURNS_SERIES_EXECUTOR_WINDOW_DAYS: int = 180
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

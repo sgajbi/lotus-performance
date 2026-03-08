@@ -6,6 +6,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
+from app.services.compute_job_store import compute_job_store
 from app.services.execution_registry import execution_registry
 
 router = APIRouter(tags=["Performance"])
@@ -35,6 +36,7 @@ class ExecutionResponse(BaseModel):
     completed_at_utc: str | None
     stages: list[ExecutionStageResponse]
     upstream_snapshots: list[dict[str, Any]]
+    compute_job: dict[str, Any] | None = None
 
 
 @router.get(
@@ -51,6 +53,7 @@ async def get_execution(calculation_id: UUID) -> ExecutionResponse:
             detail="Execution data not found for the given calculation_id.",
         )
 
+    job = compute_job_store.get_job(calculation_id)
     return ExecutionResponse(
         calculation_id=record.calculation_id,
         analytics_type=record.analytics_type,
@@ -89,4 +92,16 @@ async def get_execution(calculation_id: UUID) -> ExecutionResponse:
             }
             for snapshot in record.upstream_snapshots
         ],
+        compute_job=(
+            {
+                "job_status": job.job_status.value,
+                "attempt_count": job.attempt_count,
+                "error_message": job.error_message,
+                "created_at_utc": job.created_at_utc,
+                "started_at_utc": job.started_at_utc,
+                "completed_at_utc": job.completed_at_utc,
+            }
+            if job is not None
+            else None
+        ),
     )

@@ -2,7 +2,11 @@ from decimal import Decimal
 
 from fastapi.testclient import TestClient
 
+from app.core.config import get_settings
 from main import app
+from tests.conftest import drain_compute_queue
+
+settings = get_settings()
 
 
 def _daily_points():
@@ -272,6 +276,62 @@ def test_returns_series_stateful_requires_reporting_currency_for_risk_free(monke
 
     assert response.status_code == 400
     assert response.json()["detail"]["code"] == "INVALID_REQUEST"
+
+
+def test_returns_series_async_result_retrieval(monkeypatch):
+    original_threshold = settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS
+    settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = 1
+
+    async def _mock_get_portfolio_analytics_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2026-02-23",
+                "observations": [
+                    {"valuation_date": "2026-02-23", "beginning_market_value": "1000", "ending_market_value": "1010"},
+                    {"valuation_date": "2026-02-24", "beginning_market_value": "1010", "ending_market_value": "1015"},
+                    {
+                        "valuation_date": "2026-02-25",
+                        "beginning_market_value": "1015",
+                        "ending_market_value": "1012.46",
+                    },
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.returns_series_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
+        _mock_get_portfolio_analytics_timeseries,
+    )
+
+    payload = {
+        "portfolio_id": "DEMO_DPM_EUR_001",
+        "as_of_date": "2026-02-25",
+        "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-25"},
+        "frequency": "DAILY",
+        "metric_basis": "NET",
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    try:
+        with TestClient(app) as client:
+            accepted = client.post("/integration/returns/series", json=payload)
+            assert accepted.status_code == 202
+            calculation_id = accepted.json()["calculation_id"]
+
+            pending_result = client.get(f"/integration/returns/series/results/{calculation_id}")
+            assert pending_result.status_code == 202
+
+            assert drain_compute_queue() == 1
+
+            complete_result = client.get(f"/integration/returns/series/results/{calculation_id}")
+            assert complete_result.status_code == 200
+            body = complete_result.json()
+            assert body["calculation_id"] == calculation_id
+            assert len(body["series"]["portfolio_returns"]) == 3
+    finally:
+        settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = original_threshold
 
 
 def test_returns_series_stateful_source_unavailable(monkeypatch):
