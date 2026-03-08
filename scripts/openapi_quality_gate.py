@@ -26,6 +26,13 @@ def _has_error_response(operation: dict[str, Any]) -> bool:
     return any(str(code).startswith("4") or str(code).startswith("5") or str(code) == "default" for code in responses)
 
 
+def _has_json_example(content: dict[str, Any]) -> bool:
+    json_content = content.get("application/json", {})
+    if not isinstance(json_content, dict):
+        return False
+    return "example" in json_content or "examples" in json_content
+
+
 def _is_ref_only(prop_schema: dict[str, Any]) -> bool:
     return set(prop_schema.keys()) == {"$ref"}
 
@@ -64,6 +71,18 @@ def evaluate_schema(schema: dict[str, Any], *, service_name: str) -> list[str]:
                     missing_docs.append((method_upper, path, "2xx response"))
                 if not _has_error_response(operation):
                     missing_docs.append((method_upper, path, "error response (4xx/5xx/default)"))
+                for code, response in operation.get("responses", {}).items():
+                    if not str(code).startswith("2") or not isinstance(response, dict):
+                        continue
+                    content = response.get("content", {})
+                    if isinstance(content, dict) and "application/json" in content and not _has_json_example(content):
+                        missing_docs.append((method_upper, path, f"{code} application/json example"))
+
+            request_body = operation.get("requestBody")
+            if isinstance(request_body, dict):
+                content = request_body.get("content", {})
+                if isinstance(content, dict) and "application/json" in content and not _has_json_example(content):
+                    missing_docs.append((method_upper, path, "requestBody application/json example"))
 
     schemas = schema.get("components", {}).get("schemas", {})
     if isinstance(schemas, dict):
@@ -82,6 +101,10 @@ def evaluate_schema(schema: dict[str, Any], *, service_name: str) -> list[str]:
                     missing_fields.append((str(model_name), str(prop_name), "description"))
                 if "example" not in prop_schema and "examples" not in prop_schema:
                     missing_fields.append((str(model_name), str(prop_name), "example"))
+                if not prop_schema.get("x-lotus-semantic-id"):
+                    missing_fields.append((str(model_name), str(prop_name), "x-lotus-semantic-id"))
+                if not prop_schema.get("x-lotus-canonical-term"):
+                    missing_fields.append((str(model_name), str(prop_name), "x-lotus-canonical-term"))
 
     if missing_docs:
         errors.append(f"OpenAPI quality gate ({service_name}): missing endpoint documentation/response contract")

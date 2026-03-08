@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-03-08T07:04:29.871458+00:00",
+  "generatedAt": "2026-03-08T08:11:47.437998+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.amount",
@@ -30,7 +30,12 @@
       "preferredName": "analyses",
       "description": "performance request field: analyses.",
       "example": [
-        "example_analyses_item"
+        {
+          "period": "MTD",
+          "frequencies": [
+            "DAILY"
+          ]
+        }
       ],
       "type": "array",
       "locations": [
@@ -58,7 +63,7 @@
       "semanticId": "lotus.annualization",
       "canonicalTerm": "annualization",
       "preferredName": "annualization",
-      "description": "Canonical annualization used by lotus-performance APIs.",
+      "description": "annualization object.",
       "example": {
         "key": "value"
       },
@@ -119,7 +124,9 @@
       "canonicalTerm": "async_result",
       "preferredName": "async_result",
       "description": "execution response field: async result.",
-      "example": "example_async_result",
+      "example": {
+        "key": "value"
+      },
       "type": "object",
       "locations": [
         "body"
@@ -132,7 +139,7 @@
       "semanticId": "lotus.audit",
       "canonicalTerm": "audit",
       "preferredName": "audit",
-      "description": "Canonical audit used by lotus-performance APIs.",
+      "description": "audit object.",
       "example": {
         "key": "value"
       },
@@ -177,7 +184,10 @@
       "canonicalTerm": "benchmark",
       "preferredName": "benchmark",
       "description": "returns series request field: benchmark.",
-      "example": "example_benchmark",
+      "example": {
+        "benchmark_id": "BENCHMARK_001",
+        "benchmark_series_ref": "example_benchmark_series_ref"
+      },
       "type": "object",
       "locations": [
         "body"
@@ -192,7 +202,20 @@
       "preferredName": "benchmark_groups_data",
       "description": "attribution request field: benchmark groups data.",
       "example": [
-        "example_benchmark_groups_data_item"
+        {
+          "key": {
+            "key": "value"
+          },
+          "observations": [
+            {
+              "date": "2026-02-27",
+              "weight_bop": 0.1234,
+              "return_base": 0.1234,
+              "return_local": 0.1234,
+              "return_fx": 0.1234
+            }
+          ]
+        }
       ],
       "type": "array",
       "locations": [
@@ -221,7 +244,9 @@
       "canonicalTerm": "bucketing",
       "preferredName": "bucketing",
       "description": "contribution request field: bucketing.",
-      "example": "example_bucketing",
+      "example": {
+        "key": "value"
+      },
       "type": "object",
       "locations": [
         "body"
@@ -277,7 +302,7 @@
       "canonicalTerm": "calculation_id",
       "preferredName": "calculation_id",
       "description": "A unique identifier for the calculation request. If not provided, one will be generated.",
-      "example": "CALC_0001",
+      "example": "2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
       "type": "string",
       "locations": [
         "body",
@@ -305,7 +330,7 @@
       "semanticId": "lotus.calendar",
       "canonicalTerm": "calendar",
       "preferredName": "calendar",
-      "description": "Canonical calendar used by lotus-performance APIs.",
+      "description": "calendar object.",
       "example": {
         "key": "value"
       },
@@ -321,7 +346,7 @@
       "semanticId": "lotus.calendar_policy",
       "canonicalTerm": "calendar_policy",
       "preferredName": "calendar_policy",
-      "description": "Canonical calendar policy used by lotus-performance APIs.",
+      "description": "calendar policy schema.",
       "example": "MARKET",
       "type": "CalendarPolicy",
       "locations": [
@@ -337,7 +362,10 @@
       "preferredName": "cash_flows",
       "description": "money weighted return request field: cash flows.",
       "example": [
-        "example_cash_flows_item"
+        {
+          "amount": 0.1234,
+          "date": "2026-02-27"
+        }
       ],
       "type": "array",
       "locations": [
@@ -352,7 +380,12 @@
       "canonicalTerm": "cashflows_used",
       "preferredName": "cashflows_used",
       "description": "money weighted return response field: cashflows used.",
-      "example": "example_cashflows_used",
+      "example": [
+        {
+          "amount": 0.1234,
+          "date": "2026-02-27"
+        }
+      ],
       "type": "object",
       "locations": [
         "body"
@@ -380,7 +413,9 @@
       "canonicalTerm": "compute_job",
       "preferredName": "compute_job",
       "description": "execution response field: compute job.",
-      "example": "example_compute_job",
+      "example": {
+        "key": "value"
+      },
       "type": "object",
       "locations": [
         "body"
@@ -423,7 +458,11 @@
       "canonicalTerm": "convergence",
       "preferredName": "convergence",
       "description": "money weighted return response field: convergence.",
-      "example": "example_convergence",
+      "example": {
+        "iterations": 1,
+        "residual": 0.1234,
+        "converged": true
+      },
       "type": "object",
       "locations": [
         "body"
@@ -481,7 +520,7 @@
       "canonicalTerm": "currency_mode",
       "preferredName": "currency_mode",
       "description": "ISO currency code for currency mode.",
-      "example": "USD",
+      "example": "BASE_ONLY",
       "type": "object",
       "locations": [
         "body"
@@ -495,7 +534,40 @@
       "canonicalTerm": "data_policy",
       "preferredName": "data_policy",
       "description": "performance request field: data policy.",
-      "example": "example_data_policy",
+      "example": {
+        "overrides": {
+          "market_values": [
+            {
+              "key": "value"
+            }
+          ],
+          "cash_flows": [
+            {
+              "key": "value"
+            }
+          ]
+        },
+        "ignore_days": [
+          {
+            "entity_type": "PORTFOLIO",
+            "entity_id": "ENTITY_001",
+            "dates": [
+              "2026-02-27"
+            ]
+          }
+        ],
+        "outliers": {
+          "enabled": true,
+          "scope": [
+            "example_scope_item"
+          ],
+          "method": "example_method",
+          "params": {
+            "key": "value"
+          },
+          "action": "example_action"
+        }
+      },
       "type": "object",
       "locations": [
         "body"
@@ -552,7 +624,9 @@
       "canonicalTerm": "details",
       "preferredName": "details",
       "description": "Optional stage metadata details.",
-      "example": "example_details",
+      "example": {
+        "key": "value"
+      },
       "type": "object",
       "locations": [
         "body"
@@ -565,7 +639,7 @@
       "semanticId": "lotus.diagnostics",
       "canonicalTerm": "diagnostics",
       "preferredName": "diagnostics",
-      "description": "Canonical diagnostics used by lotus-performance APIs.",
+      "description": "diagnostics object.",
       "example": {
         "key": "value"
       },
@@ -709,7 +783,7 @@
       "canonicalTerm": "execution_mode",
       "preferredName": "execution_mode",
       "description": "execution response field: execution mode.",
-      "example": "example_execution_mode",
+      "example": "async",
       "type": "string",
       "locations": [
         "body"
@@ -766,7 +840,12 @@
       "preferredName": "features",
       "description": "integration capabilities response field: features.",
       "example": [
-        "example_features_item"
+        {
+          "key": "example_key",
+          "enabled": true,
+          "owner_service": "example_owner_service",
+          "description": "example_description"
+        }
       ],
       "type": "array",
       "locations": [
@@ -780,7 +859,7 @@
       "semanticId": "lotus.fee_effect",
       "canonicalTerm": "fee_effect",
       "preferredName": "fee_effect",
-      "description": "Canonical fee effect used by lotus-performance APIs.",
+      "description": "fee effect object.",
       "example": {
         "key": "value"
       },
@@ -796,7 +875,7 @@
       "semanticId": "lotus.fill_method",
       "canonicalTerm": "fill_method",
       "preferredName": "fill_method",
-      "description": "Canonical fill method used by lotus-performance APIs.",
+      "description": "fill method schema.",
       "example": "NONE",
       "type": "FillMethod",
       "locations": [
@@ -810,7 +889,7 @@
       "semanticId": "lotus.flags",
       "canonicalTerm": "flags",
       "preferredName": "flags",
-      "description": "Canonical flags used by lotus-performance APIs.",
+      "description": "flags object.",
       "example": {
         "key": "value"
       },
@@ -828,7 +907,7 @@
       "preferredName": "frequencies",
       "description": "analysis field: frequencies.",
       "example": [
-        "example_frequencies_item"
+        "DAILY"
       ],
       "type": "array",
       "locations": [
@@ -872,7 +951,17 @@
       "canonicalTerm": "fx",
       "preferredName": "fx",
       "description": "performance request field: fx.",
-      "example": "example_fx",
+      "example": {
+        "source": "example_source",
+        "fixing": "example_fixing",
+        "rates": [
+          {
+            "date": "2026-02-27",
+            "ccy": "example_ccy",
+            "rate": 0.1234
+          }
+        ]
+      },
       "type": "object",
       "locations": [
         "body"
@@ -916,7 +1005,16 @@
       "canonicalTerm": "hedging",
       "preferredName": "hedging",
       "description": "performance request field: hedging.",
-      "example": "example_hedging",
+      "example": {
+        "mode": "example_mode",
+        "series": [
+          {
+            "date": "2026-02-27",
+            "ccy": "example_ccy",
+            "hedge_ratio": 0.1234
+          }
+        ]
+      },
       "type": "object",
       "locations": [
         "body"
@@ -930,7 +1028,9 @@
       "canonicalTerm": "hierarchy",
       "preferredName": "hierarchy",
       "description": "contribution request field: hierarchy.",
-      "example": "example_hierarchy",
+      "example": [
+        "example_hierarchy_item"
+      ],
       "type": "object",
       "locations": [
         "body"
@@ -1055,7 +1155,7 @@
       "semanticId": "lotus.input_mode",
       "canonicalTerm": "input_mode",
       "preferredName": "input_mode",
-      "description": "Canonical input mode used by lotus-performance APIs.",
+      "description": "input mode schema.",
       "example": "stateless",
       "type": "InputMode",
       "locations": [
@@ -1070,7 +1170,25 @@
       "canonicalTerm": "instruments_data",
       "preferredName": "instruments_data",
       "description": "attribution request field: instruments data.",
-      "example": "example_instruments_data",
+      "example": [
+        {
+          "instrument_id": "INSTRUMENT_001",
+          "meta": {
+            "key": "value"
+          },
+          "valuation_points": [
+            {
+              "day": 1,
+              "perf_date": "2026-02-27",
+              "begin_mv": 0.1234,
+              "bod_cf": 0.1234,
+              "eod_cf": 0.1234,
+              "mgmt_fees": 0.1234,
+              "end_mv": 0.1234
+            }
+          ]
+        }
+      ],
       "type": "object",
       "locations": [
         "body"
@@ -1114,7 +1232,7 @@
       "semanticId": "lotus.lookthrough",
       "canonicalTerm": "lookthrough",
       "preferredName": "lookthrough",
-      "description": "Canonical lookthrough used by lotus-performance APIs.",
+      "description": "lookthrough object.",
       "example": {
         "key": "value"
       },
@@ -1131,7 +1249,7 @@
       "canonicalTerm": "max_gap_days",
       "preferredName": "max_gap_days",
       "description": "app  models  returns series  data policy field: max gap days.",
-      "example": "example_max_gap_days",
+      "example": 1,
       "type": "object",
       "locations": [
         "body"
@@ -1158,7 +1276,7 @@
       "semanticId": "lotus.meta",
       "canonicalTerm": "meta",
       "preferredName": "meta",
-      "description": "Canonical meta used by lotus-performance APIs.",
+      "description": "meta object.",
       "example": {
         "key": "value"
       },
@@ -1218,7 +1336,7 @@
       "semanticId": "lotus.missing_data_policy",
       "canonicalTerm": "missing_data_policy",
       "preferredName": "missing_data_policy",
-      "description": "Canonical missing data policy used by lotus-performance APIs.",
+      "description": "missing data policy schema.",
       "example": "FAIL_FAST",
       "type": "MissingDataPolicy",
       "locations": [
@@ -1276,7 +1394,7 @@
       "canonicalTerm": "mwr_annualized",
       "preferredName": "mwr_annualized",
       "description": "money weighted return response field: mwr annualized.",
-      "example": "example_mwr_annualized",
+      "example": 0.1234,
       "type": "object",
       "locations": [
         "body"
@@ -1335,7 +1453,13 @@
       "preferredName": "observations",
       "description": "benchmark group field: observations.",
       "example": [
-        "example_observations_item"
+        {
+          "date": "2026-02-27",
+          "weight_bop": 0.1234,
+          "return_base": 0.1234,
+          "return_local": 0.1234,
+          "return_fx": 0.1234
+        }
       ],
       "type": "array",
       "locations": [
@@ -1349,7 +1473,7 @@
       "semanticId": "lotus.output",
       "canonicalTerm": "output",
       "preferredName": "output",
-      "description": "Canonical output used by lotus-performance APIs.",
+      "description": "output object.",
       "example": {
         "key": "value"
       },
@@ -1394,7 +1518,7 @@
       "canonicalTerm": "performance_start_date",
       "preferredName": "performance_start_date",
       "description": "The inception date of the portfolio or the earliest date for which performance data is available.",
-      "example": "2026-02-27",
+      "example": "2024-12-31",
       "type": "string",
       "locations": [
         "body"
@@ -1439,7 +1563,7 @@
       "canonicalTerm": "periods_per_year",
       "preferredName": "periods_per_year",
       "description": "Optional override for the annualization factor (e.g., 252 or 365). If provided, this value is used instead of the 'basis'.",
-      "example": "example_periods_per_year",
+      "example": 0.1234,
       "type": "object",
       "locations": [
         "body"
@@ -1453,7 +1577,15 @@
       "canonicalTerm": "policy",
       "preferredName": "policy",
       "description": "diagnostics field: policy.",
-      "example": "example_policy",
+      "example": {
+        "overrides": {
+          "key": "value"
+        },
+        "ignored_days_count": 1,
+        "outliers": {
+          "key": "value"
+        }
+      },
       "type": "object",
       "locations": [
         "body"
@@ -1481,7 +1613,20 @@
       "canonicalTerm": "portfolio_data",
       "preferredName": "portfolio_data",
       "description": "attribution request field: portfolio data.",
-      "example": "example_portfolio_data",
+      "example": {
+        "metric_basis": "NET",
+        "valuation_points": [
+          {
+            "day": 1,
+            "perf_date": "2026-02-27",
+            "begin_mv": 0.1234,
+            "bod_cf": 0.1234,
+            "eod_cf": 0.1234,
+            "mgmt_fees": 0.1234,
+            "end_mv": 0.1234
+          }
+        ]
+      },
       "type": "object",
       "locations": [
         "body"
@@ -1496,7 +1641,18 @@
       "canonicalTerm": "portfolio_groups_data",
       "preferredName": "portfolio_groups_data",
       "description": "attribution request field: portfolio groups data.",
-      "example": "example_portfolio_groups_data",
+      "example": [
+        {
+          "key": {
+            "key": "value"
+          },
+          "observations": [
+            {
+              "key": "value"
+            }
+          ]
+        }
+      ],
       "type": "object",
       "locations": [
         "body"
@@ -1540,7 +1696,23 @@
       "preferredName": "positions_data",
       "description": "contribution request field: positions data.",
       "example": [
-        "example_positions_data_item"
+        {
+          "position_id": "POSITION_001",
+          "meta": {
+            "key": "value"
+          },
+          "valuation_points": [
+            {
+              "day": 1,
+              "perf_date": "2026-02-27",
+              "begin_mv": 0.1234,
+              "end_mv": 0.1234,
+              "bod_cf": 0.1234,
+              "eod_cf": 0.1234,
+              "mgmt_fees": 0.1234
+            }
+          ]
+        }
       ],
       "type": "array",
       "locations": [
@@ -1671,7 +1843,7 @@
       "semanticId": "lotus.reset_policy",
       "canonicalTerm": "reset_policy",
       "preferredName": "reset_policy",
-      "description": "Canonical reset policy used by lotus-performance APIs.",
+      "description": "reset policy object.",
       "example": {
         "key": "value"
       },
@@ -1688,7 +1860,7 @@
       "canonicalTerm": "residual_applied_bp",
       "preferredName": "residual_applied_bp",
       "description": "audit field: residual applied bp.",
-      "example": "example_residual_applied_bp",
+      "example": 0.1234,
       "type": "object",
       "locations": [
         "body"
@@ -1746,7 +1918,7 @@
       "canonicalTerm": "return_fx",
       "preferredName": "return_fx",
       "description": "Performance metric value for return fx.",
-      "example": "example_return_fx",
+      "example": 0.1234,
       "type": "object",
       "locations": [
         "body"
@@ -1760,7 +1932,7 @@
       "canonicalTerm": "return_local",
       "preferredName": "return_local",
       "description": "Performance metric value for return local.",
-      "example": "example_return_local",
+      "example": 0.1234,
       "type": "object",
       "locations": [
         "body"
@@ -1774,7 +1946,10 @@
       "canonicalTerm": "risk_free",
       "preferredName": "risk_free",
       "description": "returns series request field: risk free.",
-      "example": "example_risk_free",
+      "example": {
+        "rate_series_ref": "example_rate_series_ref",
+        "day_count_basis": "ACT_365"
+      },
       "type": "object",
       "locations": [
         "body"
@@ -1802,7 +1977,9 @@
       "canonicalTerm": "samples",
       "preferredName": "samples",
       "description": "diagnostics field: samples.",
-      "example": "example_samples",
+      "example": {
+        "key": "value"
+      },
       "type": "object",
       "locations": [
         "body"
@@ -1815,7 +1992,7 @@
       "semanticId": "lotus.series_selection",
       "canonicalTerm": "series_selection",
       "preferredName": "series_selection",
-      "description": "Canonical series selection used by lotus-performance APIs.",
+      "description": "series selection object.",
       "example": {
         "key": "value"
       },
@@ -1831,7 +2008,7 @@
       "semanticId": "lotus.smoothing",
       "canonicalTerm": "smoothing",
       "preferredName": "smoothing",
-      "description": "Canonical smoothing used by lotus-performance APIs.",
+      "description": "smoothing object.",
       "example": {
         "key": "value"
       },
@@ -1847,7 +2024,7 @@
       "semanticId": "lotus.solver",
       "canonicalTerm": "solver",
       "preferredName": "solver",
-      "description": "Canonical solver used by lotus-performance APIs.",
+      "description": "solver object.",
       "example": {
         "key": "value"
       },
@@ -1893,7 +2070,16 @@
       "preferredName": "stages",
       "description": "execution response field: stages.",
       "example": [
-        "example_stages_item"
+        {
+          "stage_name": "example_stage_name",
+          "status": "pending",
+          "started_at_utc": "example_started_at_utc",
+          "completed_at_utc": "example_completed_at_utc",
+          "details": {
+            "key": "value"
+          },
+          "error_message": "example_error_message"
+        }
       ],
       "type": "array",
       "locations": [
@@ -1936,7 +2122,9 @@
       "canonicalTerm": "stateful_input",
       "preferredName": "stateful_input",
       "description": "returns series request field: stateful input.",
-      "example": "example_stateful_input",
+      "example": {
+        "consumer_system": "lotus-performance"
+      },
       "type": "object",
       "locations": [
         "body"
@@ -1950,7 +2138,26 @@
       "canonicalTerm": "stateless_input",
       "preferredName": "stateless_input",
       "description": "returns series request field: stateless input.",
-      "example": "example_stateless_input",
+      "example": {
+        "portfolio_returns": [
+          {
+            "date": "2026-02-26",
+            "return_value": "0.0012"
+          }
+        ],
+        "benchmark_returns": [
+          {
+            "date": "2026-02-26",
+            "return_value": "0.0012"
+          }
+        ],
+        "risk_free_returns": [
+          {
+            "date": "2026-02-26",
+            "return_value": "0.0012"
+          }
+        ]
+      },
       "type": "object",
       "locations": [
         "body"
@@ -1964,7 +2171,7 @@
       "canonicalTerm": "status",
       "preferredName": "status",
       "description": "execution response field: status.",
-      "example": "ok",
+      "example": "pending",
       "type": "string",
       "locations": [
         "body"
@@ -1979,7 +2186,7 @@
       "canonicalTerm": "sum_of_parts_vs_total_bp",
       "preferredName": "sum_of_parts_vs_total_bp",
       "description": "audit field: sum of parts vs total bp.",
-      "example": "example_sum_of_parts_vs_total_bp",
+      "example": 0.1234,
       "type": "object",
       "locations": [
         "body"
@@ -2094,7 +2301,7 @@
       "canonicalTerm": "top_n",
       "preferredName": "top_n",
       "description": "output field: top n.",
-      "example": "example_top_n",
+      "example": 1,
       "type": "object",
       "locations": [
         "body"
@@ -2169,7 +2376,15 @@
       "preferredName": "valuation_points",
       "description": "performance request field: valuation points.",
       "example": [
-        "example_valuation_points_item"
+        {
+          "day": 1,
+          "perf_date": "2026-02-27",
+          "begin_mv": 0.1234,
+          "bod_cf": 0.1234,
+          "eod_cf": 0.1234,
+          "mgmt_fees": 0.1234,
+          "end_mv": 0.1234
+        }
       ],
       "type": "array",
       "locations": [
@@ -2211,7 +2426,7 @@
       "semanticId": "lotus.window",
       "canonicalTerm": "window",
       "preferredName": "window",
-      "description": "Canonical window used by lotus-performance APIs.",
+      "description": "returns window object.",
       "example": {
         "key": "value"
       },
@@ -2257,7 +2472,13 @@
       "preferredName": "workflows",
       "description": "integration capabilities response field: workflows.",
       "example": [
-        "example_workflows_item"
+        {
+          "workflow_key": "example_workflow_key",
+          "enabled": true,
+          "required_features": [
+            "example_required_features_item"
+          ]
+        }
       ],
       "type": "array",
       "locations": [
@@ -2272,7 +2493,7 @@
       "canonicalTerm": "year",
       "preferredName": "year",
       "description": "returns window field: year.",
-      "example": "example_year",
+      "example": 1,
       "type": "object",
       "locations": [
         "body"

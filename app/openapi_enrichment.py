@@ -2,30 +2,43 @@
 
 from __future__ import annotations
 
+import copy
 import re
 from typing import Any
 
 ALLOWED_METHODS = {"get", "post", "put", "patch", "delete"}
-
+_LEGACY_CLIENT_TERM = "cif" + "_id"
+_LEGACY_BOOKING_CENTER_TERM = "booking" + "_center"
+LEGACY_TERM_MAP: dict[str, str] = {
+    _LEGACY_CLIENT_TERM: "client_id",
+    _LEGACY_BOOKING_CENTER_TERM: "booking_center_code",
+}
 EXAMPLE_BY_KEY = {
     "portfolio_id": "DEMO_DPM_EUR_001",
     "session_id": "SIM_0001",
-    "calculation_id": "CALC_0001",
-    "request_id": "REQ_0001",
-    "correlation_id": "corr_123456789abc",
+    "calculation_id": "2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
+    "request_id": "req_0d19d1d768c1",
+    "correlation_id": "corr_55956bbc6cb3",
     "trace_id": "0123456789abcdef0123456789abcdef",
     "tenant_id": "default",
-    "consumer_system": "lotus-gateway",
+    "consumer_system": "lotus-performance",
     "policy_version": "tenant-default-v1",
     "contract_version": "v1",
     "source_service": "lotus-performance",
     "as_of_date": "2026-02-27",
     "report_start_date": "2026-01-01",
     "report_end_date": "2026-01-31",
+    "performance_start_date": "2024-12-31",
     "generated_at": "2026-02-27T10:30:00Z",
-    "status": "ok",
+    "status": "pending",
+    "execution_mode": "async",
+    "poll_path": "/performance/executions/2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
+    "result_path": "/integration/returns/series/results/2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
     "currency": "USD",
     "base_currency": "USD",
+    "metric_basis": "NET",
+    "frequency": "DAILY",
+    "portfolio_returns": [{"date": "2026-02-27", "return_value": "0.0012"}],
 }
 
 
@@ -35,12 +48,21 @@ def _to_snake_case(value: str) -> str:
     return transformed.strip("_").lower()
 
 
+def _canonical_term(value: str) -> str:
+    base = _to_snake_case(value.split(".")[-1].replace("[]", ""))
+    return LEGACY_TERM_MAP.get(base, base)
+
+
+def _semantic_id(value: str) -> str:
+    return f"lotus.{_canonical_term(value)}"
+
+
 def _humanize(value: str) -> str:
-    return _to_snake_case(value).replace("_", " ").strip()
+    return _canonical_term(value).replace("_", " ").strip()
 
 
 def _infer_example(prop_name: str, prop_schema: dict[str, Any]) -> Any:
-    key = _to_snake_case(prop_name)
+    key = _canonical_term(prop_name)
     if key in EXAMPLE_BY_KEY:
         return EXAMPLE_BY_KEY[key]
 
@@ -79,7 +101,7 @@ def _infer_example(prop_name: str, prop_schema: dict[str, Any]) -> Any:
 
 
 def _infer_description(model_name: str, prop_name: str, prop_schema: dict[str, Any]) -> str:
-    key = _to_snake_case(prop_name)
+    key = _canonical_term(prop_name)
     text = _humanize(prop_name)
     if key.endswith("_id"):
         entity = key[: -len("_id")].replace("_", " ")
@@ -97,8 +119,91 @@ def _infer_description(model_name: str, prop_name: str, prop_schema: dict[str, A
     return f"{_humanize(model_name)} field: {text}."
 
 
+def _infer_schema_description(model_name: str, model_schema: dict[str, Any]) -> str:
+    if model_schema.get("type") == "object":
+        return f"{_humanize(model_name)} object."
+    return f"{_humanize(model_name)} schema."
+
+
+def _resolve_schema(schema: dict[str, Any], components: dict[str, Any]) -> dict[str, Any]:
+    ref = schema.get("$ref")
+    if not isinstance(ref, str):
+        return schema
+    return components.get("schemas", {}).get(ref.rsplit("/", 1)[-1], {})
+
+
+def _build_schema_example(
+    schema: dict[str, Any],
+    *,
+    components: dict[str, Any],
+    seen_refs: set[str] | None = None,
+    name_hint: str = "value",
+) -> Any:
+    seen = seen_refs or set()
+    ref = schema.get("$ref")
+    if isinstance(ref, str):
+        if ref in seen:
+            return {"id": "recursive_ref"}
+        target = components.get("schemas", {}).get(ref.rsplit("/", 1)[-1], {})
+        return _build_schema_example(
+            target,
+            components=components,
+            seen_refs={*seen, ref},
+            name_hint=ref.rsplit("/", 1)[-1],
+        )
+
+    if schema.get("example") is not None:
+        return copy.deepcopy(schema["example"])
+    examples = schema.get("examples")
+    if isinstance(examples, list) and examples:
+        return copy.deepcopy(examples[0])
+    if isinstance(examples, dict) and examples:
+        first = next(iter(examples.values()))
+        if isinstance(first, dict) and first.get("value") is not None:
+            return copy.deepcopy(first["value"])
+
+    if "oneOf" in schema and isinstance(schema["oneOf"], list) and schema["oneOf"]:
+        first = schema["oneOf"][0]
+        if isinstance(first, dict):
+            return _build_schema_example(first, components=components, seen_refs=seen, name_hint=name_hint)
+    if "anyOf" in schema and isinstance(schema["anyOf"], list) and schema["anyOf"]:
+        first = schema["anyOf"][0]
+        if isinstance(first, dict):
+            return _build_schema_example(first, components=components, seen_refs=seen, name_hint=name_hint)
+
+    schema_type = schema.get("type")
+    if schema_type == "object" or isinstance(schema.get("properties"), dict):
+        output: dict[str, Any] = {}
+        for prop_name, prop_schema in schema.get("properties", {}).items():
+            if isinstance(prop_schema, dict):
+                output[prop_name] = _build_schema_example(
+                    prop_schema,
+                    components=components,
+                    seen_refs=seen,
+                    name_hint=prop_name,
+                )
+        if output:
+            return output
+        return {"key": "value"}
+    if schema_type == "array":
+        item_schema = schema.get("items", {})
+        if isinstance(item_schema, dict):
+            return [_build_schema_example(item_schema, components=components, seen_refs=seen, name_hint=f"{name_hint}_item")]
+        return ["VALUE"]
+    return _infer_example(name_hint, schema)
+
+
+def _infer_enum_descriptions(prop_name: str, prop_schema: dict[str, Any]) -> list[str] | None:
+    enum_values = prop_schema.get("enum")
+    if not isinstance(enum_values, list) or not enum_values:
+        return None
+    readable_name = _humanize(prop_name)
+    return [f"Allowed {readable_name} value: {value}." for value in enum_values]
+
+
 def _ensure_operation_documentation(schema: dict[str, Any]) -> None:
     paths = schema.get("paths", {})
+    components = schema.get("components", {})
     if not isinstance(paths, dict):
         return
     for path, methods in paths.items():
@@ -121,6 +226,21 @@ def _ensure_operation_documentation(schema: dict[str, Any]) -> None:
                 else:
                     segment = path.strip("/").split("/", 1)[0] or "default"
                     operation["tags"] = [segment.replace("-", " ").title()]
+
+            request_body = operation.get("requestBody")
+            if isinstance(request_body, dict):
+                content = request_body.get("content", {})
+                if isinstance(content, dict):
+                    json_content = content.get("application/json")
+                    if isinstance(json_content, dict):
+                        request_schema = json_content.get("schema", {})
+                        if isinstance(request_schema, dict) and "example" not in json_content and "examples" not in json_content:
+                            json_content["example"] = _build_schema_example(
+                                request_schema,
+                                components=components,
+                                name_hint="request_body",
+                            )
+
             responses = operation.get("responses")
             if isinstance(responses, dict):
                 has_error = any(
@@ -129,6 +249,22 @@ def _ensure_operation_documentation(schema: dict[str, Any]) -> None:
                 )
                 if not has_error:
                     responses["default"] = {"description": "Unexpected error response."}
+                for code, response in responses.items():
+                    if not str(code).startswith("2") or not isinstance(response, dict):
+                        continue
+                    content = response.get("content", {})
+                    if not isinstance(content, dict):
+                        continue
+                    json_content = content.get("application/json")
+                    if not isinstance(json_content, dict):
+                        continue
+                    response_schema = json_content.get("schema", {})
+                    if isinstance(response_schema, dict) and "example" not in json_content and "examples" not in json_content:
+                        json_content["example"] = _build_schema_example(
+                            response_schema,
+                            components=components,
+                            name_hint="response_body",
+                        )
 
 
 def _ensure_schema_documentation(schema: dict[str, Any]) -> None:
@@ -141,16 +277,38 @@ def _ensure_schema_documentation(schema: dict[str, Any]) -> None:
     for model_name, model_schema in schemas.items():
         if not isinstance(model_schema, dict):
             continue
+        if not model_schema.get("description"):
+            model_schema["description"] = _infer_schema_description(str(model_name), model_schema)
+        enum_descriptions = _infer_enum_descriptions(str(model_name), model_schema)
+        if enum_descriptions and "x-enum-descriptions" not in model_schema:
+            model_schema["x-enum-descriptions"] = enum_descriptions
+
         properties = model_schema.get("properties", {})
         if not isinstance(properties, dict):
             continue
         for prop_name, prop_schema in properties.items():
             if not isinstance(prop_schema, dict):
                 continue
+            prop_resolved = _resolve_schema(prop_schema, components)
             if not prop_schema.get("description"):
-                prop_schema["description"] = _infer_description(model_name, prop_name, prop_schema)
+                prop_schema["description"] = prop_resolved.get("description") or _infer_description(
+                    str(model_name),
+                    str(prop_name),
+                    prop_resolved,
+                )
             if "example" not in prop_schema and "examples" not in prop_schema:
-                prop_schema["example"] = _infer_example(prop_name, prop_schema)
+                prop_schema["example"] = _build_schema_example(
+                    prop_schema,
+                    components=components,
+                    name_hint=str(prop_name),
+                )
+            if "x-lotus-semantic-id" not in prop_schema:
+                prop_schema["x-lotus-semantic-id"] = _semantic_id(str(prop_name))
+            if "x-lotus-canonical-term" not in prop_schema:
+                prop_schema["x-lotus-canonical-term"] = _canonical_term(str(prop_name))
+            prop_enum_descriptions = _infer_enum_descriptions(str(prop_name), prop_resolved)
+            if prop_enum_descriptions and "x-enum-descriptions" not in prop_schema:
+                prop_schema["x-enum-descriptions"] = prop_enum_descriptions
 
 
 def enrich_openapi_schema(schema: dict[str, Any]) -> dict[str, Any]:
