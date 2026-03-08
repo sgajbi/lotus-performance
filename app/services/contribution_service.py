@@ -26,16 +26,11 @@ from engine.schema import PortfolioColumns
 settings = get_settings()
 
 
-def _as_numeric(value: Any, default: float = 0.0) -> float:
-    try:
-        if pd.isna(value):
-            return default
-    except TypeError:
-        pass
-    try:
-        return float(value)
-    except (TypeError, ValueError):
+def _as_numeric(value: Any, default: Any = 0) -> Any:
+    numeric = pd.to_numeric(value, errors="coerce")
+    if pd.isna(numeric):
         return default
+    return numeric
 
 
 def calculate_contribution(
@@ -111,7 +106,8 @@ def calculate_contribution(
                     portfolio_period_slice_df[PortfolioColumns.DAILY_ROR.value],
                     errors="coerce",
                 )
-                total_portfolio_return = _as_numeric((1 + daily_returns / 100).prod(), default=1.0) - 1.0
+                total_portfolio_return_product: Any = (1 + daily_returns / 100).prod()
+                total_portfolio_return = _as_numeric(total_portfolio_return_product - 1)
                 sum_of_contributions = _as_numeric(totals["total_contribution"].sum())
                 residual = total_portfolio_return - sum_of_contributions
                 total_avg_weight = _as_numeric(totals["average_weight"].sum())
