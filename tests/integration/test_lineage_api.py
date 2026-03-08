@@ -7,6 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
+from app.services.lineage_metadata_store import lineage_metadata_store
 from main import app
 
 settings = get_settings()
@@ -18,6 +19,8 @@ def client():
     if os.path.exists(settings.LINEAGE_STORAGE_PATH):
         shutil.rmtree(settings.LINEAGE_STORAGE_PATH)
     os.makedirs(settings.LINEAGE_STORAGE_PATH)
+    lineage_metadata_store.create_schema()
+    lineage_metadata_store.clear_all_records()
 
     with TestClient(app) as c:
         yield c
@@ -25,6 +28,7 @@ def client():
     # Clean up after tests
     if os.path.exists(settings.LINEAGE_STORAGE_PATH):
         shutil.rmtree(settings.LINEAGE_STORAGE_PATH)
+    lineage_metadata_store.clear_all_records()
 
 
 def test_lineage_end_to_end_flow(client):
@@ -51,6 +55,7 @@ def test_lineage_end_to_end_flow(client):
 
     assert lineage_data["calculation_id"] == calculation_id
     assert lineage_data["calculation_type"] == "TWR"
+    assert lineage_data["status"] == "complete"
     assert "Z" in lineage_data["timestamp_utc"]
     assert "request.json" in lineage_data["artifacts"]
     assert "response.json" in lineage_data["artifacts"]
@@ -67,6 +72,8 @@ def test_get_lineage_data_not_found(client):
 def test_get_lineage_manifest_not_found(client):
     """Tests that a 404 is returned when lineage dir exists but manifest is missing."""
     calculation_id = uuid4()
+    lineage_metadata_store.create_pending_record(calculation_id=calculation_id, calculation_type="TWR")
+    lineage_metadata_store.mark_complete(calculation_id=calculation_id, artifact_names=["request.json"])
     lineage_dir = os.path.join(settings.LINEAGE_STORAGE_PATH, str(calculation_id))
     os.makedirs(lineage_dir, exist_ok=True)
 
@@ -78,6 +85,8 @@ def test_get_lineage_manifest_not_found(client):
 def test_get_lineage_internal_error_returns_500(client, mocker):
     """Tests that unexpected lineage retrieval failures map to HTTP 500."""
     calculation_id = uuid4()
+    lineage_metadata_store.create_pending_record(calculation_id=calculation_id, calculation_type="TWR")
+    lineage_metadata_store.mark_complete(calculation_id=calculation_id, artifact_names=["request.json"])
     lineage_dir = os.path.join(settings.LINEAGE_STORAGE_PATH, str(calculation_id))
     os.makedirs(lineage_dir, exist_ok=True)
 
@@ -85,7 +94,30 @@ def test_get_lineage_internal_error_returns_500(client, mocker):
     with open(manifest_path, "w") as f:
         f.write('{"calculation_type":"TWR","timestamp_utc":"2026-01-01T00:00:00Z"}')
 
-    mocker.patch("app.api.endpoints.lineage.os.listdir", side_effect=Exception("filesystem failure"))
+    mocker.patch("app.api.endpoints.lineage.json.load", side_effect=Exception("manifest parse failure"))
     response = client.get(f"/performance/lineage/{calculation_id}")
     assert response.status_code == 500
     assert "Failed to retrieve lineage artifacts" in response.json()["detail"]
+
+
+def test_get_lineage_pending_returns_pending_status(client):
+    calculation_id = uuid4()
+    lineage_metadata_store.create_pending_record(calculation_id=calculation_id, calculation_type="TWR")
+
+    response = client.get(f"/performance/lineage/{calculation_id}")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "pending"
+    assert response.json()["artifacts"] == {}
+
+
+def test_get_lineage_failed_returns_failed_status(client):
+    calculation_id = uuid4()
+    lineage_metadata_store.create_pending_record(calculation_id=calculation_id, calculation_type="TWR")
+    lineage_metadata_store.mark_failed(calculation_id=calculation_id, error_message="write failed")
+
+    response = client.get(f"/performance/lineage/{calculation_id}")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "failed"
+    assert response.json()["error_message"] == "write failed"

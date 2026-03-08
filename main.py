@@ -24,6 +24,7 @@ from app.core.handlers import performance_calculator_exception_handler
 from app.enterprise_readiness import build_enterprise_audit_middleware, validate_enterprise_runtime_config
 from app.observability import setup_observability
 from app.openapi_enrichment import enrich_openapi_schema
+from app.services.lineage_metadata_store import lineage_metadata_store
 
 
 # --- FIX START: Create a robust custom JSON response class ---
@@ -83,6 +84,7 @@ settings = get_settings()
 @asynccontextmanager
 async def _app_lifespan(application: FastAPI) -> AsyncIterator[None]:
     application.state.is_draining = False
+    lineage_metadata_store.create_schema()
     yield
     application.state.is_draining = True
 

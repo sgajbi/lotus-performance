@@ -179,6 +179,7 @@ The key architectural rule is that it must scale independently from the API requ
 
 The Lineage Service is responsible for:
 
+- creating durable lineage job metadata in the request path
 - writing lineage manifests
 - writing artifact metadata
 - storing reproducibility records
@@ -186,6 +187,20 @@ The Lineage Service is responsible for:
 - enforcing retention and immutability policy
 
 This service should remain operationally separate because lineage persistence can be storage-heavy and bursty even when API traffic is moderate.
+
+### 8.5.1 Async lineage policy
+
+Lineage persistence should become asynchronous, but not best-effort only.
+
+The required behavior is:
+
+1. Calculation endpoints remain synchronous unless explicitly redesigned as async execution APIs.
+2. The API request path creates a durable lineage metadata record in PostgreSQL before the response is returned.
+3. Artifact materialization runs asynchronously after the response path.
+4. Lineage retrieval is state-driven, with `pending`, `complete`, and `failed` states.
+5. Failures in lineage materialization must be visible and recoverable through durable job state, not lost in process-local logs.
+
+This avoids coupling artifact I/O latency to client response time while preserving banking-grade durability and auditability.
 
 ## 9. Merge, Split, Remove, Add Decisions
 
@@ -264,6 +279,7 @@ PostgreSQL will be the durable backing store for runtime metadata and control st
 - execution requests
 - execution lifecycle state
 - calculation fingerprints and hashes
+- lineage materialization job state
 - lineage manifests
 - artifact metadata
 - upstream retrieval metadata
@@ -337,11 +353,13 @@ Purpose:
 Contains:
 
 - execution id
+- lineage status (`pending`, `complete`, `failed`)
 - artifact manifest
 - request/response references
 - code version
 - configuration snapshot
 - retention class
+- materialization error summary
 
 ### 11.4 `analytics_artifact`
 

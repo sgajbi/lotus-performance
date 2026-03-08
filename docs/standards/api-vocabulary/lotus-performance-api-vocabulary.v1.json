@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-03-01T14:39:42.594557+00:00",
+  "generatedAt": "2026-03-08T03:12:52.116312+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.amount",
@@ -666,6 +666,20 @@
       ],
       "observedTypes": [
         "number"
+      ]
+    },
+    {
+      "semanticId": "lotus.error_message",
+      "canonicalTerm": "error_message",
+      "preferredName": "error_message",
+      "description": "lineage response field: error message.",
+      "example": "example_error_message",
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
       ]
     },
     {
@@ -2086,6 +2100,20 @@
       ],
       "observedTypes": [
         "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.status",
+      "canonicalTerm": "status",
+      "preferredName": "status",
+      "description": "Canonical status used by lotus-performance APIs.",
+      "example": "pending",
+      "type": "LineageStatus",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "LineageStatus"
       ]
     },
     {
@@ -4988,12 +5016,28 @@
             "attributeRef": "#/attributeCatalog/lotus.timestamp_utc"
           },
           {
+            "name": "status",
+            "location": "body",
+            "required": true,
+            "type": "LineageStatus",
+            "semanticId": "lotus.status",
+            "attributeRef": "#/attributeCatalog/lotus.status"
+          },
+          {
             "name": "artifacts",
             "location": "body",
             "required": true,
             "type": "object",
             "semanticId": "lotus.artifacts",
             "attributeRef": "#/attributeCatalog/lotus.artifacts"
+          },
+          {
+            "name": "error_message",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.error_message",
+            "attributeRef": "#/attributeCatalog/lotus.error_message"
           }
         ]
       }

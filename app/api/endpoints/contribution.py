@@ -163,6 +163,7 @@ async def calculate_contribution_endpoint(request: ContributionRequest, backgrou
         audit=audit,
     )
 
+    lineage_service.create_pending_record(calculation_id=request.calculation_id, calculation_type="Contribution")
     background_tasks.add_task(
         lineage_service.capture,
         calculation_id=request.calculation_id,

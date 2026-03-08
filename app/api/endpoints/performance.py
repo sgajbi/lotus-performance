@@ -231,6 +231,7 @@ async def calculate_twr_endpoint(request: PerformanceRequest, background_tasks: 
         audit=audit,
     )
 
+    lineage_service.create_pending_record(calculation_id=request.calculation_id, calculation_type="TWR")
     background_tasks.add_task(
         lineage_service.capture,
         calculation_id=request.calculation_id,
@@ -307,6 +308,7 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnRequest, background
     lineage_df_data.append({"date": str(request.as_of), "type": "end_mv", "amount": request.end_mv})
     lineage_df = pd.DataFrame(lineage_df_data)
 
+    lineage_service.create_pending_record(calculation_id=request.calculation_id, calculation_type="MWR")
     background_tasks.add_task(
         lineage_service.capture,
         calculation_id=request.calculation_id,
@@ -384,6 +386,7 @@ async def calculate_attribution_endpoint(request: AttributionRequest, background
             meta=meta,
         )
 
+        lineage_service.create_pending_record(calculation_id=request.calculation_id, calculation_type="Attribution")
         background_tasks.add_task(
             lineage_service.capture,
             calculation_id=request.calculation_id,

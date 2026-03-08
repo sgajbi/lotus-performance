@@ -23,6 +23,7 @@ pydantic-settings = "^2.10.1"
 scipy = "^1.11.0"
 orjson = "^3.10.6"
 prometheus-fastapi-instrumentator = "^7.1.0"
+SQLAlchemy = "^2.0.39"
 
 
 [tool.poetry.group.dev.dependencies]
