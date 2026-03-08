@@ -230,3 +230,13 @@ class ReturnsSeriesResponse(BaseModel):
     provenance: ReturnsProvenance
     diagnostics: ReturnsDiagnostics
     metadata: ReturnsMetadata
+
+
+class ReturnsSeriesAcceptedResponse(BaseModel):
+    calculation_id: UUID
+    source_service: Literal["lotus-performance"] = "lotus-performance"
+    contract_version: str = "v1"
+    execution_mode: Literal["async"] = "async"
+    status: Literal["pending"] = "pending"
+    poll_path: str
+    result_path: str
