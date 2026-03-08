@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-03-08T03:12:52.116312+00:00",
+  "generatedAt": "2026-03-08T04:26:58.832567+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.amount",
@@ -38,6 +38,20 @@
       ],
       "observedTypes": [
         "array"
+      ]
+    },
+    {
+      "semanticId": "lotus.analytics_type",
+      "canonicalTerm": "analytics_type",
+      "preferredName": "analytics_type",
+      "description": "execution response field: analytics type.",
+      "example": "example_analytics_type",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -350,6 +364,20 @@
       ]
     },
     {
+      "semanticId": "lotus.completed_at_utc",
+      "canonicalTerm": "completed_at_utc",
+      "preferredName": "completed_at_utc",
+      "description": "execution response field: completed at utc.",
+      "example": "example_completed_at_utc",
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
       "semanticId": "lotus.consumer_system",
       "canonicalTerm": "consumer_system",
       "preferredName": "consumer_system",
@@ -453,6 +481,20 @@
       ]
     },
     {
+      "semanticId": "lotus.created_at_utc",
+      "canonicalTerm": "created_at_utc",
+      "preferredName": "created_at_utc",
+      "description": "execution response field: created at utc.",
+      "example": "example_created_at_utc",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.currency",
       "canonicalTerm": "currency",
       "preferredName": "currency",
@@ -535,6 +577,20 @@
       ],
       "observedTypes": [
         "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.details",
+      "canonicalTerm": "details",
+      "preferredName": "details",
+      "description": "Optional stage metadata details.",
+      "example": "example_details",
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
       ]
     },
     {
@@ -672,7 +728,7 @@
       "semanticId": "lotus.error_message",
       "canonicalTerm": "error_message",
       "preferredName": "error_message",
-      "description": "lineage response field: error message.",
+      "description": "execution response field: error message.",
       "example": "example_error_message",
       "type": "object",
       "locations": [
@@ -680,6 +736,20 @@
       ],
       "observedTypes": [
         "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.execution_mode",
+      "canonicalTerm": "execution_mode",
+      "preferredName": "execution_mode",
+      "description": "execution response field: execution mode.",
+      "example": "example_execution_mode",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -1558,7 +1628,8 @@
         "body"
       ],
       "observedTypes": [
-        "string"
+        "string",
+        "object"
       ]
     },
     {
@@ -1720,6 +1791,22 @@
       ],
       "observedTypes": [
         "integer"
+      ]
+    },
+    {
+      "semanticId": "lotus.requested_window",
+      "canonicalTerm": "requested_window",
+      "preferredName": "requested_window",
+      "description": "execution response field: requested window.",
+      "example": {
+        "key": "value"
+      },
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
       ]
     },
     {
@@ -2061,6 +2148,36 @@
       ]
     },
     {
+      "semanticId": "lotus.stage_name",
+      "canonicalTerm": "stage_name",
+      "preferredName": "stage_name",
+      "description": "Internal execution stage name.",
+      "example": "example_stage_name",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.stages",
+      "canonicalTerm": "stages",
+      "preferredName": "stages",
+      "description": "execution response field: stages.",
+      "example": [
+        "example_stages_item"
+      ],
+      "type": "array",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "array"
+      ]
+    },
+    {
       "semanticId": "lotus.start_date",
       "canonicalTerm": "start_date",
       "preferredName": "start_date",
@@ -2072,6 +2189,20 @@
       ],
       "observedTypes": [
         "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.started_at_utc",
+      "canonicalTerm": "started_at_utc",
+      "preferredName": "started_at_utc",
+      "description": "execution response field: started at utc.",
+      "example": "example_started_at_utc",
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
       ]
     },
     {
@@ -2106,13 +2237,14 @@
       "semanticId": "lotus.status",
       "canonicalTerm": "status",
       "preferredName": "status",
-      "description": "Canonical status used by lotus-performance APIs.",
-      "example": "pending",
-      "type": "LineageStatus",
+      "description": "execution response field: status.",
+      "example": "ok",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
+        "string",
         "LineageStatus"
       ]
     },
@@ -2438,6 +2570,18 @@
     }
   ],
   "controlsCatalog": [
+    {
+      "name": "calculation_id",
+      "kind": "request_option",
+      "location": "path",
+      "required": true,
+      "type": "string",
+      "description": "Canonical calculation id used by lotus-performance APIs.",
+      "example": "ENTITY_001",
+      "allowedValues": [],
+      "semanticId": "lotus.calculation_id",
+      "attributeRef": "#/attributeCatalog/lotus.calculation_id"
+    },
     {
       "name": "calculation_id",
       "kind": "request_option",
@@ -4967,6 +5111,181 @@
             "type": "object",
             "semanticId": "lotus.counts",
             "attributeRef": "#/attributeCatalog/lotus.counts"
+          }
+        ]
+      }
+    },
+    {
+      "domain": "performance",
+      "method": "GET",
+      "path": "/performance/executions/{calculation_id}",
+      "operationId": "get_execution_performance_executions__calculation_id__get",
+      "summary": "Retrieve execution lifecycle state",
+      "request": {
+        "fields": [
+          {
+            "name": "calculation_id",
+            "location": "path",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.calculation_id",
+            "attributeRef": "#/attributeCatalog/lotus.calculation_id"
+          }
+        ]
+      },
+      "response": {
+        "fields": [
+          {
+            "name": "calculation_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.calculation_id",
+            "attributeRef": "#/attributeCatalog/lotus.calculation_id"
+          },
+          {
+            "name": "analytics_type",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.analytics_type",
+            "attributeRef": "#/attributeCatalog/lotus.analytics_type"
+          },
+          {
+            "name": "portfolio_id",
+            "location": "body",
+            "required": true,
+            "type": "object",
+            "semanticId": "lotus.portfolio_id",
+            "attributeRef": "#/attributeCatalog/lotus.portfolio_id"
+          },
+          {
+            "name": "execution_mode",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.execution_mode",
+            "attributeRef": "#/attributeCatalog/lotus.execution_mode"
+          },
+          {
+            "name": "status",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.status",
+            "attributeRef": "#/attributeCatalog/lotus.status"
+          },
+          {
+            "name": "requested_window",
+            "location": "body",
+            "required": true,
+            "type": "object",
+            "semanticId": "lotus.requested_window",
+            "attributeRef": "#/attributeCatalog/lotus.requested_window"
+          },
+          {
+            "name": "input_fingerprint",
+            "location": "body",
+            "required": true,
+            "type": "object",
+            "semanticId": "lotus.input_fingerprint",
+            "attributeRef": "#/attributeCatalog/lotus.input_fingerprint"
+          },
+          {
+            "name": "calculation_hash",
+            "location": "body",
+            "required": true,
+            "type": "object",
+            "semanticId": "lotus.calculation_hash",
+            "attributeRef": "#/attributeCatalog/lotus.calculation_hash"
+          },
+          {
+            "name": "error_message",
+            "location": "body",
+            "required": true,
+            "type": "object",
+            "semanticId": "lotus.error_message",
+            "attributeRef": "#/attributeCatalog/lotus.error_message"
+          },
+          {
+            "name": "created_at_utc",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.created_at_utc",
+            "attributeRef": "#/attributeCatalog/lotus.created_at_utc"
+          },
+          {
+            "name": "started_at_utc",
+            "location": "body",
+            "required": true,
+            "type": "object",
+            "semanticId": "lotus.started_at_utc",
+            "attributeRef": "#/attributeCatalog/lotus.started_at_utc"
+          },
+          {
+            "name": "completed_at_utc",
+            "location": "body",
+            "required": true,
+            "type": "object",
+            "semanticId": "lotus.completed_at_utc",
+            "attributeRef": "#/attributeCatalog/lotus.completed_at_utc"
+          },
+          {
+            "name": "stages",
+            "location": "body",
+            "required": true,
+            "type": "array",
+            "semanticId": "lotus.stages",
+            "attributeRef": "#/attributeCatalog/lotus.stages"
+          },
+          {
+            "name": "stages[].stage_name",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.stage_name",
+            "attributeRef": "#/attributeCatalog/lotus.stage_name"
+          },
+          {
+            "name": "stages[].status",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.status",
+            "attributeRef": "#/attributeCatalog/lotus.status"
+          },
+          {
+            "name": "stages[].started_at_utc",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.started_at_utc",
+            "attributeRef": "#/attributeCatalog/lotus.started_at_utc"
+          },
+          {
+            "name": "stages[].completed_at_utc",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.completed_at_utc",
+            "attributeRef": "#/attributeCatalog/lotus.completed_at_utc"
+          },
+          {
+            "name": "stages[].details",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.details",
+            "attributeRef": "#/attributeCatalog/lotus.details"
+          },
+          {
+            "name": "stages[].error_message",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.error_message",
+            "attributeRef": "#/attributeCatalog/lotus.error_message"
           }
         ]
       }

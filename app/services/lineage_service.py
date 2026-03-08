@@ -10,6 +10,7 @@ import pandas as pd
 from pydantic import BaseModel
 
 from app.core.config import get_settings
+from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import LineageMetadataStore, lineage_metadata_store
 
 logger = logging.getLogger(__name__)
@@ -81,6 +82,18 @@ class LineageService:
 
             self._metadata_store.mark_complete(calculation_id=calculation_id, artifact_names=artifact_names)
             self._metadata_store.delete_payload(calculation_id)
+            try:
+                execution_registry.complete_stage(
+                    calculation_id,
+                    "lineage_materialization",
+                    details={"artifact_names": sorted(artifact_names)},
+                )
+            except Exception:
+                logger.warning(
+                    "Execution stage unavailable while marking lineage materialization complete: %s",
+                    calculation_id,
+                    exc_info=True,
+                )
 
             logger.info(f"Successfully captured lineage data for calculation_id: {calculation_id}")
 
@@ -90,6 +103,14 @@ class LineageService:
             except Exception:
                 logger.exception(
                     "Failed to mark lineage metadata record as failed for calculation_id=%s", calculation_id
+                )
+            try:
+                execution_registry.fail_stage(calculation_id, "lineage_materialization", str(e))
+            except Exception:
+                logger.warning(
+                    "Execution stage unavailable while marking lineage materialization failed: %s",
+                    calculation_id,
+                    exc_info=True,
                 )
             # Add robust logging to make silent errors visible in the server console
             logger.error(

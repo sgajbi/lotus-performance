@@ -1,6 +1,7 @@
 # tests/conftest.py
 import pytest
 
+from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import lineage_metadata_store
 from app.workers.lineage_worker import process_pending_jobs
 
@@ -66,5 +67,6 @@ def happy_path_payload():
 
 
 def drain_lineage_queue() -> int:
+    execution_registry.create_schema()
     lineage_metadata_store.create_schema()
     return process_pending_jobs(limit=100)

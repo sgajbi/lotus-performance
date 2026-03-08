@@ -4,6 +4,7 @@ import logging
 import time
 
 from app.core.config import get_settings
+from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import lineage_metadata_store
 from app.services.lineage_service import lineage_service
 
@@ -31,6 +32,7 @@ def process_pending_jobs(*, limit: int | None = None) -> int:
 def run_forever() -> None:
     logging.basicConfig(level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO))
     logger.info("Starting lineage worker poller")
+    execution_registry.create_schema()
     lineage_metadata_store.create_schema()
     while True:
         processed = process_pending_jobs()
