@@ -1,4 +1,5 @@
 from decimal import Decimal
+from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
 
@@ -280,7 +281,7 @@ def test_returns_series_stateful_requires_reporting_currency_for_risk_free(monke
 
 def test_returns_series_async_result_retrieval(monkeypatch):
     original_threshold = settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS
-    settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = 1
+    settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = 0
 
     async def _mock_get_portfolio_analytics_timeseries(self, **kwargs):  # noqa: ARG001
         return (
@@ -330,6 +331,54 @@ def test_returns_series_async_result_retrieval(monkeypatch):
             body = complete_result.json()
             assert body["calculation_id"] == calculation_id
             assert len(body["series"]["portfolio_returns"]) == 3
+    finally:
+        settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = original_threshold
+
+
+def test_returns_series_async_result_not_found_and_failed(monkeypatch):
+    original_threshold = settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS
+    settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = 0
+
+    async def _mock_get_portfolio_analytics_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2026-02-23",
+                "observations": [
+                    {"valuation_date": "2026-02-23", "beginning_market_value": "1000", "ending_market_value": "1010"}
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.returns_series_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
+        _mock_get_portfolio_analytics_timeseries,
+    )
+
+    payload = {
+        "portfolio_id": "DEMO_DPM_EUR_001",
+        "as_of_date": "2026-02-23",
+        "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-23"},
+        "frequency": "DAILY",
+        "metric_basis": "NET",
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    try:
+        with TestClient(app) as client:
+            missing = client.get(f"/integration/returns/series/results/{uuid4()}")
+            assert missing.status_code == 404
+
+            accepted = client.post("/integration/returns/series", json=payload)
+            calculation_id = accepted.json()["calculation_id"]
+
+            from app.services.compute_job_store import compute_job_store
+
+            compute_job_store.mark_failed(UUID(calculation_id), error_message="executor boom")
+            failed = client.get(f"/integration/returns/series/results/{calculation_id}")
+            assert failed.status_code == 409
+            assert failed.json()["detail"] == "executor boom"
     finally:
         settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = original_threshold
 
