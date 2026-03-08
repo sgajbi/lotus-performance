@@ -82,7 +82,11 @@ def test_execution_api_tracks_returns_series_stateful_stages(client, monkeypatch
                 "observations": [
                     {"valuation_date": "2026-02-23", "beginning_market_value": "1000", "ending_market_value": "1010"},
                     {"valuation_date": "2026-02-24", "beginning_market_value": "1010", "ending_market_value": "1015"},
-                    {"valuation_date": "2026-02-25", "beginning_market_value": "1015", "ending_market_value": "1012.46"},
+                    {
+                        "valuation_date": "2026-02-25",
+                        "beginning_market_value": "1015",
+                        "ending_market_value": "1012.46",
+                    },
                 ],
             },
         )

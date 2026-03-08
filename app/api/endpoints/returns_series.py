@@ -388,7 +388,10 @@ async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResp
                 if assignment_status == status.HTTP_404_NOT_FOUND:
                     raise HTTPException(
                         status_code=status.HTTP_404_NOT_FOUND,
-                        detail={"code": "RESOURCE_NOT_FOUND", "message": "No benchmark assignment found for portfolio."},
+                        detail={
+                            "code": "RESOURCE_NOT_FOUND",
+                            "message": "No benchmark assignment found for portfolio.",
+                        },
                     )
                 if assignment_status >= status.HTTP_400_BAD_REQUEST:
                     raise HTTPException(
@@ -421,7 +424,10 @@ async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResp
                 if benchmark_status == status.HTTP_404_NOT_FOUND:
                     raise HTTPException(
                         status_code=status.HTTP_404_NOT_FOUND,
-                        detail={"code": "RESOURCE_NOT_FOUND", "message": f"No benchmark return series for {benchmark_id}."},
+                        detail={
+                            "code": "RESOURCE_NOT_FOUND",
+                            "message": f"No benchmark return series for {benchmark_id}.",
+                        },
                     )
                 if benchmark_status >= status.HTTP_400_BAD_REQUEST:
                     raise HTTPException(
@@ -501,7 +507,10 @@ async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResp
             except ValueError as exc:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail={"code": "INSUFFICIENT_DATA", "message": "Invalid portfolio_open_date from stateful source."},
+                    detail={
+                        "code": "INSUFFICIENT_DATA",
+                        "message": "Invalid portfolio_open_date from stateful source.",
+                    },
                 ) from exc
             portfolio_df = _resample_returns(
                 _daily_ror_from_portfolio_timeseries(
