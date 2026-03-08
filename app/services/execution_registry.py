@@ -160,6 +160,7 @@ class ExecutionRegistry:
 
     def clear_all_records(self) -> None:
         with self._session() as session:
+            session.query(AnalyticsUpstreamSnapshotModel).delete()
             session.query(AnalyticsExecutionStageModel).delete()
             session.query(AnalyticsExecutionModel).delete()
 
