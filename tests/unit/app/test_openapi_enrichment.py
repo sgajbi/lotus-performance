@@ -3,6 +3,7 @@ from app.openapi_enrichment import (
     _canonical_term,
     _infer_description,
     _infer_example,
+    _infer_schema_description,
     _semantic_id,
     _to_snake_case,
     enrich_openapi_schema,
@@ -179,12 +180,53 @@ def test_enrich_openapi_schema_fills_operation_schema_and_examples():
 
 def test_infer_example_and_description_cover_fallback_branches():
     assert _infer_example("items", {"type": "array", "items": "not-a-dict"}) == ["VALUE"]
+    assert _infer_example("settlement_date", {"type": "string", "format": "date"}) == "2026-02-27"
+    assert _infer_example("event_timestamp", {"type": "string", "format": "date-time"}) == "2026-02-27T10:30:00Z"
     assert _infer_example("event_time", {"type": "string"}) == "2026-02-27T10:30:00Z"
     assert _infer_example("trade_date_label", {"type": "string"}) == "2026-02-27"
     assert _infer_example("quote_currency", {"type": "string"}) == "USD"
     assert _infer_example("custom_field", {"type": "string"}) == "example_custom_field"
 
     assert _infer_description("Response", "level", {"type": "string"}) == "response field: level."
+    assert _infer_schema_description("GenericThing", {"type": "string"}) == "generic thing schema."
+
+
+def test_build_schema_example_covers_recursive_examples_and_union_forms():
+    components = {
+        "schemas": {
+            "Loop": {
+                "type": "object",
+                "properties": {
+                    "self": {"$ref": "#/components/schemas/Loop"},
+                },
+            }
+        }
+    }
+
+    assert _build_schema_example({"$ref": "#/components/schemas/Loop"}, components=components) == {
+        "self": {"id": "recursive_ref"}
+    }
+    assert _build_schema_example({"examples": ["alpha", "beta"]}, components=components) == "alpha"
+    assert _build_schema_example(
+        {"examples": {"named": {"value": {"status": "pending"}}}},
+        components=components,
+    ) == {"status": "pending"}
+    assert (
+        _build_schema_example(
+            {"oneOf": [{"type": "string", "enum": ["NET", "GROSS"]}]},
+            components=components,
+        )
+        == "NET"
+    )
+    assert (
+        _build_schema_example(
+            {"anyOf": [{"type": "integer"}, {"type": "string"}]},
+            components=components,
+        )
+        == 1
+    )
+    assert _build_schema_example({"type": "object"}, components=components) == {"key": "value"}
+    assert _build_schema_example({"type": "array", "items": "not-a-dict"}, components=components) == ["VALUE"]
 
 
 def test_enrich_openapi_schema_ignores_non_object_sections_and_non_http_methods():
@@ -205,3 +247,100 @@ def test_enrich_openapi_schema_ignores_non_object_sections_and_non_http_methods(
 
     assert enriched["paths"]["/health"]["parameters"] == ["not-an-operation"]
     assert enriched["paths"]["/custom"]["post"] == "invalid"
+
+
+def test_enrich_openapi_schema_covers_metrics_tags_and_model_level_enum_metadata():
+    schema = {
+        "paths": {
+            "/metrics": {
+                "get": {
+                    "responses": {
+                        "200": {
+                            "description": "Prometheus text format",
+                            "content": {"text/plain": {"schema": {"type": "string"}}},
+                        }
+                    },
+                }
+            },
+            "/custom": {
+                "trace": {"summary": "ignored"},
+                "post": {
+                    "responses": {
+                        "204": {
+                            "description": "No content",
+                        }
+                    },
+                },
+            },
+        },
+        "components": {
+            "schemas": {
+                "StatusEnum": {
+                    "type": "string",
+                    "enum": ["pending", "complete"],
+                },
+                "BrokenProperties": {
+                    "type": "object",
+                    "properties": {
+                        "valid": {"type": "string"},
+                        "broken": "not-a-dict",
+                    },
+                },
+                "IgnoredSchema": "not-a-dict",
+            }
+        },
+    }
+
+    enriched = enrich_openapi_schema(schema)
+
+    assert enriched["paths"]["/metrics"]["get"]["tags"] == ["Monitoring"]
+    assert "default" in enriched["paths"]["/metrics"]["get"]["responses"]
+    assert "example" not in enriched["paths"]["/metrics"]["get"]["responses"]["200"]["content"]["text/plain"]
+    assert enriched["paths"]["/custom"]["trace"] == {"summary": "ignored"}
+    assert "default" in enriched["paths"]["/custom"]["post"]["responses"]
+    assert enriched["components"]["schemas"]["StatusEnum"]["x-enum-descriptions"] == [
+        "Allowed status enum value: pending.",
+        "Allowed status enum value: complete.",
+    ]
+    assert enriched["components"]["schemas"]["BrokenProperties"]["properties"]["valid"]["example"] == "example_valid"
+    assert enriched["components"]["schemas"]["BrokenProperties"]["properties"]["broken"] == "not-a-dict"
+
+
+def test_enrich_openapi_schema_handles_malformed_root_sections_and_response_content():
+    schema_with_bad_roots = {
+        "paths": [],
+        "components": [],
+    }
+
+    assert enrich_openapi_schema(schema_with_bad_roots) == schema_with_bad_roots
+
+    schema_with_bad_method_and_content = {
+        "paths": {
+            "/broken": {
+                "get": {
+                    "responses": {
+                        "200": {
+                            "description": "ok",
+                            "content": "not-a-dict",
+                        }
+                    },
+                },
+                "parameters": {},
+            }
+        },
+        "components": {"schemas": {}},
+    }
+
+    enriched = enrich_openapi_schema(schema_with_bad_method_and_content)
+
+    assert enriched["paths"]["/broken"]["parameters"] == {}
+    assert "default" in enriched["paths"]["/broken"]["get"]["responses"]
+
+    schema_with_non_dict_methods = {
+        "paths": {
+            "/bad": [],
+        },
+        "components": {"schemas": "not-a-dict"},
+    }
+
+    assert enrich_openapi_schema(schema_with_non_dict_methods) == schema_with_non_dict_methods
