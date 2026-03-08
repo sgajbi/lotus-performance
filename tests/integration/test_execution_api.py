@@ -204,6 +204,7 @@ def test_execution_api_tracks_async_returns_series_job_state(client, monkeypatch
         assert execution_body["execution_mode"] == "async"
         assert execution_body["status"] == "pending"
         assert execution_body["compute_job"]["job_status"] == "pending"
+        assert execution_body["compute_job"]["max_attempts"] == settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS
 
         assert drain_compute_queue() == 1
 
@@ -212,6 +213,7 @@ def test_execution_api_tracks_async_returns_series_job_state(client, monkeypatch
         execution_body_after_worker = execution_response_after_worker.json()
         assert execution_body_after_worker["status"] == "complete"
         assert execution_body_after_worker["compute_job"]["job_status"] == "complete"
+        assert execution_body_after_worker["compute_job"]["worker_id"] == settings.COMPUTE_EXECUTOR_WORKER_ID
     finally:
         settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = original_threshold
 
@@ -242,6 +244,7 @@ def test_execution_api_tracks_async_contribution_job_state(client, happy_path_pa
         execution_body_after_worker = execution_after_worker.json()
         assert execution_body_after_worker["status"] == "complete"
         assert execution_body_after_worker["compute_job"]["job_status"] == "complete"
+        assert execution_body_after_worker["compute_job"]["attempt_count"] == 1
     finally:
         settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = original_threshold
 
@@ -296,3 +299,46 @@ def test_execution_api_tracks_async_attribution_job_state(client):
         assert execution_body_after_worker["compute_job"]["job_status"] == "complete"
     finally:
         settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = original_threshold
+
+
+def test_execution_api_exposes_retryable_compute_job_metadata(client, monkeypatch):
+    original_threshold = settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS
+    original_attempts = settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS
+    settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = 0
+    settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS = 2
+
+    async def _boom(_request):
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=503, detail="temporary upstream issue")
+
+    monkeypatch.setattr("app.workers.compute_executor_worker.calculate_returns_series", _boom)
+
+    payload = {
+        "portfolio_id": "DEMO_DPM_EUR_001",
+        "as_of_date": "2026-02-25",
+        "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-25"},
+        "frequency": "DAILY",
+        "metric_basis": "NET",
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    try:
+        response = client.post("/integration/returns/series", json=payload)
+        assert response.status_code == 202
+        calculation_id = response.json()["calculation_id"]
+
+        assert drain_compute_queue() == 1
+
+        execution_response = client.get(f"/performance/executions/{calculation_id}")
+        assert execution_response.status_code == 200
+        job = execution_response.json()["compute_job"]
+        assert job["job_status"] == "pending"
+        assert job["attempt_count"] == 1
+        assert job["error_type"] == "HTTPException"
+        assert job["last_error_at_utc"] is not None
+        assert job.get("lease_expires_at_utc") is None
+    finally:
+        settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = original_threshold
+        settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS = original_attempts

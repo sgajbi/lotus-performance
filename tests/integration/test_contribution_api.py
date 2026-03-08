@@ -289,7 +289,9 @@ def test_contribution_async_result_retrieval(client, happy_path_payload):
 
 def test_contribution_async_result_not_found_and_failed(client, happy_path_payload, mocker):
     original_threshold = settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT
+    original_attempts = settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS
     settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = 0
+    settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS = 1
 
     mocker.patch("app.workers.compute_executor_worker.calculate_contribution", side_effect=RuntimeError("explode"))
 
@@ -308,3 +310,4 @@ def test_contribution_async_result_not_found_and_failed(client, happy_path_paylo
         assert failed.json()["detail"] == "explode"
     finally:
         settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = original_threshold
+        settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS = original_attempts
