@@ -103,3 +103,28 @@ def test_lineage_service_capture_logs_error_on_write_failure(tmp_path, mocker, c
     metadata = metadata_store.get_record(calc_id)
     assert metadata is not None
     assert metadata.status == LineageStatus.FAILED
+
+
+def test_lineage_service_logs_when_mark_failed_also_breaks(tmp_path, mocker, caplog):
+    metadata_store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    metadata_store.create_schema()
+    service = LineageService(storage_path=str(tmp_path), metadata_store=metadata_store)
+    calc_id = uuid4()
+    req_model = MockModel(key="request")
+    res_model = MockModel(key="response")
+    details_df = pd.DataFrame([{"colA": 1, "colB": 2}])
+    service.create_pending_record(calculation_id=calc_id, calculation_type="TEST")
+
+    mocker.patch.object(pd.DataFrame, "to_csv", side_effect=OSError("disk full"))
+    mocker.patch.object(metadata_store, "mark_failed", side_effect=RuntimeError("db down"))
+
+    with caplog.at_level("ERROR"):
+        service.capture(
+            calculation_id=calc_id,
+            calculation_type="TEST",
+            request_model=req_model,
+            response_model=res_model,
+            calculation_details={"details.csv": details_df},
+        )
+
+    assert any("Failed to mark lineage metadata record as failed" in record.message for record in caplog.records)

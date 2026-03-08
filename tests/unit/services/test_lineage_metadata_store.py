@@ -25,3 +25,23 @@ def test_lineage_metadata_store_pending_complete_and_failed(tmp_path):
     assert failed is not None
     assert failed.status == LineageStatus.FAILED
     assert failed.error_message == "write failed"
+
+
+def test_lineage_metadata_store_raises_for_missing_record_updates(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+
+    try:
+        store.mark_complete(calculation_id=calculation_id, artifact_names=["request.json"])
+    except KeyError as exc:
+        assert "Lineage record not found" in str(exc)
+    else:
+        raise AssertionError("Expected mark_complete to raise KeyError")
+
+    try:
+        store.mark_failed(calculation_id=calculation_id, error_message="boom")
+    except KeyError as exc:
+        assert "Lineage record not found" in str(exc)
+    else:
+        raise AssertionError("Expected mark_failed to raise KeyError")

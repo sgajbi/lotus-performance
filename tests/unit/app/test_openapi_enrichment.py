@@ -108,3 +108,33 @@ def test_enrich_openapi_schema_fills_operation_and_schema_gaps():
     other_count = enriched["components"]["schemas"]["Other"]["properties"]["count"]
     assert other_count["description"]
     assert other_count["example"] == 1
+
+
+def test_infer_example_and_description_cover_fallback_branches():
+    assert _infer_example("items", {"type": "array", "items": "not-a-dict"}) == ["VALUE"]
+    assert _infer_example("event_time", {"type": "string"}) == "2026-02-27T10:30:00Z"
+    assert _infer_example("trade_date_label", {"type": "string"}) == "2026-02-27"
+    assert _infer_example("quote_currency", {"type": "string"}) == "USD"
+    assert _infer_example("custom_field", {"type": "string"}) == "example_custom_field"
+
+    assert _infer_description("Response", "level", {"type": "string"}) == "response field: level."
+
+
+def test_enrich_openapi_schema_ignores_non_object_sections_and_non_http_methods():
+    schema = {
+        "paths": {
+            "/health": {"parameters": ["not-an-operation"]},
+            "/custom": {"post": "invalid"},
+        },
+        "components": {
+            "schemas": {
+                "Broken": {"type": "object", "properties": "invalid"},
+                "Ignored": "not-a-dict",
+            }
+        },
+    }
+
+    enriched = enrich_openapi_schema(schema)
+
+    assert enriched["paths"]["/health"]["parameters"] == ["not-an-operation"]
+    assert enriched["paths"]["/custom"]["post"] == "invalid"
