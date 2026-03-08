@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     CORE_TIMEOUT_SECONDS: float = 10.0
     CORE_MAX_RETRIES: int = 2
     CORE_RETRY_BACKOFF_SECONDS: float = 0.2
+    STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS: int = 90
+    STATEFUL_INPUT_REFERENCE_CHUNK_DAYS: int = 365
+    STATEFUL_INPUT_MAX_CONCURRENT_CHUNKS: int = 4
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

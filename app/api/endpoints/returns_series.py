@@ -30,6 +30,7 @@ from app.models.returns_series import (
 )
 from app.observability import correlation_id_var, request_id_var, trace_id_var
 from app.services.core_integration_service import CoreIntegrationService
+from app.services.stateful_input_service import StatefulInputService
 from common.enums import Frequency, PeriodType
 from core.repro import generate_canonical_hash
 from engine.compute import run_calculations
@@ -314,13 +315,19 @@ async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResp
             max_retries=settings.CORE_MAX_RETRIES,
             retry_backoff_seconds=settings.CORE_RETRY_BACKOFF_SECONDS,
         )
+        stateful_input_service = StatefulInputService(
+            core_service=core_service,
+            portfolio_chunk_days=settings.STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS,
+            reference_chunk_days=settings.STATEFUL_INPUT_REFERENCE_CHUNK_DAYS,
+            max_concurrent_chunks=settings.STATEFUL_INPUT_MAX_CONCURRENT_CHUNKS,
+        )
         stateful_input = request.stateful_input
         if stateful_input is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={"code": "INVALID_REQUEST", "message": "stateful_input is required in stateful mode."},
             )
-        upstream_status, upstream_payload = await core_service.get_portfolio_analytics_timeseries(
+        upstream_status, upstream_payload = await stateful_input_service.get_portfolio_timeseries(
             portfolio_id=request.portfolio_id,
             as_of_date=request.as_of_date,
             start_date=resolved_window.start_date,
@@ -367,7 +374,7 @@ async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResp
 
         benchmark_id = request.benchmark.benchmark_id if request.benchmark else None
         if request.series_selection.include_benchmark and not benchmark_id:
-            assignment_status, assignment_payload = await core_service.get_benchmark_assignment(
+            assignment_status, assignment_payload = await stateful_input_service.get_benchmark_assignment(
                 portfolio_id=request.portfolio_id,
                 as_of_date=request.as_of_date,
                 reporting_currency=request.reporting_currency,
@@ -396,7 +403,7 @@ async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResp
                     },
                 )
         if request.series_selection.include_benchmark and benchmark_id:
-            benchmark_status, benchmark_payload = await core_service.get_benchmark_return_series(
+            benchmark_status, benchmark_payload = await stateful_input_service.get_benchmark_return_series(
                 benchmark_id=benchmark_id,
                 as_of_date=request.as_of_date,
                 start_date=resolved_window.start_date,
@@ -446,7 +453,7 @@ async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResp
                         "message": "reporting_currency is required for risk-free series in stateful mode.",
                     },
                 )
-            risk_free_status, risk_free_payload = await core_service.get_risk_free_series(
+            risk_free_status, risk_free_payload = await stateful_input_service.get_risk_free_series(
                 currency=request.reporting_currency,
                 as_of_date=request.as_of_date,
                 start_date=resolved_window.start_date,

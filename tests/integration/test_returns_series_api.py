@@ -177,6 +177,67 @@ def test_returns_series_stateful_fetches_benchmark_and_risk_free(monkeypatch):
     assert len(body["series"]["risk_free_returns"]) == 5
 
 
+def test_returns_series_stateful_long_window_uses_chunked_portfolio_retrieval(monkeypatch):
+    original_chunk_days = __import__(
+        "app.api.endpoints.returns_series", fromlist=["settings"]
+    ).settings.STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS
+    __import__(
+        "app.api.endpoints.returns_series", fromlist=["settings"]
+    ).settings.STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS = 2
+    calls: list[tuple[str, str]] = []
+
+    async def _mock_get_portfolio_analytics_timeseries(self, **kwargs):  # noqa: ARG001
+        calls.append((str(kwargs["start_date"]), str(kwargs["end_date"])))
+        return (
+            200,
+            {
+                "portfolio_open_date": "2026-02-23",
+                "observations": [
+                    {
+                        "valuation_date": str(kwargs["start_date"]),
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1005",
+                    },
+                    {
+                        "valuation_date": str(kwargs["end_date"]),
+                        "beginning_market_value": "1005",
+                        "ending_market_value": "1010",
+                    },
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.core_integration_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
+        _mock_get_portfolio_analytics_timeseries,
+    )
+
+    payload = {
+        "portfolio_id": "DEMO_DPM_EUR_001",
+        "as_of_date": "2026-02-27",
+        "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-27"},
+        "frequency": "DAILY",
+        "metric_basis": "NET",
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    try:
+        with TestClient(app) as client:
+            response = client.post("/integration/returns/series", json=payload)
+    finally:
+        __import__(
+            "app.api.endpoints.returns_series", fromlist=["settings"]
+        ).settings.STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS = original_chunk_days
+
+    assert response.status_code == 200
+    assert calls == [
+        ("2026-02-23", "2026-02-24"),
+        ("2026-02-25", "2026-02-26"),
+        ("2026-02-27", "2026-02-27"),
+    ]
+
+
 def test_returns_series_stateful_requires_reporting_currency_for_risk_free(monkeypatch):
     async def _mock_get_portfolio_analytics_timeseries(self, **kwargs):  # noqa: ARG001
         return (
