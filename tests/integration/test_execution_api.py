@@ -146,3 +146,7 @@ def test_execution_api_tracks_returns_series_stateful_stages(client, monkeypatch
     assert stages["execution"]["status"] == "complete"
     assert stages["retrieval"]["details"]["portfolio_observations"] == 3
     assert stages["normalization"]["details"]["benchmark_points"] == 3
+    assert len(execution_body["upstream_snapshots"]) >= 2
+    assert {
+        snapshot["upstream_endpoint"] for snapshot in execution_body["upstream_snapshots"]
+    } >= {"portfolio_timeseries", "benchmark_return_series"}

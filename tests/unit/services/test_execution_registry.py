@@ -77,3 +77,35 @@ def test_execution_registry_raises_for_missing_stage(tmp_path):
 
     with pytest.raises(KeyError):
         registry.complete_stage(calculation_id, "execution")
+
+
+def test_execution_registry_records_upstream_snapshots(tmp_path):
+    registry = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    registry.create_schema()
+    calculation_id = uuid4()
+    registry.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        portfolio_id="PORT-4",
+    )
+
+    registry.record_upstream_snapshot(
+        calculation_id=calculation_id,
+        snapshot_id="snap-1",
+        upstream_endpoint="portfolio_timeseries",
+        source_identifier="PORT-4",
+        as_of_date="2026-02-27",
+        request_fingerprint="req-1",
+        response_fingerprint="resp-1",
+        retrieval_status="200",
+        paging_metadata={"page_token": "n1"},
+    )
+
+    record = registry.get_execution(calculation_id)
+
+    assert record is not None
+    assert len(record.upstream_snapshots) == 1
+    snapshot = record.upstream_snapshots[0]
+    assert snapshot.snapshot_id == "snap-1"
+    assert snapshot.upstream_endpoint == "portfolio_timeseries"
+    assert snapshot.paging_metadata == {"page_token": "n1"}

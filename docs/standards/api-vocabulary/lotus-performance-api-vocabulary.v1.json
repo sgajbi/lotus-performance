@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-03-08T04:46:18.264006+00:00",
+  "generatedAt": "2026-03-08T04:59:25.007685+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.amount",
@@ -2432,6 +2432,24 @@
       ],
       "observedTypes": [
         "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.upstream_snapshots",
+      "canonicalTerm": "upstream_snapshots",
+      "preferredName": "upstream_snapshots",
+      "description": "execution response field: upstream snapshots.",
+      "example": [
+        {
+          "key": "value"
+        }
+      ],
+      "type": "array",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "array"
       ]
     },
     {
@@ -5286,6 +5304,14 @@
             "type": "object",
             "semanticId": "lotus.error_message",
             "attributeRef": "#/attributeCatalog/lotus.error_message"
+          },
+          {
+            "name": "upstream_snapshots",
+            "location": "body",
+            "required": true,
+            "type": "array",
+            "semanticId": "lotus.upstream_snapshots",
+            "attributeRef": "#/attributeCatalog/lotus.upstream_snapshots"
           }
         ]
       }
