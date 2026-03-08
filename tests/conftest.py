@@ -1,6 +1,7 @@
 # tests/conftest.py
 import pytest
 
+from app.services.async_result_store import async_result_store
 from app.services.compute_job_store import compute_job_store
 from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import lineage_metadata_store
@@ -71,6 +72,7 @@ def happy_path_payload():
 def drain_lineage_queue() -> int:
     execution_registry.create_schema()
     compute_job_store.create_schema()
+    async_result_store.create_schema()
     lineage_metadata_store.create_schema()
     return process_pending_jobs(limit=100)
 
@@ -78,4 +80,5 @@ def drain_lineage_queue() -> int:
 def drain_compute_queue() -> int:
     execution_registry.create_schema()
     compute_job_store.create_schema()
+    async_result_store.create_schema()
     return process_pending_compute_jobs(limit=100)

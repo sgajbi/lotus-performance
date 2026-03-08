@@ -11,6 +11,7 @@ from app.models.contribution_responses import (
     ContributionAcceptedResponse,
     ContributionResponse,
 )
+from app.services.async_result_store import AsyncResultStatus, async_result_store
 from app.services.compute_job_store import ComputeJobStatus, compute_job_store
 from app.services.contribution_service import calculate_contribution
 from app.services.execution_registry import execution_registry
@@ -58,6 +59,7 @@ async def calculate_contribution_endpoint(request: ContributionRequest) -> Contr
     input_fingerprint, calculation_hash = generate_canonical_hash(request, settings.APP_VERSION)
     execution_registry.create_schema()
     compute_job_store.create_schema()
+    async_result_store.create_schema()
     execution_mode = "async" if _should_offload_contribution(request) else "sync"
     execution_registry.create_execution(
         calculation_id=request.calculation_id,
@@ -96,6 +98,14 @@ async def calculate_contribution_endpoint(request: ContributionRequest) -> Contr
     summary="Retrieve async contribution result",
 )
 async def get_contribution_result(calculation_id: UUID) -> ContributionResponse | JSONResponse:
+    async_result = async_result_store.get_result(calculation_id)
+    if async_result is not None:
+        if async_result.result_status == AsyncResultStatus.FAILED:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=async_result.error_message or "Async contribution execution failed.",
+            )
+        return ContributionResponse.model_validate(async_result.response_payload)
     job = compute_job_store.get_job(calculation_id)
     if job is None:
         raise HTTPException(

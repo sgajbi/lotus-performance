@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
+from app.services.async_result_store import async_result_store
 from app.services.compute_job_store import compute_job_store
 from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import lineage_metadata_store
@@ -24,6 +25,8 @@ def client():
     execution_registry.clear_all_records()
     compute_job_store.create_schema()
     compute_job_store.clear_all_records()
+    async_result_store.create_schema()
+    async_result_store.clear_all_records()
     lineage_metadata_store.create_schema()
     lineage_metadata_store.clear_all_records()
 
@@ -33,6 +36,7 @@ def client():
     if os.path.exists(settings.LINEAGE_STORAGE_PATH):
         shutil.rmtree(settings.LINEAGE_STORAGE_PATH)
     compute_job_store.clear_all_records()
+    async_result_store.clear_all_records()
     execution_registry.clear_all_records()
     lineage_metadata_store.clear_all_records()
 
@@ -214,6 +218,7 @@ def test_execution_api_tracks_async_returns_series_job_state(client, monkeypatch
         assert execution_body_after_worker["status"] == "complete"
         assert execution_body_after_worker["compute_job"]["job_status"] == "complete"
         assert execution_body_after_worker["compute_job"]["worker_id"] == settings.COMPUTE_EXECUTOR_WORKER_ID
+        assert execution_body_after_worker["async_result"]["result_status"] == "complete"
     finally:
         settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = original_threshold
 
@@ -245,6 +250,7 @@ def test_execution_api_tracks_async_contribution_job_state(client, happy_path_pa
         assert execution_body_after_worker["status"] == "complete"
         assert execution_body_after_worker["compute_job"]["job_status"] == "complete"
         assert execution_body_after_worker["compute_job"]["attempt_count"] == 1
+        assert execution_body_after_worker["async_result"]["result_status"] == "complete"
     finally:
         settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = original_threshold
 
@@ -297,6 +303,7 @@ def test_execution_api_tracks_async_attribution_job_state(client):
         execution_body_after_worker = execution_after_worker.json()
         assert execution_body_after_worker["status"] == "complete"
         assert execution_body_after_worker["compute_job"]["job_status"] == "complete"
+        assert execution_body_after_worker["async_result"]["result_status"] == "complete"
     finally:
         settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = original_threshold
 
@@ -333,12 +340,54 @@ def test_execution_api_exposes_retryable_compute_job_metadata(client, monkeypatc
 
         execution_response = client.get(f"/performance/executions/{calculation_id}")
         assert execution_response.status_code == 200
-        job = execution_response.json()["compute_job"]
+        body = execution_response.json()
+        job = body["compute_job"]
         assert job["job_status"] == "pending"
         assert job["attempt_count"] == 1
         assert job["error_type"] == "HTTPException"
         assert job["last_error_at_utc"] is not None
         assert job.get("lease_expires_at_utc") is None
+        assert "async_result" not in body
+    finally:
+        settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = original_threshold
+        settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS = original_attempts
+
+
+def test_execution_api_exposes_terminal_async_result_metadata(client, monkeypatch):
+    original_threshold = settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS
+    original_attempts = settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS
+    settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = 0
+    settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS = 1
+
+    async def _boom(_request):
+        raise RuntimeError("explode")
+
+    monkeypatch.setattr("app.workers.compute_executor_worker.calculate_returns_series", _boom)
+
+    payload = {
+        "portfolio_id": "DEMO_DPM_EUR_001",
+        "as_of_date": "2026-02-25",
+        "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-25"},
+        "frequency": "DAILY",
+        "metric_basis": "NET",
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    try:
+        response = client.post("/integration/returns/series", json=payload)
+        assert response.status_code == 202
+        calculation_id = response.json()["calculation_id"]
+
+        assert drain_compute_queue() == 1
+
+        execution_response = client.get(f"/performance/executions/{calculation_id}")
+        assert execution_response.status_code == 200
+        body = execution_response.json()
+        assert body["status"] == "failed"
+        assert body["async_result"]["result_status"] == "failed"
+        assert body["async_result"]["error_message"] == "explode"
+        assert body["async_result"]["error_type"] == "RuntimeError"
     finally:
         settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = original_threshold
         settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS = original_attempts

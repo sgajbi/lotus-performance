@@ -6,6 +6,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
+from app.services.async_result_store import async_result_store
 from app.services.compute_job_store import compute_job_store
 from app.services.execution_registry import execution_registry
 
@@ -37,6 +38,7 @@ class ExecutionResponse(BaseModel):
     stages: list[ExecutionStageResponse]
     upstream_snapshots: list[dict[str, Any]]
     compute_job: dict[str, Any] | None = None
+    async_result: dict[str, Any] | None = None
 
 
 @router.get(
@@ -54,6 +56,7 @@ async def get_execution(calculation_id: UUID) -> ExecutionResponse:
         )
 
     job = compute_job_store.get_job(calculation_id)
+    async_result = async_result_store.get_result(calculation_id)
     return ExecutionResponse(
         calculation_id=record.calculation_id,
         analytics_type=record.analytics_type,
@@ -108,6 +111,17 @@ async def get_execution(calculation_id: UUID) -> ExecutionResponse:
                 "completed_at_utc": job.completed_at_utc,
             }
             if job is not None
+            else None
+        ),
+        async_result=(
+            {
+                "result_status": async_result.result_status.value,
+                "error_message": async_result.error_message,
+                "error_type": async_result.error_type,
+                "created_at_utc": async_result.created_at_utc,
+                "updated_at_utc": async_result.updated_at_utc,
+            }
+            if async_result is not None
             else None
         ),
     )

@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
+from app.services.async_result_store import async_result_store
 from app.services.compute_job_store import compute_job_store
 from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import lineage_metadata_store
@@ -25,6 +26,8 @@ def client():
     execution_registry.clear_all_records()
     compute_job_store.create_schema()
     compute_job_store.clear_all_records()
+    async_result_store.create_schema()
+    async_result_store.clear_all_records()
     lineage_metadata_store.create_schema()
     lineage_metadata_store.clear_all_records()
 
@@ -34,6 +37,7 @@ def client():
     if os.path.exists(settings.LINEAGE_STORAGE_PATH):
         shutil.rmtree(settings.LINEAGE_STORAGE_PATH)
     compute_job_store.clear_all_records()
+    async_result_store.clear_all_records()
     execution_registry.clear_all_records()
     lineage_metadata_store.clear_all_records()
 
