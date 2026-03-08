@@ -188,7 +188,9 @@ def _build_schema_example(
     if schema_type == "array":
         item_schema = schema.get("items", {})
         if isinstance(item_schema, dict):
-            return [_build_schema_example(item_schema, components=components, seen_refs=seen, name_hint=f"{name_hint}_item")]
+            return [
+                _build_schema_example(item_schema, components=components, seen_refs=seen, name_hint=f"{name_hint}_item")
+            ]
         return ["VALUE"]
     return _infer_example(name_hint, schema)
 
@@ -234,7 +236,11 @@ def _ensure_operation_documentation(schema: dict[str, Any]) -> None:
                     json_content = content.get("application/json")
                     if isinstance(json_content, dict):
                         request_schema = json_content.get("schema", {})
-                        if isinstance(request_schema, dict) and "example" not in json_content and "examples" not in json_content:
+                        if (
+                            isinstance(request_schema, dict)
+                            and "example" not in json_content
+                            and "examples" not in json_content
+                        ):
                             json_content["example"] = _build_schema_example(
                                 request_schema,
                                 components=components,
@@ -259,7 +265,11 @@ def _ensure_operation_documentation(schema: dict[str, Any]) -> None:
                     if not isinstance(json_content, dict):
                         continue
                     response_schema = json_content.get("schema", {})
-                    if isinstance(response_schema, dict) and "example" not in json_content and "examples" not in json_content:
+                    if (
+                        isinstance(response_schema, dict)
+                        and "example" not in json_content
+                        and "examples" not in json_content
+                    ):
                         json_content["example"] = _build_schema_example(
                             response_schema,
                             components=components,

@@ -82,7 +82,9 @@ def test_enrich_openapi_schema_fills_operation_schema_and_examples():
                     "responses": {
                         "200": {
                             "description": "ok",
-                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/HealthResponse"}}},
+                            "content": {
+                                "application/json": {"schema": {"$ref": "#/components/schemas/HealthResponse"}}
+                            },
                         }
                     },
                 }
