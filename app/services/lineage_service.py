@@ -88,10 +88,11 @@ class LineageService:
                     "lineage_materialization",
                     details={"artifact_names": sorted(artifact_names)},
                 )
-            except KeyError:
+            except Exception:
                 logger.warning(
-                    "Execution stage not found while marking lineage materialization complete: %s",
+                    "Execution stage unavailable while marking lineage materialization complete: %s",
                     calculation_id,
+                    exc_info=True,
                 )
 
             logger.info(f"Successfully captured lineage data for calculation_id: {calculation_id}")
@@ -105,10 +106,11 @@ class LineageService:
                 )
             try:
                 execution_registry.fail_stage(calculation_id, "lineage_materialization", str(e))
-            except KeyError:
+            except Exception:
                 logger.warning(
-                    "Execution stage not found while marking lineage materialization failed: %s",
+                    "Execution stage unavailable while marking lineage materialization failed: %s",
                     calculation_id,
+                    exc_info=True,
                 )
             # Add robust logging to make silent errors visible in the server console
             logger.error(
