@@ -39,7 +39,9 @@ def process_pending_jobs(*, limit: int | None = None) -> int:
                 execution_registry.fail_in_progress_stages(reconciled_job.calculation_id, reconciled_job.error_message)
                 execution_registry.mark_failed(reconciled_job.calculation_id, reconciled_job.error_message)
             except KeyError:
-                logger.exception("Execution record missing for reconciled compute job %s", reconciled_job.calculation_id)
+                logger.exception(
+                    "Execution record missing for reconciled compute job %s", reconciled_job.calculation_id
+                )
         else:
             logger.warning(
                 "Requeued stale compute job %s after expired %s lease",

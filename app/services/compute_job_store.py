@@ -184,7 +184,9 @@ class ComputeJobStore:
                 leased.append(self._to_record(row))
             return leased
 
-    def mark_running(self, calculation_id: UUID, *, worker_id: str | None = None, lease_seconds: int | None = None) -> None:
+    def mark_running(
+        self, calculation_id: UUID, *, worker_id: str | None = None, lease_seconds: int | None = None
+    ) -> None:
         with self._session() as session:
             row = self._get_model(session, calculation_id)
             if row.job_status == ComputeJobStatus.FAILED.value:
@@ -272,7 +274,9 @@ class ComputeJobStore:
             rows = session.execute(statement).scalars().all()
             for row in rows:
                 previous_status = ComputeJobStatus(row.job_status)
-                exhausted_retries = previous_status == ComputeJobStatus.RUNNING and row.attempt_count >= row.max_attempts
+                exhausted_retries = (
+                    previous_status == ComputeJobStatus.RUNNING and row.attempt_count >= row.max_attempts
+                )
                 row.worker_id = None
                 row.leased_at_utc = None
                 row.lease_expires_at_utc = None
@@ -284,9 +288,7 @@ class ComputeJobStore:
                 )
                 row.error_type = "LeaseExpired"
                 row.completed_at_utc = reconcile_now if exhausted_retries else None
-                row.job_status = (
-                    ComputeJobStatus.FAILED.value if exhausted_retries else ComputeJobStatus.PENDING.value
-                )
+                row.job_status = ComputeJobStatus.FAILED.value if exhausted_retries else ComputeJobStatus.PENDING.value
                 reconciled.append(
                     ReconciledJobRecord(
                         calculation_id=UUID(row.calculation_id),
