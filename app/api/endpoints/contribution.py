@@ -2,7 +2,7 @@
 from uuid import UUID
 
 import pandas as pd
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse
 
 from app.core.config import get_settings
@@ -11,8 +11,9 @@ from app.models.contribution_responses import (
     ContributionAcceptedResponse,
     ContributionResponse,
 )
-from app.services.async_result_store import AsyncResultStatus, async_result_store
-from app.services.compute_job_store import ComputeJobStatus, compute_job_store
+from app.services.async_result_service import resolve_async_result
+from app.services.async_result_store import async_result_store
+from app.services.compute_job_store import compute_job_store
 from app.services.contribution_service import calculate_contribution
 from app.services.execution_registry import execution_registry
 from core.repro import generate_canonical_hash
@@ -98,26 +99,10 @@ async def calculate_contribution_endpoint(request: ContributionRequest) -> Contr
     summary="Retrieve async contribution result",
 )
 async def get_contribution_result(calculation_id: UUID) -> ContributionResponse | JSONResponse:
-    async_result = async_result_store.get_result(calculation_id)
-    if async_result is not None:
-        if async_result.result_status == AsyncResultStatus.FAILED:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=async_result.error_message or "Async contribution execution failed.",
-            )
-        return ContributionResponse.model_validate(async_result.response_payload)
-    job = compute_job_store.get_job(calculation_id)
-    if job is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Async contribution result not found for the given calculation_id.",
-        )
-    if job.job_status in {ComputeJobStatus.PENDING, ComputeJobStatus.LEASED, ComputeJobStatus.RUNNING}:
-        accepted = _accepted_response(calculation_id)
-        return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=accepted.model_dump(mode="json"))
-    if job.job_status == ComputeJobStatus.FAILED:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=job.error_message or "Async contribution execution failed.",
-        )
-    return ContributionResponse.model_validate(job.response_payload)
+    return resolve_async_result(
+        calculation_id=calculation_id,
+        response_model=ContributionResponse,
+        accepted_response_factory=_accepted_response,
+        not_found_detail="Async contribution result not found for the given calculation_id.",
+        failed_detail="Async contribution execution failed.",
+    )
