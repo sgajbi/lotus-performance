@@ -1,6 +1,6 @@
 # app/api/endpoints/contribution.py
 import pandas as pd
-from fastapi import APIRouter, BackgroundTasks, HTTPException, status
+from fastapi import APIRouter, HTTPException, status
 
 from app.core.config import get_settings
 from app.models.contribution_requests import ContributionRequest
@@ -32,7 +32,7 @@ def _as_numeric(value: object, default=0):
 
 
 @router.post("/contribution", response_model=ContributionResponse, summary="Calculate Position Contribution")
-async def calculate_contribution_endpoint(request: ContributionRequest, background_tasks: BackgroundTasks):
+async def calculate_contribution_endpoint(request: ContributionRequest):
     """
     Calculates the performance contribution for each position within a portfolio
     for one or more requested periods.
@@ -163,9 +163,7 @@ async def calculate_contribution_endpoint(request: ContributionRequest, backgrou
         audit=audit,
     )
 
-    lineage_service.create_pending_record(calculation_id=request.calculation_id, calculation_type="Contribution")
-    background_tasks.add_task(
-        lineage_service.capture,
+    lineage_service.enqueue_capture(
         calculation_id=request.calculation_id,
         calculation_type="Contribution",
         request_model=request,

@@ -196,11 +196,18 @@ The required behavior is:
 
 1. Calculation endpoints remain synchronous unless explicitly redesigned as async execution APIs.
 2. The API request path creates a durable lineage metadata record in PostgreSQL before the response is returned.
-3. Artifact materialization runs asynchronously after the response path.
+3. Artifact materialization runs asynchronously after the response path through a dedicated lineage worker.
 4. Lineage retrieval is state-driven, with `pending`, `complete`, and `failed` states.
 5. Failures in lineage materialization must be visible and recoverable through durable job state, not lost in process-local logs.
 
 This avoids coupling artifact I/O latency to client response time while preserving banking-grade durability and auditability.
+
+The implementation boundary for this slice is:
+
+- API service enqueues lineage payloads only
+- lineage worker service polls PostgreSQL for pending payloads
+- worker materializes filesystem or object-storage artifacts
+- lineage API reads durable status from PostgreSQL
 
 ## 9. Merge, Split, Remove, Add Decisions
 

@@ -1,10 +1,42 @@
 services:
+  performance-lineage-db:
+    image: postgres:17
+    container_name: performance-lineage-db
+    environment:
+      POSTGRES_DB: lotus_performance
+      POSTGRES_USER: lotus
+      POSTGRES_PASSWORD: lotus
+    ports:
+      - "${PA_LINEAGE_DB_PORT:-5435}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lotus -d lotus_performance"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
   performance-analytics:
     build: .
     container_name: performance-analytics
     environment:
       CORE_QUERY_BASE_URL: "${CORE_QUERY_BASE_URL:-http://host.docker.internal:8201}"
+      LINEAGE_METADATA_DATABASE_URL: "${LINEAGE_METADATA_DATABASE_URL:-postgresql+psycopg://lotus:lotus@performance-lineage-db:5432/lotus_performance}"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
       - "${PA_HOST_PORT:-8002}:8000"
+    depends_on:
+      performance-lineage-db:
+        condition: service_healthy
+
+  performance-lineage-worker:
+    build: .
+    container_name: performance-lineage-worker
+    command: ["python", "-m", "app.workers.lineage_worker"]
+    environment:
+      CORE_QUERY_BASE_URL: "${CORE_QUERY_BASE_URL:-http://host.docker.internal:8201}"
+      LINEAGE_METADATA_DATABASE_URL: "${LINEAGE_METADATA_DATABASE_URL:-postgresql+psycopg://lotus:lotus@performance-lineage-db:5432/lotus_performance}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      performance-lineage-db:
+        condition: service_healthy

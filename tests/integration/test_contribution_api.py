@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from engine.exceptions import EngineCalculationError
 from main import app
+from tests.conftest import drain_lineage_queue
 
 
 @pytest.fixture(scope="module")
@@ -98,6 +99,7 @@ def test_contribution_lineage_flow(client, happy_path_payload):
     contrib_response = client.post("/performance/contribution", json=payload)
     assert contrib_response.status_code == 200
     calculation_id = contrib_response.json()["calculation_id"]
+    assert drain_lineage_queue() >= 1
 
     lineage_response = client.get(f"/performance/lineage/{calculation_id}")
     assert lineage_response.status_code == 200

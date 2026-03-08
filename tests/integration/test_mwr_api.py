@@ -5,6 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from main import app
+from tests.conftest import drain_lineage_queue
 
 
 @pytest.fixture(scope="module")
@@ -52,6 +53,7 @@ def test_mwr_lineage_flow(client):
     mwr_response = client.post("/performance/mwr", json=payload)
     assert mwr_response.status_code == 200
     calculation_id = mwr_response.json()["calculation_id"]
+    assert drain_lineage_queue() >= 1
 
     lineage_response = client.get(f"/performance/lineage/{calculation_id}")
     assert lineage_response.status_code == 200

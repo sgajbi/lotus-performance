@@ -14,7 +14,7 @@ class MockModel(BaseModel):
     key: str
 
 
-def test_lineage_service_capture(tmp_path):
+def test_lineage_service_enqueue_and_materialize(tmp_path):
     """
     Tests that the lineage service correctly creates a directory and saves
     the request, response, manifest, and CSV artifacts.
@@ -29,13 +29,20 @@ def test_lineage_service_capture(tmp_path):
     details_df = pd.DataFrame([{"colA": 1, "colB": 2}])
 
     # 2. Act
-    service.create_pending_record(calculation_id=calc_id, calculation_type="TEST")
-    service.capture(
+    service.enqueue_capture(
         calculation_id=calc_id,
         calculation_type="TEST",
         request_model=req_model,
         response_model=res_model,
         calculation_details={"details.csv": details_df},
+    )
+    payload = metadata_store.list_pending_payloads(limit=10)[0]
+    service.materialize_payload(
+        calculation_id=payload.calculation_id,
+        calculation_type=payload.calculation_type,
+        request_json=payload.request_json,
+        response_json=payload.response_json,
+        calculation_details=payload.details,
     )
 
     # 3. Assert
@@ -88,15 +95,22 @@ def test_lineage_service_capture_logs_error_on_write_failure(tmp_path, mocker, c
     res_model = MockModel(key="response")
     details_df = pd.DataFrame([{"colA": 1, "colB": 2}])
 
-    service.create_pending_record(calculation_id=calc_id, calculation_type="TEST")
-    mocker.patch.object(pd.DataFrame, "to_csv", side_effect=OSError("disk full"))
+    service.enqueue_capture(
+        calculation_id=calc_id,
+        calculation_type="TEST",
+        request_model=req_model,
+        response_model=res_model,
+        calculation_details={"details.csv": details_df},
+    )
+    payload = metadata_store.list_pending_payloads(limit=10)[0]
+    broken_details = {**payload.details, "details.csv": None}  # type: ignore[dict-item]
     with caplog.at_level("ERROR"):
-        service.capture(
+        service.materialize_payload(
             calculation_id=calc_id,
             calculation_type="TEST",
-            request_model=req_model,
-            response_model=res_model,
-            calculation_details={"details.csv": details_df},
+            request_json=payload.request_json,
+            response_json=payload.response_json,
+            calculation_details=broken_details,
         )
 
     assert any("Failed to capture lineage data" in record.message for record in caplog.records)
@@ -113,18 +127,36 @@ def test_lineage_service_logs_when_mark_failed_also_breaks(tmp_path, mocker, cap
     req_model = MockModel(key="request")
     res_model = MockModel(key="response")
     details_df = pd.DataFrame([{"colA": 1, "colB": 2}])
-    service.create_pending_record(calculation_id=calc_id, calculation_type="TEST")
-
-    mocker.patch.object(pd.DataFrame, "to_csv", side_effect=OSError("disk full"))
+    service.enqueue_capture(
+        calculation_id=calc_id,
+        calculation_type="TEST",
+        request_model=req_model,
+        response_model=res_model,
+        calculation_details={"details.csv": details_df},
+    )
+    payload = metadata_store.list_pending_payloads(limit=10)[0]
     mocker.patch.object(metadata_store, "mark_failed", side_effect=RuntimeError("db down"))
 
     with caplog.at_level("ERROR"):
-        service.capture(
+        service.materialize_payload(
             calculation_id=calc_id,
             calculation_type="TEST",
-            request_model=req_model,
-            response_model=res_model,
-            calculation_details={"details.csv": details_df},
+            request_json=payload.request_json,
+            response_json=payload.response_json,
+            calculation_details={"details.csv": None},  # type: ignore[dict-item]
         )
 
     assert any("Failed to mark lineage metadata record as failed" in record.message for record in caplog.records)
+
+
+def test_lineage_service_create_pending_record_passthrough(tmp_path):
+    metadata_store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    metadata_store.create_schema()
+    service = LineageService(storage_path=str(tmp_path), metadata_store=metadata_store)
+    calc_id = uuid4()
+
+    service.create_pending_record(calculation_id=calc_id, calculation_type="TEST")
+
+    record = metadata_store.get_record(calc_id)
+    assert record is not None
+    assert record.status == LineageStatus.PENDING
