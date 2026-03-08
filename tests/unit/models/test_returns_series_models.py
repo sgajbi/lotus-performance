@@ -92,3 +92,11 @@ def test_returns_series_request_rejects_mixed_input_envelopes():
     }
     with pytest.raises(ValidationError, match="stateless_input must be null when input_mode=stateful"):
         ReturnsSeriesRequest.model_validate(stateful_payload)
+
+
+def test_returns_series_request_generates_calculation_id_by_default():
+    from app.models.returns_series import ReturnsSeriesRequest
+
+    request = ReturnsSeriesRequest.model_validate(_base_payload())
+
+    assert request.calculation_id is not None

@@ -5,6 +5,7 @@ from datetime import datetime as dt_datetime
 from decimal import Decimal
 from enum import Enum
 from typing import Literal
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -133,6 +134,10 @@ class StatefulInput(BaseModel):
 
 
 class ReturnsSeriesRequest(BaseModel):
+    calculation_id: UUID = Field(
+        default_factory=uuid4,
+        description="Unique identifier for this returns-series calculation request.",
+    )
     portfolio_id: str = Field(description="Portfolio identifier.", examples=["DEMO_DPM_EUR_001"])
     as_of_date: dt_date = Field(description="As-of date for window resolution.", examples=["2026-02-27"])
     window: ReturnsWindow
@@ -213,6 +218,7 @@ class ReturnsSeriesPayload(BaseModel):
 
 
 class ReturnsSeriesResponse(BaseModel):
+    calculation_id: UUID
     source_service: Literal["lotus-performance"] = "lotus-performance"
     contract_version: str = "v1"
     portfolio_id: str

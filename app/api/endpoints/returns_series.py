@@ -30,6 +30,7 @@ from app.models.returns_series import (
 )
 from app.observability import correlation_id_var, request_id_var, trace_id_var
 from app.services.core_integration_service import CoreIntegrationService
+from app.services.execution_registry import execution_registry
 from app.services.stateful_input_service import StatefulInputService
 from common.enums import Frequency, PeriodType
 from core.repro import generate_canonical_hash
@@ -120,8 +121,7 @@ def _resample_returns(df: pd.DataFrame, *, frequency: ReturnsFrequency) -> pd.Da
         grouped = indexed["return_value"].resample("W-FRI").apply(lambda x: (1 + x).prod() - 1)
     else:
         grouped = indexed["return_value"].resample("ME").apply(lambda x: (1 + x).prod() - 1)
-    out = grouped.dropna().reset_index()
-    return out
+    return grouped.dropna().reset_index()
 
 
 def _date_range_count(
@@ -162,17 +162,11 @@ def _points_from_df(df: pd.DataFrame) -> list[ReturnPoint]:
     out: list[ReturnPoint] = []
     for _, row in df.iterrows():
         value = Decimal(str(row["return_value"])).quantize(Decimal("0.000000000001"))
-        out.append(
-            ReturnPoint(
-                date=row["date"].date(),
-                return_value=value,
-            )
-        )
+        out.append(ReturnPoint(date=row["date"].date(), return_value=value))
     return out
 
 
 def _core_frequency_label(_frequency: ReturnsFrequency) -> str:
-    # lotus-performance owns aggregation semantics; consume daily from lotus-core.
     return "daily"
 
 
@@ -276,7 +270,6 @@ def _daily_ror_from_portfolio_timeseries(
     output_df = pd.DataFrame(
         {
             "date": pd.to_datetime(daily_results_df[PortfolioColumns.PERF_DATE.value]),
-            # returns-series contract uses decimal form (0.0012 = 12bps).
             "return_value": [
                 (Decimal(str(value)) / Decimal("100") if not pd.isna(pd.to_numeric(value, errors="coerce")) else None)
                 for value in daily_results_df[PortfolioColumns.DAILY_ROR.value]
@@ -295,6 +288,12 @@ def _daily_ror_from_portfolio_timeseries(
     return output_df
 
 
+def _fail_execution(*, calculation_id, message: str, active_stage: str | None) -> None:
+    if active_stage is not None:
+        execution_registry.fail_stage(calculation_id, active_stage, message)
+    execution_registry.mark_failed(calculation_id, message)
+
+
 @router.post(
     "/returns/series",
     response_model=ReturnsSeriesResponse,
@@ -305,329 +304,393 @@ def _daily_ror_from_portfolio_timeseries(
     ),
 )
 async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResponse:
-    resolved_window = _resolve_window(request)
-    benchmark_df = None
-    risk_free_df = None
-    if request.input_mode == InputMode.STATEFUL:
-        core_service = CoreIntegrationService(
-            base_url=settings.CORE_QUERY_BASE_URL,
-            timeout_seconds=settings.CORE_TIMEOUT_SECONDS,
-            max_retries=settings.CORE_MAX_RETRIES,
-            retry_backoff_seconds=settings.CORE_RETRY_BACKOFF_SECONDS,
-        )
-        stateful_input_service = StatefulInputService(
-            core_service=core_service,
-            portfolio_chunk_days=settings.STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS,
-            reference_chunk_days=settings.STATEFUL_INPUT_REFERENCE_CHUNK_DAYS,
-            max_concurrent_chunks=settings.STATEFUL_INPUT_MAX_CONCURRENT_CHUNKS,
-        )
-        stateful_input = request.stateful_input
-        if stateful_input is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={"code": "INVALID_REQUEST", "message": "stateful_input is required in stateful mode."},
-            )
-        upstream_status, upstream_payload = await stateful_input_service.get_portfolio_timeseries(
-            portfolio_id=request.portfolio_id,
-            as_of_date=request.as_of_date,
-            start_date=resolved_window.start_date,
-            end_date=resolved_window.end_date,
-            reporting_currency=request.reporting_currency,
-            consumer_system=stateful_input.consumer_system,
-        )
-        if upstream_status >= status.HTTP_400_BAD_REQUEST:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail={
-                    "code": "SOURCE_UNAVAILABLE",
-                    "message": f"stateful portfolio timeseries source unavailable ({upstream_status}).",
-                },
-            )
-        observations = upstream_payload.get("observations")
-        if not isinstance(observations, list) or not observations:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={"code": "INSUFFICIENT_DATA", "message": "Stateful source returned no observations."},
-            )
-        open_date_raw = upstream_payload.get("portfolio_open_date")
-        if not isinstance(open_date_raw, str):
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={"code": "INSUFFICIENT_DATA", "message": "Stateful source missing portfolio_open_date."},
-            )
-        try:
-            performance_start_date = date.fromisoformat(open_date_raw)
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={"code": "INSUFFICIENT_DATA", "message": "Invalid portfolio_open_date from stateful source."},
-            ) from exc
-        portfolio_df = _resample_returns(
-            _daily_ror_from_portfolio_timeseries(
-                observations=observations,
-                performance_start_date=performance_start_date,
-                resolved_window=resolved_window,
-                metric_basis=request.metric_basis.value,
-            ),
-            frequency=request.frequency,
-        )
+    input_fingerprint, calculation_hash = generate_canonical_hash(request, "returns-series-v1")
+    execution_registry.create_schema()
+    execution_registry.create_execution(
+        calculation_id=request.calculation_id,
+        analytics_type="ReturnsSeries",
+        portfolio_id=request.portfolio_id,
+        requested_window={
+            "mode": request.window.mode.value,
+            "from_date": str(request.window.from_date) if request.window.from_date else None,
+            "to_date": str(request.window.to_date) if request.window.to_date else None,
+            "period": request.window.period.value if request.window.period else None,
+            "year": request.window.year,
+            "input_mode": request.input_mode.value,
+        },
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+    )
+    execution_registry.mark_running(request.calculation_id)
+    active_stage: str | None = None
+    try:
+        resolved_window = _resolve_window(request)
+        benchmark_df = None
+        risk_free_df = None
 
-        benchmark_id = request.benchmark.benchmark_id if request.benchmark else None
-        if request.series_selection.include_benchmark and not benchmark_id:
-            assignment_status, assignment_payload = await stateful_input_service.get_benchmark_assignment(
-                portfolio_id=request.portfolio_id,
-                as_of_date=request.as_of_date,
-                reporting_currency=request.reporting_currency,
-            )
-            if assignment_status == status.HTTP_404_NOT_FOUND:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail={"code": "RESOURCE_NOT_FOUND", "message": "No benchmark assignment found for portfolio."},
-                )
-            if assignment_status >= status.HTTP_400_BAD_REQUEST:
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail={
-                        "code": "SOURCE_UNAVAILABLE",
-                        "message": f"Benchmark assignment source unavailable ({assignment_status}).",
-                    },
-                )
-            benchmark_id_raw = assignment_payload.get("benchmark_id")
-            benchmark_id = str(benchmark_id_raw) if benchmark_id_raw else None
-            if not benchmark_id:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail={
-                        "code": "CONTRACT_VIOLATION_UPSTREAM",
-                        "message": "Benchmark assignment payload missing benchmark_id.",
-                    },
-                )
-        if request.series_selection.include_benchmark and benchmark_id:
-            benchmark_status, benchmark_payload = await stateful_input_service.get_benchmark_return_series(
-                benchmark_id=benchmark_id,
-                as_of_date=request.as_of_date,
-                start_date=resolved_window.start_date,
-                end_date=resolved_window.end_date,
-                frequency=_core_frequency_label(request.frequency),
-            )
-            if benchmark_status == status.HTTP_404_NOT_FOUND:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail={"code": "RESOURCE_NOT_FOUND", "message": f"No benchmark return series for {benchmark_id}."},
-                )
-            if benchmark_status >= status.HTTP_400_BAD_REQUEST:
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail={
-                        "code": "SOURCE_UNAVAILABLE",
-                        "message": f"Benchmark return-series source unavailable ({benchmark_status}).",
-                    },
-                )
-            benchmark_points = benchmark_payload.get("points")
-            if not isinstance(benchmark_points, list):
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail={
-                        "code": "CONTRACT_VIOLATION_UPSTREAM",
-                        "message": "Benchmark return-series payload missing points list.",
-                    },
-                )
-            benchmark_df = _resample_returns(
-                _filter_window(
-                    _core_points_to_dataframe(
-                        points=benchmark_points,
-                        date_key="series_date",
-                        value_key="benchmark_return",
-                        series_type="benchmark",
-                    ),
-                    resolved_window=resolved_window,
-                ),
-                frequency=request.frequency,
-            )
-        if request.series_selection.include_risk_free:
-            if not request.reporting_currency:
+        if request.input_mode == InputMode.STATEFUL:
+            active_stage = "retrieval"
+            execution_registry.start_stage(request.calculation_id, "retrieval")
+            stateful_input = request.stateful_input
+            if stateful_input is None:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail={
-                        "code": "INVALID_REQUEST",
-                        "message": "reporting_currency is required for risk-free series in stateful mode.",
-                    },
+                    detail={"code": "INVALID_REQUEST", "message": "stateful_input is required in stateful mode."},
                 )
-            risk_free_status, risk_free_payload = await stateful_input_service.get_risk_free_series(
-                currency=request.reporting_currency,
+            core_service = CoreIntegrationService(
+                base_url=settings.CORE_QUERY_BASE_URL,
+                timeout_seconds=settings.CORE_TIMEOUT_SECONDS,
+                max_retries=settings.CORE_MAX_RETRIES,
+                retry_backoff_seconds=settings.CORE_RETRY_BACKOFF_SECONDS,
+            )
+            stateful_input_service = StatefulInputService(
+                core_service=core_service,
+                portfolio_chunk_days=settings.STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS,
+                reference_chunk_days=settings.STATEFUL_INPUT_REFERENCE_CHUNK_DAYS,
+                max_concurrent_chunks=settings.STATEFUL_INPUT_MAX_CONCURRENT_CHUNKS,
+            )
+            upstream_status, upstream_payload = await stateful_input_service.get_portfolio_timeseries(
+                portfolio_id=request.portfolio_id,
                 as_of_date=request.as_of_date,
                 start_date=resolved_window.start_date,
                 end_date=resolved_window.end_date,
-                frequency=_core_frequency_label(request.frequency),
-                series_mode="return_series",
+                reporting_currency=request.reporting_currency,
+                consumer_system=stateful_input.consumer_system,
             )
-            if risk_free_status == status.HTTP_404_NOT_FOUND:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail={
-                        "code": "RESOURCE_NOT_FOUND",
-                        "message": f"No risk-free series found for {request.reporting_currency}.",
-                    },
-                )
-            if risk_free_status >= status.HTTP_400_BAD_REQUEST:
+            if upstream_status >= status.HTTP_400_BAD_REQUEST:
                 raise HTTPException(
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                     detail={
                         "code": "SOURCE_UNAVAILABLE",
-                        "message": f"Risk-free series source unavailable ({risk_free_status}).",
+                        "message": f"stateful portfolio timeseries source unavailable ({upstream_status}).",
                     },
                 )
-            risk_free_points = risk_free_payload.get("points")
-            if not isinstance(risk_free_points, list):
+            observations = upstream_payload.get("observations")
+            if not isinstance(observations, list) or not observations:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail={
-                        "code": "CONTRACT_VIOLATION_UPSTREAM",
-                        "message": "Risk-free series payload missing points list.",
-                    },
+                    detail={"code": "INSUFFICIENT_DATA", "message": "Stateful source returned no observations."},
                 )
-            risk_free_df = _resample_returns(
-                _filter_window(
-                    _core_points_to_dataframe(
-                        points=risk_free_points,
-                        date_key="series_date",
-                        value_key="value",
-                        series_type="risk_free",
+            open_date_raw = upstream_payload.get("portfolio_open_date")
+            if not isinstance(open_date_raw, str):
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail={"code": "INSUFFICIENT_DATA", "message": "Stateful source missing portfolio_open_date."},
+                )
+
+            benchmark_id = request.benchmark.benchmark_id if request.benchmark else None
+            if request.series_selection.include_benchmark and not benchmark_id:
+                assignment_status, assignment_payload = await stateful_input_service.get_benchmark_assignment(
+                    portfolio_id=request.portfolio_id,
+                    as_of_date=request.as_of_date,
+                    reporting_currency=request.reporting_currency,
+                )
+                if assignment_status == status.HTTP_404_NOT_FOUND:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail={"code": "RESOURCE_NOT_FOUND", "message": "No benchmark assignment found for portfolio."},
+                    )
+                if assignment_status >= status.HTTP_400_BAD_REQUEST:
+                    raise HTTPException(
+                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                        detail={
+                            "code": "SOURCE_UNAVAILABLE",
+                            "message": f"Benchmark assignment source unavailable ({assignment_status}).",
+                        },
+                    )
+                benchmark_id_raw = assignment_payload.get("benchmark_id")
+                benchmark_id = str(benchmark_id_raw) if benchmark_id_raw else None
+                if not benchmark_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail={
+                            "code": "CONTRACT_VIOLATION_UPSTREAM",
+                            "message": "Benchmark assignment payload missing benchmark_id.",
+                        },
+                    )
+
+            benchmark_points: list[dict[str, Any]] | None = None
+            if request.series_selection.include_benchmark and benchmark_id:
+                benchmark_status, benchmark_payload = await stateful_input_service.get_benchmark_return_series(
+                    benchmark_id=benchmark_id,
+                    as_of_date=request.as_of_date,
+                    start_date=resolved_window.start_date,
+                    end_date=resolved_window.end_date,
+                    frequency=_core_frequency_label(request.frequency),
+                )
+                if benchmark_status == status.HTTP_404_NOT_FOUND:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail={"code": "RESOURCE_NOT_FOUND", "message": f"No benchmark return series for {benchmark_id}."},
+                    )
+                if benchmark_status >= status.HTTP_400_BAD_REQUEST:
+                    raise HTTPException(
+                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                        detail={
+                            "code": "SOURCE_UNAVAILABLE",
+                            "message": f"Benchmark return-series source unavailable ({benchmark_status}).",
+                        },
+                    )
+                benchmark_points = benchmark_payload.get("points")
+                if not isinstance(benchmark_points, list):
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail={
+                            "code": "CONTRACT_VIOLATION_UPSTREAM",
+                            "message": "Benchmark return-series payload missing points list.",
+                        },
+                    )
+
+            risk_free_points: list[dict[str, Any]] | None = None
+            if request.series_selection.include_risk_free:
+                if not request.reporting_currency:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail={
+                            "code": "INVALID_REQUEST",
+                            "message": "reporting_currency is required for risk-free series in stateful mode.",
+                        },
+                    )
+                risk_free_status, risk_free_payload = await stateful_input_service.get_risk_free_series(
+                    currency=request.reporting_currency,
+                    as_of_date=request.as_of_date,
+                    start_date=resolved_window.start_date,
+                    end_date=resolved_window.end_date,
+                    frequency=_core_frequency_label(request.frequency),
+                    series_mode="return_series",
+                )
+                if risk_free_status == status.HTTP_404_NOT_FOUND:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail={
+                            "code": "RESOURCE_NOT_FOUND",
+                            "message": f"No risk-free series found for {request.reporting_currency}.",
+                        },
+                    )
+                if risk_free_status >= status.HTTP_400_BAD_REQUEST:
+                    raise HTTPException(
+                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                        detail={
+                            "code": "SOURCE_UNAVAILABLE",
+                            "message": f"Risk-free series source unavailable ({risk_free_status}).",
+                        },
+                    )
+                risk_free_points = risk_free_payload.get("points")
+                if not isinstance(risk_free_points, list):
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail={
+                            "code": "CONTRACT_VIOLATION_UPSTREAM",
+                            "message": "Risk-free series payload missing points list.",
+                        },
+                    )
+
+            execution_registry.complete_stage(
+                request.calculation_id,
+                "retrieval",
+                details={
+                    "portfolio_observations": len(observations),
+                    "benchmark_points": len(benchmark_points or []),
+                    "risk_free_points": len(risk_free_points or []),
+                },
+            )
+            active_stage = "normalization"
+            execution_registry.start_stage(request.calculation_id, "normalization")
+            try:
+                performance_start_date = date.fromisoformat(open_date_raw)
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail={"code": "INSUFFICIENT_DATA", "message": "Invalid portfolio_open_date from stateful source."},
+                ) from exc
+            portfolio_df = _resample_returns(
+                _daily_ror_from_portfolio_timeseries(
+                    observations=observations,
+                    performance_start_date=performance_start_date,
+                    resolved_window=resolved_window,
+                    metric_basis=request.metric_basis.value,
+                ),
+                frequency=request.frequency,
+            )
+            if benchmark_points is not None:
+                benchmark_df = _resample_returns(
+                    _filter_window(
+                        _core_points_to_dataframe(
+                            points=benchmark_points,
+                            date_key="series_date",
+                            value_key="benchmark_return",
+                            series_type="benchmark",
+                        ),
+                        resolved_window=resolved_window,
                     ),
+                    frequency=request.frequency,
+                )
+            if risk_free_points is not None:
+                risk_free_df = _resample_returns(
+                    _filter_window(
+                        _core_points_to_dataframe(
+                            points=risk_free_points,
+                            date_key="series_date",
+                            value_key="value",
+                            series_type="risk_free",
+                        ),
+                        resolved_window=resolved_window,
+                    ),
+                    frequency=request.frequency,
+                )
+            execution_registry.complete_stage(
+                request.calculation_id,
+                "normalization",
+                details={
+                    "portfolio_points": len(portfolio_df),
+                    "benchmark_points": len(benchmark_df) if benchmark_df is not None else 0,
+                    "risk_free_points": len(risk_free_df) if risk_free_df is not None else 0,
+                },
+            )
+            active_stage = None
+        else:
+            stateless_input = request.stateless_input
+            if stateless_input is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={"code": "INVALID_REQUEST", "message": "stateless_input is required in stateless mode."},
+                )
+            portfolio_df = _resample_returns(
+                _filter_window(
+                    _to_dataframe(stateless_input.portfolio_returns, series_type="portfolio"),
                     resolved_window=resolved_window,
                 ),
                 frequency=request.frequency,
             )
-    else:
-        stateless_input = request.stateless_input
-        if stateless_input is None:
+            if request.series_selection.include_benchmark:
+                benchmark_df = _resample_returns(
+                    _filter_window(
+                        _to_dataframe(stateless_input.benchmark_returns or [], series_type="benchmark"),
+                        resolved_window=resolved_window,
+                    ),
+                    frequency=request.frequency,
+                )
+            if request.series_selection.include_risk_free:
+                risk_free_df = _resample_returns(
+                    _filter_window(
+                        _to_dataframe(stateless_input.risk_free_returns or [], series_type="risk_free"),
+                        resolved_window=resolved_window,
+                    ),
+                    frequency=request.frequency,
+                )
+
+        active_stage = "execution"
+        execution_registry.start_stage(request.calculation_id, "execution")
+        if request.data_policy.missing_data_policy == MissingDataPolicy.STRICT_INTERSECTION:
+            common_dates = set(portfolio_df["date"])
+            if benchmark_df is not None:
+                common_dates &= set(benchmark_df["date"])
+            if risk_free_df is not None:
+                common_dates &= set(risk_free_df["date"])
+            if not common_dates:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail={"code": "INSUFFICIENT_DATA", "message": "No overlapping dates across selected series."},
+                )
+            portfolio_df = portfolio_df[portfolio_df["date"].isin(common_dates)].sort_values("date")
+            if benchmark_df is not None:
+                benchmark_df = benchmark_df[benchmark_df["date"].isin(common_dates)].sort_values("date")
+            if risk_free_df is not None:
+                risk_free_df = risk_free_df[risk_free_df["date"].isin(common_dates)].sort_values("date")
+
+        if request.data_policy.fill_method == FillMethod.FORWARD_FILL:
+            if benchmark_df is not None:
+                benchmark_df = benchmark_df.set_index("date").reindex(portfolio_df["date"]).ffill().reset_index()
+            if risk_free_df is not None:
+                risk_free_df = risk_free_df.set_index("date").reindex(portfolio_df["date"]).ffill().reset_index()
+        elif request.data_policy.fill_method == FillMethod.ZERO_FILL:
+            if benchmark_df is not None:
+                benchmark_df = benchmark_df.set_index("date").reindex(portfolio_df["date"]).fillna(0.0).reset_index()
+            if risk_free_df is not None:
+                risk_free_df = risk_free_df.set_index("date").reindex(portfolio_df["date"]).fillna(0.0).reset_index()
+
+        requested_points = _date_range_count(
+            resolved_window, frequency=request.frequency, calendar_policy=request.data_policy.calendar_policy
+        )
+        returned_points = len(portfolio_df)
+        missing_points = max(requested_points - returned_points, 0)
+        if request.data_policy.missing_data_policy == MissingDataPolicy.FAIL_FAST and missing_points > 0:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail={
-                    "code": "INVALID_REQUEST",
-                    "message": "stateless_input is required in stateless mode.",
+                    "code": "INSUFFICIENT_DATA",
+                    "message": f"Missing {missing_points} required points under FAIL_FAST policy.",
                 },
             )
 
-        portfolio_df = _resample_returns(
-            _filter_window(
-                _to_dataframe(stateless_input.portfolio_returns, series_type="portfolio"),
-                resolved_window=resolved_window,
-            ),
+        warnings: list[str] = []
+        if request.data_policy.calendar_policy == CalendarPolicy.MARKET:
+            warnings.append("MARKET calendar policy currently uses business-day approximation.")
+
+        response = ReturnsSeriesResponse(
+            calculation_id=request.calculation_id,
+            portfolio_id=request.portfolio_id,
+            as_of_date=request.as_of_date,
             frequency=request.frequency,
-        )
-
-        if request.series_selection.include_benchmark:
-            benchmark_df = _resample_returns(
-                _filter_window(
-                    _to_dataframe(stateless_input.benchmark_returns or [], series_type="benchmark"),
-                    resolved_window=resolved_window,
-                ),
-                frequency=request.frequency,
-            )
-        if request.series_selection.include_risk_free:
-            risk_free_df = _resample_returns(
-                _filter_window(
-                    _to_dataframe(stateless_input.risk_free_returns or [], series_type="risk_free"),
-                    resolved_window=resolved_window,
-                ),
-                frequency=request.frequency,
-            )
-
-    if request.data_policy.missing_data_policy == MissingDataPolicy.STRICT_INTERSECTION:
-        common_dates = set(portfolio_df["date"])
-        if benchmark_df is not None:
-            common_dates &= set(benchmark_df["date"])
-        if risk_free_df is not None:
-            common_dates &= set(risk_free_df["date"])
-        if not common_dates:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={"code": "INSUFFICIENT_DATA", "message": "No overlapping dates across selected series."},
-            )
-        portfolio_df = portfolio_df[portfolio_df["date"].isin(common_dates)].sort_values("date")
-        if benchmark_df is not None:
-            benchmark_df = benchmark_df[benchmark_df["date"].isin(common_dates)].sort_values("date")
-        if risk_free_df is not None:
-            risk_free_df = risk_free_df[risk_free_df["date"].isin(common_dates)].sort_values("date")
-
-    if request.data_policy.fill_method == FillMethod.FORWARD_FILL:
-        if benchmark_df is not None:
-            benchmark_df = benchmark_df.set_index("date").reindex(portfolio_df["date"]).ffill().reset_index()
-        if risk_free_df is not None:
-            risk_free_df = risk_free_df.set_index("date").reindex(portfolio_df["date"]).ffill().reset_index()
-    elif request.data_policy.fill_method == FillMethod.ZERO_FILL:
-        if benchmark_df is not None:
-            benchmark_df = benchmark_df.set_index("date").reindex(portfolio_df["date"]).fillna(0.0).reset_index()
-        if risk_free_df is not None:
-            risk_free_df = risk_free_df.set_index("date").reindex(portfolio_df["date"]).fillna(0.0).reset_index()
-
-    requested_points = _date_range_count(
-        resolved_window, frequency=request.frequency, calendar_policy=request.data_policy.calendar_policy
-    )
-    returned_points = len(portfolio_df)
-    missing_points = max(requested_points - returned_points, 0)
-    if request.data_policy.missing_data_policy == MissingDataPolicy.FAIL_FAST and missing_points > 0:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "code": "INSUFFICIENT_DATA",
-                "message": f"Missing {missing_points} required points under FAIL_FAST policy.",
-            },
-        )
-
-    warnings: list[str] = []
-    if request.data_policy.calendar_policy == CalendarPolicy.MARKET:
-        warnings.append("MARKET calendar policy currently uses business-day approximation.")
-
-    input_fingerprint, calculation_hash = generate_canonical_hash(request, "returns-series-v1")
-    diagnostics = ReturnsDiagnostics(
-        coverage=SeriesCoverage(
-            requested_points=requested_points,
-            returned_points=returned_points,
-            missing_points=missing_points,
-            coverage_ratio=Decimal(str(round(returned_points / requested_points, 8)))
-            if requested_points
-            else Decimal("1"),
-        ),
-        gaps=[
-            *_detect_gaps(portfolio_df, frequency=request.frequency, series_type="portfolio"),
-            *(
-                _detect_gaps(benchmark_df, frequency=request.frequency, series_type="benchmark")
-                if benchmark_df is not None
-                else []
+            metric_basis=request.metric_basis,
+            resolved_window=resolved_window,
+            series=ReturnsSeriesPayload(
+                portfolio_returns=_points_from_df(portfolio_df),
+                benchmark_returns=_points_from_df(benchmark_df) if benchmark_df is not None else None,
+                risk_free_returns=_points_from_df(risk_free_df) if risk_free_df is not None else None,
             ),
-            *(
-                _detect_gaps(risk_free_df, frequency=request.frequency, series_type="risk_free")
-                if risk_free_df is not None
-                else []
+            provenance=ReturnsProvenance(
+                input_mode=request.input_mode,
+                input_fingerprint=input_fingerprint,
+                calculation_hash=calculation_hash,
             ),
-        ],
-        policy_applied=request.data_policy,
-        warnings=warnings,
-    )
-
-    return ReturnsSeriesResponse(
-        portfolio_id=request.portfolio_id,
-        as_of_date=request.as_of_date,
-        frequency=request.frequency,
-        metric_basis=request.metric_basis,
-        resolved_window=resolved_window,
-        series=ReturnsSeriesPayload(
-            portfolio_returns=_points_from_df(portfolio_df),
-            benchmark_returns=_points_from_df(benchmark_df) if benchmark_df is not None else None,
-            risk_free_returns=_points_from_df(risk_free_df) if risk_free_df is not None else None,
-        ),
-        provenance=ReturnsProvenance(
-            input_mode=request.input_mode,
-            input_fingerprint=input_fingerprint,
-            calculation_hash=calculation_hash,
-        ),
-        diagnostics=diagnostics,
-        metadata=ReturnsMetadata(
-            generated_at=datetime.now(UTC),
-            correlation_id=correlation_id_var.get() or None,
-            request_id=request_id_var.get() or None,
-            trace_id=trace_id_var.get() or None,
-        ),
-    )
+            diagnostics=ReturnsDiagnostics(
+                coverage=SeriesCoverage(
+                    requested_points=requested_points,
+                    returned_points=returned_points,
+                    missing_points=missing_points,
+                    coverage_ratio=Decimal(str(round(returned_points / requested_points, 8)))
+                    if requested_points
+                    else Decimal("1"),
+                ),
+                gaps=[
+                    *_detect_gaps(portfolio_df, frequency=request.frequency, series_type="portfolio"),
+                    *(
+                        _detect_gaps(benchmark_df, frequency=request.frequency, series_type="benchmark")
+                        if benchmark_df is not None
+                        else []
+                    ),
+                    *(
+                        _detect_gaps(risk_free_df, frequency=request.frequency, series_type="risk_free")
+                        if risk_free_df is not None
+                        else []
+                    ),
+                ],
+                policy_applied=request.data_policy,
+                warnings=warnings,
+            ),
+            metadata=ReturnsMetadata(
+                generated_at=datetime.now(UTC),
+                correlation_id=correlation_id_var.get() or None,
+                request_id=request_id_var.get() or None,
+                trace_id=trace_id_var.get() or None,
+            ),
+        )
+        execution_registry.complete_stage(
+            request.calculation_id,
+            "execution",
+            details={"requested_points": requested_points, "returned_points": returned_points},
+        )
+        execution_registry.mark_complete(request.calculation_id)
+        return response
+    except HTTPException as exc:
+        message = exc.detail["message"] if isinstance(exc.detail, dict) and "message" in exc.detail else str(exc.detail)
+        _fail_execution(calculation_id=request.calculation_id, message=message, active_stage=active_stage)
+        raise
+    except Exception as exc:
+        _fail_execution(
+            calculation_id=request.calculation_id,
+            message=f"Unexpected returns-series failure: {exc}",
+            active_stage=active_stage,
+        )
+        raise
