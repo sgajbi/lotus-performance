@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-03-08T05:22:19.281501+00:00",
+  "generatedAt": "2026-03-08T05:51:11.334391+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.amount",
@@ -2271,6 +2271,18 @@
     }
   ],
   "controlsCatalog": [
+    {
+      "name": "calculation_id",
+      "kind": "request_option",
+      "location": "path",
+      "required": true,
+      "type": "string",
+      "description": "Canonical calculation id used by lotus-performance APIs.",
+      "example": "ENTITY_001",
+      "allowedValues": [],
+      "semanticId": "lotus.calculation_id",
+      "attributeRef": "#/attributeCatalog/lotus.calculation_id"
+    },
     {
       "name": "calculation_id",
       "kind": "request_option",
@@ -4592,240 +4604,29 @@
         ]
       },
       "response": {
+        "fields": []
+      }
+    },
+    {
+      "domain": "performance",
+      "method": "GET",
+      "path": "/performance/contribution/results/{calculation_id}",
+      "operationId": "get_contribution_result_performance_contribution_results__calculation_id__get",
+      "summary": "Retrieve async contribution result",
+      "request": {
         "fields": [
           {
             "name": "calculation_id",
-            "location": "body",
+            "location": "path",
             "required": true,
             "type": "string",
             "semanticId": "lotus.calculation_id",
             "attributeRef": "#/attributeCatalog/lotus.calculation_id"
-          },
-          {
-            "name": "portfolio_id",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.portfolio_id",
-            "attributeRef": "#/attributeCatalog/lotus.portfolio_id"
-          },
-          {
-            "name": "results_by_period",
-            "location": "body",
-            "required": true,
-            "type": "object",
-            "semanticId": "lotus.results_by_period",
-            "attributeRef": "#/attributeCatalog/lotus.results_by_period"
-          },
-          {
-            "name": "meta",
-            "location": "body",
-            "required": true,
-            "type": "Meta",
-            "semanticId": "lotus.meta",
-            "attributeRef": "#/attributeCatalog/lotus.meta"
-          },
-          {
-            "name": "meta.calculation_id",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.calculation_id",
-            "attributeRef": "#/attributeCatalog/lotus.calculation_id"
-          },
-          {
-            "name": "meta.engine_version",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.engine_version",
-            "attributeRef": "#/attributeCatalog/lotus.engine_version"
-          },
-          {
-            "name": "meta.precision_mode",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.precision_mode",
-            "attributeRef": "#/attributeCatalog/lotus.precision_mode"
-          },
-          {
-            "name": "meta.annualization",
-            "location": "body",
-            "required": true,
-            "type": "Annualization",
-            "semanticId": "lotus.annualization",
-            "attributeRef": "#/attributeCatalog/lotus.annualization"
-          },
-          {
-            "name": "meta.annualization.enabled",
-            "location": "body",
-            "required": false,
-            "type": "boolean",
-            "semanticId": "lotus.enabled",
-            "attributeRef": "#/attributeCatalog/lotus.enabled"
-          },
-          {
-            "name": "meta.annualization.basis",
-            "location": "body",
-            "required": false,
-            "type": "string",
-            "semanticId": "lotus.basis",
-            "attributeRef": "#/attributeCatalog/lotus.basis"
-          },
-          {
-            "name": "meta.annualization.periods_per_year",
-            "location": "body",
-            "required": false,
-            "type": "object",
-            "semanticId": "lotus.periods_per_year",
-            "attributeRef": "#/attributeCatalog/lotus.periods_per_year"
-          },
-          {
-            "name": "meta.calendar",
-            "location": "body",
-            "required": true,
-            "type": "Calendar",
-            "semanticId": "lotus.calendar",
-            "attributeRef": "#/attributeCatalog/lotus.calendar"
-          },
-          {
-            "name": "meta.calendar.type",
-            "location": "body",
-            "required": false,
-            "type": "string",
-            "semanticId": "lotus.type",
-            "attributeRef": "#/attributeCatalog/lotus.type"
-          },
-          {
-            "name": "meta.calendar.trading_calendar",
-            "location": "body",
-            "required": false,
-            "type": "object",
-            "semanticId": "lotus.trading_calendar",
-            "attributeRef": "#/attributeCatalog/lotus.trading_calendar"
-          },
-          {
-            "name": "meta.periods",
-            "location": "body",
-            "required": true,
-            "type": "object",
-            "semanticId": "lotus.periods",
-            "attributeRef": "#/attributeCatalog/lotus.periods"
-          },
-          {
-            "name": "meta.input_fingerprint",
-            "location": "body",
-            "required": false,
-            "type": "object",
-            "semanticId": "lotus.input_fingerprint",
-            "attributeRef": "#/attributeCatalog/lotus.input_fingerprint"
-          },
-          {
-            "name": "meta.calculation_hash",
-            "location": "body",
-            "required": false,
-            "type": "object",
-            "semanticId": "lotus.calculation_hash",
-            "attributeRef": "#/attributeCatalog/lotus.calculation_hash"
-          },
-          {
-            "name": "meta.report_ccy",
-            "location": "body",
-            "required": false,
-            "type": "object",
-            "semanticId": "lotus.report_ccy",
-            "attributeRef": "#/attributeCatalog/lotus.report_ccy"
-          },
-          {
-            "name": "diagnostics",
-            "location": "body",
-            "required": true,
-            "type": "Diagnostics",
-            "semanticId": "lotus.diagnostics",
-            "attributeRef": "#/attributeCatalog/lotus.diagnostics"
-          },
-          {
-            "name": "diagnostics.nip_days",
-            "location": "body",
-            "required": true,
-            "type": "integer",
-            "semanticId": "lotus.nip_days",
-            "attributeRef": "#/attributeCatalog/lotus.nip_days"
-          },
-          {
-            "name": "diagnostics.reset_days",
-            "location": "body",
-            "required": true,
-            "type": "integer",
-            "semanticId": "lotus.reset_days",
-            "attributeRef": "#/attributeCatalog/lotus.reset_days"
-          },
-          {
-            "name": "diagnostics.effective_period_start",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.effective_period_start",
-            "attributeRef": "#/attributeCatalog/lotus.effective_period_start"
-          },
-          {
-            "name": "diagnostics.notes",
-            "location": "body",
-            "required": false,
-            "type": "array",
-            "semanticId": "lotus.notes",
-            "attributeRef": "#/attributeCatalog/lotus.notes"
-          },
-          {
-            "name": "diagnostics.policy",
-            "location": "body",
-            "required": false,
-            "type": "object",
-            "semanticId": "lotus.policy",
-            "attributeRef": "#/attributeCatalog/lotus.policy"
-          },
-          {
-            "name": "diagnostics.samples",
-            "location": "body",
-            "required": false,
-            "type": "object",
-            "semanticId": "lotus.samples",
-            "attributeRef": "#/attributeCatalog/lotus.samples"
-          },
-          {
-            "name": "audit",
-            "location": "body",
-            "required": true,
-            "type": "Audit",
-            "semanticId": "lotus.audit",
-            "attributeRef": "#/attributeCatalog/lotus.audit"
-          },
-          {
-            "name": "audit.sum_of_parts_vs_total_bp",
-            "location": "body",
-            "required": false,
-            "type": "object",
-            "semanticId": "lotus.sum_of_parts_vs_total_bp",
-            "attributeRef": "#/attributeCatalog/lotus.sum_of_parts_vs_total_bp"
-          },
-          {
-            "name": "audit.residual_applied_bp",
-            "location": "body",
-            "required": false,
-            "type": "object",
-            "semanticId": "lotus.residual_applied_bp",
-            "attributeRef": "#/attributeCatalog/lotus.residual_applied_bp"
-          },
-          {
-            "name": "audit.counts",
-            "location": "body",
-            "required": false,
-            "type": "object",
-            "semanticId": "lotus.counts",
-            "attributeRef": "#/attributeCatalog/lotus.counts"
           }
         ]
+      },
+      "response": {
+        "fields": []
       }
     },
     {

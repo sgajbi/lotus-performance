@@ -214,3 +214,33 @@ def test_execution_api_tracks_async_returns_series_job_state(client, monkeypatch
         assert execution_body_after_worker["compute_job"]["job_status"] == "complete"
     finally:
         settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = original_threshold
+
+
+def test_execution_api_tracks_async_contribution_job_state(client, happy_path_payload):
+    original_threshold = settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT
+    settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = 0
+
+    try:
+        response = client.post("/performance/contribution", json=happy_path_payload)
+        assert response.status_code == 202
+        calculation_id = response.json()["calculation_id"]
+
+        execution_response = client.get(f"/performance/executions/{calculation_id}")
+        assert execution_response.status_code == 200
+        execution_body = execution_response.json()
+        assert execution_body["analytics_type"] == "Contribution"
+        assert execution_body["execution_mode"] == "async"
+        assert execution_body["status"] == "pending"
+        assert execution_body["compute_job"]["job_status"] == "pending"
+        submission_stage = {stage["stage_name"]: stage for stage in execution_body["stages"]}["submission"]
+        assert submission_stage["status"] == "complete"
+
+        assert drain_compute_queue() == 1
+
+        execution_after_worker = client.get(f"/performance/executions/{calculation_id}")
+        assert execution_after_worker.status_code == 200
+        execution_body_after_worker = execution_after_worker.json()
+        assert execution_body_after_worker["status"] == "complete"
+        assert execution_body_after_worker["compute_job"]["job_status"] == "complete"
+    finally:
+        settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = original_threshold

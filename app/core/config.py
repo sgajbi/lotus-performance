@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     COMPUTE_EXECUTOR_POLL_SECONDS: float = 1.0
     COMPUTE_EXECUTOR_BATCH_SIZE: int = 10
     RETURNS_SERIES_EXECUTOR_WINDOW_DAYS: int = 180
+    CONTRIBUTION_EXECUTOR_POSITION_COUNT: int = 250
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
