@@ -24,6 +24,7 @@ scipy = "^1.11.0"
 orjson = "^3.10.6"
 prometheus-fastapi-instrumentator = "^7.1.0"
 SQLAlchemy = "^2.0.39"
+psycopg = {version = "^3.2.6", extras = ["binary"]}
 
 
 [tool.poetry.group.dev.dependencies]

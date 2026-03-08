@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from app.core.config import get_settings
 from app.services.lineage_metadata_store import lineage_metadata_store
 from main import app
+from tests.conftest import drain_lineage_queue
 
 settings = get_settings()
 
@@ -47,6 +48,7 @@ def test_lineage_end_to_end_flow(client):
     assert twr_response.status_code == 200
     twr_data = twr_response.json()
     calculation_id = twr_data["calculation_id"]
+    assert drain_lineage_queue() >= 1
 
     # 2. Retrieve lineage data
     lineage_response = client.get(f"/performance/lineage/{calculation_id}")

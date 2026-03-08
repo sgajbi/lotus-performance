@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
 from main import app
+from tests.conftest import drain_lineage_queue
 
 
 def test_e2e_platform_readiness_and_capabilities_contract() -> None:
@@ -100,6 +101,7 @@ def test_e2e_contribution_attribution_and_lineage() -> None:
     with TestClient(app) as client:
         contribution_response = client.post("/performance/contribution", json=contribution_payload)
         attribution_response = client.post("/performance/attribution", json=attribution_payload)
+        assert drain_lineage_queue() >= 2
 
         contribution_lineage = client.get(f"/performance/lineage/{contribution_response.json()['calculation_id']}")
         attribution_lineage = client.get(f"/performance/lineage/{attribution_response.json()['calculation_id']}")
@@ -142,6 +144,7 @@ def test_e2e_contribution_lineage_roundtrip() -> None:
 
     with TestClient(app) as client:
         contribution_response = client.post("/performance/contribution", json=contribution_payload)
+        assert drain_lineage_queue() >= 1
         lineage_response = client.get(f"/performance/lineage/{contribution_response.json()['calculation_id']}")
 
     assert contribution_response.status_code == 200
@@ -175,6 +178,7 @@ def test_e2e_attribution_lineage_roundtrip() -> None:
 
     with TestClient(app) as client:
         attribution_response = client.post("/performance/attribution", json=attribution_payload)
+        assert drain_lineage_queue() >= 1
         lineage_response = client.get(f"/performance/lineage/{attribution_response.json()['calculation_id']}")
 
     assert attribution_response.status_code == 200
@@ -194,6 +198,7 @@ def test_e2e_mwr_lineage_roundtrip() -> None:
 
     with TestClient(app) as client:
         mwr_response = client.post("/performance/mwr", json=mwr_payload)
+        assert drain_lineage_queue() >= 1
         lineage_response = client.get(f"/performance/lineage/{mwr_response.json()['calculation_id']}")
 
     assert mwr_response.status_code == 200

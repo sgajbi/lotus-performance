@@ -1,6 +1,6 @@
 # app/api/endpoints/performance.py
 import pandas as pd
-from fastapi import APIRouter, BackgroundTasks, HTTPException, status
+from fastapi import APIRouter, HTTPException, status
 
 from adapters.api_adapter import (
     create_engine_config,
@@ -121,7 +121,7 @@ def _calculate_total_return_from_slice(
 
 
 @router.post("/twr", response_model=PerformanceResponse, summary="Calculate Time-Weighted Return")
-async def calculate_twr_endpoint(request: PerformanceRequest, background_tasks: BackgroundTasks):
+async def calculate_twr_endpoint(request: PerformanceRequest):
     """
     Calculates time-weighted return (TWR) for one or more requested periods
     and provides performance breakdowns by requested frequencies.
@@ -231,9 +231,7 @@ async def calculate_twr_endpoint(request: PerformanceRequest, background_tasks: 
         audit=audit,
     )
 
-    lineage_service.create_pending_record(calculation_id=request.calculation_id, calculation_type="TWR")
-    background_tasks.add_task(
-        lineage_service.capture,
+    lineage_service.enqueue_capture(
         calculation_id=request.calculation_id,
         calculation_type="TWR",
         request_model=request,
@@ -245,7 +243,7 @@ async def calculate_twr_endpoint(request: PerformanceRequest, background_tasks: 
 
 
 @router.post("/mwr", response_model=MoneyWeightedReturnResponse, summary="Calculate Money-Weighted Return")
-async def calculate_mwr_endpoint(request: MoneyWeightedReturnRequest, background_tasks: BackgroundTasks):
+async def calculate_mwr_endpoint(request: MoneyWeightedReturnRequest):
     """Calculates the money-weighted return (MWR) for a portfolio over a given period."""
     input_fingerprint, calculation_hash = generate_canonical_hash(request, settings.APP_VERSION)
 
@@ -308,9 +306,7 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnRequest, background
     lineage_df_data.append({"date": str(request.as_of), "type": "end_mv", "amount": request.end_mv})
     lineage_df = pd.DataFrame(lineage_df_data)
 
-    lineage_service.create_pending_record(calculation_id=request.calculation_id, calculation_type="MWR")
-    background_tasks.add_task(
-        lineage_service.capture,
+    lineage_service.enqueue_capture(
         calculation_id=request.calculation_id,
         calculation_type="MWR",
         request_model=request,
@@ -324,7 +320,7 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnRequest, background
 @router.post(
     "/attribution", response_model=AttributionResponse, summary="Calculate Multi-Level Performance Attribution"
 )
-async def calculate_attribution_endpoint(request: AttributionRequest, background_tasks: BackgroundTasks):
+async def calculate_attribution_endpoint(request: AttributionRequest):
     """
     Calculates multi-level, Brinson-style performance attribution, decomposing
     active return into allocation, selection, and interaction effects.
@@ -386,9 +382,7 @@ async def calculate_attribution_endpoint(request: AttributionRequest, background
             meta=meta,
         )
 
-        lineage_service.create_pending_record(calculation_id=request.calculation_id, calculation_type="Attribution")
-        background_tasks.add_task(
-            lineage_service.capture,
+        lineage_service.enqueue_capture(
             calculation_id=request.calculation_id,
             calculation_type="Attribution",
             request_model=request,

@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from core.periods import ResolvedPeriod
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
 from main import app
+from tests.conftest import drain_lineage_queue
 
 
 @pytest.fixture(scope="module")
@@ -88,6 +89,7 @@ def test_attribution_lineage_flow(client):
     attrib_response = client.post("/performance/attribution", json=payload)
     assert attrib_response.status_code == 200
     calculation_id = attrib_response.json()["calculation_id"]
+    assert drain_lineage_queue() >= 1
 
     lineage_response = client.get(f"/performance/lineage/{calculation_id}")
     assert lineage_response.status_code == 200
@@ -224,6 +226,7 @@ def test_attribution_endpoint_currency_attribution(client):
     assert eur_effects["total_effect"] == pytest.approx(0.505)
 
     calculation_id = response.json()["calculation_id"]
+    assert drain_lineage_queue() >= 1
     lineage_response = client.get(f"/performance/lineage/{calculation_id}")
     assert lineage_response.status_code == 200
     lineage_data = lineage_response.json()

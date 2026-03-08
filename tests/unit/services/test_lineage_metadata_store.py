@@ -45,3 +45,41 @@ def test_lineage_metadata_store_raises_for_missing_record_updates(tmp_path):
         assert "Lineage record not found" in str(exc)
     else:
         raise AssertionError("Expected mark_failed to raise KeyError")
+
+
+def test_lineage_metadata_store_payload_queue_roundtrip(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+
+    store.enqueue_lineage_payload(
+        calculation_id=calculation_id,
+        calculation_type="TWR",
+        request_json='{"request": true}',
+        response_json='{"response": true}',
+        details={"details.csv": "a,b\n1,2\n"},
+    )
+
+    payloads = store.list_pending_payloads(limit=10)
+    assert len(payloads) == 1
+    assert payloads[0].calculation_id == calculation_id
+    assert payloads[0].details == {"details.csv": "a,b\n1,2\n"}
+    assert payloads[0].attempt_count == 0
+
+    store.increment_attempt_count(calculation_id)
+    assert store.list_pending_payloads(limit=10)[0].attempt_count == 1
+
+    store.delete_payload(calculation_id)
+    assert store.list_pending_payloads(limit=10) == []
+
+
+def test_lineage_metadata_store_raises_when_incrementing_missing_payload(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+
+    try:
+        store.increment_attempt_count(uuid4())
+    except KeyError as exc:
+        assert "Lineage payload not found" in str(exc)
+    else:
+        raise AssertionError("Expected increment_attempt_count to raise KeyError")

@@ -2,6 +2,7 @@
 import json
 import logging
 import os
+from io import StringIO
 from typing import Dict
 from uuid import UUID
 
@@ -23,30 +24,47 @@ class LineageService:
             os.makedirs(self.storage_path)
             logger.info(f"Created lineage storage directory at: {self.storage_path}")
 
-    def capture(
+    def enqueue_capture(
         self,
         calculation_id: UUID,
         calculation_type: str,
         request_model: BaseModel,
         response_model: BaseModel,
         calculation_details: Dict[str, pd.DataFrame],
-    ):
-        """Captures all artifacts for a calculation and saves them to storage."""
+    ) -> None:
+        serialized_details = self._serialize_details(calculation_details)
+        self._metadata_store.enqueue_lineage_payload(
+            calculation_id=calculation_id,
+            calculation_type=calculation_type,
+            request_json=request_model.model_dump_json(indent=2),
+            response_json=response_model.model_dump_json(indent=2),
+            details=serialized_details,
+        )
+
+    def materialize_payload(
+        self,
+        *,
+        calculation_id: UUID,
+        calculation_type: str,
+        request_json: str,
+        response_json: str,
+        calculation_details: dict[str, str],
+    ) -> None:
+        """Materializes lineage artifacts from a previously enqueued payload."""
         try:
             target_dir = os.path.join(self.storage_path, str(calculation_id))
             if not os.path.exists(target_dir):
                 os.makedirs(target_dir)
 
-            # Save request and response JSON
             with open(os.path.join(target_dir, "request.json"), "w") as f:
-                f.write(request_model.model_dump_json(indent=2))
+                f.write(request_json)
 
             with open(os.path.join(target_dir, "response.json"), "w") as f:
-                f.write(response_model.model_dump_json(indent=2))
+                f.write(response_json)
 
-            # Save detailed calculation CSVs
-            for filename, df in calculation_details.items():
-                df.to_csv(os.path.join(target_dir, filename), index=False)
+            for filename, csv_payload in calculation_details.items():
+                with open(os.path.join(target_dir, filename), "w") as f:
+                    f.write(csv_payload)
 
             artifact_names = ["request.json", "response.json", *calculation_details.keys()]
             manifest_data = self._metadata_store.get_record(calculation_id)
@@ -62,6 +80,7 @@ class LineageService:
                 )
 
             self._metadata_store.mark_complete(calculation_id=calculation_id, artifact_names=artifact_names)
+            self._metadata_store.delete_payload(calculation_id)
 
             logger.info(f"Successfully captured lineage data for calculation_id: {calculation_id}")
 
@@ -77,6 +96,14 @@ class LineageService:
                 f"FATAL: Failed to capture lineage data for calculation_id: {calculation_id}. Reason: {e}",
                 exc_info=True,
             )
+
+    def _serialize_details(self, calculation_details: Dict[str, pd.DataFrame]) -> dict[str, str]:
+        serialized: dict[str, str] = {}
+        for filename, df in calculation_details.items():
+            buffer = StringIO()
+            df.to_csv(buffer, index=False)
+            serialized[filename] = buffer.getvalue()
+        return serialized
 
     def create_pending_record(self, calculation_id: UUID, calculation_type: str) -> None:
         self._metadata_store.create_pending_record(calculation_id=calculation_id, calculation_type=calculation_type)
