@@ -46,6 +46,9 @@ The following RFCs are not yet implemented. This roadmap presents a logical orde
 
 ### Phase 1: Foundational Enhancements
 
+0.  **RFC 041 — API Orchestrator, Compute Executor, and PostgreSQL Durable State**
+    * **Reasoning:** **Fix the primary runtime boundary before further scale arrives.** This establishes the durable execution model, PostgreSQL-backed operational state, and independent scaling path for heavy analytics without fragmenting the business domain.
+
 1.  **RFC 032 — Real-Time Analytics Surfaces for Iterative Advisory and lotus-manage Simulation**
     * **Reasoning:** **Enable interactive lifecycle UX.** Introduces low-latency analytics panel contracts required for advisor and lotus-manage iterative simulation loops.
 
