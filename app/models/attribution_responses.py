@@ -2,7 +2,7 @@
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from common.enums import AttributionModel, LinkingMethod
 from core.envelope import Audit, Diagnostics, Meta
@@ -94,3 +94,11 @@ class AttributionResponse(BaseModel):
     meta: Meta
     diagnostics: Optional[Diagnostics] = None  # To be populated
     audit: Optional[Audit] = None  # To be populated
+
+
+class AttributionAcceptedResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    calculation_id: UUID
+    poll_path: str
+    result_path: str
