@@ -23,11 +23,13 @@ from app.models.responses import (
     SinglePeriodPerformanceResult,
 )
 from app.services.async_result_service import resolve_async_result
-from app.services.async_result_store import async_result_store
 from app.services.attribution_service import calculate_attribution
-from app.services.compute_job_store import compute_job_store
 from app.services.execution_registry import execution_registry
 from app.services.lineage_service import lineage_service
+from app.services.submission_fencing_service import (
+    register_async_submission_or_raise,
+    register_sync_execution_or_raise,
+)
 from core.envelope import Audit, Diagnostics, Meta
 from core.periods import resolve_periods
 from core.repro import generate_canonical_hash
@@ -148,7 +150,7 @@ async def calculate_twr_endpoint(request: PerformanceRequest):
     and provides performance breakdowns by requested frequencies.
     """
     input_fingerprint, calculation_hash = generate_canonical_hash(request, settings.APP_VERSION)
-    execution_registry.create_execution(
+    register_sync_execution_or_raise(
         calculation_id=request.calculation_id,
         analytics_type="TWR",
         portfolio_id=request.portfolio_id,
@@ -317,7 +319,7 @@ async def calculate_twr_endpoint(request: PerformanceRequest):
 async def calculate_mwr_endpoint(request: MoneyWeightedReturnRequest):
     """Calculates the money-weighted return (MWR) for a portfolio over a given period."""
     input_fingerprint, calculation_hash = generate_canonical_hash(request, settings.APP_VERSION)
-    execution_registry.create_execution(
+    register_sync_execution_or_raise(
         calculation_id=request.calculation_id,
         analytics_type="MWR",
         portfolio_id=request.portfolio_id,
@@ -433,40 +435,36 @@ async def calculate_attribution_endpoint(request: AttributionRequest) -> Attribu
     active return into allocation, selection, and interaction effects.
     """
     input_fingerprint, calculation_hash = generate_canonical_hash(request, settings.APP_VERSION)
-    execution_registry.create_schema()
-    compute_job_store.create_schema()
-    async_result_store.create_schema()
     execution_mode = "async" if _should_offload_attribution(request) else "sync"
-    execution_registry.create_execution(
+    requested_window = {
+        "report_start_date": str(request.report_start_date),
+        "report_end_date": str(request.report_end_date),
+        "requested_periods": [analysis.period.value for analysis in request.analyses],
+        "input_count": _attribution_input_count(request),
+        "mode": request.mode.value,
+        "group_by": request.group_by,
+    }
+    if execution_mode == "async":
+        return register_async_submission_or_raise(
+            calculation_id=request.calculation_id,
+            analytics_type="Attribution",
+            portfolio_id=request.portfolio_id,
+            requested_window=requested_window,
+            input_fingerprint=input_fingerprint,
+            calculation_hash=calculation_hash,
+            request_payload=request.model_dump(mode="json"),
+            offload_reason="large_attribution_input_set",
+            accepted_response_factory=_accepted_attribution_response,
+        )
+
+    register_sync_execution_or_raise(
         calculation_id=request.calculation_id,
         analytics_type="Attribution",
         portfolio_id=request.portfolio_id,
-        execution_mode=execution_mode,
-        requested_window={
-            "report_start_date": str(request.report_start_date),
-            "report_end_date": str(request.report_end_date),
-            "requested_periods": [analysis.period.value for analysis in request.analyses],
-            "input_count": _attribution_input_count(request),
-            "mode": request.mode.value,
-            "group_by": request.group_by,
-        },
+        requested_window=requested_window,
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
     )
-    if execution_mode == "async":
-        execution_registry.start_stage(request.calculation_id, "submission")
-        compute_job_store.enqueue_job(
-            calculation_id=request.calculation_id,
-            analytics_type="Attribution",
-            request_payload=request.model_dump(mode="json"),
-        )
-        execution_registry.complete_stage(
-            request.calculation_id,
-            "submission",
-            details={"offload_reason": "large_attribution_input_set"},
-        )
-        accepted = _accepted_attribution_response(request.calculation_id)
-        return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=accepted.model_dump(mode="json"))
 
     return calculate_attribution(
         request,

@@ -9,6 +9,7 @@ from typing import Any, Iterator
 from uuid import UUID
 
 from sqlalchemy import DateTime, ForeignKey, String, Text, create_engine, select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
 from app.core.config import get_settings
@@ -26,6 +27,12 @@ class ExecutionStageStatus(StrEnum):
     IN_PROGRESS = "in_progress"
     COMPLETE = "complete"
     FAILED = "failed"
+
+
+class ExecutionRegistrationStatus(StrEnum):
+    CREATED = "created"
+    REPLAY = "replay"
+    CONFLICT = "conflict"
 
 
 class Base(DeclarativeBase):
@@ -131,6 +138,13 @@ class ExecutionRecord:
     upstream_snapshots: list[UpstreamSnapshotRecord]
 
 
+@dataclass(frozen=True)
+class ExecutionRegistrationResult:
+    status: ExecutionRegistrationStatus
+    existing_status: ExecutionStatus | None = None
+    existing_execution_mode: str | None = None
+
+
 def _format_timestamp(value: datetime | None) -> str | None:
     if value is None:
         return None
@@ -196,6 +210,66 @@ class ExecutionRegistry:
                 completed_at_utc=None,
             )
             session.merge(execution)
+
+    def register_execution(
+        self,
+        *,
+        calculation_id: UUID,
+        analytics_type: str,
+        portfolio_id: str | None,
+        execution_mode: str = "sync",
+        requested_window: dict[str, Any] | None = None,
+        input_fingerprint: str | None = None,
+        calculation_hash: str | None = None,
+    ) -> ExecutionRegistrationResult:
+        now = datetime.now(timezone.utc)
+        requested_window_json = json.dumps(requested_window or {}, sort_keys=True)
+        execution = AnalyticsExecutionModel(
+            calculation_id=str(calculation_id),
+            analytics_type=analytics_type,
+            portfolio_id=portfolio_id,
+            execution_mode=execution_mode,
+            status=ExecutionStatus.PENDING.value,
+            requested_window_json=requested_window_json,
+            input_fingerprint=input_fingerprint,
+            calculation_hash=calculation_hash,
+            error_message=None,
+            created_at_utc=now,
+            started_at_utc=None,
+            completed_at_utc=None,
+        )
+
+        session = self._session_factory()
+        try:
+            session.add(execution)
+            session.commit()
+            return ExecutionRegistrationResult(status=ExecutionRegistrationStatus.CREATED)
+        except IntegrityError:
+            session.rollback()
+            existing = session.get(AnalyticsExecutionModel, str(calculation_id))
+            if existing is None:
+                raise
+            if self._is_replay_of_existing_execution(
+                existing=existing,
+                analytics_type=analytics_type,
+                portfolio_id=portfolio_id,
+                execution_mode=execution_mode,
+                requested_window_json=requested_window_json,
+                input_fingerprint=input_fingerprint,
+                calculation_hash=calculation_hash,
+            ):
+                return ExecutionRegistrationResult(
+                    status=ExecutionRegistrationStatus.REPLAY,
+                    existing_status=ExecutionStatus(existing.status),
+                    existing_execution_mode=existing.execution_mode,
+                )
+            return ExecutionRegistrationResult(
+                status=ExecutionRegistrationStatus.CONFLICT,
+                existing_status=ExecutionStatus(existing.status),
+                existing_execution_mode=existing.execution_mode,
+            )
+        finally:
+            session.close()
 
     def mark_running(self, calculation_id: UUID) -> None:
         with self._session() as session:
@@ -381,6 +455,26 @@ class ExecutionRegistry:
         if stage is None:
             raise KeyError(f"Execution stage not found: {calculation_id}/{stage_name}")
         return stage
+
+    @staticmethod
+    def _is_replay_of_existing_execution(
+        *,
+        existing: AnalyticsExecutionModel,
+        analytics_type: str,
+        portfolio_id: str | None,
+        execution_mode: str,
+        requested_window_json: str,
+        input_fingerprint: str | None,
+        calculation_hash: str | None,
+    ) -> bool:
+        return (
+            existing.analytics_type == analytics_type
+            and existing.portfolio_id == portfolio_id
+            and existing.execution_mode == execution_mode
+            and existing.requested_window_json == requested_window_json
+            and existing.input_fingerprint == input_fingerprint
+            and existing.calculation_hash == calculation_hash
+        )
 
 
 settings = get_settings()

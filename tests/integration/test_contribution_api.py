@@ -1,5 +1,6 @@
 import os
 import shutil
+from uuid import uuid4
 
 import pandas as pd
 import pytest
@@ -358,3 +359,37 @@ def test_contribution_async_result_not_found_and_failed(client, happy_path_paylo
     finally:
         settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = original_threshold
         settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS = original_attempts
+
+
+def test_contribution_async_duplicate_submission_replays_same_request(client, happy_path_payload):
+    original_threshold = settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT
+    settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = 0
+    payload = {**happy_path_payload, "calculation_id": str(uuid4())}
+
+    try:
+        first = client.post("/performance/contribution", json=payload)
+        second = client.post("/performance/contribution", json=payload)
+
+        assert first.status_code == 202
+        assert second.status_code == 202
+        assert first.json()["calculation_id"] == payload["calculation_id"]
+        assert second.json()["calculation_id"] == payload["calculation_id"]
+    finally:
+        settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = original_threshold
+
+
+def test_contribution_async_duplicate_submission_conflicts_on_payload_drift(client, happy_path_payload):
+    original_threshold = settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT
+    settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = 0
+    calculation_id = str(uuid4())
+    first_payload = {**happy_path_payload, "calculation_id": calculation_id}
+    second_payload = {**first_payload, "hierarchy": ["sector"]}
+
+    try:
+        first = client.post("/performance/contribution", json=first_payload)
+        second = client.post("/performance/contribution", json=second_payload)
+
+        assert first.status_code == 202
+        assert second.status_code == 409
+    finally:
+        settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = original_threshold

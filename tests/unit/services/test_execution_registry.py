@@ -3,6 +3,7 @@ from uuid import uuid4
 import pytest
 
 from app.services.execution_registry import (
+    ExecutionRegistrationStatus,
     ExecutionRegistry,
     ExecutionStageStatus,
     ExecutionStatus,
@@ -134,3 +135,43 @@ def test_execution_registry_clear_all_records_removes_upstream_snapshots(tmp_pat
     registry.clear_all_records()
 
     assert registry.get_execution(calculation_id) is None
+
+
+def test_execution_registry_register_execution_distinguishes_create_replay_and_conflict(tmp_path):
+    registry = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    registry.create_schema()
+    calculation_id = uuid4()
+
+    created = registry.register_execution(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        portfolio_id="PORT-6",
+        execution_mode="async",
+        requested_window={"to_date": "2026-02-27"},
+        input_fingerprint="sha256:input-a",
+        calculation_hash="sha256:calc-a",
+    )
+    replay = registry.register_execution(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        portfolio_id="PORT-6",
+        execution_mode="async",
+        requested_window={"to_date": "2026-02-27"},
+        input_fingerprint="sha256:input-a",
+        calculation_hash="sha256:calc-a",
+    )
+    conflict = registry.register_execution(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        portfolio_id="PORT-6",
+        execution_mode="async",
+        requested_window={"to_date": "2026-02-28"},
+        input_fingerprint="sha256:input-b",
+        calculation_hash="sha256:calc-b",
+    )
+
+    assert created.status == ExecutionRegistrationStatus.CREATED
+    assert replay.status == ExecutionRegistrationStatus.REPLAY
+    assert replay.existing_status == ExecutionStatus.PENDING
+    assert conflict.status == ExecutionRegistrationStatus.CONFLICT
+    assert conflict.existing_execution_mode == "async"

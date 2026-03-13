@@ -9,6 +9,7 @@ from typing import Any, Iterator
 from uuid import UUID
 
 from sqlalchemy import DateTime, Index, Integer, String, Text, create_engine, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.core.config import get_settings
@@ -20,6 +21,12 @@ class ComputeJobStatus(StrEnum):
     RUNNING = "running"
     COMPLETE = "complete"
     FAILED = "failed"
+
+
+class ComputeJobRegistrationStatus(StrEnum):
+    CREATED = "created"
+    REPLAY = "replay"
+    CONFLICT = "conflict"
 
 
 class Base(DeclarativeBase):
@@ -94,6 +101,12 @@ class ComputeQueueStats:
     oldest_pending_age_seconds: float
 
 
+@dataclass(frozen=True)
+class ComputeJobRegistrationResult:
+    status: ComputeJobRegistrationStatus
+    existing_status: ComputeJobStatus | None = None
+
+
 def _format_timestamp(value: datetime | None) -> str | None:
     if value is None:
         return None
@@ -162,6 +175,62 @@ class ComputeJobStore:
                     completed_at_utc=None,
                 )
             )
+
+    def register_job(
+        self,
+        *,
+        calculation_id: UUID,
+        analytics_type: str,
+        request_payload: dict[str, Any],
+        max_attempts: int | None = None,
+    ) -> ComputeJobRegistrationResult:
+        now = datetime.now(timezone.utc)
+        configured_max_attempts = max_attempts or get_settings().COMPUTE_EXECUTOR_MAX_ATTEMPTS
+        request_json = json.dumps(request_payload, sort_keys=True)
+        job = ComputeJobModel(
+            calculation_id=str(calculation_id),
+            analytics_type=analytics_type,
+            job_status=ComputeJobStatus.PENDING.value,
+            request_json=request_json,
+            response_json=None,
+            error_message=None,
+            error_type=None,
+            attempt_count=0,
+            max_attempts=configured_max_attempts,
+            worker_id=None,
+            leased_at_utc=None,
+            lease_expires_at_utc=None,
+            last_error_at_utc=None,
+            created_at_utc=now,
+            started_at_utc=None,
+            completed_at_utc=None,
+        )
+
+        session = self._session_factory()
+        try:
+            session.add(job)
+            session.commit()
+            return ComputeJobRegistrationResult(status=ComputeJobRegistrationStatus.CREATED)
+        except IntegrityError:
+            session.rollback()
+            existing = session.get(ComputeJobModel, str(calculation_id))
+            if existing is None:
+                raise
+            if (
+                existing.analytics_type == analytics_type
+                and existing.request_json == request_json
+                and existing.max_attempts == configured_max_attempts
+            ):
+                return ComputeJobRegistrationResult(
+                    status=ComputeJobRegistrationStatus.REPLAY,
+                    existing_status=ComputeJobStatus(existing.job_status),
+                )
+            return ComputeJobRegistrationResult(
+                status=ComputeJobRegistrationStatus.CONFLICT,
+                existing_status=ComputeJobStatus(existing.job_status),
+            )
+        finally:
+            session.close()
 
     def list_pending_jobs(self, *, analytics_type: str | None = None, limit: int = 10) -> list[ComputeJobRecord]:
         with self._session() as session:

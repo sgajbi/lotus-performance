@@ -5,7 +5,11 @@ import pytest
 from sqlalchemy import inspect
 from sqlalchemy.dialects import postgresql
 
-from app.services.compute_job_store import ComputeJobStatus, ComputeJobStore
+from app.services.compute_job_store import (
+    ComputeJobRegistrationStatus,
+    ComputeJobStatus,
+    ComputeJobStore,
+)
 
 
 def test_compute_job_store_lifecycle(tmp_path):
@@ -273,3 +277,33 @@ def test_compute_job_store_declares_hot_path_indexes(tmp_path):
         "created_at_utc",
     )
     assert indexes["ix_compute_job_status_lease_expiry"] == ("job_status", "lease_expires_at_utc")
+
+
+def test_compute_job_store_register_job_distinguishes_create_replay_and_conflict(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+
+    created = store.register_job(
+        calculation_id=calculation_id,
+        analytics_type="Contribution",
+        request_payload={"portfolio_id": "P1"},
+        max_attempts=2,
+    )
+    replay = store.register_job(
+        calculation_id=calculation_id,
+        analytics_type="Contribution",
+        request_payload={"portfolio_id": "P1"},
+        max_attempts=2,
+    )
+    conflict = store.register_job(
+        calculation_id=calculation_id,
+        analytics_type="Contribution",
+        request_payload={"portfolio_id": "P2"},
+        max_attempts=2,
+    )
+
+    assert created.status == ComputeJobRegistrationStatus.CREATED
+    assert replay.status == ComputeJobRegistrationStatus.REPLAY
+    assert replay.existing_status == ComputeJobStatus.PENDING
+    assert conflict.status == ComputeJobRegistrationStatus.CONFLICT
