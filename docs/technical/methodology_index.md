@@ -1,54 +1,45 @@
 # Methodology Index
 
-This index provides a central navigation point for all detailed methodology and technical documentation for the **lotus-performance** engine and API. It is designed to help new developers, business analysts, and product teams quickly find the information they need.
+This index maps the current `lotus-performance` documentation set to the implemented public
+analytics and integration surfaces.
 
----
-## Core Technical Documents
+## Public API guides
 
-These documents describe the foundational architecture and data contracts of the system.
--   [**Architecture**](architecture.md): An overview of the system's layered design, component responsibilities, and the end-to-end data flow from API request to response.
--   [**Data Model**](data_model.md): The canonical reference for all input/output schemas, the shared API envelope (`meta`, `diagnostics`, `audit`), and common enums.
--   [**Engine Config**](engine_config.md): A detailed guide to all configurable parameters, including precision modes, period types, calendars, and diagnostics.
+- [guides/twr.md](../guides/twr.md)
+- [guides/mwr.md](../guides/mwr.md)
+- [guides/contribution.md](../guides/contribution.md)
+- [guides/attribution.md](../guides/attribution.md)
+- [guides/multi_currency.md](../guides/multi_currency.md)
+- [guides/robustness_policies.md](../guides/robustness_policies.md)
+- [guides/reproducibility.md](../guides/reproducibility.md)
+- [guides/api_reference.md](../guides/api_reference.md)
 
----
-## Performance Methodologies
+## Metric methodology set
 
-These documents provide in-depth explanations of the financial logic and calculation steps for each of the core analytical functions.
--   [**TWR (Time-Weighted Return)**](../guides/twr.md)
-    -   Daily Rate of Return Calculation
-    -   Geometric Linking for Compounding
-    -   Breakdown by Frequency (Daily, Monthly, etc.)
-    -   Annualization
+Canonical metric-level methodology documents live in:
 
--   [**MWR (Money-Weighted Return)**](../guides/mwr.md)
-    -   Internal Rate of Return (XIRR) Solver
-    -   Modified Dietz Approximation and Fallback Policy
-    -   Handling of Cash Flow Size and Timing
-    -   Annualization
+- [methodologies/metrics/master-index.md](../methodologies/metrics/master-index.md)
 
--   [**Contribution Analysis**](../guides/contribution.md)
-    -   Single-Period Position-Level Contributions
-    -   Multi-Period Linking with Carino Smoothing
-    -   Hierarchical Breakdown and Bottom-Up Aggregation
-    -   Residual Tracking and Distribution
+That set is the authoritative metric-by-metric reference for:
 
--   [**Attribution Analysis**](../guides/attribution.md)
-    -   Brinson Models (Brinson-Fachler & Brinson-Hood-Beebower)
-    -   Decomposition into Allocation, Selection, & Interaction Effects
-    -   Multi-Period Geometric Linking with Menchero Algorithm
-    -   Reconciliation Against Total Active Return
+- TWR base, local, and FX return
+- MWR XIRR and Dietz paths
+- contribution metrics
+- attribution metrics
+- returns-series portfolio, benchmark, and risk-free series
 
--   [**Robustness Policies**](../guides/robustness_policies.md)
-    -   Manual Data Correction with Overrides
-    -   Ignoring Noisy Data Days
-    -   Flagging Statistical Outliers
+## Technical references
 
----
-## Usage
+- [architecture.md](architecture.md)
+- [runtime_topology.md](runtime_topology.md)
+- [engine_config.md](engine_config.md)
+- [data_model.md](data_model.md)
 
-Each methodology page is structured to include:
+## Scope notes
 
--   **Inputs & Outputs**: The specific API request and response fields.
--   **Methodology**: A detailed, step-by-step breakdown of the calculation logic, suitable for a business audience.
--   **Features**: A list of supported options, toggles, and configurations.
--   **Examples**: Complete JSON request and response samples.
+- The current public TWR, contribution, and attribution contracts use `analyses` and do not use the
+  older `period_type` plus top-level `frequencies` shape.
+- The current returns-series contract is the only public surface with stateful execution mode.
+- Contribution, attribution, and returns-series may run synchronously or asynchronously depending on
+  workload size and executor policy.
+- OpenAPI is the canonical field-level contract source for descriptions and examples.

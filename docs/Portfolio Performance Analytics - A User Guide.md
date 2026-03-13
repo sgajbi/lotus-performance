@@ -1,135 +1,142 @@
-# 📊 Portfolio Performance Analytics: A User Guide
+# Portfolio Performance Analytics User Guide
 
-Welcome to the **Performance Analytics Suite**.  
-This platform provides a **comprehensive, transparent, and multi-faceted view** of your portfolio's performance.  
+This guide explains what `lotus-performance` does today and how to use the main analytics
+surfaces without relying on outdated request examples.
 
-Whether you're:
-- a **Portfolio Manager** evaluating strategy,  
-- a **Client Advisor** explaining results, or  
-- an **Investor** tracking returns,  
+## What the service answers
 
-this guide will help you understand the key tools at your disposal and how to use them effectively.  
+The current public APIs answer four distinct questions:
 
-The suite is built to answer three **fundamental questions** about any investment portfolio:
+1. What was my portfolio return?
+2. What contributed to that return?
+3. Why did the portfolio differ from its benchmark?
+4. What canonical return series should downstream analytics consume?
 
-1. **What was my performance?** (Measurement)  
-2. **What drove my performance?** (Contribution)  
-3. **Why did my performance differ from my benchmark?** (Attribution)  
+## 1. Measuring return
 
----
+### Time-weighted return
 
-## 1. Measuring Performance: TWR vs. MWR
+Use `POST /performance/twr` when you want manager-skill style performance that neutralizes
+external cash-flow timing.
 
-The first step in any analysis is **measuring the top-line return**. The platform offers two industry-standard methods:
+Current request shape:
 
-### ⏳ Time-Weighted Return (TWR): *The "Portfolio's Return"*
+- `portfolio_id`
+- `performance_start_date`
+- `report_end_date`
+- `analyses`
+- `valuation_points`
 
-- **Definition:** Measures the compounded growth rate of a portfolio. Neutralizes the impact of **cash flows** (deposits & withdrawals).  
-- **Purpose:** Industry standard for judging **investment manager skill**.  
-- **Think of it as:** The growth of a single dollar invested on day one.  
-- **When to Use:** Evaluate the **manager’s skill** independent of investor timing.  
+Use TWR for:
 
-**Key Configurations:**
-- `frequencies`: Daily, monthly, quarterly, or yearly.  
-- `metric_basis`: `"NET"` (after fees) or `"GROSS"` (before fees).  
+- manager evaluation
+- benchmark comparison
+- period-by-period reporting
 
----
+### Money-weighted return
 
-### 💵 Money-Weighted Return (MWR): *The "Investor's Return"*
+Use `POST /performance/mwr` when you want the investor-experience return that reflects cash-flow
+timing and size.
 
-- **Definition:** Measures the actual return an **investor receives**, considering timing and size of cash flows.  
-- **Purpose:** Captures the investor’s **real financial outcome**.  
-- **Think of it as:** Similar to **IRR (Internal Rate of Return)**.  
-- **When to Use:** Understand the **investor’s actual return** on invested capital.  
+Current request shape:
 
-**Key Configurations:**
-- Uses **XIRR**, the industry standard for handling irregular cash flows.  
+- `portfolio_id`
+- `begin_mv`
+- `end_mv`
+- `cash_flows`
+- `as_of`
+- `mwr_method`
 
----
+Use MWR for:
 
-### ⚖️ TWR vs. MWR: Which One to Use?
+- investor outcome reporting
+- capital deployment analysis
+- cash-flow-sensitive return measurement
 
-| **Question**                       | **Best Metric** | **Use Case** |
-|------------------------------------|-----------------|--------------|
-| How good is my portfolio manager?  | **TWR**         | Evaluate manager’s skill, independent of investor decisions. |
-| What was my actual return?         | **MWR**         | Assess investor’s real return, including impact of timing. |
-| How does my performance compare to an index? | **TWR** | Provides apples-to-apples benchmark comparison. |
+## 2. Explaining return drivers
 
----
+### Contribution
 
-## 2. Explaining Performance Drivers: Contribution Analysis
+Use `POST /performance/contribution` to decompose portfolio return into position or hierarchy-level
+drivers.
 
-Once you know **total return (TWR)**, the next step is identifying **what drove it**.  
+Contribution answers:
 
-**Contribution Analysis** decomposes portfolio return into **each holding’s contribution**.  
+- which holdings added value
+- which holdings detracted
+- how groups such as sector or strategy rolled up into total return
 
-- **What It Answers:** *“Which investments were winners and which were losers?”*  
-- **How It Works:** Contributions are calculated so the **sum reconciles to total return**.  
+Large contribution requests may run asynchronously. In that case the API returns `202 Accepted`
+with:
 
-**Key Configurations:**
-- **Single-Level:** Flat list of all positions and their contributions.  
-- **Multi-Level Drill-Down:** Break down by hierarchy (e.g., `["sector", "position_id"]`) to see both sector and position-level contributions.  
+- `calculation_id`
+- `poll_path`
+- `result_path`
 
----
+### Attribution
 
-## 3. Understanding Active Performance: Attribution Analysis
+Use `POST /performance/attribution` to explain active return versus a benchmark through allocation,
+selection, and interaction effects.
 
-For **actively managed portfolios**, attribution explains **why performance differs from the benchmark**.  
+Attribution answers:
 
-- **What It Answers:** *“Did I outperform because of sector choices or stock selection?”*  
+- whether excess return came from allocation decisions
+- whether security selection was beneficial
+- how benchmark-relative effects reconciled to active return
 
-### The Three Attribution Effects:
-1. **Allocation Effect:** Value added/lost by overweighting or underweighting groups (e.g., sectors, regions).  
-2. **Selection Effect:** Value added/lost from **picking securities** that outperformed within their group.  
-3. **Interaction Effect:** Captures the **combined impact** of allocation & selection.  
+Large attribution requests may also run asynchronously with the same `202 Accepted` pattern.
 
----
+## 3. Canonical returns series for downstream consumers
 
-## 4. The Multi-Currency Dimension
+Use `POST /integration/returns/series` when another analytics service needs a canonical portfolio,
+benchmark, or risk-free return series.
 
-For **global portfolios**, returns come from:
-1. **Local Asset Performance**  
-2. **Currency Fluctuations**  
+This endpoint supports:
 
-**Activating the Feature:**  
-Set `"currency_mode": "BOTH"` in your request and provide FX rates.  
+- `input_mode: "stateless"`
+- `input_mode: "stateful"`
 
-### Return Decomposition:
-- **Local Return:** Asset’s return in native currency.  
-- **FX Return:** Impact of currency exchange fluctuations.  
-- **Base Return:** Final return in reporting currency.  
+Stateful mode retrieves source data from lotus-core, records upstream retrieval snapshots durably,
+and may offload longer windows to the compute executor.
 
-**Currency Attribution:** Explains whether active return was driven by **local asset selection** or **currency bets**.  
-**Currency Hedging:** Models hedging strategies to show **true hedged performance**.  
+## 4. Async execution and support flows
 
----
+Executor-backed requests should be handled using the durable polling surfaces:
 
-## 5. Ensuring Trust: Reproducibility & Data Lineage
+- lifecycle polling: `GET /performance/executions/{calculation_id}`
+- contribution result retrieval: `GET /performance/contribution/results/{calculation_id}`
+- attribution result retrieval: `GET /performance/attribution/results/{calculation_id}`
+- returns-series result retrieval: `GET /integration/returns/series/results/{calculation_id}`
+- lineage retrieval: `GET /performance/lineage/{calculation_id}`
 
-Every calculation is **transparent, auditable, and reproducible**.  
+For runtime support and backlog visibility:
 
-### 🔒 Calculation Hash
-- Every response includes a **`calculation_hash`**.  
-- This acts as a **verifiable fingerprint** ensuring results are reproducible.  
+- runtime status: `GET /integration/runtime-status`
+- readiness: `GET /health/ready`
+- metrics: `GET /metrics`
 
-### 🧾 Data Lineage Drill-Down
-- Using `calculation_id`, retrieve the full **lineage receipt** from `/performance/lineage/`.  
-- Provides CSV downloads with:
-  - Exact request sent  
-  - Final response received  
-  - Day-by-day breakdown of intermediate calculations  
+## 5. Reproducibility and auditability
 
-This ensures **auditability** and **compliance**.  
+Every calculation has a durable `calculation_id`. Responses and execution records also carry
+reproducibility metadata such as canonical hashes and execution stages.
 
----
+Lineage is handled asynchronously:
 
-# ✅ Summary
+- the API stores lineage payload metadata durably
+- the lineage worker materializes request, response, and detail artifacts
+- clients retrieve artifact references through `/performance/lineage/{calculation_id}`
 
-- **TWR** → Best for evaluating **manager skill** and **benchmark comparison**.  
-- **MWR** → Best for measuring **investor’s actual experience**.  
-- **Contribution** → Answers *“What drove my performance?”*  
-- **Attribution** → Explains *“Why did my performance differ from benchmark?”*  
-- **Multi-Currency** → Breaks down local vs FX impact, supports hedging.  
-- **Reproducibility & Lineage** → Guarantees transparency and trust.  
+See:
 
----
+- [guides/reproducibility.md](guides/reproducibility.md)
+- [guides/api_reference.md](guides/api_reference.md)
+
+## 6. Where to get exact field-level contract detail
+
+Use generated OpenAPI for exact field names, descriptions, enums, and examples:
+
+- Swagger UI: `/docs`
+- OpenAPI JSON: `/openapi.json`
+
+This user guide is intentionally conceptual. It should not be treated as the canonical field-by-field
+schema reference.

@@ -1,151 +1,137 @@
-# Time-Weighted Return (TWR) Methodology
+# Time-Weighted Return Guide
 
-The Time-Weighted Return (TWR) measures the compounded growth rate of a portfolio. It is the industry standard for judging the performance of a portfolio manager because it **neutralizes the distorting effects of cash flows** (i.e., deposits and withdrawals), isolating the performance attributable to investment decisions.
+`POST /performance/twr` calculates time-weighted return across one or more requested analysis
+periods and returns breakdowns by the requested reporting frequencies.
 
----
+## Current request contract
 
-## Inputs
+The current request shape is:
 
-The TWR endpoint (`POST /performance/twr`) requires a time series of daily portfolio data.
--   **`performance_start_date`**: The earliest date for calculations (e.g., inception).
--   **`report_start_date` / `report_end_date`**: The specific window for the final report.
--   **`metric_basis`**: `NET` (after fees) or `GROSS` (before fees).
--   **`period_type`**: How the reporting window is defined (`YTD`, `ITD`, `EXPLICIT`, etc.).
--   **`frequencies`**: A list of desired aggregation periods (`daily`, `monthly`, `quarterly`, `yearly`).
--   **`daily_data`**: An array of daily records, each containing `perf_date`, `begin_mv`, `end_mv`, `bod_cf`, `eod_cf`, and `mgmt_fees`.
+- `portfolio_id`
+- `performance_start_date`
+- `report_end_date`
+- `analyses`
+- `valuation_points`
 
----
+Optional controls include:
 
-## Multi-Currency Analysis
+- `report_start_date` for explicit-window analysis
+- `annualization`
+- `output`
+- `reset_policy`
+- `data_policy`
+- multi-currency fields such as `currency_mode`, `report_ccy`, `fx`, and `hedging`
 
-The TWR endpoint can perform a full decomposition of returns into local, FX, and base currency components. To activate this mode:
-1.  Set `"currency_mode": "BOTH"`.
-2.  Provide the portfolio's reporting currency, e.g., `"report_ccy": "USD"`.
-3.  Supply all required daily FX rates in the `fx` block.
+Older examples using `period_type`, top-level `frequencies`, or `daily_data` are not current.
 
-When this mode is active:
--   All monetary values in the `daily_data` array are assumed to be in the **local currency** of the portfolio.
--   The response will include a `portfolio_return` object that shows the total, geometrically-linked return decomposed into `local`, `fx`, and `base` components.
--   The `daily_data` within the response will also contain the decomposed `local_ror` and `fx_ror` for each day.
--   Currency hedging can be modeled by providing a `hedging` block. See the main [Multi-Currency Guide](multi_currency.md) for details.
+## Core methodology
 
----
+### 1. Daily return
 
-## Outputs
+For each valuation point, the engine calculates a daily return that isolates investment performance
+from beginning-of-day and end-of-day cash flows. Management fees affect the daily result when
+`metric_basis="NET"`.
 
-The response contains performance data aggregated into the requested `frequencies`.
--   **`breakdowns`**: A dictionary where each key is a frequency (e.g., `"monthly"`) and the value is a list of period results.
--   **`summary`**: Each period's summary includes:
-    -   `begin_mv`, `end_mv`, `net_cash_flow`
-    -   `period_return_pct`: The return for that specific period.
--   `cumulative_return_pct_to_date`: The running cumulative TWR up to the end of that period (optional).
--   `annualized_return_pct`: The annualized return for the period (optional).
--   **`reset_events`**: A list of any performance resets that occurred during the period (optional).
--   **Shared Envelope**: Includes `meta`, `diagnostics`, and `audit` blocks.
+### 2. Geometric linking
 
----
+Daily returns are geometrically linked across each requested analysis window to produce period-level
+time-weighted return.
 
-## Methodology
+### 3. Long and short sleeve handling
 
-The TWR calculation is a multi-step process designed to handle complex scenarios like portfolios switching between long and short exposure.
-### 1. Daily Return Calculation
+The engine maintains separate long and short compounding paths so that sign flips and short exposure
+are handled consistently instead of forcing all exposure through a single naive compounding stream.
 
-For each day, the engine calculates a rate of return using a formula equivalent to the Modified Dietz method. This isolates the day's investment performance from its cash flows.
-$$
-R_{day} = \frac{EMV - BMV - (BOD_{CF} + EOD_{CF})}{BMV + BOD_{CF}}
-$$
+### 4. Robustness rules
 
--   If `metric_basis` is `"NET"`, management fees (`mgmt_fees`) are added to the numerator, reducing the return.
--   If the denominator (`BMV + BOD_{CF}`) is zero, the daily return is zero.
-### 2. Geometric Linking
+The engine applies:
 
-To calculate the return over multiple days, the daily returns are geometrically linked (compounded).
-$$
-TWR_{period} = \left[ (1 + R_{day1}) \times (1 + R_{day2}) \times \dots \times (1 + R_{dayN}) \right] - 1
-$$
+- no-investment-period handling
+- performance reset logic
+- optional data-policy overrides, ignored days, and outlier flagging
 
-### 3. Long & Short Sleeve Compounding
+### 5. Multi-period slicing
 
-To correctly handle portfolios that can flip from net long to net short, the engine maintains two independent performance streams ("sleeves") and combines them.
--   **Long Sleeve**: Compiles returns only on days the portfolio is net long (`sign = 1`). The growth factor is $(1 + R_{day})$.
--   **Short Sleeve**: Compiles returns only on days the portfolio is net short (`sign = -1`). The growth factor is $(1 - R_{day})$. A gain in a short position (a drop in market value) results in a positive return.
-The final cumulative return for any given day is the combination of the two sleeves:
+The API resolves each requested analysis in `analyses`, computes the master daily series once, then
+slices and aggregates results by period and requested frequencies.
 
-$$
-R_{final} = (1 + R_{long\_cumulative}) \times (1 + R_{short\_cumulative}) - 1
-$$
+## Current response shape
 
-### 4. Breakdown Aggregation & Annualization
+The response contains:
 
--   **Aggregation**: After calculating the full daily performance series, the `breakdown` module groups the daily results by the requested `frequencies` (monthly, quarterly, etc.) and geometrically links the daily returns within each period.
--   **Annualization**: If requested, the period return is annualized using the standard formula, respecting the chosen `basis` (e.g., business days vs. calendar days).
-$$ Annualized = (1 + R_{period})^{\frac{\text{PeriodsPerYear}}{\text{NumPeriods}}} - 1 $$
+- `calculation_id`
+- `portfolio_id`
+- `results_by_period`
+- `meta`
+- `diagnostics`
+- `audit`
 
-### 5. Advanced Rules & Edge Cases
+Each period result may contain:
 
-The engine applies several rules to ensure mathematical robustness.
--   **No Investment Period (NIP)**: A day is flagged as NIP if the portfolio starts and ends with a zero balance (`BMV + BOD_CF = 0` and `EMV + EOD_CF = 0`). On NIP days, the daily return is zero, and the previous day's cumulative return is carried forward.
--   **Performance Resets (NCTRL Flags)**: To prevent mathematically unsound compounding after a total loss of capital, the cumulative TWR for a sleeve is reset to zero. This is triggered by specific conditions, such as a long sleeve's cumulative return dropping below -100% (`NCTRL 1`) or a short sleeve's value inverting and rising above +100% (`NCTRL 2`).
----
+- `breakdowns`
+- `portfolio_return`
+- `reset_events`
 
-## Features
+If `output.include_timeseries` is enabled, daily breakdown entries can also include `daily_data`.
 
--   **High-Performance**: Core daily calculations are vectorized using Pandas and NumPy.
--   **Flexible Breakdowns**: Aggregates daily performance into monthly, quarterly, or yearly summaries in a single call.
--   **Robust Logic**: Correctly handles long/short sign flips, NIP days, and performance resets.
--   **Configurable**: Supports NET/GROSS basis, multiple period types, and optional annualization.
--   **Auditable**: Provides detailed diagnostic information, including reset events, in the response.
----
+## Multi-currency behavior
 
-## API Example
+When `currency_mode="BOTH"` and FX inputs are provided, the period-level `portfolio_return`
+contains:
 
-### Request
+- `local`
+- `fx`
+- `base`
+
+See [multi_currency.md](multi_currency.md) for the detailed multi-currency path.
+
+## Example request
 
 ```json
 {
   "portfolio_id": "TWR_EXAMPLE_01",
   "performance_start_date": "2024-12-31",
-  "metric_basis": "NET",
-  "report_start_date": "2025-01-01",
   "report_end_date": "2025-01-05",
-  "period_type": "YTD",
-  "frequencies": [
-    "daily",
-    "monthly"
+  "metric_basis": "NET",
+  "analyses": [
+    {
+      "period": "YTD",
+      "frequencies": ["daily", "monthly"]
+    }
   ],
-  "daily_data": [
+  "valuation_points": [
     { "day": 1, "perf_date": "2025-01-01", "begin_mv": 100000.0, "end_mv": 101000.0 },
-    { "day": 2, "perf_date": "2025-01-02", "begin_mv": 101000.0, "end_mv": 102500.0 },
-    { "day": 3, "perf_date": "2025-01-03", "begin_mv": 102500.0, "bod_cf": 5000.0, "end_mv": 108000.0 },
-    { "day": 4, "perf_date": "2025-01-04", "begin_mv": 108000.0, "eod_cf": -2000.0, "end_mv": 106500.0 },
-    { "day": 5, "perf_date": "2025-01-05", "begin_mv": 106500.0, "end_mv": 107000.0 }
+    { "day": 2, "perf_date": "2025-01-02", "begin_mv": 101000.0, "end_mv": 102010.0 },
+    { "day": 3, "perf_date": "2025-01-03", "begin_mv": 102010.0, "end_mv": 100989.9 },
+    { "day": 4, "perf_date": "2025-01-04", "begin_mv": 100989.9, "bod_cf": 25000.0, "end_mv": 127249.29 },
+    { "day": 5, "perf_date": "2025-01-05", "begin_mv": 127249.29, "end_mv": 125976.7971 }
   ]
-}
-````
-
-### Response (Excerpt)
-
-```json
-{
-  "calculation_id": "uuid-goes-here",
-  "portfolio_id": "TWR_EXAMPLE_01",
-  "breakdowns": {
-    "daily": [
-      {
-        "period": "2025-01-01",
-        "summary": { "begin_mv": 100000.0, "end_mv": 101000.0, "net_cash_flow": 0.0, "period_return_pct": 1.0, ... }
-      }
-    ],
-    "monthly": [
-      {
-        "period": "2025-01",
-        "summary": { "begin_mv": 100000.0, "end_mv": 107000.0, "net_cash_flow": 3000.0, "period_return_pct": 3.931..., ... }
-      }
-    ]
-  },
-  "meta": { ... },
-  "diagnostics": { ... },
-  "audit": { ... }
 }
 ```
 
+## Example response excerpt
+
+```json
+{
+  "calculation_id": "2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
+  "portfolio_id": "TWR_EXAMPLE_01",
+  "results_by_period": {
+    "YTD": {
+      "breakdowns": {
+        "daily": [],
+        "monthly": []
+      },
+      "portfolio_return": {
+        "local": 0.0,
+        "fx": 0.0,
+        "base": 3.0201
+      }
+    }
+  },
+  "meta": {},
+  "diagnostics": {},
+  "audit": {}
+}
+```
+
+Use Swagger at `/docs` for exact field-level descriptions and current examples.
