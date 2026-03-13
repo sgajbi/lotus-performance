@@ -34,16 +34,12 @@ def _prepare_data_from_instruments(request: AttributionRequest) -> List[Portfoli
     if not request.portfolio_data or not request.instruments_data:
         raise ValueError("'portfolio_data' and 'instruments_data' are required for 'by_instrument' mode.")
 
-    # --- START FIX: Use the new 'analyses' structure ---
-    period_type_to_use = request.analyses[0].period if request.analyses else "ITD"
-    # --- END FIX ---
-
     twr_config = EngineConfig(
         performance_start_date=request.report_start_date,
         report_start_date=request.report_start_date,
         report_end_date=request.report_end_date,
         metric_basis=request.portfolio_data.metric_basis,
-        period_type=period_type_to_use,
+        period_type=request.analyses[0].period,
         currency_mode=request.currency_mode,
         report_ccy=request.report_ccy,
         fx=request.fx,

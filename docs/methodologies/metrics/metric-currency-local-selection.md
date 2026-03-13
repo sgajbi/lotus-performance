@@ -3,7 +3,10 @@ Currency Attribution Local Selection (`currency_attribution[].effects.local_sele
 
 ## Endpoint and Mode Coverage
 - Endpoint: `POST /performance/attribution`
-- Availability requires currency attribution path to be active (`currency_mode=BOTH`, required columns present, `currency` dimension available).
+- Availability requires currency attribution path to be active:
+  - `currency_mode=BOTH`
+  - required columns are present in the aligned effects panel
+  - `group_by` includes the `currency` dimension
 
 ## Inputs
 - `w_b` (benchmark currency weight)

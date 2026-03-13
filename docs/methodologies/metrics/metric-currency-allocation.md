@@ -3,7 +3,10 @@ Currency Attribution Currency Allocation (`currency_attribution[].effects.curren
 
 ## Endpoint and Mode Coverage
 - Endpoint: `POST /performance/attribution`
-- Available only in currency attribution path (`currency_mode=BOTH` + required fields + `currency` key).
+- Available only in currency attribution path:
+  - `currency_mode=BOTH`
+  - required local/FX columns are present in the aligned effects panel
+  - `group_by` includes the `currency` key so the engine can aggregate by currency
 
 ## Inputs
 - `w_p`, `w_b`

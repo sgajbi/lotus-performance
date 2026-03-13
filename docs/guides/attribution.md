@@ -89,6 +89,12 @@ When the multi-currency path is enabled, benchmark and portfolio observations ca
 This allows the service to produce currency-aware active decomposition in addition to standard
 base-return attribution.
 
+Currency attribution is emitted only when all of these are true:
+
+- `currency_mode="BOTH"`
+- the aligned attribution panel contains the required local and FX return columns
+- `group_by` includes the `currency` dimension so the engine can aggregate by currency
+
 ## Current response shape
 
 The response contains:

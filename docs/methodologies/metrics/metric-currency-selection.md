@@ -3,7 +3,10 @@ Currency Attribution Currency Selection (`currency_attribution[].effects.currenc
 
 ## Endpoint and Mode Coverage
 - Endpoint: `POST /performance/attribution`
-- Available only when currency-attribution branch is active (`currency_mode=BOTH` and required data present).
+- Available only when currency-attribution branch is active:
+  - `currency_mode=BOTH`
+  - required local/FX columns are present in the aligned effects panel
+  - `group_by` includes the `currency` key so the engine can aggregate by currency
 
 ## Inputs
 - `w_b`

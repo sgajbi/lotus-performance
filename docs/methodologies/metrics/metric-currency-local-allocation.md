@@ -6,7 +6,7 @@ Currency Attribution Local Allocation (`currency_attribution[].effects.local_all
 - Availability conditions:
   - `currency_mode="BOTH"`
   - aligned effects contain required local/FX columns
-  - grouped data includes `currency` key
+  - `group_by` includes `currency`
 
 ## Inputs
 - Per-currency aggregated series by date:
