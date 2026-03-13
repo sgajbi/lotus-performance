@@ -84,6 +84,16 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 - purpose: advertise lotus-performance capabilities to downstream consumers
 - response model: integration capabilities contract in `app.api.endpoints.integration_capabilities`
 
+### `GET /integration/runtime-status`
+
+- purpose: expose an operational snapshot of runtime state for support and platform operators
+- response includes:
+  - aggregate runtime status
+  - draining state
+  - durable metadata store availability
+  - compute queue backlog details
+  - lineage queue backlog details
+
 ### `POST /integration/returns/series`
 
 - purpose: return canonical portfolio, benchmark, and risk-free return series for downstream analytics

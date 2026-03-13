@@ -55,6 +55,7 @@ Source of truth for the local topology is [docker-compose.yml](/C:/Users/Sandeep
 ## Polling model
 
 - execution lifecycle: `GET /performance/executions/{calculation_id}`
+- runtime queue snapshot: `GET /integration/runtime-status`
 - async returns-series result: `GET /integration/returns/series/results/{calculation_id}`
 - async contribution result: `GET /performance/contribution/results/{calculation_id}`
 - async attribution result: `GET /performance/attribution/results/{calculation_id}`
@@ -68,6 +69,9 @@ Queue-pressure metrics are exposed from the API process by reading durable store
 - `lotus_performance_compute_queue_oldest_pending_age_seconds`
 - `lotus_performance_lineage_queue_pending_payloads`
 - `lotus_performance_lineage_queue_oldest_pending_age_seconds`
+
+For point-in-time operator drill-down, `GET /integration/runtime-status` exposes the same
+durable queue state as a JSON control-plane snapshot.
 
 ## Failure recovery model
 
