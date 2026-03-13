@@ -359,10 +359,7 @@ class ComputeJobStore:
     def get_queue_stats(self, *, now: datetime | None = None) -> ComputeQueueStats:
         stats_now = now or datetime.now(timezone.utc)
         with self._session() as session:
-            counts_statement = (
-                select(ComputeJobModel.job_status, func.count())
-                .group_by(ComputeJobModel.job_status)
-            )
+            counts_statement = select(ComputeJobModel.job_status, func.count()).group_by(ComputeJobModel.job_status)
             counts_rows = session.execute(counts_statement).all()
             counts = {status: count for status, count in counts_rows}
 

@@ -132,12 +132,10 @@ def test_lineage_metadata_store_declares_hot_path_indexes(tmp_path):
     store.create_schema()
 
     record_indexes = {
-        index["name"]: tuple(index["column_names"])
-        for index in inspect(store._engine).get_indexes("lineage_records")
+        index["name"]: tuple(index["column_names"]) for index in inspect(store._engine).get_indexes("lineage_records")
     }
     payload_indexes = {
-        index["name"]: tuple(index["column_names"])
-        for index in inspect(store._engine).get_indexes("lineage_payloads")
+        index["name"]: tuple(index["column_names"]) for index in inspect(store._engine).get_indexes("lineage_payloads")
     }
 
     assert record_indexes["ix_lineage_records_status"] == ("status",)

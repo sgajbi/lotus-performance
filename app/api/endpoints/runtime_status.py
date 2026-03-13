@@ -120,16 +120,12 @@ async def get_runtime_status(request: Request) -> RuntimeStatusResponse:
             running_jobs=None if compute_stats is None else compute_stats.running_count,
             failed_jobs=None if compute_stats is None else compute_stats.failed_count,
             complete_jobs=None if compute_stats is None else compute_stats.complete_count,
-            oldest_pending_age_seconds=(
-                None if compute_stats is None else compute_stats.oldest_pending_age_seconds
-            ),
+            oldest_pending_age_seconds=(None if compute_stats is None else compute_stats.oldest_pending_age_seconds),
         ),
         lineage_queue=LineageQueueStatusDetailsResponse(
             status=snapshot.lineage_queue.status,
             reason=snapshot.lineage_queue.reason,
             pending_payloads=None if lineage_stats is None else lineage_stats.pending_payload_count,
-            oldest_pending_age_seconds=(
-                None if lineage_stats is None else lineage_stats.oldest_pending_age_seconds
-            ),
+            oldest_pending_age_seconds=(None if lineage_stats is None else lineage_stats.oldest_pending_age_seconds),
         ),
     )

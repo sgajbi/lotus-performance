@@ -36,9 +36,7 @@ def build_runtime_status_snapshot(*, is_draining: bool) -> RuntimeStatusSnapshot
     compute_queue = _build_compute_queue_status(durability_status)
     lineage_queue = _build_lineage_queue_status(durability_status)
 
-    if runtime_status == "ready" and (
-        compute_queue.status != "available" or lineage_queue.status != "available"
-    ):
+    if runtime_status == "ready" and (compute_queue.status != "available" or lineage_queue.status != "available"):
         runtime_status = "degraded"
 
     return RuntimeStatusSnapshot(
