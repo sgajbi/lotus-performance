@@ -8,7 +8,7 @@ from enum import StrEnum
 from typing import Iterator
 from uuid import UUID
 
-from sqlalchemy import DateTime, Integer, String, Text, create_engine, select
+from sqlalchemy import DateTime, Index, Integer, String, Text, create_engine, func, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.core.config import get_settings
@@ -26,6 +26,7 @@ class Base(DeclarativeBase):
 
 class LineageRecordModel(Base):
     __tablename__ = "lineage_records"
+    __table_args__ = (Index("ix_lineage_records_status", "status"),)
 
     calculation_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     calculation_type: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -37,6 +38,7 @@ class LineageRecordModel(Base):
 
 class LineagePayloadModel(Base):
     __tablename__ = "lineage_payloads"
+    __table_args__ = (Index("ix_lineage_payloads_created_at", "created_at_utc"),)
 
     calculation_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     calculation_type: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -65,6 +67,18 @@ class LineagePayload:
     response_json: str
     details: dict[str, str]
     attempt_count: int
+
+
+@dataclass(frozen=True)
+class LineageQueueStats:
+    pending_payload_count: int
+    oldest_pending_age_seconds: float
+
+
+def _coerce_utc_datetime(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 
 class LineageMetadataStore:
@@ -203,6 +217,35 @@ class LineageMetadataStore:
             payload = session.get(LineagePayloadModel, str(calculation_id))
             if payload is not None:
                 session.delete(payload)
+
+    def get_pending_payload_stats(self, *, now: datetime | None = None) -> LineageQueueStats:
+        stats_now = now or datetime.now(timezone.utc)
+        with self._session() as session:
+            pending_count = session.execute(
+                select(func.count())
+                .select_from(LineagePayloadModel)
+                .join(LineageRecordModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
+                .where(LineageRecordModel.status == LineageStatus.PENDING.value)
+            ).scalar_one()
+
+            oldest_pending_created_at = session.execute(
+                select(func.min(LineagePayloadModel.created_at_utc))
+                .select_from(LineagePayloadModel)
+                .join(LineageRecordModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
+                .where(LineageRecordModel.status == LineageStatus.PENDING.value)
+            ).scalar_one()
+
+            oldest_pending_age_seconds = 0.0
+            if oldest_pending_created_at is not None:
+                oldest_pending_age_seconds = max(
+                    0.0,
+                    (stats_now - _coerce_utc_datetime(oldest_pending_created_at)).total_seconds(),
+                )
+
+            return LineageQueueStats(
+                pending_payload_count=int(pending_count),
+                oldest_pending_age_seconds=oldest_pending_age_seconds,
+            )
 
 
 settings = get_settings()

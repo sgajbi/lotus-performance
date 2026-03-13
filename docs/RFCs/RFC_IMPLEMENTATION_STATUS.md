@@ -32,6 +32,7 @@ The following RFCs have been **fully implemented** and their features are part o
 | RFC 025    | Deterministic Reproducibility & Drill-Down                 | ✅ Fully Implemented |
 | RFC-028    | Unified `snake_case` API Naming & Legacy Alias Removal     | ✅ Fully Implemented |
 | RFC 031    | lotus-core Connected TWR Input Mode                               | ✅ Fully Implemented |
+| RFC 041    | API Orchestrator, Compute Executor, and PostgreSQL Durable State  | ✅ Fully Implemented |
 
 ---
 
@@ -45,9 +46,6 @@ The following RFCs are not yet implemented. This roadmap presents a logical orde
     * **Reasoning:** **Eliminate cross-platform semantic drift first.** Aligns lotus-performance to canonical platform language (`portfolio_id`, `pas-input`) before further contract expansion.
 
 ### Phase 1: Foundational Enhancements
-
-0.  **RFC 041 — API Orchestrator, Compute Executor, and PostgreSQL Durable State**
-    * **Reasoning:** **Fix the primary runtime boundary before further scale arrives.** This establishes the durable execution model, PostgreSQL-backed operational state, and independent scaling path for heavy analytics without fragmenting the business domain.
 
 1.  **RFC 032 — Real-Time Analytics Surfaces for Iterative Advisory and lotus-manage Simulation**
     * **Reasoning:** **Enable interactive lifecycle UX.** Introduces low-latency analytics panel contracts required for advisor and lotus-manage iterative simulation loops.

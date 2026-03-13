@@ -7,7 +7,10 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
+from prometheus_client import REGISTRY
 from prometheus_fastapi_instrumentator import Instrumentator
+
+from app.services.queue_metrics_service import DurableQueueCollector
 
 correlation_id_var: ContextVar[str] = ContextVar("correlation_id", default="")
 request_id_var: ContextVar[str] = ContextVar("request_id", default="")
@@ -85,6 +88,7 @@ def build_access_log_fields(*, request: Request, duration_ms: float) -> dict[str
 
 def setup_observability(app: FastAPI, *, log_level: str = "INFO") -> None:
     setup_logging(log_level)
+    _register_queue_collector_once()
     Instrumentator().instrument(app).expose(app)
 
     @app.middleware("http")
@@ -116,3 +120,9 @@ def setup_observability(app: FastAPI, *, log_level: str = "INFO") -> None:
         response.headers["X-Trace-Id"] = trace_id
         response.headers["traceparent"] = f"00-{trace_id}-0000000000000001-01"
         return response
+
+
+def _register_queue_collector_once() -> None:
+    if any(isinstance(collector, DurableQueueCollector) for collector in list(REGISTRY._collector_to_names)):
+        return
+    REGISTRY.register(DurableQueueCollector())

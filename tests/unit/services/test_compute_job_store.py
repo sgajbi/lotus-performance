@@ -2,6 +2,8 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
+from sqlalchemy import inspect
+from sqlalchemy.dialects import postgresql
 
 from app.services.compute_job_store import ComputeJobStatus, ComputeJobStore
 
@@ -166,3 +168,108 @@ def test_compute_job_store_reconciles_stale_running_job(tmp_path):
     assert failed is not None
     assert failed.job_status == ComputeJobStatus.FAILED
     assert failed.error_message == "Compute job execution lease expired after exhausting retry budget."
+
+
+def test_compute_job_store_pending_lease_statement_uses_skip_locked_on_postgresql(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+
+    statement = store._build_lease_pending_jobs_statement(
+        now=datetime.now(timezone.utc),
+        limit=5,
+        analytics_type="ReturnsSeries",
+        dialect_name="postgresql",
+    )
+    compiled = str(statement.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}))
+
+    assert "FOR UPDATE SKIP LOCKED" in compiled
+    assert "ORDER BY analytics_compute_job.created_at_utc ASC" in compiled
+    assert "LIMIT 5" in compiled
+    assert "analytics_compute_job.analytics_type = 'ReturnsSeries'" in compiled
+
+
+def test_compute_job_store_stale_reconcile_statement_uses_skip_locked_on_postgresql(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+
+    statement = store._build_reconcile_stale_jobs_statement(
+        now=datetime.now(timezone.utc),
+        dialect_name="postgresql",
+    )
+    compiled = str(statement.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}))
+
+    assert "FOR UPDATE SKIP LOCKED" in compiled
+    assert "analytics_compute_job.job_status IN ('leased', 'running')" in compiled
+    assert "analytics_compute_job.lease_expires_at_utc IS NOT NULL" in compiled
+
+
+def test_compute_job_store_queue_stats(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    now = datetime(2026, 3, 13, 12, 0, tzinfo=timezone.utc)
+
+    pending_id = uuid4()
+    leased_id = uuid4()
+    running_id = uuid4()
+    failed_id = uuid4()
+    complete_id = uuid4()
+
+    for calculation_id in [pending_id, leased_id, running_id, failed_id, complete_id]:
+        store.enqueue_job(
+            calculation_id=calculation_id,
+            analytics_type="ReturnsSeries",
+            request_payload={"portfolio_id": str(calculation_id)},
+            max_attempts=2,
+        )
+
+    with store._session() as session:
+        leased_row = store._get_model(session, leased_id)
+        leased_row.job_status = ComputeJobStatus.LEASED.value
+        leased_row.worker_id = "worker-a"
+        leased_row.leased_at_utc = now - timedelta(seconds=10)
+        leased_row.lease_expires_at_utc = now + timedelta(seconds=20)
+
+        running_row = store._get_model(session, running_id)
+        running_row.job_status = ComputeJobStatus.RUNNING.value
+        running_row.worker_id = "worker-b"
+        running_row.started_at_utc = now - timedelta(seconds=15)
+        running_row.leased_at_utc = now - timedelta(seconds=15)
+        running_row.lease_expires_at_utc = now + timedelta(seconds=15)
+
+        failed_row = store._get_model(session, failed_id)
+        failed_row.job_status = ComputeJobStatus.FAILED.value
+        failed_row.error_message = "boom"
+        failed_row.error_type = "RuntimeError"
+        failed_row.completed_at_utc = now - timedelta(seconds=5)
+
+        complete_row = store._get_model(session, complete_id)
+        complete_row.job_status = ComputeJobStatus.COMPLETE.value
+        complete_row.response_json = '{"ok": true}'
+        complete_row.completed_at_utc = now - timedelta(seconds=1)
+
+        store._get_model(session, pending_id).created_at_utc = now - timedelta(seconds=120)
+
+    stats = store.get_queue_stats(now=now)
+
+    assert stats.pending_count == 1
+    assert stats.leased_count == 1
+    assert stats.running_count == 1
+    assert stats.failed_count == 1
+    assert stats.complete_count == 1
+    assert stats.oldest_pending_age_seconds == 120.0
+
+
+def test_compute_job_store_declares_hot_path_indexes(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+
+    indexes = {
+        index["name"]: tuple(index["column_names"])
+        for index in inspect(store._engine).get_indexes("analytics_compute_job")
+    }
+
+    assert indexes["ix_compute_job_status_created_at"] == ("job_status", "created_at_utc")
+    assert indexes["ix_compute_job_status_analytics_type_created_at"] == (
+        "job_status",
+        "analytics_type",
+        "created_at_utc",
+    )
+    assert indexes["ix_compute_job_status_lease_expiry"] == ("job_status", "lease_expires_at_utc")

@@ -1,3 +1,4 @@
+from threading import Event
 from uuid import uuid4
 
 import pandas as pd
@@ -62,3 +63,42 @@ def test_run_forever_initializes_schema_and_sleeps_when_idle(monkeypatch):
         lineage_worker.run_forever()
 
     assert calls == ["schema", "process", f"sleep:{lineage_worker.settings.LINEAGE_WORKER_POLL_SECONDS}"]
+
+
+def test_lineage_worker_run_forever_honors_pre_set_stop_event(monkeypatch):
+    stop_event = Event()
+    stop_event.set()
+    calls: list[str] = []
+
+    monkeypatch.setattr(lineage_worker.execution_registry, "create_schema", lambda: calls.append("exec_schema"))
+    monkeypatch.setattr(lineage_worker.lineage_metadata_store, "create_schema", lambda: calls.append("lineage_schema"))
+    monkeypatch.setattr(lineage_worker, "process_pending_jobs", lambda: calls.append("process") or 1)
+
+    lineage_worker.run_forever(stop_event=stop_event)
+
+    assert calls == ["exec_schema", "lineage_schema"]
+
+
+def test_lineage_worker_run_forever_stops_during_idle_wait(monkeypatch):
+    stop_event = Event()
+    calls: list[str] = []
+
+    monkeypatch.setattr(lineage_worker.execution_registry, "create_schema", lambda: calls.append("exec_schema"))
+    monkeypatch.setattr(lineage_worker.lineage_metadata_store, "create_schema", lambda: calls.append("lineage_schema"))
+    monkeypatch.setattr(lineage_worker, "process_pending_jobs", lambda: calls.append("process") or 0)
+
+    def _wait(timeout: float) -> bool:
+        calls.append(f"wait:{timeout}")
+        stop_event.set()
+        return True
+
+    monkeypatch.setattr(stop_event, "wait", _wait)
+
+    lineage_worker.run_forever(stop_event=stop_event)
+
+    assert calls == [
+        "exec_schema",
+        "lineage_schema",
+        "process",
+        f"wait:{lineage_worker.settings.LINEAGE_WORKER_POLL_SECONDS}",
+    ]

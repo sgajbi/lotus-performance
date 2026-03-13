@@ -28,14 +28,20 @@ The engine automatically captures a detailed record of every calculation, allowi
 
 ### Asynchronous Capture
 
-To avoid impacting API performance, the lineage data is captured in a background task after the main calculation result is returned to you. This means there may be a brief delay of a few seconds before the lineage artifacts for a new `calculation_id` become available.
+To avoid coupling API latency to artifact materialization, lineage capture is handled through
+durable metadata plus a dedicated lineage worker.
+
+The API request path persists lineage payload metadata first. Artifact materialization then
+runs asynchronously in the lineage worker. This means there may be a short delay before
+lineage artifacts for a new `calculation_id` become available, but the work is not dependent
+on in-process background tasks.
 
 ### Retrieving Lineage Artifacts
 
 You can retrieve the download URLs for all captured artifacts using a `GET` request to the lineage endpoint.
 
   * **Endpoint**: `GET /performance/lineage/{calculation_id}`
-  * **Response**: The API returns a JSON object containing URLs for each artifact. These URLs can be used to download the files directly.
+  * **Response**: The API returns a JSON object containing durable lineage status plus URLs for each available artifact. These URLs can be used to download the files directly.
 
 **Example Response for a TWR Calculation:**
 

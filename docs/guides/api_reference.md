@@ -1,349 +1,151 @@
-# API Reference (Exact Endpoints & Shapes)
+# API Reference
 
-All endpoints live under `/performance` in `app/api/endpoints/performance.py`.
-## POST /performance/twr
-- **Request model**: `app/models/requests.PerformanceRequest`
-- **Response model**: `app/models/responses.PerformanceResponse`
+Canonical machine-readable contract:
 
-### Minimal Request
-```json
-{
-  "portfolio_id": "PF-001",
-  "performance_start_date": "2024-12-31",
-  "report_end_date": "2025-01-31",
-  "as_of": "2025-01-31",
-  "metric_basis": "NET",
-  "periods": ["MTD", "YTD"],
-  "frequencies": ["monthly"],
-  "daily_data": [
-    { "day": 1, "perf_date": "2025-01-02", "begin_mv": 1000000.0, "end_mv": 1020000.0 }
-  ],
-  "precision_mode": "FLOAT64",
-  "rounding_precision": 6,
-  "calendar": { "type": "BUSINESS", "trading_calendar": "NYSE" },
-  "output": { "include_cumulative": true }
-}
-````
+- Swagger UI: `/docs`
+- OpenAPI JSON: `/openapi.json`
 
-### Response (shape excerpt)
+This guide is a human-oriented map of the current endpoint surface. Model-level field
+descriptions and examples are maintained in the generated OpenAPI contract.
 
-```json
-{
-  "calculation_id": "uuid",
-  "portfolio_id": "PF-001",
-  "results_by_period": {
-    "MTD": {
-      "breakdowns": {
-        "monthly": [ { "period": "2025-01", "summary": { "period_return_pct": 1.99, "cumulative_return_pct_to_date": 1.99 } } ]
-      }
-    },
-    "YTD": {
-       "breakdowns": {
-        "monthly": [ { "period": "2025-01", "summary": { "period_return_pct": 1.99, "cumulative_return_pct_to_date": 1.99 } } ]
-      }
-    }
-  },
-  "meta": { "...": "..." },
-  "diagnostics": { "...": "..." },
-  "audit": { "...": "..." }
-}
-```
+## Performance APIs
 
------
+### `POST /performance/twr`
 
-## POST /performance/mwr
+- purpose: calculate time-weighted return
+- request model: `app.models.requests.PerformanceRequest`
+- response model: `app.models.responses.PerformanceResponse`
+- execution mode: synchronous
+- lineage: durable lineage metadata is written and artifacts are materialized asynchronously
 
-  - **Request model**: `app/models/mwr_requests.MoneyWeightedReturnRequest`
-  - **Response model**: `app/models/mwr_responses.MoneyWeightedReturnResponse`
+### `POST /performance/mwr`
 
-### Minimal Request
+- purpose: calculate money-weighted return
+- request model: `app.models.mwr_requests.MoneyWeightedReturnRequest`
+- response model: `app.models.mwr_responses.MoneyWeightedReturnResponse`
+- execution mode: synchronous
+- lineage: durable lineage metadata is written and artifacts are materialized asynchronously
 
-```json
-{
-  "portfolio_id": "PF-MWR-001",
-  "begin_mv": 1000000.0,
-  "end_mv": 1030000.0,
-  "as_of": "2025-01-31",
-  "cash_flows": [
-    { "amount": 50000.0, "date": "2025-01-15" }
-  ],
-  "mwr_method": "XIRR",
-  "precision_mode": "FLOAT64",
-  "calendar": { "type": "BUSINESS", "trading_calendar": "NYSE" }
-}
-```
+### `POST /performance/contribution`
 
-### Response (shape excerpt)
+- purpose: calculate position contribution
+- request model: `app.models.contribution_requests.ContributionRequest`
+- response model:
+  - sync: `app.models.contribution_responses.ContributionResponse`
+  - async accepted: `app.models.contribution_responses.ContributionAcceptedResponse`
+- execution mode:
+  - synchronous for smaller position sets
+  - `202 Accepted` with `calculation_id`, `poll_path`, and `result_path` when offloaded to the compute executor
 
-```json
-{
-  "money_weighted_return": 1.873456,
-  "method": "XIRR",
-  "convergence": { "iterations": 23, "residual": 1.2e-10, "converged": true },
-  "start_date": "2025-01-15",
-  "end_date": "2025-01-31",
-  "notes": ["XIRR calculation successful."],
-  "meta": { "...": "..." },
-  "diagnostics": { "...": "..." },
-  "audit": { "...": "..." }
-}
-```
+### `GET /performance/contribution/results/{calculation_id}`
 
------
+- purpose: retrieve the durable async contribution result
+- response model:
+  - completed: `ContributionResponse`
+  - still running: `ContributionAcceptedResponse`
 
-## POST /performance/contribution
+### `POST /performance/attribution`
 
-  - **Request model**: `app/models/contribution_requests.ContributionRequest`
-  - **Response model**: `app/models/contribution_responses.ContributionResponse`
+- purpose: calculate multi-level attribution
+- request model: `app.models.attribution_requests.AttributionRequest`
+- response model:
+  - sync: `app.models.attribution_responses.AttributionResponse`
+  - async accepted: `app.models.attribution_responses.AttributionAcceptedResponse`
+- execution mode:
+  - synchronous for smaller input sets
+  - `202 Accepted` when offloaded to the compute executor
 
-Key controls:
+### `GET /performance/attribution/results/{calculation_id}`
 
-  - `weighting_scheme`: `"BOD" | "AVG_CAPITAL" | "TWR_DENOM"` (see `common/enums.WeightingScheme`)
-  - `smoothing.method`: `"CARINO" | "NONE"`
-  - `emit.timeseries: bool`
+- purpose: retrieve the durable async attribution result
+- response model:
+  - completed: `AttributionResponse`
+  - still running: `AttributionAcceptedResponse`
 
------
+### `GET /performance/executions/{calculation_id}`
 
-## POST /performance/attribution
+- purpose: poll durable execution state
+- response includes:
+  - execution status
+  - execution stages
+  - upstream snapshots
+  - compute job state
+  - async result metadata
 
-  - **Request model**: `app/models/attribution_requests.AttributionRequest`
-  - **Response model**: `app/models/attribution_responses.AttributionResponse`
+### `GET /performance/lineage/{calculation_id}`
 
-Key controls:
+- purpose: retrieve durable lineage status and artifact URLs
+- response model: `app.api.endpoints.lineage.LineageResponse`
 
-  - `mode`: `"by_group" | "by_instrument"`
-  - `frequency`: `"daily" | "weekly" | "monthly" | "quarterly" | "yearly"` (see `common/enums.Frequency`)
-  - `linking`: `"carino" | "log" | "none"`
+## Integration APIs
 
-<!-- end list -->
+### `GET /integration/capabilities`
 
-````
+- purpose: advertise lotus-performance capabilities to downstream consumers
+- response model: integration capabilities contract in `app.api.endpoints.integration_capabilities`
 
-**Updated File: `docs/examples/twr_request.json`**
-```json
-{
-  "portfolio_id": "TWR_EXAMPLE_01",
-  "performance_start_date": "2024-12-31",
-  "metric_basis": "NET",
-  "report_end_date": "2025-01-05",
-  "periods": [
-    "ITD"
-  ],
-  "frequencies": [
-    "daily",
-    "monthly"
-  ],
-  "daily_data": [
-    {
-      "day": 1,
-      "perf_date": "2025-01-01",
-      "begin_mv": 100000.0,
-      "bod_cf": 0.0,
-      "eod_cf": 0.0,
-      "mgmt_fees": 0.0,
-      "end_mv": 101000.0
-    },
-    {
-      "day": 2,
-      "perf_date": "2025-01-02",
-      "begin_mv": 101000.0,
-      "bod_cf": 0.0,
-      "eod_cf": 0.0,
-      "mgmt_fees": 0.0,
-      "end_mv": 102500.0
-    },
-    {
-      "day": 3,
-      "perf_date": "2025-01-03",
-      "begin_mv": 102500.0,
-      "bod_cf": 5000.0,
-      "eod_cf": 0.0,
-      "mgmt_fees": -10.0,
-      "end_mv": 108000.0
-    },
-    {
-      "day": 4,
-      "perf_date": "2025-01-04",
-      "begin_mv": 108000.0,
-      "bod_cf": 0.0,
-      "eod_cf": -2000.0,
-      "mgmt_fees": -12.0,
-      "end_mv": 106500.0
-    },
-    {
-      "day": 5,
-      "perf_date": "2025-01-05",
-      "begin_mv": 106500.0,
-      "bod_cf": 0.0,
-      "eod_cf": 0.0,
-      "mgmt_fees": 0.0,
-      "end_mv": 107000.0
-    }
-  ]
-}
-````
+### `GET /integration/runtime-status`
 
-**Updated File: `docs/examples/contribution_request.json`**
+- purpose: expose an operational snapshot of runtime state for support and platform operators
+- response includes:
+  - aggregate runtime status
+  - draining state
+  - durable metadata store availability
+  - compute queue backlog details
+  - lineage queue backlog details
 
-```json
-{
-  "portfolio_id": "CONTRIB_EXAMPLE_01",
-  "report_start_date": "2025-01-01",
-  "report_end_date": "2025-01-02",
-  "periods": [
-    "YTD"
-  ],
-  "hierarchy": [
-    "sector",
-    "position_id"
-  ],
-  "portfolio_data": {
-    "metric_basis": "NET",
-    "daily_data": [
-      {
-        "day": 1,
-        "perf_date": "2025-01-01",
-        "begin_mv": 1000,
-        "end_mv": 1020
-      },
-      {
-        "day": 2,
-        "perf_date": "2025-01-02",
-        "begin_mv": 1020,
-        "bod_cf": 50,
-        "end_mv": 1080
-      }
-    ]
-  },
-  "positions_data": [
-    {
-      "position_id": "Stock_A",
-      "meta": {
-        "sector": "Technology"
-      },
-      "daily_data": [
-        {
-          "day": 1,
-          "perf_date": "2025-01-01",
-          "begin_mv": 600,
-          "end_mv": 612
-        },
-        {
-          "day": 2,
-          "perf_date": "2025-01-02",
-          "begin_mv": 612,
-          "bod_cf": 50,
-          "end_mv": 670
-        }
-      ]
-    },
-    {
-      "position_id": "Stock_B",
-      "meta": {
-        "sector": "Healthcare"
-      },
-      "daily_data": [
-        {
-          "day": 1,
-          "perf_date": "2025-01-01",
-          "begin_mv": 400,
-          "end_mv": 408
-        },
-        {
-          "day": 2,
-          "perf_date": "2025-01-02",
-          "begin_mv": 408,
-          "end_mv": 410
-        }
-      ]
-    }
-  ]
-}
-```
+### `POST /integration/returns/series`
 
-**Updated File: `docs/examples/attribution_request.json`**
+- purpose: return canonical portfolio, benchmark, and risk-free return series for downstream analytics
+- request model: `app.models.returns_series.ReturnsSeriesRequest`
+- response model:
+  - sync: `app.models.returns_series.ReturnsSeriesResponse`
+  - async accepted: `app.models.returns_series.ReturnsSeriesAcceptedResponse`
+- execution mode:
+  - synchronous for stateless and smaller stateful windows
+  - `202 Accepted` for long-window stateful requests offloaded to the compute executor
 
-```json
-{
-  "portfolio_id": "ATTRIB_EXAMPLE_01",
-  "report_start_date": "2025-01-01",
-  "report_end_date": "2025-01-01",
-  "periods": [
-    "YTD"
-  ],
-  "mode": "by_instrument",
-  "group_by": [
-    "sector"
-  ],
-  "linking": "none",
-  "frequency": "daily",
-  "portfolio_data": {
-    "metric_basis": "NET",
-    "daily_data": [
-      {
-        "day": 1,
-        "perf_date": "2025-01-01",
-        "begin_mv": 1000,
-        "end_mv": 1018.5
-      }
-    ]
-  },
-  "instruments_data": [
-    {
-      "instrument_id": "AAPL",
-      "meta": {
-        "sector": "Tech"
-      },
-      "daily_data": [
-        {
-          "day": 1,
-          "perf_date": "2025-01-01",
-          "begin_mv": 600,
-          "end_mv": 612
-        }
-      ]
-    },
-    {
-      "instrument_id": "JNJ",
-      "meta": {
-        "sector": "Health"
-      },
-      "daily_data": [
-        {
-          "day": 1,
-          "perf_date": "2025-01-01",
-          "begin_mv": 400,
-          "end_mv": 406.5
-        }
-      ]
-    }
-  ],
-  "benchmark_groups_data": [
-    {
-      "key": {
-        "sector": "Tech"
-      },
-      "observations": [
-        {
-          "date": "2025-01-01",
-          "return_base": 0.015,
-          "weight_bop": 0.5
-        }
-      ]
-    },
-    {
-      "key": {
-        "sector": "Health"
-      },
-      "observations": [
-        {
-          "date": "2025-01-01",
-          "return_base": 0.02,
-          "weight_bop": 0.5
-        }
-      ]
-    }
-  ]
-}
-```
- 
+### `GET /integration/returns/series/results/{calculation_id}`
+
+- purpose: retrieve the durable async returns-series result
+- response model:
+  - completed: `ReturnsSeriesResponse`
+  - still running: `ReturnsSeriesAcceptedResponse`
+
+## Health and observability
+
+### `GET /health`
+
+- returns basic process health
+
+### `GET /health/live`
+
+- returns liveness state
+
+### `GET /health/ready`
+
+- returns readiness only when:
+  - the service is not draining
+  - the durable metadata store is reachable
+- failure contract:
+  - `503 {"status":"draining"}`
+  - `503 {"status":"unavailable","reason":"durable_metadata_store_unreachable"}`
+
+### `GET /metrics`
+
+- Prometheus metrics surface
+
+## Async execution pattern
+
+Executor-backed endpoints use one common pattern:
+
+1. client submits a calculation request
+2. API returns either a final result or `202 Accepted`
+3. client polls `/performance/executions/{calculation_id}`
+4. client retrieves the endpoint-specific async result at the provided `result_path`
+
+## Contract guidance
+
+- prefer Swagger/OpenAPI for exact field-level descriptions and examples
+- use the execution polling endpoint as the source of truth for async lifecycle state
+- use lineage retrieval for artifact discovery, not as a proxy for execution completion

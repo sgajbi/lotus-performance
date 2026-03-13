@@ -8,7 +8,7 @@ from enum import StrEnum
 from typing import Any, Iterator
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, create_engine, select
+from sqlalchemy import DateTime, ForeignKey, String, Text, create_engine, select, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
 from app.core.config import get_settings
@@ -145,6 +145,10 @@ class ExecutionRegistry:
 
     def create_schema(self) -> None:
         Base.metadata.create_all(self._engine)
+
+    def ping(self) -> None:
+        with self._engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
 
     @contextmanager
     def _session(self) -> Iterator[Session]:

@@ -1,5 +1,11 @@
+import re
+from uuid import uuid4
+
 from fastapi.testclient import TestClient
 
+from app.services.compute_job_store import compute_job_store
+from app.services.durability_health_service import DurabilityHealthStatus
+from app.services.lineage_metadata_store import lineage_metadata_store
 from main import app
 
 
@@ -78,3 +84,56 @@ def test_health_ready_returns_503_when_draining():
 
     assert response.status_code == 503
     assert response.json() == {"status": "draining"}
+
+
+def test_health_ready_returns_503_when_durable_metadata_store_is_unavailable(mocker):
+    mocker.patch(
+        "app.api.endpoints.health.check_durable_metadata_store_ready",
+        return_value=DurabilityHealthStatus(
+            is_ready=False,
+            status="unavailable",
+            reason="durable_metadata_store_unreachable",
+        ),
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/health/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "status": "unavailable",
+        "reason": "durable_metadata_store_unreachable",
+    }
+
+
+def test_metrics_include_durable_queue_pressure_signals():
+    compute_job_store.create_schema()
+    lineage_metadata_store.create_schema()
+    compute_job_store.clear_all_records()
+    lineage_metadata_store.clear_all_records()
+
+    compute_job_store.enqueue_job(
+        calculation_id=uuid4(),
+        analytics_type="ReturnsSeries",
+        request_payload={"portfolio_id": "PF-001"},
+    )
+    lineage_metadata_store.enqueue_lineage_payload(
+        calculation_id=uuid4(),
+        calculation_type="TWR",
+        request_json="{}",
+        response_json="{}",
+        details={"request_payload.json": "request.json"},
+    )
+
+    with TestClient(app) as client:
+        metrics = client.get("/metrics")
+
+    compute_job_store.clear_all_records()
+    lineage_metadata_store.clear_all_records()
+
+    assert metrics.status_code == 200
+    assert "lotus_performance_compute_queue_jobs" in metrics.text
+    assert 'lotus_performance_compute_queue_jobs{status="pending"} 1.0' in metrics.text, metrics.text
+    lineage_match = re.search(r"lotus_performance_lineage_queue_pending_payloads ([0-9]+(?:\.[0-9]+)?)", metrics.text)
+    assert lineage_match is not None, metrics.text
+    assert float(lineage_match.group(1)) >= 1.0

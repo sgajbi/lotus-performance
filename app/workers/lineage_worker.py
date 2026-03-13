@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
+from threading import Event
 
 from app.core.config import get_settings
 from app.services.execution_registry import execution_registry
@@ -29,15 +30,26 @@ def process_pending_jobs(*, limit: int | None = None) -> int:
     return processed
 
 
-def run_forever() -> None:
+def run_forever(*, stop_event: Event | None = None) -> None:
     logging.basicConfig(level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO))
     logger.info("Starting lineage worker poller")
     execution_registry.create_schema()
     lineage_metadata_store.create_schema()
-    while True:
+    while not _stop_requested(stop_event):
         processed = process_pending_jobs()
-        if processed == 0:
-            time.sleep(settings.LINEAGE_WORKER_POLL_SECONDS)
+        if processed == 0 and _wait_for_next_poll(stop_event, settings.LINEAGE_WORKER_POLL_SECONDS):
+            break
+
+
+def _stop_requested(stop_event: Event | None) -> bool:
+    return False if stop_event is None else stop_event.is_set()
+
+
+def _wait_for_next_poll(stop_event: Event | None, poll_seconds: float) -> bool:
+    if stop_event is None:
+        time.sleep(poll_seconds)
+        return False
+    return stop_event.wait(timeout=poll_seconds)
 
 
 if __name__ == "__main__":
