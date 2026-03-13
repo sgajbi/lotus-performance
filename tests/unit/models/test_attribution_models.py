@@ -3,6 +3,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.models.attribution_requests import AttributionRequest
+from app.models.attribution_responses import SinglePeriodAttributionResult
 from common.enums import PeriodType
 
 
@@ -53,3 +54,9 @@ def test_attribution_request_with_no_analyses_fails(base_attribution_payload):
     with pytest.raises(ValidationError, match="Field required"):
         AttributionRequest.model_validate(base_attribution_payload)
     # --- END FIX ---
+
+
+def test_single_period_attribution_result_schema_excludes_dead_currency_totals_field():
+    schema = SinglePeriodAttributionResult.model_json_schema()
+
+    assert "currency_attribution_totals" not in schema.get("properties", {})

@@ -63,6 +63,7 @@ def test_contribution_guide_uses_current_request_shape():
     assert "analyses" in guide
     assert "valuation_points" in guide
     assert "Older examples using nested `daily_data`" in guide
+    assert "one hierarchy result under each `results_by_period.<period>` key" in guide
 
 
 def test_attribution_guide_uses_current_request_shape():

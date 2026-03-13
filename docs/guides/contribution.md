@@ -67,6 +67,8 @@ reconcile to the total geometric portfolio return.
 
 When `hierarchy` is supplied, the engine aggregates bottom-up from the most granular rows to each
 parent level so that every level reconciles to its parent and ultimately to total portfolio return.
+This is still a per-period calculation: when `analyses` requests multiple resolved periods, the API
+returns one hierarchy result under each `results_by_period.<period>` key.
 
 ### 5. Residual and event consistency
 
@@ -94,6 +96,12 @@ Depending on the request, each period result can include:
 - `levels`
 - `timeseries`
 - `total_contribution`
+
+When `hierarchy` is present:
+
+- `summary.portfolio_contribution` is the hierarchy-mode top-line contribution for that resolved period
+- `levels[]` contains the bottom-up rollup for that same resolved period
+- multi-period requests return separate hierarchy summaries for `MTD`, `YTD`, `ITD`, and so on, when those periods resolve
 
 ## Example request
 

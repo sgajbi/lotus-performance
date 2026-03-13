@@ -63,20 +63,12 @@ class CurrencyAttributionResult(BaseModel):
     effects: CurrencyAttributionEffects
 
 
-class CurrencyAttributionTotals(BaseModel):
-    """The summed currency attribution effects across all currencies."""
-
-    effects: CurrencyAttributionEffects
-    reconciliation_residual_bp: float
-
-
 class SinglePeriodAttributionResult(BaseModel):
     """Contains the full set of attribution results for a single, resolved period."""
 
     levels: List[AttributionLevelResult]
     reconciliation: Reconciliation
     currency_attribution: Optional[List[CurrencyAttributionResult]] = None
-    currency_attribution_totals: Optional[CurrencyAttributionTotals] = None
 
 
 class AttributionResponse(BaseModel):
