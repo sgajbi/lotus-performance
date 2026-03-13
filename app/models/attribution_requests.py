@@ -70,10 +70,7 @@ class AttributionRequest(BaseModel):
     portfolio_id: str
     report_start_date: date
     report_end_date: date
-
-    # --- START REFACTOR: Align with unified multi-period model ---
     analyses: List[Analysis]
-    # --- END REFACTOR ---
 
     mode: AttributionMode
     frequency: Frequency = Frequency.MONTHLY

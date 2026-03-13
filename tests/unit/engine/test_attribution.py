@@ -34,7 +34,6 @@ def single_period_data():
 @pytest.fixture
 def by_group_request_data():
     """Provides a sample AttributionRequest for by_group mode where weights sum to 1."""
-    # --- START FIX: Align fixture with new model ---
     return {
         "portfolio_id": "ATTRIB_UNIT_TEST_01",
         "mode": "by_group",
@@ -78,7 +77,6 @@ def by_group_request_data():
             },
         ],
     }
-    # --- END FIX ---
 
 
 def test_align_and_prepare_data_by_group(by_group_request_data):
@@ -170,7 +168,6 @@ def test_prepare_data_from_instruments():
     daily_data_aapl = [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 600, "end_mv": 624}]
     daily_data_msft = [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 400, "end_mv": 401}]
 
-    # --- START FIX: Align fixture with new model ---
     request_data = {
         "portfolio_id": "TEST",
         "mode": "by_instrument",
@@ -187,7 +184,6 @@ def test_prepare_data_from_instruments():
         ],
         "benchmark_groups_data": [],
     }
-    # --- END FIX ---
     request = AttributionRequest.model_validate(request_data)
 
     result_groups = _prepare_data_from_instruments(request)
@@ -202,7 +198,6 @@ def test_prepare_data_from_instruments():
 
 def test_prepare_data_from_instruments_missing_portfolio_data():
     """Tests that a ValueError is raised if portfolio_data is missing in by_instrument mode."""
-    # --- START FIX: Align fixture with new model ---
     request_data = {
         "portfolio_id": "TEST",
         "mode": "by_instrument",
@@ -215,7 +210,6 @@ def test_prepare_data_from_instruments_missing_portfolio_data():
         "report_end_date": "2025-01-01",
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
     }
-    # --- END FIX ---
     request = AttributionRequest.model_validate(request_data)
     with pytest.raises(ValueError, match="'portfolio_data' and 'instruments_data' are required"):
         _prepare_data_from_instruments(request)
