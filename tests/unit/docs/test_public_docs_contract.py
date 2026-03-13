@@ -72,3 +72,6 @@ def test_attribution_guide_uses_current_request_shape():
     assert "analyses" in guide
     assert "valuation_points" in guide
     assert "Older examples using request-level `period_type`" in guide
+    assert "- `model`" in guide
+    assert "- `linking`" in guide
+    assert "currency_attribution" in guide

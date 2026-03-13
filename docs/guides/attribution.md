@@ -95,6 +95,8 @@ The response contains:
 
 - `calculation_id`
 - `portfolio_id`
+- `model`
+- `linking`
 - `results_by_period`
 - `meta`
 - `diagnostics`
@@ -104,8 +106,7 @@ Each period result can include:
 
 - `levels`
 - `reconciliation`
-- `model`
-- `linking`
+- `currency_attribution` when the multi-currency attribution path is active
 
 ## Example request
 
@@ -169,6 +170,8 @@ Each period result can include:
 {
   "calculation_id": "2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
   "portfolio_id": "ATTRIB_EXAMPLE_01",
+  "model": "BF",
+  "linking": "none",
   "results_by_period": {
     "ITD": {
       "levels": [],
