@@ -55,3 +55,19 @@ def test_standalone_guide_uses_current_engine_api():
 
     assert "results_df, diagnostics = run_calculations" in guide
     assert "google.com/search" not in guide
+
+
+def test_contribution_guide_uses_current_request_shape():
+    guide = _read("docs/guides/contribution.md")
+
+    assert "analyses" in guide
+    assert "valuation_points" in guide
+    assert "Older examples using nested `daily_data`" in guide
+
+
+def test_attribution_guide_uses_current_request_shape():
+    guide = _read("docs/guides/attribution.md")
+
+    assert "analyses" in guide
+    assert "valuation_points" in guide
+    assert "Older examples using request-level `period_type`" in guide

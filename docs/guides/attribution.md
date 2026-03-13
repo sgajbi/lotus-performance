@@ -1,160 +1,186 @@
-# Performance Attribution Methodology
+# Attribution Guide
 
-Performance attribution analysis decomposes a portfolio's **active return**—the difference between the portfolio's and the benchmark's return—into its core drivers. It systematically answers the question: *Why did the portfolio's performance differ from the benchmark?*
+`POST /performance/attribution` decomposes active return versus a benchmark into allocation,
+selection, and interaction effects.
 
-The engine evaluates two primary skills of a portfolio manager:
+## Current request contract
 
--   **Allocation**: The ability to overweight outperforming groups (e.g., sectors, asset classes) and underweight underperforming ones.
--   **Selection**: The ability to pick outperforming securities within those groups.
+The current request shape is:
 
----
+- `portfolio_id`
+- `report_start_date`
+- `report_end_date`
+- `analyses`
+- `mode`
+- `group_by`
+- `benchmark_groups_data`
 
-## Inputs
+Depending on `mode`, callers also provide:
 
-The Attribution endpoint (`POST /performance/attribution`) requires time series data for the portfolio and the benchmark.
+- `portfolio_data` plus `instruments_data` for `mode="by_instrument"`
+- `portfolio_groups_data` for `mode="by_group"`
 
--   **`mode`**: The format of the input data:
-    -   `by_instrument`: The API is provided with instrument-level data for the portfolio, which it first aggregates to the group level.
-    -   `by_group`: The API is provided with pre-aggregated, group-level data.
--   **`group_by`**: An ordered list of dimensions for the analysis (e.g., `["assetClass", "sector"]`).
--   **`portfolio_data` / `instruments_data`**: The portfolio's time series data.
--   **`benchmark_groups_data`**: The benchmark's time series data, including the weight and return for each group.
--   **`model`**: The Brinson-style model to use: `BF` (Brinson-Fachler, default) or `BHB` (Brinson-Hood-Beebower).
--   **`linking`**: The method for linking single-period effects over time. `carino` (geometric) is the default.
+Optional controls include:
 
----
+- `model`
+- `linking`
+- `frequency`
+- multi-currency fields such as `currency_mode`, `report_ccy`, and `fx`
 
-## Outputs
+Older examples using request-level `period_type`, nested `daily_data`, or mixed camelCase group
+dimensions are not current.
 
-The response provides a detailed breakdown of the attribution effects for each level of the analysis.
+## Async execution
 
--   **`levels`**: A list of results, one for each dimension in the `group_by` request. Each level contains:
-    -   `groups`: A list of the attribution effects for each group (e.g., "Tech", "Health").
-    -   `totals`: The summed effects for the entire level.
--   **`reconciliation`**: A block that explicitly validates the calculation, showing that the `sum_of_effects` equals the `total_active_return`.
--   **Shared Envelope**: Includes `meta`, `diagnostics`, and `audit` blocks.
+Attribution can run synchronously or asynchronously depending on request size.
 
----
+When the request is offloaded, the API returns `202 Accepted` with:
 
-## Methodology
+- `calculation_id`
+- `poll_path`
+- `result_path`
 
-### 1. Single-Period Attribution Models
+Use:
 
-For any single period (e.g., one month), the engine calculates three effects for each group *i*.
+- `GET /performance/executions/{calculation_id}`
+- `GET /performance/attribution/results/{calculation_id}`
 
-#### Brinson-Fachler (BF) Model (Default)
+## Core methodology
 
-This is the industry-standard model.
+### 1. Single-period effects
 
--   **Allocation ($A_i$)**: Measures the impact of weighting decisions.
-    $$ A_i = (w_{pi} - w_{bi}) \times (R_{bi} - R_b) $$
--   **Selection ($S_i$)**: Measures the impact of security selection within the group.
-    $$ S_i = w_{bi} \times (R_{pi} - R_{bi}) $$
--   **Interaction ($I_i$)**: A hybrid term capturing the combined impact.
-    $$ I_i = (w_{pi} - w_{bi}) \times (R_{pi} - R_{bi}) $$
+For each requested group, the engine computes active effects under the selected model:
 
-Where:
--   $w_{pi}, w_{bi}$: Portfolio and Benchmark weight in group *i*.
--   $R_{pi}, R_{bi}$: Portfolio and Benchmark return of group *i*.
--   $R_b$: The total return of the benchmark for the period.
+- allocation
+- selection
+- interaction
 
-#### Brinson-Hood-Beebower (BHB) Model
+The current public contract supports Brinson-style attribution models.
 
-This model uses a slightly different definition for the allocation effect.
+### 2. Multi-period linking
 
--   **Allocation ($A_i$)**:
-    $$ A_i = (w_{pi} - w_{bi}) \times R_{bi} $$
--   **Selection ($S_i$)**:
-    $$ S_i = w_{pi} \times (R_{pi} - R_{bi}) $$
+The engine links single-period effects over the requested analysis horizon using the selected
+linking method so that aggregated effects reconcile against active return over time.
 
-### 2. Multi-Period Linking
+### 3. Grouping modes
 
-Simply adding single-period attribution effects over a long horizon is mathematically incorrect because it ignores **compounding**. An allocation gain from January is reinvested and also generates returns in February.
+`mode="by_instrument"`:
 
-To solve this, the engine uses a **top-down geometric linking** method. It ensures the sum of the linked A, S, and I effects over the entire horizon perfectly reconciles to the total geometric active return ($TWR_{Portfolio} - TWR_{Benchmark}$). It works as follows:
+- instrument-level portfolio data is supplied
+- the service aggregates to the requested grouping dimensions before attribution
 
-1.  Calculate the true geometric active return over the entire period.
-2.  Calculate the arithmetic active return (the simple sum of daily active returns).
-3.  Compute a `scaling_factor = geometric_active_return / arithmetic_active_return`.
-4.  Multiply each single-period attribution effect by this constant `scaling_factor` before summing them up.
+`mode="by_group"`:
 
-### 3. Hierarchical & `by_instrument` Analysis
+- callers provide already-grouped portfolio series directly
 
--   **Hierarchical**: When multiple dimensions are provided in `group_by`, the engine performs a **bottom-up aggregation**. Effects are calculated at the most granular level and then the dollar effects are summed up to the parent levels. This ensures perfect reconciliation across the hierarchy.
--   **`by_instrument` Mode**: When instrument-level data is provided, the engine first uses the core TWR engine to calculate daily returns for each instrument. It then aggregates these returns and weights up to the group level before performing the attribution calculations.
-    -   Group Weight ($w_{pi}$): Sum of the weights of all instruments within the group.
-    -   Group Return ($R_{pi}$): The weighted average of the returns of all instruments within the group.
+### 4. Hierarchical analysis
 
----
+When `group_by` contains multiple dimensions, the engine produces multi-level attribution output so
+that higher-level effects reconcile with the rollup of lower-level group effects.
 
-## Features
+### 5. Currency-aware attribution
 
--   **Multiple Models**: Supports both Brinson-Fachler and Brinson-Hood-Beebower models.
--   **Geometric Linking**: Correctly accounts for compounding over multiple periods to ensure perfect reconciliation.
--   **Multi-Level Hierarchy**: Decomposes active return across multiple dimensions in a single call.
--   **Flexible Inputs**: Can run attribution from either pre-aggregated group data or raw instrument-level data.
+When the multi-currency path is enabled, benchmark and portfolio observations can carry:
 
----
+- `return_local`
+- `return_fx`
+- `return_base`
 
-## API Example
+This allows the service to produce currency-aware active decomposition in addition to standard
+base-return attribution.
 
-### Request
+## Current response shape
+
+The response contains:
+
+- `calculation_id`
+- `portfolio_id`
+- `results_by_period`
+- `meta`
+- `diagnostics`
+- `audit`
+
+Each period result can include:
+
+- `levels`
+- `reconciliation`
+- `model`
+- `linking`
+
+## Example request
 
 ```json
 {
   "portfolio_id": "ATTRIB_EXAMPLE_01",
   "mode": "by_instrument",
-  "group_by": [ "sector" ],
+  "group_by": ["sector"],
   "linking": "none",
   "frequency": "daily",
+  "report_start_date": "2025-01-01",
+  "report_end_date": "2025-01-01",
+  "analyses": [
+    {
+      "period": "ITD",
+      "frequencies": ["daily"]
+    }
+  ],
   "portfolio_data": {
-    "report_start_date": "2025-01-01",
-    "report_end_date": "2025-01-01",
-    "metric_basis": "NET", "period_type": "YTD",
-    "daily_data": [ { "day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1018.5 } ]
+    "metric_basis": "NET",
+    "valuation_points": [
+      { "day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1018.5 }
+    ]
   },
   "instruments_data": [
     {
-      "instrument_id": "AAPL", "meta": { "sector": "Tech" },
-      "daily_data": [ { "day": 1, "perf_date": "2025-01-01", "begin_mv": 600, "end_mv": 612 } ]
+      "instrument_id": "AAPL",
+      "meta": { "sector": "Tech" },
+      "valuation_points": [
+        { "day": 1, "perf_date": "2025-01-01", "begin_mv": 600, "end_mv": 612 }
+      ]
     },
     {
-      "instrument_id": "JNJ", "meta": { "sector": "Health" },
-      "daily_data": [ { "day": 1, "perf_date": "2025-01-01", "begin_mv": 400, "end_mv": 406.5 } ]
+      "instrument_id": "JNJ",
+      "meta": { "sector": "Health" },
+      "valuation_points": [
+        { "day": 1, "perf_date": "2025-01-01", "begin_mv": 400, "end_mv": 406.5 }
+      ]
     }
   ],
   "benchmark_groups_data": [
     {
       "key": { "sector": "Tech" },
-      "observations": [ { "date": "2025-01-01", "return": 0.015, "weight_bop": 0.5 } ]
+      "observations": [
+        { "date": "2025-01-01", "return_base": 0.015, "weight_bop": 0.5 }
+      ]
     },
     {
       "key": { "sector": "Health" },
-      "observations": [ { "date": "2025-01-01", "return": 0.02, "weight_bop": 0.5 } ]
+      "observations": [
+        { "date": "2025-01-01", "return_base": 0.02, "weight_bop": 0.5 }
+      ]
     }
   ]
 }
 ```
 
-### Response (Excerpt)
+## Example response excerpt
 
 ```json
 {
-    "calculation_id": "uuid-goes-here",
-    "portfolio_id": "ATTRIB_EXAMPLE_01",
-    "model": "BF",
-    "linking": "none",
-    "levels": [
-        {
-            "dimension": "sector",
-            "groups": [
-                { "key": { "sector": "Health" }, "allocation": -0.025, "selection": -0.1875, "interaction": -0.025, "total_effect": -0.2375 },
-                { "key": { "sector": "Tech" }, "allocation": 0.025, "selection": 0.25, "interaction": 0.05, "total_effect": 0.325 }
-            ],
-            "totals": { "allocation": 0.0, "selection": 0.0625, "interaction": 0.025, "total_effect": 0.0875 }
-        }
-    ],
-    "reconciliation": { "total_active_return": 0.1, "sum_of_effects": 0.0875, "residual": 0.0125 },
-    "meta": { ... }, "diagnostics": { ... }, "audit": { ... }
+  "calculation_id": "2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
+  "portfolio_id": "ATTRIB_EXAMPLE_01",
+  "results_by_period": {
+    "ITD": {
+      "levels": [],
+      "reconciliation": {
+        "total_active_return": 0.1
+      }
+    }
+  },
+  "meta": {},
+  "diagnostics": {},
+  "audit": {}
 }
 ```
+
+Use `/docs` for exact field-level descriptions and the latest examples.
