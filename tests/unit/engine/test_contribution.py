@@ -96,6 +96,44 @@ def test_calculate_daily_contributions_returns_empty_for_empty_instruments(prepa
     assert result_df.empty
 
 
+def test_calculate_daily_contributions_zero_portfolio_capital_forces_zero_weight():
+    instruments_df = pd.DataFrame(
+        [
+            {
+                "perf_date": pd.Timestamp("2025-01-01"),
+                "position_id": "P1",
+                "begin_mv": 50.0,
+                "bod_cf": 0.0,
+                "daily_ror": 2.0,
+                "local_ror": 2.0,
+                "fx_ror": 0.0,
+            }
+        ]
+    )
+    portfolio_df = pd.DataFrame(
+        [
+            {
+                "perf_date": pd.Timestamp("2025-01-01"),
+                "begin_mv": 0.0,
+                "bod_cf": 0.0,
+                "daily_ror": 0.0,
+                "nip": 0,
+                "perf_reset": 0,
+            }
+        ]
+    )
+
+    result_df = _calculate_daily_instrument_contributions(
+        instruments_df, portfolio_df, WeightingScheme.BOD, Smoothing(method="NONE")
+    )
+
+    row = result_df.iloc[0]
+    assert row["daily_weight"] == 0.0
+    assert row["raw_contribution"] == 0.0
+    assert row["raw_local_contribution"] == 0.0
+    assert row["raw_fx_contribution"] == 0.0
+
+
 def test_prepare_hierarchical_data_returns_empty_instruments_when_positions_missing(happy_path_payload):
     payload = happy_path_payload.copy()
     payload["hierarchy"] = ["sector"]

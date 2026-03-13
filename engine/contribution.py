@@ -35,7 +35,8 @@ def _calculate_daily_instrument_contributions(
         df["capital_port"] = df[f"{PortfolioColumns.BEGIN_MV.value}_port"] + df[f"{PortfolioColumns.BOD_CF.value}_port"]
 
     with np.errstate(divide="ignore", invalid="ignore"):
-        df["daily_weight"] = (df["capital_inst"] / df["capital_port"]).fillna(0.0)
+        daily_weight = df["capital_inst"] / df["capital_port"]
+    df["daily_weight"] = daily_weight.replace([np.inf, -np.inf], np.nan).fillna(0.0)
 
     df["raw_local_contribution"] = df["daily_weight"] * (df.get("local_ror", 0.0) / 100)
     df["raw_fx_contribution"] = df["daily_weight"] * (df.get("fx_ror", 0.0) / 100)
