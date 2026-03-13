@@ -176,6 +176,37 @@ def calculate_hierarchical_contribution(request: ContributionRequest) -> Tuple[D
         instruments_df, portfolio_results_df, request.weighting_scheme, request.smoothing
     )
 
+    port_ror_series = portfolio_results_df[PortfolioColumns.DAILY_ROR.value] / 100
+    total_portfolio_return = (1 + port_ror_series).prod() - 1
+
+    results = build_hierarchical_contribution_result(
+        daily_contributions_df,
+        request,
+        total_portfolio_return=float(total_portfolio_return),
+    )
+    lineage_data = {"portfolio_twr.csv": portfolio_results_df, "daily_contributions.csv": daily_contributions_df}
+
+    return results, lineage_data
+
+
+def build_hierarchical_contribution_result(
+    daily_contributions_df: pd.DataFrame,
+    request: ContributionRequest,
+    *,
+    total_portfolio_return: float,
+) -> Dict:
+    """Aggregates hierarchical contribution output for a single period slice."""
+    if daily_contributions_df.empty:
+        summary = {
+            "portfolio_contribution": 0.0,
+            "coverage_mv_pct": 100.0,
+            "weighting_scheme": request.weighting_scheme.value,
+        }
+        if request.currency_mode == "BOTH":
+            summary["local_contribution"] = 0.0
+            summary["fx_contribution"] = 0.0
+        return {"summary": summary, "levels": []}
+
     totals = (
         daily_contributions_df.groupby("position_id")
         .agg(
@@ -187,8 +218,6 @@ def calculate_hierarchical_contribution(request: ContributionRequest) -> Tuple[D
         .reset_index()
     )
 
-    port_ror_series = portfolio_results_df[PortfolioColumns.DAILY_ROR.value] / 100
-    total_portfolio_return = (1 + port_ror_series).prod() - 1
     sum_of_contributions = totals["contribution"].sum()
     residual = total_portfolio_return - sum_of_contributions
     total_avg_weight = totals["weight_avg"].sum()
@@ -252,10 +281,7 @@ def calculate_hierarchical_contribution(request: ContributionRequest) -> Tuple[D
         summary["local_contribution"] = aggregated_df["local_contribution"].sum() * 100
         summary["fx_contribution"] = aggregated_df["fx_contribution"].sum() * 100
 
-    results = {"summary": summary, "levels": response_levels}
-    lineage_data = {"portfolio_twr.csv": portfolio_results_df, "daily_contributions.csv": daily_contributions_df}
-
-    return results, lineage_data
+    return {"summary": summary, "levels": response_levels}
 
 
 def _calculate_carino_factors(ror_series: pd.Series) -> pd.Series:

@@ -19,7 +19,7 @@ from core.periods import resolve_periods
 from engine.contribution import (
     _calculate_daily_instrument_contributions,
     _prepare_hierarchical_data,
-    calculate_hierarchical_contribution,
+    build_hierarchical_contribution_result,
 )
 from engine.schema import PortfolioColumns
 
@@ -31,6 +31,15 @@ def _as_numeric(value: Any, default: Any = 0) -> Any:
     if pd.isna(numeric):
         return default
     return numeric
+
+
+def _calculate_total_portfolio_return_from_slice(portfolio_period_slice_df: pd.DataFrame) -> float:
+    daily_returns = pd.to_numeric(
+        portfolio_period_slice_df[PortfolioColumns.DAILY_ROR.value],
+        errors="coerce",
+    )
+    total_portfolio_return_product: Any = (1 + daily_returns / 100).prod()
+    return _as_numeric(total_portfolio_return_product - 1)
 
 
 def calculate_contribution(
@@ -56,21 +65,46 @@ def calculate_contribution(
 
         master_start_date = min(p.start_date for p in resolved_periods)
         master_end_date = max(p.end_date for p in resolved_periods)
-        if request.hierarchy:
-            results, lineage_details = calculate_hierarchical_contribution(request)
-            period_result = SinglePeriodContributionResult(summary=results.get("summary"), levels=results.get("levels"))
-            results_by_period = {resolved_periods[0].name: period_result}
-            portfolio_results_df = lineage_details.get("portfolio_twr.csv", pd.DataFrame())
-            daily_contributions_df = lineage_details.get("daily_contributions.csv", pd.DataFrame())
-        else:
-            instruments_df, portfolio_results_df = _prepare_hierarchical_data(request)
-            daily_contributions_df = _calculate_daily_instrument_contributions(
-                instruments_df, portfolio_results_df, request.weighting_scheme, request.smoothing
-            )
-            daily_contributions_df[PortfolioColumns.PERF_DATE.value] = pd.to_datetime(
-                daily_contributions_df[PortfolioColumns.PERF_DATE.value]
-            ).dt.date
+        instruments_df, portfolio_results_df = _prepare_hierarchical_data(request)
+        daily_contributions_df = _calculate_daily_instrument_contributions(
+            instruments_df, portfolio_results_df, request.weighting_scheme, request.smoothing
+        )
+        daily_contributions_df[PortfolioColumns.PERF_DATE.value] = pd.to_datetime(
+            daily_contributions_df[PortfolioColumns.PERF_DATE.value]
+        ).dt.date
 
+        if request.hierarchy:
+            results_by_period = {}
+            for period in resolved_periods:
+                period_slice_df = daily_contributions_df[
+                    (daily_contributions_df[PortfolioColumns.PERF_DATE.value] >= period.start_date)
+                    & (daily_contributions_df[PortfolioColumns.PERF_DATE.value] <= period.end_date)
+                ].copy()
+                portfolio_period_slice_df = portfolio_results_df[
+                    (
+                        pd.to_datetime(portfolio_results_df[PortfolioColumns.PERF_DATE.value]).dt.date
+                        >= period.start_date
+                    )
+                    & (
+                        pd.to_datetime(portfolio_results_df[PortfolioColumns.PERF_DATE.value]).dt.date
+                        <= period.end_date
+                    )
+                ]
+
+                if period_slice_df.empty or portfolio_period_slice_df.empty:
+                    continue
+
+                total_portfolio_return = _calculate_total_portfolio_return_from_slice(portfolio_period_slice_df)
+                period_results = build_hierarchical_contribution_result(
+                    period_slice_df,
+                    request,
+                    total_portfolio_return=total_portfolio_return,
+                )
+                results_by_period[period.name] = SinglePeriodContributionResult(
+                    summary=period_results.get("summary"),
+                    levels=period_results.get("levels"),
+                )
+        else:
             results_by_period = {}
             for period in resolved_periods:
                 period_slice_df = daily_contributions_df[
@@ -102,12 +136,7 @@ def calculate_contribution(
                     )
                 ]
 
-                daily_returns = pd.to_numeric(
-                    portfolio_period_slice_df[PortfolioColumns.DAILY_ROR.value],
-                    errors="coerce",
-                )
-                total_portfolio_return_product: Any = (1 + daily_returns / 100).prod()
-                total_portfolio_return = _as_numeric(total_portfolio_return_product - 1)
+                total_portfolio_return = _calculate_total_portfolio_return_from_slice(portfolio_period_slice_df)
                 sum_of_contributions = _as_numeric(totals["total_contribution"].sum())
                 residual = total_portfolio_return - sum_of_contributions
                 total_avg_weight = _as_numeric(totals["average_weight"].sum())

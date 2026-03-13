@@ -170,6 +170,49 @@ def test_contribution_endpoint_hierarchy_happy_path(client, happy_path_payload):
     assert data["summary"]["portfolio_contribution"] == pytest.approx(2.95327, abs=1e-5)
 
 
+def test_contribution_endpoint_hierarchy_respects_multiple_resolved_periods(client):
+    payload = {
+        "portfolio_id": "HIER_MULTI_PERIOD",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-02-15",
+        "analyses": [{"period": "MTD", "frequencies": ["monthly"]}, {"period": "YTD", "frequencies": ["monthly"]}],
+        "hierarchy": ["sector"],
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [
+                {"day": 1, "perf_date": "2025-01-31", "begin_mv": 1000, "end_mv": 1010},
+                {"day": 2, "perf_date": "2025-02-15", "begin_mv": 1010, "end_mv": 1030.2},
+            ],
+        },
+        "positions_data": [
+            {
+                "position_id": "Stock_A",
+                "meta": {"sector": "Technology"},
+                "valuation_points": [
+                    {"day": 1, "perf_date": "2025-01-31", "begin_mv": 600, "end_mv": 606},
+                    {"day": 2, "perf_date": "2025-02-15", "begin_mv": 606, "end_mv": 618.12},
+                ],
+            },
+            {
+                "position_id": "Stock_B",
+                "meta": {"sector": "Healthcare"},
+                "valuation_points": [
+                    {"day": 1, "perf_date": "2025-01-31", "begin_mv": 400, "end_mv": 404},
+                    {"day": 2, "perf_date": "2025-02-15", "begin_mv": 404, "end_mv": 412.08},
+                ],
+            },
+        ],
+    }
+
+    response = client.post("/performance/contribution", json=payload)
+
+    assert response.status_code == 200
+    results = response.json()["results_by_period"]
+    assert set(results) == {"MTD", "YTD"}
+    assert results["MTD"]["summary"]["portfolio_contribution"] == pytest.approx(2.0, abs=1e-5)
+    assert results["YTD"]["summary"]["portfolio_contribution"] == pytest.approx(3.02, abs=1e-5)
+
+
 def test_contribution_endpoint_error_handling(client, mocker):
     """Tests that a generic server error is raised for calculation failures."""
     mocker.patch(
