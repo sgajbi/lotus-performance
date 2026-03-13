@@ -18,6 +18,14 @@ class DurableQueueCollector:
             "Age in seconds of the oldest pending compute job.",
         )
         yield GaugeMetricFamily(
+            "lotus_performance_compute_queue_oldest_leased_age_seconds",
+            "Age in seconds of the oldest leased compute job.",
+        )
+        yield GaugeMetricFamily(
+            "lotus_performance_compute_queue_oldest_running_age_seconds",
+            "Age in seconds of the oldest running compute job.",
+        )
+        yield GaugeMetricFamily(
             "lotus_performance_lineage_queue_pending_payloads",
             "Number of pending lineage payloads awaiting materialization.",
         )
@@ -54,6 +62,20 @@ class DurableQueueCollector:
         )
         compute_oldest_pending.add_metric([], 0 if compute_stats is None else compute_stats.oldest_pending_age_seconds)
         yield compute_oldest_pending
+
+        compute_oldest_leased = GaugeMetricFamily(
+            "lotus_performance_compute_queue_oldest_leased_age_seconds",
+            "Age in seconds of the oldest leased compute job.",
+        )
+        compute_oldest_leased.add_metric([], 0 if compute_stats is None else compute_stats.oldest_leased_age_seconds)
+        yield compute_oldest_leased
+
+        compute_oldest_running = GaugeMetricFamily(
+            "lotus_performance_compute_queue_oldest_running_age_seconds",
+            "Age in seconds of the oldest running compute job.",
+        )
+        compute_oldest_running.add_metric([], 0 if compute_stats is None else compute_stats.oldest_running_age_seconds)
+        yield compute_oldest_running
 
         lineage_pending = GaugeMetricFamily(
             "lotus_performance_lineage_queue_pending_payloads",

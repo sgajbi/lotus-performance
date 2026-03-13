@@ -20,6 +20,8 @@ def test_runtime_status_snapshot_reports_ready_with_queue_stats(mocker):
             failed_count=4,
             complete_count=5,
             oldest_pending_age_seconds=120.0,
+            oldest_leased_age_seconds=60.0,
+            oldest_running_age_seconds=30.0,
         ),
     )
     mocker.patch(
@@ -54,6 +56,8 @@ def test_runtime_status_snapshot_reports_draining_when_app_is_draining(mocker):
             failed_count=0,
             complete_count=0,
             oldest_pending_age_seconds=0.0,
+            oldest_leased_age_seconds=0.0,
+            oldest_running_age_seconds=0.0,
         ),
     )
     mocker.patch(

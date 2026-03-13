@@ -92,6 +92,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - draining state
   - durable metadata store availability
   - compute queue backlog details
+  - oldest pending, leased, and running compute-job ages
   - lineage queue backlog details
 
 ### `POST /integration/returns/series`

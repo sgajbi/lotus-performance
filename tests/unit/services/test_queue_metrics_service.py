@@ -9,6 +9,8 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
         failed_count = 4
         complete_count = 5
         oldest_pending_age_seconds = 12.5
+        oldest_leased_age_seconds = 6.25
+        oldest_running_age_seconds = 3.5
 
     class _LineageStats:
         pending_payload_count = 6
@@ -28,5 +30,7 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
 
     assert "lotus_performance_compute_queue_jobs" in metric_names
     assert "lotus_performance_compute_queue_oldest_pending_age_seconds" in metric_names
+    assert "lotus_performance_compute_queue_oldest_leased_age_seconds" in metric_names
+    assert "lotus_performance_compute_queue_oldest_running_age_seconds" in metric_names
     assert "lotus_performance_lineage_queue_pending_payloads" in metric_names
     assert "lotus_performance_lineage_queue_oldest_pending_age_seconds" in metric_names

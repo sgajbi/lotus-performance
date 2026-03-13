@@ -51,6 +51,14 @@ class ComputeQueueStatusDetailsResponse(BaseModel):
         default=None,
         description="Age in seconds of the oldest pending compute job.",
     )
+    oldest_leased_age_seconds: float | None = Field(
+        default=None,
+        description="Age in seconds of the oldest leased compute job awaiting worker progress.",
+    )
+    oldest_running_age_seconds: float | None = Field(
+        default=None,
+        description="Age in seconds of the oldest running compute job currently executing.",
+    )
 
 
 class LineageQueueStatusDetailsResponse(BaseModel):
@@ -121,6 +129,8 @@ async def get_runtime_status(request: Request) -> RuntimeStatusResponse:
             failed_jobs=None if compute_stats is None else compute_stats.failed_count,
             complete_jobs=None if compute_stats is None else compute_stats.complete_count,
             oldest_pending_age_seconds=(None if compute_stats is None else compute_stats.oldest_pending_age_seconds),
+            oldest_leased_age_seconds=(None if compute_stats is None else compute_stats.oldest_leased_age_seconds),
+            oldest_running_age_seconds=(None if compute_stats is None else compute_stats.oldest_running_age_seconds),
         ),
         lineage_queue=LineageQueueStatusDetailsResponse(
             status=snapshot.lineage_queue.status,

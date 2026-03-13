@@ -259,6 +259,8 @@ def test_compute_job_store_queue_stats(tmp_path):
     assert stats.failed_count == 1
     assert stats.complete_count == 1
     assert stats.oldest_pending_age_seconds == 120.0
+    assert stats.oldest_leased_age_seconds == 10.0
+    assert stats.oldest_running_age_seconds == 15.0
 
 
 def test_compute_job_store_declares_hot_path_indexes(tmp_path):

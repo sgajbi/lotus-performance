@@ -134,6 +134,8 @@ def test_metrics_include_durable_queue_pressure_signals():
     assert metrics.status_code == 200
     assert "lotus_performance_compute_queue_jobs" in metrics.text
     assert 'lotus_performance_compute_queue_jobs{status="pending"} 1.0' in metrics.text, metrics.text
+    assert "lotus_performance_compute_queue_oldest_leased_age_seconds" in metrics.text
+    assert "lotus_performance_compute_queue_oldest_running_age_seconds" in metrics.text
     lineage_match = re.search(r"lotus_performance_lineage_queue_pending_payloads ([0-9]+(?:\.[0-9]+)?)", metrics.text)
     assert lineage_match is not None, metrics.text
     assert float(lineage_match.group(1)) >= 1.0

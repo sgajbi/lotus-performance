@@ -42,6 +42,8 @@ def test_runtime_status_reports_durable_queue_state():
     assert body["durable_metadata_store"]["status"] == "ready"
     assert body["compute_queue"]["status"] == "available"
     assert body["compute_queue"]["pending_jobs"] == 1
+    assert body["compute_queue"]["oldest_leased_age_seconds"] == 0.0
+    assert body["compute_queue"]["oldest_running_age_seconds"] == 0.0
     assert body["lineage_queue"]["status"] == "available"
     assert body["lineage_queue"]["pending_payloads"] == 1
 

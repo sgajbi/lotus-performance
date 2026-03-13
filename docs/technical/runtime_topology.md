@@ -69,11 +69,14 @@ Queue-pressure metrics are exposed from the API process by reading durable store
 
 - `lotus_performance_compute_queue_jobs{status=...}`
 - `lotus_performance_compute_queue_oldest_pending_age_seconds`
+- `lotus_performance_compute_queue_oldest_leased_age_seconds`
+- `lotus_performance_compute_queue_oldest_running_age_seconds`
 - `lotus_performance_lineage_queue_pending_payloads`
 - `lotus_performance_lineage_queue_oldest_pending_age_seconds`
 
 For point-in-time operator drill-down, `GET /integration/runtime-status` exposes the same
-durable queue state as a JSON control-plane snapshot.
+durable queue state as a JSON control-plane snapshot, including the oldest pending, leased,
+and running compute-job ages.
 
 ## Failure recovery model
 

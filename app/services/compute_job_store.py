@@ -99,6 +99,8 @@ class ComputeQueueStats:
     failed_count: int
     complete_count: int
     oldest_pending_age_seconds: float
+    oldest_leased_age_seconds: float
+    oldest_running_age_seconds: float
 
 
 @dataclass(frozen=True)
@@ -437,12 +439,34 @@ class ComputeJobStore:
                     ComputeJobModel.job_status == ComputeJobStatus.PENDING.value
                 )
             ).scalar_one()
+            oldest_leased_started_at = session.execute(
+                select(func.min(ComputeJobModel.leased_at_utc)).where(
+                    ComputeJobModel.job_status == ComputeJobStatus.LEASED.value
+                )
+            ).scalar_one()
+            oldest_running_started_at = session.execute(
+                select(func.min(ComputeJobModel.started_at_utc)).where(
+                    ComputeJobModel.job_status == ComputeJobStatus.RUNNING.value
+                )
+            ).scalar_one()
 
             oldest_pending_age_seconds = 0.0
             if oldest_pending_created_at is not None:
                 oldest_pending_age_seconds = max(
                     0.0,
                     (stats_now - _coerce_utc_datetime(oldest_pending_created_at)).total_seconds(),
+                )
+            oldest_leased_age_seconds = 0.0
+            if oldest_leased_started_at is not None:
+                oldest_leased_age_seconds = max(
+                    0.0,
+                    (stats_now - _coerce_utc_datetime(oldest_leased_started_at)).total_seconds(),
+                )
+            oldest_running_age_seconds = 0.0
+            if oldest_running_started_at is not None:
+                oldest_running_age_seconds = max(
+                    0.0,
+                    (stats_now - _coerce_utc_datetime(oldest_running_started_at)).total_seconds(),
                 )
 
             return ComputeQueueStats(
@@ -452,6 +476,8 @@ class ComputeJobStore:
                 failed_count=int(counts.get(ComputeJobStatus.FAILED.value, 0)),
                 complete_count=int(counts.get(ComputeJobStatus.COMPLETE.value, 0)),
                 oldest_pending_age_seconds=oldest_pending_age_seconds,
+                oldest_leased_age_seconds=oldest_leased_age_seconds,
+                oldest_running_age_seconds=oldest_running_age_seconds,
             )
 
     def _get_model(self, session: Session, calculation_id: UUID) -> ComputeJobModel:
