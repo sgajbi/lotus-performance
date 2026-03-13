@@ -162,17 +162,12 @@ class ComputeJobStore:
         now = datetime.now(timezone.utc)
         lease_expiry = now + timedelta(seconds=lease_seconds)
         with self._session() as session:
-            statement = select(ComputeJobModel).where(
-                (ComputeJobModel.job_status == ComputeJobStatus.PENDING.value)
-                | (
-                    (ComputeJobModel.job_status == ComputeJobStatus.LEASED.value)
-                    & (ComputeJobModel.lease_expires_at_utc.is_not(None))
-                    & (ComputeJobModel.lease_expires_at_utc < now)
-                )
+            statement = self._build_lease_pending_jobs_statement(
+                now=now,
+                limit=limit,
+                analytics_type=analytics_type,
+                dialect_name=session.bind.dialect.name if session.bind is not None else "",
             )
-            if analytics_type is not None:
-                statement = statement.where(ComputeJobModel.analytics_type == analytics_type)
-            statement = statement.order_by(ComputeJobModel.created_at_utc.asc()).limit(limit)
             rows = session.execute(statement).scalars().all()
             leased: list[ComputeJobRecord] = []
             for row in rows:
@@ -266,10 +261,9 @@ class ComputeJobStore:
         reconcile_now = now or datetime.now(timezone.utc)
         reconciled: list[ReconciledJobRecord] = []
         with self._session() as session:
-            statement = select(ComputeJobModel).where(
-                (ComputeJobModel.job_status.in_([ComputeJobStatus.LEASED.value, ComputeJobStatus.RUNNING.value]))
-                & (ComputeJobModel.lease_expires_at_utc.is_not(None))
-                & (ComputeJobModel.lease_expires_at_utc < reconcile_now)
+            statement = self._build_reconcile_stale_jobs_statement(
+                now=reconcile_now,
+                dialect_name=session.bind.dialect.name if session.bind is not None else "",
             )
             rows = session.execute(statement).scalars().all()
             for row in rows:
@@ -302,6 +296,39 @@ class ComputeJobStore:
                     )
                 )
         return reconciled
+
+    def _build_lease_pending_jobs_statement(
+        self,
+        *,
+        now: datetime,
+        limit: int,
+        analytics_type: str | None,
+        dialect_name: str,
+    ):
+        statement = select(ComputeJobModel).where(
+            (ComputeJobModel.job_status == ComputeJobStatus.PENDING.value)
+            | (
+                (ComputeJobModel.job_status == ComputeJobStatus.LEASED.value)
+                & (ComputeJobModel.lease_expires_at_utc.is_not(None))
+                & (ComputeJobModel.lease_expires_at_utc < now)
+            )
+        )
+        if analytics_type is not None:
+            statement = statement.where(ComputeJobModel.analytics_type == analytics_type)
+        statement = statement.order_by(ComputeJobModel.created_at_utc.asc()).limit(limit)
+        if dialect_name == "postgresql":
+            statement = statement.with_for_update(skip_locked=True)
+        return statement
+
+    def _build_reconcile_stale_jobs_statement(self, *, now: datetime, dialect_name: str):
+        statement = select(ComputeJobModel).where(
+            (ComputeJobModel.job_status.in_([ComputeJobStatus.LEASED.value, ComputeJobStatus.RUNNING.value]))
+            & (ComputeJobModel.lease_expires_at_utc.is_not(None))
+            & (ComputeJobModel.lease_expires_at_utc < now)
+        )
+        if dialect_name == "postgresql":
+            statement = statement.with_for_update(skip_locked=True)
+        return statement
 
     def get_job(self, calculation_id: UUID) -> ComputeJobRecord | None:
         with self._session() as session:

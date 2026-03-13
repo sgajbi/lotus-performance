@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
+from sqlalchemy.dialects import postgresql
 
 from app.services.compute_job_store import ComputeJobStatus, ComputeJobStore
 
@@ -166,3 +167,34 @@ def test_compute_job_store_reconciles_stale_running_job(tmp_path):
     assert failed is not None
     assert failed.job_status == ComputeJobStatus.FAILED
     assert failed.error_message == "Compute job execution lease expired after exhausting retry budget."
+
+
+def test_compute_job_store_pending_lease_statement_uses_skip_locked_on_postgresql(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+
+    statement = store._build_lease_pending_jobs_statement(
+        now=datetime.now(timezone.utc),
+        limit=5,
+        analytics_type="ReturnsSeries",
+        dialect_name="postgresql",
+    )
+    compiled = str(statement.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}))
+
+    assert "FOR UPDATE SKIP LOCKED" in compiled
+    assert "ORDER BY analytics_compute_job.created_at_utc ASC" in compiled
+    assert "LIMIT 5" in compiled
+    assert "analytics_compute_job.analytics_type = 'ReturnsSeries'" in compiled
+
+
+def test_compute_job_store_stale_reconcile_statement_uses_skip_locked_on_postgresql(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+
+    statement = store._build_reconcile_stale_jobs_statement(
+        now=datetime.now(timezone.utc),
+        dialect_name="postgresql",
+    )
+    compiled = str(statement.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}))
+
+    assert "FOR UPDATE SKIP LOCKED" in compiled
+    assert "analytics_compute_job.job_status IN ('leased', 'running')" in compiled
+    assert "analytics_compute_job.lease_expires_at_utc IS NOT NULL" in compiled
