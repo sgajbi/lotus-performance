@@ -35,6 +35,11 @@ class DurableQueueCollector:
             "Number of pending lineage payloads awaiting materialization.",
         )
         yield GaugeMetricFamily(
+            "lotus_performance_lineage_queue_failure_pressure_payloads",
+            "Lineage payload counts for retry backlog and terminal failure categories.",
+            labels=["category"],
+        )
+        yield GaugeMetricFamily(
             "lotus_performance_lineage_queue_oldest_pending_age_seconds",
             "Age in seconds of the oldest pending lineage payload.",
         )
@@ -107,6 +112,21 @@ class DurableQueueCollector:
         )
         lineage_pending.add_metric([], 0 if lineage_stats is None else lineage_stats.pending_payload_count)
         yield lineage_pending
+
+        lineage_failure_pressure = GaugeMetricFamily(
+            "lotus_performance_lineage_queue_failure_pressure_payloads",
+            "Lineage payload counts for retry backlog and terminal failure categories.",
+            labels=["category"],
+        )
+        lineage_failure_pressure.add_metric(
+            ["retry_backlog"],
+            0 if lineage_stats is None else lineage_stats.retry_backlog_count,
+        )
+        lineage_failure_pressure.add_metric(
+            ["terminal_failure"],
+            0 if lineage_stats is None else lineage_stats.terminal_failure_count,
+        )
+        yield lineage_failure_pressure
 
         lineage_oldest_pending = GaugeMetricFamily(
             "lotus_performance_lineage_queue_oldest_pending_age_seconds",

@@ -83,6 +83,14 @@ class LineageQueueStatusDetailsResponse(BaseModel):
         default=None,
         description="Number of pending lineage payloads awaiting worker materialization.",
     )
+    retry_backlog_payloads: int | None = Field(
+        default=None,
+        description="Number of pending lineage payloads awaiting a retry after a prior materialization failure.",
+    )
+    terminal_failure_payloads: int | None = Field(
+        default=None,
+        description="Number of lineage payloads that exhausted retry budget and failed terminally.",
+    )
     oldest_pending_age_seconds: float | None = Field(
         default=None,
         description="Age in seconds of the oldest pending lineage payload.",
@@ -151,6 +159,8 @@ async def get_runtime_status(request: Request) -> RuntimeStatusResponse:
             status=snapshot.lineage_queue.status,
             reason=snapshot.lineage_queue.reason,
             pending_payloads=None if lineage_stats is None else lineage_stats.pending_payload_count,
+            retry_backlog_payloads=None if lineage_stats is None else lineage_stats.retry_backlog_count,
+            terminal_failure_payloads=None if lineage_stats is None else lineage_stats.terminal_failure_count,
             oldest_pending_age_seconds=(None if lineage_stats is None else lineage_stats.oldest_pending_age_seconds),
         ),
     )

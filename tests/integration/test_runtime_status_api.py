@@ -50,6 +50,8 @@ def test_runtime_status_reports_durable_queue_state():
     assert body["compute_queue"]["oldest_running_age_seconds"] == 0.0
     assert body["lineage_queue"]["status"] == "available"
     assert body["lineage_queue"]["pending_payloads"] == 1
+    assert body["lineage_queue"]["retry_backlog_payloads"] == 0
+    assert body["lineage_queue"]["terminal_failure_payloads"] == 0
 
 
 def test_runtime_status_reports_draining_state():
@@ -156,3 +158,38 @@ def test_runtime_status_exposes_compute_failure_pressure_counts():
         assert body["compute_queue"]["terminal_failure_jobs"] == 1
     finally:
         compute_job_store.clear_all_records()
+
+
+def test_runtime_status_exposes_lineage_failure_pressure_counts():
+    lineage_metadata_store.create_schema()
+    lineage_metadata_store.clear_all_records()
+    retry_id = uuid4()
+    failed_id = uuid4()
+    lineage_metadata_store.enqueue_lineage_payload(
+        calculation_id=retry_id,
+        calculation_type="TWR",
+        request_json="{}",
+        response_json="{}",
+        details={"request.json": "{}"},
+    )
+    lineage_metadata_store.enqueue_lineage_payload(
+        calculation_id=failed_id,
+        calculation_type="TWR",
+        request_json="{}",
+        response_json="{}",
+        details={"request.json": "{}"},
+    )
+    lineage_metadata_store.increment_attempt_count(retry_id)
+    lineage_metadata_store.increment_attempt_count(failed_id)
+    lineage_metadata_store.mark_failed(failed_id, error_message="write failed")
+
+    try:
+        with TestClient(app) as client:
+            response = client.get("/integration/runtime-status")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["lineage_queue"]["retry_backlog_payloads"] == 1
+        assert body["lineage_queue"]["terminal_failure_payloads"] == 1
+    finally:
+        lineage_metadata_store.clear_all_records()

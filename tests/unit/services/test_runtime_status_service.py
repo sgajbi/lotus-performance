@@ -42,7 +42,12 @@ def test_runtime_status_snapshot_reports_ready_with_queue_stats(mocker):
     )
     mocker.patch(
         "app.services.runtime_status_service.lineage_metadata_store.get_pending_payload_stats",
-        return_value=LineageQueueStats(pending_payload_count=6, oldest_pending_age_seconds=45.0),
+        return_value=LineageQueueStats(
+            pending_payload_count=6,
+            retry_backlog_count=2,
+            terminal_failure_count=1,
+            oldest_pending_age_seconds=45.0,
+        ),
     )
 
     snapshot = build_runtime_status_snapshot(is_draining=False)
@@ -54,6 +59,7 @@ def test_runtime_status_snapshot_reports_ready_with_queue_stats(mocker):
     assert snapshot.lineage_queue.status == "available"
     assert snapshot.lineage_queue.stats is not None
     assert snapshot.lineage_queue.stats.pending_payload_count == 6
+    assert snapshot.lineage_queue.stats.retry_backlog_count == 2
     assert isinstance(snapshot.generated_at, datetime)
     assert snapshot.generated_at.tzinfo == UTC
 
@@ -94,7 +100,12 @@ def test_runtime_status_snapshot_reports_draining_when_app_is_draining(mocker):
     )
     mocker.patch(
         "app.services.runtime_status_service.lineage_metadata_store.get_pending_payload_stats",
-        return_value=LineageQueueStats(pending_payload_count=0, oldest_pending_age_seconds=0.0),
+        return_value=LineageQueueStats(
+            pending_payload_count=0,
+            retry_backlog_count=0,
+            terminal_failure_count=0,
+            oldest_pending_age_seconds=0.0,
+        ),
     )
 
     snapshot = build_runtime_status_snapshot(is_draining=True)
@@ -160,7 +171,12 @@ def test_runtime_status_snapshot_reports_degraded_when_queue_read_fails(mocker):
     )
     mocker.patch(
         "app.services.runtime_status_service.lineage_metadata_store.get_pending_payload_stats",
-        return_value=LineageQueueStats(pending_payload_count=1, oldest_pending_age_seconds=30.0),
+        return_value=LineageQueueStats(
+            pending_payload_count=1,
+            retry_backlog_count=0,
+            terminal_failure_count=0,
+            oldest_pending_age_seconds=30.0,
+        ),
     )
 
     snapshot = build_runtime_status_snapshot(is_draining=False)
@@ -207,7 +223,12 @@ def test_runtime_status_snapshot_degrades_when_compute_age_threshold_is_exceeded
     )
     mocker.patch(
         "app.services.runtime_status_service.lineage_metadata_store.get_pending_payload_stats",
-        return_value=LineageQueueStats(pending_payload_count=0, oldest_pending_age_seconds=0.0),
+        return_value=LineageQueueStats(
+            pending_payload_count=0,
+            retry_backlog_count=0,
+            terminal_failure_count=0,
+            oldest_pending_age_seconds=0.0,
+        ),
     )
 
     snapshot = build_runtime_status_snapshot(is_draining=False)
@@ -253,7 +274,12 @@ def test_runtime_status_snapshot_degrades_when_lineage_age_threshold_is_exceeded
     )
     mocker.patch(
         "app.services.runtime_status_service.lineage_metadata_store.get_pending_payload_stats",
-        return_value=LineageQueueStats(pending_payload_count=1, oldest_pending_age_seconds=45.0),
+        return_value=LineageQueueStats(
+            pending_payload_count=1,
+            retry_backlog_count=0,
+            terminal_failure_count=0,
+            oldest_pending_age_seconds=45.0,
+        ),
     )
 
     snapshot = build_runtime_status_snapshot(is_draining=False)

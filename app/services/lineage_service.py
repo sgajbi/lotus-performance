@@ -50,7 +50,7 @@ class LineageService:
         request_json: str,
         response_json: str,
         calculation_details: dict[str, str],
-    ) -> None:
+    ) -> bool:
         """Materializes lineage artifacts from a previously enqueued payload."""
         try:
             target_dir = os.path.join(self.storage_path, str(calculation_id))
@@ -96,27 +96,15 @@ class LineageService:
                 )
 
             logger.info(f"Successfully captured lineage data for calculation_id: {calculation_id}")
+            return True
 
         except Exception as e:
-            try:
-                self._metadata_store.mark_failed(calculation_id=calculation_id, error_message=str(e))
-            except Exception:
-                logger.exception(
-                    "Failed to mark lineage metadata record as failed for calculation_id=%s", calculation_id
-                )
-            try:
-                execution_registry.fail_stage(calculation_id, "lineage_materialization", str(e))
-            except Exception:
-                logger.warning(
-                    "Execution stage unavailable while marking lineage materialization failed: %s",
-                    calculation_id,
-                    exc_info=True,
-                )
             # Add robust logging to make silent errors visible in the server console
             logger.error(
                 f"FATAL: Failed to capture lineage data for calculation_id: {calculation_id}. Reason: {e}",
                 exc_info=True,
             )
+            return False
 
     def _serialize_details(self, calculation_details: Dict[str, pd.DataFrame]) -> dict[str, str]:
         serialized: dict[str, str] = {}

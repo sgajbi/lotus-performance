@@ -17,6 +17,8 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
 
     class _LineageStats:
         pending_payload_count = 6
+        retry_backlog_count = 2
+        terminal_failure_count = 1
         oldest_pending_age_seconds = 7.5
 
     monkeypatch.setattr(
@@ -37,4 +39,5 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
     assert "lotus_performance_compute_queue_oldest_leased_age_seconds" in metric_names
     assert "lotus_performance_compute_queue_oldest_running_age_seconds" in metric_names
     assert "lotus_performance_lineage_queue_pending_payloads" in metric_names
+    assert "lotus_performance_lineage_queue_failure_pressure_payloads" in metric_names
     assert "lotus_performance_lineage_queue_oldest_pending_age_seconds" in metric_names

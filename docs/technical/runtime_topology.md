@@ -33,6 +33,7 @@ Source of truth for the local topology is [docker-compose.yml](/C:/Users/Sandeep
 - polls durable lineage payload metadata
 - materializes artifact files asynchronously
 - updates durable lineage status for polling and retrieval
+- retries failed lineage materialization within a bounded attempt budget before marking terminal failure
 - supports explicit quiescence via a worker stop signal instead of relying on process kill semantics
 
 ### `performance-lineage-db`
@@ -73,13 +74,14 @@ Queue-pressure metrics are exposed from the API process by reading durable store
 - `lotus_performance_compute_queue_oldest_leased_age_seconds`
 - `lotus_performance_compute_queue_oldest_running_age_seconds`
 - `lotus_performance_lineage_queue_pending_payloads`
+- `lotus_performance_lineage_queue_failure_pressure_payloads{category=...}`
 - `lotus_performance_lineage_queue_oldest_pending_age_seconds`
 
 For point-in-time operator drill-down, `GET /integration/runtime-status` exposes the same
 durable queue state as a JSON control-plane snapshot, including the oldest pending, leased,
-and running compute-job ages plus retry-backlog, lease-expiry, and terminal-failure counts.
-If configured age thresholds are exceeded, the runtime-status surface degrades proactively
-instead of only reporting raw queue numbers.
+and running compute-job ages plus retry-backlog, lease-expiry, and terminal-failure counts
+for compute and lineage. If configured age thresholds are exceeded, the runtime-status surface
+degrades proactively instead of only reporting raw queue numbers.
 
 ## Failure recovery model
 

@@ -105,7 +105,7 @@ def test_lineage_service_capture_logs_error_on_write_failure(tmp_path, mocker, c
     payload = metadata_store.list_pending_payloads(limit=10)[0]
     broken_details = {**payload.details, "details.csv": None}  # type: ignore[dict-item]
     with caplog.at_level("ERROR"):
-        service.materialize_payload(
+        success = service.materialize_payload(
             calculation_id=calc_id,
             calculation_type="TEST",
             request_json=payload.request_json,
@@ -113,13 +113,14 @@ def test_lineage_service_capture_logs_error_on_write_failure(tmp_path, mocker, c
             calculation_details=broken_details,
         )
 
+    assert success is False
     assert any("Failed to capture lineage data" in record.message for record in caplog.records)
     metadata = metadata_store.get_record(calc_id)
     assert metadata is not None
-    assert metadata.status == LineageStatus.FAILED
+    assert metadata.status == LineageStatus.PENDING
 
 
-def test_lineage_service_logs_when_mark_failed_also_breaks(tmp_path, mocker, caplog):
+def test_lineage_service_logs_failure_without_mutating_metadata_store(tmp_path, mocker, caplog):
     metadata_store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
     metadata_store.create_schema()
     service = LineageService(storage_path=str(tmp_path), metadata_store=metadata_store)
@@ -135,10 +136,8 @@ def test_lineage_service_logs_when_mark_failed_also_breaks(tmp_path, mocker, cap
         calculation_details={"details.csv": details_df},
     )
     payload = metadata_store.list_pending_payloads(limit=10)[0]
-    mocker.patch.object(metadata_store, "mark_failed", side_effect=RuntimeError("db down"))
-
     with caplog.at_level("ERROR"):
-        service.materialize_payload(
+        success = service.materialize_payload(
             calculation_id=calc_id,
             calculation_type="TEST",
             request_json=payload.request_json,
@@ -146,7 +145,8 @@ def test_lineage_service_logs_when_mark_failed_also_breaks(tmp_path, mocker, cap
             calculation_details={"details.csv": None},  # type: ignore[dict-item]
         )
 
-    assert any("Failed to mark lineage metadata record as failed" in record.message for record in caplog.records)
+    assert success is False
+    assert any("Failed to capture lineage data" in record.message for record in caplog.records)
 
 
 def test_lineage_service_create_pending_record_passthrough(tmp_path):

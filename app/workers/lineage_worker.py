@@ -19,14 +19,39 @@ def process_pending_jobs(*, limit: int | None = None) -> int:
     processed = 0
     for payload in pending:
         lineage_metadata_store.increment_attempt_count(payload.calculation_id)
-        lineage_service.materialize_payload(
+        success = lineage_service.materialize_payload(
             calculation_id=payload.calculation_id,
             calculation_type=payload.calculation_type,
             request_json=payload.request_json,
             response_json=payload.response_json,
             calculation_details=payload.details,
         )
-        processed += 1
+        if success:
+            processed += 1
+            continue
+
+        current_payload = lineage_metadata_store.get_payload(payload.calculation_id)
+        if current_payload is None:
+            continue
+        if current_payload.attempt_count >= settings.LINEAGE_WORKER_MAX_ATTEMPTS:
+            lineage_metadata_store.mark_failed(
+                calculation_id=payload.calculation_id,
+                error_message="Lineage materialization failed after exhausting retry budget.",
+            )
+            try:
+                execution_registry.fail_stage(
+                    payload.calculation_id,
+                    "lineage_materialization",
+                    "Lineage materialization failed after exhausting retry budget.",
+                )
+            except Exception:
+                logger.warning(
+                    "Execution stage unavailable while marking lineage materialization failed: %s",
+                    payload.calculation_id,
+                    exc_info=True,
+                )
+        else:
+            lineage_metadata_store.mark_pending(payload.calculation_id)
     return processed
 
 

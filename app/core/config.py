@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     LINEAGE_METADATA_DATABASE_URL: str = "sqlite:///./lineage_metadata.db"
     LINEAGE_WORKER_POLL_SECONDS: float = 1.0
     LINEAGE_WORKER_BATCH_SIZE: int = 20
+    LINEAGE_WORKER_MAX_ATTEMPTS: int = 3
     CORE_QUERY_BASE_URL: str = "http://localhost:8201"
     CORE_TIMEOUT_SECONDS: float = 10.0
     CORE_MAX_RETRIES: int = 2

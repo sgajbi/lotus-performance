@@ -75,6 +75,9 @@ def test_lineage_metadata_store_payload_queue_roundtrip(tmp_path):
 
     store.increment_attempt_count(calculation_id)
     assert store.list_pending_payloads(limit=10)[0].attempt_count == 1
+    payload = store.get_payload(calculation_id)
+    assert payload is not None
+    assert payload.attempt_count == 1
 
     store.delete_payload(calculation_id)
     assert store.list_pending_payloads(limit=10) == []
@@ -115,6 +118,17 @@ def test_lineage_metadata_store_pending_payload_stats(tmp_path):
         details={"response_payload.json": "response.json"},
     )
     store.mark_complete(complete_id, artifact_names=["response_payload.json"])
+    failed_id = uuid4()
+    store.enqueue_lineage_payload(
+        calculation_id=failed_id,
+        calculation_type="ATTR",
+        request_json="{}",
+        response_json="{}",
+        details={"details.json": "{}"},
+    )
+    store.increment_attempt_count(pending_id)
+    store.increment_attempt_count(failed_id)
+    store.mark_failed(failed_id, error_message="write failed")
 
     with store._session() as session:
         payload = session.get(LineagePayloadModel, str(pending_id))
@@ -124,7 +138,24 @@ def test_lineage_metadata_store_pending_payload_stats(tmp_path):
     stats = store.get_pending_payload_stats(now=now)
 
     assert stats.pending_payload_count == 1
+    assert stats.retry_backlog_count == 1
+    assert stats.terminal_failure_count == 1
     assert stats.oldest_pending_age_seconds == 45.0
+
+
+def test_lineage_metadata_store_mark_pending_clears_error(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+
+    store.create_pending_record(calculation_id=calculation_id, calculation_type="TWR")
+    store.mark_failed(calculation_id=calculation_id, error_message="boom")
+    store.mark_pending(calculation_id=calculation_id)
+
+    record = store.get_record(calculation_id)
+    assert record is not None
+    assert record.status == LineageStatus.PENDING
+    assert record.error_message is None
 
 
 def test_lineage_metadata_store_declares_hot_path_indexes(tmp_path):

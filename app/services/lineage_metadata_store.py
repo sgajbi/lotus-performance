@@ -72,6 +72,8 @@ class LineagePayload:
 @dataclass(frozen=True)
 class LineageQueueStats:
     pending_payload_count: int
+    retry_backlog_count: int
+    terminal_failure_count: int
     oldest_pending_age_seconds: float
 
 
@@ -131,6 +133,14 @@ class LineageMetadataStore:
                 raise KeyError(f"Lineage record not found: {calculation_id}")
             record.status = LineageStatus.FAILED.value
             record.error_message = error_message
+
+    def mark_pending(self, calculation_id: UUID) -> None:
+        with self._session() as session:
+            record = session.get(LineageRecordModel, str(calculation_id))
+            if record is None:
+                raise KeyError(f"Lineage record not found: {calculation_id}")
+            record.status = LineageStatus.PENDING.value
+            record.error_message = None
 
     def get_record(self, calculation_id: UUID) -> LineageRecord | None:
         with self._session() as session:
@@ -212,6 +222,20 @@ class LineageMetadataStore:
                 raise KeyError(f"Lineage payload not found: {calculation_id}")
             payload.attempt_count += 1
 
+    def get_payload(self, calculation_id: UUID) -> LineagePayload | None:
+        with self._session() as session:
+            payload = session.get(LineagePayloadModel, str(calculation_id))
+            if payload is None:
+                return None
+            return LineagePayload(
+                calculation_id=UUID(payload.calculation_id),
+                calculation_type=payload.calculation_type,
+                request_json=payload.request_json,
+                response_json=payload.response_json,
+                details=json.loads(payload.details_json),
+                attempt_count=payload.attempt_count,
+            )
+
     def delete_payload(self, calculation_id: UUID) -> None:
         with self._session() as session:
             payload = session.get(LineagePayloadModel, str(calculation_id))
@@ -221,6 +245,15 @@ class LineageMetadataStore:
     def get_pending_payload_stats(self, *, now: datetime | None = None) -> LineageQueueStats:
         stats_now = now or datetime.now(timezone.utc)
         with self._session() as session:
+            payload_rows = session.execute(
+                select(
+                    LineageRecordModel.status,
+                    LineagePayloadModel.attempt_count,
+                    LineagePayloadModel.created_at_utc,
+                )
+                .select_from(LineagePayloadModel)
+                .join(LineageRecordModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
+            ).all()
             pending_count = session.execute(
                 select(func.count())
                 .select_from(LineagePayloadModel)
@@ -244,6 +277,16 @@ class LineageMetadataStore:
 
             return LineageQueueStats(
                 pending_payload_count=int(pending_count),
+                retry_backlog_count=sum(
+                    1
+                    for record_status, attempt_count, _created_at in payload_rows
+                    if record_status == LineageStatus.PENDING.value and attempt_count > 0
+                ),
+                terminal_failure_count=sum(
+                    1
+                    for record_status, _attempt_count, _created_at in payload_rows
+                    if record_status == LineageStatus.FAILED.value
+                ),
                 oldest_pending_age_seconds=oldest_pending_age_seconds,
             )
 

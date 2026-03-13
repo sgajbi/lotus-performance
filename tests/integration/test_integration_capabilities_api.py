@@ -140,3 +140,4 @@ def test_metrics_include_durable_queue_pressure_signals():
     lineage_match = re.search(r"lotus_performance_lineage_queue_pending_payloads ([0-9]+(?:\.[0-9]+)?)", metrics.text)
     assert lineage_match is not None, metrics.text
     assert float(lineage_match.group(1)) >= 1.0
+    assert "lotus_performance_lineage_queue_failure_pressure_payloads" in metrics.text

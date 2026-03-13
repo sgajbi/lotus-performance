@@ -95,6 +95,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - oldest pending, leased, and running compute-job ages
   - retry-backlog, lease-expiry, and terminal-failure compute-job counts
   - lineage queue backlog details
+  - retry-backlog and terminal-failure lineage payload counts
 - runtime may report `degraded` when configured queue-age thresholds are exceeded
 
 ### `POST /integration/returns/series`

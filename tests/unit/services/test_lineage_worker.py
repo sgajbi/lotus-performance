@@ -41,6 +41,47 @@ def test_process_pending_jobs_materializes_payload(monkeypatch, tmp_path):
     assert metadata_store.list_pending_payloads(limit=10) == []
 
 
+def test_process_pending_jobs_retries_failed_materialization_until_budget_exhausted(monkeypatch, tmp_path):
+    metadata_store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    metadata_store.create_schema()
+    service = LineageService(storage_path=str(tmp_path), metadata_store=metadata_store)
+    calculation_id = uuid4()
+
+    service.enqueue_capture(
+        calculation_id=calculation_id,
+        calculation_type="TWR",
+        request_model=_Model(key="request"),
+        response_model=_Model(key="response"),
+        calculation_details={"details.csv": pd.DataFrame([{"a": 1}])},
+    )
+
+    monkeypatch.setattr(lineage_worker, "lineage_metadata_store", metadata_store)
+    monkeypatch.setattr(lineage_worker, "lineage_service", service)
+    monkeypatch.setattr(lineage_worker.settings, "LINEAGE_WORKER_MAX_ATTEMPTS", 2)
+    monkeypatch.setattr(service, "materialize_payload", lambda **kwargs: False)
+
+    first_processed = lineage_worker.process_pending_jobs(limit=10)
+    first_record = metadata_store.get_record(calculation_id)
+    first_payload = metadata_store.get_payload(calculation_id)
+
+    second_processed = lineage_worker.process_pending_jobs(limit=10)
+    second_record = metadata_store.get_record(calculation_id)
+    second_payload = metadata_store.get_payload(calculation_id)
+
+    assert first_processed == 0
+    assert first_record is not None
+    assert first_record.status == LineageStatus.PENDING
+    assert first_payload is not None
+    assert first_payload.attempt_count == 1
+
+    assert second_processed == 0
+    assert second_record is not None
+    assert second_record.status == LineageStatus.FAILED
+    assert second_record.error_message == "Lineage materialization failed after exhausting retry budget."
+    assert second_payload is not None
+    assert second_payload.attempt_count == 2
+
+
 def test_run_forever_initializes_schema_and_sleeps_when_idle(monkeypatch):
     calls: list[str] = []
 
