@@ -102,6 +102,44 @@ def test_calculate_single_period_brinson_hood_beebower(single_period_data):
     assert total_effects == pytest.approx(0.021)
 
 
+def test_calculate_single_period_effects_matches_exact_brinson_fachler_formulas():
+    df = pd.DataFrame(
+        {
+            "w_p": [0.60],
+            "w_b": [0.50],
+            "r_base_p": [0.05],
+            "r_base_b": [0.04],
+            "r_b_total": [0.03],
+        }
+    )
+
+    result_df = _calculate_single_period_effects(df.copy(), AttributionModel.BRINSON_FACHLER)
+
+    row = result_df.iloc[0]
+    assert row["allocation"] == pytest.approx((0.60 - 0.50) * (0.04 - 0.03))
+    assert row["selection"] == pytest.approx(0.50 * (0.05 - 0.04))
+    assert row["interaction"] == pytest.approx((0.60 - 0.50) * (0.05 - 0.04))
+
+
+def test_calculate_single_period_effects_matches_exact_brinson_hood_beebower_formulas():
+    df = pd.DataFrame(
+        {
+            "w_p": [0.60],
+            "w_b": [0.50],
+            "r_base_p": [0.05],
+            "r_base_b": [0.04],
+            "r_b_total": [0.03],
+        }
+    )
+
+    result_df = _calculate_single_period_effects(df.copy(), AttributionModel.BRINSON_HOOD_BEEBOWER)
+
+    row = result_df.iloc[0]
+    assert row["allocation"] == pytest.approx((0.60 - 0.50) * 0.04)
+    assert row["selection"] == pytest.approx(0.60 * (0.05 - 0.04))
+    assert row["interaction"] == pytest.approx((0.60 - 0.50) * (0.05 - 0.04))
+
+
 def test_run_attribution_calculations_and_aggregation(by_group_request_data):
     """Tests the two-stage process: first calculate daily effects, then aggregate."""
     by_group_request_data["linking"] = "none"
@@ -258,6 +296,24 @@ def test_link_effects_top_down_noop_when_arithmetic_total_zero():
     effects_df = pd.DataFrame({"allocation": [0.1], "selection": [0.2], "interaction": [-0.3]})
     result = _link_effects_top_down(effects_df, geometric_total_ar=0.05, arithmetic_total_ar=0.0)
     pd.testing.assert_frame_equal(result, effects_df)
+
+
+def test_link_effects_top_down_scales_only_effect_columns():
+    effects_df = pd.DataFrame(
+        {
+            "allocation": [0.10, 0.20],
+            "selection": [0.05, 0.15],
+            "interaction": [0.02, 0.03],
+            "sector": ["Tech", "Health"],
+        }
+    )
+
+    result = _link_effects_top_down(effects_df, geometric_total_ar=0.25, arithmetic_total_ar=0.50)
+
+    assert result["allocation"].tolist() == pytest.approx([0.05, 0.10])
+    assert result["selection"].tolist() == pytest.approx([0.025, 0.075])
+    assert result["interaction"].tolist() == pytest.approx([0.01, 0.015])
+    assert result["sector"].tolist() == ["Tech", "Health"]
 
 
 def test_run_attribution_calculations_invalid_mode_raises_value_error():

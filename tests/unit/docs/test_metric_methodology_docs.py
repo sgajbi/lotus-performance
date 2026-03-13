@@ -53,3 +53,15 @@ def test_methodology_master_index_covers_all_metric_docs_and_describes_v3_standa
     assert "strict v3 methodology standard" in index
     assert "## Metric" in index
     assert "## Worked Example" in index
+
+
+def test_attribution_metric_docs_describe_top_down_linking_factor_explicitly():
+    for name in [
+        "metric-attribution-allocation.md",
+        "metric-attribution-selection.md",
+        "metric-attribution-interaction.md",
+    ]:
+        content = _read(METRICS_DIR / name)
+        assert "AR_geo" in content
+        assert "AR_arith" in content
+        assert "scale" in content

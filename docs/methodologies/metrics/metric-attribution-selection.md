@@ -20,26 +20,28 @@ Attribution Selection Effect (`levels[].groups[].selection`)
 - Selection effect is computed in decimal and returned in pp (`*100`).
 
 ## Variable Dictionary
-- `r_p`: portfolio group return (decimal)
-- `r_b`: benchmark group return (decimal)
-- `w_p`, `w_b`: portfolio/benchmark BOP weights
-- `S`: selection effect (decimal)
+- `r_p,g,t`: portfolio group return (decimal)
+- `r_b,g,t`: benchmark group return (decimal)
+- `w_p,g,t`, `w_b,g,t`: portfolio/benchmark BOP weights
+- `S_g,t`: single-period selection effect (decimal)
+- `S_g`: aggregated selection effect for group `g`
+- `AR_geo`, `AR_arith`, `scale`: same linking definitions used by allocation and interaction docs
 
 ## Methodology and Formulas
 1. Single-period selection by model:
 - Brinson-Fachler:
-  - `S = w_b * (r_p - r_b)`
+  - `S_g,t = w_b,g,t * (r_p,g,t - r_b,g,t)`
 - Brinson-Hood-Beebower:
-  - `S = w_p * (r_p - r_b)`
+  - `S_g,t = w_p,g,t * (r_p,g,t - r_b,g,t)`
 
 2. Linking behavior:
-- `NONE`: arithmetic summation over periods.
-- non-`NONE`: top-down scaling by `geometric_active/arithmetic_active`.
+- `NONE`: `S_g = sum_t S_g,t`
+- non-`NONE`: `S_g = scale * sum_t S_g,t`, where `scale = AR_geo / AR_arith`
 
 ## Step-by-Step Computation
-1. Align portfolio and benchmark panels.
-2. Compute single-period selection per group from chosen model.
-3. Apply optional top-down scaling for linked output.
+1. Align portfolio and benchmark panels by group and resample to requested `frequency`.
+2. Compute single-period selection per group from the chosen model.
+3. If linking is enabled, compute `scale` from geometric and arithmetic active return and multiply the arithmetic selection sums by that factor.
 4. Aggregate by requested levels.
 5. Convert to pp for response.
 
@@ -62,11 +64,11 @@ Brinson-Fachler example:
 
 | input | value |
 |---|---:|
-| `w_b` | 0.50 |
-| `r_p` | 0.0500 |
-| `r_b` | 0.0400 |
+| `w_b,g,t` | 0.50 |
+| `r_p,g,t` | 0.0500 |
+| `r_b,g,t` | 0.0400 |
 
-- `S = 0.50 * (0.0500 - 0.0400) = 0.0050`
+- `S_g,t = 0.50 * (0.0500 - 0.0400) = 0.0050`
 - Output pp: `0.0050 * 100 = 0.50`
 
 Output mapping:
