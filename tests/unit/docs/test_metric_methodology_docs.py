@@ -65,3 +65,15 @@ def test_attribution_metric_docs_describe_top_down_linking_factor_explicitly():
         assert "AR_geo" in content
         assert "AR_arith" in content
         assert "scale" in content
+
+
+def test_currency_attribution_metric_docs_describe_total_effect_relationship():
+    for name in [
+        "metric-currency-local-allocation.md",
+        "metric-currency-local-selection.md",
+        "metric-currency-allocation.md",
+        "metric-currency-selection.md",
+    ]:
+        content = _read(METRICS_DIR / name)
+        assert "TE_c" in content
+        assert "total_effect" in content

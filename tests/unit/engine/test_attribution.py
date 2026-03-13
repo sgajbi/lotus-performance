@@ -6,6 +6,7 @@ from app.models.attribution_requests import AttributionRequest
 from common.enums import AttributionModel
 from engine.attribution import (
     _align_and_prepare_data,
+    _calculate_currency_attribution_effects,
     _calculate_single_period_effects,
     _link_effects_top_down,
     _prepare_data_from_instruments,
@@ -314,6 +315,26 @@ def test_link_effects_top_down_scales_only_effect_columns():
     assert result["selection"].tolist() == pytest.approx([0.025, 0.075])
     assert result["interaction"].tolist() == pytest.approx([0.01, 0.015])
     assert result["sector"].tolist() == ["Tech", "Health"]
+
+
+def test_calculate_currency_attribution_effects_matches_exact_formulas():
+    df = pd.DataFrame(
+        {
+            "w_p": [0.55],
+            "w_b": [0.50],
+            "r_local_p": [0.025],
+            "r_local_b": [0.020],
+            "r_fx_b": [0.010],
+        }
+    )
+
+    result_df = _calculate_currency_attribution_effects(df.copy())
+    row = result_df.iloc[0]
+
+    assert row["local_allocation"] == pytest.approx((0.55 - 0.50) * 0.020)
+    assert row["local_selection"] == pytest.approx(0.50 * (0.025 - 0.020))
+    assert row["currency_allocation"] == pytest.approx((0.55 - 0.50) * (1 + 0.020) * 0.010)
+    assert row["currency_selection"] == pytest.approx(0.50 * (0.025 - 0.020) * 0.010)
 
 
 def test_run_attribution_calculations_invalid_mode_raises_value_error():

@@ -25,6 +25,8 @@ Currency Attribution Currency Selection (`currency_attribution[].effects.currenc
 - `r_local_b,c,t`: benchmark local return
 - `r_fx_b,c,t`: benchmark FX return
 - `CS_c,t`: currency selection effect (decimal)
+- `CS_c`: aggregated currency selection effect for currency `c`
+- `TE_c`: per-currency total effect in decimal
 
 ## Methodology and Formulas
 - Implemented formula:
@@ -34,7 +36,7 @@ Aggregation and total effect:
 - `CS_c = sum_t CS_c,t`
 - response field = `100 * CS_c`
 - per-currency `total_effect` is sum of four currency effects:
-  - `local_allocation + local_selection + currency_allocation + currency_selection`
+  - `TE_c = LA_c + LS_c + CA_c + CS_c`
 
 ## Step-by-Step Computation
 1. Compute local return spread per currency-date.
