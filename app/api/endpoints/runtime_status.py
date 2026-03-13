@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import cast
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
+from app.services.compute_job_store import ComputeQueueStats
+from app.services.lineage_metadata_store import LineageQueueStats
 from app.services.runtime_status_service import build_runtime_status_snapshot
 
 router = APIRouter(tags=["Integration"])
@@ -96,8 +99,8 @@ class RuntimeStatusResponse(BaseModel):
 )
 async def get_runtime_status(request: Request) -> RuntimeStatusResponse:
     snapshot = build_runtime_status_snapshot(is_draining=bool(getattr(request.app.state, "is_draining", False)))
-    compute_stats = snapshot.compute_queue.stats
-    lineage_stats = snapshot.lineage_queue.stats
+    compute_stats = cast(ComputeQueueStats | None, snapshot.compute_queue.stats)
+    lineage_stats = cast(LineageQueueStats | None, snapshot.lineage_queue.stats)
 
     return RuntimeStatusResponse(
         contract_version="v1",

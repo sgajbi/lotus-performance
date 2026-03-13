@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-03-08T08:11:47.437998+00:00",
+  "generatedAt": "2026-03-13T12:25:21.038591+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.amount",
@@ -395,6 +395,20 @@
       ]
     },
     {
+      "semanticId": "lotus.complete_jobs",
+      "canonicalTerm": "complete_jobs",
+      "preferredName": "complete_jobs",
+      "description": "Number of compute jobs completed successfully and still retained durably.",
+      "example": 1,
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
       "semanticId": "lotus.completed_at_utc",
       "canonicalTerm": "completed_at_utc",
       "preferredName": "completed_at_utc",
@@ -422,6 +436,22 @@
       ],
       "observedTypes": [
         "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.compute_queue",
+      "canonicalTerm": "compute_queue",
+      "preferredName": "compute_queue",
+      "description": "compute queue status details response object.",
+      "example": {
+        "key": "value"
+      },
+      "type": "ComputeQueueStatusDetailsResponse",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "ComputeQueueStatusDetailsResponse"
       ]
     },
     {
@@ -652,6 +682,36 @@
       ]
     },
     {
+      "semanticId": "lotus.draining",
+      "canonicalTerm": "draining",
+      "preferredName": "draining",
+      "description": "Whether the API process is intentionally draining traffic.",
+      "example": true,
+      "type": "boolean",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "boolean"
+      ]
+    },
+    {
+      "semanticId": "lotus.durable_metadata_store",
+      "canonicalTerm": "durable_metadata_store",
+      "preferredName": "durable_metadata_store",
+      "description": "durable metadata store status response object.",
+      "example": {
+        "key": "value"
+      },
+      "type": "DurableMetadataStoreStatusResponse",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "DurableMetadataStoreStatusResponse"
+      ]
+    },
+    {
       "semanticId": "lotus.effective_period_start",
       "canonicalTerm": "effective_period_start",
       "preferredName": "effective_period_start",
@@ -804,6 +864,20 @@
       ],
       "observedTypes": [
         "boolean"
+      ]
+    },
+    {
+      "semanticId": "lotus.failed_jobs",
+      "canonicalTerm": "failed_jobs",
+      "preferredName": "failed_jobs",
+      "description": "Number of compute jobs in terminal failed state.",
+      "example": 1,
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
       ]
     },
     {
@@ -1215,6 +1289,36 @@
       ]
     },
     {
+      "semanticId": "lotus.leased_jobs",
+      "canonicalTerm": "leased_jobs",
+      "preferredName": "leased_jobs",
+      "description": "Number of compute jobs currently leased by a worker.",
+      "example": 1,
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.lineage_queue",
+      "canonicalTerm": "lineage_queue",
+      "preferredName": "lineage_queue",
+      "description": "lineage queue status details response object.",
+      "example": {
+        "key": "value"
+      },
+      "type": "LineageQueueStatusDetailsResponse",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "LineageQueueStatusDetailsResponse"
+      ]
+    },
+    {
       "semanticId": "lotus.linking",
       "canonicalTerm": "linking",
       "preferredName": "linking",
@@ -1470,6 +1574,20 @@
       ]
     },
     {
+      "semanticId": "lotus.oldest_pending_age_seconds",
+      "canonicalTerm": "oldest_pending_age_seconds",
+      "preferredName": "oldest_pending_age_seconds",
+      "description": "Age in seconds of the oldest pending compute job.",
+      "example": 0.1234,
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
       "semanticId": "lotus.output",
       "canonicalTerm": "output",
       "preferredName": "output",
@@ -1497,6 +1615,34 @@
       ],
       "observedTypes": [
         "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.pending_jobs",
+      "canonicalTerm": "pending_jobs",
+      "preferredName": "pending_jobs",
+      "description": "Number of pending compute jobs awaiting lease.",
+      "example": 1,
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.pending_payloads",
+      "canonicalTerm": "pending_payloads",
+      "preferredName": "pending_payloads",
+      "description": "Number of pending lineage payloads awaiting worker materialization.",
+      "example": 1,
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
       ]
     },
     {
@@ -1737,6 +1883,20 @@
       ]
     },
     {
+      "semanticId": "lotus.reason",
+      "canonicalTerm": "reason",
+      "preferredName": "reason",
+      "description": "Concrete degradation reason when the durable metadata store is unavailable.",
+      "example": "example_reason",
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
       "semanticId": "lotus.report_ccy",
       "canonicalTerm": "report_ccy",
       "preferredName": "report_ccy",
@@ -1970,6 +2130,34 @@
       ],
       "observedTypes": [
         "integer"
+      ]
+    },
+    {
+      "semanticId": "lotus.running_jobs",
+      "canonicalTerm": "running_jobs",
+      "preferredName": "running_jobs",
+      "description": "Number of compute jobs currently executing.",
+      "example": 1,
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.runtime_status",
+      "canonicalTerm": "runtime_status",
+      "preferredName": "runtime_status",
+      "description": "Aggregate runtime state for this service: ready, draining, unavailable, or degraded.",
+      "example": "2026-02-27T10:30:00Z",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -5414,6 +5602,196 @@
       },
       "response": {
         "fields": []
+      }
+    },
+    {
+      "domain": "integration",
+      "method": "GET",
+      "path": "/integration/runtime-status",
+      "operationId": "get_runtime_status_integration_runtime_status_get",
+      "summary": "Get lotus-performance runtime status",
+      "request": {
+        "fields": []
+      },
+      "response": {
+        "fields": [
+          {
+            "name": "contract_version",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.contract_version",
+            "attributeRef": "#/attributeCatalog/lotus.contract_version"
+          },
+          {
+            "name": "source_service",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.source_service",
+            "attributeRef": "#/attributeCatalog/lotus.source_service"
+          },
+          {
+            "name": "generated_at",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.generated_at",
+            "attributeRef": "#/attributeCatalog/lotus.generated_at"
+          },
+          {
+            "name": "runtime_status",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.runtime_status",
+            "attributeRef": "#/attributeCatalog/lotus.runtime_status"
+          },
+          {
+            "name": "draining",
+            "location": "body",
+            "required": true,
+            "type": "boolean",
+            "semanticId": "lotus.draining",
+            "attributeRef": "#/attributeCatalog/lotus.draining"
+          },
+          {
+            "name": "durable_metadata_store",
+            "location": "body",
+            "required": true,
+            "type": "DurableMetadataStoreStatusResponse",
+            "semanticId": "lotus.durable_metadata_store",
+            "attributeRef": "#/attributeCatalog/lotus.durable_metadata_store"
+          },
+          {
+            "name": "durable_metadata_store.status",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.status",
+            "attributeRef": "#/attributeCatalog/lotus.status"
+          },
+          {
+            "name": "durable_metadata_store.reason",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.reason",
+            "attributeRef": "#/attributeCatalog/lotus.reason"
+          },
+          {
+            "name": "compute_queue",
+            "location": "body",
+            "required": true,
+            "type": "ComputeQueueStatusDetailsResponse",
+            "semanticId": "lotus.compute_queue",
+            "attributeRef": "#/attributeCatalog/lotus.compute_queue"
+          },
+          {
+            "name": "compute_queue.status",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.status",
+            "attributeRef": "#/attributeCatalog/lotus.status"
+          },
+          {
+            "name": "compute_queue.reason",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.reason",
+            "attributeRef": "#/attributeCatalog/lotus.reason"
+          },
+          {
+            "name": "compute_queue.pending_jobs",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.pending_jobs",
+            "attributeRef": "#/attributeCatalog/lotus.pending_jobs"
+          },
+          {
+            "name": "compute_queue.leased_jobs",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.leased_jobs",
+            "attributeRef": "#/attributeCatalog/lotus.leased_jobs"
+          },
+          {
+            "name": "compute_queue.running_jobs",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.running_jobs",
+            "attributeRef": "#/attributeCatalog/lotus.running_jobs"
+          },
+          {
+            "name": "compute_queue.failed_jobs",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.failed_jobs",
+            "attributeRef": "#/attributeCatalog/lotus.failed_jobs"
+          },
+          {
+            "name": "compute_queue.complete_jobs",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.complete_jobs",
+            "attributeRef": "#/attributeCatalog/lotus.complete_jobs"
+          },
+          {
+            "name": "compute_queue.oldest_pending_age_seconds",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.oldest_pending_age_seconds",
+            "attributeRef": "#/attributeCatalog/lotus.oldest_pending_age_seconds"
+          },
+          {
+            "name": "lineage_queue",
+            "location": "body",
+            "required": true,
+            "type": "LineageQueueStatusDetailsResponse",
+            "semanticId": "lotus.lineage_queue",
+            "attributeRef": "#/attributeCatalog/lotus.lineage_queue"
+          },
+          {
+            "name": "lineage_queue.status",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.status",
+            "attributeRef": "#/attributeCatalog/lotus.status"
+          },
+          {
+            "name": "lineage_queue.reason",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.reason",
+            "attributeRef": "#/attributeCatalog/lotus.reason"
+          },
+          {
+            "name": "lineage_queue.pending_payloads",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.pending_payloads",
+            "attributeRef": "#/attributeCatalog/lotus.pending_payloads"
+          },
+          {
+            "name": "lineage_queue.oldest_pending_age_seconds",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.oldest_pending_age_seconds",
+            "attributeRef": "#/attributeCatalog/lotus.oldest_pending_age_seconds"
+          }
+        ]
       }
     },
     {
