@@ -79,7 +79,9 @@ def _prepare_data_from_instruments(request: AttributionRequest) -> List[Portfoli
         inst_results = inst_results.set_index(PortfolioColumns.PERF_DATE.value)
 
         inst_bop_mv = inst_results[PortfolioColumns.BEGIN_MV.value] + inst_results[PortfolioColumns.BOD_CF.value]
-        inst_results["weight_bop"] = inst_bop_mv / portfolio_bop_mv
+        with np.errstate(divide="ignore", invalid="ignore"):
+            weight_bop = inst_bop_mv / portfolio_bop_mv
+        inst_results["weight_bop"] = weight_bop.replace([np.inf, -np.inf], np.nan).fillna(0.0)
 
         inst_results.rename(
             columns={
@@ -117,7 +119,8 @@ def _prepare_data_from_instruments(request: AttributionRequest) -> List[Portfoli
         if f"weighted_{col}" in full_df.columns:
             group_weighted_ror = grouped[f"weighted_{col}"].sum()
             with np.errstate(divide="ignore", invalid="ignore"):
-                group_returns = (group_weighted_ror / group_weights).fillna(0.0)
+                group_returns = group_weighted_ror / group_weights
+            group_returns = group_returns.replace([np.inf, -np.inf], np.nan).fillna(0.0)
             aggregated_panel[col] = group_returns
 
     aggregated_panel.reset_index(inplace=True)
