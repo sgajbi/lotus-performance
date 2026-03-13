@@ -1,6 +1,11 @@
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
-from app.services.lineage_metadata_store import LineageMetadataStore, LineageStatus
+from app.services.lineage_metadata_store import (
+    LineageMetadataStore,
+    LineagePayloadModel,
+    LineageStatus,
+)
 
 
 def test_lineage_metadata_store_pending_complete_and_failed(tmp_path):
@@ -83,3 +88,38 @@ def test_lineage_metadata_store_raises_when_incrementing_missing_payload(tmp_pat
         assert "Lineage payload not found" in str(exc)
     else:
         raise AssertionError("Expected increment_attempt_count to raise KeyError")
+
+
+def test_lineage_metadata_store_pending_payload_stats(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    now = datetime(2026, 3, 13, 12, 0, tzinfo=timezone.utc)
+
+    pending_id = uuid4()
+    complete_id = uuid4()
+
+    store.enqueue_lineage_payload(
+        calculation_id=pending_id,
+        calculation_type="TWR",
+        request_json="{}",
+        response_json="{}",
+        details={"request_payload.json": "request.json"},
+    )
+    store.enqueue_lineage_payload(
+        calculation_id=complete_id,
+        calculation_type="MWR",
+        request_json="{}",
+        response_json="{}",
+        details={"response_payload.json": "response.json"},
+    )
+    store.mark_complete(complete_id, artifact_names=["response_payload.json"])
+
+    with store._session() as session:
+        payload = session.get(LineagePayloadModel, str(pending_id))
+        assert payload is not None
+        payload.created_at_utc = now - timedelta(seconds=45)
+
+    stats = store.get_pending_payload_stats(now=now)
+
+    assert stats.pending_payload_count == 1
+    assert stats.oldest_pending_age_seconds == 45.0

@@ -18,6 +18,7 @@ Source of truth for the local topology is [docker-compose.yml](/C:/Users/Sandeep
 - performs synchronous calculations where the policy keeps work inline
 - writes durable execution state, compute jobs, async results, and lineage payload metadata
 - exposes `/health`, `/health/live`, `/health/ready`, and `/metrics`
+- exposes durable queue-pressure metrics for compute and lineage backlog state
 
 ### `performance-compute-executor`
 
@@ -58,6 +59,15 @@ Source of truth for the local topology is [docker-compose.yml](/C:/Users/Sandeep
 - async contribution result: `GET /performance/contribution/results/{calculation_id}`
 - async attribution result: `GET /performance/attribution/results/{calculation_id}`
 - lineage retrieval: `GET /performance/lineage/{calculation_id}`
+
+## Metrics model
+
+Queue-pressure metrics are exposed from the API process by reading durable store state:
+
+- `lotus_performance_compute_queue_jobs{status=...}`
+- `lotus_performance_compute_queue_oldest_pending_age_seconds`
+- `lotus_performance_lineage_queue_pending_payloads`
+- `lotus_performance_lineage_queue_oldest_pending_age_seconds`
 
 ## Failure recovery model
 
