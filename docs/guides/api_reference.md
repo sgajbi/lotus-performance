@@ -144,6 +144,12 @@ Executor-backed endpoints use one common pattern:
 3. client polls `/performance/executions/{calculation_id}`
 4. client retrieves the endpoint-specific async result at the provided `result_path`
 
+`calculation_id` is a durable execution handle, not a best-effort correlation field:
+
+- async endpoints treat an exact resubmission with the same `calculation_id` as an idempotent replay and return the same accepted handle
+- reusing the same `calculation_id` with a different payload returns `409 Conflict`
+- synchronous endpoints require a fresh `calculation_id` for each new submission
+
 ## Contract guidance
 
 - prefer Swagger/OpenAPI for exact field-level descriptions and examples

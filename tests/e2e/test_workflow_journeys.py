@@ -1,7 +1,12 @@
+from uuid import uuid4
+
 from fastapi.testclient import TestClient
 
+from app.core.config import get_settings
 from main import app
-from tests.conftest import drain_lineage_queue
+from tests.conftest import drain_compute_queue, drain_lineage_queue
+
+settings = get_settings()
 
 
 def test_e2e_platform_readiness_and_capabilities_contract() -> None:
@@ -262,3 +267,45 @@ def test_e2e_enterprise_authz_blocks_write_without_identity_headers(monkeypatch)
 
     assert response.status_code == 403
     assert response.json()["detail"] == "authorization_policy_denied"
+
+
+def test_e2e_async_replay_uses_single_execution_handle() -> None:
+    original_threshold = settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT
+    settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = 0
+    calculation_id = str(uuid4())
+    payload = {
+        "calculation_id": calculation_id,
+        "portfolio_id": "E2E_CONTRIB_ASYNC_REPLAY",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1015}],
+        },
+        "positions_data": [
+            {
+                "position_id": "AAPL",
+                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1015}],
+            }
+        ],
+    }
+
+    try:
+        with TestClient(app) as client:
+            first = client.post("/performance/contribution", json=payload)
+            second = client.post("/performance/contribution", json=payload)
+            execution = client.get(f"/performance/executions/{calculation_id}")
+
+            assert drain_compute_queue() == 1
+
+            result = client.get(f"/performance/contribution/results/{calculation_id}")
+
+        assert first.status_code == 202
+        assert second.status_code == 202
+        assert execution.status_code == 200
+        assert execution.json()["execution_mode"] == "async"
+        assert result.status_code == 200
+        assert result.json()["calculation_id"] == calculation_id
+    finally:
+        settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = original_threshold
