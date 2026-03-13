@@ -74,10 +74,7 @@ class ContributionRequest(BaseModel):
     portfolio_id: str
     report_start_date: date
     report_end_date: date
-
-    # --- START REFACTOR: Decouple periods and frequencies ---
     analyses: List[Analysis]
-    # --- END REFACTOR ---
 
     portfolio_data: PortfolioData
     positions_data: List[PositionData]

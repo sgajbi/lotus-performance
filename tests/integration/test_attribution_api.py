@@ -258,9 +258,7 @@ def test_attribution_endpoint_currency_attribution(client):
     lineage_response = client.get(f"/performance/lineage/{calculation_id}")
     assert lineage_response.status_code == 200
     lineage_data = lineage_response.json()
-    # --- START FIX: Update assertion to expect period-prefixed artifact name ---
     assert "ITD_currency_attribution_effects.csv" in lineage_data["artifacts"]
-    # --- END FIX ---
 
 
 @pytest.mark.parametrize(

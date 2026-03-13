@@ -85,10 +85,7 @@ class PerformanceRequest(BaseModel):
         ...,
         description="The final date of the analysis period. Also used as the anchor date for resolving relative periods like YTD.",
     )
-
-    # --- START REFACTOR: Decouple periods and frequencies ---
     analyses: List[Analysis]
-    # --- END REFACTOR ---
 
     valuation_points: List[DailyInputData]
     currency: str = Field("USD", description="The three-letter ISO currency code for the request (e.g., 'USD').")

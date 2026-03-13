@@ -78,10 +78,7 @@ class AttributionResponse(BaseModel):
     portfolio_id: str
     model: AttributionModel
     linking: LinkingMethod
-
-    # --- START REFACTOR: Align with unified multi-period model ---
     results_by_period: Dict[str, SinglePeriodAttributionResult]
-    # --- END REFACTOR ---
 
     meta: Meta
     diagnostics: Optional[Diagnostics] = None  # To be populated
