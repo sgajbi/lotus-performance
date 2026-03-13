@@ -4,6 +4,7 @@ import asyncio
 import logging
 import time
 from threading import Event
+from uuid import UUID
 
 from fastapi import HTTPException
 from pydantic import ValidationError
@@ -30,19 +31,13 @@ def process_pending_jobs(*, limit: int | None = None) -> int:
     reconciled = compute_job_store.reconcile_stale_jobs()
     for reconciled_job in reconciled:
         if reconciled_job.reconciled_status.value == "failed":
-            async_result_store.record_failure(
+            _record_terminal_failure(
                 calculation_id=reconciled_job.calculation_id,
                 analytics_type=reconciled_job.analytics_type,
                 error_message=reconciled_job.error_message,
                 error_type=reconciled_job.error_type,
+                missing_execution_log_message="Execution record missing for reconciled compute job %s",
             )
-            try:
-                execution_registry.fail_in_progress_stages(reconciled_job.calculation_id, reconciled_job.error_message)
-                execution_registry.mark_failed(reconciled_job.calculation_id, reconciled_job.error_message)
-            except KeyError:
-                logger.exception(
-                    "Execution record missing for reconciled compute job %s", reconciled_job.calculation_id
-                )
         else:
             logger.warning(
                 "Requeued stale compute job %s after expired %s lease",
@@ -99,34 +94,26 @@ def process_pending_jobs(*, limit: int | None = None) -> int:
                 if will_retry:
                     logger.warning("Retrying compute job %s after %s", job.calculation_id, type(exc).__name__)
                 else:
-                    async_result_store.record_failure(
+                    _record_terminal_failure(
                         calculation_id=job.calculation_id,
                         analytics_type=job.analytics_type,
                         error_message=str(exc),
                         error_type=type(exc).__name__,
+                        missing_execution_log_message="Execution record missing for compute job %s",
                     )
-                    try:
-                        execution_registry.fail_in_progress_stages(job.calculation_id, str(exc))
-                        execution_registry.mark_failed(job.calculation_id, str(exc))
-                    except KeyError:
-                        logger.exception("Execution record missing for compute job %s", job.calculation_id)
             else:
-                async_result_store.record_failure(
-                    calculation_id=job.calculation_id,
-                    analytics_type=job.analytics_type,
-                    error_message=str(exc),
-                    error_type=type(exc).__name__,
-                )
                 compute_job_store.mark_failed(
                     job.calculation_id,
                     error_message=str(exc),
                     error_type=type(exc).__name__,
                 )
-                try:
-                    execution_registry.fail_in_progress_stages(job.calculation_id, str(exc))
-                    execution_registry.mark_failed(job.calculation_id, str(exc))
-                except KeyError:
-                    logger.exception("Execution record missing for compute job %s", job.calculation_id)
+                _record_terminal_failure(
+                    calculation_id=job.calculation_id,
+                    analytics_type=job.analytics_type,
+                    error_message=str(exc),
+                    error_type=type(exc).__name__,
+                    missing_execution_log_message="Execution record missing for compute job %s",
+                )
         processed += 1
     return processed
 
@@ -139,6 +126,27 @@ def _is_retryable_exception(exc: Exception) -> bool:
     if isinstance(exc, HTTPException):
         return exc.status_code >= 500
     return True
+
+
+def _record_terminal_failure(
+    *,
+    calculation_id: UUID,
+    analytics_type: str,
+    error_message: str,
+    error_type: str,
+    missing_execution_log_message: str,
+) -> None:
+    async_result_store.record_failure(
+        calculation_id=calculation_id,
+        analytics_type=analytics_type,
+        error_message=error_message,
+        error_type=error_type,
+    )
+    try:
+        execution_registry.fail_in_progress_stages(calculation_id, error_message)
+        execution_registry.mark_failed(calculation_id, error_message)
+    except KeyError:
+        logger.exception(missing_execution_log_message, calculation_id)
 
 
 def run_forever(*, stop_event: Event | None = None) -> None:

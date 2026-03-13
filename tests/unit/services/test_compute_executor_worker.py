@@ -446,6 +446,34 @@ def test_compute_executor_worker_reconciles_stale_running_job(tmp_path, monkeypa
     assert result.error_type == "LeaseExpired"
 
 
+def test_compute_executor_worker_records_terminal_failure_when_execution_missing(tmp_path, monkeypatch):
+    result_store = AsyncResultStore(f"sqlite:///{tmp_path / 'results.db'}")
+    result_store.create_schema()
+    monkeypatch.setattr(compute_executor_worker, "async_result_store", result_store)
+
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    monkeypatch.setattr(compute_executor_worker, "execution_registry", execution_store)
+
+    calculation_id = uuid4()
+    logged: list[str] = []
+    monkeypatch.setattr(compute_executor_worker.logger, "exception", lambda *args, **kwargs: logged.append("logged"))
+
+    compute_executor_worker._record_terminal_failure(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        error_message="boom",
+        error_type="RuntimeError",
+        missing_execution_log_message="Execution record missing for compute job %s",
+    )
+
+    result = result_store.get_result(calculation_id)
+    assert result is not None
+    assert result.result_status == AsyncResultStatus.FAILED
+    assert result.error_type == "RuntimeError"
+    assert logged == ["logged"]
+
+
 def test_compute_executor_worker_run_forever_bootstraps_and_sleeps(monkeypatch):
     calls: list[str] = []
     monkeypatch.setattr(
