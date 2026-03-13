@@ -43,6 +43,9 @@ def test_runtime_status_reports_durable_queue_state():
     assert body["durable_metadata_store"]["status"] == "ready"
     assert body["compute_queue"]["status"] == "available"
     assert body["compute_queue"]["pending_jobs"] == 1
+    assert body["compute_queue"]["retry_backlog_jobs"] == 0
+    assert body["compute_queue"]["lease_expired_jobs"] == 0
+    assert body["compute_queue"]["terminal_failure_jobs"] == 0
     assert body["compute_queue"]["oldest_leased_age_seconds"] == 0.0
     assert body["compute_queue"]["oldest_running_age_seconds"] == 0.0
     assert body["lineage_queue"]["status"] == "available"
@@ -114,4 +117,42 @@ def test_runtime_status_reports_degraded_when_compute_age_threshold_is_exceeded(
         assert body["compute_queue"]["reason"] == "compute_pending_age_exceeded"
     finally:
         settings.RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS = original_threshold
+        compute_job_store.clear_all_records()
+
+
+def test_runtime_status_exposes_compute_failure_pressure_counts():
+    compute_job_store.create_schema()
+    compute_job_store.clear_all_records()
+    pending_retry_id = uuid4()
+    failed_terminal_id = uuid4()
+
+    compute_job_store.enqueue_job(
+        calculation_id=pending_retry_id,
+        analytics_type="ReturnsSeries",
+        request_payload={"portfolio_id": "PF-RETRY"},
+    )
+    compute_job_store.enqueue_job(
+        calculation_id=failed_terminal_id,
+        analytics_type="ReturnsSeries",
+        request_payload={"portfolio_id": "PF-FAIL"},
+    )
+
+    with compute_job_store._session() as session:
+        retry_row = compute_job_store._get_model(session, pending_retry_id)
+        retry_row.attempt_count = 1
+        retry_row.error_type = "LeaseExpired"
+        failed_row = compute_job_store._get_model(session, failed_terminal_id)
+        failed_row.job_status = "failed"
+        failed_row.error_type = "RuntimeError"
+
+    try:
+        with TestClient(app) as client:
+            response = client.get("/integration/runtime-status")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["compute_queue"]["retry_backlog_jobs"] == 1
+        assert body["compute_queue"]["lease_expired_jobs"] == 1
+        assert body["compute_queue"]["terminal_failure_jobs"] == 1
+    finally:
         compute_job_store.clear_all_records()

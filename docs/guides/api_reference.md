@@ -93,6 +93,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - durable metadata store availability
   - compute queue backlog details
   - oldest pending, leased, and running compute-job ages
+  - retry-backlog, lease-expiry, and terminal-failure compute-job counts
   - lineage queue backlog details
 - runtime may report `degraded` when configured queue-age thresholds are exceeded
 

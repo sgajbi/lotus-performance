@@ -14,6 +14,11 @@ class DurableQueueCollector:
             labels=["status"],
         )
         yield GaugeMetricFamily(
+            "lotus_performance_compute_queue_failure_pressure_jobs",
+            "Durable compute job counts for retry backlog and failure-pressure categories.",
+            labels=["category"],
+        )
+        yield GaugeMetricFamily(
             "lotus_performance_compute_queue_oldest_pending_age_seconds",
             "Age in seconds of the oldest pending compute job.",
         )
@@ -55,6 +60,25 @@ class DurableQueueCollector:
         compute_jobs.add_metric(["failed"], 0 if compute_stats is None else compute_stats.failed_count)
         compute_jobs.add_metric(["complete"], 0 if compute_stats is None else compute_stats.complete_count)
         yield compute_jobs
+
+        compute_failure_pressure = GaugeMetricFamily(
+            "lotus_performance_compute_queue_failure_pressure_jobs",
+            "Durable compute job counts for retry backlog and failure-pressure categories.",
+            labels=["category"],
+        )
+        compute_failure_pressure.add_metric(
+            ["retry_backlog"],
+            0 if compute_stats is None else compute_stats.retry_backlog_count,
+        )
+        compute_failure_pressure.add_metric(
+            ["lease_expired"],
+            0 if compute_stats is None else compute_stats.lease_expired_count,
+        )
+        compute_failure_pressure.add_metric(
+            ["terminal_failure"],
+            0 if compute_stats is None else compute_stats.terminal_failure_count,
+        )
+        yield compute_failure_pressure
 
         compute_oldest_pending = GaugeMetricFamily(
             "lotus_performance_compute_queue_oldest_pending_age_seconds",

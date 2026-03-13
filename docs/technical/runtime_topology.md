@@ -68,6 +68,7 @@ Source of truth for the local topology is [docker-compose.yml](/C:/Users/Sandeep
 Queue-pressure metrics are exposed from the API process by reading durable store state:
 
 - `lotus_performance_compute_queue_jobs{status=...}`
+- `lotus_performance_compute_queue_failure_pressure_jobs{category=...}`
 - `lotus_performance_compute_queue_oldest_pending_age_seconds`
 - `lotus_performance_compute_queue_oldest_leased_age_seconds`
 - `lotus_performance_compute_queue_oldest_running_age_seconds`
@@ -76,8 +77,9 @@ Queue-pressure metrics are exposed from the API process by reading durable store
 
 For point-in-time operator drill-down, `GET /integration/runtime-status` exposes the same
 durable queue state as a JSON control-plane snapshot, including the oldest pending, leased,
-and running compute-job ages. If configured age thresholds are exceeded, the runtime-status
-surface degrades proactively instead of only reporting raw queue numbers.
+and running compute-job ages plus retry-backlog, lease-expiry, and terminal-failure counts.
+If configured age thresholds are exceeded, the runtime-status surface degrades proactively
+instead of only reporting raw queue numbers.
 
 ## Failure recovery model
 

@@ -47,6 +47,18 @@ class ComputeQueueStatusDetailsResponse(BaseModel):
         default=None,
         description="Number of compute jobs completed successfully and still retained durably.",
     )
+    retry_backlog_jobs: int | None = Field(
+        default=None,
+        description="Number of pending compute jobs that are awaiting another attempt after a prior failure.",
+    )
+    lease_expired_jobs: int | None = Field(
+        default=None,
+        description="Number of compute jobs carrying expired-lease recovery state.",
+    )
+    terminal_failure_jobs: int | None = Field(
+        default=None,
+        description="Number of compute jobs that failed terminally for non-lease-expiry reasons.",
+    )
     oldest_pending_age_seconds: float | None = Field(
         default=None,
         description="Age in seconds of the oldest pending compute job.",
@@ -128,6 +140,9 @@ async def get_runtime_status(request: Request) -> RuntimeStatusResponse:
             running_jobs=None if compute_stats is None else compute_stats.running_count,
             failed_jobs=None if compute_stats is None else compute_stats.failed_count,
             complete_jobs=None if compute_stats is None else compute_stats.complete_count,
+            retry_backlog_jobs=None if compute_stats is None else compute_stats.retry_backlog_count,
+            lease_expired_jobs=None if compute_stats is None else compute_stats.lease_expired_count,
+            terminal_failure_jobs=None if compute_stats is None else compute_stats.terminal_failure_count,
             oldest_pending_age_seconds=(None if compute_stats is None else compute_stats.oldest_pending_age_seconds),
             oldest_leased_age_seconds=(None if compute_stats is None else compute_stats.oldest_leased_age_seconds),
             oldest_running_age_seconds=(None if compute_stats is None else compute_stats.oldest_running_age_seconds),

@@ -242,6 +242,7 @@ def test_compute_job_store_queue_stats(tmp_path):
         failed_row.job_status = ComputeJobStatus.FAILED.value
         failed_row.error_message = "boom"
         failed_row.error_type = "RuntimeError"
+        failed_row.attempt_count = 2
         failed_row.completed_at_utc = now - timedelta(seconds=5)
 
         complete_row = store._get_model(session, complete_id)
@@ -250,6 +251,9 @@ def test_compute_job_store_queue_stats(tmp_path):
         complete_row.completed_at_utc = now - timedelta(seconds=1)
 
         store._get_model(session, pending_id).created_at_utc = now - timedelta(seconds=120)
+        pending_row = store._get_model(session, pending_id)
+        pending_row.attempt_count = 1
+        pending_row.error_type = "LeaseExpired"
 
     stats = store.get_queue_stats(now=now)
 
@@ -258,6 +262,9 @@ def test_compute_job_store_queue_stats(tmp_path):
     assert stats.running_count == 1
     assert stats.failed_count == 1
     assert stats.complete_count == 1
+    assert stats.retry_backlog_count == 1
+    assert stats.lease_expired_count == 1
+    assert stats.terminal_failure_count == 1
     assert stats.oldest_pending_age_seconds == 120.0
     assert stats.oldest_leased_age_seconds == 10.0
     assert stats.oldest_running_age_seconds == 15.0

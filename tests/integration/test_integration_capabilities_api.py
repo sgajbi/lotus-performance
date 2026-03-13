@@ -133,6 +133,7 @@ def test_metrics_include_durable_queue_pressure_signals():
 
     assert metrics.status_code == 200
     assert "lotus_performance_compute_queue_jobs" in metrics.text
+    assert "lotus_performance_compute_queue_failure_pressure_jobs" in metrics.text
     assert 'lotus_performance_compute_queue_jobs{status="pending"} 1.0' in metrics.text, metrics.text
     assert "lotus_performance_compute_queue_oldest_leased_age_seconds" in metrics.text
     assert "lotus_performance_compute_queue_oldest_running_age_seconds" in metrics.text

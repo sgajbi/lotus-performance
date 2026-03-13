@@ -98,6 +98,9 @@ class ComputeQueueStats:
     running_count: int
     failed_count: int
     complete_count: int
+    retry_backlog_count: int
+    lease_expired_count: int
+    terminal_failure_count: int
     oldest_pending_age_seconds: float
     oldest_leased_age_seconds: float
     oldest_running_age_seconds: float
@@ -433,6 +436,26 @@ class ComputeJobStore:
             counts_statement = select(ComputeJobModel.job_status, func.count()).group_by(ComputeJobModel.job_status)
             counts_rows = session.execute(counts_statement).all()
             counts = {status: count for status, count in counts_rows}
+            pressure_rows = session.execute(
+                select(
+                    ComputeJobModel.job_status,
+                    ComputeJobModel.error_type,
+                    ComputeJobModel.attempt_count,
+                )
+            ).all()
+            retry_backlog_count = sum(
+                1
+                for job_status, _error_type, attempt_count in pressure_rows
+                if job_status == ComputeJobStatus.PENDING.value and attempt_count > 0
+            )
+            lease_expired_count = sum(
+                1 for _job_status, error_type, _attempt_count in pressure_rows if error_type == "LeaseExpired"
+            )
+            terminal_failure_count = sum(
+                1
+                for job_status, error_type, _attempt_count in pressure_rows
+                if job_status == ComputeJobStatus.FAILED.value and error_type != "LeaseExpired"
+            )
 
             oldest_pending_created_at = session.execute(
                 select(func.min(ComputeJobModel.created_at_utc)).where(
@@ -475,6 +498,9 @@ class ComputeJobStore:
                 running_count=int(counts.get(ComputeJobStatus.RUNNING.value, 0)),
                 failed_count=int(counts.get(ComputeJobStatus.FAILED.value, 0)),
                 complete_count=int(counts.get(ComputeJobStatus.COMPLETE.value, 0)),
+                retry_backlog_count=retry_backlog_count,
+                lease_expired_count=lease_expired_count,
+                terminal_failure_count=terminal_failure_count,
                 oldest_pending_age_seconds=oldest_pending_age_seconds,
                 oldest_leased_age_seconds=oldest_leased_age_seconds,
                 oldest_running_age_seconds=oldest_running_age_seconds,

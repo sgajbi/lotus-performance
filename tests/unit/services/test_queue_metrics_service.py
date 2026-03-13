@@ -8,6 +8,9 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
         running_count = 3
         failed_count = 4
         complete_count = 5
+        retry_backlog_count = 6
+        lease_expired_count = 7
+        terminal_failure_count = 8
         oldest_pending_age_seconds = 12.5
         oldest_leased_age_seconds = 6.25
         oldest_running_age_seconds = 3.5
@@ -29,6 +32,7 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
     metric_names = {metric.name for metric in metrics}
 
     assert "lotus_performance_compute_queue_jobs" in metric_names
+    assert "lotus_performance_compute_queue_failure_pressure_jobs" in metric_names
     assert "lotus_performance_compute_queue_oldest_pending_age_seconds" in metric_names
     assert "lotus_performance_compute_queue_oldest_leased_age_seconds" in metric_names
     assert "lotus_performance_compute_queue_oldest_running_age_seconds" in metric_names
