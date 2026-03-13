@@ -8,7 +8,7 @@ from enum import StrEnum
 from typing import Iterator
 from uuid import UUID
 
-from sqlalchemy import DateTime, Integer, String, Text, create_engine, func, select
+from sqlalchemy import DateTime, Index, Integer, String, Text, create_engine, func, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.core.config import get_settings
@@ -26,6 +26,7 @@ class Base(DeclarativeBase):
 
 class LineageRecordModel(Base):
     __tablename__ = "lineage_records"
+    __table_args__ = (Index("ix_lineage_records_status", "status"),)
 
     calculation_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     calculation_type: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -37,6 +38,7 @@ class LineageRecordModel(Base):
 
 class LineagePayloadModel(Base):
     __tablename__ = "lineage_payloads"
+    __table_args__ = (Index("ix_lineage_payloads_created_at", "created_at_utc"),)
 
     calculation_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     calculation_type: Mapped[str] = mapped_column(String(64), nullable=False)

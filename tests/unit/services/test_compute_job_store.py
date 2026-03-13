@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
+from sqlalchemy import inspect
 from sqlalchemy.dialects import postgresql
 
 from app.services.compute_job_store import ComputeJobStatus, ComputeJobStore
@@ -254,3 +255,21 @@ def test_compute_job_store_queue_stats(tmp_path):
     assert stats.failed_count == 1
     assert stats.complete_count == 1
     assert stats.oldest_pending_age_seconds == 120.0
+
+
+def test_compute_job_store_declares_hot_path_indexes(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+
+    indexes = {
+        index["name"]: tuple(index["column_names"])
+        for index in inspect(store._engine).get_indexes("analytics_compute_job")
+    }
+
+    assert indexes["ix_compute_job_status_created_at"] == ("job_status", "created_at_utc")
+    assert indexes["ix_compute_job_status_analytics_type_created_at"] == (
+        "job_status",
+        "analytics_type",
+        "created_at_utc",
+    )
+    assert indexes["ix_compute_job_status_lease_expiry"] == ("job_status", "lease_expires_at_utc")

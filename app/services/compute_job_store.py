@@ -8,7 +8,7 @@ from enum import StrEnum
 from typing import Any, Iterator
 from uuid import UUID
 
-from sqlalchemy import DateTime, Integer, String, Text, create_engine, func, select
+from sqlalchemy import DateTime, Index, Integer, String, Text, create_engine, func, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.core.config import get_settings
@@ -28,6 +28,11 @@ class Base(DeclarativeBase):
 
 class ComputeJobModel(Base):
     __tablename__ = "analytics_compute_job"
+    __table_args__ = (
+        Index("ix_compute_job_status_created_at", "job_status", "created_at_utc"),
+        Index("ix_compute_job_status_analytics_type_created_at", "job_status", "analytics_type", "created_at_utc"),
+        Index("ix_compute_job_status_lease_expiry", "job_status", "lease_expires_at_utc"),
+    )
 
     calculation_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     analytics_type: Mapped[str] = mapped_column(String(64), nullable=False)

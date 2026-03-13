@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
+from sqlalchemy import inspect
+
 from app.services.lineage_metadata_store import (
     LineageMetadataStore,
     LineagePayloadModel,
@@ -123,3 +125,20 @@ def test_lineage_metadata_store_pending_payload_stats(tmp_path):
 
     assert stats.pending_payload_count == 1
     assert stats.oldest_pending_age_seconds == 45.0
+
+
+def test_lineage_metadata_store_declares_hot_path_indexes(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+
+    record_indexes = {
+        index["name"]: tuple(index["column_names"])
+        for index in inspect(store._engine).get_indexes("lineage_records")
+    }
+    payload_indexes = {
+        index["name"]: tuple(index["column_names"])
+        for index in inspect(store._engine).get_indexes("lineage_payloads")
+    }
+
+    assert record_indexes["ix_lineage_records_status"] == ("status",)
+    assert payload_indexes["ix_lineage_payloads_created_at"] == ("created_at_utc",)
