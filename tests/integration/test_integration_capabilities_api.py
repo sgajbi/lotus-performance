@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+from app.services.durability_health_service import DurabilityHealthStatus
 from main import app
 
 
@@ -78,3 +79,23 @@ def test_health_ready_returns_503_when_draining():
 
     assert response.status_code == 503
     assert response.json() == {"status": "draining"}
+
+
+def test_health_ready_returns_503_when_durable_metadata_store_is_unavailable(mocker):
+    mocker.patch(
+        "app.api.endpoints.health.check_durable_metadata_store_ready",
+        return_value=DurabilityHealthStatus(
+            is_ready=False,
+            status="unavailable",
+            reason="durable_metadata_store_unreachable",
+        ),
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/health/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "status": "unavailable",
+        "reason": "durable_metadata_store_unreachable",
+    }
