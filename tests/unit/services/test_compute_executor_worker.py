@@ -1,3 +1,4 @@
+from threading import Event
 from uuid import uuid4
 
 import pytest
@@ -471,4 +472,54 @@ def test_compute_executor_worker_run_forever_bootstraps_and_sleeps(monkeypatch):
         "result_schema",
         "process",
         f"sleep:{compute_executor_worker.settings.COMPUTE_EXECUTOR_POLL_SECONDS}",
+    ]
+
+
+def test_compute_executor_worker_run_forever_honors_pre_set_stop_event(monkeypatch):
+    stop_event = Event()
+    stop_event.set()
+    calls: list[str] = []
+
+    monkeypatch.setattr(
+        compute_executor_worker.execution_registry, "create_schema", lambda: calls.append("exec_schema")
+    )
+    monkeypatch.setattr(compute_executor_worker.compute_job_store, "create_schema", lambda: calls.append("job_schema"))
+    monkeypatch.setattr(
+        compute_executor_worker.async_result_store, "create_schema", lambda: calls.append("result_schema")
+    )
+    monkeypatch.setattr(compute_executor_worker, "process_pending_jobs", lambda: calls.append("process") or 1)
+
+    compute_executor_worker.run_forever(stop_event=stop_event)
+
+    assert calls == ["exec_schema", "job_schema", "result_schema"]
+
+
+def test_compute_executor_worker_run_forever_stops_during_idle_wait(monkeypatch):
+    stop_event = Event()
+    calls: list[str] = []
+
+    monkeypatch.setattr(
+        compute_executor_worker.execution_registry, "create_schema", lambda: calls.append("exec_schema")
+    )
+    monkeypatch.setattr(compute_executor_worker.compute_job_store, "create_schema", lambda: calls.append("job_schema"))
+    monkeypatch.setattr(
+        compute_executor_worker.async_result_store, "create_schema", lambda: calls.append("result_schema")
+    )
+    monkeypatch.setattr(compute_executor_worker, "process_pending_jobs", lambda: calls.append("process") or 0)
+
+    def _wait(timeout: float) -> bool:
+        calls.append(f"wait:{timeout}")
+        stop_event.set()
+        return True
+
+    monkeypatch.setattr(stop_event, "wait", _wait)
+
+    compute_executor_worker.run_forever(stop_event=stop_event)
+
+    assert calls == [
+        "exec_schema",
+        "job_schema",
+        "result_schema",
+        "process",
+        f"wait:{compute_executor_worker.settings.COMPUTE_EXECUTOR_POLL_SECONDS}",
     ]

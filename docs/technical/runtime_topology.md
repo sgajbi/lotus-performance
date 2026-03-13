@@ -26,12 +26,14 @@ Source of truth for the local topology is [docker-compose.yml](/C:/Users/Sandeep
 - leases work with PostgreSQL row-lock semantics
 - executes heavy returns-series, contribution, and attribution workloads
 - records durable success/failure results and retry state
+- supports explicit quiescence via a worker stop signal instead of relying on process kill semantics
 
 ### `performance-lineage-worker`
 
 - polls durable lineage payload metadata
 - materializes artifact files asynchronously
 - updates durable lineage status for polling and retrieval
+- supports explicit quiescence via a worker stop signal instead of relying on process kill semantics
 
 ### `performance-lineage-db`
 
