@@ -76,7 +76,8 @@ Queue-pressure metrics are exposed from the API process by reading durable store
 
 For point-in-time operator drill-down, `GET /integration/runtime-status` exposes the same
 durable queue state as a JSON control-plane snapshot, including the oldest pending, leased,
-and running compute-job ages.
+and running compute-job ages. If configured age thresholds are exceeded, the runtime-status
+surface degrades proactively instead of only reporting raw queue numbers.
 
 ## Failure recovery model
 

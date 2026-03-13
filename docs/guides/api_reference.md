@@ -94,6 +94,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - compute queue backlog details
   - oldest pending, leased, and running compute-job ages
   - lineage queue backlog details
+- runtime may report `degraded` when configured queue-age thresholds are exceeded
 
 ### `POST /integration/returns/series`
 

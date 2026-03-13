@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -83,3 +84,34 @@ def test_runtime_status_reports_unavailable_durable_store(mocker):
     assert body["compute_queue"]["status"] == "unavailable"
     assert "pending_jobs" not in body["compute_queue"]
     assert body["lineage_queue"]["status"] == "unavailable"
+
+
+def test_runtime_status_reports_degraded_when_compute_age_threshold_is_exceeded():
+    settings = __import__("app.core.config", fromlist=["get_settings"]).get_settings()
+    original_threshold = settings.RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS
+    settings.RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS = 30.0
+
+    try:
+        compute_job_store.create_schema()
+        compute_job_store.clear_all_records()
+        calculation_id = uuid4()
+        compute_job_store.enqueue_job(
+            calculation_id=calculation_id,
+            analytics_type="ReturnsSeries",
+            request_payload={"portfolio_id": "PF-AGED"},
+        )
+        with compute_job_store._session() as session:
+            row = compute_job_store._get_model(session, calculation_id)
+            row.created_at_utc = datetime.now(timezone.utc) - timedelta(seconds=90)
+
+        with TestClient(app) as client:
+            response = client.get("/integration/runtime-status")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["runtime_status"] == "degraded"
+        assert body["compute_queue"]["status"] == "degraded"
+        assert body["compute_queue"]["reason"] == "compute_pending_age_exceeded"
+    finally:
+        settings.RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS = original_threshold
+        compute_job_store.clear_all_records()
