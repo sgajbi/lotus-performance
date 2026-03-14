@@ -51,6 +51,14 @@ class LineageRuntimeWorkItemResponse(BaseModel):
     )
 
 
+class RuntimeWorkItemQueueStatusResponse(BaseModel):
+    status: str = Field(description="Availability of the queue-specific work-item inspection surface.")
+    reason: str | None = Field(
+        default=None,
+        description="Concrete queue-specific unavailability reason when work-item inspection failed.",
+    )
+
+
 class RuntimeWorkItemsResponse(BaseModel):
     contract_version: str = Field(description="Version of the runtime-work-items response contract.")
     source_service: str = Field(description="Owning service that produced this runtime work-item snapshot.")
@@ -59,6 +67,12 @@ class RuntimeWorkItemsResponse(BaseModel):
     limit: int = Field(description="Maximum number of work items returned per queue.")
     durable_metadata_store: DurableMetadataStoreStatusResponse = Field(
         description="Availability of the durable metadata store backing compute and lineage work items.",
+    )
+    compute_queue: RuntimeWorkItemQueueStatusResponse = Field(
+        description="Availability of compute work-item inspection for this snapshot.",
+    )
+    lineage_queue: RuntimeWorkItemQueueStatusResponse = Field(
+        description="Availability of lineage work-item inspection for this snapshot.",
     )
     compute_items: list[ComputeRuntimeWorkItemResponse] = Field(
         default_factory=list,
@@ -80,6 +94,14 @@ def build_runtime_work_items_response(snapshot: RuntimeWorkItemSnapshot) -> Runt
         durable_metadata_store=DurableMetadataStoreStatusResponse(
             status=snapshot.durable_metadata_store.status,
             reason=snapshot.durable_metadata_store.reason,
+        ),
+        compute_queue=RuntimeWorkItemQueueStatusResponse(
+            status=snapshot.compute_queue.status,
+            reason=snapshot.compute_queue.reason,
+        ),
+        lineage_queue=RuntimeWorkItemQueueStatusResponse(
+            status=snapshot.lineage_queue.status,
+            reason=snapshot.lineage_queue.reason,
         ),
         compute_items=[
             ComputeRuntimeWorkItemResponse(

@@ -64,6 +64,8 @@ def test_runtime_work_items_reports_active_compute_and_lineage_items():
         assert body["status_filter"] == "active"
         assert body["limit"] == 10
         assert body["durable_metadata_store"]["status"] == "ready"
+        assert body["compute_queue"]["status"] == "available"
+        assert body["lineage_queue"]["status"] == "available"
         assert [item["calculation_id"] for item in body["compute_items"]] == [
             str(compute_pending_id),
             str(compute_leased_id),
@@ -124,6 +126,8 @@ def test_runtime_work_items_reports_failed_compute_and_lineage_items():
         assert response.status_code == 200
         body = response.json()
         assert body["status_filter"] == "failed"
+        assert body["compute_queue"]["status"] == "available"
+        assert body["lineage_queue"]["status"] == "available"
         assert len(body["compute_items"]) == 1
         assert body["compute_items"][0]["calculation_id"] == str(compute_failed_id)
         assert body["compute_items"][0]["status"] == "failed"
@@ -136,3 +140,25 @@ def test_runtime_work_items_reports_failed_compute_and_lineage_items():
     finally:
         compute_job_store.clear_all_records()
         lineage_metadata_store.clear_all_records()
+
+
+def test_runtime_work_items_reports_partial_queue_unavailability(mocker):
+    mocker.patch(
+        "app.services.runtime_work_item_service.compute_job_store.list_inspection_items",
+        side_effect=RuntimeError("compute unavailable"),
+    )
+    mocker.patch(
+        "app.services.runtime_work_item_service.lineage_metadata_store.list_inspection_items",
+        return_value=[],
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/integration/runtime-work-items", params={"status": "active", "limit": 5})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["durable_metadata_store"]["status"] == "ready"
+    assert body["compute_queue"] == {"status": "unavailable", "reason": "RuntimeError"}
+    assert body["lineage_queue"] == {"status": "available"}
+    assert body["compute_items"] == []
+    assert body["lineage_items"] == []

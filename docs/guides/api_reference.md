@@ -126,6 +126,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - `limit`: max items returned per queue
 - response includes:
   - durable metadata store availability
+  - queue-specific availability for compute and lineage inspection
   - filtered compute work items with calculation handle, lifecycle state, age, attempts, and failure context
   - filtered lineage work items with calculation handle, lifecycle state, age, attempts, and failure context
 - use this when runtime-status tells you there is pressure, and you need the actual work items behind it without querying the database directly
