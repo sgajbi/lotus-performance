@@ -129,3 +129,33 @@ def test_runtime_work_item_snapshot_excludes_unselected_queue(mocker):
     assert snapshot.calculation_id_contains == "calc"
     assert snapshot.compute_queue.status == "excluded"
     assert snapshot.compute_queue.total_count == 0
+
+
+def test_runtime_work_item_snapshot_passes_reclaimable_status_filter(mocker):
+    mocker.patch(
+        "app.services.runtime_work_item_service.check_durable_metadata_store_ready",
+        return_value=DurabilityHealthStatus(is_ready=True, status="ready", reason=None),
+    )
+    compute_list = mocker.patch(
+        "app.services.runtime_work_item_service.compute_job_store.list_inspection_items",
+        return_value=ComputeQueueInspectionPage(total_count=0, items=[]),
+    )
+    lineage_list = mocker.patch(
+        "app.services.runtime_work_item_service.lineage_metadata_store.list_inspection_items",
+        return_value=type("LineagePage", (), {"total_count": 0, "items": []})(),
+    )
+
+    snapshot = build_runtime_work_item_snapshot(
+        queue_filter="both",
+        status_filter="reclaimable",
+        limit=7,
+        offset=2,
+        min_age_seconds=30.0,
+        compute_analytics_type="ReturnsSeries",
+        lineage_calculation_type="TWR",
+        calculation_id_contains="abc",
+    )
+
+    assert snapshot.status_filter == "reclaimable"
+    assert compute_list.call_args.kwargs["status_filter"] == "reclaimable"
+    assert lineage_list.call_args.kwargs["status_filter"] == "reclaimable"

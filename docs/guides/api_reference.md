@@ -123,7 +123,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 - purpose: return exact compute and lineage work items for operator drill-down
 - query parameters:
   - `queue`: `both`, `compute`, or `lineage`
-  - `status`: `active`, `failed`, or `all`
+  - `status`: `active`, `failed`, `all`, or `reclaimable`
   - `limit`: max items returned per queue
   - `offset`: zero-based page offset applied per queue
   - `min_age_seconds`: optional stale-item filter for operator triage
@@ -134,6 +134,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - durable metadata store availability
   - queue-specific availability for compute and lineage inspection
   - queue-specific `total_count` and `returned_count`
+  - `reclaimable` isolates work whose durable worker lease already expired and is eligible for recovery or re-lease
   - echoed targeted filters for operator auditability
   - filtered compute work items with calculation handle, lifecycle state, age, attempts, and failure context
   - filtered lineage work items with calculation handle, lifecycle state, age, attempts, and failure context

@@ -563,6 +563,21 @@ class ComputeJobStore:
                     calculation_id_contains=calculation_id_contains,
                     min_age_threshold=min_age_threshold,
                 )
+            elif normalized_status_filter == "reclaimable":
+                count_statement = self._build_reclaimable_inspection_count_statement(
+                    analytics_type=analytics_type,
+                    calculation_id_contains=calculation_id_contains,
+                    now=inspection_now,
+                    min_age_threshold=min_age_threshold,
+                )
+                statement = self._build_reclaimable_inspection_items_statement(
+                    limit=limit,
+                    offset=offset,
+                    analytics_type=analytics_type,
+                    calculation_id_contains=calculation_id_contains,
+                    now=inspection_now,
+                    min_age_threshold=min_age_threshold,
+                )
             else:
                 raise ValueError(f"Unsupported status filter: {status_filter}")
             rows = session.execute(statement).scalars().all()
@@ -792,6 +807,52 @@ class ComputeJobStore:
         min_age_threshold: datetime | None,
     ):
         statement = select(func.count()).select_from(ComputeJobModel)
+        return self._apply_inspection_filters(
+            self._apply_min_age_filter(statement, min_age_threshold=min_age_threshold),
+            analytics_type=analytics_type,
+            calculation_id_contains=calculation_id_contains,
+        )
+
+    def _build_reclaimable_inspection_items_statement(
+        self,
+        *,
+        limit: int,
+        offset: int,
+        analytics_type: str | None,
+        calculation_id_contains: str | None,
+        now: datetime,
+        min_age_threshold: datetime | None,
+    ):
+        statement = (
+            select(ComputeJobModel)
+            .where(
+                ComputeJobModel.job_status.in_([ComputeJobStatus.LEASED.value, ComputeJobStatus.RUNNING.value])
+                & ComputeJobModel.lease_expires_at_utc.is_not(None)
+                & (ComputeJobModel.lease_expires_at_utc < now)
+            )
+            .order_by(ComputeJobModel.lease_expires_at_utc.asc(), ComputeJobModel.created_at_utc.asc())
+            .offset(offset)
+            .limit(limit)
+        )
+        return self._apply_inspection_filters(
+            self._apply_min_age_filter(statement, min_age_threshold=min_age_threshold),
+            analytics_type=analytics_type,
+            calculation_id_contains=calculation_id_contains,
+        )
+
+    def _build_reclaimable_inspection_count_statement(
+        self,
+        *,
+        analytics_type: str | None,
+        calculation_id_contains: str | None,
+        now: datetime,
+        min_age_threshold: datetime | None,
+    ):
+        statement = select(func.count()).select_from(ComputeJobModel).where(
+            ComputeJobModel.job_status.in_([ComputeJobStatus.LEASED.value, ComputeJobStatus.RUNNING.value])
+            & ComputeJobModel.lease_expires_at_utc.is_not(None)
+            & (ComputeJobModel.lease_expires_at_utc < now)
+        )
         return self._apply_inspection_filters(
             self._apply_min_age_filter(statement, min_age_threshold=min_age_threshold),
             analytics_type=analytics_type,

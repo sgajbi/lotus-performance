@@ -385,6 +385,34 @@ def test_compute_job_store_filters_inspection_items_by_analytics_type_and_calcul
     assert [item.calculation_id for item in filtered.items] == [str(ids[2])]
 
 
+def test_compute_job_store_lists_reclaimable_items_with_expired_leases(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    now = datetime.now(timezone.utc)
+    reclaimable_id = uuid4()
+    active_id = uuid4()
+
+    store.enqueue_job(calculation_id=reclaimable_id, analytics_type="ReturnsSeries", request_payload={"p": "1"})
+    store.enqueue_job(calculation_id=active_id, analytics_type="ReturnsSeries", request_payload={"p": "2"})
+
+    with store._session() as session:
+        reclaimable_row = store._get_model(session, reclaimable_id)
+        reclaimable_row.job_status = ComputeJobStatus.RUNNING.value
+        reclaimable_row.started_at_utc = now - timedelta(seconds=120)
+        reclaimable_row.lease_expires_at_utc = now - timedelta(seconds=20)
+
+        active_row = store._get_model(session, active_id)
+        active_row.job_status = ComputeJobStatus.LEASED.value
+        active_row.leased_at_utc = now - timedelta(seconds=90)
+        active_row.lease_expires_at_utc = now + timedelta(seconds=60)
+
+    page = store.list_inspection_items(status_filter="reclaimable", limit=10, now=now)
+
+    assert page.total_count == 1
+    assert [item.calculation_id for item in page.items] == [str(reclaimable_id)]
+    assert page.items[0].status == ComputeJobStatus.RUNNING.value
+
+
 def test_compute_job_store_declares_hot_path_indexes(tmp_path):
     store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
     store.create_schema()

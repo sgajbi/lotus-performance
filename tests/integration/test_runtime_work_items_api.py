@@ -288,3 +288,73 @@ def test_runtime_work_items_supports_targeted_type_and_calculation_filters():
     finally:
         compute_job_store.clear_all_records()
         lineage_metadata_store.clear_all_records()
+
+
+def test_runtime_work_items_supports_reclaimable_filter():
+    compute_job_store.create_schema()
+    lineage_metadata_store.create_schema()
+    compute_job_store.clear_all_records()
+    lineage_metadata_store.clear_all_records()
+    now = datetime.now(timezone.utc)
+
+    compute_reclaimable_id = uuid4()
+    compute_active_id = uuid4()
+    lineage_reclaimable_id = uuid4()
+    lineage_active_id = uuid4()
+
+    for calculation_id in [compute_reclaimable_id, compute_active_id]:
+        compute_job_store.enqueue_job(
+            calculation_id=calculation_id,
+            analytics_type="ReturnsSeries",
+            request_payload={"portfolio_id": str(calculation_id)},
+            max_attempts=3,
+        )
+
+    with compute_job_store._session() as session:
+        reclaimable_row = compute_job_store._get_model(session, compute_reclaimable_id)
+        reclaimable_row.job_status = ComputeJobStatus.RUNNING.value
+        reclaimable_row.started_at_utc = now - timedelta(seconds=200)
+        reclaimable_row.lease_expires_at_utc = now - timedelta(seconds=15)
+
+        active_row = compute_job_store._get_model(session, compute_active_id)
+        active_row.job_status = ComputeJobStatus.LEASED.value
+        active_row.leased_at_utc = now - timedelta(seconds=90)
+        active_row.lease_expires_at_utc = now + timedelta(seconds=60)
+
+    for calculation_id in [lineage_reclaimable_id, lineage_active_id]:
+        lineage_metadata_store.enqueue_lineage_payload(
+            calculation_id=calculation_id,
+            calculation_type="TWR",
+            request_json="{}",
+            response_json="{}",
+            details={"details.json": "{}"},
+        )
+
+    with lineage_metadata_store._session() as session:
+        reclaimable_payload = session.get(LineagePayloadModel, str(lineage_reclaimable_id))
+        active_payload = session.get(LineagePayloadModel, str(lineage_active_id))
+        assert reclaimable_payload is not None
+        assert active_payload is not None
+        reclaimable_payload.leased_at_utc = now - timedelta(seconds=120)
+        reclaimable_payload.lease_expires_at_utc = now - timedelta(seconds=10)
+        active_payload.leased_at_utc = now - timedelta(seconds=80)
+        active_payload.lease_expires_at_utc = now + timedelta(seconds=45)
+
+    try:
+        with TestClient(app) as client:
+            response = client.get("/integration/runtime-work-items", params={"status": "reclaimable", "limit": 10})
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["status_filter"] == "reclaimable"
+        assert body["compute_queue"]["total_count"] == 1
+        assert body["compute_queue"]["returned_count"] == 1
+        assert body["lineage_queue"]["total_count"] == 1
+        assert body["lineage_queue"]["returned_count"] == 1
+        assert [item["calculation_id"] for item in body["compute_items"]] == [str(compute_reclaimable_id)]
+        assert [item["calculation_id"] for item in body["lineage_items"]] == [str(lineage_reclaimable_id)]
+        assert body["compute_items"][0]["status"] == "running"
+        assert body["lineage_items"][0]["status"] == "pending"
+    finally:
+        compute_job_store.clear_all_records()
+        lineage_metadata_store.clear_all_records()

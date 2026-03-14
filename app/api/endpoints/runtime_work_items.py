@@ -24,9 +24,12 @@ async def get_runtime_work_items(
         default="both",
         description="Queue scope for operator work-item inspection.",
     ),
-    status: Literal["active", "failed", "all"] = Query(
+    status: Literal["active", "failed", "all", "reclaimable"] = Query(
         default="active",
-        description="Work-item lifecycle filter applied to both compute and lineage queues.",
+        description=(
+            "Work-item lifecycle filter applied to both compute and lineage queues. "
+            "`reclaimable` returns work whose durable worker lease already expired and is eligible for recovery."
+        ),
     ),
     limit: int = Query(
         default=10,

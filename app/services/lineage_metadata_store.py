@@ -423,6 +423,21 @@ class LineageMetadataStore:
                     calculation_id_contains=calculation_id_contains,
                     min_age_threshold=min_age_threshold,
                 )
+            elif normalized_status_filter == "reclaimable":
+                count_statement = self._build_reclaimable_inspection_count_statement(
+                    now=inspection_now,
+                    calculation_type=calculation_type,
+                    calculation_id_contains=calculation_id_contains,
+                    min_age_threshold=min_age_threshold,
+                )
+                statement = self._build_reclaimable_inspection_items_statement(
+                    now=inspection_now,
+                    limit=limit,
+                    offset=offset,
+                    calculation_type=calculation_type,
+                    calculation_id_contains=calculation_id_contains,
+                    min_age_threshold=min_age_threshold,
+                )
             else:
                 raise ValueError(f"Unsupported status filter: {status_filter}")
             rows = session.execute(statement).all()
@@ -607,6 +622,30 @@ class LineageMetadataStore:
             calculation_id_contains=calculation_id_contains,
         )
 
+    def _build_reclaimable_inspection_count_statement(
+        self,
+        *,
+        now: datetime,
+        calculation_type: str | None,
+        calculation_id_contains: str | None,
+        min_age_threshold: datetime | None,
+    ):
+        statement = (
+            select(func.count())
+            .select_from(LineageRecordModel)
+            .join(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
+            .where(
+                (LineageRecordModel.status == LineageStatus.PENDING.value)
+                & LineagePayloadModel.lease_expires_at_utc.is_not(None)
+                & (LineagePayloadModel.lease_expires_at_utc < now)
+            )
+        )
+        return self._apply_inspection_filters(
+            self._apply_min_age_filter(statement, now=now, min_age_threshold=min_age_threshold),
+            calculation_type=calculation_type,
+            calculation_id_contains=calculation_id_contains,
+        )
+
     def _build_active_inspection_items_statement(
         self,
         *,
@@ -671,6 +710,34 @@ class LineageMetadataStore:
             select(LineageRecordModel, LineagePayloadModel)
             .outerjoin(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
             .order_by(active_since.asc().nullslast(), LineageRecordModel.timestamp_utc.asc())
+            .offset(offset)
+            .limit(limit)
+        )
+        return self._apply_inspection_filters(
+            self._apply_min_age_filter(statement, now=now, min_age_threshold=min_age_threshold),
+            calculation_type=calculation_type,
+            calculation_id_contains=calculation_id_contains,
+        )
+
+    def _build_reclaimable_inspection_items_statement(
+        self,
+        *,
+        now: datetime,
+        limit: int,
+        offset: int,
+        calculation_type: str | None,
+        calculation_id_contains: str | None,
+        min_age_threshold: datetime | None,
+    ):
+        statement = (
+            select(LineageRecordModel, LineagePayloadModel)
+            .join(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
+            .where(
+                (LineageRecordModel.status == LineageStatus.PENDING.value)
+                & LineagePayloadModel.lease_expires_at_utc.is_not(None)
+                & (LineagePayloadModel.lease_expires_at_utc < now)
+            )
+            .order_by(LineagePayloadModel.lease_expires_at_utc.asc(), LineagePayloadModel.created_at_utc.asc())
             .offset(offset)
             .limit(limit)
         )

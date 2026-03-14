@@ -365,6 +365,39 @@ def test_lineage_metadata_store_mark_pending_releases_payload_lease(tmp_path):
     assert payload.lease_expires_at_utc is None
 
 
+def test_lineage_metadata_store_lists_reclaimable_items_with_expired_leases(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    now = datetime.now(timezone.utc)
+    reclaimable_id = uuid4()
+    active_id = uuid4()
+
+    for calculation_id in [reclaimable_id, active_id]:
+        store.enqueue_lineage_payload(
+            calculation_id=calculation_id,
+            calculation_type="TWR",
+            request_json="{}",
+            response_json="{}",
+            details={"details.json": "{}"},
+        )
+
+    with store._session() as session:
+        reclaimable_payload = session.get(LineagePayloadModel, str(reclaimable_id))
+        active_payload = session.get(LineagePayloadModel, str(active_id))
+        assert reclaimable_payload is not None
+        assert active_payload is not None
+        reclaimable_payload.leased_at_utc = now - timedelta(seconds=80)
+        reclaimable_payload.lease_expires_at_utc = now - timedelta(seconds=15)
+        active_payload.leased_at_utc = now - timedelta(seconds=70)
+        active_payload.lease_expires_at_utc = now + timedelta(seconds=30)
+
+    page = store.list_inspection_items(status_filter="reclaimable", limit=10, now=now)
+
+    assert page.total_count == 1
+    assert [item.calculation_id for item in page.items] == [str(reclaimable_id)]
+    assert page.items[0].status == "pending"
+
+
 def test_lineage_metadata_store_declares_hot_path_indexes(tmp_path):
     store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
     store.create_schema()
