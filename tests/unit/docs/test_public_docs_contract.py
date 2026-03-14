@@ -77,3 +77,19 @@ def test_attribution_guide_uses_current_request_shape():
     assert "- `linking`" in guide
     assert "currency_attribution" in guide
     assert "`group_by` includes the `currency` dimension" in guide
+
+
+def test_runtime_alert_runbook_covers_breach_gauges():
+    runbook = _read("docs/runbooks/runtime-alerts.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    runtime_topology = _read("docs/technical/runtime_topology.md")
+
+    assert "lotus_performance_compute_queue_degradation_breach" in runbook
+    assert "lotus_performance_lineage_queue_degradation_breach" in runbook
+    assert "lotus_performance_lineage_storage_pressure_breach" in runbook
+    assert "lotus_performance_recovery_drill_degradation_breach" in runbook
+    assert "GET /integration/runtime-work-items" in runbook
+    assert "GET /integration/runtime-recoveries" in runbook
+    assert "GET /integration/recovery-drills" in runbook
+    assert "docs/runbooks/runtime-alerts.md" in api_reference
+    assert "runtime-alerts.md" in runtime_topology

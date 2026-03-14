@@ -88,6 +88,9 @@ Queue-pressure metrics are exposed from the API process by reading durable store
 - `lotus_performance_recovery_drill_policy_threshold{threshold=...}`
 - `lotus_performance_recovery_drill_degradation_breach{reason=...}`
 
+Operator first response for these breach gauges is governed in
+[runtime-alerts.md](/C:/Users/Sandeep/projects/lotus-performance/docs/runbooks/runtime-alerts.md).
+
 For point-in-time operator drill-down, `GET /integration/runtime-status` exposes the same
 durable queue state as a JSON control-plane snapshot, including the oldest pending, leased,
 and running compute-job ages plus retry-backlog, lease-expiry, and terminal-failure counts
