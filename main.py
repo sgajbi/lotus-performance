@@ -17,6 +17,7 @@ from app.api.endpoints import (
     integration_capabilities,
     lineage,
     performance,
+    recovery_drill_history,
     returns_series,
     runtime_status,
 )
@@ -156,6 +157,7 @@ app.include_router(lineage.router, prefix="/performance")
 app.include_router(integration_capabilities.router, prefix="/integration")
 app.include_router(returns_series.router, prefix="/integration")
 app.include_router(runtime_status.router, prefix="/integration")
+app.include_router(recovery_drill_history.router, prefix="/integration")
 app.include_router(health.router)
 
 

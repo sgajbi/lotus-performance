@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     decimal_precision: int = 28
     LINEAGE_STORAGE_PATH: Path = Path("lineage_data")
+    RECOVERY_DRILL_ARTIFACT_PATH: Path = Path("artifacts/durable-recovery-drill")
     LINEAGE_METADATA_DATABASE_URL: str = "sqlite:///./lineage_metadata.db"
     LINEAGE_WORKER_POLL_SECONDS: float = 1.0
     LINEAGE_WORKER_BATCH_SIZE: int = 20
@@ -45,6 +46,7 @@ class Settings(BaseSettings):
     RETURNS_SERIES_EXECUTOR_WINDOW_DAYS: int = 180
     CONTRIBUTION_EXECUTOR_POSITION_COUNT: int = 250
     ATTRIBUTION_EXECUTOR_INPUT_COUNT: int = 250
+    RECOVERY_DRILL_RETENTION_LIMIT: int = 30
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

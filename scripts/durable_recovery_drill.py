@@ -33,6 +33,12 @@ REQUIRED_TABLES = (
 )
 
 
+def _get_settings():
+    from app.core.config import get_settings
+
+    return get_settings()
+
+
 class _DrillModel(BaseModel):
     key: str
 
@@ -342,18 +348,19 @@ def _write_manifest(*, output_dir: Path, latest_file_name: str, retention_limit:
 
 
 def main() -> int:
+    settings = _get_settings()
     parser = argparse.ArgumentParser(description="Run the durable metadata recovery drill and emit structured evidence.")
     parser.add_argument("--output", type=Path, default=None, help="Optional path for a JSON evidence artifact.")
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("artifacts/durable-recovery-drill"),
+        default=settings.RECOVERY_DRILL_ARTIFACT_PATH,
         help="Directory for timestamped evidence history plus latest.json.",
     )
     parser.add_argument(
         "--retention-limit",
         type=int,
-        default=30,
+        default=settings.RECOVERY_DRILL_RETENTION_LIMIT,
         help="Maximum number of timestamped historical evidence files to retain.",
     )
     parser.add_argument("--operator-id", default="unknown-operator", help="Operator or automation identity for the drill.")
