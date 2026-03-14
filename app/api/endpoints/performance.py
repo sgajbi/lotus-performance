@@ -24,8 +24,11 @@ from app.models.responses import (
 )
 from app.services.async_result_service import resolve_async_result
 from app.services.attribution_service import calculate_attribution
+from app.services.execution_lifecycle_service import (
+    complete_execution_with_lineage,
+    record_execution_failure,
+)
 from app.services.execution_registry import execution_registry
-from app.services.lineage_service import lineage_service
 from app.services.submission_fencing_service import (
     register_async_submission_or_raise,
     register_sync_execution_or_raise,
@@ -41,20 +44,6 @@ from engine.schema import PortfolioColumns
 
 router = APIRouter(tags=["Performance"])
 settings = get_settings()
-
-
-def _record_execution_failure(
-    *,
-    calculation_id,
-    message: str,
-    execution_stage_started: bool = False,
-    lineage_stage_started: bool = False,
-) -> None:
-    if lineage_stage_started:
-        execution_registry.fail_stage(calculation_id, "lineage_materialization", message)
-    elif execution_stage_started:
-        execution_registry.fail_stage(calculation_id, "execution", message)
-    execution_registry.mark_failed(calculation_id, message)
 
 
 def _as_numeric(value: object, default=0):
@@ -226,7 +215,7 @@ async def calculate_twr_endpoint(request: PerformanceRequest):
             results_by_period[period.name] = period_result
 
     except InvalidEngineInputError as e:
-        _record_execution_failure(
+        record_execution_failure(
             calculation_id=request.calculation_id,
             message=f"Invalid Input: {e.message}",
             execution_stage_started=execution_stage_started,
@@ -234,7 +223,7 @@ async def calculate_twr_endpoint(request: PerformanceRequest):
         )
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid Input: {e.message}")
     except EngineCalculationError as e:
-        _record_execution_failure(
+        record_execution_failure(
             calculation_id=request.calculation_id,
             message=f"Calculation Error: {e.message}",
             execution_stage_started=execution_stage_started,
@@ -242,7 +231,7 @@ async def calculate_twr_endpoint(request: PerformanceRequest):
         )
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Calculation Error: {e.message}")
     except HTTPException:
-        _record_execution_failure(
+        record_execution_failure(
             calculation_id=request.calculation_id,
             message="HTTPException raised during TWR execution.",
             execution_stage_started=execution_stage_started,
@@ -250,7 +239,7 @@ async def calculate_twr_endpoint(request: PerformanceRequest):
         )
         raise
     except Exception as e:
-        _record_execution_failure(
+        record_execution_failure(
             calculation_id=request.calculation_id,
             message=f"An unexpected server error occurred: {str(e)}",
             execution_stage_started=execution_stage_started,
@@ -295,22 +284,14 @@ async def calculate_twr_endpoint(request: PerformanceRequest):
         audit=audit,
     )
 
-    execution_registry.complete_stage(
-        request.calculation_id,
-        "execution",
-        details={"input_rows": len(request.valuation_points), "output_rows": len(daily_results_df)},
-    )
-    execution_stage_started = False
-    execution_registry.start_stage(request.calculation_id, "lineage_materialization")
-    lineage_stage_started = True
-    lineage_service.enqueue_capture(
+    complete_execution_with_lineage(
         calculation_id=request.calculation_id,
         calculation_type="TWR",
         request_model=request,
         response_model=response_model,
+        execution_details={"input_rows": len(request.valuation_points), "output_rows": len(daily_results_df)},
         calculation_details={"twr_calculation_details.csv": daily_results_df},
     )
-    execution_registry.mark_complete(request.calculation_id)
 
     return response_model
 
@@ -343,7 +324,7 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnRequest):
             as_of=request.as_of,
         )
     except HTTPException:
-        _record_execution_failure(
+        record_execution_failure(
             calculation_id=request.calculation_id,
             message="HTTPException raised during MWR execution.",
             execution_stage_started=execution_stage_started,
@@ -351,7 +332,7 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnRequest):
         )
         raise
     except Exception as e:
-        _record_execution_failure(
+        record_execution_failure(
             calculation_id=request.calculation_id,
             message=f"An unexpected error occurred during MWR calculation: {str(e)}",
             execution_stage_started=execution_stage_started,
@@ -404,22 +385,14 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnRequest):
     lineage_df_data.append({"date": str(request.as_of), "type": "end_mv", "amount": request.end_mv})
     lineage_df = pd.DataFrame(lineage_df_data)
 
-    execution_registry.complete_stage(
-        request.calculation_id,
-        "execution",
-        details={"cashflows": len(request.cash_flows)},
-    )
-    execution_stage_started = False
-    execution_registry.start_stage(request.calculation_id, "lineage_materialization")
-    lineage_stage_started = True
-    lineage_service.enqueue_capture(
+    complete_execution_with_lineage(
         calculation_id=request.calculation_id,
         calculation_type="MWR",
         request_model=request,
         response_model=response_model,
+        execution_details={"cashflows": len(request.cash_flows)},
         calculation_details={"mwr_cashflow_schedule.csv": lineage_df},
     )
-    execution_registry.mark_complete(request.calculation_id)
 
     return response_model
 

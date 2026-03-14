@@ -12,8 +12,11 @@ from app.models.contribution_responses import (
     PositionContribution,
     SinglePeriodContributionResult,
 )
+from app.services.execution_lifecycle_service import (
+    complete_execution_with_lineage,
+    record_execution_failure,
+)
 from app.services.execution_registry import execution_registry
-from app.services.lineage_service import lineage_service
 from core.envelope import Audit, Diagnostics, Meta
 from core.periods import resolve_periods
 from engine.contribution import (
@@ -164,13 +167,17 @@ def calculate_contribution(
                     position_contributions=position_contributions,
                 )
     except HTTPException as exc:
-        execution_registry.fail_stage(request.calculation_id, "execution", str(exc.detail))
-        execution_registry.mark_failed(request.calculation_id, str(exc.detail))
+        record_execution_failure(
+            calculation_id=request.calculation_id,
+            message=str(exc.detail),
+            execution_stage_started=True,
+        )
         raise
     except Exception as exc:
-        execution_registry.fail_stage(request.calculation_id, "execution", str(exc))
-        execution_registry.mark_failed(
-            request.calculation_id, f"An unexpected error occurred during contribution calculation: {str(exc)}"
+        record_execution_failure(
+            calculation_id=request.calculation_id,
+            message=f"An unexpected error occurred during contribution calculation: {str(exc)}",
+            execution_stage_started=True,
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -204,21 +211,15 @@ def calculate_contribution(
         audit=audit,
     )
 
-    execution_registry.complete_stage(
-        request.calculation_id,
-        "execution",
-        details={"input_positions": len(request.positions_data)},
-    )
-    execution_registry.start_stage(request.calculation_id, "lineage_materialization")
-    lineage_service.enqueue_capture(
+    complete_execution_with_lineage(
         calculation_id=request.calculation_id,
         calculation_type="Contribution",
         request_model=request,
         response_model=response_model,
+        execution_details={"input_positions": len(request.positions_data)},
         calculation_details={
             "portfolio_twr.csv": portfolio_results_df,
             "daily_contributions.csv": daily_contributions_df,
         },
     )
-    execution_registry.mark_complete(request.calculation_id)
     return response_model

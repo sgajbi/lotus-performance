@@ -7,7 +7,12 @@ from fastapi import HTTPException
 from app.models.attribution_requests import AttributionRequest
 from app.models.contribution_requests import ContributionRequest
 from app.models.returns_series import ReturnsSeriesRequest
-from app.services import attribution_service, contribution_service, returns_series_service
+from app.services import (
+    attribution_service,
+    contribution_service,
+    execution_lifecycle_service,
+    returns_series_service,
+)
 from app.services.async_result_store import AsyncResultStatus, AsyncResultStore
 from app.services.compute_job_store import ComputeJobStatus, ComputeJobStore
 from app.services.execution_registry import ExecutionRegistry
@@ -82,13 +87,14 @@ def test_compute_executor_worker_processes_pending_contribution_job(tmp_path, mo
     execution_store.create_schema()
     monkeypatch.setattr(compute_executor_worker, "execution_registry", execution_store)
     monkeypatch.setattr(contribution_service, "execution_registry", execution_store)
+    monkeypatch.setattr(execution_lifecycle_service, "execution_registry", execution_store)
     result_store = AsyncResultStore(f"sqlite:///{tmp_path / 'results.db'}")
     result_store.create_schema()
     monkeypatch.setattr(compute_executor_worker, "async_result_store", result_store)
     lineage_store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
     lineage_store.create_schema()
     monkeypatch.setattr(
-        contribution_service,
+        execution_lifecycle_service,
         "lineage_service",
         LineageService(storage_path=str(tmp_path / "lineage"), metadata_store=lineage_store),
     )
@@ -157,13 +163,14 @@ def test_compute_executor_worker_processes_pending_attribution_job(tmp_path, mon
     execution_store.create_schema()
     monkeypatch.setattr(compute_executor_worker, "execution_registry", execution_store)
     monkeypatch.setattr(attribution_service, "execution_registry", execution_store)
+    monkeypatch.setattr(execution_lifecycle_service, "execution_registry", execution_store)
     result_store = AsyncResultStore(f"sqlite:///{tmp_path / 'results.db'}")
     result_store.create_schema()
     monkeypatch.setattr(compute_executor_worker, "async_result_store", result_store)
     lineage_store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
     lineage_store.create_schema()
     monkeypatch.setattr(
-        attribution_service,
+        execution_lifecycle_service,
         "lineage_service",
         LineageService(storage_path=str(tmp_path / "lineage"), metadata_store=lineage_store),
     )
