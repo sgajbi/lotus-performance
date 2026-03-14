@@ -295,7 +295,7 @@ def test_lineage_metadata_store_lists_active_and_failed_inspection_items(tmp_pat
     assert failed_page.items[0].status == LineageStatus.FAILED.value
     assert failed_page.items[0].error_message == "boom"
     assert failed_page.items[0].age_seconds == 10.0
-    assert stale_page.total_count == 2
+    assert stale_page.total_count == 1
     assert [item.calculation_id for item in stale_page.items] == [str(pending_id)]
 
 

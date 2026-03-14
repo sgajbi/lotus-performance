@@ -519,47 +519,54 @@ class ComputeJobStore:
     ) -> ComputeQueueInspectionPage:
         inspection_now = now or datetime.now(timezone.utc)
         normalized_status_filter = status_filter.lower()
+        min_age_threshold = (
+            inspection_now - timedelta(seconds=min_age_seconds) if min_age_seconds > 0 else None
+        )
 
         with self._session() as session:
             if normalized_status_filter == "active":
                 count_statement = self._build_active_inspection_count_statement(
                     analytics_type=analytics_type,
                     calculation_id_contains=calculation_id_contains,
+                    min_age_threshold=min_age_threshold,
                 )
                 statement = self._build_active_inspection_items_statement(
                     limit=limit,
                     offset=offset,
                     analytics_type=analytics_type,
                     calculation_id_contains=calculation_id_contains,
+                    min_age_threshold=min_age_threshold,
                 )
             elif normalized_status_filter == "failed":
                 count_statement = self._build_failed_inspection_count_statement(
                     analytics_type=analytics_type,
                     calculation_id_contains=calculation_id_contains,
+                    min_age_threshold=min_age_threshold,
                 )
                 statement = self._build_failed_inspection_items_statement(
                     limit=limit,
                     offset=offset,
                     analytics_type=analytics_type,
                     calculation_id_contains=calculation_id_contains,
+                    min_age_threshold=min_age_threshold,
                 )
             elif normalized_status_filter == "all":
                 count_statement = self._build_all_inspection_count_statement(
                     analytics_type=analytics_type,
                     calculation_id_contains=calculation_id_contains,
+                    min_age_threshold=min_age_threshold,
                 )
                 statement = self._build_all_inspection_items_statement(
                     limit=limit,
                     offset=offset,
                     analytics_type=analytics_type,
                     calculation_id_contains=calculation_id_contains,
+                    min_age_threshold=min_age_threshold,
                 )
             else:
                 raise ValueError(f"Unsupported status filter: {status_filter}")
             rows = session.execute(statement).scalars().all()
             items = [self._to_inspection_item(row, now=inspection_now) for row in rows]
-            if min_age_seconds > 0:
-                items = [item for item in items if item.age_seconds is not None and item.age_seconds >= min_age_seconds]
             total_count = int(session.execute(count_statement).scalar_one() or 0)
             return ComputeQueueInspectionPage(total_count=total_count, items=items)
 
@@ -650,6 +657,20 @@ class ComputeJobStore:
             statement = statement.where(ComputeJobModel.calculation_id.contains(calculation_id_contains))
         return statement
 
+    @staticmethod
+    def _build_active_since_expression():
+        return case(
+            (ComputeJobModel.job_status == ComputeJobStatus.RUNNING.value, ComputeJobModel.started_at_utc),
+            (ComputeJobModel.job_status == ComputeJobStatus.LEASED.value, ComputeJobModel.leased_at_utc),
+            (ComputeJobModel.job_status == ComputeJobStatus.FAILED.value, ComputeJobModel.completed_at_utc),
+            else_=ComputeJobModel.created_at_utc,
+        )
+
+    def _apply_min_age_filter(self, statement, *, min_age_threshold: datetime | None):
+        if min_age_threshold is None:
+            return statement
+        return statement.where(self._build_active_since_expression() <= min_age_threshold)
+
     def _build_active_inspection_items_statement(
         self,
         *,
@@ -657,12 +678,9 @@ class ComputeJobStore:
         offset: int,
         analytics_type: str | None,
         calculation_id_contains: str | None,
+        min_age_threshold: datetime | None,
     ):
-        active_since = case(
-            (ComputeJobModel.job_status == ComputeJobStatus.RUNNING.value, ComputeJobModel.started_at_utc),
-            (ComputeJobModel.job_status == ComputeJobStatus.LEASED.value, ComputeJobModel.leased_at_utc),
-            else_=ComputeJobModel.created_at_utc,
-        )
+        active_since = self._build_active_since_expression()
         statement = (
             select(ComputeJobModel)
             .where(
@@ -679,7 +697,7 @@ class ComputeJobStore:
             .limit(limit)
         )
         return self._apply_inspection_filters(
-            statement,
+            self._apply_min_age_filter(statement, min_age_threshold=min_age_threshold),
             analytics_type=analytics_type,
             calculation_id_contains=calculation_id_contains,
         )
@@ -691,6 +709,7 @@ class ComputeJobStore:
         offset: int,
         analytics_type: str | None,
         calculation_id_contains: str | None,
+        min_age_threshold: datetime | None,
     ):
         statement = (
             select(ComputeJobModel)
@@ -700,7 +719,7 @@ class ComputeJobStore:
             .limit(limit)
         )
         return self._apply_inspection_filters(
-            statement,
+            self._apply_min_age_filter(statement, min_age_threshold=min_age_threshold),
             analytics_type=analytics_type,
             calculation_id_contains=calculation_id_contains,
         )
@@ -712,13 +731,9 @@ class ComputeJobStore:
         offset: int,
         analytics_type: str | None,
         calculation_id_contains: str | None,
+        min_age_threshold: datetime | None,
     ):
-        active_since = case(
-            (ComputeJobModel.job_status == ComputeJobStatus.RUNNING.value, ComputeJobModel.started_at_utc),
-            (ComputeJobModel.job_status == ComputeJobStatus.LEASED.value, ComputeJobModel.leased_at_utc),
-            (ComputeJobModel.job_status == ComputeJobStatus.FAILED.value, ComputeJobModel.completed_at_utc),
-            else_=ComputeJobModel.created_at_utc,
-        )
+        active_since = self._build_active_since_expression()
         statement = (
             select(ComputeJobModel)
             .order_by(active_since.asc().nullslast(), ComputeJobModel.created_at_utc.asc())
@@ -726,12 +741,18 @@ class ComputeJobStore:
             .limit(limit)
         )
         return self._apply_inspection_filters(
-            statement,
+            self._apply_min_age_filter(statement, min_age_threshold=min_age_threshold),
             analytics_type=analytics_type,
             calculation_id_contains=calculation_id_contains,
         )
 
-    def _build_active_inspection_count_statement(self, *, analytics_type: str | None, calculation_id_contains: str | None):
+    def _build_active_inspection_count_statement(
+        self,
+        *,
+        analytics_type: str | None,
+        calculation_id_contains: str | None,
+        min_age_threshold: datetime | None,
+    ):
         statement = select(func.count()).select_from(ComputeJobModel).where(
             ComputeJobModel.job_status.in_(
                 [
@@ -742,25 +763,37 @@ class ComputeJobStore:
             )
         )
         return self._apply_inspection_filters(
-            statement,
+            self._apply_min_age_filter(statement, min_age_threshold=min_age_threshold),
             analytics_type=analytics_type,
             calculation_id_contains=calculation_id_contains,
         )
 
-    def _build_failed_inspection_count_statement(self, *, analytics_type: str | None, calculation_id_contains: str | None):
+    def _build_failed_inspection_count_statement(
+        self,
+        *,
+        analytics_type: str | None,
+        calculation_id_contains: str | None,
+        min_age_threshold: datetime | None,
+    ):
         statement = select(func.count()).select_from(ComputeJobModel).where(
             ComputeJobModel.job_status == ComputeJobStatus.FAILED.value
         )
         return self._apply_inspection_filters(
-            statement,
+            self._apply_min_age_filter(statement, min_age_threshold=min_age_threshold),
             analytics_type=analytics_type,
             calculation_id_contains=calculation_id_contains,
         )
 
-    def _build_all_inspection_count_statement(self, *, analytics_type: str | None, calculation_id_contains: str | None):
+    def _build_all_inspection_count_statement(
+        self,
+        *,
+        analytics_type: str | None,
+        calculation_id_contains: str | None,
+        min_age_threshold: datetime | None,
+    ):
         statement = select(func.count()).select_from(ComputeJobModel)
         return self._apply_inspection_filters(
-            statement,
+            self._apply_min_age_filter(statement, min_age_threshold=min_age_threshold),
             analytics_type=analytics_type,
             calculation_id_contains=calculation_id_contains,
         )

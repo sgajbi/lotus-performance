@@ -361,7 +361,7 @@ def test_compute_job_store_lists_active_and_failed_inspection_items(tmp_path):
     assert failed_page.items[0].error_type == "RuntimeError"
     assert failed_page.items[0].error_message == "boom"
     assert failed_page.items[0].age_seconds == 15.0
-    assert stale_page.total_count == 2
+    assert stale_page.total_count == 1
     assert [item.calculation_id for item in stale_page.items] == [str(pending_id)]
 
 

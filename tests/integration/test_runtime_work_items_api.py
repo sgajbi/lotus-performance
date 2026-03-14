@@ -214,7 +214,7 @@ def test_runtime_work_items_supports_queue_offset_and_age_filters():
         assert body["queue_filter"] == "compute"
         assert body["offset"] == 1
         assert body["min_age_seconds"] == 120.0
-        assert body["compute_queue"]["total_count"] == 3
+        assert body["compute_queue"]["total_count"] == 2
         assert body["compute_queue"]["returned_count"] == 1
         assert [item["calculation_id"] for item in body["compute_items"]] == [str(compute_ids[1])]
         assert body["lineage_queue"] == {"status": "excluded", "total_count": 0, "returned_count": 0}

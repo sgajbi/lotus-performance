@@ -373,12 +373,17 @@ class LineageMetadataStore:
     ) -> LineageQueueInspectionPage:
         inspection_now = now or datetime.now(timezone.utc)
         normalized_status_filter = status_filter.lower()
+        min_age_threshold = (
+            inspection_now - timedelta(seconds=min_age_seconds) if min_age_seconds > 0 else None
+        )
 
         with self._session() as session:
             if normalized_status_filter == "active":
                 count_statement = self._build_active_inspection_count_statement(
+                    now=inspection_now,
                     calculation_type=calculation_type,
                     calculation_id_contains=calculation_id_contains,
+                    min_age_threshold=min_age_threshold,
                 )
                 statement = self._build_active_inspection_items_statement(
                     now=inspection_now,
@@ -386,22 +391,29 @@ class LineageMetadataStore:
                     offset=offset,
                     calculation_type=calculation_type,
                     calculation_id_contains=calculation_id_contains,
+                    min_age_threshold=min_age_threshold,
                 )
             elif normalized_status_filter == "failed":
                 count_statement = self._build_failed_inspection_count_statement(
+                    now=inspection_now,
                     calculation_type=calculation_type,
                     calculation_id_contains=calculation_id_contains,
+                    min_age_threshold=min_age_threshold,
                 )
                 statement = self._build_failed_inspection_items_statement(
+                    now=inspection_now,
                     limit=limit,
                     offset=offset,
                     calculation_type=calculation_type,
                     calculation_id_contains=calculation_id_contains,
+                    min_age_threshold=min_age_threshold,
                 )
             elif normalized_status_filter == "all":
                 count_statement = self._build_all_inspection_count_statement(
+                    now=inspection_now,
                     calculation_type=calculation_type,
                     calculation_id_contains=calculation_id_contains,
+                    min_age_threshold=min_age_threshold,
                 )
                 statement = self._build_all_inspection_items_statement(
                     now=inspection_now,
@@ -409,13 +421,12 @@ class LineageMetadataStore:
                     offset=offset,
                     calculation_type=calculation_type,
                     calculation_id_contains=calculation_id_contains,
+                    min_age_threshold=min_age_threshold,
                 )
             else:
                 raise ValueError(f"Unsupported status filter: {status_filter}")
             rows = session.execute(statement).all()
             items = [self._to_inspection_item(record, payload, now=inspection_now) for record, payload in rows]
-            if min_age_seconds > 0:
-                items = [item for item in items if item.age_seconds is not None and item.age_seconds >= min_age_seconds]
             total_count = int(session.execute(count_statement).scalar_one() or 0)
             return LineageQueueInspectionPage(total_count=total_count, items=items)
 
@@ -517,11 +528,33 @@ class LineageMetadataStore:
             statement = statement.where(LineageRecordModel.calculation_id.contains(calculation_id_contains))
         return statement
 
+    @staticmethod
+    def _build_active_since_expression(*, now: datetime):
+        return case(
+            (LineageRecordModel.status == LineageStatus.FAILED.value, LineageRecordModel.timestamp_utc),
+            (
+                (LineagePayloadModel.leased_at_utc.is_not(None))
+                & (
+                    LineagePayloadModel.lease_expires_at_utc.is_(None)
+                    | (LineagePayloadModel.lease_expires_at_utc >= now)
+                ),
+                LineagePayloadModel.leased_at_utc,
+            ),
+            else_=LineagePayloadModel.created_at_utc,
+        )
+
+    def _apply_min_age_filter(self, statement, *, now: datetime, min_age_threshold: datetime | None):
+        if min_age_threshold is None:
+            return statement
+        return statement.where(self._build_active_since_expression(now=now) <= min_age_threshold)
+
     def _build_active_inspection_count_statement(
         self,
         *,
+        now: datetime,
         calculation_type: str | None,
         calculation_id_contains: str | None,
+        min_age_threshold: datetime | None,
     ):
         statement = (
             select(func.count())
@@ -530,7 +563,7 @@ class LineageMetadataStore:
             .where(LineageRecordModel.status == LineageStatus.PENDING.value)
         )
         return self._apply_inspection_filters(
-            statement,
+            self._apply_min_age_filter(statement, now=now, min_age_threshold=min_age_threshold),
             calculation_type=calculation_type,
             calculation_id_contains=calculation_id_contains,
         )
@@ -538,14 +571,19 @@ class LineageMetadataStore:
     def _build_failed_inspection_count_statement(
         self,
         *,
+        now: datetime,
         calculation_type: str | None,
         calculation_id_contains: str | None,
+        min_age_threshold: datetime | None,
     ):
-        statement = select(func.count()).select_from(LineageRecordModel).where(
-            LineageRecordModel.status == LineageStatus.FAILED.value
+        statement = (
+            select(func.count())
+            .select_from(LineageRecordModel)
+            .outerjoin(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
+            .where(LineageRecordModel.status == LineageStatus.FAILED.value)
         )
         return self._apply_inspection_filters(
-            statement,
+            self._apply_min_age_filter(statement, now=now, min_age_threshold=min_age_threshold),
             calculation_type=calculation_type,
             calculation_id_contains=calculation_id_contains,
         )
@@ -553,12 +591,18 @@ class LineageMetadataStore:
     def _build_all_inspection_count_statement(
         self,
         *,
+        now: datetime,
         calculation_type: str | None,
         calculation_id_contains: str | None,
+        min_age_threshold: datetime | None,
     ):
-        statement = select(func.count()).select_from(LineageRecordModel)
+        statement = (
+            select(func.count())
+            .select_from(LineageRecordModel)
+            .outerjoin(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
+        )
         return self._apply_inspection_filters(
-            statement,
+            self._apply_min_age_filter(statement, now=now, min_age_threshold=min_age_threshold),
             calculation_type=calculation_type,
             calculation_id_contains=calculation_id_contains,
         )
@@ -571,18 +615,9 @@ class LineageMetadataStore:
         offset: int,
         calculation_type: str | None,
         calculation_id_contains: str | None,
+        min_age_threshold: datetime | None,
     ):
-        active_since = case(
-            (
-                (LineagePayloadModel.leased_at_utc.is_not(None))
-                & (
-                    LineagePayloadModel.lease_expires_at_utc.is_(None)
-                    | (LineagePayloadModel.lease_expires_at_utc >= now)
-                ),
-                LineagePayloadModel.leased_at_utc,
-            ),
-            else_=LineagePayloadModel.created_at_utc,
-        )
+        active_since = self._build_active_since_expression(now=now)
         statement = (
             select(LineageRecordModel, LineagePayloadModel)
             .join(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
@@ -592,7 +627,7 @@ class LineageMetadataStore:
             .limit(limit)
         )
         return self._apply_inspection_filters(
-            statement,
+            self._apply_min_age_filter(statement, now=now, min_age_threshold=min_age_threshold),
             calculation_type=calculation_type,
             calculation_id_contains=calculation_id_contains,
         )
@@ -600,10 +635,12 @@ class LineageMetadataStore:
     def _build_failed_inspection_items_statement(
         self,
         *,
+        now: datetime,
         limit: int,
         offset: int,
         calculation_type: str | None,
         calculation_id_contains: str | None,
+        min_age_threshold: datetime | None,
     ):
         statement = (
             select(LineageRecordModel, LineagePayloadModel)
@@ -614,7 +651,7 @@ class LineageMetadataStore:
             .limit(limit)
         )
         return self._apply_inspection_filters(
-            statement,
+            self._apply_min_age_filter(statement, now=now, min_age_threshold=min_age_threshold),
             calculation_type=calculation_type,
             calculation_id_contains=calculation_id_contains,
         )
@@ -627,19 +664,9 @@ class LineageMetadataStore:
         offset: int,
         calculation_type: str | None,
         calculation_id_contains: str | None,
+        min_age_threshold: datetime | None,
     ):
-        active_since = case(
-            (LineageRecordModel.status == LineageStatus.FAILED.value, LineageRecordModel.timestamp_utc),
-            (
-                (LineagePayloadModel.leased_at_utc.is_not(None))
-                & (
-                    LineagePayloadModel.lease_expires_at_utc.is_(None)
-                    | (LineagePayloadModel.lease_expires_at_utc >= now)
-                ),
-                LineagePayloadModel.leased_at_utc,
-            ),
-            else_=LineagePayloadModel.created_at_utc,
-        )
+        active_since = self._build_active_since_expression(now=now)
         statement = (
             select(LineageRecordModel, LineagePayloadModel)
             .outerjoin(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
@@ -648,7 +675,7 @@ class LineageMetadataStore:
             .limit(limit)
         )
         return self._apply_inspection_filters(
-            statement,
+            self._apply_min_age_filter(statement, now=now, min_age_threshold=min_age_threshold),
             calculation_type=calculation_type,
             calculation_id_contains=calculation_id_contains,
         )
