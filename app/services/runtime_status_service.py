@@ -91,6 +91,21 @@ def _build_lineage_queue_status(durability_status: DurabilityHealthStatus, *, se
 
 def _compute_queue_degrade_reason(stats: ComputeQueueStats, *, settings) -> str | None:
     if (
+        settings.RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT > 0
+        and stats.retry_backlog_count >= settings.RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT
+    ):
+        return "compute_retry_backlog_exceeded"
+    if (
+        settings.RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT > 0
+        and stats.terminal_failure_count >= settings.RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT
+    ):
+        return "compute_terminal_failure_exceeded"
+    if (
+        settings.RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT > 0
+        and stats.lease_expired_count >= settings.RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT
+    ):
+        return "compute_lease_expiry_pressure_exceeded"
+    if (
         settings.RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS > 0
         and stats.oldest_pending_age_seconds >= settings.RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS
     ):
@@ -109,6 +124,16 @@ def _compute_queue_degrade_reason(stats: ComputeQueueStats, *, settings) -> str 
 
 
 def _lineage_queue_degrade_reason(stats: LineageQueueStats, *, settings) -> str | None:
+    if (
+        settings.RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT > 0
+        and stats.retry_backlog_count >= settings.RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT
+    ):
+        return "lineage_retry_backlog_exceeded"
+    if (
+        settings.RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT > 0
+        and stats.terminal_failure_count >= settings.RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT
+    ):
+        return "lineage_terminal_failure_exceeded"
     if (
         settings.RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS > 0
         and stats.oldest_pending_age_seconds >= settings.RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS

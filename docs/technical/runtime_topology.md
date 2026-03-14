@@ -81,7 +81,10 @@ For point-in-time operator drill-down, `GET /integration/runtime-status` exposes
 durable queue state as a JSON control-plane snapshot, including the oldest pending, leased,
 and running compute-job ages plus retry-backlog, lease-expiry, and terminal-failure counts
 for compute and lineage. If configured age thresholds are exceeded, the runtime-status surface
-degrades proactively instead of only reporting raw queue numbers.
+degrades proactively instead of only reporting raw queue numbers. Runtime status can also
+degrade when configured failure-pressure thresholds are crossed for compute retry backlog,
+compute lease-expiry recoveries, compute terminal failures, lineage retry backlog, or lineage
+terminal failures.
 
 ## Failure recovery model
 

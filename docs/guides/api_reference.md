@@ -96,7 +96,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - retry-backlog, lease-expiry, and terminal-failure compute-job counts
   - lineage queue backlog details
   - retry-backlog and terminal-failure lineage payload counts
-- runtime may report `degraded` when configured queue-age thresholds are exceeded
+- runtime may report `degraded` when configured queue-age or failure-pressure thresholds are exceeded
 
 ### `POST /integration/returns/series`
 

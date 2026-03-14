@@ -193,3 +193,66 @@ def test_runtime_status_exposes_lineage_failure_pressure_counts():
         assert body["lineage_queue"]["terminal_failure_payloads"] == 1
     finally:
         lineage_metadata_store.clear_all_records()
+
+
+def test_runtime_status_reports_degraded_when_compute_failure_threshold_is_exceeded():
+    settings = __import__("app.core.config", fromlist=["get_settings"]).get_settings()
+    original_threshold = settings.RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT
+    settings.RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT = 1
+
+    try:
+        compute_job_store.create_schema()
+        compute_job_store.clear_all_records()
+        retry_id = uuid4()
+        compute_job_store.enqueue_job(
+            calculation_id=retry_id,
+            analytics_type="ReturnsSeries",
+            request_payload={"portfolio_id": "PF-RETRY-DEGRADE"},
+        )
+        with compute_job_store._session() as session:
+            row = compute_job_store._get_model(session, retry_id)
+            row.attempt_count = 1
+
+        with TestClient(app) as client:
+            response = client.get("/integration/runtime-status")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["runtime_status"] == "degraded"
+        assert body["compute_queue"]["status"] == "degraded"
+        assert body["compute_queue"]["reason"] == "compute_retry_backlog_exceeded"
+    finally:
+        settings.RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT = original_threshold
+        compute_job_store.clear_all_records()
+
+
+def test_runtime_status_reports_degraded_when_lineage_failure_threshold_is_exceeded():
+    settings = __import__("app.core.config", fromlist=["get_settings"]).get_settings()
+    original_threshold = settings.RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT
+    settings.RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT = 1
+
+    try:
+        lineage_metadata_store.create_schema()
+        lineage_metadata_store.clear_all_records()
+        failed_id = uuid4()
+        lineage_metadata_store.enqueue_lineage_payload(
+            calculation_id=failed_id,
+            calculation_type="TWR",
+            request_json="{}",
+            response_json="{}",
+            details={"request.json": "{}"},
+        )
+        lineage_metadata_store.increment_attempt_count(failed_id)
+        lineage_metadata_store.mark_failed(failed_id, error_message="write failed")
+
+        with TestClient(app) as client:
+            response = client.get("/integration/runtime-status")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["runtime_status"] == "degraded"
+        assert body["lineage_queue"]["status"] == "degraded"
+        assert body["lineage_queue"]["reason"] == "lineage_terminal_failure_exceeded"
+    finally:
+        settings.RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT = original_threshold
+        lineage_metadata_store.clear_all_records()
