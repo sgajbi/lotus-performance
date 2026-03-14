@@ -107,6 +107,14 @@ class ComputeQueueStats:
 
 
 @dataclass(frozen=True)
+class ComputeQueueInspectionAnchors:
+    oldest_pending_calculation_id: str | None
+    oldest_leased_calculation_id: str | None
+    oldest_running_calculation_id: str | None
+    latest_terminal_failure_calculation_id: str | None
+
+
+@dataclass(frozen=True)
 class ComputeJobRegistrationResult:
     status: ComputeJobRegistrationStatus
     existing_status: ComputeJobStatus | None = None
@@ -468,6 +476,16 @@ class ComputeJobStore:
                 oldest_running_age_seconds=oldest_running_age_seconds,
             )
 
+    def get_queue_inspection_anchors(self) -> ComputeQueueInspectionAnchors:
+        with self._session() as session:
+            row = session.execute(self._build_queue_inspection_anchors_statement()).one()
+            return ComputeQueueInspectionAnchors(
+                oldest_pending_calculation_id=row.oldest_pending_calculation_id,
+                oldest_leased_calculation_id=row.oldest_leased_calculation_id,
+                oldest_running_calculation_id=row.oldest_running_calculation_id,
+                latest_terminal_failure_calculation_id=row.latest_terminal_failure_calculation_id,
+            )
+
     def _build_queue_stats_statement(self):
         return select(
             func.sum(case((ComputeJobModel.job_status == ComputeJobStatus.PENDING.value, 1), else_=0)).label(
@@ -515,6 +533,37 @@ class ComputeJobStore:
             func.min(
                 case((ComputeJobModel.job_status == ComputeJobStatus.RUNNING.value, ComputeJobModel.started_at_utc))
             ).label("oldest_running_at"),
+        )
+
+    def _build_queue_inspection_anchors_statement(self):
+        return select(
+            select(ComputeJobModel.calculation_id)
+            .where(ComputeJobModel.job_status == ComputeJobStatus.PENDING.value)
+            .order_by(ComputeJobModel.created_at_utc.asc())
+            .limit(1)
+            .scalar_subquery()
+            .label("oldest_pending_calculation_id"),
+            select(ComputeJobModel.calculation_id)
+            .where(ComputeJobModel.job_status == ComputeJobStatus.LEASED.value)
+            .order_by(ComputeJobModel.leased_at_utc.asc(), ComputeJobModel.created_at_utc.asc())
+            .limit(1)
+            .scalar_subquery()
+            .label("oldest_leased_calculation_id"),
+            select(ComputeJobModel.calculation_id)
+            .where(ComputeJobModel.job_status == ComputeJobStatus.RUNNING.value)
+            .order_by(ComputeJobModel.started_at_utc.asc(), ComputeJobModel.created_at_utc.asc())
+            .limit(1)
+            .scalar_subquery()
+            .label("oldest_running_calculation_id"),
+            select(ComputeJobModel.calculation_id)
+            .where(
+                (ComputeJobModel.job_status == ComputeJobStatus.FAILED.value)
+                & (ComputeJobModel.error_type != "LeaseExpired")
+            )
+            .order_by(ComputeJobModel.completed_at_utc.desc(), ComputeJobModel.created_at_utc.desc())
+            .limit(1)
+            .scalar_subquery()
+            .label("latest_terminal_failure_calculation_id"),
         )
 
     def _get_model(self, session: Session, calculation_id: UUID) -> ComputeJobModel:

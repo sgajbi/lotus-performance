@@ -57,6 +57,8 @@ def test_runtime_status_reports_durable_queue_state():
     assert body["compute_queue"]["terminal_failure_jobs"] == 0
     assert body["compute_queue"]["oldest_leased_age_seconds"] == 0.0
     assert body["compute_queue"]["oldest_running_age_seconds"] == 0.0
+    assert body["compute_queue"]["inspection_anchors"]["oldest_pending_calculation_id"] is not None
+    assert body["compute_queue"]["inspection_anchors"].get("oldest_leased_calculation_id") is None
     assert body["lineage_queue"]["status"] == "available"
     assert body["lineage_queue"]["degradation_reasons"] == []
     assert body["lineage_queue"]["degradation_details"] == []
@@ -65,6 +67,8 @@ def test_runtime_status_reports_durable_queue_state():
     assert body["lineage_queue"]["retry_backlog_payloads"] == 0
     assert body["lineage_queue"]["terminal_failure_payloads"] == 0
     assert body["lineage_queue"]["oldest_leased_age_seconds"] == 0.0
+    assert body["lineage_queue"]["inspection_anchors"]["oldest_pending_calculation_id"] is not None
+    assert body["lineage_queue"]["inspection_anchors"].get("oldest_leased_calculation_id") is None
     assert body["recovery_drill"]["status"] == "available"
     assert "latest_status" in body["recovery_drill"]
     assert body["recovery_drill_policy"]["max_age_seconds"] >= 0.0

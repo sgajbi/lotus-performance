@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING, cast
 
 from pydantic import BaseModel, Field
 
-from app.services.compute_job_store import ComputeQueueStats
-from app.services.lineage_metadata_store import LineageQueueStats
+from app.services.compute_job_store import ComputeQueueInspectionAnchors, ComputeQueueStats
+from app.services.lineage_metadata_store import LineageQueueInspectionAnchors, LineageQueueStats
 
 if TYPE_CHECKING:
     from app.services.runtime_status_service import RuntimeStatusSnapshot
@@ -24,6 +24,40 @@ class RuntimeDegradationDetailResponse(BaseModel):
     reason: str = Field(description="Concrete degradation trigger identifier.")
     observed_value: float = Field(description="Observed runtime value that breached the configured threshold.")
     threshold_value: float = Field(description="Configured threshold value that was exceeded.")
+
+
+class ComputeQueueInspectionAnchorsResponse(BaseModel):
+    oldest_pending_calculation_id: str | None = Field(
+        default=None,
+        description="Calculation handle of the oldest pending compute job, if one exists.",
+    )
+    oldest_leased_calculation_id: str | None = Field(
+        default=None,
+        description="Calculation handle of the oldest leased compute job, if one exists.",
+    )
+    oldest_running_calculation_id: str | None = Field(
+        default=None,
+        description="Calculation handle of the oldest running compute job, if one exists.",
+    )
+    latest_terminal_failure_calculation_id: str | None = Field(
+        default=None,
+        description="Calculation handle of the most recently terminally failed compute job, if one exists.",
+    )
+
+
+class LineageQueueInspectionAnchorsResponse(BaseModel):
+    oldest_pending_calculation_id: str | None = Field(
+        default=None,
+        description="Calculation handle of the oldest pending lineage payload, if one exists.",
+    )
+    oldest_leased_calculation_id: str | None = Field(
+        default=None,
+        description="Calculation handle of the oldest leased lineage payload, if one exists.",
+    )
+    latest_terminal_failure_calculation_id: str | None = Field(
+        default=None,
+        description="Calculation handle of the most recently terminally failed lineage item, if one exists.",
+    )
 
 
 class ComputeQueueStatusDetailsResponse(BaseModel):
@@ -72,6 +106,10 @@ class ComputeQueueStatusDetailsResponse(BaseModel):
         default=None,
         description="Age in seconds of the oldest running compute job currently executing.",
     )
+    inspection_anchors: ComputeQueueInspectionAnchorsResponse | None = Field(
+        default=None,
+        description="Concrete calculation handles for the current oldest or most recent compute work items of operator interest.",
+    )
 
 
 class LineageQueueStatusDetailsResponse(BaseModel):
@@ -111,6 +149,10 @@ class LineageQueueStatusDetailsResponse(BaseModel):
     oldest_leased_age_seconds: float | None = Field(
         default=None,
         description="Age in seconds of the oldest claimed lineage payload still in progress.",
+    )
+    inspection_anchors: LineageQueueInspectionAnchorsResponse | None = Field(
+        default=None,
+        description="Concrete calculation handles for the current oldest or most recent lineage work items of operator interest.",
     )
 
 
@@ -245,6 +287,8 @@ def _degradation_details_response(details) -> list[RuntimeDegradationDetailRespo
 def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeStatusResponse:
     compute_stats = cast(ComputeQueueStats | None, snapshot.compute_queue.stats)
     lineage_stats = cast(LineageQueueStats | None, snapshot.lineage_queue.stats)
+    compute_anchors = cast(ComputeQueueInspectionAnchors | None, snapshot.compute_queue.inspection_anchors)
+    lineage_anchors = cast(LineageQueueInspectionAnchors | None, snapshot.lineage_queue.inspection_anchors)
 
     return RuntimeStatusResponse(
         contract_version="v1",
@@ -274,6 +318,16 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
             oldest_pending_age_seconds=None if compute_stats is None else compute_stats.oldest_pending_age_seconds,
             oldest_leased_age_seconds=None if compute_stats is None else compute_stats.oldest_leased_age_seconds,
             oldest_running_age_seconds=None if compute_stats is None else compute_stats.oldest_running_age_seconds,
+            inspection_anchors=(
+                None
+                if compute_anchors is None
+                else ComputeQueueInspectionAnchorsResponse(
+                    oldest_pending_calculation_id=compute_anchors.oldest_pending_calculation_id,
+                    oldest_leased_calculation_id=compute_anchors.oldest_leased_calculation_id,
+                    oldest_running_calculation_id=compute_anchors.oldest_running_calculation_id,
+                    latest_terminal_failure_calculation_id=compute_anchors.latest_terminal_failure_calculation_id,
+                )
+            ),
         ),
         lineage_queue=LineageQueueStatusDetailsResponse(
             status=snapshot.lineage_queue.status,
@@ -286,6 +340,15 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
             terminal_failure_payloads=None if lineage_stats is None else lineage_stats.terminal_failure_count,
             oldest_pending_age_seconds=None if lineage_stats is None else lineage_stats.oldest_pending_age_seconds,
             oldest_leased_age_seconds=None if lineage_stats is None else lineage_stats.oldest_leased_age_seconds,
+            inspection_anchors=(
+                None
+                if lineage_anchors is None
+                else LineageQueueInspectionAnchorsResponse(
+                    oldest_pending_calculation_id=lineage_anchors.oldest_pending_calculation_id,
+                    oldest_leased_calculation_id=lineage_anchors.oldest_leased_calculation_id,
+                    latest_terminal_failure_calculation_id=lineage_anchors.latest_terminal_failure_calculation_id,
+                )
+            ),
         ),
         recovery_drill=RecoveryDrillStatusResponse(
             status=snapshot.recovery_drill.status,

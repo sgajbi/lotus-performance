@@ -4,12 +4,20 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from app.core.config import get_settings
-from app.services.compute_job_store import ComputeQueueStats, compute_job_store
+from app.services.compute_job_store import (
+    ComputeQueueInspectionAnchors,
+    ComputeQueueStats,
+    compute_job_store,
+)
 from app.services.durability_health_service import (
     DurabilityHealthStatus,
     check_durable_metadata_store_ready,
 )
-from app.services.lineage_metadata_store import LineageQueueStats, lineage_metadata_store
+from app.services.lineage_metadata_store import (
+    LineageQueueInspectionAnchors,
+    LineageQueueStats,
+    lineage_metadata_store,
+)
 from app.services.recovery_drill_history_service import (
     build_recovery_drill_history_snapshot,
 )
@@ -22,6 +30,7 @@ class RuntimeQueueStatus:
     degradation_reasons: tuple[str, ...]
     degradation_details: tuple["RuntimeDegradationDetail", ...]
     stats: ComputeQueueStats | LineageQueueStats | None
+    inspection_anchors: ComputeQueueInspectionAnchors | LineageQueueInspectionAnchors | None
 
 
 @dataclass(frozen=True)
@@ -135,9 +144,11 @@ def _build_compute_queue_status(durability_status: DurabilityHealthStatus, *, se
             degradation_reasons=(),
             degradation_details=(),
             stats=None,
+            inspection_anchors=None,
         )
     try:
         stats = compute_job_store.get_queue_stats()
+        inspection_anchors = _safe_compute_queue_inspection_anchors()
         degradation_details = _compute_queue_degradation_details(stats, settings=settings)
         degradation_reasons = tuple(detail.reason for detail in degradation_details)
         if degradation_reasons:
@@ -147,6 +158,7 @@ def _build_compute_queue_status(durability_status: DurabilityHealthStatus, *, se
                 degradation_reasons=degradation_reasons,
                 degradation_details=degradation_details,
                 stats=stats,
+                inspection_anchors=inspection_anchors,
             )
         return RuntimeQueueStatus(
             status="available",
@@ -154,6 +166,7 @@ def _build_compute_queue_status(durability_status: DurabilityHealthStatus, *, se
             degradation_reasons=(),
             degradation_details=(),
             stats=stats,
+            inspection_anchors=inspection_anchors,
         )
     except Exception as exc:
         return RuntimeQueueStatus(
@@ -162,6 +175,7 @@ def _build_compute_queue_status(durability_status: DurabilityHealthStatus, *, se
             degradation_reasons=(),
             degradation_details=(),
             stats=None,
+            inspection_anchors=None,
         )
 
 
@@ -173,9 +187,11 @@ def _build_lineage_queue_status(durability_status: DurabilityHealthStatus, *, se
             degradation_reasons=(),
             degradation_details=(),
             stats=None,
+            inspection_anchors=None,
         )
     try:
         stats = lineage_metadata_store.get_pending_payload_stats()
+        inspection_anchors = _safe_lineage_queue_inspection_anchors()
         degradation_details = _lineage_queue_degradation_details(stats, settings=settings)
         degradation_reasons = tuple(detail.reason for detail in degradation_details)
         if degradation_reasons:
@@ -185,6 +201,7 @@ def _build_lineage_queue_status(durability_status: DurabilityHealthStatus, *, se
                 degradation_reasons=degradation_reasons,
                 degradation_details=degradation_details,
                 stats=stats,
+                inspection_anchors=inspection_anchors,
             )
         return RuntimeQueueStatus(
             status="available",
@@ -192,6 +209,7 @@ def _build_lineage_queue_status(durability_status: DurabilityHealthStatus, *, se
             degradation_reasons=(),
             degradation_details=(),
             stats=stats,
+            inspection_anchors=inspection_anchors,
         )
     except Exception as exc:
         return RuntimeQueueStatus(
@@ -200,7 +218,22 @@ def _build_lineage_queue_status(durability_status: DurabilityHealthStatus, *, se
             degradation_reasons=(),
             degradation_details=(),
             stats=None,
+            inspection_anchors=None,
         )
+
+
+def _safe_compute_queue_inspection_anchors() -> ComputeQueueInspectionAnchors | None:
+    try:
+        return compute_job_store.get_queue_inspection_anchors()
+    except Exception:
+        return None
+
+
+def _safe_lineage_queue_inspection_anchors() -> LineageQueueInspectionAnchors | None:
+    try:
+        return lineage_metadata_store.get_queue_inspection_anchors()
+    except Exception:
+        return None
 
 
 def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:

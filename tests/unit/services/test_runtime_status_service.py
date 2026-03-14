@@ -1,8 +1,8 @@
 from datetime import UTC, datetime
 
-from app.services.compute_job_store import ComputeQueueStats
+from app.services.compute_job_store import ComputeQueueInspectionAnchors, ComputeQueueStats
 from app.services.durability_health_service import DurabilityHealthStatus
-from app.services.lineage_metadata_store import LineageQueueStats
+from app.services.lineage_metadata_store import LineageQueueInspectionAnchors, LineageQueueStats
 from app.services.recovery_drill_history_service import RecoveryDrillHistoryEntry, RecoveryDrillHistorySnapshot
 from app.services.runtime_status_service import build_runtime_status_snapshot
 
@@ -47,6 +47,15 @@ def test_runtime_status_snapshot_reports_ready_with_queue_stats(mocker):
         ),
     )
     mocker.patch(
+        "app.services.runtime_status_service.compute_job_store.get_queue_inspection_anchors",
+        return_value=ComputeQueueInspectionAnchors(
+            oldest_pending_calculation_id="calc-pending",
+            oldest_leased_calculation_id="calc-leased",
+            oldest_running_calculation_id="calc-running",
+            latest_terminal_failure_calculation_id="calc-failed",
+        ),
+    )
+    mocker.patch(
         "app.services.runtime_status_service.lineage_metadata_store.get_pending_payload_stats",
         return_value=LineageQueueStats(
             pending_payload_count=6,
@@ -55,6 +64,14 @@ def test_runtime_status_snapshot_reports_ready_with_queue_stats(mocker):
             terminal_failure_count=1,
             oldest_pending_age_seconds=45.0,
             oldest_leased_age_seconds=12.0,
+        ),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.lineage_metadata_store.get_queue_inspection_anchors",
+        return_value=LineageQueueInspectionAnchors(
+            oldest_pending_calculation_id="lineage-pending",
+            oldest_leased_calculation_id="lineage-leased",
+            latest_terminal_failure_calculation_id="lineage-failed",
         ),
     )
     mocker.patch(
@@ -90,6 +107,8 @@ def test_runtime_status_snapshot_reports_ready_with_queue_stats(mocker):
     assert snapshot.compute_queue.degradation_details == ()
     assert snapshot.compute_queue.stats is not None
     assert snapshot.compute_queue.stats.pending_count == 2
+    assert snapshot.compute_queue.inspection_anchors is not None
+    assert snapshot.compute_queue.inspection_anchors.oldest_running_calculation_id == "calc-running"
     assert snapshot.lineage_queue.status == "available"
     assert snapshot.lineage_queue.degradation_reasons == ()
     assert snapshot.lineage_queue.degradation_details == ()
@@ -97,6 +116,8 @@ def test_runtime_status_snapshot_reports_ready_with_queue_stats(mocker):
     assert snapshot.lineage_queue.stats.pending_payload_count == 6
     assert snapshot.lineage_queue.stats.leased_payload_count == 1
     assert snapshot.lineage_queue.stats.retry_backlog_count == 2
+    assert snapshot.lineage_queue.inspection_anchors is not None
+    assert snapshot.lineage_queue.inspection_anchors.latest_terminal_failure_calculation_id == "lineage-failed"
     assert isinstance(snapshot.generated_at, datetime)
     assert snapshot.generated_at.tzinfo == UTC
     assert snapshot.recovery_drill.status == "available"

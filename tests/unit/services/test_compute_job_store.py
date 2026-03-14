@@ -270,6 +270,49 @@ def test_compute_job_store_queue_stats(tmp_path):
     assert stats.oldest_running_age_seconds == 15.0
 
 
+def test_compute_job_store_queue_inspection_anchors(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    now = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+
+    pending_id = uuid4()
+    leased_id = uuid4()
+    running_id = uuid4()
+    failed_id = uuid4()
+
+    for calculation_id in [pending_id, leased_id, running_id, failed_id]:
+        store.enqueue_job(
+            calculation_id=calculation_id,
+            analytics_type="ReturnsSeries",
+            request_payload={"portfolio_id": str(calculation_id)},
+            max_attempts=2,
+        )
+
+    with store._session() as session:
+        pending_row = store._get_model(session, pending_id)
+        pending_row.created_at_utc = now - timedelta(seconds=120)
+
+        leased_row = store._get_model(session, leased_id)
+        leased_row.job_status = ComputeJobStatus.LEASED.value
+        leased_row.leased_at_utc = now - timedelta(seconds=90)
+
+        running_row = store._get_model(session, running_id)
+        running_row.job_status = ComputeJobStatus.RUNNING.value
+        running_row.started_at_utc = now - timedelta(seconds=60)
+
+        failed_row = store._get_model(session, failed_id)
+        failed_row.job_status = ComputeJobStatus.FAILED.value
+        failed_row.error_type = "RuntimeError"
+        failed_row.completed_at_utc = now - timedelta(seconds=5)
+
+    anchors = store.get_queue_inspection_anchors()
+
+    assert anchors.oldest_pending_calculation_id == str(pending_id)
+    assert anchors.oldest_leased_calculation_id == str(leased_id)
+    assert anchors.oldest_running_calculation_id == str(running_id)
+    assert anchors.latest_terminal_failure_calculation_id == str(failed_id)
+
+
 def test_compute_job_store_declares_hot_path_indexes(tmp_path):
     store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
     store.create_schema()

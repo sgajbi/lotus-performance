@@ -6,6 +6,7 @@ from sqlalchemy import event, inspect
 from app.services.lineage_metadata_store import (
     LineageMetadataStore,
     LineagePayloadModel,
+    LineageRecordModel,
     LineageStatus,
 )
 
@@ -205,6 +206,45 @@ def test_lineage_metadata_store_pending_payload_stats_include_active_leases(tmp_
     assert stats.pending_payload_count == 1
     assert stats.leased_payload_count == 1
     assert stats.oldest_leased_age_seconds == 15.0
+
+
+def test_lineage_metadata_store_queue_inspection_anchors(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    now = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+    pending_id = uuid4()
+    leased_id = uuid4()
+    failed_id = uuid4()
+
+    for calculation_id in [pending_id, leased_id, failed_id]:
+        store.enqueue_lineage_payload(
+            calculation_id=calculation_id,
+            calculation_type="TWR",
+            request_json="{}",
+            response_json="{}",
+            details={"details.json": "{}"},
+        )
+
+    store.mark_failed(failed_id, error_message="boom")
+
+    with store._session() as session:
+        pending_payload = session.get(LineagePayloadModel, str(pending_id))
+        leased_payload = session.get(LineagePayloadModel, str(leased_id))
+        failed_record = session.get(LineageRecordModel, str(failed_id))
+        assert pending_payload is not None
+        assert leased_payload is not None
+        assert failed_record is not None
+        pending_payload.created_at_utc = now - timedelta(seconds=120)
+        leased_payload.created_at_utc = now - timedelta(seconds=60)
+        leased_payload.leased_at_utc = now - timedelta(seconds=90)
+        leased_payload.lease_expires_at_utc = now + timedelta(seconds=30)
+        failed_record.timestamp_utc = now - timedelta(seconds=5)
+
+    anchors = store.get_queue_inspection_anchors(now=now)
+
+    assert anchors.oldest_pending_calculation_id == str(pending_id)
+    assert anchors.oldest_leased_calculation_id == str(leased_id)
+    assert anchors.latest_terminal_failure_calculation_id == str(failed_id)
 
 
 def test_lineage_metadata_store_mark_pending_clears_error(tmp_path):

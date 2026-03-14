@@ -88,6 +88,13 @@ class LineageQueueStats:
     oldest_leased_age_seconds: float = 0.0
 
 
+@dataclass(frozen=True)
+class LineageQueueInspectionAnchors:
+    oldest_pending_calculation_id: str | None = None
+    oldest_leased_calculation_id: str | None = None
+    latest_terminal_failure_calculation_id: str | None = None
+
+
 def _coerce_utc_datetime(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=timezone.utc)
@@ -325,6 +332,15 @@ class LineageMetadataStore:
                 oldest_leased_age_seconds=oldest_leased_age_seconds,
             )
 
+    def get_queue_inspection_anchors(self, *, now: datetime | None = None) -> LineageQueueInspectionAnchors:
+        with self._session() as session:
+            row = session.execute(self._build_queue_inspection_anchors_statement(now=now or datetime.now(timezone.utc))).one()
+            return LineageQueueInspectionAnchors(
+                oldest_pending_calculation_id=row.oldest_pending_calculation_id,
+                oldest_leased_calculation_id=row.oldest_leased_calculation_id,
+                latest_terminal_failure_calculation_id=row.latest_terminal_failure_calculation_id,
+            )
+
     def _build_pending_payload_stats_statement(self, *, now: datetime):
         return (
             select(
@@ -377,6 +393,43 @@ class LineageMetadataStore:
             )
             .select_from(LineagePayloadModel)
             .join(LineageRecordModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
+        )
+
+    def _build_queue_inspection_anchors_statement(self, *, now: datetime):
+        pending_lookup = (
+            select(LineagePayloadModel.calculation_id)
+            .join(LineageRecordModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
+            .where(LineageRecordModel.status == LineageStatus.PENDING.value)
+            .order_by(LineagePayloadModel.created_at_utc.asc())
+            .limit(1)
+            .scalar_subquery()
+        )
+        leased_lookup = (
+            select(LineagePayloadModel.calculation_id)
+            .join(LineageRecordModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
+            .where(
+                (LineageRecordModel.status == LineageStatus.PENDING.value)
+                & (LineagePayloadModel.leased_at_utc.is_not(None))
+                & (
+                    LineagePayloadModel.lease_expires_at_utc.is_(None)
+                    | (LineagePayloadModel.lease_expires_at_utc >= now)
+                )
+            )
+            .order_by(LineagePayloadModel.leased_at_utc.asc(), LineagePayloadModel.created_at_utc.asc())
+            .limit(1)
+            .scalar_subquery()
+        )
+        failed_lookup = (
+            select(LineageRecordModel.calculation_id)
+            .where(LineageRecordModel.status == LineageStatus.FAILED.value)
+            .order_by(LineageRecordModel.timestamp_utc.desc())
+            .limit(1)
+            .scalar_subquery()
+        )
+        return select(
+            pending_lookup.label("oldest_pending_calculation_id"),
+            leased_lookup.label("oldest_leased_calculation_id"),
+            failed_lookup.label("latest_terminal_failure_calculation_id"),
         )
 
     def _build_lease_pending_payloads_statement(self, *, now: datetime, limit: int, dialect_name: str):

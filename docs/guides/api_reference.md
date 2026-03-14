@@ -105,13 +105,18 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - compute queue backlog details
   - oldest pending, leased, and running compute-job ages
   - retry-backlog, lease-expiry, and terminal-failure compute-job counts
+  - compute inspection anchors for the oldest pending, leased, and running work plus the latest terminal failure
   - compute `degradation_reasons`
   - compute `degradation_details`
   - lineage queue backlog details
   - retry-backlog and terminal-failure lineage payload counts
+  - lineage inspection anchors for the oldest pending and leased work plus the latest terminal failure
   - lineage `degradation_details`
   - lineage `degradation_reasons`
 - runtime may report `degraded` when configured queue-age or failure-pressure thresholds are exceeded
+- use the inspection anchors to jump directly to:
+  - `/performance/executions/{calculation_id}`
+  - `/performance/lineage/{calculation_id}`
 
 ### `POST /integration/returns/series`
 
