@@ -52,6 +52,7 @@ def test_build_runtime_status_response_serializes_snapshot_details():
                 oldest_pending_age_seconds=120.0,
                 oldest_leased_age_seconds=90.0,
                 oldest_running_age_seconds=60.0,
+                reclaimable_count=2,
             ),
             inspection_anchors=ComputeQueueInspectionAnchors(
                 oldest_pending_calculation_id="calc-pending",
@@ -72,6 +73,7 @@ def test_build_runtime_status_response_serializes_snapshot_details():
                 terminal_failure_count=11,
                 oldest_pending_age_seconds=45.0,
                 oldest_leased_age_seconds=12.0,
+                reclaimable_count=1,
             ),
             inspection_anchors=LineageQueueInspectionAnchors(
                 oldest_pending_calculation_id="lineage-pending",
@@ -120,10 +122,12 @@ def test_build_runtime_status_response_serializes_snapshot_details():
     assert response.runtime_degradation_details[0].reason == "compute_pending_age_exceeded"
     assert response.compute_queue.pending_jobs == 1
     assert response.compute_queue.lease_expired_jobs == 7
+    assert response.compute_queue.reclaimable_jobs == 2
     assert response.compute_queue.inspection_anchors is not None
     assert response.compute_queue.inspection_anchors.oldest_pending_calculation_id == "calc-pending"
     assert response.lineage_queue.pending_payloads == 9
     assert response.lineage_queue.leased_payloads == 2
+    assert response.lineage_queue.reclaimable_payloads == 1
     assert response.lineage_queue.inspection_anchors is not None
     assert response.lineage_queue.inspection_anchors.latest_terminal_failure_calculation_id == "lineage-failed"
     assert response.recovery_drill.status == "degraded"

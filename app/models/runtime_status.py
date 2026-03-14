@@ -96,6 +96,10 @@ class ComputeQueueStatusDetailsResponse(BaseModel):
         default=None,
         description="Number of compute jobs carrying expired-lease recovery state.",
     )
+    reclaimable_jobs: int | None = Field(
+        default=None,
+        description="Number of compute jobs whose durable worker lease already expired and are eligible for recovery.",
+    )
     terminal_failure_jobs: int | None = Field(
         default=None,
         description="Number of compute jobs that failed terminally for non-lease-expiry reasons.",
@@ -147,6 +151,10 @@ class LineageQueueStatusDetailsResponse(BaseModel):
     terminal_failure_payloads: int | None = Field(
         default=None,
         description="Number of lineage payloads that exhausted retry budget and failed terminally.",
+    )
+    reclaimable_payloads: int | None = Field(
+        default=None,
+        description="Number of pending lineage payloads whose durable worker lease already expired and are eligible for recovery.",
     )
     oldest_pending_age_seconds: float | None = Field(
         default=None,
@@ -320,6 +328,7 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
             complete_jobs=None if compute_stats is None else compute_stats.complete_count,
             retry_backlog_jobs=None if compute_stats is None else compute_stats.retry_backlog_count,
             lease_expired_jobs=None if compute_stats is None else compute_stats.lease_expired_count,
+            reclaimable_jobs=None if compute_stats is None else compute_stats.reclaimable_count,
             terminal_failure_jobs=None if compute_stats is None else compute_stats.terminal_failure_count,
             oldest_pending_age_seconds=None if compute_stats is None else compute_stats.oldest_pending_age_seconds,
             oldest_leased_age_seconds=None if compute_stats is None else compute_stats.oldest_leased_age_seconds,
@@ -343,6 +352,7 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
             pending_payloads=None if lineage_stats is None else lineage_stats.pending_payload_count,
             leased_payloads=None if lineage_stats is None else lineage_stats.leased_payload_count,
             retry_backlog_payloads=None if lineage_stats is None else lineage_stats.retry_backlog_count,
+            reclaimable_payloads=None if lineage_stats is None else lineage_stats.reclaimable_count,
             terminal_failure_payloads=None if lineage_stats is None else lineage_stats.terminal_failure_count,
             oldest_pending_age_seconds=None if lineage_stats is None else lineage_stats.oldest_pending_age_seconds,
             oldest_leased_age_seconds=None if lineage_stats is None else lineage_stats.oldest_leased_age_seconds,

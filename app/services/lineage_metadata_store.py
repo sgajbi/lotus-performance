@@ -86,6 +86,7 @@ class LineageQueueStats:
     terminal_failure_count: int = 0
     oldest_pending_age_seconds: float = 0.0
     oldest_leased_age_seconds: float = 0.0
+    reclaimable_count: int = 0
 
 
 @dataclass(frozen=True)
@@ -347,6 +348,7 @@ class LineageMetadataStore:
                 terminal_failure_count=int(aggregate_row.terminal_failure_count or 0),
                 oldest_pending_age_seconds=oldest_pending_age_seconds,
                 oldest_leased_age_seconds=oldest_leased_age_seconds,
+                reclaimable_count=int(aggregate_row.reclaimable_count or 0),
             )
 
     def get_queue_inspection_anchors(self, *, now: datetime | None = None) -> LineageQueueInspectionAnchors:
@@ -475,6 +477,17 @@ class LineageMetadataStore:
                         else_=0,
                     )
                 ).label("retry_backlog_count"),
+                func.sum(
+                    case(
+                        (
+                            (LineageRecordModel.status == LineageStatus.PENDING.value)
+                            & LineagePayloadModel.lease_expires_at_utc.is_not(None)
+                            & (LineagePayloadModel.lease_expires_at_utc < now),
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ).label("reclaimable_count"),
                 func.sum(case((LineageRecordModel.status == LineageStatus.FAILED.value, 1), else_=0)).label(
                     "terminal_failure_count"
                 ),

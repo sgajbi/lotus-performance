@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 from app.services.compute_job_store import compute_job_store
 from app.services.durability_health_service import DurabilityHealthStatus
-from app.services.lineage_metadata_store import lineage_metadata_store
+from app.services.lineage_metadata_store import LineagePayloadModel, lineage_metadata_store
 from app.services.recovery_drill_history_service import RecoveryDrillHistoryEntry, RecoveryDrillHistorySnapshot
 from main import app
 
@@ -54,6 +54,7 @@ def test_runtime_status_reports_durable_queue_state():
     assert body["compute_queue"]["pending_jobs"] == 1
     assert body["compute_queue"]["retry_backlog_jobs"] == 0
     assert body["compute_queue"]["lease_expired_jobs"] == 0
+    assert body["compute_queue"]["reclaimable_jobs"] == 0
     assert body["compute_queue"]["terminal_failure_jobs"] == 0
     assert body["compute_queue"]["oldest_leased_age_seconds"] == 0.0
     assert body["compute_queue"]["oldest_running_age_seconds"] == 0.0
@@ -65,6 +66,7 @@ def test_runtime_status_reports_durable_queue_state():
     assert body["lineage_queue"]["pending_payloads"] == 1
     assert body["lineage_queue"]["leased_payloads"] == 0
     assert body["lineage_queue"]["retry_backlog_payloads"] == 0
+    assert body["lineage_queue"]["reclaimable_payloads"] == 0
     assert body["lineage_queue"]["terminal_failure_payloads"] == 0
     assert body["lineage_queue"]["oldest_leased_age_seconds"] == 0.0
     assert body["lineage_queue"]["inspection_anchors"]["oldest_pending_calculation_id"] is not None
@@ -192,12 +194,18 @@ def test_runtime_status_exposes_compute_failure_pressure_counts():
     compute_job_store.create_schema()
     compute_job_store.clear_all_records()
     pending_retry_id = uuid4()
+    reclaimable_id = uuid4()
     failed_terminal_id = uuid4()
 
     compute_job_store.enqueue_job(
         calculation_id=pending_retry_id,
         analytics_type="ReturnsSeries",
         request_payload={"portfolio_id": "PF-RETRY"},
+    )
+    compute_job_store.enqueue_job(
+        calculation_id=reclaimable_id,
+        analytics_type="ReturnsSeries",
+        request_payload={"portfolio_id": "PF-RECLAIM"},
     )
     compute_job_store.enqueue_job(
         calculation_id=failed_terminal_id,
@@ -209,6 +217,10 @@ def test_runtime_status_exposes_compute_failure_pressure_counts():
         retry_row = compute_job_store._get_model(session, pending_retry_id)
         retry_row.attempt_count = 1
         retry_row.error_type = "LeaseExpired"
+        reclaimable_row = compute_job_store._get_model(session, reclaimable_id)
+        reclaimable_row.job_status = "running"
+        reclaimable_row.started_at_utc = datetime.now(timezone.utc) - timedelta(seconds=30)
+        reclaimable_row.lease_expires_at_utc = datetime.now(timezone.utc) - timedelta(seconds=5)
         failed_row = compute_job_store._get_model(session, failed_terminal_id)
         failed_row.job_status = "failed"
         failed_row.error_type = "RuntimeError"
@@ -221,6 +233,7 @@ def test_runtime_status_exposes_compute_failure_pressure_counts():
         body = response.json()
         assert body["compute_queue"]["retry_backlog_jobs"] == 1
         assert body["compute_queue"]["lease_expired_jobs"] == 1
+        assert body["compute_queue"]["reclaimable_jobs"] == 1
         assert body["compute_queue"]["terminal_failure_jobs"] == 1
     finally:
         compute_job_store.clear_all_records()
@@ -248,6 +261,11 @@ def test_runtime_status_exposes_lineage_failure_pressure_counts():
     lineage_metadata_store.increment_attempt_count(retry_id)
     lineage_metadata_store.increment_attempt_count(failed_id)
     lineage_metadata_store.mark_failed(failed_id, error_message="write failed")
+    with lineage_metadata_store._session() as session:
+        retry_payload = session.get(LineagePayloadModel, str(retry_id))
+        assert retry_payload is not None
+        retry_payload.leased_at_utc = datetime.now(timezone.utc) - timedelta(seconds=20)
+        retry_payload.lease_expires_at_utc = datetime.now(timezone.utc) - timedelta(seconds=5)
 
     try:
         with TestClient(app) as client:
@@ -256,6 +274,7 @@ def test_runtime_status_exposes_lineage_failure_pressure_counts():
         assert response.status_code == 200
         body = response.json()
         assert body["lineage_queue"]["retry_backlog_payloads"] == 1
+        assert body["lineage_queue"]["reclaimable_payloads"] == 1
         assert body["lineage_queue"]["terminal_failure_payloads"] == 1
     finally:
         lineage_metadata_store.clear_all_records()

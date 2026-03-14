@@ -413,6 +413,25 @@ def test_compute_job_store_lists_reclaimable_items_with_expired_leases(tmp_path)
     assert page.items[0].status == ComputeJobStatus.RUNNING.value
 
 
+def test_compute_job_store_queue_stats_include_reclaimable_count(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    now = datetime.now(timezone.utc)
+    reclaimable_id = uuid4()
+
+    store.enqueue_job(calculation_id=reclaimable_id, analytics_type="ReturnsSeries", request_payload={"p": "1"})
+
+    with store._session() as session:
+        reclaimable_row = store._get_model(session, reclaimable_id)
+        reclaimable_row.job_status = ComputeJobStatus.LEASED.value
+        reclaimable_row.leased_at_utc = now - timedelta(seconds=40)
+        reclaimable_row.lease_expires_at_utc = now - timedelta(seconds=10)
+
+    stats = store.get_queue_stats(now=now)
+
+    assert stats.reclaimable_count == 1
+
+
 def test_compute_job_store_declares_hot_path_indexes(tmp_path):
     store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
     store.create_schema()

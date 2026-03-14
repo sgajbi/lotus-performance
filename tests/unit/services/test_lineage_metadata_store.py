@@ -398,6 +398,31 @@ def test_lineage_metadata_store_lists_reclaimable_items_with_expired_leases(tmp_
     assert page.items[0].status == "pending"
 
 
+def test_lineage_metadata_store_queue_stats_include_reclaimable_count(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    now = datetime.now(timezone.utc)
+    reclaimable_id = uuid4()
+
+    store.enqueue_lineage_payload(
+        calculation_id=reclaimable_id,
+        calculation_type="TWR",
+        request_json="{}",
+        response_json="{}",
+        details={"details.json": "{}"},
+    )
+
+    with store._session() as session:
+        reclaimable_payload = session.get(LineagePayloadModel, str(reclaimable_id))
+        assert reclaimable_payload is not None
+        reclaimable_payload.leased_at_utc = now - timedelta(seconds=30)
+        reclaimable_payload.lease_expires_at_utc = now - timedelta(seconds=5)
+
+    stats = store.get_pending_payload_stats(now=now)
+
+    assert stats.reclaimable_count == 1
+
+
 def test_lineage_metadata_store_declares_hot_path_indexes(tmp_path):
     store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
     store.create_schema()

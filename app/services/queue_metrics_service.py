@@ -93,6 +93,7 @@ class DurableQueueCollector:
             )
             compute_failure_pressure.add_metric(["retry_backlog"], compute_stats.retry_backlog_count)
             compute_failure_pressure.add_metric(["lease_expired"], compute_stats.lease_expired_count)
+            compute_failure_pressure.add_metric(["reclaimable"], compute_stats.reclaimable_count)
             compute_failure_pressure.add_metric(["terminal_failure"], compute_stats.terminal_failure_count)
             yield compute_failure_pressure
 
@@ -135,6 +136,7 @@ class DurableQueueCollector:
                 labels=["category"],
             )
             lineage_failure_pressure.add_metric(["retry_backlog"], lineage_stats.retry_backlog_count)
+            lineage_failure_pressure.add_metric(["reclaimable"], lineage_stats.reclaimable_count)
             lineage_failure_pressure.add_metric(["terminal_failure"], lineage_stats.terminal_failure_count)
             yield lineage_failure_pressure
 

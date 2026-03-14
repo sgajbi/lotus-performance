@@ -104,12 +104,12 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - active compute and lineage degradation-policy thresholds
   - compute queue backlog details
   - oldest pending, leased, and running compute-job ages
-  - retry-backlog, lease-expiry, and terminal-failure compute-job counts
+  - retry-backlog, lease-expiry, reclaimable, and terminal-failure compute-job counts
   - compute inspection anchors for the oldest pending, leased, and running work plus the latest terminal failure
   - compute `degradation_reasons`
   - compute `degradation_details`
   - lineage queue backlog details
-  - retry-backlog and terminal-failure lineage payload counts
+  - retry-backlog, reclaimable, and terminal-failure lineage payload counts
   - lineage inspection anchors for the oldest pending and leased work plus the latest terminal failure
   - lineage `degradation_details`
   - lineage `degradation_reasons`

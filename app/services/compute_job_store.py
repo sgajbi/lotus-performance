@@ -105,6 +105,7 @@ class ComputeQueueStats:
     oldest_pending_age_seconds: float
     oldest_leased_age_seconds: float
     oldest_running_age_seconds: float
+    reclaimable_count: int = 0
 
 
 @dataclass(frozen=True)
@@ -461,7 +462,7 @@ class ComputeJobStore:
     def get_queue_stats(self, *, now: datetime | None = None) -> ComputeQueueStats:
         stats_now = now or datetime.now(timezone.utc)
         with self._session() as session:
-            aggregate_row = session.execute(self._build_queue_stats_statement()).one()
+            aggregate_row = session.execute(self._build_queue_stats_statement(now=stats_now)).one()
 
             oldest_pending_age_seconds = 0.0
             if aggregate_row.oldest_pending_created_at is not None:
@@ -494,6 +495,7 @@ class ComputeJobStore:
                 oldest_pending_age_seconds=oldest_pending_age_seconds,
                 oldest_leased_age_seconds=oldest_leased_age_seconds,
                 oldest_running_age_seconds=oldest_running_age_seconds,
+                reclaimable_count=int(aggregate_row.reclaimable_count or 0),
             )
 
     def get_queue_inspection_anchors(self) -> ComputeQueueInspectionAnchors:
@@ -585,7 +587,7 @@ class ComputeJobStore:
             total_count = int(session.execute(count_statement).scalar_one() or 0)
             return ComputeQueueInspectionPage(total_count=total_count, items=items)
 
-    def _build_queue_stats_statement(self):
+    def _build_queue_stats_statement(self, *, now: datetime):
         return select(
             func.sum(case((ComputeJobModel.job_status == ComputeJobStatus.PENDING.value, 1), else_=0)).label(
                 "pending_count"
@@ -613,6 +615,19 @@ class ComputeJobStore:
                 )
             ).label("retry_backlog_count"),
             func.sum(case((ComputeJobModel.error_type == "LeaseExpired", 1), else_=0)).label("lease_expired_count"),
+            func.sum(
+                case(
+                    (
+                        ComputeJobModel.job_status.in_(
+                            [ComputeJobStatus.LEASED.value, ComputeJobStatus.RUNNING.value]
+                        )
+                        & ComputeJobModel.lease_expires_at_utc.is_not(None)
+                        & (ComputeJobModel.lease_expires_at_utc < now),
+                        1,
+                    ),
+                    else_=0,
+                )
+            ).label("reclaimable_count"),
             func.sum(
                 case(
                     (
