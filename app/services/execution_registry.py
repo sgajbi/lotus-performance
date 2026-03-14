@@ -493,6 +493,15 @@ class ExecutionRegistry:
                 for row in rows
             ]
 
+    def list_upstream_snapshot_ids(self, calculation_id: UUID) -> set[str]:
+        with self._session() as session:
+            rows = session.execute(
+                select(AnalyticsUpstreamSnapshotModel.snapshot_id).where(
+                    AnalyticsUpstreamSnapshotModel.calculation_id == str(calculation_id)
+                )
+            ).all()
+            return {row[0] for row in rows}
+
     def _build_execution_lookup_statement(self, calculation_id: UUID):
         return select(AnalyticsExecutionModel).where(AnalyticsExecutionModel.calculation_id == str(calculation_id))
 

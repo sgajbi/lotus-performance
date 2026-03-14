@@ -8,10 +8,15 @@ POSTGRES_RUNTIME_DATABASE_URL = os.getenv(
     "LOTUS_POSTGRES_PLAN_DATABASE_URL",
     "postgresql+psycopg://lotus:lotus@127.0.0.1:5435/lotus_performance",
 )
+POSTGRES_RUNTIME_CONNECT_TIMEOUT_SECONDS = 3
 
 
 def get_postgres_database_url() -> str:
-    engine = create_engine(POSTGRES_RUNTIME_DATABASE_URL, future=True)
+    engine = create_engine(
+        POSTGRES_RUNTIME_DATABASE_URL,
+        future=True,
+        connect_args={"connect_timeout": POSTGRES_RUNTIME_CONNECT_TIMEOUT_SECONDS},
+    )
     try:
         with engine.connect() as connection:
             connection.execute(text("SELECT 1"))
