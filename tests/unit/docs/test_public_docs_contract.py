@@ -187,3 +187,26 @@ def test_runtime_threshold_env_examples_match_profile_defaults():
     assert "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS=259200" in production
     assert "runtime-thresholds.production.env" in api_reference
     assert "docs/examples/" in runtime_topology
+
+
+def test_runtime_threshold_compose_overlays_match_profile_defaults():
+    profiles = _read("docs/standards/runtime-threshold-profiles.md")
+    development = _read("docs/examples/docker-compose.runtime-thresholds.development.yml")
+    staging = _read("docs/examples/docker-compose.runtime-thresholds.staging.yml")
+    production = _read("docs/examples/docker-compose.runtime-thresholds.production.yml")
+    readme = _read("README.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    runtime_topology = _read("docs/technical/runtime_topology.md")
+
+    assert "docker-compose.runtime-thresholds.development.yml" in profiles
+    assert "docker-compose.runtime-thresholds.staging.yml" in profiles
+    assert "docker-compose.runtime-thresholds.production.yml" in profiles
+    assert 'RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS: "1800"' in development
+    assert 'RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS: "900"' in staging
+    assert 'RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS: "600"' in production
+    assert 'RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO: "0.10"' in development
+    assert 'RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO: "0.15"' in staging
+    assert 'RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO: "0.20"' in production
+    assert "docker compose -f docker-compose.yml -f docs/examples/docker-compose.runtime-thresholds.production.yml up" in readme
+    assert "docker-compose.runtime-thresholds.production.yml" in api_reference
+    assert "docker-compose.yml" in runtime_topology

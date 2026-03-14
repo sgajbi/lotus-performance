@@ -108,3 +108,6 @@ Repo-owned example overlays are provided for direct adoption or adaptation:
 - `docs/examples/runtime-thresholds.development.env`
 - `docs/examples/runtime-thresholds.staging.env`
 - `docs/examples/runtime-thresholds.production.env`
+- `docs/examples/docker-compose.runtime-thresholds.development.yml`
+- `docs/examples/docker-compose.runtime-thresholds.staging.yml`
+- `docs/examples/docker-compose.runtime-thresholds.production.yml`
