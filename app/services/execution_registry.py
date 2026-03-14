@@ -427,6 +427,48 @@ class ExecutionRegistry:
                 )
             )
 
+    def record_upstream_snapshots(
+        self,
+        *,
+        calculation_id: UUID,
+        snapshots: list[dict[str, Any]],
+    ) -> None:
+        if not snapshots:
+            return
+        with self._session() as session:
+            self._get_execution_model(session, calculation_id)
+            snapshot_ids = [snapshot["snapshot_id"] for snapshot in snapshots]
+            existing_snapshot_ids = {
+                row[0]
+                for row in session.execute(
+                    select(AnalyticsUpstreamSnapshotModel.snapshot_id).where(
+                        AnalyticsUpstreamSnapshotModel.snapshot_id.in_(snapshot_ids)
+                    )
+                ).all()
+            }
+            created_at = datetime.now(timezone.utc)
+            for snapshot in snapshots:
+                if snapshot["snapshot_id"] in existing_snapshot_ids:
+                    continue
+                session.merge(
+                    AnalyticsUpstreamSnapshotModel(
+                        snapshot_id=snapshot["snapshot_id"],
+                        calculation_id=str(calculation_id),
+                        upstream_endpoint=snapshot["upstream_endpoint"],
+                        source_identifier=snapshot["source_identifier"],
+                        as_of_date=snapshot["as_of_date"],
+                        request_fingerprint=snapshot["request_fingerprint"],
+                        response_fingerprint=snapshot["response_fingerprint"],
+                        retrieval_status=snapshot["retrieval_status"],
+                        paging_metadata_json=(
+                            json.dumps(snapshot["paging_metadata"], sort_keys=True)
+                            if snapshot.get("paging_metadata") is not None
+                            else None
+                        ),
+                        created_at_utc=created_at,
+                    )
+                )
+
     def list_upstream_snapshots(self, calculation_id: UUID) -> list[UpstreamSnapshotRecord]:
         with self._session() as session:
             statement = (

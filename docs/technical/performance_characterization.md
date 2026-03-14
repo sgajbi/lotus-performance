@@ -8,7 +8,7 @@ This document records the repo-owned capacity and performance characterization c
 This characterization currently governs the vectorized engine hot path behind
 `engine.compute.run_calculations(...)` plus the durable queue-stat aggregation paths used by
 the runtime control plane and Prometheus collector, plus the public async execution-polling
-read path.
+read path, plus the stateful portfolio-retrieval orchestration path.
 
 ## Governed workload
 
@@ -68,3 +68,15 @@ These characterize the control-plane query path behind:
 - Metric: median wall-clock runtime across 20 reads
 - Budget: `<= 20ms`
 - Test owner: [test_execution_polling_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_execution_polling_performance.py)
+
+## Stateful retrieval budget
+
+- Workload: stateful portfolio timeseries retrieval across `2024-01-01` to `2033-12-31`
+- Retrieval characteristics:
+  - `90`-day portfolio chunks
+  - paginated upstream responses per chunk
+  - durable upstream snapshot recording enabled
+  - canonical deduped merge of returned observations
+- Metric: median wall-clock runtime across 5 reads after warm-up
+- Budget: `<= 250ms`
+- Test owner: [test_stateful_input_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_stateful_input_performance.py)
