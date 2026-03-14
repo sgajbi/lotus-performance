@@ -437,9 +437,7 @@ class LineageMetadataStore:
     ) -> LineageQueueInspectionPage:
         inspection_now = now or datetime.now(timezone.utc)
         normalized_status_filter = status_filter.lower()
-        min_age_threshold = (
-            inspection_now - timedelta(seconds=min_age_seconds) if min_age_seconds > 0 else None
-        )
+        min_age_threshold = inspection_now - timedelta(seconds=min_age_seconds) if min_age_seconds > 0 else None
 
         with self._session() as session:
             if normalized_status_filter == "active":
@@ -613,8 +611,7 @@ class LineageMetadataStore:
                 select(LineageRecordModel.calculation_id)
                 .join(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
                 .where(
-                    (LineageRecordModel.status == LineageStatus.PENDING.value)
-                    & (LineagePayloadModel.attempt_count > 0)
+                    (LineageRecordModel.status == LineageStatus.PENDING.value) & (LineagePayloadModel.attempt_count > 0)
                 )
                 .order_by(LineageRecordModel.timestamp_utc.desc())
                 .limit(1)
@@ -633,10 +630,7 @@ class LineageMetadataStore:
         statement = (
             select(LineageRecordModel, LineagePayloadModel)
             .join(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
-            .where(
-                (LineageRecordModel.status == LineageStatus.PENDING.value)
-                & (LineagePayloadModel.attempt_count > 0)
-            )
+            .where((LineageRecordModel.status == LineageStatus.PENDING.value) & (LineagePayloadModel.attempt_count > 0))
             .order_by(LineageRecordModel.timestamp_utc.desc(), LineagePayloadModel.created_at_utc.desc())
             .offset(offset)
             .limit(limit)
@@ -657,10 +651,7 @@ class LineageMetadataStore:
             select(func.count())
             .select_from(LineageRecordModel)
             .join(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
-            .where(
-                (LineageRecordModel.status == LineageStatus.PENDING.value)
-                & (LineagePayloadModel.attempt_count > 0)
-            )
+            .where((LineageRecordModel.status == LineageStatus.PENDING.value) & (LineagePayloadModel.attempt_count > 0))
         )
         return self._apply_inspection_filters(
             statement,
@@ -668,7 +659,9 @@ class LineageMetadataStore:
             calculation_id_contains=calculation_id_contains,
         )
 
-    def _apply_inspection_filters(self, statement, *, calculation_type: str | None, calculation_id_contains: str | None):
+    def _apply_inspection_filters(
+        self, statement, *, calculation_type: str | None, calculation_id_contains: str | None
+    ):
         if calculation_type is not None:
             statement = statement.where(LineageRecordModel.calculation_type == calculation_type)
         if calculation_id_contains:

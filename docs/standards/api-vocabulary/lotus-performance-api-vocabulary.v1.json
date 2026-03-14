@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-03-14T08:43:06.404614+00:00",
+  "generatedAt": "2026-03-14T09:56:52.137912+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.active_since_utc",
@@ -201,7 +201,7 @@
       "semanticId": "lotus.attempt_count",
       "canonicalTerm": "attempt_count",
       "preferredName": "attempt_count",
-      "description": "Number of execution attempts already consumed by this compute job.",
+      "description": "Attempt count already consumed by the recovered compute job.",
       "example": 1,
       "type": "integer",
       "locations": [
@@ -405,6 +405,21 @@
       ]
     },
     {
+      "semanticId": "lotus.calculation_id_contains",
+      "canonicalTerm": "calculation_id_contains",
+      "preferredName": "calculation_id_contains",
+      "description": "Canonical calculation id contains used by lotus-performance APIs.",
+      "example": null,
+      "type": "object",
+      "locations": [
+        "query",
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
       "semanticId": "lotus.calculation_type",
       "canonicalTerm": "calculation_type",
       "preferredName": "calculation_type",
@@ -515,6 +530,21 @@
       ]
     },
     {
+      "semanticId": "lotus.compute_analytics_type",
+      "canonicalTerm": "compute_analytics_type",
+      "preferredName": "compute_analytics_type",
+      "description": "Canonical compute analytics type used by lotus-performance APIs.",
+      "example": null,
+      "type": "object",
+      "locations": [
+        "query",
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
       "semanticId": "lotus.compute_items",
       "canonicalTerm": "compute_items",
       "preferredName": "compute_items",
@@ -522,6 +552,9 @@
       "example": [
         {
           "calculation_id": "2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
+          "execution_path": "example_execution_path",
+          "lineage_path": "example_lineage_path",
+          "result_path": "/integration/returns/series/results/2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
           "analytics_type": "example_analytics_type",
           "status": "pending",
           "active_since_utc": "example_active_since_utc",
@@ -581,7 +614,8 @@
       ],
       "observedTypes": [
         "ComputeQueueStatusDetailsResponse",
-        "RuntimeWorkItemQueueStatusResponse"
+        "RuntimeWorkItemQueueStatusResponse",
+        "RuntimeRecoveriesQueueStatusResponse"
       ]
     },
     {
@@ -598,6 +632,32 @@
       ],
       "observedTypes": [
         "ComputeQueueDegradationPolicyResponse"
+      ]
+    },
+    {
+      "semanticId": "lotus.compute_recoveries",
+      "canonicalTerm": "compute_recoveries",
+      "preferredName": "compute_recoveries",
+      "description": "Filtered compute recovery events ordered from most recent to least recent.",
+      "example": [
+        {
+          "calculation_id": "2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
+          "execution_path": "example_execution_path",
+          "lineage_path": "example_lineage_path",
+          "result_path": "/integration/returns/series/results/2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
+          "analytics_type": "example_analytics_type",
+          "recovery_kind": "example_recovery_kind",
+          "recovered_at_utc": "example_recovered_at_utc",
+          "attempt_count": 1,
+          "error_type": "example_error_type"
+        }
+      ],
+      "type": "array",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "array"
       ]
     },
     {
@@ -1046,7 +1106,7 @@
       "semanticId": "lotus.error_type",
       "canonicalTerm": "error_type",
       "preferredName": "error_type",
-      "description": "Last durable compute failure type for this work item, when present.",
+      "description": "Last durable compute error type associated with the recovery event, when present.",
       "example": "example_error_type",
       "type": "object",
       "locations": [
@@ -1076,6 +1136,20 @@
       "preferredName": "execution_mode",
       "description": "execution response field: execution mode.",
       "example": "async",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.execution_path",
+      "canonicalTerm": "execution_path",
+      "preferredName": "execution_path",
+      "description": "Execution polling path for this compute work item.",
+      "example": "example_execution_path",
       "type": "string",
       "locations": [
         "body"
@@ -1522,7 +1596,8 @@
         "oldest_pending_calculation_id": "OLDEST_PENDING_CALCULATION_001",
         "oldest_leased_calculation_id": "OLDEST_LEASED_CALCULATION_001",
         "oldest_running_calculation_id": "OLDEST_RUNNING_CALCULATION_001",
-        "latest_terminal_failure_calculation_id": "LATEST_TERMINAL_FAILURE_CALCULATION_001"
+        "latest_terminal_failure_calculation_id": "LATEST_TERMINAL_FAILURE_CALCULATION_001",
+        "latest_recovered_calculation_id": "LATEST_RECOVERED_CALCULATION_001"
       },
       "type": "object",
       "locations": [
@@ -1752,6 +1827,21 @@
       ]
     },
     {
+      "semanticId": "lotus.lineage_calculation_type",
+      "canonicalTerm": "lineage_calculation_type",
+      "preferredName": "lineage_calculation_type",
+      "description": "Canonical lineage calculation type used by lotus-performance APIs.",
+      "example": null,
+      "type": "object",
+      "locations": [
+        "query",
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
       "semanticId": "lotus.lineage_items",
       "canonicalTerm": "lineage_items",
       "preferredName": "lineage_items",
@@ -1759,6 +1849,9 @@
       "example": [
         {
           "calculation_id": "2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
+          "execution_path": "example_execution_path",
+          "lineage_path": "example_lineage_path",
+          "result_path": "/integration/returns/series/results/2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
           "calculation_type": "example_calculation_type",
           "status": "pending",
           "active_since_utc": "example_active_since_utc",
@@ -1776,6 +1869,20 @@
       ]
     },
     {
+      "semanticId": "lotus.lineage_path",
+      "canonicalTerm": "lineage_path",
+      "preferredName": "lineage_path",
+      "description": "Lineage inspection path for this compute work item.",
+      "example": "example_lineage_path",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.lineage_queue",
       "canonicalTerm": "lineage_queue",
       "preferredName": "lineage_queue",
@@ -1789,7 +1896,8 @@
       ],
       "observedTypes": [
         "LineageQueueStatusDetailsResponse",
-        "RuntimeWorkItemQueueStatusResponse"
+        "RuntimeWorkItemQueueStatusResponse",
+        "RuntimeRecoveriesQueueStatusResponse"
       ]
     },
     {
@@ -1806,6 +1914,31 @@
       ],
       "observedTypes": [
         "LineageQueueDegradationPolicyResponse"
+      ]
+    },
+    {
+      "semanticId": "lotus.lineage_recoveries",
+      "canonicalTerm": "lineage_recoveries",
+      "preferredName": "lineage_recoveries",
+      "description": "Filtered lineage recovery events ordered from most recent to least recent.",
+      "example": [
+        {
+          "calculation_id": "2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
+          "execution_path": "example_execution_path",
+          "lineage_path": "example_lineage_path",
+          "result_path": "/integration/returns/series/results/2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
+          "calculation_type": "example_calculation_type",
+          "recovery_kind": "example_recovery_kind",
+          "recovered_at_utc": "example_recovered_at_utc",
+          "attempt_count": 1
+        }
+      ],
+      "type": "array",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "array"
       ]
     },
     {
@@ -1962,6 +2095,21 @@
       "example": 0.1234,
       "type": "number",
       "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "number"
+      ]
+    },
+    {
+      "semanticId": "lotus.min_age_seconds",
+      "canonicalTerm": "min_age_seconds",
+      "preferredName": "min_age_seconds",
+      "description": "Canonical min age seconds used by lotus-performance APIs.",
+      "example": null,
+      "type": "number",
+      "locations": [
+        "query",
         "body"
       ],
       "observedTypes": [
@@ -2141,7 +2289,8 @@
       "example": null,
       "type": "integer",
       "locations": [
-        "query"
+        "query",
+        "body"
       ],
       "observedTypes": [
         "integer"
@@ -2531,6 +2680,34 @@
       ]
     },
     {
+      "semanticId": "lotus.queue",
+      "canonicalTerm": "queue",
+      "preferredName": "queue",
+      "description": "Canonical queue used by lotus-performance APIs.",
+      "example": null,
+      "type": "string",
+      "locations": [
+        "query"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.queue_filter",
+      "canonicalTerm": "queue_filter",
+      "preferredName": "queue_filter",
+      "description": "Requested queue filter applied to runtime work-item inspection.",
+      "example": "example_queue_filter",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.reason",
       "canonicalTerm": "reason",
       "preferredName": "reason",
@@ -2543,6 +2720,71 @@
       "observedTypes": [
         "string",
         "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.recent_recoveries",
+      "canonicalTerm": "recent_recoveries",
+      "preferredName": "recent_recoveries",
+      "description": "Most recent durable compute recovery events returned to pending state for operator triage.",
+      "example": [
+        {
+          "calculation_id": "2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
+          "analytics_type": "example_analytics_type",
+          "recovery_kind": "example_recovery_kind",
+          "recovered_at_utc": "example_recovered_at_utc",
+          "attempt_count": 1,
+          "error_type": "example_error_type"
+        }
+      ],
+      "type": "array",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "array"
+      ]
+    },
+    {
+      "semanticId": "lotus.reclaimable_jobs",
+      "canonicalTerm": "reclaimable_jobs",
+      "preferredName": "reclaimable_jobs",
+      "description": "Number of compute jobs whose durable worker lease already expired and are eligible for recovery.",
+      "example": 1,
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.reclaimable_payloads",
+      "canonicalTerm": "reclaimable_payloads",
+      "preferredName": "reclaimable_payloads",
+      "description": "Number of pending lineage payloads whose durable worker lease already expired and are eligible for recovery.",
+      "example": 1,
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.recovered_at_utc",
+      "canonicalTerm": "recovered_at_utc",
+      "preferredName": "recovered_at_utc",
+      "description": "UTC timestamp when the compute job most recently re-entered pending state.",
+      "example": "example_recovered_at_utc",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -2575,6 +2817,20 @@
       ],
       "observedTypes": [
         "RecoveryDrillDegradationPolicyResponse"
+      ]
+    },
+    {
+      "semanticId": "lotus.recovery_kind",
+      "canonicalTerm": "recovery_kind",
+      "preferredName": "recovery_kind",
+      "description": "Recovery path that returned the compute job to pending state.",
+      "example": "example_recovery_kind",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -2753,6 +3009,20 @@
       ]
     },
     {
+      "semanticId": "lotus.result_path",
+      "canonicalTerm": "result_path",
+      "preferredName": "result_path",
+      "description": "Async result path for this compute work item when the analytics family exposes a durable result route.",
+      "example": "/integration/returns/series/results/2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
       "semanticId": "lotus.results_by_period",
       "canonicalTerm": "results_by_period",
       "preferredName": "results_by_period",
@@ -2908,6 +3178,20 @@
       ],
       "observedTypes": [
         "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.returned_count",
+      "canonicalTerm": "returned_count",
+      "preferredName": "returned_count",
+      "description": "Number of work items included for this queue in the current response page.",
+      "example": 1,
+      "type": "integer",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "integer"
       ]
     },
     {
@@ -3486,6 +3770,20 @@
       ]
     },
     {
+      "semanticId": "lotus.total_count",
+      "canonicalTerm": "total_count",
+      "preferredName": "total_count",
+      "description": "Total durable work items that match the requested filters for this queue.",
+      "example": 1,
+      "type": "integer",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "integer"
+      ]
+    },
+    {
       "semanticId": "lotus.total_entries",
       "canonicalTerm": "total_entries",
       "preferredName": "total_entries",
@@ -3818,17 +4116,34 @@
       "attributeRef": "#/attributeCatalog/lotus.calculation_id"
     },
     {
+      "name": "queue",
+      "kind": "request_option",
+      "location": "query",
+      "required": false,
+      "type": "string",
+      "description": "Queue scope for operator work-item inspection.",
+      "example": "both",
+      "allowedValues": [
+        "both",
+        "compute",
+        "lineage"
+      ],
+      "semanticId": "lotus.queue",
+      "attributeRef": "#/attributeCatalog/lotus.queue"
+    },
+    {
       "name": "status",
       "kind": "request_option",
       "location": "query",
       "required": false,
       "type": "string",
-      "description": "Work-item lifecycle filter applied to both compute and lineage queues.",
+      "description": "Work-item lifecycle filter applied to both compute and lineage queues. `reclaimable` returns work whose durable worker lease already expired and is eligible for recovery.",
       "example": "active",
       "allowedValues": [
         "active",
         "failed",
-        "all"
+        "all",
+        "reclaimable"
       ],
       "semanticId": "lotus.status",
       "attributeRef": "#/attributeCatalog/lotus.status"
@@ -3844,6 +4159,142 @@
       "allowedValues": [],
       "semanticId": "lotus.limit",
       "attributeRef": "#/attributeCatalog/lotus.limit"
+    },
+    {
+      "name": "offset",
+      "kind": "request_option",
+      "location": "query",
+      "required": false,
+      "type": "integer",
+      "description": "Zero-based page offset applied to each selected queue before limiting.",
+      "example": 1,
+      "allowedValues": [],
+      "semanticId": "lotus.offset",
+      "attributeRef": "#/attributeCatalog/lotus.offset"
+    },
+    {
+      "name": "min_age_seconds",
+      "kind": "request_option",
+      "location": "query",
+      "required": false,
+      "type": "number",
+      "description": "Optional minimum work-item age filter, in seconds, for stale-item triage.",
+      "example": 0.1,
+      "allowedValues": [],
+      "semanticId": "lotus.min_age_seconds",
+      "attributeRef": "#/attributeCatalog/lotus.min_age_seconds"
+    },
+    {
+      "name": "compute_analytics_type",
+      "kind": "request_option",
+      "location": "query",
+      "required": false,
+      "type": "object",
+      "description": "Optional compute analytics-type filter, such as ReturnsSeries or Attribution.",
+      "example": "STANDARD_VALUE",
+      "allowedValues": [],
+      "semanticId": "lotus.compute_analytics_type",
+      "attributeRef": "#/attributeCatalog/lotus.compute_analytics_type"
+    },
+    {
+      "name": "lineage_calculation_type",
+      "kind": "request_option",
+      "location": "query",
+      "required": false,
+      "type": "object",
+      "description": "Optional lineage calculation-type filter, such as TWR or Attribution.",
+      "example": "STANDARD_VALUE",
+      "allowedValues": [],
+      "semanticId": "lotus.lineage_calculation_type",
+      "attributeRef": "#/attributeCatalog/lotus.lineage_calculation_type"
+    },
+    {
+      "name": "calculation_id_contains",
+      "kind": "request_option",
+      "location": "query",
+      "required": false,
+      "type": "object",
+      "description": "Optional substring filter applied to calculation identifiers in the selected queues.",
+      "example": "STANDARD_VALUE",
+      "allowedValues": [],
+      "semanticId": "lotus.calculation_id_contains",
+      "attributeRef": "#/attributeCatalog/lotus.calculation_id_contains"
+    },
+    {
+      "name": "queue",
+      "kind": "request_option",
+      "location": "query",
+      "required": false,
+      "type": "string",
+      "description": "Queue scope for runtime recovery inspection.",
+      "example": "both",
+      "allowedValues": [
+        "both",
+        "compute",
+        "lineage"
+      ],
+      "semanticId": "lotus.queue",
+      "attributeRef": "#/attributeCatalog/lotus.queue"
+    },
+    {
+      "name": "limit",
+      "kind": "request_option",
+      "location": "query",
+      "required": false,
+      "type": "integer",
+      "description": "Maximum number of recovery events to return per queue.",
+      "example": 1,
+      "allowedValues": [],
+      "semanticId": "lotus.limit",
+      "attributeRef": "#/attributeCatalog/lotus.limit"
+    },
+    {
+      "name": "offset",
+      "kind": "request_option",
+      "location": "query",
+      "required": false,
+      "type": "integer",
+      "description": "Zero-based page offset applied to each selected queue before limiting results.",
+      "example": 1,
+      "allowedValues": [],
+      "semanticId": "lotus.offset",
+      "attributeRef": "#/attributeCatalog/lotus.offset"
+    },
+    {
+      "name": "compute_analytics_type",
+      "kind": "request_option",
+      "location": "query",
+      "required": false,
+      "type": "object",
+      "description": "Optional compute analytics-type filter, such as ReturnsSeries or Attribution.",
+      "example": "STANDARD_VALUE",
+      "allowedValues": [],
+      "semanticId": "lotus.compute_analytics_type",
+      "attributeRef": "#/attributeCatalog/lotus.compute_analytics_type"
+    },
+    {
+      "name": "lineage_calculation_type",
+      "kind": "request_option",
+      "location": "query",
+      "required": false,
+      "type": "object",
+      "description": "Optional lineage calculation-type filter, such as TWR or Attribution.",
+      "example": "STANDARD_VALUE",
+      "allowedValues": [],
+      "semanticId": "lotus.lineage_calculation_type",
+      "attributeRef": "#/attributeCatalog/lotus.lineage_calculation_type"
+    },
+    {
+      "name": "calculation_id_contains",
+      "kind": "request_option",
+      "location": "query",
+      "required": false,
+      "type": "object",
+      "description": "Optional substring filter applied to calculation identifiers in the selected queues.",
+      "example": "STANDARD_VALUE",
+      "allowedValues": [],
+      "semanticId": "lotus.calculation_id_contains",
+      "attributeRef": "#/attributeCatalog/lotus.calculation_id_contains"
     },
     {
       "name": "limit",
@@ -7035,6 +7486,14 @@
             "attributeRef": "#/attributeCatalog/lotus.lease_expired_jobs"
           },
           {
+            "name": "compute_queue.reclaimable_jobs",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.reclaimable_jobs",
+            "attributeRef": "#/attributeCatalog/lotus.reclaimable_jobs"
+          },
+          {
             "name": "compute_queue.terminal_failure_jobs",
             "location": "body",
             "required": false,
@@ -7073,6 +7532,62 @@
             "type": "object",
             "semanticId": "lotus.inspection_anchors",
             "attributeRef": "#/attributeCatalog/lotus.inspection_anchors"
+          },
+          {
+            "name": "compute_queue.recent_recoveries",
+            "location": "body",
+            "required": false,
+            "type": "array",
+            "semanticId": "lotus.recent_recoveries",
+            "attributeRef": "#/attributeCatalog/lotus.recent_recoveries"
+          },
+          {
+            "name": "compute_queue.recent_recoveries[].calculation_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.calculation_id",
+            "attributeRef": "#/attributeCatalog/lotus.calculation_id"
+          },
+          {
+            "name": "compute_queue.recent_recoveries[].analytics_type",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.analytics_type",
+            "attributeRef": "#/attributeCatalog/lotus.analytics_type"
+          },
+          {
+            "name": "compute_queue.recent_recoveries[].recovery_kind",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.recovery_kind",
+            "attributeRef": "#/attributeCatalog/lotus.recovery_kind"
+          },
+          {
+            "name": "compute_queue.recent_recoveries[].recovered_at_utc",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.recovered_at_utc",
+            "attributeRef": "#/attributeCatalog/lotus.recovered_at_utc"
+          },
+          {
+            "name": "compute_queue.recent_recoveries[].attempt_count",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.attempt_count",
+            "attributeRef": "#/attributeCatalog/lotus.attempt_count"
+          },
+          {
+            "name": "compute_queue.recent_recoveries[].error_type",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.error_type",
+            "attributeRef": "#/attributeCatalog/lotus.error_type"
           },
           {
             "name": "lineage_queue",
@@ -7171,6 +7686,14 @@
             "attributeRef": "#/attributeCatalog/lotus.terminal_failure_payloads"
           },
           {
+            "name": "lineage_queue.reclaimable_payloads",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.reclaimable_payloads",
+            "attributeRef": "#/attributeCatalog/lotus.reclaimable_payloads"
+          },
+          {
             "name": "lineage_queue.oldest_pending_age_seconds",
             "location": "body",
             "required": false,
@@ -7193,6 +7716,54 @@
             "type": "object",
             "semanticId": "lotus.inspection_anchors",
             "attributeRef": "#/attributeCatalog/lotus.inspection_anchors"
+          },
+          {
+            "name": "lineage_queue.recent_recoveries",
+            "location": "body",
+            "required": false,
+            "type": "array",
+            "semanticId": "lotus.recent_recoveries",
+            "attributeRef": "#/attributeCatalog/lotus.recent_recoveries"
+          },
+          {
+            "name": "lineage_queue.recent_recoveries[].calculation_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.calculation_id",
+            "attributeRef": "#/attributeCatalog/lotus.calculation_id"
+          },
+          {
+            "name": "lineage_queue.recent_recoveries[].calculation_type",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.calculation_type",
+            "attributeRef": "#/attributeCatalog/lotus.calculation_type"
+          },
+          {
+            "name": "lineage_queue.recent_recoveries[].recovery_kind",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.recovery_kind",
+            "attributeRef": "#/attributeCatalog/lotus.recovery_kind"
+          },
+          {
+            "name": "lineage_queue.recent_recoveries[].recovered_at_utc",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.recovered_at_utc",
+            "attributeRef": "#/attributeCatalog/lotus.recovered_at_utc"
+          },
+          {
+            "name": "lineage_queue.recent_recoveries[].attempt_count",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.attempt_count",
+            "attributeRef": "#/attributeCatalog/lotus.attempt_count"
           },
           {
             "name": "recovery_drill",
@@ -7422,6 +7993,14 @@
       "request": {
         "fields": [
           {
+            "name": "queue",
+            "location": "query",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.queue",
+            "attributeRef": "#/attributeCatalog/lotus.queue"
+          },
+          {
             "name": "status",
             "location": "query",
             "required": false,
@@ -7436,6 +8015,46 @@
             "type": "integer",
             "semanticId": "lotus.limit",
             "attributeRef": "#/attributeCatalog/lotus.limit"
+          },
+          {
+            "name": "offset",
+            "location": "query",
+            "required": false,
+            "type": "integer",
+            "semanticId": "lotus.offset",
+            "attributeRef": "#/attributeCatalog/lotus.offset"
+          },
+          {
+            "name": "min_age_seconds",
+            "location": "query",
+            "required": false,
+            "type": "number",
+            "semanticId": "lotus.min_age_seconds",
+            "attributeRef": "#/attributeCatalog/lotus.min_age_seconds"
+          },
+          {
+            "name": "compute_analytics_type",
+            "location": "query",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.compute_analytics_type",
+            "attributeRef": "#/attributeCatalog/lotus.compute_analytics_type"
+          },
+          {
+            "name": "lineage_calculation_type",
+            "location": "query",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.lineage_calculation_type",
+            "attributeRef": "#/attributeCatalog/lotus.lineage_calculation_type"
+          },
+          {
+            "name": "calculation_id_contains",
+            "location": "query",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.calculation_id_contains",
+            "attributeRef": "#/attributeCatalog/lotus.calculation_id_contains"
           }
         ]
       },
@@ -7466,6 +8085,14 @@
             "attributeRef": "#/attributeCatalog/lotus.generated_at"
           },
           {
+            "name": "queue_filter",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.queue_filter",
+            "attributeRef": "#/attributeCatalog/lotus.queue_filter"
+          },
+          {
             "name": "status_filter",
             "location": "body",
             "required": true,
@@ -7480,6 +8107,46 @@
             "type": "integer",
             "semanticId": "lotus.limit",
             "attributeRef": "#/attributeCatalog/lotus.limit"
+          },
+          {
+            "name": "offset",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.offset",
+            "attributeRef": "#/attributeCatalog/lotus.offset"
+          },
+          {
+            "name": "min_age_seconds",
+            "location": "body",
+            "required": true,
+            "type": "number",
+            "semanticId": "lotus.min_age_seconds",
+            "attributeRef": "#/attributeCatalog/lotus.min_age_seconds"
+          },
+          {
+            "name": "compute_analytics_type",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.compute_analytics_type",
+            "attributeRef": "#/attributeCatalog/lotus.compute_analytics_type"
+          },
+          {
+            "name": "lineage_calculation_type",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.lineage_calculation_type",
+            "attributeRef": "#/attributeCatalog/lotus.lineage_calculation_type"
+          },
+          {
+            "name": "calculation_id_contains",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.calculation_id_contains",
+            "attributeRef": "#/attributeCatalog/lotus.calculation_id_contains"
           },
           {
             "name": "durable_metadata_store",
@@ -7530,6 +8197,22 @@
             "attributeRef": "#/attributeCatalog/lotus.reason"
           },
           {
+            "name": "compute_queue.total_count",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.total_count",
+            "attributeRef": "#/attributeCatalog/lotus.total_count"
+          },
+          {
+            "name": "compute_queue.returned_count",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.returned_count",
+            "attributeRef": "#/attributeCatalog/lotus.returned_count"
+          },
+          {
             "name": "lineage_queue",
             "location": "body",
             "required": true,
@@ -7554,6 +8237,22 @@
             "attributeRef": "#/attributeCatalog/lotus.reason"
           },
           {
+            "name": "lineage_queue.total_count",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.total_count",
+            "attributeRef": "#/attributeCatalog/lotus.total_count"
+          },
+          {
+            "name": "lineage_queue.returned_count",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.returned_count",
+            "attributeRef": "#/attributeCatalog/lotus.returned_count"
+          },
+          {
             "name": "compute_items",
             "location": "body",
             "required": false,
@@ -7568,6 +8267,30 @@
             "type": "string",
             "semanticId": "lotus.calculation_id",
             "attributeRef": "#/attributeCatalog/lotus.calculation_id"
+          },
+          {
+            "name": "compute_items[].execution_path",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.execution_path",
+            "attributeRef": "#/attributeCatalog/lotus.execution_path"
+          },
+          {
+            "name": "compute_items[].lineage_path",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.lineage_path",
+            "attributeRef": "#/attributeCatalog/lotus.lineage_path"
+          },
+          {
+            "name": "compute_items[].result_path",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.result_path",
+            "attributeRef": "#/attributeCatalog/lotus.result_path"
           },
           {
             "name": "compute_items[].analytics_type",
@@ -7650,6 +8373,30 @@
             "attributeRef": "#/attributeCatalog/lotus.calculation_id"
           },
           {
+            "name": "lineage_items[].execution_path",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.execution_path",
+            "attributeRef": "#/attributeCatalog/lotus.execution_path"
+          },
+          {
+            "name": "lineage_items[].lineage_path",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.lineage_path",
+            "attributeRef": "#/attributeCatalog/lotus.lineage_path"
+          },
+          {
+            "name": "lineage_items[].result_path",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.result_path",
+            "attributeRef": "#/attributeCatalog/lotus.result_path"
+          },
+          {
             "name": "lineage_items[].calculation_type",
             "location": "body",
             "required": true,
@@ -7696,6 +8443,397 @@
             "type": "object",
             "semanticId": "lotus.error_message",
             "attributeRef": "#/attributeCatalog/lotus.error_message"
+          }
+        ]
+      }
+    },
+    {
+      "domain": "integration",
+      "method": "GET",
+      "path": "/integration/runtime-recoveries",
+      "operationId": "get_runtime_recoveries_integration_runtime_recoveries_get",
+      "summary": "List recent runtime recovery events",
+      "request": {
+        "fields": [
+          {
+            "name": "queue",
+            "location": "query",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.queue",
+            "attributeRef": "#/attributeCatalog/lotus.queue"
+          },
+          {
+            "name": "limit",
+            "location": "query",
+            "required": false,
+            "type": "integer",
+            "semanticId": "lotus.limit",
+            "attributeRef": "#/attributeCatalog/lotus.limit"
+          },
+          {
+            "name": "offset",
+            "location": "query",
+            "required": false,
+            "type": "integer",
+            "semanticId": "lotus.offset",
+            "attributeRef": "#/attributeCatalog/lotus.offset"
+          },
+          {
+            "name": "compute_analytics_type",
+            "location": "query",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.compute_analytics_type",
+            "attributeRef": "#/attributeCatalog/lotus.compute_analytics_type"
+          },
+          {
+            "name": "lineage_calculation_type",
+            "location": "query",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.lineage_calculation_type",
+            "attributeRef": "#/attributeCatalog/lotus.lineage_calculation_type"
+          },
+          {
+            "name": "calculation_id_contains",
+            "location": "query",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.calculation_id_contains",
+            "attributeRef": "#/attributeCatalog/lotus.calculation_id_contains"
+          }
+        ]
+      },
+      "response": {
+        "fields": [
+          {
+            "name": "contract_version",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.contract_version",
+            "attributeRef": "#/attributeCatalog/lotus.contract_version"
+          },
+          {
+            "name": "source_service",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.source_service",
+            "attributeRef": "#/attributeCatalog/lotus.source_service"
+          },
+          {
+            "name": "generated_at",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.generated_at",
+            "attributeRef": "#/attributeCatalog/lotus.generated_at"
+          },
+          {
+            "name": "queue_filter",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.queue_filter",
+            "attributeRef": "#/attributeCatalog/lotus.queue_filter"
+          },
+          {
+            "name": "limit",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.limit",
+            "attributeRef": "#/attributeCatalog/lotus.limit"
+          },
+          {
+            "name": "offset",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.offset",
+            "attributeRef": "#/attributeCatalog/lotus.offset"
+          },
+          {
+            "name": "calculation_id_contains",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.calculation_id_contains",
+            "attributeRef": "#/attributeCatalog/lotus.calculation_id_contains"
+          },
+          {
+            "name": "compute_analytics_type",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.compute_analytics_type",
+            "attributeRef": "#/attributeCatalog/lotus.compute_analytics_type"
+          },
+          {
+            "name": "lineage_calculation_type",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.lineage_calculation_type",
+            "attributeRef": "#/attributeCatalog/lotus.lineage_calculation_type"
+          },
+          {
+            "name": "durable_metadata_store",
+            "location": "body",
+            "required": true,
+            "type": "DurableMetadataStoreStatusResponse",
+            "semanticId": "lotus.durable_metadata_store",
+            "attributeRef": "#/attributeCatalog/lotus.durable_metadata_store"
+          },
+          {
+            "name": "durable_metadata_store.status",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.status",
+            "attributeRef": "#/attributeCatalog/lotus.status"
+          },
+          {
+            "name": "durable_metadata_store.reason",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.reason",
+            "attributeRef": "#/attributeCatalog/lotus.reason"
+          },
+          {
+            "name": "compute_queue",
+            "location": "body",
+            "required": true,
+            "type": "RuntimeRecoveriesQueueStatusResponse",
+            "semanticId": "lotus.compute_queue",
+            "attributeRef": "#/attributeCatalog/lotus.compute_queue"
+          },
+          {
+            "name": "compute_queue.status",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.status",
+            "attributeRef": "#/attributeCatalog/lotus.status"
+          },
+          {
+            "name": "compute_queue.reason",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.reason",
+            "attributeRef": "#/attributeCatalog/lotus.reason"
+          },
+          {
+            "name": "compute_queue.total_count",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.total_count",
+            "attributeRef": "#/attributeCatalog/lotus.total_count"
+          },
+          {
+            "name": "compute_queue.returned_count",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.returned_count",
+            "attributeRef": "#/attributeCatalog/lotus.returned_count"
+          },
+          {
+            "name": "lineage_queue",
+            "location": "body",
+            "required": true,
+            "type": "RuntimeRecoveriesQueueStatusResponse",
+            "semanticId": "lotus.lineage_queue",
+            "attributeRef": "#/attributeCatalog/lotus.lineage_queue"
+          },
+          {
+            "name": "lineage_queue.status",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.status",
+            "attributeRef": "#/attributeCatalog/lotus.status"
+          },
+          {
+            "name": "lineage_queue.reason",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.reason",
+            "attributeRef": "#/attributeCatalog/lotus.reason"
+          },
+          {
+            "name": "lineage_queue.total_count",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.total_count",
+            "attributeRef": "#/attributeCatalog/lotus.total_count"
+          },
+          {
+            "name": "lineage_queue.returned_count",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.returned_count",
+            "attributeRef": "#/attributeCatalog/lotus.returned_count"
+          },
+          {
+            "name": "compute_recoveries",
+            "location": "body",
+            "required": false,
+            "type": "array",
+            "semanticId": "lotus.compute_recoveries",
+            "attributeRef": "#/attributeCatalog/lotus.compute_recoveries"
+          },
+          {
+            "name": "compute_recoveries[].calculation_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.calculation_id",
+            "attributeRef": "#/attributeCatalog/lotus.calculation_id"
+          },
+          {
+            "name": "compute_recoveries[].execution_path",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.execution_path",
+            "attributeRef": "#/attributeCatalog/lotus.execution_path"
+          },
+          {
+            "name": "compute_recoveries[].lineage_path",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.lineage_path",
+            "attributeRef": "#/attributeCatalog/lotus.lineage_path"
+          },
+          {
+            "name": "compute_recoveries[].result_path",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.result_path",
+            "attributeRef": "#/attributeCatalog/lotus.result_path"
+          },
+          {
+            "name": "compute_recoveries[].analytics_type",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.analytics_type",
+            "attributeRef": "#/attributeCatalog/lotus.analytics_type"
+          },
+          {
+            "name": "compute_recoveries[].recovery_kind",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.recovery_kind",
+            "attributeRef": "#/attributeCatalog/lotus.recovery_kind"
+          },
+          {
+            "name": "compute_recoveries[].recovered_at_utc",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.recovered_at_utc",
+            "attributeRef": "#/attributeCatalog/lotus.recovered_at_utc"
+          },
+          {
+            "name": "compute_recoveries[].attempt_count",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.attempt_count",
+            "attributeRef": "#/attributeCatalog/lotus.attempt_count"
+          },
+          {
+            "name": "compute_recoveries[].error_type",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.error_type",
+            "attributeRef": "#/attributeCatalog/lotus.error_type"
+          },
+          {
+            "name": "lineage_recoveries",
+            "location": "body",
+            "required": false,
+            "type": "array",
+            "semanticId": "lotus.lineage_recoveries",
+            "attributeRef": "#/attributeCatalog/lotus.lineage_recoveries"
+          },
+          {
+            "name": "lineage_recoveries[].calculation_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.calculation_id",
+            "attributeRef": "#/attributeCatalog/lotus.calculation_id"
+          },
+          {
+            "name": "lineage_recoveries[].execution_path",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.execution_path",
+            "attributeRef": "#/attributeCatalog/lotus.execution_path"
+          },
+          {
+            "name": "lineage_recoveries[].lineage_path",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.lineage_path",
+            "attributeRef": "#/attributeCatalog/lotus.lineage_path"
+          },
+          {
+            "name": "lineage_recoveries[].result_path",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.result_path",
+            "attributeRef": "#/attributeCatalog/lotus.result_path"
+          },
+          {
+            "name": "lineage_recoveries[].calculation_type",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.calculation_type",
+            "attributeRef": "#/attributeCatalog/lotus.calculation_type"
+          },
+          {
+            "name": "lineage_recoveries[].recovery_kind",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.recovery_kind",
+            "attributeRef": "#/attributeCatalog/lotus.recovery_kind"
+          },
+          {
+            "name": "lineage_recoveries[].recovered_at_utc",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.recovered_at_utc",
+            "attributeRef": "#/attributeCatalog/lotus.recovered_at_utc"
+          },
+          {
+            "name": "lineage_recoveries[].attempt_count",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.attempt_count",
+            "attributeRef": "#/attributeCatalog/lotus.attempt_count"
           }
         ]
       }

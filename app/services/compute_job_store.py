@@ -535,14 +535,18 @@ class ComputeJobStore:
         calculation_id_contains: str | None = None,
     ) -> ComputeRecoveryEventPage:
         with self._session() as session:
-            rows = session.execute(
-                self._build_recent_recoveries_statement(
-                    limit=limit,
-                    offset=offset,
-                    analytics_type=analytics_type,
-                    calculation_id_contains=calculation_id_contains,
+            rows = (
+                session.execute(
+                    self._build_recent_recoveries_statement(
+                        limit=limit,
+                        offset=offset,
+                        analytics_type=analytics_type,
+                        calculation_id_contains=calculation_id_contains,
+                    )
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
             events: list[ComputeRecoveryEvent] = []
             for row in rows:
                 recovered_at_utc = _format_timestamp(row.last_error_at_utc)
@@ -583,9 +587,7 @@ class ComputeJobStore:
     ) -> ComputeQueueInspectionPage:
         inspection_now = now or datetime.now(timezone.utc)
         normalized_status_filter = status_filter.lower()
-        min_age_threshold = (
-            inspection_now - timedelta(seconds=min_age_seconds) if min_age_seconds > 0 else None
-        )
+        min_age_threshold = inspection_now - timedelta(seconds=min_age_seconds) if min_age_seconds > 0 else None
 
         with self._session() as session:
             if normalized_status_filter == "active":
@@ -680,9 +682,7 @@ class ComputeJobStore:
             func.sum(
                 case(
                     (
-                        ComputeJobModel.job_status.in_(
-                            [ComputeJobStatus.LEASED.value, ComputeJobStatus.RUNNING.value]
-                        )
+                        ComputeJobModel.job_status.in_([ComputeJobStatus.LEASED.value, ComputeJobStatus.RUNNING.value])
                         & ComputeJobModel.lease_expires_at_utc.is_not(None)
                         & (ComputeJobModel.lease_expires_at_utc < now),
                         1,
@@ -908,13 +908,17 @@ class ComputeJobStore:
         calculation_id_contains: str | None,
         min_age_threshold: datetime | None,
     ):
-        statement = select(func.count()).select_from(ComputeJobModel).where(
-            ComputeJobModel.job_status.in_(
-                [
-                    ComputeJobStatus.PENDING.value,
-                    ComputeJobStatus.LEASED.value,
-                    ComputeJobStatus.RUNNING.value,
-                ]
+        statement = (
+            select(func.count())
+            .select_from(ComputeJobModel)
+            .where(
+                ComputeJobModel.job_status.in_(
+                    [
+                        ComputeJobStatus.PENDING.value,
+                        ComputeJobStatus.LEASED.value,
+                        ComputeJobStatus.RUNNING.value,
+                    ]
+                )
             )
         )
         return self._apply_inspection_filters(
@@ -930,8 +934,10 @@ class ComputeJobStore:
         calculation_id_contains: str | None,
         min_age_threshold: datetime | None,
     ):
-        statement = select(func.count()).select_from(ComputeJobModel).where(
-            ComputeJobModel.job_status == ComputeJobStatus.FAILED.value
+        statement = (
+            select(func.count())
+            .select_from(ComputeJobModel)
+            .where(ComputeJobModel.job_status == ComputeJobStatus.FAILED.value)
         )
         return self._apply_inspection_filters(
             self._apply_min_age_filter(statement, min_age_threshold=min_age_threshold),
@@ -988,10 +994,14 @@ class ComputeJobStore:
         now: datetime,
         min_age_threshold: datetime | None,
     ):
-        statement = select(func.count()).select_from(ComputeJobModel).where(
-            ComputeJobModel.job_status.in_([ComputeJobStatus.LEASED.value, ComputeJobStatus.RUNNING.value])
-            & ComputeJobModel.lease_expires_at_utc.is_not(None)
-            & (ComputeJobModel.lease_expires_at_utc < now)
+        statement = (
+            select(func.count())
+            .select_from(ComputeJobModel)
+            .where(
+                ComputeJobModel.job_status.in_([ComputeJobStatus.LEASED.value, ComputeJobStatus.RUNNING.value])
+                & ComputeJobModel.lease_expires_at_utc.is_not(None)
+                & (ComputeJobModel.lease_expires_at_utc < now)
+            )
         )
         return self._apply_inspection_filters(
             self._apply_min_age_filter(statement, min_age_threshold=min_age_threshold),

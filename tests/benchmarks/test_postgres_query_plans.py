@@ -76,7 +76,7 @@ def test_postgres_compute_queue_stats_plan_contract():
         )
 
     _analyze_tables(postgres_database_url, "analytics_compute_job")
-    plan = _explain_json(postgres_database_url, store._build_queue_stats_statement())
+    plan = _explain_json(postgres_database_url, store._build_queue_stats_statement(now=datetime.now(timezone.utc)))
     node_types = _collect_node_types(plan)
     relation_names = _collect_relation_names(plan)
 

@@ -49,7 +49,9 @@ class RuntimeRecoveriesQueueStatusResponse(BaseModel):
         default=None,
         description="Concrete queue-specific unavailability reason when recovery inspection failed.",
     )
-    total_count: int = Field(description="Total durable recovery events that match the requested filters for this queue.")
+    total_count: int = Field(
+        description="Total durable recovery events that match the requested filters for this queue."
+    )
     returned_count: int = Field(
         description="Number of recovery events included for this queue in the current response page."
     )

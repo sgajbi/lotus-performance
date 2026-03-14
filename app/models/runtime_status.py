@@ -78,7 +78,9 @@ class ComputeRecoveryEventResponse(BaseModel):
     calculation_id: str = Field(description="Calculation handle of the recovered compute job.")
     analytics_type: str = Field(description="Analytics workflow type for the recovered compute job.")
     recovery_kind: str = Field(description="Recovery path that returned the compute job to pending state.")
-    recovered_at_utc: str = Field(description="UTC timestamp when the compute job most recently re-entered pending state.")
+    recovered_at_utc: str = Field(
+        description="UTC timestamp when the compute job most recently re-entered pending state."
+    )
     attempt_count: int = Field(description="Attempt count already consumed by the recovered compute job.")
     error_type: str | None = Field(
         default=None,
@@ -90,7 +92,9 @@ class LineageRecoveryEventResponse(BaseModel):
     calculation_id: str = Field(description="Calculation handle of the recovered lineage item.")
     calculation_type: str = Field(description="Analytics workflow type for the recovered lineage item.")
     recovery_kind: str = Field(description="Recovery path that returned the lineage item to pending state.")
-    recovered_at_utc: str = Field(description="UTC timestamp when the lineage item most recently re-entered pending state.")
+    recovered_at_utc: str = Field(
+        description="UTC timestamp when the lineage item most recently re-entered pending state."
+    )
     attempt_count: int = Field(description="Attempt count already consumed by the recovered lineage item.")
 
 

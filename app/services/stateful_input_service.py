@@ -33,6 +33,7 @@ class StatefulInputService:
         self._portfolio_chunk_days = max(1, portfolio_chunk_days)
         self._reference_chunk_days = max(1, reference_chunk_days)
         self._max_concurrent_chunks = max(1, max_concurrent_chunks)
+        self._snapshot_id_cache: dict[UUID, set[str]] = {}
 
     def plan_chunks(self, *, start_date: date, end_date: date, chunk_days: int) -> list[DateChunk]:
         bounded_chunk_days = max(1, chunk_days)
@@ -433,4 +434,8 @@ class StatefulInputService:
     def _existing_snapshot_ids(self, calculation_id: UUID | None) -> set[str]:
         if calculation_id is None:
             return set()
-        return self._execution_store.list_upstream_snapshot_ids(calculation_id)
+        cached_snapshot_ids = self._snapshot_id_cache.get(calculation_id)
+        if cached_snapshot_ids is None:
+            cached_snapshot_ids = self._execution_store.list_upstream_snapshot_ids(calculation_id)
+            self._snapshot_id_cache[calculation_id] = cached_snapshot_ids
+        return cached_snapshot_ids

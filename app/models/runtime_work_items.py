@@ -73,7 +73,9 @@ class RuntimeWorkItemQueueStatusResponse(BaseModel):
         description="Concrete queue-specific unavailability reason when work-item inspection failed.",
     )
     total_count: int = Field(description="Total durable work items that match the requested filters for this queue.")
-    returned_count: int = Field(description="Number of work items included for this queue in the current response page.")
+    returned_count: int = Field(
+        description="Number of work items included for this queue in the current response page."
+    )
 
 
 class RuntimeWorkItemsResponse(BaseModel):
@@ -84,7 +86,9 @@ class RuntimeWorkItemsResponse(BaseModel):
     status_filter: str = Field(description="Requested work-item status filter applied to both queues.")
     limit: int = Field(description="Maximum number of work items returned per queue.")
     offset: int = Field(description="Zero-based page offset applied per queue before limiting results.")
-    min_age_seconds: float = Field(description="Minimum work-item age filter applied after durable ordering for this snapshot.")
+    min_age_seconds: float = Field(
+        description="Minimum work-item age filter applied after durable ordering for this snapshot."
+    )
     compute_analytics_type: str | None = Field(
         default=None,
         description="Optional compute analytics-type filter applied to compute work-item inspection.",
@@ -146,12 +150,10 @@ def build_runtime_work_items_response(snapshot: RuntimeWorkItemSnapshot) -> Runt
             returned_count=snapshot.lineage_queue.returned_count,
         ),
         compute_items=[
-            ComputeRuntimeWorkItemResponse(**_build_compute_item_payload(item))
-            for item in snapshot.compute_items
+            ComputeRuntimeWorkItemResponse(**_build_compute_item_payload(item)) for item in snapshot.compute_items
         ],
         lineage_items=[
-            LineageRuntimeWorkItemResponse(**_build_lineage_item_payload(item))
-            for item in snapshot.lineage_items
+            LineageRuntimeWorkItemResponse(**_build_lineage_item_payload(item)) for item in snapshot.lineage_items
         ],
     )
 
