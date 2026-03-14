@@ -189,12 +189,18 @@ class LineageMetadataStore:
             )
             session.merge(record)
 
-    def mark_complete(self, calculation_id: UUID, artifact_names: list[str]) -> None:
+    def mark_complete(
+        self,
+        calculation_id: UUID,
+        artifact_names: list[str],
+        *,
+        timestamp_utc: datetime | None = None,
+    ) -> None:
         with self._session() as session:
             record = session.get(LineageRecordModel, str(calculation_id))
             if record is None:
                 raise KeyError(f"Lineage record not found: {calculation_id}")
-            record.timestamp_utc = datetime.now(timezone.utc)
+            record.timestamp_utc = timestamp_utc or datetime.now(timezone.utc)
             record.status = LineageStatus.COMPLETE.value
             record.artifact_names = "\n".join(sorted(artifact_names))
             record.error_message = None

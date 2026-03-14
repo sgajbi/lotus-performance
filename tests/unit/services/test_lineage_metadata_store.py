@@ -84,6 +84,25 @@ def test_lineage_metadata_store_formats_sqlite_record_timestamp_as_utc(tmp_path)
     assert record.timestamp_utc == "2026-03-14T12:00:00Z"
 
 
+def test_lineage_metadata_store_mark_complete_uses_explicit_completion_timestamp(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+    completion_timestamp = datetime(2026, 3, 14, 12, 34, 56, tzinfo=timezone.utc)
+
+    store.create_pending_record(calculation_id=calculation_id, calculation_type="TWR")
+    store.mark_complete(
+        calculation_id=calculation_id,
+        artifact_names=["request.json"],
+        timestamp_utc=completion_timestamp,
+    )
+
+    record = store.get_record(calculation_id)
+
+    assert record is not None
+    assert record.timestamp_utc == "2026-03-14T12:34:56Z"
+
+
 def test_lineage_metadata_store_raises_for_missing_record_updates(tmp_path):
     store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
     store.create_schema()

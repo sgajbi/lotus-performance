@@ -73,6 +73,7 @@ def test_lineage_service_enqueue_and_materialize(tmp_path):
     assert metadata is not None
     assert metadata.status == LineageStatus.COMPLETE
     assert metadata.artifact_names == ["details.csv", "request.json", "response.json"]
+    assert manifest_data["timestamp_utc"] == metadata.timestamp_utc
 
 
 def test_lineage_service_creates_storage_directory_if_missing(tmp_path):
@@ -265,3 +266,39 @@ def test_lineage_service_atomic_write_does_not_leave_partial_target(tmp_path, mo
 
     assert not target_path.exists()
     assert list(tmp_path.glob(".lineage-*.tmp")) == []
+
+
+def test_lineage_service_materialize_keeps_manifest_timestamp_in_sync_with_metadata(tmp_path):
+    metadata_store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    metadata_store.create_schema()
+    service = LineageService(storage_path=str(tmp_path), metadata_store=metadata_store)
+    calc_id = uuid4()
+    req_model = MockModel(key="request")
+    res_model = MockModel(key="response")
+    details_df = pd.DataFrame([{"colA": 1, "colB": 2}])
+
+    service.enqueue_capture(
+        calculation_id=calc_id,
+        calculation_type="TEST",
+        request_model=req_model,
+        response_model=res_model,
+        calculation_details={"details.csv": details_df},
+    )
+    payload = metadata_store.list_pending_payloads(limit=10)[0]
+
+    success = service.materialize_payload(
+        calculation_id=payload.calculation_id,
+        calculation_type=payload.calculation_type,
+        request_json=payload.request_json,
+        response_json=payload.response_json,
+        calculation_details=payload.details,
+    )
+
+    assert success is True
+    manifest_path = os.path.join(tmp_path, str(calc_id), "manifest.json")
+    with open(manifest_path, "r", encoding="utf-8") as handle:
+        manifest_data = json.load(handle)
+
+    metadata = metadata_store.get_record(calc_id)
+    assert metadata is not None
+    assert metadata.timestamp_utc == manifest_data["timestamp_utc"]
