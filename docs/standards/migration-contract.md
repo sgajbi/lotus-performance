@@ -1,24 +1,33 @@
 # Migration Contract Standard
 
 - Service: `lotus-performance`
-- Persistence mode: **no persistent schema** in current architecture.
+- Persistence mode: **durable metadata schema** in current architecture.
 - Migration policy: **versioned migration contract** remains mandatory as a governance control.
+- Runtime schema ownership: application/bootstrap code may create or extend durable metadata tables only through deterministic, test-backed, **additive upgrade** logic.
 
 ## Deterministic Checks
 
 - `make migration-smoke` validates this document and required migration policy language.
 - CI executes `make migration-smoke` on all PRs.
+- Durable-store schema tests must prove new columns/indexes can be applied without breaking existing metadata tables.
 
 ## Rollback and Forward-Fix
 
-- No schema rollback path applies in no-schema mode.
-- Contract violations are corrected through **forward-fix** and CI re-run.
+- Schema changes are **forward-only**.
+- Contract violations are corrected through additive forward-fix and CI re-run.
+- Any incompatible schema change requires an explicit **rollback runbook** and ADR/RFC approval before merge.
 
-## Future Upgrade Path
+## Durable Upgrade Rules
 
-If storage is introduced:
-
-1. Adopt versioned migrations.
-2. Add deterministic migration apply checks in CI.
-3. Keep forward-only migration policy with explicit rollback runbook.
+1. Keep **versioned migration** notes in the governing RFC/ADR for every durable schema change.
+2. Prefer additive evolution:
+   - add nullable columns
+   - backfill deterministically
+   - add indexes idempotently
+3. Upgrade logic must be deterministic and safe against already-initialized local/runtime stores.
+4. Runtime bootstrap must not rely on destructive reset or manual table recreation.
+5. Any non-additive change requires:
+   - explicit compatibility analysis
+   - rollback runbook
+   - environment validation evidence
 

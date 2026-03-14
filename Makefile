@@ -58,10 +58,10 @@ no-alias-gate:
 	python scripts/no_alias_contract_guard.py
 
 migration-smoke:
-	python scripts/migration_contract_check.py --mode no-schema
+	python scripts/migration_contract_check.py --mode durable-schema
 
 migration-apply:
-	python scripts/migration_contract_check.py --mode no-schema
+	python scripts/migration_contract_check.py --mode durable-schema
 
 lint:
 	python -m ruff check .
