@@ -1,4 +1,4 @@
-.PHONY: install check check-all test test-unit test-integration test-e2e test-all ci ci-local ci-local-docker ci-local-docker-down typecheck lint monetary-float-guard format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate migration-smoke migration-apply recovery-drill-smoke pre-commit docker-up docker-down docker-build
+.PHONY: install check check-all test test-unit test-integration test-e2e test-all ci ci-local ci-local-docker ci-local-docker-down typecheck lint monetary-float-guard format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate migration-smoke migration-apply recovery-drill-smoke performance-characterization pre-commit docker-up docker-down docker-build
 
 install:
 	pip install -r requirements.txt
@@ -65,6 +65,9 @@ migration-smoke:
 
 recovery-drill-smoke:
 	python scripts/durable_recovery_drill.py --output-dir artifacts/durable-recovery-drill --retention-limit 30 --retention-max-age-days 90 --operator-id migration-smoke --backup-identifier migration-smoke-local
+
+performance-characterization:
+	python -m pytest tests/benchmarks/test_engine_performance.py -q
 
 migration-apply:
 	python scripts/migration_contract_check.py --mode durable-schema
