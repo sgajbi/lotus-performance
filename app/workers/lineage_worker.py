@@ -12,7 +12,6 @@ from app.services.lineage_metadata_store import LineageMetadataStore, lineage_me
 from app.services.lineage_service import LineageService, lineage_service
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
 
 
 def process_pending_jobs(
@@ -24,14 +23,16 @@ def process_pending_jobs(
     worker_id: str | None = None,
     lease_seconds: int | None = None,
     max_attempts: int | None = None,
+    settings=None,
 ) -> int:
-    batch_size = limit or settings.LINEAGE_WORKER_BATCH_SIZE
+    active_settings = settings or get_settings()
+    batch_size = limit or active_settings.LINEAGE_WORKER_BATCH_SIZE
     active_lineage_store = lineage_store or lineage_metadata_store
     active_lineage_service = lineage_service_ or lineage_service
     active_execution_store = execution_store or execution_registry
-    current_worker_id = worker_id or settings.LINEAGE_WORKER_ID
-    current_lease_seconds = lease_seconds or settings.LINEAGE_WORKER_LEASE_SECONDS
-    current_max_attempts = max_attempts or settings.LINEAGE_WORKER_MAX_ATTEMPTS
+    current_worker_id = worker_id or active_settings.LINEAGE_WORKER_ID
+    current_lease_seconds = lease_seconds or active_settings.LINEAGE_WORKER_LEASE_SECONDS
+    current_max_attempts = max_attempts or active_settings.LINEAGE_WORKER_MAX_ATTEMPTS
     pending = active_lineage_store.lease_pending_payloads(
         worker_id=current_worker_id,
         limit=batch_size,
@@ -65,16 +66,17 @@ def process_pending_jobs(
     return processed
 
 
-def run_forever(*, stop_event: Event | None = None) -> None:
-    logging.basicConfig(level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO))
+def run_forever(*, stop_event: Event | None = None, settings=None) -> None:
+    active_settings = settings or get_settings()
+    logging.basicConfig(level=getattr(logging, active_settings.LOG_LEVEL.upper(), logging.INFO))
     logger.info("Starting lineage worker poller")
     bootstrap_durable_metadata_stores(
         execution_store=execution_registry,
         lineage_store=lineage_metadata_store,
     )
     while not _stop_requested(stop_event):
-        processed = process_pending_jobs()
-        if processed == 0 and _wait_for_next_poll(stop_event, settings.LINEAGE_WORKER_POLL_SECONDS):
+        processed = process_pending_jobs(settings=active_settings)
+        if processed == 0 and _wait_for_next_poll(stop_event, active_settings.LINEAGE_WORKER_POLL_SECONDS):
             break
 
 

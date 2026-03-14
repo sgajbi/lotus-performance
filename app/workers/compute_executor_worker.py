@@ -25,11 +25,10 @@ from core.repro import generate_canonical_hash
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
 
 
-def process_pending_jobs(*, limit: int | None = None) -> int:
-    return _process_pending_jobs(limit=limit)
+def process_pending_jobs(*, limit: int | None = None, settings=None) -> int:
+    return _process_pending_jobs(limit=limit, settings=settings)
 
 
 def _process_pending_jobs(
@@ -43,13 +42,15 @@ def _process_pending_jobs(
     returns_series_calculator: Callable[[ReturnsSeriesRequest], Coroutine[Any, Any, Any]] | None = None,
     contribution_calculator: Callable[..., Any] | None = None,
     attribution_calculator: Callable[..., Any] | None = None,
+    settings=None,
 ) -> int:
-    batch_size = limit or settings.COMPUTE_EXECUTOR_BATCH_SIZE
+    active_settings = settings or get_settings()
+    batch_size = limit or active_settings.COMPUTE_EXECUTOR_BATCH_SIZE
     active_job_store = job_store or compute_job_store
     active_execution_store = execution_store or execution_registry
     active_result_store = result_store or async_result_store
-    current_worker_id = worker_id or settings.COMPUTE_EXECUTOR_WORKER_ID
-    current_lease_seconds = lease_seconds or settings.COMPUTE_EXECUTOR_LEASE_SECONDS
+    current_worker_id = worker_id or active_settings.COMPUTE_EXECUTOR_WORKER_ID
+    current_lease_seconds = lease_seconds or active_settings.COMPUTE_EXECUTOR_LEASE_SECONDS
     active_returns_series_calculator = returns_series_calculator or calculate_returns_series
     active_contribution_calculator = contribution_calculator or calculate_contribution
     active_attribution_calculator = attribution_calculator or calculate_attribution
@@ -89,7 +90,7 @@ def _process_pending_jobs(
                 response = asyncio.run(active_returns_series_calculator(request))
             elif job.analytics_type == "Attribution":
                 request = AttributionRequest.model_validate(job.request_payload)
-                input_fingerprint, calculation_hash = generate_canonical_hash(request, settings.APP_VERSION)
+                input_fingerprint, calculation_hash = generate_canonical_hash(request, active_settings.APP_VERSION)
                 response = active_attribution_calculator(
                     request,
                     input_fingerprint=input_fingerprint,
@@ -97,7 +98,7 @@ def _process_pending_jobs(
                 )
             elif job.analytics_type == "Contribution":
                 request = ContributionRequest.model_validate(job.request_payload)
-                input_fingerprint, calculation_hash = generate_canonical_hash(request, settings.APP_VERSION)
+                input_fingerprint, calculation_hash = generate_canonical_hash(request, active_settings.APP_VERSION)
                 response = active_contribution_calculator(
                     request,
                     input_fingerprint=input_fingerprint,
@@ -184,8 +185,9 @@ def _record_terminal_failure(
         logger.exception(missing_execution_log_message, calculation_id)
 
 
-def run_forever(*, stop_event: Event | None = None) -> None:
-    logging.basicConfig(level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO))
+def run_forever(*, stop_event: Event | None = None, settings=None) -> None:
+    active_settings = settings or get_settings()
+    logging.basicConfig(level=getattr(logging, active_settings.LOG_LEVEL.upper(), logging.INFO))
     logger.info("Starting compute executor poller")
     bootstrap_durable_metadata_stores(
         execution_store=execution_registry,
@@ -193,8 +195,8 @@ def run_forever(*, stop_event: Event | None = None) -> None:
         async_result_store_=async_result_store,
     )
     while not _stop_requested(stop_event):
-        processed = process_pending_jobs()
-        if processed == 0 and _wait_for_next_poll(stop_event, settings.COMPUTE_EXECUTOR_POLL_SECONDS):
+        processed = process_pending_jobs(settings=active_settings)
+        if processed == 0 and _wait_for_next_poll(stop_event, active_settings.COMPUTE_EXECUTOR_POLL_SECONDS):
             break
 
 
