@@ -210,9 +210,11 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 - returns readiness only when:
   - the service is not draining
   - the durable metadata store is reachable
+  - lineage storage is present and usable
 - failure contract:
   - `503 {"status":"draining"}`
   - `503 {"status":"unavailable","reason":"durable_metadata_store_unreachable"}`
+  - `503 {"status":"unavailable","reason":"lineage_storage_path_missing"}`
 
 ### `GET /metrics`
 

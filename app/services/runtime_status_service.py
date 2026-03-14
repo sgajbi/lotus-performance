@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -15,6 +14,7 @@ from app.services.compute_job_store import (
 from app.services.durability_health_service import (
     DurabilityHealthStatus,
     check_durable_metadata_store_ready,
+    check_lineage_storage_ready,
 )
 from app.services.lineage_metadata_store import (
     LineageQueueInspectionAnchors,
@@ -36,13 +36,6 @@ class RuntimeQueueStatus:
     stats: ComputeQueueStats | LineageQueueStats | None
     inspection_anchors: ComputeQueueInspectionAnchors | LineageQueueInspectionAnchors | None
     recent_recoveries: tuple[ComputeRecoveryEvent | LineageRecoveryEvent, ...]
-
-
-@dataclass(frozen=True)
-class LineageStorageHealthStatus:
-    is_ready: bool
-    reason: str | None = None
-
 
 @dataclass(frozen=True)
 class RuntimeDegradationDetail:
@@ -208,7 +201,7 @@ def _build_lineage_queue_status(durability_status: DurabilityHealthStatus, *, se
             inspection_anchors=None,
             recent_recoveries=(),
         )
-    lineage_storage_status = _check_lineage_storage_ready(settings=settings)
+    lineage_storage_status = check_lineage_storage_ready()
     if not lineage_storage_status.is_ready:
         return RuntimeQueueStatus(
             status="unavailable",
@@ -254,19 +247,6 @@ def _build_lineage_queue_status(durability_status: DurabilityHealthStatus, *, se
             inspection_anchors=None,
             recent_recoveries=(),
         )
-
-
-def _check_lineage_storage_ready(*, settings) -> LineageStorageHealthStatus:
-    storage_path = getattr(settings, "LINEAGE_STORAGE_PATH", None)
-    if not storage_path:
-        return LineageStorageHealthStatus(is_ready=False, reason="lineage_storage_path_missing")
-    if not os.path.exists(storage_path):
-        return LineageStorageHealthStatus(is_ready=False, reason="lineage_storage_path_missing")
-    if not os.path.isdir(storage_path):
-        return LineageStorageHealthStatus(is_ready=False, reason="lineage_storage_path_invalid")
-    if not os.access(storage_path, os.R_OK | os.W_OK | os.X_OK):
-        return LineageStorageHealthStatus(is_ready=False, reason="lineage_storage_path_unreadable")
-    return LineageStorageHealthStatus(is_ready=True, reason=None)
 
 
 def _safe_compute_queue_inspection_anchors() -> ComputeQueueInspectionAnchors | None:

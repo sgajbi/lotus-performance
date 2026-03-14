@@ -106,6 +106,26 @@ def test_health_ready_returns_503_when_durable_metadata_store_is_unavailable(moc
     }
 
 
+def test_health_ready_returns_503_when_lineage_storage_is_unavailable(mocker):
+    mocker.patch(
+        "app.api.endpoints.health.check_durable_metadata_store_ready",
+        return_value=DurabilityHealthStatus(
+            is_ready=False,
+            status="unavailable",
+            reason="lineage_storage_path_missing",
+        ),
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/health/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "status": "unavailable",
+        "reason": "lineage_storage_path_missing",
+    }
+
+
 def test_metrics_include_durable_queue_pressure_signals():
     compute_job_store.create_schema()
     lineage_metadata_store.create_schema()

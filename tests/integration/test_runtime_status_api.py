@@ -156,7 +156,7 @@ def test_runtime_status_reports_unavailable_recovery_history_snapshot(mocker):
 
 def test_runtime_status_reports_unavailable_lineage_storage(mocker):
     mocker.patch(
-        "app.services.runtime_status_service._check_lineage_storage_ready",
+        "app.services.runtime_status_service.check_lineage_storage_ready",
         return_value=type("StorageStatus", (), {"is_ready": False, "reason": "lineage_storage_path_missing"})(),
     )
 
