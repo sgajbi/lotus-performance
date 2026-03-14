@@ -10,6 +10,9 @@ def test_run_recovery_drill_emits_passing_evidence_and_writes_artifact(tmp_path)
 
     assert evidence.status == "passed"
     assert evidence.processed_payload_count == 1
+    assert evidence.compute_job_processed_count == 1
+    assert evidence.compute_async_result_status == "complete"
+    assert evidence.compute_execution_status == "complete"
     assert evidence.materialized_artifact_exists is True
     assert evidence.owned_tables_present == list(REQUIRED_TABLES)
     assert output_path.exists() is True
@@ -17,4 +20,7 @@ def test_run_recovery_drill_emits_passing_evidence_and_writes_artifact(tmp_path)
     persisted = json.loads(output_path.read_text(encoding="utf-8"))
     assert persisted["status"] == "passed"
     assert persisted["processed_payload_count"] == 1
+    assert persisted["compute_job_processed_count"] == 1
+    assert persisted["compute_async_result_status"] == "complete"
+    assert persisted["compute_execution_status"] == "complete"
     assert persisted["owned_tables_present"] == list(REQUIRED_TABLES)

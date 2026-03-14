@@ -49,6 +49,7 @@ Recovery must include:
 
 - `make migration-smoke`
 - `python scripts/durable_recovery_drill.py --output artifacts/durable-recovery-drill/latest.json`
+  - verify the emitted evidence shows both `compute_async_result_status="complete"` and lineage artifact materialization success
 - `GET /health/ready`
 - `GET /integration/runtime-status`
 - verify durable execution polling for a known `calculation_id`

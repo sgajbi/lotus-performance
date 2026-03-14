@@ -4,6 +4,7 @@ import asyncio
 import logging
 import time
 from threading import Event
+from typing import Any, Callable, Coroutine
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -13,12 +14,12 @@ from app.core.config import get_settings
 from app.models.attribution_requests import AttributionRequest
 from app.models.contribution_requests import ContributionRequest
 from app.models.returns_series import ReturnsSeriesRequest
-from app.services.async_result_store import async_result_store
+from app.services.async_result_store import AsyncResultStore, async_result_store
 from app.services.attribution_service import calculate_attribution
-from app.services.compute_job_store import compute_job_store
+from app.services.compute_job_store import ComputeJobStore, compute_job_store
 from app.services.contribution_service import calculate_contribution
 from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
-from app.services.execution_registry import execution_registry
+from app.services.execution_registry import ExecutionRegistry, execution_registry
 from app.services.returns_series_service import calculate_returns_series
 from core.repro import generate_canonical_hash
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
@@ -28,8 +29,31 @@ settings = get_settings()
 
 
 def process_pending_jobs(*, limit: int | None = None) -> int:
+    return _process_pending_jobs(limit=limit)
+
+
+def _process_pending_jobs(
+    *,
+    limit: int | None = None,
+    job_store: ComputeJobStore | None = None,
+    execution_store: ExecutionRegistry | None = None,
+    result_store: AsyncResultStore | None = None,
+    worker_id: str | None = None,
+    lease_seconds: int | None = None,
+    returns_series_calculator: Callable[[ReturnsSeriesRequest], Coroutine[Any, Any, Any]] | None = None,
+    contribution_calculator: Callable[..., Any] | None = None,
+    attribution_calculator: Callable[..., Any] | None = None,
+) -> int:
     batch_size = limit or settings.COMPUTE_EXECUTOR_BATCH_SIZE
-    reconciled = compute_job_store.reconcile_stale_jobs()
+    active_job_store = job_store or compute_job_store
+    active_execution_store = execution_store or execution_registry
+    active_result_store = result_store or async_result_store
+    current_worker_id = worker_id or settings.COMPUTE_EXECUTOR_WORKER_ID
+    current_lease_seconds = lease_seconds or settings.COMPUTE_EXECUTOR_LEASE_SECONDS
+    active_returns_series_calculator = returns_series_calculator or calculate_returns_series
+    active_contribution_calculator = contribution_calculator or calculate_contribution
+    active_attribution_calculator = attribution_calculator or calculate_attribution
+    reconciled = active_job_store.reconcile_stale_jobs()
     for reconciled_job in reconciled:
         if reconciled_job.reconciled_status.value == "failed":
             _record_terminal_failure(
@@ -38,6 +62,8 @@ def process_pending_jobs(*, limit: int | None = None) -> int:
                 error_message=reconciled_job.error_message,
                 error_type=reconciled_job.error_type,
                 missing_execution_log_message="Execution record missing for reconciled compute job %s",
+                result_store=active_result_store,
+                execution_store=active_execution_store,
             )
         else:
             logger.warning(
@@ -45,26 +71,26 @@ def process_pending_jobs(*, limit: int | None = None) -> int:
                 reconciled_job.calculation_id,
                 reconciled_job.previous_status.value,
             )
-    pending = compute_job_store.lease_pending_jobs(
-        worker_id=settings.COMPUTE_EXECUTOR_WORKER_ID,
+    pending = active_job_store.lease_pending_jobs(
+        worker_id=current_worker_id,
         limit=batch_size,
-        lease_seconds=settings.COMPUTE_EXECUTOR_LEASE_SECONDS,
+        lease_seconds=current_lease_seconds,
     )
     processed = 0
     for job in pending:
-        compute_job_store.mark_running(
+        active_job_store.mark_running(
             job.calculation_id,
-            worker_id=settings.COMPUTE_EXECUTOR_WORKER_ID,
-            lease_seconds=settings.COMPUTE_EXECUTOR_LEASE_SECONDS,
+            worker_id=current_worker_id,
+            lease_seconds=current_lease_seconds,
         )
         try:
             if job.analytics_type == "ReturnsSeries":
                 request = ReturnsSeriesRequest.model_validate(job.request_payload)
-                response = asyncio.run(calculate_returns_series(request))
+                response = asyncio.run(active_returns_series_calculator(request))
             elif job.analytics_type == "Attribution":
                 request = AttributionRequest.model_validate(job.request_payload)
                 input_fingerprint, calculation_hash = generate_canonical_hash(request, settings.APP_VERSION)
-                response = calculate_attribution(
+                response = active_attribution_calculator(
                     request,
                     input_fingerprint=input_fingerprint,
                     calculation_hash=calculation_hash,
@@ -72,22 +98,22 @@ def process_pending_jobs(*, limit: int | None = None) -> int:
             elif job.analytics_type == "Contribution":
                 request = ContributionRequest.model_validate(job.request_payload)
                 input_fingerprint, calculation_hash = generate_canonical_hash(request, settings.APP_VERSION)
-                response = calculate_contribution(
+                response = active_contribution_calculator(
                     request,
                     input_fingerprint=input_fingerprint,
                     calculation_hash=calculation_hash,
                 )
             else:
                 raise ValueError(f"Unsupported compute job analytics_type: {job.analytics_type}")
-            async_result_store.record_success(
+            active_result_store.record_success(
                 calculation_id=job.calculation_id,
                 analytics_type=job.analytics_type,
                 response_payload=response.model_dump(mode="json"),
             )
-            compute_job_store.mark_complete(job.calculation_id, response_payload=response.model_dump(mode="json"))
+            active_job_store.mark_complete(job.calculation_id, response_payload=response.model_dump(mode="json"))
         except Exception as exc:
             if _is_retryable_exception(exc):
-                will_retry = compute_job_store.mark_retryable_failure(
+                will_retry = active_job_store.mark_retryable_failure(
                     job.calculation_id,
                     error_message=str(exc),
                     error_type=type(exc).__name__,
@@ -101,9 +127,11 @@ def process_pending_jobs(*, limit: int | None = None) -> int:
                         error_message=str(exc),
                         error_type=type(exc).__name__,
                         missing_execution_log_message="Execution record missing for compute job %s",
+                        result_store=active_result_store,
+                        execution_store=active_execution_store,
                     )
             else:
-                compute_job_store.mark_failed(
+                active_job_store.mark_failed(
                     job.calculation_id,
                     error_message=str(exc),
                     error_type=type(exc).__name__,
@@ -114,6 +142,8 @@ def process_pending_jobs(*, limit: int | None = None) -> int:
                     error_message=str(exc),
                     error_type=type(exc).__name__,
                     missing_execution_log_message="Execution record missing for compute job %s",
+                    result_store=active_result_store,
+                    execution_store=active_execution_store,
                 )
         processed += 1
     return processed
@@ -136,16 +166,20 @@ def _record_terminal_failure(
     error_message: str,
     error_type: str,
     missing_execution_log_message: str,
+    result_store: AsyncResultStore | None = None,
+    execution_store: ExecutionRegistry | None = None,
 ) -> None:
-    async_result_store.record_failure(
+    active_result_store = result_store or async_result_store
+    active_execution_store = execution_store or execution_registry
+    active_result_store.record_failure(
         calculation_id=calculation_id,
         analytics_type=analytics_type,
         error_message=error_message,
         error_type=error_type,
     )
     try:
-        execution_registry.fail_in_progress_stages(calculation_id, error_message)
-        execution_registry.mark_failed(calculation_id, error_message)
+        active_execution_store.fail_in_progress_stages(calculation_id, error_message)
+        active_execution_store.mark_failed(calculation_id, error_message)
     except KeyError:
         logger.exception(missing_execution_log_message, calculation_id)
 

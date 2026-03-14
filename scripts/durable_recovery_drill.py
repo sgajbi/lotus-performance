@@ -7,7 +7,7 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, Coroutine
 from uuid import UUID, uuid4
 
 import pandas as pd
@@ -36,6 +36,11 @@ class _DrillModel(BaseModel):
     key: str
 
 
+class _ComputeDrillResponse(BaseModel):
+    calculation_id: UUID
+    status: str
+
+
 @dataclass(frozen=True)
 class RecoveryDrillEvidence:
     drill_name: str
@@ -43,6 +48,9 @@ class RecoveryDrillEvidence:
     database_path: str
     restored_schema_mode: str
     owned_tables_present: list[str]
+    compute_job_processed_count: int
+    compute_async_result_status: str
+    compute_execution_status: str
     processed_payload_count: int
     materialized_artifact_path: str
     materialized_artifact_exists: bool
@@ -50,12 +58,14 @@ class RecoveryDrillEvidence:
 
 
 def run_recovery_drill(*, output_path: Path | None = None) -> RecoveryDrillEvidence:
+    from app.models.returns_series import ReturnsSeriesRequest
     from app.services.async_result_store import AsyncResultStore
     from app.services.compute_job_store import ComputeJobStore
     from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
     from app.services.execution_registry import ExecutionRegistry
     from app.services.lineage_metadata_store import LineageMetadataStore
     from app.services.lineage_service import LineageService
+    from app.workers.compute_executor_worker import _process_pending_jobs as process_pending_compute_jobs
     from app.workers.lineage_worker import process_pending_jobs
 
     with TemporaryDirectory(prefix="lotus-performance-recovery-drill-") as temp_dir:
@@ -88,6 +98,39 @@ def run_recovery_drill(*, output_path: Path | None = None) -> RecoveryDrillEvide
                 response_model=_DrillModel(key="response"),
                 calculation_details={"details.csv": pd.DataFrame([{"value": 1}])},
             )
+            compute_calculation_id = uuid4()
+            compute_request = ReturnsSeriesRequest.model_validate(
+                {
+                    "calculation_id": str(compute_calculation_id),
+                    "portfolio_id": "RECOVERY_DRILL",
+                    "as_of_date": "2026-02-25",
+                    "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-25"},
+                    "frequency": "DAILY",
+                    "metric_basis": "NET",
+                    "input_mode": "stateless",
+                    "stateless_input": {
+                        "portfolio_returns": [
+                            {"date": "2026-02-23", "return_value": "0.01"},
+                            {"date": "2026-02-24", "return_value": "0.02"},
+                            {"date": "2026-02-25", "return_value": "0.03"},
+                        ]
+                    },
+                }
+            )
+            execution_store.create_execution(
+                calculation_id=compute_calculation_id,
+                analytics_type="ReturnsSeries",
+                portfolio_id="RECOVERY_DRILL",
+                execution_mode="async",
+                requested_window={"drill": "durable_metadata_restore_recovery"},
+            )
+            job_store = compute_store
+            job_store.enqueue_job(
+                calculation_id=compute_calculation_id,
+                analytics_type="ReturnsSeries",
+                request_payload=compute_request.model_dump(mode="json"),
+            )
+            execution_store.start_stage(compute_calculation_id, "execution")
 
             processed_payload_count = process_pending_jobs(
                 limit=10,
@@ -98,17 +141,43 @@ def run_recovery_drill(*, output_path: Path | None = None) -> RecoveryDrillEvide
                 lease_seconds=60,
                 max_attempts=3,
             )
+            compute_job_processed_count = process_pending_compute_jobs(
+                limit=10,
+                job_store=job_store,
+                execution_store=execution_store,
+                result_store=async_result_store,
+                worker_id="durable-recovery-drill",
+                lease_seconds=60,
+                returns_series_calculator=_build_compute_recovery_calculator(execution_store),
+            )
             artifact_path = temp_path / str(calculation_id) / "details.csv"
+            compute_result = async_result_store.get_result(compute_calculation_id)
+            compute_execution = execution_store.get_execution(compute_calculation_id)
             evidence = RecoveryDrillEvidence(
                 drill_name="durable_metadata_restore_recovery",
                 generated_at_utc=datetime.now(UTC).isoformat(),
                 database_path=str(database_path),
                 restored_schema_mode="legacy_lineage_schema_upgraded_in_place",
                 owned_tables_present=_fetch_owned_tables(lineage_store),
+                compute_job_processed_count=compute_job_processed_count,
+                compute_async_result_status=compute_result.result_status.value if compute_result is not None else "missing",
+                compute_execution_status=compute_execution.status.value if compute_execution is not None else "missing",
                 processed_payload_count=processed_payload_count,
                 materialized_artifact_path=str(artifact_path),
                 materialized_artifact_exists=artifact_path.exists(),
-                status="passed" if processed_payload_count == 1 and artifact_path.exists() else "failed",
+                status=(
+                    "passed"
+                    if (
+                        processed_payload_count == 1
+                        and artifact_path.exists()
+                        and compute_job_processed_count == 1
+                        and compute_result is not None
+                        and compute_result.result_status.value == "complete"
+                        and compute_execution is not None
+                        and compute_execution.status.value == "complete"
+                    )
+                    else "failed"
+                ),
             )
 
             if output_path is not None:
@@ -162,6 +231,18 @@ def _create_lineage_execution_stage(execution_store: "ExecutionRegistry", calcul
     )
     execution_store.mark_running(calculation_id)
     execution_store.start_stage(calculation_id, "lineage_materialization")
+
+
+def _build_compute_recovery_calculator(
+    execution_store: "ExecutionRegistry",
+) -> Callable[[BaseModel], Coroutine[object, object, _ComputeDrillResponse]]:
+    async def _calculate(request: BaseModel) -> _ComputeDrillResponse:
+        calculation_id = UUID(str(getattr(request, "calculation_id")))
+        execution_store.complete_stage(calculation_id, "execution", details={"drill": "durable_metadata_restore_recovery"})
+        execution_store.mark_complete(calculation_id)
+        return _ComputeDrillResponse(calculation_id=calculation_id, status="complete")
+
+    return _calculate
 
 
 def _fetch_owned_tables(lineage_store: "LineageMetadataStore") -> list[str]:
