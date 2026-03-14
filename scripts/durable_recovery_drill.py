@@ -223,8 +223,7 @@ def run_recovery_drill(
             )
 
             if output_path is not None:
-                output_path.parent.mkdir(parents=True, exist_ok=True)
-                output_path.write_text(json.dumps(asdict(evidence), indent=2), encoding="utf-8")
+                _write_text_atomic(output_path, json.dumps(asdict(evidence), indent=2))
             if output_dir is not None:
                 _persist_evidence_history(
                     output_dir=output_dir,
