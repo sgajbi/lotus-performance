@@ -23,6 +23,7 @@ def test_user_guide_documents_async_execution_surfaces():
     assert "/performance/executions/{calculation_id}" in guide
     assert "/integration/returns/series/results/{calculation_id}" in guide
     assert "/integration/runtime-status" in guide
+    assert "/performance/lineage/{calculation_id}/artifacts/{artifact_name}" in guide
 
 
 def test_twr_guide_uses_current_request_shape():

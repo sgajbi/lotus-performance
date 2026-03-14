@@ -77,6 +77,14 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 - purpose: retrieve durable lineage status and artifact URLs
 - response model: `app.api.endpoints.lineage.LineageResponse`
 
+### `GET /performance/lineage/{calculation_id}/artifacts/{artifact_name}`
+
+- purpose: download a specific lineage artifact through a controlled calculation/artifact route
+- execution mode: synchronous file retrieval
+- contract note:
+  - only artifacts listed in the lineage record are downloadable
+  - unknown artifact names return `404`
+
 ## Integration APIs
 
 ### `GET /integration/capabilities`
