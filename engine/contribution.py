@@ -136,7 +136,7 @@ def _prepare_hierarchical_data(request: ContributionRequest) -> Tuple[pd.DataFra
                 currency_mode="BASE_ONLY",
             )
 
-        position_results_df, _ = run_calculations(position_df.copy(), pos_twr_config)
+        position_results_df, _ = run_calculations(position_df, pos_twr_config)
         position_results_df[PortfolioColumns.PERF_DATE.value] = pd.to_datetime(
             position_results_df[PortfolioColumns.PERF_DATE.value]
         )

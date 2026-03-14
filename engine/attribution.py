@@ -70,7 +70,7 @@ def _prepare_data_from_instruments(request: AttributionRequest) -> List[Portfoli
                 currency_mode="BASE_ONLY",
             )
 
-        inst_results, _ = run_calculations(inst_df.copy(), inst_twr_config)
+        inst_results, _ = run_calculations(inst_df, inst_twr_config)
         inst_results[PortfolioColumns.PERF_DATE.value] = pd.to_datetime(inst_results[PortfolioColumns.PERF_DATE.value])
         inst_results = inst_results.set_index(PortfolioColumns.PERF_DATE.value)
 
