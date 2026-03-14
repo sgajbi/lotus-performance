@@ -15,6 +15,8 @@ class RuntimeRecoveryQueueState:
     total_count: int
     returned_count: int
     next_offset: int | None
+    next_cursor_recovered_before: str | None
+    next_cursor_calculation_id_before: str | None
 
 
 @dataclass(frozen=True)
@@ -25,6 +27,8 @@ class RuntimeRecoverySnapshot:
     offset: int
     recovered_after: datetime | None
     recovered_before: datetime | None
+    cursor_recovered_before: datetime | None
+    cursor_calculation_id_before: str | None
     calculation_id_contains: str | None
     compute_analytics_type: str | None
     lineage_calculation_type: str | None
@@ -42,6 +46,8 @@ def build_runtime_recovery_snapshot(
     offset: int,
     recovered_after: datetime | None,
     recovered_before: datetime | None,
+    cursor_recovered_before: datetime | None,
+    cursor_calculation_id_before: str | None,
     calculation_id_contains: str | None,
     compute_analytics_type: str | None,
     lineage_calculation_type: str | None,
@@ -56,6 +62,8 @@ def build_runtime_recovery_snapshot(
             total_count=0,
             returned_count=0,
             next_offset=None,
+            next_cursor_recovered_before=None,
+            next_cursor_calculation_id_before=None,
         )
         return RuntimeRecoverySnapshot(
             generated_at=generated_at,
@@ -64,6 +72,8 @@ def build_runtime_recovery_snapshot(
             offset=offset,
             recovered_after=recovered_after,
             recovered_before=recovered_before,
+            cursor_recovered_before=cursor_recovered_before,
+            cursor_calculation_id_before=cursor_calculation_id_before,
             calculation_id_contains=calculation_id_contains,
             compute_analytics_type=compute_analytics_type,
             lineage_calculation_type=lineage_calculation_type,
@@ -83,6 +93,8 @@ def build_runtime_recovery_snapshot(
         offset=offset,
         recovered_after=recovered_after,
         recovered_before=recovered_before,
+        cursor_recovered_before=cursor_recovered_before,
+        cursor_calculation_id_before=cursor_calculation_id_before,
         calculation_id_contains=calculation_id_contains,
         compute_analytics_type=compute_analytics_type,
     )
@@ -92,6 +104,8 @@ def build_runtime_recovery_snapshot(
         offset=offset,
         recovered_after=recovered_after,
         recovered_before=recovered_before,
+        cursor_recovered_before=cursor_recovered_before,
+        cursor_calculation_id_before=cursor_calculation_id_before,
         calculation_id_contains=calculation_id_contains,
         lineage_calculation_type=lineage_calculation_type,
     )
@@ -103,6 +117,8 @@ def build_runtime_recovery_snapshot(
         offset=offset,
         recovered_after=recovered_after,
         recovered_before=recovered_before,
+        cursor_recovered_before=cursor_recovered_before,
+        cursor_calculation_id_before=cursor_calculation_id_before,
         calculation_id_contains=calculation_id_contains,
         compute_analytics_type=compute_analytics_type,
         lineage_calculation_type=lineage_calculation_type,
@@ -121,12 +137,20 @@ def _safe_compute_recoveries(
     offset: int,
     recovered_after: datetime | None,
     recovered_before: datetime | None,
+    cursor_recovered_before: datetime | None,
+    cursor_calculation_id_before: str | None,
     calculation_id_contains: str | None,
     compute_analytics_type: str | None,
 ) -> tuple[RuntimeRecoveryQueueState, list[ComputeRecoveryEvent]]:
     if not include_queue:
         return RuntimeRecoveryQueueState(
-            status="excluded", reason=None, total_count=0, returned_count=0, next_offset=None
+            status="excluded",
+            reason=None,
+            total_count=0,
+            returned_count=0,
+            next_offset=None,
+            next_cursor_recovered_before=None,
+            next_cursor_calculation_id_before=None,
         ), []
     try:
         page: ComputeRecoveryEventPage = compute_job_store.list_recent_recoveries(
@@ -134,6 +158,8 @@ def _safe_compute_recoveries(
             offset=offset,
             recovered_after=recovered_after,
             recovered_before=recovered_before,
+            cursor_recovered_before=cursor_recovered_before,
+            cursor_calculation_id_before=cursor_calculation_id_before,
             analytics_type=compute_analytics_type,
             calculation_id_contains=calculation_id_contains,
         )
@@ -144,6 +170,8 @@ def _safe_compute_recoveries(
                 total_count=page.total_count,
                 returned_count=len(page.items),
                 next_offset=page.next_offset,
+                next_cursor_recovered_before=page.next_cursor_recovered_before,
+                next_cursor_calculation_id_before=page.next_cursor_calculation_id_before,
             ),
             page.items,
         )
@@ -155,6 +183,8 @@ def _safe_compute_recoveries(
                 total_count=0,
                 returned_count=0,
                 next_offset=None,
+                next_cursor_recovered_before=None,
+                next_cursor_calculation_id_before=None,
             ),
             [],
         )
@@ -167,12 +197,20 @@ def _safe_lineage_recoveries(
     offset: int,
     recovered_after: datetime | None,
     recovered_before: datetime | None,
+    cursor_recovered_before: datetime | None,
+    cursor_calculation_id_before: str | None,
     calculation_id_contains: str | None,
     lineage_calculation_type: str | None,
 ) -> tuple[RuntimeRecoveryQueueState, list[LineageRecoveryEvent]]:
     if not include_queue:
         return RuntimeRecoveryQueueState(
-            status="excluded", reason=None, total_count=0, returned_count=0, next_offset=None
+            status="excluded",
+            reason=None,
+            total_count=0,
+            returned_count=0,
+            next_offset=None,
+            next_cursor_recovered_before=None,
+            next_cursor_calculation_id_before=None,
         ), []
     try:
         page: LineageRecoveryEventPage = lineage_metadata_store.list_recent_recoveries(
@@ -180,6 +218,8 @@ def _safe_lineage_recoveries(
             offset=offset,
             recovered_after=recovered_after,
             recovered_before=recovered_before,
+            cursor_recovered_before=cursor_recovered_before,
+            cursor_calculation_id_before=cursor_calculation_id_before,
             calculation_type=lineage_calculation_type,
             calculation_id_contains=calculation_id_contains,
         )
@@ -190,6 +230,8 @@ def _safe_lineage_recoveries(
                 total_count=page.total_count,
                 returned_count=len(page.items),
                 next_offset=page.next_offset,
+                next_cursor_recovered_before=page.next_cursor_recovered_before,
+                next_cursor_calculation_id_before=page.next_cursor_calculation_id_before,
             ),
             page.items,
         )
@@ -201,6 +243,8 @@ def _safe_lineage_recoveries(
                 total_count=0,
                 returned_count=0,
                 next_offset=None,
+                next_cursor_recovered_before=None,
+                next_cursor_calculation_id_before=None,
             ),
             [],
         )

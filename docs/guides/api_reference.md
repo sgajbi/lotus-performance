@@ -154,17 +154,20 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - `offset`: zero-based page offset applied per queue
   - `recovered_after`: optional inclusive lower UTC timestamp bound on recovery-event timestamps
   - `recovered_before`: optional inclusive upper UTC timestamp bound on recovery-event timestamps
+  - `cursor_recovered_before`: optional seek cursor timestamp for deterministic traversal of older matching events
+  - `cursor_calculation_id_before`: optional seek cursor calculation handle paired with the cursor timestamp
   - `compute_analytics_type`: optional compute-only analytics family filter
   - `lineage_calculation_type`: optional lineage-only calculation family filter
   - `calculation_id_contains`: optional calculation-handle substring filter across selected queues
 - response includes:
   - durable metadata store availability
   - queue-specific availability for compute and lineage recovery inspection
-  - queue-specific `total_count`, `returned_count`, and `next_offset`
+  - queue-specific `total_count`, `returned_count`, `next_offset`, `next_cursor_recovered_before`, and `next_cursor_calculation_id_before`
   - filtered compute recovery events with calculation handle, direct execution/lineage drill-down paths, optional async `result_path`, analytics type, recovery kind, recovery timestamp, attempt count, and last durable error type
   - filtered lineage recovery events with calculation handle, direct execution/lineage drill-down paths, optional async `result_path`, calculation type, recovery kind, recovery timestamp, and attempt count
 - use this when runtime-status shows recent recovery activity and you need the concrete event stream behind the bounded status snapshot without querying the database directly
 - `next_offset` is queue-local and only appears when additional filtered events remain for that queue
+- the cursor fields give deterministic seek pagination for hot recovery streams where offset paging may drift as new recoveries arrive
 
 ### `POST /integration/returns/series`
 

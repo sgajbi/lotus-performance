@@ -59,6 +59,14 @@ class RuntimeRecoveriesQueueStatusResponse(BaseModel):
         default=None,
         description="Next queue-local offset to request when additional matching recovery events remain.",
     )
+    next_cursor_recovered_before: datetime | None = Field(
+        default=None,
+        description="Cursor recovery timestamp for deterministic seek pagination of older matching events.",
+    )
+    next_cursor_calculation_id_before: str | None = Field(
+        default=None,
+        description="Cursor calculation handle used with the cursor recovery timestamp to paginate older matching events.",
+    )
 
 
 class RuntimeRecoveriesResponse(BaseModel):
@@ -75,6 +83,14 @@ class RuntimeRecoveriesResponse(BaseModel):
     recovered_before: datetime | None = Field(
         default=None,
         description="Optional inclusive upper UTC timestamp bound applied to recovery-event timestamps.",
+    )
+    cursor_recovered_before: datetime | None = Field(
+        default=None,
+        description="Optional cursor recovery timestamp used for deterministic seek pagination of older matching events.",
+    )
+    cursor_calculation_id_before: str | None = Field(
+        default=None,
+        description="Optional cursor calculation handle paired with the cursor recovery timestamp for seek pagination.",
     )
     calculation_id_contains: str | None = Field(
         default=None,
@@ -117,6 +133,8 @@ def build_runtime_recoveries_response(snapshot: RuntimeRecoverySnapshot) -> Runt
         offset=snapshot.offset,
         recovered_after=snapshot.recovered_after,
         recovered_before=snapshot.recovered_before,
+        cursor_recovered_before=snapshot.cursor_recovered_before,
+        cursor_calculation_id_before=snapshot.cursor_calculation_id_before,
         calculation_id_contains=snapshot.calculation_id_contains,
         compute_analytics_type=snapshot.compute_analytics_type,
         lineage_calculation_type=snapshot.lineage_calculation_type,
@@ -130,6 +148,8 @@ def build_runtime_recoveries_response(snapshot: RuntimeRecoverySnapshot) -> Runt
             total_count=snapshot.compute_queue.total_count,
             returned_count=snapshot.compute_queue.returned_count,
             next_offset=snapshot.compute_queue.next_offset,
+            next_cursor_recovered_before=snapshot.compute_queue.next_cursor_recovered_before,
+            next_cursor_calculation_id_before=snapshot.compute_queue.next_cursor_calculation_id_before,
         ),
         lineage_queue=RuntimeRecoveriesQueueStatusResponse(
             status=snapshot.lineage_queue.status,
@@ -137,6 +157,8 @@ def build_runtime_recoveries_response(snapshot: RuntimeRecoverySnapshot) -> Runt
             total_count=snapshot.lineage_queue.total_count,
             returned_count=snapshot.lineage_queue.returned_count,
             next_offset=snapshot.lineage_queue.next_offset,
+            next_cursor_recovered_before=snapshot.lineage_queue.next_cursor_recovered_before,
+            next_cursor_calculation_id_before=snapshot.lineage_queue.next_cursor_calculation_id_before,
         ),
         compute_recoveries=[
             ComputeRecoveryEventResponse(**_build_compute_recovery_payload(item))

@@ -101,7 +101,53 @@ def test_runtime_recoveries_returns_next_offset_for_additional_matching_events()
         assert body["compute_queue"]["total_count"] == 2
         assert body["compute_queue"]["returned_count"] == 1
         assert body["compute_queue"]["next_offset"] == 1
+        assert body["compute_queue"]["next_cursor_recovered_before"] is not None
+        assert body["compute_queue"]["next_cursor_calculation_id_before"] == str(compute_ids[1])
         assert body["lineage_queue"]["status"] == "excluded"
+    finally:
+        compute_job_store.clear_all_records()
+        lineage_metadata_store.clear_all_records()
+
+
+def test_runtime_recoveries_supports_seek_cursor_pagination():
+    compute_job_store.create_schema()
+    lineage_metadata_store.create_schema()
+    compute_job_store.clear_all_records()
+    lineage_metadata_store.clear_all_records()
+    now = datetime.now(timezone.utc)
+    compute_ids = [uuid4(), uuid4(), uuid4()]
+
+    for seconds_ago, calculation_id in zip([30, 20, 10], compute_ids, strict=True):
+        compute_job_store.enqueue_job(
+            calculation_id=calculation_id,
+            analytics_type="ReturnsSeries",
+            request_payload={"portfolio_id": str(calculation_id)},
+        )
+        with compute_job_store._session() as session:
+            row = compute_job_store._get_model(session, calculation_id)
+            row.attempt_count = 1
+            row.last_error_at_utc = now - timedelta(seconds=seconds_ago)
+
+    try:
+        with TestClient(app) as client:
+            first_response = client.get("/integration/runtime-recoveries", params={"queue": "compute", "limit": 1})
+            first_body = first_response.json()
+            second_response = client.get(
+                "/integration/runtime-recoveries",
+                params={
+                    "queue": "compute",
+                    "limit": 1,
+                    "cursor_recovered_before": first_body["compute_queue"]["next_cursor_recovered_before"],
+                    "cursor_calculation_id_before": first_body["compute_queue"]["next_cursor_calculation_id_before"],
+                },
+            )
+
+        assert first_response.status_code == 200
+        assert second_response.status_code == 200
+        second_body = second_response.json()
+        assert first_body["compute_recoveries"][0]["calculation_id"] == str(compute_ids[2])
+        assert second_body["cursor_calculation_id_before"] == str(compute_ids[2])
+        assert second_body["compute_recoveries"][0]["calculation_id"] == str(compute_ids[1])
     finally:
         compute_job_store.clear_all_records()
         lineage_metadata_store.clear_all_records()
