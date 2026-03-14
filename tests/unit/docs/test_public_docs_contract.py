@@ -106,8 +106,10 @@ def test_enterprise_readiness_covers_privileged_operator_reads():
     api_reference = _read("docs/guides/api_reference.md")
 
     assert "Privileged operator read surfaces can be protected" in enterprise
+    assert "Allowed privileged operator reads also emit audit metadata" in enterprise
     assert "ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ" in api_reference
     assert "operations.runtime.read" in api_reference
+    assert "governed surface and required-capability metadata" in api_reference
 
 
 def test_runtime_alert_templates_cover_exported_breach_gauges():

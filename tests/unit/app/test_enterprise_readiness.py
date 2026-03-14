@@ -182,3 +182,39 @@ async def test_middleware_denies_privileged_read_without_identity_headers(monkey
     request = Request(scope)
     response = await middleware(request, lambda req: None)  # pragma: no cover
     assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_middleware_audits_allowed_privileged_read_with_governed_surface_metadata(monkeypatch, mocker):
+    monkeypatch.setenv("ENTERPRISE_ENFORCE_AUTHZ", "false")
+    monkeypatch.setenv("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "true")
+    middleware = build_enterprise_audit_middleware()
+    emit = mocker.patch("app.enterprise_readiness.emit_audit_event")
+
+    async def _call_next(_request):
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse({"ok": True}, status_code=200)
+
+    scope = {
+        "type": "http",
+        "method": "GET",
+        "path": "/integration/runtime-status",
+        "headers": [
+            (b"x-actor-id", b"a1"),
+            (b"x-tenant-id", b"t1"),
+            (b"x-role", b"operator"),
+            (b"x-correlation-id", b"c1"),
+            (b"x-service-identity", b"pa"),
+            (b"x-capabilities", b"operations.runtime.read"),
+        ],
+    }
+    request = Request(scope)
+
+    response = await middleware(request, _call_next)
+
+    assert response.status_code == 200
+    emit.assert_called_once()
+    assert emit.call_args.kwargs["metadata"]["access_mode"] == "privileged_read"
+    assert emit.call_args.kwargs["metadata"]["required_capability"] == "operations.runtime.read"
+    assert emit.call_args.kwargs["metadata"]["governed_surface"] == "/integration/runtime-status"

@@ -110,6 +110,15 @@ def _required_capability(method: str, path: str) -> str | None:
     return None
 
 
+def _required_privileged_read_capability(method: str, path: str) -> str | None:
+    method = method.upper()
+    for key, capability in load_privileged_read_rules().items():
+        prefix = f"{method} "
+        if key.upper().startswith(prefix) and path.startswith(key[len(prefix) :]):
+            return capability
+    return None
+
+
 def _authorize_with_required_capability(
     *,
     method: str,
@@ -149,12 +158,7 @@ def authorize_privileged_read_request(method: str, path: str, headers: dict[str,
     if method.upper() != "GET" or not _env_enabled("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "false"):
         return True, None
 
-    required_capability = None
-    for key, capability in load_privileged_read_rules().items():
-        prefix = "GET "
-        if key.upper().startswith(prefix) and path.startswith(key[len(prefix) :]):
-            required_capability = capability
-            break
+    required_capability = _required_privileged_read_capability(method, path)
     if required_capability is None:
         return True, None
 
@@ -245,10 +249,11 @@ def build_enterprise_audit_middleware() -> (
 
         response = await call_next(request)
         response.headers["X-Enterprise-Policy-Version"] = enterprise_policy_version()
+        privileged_read_capability = _required_privileged_read_capability(request.method, request.url.path)
         if request.method in _WRITE_METHODS or (
             request.method.upper() == "GET"
             and _env_enabled("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "false")
-            and any(request.url.path.startswith(key[4:]) for key in load_privileged_read_rules())
+            and privileged_read_capability is not None
         ):
             emit_audit_event(
                 action=f"{request.method} {request.url.path}",
@@ -256,7 +261,12 @@ def build_enterprise_audit_middleware() -> (
                 tenant_id=request.headers.get("X-Tenant-Id", "default"),
                 role=request.headers.get("X-Role", "unknown"),
                 correlation_id=request.headers.get("X-Correlation-Id"),
-                metadata={"status_code": response.status_code},
+                metadata={
+                    "status_code": response.status_code,
+                    "access_mode": "privileged_read" if request.method.upper() == "GET" else "write",
+                    "required_capability": privileged_read_capability,
+                    "governed_surface": request.url.path if privileged_read_capability is not None else None,
+                },
             )
         return response
 
