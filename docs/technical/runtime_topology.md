@@ -86,7 +86,9 @@ degrade when configured failure-pressure thresholds are crossed for compute retr
 compute lease-expiry recoveries, compute terminal failures, lineage retry backlog, or lineage
 terminal failures. For degraded runtimes, the response now carries queue-level
 `degradation_reasons` lists and a top-level `runtime_degradation_reasons` summary so operators
-can see every active trigger without inferring from counters manually.
+can see every active trigger without inferring from counters manually. These queue snapshots are
+derived through SQL-side aggregate queries rather than Python-side row scans so control-plane and
+metrics reads remain bounded as durable queue tables grow.
 
 ## Failure recovery model
 

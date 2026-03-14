@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
-from sqlalchemy import inspect
+from sqlalchemy import event, inspect
 
 from app.services.lineage_metadata_store import (
     LineageMetadataStore,
@@ -171,3 +171,32 @@ def test_lineage_metadata_store_declares_hot_path_indexes(tmp_path):
 
     assert record_indexes["ix_lineage_records_status"] == ("status",)
     assert payload_indexes["ix_lineage_payloads_created_at"] == ("created_at_utc",)
+
+
+def test_lineage_metadata_store_get_pending_payload_stats_uses_single_aggregate_query(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+    now = datetime.now(timezone.utc)
+    store.enqueue_lineage_payload(
+        calculation_id=calculation_id,
+        calculation_type="TWR",
+        request_json="{}",
+        response_json="{}",
+        details={"request.json": "{}"},
+    )
+
+    statements: list[str] = []
+
+    def _before_cursor_execute(conn, cursor, statement, parameters, context, executemany):  # type: ignore[no-untyped-def]
+        statements.append(statement)
+
+    event.listen(store._engine, "before_cursor_execute", _before_cursor_execute)
+    try:
+        stats = store.get_pending_payload_stats(now=now)
+    finally:
+        event.remove(store._engine, "before_cursor_execute", _before_cursor_execute)
+
+    assert stats.pending_payload_count == 1
+    select_statements = [statement for statement in statements if statement.lstrip().upper().startswith("SELECT")]
+    assert len(select_statements) == 1

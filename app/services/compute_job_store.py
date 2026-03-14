@@ -8,7 +8,7 @@ from enum import StrEnum
 from typing import Any, Iterator
 from uuid import UUID
 
-from sqlalchemy import DateTime, Index, Integer, String, Text, create_engine, func, select
+from sqlalchemy import DateTime, Index, Integer, String, Text, case, create_engine, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
@@ -433,74 +433,95 @@ class ComputeJobStore:
     def get_queue_stats(self, *, now: datetime | None = None) -> ComputeQueueStats:
         stats_now = now or datetime.now(timezone.utc)
         with self._session() as session:
-            counts_statement = select(ComputeJobModel.job_status, func.count()).group_by(ComputeJobModel.job_status)
-            counts_rows = session.execute(counts_statement).all()
-            counts = {status: count for status, count in counts_rows}
-            pressure_rows = session.execute(
+            aggregate_row = session.execute(
                 select(
-                    ComputeJobModel.job_status,
-                    ComputeJobModel.error_type,
-                    ComputeJobModel.attempt_count,
+                    func.sum(
+                        case((ComputeJobModel.job_status == ComputeJobStatus.PENDING.value, 1), else_=0)
+                    ).label("pending_count"),
+                    func.sum(
+                        case((ComputeJobModel.job_status == ComputeJobStatus.LEASED.value, 1), else_=0)
+                    ).label("leased_count"),
+                    func.sum(
+                        case((ComputeJobModel.job_status == ComputeJobStatus.RUNNING.value, 1), else_=0)
+                    ).label("running_count"),
+                    func.sum(
+                        case((ComputeJobModel.job_status == ComputeJobStatus.FAILED.value, 1), else_=0)
+                    ).label("failed_count"),
+                    func.sum(
+                        case((ComputeJobModel.job_status == ComputeJobStatus.COMPLETE.value, 1), else_=0)
+                    ).label("complete_count"),
+                    func.sum(
+                        case(
+                            (
+                                (ComputeJobModel.job_status == ComputeJobStatus.PENDING.value)
+                                & (ComputeJobModel.attempt_count > 0),
+                                1,
+                            ),
+                            else_=0,
+                        )
+                    ).label("retry_backlog_count"),
+                    func.sum(
+                        case((ComputeJobModel.error_type == "LeaseExpired", 1), else_=0)
+                    ).label("lease_expired_count"),
+                    func.sum(
+                        case(
+                            (
+                                (ComputeJobModel.job_status == ComputeJobStatus.FAILED.value)
+                                & (ComputeJobModel.error_type != "LeaseExpired"),
+                                1,
+                            ),
+                            else_=0,
+                        )
+                    ).label("terminal_failure_count"),
+                    func.min(
+                        case(
+                            (ComputeJobModel.job_status == ComputeJobStatus.PENDING.value, ComputeJobModel.created_at_utc),
+                            else_=None,
+                        )
+                    ).label("oldest_pending_created_at"),
+                    func.min(
+                        case(
+                            (ComputeJobModel.job_status == ComputeJobStatus.LEASED.value, ComputeJobModel.leased_at_utc),
+                            else_=None,
+                        )
+                    ).label("oldest_leased_at"),
+                    func.min(
+                        case(
+                            (ComputeJobModel.job_status == ComputeJobStatus.RUNNING.value, ComputeJobModel.started_at_utc),
+                            else_=None,
+                        )
+                    ).label("oldest_running_at"),
                 )
-            ).all()
-            retry_backlog_count = sum(
-                1
-                for job_status, _error_type, attempt_count in pressure_rows
-                if job_status == ComputeJobStatus.PENDING.value and attempt_count > 0
-            )
-            lease_expired_count = sum(
-                1 for _job_status, error_type, _attempt_count in pressure_rows if error_type == "LeaseExpired"
-            )
-            terminal_failure_count = sum(
-                1
-                for job_status, error_type, _attempt_count in pressure_rows
-                if job_status == ComputeJobStatus.FAILED.value and error_type != "LeaseExpired"
-            )
-
-            oldest_pending_created_at = session.execute(
-                select(func.min(ComputeJobModel.created_at_utc)).where(
-                    ComputeJobModel.job_status == ComputeJobStatus.PENDING.value
-                )
-            ).scalar_one()
-            oldest_leased_started_at = session.execute(
-                select(func.min(ComputeJobModel.leased_at_utc)).where(
-                    ComputeJobModel.job_status == ComputeJobStatus.LEASED.value
-                )
-            ).scalar_one()
-            oldest_running_started_at = session.execute(
-                select(func.min(ComputeJobModel.started_at_utc)).where(
-                    ComputeJobModel.job_status == ComputeJobStatus.RUNNING.value
-                )
-            ).scalar_one()
+            ).one()
 
             oldest_pending_age_seconds = 0.0
-            if oldest_pending_created_at is not None:
+            if aggregate_row.oldest_pending_created_at is not None:
                 oldest_pending_age_seconds = max(
                     0.0,
-                    (stats_now - _coerce_utc_datetime(oldest_pending_created_at)).total_seconds(),
+                    (stats_now - _coerce_utc_datetime(aggregate_row.oldest_pending_created_at)).total_seconds(),
                 )
             oldest_leased_age_seconds = 0.0
-            if oldest_leased_started_at is not None:
+            if aggregate_row.oldest_leased_at is not None:
                 oldest_leased_age_seconds = max(
                     0.0,
-                    (stats_now - _coerce_utc_datetime(oldest_leased_started_at)).total_seconds(),
+                    (stats_now - _coerce_utc_datetime(aggregate_row.oldest_leased_at)).total_seconds(),
                 )
             oldest_running_age_seconds = 0.0
-            if oldest_running_started_at is not None:
+            if aggregate_row.oldest_running_at is not None:
                 oldest_running_age_seconds = max(
                     0.0,
-                    (stats_now - _coerce_utc_datetime(oldest_running_started_at)).total_seconds(),
+                    (stats_now - _coerce_utc_datetime(aggregate_row.oldest_running_at)).total_seconds(),
                 )
 
             return ComputeQueueStats(
-                pending_count=int(counts.get(ComputeJobStatus.PENDING.value, 0)),
-                leased_count=int(counts.get(ComputeJobStatus.LEASED.value, 0)),
-                running_count=int(counts.get(ComputeJobStatus.RUNNING.value, 0)),
-                failed_count=int(counts.get(ComputeJobStatus.FAILED.value, 0)),
-                complete_count=int(counts.get(ComputeJobStatus.COMPLETE.value, 0)),
-                retry_backlog_count=retry_backlog_count,
-                lease_expired_count=lease_expired_count,
-                terminal_failure_count=terminal_failure_count,
+                pending_count=int(aggregate_row.pending_count or 0),
+                leased_count=int(aggregate_row.leased_count or 0),
+                running_count=int(aggregate_row.running_count or 0),
+                failed_count=int(aggregate_row.failed_count or 0),
+                complete_count=int(aggregate_row.complete_count or 0),
+                retry_backlog_count=int(aggregate_row.retry_backlog_count or 0),
+                lease_expired_count=int(aggregate_row.lease_expired_count or 0),
+                terminal_failure_count=int(aggregate_row.terminal_failure_count or 0),
                 oldest_pending_age_seconds=oldest_pending_age_seconds,
                 oldest_leased_age_seconds=oldest_leased_age_seconds,
                 oldest_running_age_seconds=oldest_running_age_seconds,

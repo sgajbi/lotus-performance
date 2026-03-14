@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import inspect
+from sqlalchemy import event, inspect
 from sqlalchemy.dialects import postgresql
 
 from app.services.compute_job_store import (
@@ -316,3 +316,31 @@ def test_compute_job_store_register_job_distinguishes_create_replay_and_conflict
     assert replay.status == ComputeJobRegistrationStatus.REPLAY
     assert replay.existing_status == ComputeJobStatus.PENDING
     assert conflict.status == ComputeJobRegistrationStatus.CONFLICT
+
+
+def test_compute_job_store_get_queue_stats_uses_single_aggregate_query(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+    now = datetime.now(timezone.utc)
+
+    store.enqueue_job(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        request_payload={"portfolio_id": "P1"},
+    )
+
+    statements: list[str] = []
+
+    def _before_cursor_execute(conn, cursor, statement, parameters, context, executemany):  # type: ignore[no-untyped-def]
+        statements.append(statement)
+
+    event.listen(store._engine, "before_cursor_execute", _before_cursor_execute)
+    try:
+        stats = store.get_queue_stats(now=now)
+    finally:
+        event.remove(store._engine, "before_cursor_execute", _before_cursor_execute)
+
+    assert stats.pending_count == 1
+    select_statements = [statement for statement in statements if statement.lstrip().upper().startswith("SELECT")]
+    assert len(select_statements) == 1

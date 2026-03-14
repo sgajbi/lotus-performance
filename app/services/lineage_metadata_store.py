@@ -8,7 +8,7 @@ from enum import StrEnum
 from typing import Iterator
 from uuid import UUID
 
-from sqlalchemy import DateTime, Index, Integer, String, Text, create_engine, func, select
+from sqlalchemy import DateTime, Index, Integer, String, Text, case, create_engine, func, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.core.config import get_settings
@@ -245,48 +245,46 @@ class LineageMetadataStore:
     def get_pending_payload_stats(self, *, now: datetime | None = None) -> LineageQueueStats:
         stats_now = now or datetime.now(timezone.utc)
         with self._session() as session:
-            payload_rows = session.execute(
+            aggregate_row = session.execute(
                 select(
-                    LineageRecordModel.status,
-                    LineagePayloadModel.attempt_count,
-                    LineagePayloadModel.created_at_utc,
+                    func.sum(
+                        case((LineageRecordModel.status == LineageStatus.PENDING.value, 1), else_=0)
+                    ).label("pending_payload_count"),
+                    func.sum(
+                        case(
+                            (
+                                (LineageRecordModel.status == LineageStatus.PENDING.value)
+                                & (LineagePayloadModel.attempt_count > 0),
+                                1,
+                            ),
+                            else_=0,
+                        )
+                    ).label("retry_backlog_count"),
+                    func.sum(
+                        case((LineageRecordModel.status == LineageStatus.FAILED.value, 1), else_=0)
+                    ).label("terminal_failure_count"),
+                    func.min(
+                        case(
+                            (LineageRecordModel.status == LineageStatus.PENDING.value, LineagePayloadModel.created_at_utc),
+                            else_=None,
+                        )
+                    ).label("oldest_pending_created_at"),
                 )
                 .select_from(LineagePayloadModel)
                 .join(LineageRecordModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
-            ).all()
-            pending_count = session.execute(
-                select(func.count())
-                .select_from(LineagePayloadModel)
-                .join(LineageRecordModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
-                .where(LineageRecordModel.status == LineageStatus.PENDING.value)
-            ).scalar_one()
-
-            oldest_pending_created_at = session.execute(
-                select(func.min(LineagePayloadModel.created_at_utc))
-                .select_from(LineagePayloadModel)
-                .join(LineageRecordModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
-                .where(LineageRecordModel.status == LineageStatus.PENDING.value)
-            ).scalar_one()
+            ).one()
 
             oldest_pending_age_seconds = 0.0
-            if oldest_pending_created_at is not None:
+            if aggregate_row.oldest_pending_created_at is not None:
                 oldest_pending_age_seconds = max(
                     0.0,
-                    (stats_now - _coerce_utc_datetime(oldest_pending_created_at)).total_seconds(),
+                    (stats_now - _coerce_utc_datetime(aggregate_row.oldest_pending_created_at)).total_seconds(),
                 )
 
             return LineageQueueStats(
-                pending_payload_count=int(pending_count),
-                retry_backlog_count=sum(
-                    1
-                    for record_status, attempt_count, _created_at in payload_rows
-                    if record_status == LineageStatus.PENDING.value and attempt_count > 0
-                ),
-                terminal_failure_count=sum(
-                    1
-                    for record_status, _attempt_count, _created_at in payload_rows
-                    if record_status == LineageStatus.FAILED.value
-                ),
+                pending_payload_count=int(aggregate_row.pending_payload_count or 0),
+                retry_backlog_count=int(aggregate_row.retry_backlog_count or 0),
+                terminal_failure_count=int(aggregate_row.terminal_failure_count or 0),
                 oldest_pending_age_seconds=oldest_pending_age_seconds,
             )
 
