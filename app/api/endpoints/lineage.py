@@ -156,8 +156,16 @@ async def get_lineage_artifact(calculation_id: UUID, artifact_name: str):
     if artifact_name not in record.artifact_names:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lineage artifact not found.")
 
+    manifest_path = os.path.join(get_settings().LINEAGE_STORAGE_PATH, str(calculation_id), "manifest.json")
+    if not os.path.exists(manifest_path):
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Lineage manifest not found.")
+    _load_and_validate_manifest(manifest_path=manifest_path, record=record)
+
     artifact_path = _resolve_lineage_artifact_path(calculation_id=calculation_id, artifact_name=artifact_name)
     if not os.path.exists(artifact_path):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lineage artifact not found.")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Lineage artifact is missing from storage.",
+        )
 
     return FileResponse(path=artifact_path, filename=artifact_name)

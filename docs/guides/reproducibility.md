@@ -42,6 +42,11 @@ manifest against the durable metadata record before returning lineage as complet
 or partially corrupted manifest degrades cleanly instead of silently drifting from the DB-backed
 audit record.
 
+The same integrity check applies to artifact downloads. The service will not serve a declared
+artifact if the lineage manifest is missing, unreadable, invalid, or inconsistent with durable
+metadata, and it will surface a distinct degraded response if the artifact is declared but no
+longer present on disk.
+
 ### Retrieving Lineage Artifacts
 
 You can retrieve the download URLs for all captured artifacts using a `GET` request to the lineage endpoint.

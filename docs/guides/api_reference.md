@@ -87,6 +87,8 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 - contract note:
   - only artifacts listed in the lineage record are downloadable
   - unknown artifact names return `404`
+  - missing or inconsistent lineage manifests return `503`
+  - artifacts declared in durable lineage but missing from storage return `503`
 
 ## Integration APIs
 
