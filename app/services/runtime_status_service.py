@@ -220,7 +220,20 @@ def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
             degradation_details=(),
         )
 
-    if snapshot.status != "available" or not snapshot.entries:
+    if snapshot.status != "available":
+        return RecoveryDrillStatus(
+            status="unavailable",
+            reason=snapshot.reason or snapshot.status,
+            latest_generated_at_utc=None,
+            latest_status=None,
+            latest_operator_id=None,
+            latest_backup_identifier=None,
+            latest_age_seconds=None,
+            degradation_reasons=(),
+            degradation_details=(),
+        )
+
+    if not snapshot.entries:
         details: tuple[RuntimeDegradationDetail, ...] = ()
         missing_history_reasons: tuple[str, ...] = ()
         if threshold > 0:

@@ -114,6 +114,38 @@ def test_runtime_status_reports_unavailable_durable_store(mocker):
     assert body["lineage_queue"]["status"] == "unavailable"
 
 
+def test_runtime_status_reports_unavailable_recovery_history_snapshot(mocker):
+    mocker.patch(
+        "app.services.runtime_status_service.build_recovery_drill_history_snapshot",
+        return_value=RecoveryDrillHistorySnapshot(
+            status="unavailable",
+            artifact_directory="artifacts/durable-recovery-drill",
+            latest_file_name=None,
+            retained_file_names=[],
+            retention_limit=30,
+            retention_max_age_days=90,
+            entries=[],
+            total_entries=0,
+            matched_entries=0,
+            returned_entries=0,
+            next_offset=None,
+            applied_filters={},
+            reason="artifact_directory_unreadable",
+        ),
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/integration/runtime-status")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["runtime_status"] == "degraded"
+    assert body["runtime_degradation_reasons"] == ["recovery_drill:artifact_directory_unreadable"]
+    assert body["recovery_drill"]["status"] == "unavailable"
+    assert body["recovery_drill"]["reason"] == "artifact_directory_unreadable"
+    assert "latest_status" not in body["recovery_drill"]
+
+
 def test_runtime_status_reports_degraded_when_compute_age_threshold_is_exceeded():
     settings = __import__("app.core.config", fromlist=["get_settings"]).get_settings()
     original_threshold = settings.RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS
