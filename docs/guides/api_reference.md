@@ -234,6 +234,12 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 ### `GET /metrics`
 
 - Prometheus metrics surface
+- includes durable queue metrics for compute and lineage backlog/failure pressure
+- includes lineage storage capacity metrics:
+  - `lotus_performance_lineage_storage_capacity_availability`
+  - `lotus_performance_lineage_storage_capacity_bytes{segment="total|used|free"}`
+  - `lotus_performance_lineage_storage_free_ratio`
+  - `lotus_performance_lineage_storage_pressure_threshold{threshold="min_free_bytes|min_free_ratio"}`
 
 ## Async execution pattern
 

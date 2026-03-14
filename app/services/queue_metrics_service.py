@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from prometheus_client.core import GaugeMetricFamily
 
+from app.core.config import get_settings
 from app.services.compute_job_store import compute_job_store
+from app.services.durability_health_service import get_lineage_storage_capacity
 from app.services.lineage_metadata_store import lineage_metadata_store
 
 
@@ -48,6 +50,24 @@ class DurableQueueCollector:
             "lotus_performance_lineage_queue_oldest_pending_age_seconds",
             "Age in seconds of the oldest pending lineage payload.",
         )
+        yield GaugeMetricFamily(
+            "lotus_performance_lineage_storage_capacity_availability",
+            "Availability of lineage storage capacity metrics.",
+        )
+        yield GaugeMetricFamily(
+            "lotus_performance_lineage_storage_capacity_bytes",
+            "Lineage storage capacity by segment.",
+            labels=["segment"],
+        )
+        yield GaugeMetricFamily(
+            "lotus_performance_lineage_storage_free_ratio",
+            "Fraction of free lineage storage capacity currently remaining.",
+        )
+        yield GaugeMetricFamily(
+            "lotus_performance_lineage_storage_pressure_threshold",
+            "Configured proactive lineage storage pressure thresholds.",
+            labels=["threshold"],
+        )
 
     def collect(self):
         try:
@@ -62,6 +82,13 @@ class DurableQueueCollector:
         except Exception:
             lineage_stats = None
             lineage_available = False
+        try:
+            lineage_storage_capacity = get_lineage_storage_capacity()
+            lineage_storage_capacity_available = True
+        except Exception:
+            lineage_storage_capacity = None
+            lineage_storage_capacity_available = False
+        settings = get_settings()
 
         availability = GaugeMetricFamily(
             "lotus_performance_durable_queue_store_availability",
@@ -71,6 +98,13 @@ class DurableQueueCollector:
         availability.add_metric(["compute"], 1 if compute_available else 0)
         availability.add_metric(["lineage"], 1 if lineage_available else 0)
         yield availability
+
+        lineage_storage_availability = GaugeMetricFamily(
+            "lotus_performance_lineage_storage_capacity_availability",
+            "Availability of lineage storage capacity metrics.",
+        )
+        lineage_storage_availability.add_metric([], 1 if lineage_storage_capacity_available else 0)
+        yield lineage_storage_availability
 
         if compute_stats is not None:
             compute_jobs = GaugeMetricFamily(
@@ -147,3 +181,36 @@ class DurableQueueCollector:
             )
             lineage_oldest_pending.add_metric([], lineage_stats.oldest_pending_age_seconds)
             yield lineage_oldest_pending
+
+        if lineage_storage_capacity is not None:
+            lineage_storage_bytes = GaugeMetricFamily(
+                "lotus_performance_lineage_storage_capacity_bytes",
+                "Lineage storage capacity by segment.",
+                labels=["segment"],
+            )
+            lineage_storage_bytes.add_metric(["total"], lineage_storage_capacity.total_bytes)
+            lineage_storage_bytes.add_metric(["used"], lineage_storage_capacity.used_bytes)
+            lineage_storage_bytes.add_metric(["free"], lineage_storage_capacity.free_bytes)
+            yield lineage_storage_bytes
+
+            lineage_storage_free_ratio = GaugeMetricFamily(
+                "lotus_performance_lineage_storage_free_ratio",
+                "Fraction of free lineage storage capacity currently remaining.",
+            )
+            lineage_storage_free_ratio.add_metric([], lineage_storage_capacity.free_ratio)
+            yield lineage_storage_free_ratio
+
+        lineage_storage_thresholds = GaugeMetricFamily(
+            "lotus_performance_lineage_storage_pressure_threshold",
+            "Configured proactive lineage storage pressure thresholds.",
+            labels=["threshold"],
+        )
+        lineage_storage_thresholds.add_metric(
+            ["min_free_bytes"],
+            getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES", 0),
+        )
+        lineage_storage_thresholds.add_metric(
+            ["min_free_ratio"],
+            getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO", 0.0),
+        )
+        yield lineage_storage_thresholds

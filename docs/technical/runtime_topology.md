@@ -76,6 +76,10 @@ Queue-pressure metrics are exposed from the API process by reading durable store
 - `lotus_performance_lineage_queue_pending_payloads`
 - `lotus_performance_lineage_queue_failure_pressure_payloads{category=...}`
 - `lotus_performance_lineage_queue_oldest_pending_age_seconds`
+- `lotus_performance_lineage_storage_capacity_availability`
+- `lotus_performance_lineage_storage_capacity_bytes{segment=...}`
+- `lotus_performance_lineage_storage_free_ratio`
+- `lotus_performance_lineage_storage_pressure_threshold{threshold=...}`
 
 For point-in-time operator drill-down, `GET /integration/runtime-status` exposes the same
 durable queue state as a JSON control-plane snapshot, including the oldest pending, leased,
