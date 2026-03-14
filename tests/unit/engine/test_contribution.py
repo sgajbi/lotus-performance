@@ -9,6 +9,7 @@ from engine.contribution import (
     _calculate_carino_factors,
     _calculate_daily_instrument_contributions,
     _prepare_hierarchical_data,
+    build_hierarchical_contribution_result,
     calculate_hierarchical_contribution,
 )
 from engine.runtime import base_only_engine_config
@@ -178,6 +179,29 @@ def test_calculate_hierarchical_contribution_includes_currency_breakdown_for_bot
     assert "fx_contribution" in first_row
     assert "local_contribution" in results["summary"]
     assert "fx_contribution" in results["summary"]
+
+
+def test_build_hierarchical_contribution_result_empty_daily_data_preserves_currency_breakout(
+    hierarchical_request_fixture,
+):
+    request = hierarchical_request_fixture.model_copy(update={"currency_mode": "BOTH"})
+
+    result = build_hierarchical_contribution_result(
+        pd.DataFrame(),
+        request,
+        total_portfolio_return=0.0,
+    )
+
+    assert result == {
+        "summary": {
+            "portfolio_contribution": 0.0,
+            "coverage_mv_pct": 100.0,
+            "weighting_scheme": request.weighting_scheme.value,
+            "local_contribution": 0.0,
+            "fx_contribution": 0.0,
+        },
+        "levels": [],
+    }
 
 
 def test_base_only_engine_config_preserves_non_currency_settings():

@@ -186,3 +186,32 @@ def test_register_async_submission_cleans_up_new_execution_on_job_conflict(mocke
     assert exc_info.value.status_code == 409
     start_stage.assert_called_once_with(calculation_id, "submission")
     delete_execution.assert_called_once_with(calculation_id)
+
+
+def test_register_async_submission_cleans_up_new_execution_when_job_registration_raises(mocker):
+    calculation_id = uuid4()
+    mocker.patch(
+        "app.services.submission_fencing_service.execution_registry.register_execution",
+        return_value=ExecutionRegistrationResult(status=ExecutionRegistrationStatus.CREATED),
+    )
+    mocker.patch("app.services.submission_fencing_service.execution_registry.start_stage")
+    delete_execution = mocker.patch("app.services.submission_fencing_service.execution_registry.delete_execution")
+    mocker.patch(
+        "app.services.submission_fencing_service.compute_job_store.register_job",
+        side_effect=RuntimeError("queue unavailable"),
+    )
+
+    with pytest.raises(RuntimeError, match="queue unavailable"):
+        register_async_submission_or_raise(
+            calculation_id=calculation_id,
+            analytics_type="Contribution",
+            portfolio_id="P1",
+            requested_window={"requested_periods": ["ITD"]},
+            input_fingerprint="fingerprint",
+            calculation_hash="hash",
+            request_payload={"calculation_id": str(calculation_id)},
+            offload_reason="large_input",
+            accepted_response_factory=_accepted_response_factory,
+        )
+
+    delete_execution.assert_called_once_with(calculation_id)

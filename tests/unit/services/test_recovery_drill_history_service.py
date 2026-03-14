@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from app.services.recovery_drill_history_service import build_recovery_drill_history_snapshot
 
 
@@ -83,6 +85,110 @@ def test_recovery_drill_history_snapshot_reports_invalid_manifest_shape(tmp_path
     assert snapshot.status == "unavailable"
     assert snapshot.reason == "recovery_drill_manifest_invalid"
     assert snapshot.entries == []
+
+
+def test_recovery_drill_history_snapshot_reports_missing_manifest(tmp_path):
+    artifact_dir = tmp_path / "artifacts" / "durable-recovery-drill"
+    artifact_dir.mkdir(parents=True)
+
+    snapshot = build_recovery_drill_history_snapshot(artifact_directory=artifact_dir)
+
+    assert snapshot.status == "unavailable"
+    assert snapshot.reason == "recovery_drill_manifest_missing"
+    assert snapshot.entries == []
+
+
+def test_recovery_drill_history_snapshot_reports_unreadable_manifest(tmp_path, mocker):
+    artifact_dir = tmp_path / "artifacts" / "durable-recovery-drill"
+    artifact_dir.mkdir(parents=True)
+    manifest_path = artifact_dir / "manifest.json"
+    manifest_path.write_text("{}", encoding="utf-8")
+    mocker.patch("pathlib.Path.read_text", side_effect=OSError("permission denied"))
+
+    snapshot = build_recovery_drill_history_snapshot(artifact_directory=artifact_dir)
+
+    assert snapshot.status == "unavailable"
+    assert snapshot.reason == "recovery_drill_manifest_unreadable"
+
+
+@pytest.mark.parametrize(
+    "manifest",
+    [
+        {
+            "latest_file_name": 123,
+            "retained_file_names": ["2026-03-14t00-00-00.json"],
+            "retention_limit": 30,
+            "retention_max_age_days": 90,
+            "entries": [],
+        },
+        {
+            "latest_file_name": "2026-03-14t00-00-00.json",
+            "retained_file_names": "not-a-list",
+            "retention_limit": 30,
+            "retention_max_age_days": 90,
+            "entries": [],
+        },
+        {
+            "latest_file_name": "2026-03-14t00-00-00.json",
+            "retained_file_names": ["2026-03-14t00-00-00.json"],
+            "retention_limit": "thirty",
+            "retention_max_age_days": 90,
+            "entries": [],
+        },
+        {
+            "latest_file_name": "2026-03-14t00-00-00.json",
+            "retained_file_names": ["2026-03-14t00-00-00.json"],
+            "retention_limit": 30,
+            "retention_max_age_days": "ninety",
+            "entries": [],
+        },
+        {
+            "latest_file_name": "2026-03-14t00-00-00.json",
+            "retained_file_names": ["2026-03-14t00-00-00.json"],
+            "retention_limit": 30,
+            "retention_max_age_days": 90,
+            "entries": "not-a-list",
+        },
+        {
+            "latest_file_name": "2026-03-14t00-00-00.json",
+            "retained_file_names": ["2026-03-14t00-00-00.json"],
+            "retention_limit": 30,
+            "retention_max_age_days": 90,
+            "entries": ["not-a-dict"],
+        },
+        {
+            "latest_file_name": "2026-03-14t00-00-00.json",
+            "retained_file_names": ["2026-03-14t00-00-00.json"],
+            "retention_limit": 30,
+            "retention_max_age_days": 90,
+            "entries": [
+                {
+                    "evidence_file_name": "2026-03-14t00-00-00.json",
+                    "generated_at_utc": "2026-03-14T00:00:00Z",
+                    "operator_id": "ops-user",
+                    "backup_identifier": "backup-123",
+                    "status": 999,
+                }
+            ],
+        },
+        {
+            "latest_file_name": "latest.json",
+            "retained_file_names": ["2026-03-14t00-00-00.json"],
+            "retention_limit": 30,
+            "retention_max_age_days": 90,
+            "entries": [],
+        },
+    ],
+)
+def test_recovery_drill_history_snapshot_rejects_additional_invalid_manifest_shapes(tmp_path, manifest):
+    artifact_dir = tmp_path / "artifacts" / "durable-recovery-drill"
+    artifact_dir.mkdir(parents=True)
+    (artifact_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    snapshot = build_recovery_drill_history_snapshot(artifact_directory=artifact_dir)
+
+    assert snapshot.status == "unavailable"
+    assert snapshot.reason == "recovery_drill_manifest_invalid"
 
 
 def test_recovery_drill_history_snapshot_applies_filters_and_limit(tmp_path):
