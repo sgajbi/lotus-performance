@@ -15,11 +15,11 @@ from app.models.attribution_requests import AttributionRequest
 from app.models.attribution_responses import AttributionAcceptedResponse, AttributionResponse
 from app.models.mwr_requests import MoneyWeightedReturnRequest
 from app.models.mwr_responses import MoneyWeightedReturnResponse
+from app.models.performance_diagnostics import build_performance_diagnostics, build_reset_events
 from app.models.requests import PerformanceRequest
 from app.models.responses import (
     PerformanceResponse,
     PortfolioReturnDecomposition,
-    ResetEvent,
     SinglePeriodPerformanceResult,
 )
 from app.services.async_result_service import resolve_async_result
@@ -172,7 +172,7 @@ async def calculate_twr_endpoint(request: PerformanceRequest):
 
         engine_config = create_engine_config(request, master_start_date, master_end_date)
         engine_df = create_engine_dataframe([item.model_dump() for item in request.valuation_points])
-        daily_results_df, diagnostics_data = run_calculations(engine_df, engine_config)
+        daily_results_df, engine_diagnostics = run_calculations(engine_df, engine_config)
 
         results_by_period = {}
         daily_results_df[PortfolioColumns.PERF_DATE.value] = pd.to_datetime(
@@ -205,11 +205,11 @@ async def calculate_twr_endpoint(request: PerformanceRequest):
                 breakdowns=formatted_breakdowns, portfolio_return=period_return_summary
             )
 
-            if request.reset_policy.emit and diagnostics_data.get("resets"):
+            if request.reset_policy.emit and engine_diagnostics.resets:
                 period_result.reset_events = [
-                    ResetEvent(**event)
-                    for event in diagnostics_data["resets"]
-                    if period.start_date <= event["date"] <= period.end_date
+                    event
+                    for event in build_reset_events(engine_diagnostics)
+                    if period.start_date <= event.date <= period.end_date
                 ]
 
             results_by_period[period.name] = period_result
@@ -265,14 +265,7 @@ async def calculate_twr_endpoint(request: PerformanceRequest):
         calculation_hash=calculation_hash,
         report_ccy=engine_config.report_ccy,
     )
-    diagnostics = Diagnostics(
-        nip_days=diagnostics_data.get("nip_days", 0),
-        reset_days=diagnostics_data.get("reset_days", 0),
-        effective_period_start=diagnostics_data.get("effective_period_start"),
-        notes=diagnostics_data.get("notes", []),
-        policy=diagnostics_data.get("policy"),
-        samples=diagnostics_data.get("samples"),
-    )
+    diagnostics = build_performance_diagnostics(engine_diagnostics)
     audit = Audit(counts={"input_rows": len(request.valuation_points), "output_rows": len(daily_results_df)})
 
     response_model = PerformanceResponse(

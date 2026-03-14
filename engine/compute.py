@@ -1,12 +1,13 @@
 # engine/compute.py
 import logging
 from decimal import Decimal
-from typing import Dict, Tuple
+from typing import Tuple
 
 import numpy as np
 import pandas as pd
 
 from engine.config import EngineConfig, PrecisionMode
+from engine.diagnostics import EngineDiagnostics, EngineResetEvent
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
 from engine.periods import get_effective_period_start_dates
 from engine.policies import _flag_outliers, apply_robustness_policies
@@ -17,7 +18,7 @@ from engine.schema import PortfolioColumns
 logger = logging.getLogger(__name__)
 
 
-def run_calculations(df: pd.DataFrame, config: EngineConfig) -> Tuple[pd.DataFrame, Dict]:
+def run_calculations(df: pd.DataFrame, config: EngineConfig) -> Tuple[pd.DataFrame, EngineDiagnostics]:
     """
     Orchestrates the full portfolio performance calculation pipeline using
     a fully vectorized approach.
@@ -28,7 +29,7 @@ def run_calculations(df: pd.DataFrame, config: EngineConfig) -> Tuple[pd.DataFra
             raise InvalidEngineInputError("Input must be a pandas DataFrame.")
 
         if df.empty:
-            return pd.DataFrame(), {}
+            return pd.DataFrame(), EngineDiagnostics()
 
         working_df = df.copy(deep=True)
         _prepare_dataframe(working_df, config)
@@ -58,7 +59,7 @@ def run_calculations(df: pd.DataFrame, config: EngineConfig) -> Tuple[pd.DataFra
             default="N",
         )
 
-        reset_events = []
+        reset_events: list[EngineResetEvent] = []
         working_df[PortfolioColumns.PERF_RESET.value] = working_df[PortfolioColumns.PERF_RESET.value].astype(int)
         reset_rows = working_df[working_df[PortfolioColumns.PERF_RESET.value] == 1]
         for _, row in reset_rows.iterrows():
@@ -72,11 +73,11 @@ def run_calculations(df: pd.DataFrame, config: EngineConfig) -> Tuple[pd.DataFra
             if row[PortfolioColumns.NCTRL_4.value]:
                 reason_codes.append("NCTRL_4")
             reset_events.append(
-                {
-                    "date": row[PortfolioColumns.PERF_DATE.value].date(),
-                    "reason": ",".join(reason_codes) or "UNKNOWN",
-                    "impacted_rows": 1,
-                }
+                EngineResetEvent(
+                    date=row[PortfolioColumns.PERF_DATE.value].date(),
+                    reason=",".join(reason_codes) or "UNKNOWN",
+                    impacted_rows=1,
+                )
             )
 
         final_df = _filter_results_to_reporting_period(working_df, config)
@@ -84,15 +85,15 @@ def run_calculations(df: pd.DataFrame, config: EngineConfig) -> Tuple[pd.DataFra
         if config.precision_mode != PrecisionMode.DECIMAL_STRICT:
             _round_float_columns(final_df, config.rounding_precision)
 
-        diagnostics = {
-            "nip_days": int(final_df[PortfolioColumns.NIP.value].sum()),
-            "reset_days": int(final_df[PortfolioColumns.PERF_RESET.value].sum()),
-            "effective_period_start": working_df[PortfolioColumns.EFFECTIVE_PERIOD_START_DATE.value].min().date(),
-            "notes": policy_diagnostics.get("notes", []),
-            "resets": reset_events,
-            "policy": policy_diagnostics.get("policy"),
-            "samples": policy_diagnostics.get("samples"),
-        }
+        diagnostics = EngineDiagnostics(
+            nip_days=int(final_df[PortfolioColumns.NIP.value].sum()),
+            reset_days=int(final_df[PortfolioColumns.PERF_RESET.value].sum()),
+            effective_period_start=working_df[PortfolioColumns.EFFECTIVE_PERIOD_START_DATE.value].min().date(),
+            notes=list(policy_diagnostics.notes),
+            resets=reset_events,
+            policy=policy_diagnostics.policy,
+            samples=policy_diagnostics.samples,
+        )
 
     except InvalidEngineInputError:
         raise

@@ -7,6 +7,7 @@ import pytest
 
 from engine.compute import run_calculations
 from engine.config import EngineConfig, PeriodType, PrecisionMode
+from engine.diagnostics import EngineDiagnostics
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
 from engine.schema import PortfolioColumns
 
@@ -51,8 +52,9 @@ def test_run_calculations_empty_dataframe():
         period_type=PeriodType.YTD,
     )
     empty_df = pd.DataFrame()
-    result, _ = run_calculations(empty_df, config)
+    result, diagnostics = run_calculations(empty_df, config)
     assert result.empty
+    assert diagnostics == EngineDiagnostics()
 
 
 def test_run_calculations_float_mode_rounding():
@@ -189,7 +191,7 @@ def test_run_calculations_emits_all_reset_reason_codes(mocker):
     mocker.patch("engine.compute.calculate_cumulative_ror", side_effect=_mock_cumulative)
 
     _, diagnostics = run_calculations(df, config)
-    assert diagnostics["resets"]
-    assert "NCTRL_2" in diagnostics["resets"][0]["reason"]
-    assert "NCTRL_3" in diagnostics["resets"][0]["reason"]
-    assert "NCTRL_4" in diagnostics["resets"][0]["reason"]
+    assert diagnostics.resets
+    assert "NCTRL_2" in diagnostics.resets[0].reason
+    assert "NCTRL_3" in diagnostics.resets[0].reason
+    assert "NCTRL_4" in diagnostics.resets[0].reason
