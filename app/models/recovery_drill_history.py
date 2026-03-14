@@ -38,6 +38,12 @@ class RecoveryDrillHistoryResponse(BaseModel):
         default=None,
         description="Configured maximum age in days for retained recovery-drill evidence artifacts.",
     )
+    total_entries: int = Field(description="Total retained recovery-drill entries before any API-side filtering.")
+    returned_entries: int = Field(description="Number of recovery-drill entries returned after applying filters.")
+    applied_filters: dict[str, str | int] = Field(
+        default_factory=dict,
+        description="Query filters applied to the retained recovery-drill history response.",
+    )
     entries: list[RecoveryDrillHistoryEntryResponse] = Field(
         default_factory=list,
         description="Retained recovery-drill history entries summarized from the manifest.",
@@ -55,6 +61,9 @@ def build_recovery_drill_history_response(snapshot: RecoveryDrillHistorySnapshot
         retained_file_names=list(snapshot.retained_file_names),
         retention_limit=snapshot.retention_limit,
         retention_max_age_days=snapshot.retention_max_age_days,
+        total_entries=snapshot.total_entries,
+        returned_entries=snapshot.returned_entries,
+        applied_filters=snapshot.applied_filters,
         entries=[
             RecoveryDrillHistoryEntryResponse(
                 evidence_file_name=entry.evidence_file_name,

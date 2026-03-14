@@ -23,7 +23,7 @@ def test_recovery_drill_history_api_returns_retained_manifest(tmp_path, monkeypa
     artifact_dir.mkdir(parents=True)
     manifest = {
         "latest_file_name": "2026-03-14t00-00-00.json",
-        "retained_file_names": ["2026-03-14t00-00-00.json"],
+        "retained_file_names": ["2026-03-14t00-00-00.json", "2026-03-13t00-00-00.json"],
         "retention_limit": 30,
         "retention_max_age_days": 90,
         "entries": [
@@ -33,6 +33,13 @@ def test_recovery_drill_history_api_returns_retained_manifest(tmp_path, monkeypa
                 "operator_id": "ops-user",
                 "backup_identifier": "backup-123",
                 "status": "passed",
+            },
+            {
+                "evidence_file_name": "2026-03-13t00-00-00.json",
+                "generated_at_utc": "2026-03-13T00:00:00Z",
+                "operator_id": "ops-user",
+                "backup_identifier": "backup-123",
+                "status": "failed",
             }
         ],
     }
@@ -48,6 +55,87 @@ def test_recovery_drill_history_api_returns_retained_manifest(tmp_path, monkeypa
     assert body["latest_file_name"] == "2026-03-14t00-00-00.json"
     assert body["retention_limit"] == 30
     assert body["retention_max_age_days"] == 90
+    assert body["total_entries"] == 2
+    assert body["returned_entries"] == 2
+    assert body["applied_filters"] == {}
+    assert body["entries"] == [
+        {
+            "evidence_file_name": "2026-03-14t00-00-00.json",
+            "generated_at_utc": "2026-03-14T00:00:00Z",
+            "operator_id": "ops-user",
+            "backup_identifier": "backup-123",
+            "status": "passed",
+        },
+        {
+            "evidence_file_name": "2026-03-13t00-00-00.json",
+            "generated_at_utc": "2026-03-13T00:00:00Z",
+            "operator_id": "ops-user",
+            "backup_identifier": "backup-123",
+            "status": "failed",
+        }
+    ]
+
+
+def test_recovery_drill_history_api_applies_filters_and_limit(tmp_path, monkeypatch):
+    artifact_dir = tmp_path / "artifacts" / "durable-recovery-drill"
+    artifact_dir.mkdir(parents=True)
+    manifest = {
+        "latest_file_name": "2026-03-14t00-00-00.json",
+        "retained_file_names": [
+            "2026-03-14t00-00-00.json",
+            "2026-03-13t00-00-00.json",
+            "2026-03-12t00-00-00.json",
+        ],
+        "retention_limit": 30,
+        "retention_max_age_days": 90,
+        "entries": [
+            {
+                "evidence_file_name": "2026-03-14t00-00-00.json",
+                "generated_at_utc": "2026-03-14T00:00:00Z",
+                "operator_id": "ops-user",
+                "backup_identifier": "backup-123",
+                "status": "passed",
+            },
+            {
+                "evidence_file_name": "2026-03-13t00-00-00.json",
+                "generated_at_utc": "2026-03-13T00:00:00Z",
+                "operator_id": "ops-user",
+                "backup_identifier": "backup-123",
+                "status": "failed",
+            },
+            {
+                "evidence_file_name": "2026-03-12t00-00-00.json",
+                "generated_at_utc": "2026-03-12T00:00:00Z",
+                "operator_id": "ops-batch",
+                "backup_identifier": "backup-999",
+                "status": "passed",
+            },
+        ],
+    }
+    (artifact_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    monkeypatch.setattr("app.services.recovery_drill_history_service.settings.RECOVERY_DRILL_ARTIFACT_PATH", artifact_dir)
+
+    with TestClient(app) as client:
+        response = client.get(
+            "/integration/recovery-drills",
+            params={
+                "limit": 1,
+                "operator_id": "ops-user",
+                "backup_identifier": "backup-123",
+                "status": "passed",
+            },
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total_entries"] == 3
+    assert body["returned_entries"] == 1
+    assert body["applied_filters"] == {
+        "limit": 1,
+        "operator_id": "ops-user",
+        "backup_identifier": "backup-123",
+        "status": "passed",
+    }
     assert body["entries"] == [
         {
             "evidence_file_name": "2026-03-14t00-00-00.json",
