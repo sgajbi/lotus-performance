@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
@@ -45,6 +46,9 @@ class _ComputeDrillResponse(BaseModel):
 class RecoveryDrillEvidence:
     drill_name: str
     generated_at_utc: str
+    evidence_file_name: str
+    operator_id: str
+    backup_identifier: str
     database_path: str
     restored_schema_mode: str
     owned_tables_present: list[str]
@@ -57,7 +61,13 @@ class RecoveryDrillEvidence:
     status: str
 
 
-def run_recovery_drill(*, output_path: Path | None = None) -> RecoveryDrillEvidence:
+def run_recovery_drill(
+    *,
+    output_path: Path | None = None,
+    output_dir: Path | None = None,
+    operator_id: str = "unknown-operator",
+    backup_identifier: str = "unknown-backup",
+) -> RecoveryDrillEvidence:
     from app.models.returns_series import ReturnsSeriesRequest
     from app.services.async_result_store import AsyncResultStore
     from app.services.compute_job_store import ComputeJobStore
@@ -153,9 +163,13 @@ def run_recovery_drill(*, output_path: Path | None = None) -> RecoveryDrillEvide
             artifact_path = temp_path / str(calculation_id) / "details.csv"
             compute_result = async_result_store.get_result(compute_calculation_id)
             compute_execution = execution_store.get_execution(compute_calculation_id)
+            generated_at_utc = datetime.now(UTC).isoformat()
             evidence = RecoveryDrillEvidence(
                 drill_name="durable_metadata_restore_recovery",
-                generated_at_utc=datetime.now(UTC).isoformat(),
+                generated_at_utc=generated_at_utc,
+                evidence_file_name=_build_evidence_file_name(generated_at_utc),
+                operator_id=operator_id,
+                backup_identifier=backup_identifier,
                 database_path=str(database_path),
                 restored_schema_mode="legacy_lineage_schema_upgraded_in_place",
                 owned_tables_present=_fetch_owned_tables(lineage_store),
@@ -183,6 +197,8 @@ def run_recovery_drill(*, output_path: Path | None = None) -> RecoveryDrillEvide
             if output_path is not None:
                 output_path.parent.mkdir(parents=True, exist_ok=True)
                 output_path.write_text(json.dumps(asdict(evidence), indent=2), encoding="utf-8")
+            if output_dir is not None:
+                _persist_evidence_history(output_dir=output_dir, evidence=evidence)
 
             return evidence
         finally:
@@ -254,12 +270,37 @@ def _fetch_owned_tables(lineage_store: "LineageMetadataStore") -> list[str]:
     return [table for table in REQUIRED_TABLES if table in available]
 
 
+def _build_evidence_file_name(generated_at_utc: str) -> str:
+    sanitized = re.sub(r"[^0-9A-Za-z]+", "-", generated_at_utc).strip("-").lower()
+    return f"{sanitized}.json"
+
+
+def _persist_evidence_history(*, output_dir: Path, evidence: RecoveryDrillEvidence) -> None:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    payload = json.dumps(asdict(evidence), indent=2)
+    (output_dir / evidence.evidence_file_name).write_text(payload, encoding="utf-8")
+    (output_dir / "latest.json").write_text(payload, encoding="utf-8")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run the durable metadata recovery drill and emit structured evidence.")
     parser.add_argument("--output", type=Path, default=None, help="Optional path for a JSON evidence artifact.")
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("artifacts/durable-recovery-drill"),
+        help="Directory for timestamped evidence history plus latest.json.",
+    )
+    parser.add_argument("--operator-id", default="unknown-operator", help="Operator or automation identity for the drill.")
+    parser.add_argument("--backup-identifier", default="unknown-backup", help="Backup or restore-set identifier used for the drill.")
     args = parser.parse_args()
 
-    evidence = run_recovery_drill(output_path=args.output)
+    evidence = run_recovery_drill(
+        output_path=args.output,
+        output_dir=args.output_dir,
+        operator_id=args.operator_id,
+        backup_identifier=args.backup_identifier,
+    )
     print(json.dumps(asdict(evidence), indent=2))
     return 0 if evidence.status == "passed" else 1
 

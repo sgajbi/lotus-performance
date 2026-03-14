@@ -64,7 +64,7 @@ migration-smoke:
 	$(MAKE) recovery-drill-smoke
 
 recovery-drill-smoke:
-	python scripts/durable_recovery_drill.py --output artifacts/durable-recovery-drill/latest.json
+	python scripts/durable_recovery_drill.py --operator-id migration-smoke --backup-identifier migration-smoke-local
 
 migration-apply:
 	python scripts/migration_contract_check.py --mode durable-schema
