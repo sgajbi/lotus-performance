@@ -107,6 +107,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - aggregate `runtime_degradation_details`
   - draining state
   - durable metadata store availability
+  - remediation hints for durable metadata store and lineage queue unavailability reasons when the service knows the next recovery step
   - lineage storage availability folded into `lineage_queue.status` / `lineage_queue.reason`
   - active compute and lineage degradation-policy thresholds
   - compute queue backlog details
@@ -217,6 +218,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - `503 {"status":"unavailable","reason":"durable_metadata_store_unreachable"}`
   - `503 {"status":"unavailable","reason":"lineage_storage_path_missing"}`
   - `503 {"status":"unavailable","reason":"lineage_storage_write_probe_failed"}`
+- readiness failures may also include `remediation_hint` when the service has a concrete recovery recommendation
 
 ### `GET /metrics`
 

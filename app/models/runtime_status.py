@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, PlainSerializer
 
 from app.services.compute_job_store import ComputeQueueInspectionAnchors, ComputeQueueStats, ComputeRecoveryEvent
 from app.services.lineage_metadata_store import LineageQueueInspectionAnchors, LineageQueueStats, LineageRecoveryEvent
+from app.services.remediation_hint_service import get_remediation_hint
 
 if TYPE_CHECKING:
     from app.services.runtime_status_service import RuntimeStatusSnapshot
@@ -21,6 +22,10 @@ class DurableMetadataStoreStatusResponse(BaseModel):
     reason: str | None = Field(
         default=None,
         description="Concrete degradation reason when the durable metadata store is unavailable.",
+    )
+    remediation_hint: str | None = Field(
+        default=None,
+        description="Operator guidance for resolving the current durable metadata store failure reason, when known.",
     )
 
 
@@ -163,6 +168,10 @@ class LineageQueueStatusDetailsResponse(BaseModel):
     reason: str | None = Field(
         default=None,
         description="Primary lineage queue degradation or unavailability reason for simple callers.",
+    )
+    remediation_hint: str | None = Field(
+        default=None,
+        description="Operator guidance for resolving the current primary lineage queue failure reason, when known.",
     )
     degradation_reasons: list[str] = Field(
         default_factory=list,
@@ -357,6 +366,7 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
         durable_metadata_store=DurableMetadataStoreStatusResponse(
             status=snapshot.durable_metadata_store.status,
             reason=snapshot.durable_metadata_store.reason,
+            remediation_hint=get_remediation_hint(snapshot.durable_metadata_store.reason),
         ),
         compute_queue=ComputeQueueStatusDetailsResponse(
             status=snapshot.compute_queue.status,
@@ -401,6 +411,7 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
         lineage_queue=LineageQueueStatusDetailsResponse(
             status=snapshot.lineage_queue.status,
             reason=snapshot.lineage_queue.reason,
+            remediation_hint=get_remediation_hint(snapshot.lineage_queue.reason),
             degradation_reasons=list(snapshot.lineage_queue.degradation_reasons),
             degradation_details=_degradation_details_response(snapshot.lineage_queue.degradation_details),
             pending_payloads=None if lineage_stats is None else lineage_stats.pending_payload_count,

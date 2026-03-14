@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request, Response, status
 
 from app.services.durability_health_service import check_durable_metadata_store_ready
+from app.services.remediation_hint_service import get_remediation_hint
 
 router = APIRouter(tags=["Health"])
 
@@ -23,8 +24,12 @@ async def health_ready(request: Request, response: Response) -> dict[str, str]:
     durability_status = check_durable_metadata_store_ready()
     if not durability_status.is_ready:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
-        return {
+        payload = {
             "status": durability_status.status,
             "reason": durability_status.reason or "durability_check_failed",
         }
+        remediation_hint = get_remediation_hint(durability_status.reason)
+        if remediation_hint is not None:
+            payload["remediation_hint"] = remediation_hint
+        return payload
     return {"status": durability_status.status}

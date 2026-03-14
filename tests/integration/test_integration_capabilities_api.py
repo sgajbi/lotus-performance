@@ -100,10 +100,9 @@ def test_health_ready_returns_503_when_durable_metadata_store_is_unavailable(moc
         response = client.get("/health/ready")
 
     assert response.status_code == 503
-    assert response.json() == {
-        "status": "unavailable",
-        "reason": "durable_metadata_store_unreachable",
-    }
+    assert response.json()["status"] == "unavailable"
+    assert response.json()["reason"] == "durable_metadata_store_unreachable"
+    assert "database URL" in response.json()["remediation_hint"]
 
 
 def test_health_ready_returns_503_when_lineage_storage_is_unavailable(mocker):
@@ -123,7 +122,29 @@ def test_health_ready_returns_503_when_lineage_storage_is_unavailable(mocker):
     assert response.json() == {
         "status": "unavailable",
         "reason": "lineage_storage_path_missing",
+        "remediation_hint": (
+            "Create or remount the configured lineage storage directory, then confirm the service is "
+            "pointing at the expected path."
+        ),
     }
+
+
+def test_health_ready_returns_hint_when_lineage_write_probe_fails(mocker):
+    mocker.patch(
+        "app.api.endpoints.health.check_durable_metadata_store_ready",
+        return_value=DurabilityHealthStatus(
+            is_ready=False,
+            status="unavailable",
+            reason="lineage_storage_write_probe_failed",
+        ),
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/health/ready")
+
+    assert response.status_code == 503
+    assert response.json()["reason"] == "lineage_storage_write_probe_failed"
+    assert "write/delete probe" in response.json()["remediation_hint"]
 
 
 def test_metrics_include_durable_queue_pressure_signals():

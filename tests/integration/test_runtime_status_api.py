@@ -113,10 +113,9 @@ def test_runtime_status_reports_unavailable_durable_store(mocker):
         "lineage_queue:durable_metadata_store_unreachable",
     ]
     assert body["runtime_degradation_details"] == []
-    assert body["durable_metadata_store"] == {
-        "status": "unavailable",
-        "reason": "durable_metadata_store_unreachable",
-    }
+    assert body["durable_metadata_store"]["status"] == "unavailable"
+    assert body["durable_metadata_store"]["reason"] == "durable_metadata_store_unreachable"
+    assert "database URL" in body["durable_metadata_store"]["remediation_hint"]
     assert body["compute_queue"]["status"] == "unavailable"
     assert "pending_jobs" not in body["compute_queue"]
     assert body["lineage_queue"]["status"] == "unavailable"
@@ -169,6 +168,7 @@ def test_runtime_status_reports_unavailable_lineage_storage(mocker):
     assert body["runtime_degradation_reasons"] == ["lineage_queue:lineage_storage_path_missing"]
     assert body["lineage_queue"]["status"] == "unavailable"
     assert body["lineage_queue"]["reason"] == "lineage_storage_path_missing"
+    assert "configured lineage storage directory" in body["lineage_queue"]["remediation_hint"]
     assert "pending_payloads" not in body["lineage_queue"]
 
 
