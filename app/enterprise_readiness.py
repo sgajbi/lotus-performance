@@ -12,6 +12,17 @@ logger = logging.getLogger("enterprise_readiness")
 _SERVICE_NAME = "lotus-performance"
 _WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 _REQUIRED_HEADERS = {"x-actor-id", "x-tenant-id", "x-role", "x-correlation-id"}
+_DEFAULT_CAPABILITY_RULES = {
+    "POST /integration/runtime-retention-cleanups/run": "operations.runtime.manage",
+    "POST /integration/recovery-drills/run": "operations.runtime.manage",
+}
+_DEFAULT_PRIVILEGED_READ_RULES = {
+    "GET /integration/runtime-status": "operations.runtime.read",
+    "GET /integration/runtime-work-items": "operations.runtime.read",
+    "GET /integration/runtime-recoveries": "operations.runtime.read",
+    "GET /integration/recovery-drills": "operations.runtime.read",
+    "GET /integration/runtime-retention-cleanups": "operations.runtime.read",
+}
 _REDACT_FIELDS = {
     "password",
     "secret",
@@ -69,8 +80,17 @@ def load_feature_flags() -> dict[str, dict[str, dict[str, bool]]]:
 
 
 def load_capability_rules() -> dict[str, str]:
-    rules = _load_json_map("ENTERPRISE_CAPABILITY_RULES_JSON")
-    return {str(key): str(value) for key, value in rules.items() if isinstance(key, str)}
+    rules = dict(_DEFAULT_CAPABILITY_RULES)
+    configured = _load_json_map("ENTERPRISE_CAPABILITY_RULES_JSON")
+    rules.update({str(key): str(value) for key, value in configured.items() if isinstance(key, str)})
+    return rules
+
+
+def load_privileged_read_rules() -> dict[str, str]:
+    rules = dict(_DEFAULT_PRIVILEGED_READ_RULES)
+    configured = _load_json_map("ENTERPRISE_PRIVILEGED_READ_RULES_JSON")
+    rules.update({str(key): str(value) for key, value in configured.items() if isinstance(key, str)})
+    return rules
 
 
 def is_feature_enabled(feature_key: str, tenant_id: str, role: str) -> bool:
@@ -96,10 +116,22 @@ def _required_capability(method: str, path: str) -> str | None:
     return None
 
 
-def authorize_write_request(method: str, path: str, headers: dict[str, str]) -> tuple[bool, str | None]:
-    if method.upper() not in _WRITE_METHODS or not _env_enabled("ENTERPRISE_ENFORCE_AUTHZ", "false"):
-        return True, None
+def _required_privileged_read_capability(method: str, path: str) -> str | None:
+    method = method.upper()
+    for key, capability in load_privileged_read_rules().items():
+        prefix = f"{method} "
+        if key.upper().startswith(prefix) and path.startswith(key[len(prefix) :]):
+            return capability
+    return None
 
+
+def _authorize_with_required_capability(
+    *,
+    method: str,
+    path: str,
+    headers: dict[str, str],
+    required_capability: str | None,
+) -> tuple[bool, str | None]:
     normalized = {str(k).lower(): str(v) for k, v in headers.items()}
     missing = sorted(header for header in _REQUIRED_HEADERS if not normalized.get(header))
     if missing:
@@ -108,13 +140,40 @@ def authorize_write_request(method: str, path: str, headers: dict[str, str]) -> 
     if not (normalized.get("x-service-identity") or normalized.get("authorization")):
         return False, "missing_service_identity"
 
-    required_capability = _required_capability(method, path)
     if required_capability:
         capabilities = {part.strip() for part in normalized.get("x-capabilities", "").split(",") if part.strip()}
         if required_capability not in capabilities:
             return False, f"missing_capability:{required_capability}"
 
     return True, None
+
+
+def authorize_write_request(method: str, path: str, headers: dict[str, str]) -> tuple[bool, str | None]:
+    if method.upper() not in _WRITE_METHODS or not _env_enabled("ENTERPRISE_ENFORCE_AUTHZ", "false"):
+        return True, None
+
+    return _authorize_with_required_capability(
+        method=method,
+        path=path,
+        headers=headers,
+        required_capability=_required_capability(method, path),
+    )
+
+
+def authorize_privileged_read_request(method: str, path: str, headers: dict[str, str]) -> tuple[bool, str | None]:
+    if method.upper() != "GET" or not _env_enabled("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "false"):
+        return True, None
+
+    required_capability = _required_privileged_read_capability(method, path)
+    if required_capability is None:
+        return True, None
+
+    return _authorize_with_required_capability(
+        method=method,
+        path=path,
+        headers=headers,
+        required_capability=required_capability,
+    )
 
 
 def redact_sensitive(value: Any) -> Any:
@@ -182,16 +241,38 @@ def build_enterprise_audit_middleware() -> (
             )
             return JSONResponse(status_code=403, content={"detail": "authorization_policy_denied", "reason": reason})
 
+        authorized, reason = authorize_privileged_read_request(request.method, request.url.path, dict(request.headers))
+        if not authorized:
+            emit_audit_event(
+                action=f"DENY {request.method} {request.url.path}",
+                actor_id=request.headers.get("X-Actor-Id", "unknown"),
+                tenant_id=request.headers.get("X-Tenant-Id", "default"),
+                role=request.headers.get("X-Role", "unknown"),
+                correlation_id=request.headers.get("X-Correlation-Id"),
+                metadata={"reason": reason},
+            )
+            return JSONResponse(status_code=403, content={"detail": "authorization_policy_denied", "reason": reason})
+
         response = await call_next(request)
         response.headers["X-Enterprise-Policy-Version"] = enterprise_policy_version()
-        if request.method in _WRITE_METHODS:
+        privileged_read_capability = _required_privileged_read_capability(request.method, request.url.path)
+        if request.method in _WRITE_METHODS or (
+            request.method.upper() == "GET"
+            and _env_enabled("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "false")
+            and privileged_read_capability is not None
+        ):
             emit_audit_event(
                 action=f"{request.method} {request.url.path}",
                 actor_id=request.headers.get("X-Actor-Id", "unknown"),
                 tenant_id=request.headers.get("X-Tenant-Id", "default"),
                 role=request.headers.get("X-Role", "unknown"),
                 correlation_id=request.headers.get("X-Correlation-Id"),
-                metadata={"status_code": response.status_code},
+                metadata={
+                    "status_code": response.status_code,
+                    "access_mode": "privileged_read" if request.method.upper() == "GET" else "write",
+                    "required_capability": privileged_read_capability,
+                    "governed_surface": request.url.path if privileged_read_capability is not None else None,
+                },
             )
         return response
 

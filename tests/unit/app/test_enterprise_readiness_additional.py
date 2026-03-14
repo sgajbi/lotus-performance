@@ -4,7 +4,9 @@ import pytest
 
 from app.enterprise_readiness import (
     _required_capability,
+    authorize_privileged_read_request,
     authorize_write_request,
+    load_privileged_read_rules,
     validate_enterprise_runtime_config,
 )
 
@@ -40,5 +42,22 @@ def test_authorize_write_request_allows_when_no_capability_rule_matches(monkeypa
         "X-Service-Identity": "pa",
     }
     allowed, reason = authorize_write_request("POST", "/reports/run", headers)
+    assert allowed is True
+    assert reason is None
+
+
+def test_load_privileged_read_rules_merges_defaults_and_env(monkeypatch):
+    monkeypatch.setenv(
+        "ENTERPRISE_PRIVILEGED_READ_RULES_JSON",
+        json.dumps({"GET /integration/custom-status": "operations.custom.read"}),
+    )
+    rules = load_privileged_read_rules()
+    assert rules["GET /integration/runtime-status"] == "operations.runtime.read"
+    assert rules["GET /integration/custom-status"] == "operations.custom.read"
+
+
+def test_authorize_privileged_read_request_allows_unmatched_paths(monkeypatch):
+    monkeypatch.setenv("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "true")
+    allowed, reason = authorize_privileged_read_request("GET", "/integration/capabilities", {})
     assert allowed is True
     assert reason is None

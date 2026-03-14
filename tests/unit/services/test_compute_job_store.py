@@ -619,6 +619,34 @@ def test_compute_job_store_formats_sqlite_recovery_timestamps_as_utc(tmp_path):
     assert page.items[0].recovered_at_utc == "2026-03-14T12:00:00Z"
 
 
+def test_compute_job_store_prunes_terminal_jobs_older_than_cutoff(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    old_id = uuid4()
+    recent_id = uuid4()
+
+    for calculation_id in (old_id, recent_id):
+        store.enqueue_job(
+            calculation_id=calculation_id,
+            analytics_type="ReturnsSeries",
+            request_payload={"calculation_id": str(calculation_id)},
+        )
+        store.mark_complete(calculation_id, response_payload={"ok": True})
+
+    with store._session() as session:
+        old_row = store._get_model(session, old_id)
+        recent_row = store._get_model(session, recent_id)
+        old_row.completed_at_utc = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        recent_row.completed_at_utc = datetime(2026, 3, 10, tzinfo=timezone.utc)
+
+    cutoff = datetime(2026, 2, 1, tzinfo=timezone.utc)
+
+    assert store.prune_terminal_jobs_older_than(cutoff, dry_run=True) == 1
+    assert store.prune_terminal_jobs_older_than(cutoff, dry_run=False) == 1
+    assert store.get_job(old_id) is None
+    assert store.get_job(recent_id) is not None
+
+
 def test_compute_job_store_declares_hot_path_indexes(tmp_path):
     store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
     store.create_schema()

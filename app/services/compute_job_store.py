@@ -208,6 +208,30 @@ class ComputeJobStore:
         with self._session() as session:
             session.query(ComputeJobModel).delete()
 
+    def prune_terminal_jobs_older_than(self, older_than: datetime, *, dry_run: bool = False) -> int:
+        with self._session() as session:
+            cutoff = _normalize_filter_datetime(
+                older_than,
+                dialect_name=session.bind.dialect.name if session.bind is not None else "",
+            )
+            rows = (
+                session.execute(
+                    select(ComputeJobModel)
+                    .where(
+                        ComputeJobModel.job_status.in_([ComputeJobStatus.COMPLETE.value, ComputeJobStatus.FAILED.value])
+                    )
+                    .where(ComputeJobModel.completed_at_utc.is_not(None))
+                    .where(ComputeJobModel.completed_at_utc <= cutoff)
+                )
+                .scalars()
+                .all()
+            )
+            if dry_run:
+                return len(rows)
+            for row in rows:
+                session.delete(row)
+            return len(rows)
+
     def enqueue_job(
         self,
         *,

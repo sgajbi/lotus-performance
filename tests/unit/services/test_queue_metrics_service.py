@@ -65,6 +65,7 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
                 "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES": 200,
                 "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO": 0.25,
                 "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS": 3600.0,
+                "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS": 3600.0,
             },
         )(),
     )
@@ -85,6 +86,40 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
                         },
                     )()
                 ],
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.build_runtime_retention_history_snapshot",
+        lambda limit=1: type(
+            "RuntimeRetentionSnapshot",
+            (),
+            {
+                "status": "available",
+                "entries": [
+                    type(
+                        "RuntimeRetentionEntry",
+                        (),
+                        {
+                            "generated_at_utc": "2099-01-01T00:00:00Z",
+                            "cleanup_mode": "apply",
+                        },
+                    )()
+                ],
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.run_runtime_retention_cleanup",
+        lambda dry_run=True: type(
+            "RuntimeRetentionPreview",
+            (),
+            {
+                "prunable_execution_count": 4,
+                "prunable_compute_job_count": 3,
+                "prunable_async_result_count": 2,
+                "prunable_lineage_record_count": 1,
+                "prunable_lineage_artifact_count": 1,
             },
         )(),
     )
@@ -112,6 +147,12 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
     assert "lotus_performance_recovery_drill_latest_age_seconds" in metric_names
     assert "lotus_performance_recovery_drill_policy_threshold" in metric_names
     assert "lotus_performance_recovery_drill_degradation_breach" in metric_names
+    assert "lotus_performance_runtime_retention_availability" in metric_names
+    assert "lotus_performance_runtime_retention_latest_age_seconds" in metric_names
+    assert "lotus_performance_runtime_retention_policy_threshold" in metric_names
+    assert "lotus_performance_runtime_retention_degradation_breach" in metric_names
+    assert "lotus_performance_runtime_retention_preview_availability" in metric_names
+    assert "lotus_performance_runtime_retention_prunable_items" in metric_names
 
     compute_breach_metric = next(
         metric for metric in metrics if metric.name == "lotus_performance_compute_queue_degradation_breach"
@@ -496,3 +537,63 @@ def test_queue_metrics_collector_emits_recovery_drill_breach_state(monkeypatch):
     recovery_samples = {sample.labels["reason"]: sample.value for sample in recovery_metric.samples}
     assert recovery_samples["recovery_drill_latest_not_passed"] == 1
     assert recovery_samples["recovery_drill_age_exceeded"] == 1
+
+
+def test_queue_metrics_collector_exposes_runtime_retention_unavailability_without_false_breach(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.compute_job_store.get_queue_stats",
+        lambda: (_ for _ in ()).throw(RuntimeError("compute unavailable")),
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.lineage_metadata_store.get_pending_payload_stats",
+        lambda: (_ for _ in ()).throw(RuntimeError("lineage unavailable")),
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.get_lineage_storage_capacity",
+        lambda: (_ for _ in ()).throw(RuntimeError("storage unavailable")),
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.build_recovery_drill_history_snapshot",
+        lambda limit=1: type("RecoverySnapshot", (), {"status": "unavailable", "entries": []})(),
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.build_runtime_retention_history_snapshot",
+        lambda limit=1: (_ for _ in ()).throw(RuntimeError("retention unavailable")),
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.run_runtime_retention_cleanup",
+        lambda dry_run=True: (_ for _ in ()).throw(RuntimeError("preview unavailable")),
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.get_settings",
+        lambda: type(
+            "Settings",
+            (),
+            {
+                "RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_COMPUTE_LEASED_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_COMPUTE_RUNNING_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_LINEAGE_LEASED_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES": 0,
+                "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO": 0.0,
+                "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS": 0.0,
+                "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS": 3600.0,
+            },
+        )(),
+    )
+
+    metrics = list(DurableQueueCollector().collect())
+    metric_names = {metric.name for metric in metrics}
+
+    assert "lotus_performance_runtime_retention_availability" in metric_names
+    assert "lotus_performance_runtime_retention_policy_threshold" in metric_names
+    assert "lotus_performance_runtime_retention_preview_availability" in metric_names
+    assert "lotus_performance_runtime_retention_latest_age_seconds" not in metric_names
+    assert "lotus_performance_runtime_retention_degradation_breach" not in metric_names
+    assert "lotus_performance_runtime_retention_prunable_items" not in metric_names

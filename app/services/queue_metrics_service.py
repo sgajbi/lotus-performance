@@ -9,6 +9,8 @@ from app.services.compute_job_store import compute_job_store
 from app.services.durability_health_service import get_lineage_storage_capacity
 from app.services.lineage_metadata_store import lineage_metadata_store
 from app.services.recovery_drill_history_service import build_recovery_drill_history_snapshot
+from app.services.runtime_retention_history_service import build_runtime_retention_history_snapshot
+from app.services.runtime_retention_service import run_runtime_retention_cleanup
 
 
 class DurableQueueCollector:
@@ -104,6 +106,33 @@ class DurableQueueCollector:
             "Whether retained durable recovery-drill history currently breaches a recovery assurance policy.",
             labels=["reason"],
         )
+        yield GaugeMetricFamily(
+            "lotus_performance_runtime_retention_availability",
+            "Availability of retained runtime-retention cleanup history.",
+        )
+        yield GaugeMetricFamily(
+            "lotus_performance_runtime_retention_latest_age_seconds",
+            "Age in seconds of the latest retained runtime-retention cleanup.",
+        )
+        yield GaugeMetricFamily(
+            "lotus_performance_runtime_retention_policy_threshold",
+            "Configured runtime-retention degradation thresholds.",
+            labels=["threshold"],
+        )
+        yield GaugeMetricFamily(
+            "lotus_performance_runtime_retention_degradation_breach",
+            "Whether retained runtime-retention cleanup history currently breaches a lifecycle-governance policy.",
+            labels=["reason"],
+        )
+        yield GaugeMetricFamily(
+            "lotus_performance_runtime_retention_preview_availability",
+            "Availability of the live runtime-retention preview under the current policy.",
+        )
+        yield GaugeMetricFamily(
+            "lotus_performance_runtime_retention_prunable_items",
+            "Current runtime-retention items that would be pruned by a dry-run cleanup.",
+            labels=["category"],
+        )
 
     def collect(self):
         try:
@@ -130,6 +159,18 @@ class DurableQueueCollector:
         except Exception:
             recovery_drill_snapshot = None
             recovery_drill_available = False
+        try:
+            runtime_retention_snapshot = build_runtime_retention_history_snapshot(limit=1)
+            runtime_retention_available = True
+        except Exception:
+            runtime_retention_snapshot = None
+            runtime_retention_available = False
+        try:
+            runtime_retention_preview = run_runtime_retention_cleanup(dry_run=True)
+            runtime_retention_preview_available = True
+        except Exception:
+            runtime_retention_preview = None
+            runtime_retention_preview_available = False
         settings = get_settings()
 
         availability = GaugeMetricFamily(
@@ -161,6 +202,46 @@ class DurableQueueCollector:
             else 0,
         )
         yield recovery_drill_availability
+
+        runtime_retention_availability = GaugeMetricFamily(
+            "lotus_performance_runtime_retention_availability",
+            "Availability of retained runtime-retention cleanup history.",
+        )
+        runtime_retention_availability.add_metric(
+            [],
+            1
+            if runtime_retention_available
+            and runtime_retention_snapshot is not None
+            and runtime_retention_snapshot.status == "available"
+            else 0,
+        )
+        yield runtime_retention_availability
+
+        runtime_retention_preview_availability = GaugeMetricFamily(
+            "lotus_performance_runtime_retention_preview_availability",
+            "Availability of the live runtime-retention preview under the current policy.",
+        )
+        runtime_retention_preview_availability.add_metric([], 1 if runtime_retention_preview_available else 0)
+        yield runtime_retention_preview_availability
+
+        if runtime_retention_preview is not None:
+            runtime_retention_prunable = GaugeMetricFamily(
+                "lotus_performance_runtime_retention_prunable_items",
+                "Current runtime-retention items that would be pruned by a dry-run cleanup.",
+                labels=["category"],
+            )
+            runtime_retention_prunable.add_metric(["execution"], runtime_retention_preview.prunable_execution_count)
+            runtime_retention_prunable.add_metric(["compute_job"], runtime_retention_preview.prunable_compute_job_count)
+            runtime_retention_prunable.add_metric(
+                ["async_result"], runtime_retention_preview.prunable_async_result_count
+            )
+            runtime_retention_prunable.add_metric(
+                ["lineage_record"], runtime_retention_preview.prunable_lineage_record_count
+            )
+            runtime_retention_prunable.add_metric(
+                ["lineage_artifact"], runtime_retention_preview.prunable_lineage_artifact_count
+            )
+            yield runtime_retention_prunable
 
         if compute_stats is not None:
             compute_jobs = GaugeMetricFamily(
@@ -383,6 +464,17 @@ class DurableQueueCollector:
         )
         yield recovery_drill_thresholds
 
+        runtime_retention_thresholds = GaugeMetricFamily(
+            "lotus_performance_runtime_retention_policy_threshold",
+            "Configured runtime-retention degradation thresholds.",
+            labels=["threshold"],
+        )
+        runtime_retention_thresholds.add_metric(
+            ["max_age_seconds"],
+            getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS", 0.0),
+        )
+        yield runtime_retention_thresholds
+
         if (
             recovery_drill_snapshot is not None
             and recovery_drill_snapshot.status == "available"
@@ -415,6 +507,39 @@ class DurableQueueCollector:
                 ),
             )
             yield recovery_drill_breach
+
+        if (
+            runtime_retention_snapshot is not None
+            and runtime_retention_snapshot.status == "available"
+            and runtime_retention_snapshot.entries
+        ):
+            latest = runtime_retention_snapshot.entries[0]
+            latest_age_seconds = _age_seconds(latest.generated_at_utc)
+
+            runtime_retention_age = GaugeMetricFamily(
+                "lotus_performance_runtime_retention_latest_age_seconds",
+                "Age in seconds of the latest retained runtime-retention cleanup.",
+            )
+            runtime_retention_age.add_metric([], latest_age_seconds)
+            yield runtime_retention_age
+
+            runtime_retention_breach = GaugeMetricFamily(
+                "lotus_performance_runtime_retention_degradation_breach",
+                "Whether retained runtime-retention cleanup history currently breaches a lifecycle-governance policy.",
+                labels=["reason"],
+            )
+            runtime_retention_breach.add_metric(
+                ["runtime_retention_latest_not_applied"],
+                1 if latest.cleanup_mode != "apply" else 0,
+            )
+            runtime_retention_breach.add_metric(
+                ["runtime_retention_age_exceeded"],
+                _breach_flag(
+                    threshold=getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS", 0.0),
+                    observed=latest_age_seconds,
+                ),
+            )
+            yield runtime_retention_breach
 
 
 def _breach_flag(*, threshold: float | int, observed: float | int) -> int:

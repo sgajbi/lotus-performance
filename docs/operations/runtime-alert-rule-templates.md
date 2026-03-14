@@ -1,7 +1,7 @@
 # Runtime Alert Rule Templates
 
 - Service: `lotus-performance`
-- Scope: Prometheus-style alert rule templates for runtime queue pressure, lineage storage pressure, and recovery assurance
+- Scope: Prometheus-style alert rule templates for runtime queue pressure, lineage storage pressure, recovery assurance, and retention lifecycle governance
 - Related references:
   - `docs/runbooks/runtime-alerts.md`
   - `docs/guides/api_reference.md`
@@ -76,6 +76,21 @@ policy logic outside the service. Severity defaults here follow
     runbook: "docs/runbooks/runtime-alerts.md"
 ```
 
+## Runtime Retention Alert
+
+```yaml
+- alert: LotusPerformanceRuntimeRetentionPolicyBreached
+  expr: lotus_performance_runtime_retention_degradation_breach > 0
+  for: 15m
+  labels:
+    severity: ticket
+    service: lotus-performance
+  annotations:
+    summary: "lotus-performance runtime retention breach"
+    description: "The latest retained runtime-retention cleanup is stale or was not applied."
+    runbook: "docs/runbooks/runtime-alerts.md"
+```
+
 ## Source Availability Alerts
 
 Treat source unavailability as distinct from healthy zero values.
@@ -116,6 +131,19 @@ Treat source unavailability as distinct from healthy zero values.
   annotations:
     summary: "lotus-performance recovery drill history unavailable"
     description: "Retained recovery-drill history is unavailable; recovery breach gauges are not authoritative."
+    runbook: "docs/runbooks/runtime-alerts.md"
+```
+
+```yaml
+- alert: LotusPerformanceRuntimeRetentionHistoryUnavailable
+  expr: lotus_performance_runtime_retention_availability == 0
+  for: 5m
+  labels:
+    severity: page
+    service: lotus-performance
+  annotations:
+    summary: "lotus-performance runtime retention history unavailable"
+    description: "Retained runtime-retention history is unavailable; retention breach gauges are not authoritative."
     runbook: "docs/runbooks/runtime-alerts.md"
 ```
 

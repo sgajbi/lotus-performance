@@ -56,6 +56,8 @@ class RecoveryDrillEvidence:
     generated_at_utc: str
     evidence_file_name: str
     operator_id: str
+    tenant_id: str | None
+    correlation_id: str | None
     backup_identifier: str
     database_path: str
     restored_schema_mode: str
@@ -74,6 +76,8 @@ class RecoveryDrillManifestEntry:
     evidence_file_name: str
     generated_at_utc: str
     operator_id: str
+    tenant_id: str | None
+    correlation_id: str | None
     backup_identifier: str
     status: str
 
@@ -92,6 +96,8 @@ def run_recovery_drill(
     output_path: Path | None = None,
     output_dir: Path | None = None,
     operator_id: str = "unknown-operator",
+    tenant_id: str | None = None,
+    correlation_id: str | None = None,
     backup_identifier: str = "unknown-backup",
     retention_limit: int = 30,
     retention_max_age_days: int = 90,
@@ -197,6 +203,8 @@ def run_recovery_drill(
                 generated_at_utc=generated_at_utc,
                 evidence_file_name=_build_evidence_file_name(generated_at_utc),
                 operator_id=operator_id,
+                tenant_id=tenant_id,
+                correlation_id=correlation_id,
                 backup_identifier=backup_identifier,
                 database_path=str(database_path),
                 restored_schema_mode="legacy_lineage_schema_upgraded_in_place",
@@ -363,6 +371,8 @@ def _write_manifest(
                 evidence_file_name=payload["evidence_file_name"],
                 generated_at_utc=payload["generated_at_utc"],
                 operator_id=payload["operator_id"],
+                tenant_id=payload.get("tenant_id"),
+                correlation_id=payload.get("correlation_id"),
                 backup_identifier=payload["backup_identifier"],
                 status=payload["status"],
             )
@@ -436,6 +446,12 @@ def main() -> int:
     parser.add_argument(
         "--operator-id", default="unknown-operator", help="Operator or automation identity for the drill."
     )
+    parser.add_argument("--tenant-id", default=None, help="Optional enterprise tenant identity for the drill.")
+    parser.add_argument(
+        "--correlation-id",
+        default=None,
+        help="Optional enterprise correlation identifier for the drill.",
+    )
     parser.add_argument(
         "--backup-identifier", default="unknown-backup", help="Backup or restore-set identifier used for the drill."
     )
@@ -445,6 +461,8 @@ def main() -> int:
         output_path=args.output,
         output_dir=args.output_dir,
         operator_id=args.operator_id,
+        tenant_id=args.tenant_id,
+        correlation_id=args.correlation_id,
         backup_identifier=args.backup_identifier,
         retention_limit=args.retention_limit,
         retention_max_age_days=args.retention_max_age_days,

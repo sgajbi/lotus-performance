@@ -1,13 +1,92 @@
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.services.compute_job_store import compute_job_store
 from app.services.durability_health_service import DurabilityHealthStatus
 from app.services.lineage_metadata_store import LineagePayloadModel, lineage_metadata_store
 from app.services.recovery_drill_history_service import RecoveryDrillHistoryEntry, RecoveryDrillHistorySnapshot
+from app.services.runtime_retention_history_service import RuntimeRetentionHistoryEntry, RuntimeRetentionHistorySnapshot
+from app.services.runtime_retention_service import RuntimeRetentionCleanupSummary
 from main import app
+
+
+@pytest.fixture(autouse=True)
+def _isolate_runtime_assurance_history(mocker):
+    mocker.patch(
+        "app.services.runtime_status_service.build_recovery_drill_history_snapshot",
+        return_value=RecoveryDrillHistorySnapshot(
+            status="available",
+            artifact_directory="artifacts/durable-recovery-drill",
+            latest_file_name="latest.json",
+            retained_file_names=["latest.json"],
+            retention_limit=30,
+            retention_max_age_days=90,
+            entries=[
+                RecoveryDrillHistoryEntry(
+                    evidence_file_name="latest.json",
+                    generated_at_utc=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                    operator_id="ops-user",
+                    backup_identifier="backup-123",
+                    status="passed",
+                )
+            ],
+            total_entries=1,
+            matched_entries=1,
+            returned_entries=1,
+            next_offset=None,
+            applied_filters={},
+            reason=None,
+        ),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.build_runtime_retention_history_snapshot",
+        return_value=RuntimeRetentionHistorySnapshot(
+            status="available",
+            artifact_directory="artifacts/runtime-retention-cleanup",
+            latest_file_name="latest.json",
+            retained_file_names=["latest.json"],
+            retention_limit=30,
+            retention_max_age_days=90,
+            entries=[
+                RuntimeRetentionHistoryEntry(
+                    evidence_file_name="latest.json",
+                    generated_at_utc=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                    operator_id="ops-user",
+                    trigger_mode="scheduled",
+                    job_id="retention-nightly",
+                    cleanup_mode="apply",
+                    status="applied",
+                    retention_days=30,
+                    prunable_execution_count=0,
+                    prunable_compute_job_count=0,
+                    prunable_async_result_count=0,
+                    prunable_lineage_record_count=0,
+                    prunable_lineage_artifact_count=0,
+                )
+            ],
+            total_entries=1,
+            matched_entries=1,
+            returned_entries=1,
+            next_offset=None,
+            applied_filters={},
+        ),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.run_runtime_retention_cleanup",
+        return_value=RuntimeRetentionCleanupSummary(
+            dry_run=True,
+            retention_days=30,
+            cutoff_utc=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            prunable_execution_count=0,
+            prunable_compute_job_count=0,
+            prunable_async_result_count=0,
+            prunable_lineage_record_count=0,
+            prunable_lineage_artifact_count=0,
+        ),
+    )
 
 
 def test_runtime_status_reports_durable_queue_state():
@@ -76,6 +155,96 @@ def test_runtime_status_reports_durable_queue_state():
     assert body["recovery_drill"]["status"] == "available"
     assert body["recovery_drill"]["degradation_reasons"] == []
     assert body["recovery_drill_policy"]["max_age_seconds"] >= 0.0
+    assert body["runtime_retention"]["status"] == "available"
+    assert body["runtime_retention"]["degradation_reasons"] == []
+    assert body["runtime_retention"]["preview_status"] == "available"
+    assert body["runtime_retention_policy"]["max_age_seconds"] >= 0.0
+
+
+def test_runtime_status_reports_runtime_retention_failure_and_age_policy(mocker):
+    from app.core.config import get_settings
+
+    settings = get_settings()
+    original_threshold = settings.RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS
+    settings.RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS = 300.0
+    mocker.patch(
+        "app.services.runtime_status_service.build_runtime_retention_history_snapshot",
+        return_value=RuntimeRetentionHistorySnapshot(
+            status="available",
+            artifact_directory="artifacts/runtime-retention-cleanup",
+            latest_file_name="latest.json",
+            retained_file_names=["latest.json"],
+            retention_limit=30,
+            retention_max_age_days=90,
+            entries=[
+                RuntimeRetentionHistoryEntry(
+                    evidence_file_name="latest.json",
+                    generated_at_utc=(datetime.now(timezone.utc) - timedelta(seconds=600))
+                    .isoformat()
+                    .replace("+00:00", "Z"),
+                    operator_id="ops-user",
+                    trigger_mode="scheduled",
+                    job_id="retention-nightly",
+                    cleanup_mode="dry_run",
+                    status="planned",
+                    retention_days=30,
+                    prunable_execution_count=1,
+                    prunable_compute_job_count=1,
+                    prunable_async_result_count=1,
+                    prunable_lineage_record_count=1,
+                    prunable_lineage_artifact_count=1,
+                )
+            ],
+            total_entries=1,
+            matched_entries=1,
+            returned_entries=1,
+            next_offset=None,
+            applied_filters={},
+        ),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.run_runtime_retention_cleanup",
+        return_value=type(
+            "RuntimeRetentionPreview",
+            (),
+            {
+                "retention_days": 30,
+                "cutoff_utc": "2026-02-13T00:00:00Z",
+                "prunable_execution_count": 4,
+                "prunable_compute_job_count": 3,
+                "prunable_async_result_count": 2,
+                "prunable_lineage_record_count": 1,
+                "prunable_lineage_artifact_count": 1,
+            },
+        )(),
+    )
+
+    try:
+        with TestClient(app) as client:
+            response = client.get("/integration/runtime-status")
+        body = response.json()
+        assert response.status_code == 200
+        assert body["runtime_status"] == "degraded"
+        assert body["runtime_retention"]["status"] == "degraded"
+        assert body["runtime_retention"]["reason"] == "runtime_retention_latest_not_applied"
+        assert body["runtime_retention"]["latest_status"] == "planned"
+        assert body["runtime_retention"]["latest_operator_id"] == "ops-user"
+        assert body["runtime_retention"]["latest_trigger_mode"] == "scheduled"
+        assert body["runtime_retention"]["latest_job_id"] == "retention-nightly"
+        assert body["runtime_retention"]["latest_cleanup_mode"] == "dry_run"
+        assert body["runtime_retention"]["latest_retention_days"] == 30
+        assert body["runtime_retention"]["latest_age_seconds"] >= 300.0
+        assert body["runtime_retention"]["preview_status"] == "available"
+        assert body["runtime_retention"]["current_prunable_execution_count"] == 4
+        assert body["runtime_retention"]["degradation_reasons"] == [
+            "runtime_retention_latest_not_applied",
+            "runtime_retention_age_exceeded",
+        ]
+        assert "runtime_retention:runtime_retention_latest_not_applied" in body["runtime_degradation_reasons"]
+        assert "runtime_retention:runtime_retention_age_exceeded" in body["runtime_degradation_reasons"]
+        assert body["runtime_retention_policy"]["max_age_seconds"] == 300.0
+    finally:
+        settings.RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS = original_threshold
 
 
 def test_runtime_status_reports_draining_state():

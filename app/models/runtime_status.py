@@ -319,6 +319,88 @@ class RecoveryDrillDegradationPolicyResponse(BaseModel):
     )
 
 
+class RuntimeRetentionStatusResponse(BaseModel):
+    status: str = Field(
+        description="Runtime-retention cleanup assurance status for the retained control-plane history."
+    )
+    reason: str | None = Field(
+        default=None,
+        description="Primary runtime-retention degradation or unavailability reason for simple callers.",
+    )
+    preview_status: str = Field(
+        description="Availability of the live runtime-retention preview under the current retention policy."
+    )
+    preview_reason: str | None = Field(
+        default=None,
+        description="Concrete reason when the live runtime-retention preview is unavailable.",
+    )
+    degradation_reasons: list[str] = Field(
+        default_factory=list,
+        description="All active runtime-retention degradation reasons contributing to a degraded state.",
+    )
+    degradation_details: list[RuntimeDegradationDetailResponse] = Field(
+        default_factory=list,
+        description="Detailed runtime-retention degradation triggers with observed and threshold values.",
+    )
+    latest_generated_at_utc: str | None = Field(
+        default=None, description="UTC timestamp of the latest retained runtime-retention cleanup."
+    )
+    latest_status: str | None = Field(
+        default=None, description="Outcome status of the latest retained runtime-retention cleanup."
+    )
+    latest_operator_id: str | None = Field(
+        default=None,
+        description="Operator or automation identity that ran the latest retained runtime-retention cleanup.",
+    )
+    latest_trigger_mode: str | None = Field(
+        default=None,
+        description="Whether the latest retained runtime-retention cleanup was triggered manually or by scheduled automation.",
+    )
+    latest_job_id: str | None = Field(
+        default=None,
+        description="Scheduler or automation job identity recorded for the latest retained runtime-retention cleanup, when present.",
+    )
+    latest_cleanup_mode: str | None = Field(
+        default=None, description="Cleanup mode recorded for the latest retained runtime-retention cleanup."
+    )
+    latest_retention_days: int | None = Field(
+        default=None, description="Retention window in days used by the latest retained runtime-retention cleanup."
+    )
+    latest_age_seconds: float | None = Field(
+        default=None, description="Age in seconds of the latest retained runtime-retention cleanup."
+    )
+    current_cutoff_utc: str | None = Field(
+        default=None, description="Current runtime-retention cutoff timestamp under the active retention policy."
+    )
+    current_retention_days: int | None = Field(
+        default=None, description="Current runtime-retention window in days under the active retention policy."
+    )
+    current_prunable_execution_count: int | None = Field(
+        default=None,
+        description="Current number of terminal execution records that would be pruned by a dry-run cleanup.",
+    )
+    current_prunable_compute_job_count: int | None = Field(
+        default=None, description="Current number of terminal compute jobs that would be pruned by a dry-run cleanup."
+    )
+    current_prunable_async_result_count: int | None = Field(
+        default=None, description="Current number of async results that would be pruned by a dry-run cleanup."
+    )
+    current_prunable_lineage_record_count: int | None = Field(
+        default=None,
+        description="Current number of terminal lineage records that would be pruned by a dry-run cleanup.",
+    )
+    current_prunable_lineage_artifact_count: int | None = Field(
+        default=None,
+        description="Current number of lineage artifact directories that would be pruned by a dry-run cleanup.",
+    )
+
+
+class RuntimeRetentionDegradationPolicyResponse(BaseModel):
+    max_age_seconds: float = Field(
+        description="Configured threshold that degrades runtime when the latest retained runtime-retention cleanup is too old."
+    )
+
+
 class RuntimeStatusResponse(BaseModel):
     contract_version: str = Field(description="Version of the runtime-status response contract.")
     source_service: str = Field(description="Owning service that produced this runtime snapshot.")
@@ -347,6 +429,9 @@ class RuntimeStatusResponse(BaseModel):
     recovery_drill: RecoveryDrillStatusResponse = Field(
         description="Current retained recovery-drill assurance status for operational recovery proof.",
     )
+    runtime_retention: RuntimeRetentionStatusResponse = Field(
+        description="Current retained runtime-retention cleanup assurance status for operational lifecycle governance.",
+    )
     compute_queue_policy: ComputeQueueDegradationPolicyResponse = Field(
         description="Active compute queue degradation policy used to interpret runtime state.",
     )
@@ -355,6 +440,9 @@ class RuntimeStatusResponse(BaseModel):
     )
     recovery_drill_policy: RecoveryDrillDegradationPolicyResponse = Field(
         description="Active recovery-drill freshness policy used to interpret runtime state.",
+    )
+    runtime_retention_policy: RuntimeRetentionDegradationPolicyResponse = Field(
+        description="Active runtime-retention freshness policy used to interpret runtime state.",
     )
 
 
@@ -480,6 +568,29 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
             latest_backup_identifier=snapshot.recovery_drill.latest_backup_identifier,
             latest_age_seconds=snapshot.recovery_drill.latest_age_seconds,
         ),
+        runtime_retention=RuntimeRetentionStatusResponse(
+            status=snapshot.runtime_retention.status,
+            reason=snapshot.runtime_retention.reason,
+            preview_status=snapshot.runtime_retention.preview_status,
+            preview_reason=snapshot.runtime_retention.preview_reason,
+            degradation_reasons=list(snapshot.runtime_retention.degradation_reasons),
+            degradation_details=_degradation_details_response(snapshot.runtime_retention.degradation_details),
+            latest_generated_at_utc=snapshot.runtime_retention.latest_generated_at_utc,
+            latest_status=snapshot.runtime_retention.latest_status,
+            latest_operator_id=snapshot.runtime_retention.latest_operator_id,
+            latest_trigger_mode=snapshot.runtime_retention.latest_trigger_mode,
+            latest_job_id=snapshot.runtime_retention.latest_job_id,
+            latest_cleanup_mode=snapshot.runtime_retention.latest_cleanup_mode,
+            latest_retention_days=snapshot.runtime_retention.latest_retention_days,
+            latest_age_seconds=snapshot.runtime_retention.latest_age_seconds,
+            current_cutoff_utc=snapshot.runtime_retention.current_cutoff_utc,
+            current_retention_days=snapshot.runtime_retention.current_retention_days,
+            current_prunable_execution_count=snapshot.runtime_retention.current_prunable_execution_count,
+            current_prunable_compute_job_count=snapshot.runtime_retention.current_prunable_compute_job_count,
+            current_prunable_async_result_count=snapshot.runtime_retention.current_prunable_async_result_count,
+            current_prunable_lineage_record_count=snapshot.runtime_retention.current_prunable_lineage_record_count,
+            current_prunable_lineage_artifact_count=snapshot.runtime_retention.current_prunable_lineage_artifact_count,
+        ),
         compute_queue_policy=ComputeQueueDegradationPolicyResponse(
             pending_age_seconds=snapshot.compute_queue_policy.pending_age_seconds,
             leased_age_seconds=snapshot.compute_queue_policy.leased_age_seconds,
@@ -498,5 +609,8 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
         ),
         recovery_drill_policy=RecoveryDrillDegradationPolicyResponse(
             max_age_seconds=snapshot.recovery_drill_policy.max_age_seconds,
+        ),
+        runtime_retention_policy=RuntimeRetentionDegradationPolicyResponse(
+            max_age_seconds=snapshot.runtime_retention_policy.max_age_seconds,
         ),
     )

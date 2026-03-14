@@ -12,6 +12,7 @@ from app.services.compute_job_store import compute_job_store
 from app.services.durability_health_service import DurabilityHealthStatus
 from app.services.lineage_metadata_store import LineagePayloadModel, lineage_metadata_store
 from app.services.recovery_drill_history_service import RecoveryDrillHistoryEntry, RecoveryDrillHistorySnapshot
+from app.services.runtime_retention_history_service import RuntimeRetentionHistoryEntry, RuntimeRetentionHistorySnapshot
 from main import app
 
 settings = get_settings()
@@ -496,7 +497,9 @@ def test_metrics_include_queue_policy_breach_signals():
 def test_metrics_include_recovery_drill_breach_signals(mocker):
     settings = __import__("app.core.config", fromlist=["get_settings"]).get_settings()
     original_threshold = settings.RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS
+    original_retention_threshold = settings.RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS
     settings.RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS = 300.0
+    settings.RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS = 300.0
     mocker.patch(
         "app.services.queue_metrics_service.build_recovery_drill_history_snapshot",
         return_value=RecoveryDrillHistorySnapshot(
@@ -523,6 +526,55 @@ def test_metrics_include_recovery_drill_breach_signals(mocker):
             reason=None,
         ),
     )
+    mocker.patch(
+        "app.services.queue_metrics_service.build_runtime_retention_history_snapshot",
+        return_value=RuntimeRetentionHistorySnapshot(
+            status="available",
+            artifact_directory="artifacts/runtime-retention-cleanup",
+            latest_file_name="latest.json",
+            retained_file_names=["latest.json"],
+            retention_limit=30,
+            retention_max_age_days=90,
+            entries=[
+                RuntimeRetentionHistoryEntry(
+                    evidence_file_name="latest.json",
+                    generated_at_utc=(datetime.now(timezone.utc) - timedelta(seconds=600))
+                    .isoformat()
+                    .replace("+00:00", "Z"),
+                    operator_id="ops-user",
+                    trigger_mode="scheduled",
+                    job_id="retention-nightly",
+                    cleanup_mode="dry_run",
+                    status="planned",
+                    retention_days=30,
+                    prunable_execution_count=1,
+                    prunable_compute_job_count=1,
+                    prunable_async_result_count=1,
+                    prunable_lineage_record_count=1,
+                    prunable_lineage_artifact_count=1,
+                )
+            ],
+            total_entries=1,
+            matched_entries=1,
+            returned_entries=1,
+            next_offset=None,
+            applied_filters={},
+        ),
+    )
+    mocker.patch(
+        "app.services.queue_metrics_service.run_runtime_retention_cleanup",
+        return_value=type(
+            "RuntimeRetentionPreview",
+            (),
+            {
+                "prunable_execution_count": 4,
+                "prunable_compute_job_count": 3,
+                "prunable_async_result_count": 2,
+                "prunable_lineage_record_count": 1,
+                "prunable_lineage_artifact_count": 1,
+            },
+        )(),
+    )
 
     try:
         with TestClient(app) as client:
@@ -540,5 +592,19 @@ def test_metrics_include_recovery_drill_breach_signals(mocker):
             'lotus_performance_recovery_drill_degradation_breach{reason="recovery_drill_age_exceeded"} 1.0'
             in metrics.text
         )
+        assert "lotus_performance_runtime_retention_availability 1.0" in metrics.text
+        assert "lotus_performance_runtime_retention_preview_availability 1.0" in metrics.text
+        assert "lotus_performance_runtime_retention_latest_age_seconds" in metrics.text
+        assert 'lotus_performance_runtime_retention_policy_threshold{threshold="max_age_seconds"} 300.0' in metrics.text
+        assert (
+            'lotus_performance_runtime_retention_degradation_breach{reason="runtime_retention_latest_not_applied"} 1.0'
+            in metrics.text
+        )
+        assert (
+            'lotus_performance_runtime_retention_degradation_breach{reason="runtime_retention_age_exceeded"} 1.0'
+            in metrics.text
+        )
+        assert 'lotus_performance_runtime_retention_prunable_items{category="execution"} 4.0' in metrics.text
     finally:
         settings.RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS = original_threshold
+        settings.RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS = original_retention_threshold

@@ -123,6 +123,38 @@ def test_lineage_metadata_store_raises_for_missing_record_updates(tmp_path):
         raise AssertionError("Expected mark_failed to raise KeyError")
 
 
+def test_lineage_metadata_store_lists_and_deletes_terminal_records_older_than_cutoff(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    old_id = uuid4()
+    recent_id = uuid4()
+
+    for calculation_id in (old_id, recent_id):
+        store.enqueue_lineage_payload(
+            calculation_id=calculation_id,
+            calculation_type="TWR",
+            request_json="{}",
+            response_json="{}",
+            details={"request.json": "{}"},
+        )
+        store.mark_complete(calculation_id, artifact_names=["request.json"])
+
+    with store._session() as session:
+        old_record = session.get(LineageRecordModel, str(old_id))
+        recent_record = session.get(LineageRecordModel, str(recent_id))
+        assert old_record is not None
+        assert recent_record is not None
+        old_record.timestamp_utc = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        recent_record.timestamp_utc = datetime(2026, 3, 10, tzinfo=timezone.utc)
+
+    cutoff = datetime(2026, 2, 1, tzinfo=timezone.utc)
+
+    assert store.list_terminal_calculation_ids_older_than(cutoff) == [str(old_id)]
+    assert store.delete_calculation_ids([str(old_id)]) == 1
+    assert store.get_record(old_id) is None
+    assert store.get_record(recent_id) is not None
+
+
 def test_lineage_metadata_store_payload_queue_roundtrip(tmp_path):
     store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
     store.create_schema()

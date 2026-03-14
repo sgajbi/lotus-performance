@@ -8,7 +8,7 @@ from enum import StrEnum
 from typing import Any, Iterator
 from uuid import UUID
 
-from sqlalchemy import DateTime, String, Text, create_engine
+from sqlalchemy import DateTime, String, Text, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
@@ -58,6 +58,13 @@ def _format_timestamp(value: datetime) -> str:
     return _coerce_utc_datetime(value).isoformat().replace("+00:00", "Z")
 
 
+def _normalize_filter_datetime(value: datetime, *, dialect_name: str) -> datetime:
+    normalized = _coerce_utc_datetime(value)
+    if dialect_name == "sqlite":
+        return normalized.replace(tzinfo=None)
+    return normalized
+
+
 class AsyncResultStore:
     def __init__(self, database_url: str):
         connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
@@ -82,6 +89,18 @@ class AsyncResultStore:
     def clear_all_records(self) -> None:
         with self._session() as session:
             session.query(AsyncResultModel).delete()
+
+    def prune_results_older_than(self, older_than: datetime, *, dry_run: bool = False) -> int:
+        with self._session() as session:
+            dialect_name = session.bind.dialect.name if session.bind is not None else ""
+            cutoff = _normalize_filter_datetime(older_than, dialect_name=dialect_name)
+            statement = select(AsyncResultModel).where(AsyncResultModel.updated_at_utc <= cutoff)
+            rows = session.execute(statement).scalars().all()
+            if dry_run:
+                return len(rows)
+            for row in rows:
+                session.delete(row)
+            return len(rows)
 
     def record_success(self, *, calculation_id: UUID, analytics_type: str, response_payload: dict[str, Any]) -> None:
         now = datetime.now(timezone.utc)

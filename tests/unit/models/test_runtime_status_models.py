@@ -11,6 +11,8 @@ from app.services.runtime_status_service import (
     RecoveryDrillStatus,
     RuntimeDegradationDetail,
     RuntimeQueueStatus,
+    RuntimeRetentionDegradationPolicy,
+    RuntimeRetentionStatus,
     RuntimeStatusSnapshot,
 )
 
@@ -134,6 +136,35 @@ def test_build_runtime_status_response_serializes_snapshot_details():
                 ),
             ),
         ),
+        runtime_retention=RuntimeRetentionStatus(
+            status="degraded",
+            reason="runtime_retention_age_exceeded",
+            preview_status="available",
+            preview_reason=None,
+            current_cutoff_utc="2026-02-13T00:00:00Z",
+            current_retention_days=30,
+            current_prunable_execution_count=7,
+            current_prunable_compute_job_count=6,
+            current_prunable_async_result_count=5,
+            current_prunable_lineage_record_count=4,
+            current_prunable_lineage_artifact_count=3,
+            latest_generated_at_utc="2026-03-12T00:00:00Z",
+            latest_status="applied",
+            latest_operator_id="ops-batch",
+            latest_trigger_mode="scheduled",
+            latest_job_id="retention-nightly",
+            latest_cleanup_mode="apply",
+            latest_retention_days=30,
+            latest_age_seconds=172800.0,
+            degradation_reasons=("runtime_retention_age_exceeded",),
+            degradation_details=(
+                RuntimeDegradationDetail(
+                    reason="runtime_retention_age_exceeded",
+                    observed_value=172800.0,
+                    threshold_value=3600.0,
+                ),
+            ),
+        ),
         compute_queue_policy=ComputeQueueDegradationPolicy(
             pending_age_seconds=30.0,
             leased_age_seconds=20.0,
@@ -151,6 +182,7 @@ def test_build_runtime_status_response_serializes_snapshot_details():
             storage_min_free_ratio=0.25,
         ),
         recovery_drill_policy=RecoveryDrillDegradationPolicy(max_age_seconds=3600.0),
+        runtime_retention_policy=RuntimeRetentionDegradationPolicy(max_age_seconds=3600.0),
     )
 
     response = build_runtime_status_response(snapshot)
@@ -180,12 +212,22 @@ def test_build_runtime_status_response_serializes_snapshot_details():
     assert response.recovery_drill.latest_status == "passed"
     assert response.recovery_drill.latest_operator_id == "ops-user"
     assert response.recovery_drill.degradation_reasons == ["recovery_drill_age_exceeded"]
+    assert response.runtime_retention.status == "degraded"
+    assert response.runtime_retention.preview_status == "available"
+    assert response.runtime_retention.current_cutoff_utc == "2026-02-13T00:00:00Z"
+    assert response.runtime_retention.current_prunable_execution_count == 7
+    assert response.runtime_retention.latest_trigger_mode == "scheduled"
+    assert response.runtime_retention.latest_job_id == "retention-nightly"
+    assert response.runtime_retention.latest_cleanup_mode == "apply"
+    assert response.runtime_retention.latest_retention_days == 30
+    assert response.runtime_retention.degradation_reasons == ["runtime_retention_age_exceeded"]
     assert response.compute_queue_policy.pending_age_seconds == 30.0
     assert response.lineage_queue_policy.leased_age_seconds == 8.0
     assert response.lineage_queue_policy.terminal_failure_count == 5
     assert response.lineage_queue_policy.storage_min_free_bytes == 200
     assert response.lineage_queue_policy.storage_min_free_ratio == 0.25
     assert response.recovery_drill_policy.max_age_seconds == 3600.0
+    assert response.runtime_retention_policy.max_age_seconds == 3600.0
 
 
 def test_build_runtime_status_response_handles_unavailable_queue_without_stats():
@@ -225,6 +267,29 @@ def test_build_runtime_status_response_handles_unavailable_queue_without_stats()
             degradation_reasons=(),
             degradation_details=(),
         ),
+        runtime_retention=RuntimeRetentionStatus(
+            status="available",
+            reason=None,
+            preview_status="unavailable",
+            preview_reason="RuntimeError",
+            current_cutoff_utc=None,
+            current_retention_days=None,
+            current_prunable_execution_count=None,
+            current_prunable_compute_job_count=None,
+            current_prunable_async_result_count=None,
+            current_prunable_lineage_record_count=None,
+            current_prunable_lineage_artifact_count=None,
+            latest_generated_at_utc=None,
+            latest_status=None,
+            latest_operator_id=None,
+            latest_trigger_mode=None,
+            latest_job_id=None,
+            latest_cleanup_mode=None,
+            latest_retention_days=None,
+            latest_age_seconds=None,
+            degradation_reasons=(),
+            degradation_details=(),
+        ),
         compute_queue_policy=ComputeQueueDegradationPolicy(
             pending_age_seconds=30.0,
             leased_age_seconds=20.0,
@@ -242,6 +307,7 @@ def test_build_runtime_status_response_handles_unavailable_queue_without_stats()
             storage_min_free_ratio=0.0,
         ),
         recovery_drill_policy=RecoveryDrillDegradationPolicy(max_age_seconds=0.0),
+        runtime_retention_policy=RuntimeRetentionDegradationPolicy(max_age_seconds=0.0),
     )
 
     response = build_runtime_status_response(snapshot)
@@ -252,3 +318,7 @@ def test_build_runtime_status_response_handles_unavailable_queue_without_stats()
     assert response.lineage_queue.pending_payloads is None
     assert response.recovery_drill.status == "available"
     assert response.recovery_drill.latest_status is None
+    assert response.runtime_retention.status == "available"
+    assert response.runtime_retention.preview_status == "unavailable"
+    assert response.runtime_retention.preview_reason == "RuntimeError"
+    assert response.runtime_retention.latest_status is None

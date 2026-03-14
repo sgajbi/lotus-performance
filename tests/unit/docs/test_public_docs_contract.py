@@ -92,11 +92,26 @@ def test_runtime_alert_runbook_covers_breach_gauges():
     assert "lotus_performance_lineage_queue_degradation_breach" in runbook
     assert "lotus_performance_lineage_storage_pressure_breach" in runbook
     assert "lotus_performance_recovery_drill_degradation_breach" in runbook
+    assert "lotus_performance_runtime_retention_degradation_breach" in runbook
     assert "GET /integration/runtime-work-items" in runbook
     assert "GET /integration/runtime-recoveries" in runbook
     assert "GET /integration/recovery-drills" in runbook
+    assert "GET /integration/runtime-retention-cleanups" in runbook
     assert "docs/runbooks/runtime-alerts.md" in api_reference
     assert "runtime-alerts.md" in runtime_topology
+
+
+def test_enterprise_readiness_covers_privileged_operator_reads():
+    enterprise = _read("docs/standards/enterprise-readiness.md")
+    api_reference = _read("docs/guides/api_reference.md")
+
+    assert "Privileged operator read surfaces can be protected" in enterprise
+    assert "Allowed privileged operator reads also emit audit metadata" in enterprise
+    assert "ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ" in api_reference
+    assert "operations.runtime.read" in api_reference
+    assert "operations.runtime.manage" in api_reference
+    assert "governed surface and required-capability metadata" in api_reference
+    assert "/integration/recovery-drills/run" in enterprise
 
 
 def test_runtime_alert_templates_cover_exported_breach_gauges():
@@ -109,9 +124,11 @@ def test_runtime_alert_templates_cover_exported_breach_gauges():
     assert "lotus_performance_lineage_queue_degradation_breach" in templates
     assert "lotus_performance_lineage_storage_pressure_breach" in templates
     assert "lotus_performance_recovery_drill_degradation_breach" in templates
+    assert "lotus_performance_runtime_retention_degradation_breach" in templates
     assert "lotus_performance_durable_queue_store_availability" in templates
     assert "lotus_performance_lineage_storage_capacity_availability" in templates
     assert "lotus_performance_recovery_drill_availability" in templates
+    assert "lotus_performance_runtime_retention_availability" in templates
     assert "docs/operations/runtime-alert-rule-templates.md" in runbook
     assert "runtime-alert-rule-templates.md" in api_reference
     assert "runtime-alert-rule-templates.md" in runtime_topology
@@ -130,6 +147,7 @@ def test_runtime_alert_policy_governs_severity_defaults():
     assert "lotus_performance_lineage_queue_degradation_breach" in policy
     assert "lotus_performance_lineage_storage_pressure_breach" in policy
     assert "lotus_performance_recovery_drill_degradation_breach" in policy
+    assert "lotus_performance_runtime_retention_degradation_breach" in policy
     assert "`page`" in policy
     assert "`ticket`" in policy
     assert "docs/standards/runtime-alert-policy.md" in templates
@@ -154,6 +172,7 @@ def test_runtime_threshold_profiles_cover_controlled_settings():
     assert "RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS" in profiles
     assert "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES" in profiles
     assert "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS" in profiles
+    assert "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS" in profiles
     assert "Development" in profiles
     assert "Staging" in profiles
     assert "Production" in profiles
@@ -185,6 +204,9 @@ def test_runtime_threshold_env_examples_match_profile_defaults():
     assert "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS=1209600" in development
     assert "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS=604800" in staging
     assert "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS=259200" in production
+    assert "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS=1209600" in development
+    assert "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS=604800" in staging
+    assert "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS=259200" in production
     assert "runtime-thresholds.production.env" in api_reference
     assert "docs/examples/" in runtime_topology
 
@@ -207,9 +229,52 @@ def test_runtime_threshold_compose_overlays_match_profile_defaults():
     assert 'RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO: "0.10"' in development
     assert 'RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO: "0.15"' in staging
     assert 'RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO: "0.20"' in production
+    assert 'RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS: "1209600"' in development
+    assert 'RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS: "604800"' in staging
+    assert 'RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS: "259200"' in production
     assert (
         "docker compose -f docker-compose.yml -f docs/examples/docker-compose.runtime-thresholds.production.yml up"
         in readme
     )
     assert "docker-compose.runtime-thresholds.production.yml" in api_reference
     assert "docker-compose.yml" in runtime_topology
+
+
+def test_runtime_retention_cleanup_runbook_is_governed():
+    runbook = _read("docs/runbooks/runtime-retention-cleanup.md")
+    api_reference = _read("docs/guides/api_reference.md")
+
+    assert "python scripts/runtime_retention_cleanup.py" in runbook
+    assert "python scripts/runtime_retention_cleanup.py --apply" in runbook
+    assert "GET /integration/runtime-retention-cleanups" in runbook
+    assert "POST /integration/runtime-retention-cleanups/run" in runbook
+    assert "RUNTIME_RETENTION_DAYS" in runbook
+    assert "analytics_execution" in runbook
+    assert "analytics_compute_job" in runbook
+    assert "analytics_async_result" in runbook
+    assert "lineage_records" in runbook
+    assert "LINEAGE_STORAGE_PATH" in runbook
+    assert "runtime_retention.preview_status" in runbook
+    assert "trigger_mode" in runbook
+    assert "job_id" in runbook
+    assert "make runtime-retention-smoke" in runbook
+    assert "docs/runbooks/runtime-retention-cleanup.md" in api_reference
+    assert "/integration/runtime-retention-cleanups" in api_reference
+    assert "/integration/runtime-retention-cleanups/run" in api_reference
+    assert "trigger_mode" in api_reference
+    assert "tenant_id" in api_reference
+    assert "correlation_id" in api_reference
+
+
+def test_recovery_drill_control_plane_is_governed():
+    api_reference = _read("docs/guides/api_reference.md")
+
+    assert "GET /integration/recovery-drills" in api_reference
+    assert "POST /integration/recovery-drills/run" in api_reference
+    assert "backup_identifier" in api_reference
+    assert "tenant_id" in api_reference
+    assert "correlation_id" in api_reference
+    assert "job_id" in api_reference
+    assert "make runtime-retention-smoke" in api_reference
+    assert "lotus_performance_runtime_retention_preview_availability" in api_reference
+    assert "lotus_performance_runtime_retention_prunable_items" in api_reference

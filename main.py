@@ -18,6 +18,7 @@ from app.api.endpoints import (
     recovery_drill_history,
     returns_series,
     runtime_recoveries,
+    runtime_retention_history,
     runtime_status,
     runtime_work_items,
 )
@@ -154,6 +155,7 @@ app.include_router(runtime_status.router, prefix="/integration")
 app.include_router(runtime_work_items.router, prefix="/integration")
 app.include_router(runtime_recoveries.router, prefix="/integration")
 app.include_router(recovery_drill_history.router, prefix="/integration")
+app.include_router(runtime_retention_history.router, prefix="/integration")
 app.include_router(health.router)
 
 

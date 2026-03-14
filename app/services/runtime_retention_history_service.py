@@ -10,25 +10,33 @@ from app.core.config import get_settings
 
 
 @dataclass(frozen=True)
-class RecoveryDrillHistoryEntry:
+class RuntimeRetentionHistoryEntry:
     evidence_file_name: str
     generated_at_utc: str
     operator_id: str
-    backup_identifier: str
+    trigger_mode: str
+    job_id: str | None
+    cleanup_mode: str
     status: str
+    retention_days: int
+    prunable_execution_count: int
+    prunable_compute_job_count: int
+    prunable_async_result_count: int
+    prunable_lineage_record_count: int
+    prunable_lineage_artifact_count: int
     tenant_id: str | None = None
     correlation_id: str | None = None
 
 
 @dataclass(frozen=True)
-class RecoveryDrillHistorySnapshot:
+class RuntimeRetentionHistorySnapshot:
     status: str
     artifact_directory: str
     latest_file_name: str | None
     retained_file_names: list[str]
     retention_limit: int | None
     retention_max_age_days: int | None
-    entries: list[RecoveryDrillHistoryEntry]
+    entries: list[RuntimeRetentionHistoryEntry]
     total_entries: int
     matched_entries: int
     returned_entries: int
@@ -37,31 +45,35 @@ class RecoveryDrillHistorySnapshot:
     reason: str | None = None
 
 
-def build_recovery_drill_history_snapshot(
+def build_runtime_retention_history_snapshot(
     *,
     artifact_directory: Path | None = None,
     limit: int | None = None,
     offset: int = 0,
     operator_id: str | None = None,
-    backup_identifier: str | None = None,
+    trigger_mode: str | None = None,
+    job_id: str | None = None,
+    cleanup_mode: str | None = None,
     status_filter: str | None = None,
     generated_after: str | None = None,
     generated_before: str | None = None,
-) -> RecoveryDrillHistorySnapshot:
-    directory = artifact_directory or get_settings().RECOVERY_DRILL_ARTIFACT_PATH
+) -> RuntimeRetentionHistorySnapshot:
+    directory = artifact_directory or get_settings().RUNTIME_RETENTION_ARTIFACT_PATH
     manifest_path = directory / "manifest.json"
     applied_filters = _build_applied_filters(
         limit=limit,
         offset=offset,
         operator_id=operator_id,
-        backup_identifier=backup_identifier,
+        trigger_mode=trigger_mode,
+        job_id=job_id,
+        cleanup_mode=cleanup_mode,
         status_filter=status_filter,
         generated_after=generated_after,
         generated_before=generated_before,
     )
 
     if not directory.exists():
-        return RecoveryDrillHistorySnapshot(
+        return RuntimeRetentionHistorySnapshot(
             status="unavailable",
             artifact_directory=str(directory),
             latest_file_name=None,
@@ -74,11 +86,11 @@ def build_recovery_drill_history_snapshot(
             returned_entries=0,
             next_offset=None,
             applied_filters=applied_filters,
-            reason="recovery_drill_artifact_directory_missing",
+            reason="runtime_retention_artifact_directory_missing",
         )
 
     if not manifest_path.exists():
-        return RecoveryDrillHistorySnapshot(
+        return RuntimeRetentionHistorySnapshot(
             status="unavailable",
             artifact_directory=str(directory),
             latest_file_name=None,
@@ -91,13 +103,13 @@ def build_recovery_drill_history_snapshot(
             returned_entries=0,
             next_offset=None,
             applied_filters=applied_filters,
-            reason="recovery_drill_manifest_missing",
+            reason="runtime_retention_manifest_missing",
         )
 
     try:
         payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     except OSError:
-        return RecoveryDrillHistorySnapshot(
+        return RuntimeRetentionHistorySnapshot(
             status="unavailable",
             artifact_directory=str(directory),
             latest_file_name=None,
@@ -110,10 +122,10 @@ def build_recovery_drill_history_snapshot(
             returned_entries=0,
             next_offset=None,
             applied_filters=applied_filters,
-            reason="recovery_drill_manifest_unreadable",
+            reason="runtime_retention_manifest_unreadable",
         )
     except json.JSONDecodeError:
-        return RecoveryDrillHistorySnapshot(
+        return RuntimeRetentionHistorySnapshot(
             status="unavailable",
             artifact_directory=str(directory),
             latest_file_name=None,
@@ -126,11 +138,12 @@ def build_recovery_drill_history_snapshot(
             returned_entries=0,
             next_offset=None,
             applied_filters=applied_filters,
-            reason="recovery_drill_manifest_invalid",
+            reason="runtime_retention_manifest_invalid",
         )
+
     manifest_payload = _validate_manifest_payload(payload)
     if manifest_payload is None:
-        return RecoveryDrillHistorySnapshot(
+        return RuntimeRetentionHistorySnapshot(
             status="unavailable",
             artifact_directory=str(directory),
             latest_file_name=None,
@@ -143,24 +156,35 @@ def build_recovery_drill_history_snapshot(
             returned_entries=0,
             next_offset=None,
             applied_filters=applied_filters,
-            reason="recovery_drill_manifest_invalid",
+            reason="runtime_retention_manifest_invalid",
         )
+
     all_entries = [
-        RecoveryDrillHistoryEntry(
+        RuntimeRetentionHistoryEntry(
             evidence_file_name=entry["evidence_file_name"],
             generated_at_utc=entry["generated_at_utc"],
             operator_id=entry["operator_id"],
             tenant_id=entry["tenant_id"],
             correlation_id=entry["correlation_id"],
-            backup_identifier=entry["backup_identifier"],
+            trigger_mode=entry["trigger_mode"],
+            job_id=entry["job_id"],
+            cleanup_mode=entry["cleanup_mode"],
             status=entry["status"],
+            retention_days=entry["retention_days"],
+            prunable_execution_count=entry["prunable_execution_count"],
+            prunable_compute_job_count=entry["prunable_compute_job_count"],
+            prunable_async_result_count=entry["prunable_async_result_count"],
+            prunable_lineage_record_count=entry["prunable_lineage_record_count"],
+            prunable_lineage_artifact_count=entry["prunable_lineage_artifact_count"],
         )
         for entry in manifest_payload["entries"]
     ]
     filtered_entries = _filter_entries(
         entries=all_entries,
         operator_id=operator_id,
-        backup_identifier=backup_identifier,
+        trigger_mode=trigger_mode,
+        job_id=job_id,
+        cleanup_mode=cleanup_mode,
         status_filter=status_filter,
         generated_after=generated_after,
         generated_before=generated_before,
@@ -171,7 +195,8 @@ def build_recovery_drill_history_snapshot(
     next_offset = None
     if limit is not None and offset + len(paged_entries) < len(filtered_entries):
         next_offset = offset + len(paged_entries)
-    return RecoveryDrillHistorySnapshot(
+
+    return RuntimeRetentionHistorySnapshot(
         status="available",
         artifact_directory=str(directory),
         latest_file_name=manifest_payload["latest_file_name"],
@@ -209,34 +234,35 @@ def _validate_manifest_payload(payload: Any) -> dict[str, Any] | None:
     if not isinstance(entries, list):
         return None
 
-    validated_entries: list[dict[str, str | None]] = []
+    validated_entries: list[dict[str, str | int | None]] = []
     for entry in entries:
         if not isinstance(entry, dict):
             return None
-        required = (
-            entry.get("evidence_file_name"),
-            entry.get("generated_at_utc"),
-            entry.get("operator_id"),
-            entry.get("backup_identifier"),
-            entry.get("status"),
+        str_keys = ("evidence_file_name", "generated_at_utc", "operator_id", "cleanup_mode", "status")
+        optional_str_keys = ("tenant_id", "correlation_id", "job_id")
+        int_keys = (
+            "retention_days",
+            "prunable_execution_count",
+            "prunable_compute_job_count",
+            "prunable_async_result_count",
+            "prunable_lineage_record_count",
+            "prunable_lineage_artifact_count",
         )
-        if any(not isinstance(value, str) for value in required):
+        trigger_mode = entry.get("trigger_mode", "manual")
+        if any(not isinstance(entry.get(key), str) for key in str_keys):
             return None
-        if entry.get("tenant_id") is not None and not isinstance(entry.get("tenant_id"), str):
+        if not isinstance(trigger_mode, str):
             return None
-        if entry.get("correlation_id") is not None and not isinstance(entry.get("correlation_id"), str):
+        if any(entry.get(key) is not None and not isinstance(entry.get(key), str) for key in optional_str_keys):
             return None
-        validated_entries.append(
-            {
-                "evidence_file_name": entry["evidence_file_name"],
-                "generated_at_utc": entry["generated_at_utc"],
-                "operator_id": entry["operator_id"],
-                "tenant_id": entry.get("tenant_id"),
-                "correlation_id": entry.get("correlation_id"),
-                "backup_identifier": entry["backup_identifier"],
-                "status": entry["status"],
-            }
-        )
+        if any(not isinstance(entry.get(key), int) for key in int_keys):
+            return None
+        validated_entry = {key: entry[key] for key in (*str_keys, *int_keys)}
+        validated_entry["trigger_mode"] = trigger_mode
+        validated_entry["tenant_id"] = entry.get("tenant_id")
+        validated_entry["correlation_id"] = entry.get("correlation_id")
+        validated_entry["job_id"] = entry.get("job_id")
+        validated_entries.append(validated_entry)
 
     if latest_file_name is not None and latest_file_name not in retained_file_names:
         return None
@@ -252,18 +278,24 @@ def _validate_manifest_payload(payload: Any) -> dict[str, Any] | None:
 
 def _filter_entries(
     *,
-    entries: list[RecoveryDrillHistoryEntry],
+    entries: list[RuntimeRetentionHistoryEntry],
     operator_id: str | None,
-    backup_identifier: str | None,
+    trigger_mode: str | None,
+    job_id: str | None,
+    cleanup_mode: str | None,
     status_filter: str | None,
     generated_after: str | None,
     generated_before: str | None,
-) -> list[RecoveryDrillHistoryEntry]:
+) -> list[RuntimeRetentionHistoryEntry]:
     filtered = entries
     if operator_id is not None:
         filtered = [entry for entry in filtered if entry.operator_id == operator_id]
-    if backup_identifier is not None:
-        filtered = [entry for entry in filtered if entry.backup_identifier == backup_identifier]
+    if trigger_mode is not None:
+        filtered = [entry for entry in filtered if entry.trigger_mode == trigger_mode]
+    if job_id is not None:
+        filtered = [entry for entry in filtered if entry.job_id == job_id]
+    if cleanup_mode is not None:
+        filtered = [entry for entry in filtered if entry.cleanup_mode == cleanup_mode]
     if status_filter is not None:
         filtered = [entry for entry in filtered if entry.status == status_filter]
     if generated_after is not None:
@@ -288,7 +320,9 @@ def _build_applied_filters(
     limit: int | None,
     offset: int,
     operator_id: str | None,
-    backup_identifier: str | None,
+    trigger_mode: str | None,
+    job_id: str | None,
+    cleanup_mode: str | None,
     status_filter: str | None,
     generated_after: str | None,
     generated_before: str | None,
@@ -300,8 +334,12 @@ def _build_applied_filters(
         filters["offset"] = offset
     if operator_id is not None:
         filters["operator_id"] = operator_id
-    if backup_identifier is not None:
-        filters["backup_identifier"] = backup_identifier
+    if trigger_mode is not None:
+        filters["trigger_mode"] = trigger_mode
+    if job_id is not None:
+        filters["job_id"] = job_id
+    if cleanup_mode is not None:
+        filters["cleanup_mode"] = cleanup_mode
     if status_filter is not None:
         filters["status"] = status_filter
     if generated_after is not None:

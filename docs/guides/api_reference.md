@@ -101,6 +101,9 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 ### `GET /integration/runtime-status`
 
 - purpose: expose an operational snapshot of runtime state for support and platform operators
+- privileged-read auth:
+  - when `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`, this route requires enterprise identity headers plus capability `operations.runtime.read`
+  - allowed access is enterprise-audited with governed surface and required-capability metadata
 - response includes:
   - aggregate runtime status
   - aggregate `runtime_degradation_reasons`
@@ -130,6 +133,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - a bounded `recent_recoveries` list for lineage showing the latest requeued items, recovery kind, timestamp, and attempt count
   - lineage `degradation_details`
   - lineage `degradation_reasons`
+  - retained runtime-retention cleanup assurance with latest operator, cleanup mode, retention window, freshness, and live dry-run preview counts under the current policy
 - runtime may report `degraded` when configured queue-age or failure-pressure thresholds are exceeded
 - runtime also reports `degraded` when lineage storage is missing, invalid, or unreadable even if the durable DB remains healthy
 - runtime can also report lineage-storage saturation pressure before writes fail:
@@ -145,6 +149,9 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 ### `GET /integration/runtime-work-items`
 
 - purpose: return exact compute and lineage work items for operator drill-down
+- privileged-read auth:
+  - when `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`, this route requires enterprise identity headers plus capability `operations.runtime.read`
+  - allowed access is enterprise-audited with governed surface and required-capability metadata
 - query parameters:
   - `queue`: `both`, `compute`, or `lineage`
   - `status`: `active`, `failed`, `all`, or `reclaimable`
@@ -168,6 +175,9 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 ### `GET /integration/runtime-recoveries`
 
 - purpose: return recent compute and lineage recovery events for operator drill-down
+- privileged-read auth:
+  - when `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`, this route requires enterprise identity headers plus capability `operations.runtime.read`
+  - allowed access is enterprise-audited with governed surface and required-capability metadata
 - query parameters:
   - `queue`: `both`, `compute`, or `lineage`
   - `limit`: max recovery events returned per queue
@@ -188,6 +198,65 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 - use this when runtime-status shows recent recovery activity and you need the concrete event stream behind the bounded status snapshot without querying the database directly
 - `next_offset` is queue-local and only appears when additional filtered events remain for that queue
 - the cursor fields give deterministic seek pagination for hot recovery streams where offset paging may drift as new recoveries arrive
+
+### `GET /integration/recovery-drills`
+
+- purpose: inspect retained durable recovery-drill evidence and manifest state
+- privileged-read auth:
+  - when `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`, this route requires enterprise identity headers plus capability `operations.runtime.read`
+  - allowed access is enterprise-audited with governed surface and required-capability metadata
+- response includes:
+  - retained recovery-drill evidence artifacts
+  - latest retained drill summary
+  - filtering by operator, backup identifier, status, and bounded time window
+  - retained enterprise request context when available:
+    - `tenant_id`
+    - `correlation_id`
+
+### `POST /integration/recovery-drills/run`
+
+- purpose: execute a governed durable recovery drill through the service-owned control plane
+- privileged-write auth:
+  - when `ENTERPRISE_ENFORCE_AUTHZ=true`, this route requires enterprise identity headers
+  - default governed capability: `operations.runtime.manage`
+- request includes:
+  - `backup_identifier`
+- response includes:
+  - immediate recovery-drill summary for the run that just executed
+  - operator identity carried from `X-Actor-Id` or `X-Service-Identity`
+  - retained enterprise request context from `X-Tenant-Id` and `X-Correlation-Id` when supplied
+- use this when an operator needs an audited recovery drill without shell access
+
+### `GET /integration/runtime-retention-cleanups`
+
+- purpose: inspect retained runtime-retention cleanup evidence and manifest state
+- privileged-read auth:
+  - when `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`, this route requires enterprise identity headers plus capability `operations.runtime.read`
+  - allowed access is enterprise-audited with governed surface and required-capability metadata
+- response includes:
+  - retained cleanup evidence artifacts
+  - latest retained cleanup summary
+  - filtering by operator, trigger mode, job identity, cleanup mode, status, and bounded time window
+  - retained enterprise request context when available:
+    - `tenant_id`
+    - `correlation_id`
+
+### `POST /integration/runtime-retention-cleanups/run`
+
+- purpose: execute a governed runtime-retention dry run or apply action through the service-owned control plane
+- privileged-write auth:
+  - when `ENTERPRISE_ENFORCE_AUTHZ=true`, this route requires enterprise identity headers
+  - default governed capability: `operations.runtime.manage`
+- request includes:
+  - `apply`
+  - optional `retention_days`
+  - optional `job_id`
+- response includes:
+  - retained cleanup evidence summary for the run that just executed
+  - operator identity carried from `X-Actor-Id` or `X-Service-Identity`
+  - retained enterprise request context from `X-Tenant-Id` and `X-Correlation-Id` when supplied
+  - `trigger_mode="manual"` for this control-plane action path
+- use this when an operator needs an audited cleanup preview or a deliberate apply action without shell access
 
 ### `POST /integration/returns/series`
 
@@ -253,11 +322,66 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - `lotus_performance_recovery_drill_latest_age_seconds`
   - `lotus_performance_recovery_drill_policy_threshold{threshold="max_age_seconds"}`
   - `lotus_performance_recovery_drill_degradation_breach{reason="recovery_drill_latest_not_passed|recovery_drill_age_exceeded"}`
+- includes runtime-retention lifecycle metrics:
+  - `lotus_performance_runtime_retention_availability`
+  - `lotus_performance_runtime_retention_preview_availability`
+  - `lotus_performance_runtime_retention_latest_age_seconds`
+  - `lotus_performance_runtime_retention_policy_threshold{threshold="max_age_seconds"}`
+  - `lotus_performance_runtime_retention_degradation_breach{reason="runtime_retention_latest_not_applied|runtime_retention_age_exceeded"}`
+  - `lotus_performance_runtime_retention_prunable_items{category="execution|compute_job|async_result|lineage_record|lineage_artifact"}`
 - includes lineage storage capacity metrics:
   - `lotus_performance_lineage_storage_capacity_availability`
   - `lotus_performance_lineage_storage_capacity_bytes{segment="total|used|free"}`
   - `lotus_performance_lineage_storage_free_ratio`
   - `lotus_performance_lineage_storage_pressure_threshold{threshold="min_free_bytes|min_free_ratio"}`
+
+## Runtime Operations
+
+### `python scripts/runtime_retention_cleanup.py`
+
+- purpose: inspect or prune retained terminal runtime state and lineage artifacts beyond the configured retention window
+- governed runbook:
+  - `docs/runbooks/runtime-retention-cleanup.md`
+- default behavior:
+  - dry run only
+  - prints a JSON summary of prunable runtime records and lineage artifact directories
+- apply behavior:
+  - `python scripts/runtime_retention_cleanup.py --apply`
+- override behavior:
+  - `python scripts/runtime_retention_cleanup.py --retention-days <days>`
+- scheduled automation behavior:
+  - `python scripts/runtime_retention_cleanup.py --scheduled --apply`
+  - evidence records `trigger_mode` plus the configured automation `job_id`
+  - `make runtime-retention-smoke` runs the governed scheduled dry-run path with retained evidence
+- safety contract:
+  - only terminal executions, terminal compute jobs, async results, terminal lineage metadata, and matching lineage artifacts older than the cutoff are eligible
+  - active runtime work is not pruned
+  - each execution persists timestamped evidence plus refreshed `latest.json` and `manifest.json` under the configured retention artifact directory
+
+### `GET /integration/runtime-retention-cleanups`
+
+- purpose: inspect retained runtime-retention cleanup evidence and history
+- privileged-read auth:
+  - when `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`, this route requires enterprise identity headers plus capability `operations.runtime.read`
+  - allowed access is enterprise-audited with governed surface and required-capability metadata
+- response includes:
+  - retained cleanup artifact directory
+  - latest retained cleanup evidence file
+  - configured cleanup-history retention policy
+  - paged retained cleanup entries with operator, trigger mode, optional job identity, cleanup mode, status, retention window, and prunable record counts
+- query parameters:
+  - `limit`
+  - `offset`
+  - `operator_id`
+  - `trigger_mode`
+  - `job_id`
+  - `cleanup_mode`
+  - `status`
+  - `generated_after`
+  - `generated_before`
+- governed runbook:
+  - `docs/runbooks/runtime-retention-cleanup.md`
+  - the optional runtime-retention worker uses the same scheduled automation identity and persisted evidence path
   - `lotus_performance_lineage_storage_pressure_breach{reason="lineage_storage_free_bytes_below_threshold|lineage_storage_free_ratio_below_threshold"}`
 
 ## Async execution pattern

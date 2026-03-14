@@ -137,6 +137,8 @@ Important compose defaults:
 - stateful integration resolves lotus-core through `CORE_QUERY_BASE_URL`
 - runtime threshold profile overrides can be layered with:
   - `docker compose -f docker-compose.yml -f docs/examples/docker-compose.runtime-thresholds.production.yml up`
+- optional scheduled runtime-retention automation can be enabled with the ops profile:
+  - `docker compose --profile ops up performance-runtime-retention-worker`
 
 ## Validation
 

@@ -1,7 +1,7 @@
 # Runtime Alert Runbook
 
 - Service: `lotus-performance`
-- Scope: first-response handling for queue-pressure, recovery-assurance, and lineage-storage alerts exported through `/metrics`
+- Scope: first-response handling for queue-pressure, recovery-assurance, runtime-retention, and lineage-storage alerts exported through `/metrics`
 - Related references:
   - `docs/guides/api_reference.md`
   - `docs/technical/runtime_topology.md`
@@ -17,12 +17,14 @@ Treat these as the first-class alert surfaces:
 - `lotus_performance_lineage_queue_degradation_breach{reason=...}`
 - `lotus_performance_lineage_storage_pressure_breach{reason=...}`
 - `lotus_performance_recovery_drill_degradation_breach{reason=...}`
+- `lotus_performance_runtime_retention_degradation_breach{reason=...}`
 
 Always inspect the matching availability gauges first:
 
 - `lotus_performance_durable_queue_store_availability{store=...}`
 - `lotus_performance_lineage_storage_capacity_availability`
 - `lotus_performance_recovery_drill_availability`
+- `lotus_performance_runtime_retention_availability`
 
 Do not treat a missing breach sample as healthy if the corresponding availability gauge is `0`.
 
@@ -35,6 +37,7 @@ Do not treat a missing breach sample as healthy if the corresponding availabilit
    - `GET /integration/runtime-recoveries`
 4. If lineage storage is degraded, validate filesystem availability and free capacity before restarting workers.
 5. If recovery-drill policy is degraded, inspect `GET /integration/recovery-drills` and compare the latest retained drill against the configured age policy.
+6. If runtime-retention policy is degraded, inspect `GET /integration/runtime-retention-cleanups` and compare the latest retained cleanup against the configured age policy and apply-mode expectation.
 
 ## Queue Breach Guidance
 
@@ -78,6 +81,16 @@ Do not treat a missing breach sample as healthy if the corresponding availabilit
   - rerun `python scripts/durable_recovery_drill.py --operator-id <operator> --backup-identifier <backup-id>` if the latest drill is stale or failed
   - update retained evidence and confirm `latest.json` plus `manifest.json` are refreshed
 
+## Runtime Retention Guidance
+
+- `runtime_retention_latest_not_applied` means the latest retained cleanup evidence only proves a dry run, not an applied retention cleanup.
+- `runtime_retention_age_exceeded` means the latest retained cleanup evidence is older than the configured max-age policy.
+- First actions:
+  - inspect `GET /integration/runtime-retention-cleanups`
+  - identify the latest retained cleanup `operator_id`, `cleanup_mode`, and `retention_days`
+  - rerun `python scripts/runtime_retention_cleanup.py --operator-id <operator> --apply` after validating the dry-run summary if the retained cleanup is stale or only planned
+  - confirm retained cleanup evidence refreshed `latest.json` plus `manifest.json`
+
 ## Escalation Rule
 
 Escalate immediately when any of the following is true:
@@ -86,3 +99,4 @@ Escalate immediately when any of the following is true:
 - breach gauges remain active after the first response sequence
 - queue breach plus storage-pressure breach are active together
 - recovery-drill breach is active and no recent passing drill evidence exists
+- runtime-retention breach is active and no recent applied cleanup evidence exists

@@ -269,6 +269,16 @@ def test_e2e_enterprise_authz_blocks_write_without_identity_headers(monkeypatch)
     assert response.json()["detail"] == "authorization_policy_denied"
 
 
+def test_e2e_enterprise_authz_blocks_privileged_runtime_read_without_identity_headers(monkeypatch) -> None:
+    monkeypatch.setenv("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "true")
+
+    with TestClient(app) as client:
+        response = client.get("/integration/runtime-status")
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "authorization_policy_denied"
+
+
 def test_e2e_async_replay_uses_single_execution_handle() -> None:
     original_threshold = settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT
     settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = 0
