@@ -261,6 +261,8 @@ def test_runtime_retention_cleanup_runbook_is_governed():
     assert "/integration/runtime-retention-cleanups" in api_reference
     assert "/integration/runtime-retention-cleanups/run" in api_reference
     assert "trigger_mode" in api_reference
+    assert "tenant_id" in api_reference
+    assert "correlation_id" in api_reference
     assert "job_id" in api_reference
     assert "make runtime-retention-smoke" in api_reference
     assert "lotus_performance_runtime_retention_preview_availability" in api_reference

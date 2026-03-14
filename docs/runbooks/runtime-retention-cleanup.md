@@ -78,6 +78,7 @@ Override the default only with an explicit operator or environment-level reason.
 ## Evidence to Capture
 
 - operator running the cleanup
+- tenant and correlation context when the cleanup is run through the governed API surface
 - trigger mode and any automation job identity
 - any operator ticket or workflow `job_id`
 - retention window used

@@ -209,6 +209,9 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - retained cleanup evidence artifacts
   - latest retained cleanup summary
   - filtering by operator, trigger mode, job identity, cleanup mode, status, and bounded time window
+  - retained enterprise request context when available:
+    - `tenant_id`
+    - `correlation_id`
 
 ### `POST /integration/runtime-retention-cleanups/run`
 
@@ -223,6 +226,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 - response includes:
   - retained cleanup evidence summary for the run that just executed
   - operator identity carried from `X-Actor-Id` or `X-Service-Identity`
+  - retained enterprise request context from `X-Tenant-Id` and `X-Correlation-Id` when supplied
   - `trigger_mode="manual"` for this control-plane action path
 - use this when an operator needs an audited cleanup preview or a deliberate apply action without shell access
 

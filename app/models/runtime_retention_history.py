@@ -9,6 +9,8 @@ class RuntimeRetentionHistoryEntryResponse(BaseModel):
     evidence_file_name: str = Field(description="Timestamped runtime-retention cleanup evidence artifact file name.")
     generated_at_utc: str = Field(description="UTC timestamp when this runtime-retention cleanup evidence was generated.")
     operator_id: str = Field(description="Operator or automation identity that ran the runtime-retention cleanup.")
+    tenant_id: str | None = Field(default=None, description="Enterprise tenant identity retained with this runtime-retention cleanup execution, when present.")
+    correlation_id: str | None = Field(default=None, description="Enterprise correlation identifier retained with this runtime-retention cleanup execution, when present.")
     trigger_mode: str = Field(description="Whether the runtime-retention cleanup was triggered manually or by scheduled automation.")
     job_id: str | None = Field(default=None, description="Scheduler or automation job identity recorded for this runtime-retention cleanup, when present.")
     cleanup_mode: str = Field(description="Cleanup mode recorded for the retained runtime-retention execution.")
@@ -62,6 +64,8 @@ class RuntimeRetentionCleanupRunResponse(BaseModel):
     generated_at_utc: str = Field(description="UTC timestamp when this runtime-retention cleanup evidence was generated.")
     evidence_file_name: str = Field(description="Timestamped runtime-retention cleanup evidence artifact file name.")
     operator_id: str = Field(description="Enterprise actor or service identity recorded for this runtime-retention cleanup run.")
+    tenant_id: str | None = Field(default=None, description="Enterprise tenant identity recorded for this runtime-retention cleanup run, when present.")
+    correlation_id: str | None = Field(default=None, description="Enterprise correlation identifier recorded for this runtime-retention cleanup run, when present.")
     trigger_mode: str = Field(description="Trigger mode recorded for this runtime-retention cleanup run.")
     job_id: str | None = Field(default=None, description="Operator-supplied or automation job identity retained with this cleanup execution.")
     cleanup_mode: str = Field(description="Cleanup mode executed for this runtime-retention action.")
@@ -96,6 +100,8 @@ def build_runtime_retention_history_response(snapshot: RuntimeRetentionHistorySn
                 evidence_file_name=entry.evidence_file_name,
                 generated_at_utc=entry.generated_at_utc,
                 operator_id=entry.operator_id,
+                tenant_id=entry.tenant_id,
+                correlation_id=entry.correlation_id,
                 trigger_mode=entry.trigger_mode,
                 job_id=entry.job_id,
                 cleanup_mode=entry.cleanup_mode,
@@ -118,6 +124,8 @@ def build_runtime_retention_cleanup_run_response(
     generated_at_utc: str,
     evidence_file_name: str,
     operator_id: str,
+    tenant_id: str | None,
+    correlation_id: str | None,
     trigger_mode: str,
     job_id: str | None,
     cleanup_mode: str,
@@ -137,6 +145,8 @@ def build_runtime_retention_cleanup_run_response(
         generated_at_utc=generated_at_utc,
         evidence_file_name=evidence_file_name,
         operator_id=operator_id,
+        tenant_id=tenant_id,
+        correlation_id=correlation_id,
         trigger_mode=trigger_mode,
         job_id=job_id,
         cleanup_mode=cleanup_mode,

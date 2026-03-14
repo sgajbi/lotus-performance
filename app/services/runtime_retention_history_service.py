@@ -14,6 +14,8 @@ class RuntimeRetentionHistoryEntry:
     evidence_file_name: str
     generated_at_utc: str
     operator_id: str
+    tenant_id: str | None
+    correlation_id: str | None
     trigger_mode: str
     job_id: str | None
     cleanup_mode: str
@@ -162,6 +164,8 @@ def build_runtime_retention_history_snapshot(
             evidence_file_name=entry["evidence_file_name"],
             generated_at_utc=entry["generated_at_utc"],
             operator_id=entry["operator_id"],
+            tenant_id=entry["tenant_id"],
+            correlation_id=entry["correlation_id"],
             trigger_mode=entry["trigger_mode"],
             job_id=entry["job_id"],
             cleanup_mode=entry["cleanup_mode"],
@@ -235,7 +239,7 @@ def _validate_manifest_payload(payload: Any) -> dict[str, Any] | None:
         if not isinstance(entry, dict):
             return None
         str_keys = ("evidence_file_name", "generated_at_utc", "operator_id", "cleanup_mode", "status")
-        optional_str_keys = ("job_id",)
+        optional_str_keys = ("tenant_id", "correlation_id", "job_id")
         int_keys = (
             "retention_days",
             "prunable_execution_count",
@@ -255,6 +259,8 @@ def _validate_manifest_payload(payload: Any) -> dict[str, Any] | None:
             return None
         validated_entry = {key: entry[key] for key in (*str_keys, *int_keys)}
         validated_entry["trigger_mode"] = trigger_mode
+        validated_entry["tenant_id"] = entry.get("tenant_id")
+        validated_entry["correlation_id"] = entry.get("correlation_id")
         validated_entry["job_id"] = entry.get("job_id")
         validated_entries.append(validated_entry)
 

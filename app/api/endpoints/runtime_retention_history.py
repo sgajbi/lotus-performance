@@ -27,6 +27,16 @@ def _resolve_operator_identity(request: Request) -> str:
     raise HTTPException(status_code=400, detail="missing_operator_identity")
 
 
+def _resolve_tenant_id(request: Request) -> str | None:
+    tenant_id = request.headers.get("X-Tenant-Id", "").strip()
+    return tenant_id or None
+
+
+def _resolve_correlation_id(request: Request) -> str | None:
+    correlation_id = request.headers.get("X-Correlation-Id", "").strip()
+    return correlation_id or None
+
+
 @router.get(
     "/runtime-retention-cleanups",
     response_model=RuntimeRetentionHistoryResponse,
@@ -100,6 +110,8 @@ async def run_runtime_retention_cleanup(
         apply=cleanup_request.apply,
         retention_days=cleanup_request.retention_days,
         operator_id=_resolve_operator_identity(request),
+        tenant_id=_resolve_tenant_id(request),
+        correlation_id=_resolve_correlation_id(request),
         trigger_mode="manual",
         job_id=cleanup_request.job_id,
     )
@@ -108,6 +120,8 @@ async def run_runtime_retention_cleanup(
         generated_at_utc=evidence.generated_at_utc,
         evidence_file_name=evidence.evidence_file_name,
         operator_id=evidence.operator_id,
+        tenant_id=evidence.tenant_id,
+        correlation_id=evidence.correlation_id,
         trigger_mode=evidence.trigger_mode,
         job_id=evidence.job_id,
         cleanup_mode=evidence.cleanup_mode,

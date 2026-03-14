@@ -16,6 +16,8 @@ def test_runtime_retention_cleanup_persists_history_and_manifest(tmp_path):
         generated_at_utc="2026-03-14T00:00:00Z",
         evidence_file_name="2026-03-14t00-00-00z.json",
         operator_id="ops-user",
+        tenant_id="tenant-a",
+        correlation_id="corr-1",
         trigger_mode="manual",
         job_id=None,
         cleanup_mode="apply",
@@ -40,6 +42,8 @@ def test_runtime_retention_cleanup_persists_history_and_manifest(tmp_path):
     manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
 
     assert latest["operator_id"] == "ops-user"
+    assert latest["tenant_id"] == "tenant-a"
+    assert latest["correlation_id"] == "corr-1"
     assert latest["trigger_mode"] == "manual"
     assert latest["cleanup_mode"] == "apply"
     assert manifest["latest_file_name"] == "2026-03-14t00-00-00z.json"
@@ -59,6 +63,8 @@ def test_runtime_retention_cleanup_prunes_by_limit_and_age(tmp_path):
                 "generated_at_utc": old_generated_at,
                 "evidence_file_name": old_file_name,
                 "operator_id": "ops-old",
+                "tenant_id": "tenant-a",
+                "correlation_id": "corr-old",
                 "trigger_mode": "scheduled",
                 "job_id": "retention-nightly",
                 "cleanup_mode": "dry_run",
@@ -80,6 +86,8 @@ def test_runtime_retention_cleanup_prunes_by_limit_and_age(tmp_path):
         generated_at_utc="2026-03-14T00:00:00Z",
         evidence_file_name="2026-03-14t00-00-00z.json",
         operator_id="ops-user",
+        tenant_id=None,
+        correlation_id=None,
         trigger_mode="manual",
         job_id=None,
         cleanup_mode="dry_run",
@@ -97,6 +105,8 @@ def test_runtime_retention_cleanup_prunes_by_limit_and_age(tmp_path):
         generated_at_utc="2026-03-15T00:00:00Z",
         evidence_file_name="2026-03-15t00-00-00z.json",
         operator_id="ops-user",
+        tenant_id=None,
+        correlation_id=None,
         trigger_mode="scheduled",
         job_id="retention-nightly",
         cleanup_mode="apply",
@@ -147,6 +157,8 @@ def test_runtime_retention_cleanup_scheduled_mode_records_automation_identity(tm
             generated_at_utc="2026-03-14T00:00:00Z",
             evidence_file_name="2026-03-14t00-00-00z.json",
             operator_id="runtime-retention-automation",
+            tenant_id=None,
+            correlation_id=None,
             trigger_mode="scheduled",
             job_id="retention-nightly",
             cleanup_mode="apply",

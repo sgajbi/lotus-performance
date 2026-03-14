@@ -20,6 +20,8 @@ class RuntimeRetentionCleanupEvidence:
     generated_at_utc: str
     evidence_file_name: str
     operator_id: str
+    tenant_id: str | None
+    correlation_id: str | None
     trigger_mode: str
     job_id: str | None
     cleanup_mode: str
@@ -38,6 +40,8 @@ class RuntimeRetentionManifestEntry:
     evidence_file_name: str
     generated_at_utc: str
     operator_id: str
+    tenant_id: str | None
+    correlation_id: str | None
     trigger_mode: str
     job_id: str | None
     cleanup_mode: str
@@ -64,6 +68,8 @@ def execute_runtime_retention_cleanup(
     apply: bool,
     retention_days: int | None = None,
     operator_id: str,
+    tenant_id: str | None = None,
+    correlation_id: str | None = None,
     trigger_mode: str,
     job_id: str | None,
     output_dir: Path | None = None,
@@ -81,6 +87,8 @@ def execute_runtime_retention_cleanup(
         generated_at_utc=generated_at_utc,
         evidence_file_name=_build_evidence_file_name(generated_at_utc),
         operator_id=operator_id,
+        tenant_id=tenant_id,
+        correlation_id=correlation_id,
         trigger_mode=trigger_mode,
         job_id=job_id,
         cleanup_mode="apply" if apply else "dry_run",
@@ -176,6 +184,8 @@ def _load_manifest_entry(path: Path) -> RuntimeRetentionManifestEntry:
         evidence_file_name=str(payload["evidence_file_name"]),
         generated_at_utc=str(payload["generated_at_utc"]),
         operator_id=str(payload["operator_id"]),
+        tenant_id=None if payload.get("tenant_id") is None else str(payload["tenant_id"]),
+        correlation_id=None if payload.get("correlation_id") is None else str(payload["correlation_id"]),
         trigger_mode=str(payload.get("trigger_mode", "manual")),
         job_id=None if payload.get("job_id") is None else str(payload["job_id"]),
         cleanup_mode=str(payload["cleanup_mode"]),

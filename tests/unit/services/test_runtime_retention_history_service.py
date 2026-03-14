@@ -38,6 +38,8 @@ def test_runtime_retention_history_applies_filters_and_paging(tmp_path):
                 "evidence_file_name": "2026-03-15t00-00-00z.json",
                 "generated_at_utc": "2026-03-15T00:00:00Z",
                 "operator_id": "ops-user",
+                "tenant_id": "tenant-a",
+                "correlation_id": "corr-1",
                 "trigger_mode": "scheduled",
                 "job_id": "retention-nightly",
                 "cleanup_mode": "apply",
@@ -53,6 +55,8 @@ def test_runtime_retention_history_applies_filters_and_paging(tmp_path):
                 "evidence_file_name": "2026-03-14t00-00-00z.json",
                 "generated_at_utc": "2026-03-14T00:00:00Z",
                 "operator_id": "ops-user",
+                "tenant_id": "tenant-a",
+                "correlation_id": "corr-2",
                 "trigger_mode": "manual",
                 "job_id": None,
                 "cleanup_mode": "dry_run",
@@ -68,6 +72,8 @@ def test_runtime_retention_history_applies_filters_and_paging(tmp_path):
                 "evidence_file_name": "2026-03-13t00-00-00z.json",
                 "generated_at_utc": "2026-03-13T00:00:00Z",
                 "operator_id": "ops-batch",
+                "tenant_id": "tenant-b",
+                "correlation_id": "corr-3",
                 "trigger_mode": "scheduled",
                 "job_id": "retention-nightly",
                 "cleanup_mode": "apply",
@@ -110,5 +116,7 @@ def test_runtime_retention_history_applies_filters_and_paging(tmp_path):
         "generated_after": "2026-03-14T00:00:00Z",
     }
     assert snapshot.entries[0].evidence_file_name == "2026-03-15t00-00-00z.json"
+    assert snapshot.entries[0].tenant_id == "tenant-a"
+    assert snapshot.entries[0].correlation_id == "corr-1"
     assert snapshot.entries[0].trigger_mode == "scheduled"
     assert snapshot.entries[0].job_id == "retention-nightly"
