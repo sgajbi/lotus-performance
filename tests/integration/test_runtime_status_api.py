@@ -42,6 +42,10 @@ def test_runtime_status_reports_durable_queue_state():
     assert body["runtime_degradation_reasons"] == []
     assert body["draining"] is False
     assert body["durable_metadata_store"]["status"] == "ready"
+    assert body["compute_queue_policy"]["pending_age_seconds"] >= 0.0
+    assert body["compute_queue_policy"]["retry_backlog_count"] >= 0
+    assert body["lineage_queue_policy"]["pending_age_seconds"] >= 0.0
+    assert body["lineage_queue_policy"]["terminal_failure_count"] >= 0
     assert body["compute_queue"]["status"] == "available"
     assert body["compute_queue"]["degradation_reasons"] == []
     assert body["compute_queue"]["pending_jobs"] == 1
@@ -230,6 +234,7 @@ def test_runtime_status_reports_degraded_when_compute_failure_threshold_is_excee
         body = response.json()
         assert body["runtime_status"] == "degraded"
         assert body["runtime_degradation_reasons"] == ["compute_queue:compute_retry_backlog_exceeded"]
+        assert body["compute_queue_policy"]["retry_backlog_count"] == 1
         assert body["compute_queue"]["status"] == "degraded"
         assert body["compute_queue"]["reason"] == "compute_retry_backlog_exceeded"
         assert body["compute_queue"]["degradation_reasons"] == ["compute_retry_backlog_exceeded"]
@@ -264,6 +269,7 @@ def test_runtime_status_reports_degraded_when_lineage_failure_threshold_is_excee
         body = response.json()
         assert body["runtime_status"] == "degraded"
         assert body["runtime_degradation_reasons"] == ["lineage_queue:lineage_terminal_failure_exceeded"]
+        assert body["lineage_queue_policy"]["terminal_failure_count"] == 1
         assert body["lineage_queue"]["status"] == "degraded"
         assert body["lineage_queue"]["reason"] == "lineage_terminal_failure_exceeded"
         assert body["lineage_queue"]["degradation_reasons"] == ["lineage_terminal_failure_exceeded"]

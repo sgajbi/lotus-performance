@@ -105,6 +105,21 @@ class LineageQueueStatusDetailsResponse(BaseModel):
     )
 
 
+class ComputeQueueDegradationPolicyResponse(BaseModel):
+    pending_age_seconds: float = Field(description="Configured threshold that degrades runtime on oldest pending compute-job age.")
+    leased_age_seconds: float = Field(description="Configured threshold that degrades runtime on oldest leased compute-job age.")
+    running_age_seconds: float = Field(description="Configured threshold that degrades runtime on oldest running compute-job age.")
+    retry_backlog_count: int = Field(description="Configured threshold that degrades runtime on compute retry-backlog count.")
+    lease_expiry_count: int = Field(description="Configured threshold that degrades runtime on compute lease-expiry recovery count.")
+    terminal_failure_count: int = Field(description="Configured threshold that degrades runtime on compute terminal-failure count.")
+
+
+class LineageQueueDegradationPolicyResponse(BaseModel):
+    pending_age_seconds: float = Field(description="Configured threshold that degrades runtime on oldest pending lineage-payload age.")
+    retry_backlog_count: int = Field(description="Configured threshold that degrades runtime on lineage retry-backlog count.")
+    terminal_failure_count: int = Field(description="Configured threshold that degrades runtime on lineage terminal-failure count.")
+
+
 class RuntimeStatusResponse(BaseModel):
     contract_version: str = Field(description="Version of the runtime-status response contract.")
     source_service: str = Field(description="Owning service that produced this runtime snapshot.")
@@ -125,6 +140,12 @@ class RuntimeStatusResponse(BaseModel):
     )
     lineage_queue: LineageQueueStatusDetailsResponse = Field(
         description="Current durable lineage queue state for asynchronous lineage artifact materialization.",
+    )
+    compute_queue_policy: ComputeQueueDegradationPolicyResponse = Field(
+        description="Active compute queue degradation policy used to interpret runtime state.",
+    )
+    lineage_queue_policy: LineageQueueDegradationPolicyResponse = Field(
+        description="Active lineage queue degradation policy used to interpret runtime state.",
     )
 
 
@@ -177,5 +198,18 @@ async def get_runtime_status(request: Request) -> RuntimeStatusResponse:
             retry_backlog_payloads=None if lineage_stats is None else lineage_stats.retry_backlog_count,
             terminal_failure_payloads=None if lineage_stats is None else lineage_stats.terminal_failure_count,
             oldest_pending_age_seconds=(None if lineage_stats is None else lineage_stats.oldest_pending_age_seconds),
+        ),
+        compute_queue_policy=ComputeQueueDegradationPolicyResponse(
+            pending_age_seconds=snapshot.compute_queue_policy.pending_age_seconds,
+            leased_age_seconds=snapshot.compute_queue_policy.leased_age_seconds,
+            running_age_seconds=snapshot.compute_queue_policy.running_age_seconds,
+            retry_backlog_count=snapshot.compute_queue_policy.retry_backlog_count,
+            lease_expiry_count=snapshot.compute_queue_policy.lease_expiry_count,
+            terminal_failure_count=snapshot.compute_queue_policy.terminal_failure_count,
+        ),
+        lineage_queue_policy=LineageQueueDegradationPolicyResponse(
+            pending_age_seconds=snapshot.lineage_queue_policy.pending_age_seconds,
+            retry_backlog_count=snapshot.lineage_queue_policy.retry_backlog_count,
+            terminal_failure_count=snapshot.lineage_queue_policy.terminal_failure_count,
         ),
     )

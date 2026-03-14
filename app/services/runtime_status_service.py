@@ -21,6 +21,23 @@ class RuntimeQueueStatus:
 
 
 @dataclass(frozen=True)
+class ComputeQueueDegradationPolicy:
+    pending_age_seconds: float
+    leased_age_seconds: float
+    running_age_seconds: float
+    retry_backlog_count: int
+    lease_expiry_count: int
+    terminal_failure_count: int
+
+
+@dataclass(frozen=True)
+class LineageQueueDegradationPolicy:
+    pending_age_seconds: float
+    retry_backlog_count: int
+    terminal_failure_count: int
+
+
+@dataclass(frozen=True)
 class RuntimeStatusSnapshot:
     generated_at: datetime
     runtime_status: str
@@ -29,12 +46,16 @@ class RuntimeStatusSnapshot:
     durable_metadata_store: DurabilityHealthStatus
     compute_queue: RuntimeQueueStatus
     lineage_queue: RuntimeQueueStatus
+    compute_queue_policy: ComputeQueueDegradationPolicy
+    lineage_queue_policy: LineageQueueDegradationPolicy
 
 
 def build_runtime_status_snapshot(*, is_draining: bool) -> RuntimeStatusSnapshot:
     generated_at = datetime.now(UTC)
     durability_status = check_durable_metadata_store_ready()
     settings = get_settings()
+    compute_queue_policy = _build_compute_queue_policy(settings=settings)
+    lineage_queue_policy = _build_lineage_queue_policy(settings=settings)
 
     runtime_status = "draining" if is_draining else durability_status.status
     compute_queue = _build_compute_queue_status(durability_status, settings=settings)
@@ -55,6 +76,8 @@ def build_runtime_status_snapshot(*, is_draining: bool) -> RuntimeStatusSnapshot
         durable_metadata_store=durability_status,
         compute_queue=compute_queue,
         lineage_queue=lineage_queue,
+        compute_queue_policy=compute_queue_policy,
+        lineage_queue_policy=lineage_queue_policy,
     )
 
 
@@ -191,3 +214,22 @@ def _collect_runtime_degradation_reasons(
             reasons.append(f"{prefix}:{queue_status.reason}")
 
     return tuple(reasons)
+
+
+def _build_compute_queue_policy(*, settings) -> ComputeQueueDegradationPolicy:
+    return ComputeQueueDegradationPolicy(
+        pending_age_seconds=settings.RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS,
+        leased_age_seconds=settings.RUNTIME_STATUS_COMPUTE_LEASED_AGE_DEGRADE_SECONDS,
+        running_age_seconds=settings.RUNTIME_STATUS_COMPUTE_RUNNING_AGE_DEGRADE_SECONDS,
+        retry_backlog_count=settings.RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT,
+        lease_expiry_count=settings.RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT,
+        terminal_failure_count=settings.RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT,
+    )
+
+
+def _build_lineage_queue_policy(*, settings) -> LineageQueueDegradationPolicy:
+    return LineageQueueDegradationPolicy(
+        pending_age_seconds=settings.RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS,
+        retry_backlog_count=settings.RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT,
+        terminal_failure_count=settings.RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT,
+    )

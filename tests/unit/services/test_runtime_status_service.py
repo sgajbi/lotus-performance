@@ -59,6 +59,10 @@ def test_runtime_status_snapshot_reports_ready_with_queue_stats(mocker):
 
     assert snapshot.runtime_status == "ready"
     assert snapshot.runtime_degradation_reasons == ()
+    assert snapshot.compute_queue_policy.pending_age_seconds == 0.0
+    assert snapshot.compute_queue_policy.retry_backlog_count == 0
+    assert snapshot.lineage_queue_policy.pending_age_seconds == 0.0
+    assert snapshot.lineage_queue_policy.terminal_failure_count == 0
     assert snapshot.compute_queue.status == "available"
     assert snapshot.compute_queue.degradation_reasons == ()
     assert snapshot.compute_queue.stats is not None
@@ -391,6 +395,7 @@ def test_runtime_status_snapshot_degrades_when_compute_failure_pressure_threshol
     assert snapshot.compute_queue.status == "degraded"
     assert snapshot.compute_queue.reason == "compute_retry_backlog_exceeded"
     assert snapshot.compute_queue.degradation_reasons == ("compute_retry_backlog_exceeded",)
+    assert snapshot.compute_queue_policy.retry_backlog_count == 2
 
 
 def test_runtime_status_snapshot_degrades_when_lineage_failure_pressure_threshold_is_exceeded(mocker):
@@ -449,6 +454,7 @@ def test_runtime_status_snapshot_degrades_when_lineage_failure_pressure_threshol
     assert snapshot.lineage_queue.status == "degraded"
     assert snapshot.lineage_queue.reason == "lineage_terminal_failure_exceeded"
     assert snapshot.lineage_queue.degradation_reasons == ("lineage_terminal_failure_exceeded",)
+    assert snapshot.lineage_queue_policy.terminal_failure_count == 1
 
 
 def test_runtime_status_snapshot_reports_all_active_degradation_reasons(mocker):
@@ -503,6 +509,15 @@ def test_runtime_status_snapshot_reports_all_active_degradation_reasons(mocker):
     snapshot = build_runtime_status_snapshot(is_draining=False)
 
     assert snapshot.runtime_status == "degraded"
+    assert snapshot.compute_queue_policy.pending_age_seconds == 10.0
+    assert snapshot.compute_queue_policy.leased_age_seconds == 5.0
+    assert snapshot.compute_queue_policy.running_age_seconds == 1.0
+    assert snapshot.compute_queue_policy.retry_backlog_count == 1
+    assert snapshot.compute_queue_policy.lease_expiry_count == 1
+    assert snapshot.compute_queue_policy.terminal_failure_count == 1
+    assert snapshot.lineage_queue_policy.pending_age_seconds == 5.0
+    assert snapshot.lineage_queue_policy.retry_backlog_count == 1
+    assert snapshot.lineage_queue_policy.terminal_failure_count == 1
     assert snapshot.compute_queue.reason == "compute_retry_backlog_exceeded"
     assert snapshot.compute_queue.degradation_reasons == (
         "compute_retry_backlog_exceeded",

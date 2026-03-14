@@ -92,6 +92,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - aggregate `runtime_degradation_reasons`
   - draining state
   - durable metadata store availability
+  - active compute and lineage degradation-policy thresholds
   - compute queue backlog details
   - oldest pending, leased, and running compute-job ages
   - retry-backlog, lease-expiry, and terminal-failure compute-job counts

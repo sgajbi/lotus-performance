@@ -88,7 +88,9 @@ terminal failures. For degraded runtimes, the response now carries queue-level
 `degradation_reasons` lists and a top-level `runtime_degradation_reasons` summary so operators
 can see every active trigger without inferring from counters manually. These queue snapshots are
 derived through SQL-side aggregate queries rather than Python-side row scans so control-plane and
-metrics reads remain bounded as durable queue tables grow.
+metrics reads remain bounded as durable queue tables grow. The runtime-status payload also exposes
+the active compute and lineage degradation-policy thresholds so support can interpret a degraded
+runtime against live configuration without reading environment variables separately.
 
 ## Failure recovery model
 
