@@ -52,6 +52,11 @@ Override the default only with an explicit operator or environment-level reason.
    - confirm the retained evidence records `trigger_mode="scheduled"` and the expected automation `job_id`
    - for a safe scheduled dry run, use `make runtime-retention-smoke`
    - for continuous scheduled execution, enable the optional `performance-runtime-retention-worker` compose service
+6. For a service-owned operator action path, use:
+   - `POST /integration/runtime-retention-cleanups/run`
+   - start with `{"apply": false}` and review the retained evidence summary
+   - when enterprise write auth is enabled, include the enterprise identity headers and capability `operations.runtime.manage`
+   - use `job_id` when the cleanup is tied to a ticket, incident, or operator workflow
 
 ## Guardrails
 
@@ -65,6 +70,7 @@ Override the default only with an explicit operator or environment-level reason.
 - `GET /health/ready`
 - `GET /integration/runtime-status`
 - `GET /integration/runtime-retention-cleanups`
+- optional: `POST /integration/runtime-retention-cleanups/run` for a fresh governed dry run before apply
 - confirm `runtime_retention.preview_status="available"` and review the current prunable counts under the active policy
 - verify no active execution or lineage work was removed
 - if cleanup was substantial, capture the JSON summary as an operator artifact
@@ -73,6 +79,7 @@ Override the default only with an explicit operator or environment-level reason.
 
 - operator running the cleanup
 - trigger mode and any automation job identity
+- any operator ticket or workflow `job_id`
 - retention window used
 - dry-run summary
 - apply summary

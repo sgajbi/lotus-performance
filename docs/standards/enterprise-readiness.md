@@ -9,6 +9,7 @@
 - Audit middleware logs privileged write operations with actor/tenant/role context.
 - Privileged operator read surfaces can be protected with capability-gated enterprise authz.
 - Allowed privileged operator reads also emit audit metadata describing the governed surface and required capability.
+- Sensitive operator write surfaces can require governed runtime-management capability, including `POST /integration/runtime-retention-cleanups/run`.
 - Sensitive attributes are redacted before audit emission.
 
 Evidence:

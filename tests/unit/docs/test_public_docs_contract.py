@@ -109,6 +109,7 @@ def test_enterprise_readiness_covers_privileged_operator_reads():
     assert "Allowed privileged operator reads also emit audit metadata" in enterprise
     assert "ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ" in api_reference
     assert "operations.runtime.read" in api_reference
+    assert "operations.runtime.manage" in api_reference
     assert "governed surface and required-capability metadata" in api_reference
 
 
@@ -245,6 +246,7 @@ def test_runtime_retention_cleanup_runbook_is_governed():
     assert "python scripts/runtime_retention_cleanup.py" in runbook
     assert "python scripts/runtime_retention_cleanup.py --apply" in runbook
     assert "GET /integration/runtime-retention-cleanups" in runbook
+    assert "POST /integration/runtime-retention-cleanups/run" in runbook
     assert "RUNTIME_RETENTION_DAYS" in runbook
     assert "analytics_execution" in runbook
     assert "analytics_compute_job" in runbook
@@ -257,6 +259,7 @@ def test_runtime_retention_cleanup_runbook_is_governed():
     assert "make runtime-retention-smoke" in runbook
     assert "docs/runbooks/runtime-retention-cleanup.md" in api_reference
     assert "/integration/runtime-retention-cleanups" in api_reference
+    assert "/integration/runtime-retention-cleanups/run" in api_reference
     assert "trigger_mode" in api_reference
     assert "job_id" in api_reference
     assert "make runtime-retention-smoke" in api_reference

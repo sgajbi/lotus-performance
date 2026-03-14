@@ -39,6 +39,42 @@ class RuntimeRetentionHistoryResponse(BaseModel):
     entries: list[RuntimeRetentionHistoryEntryResponse] = Field(default_factory=list, description="Retained runtime-retention history entries summarized from the manifest.")
 
 
+class RuntimeRetentionCleanupRunRequest(BaseModel):
+    apply: bool = Field(
+        default=False,
+        description="Whether to apply the runtime-retention cleanup instead of running a retained dry-run preview.",
+    )
+    retention_days: int | None = Field(
+        default=None,
+        ge=1,
+        description="Optional runtime-retention window override in days for this governed cleanup execution.",
+    )
+    job_id: str | None = Field(
+        default=None,
+        description="Optional operator-supplied job or ticket identifier to retain with this cleanup execution evidence.",
+    )
+
+
+class RuntimeRetentionCleanupRunResponse(BaseModel):
+    contract_version: str = Field(description="Version of the runtime-retention cleanup run response contract.")
+    source_service: str = Field(description="Owning service that executed the runtime-retention cleanup run request.")
+    cleanup_name: str = Field(description="Logical name of the runtime-retention cleanup action.")
+    generated_at_utc: str = Field(description="UTC timestamp when this runtime-retention cleanup evidence was generated.")
+    evidence_file_name: str = Field(description="Timestamped runtime-retention cleanup evidence artifact file name.")
+    operator_id: str = Field(description="Enterprise actor or service identity recorded for this runtime-retention cleanup run.")
+    trigger_mode: str = Field(description="Trigger mode recorded for this runtime-retention cleanup run.")
+    job_id: str | None = Field(default=None, description="Operator-supplied or automation job identity retained with this cleanup execution.")
+    cleanup_mode: str = Field(description="Cleanup mode executed for this runtime-retention action.")
+    status: str = Field(description="Outcome status recorded for this runtime-retention action.")
+    retention_days: int = Field(description="Retention window in days applied for this runtime-retention action.")
+    cutoff_utc: str = Field(description="UTC retention cutoff used for this runtime-retention action.")
+    prunable_execution_count: int = Field(description="Terminal execution records selected by this runtime-retention action.")
+    prunable_compute_job_count: int = Field(description="Terminal compute jobs selected by this runtime-retention action.")
+    prunable_async_result_count: int = Field(description="Async results selected by this runtime-retention action.")
+    prunable_lineage_record_count: int = Field(description="Terminal lineage records selected by this runtime-retention action.")
+    prunable_lineage_artifact_count: int = Field(description="Lineage artifact directories selected by this runtime-retention action.")
+
+
 def build_runtime_retention_history_response(snapshot: RuntimeRetentionHistorySnapshot) -> RuntimeRetentionHistoryResponse:
     return RuntimeRetentionHistoryResponse(
         contract_version="v1",
@@ -73,4 +109,43 @@ def build_runtime_retention_history_response(snapshot: RuntimeRetentionHistorySn
             )
             for entry in snapshot.entries
         ],
+    )
+
+
+def build_runtime_retention_cleanup_run_response(
+    *,
+    cleanup_name: str,
+    generated_at_utc: str,
+    evidence_file_name: str,
+    operator_id: str,
+    trigger_mode: str,
+    job_id: str | None,
+    cleanup_mode: str,
+    status: str,
+    retention_days: int,
+    cutoff_utc: str,
+    prunable_execution_count: int,
+    prunable_compute_job_count: int,
+    prunable_async_result_count: int,
+    prunable_lineage_record_count: int,
+    prunable_lineage_artifact_count: int,
+) -> RuntimeRetentionCleanupRunResponse:
+    return RuntimeRetentionCleanupRunResponse(
+        contract_version="v1",
+        source_service="lotus-performance",
+        cleanup_name=cleanup_name,
+        generated_at_utc=generated_at_utc,
+        evidence_file_name=evidence_file_name,
+        operator_id=operator_id,
+        trigger_mode=trigger_mode,
+        job_id=job_id,
+        cleanup_mode=cleanup_mode,
+        status=status,
+        retention_days=retention_days,
+        cutoff_utc=cutoff_utc,
+        prunable_execution_count=prunable_execution_count,
+        prunable_compute_job_count=prunable_compute_job_count,
+        prunable_async_result_count=prunable_async_result_count,
+        prunable_lineage_record_count=prunable_lineage_record_count,
+        prunable_lineage_artifact_count=prunable_lineage_artifact_count,
     )

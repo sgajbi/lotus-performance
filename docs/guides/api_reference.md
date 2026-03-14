@@ -199,6 +199,33 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 - `next_offset` is queue-local and only appears when additional filtered events remain for that queue
 - the cursor fields give deterministic seek pagination for hot recovery streams where offset paging may drift as new recoveries arrive
 
+### `GET /integration/runtime-retention-cleanups`
+
+- purpose: inspect retained runtime-retention cleanup evidence and manifest state
+- privileged-read auth:
+  - when `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`, this route requires enterprise identity headers plus capability `operations.runtime.read`
+  - allowed access is enterprise-audited with governed surface and required-capability metadata
+- response includes:
+  - retained cleanup evidence artifacts
+  - latest retained cleanup summary
+  - filtering by operator, trigger mode, job identity, cleanup mode, status, and bounded time window
+
+### `POST /integration/runtime-retention-cleanups/run`
+
+- purpose: execute a governed runtime-retention dry run or apply action through the service-owned control plane
+- privileged-write auth:
+  - when `ENTERPRISE_ENFORCE_AUTHZ=true`, this route requires enterprise identity headers
+  - default governed capability: `operations.runtime.manage`
+- request includes:
+  - `apply`
+  - optional `retention_days`
+  - optional `job_id`
+- response includes:
+  - retained cleanup evidence summary for the run that just executed
+  - operator identity carried from `X-Actor-Id` or `X-Service-Identity`
+  - `trigger_mode="manual"` for this control-plane action path
+- use this when an operator needs an audited cleanup preview or a deliberate apply action without shell access
+
 ### `POST /integration/returns/series`
 
 - purpose: return canonical portfolio, benchmark, and risk-free return series for downstream analytics

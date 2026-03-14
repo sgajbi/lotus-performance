@@ -12,6 +12,9 @@ logger = logging.getLogger("enterprise_readiness")
 _SERVICE_NAME = "lotus-performance"
 _WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 _REQUIRED_HEADERS = {"x-actor-id", "x-tenant-id", "x-role", "x-correlation-id"}
+_DEFAULT_CAPABILITY_RULES = {
+    "POST /integration/runtime-retention-cleanups/run": "operations.runtime.manage",
+}
 _DEFAULT_PRIVILEGED_READ_RULES = {
     "GET /integration/runtime-status": "operations.runtime.read",
     "GET /integration/runtime-work-items": "operations.runtime.read",
@@ -76,8 +79,10 @@ def load_feature_flags() -> dict[str, dict[str, dict[str, bool]]]:
 
 
 def load_capability_rules() -> dict[str, str]:
-    rules = _load_json_map("ENTERPRISE_CAPABILITY_RULES_JSON")
-    return {str(key): str(value) for key, value in rules.items() if isinstance(key, str)}
+    rules = dict(_DEFAULT_CAPABILITY_RULES)
+    configured = _load_json_map("ENTERPRISE_CAPABILITY_RULES_JSON")
+    rules.update({str(key): str(value) for key, value in configured.items() if isinstance(key, str)})
+    return rules
 
 
 def load_privileged_read_rules() -> dict[str, str]:

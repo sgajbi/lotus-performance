@@ -2,15 +2,29 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from app.models.runtime_retention_history import (
+    RuntimeRetentionCleanupRunRequest,
+    RuntimeRetentionCleanupRunResponse,
     RuntimeRetentionHistoryResponse,
+    build_runtime_retention_cleanup_run_response,
     build_runtime_retention_history_response,
 )
+from app.services.runtime_retention_execution_service import execute_runtime_retention_cleanup
 from app.services.runtime_retention_history_service import build_runtime_retention_history_snapshot
 
 router = APIRouter(tags=["Integration"])
+
+
+def _resolve_operator_identity(request: Request) -> str:
+    actor_id = request.headers.get("X-Actor-Id", "").strip()
+    if actor_id:
+        return actor_id
+    service_identity = request.headers.get("X-Service-Identity", "").strip()
+    if service_identity:
+        return service_identity
+    raise HTTPException(status_code=400, detail="missing_operator_identity")
 
 
 @router.get(
@@ -66,3 +80,43 @@ async def get_runtime_retention_history(
         generated_before=generated_before,
     )
     return build_runtime_retention_history_response(snapshot)
+
+
+@router.post(
+    "/runtime-retention-cleanups/run",
+    response_model=RuntimeRetentionCleanupRunResponse,
+    summary="Run a governed runtime-retention cleanup preview or apply action",
+    description=(
+        "Runs a service-owned runtime-retention cleanup action using the current durable retention policy or an explicit "
+        "retention-window override. The resulting evidence is retained in the runtime-retention history so operators can "
+        "audit who ran the cleanup, whether it was dry-run or apply, and what terminal state was selected."
+    ),
+)
+async def run_runtime_retention_cleanup(
+    request: Request,
+    cleanup_request: RuntimeRetentionCleanupRunRequest,
+) -> RuntimeRetentionCleanupRunResponse:
+    evidence = execute_runtime_retention_cleanup(
+        apply=cleanup_request.apply,
+        retention_days=cleanup_request.retention_days,
+        operator_id=_resolve_operator_identity(request),
+        trigger_mode="manual",
+        job_id=cleanup_request.job_id,
+    )
+    return build_runtime_retention_cleanup_run_response(
+        cleanup_name=evidence.cleanup_name,
+        generated_at_utc=evidence.generated_at_utc,
+        evidence_file_name=evidence.evidence_file_name,
+        operator_id=evidence.operator_id,
+        trigger_mode=evidence.trigger_mode,
+        job_id=evidence.job_id,
+        cleanup_mode=evidence.cleanup_mode,
+        status=evidence.status,
+        retention_days=evidence.retention_days,
+        cutoff_utc=evidence.cutoff_utc,
+        prunable_execution_count=evidence.prunable_execution_count,
+        prunable_compute_job_count=evidence.prunable_compute_job_count,
+        prunable_async_result_count=evidence.prunable_async_result_count,
+        prunable_lineage_record_count=evidence.prunable_lineage_record_count,
+        prunable_lineage_artifact_count=evidence.prunable_lineage_artifact_count,
+    )
