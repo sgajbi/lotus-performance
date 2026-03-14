@@ -26,8 +26,6 @@ from engine.contribution import (
 )
 from engine.schema import PortfolioColumns
 
-settings = get_settings()
-
 
 def _as_numeric(value: Any, default: Any = 0) -> Any:
     numeric = pd.to_numeric(value, errors="coerce")
@@ -51,6 +49,7 @@ def calculate_contribution(
     input_fingerprint: str,
     calculation_hash: str,
 ) -> ContributionResponse:
+    active_settings = get_settings()
     execution_registry.mark_running(request.calculation_id)
     execution_registry.start_stage(request.calculation_id, "execution")
 
@@ -186,7 +185,7 @@ def calculate_contribution(
 
     meta = Meta(
         calculation_id=request.calculation_id,
-        engine_version=settings.APP_VERSION,
+        engine_version=active_settings.APP_VERSION,
         precision_mode=request.precision_mode,
         calendar=request.calendar,
         annualization=request.annualization,

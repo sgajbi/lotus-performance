@@ -2,11 +2,12 @@ import json
 
 from fastapi.testclient import TestClient
 
+from app.core.config import get_settings
 from main import app
 
 
 def test_recovery_drill_history_api_reports_unavailable_when_manifest_missing(tmp_path, monkeypatch):
-    monkeypatch.setattr("app.services.recovery_drill_history_service.settings.RECOVERY_DRILL_ARTIFACT_PATH", tmp_path / "missing")
+    monkeypatch.setattr(get_settings(), "RECOVERY_DRILL_ARTIFACT_PATH", tmp_path / "missing")
 
     with TestClient(app) as client:
         response = client.get("/integration/recovery-drills")
@@ -44,7 +45,7 @@ def test_recovery_drill_history_api_returns_retained_manifest(tmp_path, monkeypa
         ],
     }
     (artifact_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
-    monkeypatch.setattr("app.services.recovery_drill_history_service.settings.RECOVERY_DRILL_ARTIFACT_PATH", artifact_dir)
+    monkeypatch.setattr(get_settings(), "RECOVERY_DRILL_ARTIFACT_PATH", artifact_dir)
 
     with TestClient(app) as client:
         response = client.get("/integration/recovery-drills")
@@ -114,7 +115,7 @@ def test_recovery_drill_history_api_applies_filters_and_limit(tmp_path, monkeypa
         ],
     }
     (artifact_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
-    monkeypatch.setattr("app.services.recovery_drill_history_service.settings.RECOVERY_DRILL_ARTIFACT_PATH", artifact_dir)
+    monkeypatch.setattr(get_settings(), "RECOVERY_DRILL_ARTIFACT_PATH", artifact_dir)
 
     with TestClient(app) as client:
         response = client.get(
@@ -187,7 +188,7 @@ def test_recovery_drill_history_api_applies_offset_and_time_window(tmp_path, mon
         ],
     }
     (artifact_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
-    monkeypatch.setattr("app.services.recovery_drill_history_service.settings.RECOVERY_DRILL_ARTIFACT_PATH", artifact_dir)
+    monkeypatch.setattr(get_settings(), "RECOVERY_DRILL_ARTIFACT_PATH", artifact_dir)
 
     with TestClient(app) as client:
         response = client.get(

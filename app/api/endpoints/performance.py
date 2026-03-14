@@ -43,7 +43,6 @@ from engine.mwr import calculate_money_weighted_return
 from engine.schema import PortfolioColumns
 
 router = APIRouter(tags=["Performance"])
-settings = get_settings()
 
 
 def _as_numeric(value: object, default=0):
@@ -138,7 +137,7 @@ async def calculate_twr_endpoint(request: PerformanceRequest):
     Calculates time-weighted return (TWR) for one or more requested periods
     and provides performance breakdowns by requested frequencies.
     """
-    input_fingerprint, calculation_hash = generate_canonical_hash(request, settings.APP_VERSION)
+    input_fingerprint, calculation_hash = generate_canonical_hash(request, get_settings().APP_VERSION)
     register_sync_execution_or_raise(
         calculation_id=request.calculation_id,
         analytics_type="TWR",
@@ -252,7 +251,7 @@ async def calculate_twr_endpoint(request: PerformanceRequest):
 
     meta = Meta(
         calculation_id=request.calculation_id,
-        engine_version=settings.APP_VERSION,
+        engine_version=get_settings().APP_VERSION,
         precision_mode=request.precision_mode,
         calendar=request.calendar,
         annualization=request.annualization,
@@ -292,7 +291,7 @@ async def calculate_twr_endpoint(request: PerformanceRequest):
 @router.post("/mwr", response_model=MoneyWeightedReturnResponse, summary="Calculate Money-Weighted Return")
 async def calculate_mwr_endpoint(request: MoneyWeightedReturnRequest):
     """Calculates the money-weighted return (MWR) for a portfolio over a given period."""
-    input_fingerprint, calculation_hash = generate_canonical_hash(request, settings.APP_VERSION)
+    input_fingerprint, calculation_hash = generate_canonical_hash(request, get_settings().APP_VERSION)
     register_sync_execution_or_raise(
         calculation_id=request.calculation_id,
         analytics_type="MWR",
@@ -338,7 +337,7 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnRequest):
 
     meta = Meta(
         calculation_id=request.calculation_id,
-        engine_version=settings.APP_VERSION,
+        engine_version=get_settings().APP_VERSION,
         precision_mode=request.precision_mode,
         annualization=request.annualization,
         calendar=request.calendar,
@@ -400,7 +399,7 @@ async def calculate_attribution_endpoint(request: AttributionRequest) -> Attribu
     Calculates multi-level, Brinson-style performance attribution, decomposing
     active return into allocation, selection, and interaction effects.
     """
-    input_fingerprint, calculation_hash = generate_canonical_hash(request, settings.APP_VERSION)
+    input_fingerprint, calculation_hash = generate_canonical_hash(request, get_settings().APP_VERSION)
     execution_mode = "async" if _should_offload_attribution(request) else "sync"
     requested_window = {
         "report_start_date": str(request.report_start_date),
@@ -448,7 +447,7 @@ def _attribution_input_count(request: AttributionRequest) -> int:
 
 
 def _should_offload_attribution(request: AttributionRequest) -> bool:
-    return _attribution_input_count(request) >= settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT
+    return _attribution_input_count(request) >= get_settings().ATTRIBUTION_EXECUTOR_INPUT_COUNT
 
 
 def _accepted_attribution_response(calculation_id) -> AttributionAcceptedResponse:

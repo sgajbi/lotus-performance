@@ -20,7 +20,6 @@ from app.services.submission_fencing_service import (
 from core.repro import generate_canonical_hash
 
 router = APIRouter()
-settings = get_settings()
 
 
 def _as_numeric(value: object, default=0):
@@ -31,7 +30,7 @@ def _as_numeric(value: object, default=0):
 
 
 def _should_offload_contribution(request: ContributionRequest) -> bool:
-    return len(request.positions_data) >= settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT
+    return len(request.positions_data) >= get_settings().CONTRIBUTION_EXECUTOR_POSITION_COUNT
 
 
 def _build_execution_window(request: ContributionRequest) -> dict[str, object]:
@@ -58,7 +57,7 @@ def _accepted_response(calculation_id) -> ContributionAcceptedResponse:
     summary="Calculate Position Contribution",
 )
 async def calculate_contribution_endpoint(request: ContributionRequest) -> ContributionResponse | JSONResponse:
-    input_fingerprint, calculation_hash = generate_canonical_hash(request, settings.APP_VERSION)
+    input_fingerprint, calculation_hash = generate_canonical_hash(request, get_settings().APP_VERSION)
     execution_mode = "async" if _should_offload_contribution(request) else "sync"
     if execution_mode == "async":
         return register_async_submission_or_raise(

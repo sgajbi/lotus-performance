@@ -33,7 +33,6 @@ from app.services.submission_fencing_service import (
 from core.repro import generate_canonical_hash
 
 router = APIRouter(tags=["Integration"])
-settings = get_settings()
 
 _core_points_to_dataframe = core_points_to_dataframe
 _date_range_count = date_range_count
@@ -48,10 +47,13 @@ _to_dataframe = to_dataframe
 
 
 def _should_offload_returns_series(request: ReturnsSeriesRequest) -> bool:
+    active_settings = get_settings()
     if request.input_mode.value != "stateful":
         return False
     resolved_window = _resolve_window(request)
-    return (resolved_window.end_date - resolved_window.start_date).days >= settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS
+    return (
+        resolved_window.end_date - resolved_window.start_date
+    ).days >= active_settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS
 
 
 def _build_execution_window(request: ReturnsSeriesRequest) -> dict[str, object]:

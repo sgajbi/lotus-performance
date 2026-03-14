@@ -16,8 +16,6 @@ from core.periods import resolve_periods
 from engine.attribution import aggregate_attribution_results, run_attribution_calculations
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
 
-settings = get_settings()
-
 
 def calculate_attribution(
     request: AttributionRequest,
@@ -25,6 +23,7 @@ def calculate_attribution(
     input_fingerprint: str,
     calculation_hash: str,
 ) -> AttributionResponse:
+    active_settings = get_settings()
     execution_registry.mark_running(request.calculation_id)
     execution_stage_started = False
     lineage_stage_started = False
@@ -64,7 +63,7 @@ def calculate_attribution(
 
         meta = Meta(
             calculation_id=request.calculation_id,
-            engine_version=settings.APP_VERSION,
+            engine_version=active_settings.APP_VERSION,
             precision_mode=request.precision_mode,
             annualization=request.annualization,
             calendar=request.calendar,

@@ -37,8 +37,6 @@ from core.repro import generate_canonical_hash
 from engine.compute import run_calculations
 from engine.schema import PortfolioColumns
 
-settings = get_settings()
-
 
 def period_start(as_of_date: date, period: ReturnsRelativePeriod, year: int | None) -> date:
     as_of = pd.Timestamp(as_of_date)
@@ -283,6 +281,7 @@ def fail_execution(*, calculation_id, message: str, active_stage: str | None) ->
 
 
 async def calculate_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResponse:
+    active_settings = get_settings()
     input_fingerprint, calculation_hash = generate_canonical_hash(request, "returns-series-v1")
     execution_registry.mark_running(request.calculation_id)
     active_stage: str | None = None
@@ -301,16 +300,16 @@ async def calculate_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeri
                     detail={"code": "INVALID_REQUEST", "message": "stateful_input is required in stateful mode."},
                 )
             core_service = CoreIntegrationService(
-                base_url=settings.CORE_QUERY_BASE_URL,
-                timeout_seconds=settings.CORE_TIMEOUT_SECONDS,
-                max_retries=settings.CORE_MAX_RETRIES,
-                retry_backoff_seconds=settings.CORE_RETRY_BACKOFF_SECONDS,
+                base_url=active_settings.CORE_QUERY_BASE_URL,
+                timeout_seconds=active_settings.CORE_TIMEOUT_SECONDS,
+                max_retries=active_settings.CORE_MAX_RETRIES,
+                retry_backoff_seconds=active_settings.CORE_RETRY_BACKOFF_SECONDS,
             )
             stateful_input_service = StatefulInputService(
                 core_service=core_service,
-                portfolio_chunk_days=settings.STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS,
-                reference_chunk_days=settings.STATEFUL_INPUT_REFERENCE_CHUNK_DAYS,
-                max_concurrent_chunks=settings.STATEFUL_INPUT_MAX_CONCURRENT_CHUNKS,
+                portfolio_chunk_days=active_settings.STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS,
+                reference_chunk_days=active_settings.STATEFUL_INPUT_REFERENCE_CHUNK_DAYS,
+                max_concurrent_chunks=active_settings.STATEFUL_INPUT_MAX_CONCURRENT_CHUNKS,
             )
             upstream_status, upstream_payload = await stateful_input_service.get_portfolio_timeseries(
                 portfolio_id=request.portfolio_id,
