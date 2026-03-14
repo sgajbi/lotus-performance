@@ -141,8 +141,26 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - `reclaimable` isolates work whose durable worker lease already expired and is eligible for recovery or re-lease
   - echoed targeted filters for operator auditability
   - filtered compute work items with calculation handle, lifecycle state, age, attempts, and failure context
-  - filtered lineage work items with calculation handle, lifecycle state, age, attempts, and failure context
+- filtered lineage work items with calculation handle, lifecycle state, age, attempts, and failure context
 - use this when runtime-status tells you there is pressure, and you need the actual work items behind it without querying the database directly
+
+### `GET /integration/runtime-recoveries`
+
+- purpose: return recent compute and lineage recovery events for operator drill-down
+- query parameters:
+  - `queue`: `both`, `compute`, or `lineage`
+  - `limit`: max recovery events returned per queue
+  - `offset`: zero-based page offset applied per queue
+  - `compute_analytics_type`: optional compute-only analytics family filter
+  - `lineage_calculation_type`: optional lineage-only calculation family filter
+  - `calculation_id_contains`: optional calculation-handle substring filter across selected queues
+- response includes:
+  - durable metadata store availability
+  - queue-specific availability for compute and lineage recovery inspection
+  - queue-specific `total_count` and `returned_count`
+  - filtered compute recovery events with calculation handle, analytics type, recovery kind, recovery timestamp, attempt count, and last durable error type
+  - filtered lineage recovery events with calculation handle, calculation type, recovery kind, recovery timestamp, and attempt count
+- use this when runtime-status shows recent recovery activity and you need the concrete event stream behind the bounded status snapshot without querying the database directly
 
 ### `POST /integration/returns/series`
 

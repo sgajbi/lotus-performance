@@ -507,11 +507,43 @@ def test_compute_job_store_lists_recent_recoveries_in_descending_order(tmp_path)
         second_row.last_error_at_utc = now - timedelta(seconds=5)
         second_row.error_type = "LeaseExpired"
 
-    events = store.list_recent_recoveries(limit=5)
+    events = store.list_recent_recoveries(limit=5).items
 
     assert [event.calculation_id for event in events] == [str(second_id), str(first_id)]
     assert events[0].recovery_kind == "stale_lease_recovered"
     assert events[1].recovery_kind == "retryable_failure"
+
+
+def test_compute_job_store_lists_recent_recoveries_with_filters_and_offset(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    now = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+    ids = [uuid4() for _ in range(3)]
+
+    store.enqueue_job(calculation_id=ids[0], analytics_type="ReturnsSeries", request_payload={"p": "1"})
+    store.enqueue_job(calculation_id=ids[1], analytics_type="Attribution", request_payload={"p": "2"})
+    store.enqueue_job(calculation_id=ids[2], analytics_type="ReturnsSeries", request_payload={"p": "3"})
+
+    with store._session() as session:
+        first = store._get_model(session, ids[0])
+        first.attempt_count = 1
+        first.last_error_at_utc = now - timedelta(seconds=20)
+        second = store._get_model(session, ids[1])
+        second.attempt_count = 1
+        second.last_error_at_utc = now - timedelta(seconds=10)
+        third = store._get_model(session, ids[2])
+        third.attempt_count = 1
+        third.last_error_at_utc = now - timedelta(seconds=5)
+
+    page = store.list_recent_recoveries(
+        limit=1,
+        offset=1,
+        analytics_type="ReturnsSeries",
+        calculation_id_contains=str(ids[0])[:8],
+    )
+
+    assert page.total_count == 1
+    assert page.items == []
 
 
 def test_compute_job_store_declares_hot_path_indexes(tmp_path):

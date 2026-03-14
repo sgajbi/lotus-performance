@@ -314,10 +314,44 @@ def test_lineage_metadata_store_lists_recent_recoveries_in_descending_order(tmp_
         first_record.timestamp_utc = now - timedelta(seconds=10)
         second_record.timestamp_utc = now - timedelta(seconds=5)
 
-    events = store.list_recent_recoveries(limit=5)
+    events = store.list_recent_recoveries(limit=5).items
 
     assert [event.calculation_id for event in events] == [str(second_id), str(first_id)]
     assert all(event.recovery_kind == "retryable_materialization_failure" for event in events)
+
+
+def test_lineage_metadata_store_lists_recent_recoveries_with_filters_and_offset(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    now = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+    ids = [uuid4() for _ in range(3)]
+
+    for calculation_id, calculation_type in zip(ids, ["TWR", "Attribution", "TWR"], strict=True):
+        store.enqueue_lineage_payload(
+            calculation_id=calculation_id,
+            calculation_type=calculation_type,
+            request_json="{}",
+            response_json="{}",
+            details={"details.json": "{}"},
+        )
+        store.increment_attempt_count(calculation_id)
+        store.mark_pending(calculation_id)
+
+    with store._session() as session:
+        for seconds_ago, calculation_id in zip([20, 10, 5], ids, strict=True):
+            record = session.get(LineageRecordModel, str(calculation_id))
+            assert record is not None
+            record.timestamp_utc = now - timedelta(seconds=seconds_ago)
+
+    page = store.list_recent_recoveries(
+        limit=1,
+        offset=1,
+        calculation_type="TWR",
+        calculation_id_contains=str(ids[0])[:8],
+    )
+
+    assert page.total_count == 1
+    assert page.items == []
 
 
 def test_lineage_metadata_store_lists_active_and_failed_inspection_items(tmp_path):

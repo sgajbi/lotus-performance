@@ -147,6 +147,12 @@ class ComputeRecoveryEvent:
 
 
 @dataclass(frozen=True)
+class ComputeRecoveryEventPage:
+    total_count: int
+    items: list[ComputeRecoveryEvent]
+
+
+@dataclass(frozen=True)
 class ComputeJobRegistrationResult:
     status: ComputeJobRegistrationStatus
     existing_status: ComputeJobStatus | None = None
@@ -520,9 +526,23 @@ class ComputeJobStore:
                 latest_recovered_calculation_id=row.latest_recovered_calculation_id,
             )
 
-    def list_recent_recoveries(self, *, limit: int = 5) -> list[ComputeRecoveryEvent]:
+    def list_recent_recoveries(
+        self,
+        *,
+        limit: int = 5,
+        offset: int = 0,
+        analytics_type: str | None = None,
+        calculation_id_contains: str | None = None,
+    ) -> ComputeRecoveryEventPage:
         with self._session() as session:
-            rows = session.execute(self._build_recent_recoveries_statement(limit=limit)).scalars().all()
+            rows = session.execute(
+                self._build_recent_recoveries_statement(
+                    limit=limit,
+                    offset=offset,
+                    analytics_type=analytics_type,
+                    calculation_id_contains=calculation_id_contains,
+                )
+            ).scalars().all()
             events: list[ComputeRecoveryEvent] = []
             for row in rows:
                 recovered_at_utc = _format_timestamp(row.last_error_at_utc)
@@ -539,7 +559,16 @@ class ComputeJobStore:
                         error_type=row.error_type,
                     )
                 )
-            return events
+            total_count = int(
+                session.execute(
+                    self._build_recent_recoveries_count_statement(
+                        analytics_type=analytics_type,
+                        calculation_id_contains=calculation_id_contains,
+                    )
+                ).scalar_one()
+                or 0
+            )
+            return ComputeRecoveryEventPage(total_count=total_count, items=events)
 
     def list_inspection_items(
         self,
@@ -723,8 +752,22 @@ class ComputeJobStore:
             .label("latest_recovered_calculation_id"),
         )
 
-    def _build_recent_recoveries_statement(self, *, limit: int):
-        return (
+    def _apply_recovery_filters(self, statement, *, analytics_type: str | None, calculation_id_contains: str | None):
+        if analytics_type is not None:
+            statement = statement.where(ComputeJobModel.analytics_type == analytics_type)
+        if calculation_id_contains:
+            statement = statement.where(ComputeJobModel.calculation_id.contains(calculation_id_contains))
+        return statement
+
+    def _build_recent_recoveries_statement(
+        self,
+        *,
+        limit: int,
+        offset: int,
+        analytics_type: str | None,
+        calculation_id_contains: str | None,
+    ):
+        statement = (
             select(ComputeJobModel)
             .where(
                 (ComputeJobModel.job_status == ComputeJobStatus.PENDING.value)
@@ -732,7 +775,34 @@ class ComputeJobStore:
                 & ComputeJobModel.last_error_at_utc.is_not(None)
             )
             .order_by(ComputeJobModel.last_error_at_utc.desc(), ComputeJobModel.created_at_utc.desc())
+            .offset(offset)
             .limit(limit)
+        )
+        return self._apply_recovery_filters(
+            statement,
+            analytics_type=analytics_type,
+            calculation_id_contains=calculation_id_contains,
+        )
+
+    def _build_recent_recoveries_count_statement(
+        self,
+        *,
+        analytics_type: str | None,
+        calculation_id_contains: str | None,
+    ):
+        statement = (
+            select(func.count())
+            .select_from(ComputeJobModel)
+            .where(
+                (ComputeJobModel.job_status == ComputeJobStatus.PENDING.value)
+                & (ComputeJobModel.attempt_count > 0)
+                & ComputeJobModel.last_error_at_utc.is_not(None)
+            )
+        )
+        return self._apply_recovery_filters(
+            statement,
+            analytics_type=analytics_type,
+            calculation_id_contains=calculation_id_contains,
         )
 
     def _apply_inspection_filters(self, statement, *, analytics_type: str | None, calculation_id_contains: str | None):

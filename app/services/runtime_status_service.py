@@ -257,7 +257,8 @@ def _safe_compute_recent_recoveries(*, settings) -> tuple[ComputeRecoveryEvent, 
         limit = max(0, int(getattr(settings, "RUNTIME_STATUS_RECENT_RECOVERY_LIMIT", 5)))
         if limit == 0:
             return ()
-        return tuple(compute_job_store.list_recent_recoveries(limit=limit))
+        page = compute_job_store.list_recent_recoveries(limit=limit)
+        return tuple(getattr(page, "items", page))
     except Exception:
         return ()
 
@@ -267,7 +268,8 @@ def _safe_lineage_recent_recoveries(*, settings) -> tuple[LineageRecoveryEvent, 
         limit = max(0, int(getattr(settings, "RUNTIME_STATUS_RECENT_RECOVERY_LIMIT", 5)))
         if limit == 0:
             return ()
-        return tuple(lineage_metadata_store.list_recent_recoveries(limit=limit))
+        page = lineage_metadata_store.list_recent_recoveries(limit=limit)
+        return tuple(getattr(page, "items", page))
     except Exception:
         return ()
 

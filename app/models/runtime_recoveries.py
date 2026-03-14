@@ -1,0 +1,129 @@
+from __future__ import annotations
+
+from datetime import datetime
+
+from pydantic import BaseModel, Field
+
+from app.models.runtime_status import DurableMetadataStoreStatusResponse
+from app.services.runtime_recovery_service import RuntimeRecoverySnapshot
+
+
+class ComputeRecoveryEventResponse(BaseModel):
+    calculation_id: str = Field(description="Calculation handle of the recovered compute job.")
+    analytics_type: str = Field(description="Analytics workflow type for the recovered compute job.")
+    recovery_kind: str = Field(description="Recovery path that returned the compute job to pending state.")
+    recovered_at_utc: str = Field(description="UTC timestamp when the compute job re-entered pending state.")
+    attempt_count: int = Field(description="Attempt count already consumed by the recovered compute job.")
+    error_type: str | None = Field(
+        default=None,
+        description="Last durable compute error type associated with the recovery event, when present.",
+    )
+
+
+class LineageRecoveryEventResponse(BaseModel):
+    calculation_id: str = Field(description="Calculation handle of the recovered lineage item.")
+    calculation_type: str = Field(description="Analytics workflow type for the recovered lineage item.")
+    recovery_kind: str = Field(description="Recovery path that returned the lineage item to pending state.")
+    recovered_at_utc: str = Field(description="UTC timestamp when the lineage item re-entered pending state.")
+    attempt_count: int = Field(description="Attempt count already consumed by the recovered lineage item.")
+
+
+class RuntimeRecoveriesQueueStatusResponse(BaseModel):
+    status: str = Field(description="Availability of the queue-specific runtime recovery inspection surface.")
+    reason: str | None = Field(
+        default=None,
+        description="Concrete queue-specific unavailability reason when recovery inspection failed.",
+    )
+    total_count: int = Field(description="Total durable recovery events that match the requested filters for this queue.")
+    returned_count: int = Field(
+        description="Number of recovery events included for this queue in the current response page."
+    )
+
+
+class RuntimeRecoveriesResponse(BaseModel):
+    contract_version: str = Field(description="Version of the runtime-recoveries response contract.")
+    source_service: str = Field(description="Owning service that produced this runtime recovery snapshot.")
+    generated_at: datetime = Field(description="Timestamp when the runtime recovery snapshot was generated.")
+    queue_filter: str = Field(description="Requested queue filter applied to runtime recovery inspection.")
+    limit: int = Field(description="Maximum number of recovery events returned per queue.")
+    offset: int = Field(description="Zero-based page offset applied per queue before limiting results.")
+    calculation_id_contains: str | None = Field(
+        default=None,
+        description="Optional substring filter applied to calculation identifiers in the selected queues.",
+    )
+    compute_analytics_type: str | None = Field(
+        default=None,
+        description="Optional compute analytics-type filter applied to compute recovery inspection.",
+    )
+    lineage_calculation_type: str | None = Field(
+        default=None,
+        description="Optional lineage calculation-type filter applied to lineage recovery inspection.",
+    )
+    durable_metadata_store: DurableMetadataStoreStatusResponse = Field(
+        description="Availability of the durable metadata store backing runtime recovery inspection.",
+    )
+    compute_queue: RuntimeRecoveriesQueueStatusResponse = Field(
+        description="Availability of compute recovery inspection for this snapshot.",
+    )
+    lineage_queue: RuntimeRecoveriesQueueStatusResponse = Field(
+        description="Availability of lineage recovery inspection for this snapshot.",
+    )
+    compute_recoveries: list[ComputeRecoveryEventResponse] = Field(
+        default_factory=list,
+        description="Filtered compute recovery events ordered from most recent to least recent.",
+    )
+    lineage_recoveries: list[LineageRecoveryEventResponse] = Field(
+        default_factory=list,
+        description="Filtered lineage recovery events ordered from most recent to least recent.",
+    )
+
+
+def build_runtime_recoveries_response(snapshot: RuntimeRecoverySnapshot) -> RuntimeRecoveriesResponse:
+    return RuntimeRecoveriesResponse(
+        contract_version="v1",
+        source_service="lotus-performance",
+        generated_at=snapshot.generated_at,
+        queue_filter=snapshot.queue_filter,
+        limit=snapshot.limit,
+        offset=snapshot.offset,
+        calculation_id_contains=snapshot.calculation_id_contains,
+        compute_analytics_type=snapshot.compute_analytics_type,
+        lineage_calculation_type=snapshot.lineage_calculation_type,
+        durable_metadata_store=DurableMetadataStoreStatusResponse(
+            status=snapshot.durable_metadata_store.status,
+            reason=snapshot.durable_metadata_store.reason,
+        ),
+        compute_queue=RuntimeRecoveriesQueueStatusResponse(
+            status=snapshot.compute_queue.status,
+            reason=snapshot.compute_queue.reason,
+            total_count=snapshot.compute_queue.total_count,
+            returned_count=snapshot.compute_queue.returned_count,
+        ),
+        lineage_queue=RuntimeRecoveriesQueueStatusResponse(
+            status=snapshot.lineage_queue.status,
+            reason=snapshot.lineage_queue.reason,
+            total_count=snapshot.lineage_queue.total_count,
+            returned_count=snapshot.lineage_queue.returned_count,
+        ),
+        compute_recoveries=[
+            ComputeRecoveryEventResponse(
+                calculation_id=item.calculation_id,
+                analytics_type=item.analytics_type,
+                recovery_kind=item.recovery_kind,
+                recovered_at_utc=item.recovered_at_utc,
+                attempt_count=item.attempt_count,
+                error_type=item.error_type,
+            )
+            for item in snapshot.compute_recoveries
+        ],
+        lineage_recoveries=[
+            LineageRecoveryEventResponse(
+                calculation_id=item.calculation_id,
+                calculation_type=item.calculation_type,
+                recovery_kind=item.recovery_kind,
+                recovered_at_utc=item.recovered_at_utc,
+                attempt_count=item.attempt_count,
+            )
+            for item in snapshot.lineage_recoveries
+        ],
+    )

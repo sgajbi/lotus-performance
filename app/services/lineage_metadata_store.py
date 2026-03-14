@@ -123,6 +123,12 @@ class LineageRecoveryEvent:
     attempt_count: int
 
 
+@dataclass(frozen=True)
+class LineageRecoveryEventPage:
+    total_count: int
+    items: list[LineageRecoveryEvent]
+
+
 def _coerce_utc_datetime(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=timezone.utc)
@@ -376,9 +382,23 @@ class LineageMetadataStore:
                 latest_recovered_calculation_id=row.latest_recovered_calculation_id,
             )
 
-    def list_recent_recoveries(self, *, limit: int = 5) -> list[LineageRecoveryEvent]:
+    def list_recent_recoveries(
+        self,
+        *,
+        limit: int = 5,
+        offset: int = 0,
+        calculation_type: str | None = None,
+        calculation_id_contains: str | None = None,
+    ) -> LineageRecoveryEventPage:
         with self._session() as session:
-            rows = session.execute(self._build_recent_recoveries_statement(limit=limit)).all()
+            rows = session.execute(
+                self._build_recent_recoveries_statement(
+                    limit=limit,
+                    offset=offset,
+                    calculation_type=calculation_type,
+                    calculation_id_contains=calculation_id_contains,
+                )
+            ).all()
             events: list[LineageRecoveryEvent] = []
             for record, payload in rows:
                 recovered_at_utc = _format_timestamp(record.timestamp_utc)
@@ -393,7 +413,16 @@ class LineageMetadataStore:
                         attempt_count=payload.attempt_count,
                     )
                 )
-            return events
+            total_count = int(
+                session.execute(
+                    self._build_recent_recoveries_count_statement(
+                        calculation_type=calculation_type,
+                        calculation_id_contains=calculation_id_contains,
+                    )
+                ).scalar_one()
+                or 0
+            )
+            return LineageRecoveryEventPage(total_count=total_count, items=events)
 
     def list_inspection_items(
         self,
@@ -593,8 +622,15 @@ class LineageMetadataStore:
             ).label("latest_recovered_calculation_id"),
         )
 
-    def _build_recent_recoveries_statement(self, *, limit: int):
-        return (
+    def _build_recent_recoveries_statement(
+        self,
+        *,
+        limit: int,
+        offset: int,
+        calculation_type: str | None,
+        calculation_id_contains: str | None,
+    ):
+        statement = (
             select(LineageRecordModel, LineagePayloadModel)
             .join(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
             .where(
@@ -602,7 +638,34 @@ class LineageMetadataStore:
                 & (LineagePayloadModel.attempt_count > 0)
             )
             .order_by(LineageRecordModel.timestamp_utc.desc(), LineagePayloadModel.created_at_utc.desc())
+            .offset(offset)
             .limit(limit)
+        )
+        return self._apply_inspection_filters(
+            statement,
+            calculation_type=calculation_type,
+            calculation_id_contains=calculation_id_contains,
+        )
+
+    def _build_recent_recoveries_count_statement(
+        self,
+        *,
+        calculation_type: str | None,
+        calculation_id_contains: str | None,
+    ):
+        statement = (
+            select(func.count())
+            .select_from(LineageRecordModel)
+            .join(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
+            .where(
+                (LineageRecordModel.status == LineageStatus.PENDING.value)
+                & (LineagePayloadModel.attempt_count > 0)
+            )
+        )
+        return self._apply_inspection_filters(
+            statement,
+            calculation_type=calculation_type,
+            calculation_id_contains=calculation_id_contains,
         )
 
     def _apply_inspection_filters(self, statement, *, calculation_type: str | None, calculation_id_contains: str | None):
