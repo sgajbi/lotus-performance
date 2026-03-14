@@ -129,6 +129,12 @@ class ComputeQueueInspectionItem:
 
 
 @dataclass(frozen=True)
+class ComputeQueueInspectionPage:
+    total_count: int
+    items: list[ComputeQueueInspectionItem]
+
+
+@dataclass(frozen=True)
 class ComputeJobRegistrationResult:
     status: ComputeJobRegistrationStatus
     existing_status: ComputeJobStatus | None = None
@@ -505,27 +511,31 @@ class ComputeJobStore:
         *,
         status_filter: str,
         limit: int,
+        offset: int = 0,
+        min_age_seconds: float = 0.0,
         now: datetime | None = None,
-    ) -> list[ComputeQueueInspectionItem]:
+    ) -> ComputeQueueInspectionPage:
         inspection_now = now or datetime.now(timezone.utc)
         normalized_status_filter = status_filter.lower()
 
         with self._session() as session:
             if normalized_status_filter == "active":
-                rows = session.execute(self._build_active_inspection_items_statement(limit=limit)).scalars().all()
+                count_statement = self._build_active_inspection_count_statement()
+                statement = self._build_active_inspection_items_statement(limit=limit, offset=offset)
             elif normalized_status_filter == "failed":
-                rows = session.execute(self._build_failed_inspection_items_statement(limit=limit)).scalars().all()
+                count_statement = self._build_failed_inspection_count_statement()
+                statement = self._build_failed_inspection_items_statement(limit=limit, offset=offset)
             elif normalized_status_filter == "all":
-                active_rows = (
-                    session.execute(self._build_active_inspection_items_statement(limit=limit)).scalars().all()
-                )
-                failed_rows = (
-                    session.execute(self._build_failed_inspection_items_statement(limit=limit)).scalars().all()
-                )
-                rows = [*active_rows, *failed_rows][:limit]
+                count_statement = self._build_all_inspection_count_statement()
+                statement = self._build_all_inspection_items_statement(limit=limit, offset=offset)
             else:
                 raise ValueError(f"Unsupported status filter: {status_filter}")
-            return [self._to_inspection_item(row, now=inspection_now) for row in rows]
+            rows = session.execute(statement).scalars().all()
+            items = [self._to_inspection_item(row, now=inspection_now) for row in rows]
+            if min_age_seconds > 0:
+                items = [item for item in items if item.age_seconds is not None and item.age_seconds >= min_age_seconds]
+            total_count = int(session.execute(count_statement).scalar_one() or 0)
+            return ComputeQueueInspectionPage(total_count=total_count, items=items)
 
     def _build_queue_stats_statement(self):
         return select(
@@ -607,7 +617,7 @@ class ComputeJobStore:
             .label("latest_terminal_failure_calculation_id"),
         )
 
-    def _build_active_inspection_items_statement(self, *, limit: int):
+    def _build_active_inspection_items_statement(self, *, limit: int, offset: int):
         active_since = case(
             (ComputeJobModel.job_status == ComputeJobStatus.RUNNING.value, ComputeJobModel.started_at_utc),
             (ComputeJobModel.job_status == ComputeJobStatus.LEASED.value, ComputeJobModel.leased_at_utc),
@@ -625,16 +635,51 @@ class ComputeJobStore:
                 )
             )
             .order_by(active_since.asc(), ComputeJobModel.created_at_utc.asc())
+            .offset(offset)
             .limit(limit)
         )
 
-    def _build_failed_inspection_items_statement(self, *, limit: int):
+    def _build_failed_inspection_items_statement(self, *, limit: int, offset: int):
         return (
             select(ComputeJobModel)
             .where(ComputeJobModel.job_status == ComputeJobStatus.FAILED.value)
             .order_by(ComputeJobModel.completed_at_utc.desc(), ComputeJobModel.created_at_utc.desc())
+            .offset(offset)
             .limit(limit)
         )
+
+    def _build_all_inspection_items_statement(self, *, limit: int, offset: int):
+        active_since = case(
+            (ComputeJobModel.job_status == ComputeJobStatus.RUNNING.value, ComputeJobModel.started_at_utc),
+            (ComputeJobModel.job_status == ComputeJobStatus.LEASED.value, ComputeJobModel.leased_at_utc),
+            (ComputeJobModel.job_status == ComputeJobStatus.FAILED.value, ComputeJobModel.completed_at_utc),
+            else_=ComputeJobModel.created_at_utc,
+        )
+        return (
+            select(ComputeJobModel)
+            .order_by(active_since.asc().nullslast(), ComputeJobModel.created_at_utc.asc())
+            .offset(offset)
+            .limit(limit)
+        )
+
+    def _build_active_inspection_count_statement(self):
+        return select(func.count()).select_from(ComputeJobModel).where(
+            ComputeJobModel.job_status.in_(
+                [
+                    ComputeJobStatus.PENDING.value,
+                    ComputeJobStatus.LEASED.value,
+                    ComputeJobStatus.RUNNING.value,
+                ]
+            )
+        )
+
+    def _build_failed_inspection_count_statement(self):
+        return select(func.count()).select_from(ComputeJobModel).where(
+            ComputeJobModel.job_status == ComputeJobStatus.FAILED.value
+        )
+
+    def _build_all_inspection_count_statement(self):
+        return select(func.count()).select_from(ComputeJobModel)
 
     def _get_model(self, session: Session, calculation_id: UUID) -> ComputeJobModel:
         row = session.get(ComputeJobModel, str(calculation_id))

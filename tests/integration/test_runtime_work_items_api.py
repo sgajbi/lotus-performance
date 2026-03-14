@@ -61,11 +61,18 @@ def test_runtime_work_items_reports_active_compute_and_lineage_items():
         assert response.status_code == 200
         body = response.json()
         assert body["contract_version"] == "v1"
+        assert body["queue_filter"] == "both"
         assert body["status_filter"] == "active"
         assert body["limit"] == 10
+        assert body["offset"] == 0
+        assert body["min_age_seconds"] == 0.0
         assert body["durable_metadata_store"]["status"] == "ready"
         assert body["compute_queue"]["status"] == "available"
+        assert body["compute_queue"]["total_count"] == 2
+        assert body["compute_queue"]["returned_count"] == 2
         assert body["lineage_queue"]["status"] == "available"
+        assert body["lineage_queue"]["total_count"] == 2
+        assert body["lineage_queue"]["returned_count"] == 2
         assert [item["calculation_id"] for item in body["compute_items"]] == [
             str(compute_pending_id),
             str(compute_leased_id),
@@ -127,7 +134,11 @@ def test_runtime_work_items_reports_failed_compute_and_lineage_items():
         body = response.json()
         assert body["status_filter"] == "failed"
         assert body["compute_queue"]["status"] == "available"
+        assert body["compute_queue"]["total_count"] == 1
+        assert body["compute_queue"]["returned_count"] == 1
         assert body["lineage_queue"]["status"] == "available"
+        assert body["lineage_queue"]["total_count"] == 1
+        assert body["lineage_queue"]["returned_count"] == 1
         assert len(body["compute_items"]) == 1
         assert body["compute_items"][0]["calculation_id"] == str(compute_failed_id)
         assert body["compute_items"][0]["status"] == "failed"
@@ -149,7 +160,7 @@ def test_runtime_work_items_reports_partial_queue_unavailability(mocker):
     )
     mocker.patch(
         "app.services.runtime_work_item_service.lineage_metadata_store.list_inspection_items",
-        return_value=[],
+        return_value=type("Page", (), {"total_count": 0, "items": []})(),
     )
 
     with TestClient(app) as client:
@@ -158,7 +169,53 @@ def test_runtime_work_items_reports_partial_queue_unavailability(mocker):
     assert response.status_code == 200
     body = response.json()
     assert body["durable_metadata_store"]["status"] == "ready"
-    assert body["compute_queue"] == {"status": "unavailable", "reason": "RuntimeError"}
-    assert body["lineage_queue"] == {"status": "available"}
+    assert body["compute_queue"] == {
+        "status": "unavailable",
+        "reason": "RuntimeError",
+        "total_count": 0,
+        "returned_count": 0,
+    }
+    assert body["lineage_queue"] == {"status": "available", "total_count": 0, "returned_count": 0}
     assert body["compute_items"] == []
     assert body["lineage_items"] == []
+
+
+def test_runtime_work_items_supports_queue_offset_and_age_filters():
+    compute_job_store.create_schema()
+    lineage_metadata_store.create_schema()
+    compute_job_store.clear_all_records()
+    lineage_metadata_store.clear_all_records()
+    now = datetime.now(timezone.utc)
+
+    compute_ids = [uuid4() for _ in range(3)]
+    for index, calculation_id in enumerate(compute_ids):
+        compute_job_store.enqueue_job(
+            calculation_id=calculation_id,
+            analytics_type="ReturnsSeries",
+            request_payload={"portfolio_id": str(calculation_id)},
+            max_attempts=3,
+        )
+        with compute_job_store._session() as session:
+            row = compute_job_store._get_model(session, calculation_id)
+            row.created_at_utc = now - timedelta(seconds=200 - (index * 50))
+
+    try:
+        with TestClient(app) as client:
+            response = client.get(
+                "/integration/runtime-work-items",
+                params={"queue": "compute", "status": "active", "limit": 2, "offset": 1, "min_age_seconds": 120},
+            )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["queue_filter"] == "compute"
+        assert body["offset"] == 1
+        assert body["min_age_seconds"] == 120.0
+        assert body["compute_queue"]["total_count"] == 3
+        assert body["compute_queue"]["returned_count"] == 1
+        assert [item["calculation_id"] for item in body["compute_items"]] == [str(compute_ids[1])]
+        assert body["lineage_queue"] == {"status": "excluded", "total_count": 0, "returned_count": 0}
+        assert body["lineage_items"] == []
+    finally:
+        compute_job_store.clear_all_records()
+        lineage_metadata_store.clear_all_records()

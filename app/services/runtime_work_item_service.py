@@ -12,13 +12,18 @@ from app.services.lineage_metadata_store import LineageQueueInspectionItem, line
 class RuntimeWorkItemQueueState:
     status: str
     reason: str | None
+    total_count: int
+    returned_count: int
 
 
 @dataclass(frozen=True)
 class RuntimeWorkItemSnapshot:
     generated_at: datetime
+    queue_filter: str
     status_filter: str
     limit: int
+    offset: int
+    min_age_seconds: float
     durable_metadata_store: DurabilityHealthStatus
     compute_queue: RuntimeWorkItemQueueState
     lineage_queue: RuntimeWorkItemQueueState
@@ -26,39 +31,69 @@ class RuntimeWorkItemSnapshot:
     lineage_items: list[LineageQueueInspectionItem]
 
 
-def build_runtime_work_item_snapshot(*, status_filter: str, limit: int) -> RuntimeWorkItemSnapshot:
+def build_runtime_work_item_snapshot(
+    *,
+    queue_filter: str,
+    status_filter: str,
+    limit: int,
+    offset: int,
+    min_age_seconds: float,
+) -> RuntimeWorkItemSnapshot:
     generated_at = datetime.now(UTC)
     durability_status = check_durable_metadata_store_ready()
 
     if not durability_status.is_ready:
         return RuntimeWorkItemSnapshot(
             generated_at=generated_at,
+            queue_filter=queue_filter,
             status_filter=status_filter,
             limit=limit,
+            offset=offset,
+            min_age_seconds=min_age_seconds,
             durable_metadata_store=durability_status,
             compute_queue=RuntimeWorkItemQueueState(
                 status="unavailable",
                 reason=durability_status.reason or "durable_metadata_store_unreachable",
+                total_count=0,
+                returned_count=0,
             ),
             lineage_queue=RuntimeWorkItemQueueState(
                 status="unavailable",
                 reason=durability_status.reason or "durable_metadata_store_unreachable",
+                total_count=0,
+                returned_count=0,
             ),
             compute_items=[],
             lineage_items=[],
         )
 
+    include_compute = queue_filter in {"both", "compute"}
+    include_lineage = queue_filter in {"both", "lineage"}
+
     compute_queue_state, compute_items = _safe_compute_items(
-        status_filter=status_filter, limit=limit, generated_at=generated_at
+        include_queue=include_compute,
+        status_filter=status_filter,
+        limit=limit,
+        offset=offset,
+        min_age_seconds=min_age_seconds,
+        generated_at=generated_at,
     )
     lineage_queue_state, lineage_items = _safe_lineage_items(
-        status_filter=status_filter, limit=limit, generated_at=generated_at
+        include_queue=include_lineage,
+        status_filter=status_filter,
+        limit=limit,
+        offset=offset,
+        min_age_seconds=min_age_seconds,
+        generated_at=generated_at,
     )
 
     return RuntimeWorkItemSnapshot(
         generated_at=generated_at,
+        queue_filter=queue_filter,
         status_filter=status_filter,
         limit=limit,
+        offset=offset,
+        min_age_seconds=min_age_seconds,
         durable_metadata_store=durability_status,
         compute_queue=compute_queue_state,
         lineage_queue=lineage_queue_state,
@@ -69,29 +104,73 @@ def build_runtime_work_item_snapshot(*, status_filter: str, limit: int) -> Runti
 
 def _safe_compute_items(
     *,
+    include_queue: bool,
     status_filter: str,
     limit: int,
+    offset: int,
+    min_age_seconds: float,
     generated_at: datetime,
 ) -> tuple[RuntimeWorkItemQueueState, list[ComputeQueueInspectionItem]]:
+    if not include_queue:
+        return RuntimeWorkItemQueueState(status="excluded", reason=None, total_count=0, returned_count=0), []
     try:
+        page = compute_job_store.list_inspection_items(
+            status_filter=status_filter,
+            limit=limit,
+            offset=offset,
+            min_age_seconds=min_age_seconds,
+            now=generated_at,
+        )
         return (
-            RuntimeWorkItemQueueState(status="available", reason=None),
-            compute_job_store.list_inspection_items(status_filter=status_filter, limit=limit, now=generated_at),
+            RuntimeWorkItemQueueState(
+                status="available",
+                reason=None,
+                total_count=page.total_count,
+                returned_count=len(page.items),
+            ),
+            page.items,
         )
     except Exception as exc:
-        return RuntimeWorkItemQueueState(status="unavailable", reason=type(exc).__name__), []
+        return RuntimeWorkItemQueueState(
+            status="unavailable",
+            reason=type(exc).__name__,
+            total_count=0,
+            returned_count=0,
+        ), []
 
 
 def _safe_lineage_items(
     *,
+    include_queue: bool,
     status_filter: str,
     limit: int,
+    offset: int,
+    min_age_seconds: float,
     generated_at: datetime,
 ) -> tuple[RuntimeWorkItemQueueState, list[LineageQueueInspectionItem]]:
+    if not include_queue:
+        return RuntimeWorkItemQueueState(status="excluded", reason=None, total_count=0, returned_count=0), []
     try:
+        page = lineage_metadata_store.list_inspection_items(
+            status_filter=status_filter,
+            limit=limit,
+            offset=offset,
+            min_age_seconds=min_age_seconds,
+            now=generated_at,
+        )
         return (
-            RuntimeWorkItemQueueState(status="available", reason=None),
-            lineage_metadata_store.list_inspection_items(status_filter=status_filter, limit=limit, now=generated_at),
+            RuntimeWorkItemQueueState(
+                status="available",
+                reason=None,
+                total_count=page.total_count,
+                returned_count=len(page.items),
+            ),
+            page.items,
         )
     except Exception as exc:
-        return RuntimeWorkItemQueueState(status="unavailable", reason=type(exc).__name__), []
+        return RuntimeWorkItemQueueState(
+            status="unavailable",
+            reason=type(exc).__name__,
+            total_count=0,
+            returned_count=0,
+        ), []

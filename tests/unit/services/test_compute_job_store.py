@@ -344,20 +344,25 @@ def test_compute_job_store_lists_active_and_failed_inspection_items(tmp_path):
         failed_row.error_type = "RuntimeError"
         failed_row.error_message = "boom"
 
-    active_items = store.list_inspection_items(status_filter="active", limit=10, now=now)
-    failed_items = store.list_inspection_items(status_filter="failed", limit=10, now=now)
+    active_page = store.list_inspection_items(status_filter="active", limit=10, now=now)
+    failed_page = store.list_inspection_items(status_filter="failed", limit=10, now=now)
+    stale_page = store.list_inspection_items(status_filter="active", limit=10, min_age_seconds=100.0, now=now)
 
-    assert [item.calculation_id for item in active_items] == [str(pending_id), str(leased_id)]
-    assert active_items[0].status == ComputeJobStatus.PENDING.value
-    assert active_items[0].age_seconds == 120.0
-    assert active_items[1].status == ComputeJobStatus.LEASED.value
-    assert active_items[1].age_seconds == 90.0
-    assert len(failed_items) == 1
-    assert failed_items[0].calculation_id == str(failed_id)
-    assert failed_items[0].status == ComputeJobStatus.FAILED.value
-    assert failed_items[0].error_type == "RuntimeError"
-    assert failed_items[0].error_message == "boom"
-    assert failed_items[0].age_seconds == 15.0
+    assert active_page.total_count == 2
+    assert [item.calculation_id for item in active_page.items] == [str(pending_id), str(leased_id)]
+    assert active_page.items[0].status == ComputeJobStatus.PENDING.value
+    assert active_page.items[0].age_seconds == 120.0
+    assert active_page.items[1].status == ComputeJobStatus.LEASED.value
+    assert active_page.items[1].age_seconds == 90.0
+    assert failed_page.total_count == 1
+    assert len(failed_page.items) == 1
+    assert failed_page.items[0].calculation_id == str(failed_id)
+    assert failed_page.items[0].status == ComputeJobStatus.FAILED.value
+    assert failed_page.items[0].error_type == "RuntimeError"
+    assert failed_page.items[0].error_message == "boom"
+    assert failed_page.items[0].age_seconds == 15.0
+    assert stale_page.total_count == 2
+    assert [item.calculation_id for item in stale_page.items] == [str(pending_id)]
 
 
 def test_compute_job_store_declares_hot_path_indexes(tmp_path):

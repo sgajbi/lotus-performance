@@ -57,14 +57,19 @@ class RuntimeWorkItemQueueStatusResponse(BaseModel):
         default=None,
         description="Concrete queue-specific unavailability reason when work-item inspection failed.",
     )
+    total_count: int = Field(description="Total durable work items that match the requested filters for this queue.")
+    returned_count: int = Field(description="Number of work items included for this queue in the current response page.")
 
 
 class RuntimeWorkItemsResponse(BaseModel):
     contract_version: str = Field(description="Version of the runtime-work-items response contract.")
     source_service: str = Field(description="Owning service that produced this runtime work-item snapshot.")
     generated_at: datetime = Field(description="Timestamp when the runtime work-item snapshot was generated.")
+    queue_filter: str = Field(description="Requested queue filter applied to runtime work-item inspection.")
     status_filter: str = Field(description="Requested work-item status filter applied to both queues.")
     limit: int = Field(description="Maximum number of work items returned per queue.")
+    offset: int = Field(description="Zero-based page offset applied per queue before limiting results.")
+    min_age_seconds: float = Field(description="Minimum work-item age filter applied after durable ordering for this snapshot.")
     durable_metadata_store: DurableMetadataStoreStatusResponse = Field(
         description="Availability of the durable metadata store backing compute and lineage work items.",
     )
@@ -89,8 +94,11 @@ def build_runtime_work_items_response(snapshot: RuntimeWorkItemSnapshot) -> Runt
         contract_version="v1",
         source_service="lotus-performance",
         generated_at=snapshot.generated_at,
+        queue_filter=snapshot.queue_filter,
         status_filter=snapshot.status_filter,
         limit=snapshot.limit,
+        offset=snapshot.offset,
+        min_age_seconds=snapshot.min_age_seconds,
         durable_metadata_store=DurableMetadataStoreStatusResponse(
             status=snapshot.durable_metadata_store.status,
             reason=snapshot.durable_metadata_store.reason,
@@ -98,10 +106,14 @@ def build_runtime_work_items_response(snapshot: RuntimeWorkItemSnapshot) -> Runt
         compute_queue=RuntimeWorkItemQueueStatusResponse(
             status=snapshot.compute_queue.status,
             reason=snapshot.compute_queue.reason,
+            total_count=snapshot.compute_queue.total_count,
+            returned_count=snapshot.compute_queue.returned_count,
         ),
         lineage_queue=RuntimeWorkItemQueueStatusResponse(
             status=snapshot.lineage_queue.status,
             reason=snapshot.lineage_queue.reason,
+            total_count=snapshot.lineage_queue.total_count,
+            returned_count=snapshot.lineage_queue.returned_count,
         ),
         compute_items=[
             ComputeRuntimeWorkItemResponse(

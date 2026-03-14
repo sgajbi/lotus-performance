@@ -122,11 +122,15 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 
 - purpose: return exact compute and lineage work items for operator drill-down
 - query parameters:
+  - `queue`: `both`, `compute`, or `lineage`
   - `status`: `active`, `failed`, or `all`
   - `limit`: max items returned per queue
+  - `offset`: zero-based page offset applied per queue
+  - `min_age_seconds`: optional stale-item filter for operator triage
 - response includes:
   - durable metadata store availability
   - queue-specific availability for compute and lineage inspection
+  - queue-specific `total_count` and `returned_count`
   - filtered compute work items with calculation handle, lifecycle state, age, attempts, and failure context
   - filtered lineage work items with calculation handle, lifecycle state, age, attempts, and failure context
 - use this when runtime-status tells you there is pressure, and you need the actual work items behind it without querying the database directly
