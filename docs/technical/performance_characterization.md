@@ -80,3 +80,27 @@ These characterize the control-plane query path behind:
 - Metric: median wall-clock runtime across 5 reads after warm-up
 - Budget: `<= 250ms`
 - Test owner: [test_stateful_input_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_stateful_input_performance.py)
+
+## Stateful reference retrieval budgets
+
+### Benchmark return series
+
+- Workload: stateful benchmark return-series retrieval across `2024-01-01` to `2033-12-31`
+- Retrieval characteristics:
+  - `365`-day reference chunks
+  - durable upstream snapshot recording enabled
+  - canonical deduped merge of returned points
+- Metric: median wall-clock runtime across 5 reads after warm-up
+- Budget: `<= 25ms`
+- Test owner: [test_stateful_input_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_stateful_input_performance.py)
+
+### Risk-free series
+
+- Workload: stateful risk-free series retrieval across `2024-01-01` to `2033-12-31`
+- Retrieval characteristics:
+  - `365`-day reference chunks
+  - durable upstream snapshot recording enabled
+  - canonical deduped merge of returned points
+- Metric: median wall-clock runtime across 5 reads after warm-up
+- Budget: `<= 25ms`
+- Test owner: [test_stateful_input_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_stateful_input_performance.py)
