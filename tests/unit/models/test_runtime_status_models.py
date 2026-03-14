@@ -7,6 +7,8 @@ from app.services.lineage_metadata_store import LineageQueueStats
 from app.services.runtime_status_service import (
     ComputeQueueDegradationPolicy,
     LineageQueueDegradationPolicy,
+    RecoveryDrillDegradationPolicy,
+    RecoveryDrillStatus,
     RuntimeDegradationDetail,
     RuntimeQueueStatus,
     RuntimeStatusSnapshot,
@@ -66,6 +68,23 @@ def test_build_runtime_status_response_serializes_snapshot_details():
                 oldest_leased_age_seconds=12.0,
             ),
         ),
+        recovery_drill=RecoveryDrillStatus(
+            status="degraded",
+            reason="recovery_drill_age_exceeded",
+            latest_generated_at_utc="2026-03-13T00:00:00Z",
+            latest_status="passed",
+            latest_operator_id="ops-user",
+            latest_backup_identifier="backup-123",
+            latest_age_seconds=86400.0,
+            degradation_reasons=("recovery_drill_age_exceeded",),
+            degradation_details=(
+                RuntimeDegradationDetail(
+                    reason="recovery_drill_age_exceeded",
+                    observed_value=86400.0,
+                    threshold_value=3600.0,
+                ),
+            ),
+        ),
         compute_queue_policy=ComputeQueueDegradationPolicy(
             pending_age_seconds=30.0,
             leased_age_seconds=20.0,
@@ -80,6 +99,7 @@ def test_build_runtime_status_response_serializes_snapshot_details():
             retry_backlog_count=4,
             terminal_failure_count=5,
         ),
+        recovery_drill_policy=RecoveryDrillDegradationPolicy(max_age_seconds=3600.0),
     )
 
     response = build_runtime_status_response(snapshot)
@@ -91,9 +111,14 @@ def test_build_runtime_status_response_serializes_snapshot_details():
     assert response.compute_queue.lease_expired_jobs == 7
     assert response.lineage_queue.pending_payloads == 9
     assert response.lineage_queue.leased_payloads == 2
+    assert response.recovery_drill.status == "degraded"
+    assert response.recovery_drill.latest_status == "passed"
+    assert response.recovery_drill.latest_operator_id == "ops-user"
+    assert response.recovery_drill.degradation_reasons == ["recovery_drill_age_exceeded"]
     assert response.compute_queue_policy.pending_age_seconds == 30.0
     assert response.lineage_queue_policy.leased_age_seconds == 8.0
     assert response.lineage_queue_policy.terminal_failure_count == 5
+    assert response.recovery_drill_policy.max_age_seconds == 3600.0
 
 
 def test_build_runtime_status_response_handles_unavailable_queue_without_stats():
@@ -118,6 +143,17 @@ def test_build_runtime_status_response_handles_unavailable_queue_without_stats()
             degradation_details=(),
             stats=None,
         ),
+        recovery_drill=RecoveryDrillStatus(
+            status="available",
+            reason=None,
+            latest_generated_at_utc=None,
+            latest_status=None,
+            latest_operator_id=None,
+            latest_backup_identifier=None,
+            latest_age_seconds=None,
+            degradation_reasons=(),
+            degradation_details=(),
+        ),
         compute_queue_policy=ComputeQueueDegradationPolicy(
             pending_age_seconds=30.0,
             leased_age_seconds=20.0,
@@ -132,6 +168,7 @@ def test_build_runtime_status_response_handles_unavailable_queue_without_stats()
             retry_backlog_count=4,
             terminal_failure_count=5,
         ),
+        recovery_drill_policy=RecoveryDrillDegradationPolicy(max_age_seconds=0.0),
     )
 
     response = build_runtime_status_response(snapshot)
@@ -140,3 +177,5 @@ def test_build_runtime_status_response_handles_unavailable_queue_without_stats()
     assert response.compute_queue.reason == "RuntimeError"
     assert response.compute_queue.pending_jobs is None
     assert response.lineage_queue.pending_payloads is None
+    assert response.recovery_drill.status == "available"
+    assert response.recovery_drill.latest_status is None

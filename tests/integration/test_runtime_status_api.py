@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from app.services.compute_job_store import compute_job_store
 from app.services.durability_health_service import DurabilityHealthStatus
 from app.services.lineage_metadata_store import lineage_metadata_store
+from app.services.recovery_drill_history_service import RecoveryDrillHistoryEntry, RecoveryDrillHistorySnapshot
 from main import app
 
 
@@ -64,6 +65,9 @@ def test_runtime_status_reports_durable_queue_state():
     assert body["lineage_queue"]["retry_backlog_payloads"] == 0
     assert body["lineage_queue"]["terminal_failure_payloads"] == 0
     assert body["lineage_queue"]["oldest_leased_age_seconds"] == 0.0
+    assert body["recovery_drill"]["status"] == "available"
+    assert "latest_status" in body["recovery_drill"]
+    assert body["recovery_drill_policy"]["max_age_seconds"] >= 0.0
 
 
 def test_runtime_status_reports_draining_state():
@@ -411,3 +415,61 @@ def test_runtime_status_reports_all_active_degradation_reasons():
         ) = originals
         compute_job_store.clear_all_records()
         lineage_metadata_store.clear_all_records()
+
+
+def test_runtime_status_reports_recovery_drill_failure_and_age_policy(mocker):
+    settings = __import__("app.core.config", fromlist=["get_settings"]).get_settings()
+    original_threshold = settings.RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS
+    settings.RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS = 300.0
+
+    mocker.patch(
+        "app.services.runtime_status_service.build_recovery_drill_history_snapshot",
+        return_value=RecoveryDrillHistorySnapshot(
+            status="available",
+            artifact_directory="artifacts/durable-recovery-drill",
+            latest_file_name="drill-20260314T000000Z.json",
+            retained_file_names=["drill-20260314T000000Z.json"],
+            retention_limit=30,
+            retention_max_age_days=90,
+            entries=[
+                RecoveryDrillHistoryEntry(
+                    evidence_file_name="drill-20260314T000000Z.json",
+                    generated_at_utc="2026-03-13T00:00:00Z",
+                    operator_id="ops-user",
+                    backup_identifier="backup-123",
+                    status="failed",
+                )
+            ],
+            total_entries=1,
+            matched_entries=1,
+            returned_entries=1,
+            next_offset=None,
+            applied_filters={},
+            reason=None,
+        ),
+    )
+
+    try:
+        with TestClient(app) as client:
+            response = client.get("/integration/runtime-status")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["runtime_status"] == "degraded"
+        assert body["recovery_drill"]["status"] == "degraded"
+        assert body["recovery_drill"]["reason"] == "recovery_drill_latest_not_passed"
+        assert body["recovery_drill"]["latest_status"] == "failed"
+        assert body["recovery_drill"]["latest_operator_id"] == "ops-user"
+        assert body["recovery_drill"]["latest_backup_identifier"] == "backup-123"
+        assert body["recovery_drill"]["latest_age_seconds"] >= 300.0
+        assert body["recovery_drill"]["degradation_reasons"] == [
+            "recovery_drill_latest_not_passed",
+            "recovery_drill_age_exceeded",
+        ]
+        assert body["runtime_degradation_reasons"] == [
+            "recovery_drill:recovery_drill_latest_not_passed",
+            "recovery_drill:recovery_drill_age_exceeded",
+        ]
+        assert body["recovery_drill_policy"]["max_age_seconds"] == 300.0
+    finally:
+        settings.RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS = original_threshold

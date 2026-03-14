@@ -150,6 +150,48 @@ class LineageQueueDegradationPolicyResponse(BaseModel):
     )
 
 
+class RecoveryDrillStatusResponse(BaseModel):
+    status: str = Field(description="Recovery-drill assurance status for the current retained control-plane history.")
+    reason: str | None = Field(
+        default=None,
+        description="Primary recovery-drill degradation or unavailability reason for simple callers.",
+    )
+    degradation_reasons: list[str] = Field(
+        default_factory=list,
+        description="All active recovery-drill degradation reasons contributing to a degraded state.",
+    )
+    degradation_details: list[RuntimeDegradationDetailResponse] = Field(
+        default_factory=list,
+        description="Detailed recovery-drill degradation triggers with observed and threshold values.",
+    )
+    latest_generated_at_utc: str | None = Field(
+        default=None,
+        description="UTC timestamp of the latest retained recovery drill.",
+    )
+    latest_status: str | None = Field(
+        default=None,
+        description="Outcome status of the latest retained recovery drill.",
+    )
+    latest_operator_id: str | None = Field(
+        default=None,
+        description="Operator or automation identity that ran the latest retained recovery drill.",
+    )
+    latest_backup_identifier: str | None = Field(
+        default=None,
+        description="Backup or restore-set identifier validated by the latest retained recovery drill.",
+    )
+    latest_age_seconds: float | None = Field(
+        default=None,
+        description="Age in seconds of the latest retained recovery drill.",
+    )
+
+
+class RecoveryDrillDegradationPolicyResponse(BaseModel):
+    max_age_seconds: float = Field(
+        description="Configured threshold that degrades runtime when the latest retained recovery drill is too old."
+    )
+
+
 class RuntimeStatusResponse(BaseModel):
     contract_version: str = Field(description="Version of the runtime-status response contract.")
     source_service: str = Field(description="Owning service that produced this runtime snapshot.")
@@ -175,11 +217,17 @@ class RuntimeStatusResponse(BaseModel):
     lineage_queue: LineageQueueStatusDetailsResponse = Field(
         description="Current durable lineage queue state for asynchronous lineage artifact materialization.",
     )
+    recovery_drill: RecoveryDrillStatusResponse = Field(
+        description="Current retained recovery-drill assurance status for operational recovery proof.",
+    )
     compute_queue_policy: ComputeQueueDegradationPolicyResponse = Field(
         description="Active compute queue degradation policy used to interpret runtime state.",
     )
     lineage_queue_policy: LineageQueueDegradationPolicyResponse = Field(
         description="Active lineage queue degradation policy used to interpret runtime state.",
+    )
+    recovery_drill_policy: RecoveryDrillDegradationPolicyResponse = Field(
+        description="Active recovery-drill freshness policy used to interpret runtime state.",
     )
 
 
@@ -239,6 +287,17 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
             oldest_pending_age_seconds=None if lineage_stats is None else lineage_stats.oldest_pending_age_seconds,
             oldest_leased_age_seconds=None if lineage_stats is None else lineage_stats.oldest_leased_age_seconds,
         ),
+        recovery_drill=RecoveryDrillStatusResponse(
+            status=snapshot.recovery_drill.status,
+            reason=snapshot.recovery_drill.reason,
+            degradation_reasons=list(snapshot.recovery_drill.degradation_reasons),
+            degradation_details=_degradation_details_response(snapshot.recovery_drill.degradation_details),
+            latest_generated_at_utc=snapshot.recovery_drill.latest_generated_at_utc,
+            latest_status=snapshot.recovery_drill.latest_status,
+            latest_operator_id=snapshot.recovery_drill.latest_operator_id,
+            latest_backup_identifier=snapshot.recovery_drill.latest_backup_identifier,
+            latest_age_seconds=snapshot.recovery_drill.latest_age_seconds,
+        ),
         compute_queue_policy=ComputeQueueDegradationPolicyResponse(
             pending_age_seconds=snapshot.compute_queue_policy.pending_age_seconds,
             leased_age_seconds=snapshot.compute_queue_policy.leased_age_seconds,
@@ -252,5 +311,8 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
             leased_age_seconds=snapshot.lineage_queue_policy.leased_age_seconds,
             retry_backlog_count=snapshot.lineage_queue_policy.retry_backlog_count,
             terminal_failure_count=snapshot.lineage_queue_policy.terminal_failure_count,
+        ),
+        recovery_drill_policy=RecoveryDrillDegradationPolicyResponse(
+            max_age_seconds=snapshot.recovery_drill_policy.max_age_seconds,
         ),
     )

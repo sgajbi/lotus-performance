@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from app.services.compute_job_store import ComputeQueueStats
 from app.services.durability_health_service import DurabilityHealthStatus
 from app.services.lineage_metadata_store import LineageQueueStats
+from app.services.recovery_drill_history_service import RecoveryDrillHistoryEntry, RecoveryDrillHistorySnapshot
 from app.services.runtime_status_service import build_runtime_status_snapshot
 
 
@@ -56,6 +57,24 @@ def test_runtime_status_snapshot_reports_ready_with_queue_stats(mocker):
             oldest_leased_age_seconds=12.0,
         ),
     )
+    mocker.patch(
+        "app.services.runtime_status_service.build_recovery_drill_history_snapshot",
+        return_value=RecoveryDrillHistorySnapshot(
+            status="available",
+            artifact_directory="artifacts/durable-recovery-drill",
+            latest_file_name="latest.json",
+            retained_file_names=["latest.json"],
+            retention_limit=30,
+            retention_max_age_days=90,
+            entries=[],
+            total_entries=0,
+            matched_entries=0,
+            returned_entries=0,
+            next_offset=None,
+            applied_filters={},
+            reason=None,
+        ),
+    )
 
     snapshot = build_runtime_status_snapshot(is_draining=False)
 
@@ -80,6 +99,10 @@ def test_runtime_status_snapshot_reports_ready_with_queue_stats(mocker):
     assert snapshot.lineage_queue.stats.retry_backlog_count == 2
     assert isinstance(snapshot.generated_at, datetime)
     assert snapshot.generated_at.tzinfo == UTC
+    assert snapshot.recovery_drill.status == "available"
+    assert snapshot.recovery_drill.latest_status is None
+    assert snapshot.recovery_drill.degradation_reasons == ()
+    assert snapshot.recovery_drill_policy.max_age_seconds == 0.0
 
 
 def test_runtime_status_snapshot_reports_draining_when_app_is_draining(mocker):
@@ -128,6 +151,24 @@ def test_runtime_status_snapshot_reports_draining_when_app_is_draining(mocker):
             retry_backlog_count=0,
             terminal_failure_count=0,
             oldest_pending_age_seconds=0.0,
+        ),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.build_recovery_drill_history_snapshot",
+        return_value=RecoveryDrillHistorySnapshot(
+            status="available",
+            artifact_directory="artifacts/durable-recovery-drill",
+            latest_file_name="latest.json",
+            retained_file_names=["latest.json"],
+            retention_limit=30,
+            retention_max_age_days=90,
+            entries=[],
+            total_entries=0,
+            matched_entries=0,
+            returned_entries=0,
+            next_offset=None,
+            applied_filters={},
+            reason=None,
         ),
     )
 
@@ -666,3 +707,255 @@ def test_runtime_status_snapshot_degrades_when_lineage_leased_age_threshold_is_e
     assert snapshot.runtime_degradation_reasons == ("lineage_queue:lineage_leased_age_exceeded",)
     assert snapshot.runtime_degradation_details[0].reason == "lineage_leased_age_exceeded"
     assert snapshot.lineage_queue.reason == "lineage_leased_age_exceeded"
+
+
+def test_runtime_status_snapshot_degrades_when_recovery_drill_is_stale(mocker):
+    mocker.patch(
+        "app.services.runtime_status_service.get_settings",
+        return_value=type(
+            "Settings",
+            (),
+            {
+                "RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_COMPUTE_LEASED_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_COMPUTE_RUNNING_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS": 60.0,
+            },
+        )(),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.check_durable_metadata_store_ready",
+        return_value=DurabilityHealthStatus(is_ready=True, status="ready", reason=None),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.compute_job_store.get_queue_stats",
+        return_value=ComputeQueueStats(
+            pending_count=0,
+            leased_count=0,
+            running_count=0,
+            failed_count=0,
+            complete_count=0,
+            retry_backlog_count=0,
+            lease_expired_count=0,
+            terminal_failure_count=0,
+            oldest_pending_age_seconds=0.0,
+            oldest_leased_age_seconds=0.0,
+            oldest_running_age_seconds=0.0,
+        ),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.lineage_metadata_store.get_pending_payload_stats",
+        return_value=LineageQueueStats(
+            pending_payload_count=0,
+            retry_backlog_count=0,
+            terminal_failure_count=0,
+            oldest_pending_age_seconds=0.0,
+        ),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.build_recovery_drill_history_snapshot",
+        return_value=RecoveryDrillHistorySnapshot(
+            status="available",
+            artifact_directory="artifacts/durable-recovery-drill",
+            latest_file_name="latest.json",
+            retained_file_names=["latest.json"],
+            retention_limit=30,
+            retention_max_age_days=90,
+            entries=[
+                RecoveryDrillHistoryEntry(
+                    evidence_file_name="latest.json",
+                    generated_at_utc="2026-03-13T00:00:00Z",
+                    operator_id="ops-user",
+                    backup_identifier="backup-123",
+                    status="passed",
+                )
+            ],
+            total_entries=1,
+            matched_entries=1,
+            returned_entries=1,
+            next_offset=None,
+            applied_filters={},
+            reason=None,
+        ),
+    )
+
+    snapshot = build_runtime_status_snapshot(is_draining=False)
+
+    assert snapshot.runtime_status == "degraded"
+    assert snapshot.runtime_degradation_reasons == ("recovery_drill:recovery_drill_age_exceeded",)
+    assert snapshot.recovery_drill.status == "degraded"
+    assert snapshot.recovery_drill.reason == "recovery_drill_age_exceeded"
+    assert snapshot.recovery_drill.latest_status == "passed"
+    assert snapshot.recovery_drill.latest_age_seconds is not None
+    assert snapshot.recovery_drill.latest_age_seconds > 60.0
+    assert snapshot.recovery_drill_policy.max_age_seconds == 60.0
+
+
+def test_runtime_status_snapshot_degrades_when_latest_recovery_drill_failed(mocker):
+    mocker.patch(
+        "app.services.runtime_status_service.get_settings",
+        return_value=type(
+            "Settings",
+            (),
+            {
+                "RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_COMPUTE_LEASED_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_COMPUTE_RUNNING_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS": 0.0,
+            },
+        )(),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.check_durable_metadata_store_ready",
+        return_value=DurabilityHealthStatus(is_ready=True, status="ready", reason=None),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.compute_job_store.get_queue_stats",
+        return_value=ComputeQueueStats(
+            pending_count=0,
+            leased_count=0,
+            running_count=0,
+            failed_count=0,
+            complete_count=0,
+            retry_backlog_count=0,
+            lease_expired_count=0,
+            terminal_failure_count=0,
+            oldest_pending_age_seconds=0.0,
+            oldest_leased_age_seconds=0.0,
+            oldest_running_age_seconds=0.0,
+        ),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.lineage_metadata_store.get_pending_payload_stats",
+        return_value=LineageQueueStats(
+            pending_payload_count=0,
+            retry_backlog_count=0,
+            terminal_failure_count=0,
+            oldest_pending_age_seconds=0.0,
+        ),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.build_recovery_drill_history_snapshot",
+        return_value=RecoveryDrillHistorySnapshot(
+            status="available",
+            artifact_directory="artifacts/durable-recovery-drill",
+            latest_file_name="latest.json",
+            retained_file_names=["latest.json"],
+            retention_limit=30,
+            retention_max_age_days=90,
+            entries=[
+                RecoveryDrillHistoryEntry(
+                    evidence_file_name="latest.json",
+                    generated_at_utc=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                    operator_id="ops-user",
+                    backup_identifier="backup-123",
+                    status="failed",
+                )
+            ],
+            total_entries=1,
+            matched_entries=1,
+            returned_entries=1,
+            next_offset=None,
+            applied_filters={},
+            reason=None,
+        ),
+    )
+
+    snapshot = build_runtime_status_snapshot(is_draining=False)
+
+    assert snapshot.runtime_status == "degraded"
+    assert snapshot.runtime_degradation_reasons == ("recovery_drill:recovery_drill_latest_not_passed",)
+    assert snapshot.recovery_drill.status == "degraded"
+    assert snapshot.recovery_drill.reason == "recovery_drill_latest_not_passed"
+    assert snapshot.recovery_drill.latest_status == "failed"
+
+
+def test_runtime_status_snapshot_degrades_when_recovery_drill_history_is_required_but_missing(mocker):
+    mocker.patch(
+        "app.services.runtime_status_service.get_settings",
+        return_value=type(
+            "Settings",
+            (),
+            {
+                "RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_COMPUTE_LEASED_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_COMPUTE_RUNNING_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS": 60.0,
+            },
+        )(),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.check_durable_metadata_store_ready",
+        return_value=DurabilityHealthStatus(is_ready=True, status="ready", reason=None),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.compute_job_store.get_queue_stats",
+        return_value=ComputeQueueStats(
+            pending_count=0,
+            leased_count=0,
+            running_count=0,
+            failed_count=0,
+            complete_count=0,
+            retry_backlog_count=0,
+            lease_expired_count=0,
+            terminal_failure_count=0,
+            oldest_pending_age_seconds=0.0,
+            oldest_leased_age_seconds=0.0,
+            oldest_running_age_seconds=0.0,
+        ),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.lineage_metadata_store.get_pending_payload_stats",
+        return_value=LineageQueueStats(
+            pending_payload_count=0,
+            retry_backlog_count=0,
+            terminal_failure_count=0,
+            oldest_pending_age_seconds=0.0,
+        ),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.build_recovery_drill_history_snapshot",
+        return_value=RecoveryDrillHistorySnapshot(
+            status="unavailable",
+            artifact_directory="artifacts/durable-recovery-drill",
+            latest_file_name=None,
+            retained_file_names=[],
+            retention_limit=30,
+            retention_max_age_days=90,
+            entries=[],
+            total_entries=0,
+            matched_entries=0,
+            returned_entries=0,
+            next_offset=None,
+            applied_filters={},
+            reason="manifest_missing",
+        ),
+    )
+
+    snapshot = build_runtime_status_snapshot(is_draining=False)
+
+    assert snapshot.runtime_status == "degraded"
+    assert snapshot.runtime_degradation_reasons == ("recovery_drill:recovery_drill_history_unavailable",)
+    assert snapshot.recovery_drill.status == "degraded"
+    assert snapshot.recovery_drill.reason == "recovery_drill_history_unavailable"
+    assert snapshot.recovery_drill.degradation_reasons == ("recovery_drill_history_unavailable",)
+    assert snapshot.recovery_drill.degradation_details[0].threshold_value == 60.0
+    assert snapshot.recovery_drill.latest_generated_at_utc is None
