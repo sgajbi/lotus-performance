@@ -84,6 +84,7 @@ def test_runtime_work_items_reports_active_compute_and_lineage_items():
         assert body["compute_items"][1]["status"] == "leased"
         assert body["compute_items"][0]["execution_path"] == f"/performance/executions/{compute_pending_id}"
         assert body["compute_items"][0]["lineage_path"] == f"/performance/lineage/{compute_pending_id}"
+        assert body["compute_items"][0]["result_path"] == f"/integration/returns/series/results/{compute_pending_id}"
         assert [item["calculation_id"] for item in body["lineage_items"]] == [
             str(lineage_pending_id),
             str(lineage_leased_id),
@@ -92,6 +93,7 @@ def test_runtime_work_items_reports_active_compute_and_lineage_items():
         assert body["lineage_items"][1]["status"] == "leased"
         assert body["lineage_items"][0]["execution_path"] == f"/performance/executions/{lineage_pending_id}"
         assert body["lineage_items"][0]["lineage_path"] == f"/performance/lineage/{lineage_pending_id}"
+        assert "result_path" not in body["lineage_items"][0]
     finally:
         compute_job_store.clear_all_records()
         lineage_metadata_store.clear_all_records()
@@ -150,6 +152,7 @@ def test_runtime_work_items_reports_failed_compute_and_lineage_items():
         assert body["compute_items"][0]["calculation_id"] == str(compute_failed_id)
         assert body["compute_items"][0]["execution_path"] == f"/performance/executions/{compute_failed_id}"
         assert body["compute_items"][0]["lineage_path"] == f"/performance/lineage/{compute_failed_id}"
+        assert body["compute_items"][0]["result_path"] == f"/performance/contribution/results/{compute_failed_id}"
         assert body["compute_items"][0]["status"] == "failed"
         assert body["compute_items"][0]["error_type"] == "RuntimeError"
         assert body["compute_items"][0]["error_message"] == "compute failed"
@@ -157,6 +160,7 @@ def test_runtime_work_items_reports_failed_compute_and_lineage_items():
         assert body["lineage_items"][0]["calculation_id"] == str(lineage_failed_id)
         assert body["lineage_items"][0]["execution_path"] == f"/performance/executions/{lineage_failed_id}"
         assert body["lineage_items"][0]["lineage_path"] == f"/performance/lineage/{lineage_failed_id}"
+        assert "result_path" not in body["lineage_items"][0]
         assert body["lineage_items"][0]["status"] == "failed"
         assert body["lineage_items"][0]["error_message"] == "lineage failed"
     finally:

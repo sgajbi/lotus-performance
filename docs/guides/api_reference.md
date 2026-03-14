@@ -140,8 +140,8 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - queue-specific `total_count` and `returned_count`
   - `reclaimable` isolates work whose durable worker lease already expired and is eligible for recovery or re-lease
   - echoed targeted filters for operator auditability
-  - filtered compute work items with calculation handle, direct execution/lineage drill-down paths, lifecycle state, age, attempts, and failure context
-  - filtered lineage work items with calculation handle, direct execution/lineage drill-down paths, lifecycle state, age, attempts, and failure context
+  - filtered compute work items with calculation handle, direct execution/lineage drill-down paths, optional async `result_path`, lifecycle state, age, attempts, and failure context
+  - filtered lineage work items with calculation handle, direct execution/lineage drill-down paths, optional async `result_path`, lifecycle state, age, attempts, and failure context
 - use this when runtime-status tells you there is pressure, and you need the actual work items behind it without querying the database directly
 
 ### `GET /integration/runtime-recoveries`
@@ -158,8 +158,8 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - durable metadata store availability
   - queue-specific availability for compute and lineage recovery inspection
   - queue-specific `total_count` and `returned_count`
-  - filtered compute recovery events with calculation handle, direct execution/lineage drill-down paths, analytics type, recovery kind, recovery timestamp, attempt count, and last durable error type
-  - filtered lineage recovery events with calculation handle, direct execution/lineage drill-down paths, calculation type, recovery kind, recovery timestamp, and attempt count
+  - filtered compute recovery events with calculation handle, direct execution/lineage drill-down paths, optional async `result_path`, analytics type, recovery kind, recovery timestamp, attempt count, and last durable error type
+  - filtered lineage recovery events with calculation handle, direct execution/lineage drill-down paths, optional async `result_path`, calculation type, recovery kind, recovery timestamp, and attempt count
 - use this when runtime-status shows recent recovery activity and you need the concrete event stream behind the bounded status snapshot without querying the database directly
 
 ### `POST /integration/returns/series`

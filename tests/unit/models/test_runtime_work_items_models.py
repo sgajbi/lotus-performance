@@ -57,5 +57,7 @@ def test_build_runtime_work_items_response_serializes_operator_navigation_links(
 
     assert response.compute_items[0].execution_path == "/performance/executions/calc-1"
     assert response.compute_items[0].lineage_path == "/performance/lineage/calc-1"
+    assert response.compute_items[0].result_path == "/integration/returns/series/results/calc-1"
     assert response.lineage_items[0].execution_path == "/performance/executions/lineage-1"
     assert response.lineage_items[0].lineage_path == "/performance/lineage/lineage-1"
+    assert response.lineage_items[0].result_path is None

@@ -5,6 +5,8 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 from app.models.runtime_status import DurableMetadataStoreStatusResponse
+from app.services.compute_job_store import ComputeQueueInspectionItem
+from app.services.lineage_metadata_store import LineageQueueInspectionItem
 from app.services.operator_navigation_service import build_operator_navigation_links
 from app.services.runtime_work_item_service import RuntimeWorkItemSnapshot
 
@@ -13,6 +15,10 @@ class ComputeRuntimeWorkItemResponse(BaseModel):
     calculation_id: str = Field(description="Calculation handle for the compute work item.")
     execution_path: str = Field(description="Execution polling path for this compute work item.")
     lineage_path: str = Field(description="Lineage inspection path for this compute work item.")
+    result_path: str | None = Field(
+        default=None,
+        description="Async result path for this compute work item when the analytics family exposes a durable result route.",
+    )
     analytics_type: str = Field(description="Analytics workflow type for the compute work item.")
     status: str = Field(description="Current compute work-item lifecycle state.")
     active_since_utc: str | None = Field(
@@ -39,6 +45,10 @@ class LineageRuntimeWorkItemResponse(BaseModel):
     calculation_id: str = Field(description="Calculation handle for the lineage work item.")
     execution_path: str = Field(description="Execution polling path for this lineage work item.")
     lineage_path: str = Field(description="Lineage inspection path for this lineage work item.")
+    result_path: str | None = Field(
+        default=None,
+        description="Async result path for this lineage work item when the calculation family exposes a durable result route.",
+    )
     calculation_type: str = Field(description="Analytics workflow type that produced this lineage work item.")
     status: str = Field(description="Current lineage work-item lifecycle state.")
     active_since_utc: str | None = Field(
@@ -136,33 +146,45 @@ def build_runtime_work_items_response(snapshot: RuntimeWorkItemSnapshot) -> Runt
             returned_count=snapshot.lineage_queue.returned_count,
         ),
         compute_items=[
-            ComputeRuntimeWorkItemResponse(
-                calculation_id=item.calculation_id,
-                execution_path=build_operator_navigation_links(item.calculation_id).execution_path,
-                lineage_path=build_operator_navigation_links(item.calculation_id).lineage_path,
-                analytics_type=item.analytics_type,
-                status=item.status,
-                active_since_utc=item.active_since_utc,
-                age_seconds=item.age_seconds,
-                attempt_count=item.attempt_count,
-                max_attempts=item.max_attempts,
-                error_type=item.error_type,
-                error_message=item.error_message,
-            )
+            ComputeRuntimeWorkItemResponse(**_build_compute_item_payload(item))
             for item in snapshot.compute_items
         ],
         lineage_items=[
-            LineageRuntimeWorkItemResponse(
-                calculation_id=item.calculation_id,
-                execution_path=build_operator_navigation_links(item.calculation_id).execution_path,
-                lineage_path=build_operator_navigation_links(item.calculation_id).lineage_path,
-                calculation_type=item.calculation_type,
-                status=item.status,
-                active_since_utc=item.active_since_utc,
-                age_seconds=item.age_seconds,
-                attempt_count=item.attempt_count,
-                error_message=item.error_message,
-            )
+            LineageRuntimeWorkItemResponse(**_build_lineage_item_payload(item))
             for item in snapshot.lineage_items
         ],
     )
+
+
+def _build_compute_item_payload(item: ComputeQueueInspectionItem) -> dict[str, object]:
+    links = build_operator_navigation_links(item.calculation_id, workflow_type=item.analytics_type)
+    return {
+        "calculation_id": item.calculation_id,
+        "execution_path": links.execution_path,
+        "lineage_path": links.lineage_path,
+        "result_path": links.result_path,
+        "analytics_type": item.analytics_type,
+        "status": item.status,
+        "active_since_utc": item.active_since_utc,
+        "age_seconds": item.age_seconds,
+        "attempt_count": item.attempt_count,
+        "max_attempts": item.max_attempts,
+        "error_type": item.error_type,
+        "error_message": item.error_message,
+    }
+
+
+def _build_lineage_item_payload(item: LineageQueueInspectionItem) -> dict[str, object]:
+    links = build_operator_navigation_links(item.calculation_id, workflow_type=item.calculation_type)
+    return {
+        "calculation_id": item.calculation_id,
+        "execution_path": links.execution_path,
+        "lineage_path": links.lineage_path,
+        "result_path": links.result_path,
+        "calculation_type": item.calculation_type,
+        "status": item.status,
+        "active_since_utc": item.active_since_utc,
+        "age_seconds": item.age_seconds,
+        "attempt_count": item.attempt_count,
+        "error_message": item.error_message,
+    }

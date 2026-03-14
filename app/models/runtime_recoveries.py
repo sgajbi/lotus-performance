@@ -5,6 +5,8 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 from app.models.runtime_status import DurableMetadataStoreStatusResponse
+from app.services.compute_job_store import ComputeRecoveryEvent
+from app.services.lineage_metadata_store import LineageRecoveryEvent
 from app.services.operator_navigation_service import build_operator_navigation_links
 from app.services.runtime_recovery_service import RuntimeRecoverySnapshot
 
@@ -13,6 +15,10 @@ class ComputeRecoveryEventResponse(BaseModel):
     calculation_id: str = Field(description="Calculation handle of the recovered compute job.")
     execution_path: str = Field(description="Execution polling path for the recovered compute job.")
     lineage_path: str = Field(description="Lineage inspection path for the recovered compute job.")
+    result_path: str | None = Field(
+        default=None,
+        description="Async result path for the recovered compute job when the analytics family exposes a durable result route.",
+    )
     analytics_type: str = Field(description="Analytics workflow type for the recovered compute job.")
     recovery_kind: str = Field(description="Recovery path that returned the compute job to pending state.")
     recovered_at_utc: str = Field(description="UTC timestamp when the compute job re-entered pending state.")
@@ -27,6 +33,10 @@ class LineageRecoveryEventResponse(BaseModel):
     calculation_id: str = Field(description="Calculation handle of the recovered lineage item.")
     execution_path: str = Field(description="Execution polling path for the recovered lineage item.")
     lineage_path: str = Field(description="Lineage inspection path for the recovered lineage item.")
+    result_path: str | None = Field(
+        default=None,
+        description="Async result path for the recovered lineage item when the calculation family exposes a durable result route.",
+    )
     calculation_type: str = Field(description="Analytics workflow type for the recovered lineage item.")
     recovery_kind: str = Field(description="Recovery path that returned the lineage item to pending state.")
     recovered_at_utc: str = Field(description="UTC timestamp when the lineage item re-entered pending state.")
@@ -111,28 +121,40 @@ def build_runtime_recoveries_response(snapshot: RuntimeRecoverySnapshot) -> Runt
             returned_count=snapshot.lineage_queue.returned_count,
         ),
         compute_recoveries=[
-            ComputeRecoveryEventResponse(
-                calculation_id=item.calculation_id,
-                execution_path=build_operator_navigation_links(item.calculation_id).execution_path,
-                lineage_path=build_operator_navigation_links(item.calculation_id).lineage_path,
-                analytics_type=item.analytics_type,
-                recovery_kind=item.recovery_kind,
-                recovered_at_utc=item.recovered_at_utc,
-                attempt_count=item.attempt_count,
-                error_type=item.error_type,
-            )
+            ComputeRecoveryEventResponse(**_build_compute_recovery_payload(item))
             for item in snapshot.compute_recoveries
         ],
         lineage_recoveries=[
-            LineageRecoveryEventResponse(
-                calculation_id=item.calculation_id,
-                execution_path=build_operator_navigation_links(item.calculation_id).execution_path,
-                lineage_path=build_operator_navigation_links(item.calculation_id).lineage_path,
-                calculation_type=item.calculation_type,
-                recovery_kind=item.recovery_kind,
-                recovered_at_utc=item.recovered_at_utc,
-                attempt_count=item.attempt_count,
-            )
+            LineageRecoveryEventResponse(**_build_lineage_recovery_payload(item))
             for item in snapshot.lineage_recoveries
         ],
     )
+
+
+def _build_compute_recovery_payload(item: ComputeRecoveryEvent) -> dict[str, object]:
+    links = build_operator_navigation_links(item.calculation_id, workflow_type=item.analytics_type)
+    return {
+        "calculation_id": item.calculation_id,
+        "execution_path": links.execution_path,
+        "lineage_path": links.lineage_path,
+        "result_path": links.result_path,
+        "analytics_type": item.analytics_type,
+        "recovery_kind": item.recovery_kind,
+        "recovered_at_utc": item.recovered_at_utc,
+        "attempt_count": item.attempt_count,
+        "error_type": item.error_type,
+    }
+
+
+def _build_lineage_recovery_payload(item: LineageRecoveryEvent) -> dict[str, object]:
+    links = build_operator_navigation_links(item.calculation_id, workflow_type=item.calculation_type)
+    return {
+        "calculation_id": item.calculation_id,
+        "execution_path": links.execution_path,
+        "lineage_path": links.lineage_path,
+        "result_path": links.result_path,
+        "calculation_type": item.calculation_type,
+        "recovery_kind": item.recovery_kind,
+        "recovered_at_utc": item.recovered_at_utc,
+        "attempt_count": item.attempt_count,
+    }
