@@ -182,6 +182,12 @@ class ExecutionRegistry:
             session.query(AnalyticsExecutionStageModel).delete()
             session.query(AnalyticsExecutionModel).delete()
 
+    def delete_execution(self, calculation_id: UUID) -> None:
+        with self._session() as session:
+            execution = session.get(AnalyticsExecutionModel, str(calculation_id))
+            if execution is not None:
+                session.delete(execution)
+
     def create_execution(
         self,
         *,

@@ -76,15 +76,23 @@ def register_async_submission_or_raise(
             ),
         )
 
-    if registration.status == ExecutionRegistrationStatus.CREATED:
+    created_execution = registration.status == ExecutionRegistrationStatus.CREATED
+    if created_execution:
         execution_registry.start_stage(calculation_id, "submission")
 
-    job_registration = compute_job_store.register_job(
-        calculation_id=calculation_id,
-        analytics_type=analytics_type,
-        request_payload=request_payload,
-    )
+    try:
+        job_registration = compute_job_store.register_job(
+            calculation_id=calculation_id,
+            analytics_type=analytics_type,
+            request_payload=request_payload,
+        )
+    except Exception:
+        if created_execution:
+            execution_registry.delete_execution(calculation_id)
+        raise
     if job_registration.status == ComputeJobRegistrationStatus.CONFLICT:
+        if created_execution:
+            execution_registry.delete_execution(calculation_id)
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
@@ -93,7 +101,17 @@ def register_async_submission_or_raise(
             ),
         )
 
-    if registration.status == ExecutionRegistrationStatus.CREATED:
+    if created_execution:
+        execution_registry.complete_stage(
+            calculation_id,
+            "submission",
+            details={"offload_reason": offload_reason},
+        )
+    elif (
+        registration.status == ExecutionRegistrationStatus.REPLAY
+        and job_registration.status == ComputeJobRegistrationStatus.CREATED
+    ):
+        execution_registry.start_stage(calculation_id, "submission")
         execution_registry.complete_stage(
             calculation_id,
             "submission",

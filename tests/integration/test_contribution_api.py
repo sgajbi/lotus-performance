@@ -6,11 +6,14 @@ import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
+from app.api.endpoints.contribution import _build_execution_window
 from app.core.config import get_settings
+from app.models.contribution_requests import ContributionRequest
 from app.services.async_result_store import async_result_store
 from app.services.compute_job_store import compute_job_store
 from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import lineage_metadata_store
+from core.repro import generate_canonical_hash
 from engine.exceptions import EngineCalculationError
 from main import app
 from tests.conftest import drain_compute_queue, drain_lineage_queue
@@ -391,5 +394,64 @@ def test_contribution_async_duplicate_submission_conflicts_on_payload_drift(clie
 
         assert first.status_code == 202
         assert second.status_code == 409
+    finally:
+        settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = original_threshold
+
+
+def test_contribution_async_replay_self_heals_missing_compute_job(client, happy_path_payload):
+    original_threshold = settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT
+    settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = 0
+    calculation_id = uuid4()
+    payload = {**happy_path_payload, "calculation_id": str(calculation_id)}
+
+    try:
+        request_model = ContributionRequest.model_validate(payload)
+        input_fingerprint, calculation_hash = generate_canonical_hash(request_model, settings.APP_VERSION)
+        execution_registry.create_execution(
+            calculation_id=calculation_id,
+            analytics_type="Contribution",
+            portfolio_id=payload["portfolio_id"],
+            execution_mode="async",
+            requested_window=_build_execution_window(request_model),
+            input_fingerprint=input_fingerprint,
+            calculation_hash=calculation_hash,
+        )
+
+        response = client.post("/performance/contribution", json=payload)
+
+        assert response.status_code == 202
+        assert response.json()["calculation_id"] == str(calculation_id)
+        execution = execution_registry.get_execution(calculation_id)
+        assert execution is not None
+        stages = {stage.stage_name: stage for stage in execution.stages}
+        assert stages["submission"].status.value == "complete"
+        job = compute_job_store.get_job(calculation_id)
+        assert job is not None
+        assert job.job_status.value == "pending"
+    finally:
+        settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = original_threshold
+
+
+def test_contribution_async_conflict_does_not_leave_orphan_execution(client, happy_path_payload):
+    original_threshold = settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT
+    settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = 0
+    calculation_id = uuid4()
+    payload = {**happy_path_payload, "calculation_id": str(calculation_id)}
+    drifted_job_payload = {**payload, "hierarchy": ["sector"]}
+
+    try:
+        compute_job_store.enqueue_job(
+            calculation_id=calculation_id,
+            analytics_type="Contribution",
+            request_payload=drifted_job_payload,
+        )
+
+        response = client.post("/performance/contribution", json=payload)
+
+        assert response.status_code == 409
+        assert execution_registry.get_execution(calculation_id) is None
+        job = compute_job_store.get_job(calculation_id)
+        assert job is not None
+        assert job.request_payload["hierarchy"] == ["sector"]
     finally:
         settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = original_threshold
