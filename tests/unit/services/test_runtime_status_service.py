@@ -1,5 +1,7 @@
 from datetime import UTC, datetime
 
+import pytest
+
 from app.services.compute_job_store import ComputeQueueInspectionAnchors, ComputeQueueStats, ComputeRecoveryEvent
 from app.services.durability_health_service import DurabilityHealthStatus
 from app.services.lineage_metadata_store import LineageQueueInspectionAnchors, LineageQueueStats, LineageRecoveryEvent
@@ -7,6 +9,82 @@ from app.services.recovery_drill_history_service import RecoveryDrillHistoryEntr
 from app.services.runtime_retention_history_service import RuntimeRetentionHistoryEntry, RuntimeRetentionHistorySnapshot
 from app.services.runtime_retention_service import RuntimeRetentionCleanupSummary
 from app.services.runtime_status_service import build_runtime_status_snapshot
+
+
+@pytest.fixture(autouse=True)
+def _isolate_runtime_assurance_history(mocker):
+    mocker.patch(
+        "app.services.runtime_status_service.build_recovery_drill_history_snapshot",
+        return_value=RecoveryDrillHistorySnapshot(
+            status="available",
+            artifact_directory="artifacts/durable-recovery-drill",
+            latest_file_name="latest.json",
+            retained_file_names=["latest.json"],
+            retention_limit=30,
+            retention_max_age_days=90,
+            entries=[
+                RecoveryDrillHistoryEntry(
+                    evidence_file_name="latest.json",
+                    generated_at_utc=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                    operator_id="ops-user",
+                    backup_identifier="backup-123",
+                    status="passed",
+                )
+            ],
+            total_entries=1,
+            matched_entries=1,
+            returned_entries=1,
+            next_offset=None,
+            applied_filters={},
+            reason=None,
+        ),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.build_runtime_retention_history_snapshot",
+        return_value=RuntimeRetentionHistorySnapshot(
+            status="available",
+            artifact_directory="artifacts/runtime-retention-cleanup",
+            latest_file_name="latest.json",
+            retained_file_names=["latest.json"],
+            retention_limit=30,
+            retention_max_age_days=90,
+            entries=[
+                RuntimeRetentionHistoryEntry(
+                    evidence_file_name="latest.json",
+                    generated_at_utc=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                    operator_id="ops-user",
+                    trigger_mode="scheduled",
+                    job_id="retention-nightly",
+                    cleanup_mode="apply",
+                    status="applied",
+                    retention_days=30,
+                    prunable_execution_count=0,
+                    prunable_compute_job_count=0,
+                    prunable_async_result_count=0,
+                    prunable_lineage_record_count=0,
+                    prunable_lineage_artifact_count=0,
+                )
+            ],
+            total_entries=1,
+            matched_entries=1,
+            returned_entries=1,
+            next_offset=None,
+            applied_filters={},
+        ),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.run_runtime_retention_cleanup",
+        return_value=RuntimeRetentionCleanupSummary(
+            dry_run=True,
+            retention_days=30,
+            cutoff_utc=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+            prunable_execution_count=0,
+            prunable_compute_job_count=0,
+            prunable_async_result_count=0,
+            prunable_lineage_record_count=0,
+            prunable_lineage_artifact_count=0,
+        ),
+    )
 
 
 def test_runtime_status_snapshot_reports_ready_with_queue_stats(mocker):
@@ -171,7 +249,7 @@ def test_runtime_status_snapshot_reports_ready_with_queue_stats(mocker):
     assert snapshot.runtime_retention.status == "available"
     assert snapshot.runtime_retention.preview_status == "available"
     assert snapshot.runtime_retention.current_prunable_execution_count == 0
-    assert snapshot.runtime_retention.latest_status is None
+    assert snapshot.runtime_retention.latest_status == "applied"
 
 
 def test_runtime_status_snapshot_degrades_when_runtime_retention_is_stale_or_not_applied(mocker):

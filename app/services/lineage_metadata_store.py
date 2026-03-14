@@ -272,12 +272,16 @@ class LineageMetadataStore:
             return 0
         with self._session() as session:
             payloads = (
-                session.execute(select(LineagePayloadModel).where(LineagePayloadModel.calculation_id.in_(calculation_ids)))
+                session.execute(
+                    select(LineagePayloadModel).where(LineagePayloadModel.calculation_id.in_(calculation_ids))
+                )
                 .scalars()
                 .all()
             )
             records = (
-                session.execute(select(LineageRecordModel).where(LineageRecordModel.calculation_id.in_(calculation_ids)))
+                session.execute(
+                    select(LineageRecordModel).where(LineageRecordModel.calculation_id.in_(calculation_ids))
+                )
                 .scalars()
                 .all()
             )

@@ -122,6 +122,49 @@ def test_lineage_storage_health_reports_write_probe_failure(monkeypatch, tmp_pat
     assert status.reason == "lineage_storage_write_probe_failed"
 
 
+def test_lineage_storage_health_reports_invalid_storage_path(monkeypatch, tmp_path):
+    file_path = tmp_path / "not-a-directory"
+    file_path.write_text("x", encoding="utf-8")
+    monkeypatch.setattr(
+        durability_health_service,
+        "get_settings",
+        lambda: type(
+            "Settings",
+            (),
+            {
+                "LINEAGE_STORAGE_PATH": file_path,
+                "LINEAGE_STORAGE_HEALTHCHECK_WRITE_PROBE_ENABLED": False,
+            },
+        )(),
+    )
+
+    status = durability_health_service.check_lineage_storage_ready()
+
+    assert status.is_ready is False
+    assert status.reason == "lineage_storage_path_invalid"
+
+
+def test_lineage_storage_health_reports_unreadable_storage_path(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        durability_health_service,
+        "get_settings",
+        lambda: type(
+            "Settings",
+            (),
+            {
+                "LINEAGE_STORAGE_PATH": tmp_path,
+                "LINEAGE_STORAGE_HEALTHCHECK_WRITE_PROBE_ENABLED": False,
+            },
+        )(),
+    )
+    monkeypatch.setattr(durability_health_service.os, "access", lambda *args: False)
+
+    status = durability_health_service.check_lineage_storage_ready()
+
+    assert status.is_ready is False
+    assert status.reason == "lineage_storage_path_unreadable"
+
+
 def test_lineage_storage_health_skips_write_probe_when_disabled(monkeypatch, tmp_path):
     monkeypatch.setattr(
         durability_health_service,
@@ -183,3 +226,37 @@ def test_get_lineage_storage_capacity_returns_free_space_snapshot(monkeypatch, t
     assert snapshot.free_bytes == 750
     assert snapshot.free_ratio == 0.75
     assert snapshot.used_ratio == 0.25
+
+
+def test_get_lineage_storage_capacity_requires_configured_path(monkeypatch):
+    monkeypatch.setattr(
+        durability_health_service,
+        "get_settings",
+        lambda: type("Settings", (), {"LINEAGE_STORAGE_PATH": None})(),
+    )
+
+    try:
+        durability_health_service.get_lineage_storage_capacity()
+    except FileNotFoundError as exc:
+        assert "not configured" in str(exc)
+    else:
+        raise AssertionError("expected FileNotFoundError")
+
+
+def test_get_lineage_storage_capacity_handles_zero_total_bytes(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        durability_health_service,
+        "get_settings",
+        lambda: type("Settings", (), {"LINEAGE_STORAGE_PATH": tmp_path})(),
+    )
+    monkeypatch.setattr(
+        durability_health_service.shutil,
+        "disk_usage",
+        lambda _: type("Usage", (), {"total": 0, "used": 0, "free": 0})(),
+    )
+
+    snapshot = durability_health_service.get_lineage_storage_capacity()
+
+    assert snapshot.total_bytes == 0
+    assert snapshot.free_ratio == 0.0
+    assert snapshot.used_ratio == 0.0

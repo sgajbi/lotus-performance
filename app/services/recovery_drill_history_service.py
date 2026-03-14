@@ -14,10 +14,10 @@ class RecoveryDrillHistoryEntry:
     evidence_file_name: str
     generated_at_utc: str
     operator_id: str
-    tenant_id: str | None
-    correlation_id: str | None
     backup_identifier: str
     status: str
+    tenant_id: str | None = None
+    correlation_id: str | None = None
 
 
 @dataclass(frozen=True)

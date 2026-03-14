@@ -538,7 +538,9 @@ def test_metrics_include_recovery_drill_breach_signals(mocker):
             entries=[
                 RuntimeRetentionHistoryEntry(
                     evidence_file_name="latest.json",
-                    generated_at_utc=(datetime.now(timezone.utc) - timedelta(seconds=600)).isoformat().replace("+00:00", "Z"),
+                    generated_at_utc=(datetime.now(timezone.utc) - timedelta(seconds=600))
+                    .isoformat()
+                    .replace("+00:00", "Z"),
                     operator_id="ops-user",
                     trigger_mode="scheduled",
                     job_id="retention-nightly",

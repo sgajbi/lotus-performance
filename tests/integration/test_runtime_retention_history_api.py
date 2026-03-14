@@ -68,7 +68,13 @@ def test_runtime_retention_history_api_returns_filtered_manifest(tmp_path, monke
     with TestClient(app) as client:
         response = client.get(
             "/integration/runtime-retention-cleanups",
-            params={"cleanup_mode": "apply", "trigger_mode": "scheduled", "job_id": "retention-nightly", "status": "applied", "limit": 1},
+            params={
+                "cleanup_mode": "apply",
+                "trigger_mode": "scheduled",
+                "job_id": "retention-nightly",
+                "status": "applied",
+                "limit": 1,
+            },
         )
 
     assert response.status_code == 200
@@ -77,7 +83,13 @@ def test_runtime_retention_history_api_returns_filtered_manifest(tmp_path, monke
     assert body["total_entries"] == 2
     assert body["matched_entries"] == 1
     assert body["returned_entries"] == 1
-    assert body["applied_filters"] == {"limit": 1, "trigger_mode": "scheduled", "job_id": "retention-nightly", "cleanup_mode": "apply", "status": "applied"}
+    assert body["applied_filters"] == {
+        "limit": 1,
+        "trigger_mode": "scheduled",
+        "job_id": "retention-nightly",
+        "cleanup_mode": "apply",
+        "status": "applied",
+    }
     assert body["entries"] == [
         {
             "evidence_file_name": "2026-03-15t00-00-00z.json",

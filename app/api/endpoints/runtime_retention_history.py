@@ -49,19 +49,23 @@ def _resolve_correlation_id(request: Request) -> str | None:
 )
 async def get_runtime_retention_history(
     limit: Annotated[
-        int | None, Query(ge=1, le=100, description="Maximum number of retained runtime-retention cleanup entries to return.")
+        int | None,
+        Query(ge=1, le=100, description="Maximum number of retained runtime-retention cleanup entries to return."),
     ] = None,
     offset: Annotated[
         int, Query(ge=0, description="Zero-based offset into the filtered retained runtime-retention cleanup history.")
     ] = 0,
     operator_id: Annotated[
-        str | None, Query(description="Filter retained runtime-retention cleanup history by operator or automation identity.")
+        str | None,
+        Query(description="Filter retained runtime-retention cleanup history by operator or automation identity."),
     ] = None,
     trigger_mode: Annotated[
-        str | None, Query(description="Filter retained runtime-retention cleanup history by manual or scheduled trigger mode.")
+        str | None,
+        Query(description="Filter retained runtime-retention cleanup history by manual or scheduled trigger mode."),
     ] = None,
     job_id: Annotated[
-        str | None, Query(description="Filter retained runtime-retention cleanup history by scheduler or automation job identity.")
+        str | None,
+        Query(description="Filter retained runtime-retention cleanup history by scheduler or automation job identity."),
     ] = None,
     cleanup_mode: Annotated[
         str | None, Query(description="Filter retained runtime-retention cleanup history by cleanup mode.")
@@ -71,11 +75,15 @@ async def get_runtime_retention_history(
     ] = None,
     generated_after: Annotated[
         str | None,
-        Query(description="Filter retained runtime-retention cleanup history to entries generated at or after this ISO-8601 timestamp."),
+        Query(
+            description="Filter retained runtime-retention cleanup history to entries generated at or after this ISO-8601 timestamp."
+        ),
     ] = None,
     generated_before: Annotated[
         str | None,
-        Query(description="Filter retained runtime-retention cleanup history to entries generated at or before this ISO-8601 timestamp."),
+        Query(
+            description="Filter retained runtime-retention cleanup history to entries generated at or before this ISO-8601 timestamp."
+        ),
     ] = None,
 ) -> RuntimeRetentionHistoryResponse:
     snapshot = build_runtime_retention_history_snapshot(

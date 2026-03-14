@@ -36,7 +36,9 @@ def test_runtime_retention_worker_run_cleanup_cycle_uses_scheduled_identity(monk
             },
         )()
 
-    monkeypatch.setattr(runtime_retention_worker, "execute_runtime_retention_cleanup", _execute_runtime_retention_cleanup)
+    monkeypatch.setattr(
+        runtime_retention_worker, "execute_runtime_retention_cleanup", _execute_runtime_retention_cleanup
+    )
 
     runtime_retention_worker.run_cleanup_cycle(settings=settings)
 
@@ -52,10 +54,18 @@ def test_runtime_retention_worker_run_forever_bootstraps_and_sleeps(monkeypatch)
     calls: list[str] = []
     settings = _worker_settings(RUNTIME_RETENTION_WORKER_POLL_SECONDS=15.0)
 
-    monkeypatch.setattr(runtime_retention_worker.execution_registry, "create_schema", lambda: calls.append("exec_schema"))
-    monkeypatch.setattr(runtime_retention_worker.compute_job_store, "create_schema", lambda: calls.append("compute_schema"))
-    monkeypatch.setattr(runtime_retention_worker.async_result_store, "create_schema", lambda: calls.append("result_schema"))
-    monkeypatch.setattr(runtime_retention_worker.lineage_metadata_store, "create_schema", lambda: calls.append("lineage_schema"))
+    monkeypatch.setattr(
+        runtime_retention_worker.execution_registry, "create_schema", lambda: calls.append("exec_schema")
+    )
+    monkeypatch.setattr(
+        runtime_retention_worker.compute_job_store, "create_schema", lambda: calls.append("compute_schema")
+    )
+    monkeypatch.setattr(
+        runtime_retention_worker.async_result_store, "create_schema", lambda: calls.append("result_schema")
+    )
+    monkeypatch.setattr(
+        runtime_retention_worker.lineage_metadata_store, "create_schema", lambda: calls.append("lineage_schema")
+    )
     monkeypatch.setattr(
         runtime_retention_worker,
         "run_cleanup_cycle",
@@ -87,10 +97,18 @@ def test_runtime_retention_worker_run_forever_honors_pre_set_stop_event(monkeypa
     stop_event.set()
     calls: list[str] = []
 
-    monkeypatch.setattr(runtime_retention_worker.execution_registry, "create_schema", lambda: calls.append("exec_schema"))
-    monkeypatch.setattr(runtime_retention_worker.compute_job_store, "create_schema", lambda: calls.append("compute_schema"))
-    monkeypatch.setattr(runtime_retention_worker.async_result_store, "create_schema", lambda: calls.append("result_schema"))
-    monkeypatch.setattr(runtime_retention_worker.lineage_metadata_store, "create_schema", lambda: calls.append("lineage_schema"))
+    monkeypatch.setattr(
+        runtime_retention_worker.execution_registry, "create_schema", lambda: calls.append("exec_schema")
+    )
+    monkeypatch.setattr(
+        runtime_retention_worker.compute_job_store, "create_schema", lambda: calls.append("compute_schema")
+    )
+    monkeypatch.setattr(
+        runtime_retention_worker.async_result_store, "create_schema", lambda: calls.append("result_schema")
+    )
+    monkeypatch.setattr(
+        runtime_retention_worker.lineage_metadata_store, "create_schema", lambda: calls.append("lineage_schema")
+    )
     monkeypatch.setattr(runtime_retention_worker, "run_cleanup_cycle", lambda **kwargs: calls.append("cleanup"))
 
     runtime_retention_worker.run_forever(stop_event=stop_event, settings=_worker_settings())

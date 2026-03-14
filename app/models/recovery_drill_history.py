@@ -9,8 +9,12 @@ class RecoveryDrillHistoryEntryResponse(BaseModel):
     evidence_file_name: str = Field(description="Timestamped recovery-drill evidence artifact file name.")
     generated_at_utc: str = Field(description="UTC timestamp when this recovery drill evidence was generated.")
     operator_id: str = Field(description="Operator or automation identity that ran the recovery drill.")
-    tenant_id: str | None = Field(default=None, description="Enterprise tenant identity retained with this recovery drill, when present.")
-    correlation_id: str | None = Field(default=None, description="Enterprise correlation identifier retained with this recovery drill, when present.")
+    tenant_id: str | None = Field(
+        default=None, description="Enterprise tenant identity retained with this recovery drill, when present."
+    )
+    correlation_id: str | None = Field(
+        default=None, description="Enterprise correlation identifier retained with this recovery drill, when present."
+    )
     backup_identifier: str = Field(description="Backup or restore-set identifier validated by the recovery drill.")
     status: str = Field(description="Outcome status recorded for the retained recovery drill.")
 
@@ -26,19 +30,28 @@ class RecoveryDrillRunResponse(BaseModel):
     generated_at_utc: str = Field(description="UTC timestamp when this recovery drill evidence was generated.")
     evidence_file_name: str = Field(description="Timestamped recovery-drill evidence artifact file name.")
     operator_id: str = Field(description="Enterprise actor or service identity recorded for this recovery drill run.")
-    tenant_id: str | None = Field(default=None, description="Enterprise tenant identity recorded for this recovery drill run, when present.")
-    correlation_id: str | None = Field(default=None, description="Enterprise correlation identifier recorded for this recovery drill run, when present.")
+    tenant_id: str | None = Field(
+        default=None, description="Enterprise tenant identity recorded for this recovery drill run, when present."
+    )
+    correlation_id: str | None = Field(
+        default=None,
+        description="Enterprise correlation identifier recorded for this recovery drill run, when present.",
+    )
     backup_identifier: str = Field(description="Backup or restore-set identifier validated by this recovery drill.")
     status: str = Field(description="Outcome status recorded for this recovery drill run.")
     database_path: str = Field(description="Ephemeral durable metadata database path used during the recovery drill.")
     restored_schema_mode: str = Field(description="Schema restore or upgrade mode exercised during the recovery drill.")
-    owned_tables_present: list[str] = Field(description="Owned durable tables confirmed present during the recovery drill.")
+    owned_tables_present: list[str] = Field(
+        description="Owned durable tables confirmed present during the recovery drill."
+    )
     compute_job_processed_count: int = Field(description="Compute jobs processed during the recovery drill.")
     compute_async_result_status: str = Field(description="Async result status observed during the recovery drill.")
     compute_execution_status: str = Field(description="Execution status observed during the recovery drill.")
     processed_payload_count: int = Field(description="Lineage payloads processed during the recovery drill.")
     materialized_artifact_path: str = Field(description="Materialized artifact path produced by the recovery drill.")
-    materialized_artifact_exists: bool = Field(description="Whether the recovery drill confirmed the expected lineage artifact exists.")
+    materialized_artifact_exists: bool = Field(
+        description="Whether the recovery drill confirmed the expected lineage artifact exists."
+    )
 
 
 class RecoveryDrillHistoryResponse(BaseModel):

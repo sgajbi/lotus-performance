@@ -219,7 +219,9 @@ class ExecutionRegistry:
             cutoff = _normalize_filter_datetime(older_than, dialect_name=dialect_name)
             statement = (
                 select(AnalyticsExecutionModel.calculation_id)
-                .where(AnalyticsExecutionModel.status.in_([ExecutionStatus.COMPLETE.value, ExecutionStatus.FAILED.value]))
+                .where(
+                    AnalyticsExecutionModel.status.in_([ExecutionStatus.COMPLETE.value, ExecutionStatus.FAILED.value])
+                )
                 .where(AnalyticsExecutionModel.completed_at_utc.is_not(None))
                 .where(AnalyticsExecutionModel.completed_at_utc <= cutoff)
                 .order_by(AnalyticsExecutionModel.completed_at_utc.asc(), AnalyticsExecutionModel.created_at_utc.asc())

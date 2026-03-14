@@ -246,3 +246,34 @@ def test_execution_registry_lists_and_deletes_terminal_executions_older_than_cut
     assert registry.delete_executions([str(old_id)]) == 1
     assert registry.get_execution(old_id) is None
     assert registry.get_execution(recent_id) is not None
+
+
+def test_execution_registry_delete_executions_returns_zero_for_empty_input(tmp_path):
+    registry = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    registry.create_schema()
+
+    assert registry.delete_executions([]) == 0
+
+
+def test_execution_registry_fails_in_progress_stages(tmp_path):
+    registry = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    registry.create_schema()
+    calculation_id = uuid4()
+    registry.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="Attribution",
+        portfolio_id="PORT-STAGE",
+    )
+    registry.start_stage(calculation_id, "execution")
+    registry.start_stage(calculation_id, "lineage_materialization")
+    registry.complete_stage(calculation_id, "execution")
+
+    registry.fail_in_progress_stages(calculation_id, "worker crashed")
+
+    record = registry.get_execution(calculation_id)
+
+    assert record is not None
+    stages = {stage.stage_name: stage for stage in record.stages}
+    assert stages["execution"].status == ExecutionStageStatus.COMPLETE
+    assert stages["lineage_materialization"].status == ExecutionStageStatus.FAILED
+    assert stages["lineage_materialization"].error_message == "worker crashed"

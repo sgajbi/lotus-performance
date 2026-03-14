@@ -32,7 +32,9 @@ __all__ = [
 
 def parse_args() -> argparse.Namespace:
     settings = get_settings()
-    parser = argparse.ArgumentParser(description="Prune retained lotus-performance runtime state and lineage artifacts.")
+    parser = argparse.ArgumentParser(
+        description="Prune retained lotus-performance runtime state and lineage artifacts."
+    )
     parser.add_argument("--retention-days", type=int, default=None, help="Override runtime retention window in days.")
     parser.add_argument(
         "--apply",

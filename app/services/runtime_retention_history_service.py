@@ -14,8 +14,6 @@ class RuntimeRetentionHistoryEntry:
     evidence_file_name: str
     generated_at_utc: str
     operator_id: str
-    tenant_id: str | None
-    correlation_id: str | None
     trigger_mode: str
     job_id: str | None
     cleanup_mode: str
@@ -26,6 +24,8 @@ class RuntimeRetentionHistoryEntry:
     prunable_async_result_count: int
     prunable_lineage_record_count: int
     prunable_lineage_artifact_count: int
+    tenant_id: str | None = None
+    correlation_id: str | None = None
 
 
 @dataclass(frozen=True)

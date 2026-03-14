@@ -230,12 +230,8 @@ class DurableQueueCollector:
                 "Current runtime-retention items that would be pruned by a dry-run cleanup.",
                 labels=["category"],
             )
-            runtime_retention_prunable.add_metric(
-                ["execution"], runtime_retention_preview.prunable_execution_count
-            )
-            runtime_retention_prunable.add_metric(
-                ["compute_job"], runtime_retention_preview.prunable_compute_job_count
-            )
+            runtime_retention_prunable.add_metric(["execution"], runtime_retention_preview.prunable_execution_count)
+            runtime_retention_prunable.add_metric(["compute_job"], runtime_retention_preview.prunable_compute_job_count)
             runtime_retention_prunable.add_metric(
                 ["async_result"], runtime_retention_preview.prunable_async_result_count
             )

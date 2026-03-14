@@ -320,7 +320,9 @@ class RecoveryDrillDegradationPolicyResponse(BaseModel):
 
 
 class RuntimeRetentionStatusResponse(BaseModel):
-    status: str = Field(description="Runtime-retention cleanup assurance status for the retained control-plane history.")
+    status: str = Field(
+        description="Runtime-retention cleanup assurance status for the retained control-plane history."
+    )
     reason: str | None = Field(
         default=None,
         description="Primary runtime-retention degradation or unavailability reason for simple callers.",
@@ -340,21 +342,57 @@ class RuntimeRetentionStatusResponse(BaseModel):
         default_factory=list,
         description="Detailed runtime-retention degradation triggers with observed and threshold values.",
     )
-    latest_generated_at_utc: str | None = Field(default=None, description="UTC timestamp of the latest retained runtime-retention cleanup.")
-    latest_status: str | None = Field(default=None, description="Outcome status of the latest retained runtime-retention cleanup.")
-    latest_operator_id: str | None = Field(default=None, description="Operator or automation identity that ran the latest retained runtime-retention cleanup.")
-    latest_trigger_mode: str | None = Field(default=None, description="Whether the latest retained runtime-retention cleanup was triggered manually or by scheduled automation.")
-    latest_job_id: str | None = Field(default=None, description="Scheduler or automation job identity recorded for the latest retained runtime-retention cleanup, when present.")
-    latest_cleanup_mode: str | None = Field(default=None, description="Cleanup mode recorded for the latest retained runtime-retention cleanup.")
-    latest_retention_days: int | None = Field(default=None, description="Retention window in days used by the latest retained runtime-retention cleanup.")
-    latest_age_seconds: float | None = Field(default=None, description="Age in seconds of the latest retained runtime-retention cleanup.")
-    current_cutoff_utc: str | None = Field(default=None, description="Current runtime-retention cutoff timestamp under the active retention policy.")
-    current_retention_days: int | None = Field(default=None, description="Current runtime-retention window in days under the active retention policy.")
-    current_prunable_execution_count: int | None = Field(default=None, description="Current number of terminal execution records that would be pruned by a dry-run cleanup.")
-    current_prunable_compute_job_count: int | None = Field(default=None, description="Current number of terminal compute jobs that would be pruned by a dry-run cleanup.")
-    current_prunable_async_result_count: int | None = Field(default=None, description="Current number of async results that would be pruned by a dry-run cleanup.")
-    current_prunable_lineage_record_count: int | None = Field(default=None, description="Current number of terminal lineage records that would be pruned by a dry-run cleanup.")
-    current_prunable_lineage_artifact_count: int | None = Field(default=None, description="Current number of lineage artifact directories that would be pruned by a dry-run cleanup.")
+    latest_generated_at_utc: str | None = Field(
+        default=None, description="UTC timestamp of the latest retained runtime-retention cleanup."
+    )
+    latest_status: str | None = Field(
+        default=None, description="Outcome status of the latest retained runtime-retention cleanup."
+    )
+    latest_operator_id: str | None = Field(
+        default=None,
+        description="Operator or automation identity that ran the latest retained runtime-retention cleanup.",
+    )
+    latest_trigger_mode: str | None = Field(
+        default=None,
+        description="Whether the latest retained runtime-retention cleanup was triggered manually or by scheduled automation.",
+    )
+    latest_job_id: str | None = Field(
+        default=None,
+        description="Scheduler or automation job identity recorded for the latest retained runtime-retention cleanup, when present.",
+    )
+    latest_cleanup_mode: str | None = Field(
+        default=None, description="Cleanup mode recorded for the latest retained runtime-retention cleanup."
+    )
+    latest_retention_days: int | None = Field(
+        default=None, description="Retention window in days used by the latest retained runtime-retention cleanup."
+    )
+    latest_age_seconds: float | None = Field(
+        default=None, description="Age in seconds of the latest retained runtime-retention cleanup."
+    )
+    current_cutoff_utc: str | None = Field(
+        default=None, description="Current runtime-retention cutoff timestamp under the active retention policy."
+    )
+    current_retention_days: int | None = Field(
+        default=None, description="Current runtime-retention window in days under the active retention policy."
+    )
+    current_prunable_execution_count: int | None = Field(
+        default=None,
+        description="Current number of terminal execution records that would be pruned by a dry-run cleanup.",
+    )
+    current_prunable_compute_job_count: int | None = Field(
+        default=None, description="Current number of terminal compute jobs that would be pruned by a dry-run cleanup."
+    )
+    current_prunable_async_result_count: int | None = Field(
+        default=None, description="Current number of async results that would be pruned by a dry-run cleanup."
+    )
+    current_prunable_lineage_record_count: int | None = Field(
+        default=None,
+        description="Current number of terminal lineage records that would be pruned by a dry-run cleanup.",
+    )
+    current_prunable_lineage_artifact_count: int | None = Field(
+        default=None,
+        description="Current number of lineage artifact directories that would be pruned by a dry-run cleanup.",
+    )
 
 
 class RuntimeRetentionDegradationPolicyResponse(BaseModel):

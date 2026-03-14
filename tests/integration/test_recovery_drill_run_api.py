@@ -69,7 +69,9 @@ def test_recovery_drill_run_api_requires_runtime_manage_capability_when_enterpri
     tmp_path,
     monkeypatch,
 ):
-    monkeypatch.setattr(get_settings(), "RECOVERY_DRILL_ARTIFACT_PATH", tmp_path / "artifacts" / "durable-recovery-drill")
+    monkeypatch.setattr(
+        get_settings(), "RECOVERY_DRILL_ARTIFACT_PATH", tmp_path / "artifacts" / "durable-recovery-drill"
+    )
     monkeypatch.setenv("ENTERPRISE_ENFORCE_AUTHZ", "true")
 
     headers = {
