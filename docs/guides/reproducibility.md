@@ -36,6 +36,12 @@ runs asynchronously in the lineage worker. This means there may be a short delay
 lineage artifacts for a new `calculation_id` become available, but the work is not dependent
 on in-process background tasks.
 
+Materialized lineage includes a `manifest.json` artifact that carries the calculation type,
+completion timestamp, status, and artifact inventory. The lineage read path validates that
+manifest against the durable metadata record before returning lineage as complete, so a stale
+or partially corrupted manifest degrades cleanly instead of silently drifting from the DB-backed
+audit record.
+
 ### Retrieving Lineage Artifacts
 
 You can retrieve the download URLs for all captured artifacts using a `GET` request to the lineage endpoint.

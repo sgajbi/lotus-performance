@@ -68,12 +68,14 @@ def test_lineage_service_enqueue_and_materialize(tmp_path):
     assert manifest_data["calculation_type"] == "TEST"
     assert "timestamp_utc" in manifest_data
     assert manifest_data["status"] == "complete"
+    assert manifest_data["artifact_names"] == ["details.csv", "request.json", "response.json"]
 
     metadata = metadata_store.get_record(calc_id)
     assert metadata is not None
     assert metadata.status == LineageStatus.COMPLETE
     assert metadata.artifact_names == ["details.csv", "request.json", "response.json"]
     assert manifest_data["timestamp_utc"] == metadata.timestamp_utc
+    assert manifest_data["artifact_names"] == metadata.artifact_names
 
 
 def test_lineage_service_creates_storage_directory_if_missing(tmp_path):
@@ -302,3 +304,4 @@ def test_lineage_service_materialize_keeps_manifest_timestamp_in_sync_with_metad
     metadata = metadata_store.get_record(calc_id)
     assert metadata is not None
     assert metadata.timestamp_utc == manifest_data["timestamp_utc"]
+    assert metadata.artifact_names == manifest_data["artifact_names"]

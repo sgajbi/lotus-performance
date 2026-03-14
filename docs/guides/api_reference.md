@@ -76,6 +76,9 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 
 - purpose: retrieve durable lineage status and artifact URLs
 - response model: `app.api.endpoints.lineage.LineageResponse`
+- integrity note:
+  - complete lineage requires a readable `manifest.json` that is structurally valid and consistent with the durable lineage record
+  - inconsistent or corrupted manifests return `503` instead of silently serving drifted audit metadata
 
 ### `GET /performance/lineage/{calculation_id}/artifacts/{artifact_name}`
 

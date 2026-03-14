@@ -122,6 +122,30 @@ def test_get_lineage_invalid_manifest_returns_503(client):
     assert response.json()["detail"] == "Lineage manifest is invalid."
 
 
+def test_get_lineage_inconsistent_manifest_returns_503(client):
+    calculation_id = uuid4()
+    lineage_metadata_store.create_pending_record(calculation_id=calculation_id, calculation_type="TWR")
+    lineage_metadata_store.mark_complete(
+        calculation_id=calculation_id,
+        artifact_names=["request.json", "response.json"],
+    )
+    lineage_dir = os.path.join(settings.LINEAGE_STORAGE_PATH, str(calculation_id))
+    os.makedirs(lineage_dir, exist_ok=True)
+
+    manifest_path = os.path.join(lineage_dir, "manifest.json")
+    with open(manifest_path, "w", encoding="utf-8") as f:
+        json_manifest = (
+            '{"calculation_type":"TWR","timestamp_utc":"2026-01-01T00:00:00Z",'
+            '"status":"complete","artifact_names":["request.json"]}'
+        )
+        f.write(json_manifest)
+
+    response = client.get(f"/performance/lineage/{calculation_id}")
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Lineage manifest is inconsistent with durable metadata."
+
+
 def test_get_lineage_pending_returns_pending_status(client):
     calculation_id = uuid4()
     lineage_metadata_store.create_pending_record(calculation_id=calculation_id, calculation_type="TWR")

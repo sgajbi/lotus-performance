@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from app.core.config import get_settings
 from app.services.lineage_metadata_store import LineageStatus, lineage_metadata_store
@@ -28,10 +28,55 @@ class LineageResponse(BaseModel):
     error_message: Optional[str] = None
 
 
+class LineageManifest(BaseModel):
+    calculation_type: str
+    timestamp_utc: str
+    status: str
+    artifact_names: list[str]
+
+
 def _resolve_lineage_artifact_path(*, calculation_id: UUID, artifact_name: str) -> str:
     safe_artifact_name = LineageService._validate_artifact_filename(artifact_name)
     lineage_dir = os.path.join(get_settings().LINEAGE_STORAGE_PATH, str(calculation_id))
     return os.path.join(lineage_dir, safe_artifact_name)
+
+
+def _load_and_validate_manifest(*, manifest_path: str, record) -> LineageManifest:
+    try:
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            manifest_payload = json.load(f)
+    except OSError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Lineage manifest is unreadable.",
+        ) from None
+    except json.JSONDecodeError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Lineage manifest is invalid.",
+        ) from None
+
+    try:
+        manifest = LineageManifest.model_validate(manifest_payload)
+    except ValidationError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Lineage manifest is invalid.",
+        ) from None
+
+    expected_artifact_names = sorted(record.artifact_names)
+    if (
+        manifest.calculation_type != record.calculation_type
+        or manifest.timestamp_utc != record.timestamp_utc
+        or manifest.status != record.status.value
+        or sorted(manifest.artifact_names) != expected_artifact_names
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Lineage manifest is inconsistent with durable metadata.",
+        )
+
+    return manifest
 
 
 @router.get("/lineage/{calculation_id}", response_model=LineageResponse, summary="Retrieve Data Lineage Artifacts")
@@ -72,19 +117,7 @@ async def get_lineage_data(calculation_id: UUID, request: Request):
         if not os.path.exists(manifest_path):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lineage manifest not found.")
 
-        try:
-            with open(manifest_path, "r", encoding="utf-8") as f:
-                manifest_data = json.load(f)
-        except OSError:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Lineage manifest is unreadable.",
-            ) from None
-        except json.JSONDecodeError:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Lineage manifest is invalid.",
-            ) from None
+        manifest = _load_and_validate_manifest(manifest_path=manifest_path, record=record)
 
         for filename in record.artifact_names:
             if filename != "manifest.json":
@@ -97,8 +130,8 @@ async def get_lineage_data(calculation_id: UUID, request: Request):
 
         return LineageResponse(
             calculation_id=calculation_id,
-            calculation_type=record.calculation_type or manifest_data.get("calculation_type", "UNKNOWN"),
-            timestamp_utc=record.timestamp_utc or manifest_data.get("timestamp_utc", "N/A"),
+            calculation_type=manifest.calculation_type,
+            timestamp_utc=manifest.timestamp_utc,
             status=record.status,
             artifacts=artifacts,
             error_message=record.error_message,

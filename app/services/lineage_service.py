@@ -95,6 +95,7 @@ class LineageService:
                         "calculation_type": calculation_type,
                         "timestamp_utc": self._format_utc_timestamp(completion_timestamp),
                         "status": "complete",
+                        "artifact_names": sorted(artifact_names),
                     },
                     indent=2,
                 ),
