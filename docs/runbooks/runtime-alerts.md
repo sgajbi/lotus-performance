@@ -6,6 +6,7 @@
   - `docs/guides/api_reference.md`
   - `docs/technical/runtime_topology.md`
   - `docs/runbooks/durable-metadata-recovery.md`
+  - `docs/operations/runtime-alert-rule-templates.md`
 
 ## Primary Alert Gauges
 

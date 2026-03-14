@@ -90,6 +90,8 @@ Queue-pressure metrics are exposed from the API process by reading durable store
 
 Operator first response for these breach gauges is governed in
 [runtime-alerts.md](/C:/Users/Sandeep/projects/lotus-performance/docs/runbooks/runtime-alerts.md).
+Prometheus-style rule templates for the same gauges are governed in
+[runtime-alert-rule-templates.md](/C:/Users/Sandeep/projects/lotus-performance/docs/operations/runtime-alert-rule-templates.md).
 
 For point-in-time operator drill-down, `GET /integration/runtime-status` exposes the same
 durable queue state as a JSON control-plane snapshot, including the oldest pending, leased,

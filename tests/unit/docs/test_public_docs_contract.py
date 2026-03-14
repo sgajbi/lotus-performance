@@ -93,3 +93,21 @@ def test_runtime_alert_runbook_covers_breach_gauges():
     assert "GET /integration/recovery-drills" in runbook
     assert "docs/runbooks/runtime-alerts.md" in api_reference
     assert "runtime-alerts.md" in runtime_topology
+
+
+def test_runtime_alert_templates_cover_exported_breach_gauges():
+    templates = _read("docs/operations/runtime-alert-rule-templates.md")
+    runbook = _read("docs/runbooks/runtime-alerts.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    runtime_topology = _read("docs/technical/runtime_topology.md")
+
+    assert "lotus_performance_compute_queue_degradation_breach" in templates
+    assert "lotus_performance_lineage_queue_degradation_breach" in templates
+    assert "lotus_performance_lineage_storage_pressure_breach" in templates
+    assert "lotus_performance_recovery_drill_degradation_breach" in templates
+    assert "lotus_performance_durable_queue_store_availability" in templates
+    assert "lotus_performance_lineage_storage_capacity_availability" in templates
+    assert "lotus_performance_recovery_drill_availability" in templates
+    assert "docs/operations/runtime-alert-rule-templates.md" in runbook
+    assert "runtime-alert-rule-templates.md" in api_reference
+    assert "runtime-alert-rule-templates.md" in runtime_topology

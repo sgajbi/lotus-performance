@@ -237,6 +237,8 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 - includes durable queue metrics for compute and lineage backlog/failure pressure
 - operator runbook:
   - `docs/runbooks/runtime-alerts.md` is the governed first-response guide for queue, storage, and recovery-drill breach gauges
+- alert templates:
+  - `docs/operations/runtime-alert-rule-templates.md` provides Prometheus-style expressions for the breach and availability gauges exported here
 - includes alert-ready queue policy breach metrics:
   - `lotus_performance_compute_queue_degradation_breach{reason=...}`
   - `lotus_performance_lineage_queue_degradation_breach{reason=...}`
