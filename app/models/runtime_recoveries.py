@@ -5,11 +5,14 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 from app.models.runtime_status import DurableMetadataStoreStatusResponse
+from app.services.operator_navigation_service import build_operator_navigation_links
 from app.services.runtime_recovery_service import RuntimeRecoverySnapshot
 
 
 class ComputeRecoveryEventResponse(BaseModel):
     calculation_id: str = Field(description="Calculation handle of the recovered compute job.")
+    execution_path: str = Field(description="Execution polling path for the recovered compute job.")
+    lineage_path: str = Field(description="Lineage inspection path for the recovered compute job.")
     analytics_type: str = Field(description="Analytics workflow type for the recovered compute job.")
     recovery_kind: str = Field(description="Recovery path that returned the compute job to pending state.")
     recovered_at_utc: str = Field(description="UTC timestamp when the compute job re-entered pending state.")
@@ -22,6 +25,8 @@ class ComputeRecoveryEventResponse(BaseModel):
 
 class LineageRecoveryEventResponse(BaseModel):
     calculation_id: str = Field(description="Calculation handle of the recovered lineage item.")
+    execution_path: str = Field(description="Execution polling path for the recovered lineage item.")
+    lineage_path: str = Field(description="Lineage inspection path for the recovered lineage item.")
     calculation_type: str = Field(description="Analytics workflow type for the recovered lineage item.")
     recovery_kind: str = Field(description="Recovery path that returned the lineage item to pending state.")
     recovered_at_utc: str = Field(description="UTC timestamp when the lineage item re-entered pending state.")
@@ -108,6 +113,8 @@ def build_runtime_recoveries_response(snapshot: RuntimeRecoverySnapshot) -> Runt
         compute_recoveries=[
             ComputeRecoveryEventResponse(
                 calculation_id=item.calculation_id,
+                execution_path=build_operator_navigation_links(item.calculation_id).execution_path,
+                lineage_path=build_operator_navigation_links(item.calculation_id).lineage_path,
                 analytics_type=item.analytics_type,
                 recovery_kind=item.recovery_kind,
                 recovered_at_utc=item.recovered_at_utc,
@@ -119,6 +126,8 @@ def build_runtime_recoveries_response(snapshot: RuntimeRecoverySnapshot) -> Runt
         lineage_recoveries=[
             LineageRecoveryEventResponse(
                 calculation_id=item.calculation_id,
+                execution_path=build_operator_navigation_links(item.calculation_id).execution_path,
+                lineage_path=build_operator_navigation_links(item.calculation_id).lineage_path,
                 calculation_type=item.calculation_type,
                 recovery_kind=item.recovery_kind,
                 recovered_at_utc=item.recovered_at_utc,

@@ -51,4 +51,8 @@ def test_build_runtime_recoveries_response_serializes_snapshot():
     assert response.queue_filter == "both"
     assert response.compute_queue.total_count == 1
     assert response.compute_recoveries[0].calculation_id == "calc-1"
+    assert response.compute_recoveries[0].execution_path == "/performance/executions/calc-1"
+    assert response.compute_recoveries[0].lineage_path == "/performance/lineage/calc-1"
     assert response.lineage_recoveries[0].calculation_id == "lineage-1"
+    assert response.lineage_recoveries[0].execution_path == "/performance/executions/lineage-1"
+    assert response.lineage_recoveries[0].lineage_path == "/performance/lineage/lineage-1"

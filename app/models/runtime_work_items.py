@@ -5,11 +5,14 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 from app.models.runtime_status import DurableMetadataStoreStatusResponse
+from app.services.operator_navigation_service import build_operator_navigation_links
 from app.services.runtime_work_item_service import RuntimeWorkItemSnapshot
 
 
 class ComputeRuntimeWorkItemResponse(BaseModel):
     calculation_id: str = Field(description="Calculation handle for the compute work item.")
+    execution_path: str = Field(description="Execution polling path for this compute work item.")
+    lineage_path: str = Field(description="Lineage inspection path for this compute work item.")
     analytics_type: str = Field(description="Analytics workflow type for the compute work item.")
     status: str = Field(description="Current compute work-item lifecycle state.")
     active_since_utc: str | None = Field(
@@ -34,6 +37,8 @@ class ComputeRuntimeWorkItemResponse(BaseModel):
 
 class LineageRuntimeWorkItemResponse(BaseModel):
     calculation_id: str = Field(description="Calculation handle for the lineage work item.")
+    execution_path: str = Field(description="Execution polling path for this lineage work item.")
+    lineage_path: str = Field(description="Lineage inspection path for this lineage work item.")
     calculation_type: str = Field(description="Analytics workflow type that produced this lineage work item.")
     status: str = Field(description="Current lineage work-item lifecycle state.")
     active_since_utc: str | None = Field(
@@ -133,6 +138,8 @@ def build_runtime_work_items_response(snapshot: RuntimeWorkItemSnapshot) -> Runt
         compute_items=[
             ComputeRuntimeWorkItemResponse(
                 calculation_id=item.calculation_id,
+                execution_path=build_operator_navigation_links(item.calculation_id).execution_path,
+                lineage_path=build_operator_navigation_links(item.calculation_id).lineage_path,
                 analytics_type=item.analytics_type,
                 status=item.status,
                 active_since_utc=item.active_since_utc,
@@ -147,6 +154,8 @@ def build_runtime_work_items_response(snapshot: RuntimeWorkItemSnapshot) -> Runt
         lineage_items=[
             LineageRuntimeWorkItemResponse(
                 calculation_id=item.calculation_id,
+                execution_path=build_operator_navigation_links(item.calculation_id).execution_path,
+                lineage_path=build_operator_navigation_links(item.calculation_id).lineage_path,
                 calculation_type=item.calculation_type,
                 status=item.status,
                 active_since_utc=item.active_since_utc,

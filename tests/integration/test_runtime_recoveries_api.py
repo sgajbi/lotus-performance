@@ -55,7 +55,11 @@ def test_runtime_recoveries_returns_filtered_events():
         assert body["compute_queue"]["total_count"] == 1
         assert body["lineage_queue"]["total_count"] == 1
         assert body["compute_recoveries"][0]["calculation_id"] == str(compute_id)
+        assert body["compute_recoveries"][0]["execution_path"] == f"/performance/executions/{compute_id}"
+        assert body["compute_recoveries"][0]["lineage_path"] == f"/performance/lineage/{compute_id}"
         assert body["lineage_recoveries"][0]["calculation_id"] == str(lineage_id)
+        assert body["lineage_recoveries"][0]["execution_path"] == f"/performance/executions/{lineage_id}"
+        assert body["lineage_recoveries"][0]["lineage_path"] == f"/performance/lineage/{lineage_id}"
     finally:
         compute_job_store.clear_all_records()
         lineage_metadata_store.clear_all_records()
