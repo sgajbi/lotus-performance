@@ -66,6 +66,25 @@ def test_recovery_drill_history_snapshot_reports_invalid_manifest(tmp_path):
     assert snapshot.entries == []
 
 
+def test_recovery_drill_history_snapshot_reports_invalid_manifest_shape(tmp_path):
+    artifact_dir = tmp_path / "artifacts" / "durable-recovery-drill"
+    artifact_dir.mkdir(parents=True)
+    manifest = {
+        "latest_file_name": "2026-03-14t00-00-00.json",
+        "retained_file_names": ["2026-03-14t00-00-00.json"],
+        "retention_limit": 30,
+        "retention_max_age_days": 90,
+        "entries": [{"generated_at_utc": "2026-03-14T00:00:00Z"}],
+    }
+    (artifact_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    snapshot = build_recovery_drill_history_snapshot(artifact_directory=artifact_dir)
+
+    assert snapshot.status == "unavailable"
+    assert snapshot.reason == "recovery_drill_manifest_invalid"
+    assert snapshot.entries == []
+
+
 def test_recovery_drill_history_snapshot_applies_filters_and_limit(tmp_path):
     artifact_dir = tmp_path / "artifacts" / "durable-recovery-drill"
     artifact_dir.mkdir(parents=True)
