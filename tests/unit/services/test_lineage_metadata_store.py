@@ -73,8 +73,11 @@ def test_lineage_metadata_store_payload_queue_roundtrip(tmp_path):
     assert payloads[0].details == {"details.csv": "a,b\n1,2\n"}
     assert payloads[0].attempt_count == 0
 
-    store.increment_attempt_count(calculation_id)
-    assert store.list_pending_payloads(limit=10)[0].attempt_count == 1
+    leased = store.lease_pending_payloads(worker_id="lineage-worker-1", limit=10, lease_seconds=60)
+    assert len(leased) == 1
+    assert leased[0].attempt_count == 1
+    assert leased[0].worker_id == "lineage-worker-1"
+
     payload = store.get_payload(calculation_id)
     assert payload is not None
     assert payload.attempt_count == 1
@@ -143,6 +146,37 @@ def test_lineage_metadata_store_pending_payload_stats(tmp_path):
     assert stats.oldest_pending_age_seconds == 45.0
 
 
+def test_lineage_metadata_store_leases_pending_payloads_once_until_expiry(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+
+    store.enqueue_lineage_payload(
+        calculation_id=calculation_id,
+        calculation_type="TWR",
+        request_json="{}",
+        response_json="{}",
+        details={"details.json": "{}"},
+    )
+
+    first_claim = store.lease_pending_payloads(worker_id="lineage-worker-1", limit=10, lease_seconds=60)
+    second_claim = store.lease_pending_payloads(worker_id="lineage-worker-2", limit=10, lease_seconds=60)
+
+    assert len(first_claim) == 1
+    assert second_claim == []
+
+    with store._session() as session:
+        payload = session.get(LineagePayloadModel, str(calculation_id))
+        assert payload is not None
+        payload.lease_expires_at_utc = datetime.now(timezone.utc) - timedelta(seconds=1)
+
+    reclaimed = store.lease_pending_payloads(worker_id="lineage-worker-2", limit=10, lease_seconds=60)
+
+    assert len(reclaimed) == 1
+    assert reclaimed[0].worker_id == "lineage-worker-2"
+    assert reclaimed[0].attempt_count == 2
+
+
 def test_lineage_metadata_store_mark_pending_clears_error(tmp_path):
     store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
     store.create_schema()
@@ -156,6 +190,31 @@ def test_lineage_metadata_store_mark_pending_clears_error(tmp_path):
     assert record is not None
     assert record.status == LineageStatus.PENDING
     assert record.error_message is None
+    payload = store.get_payload(calculation_id)
+    assert payload is None
+
+
+def test_lineage_metadata_store_mark_pending_releases_payload_lease(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+
+    store.enqueue_lineage_payload(
+        calculation_id=calculation_id,
+        calculation_type="TWR",
+        request_json="{}",
+        response_json="{}",
+        details={"details.json": "{}"},
+    )
+    store.lease_pending_payloads(worker_id="lineage-worker-1", limit=10, lease_seconds=60)
+
+    store.mark_pending(calculation_id=calculation_id)
+
+    payload = store.get_payload(calculation_id)
+    assert payload is not None
+    assert payload.worker_id is None
+    assert payload.leased_at_utc is None
+    assert payload.lease_expires_at_utc is None
 
 
 def test_lineage_metadata_store_declares_hot_path_indexes(tmp_path):
@@ -171,6 +230,7 @@ def test_lineage_metadata_store_declares_hot_path_indexes(tmp_path):
 
     assert record_indexes["ix_lineage_records_status"] == ("status",)
     assert payload_indexes["ix_lineage_payloads_created_at"] == ("created_at_utc",)
+    assert payload_indexes["ix_lineage_payloads_lease_expires_at"] == ("lease_expires_at_utc",)
 
 
 def test_lineage_metadata_store_get_pending_payload_stats_uses_single_aggregate_query(tmp_path):
@@ -200,3 +260,45 @@ def test_lineage_metadata_store_get_pending_payload_stats_uses_single_aggregate_
     assert stats.pending_payload_count == 1
     select_statements = [statement for statement in statements if statement.lstrip().upper().startswith("SELECT")]
     assert len(select_statements) == 1
+
+
+def test_lineage_metadata_store_create_schema_migrates_existing_payload_table(tmp_path):
+    database_path = tmp_path / "lineage_legacy.db"
+    store = LineageMetadataStore(f"sqlite:///{database_path}")
+
+    with store._engine.begin() as connection:
+        connection.exec_driver_sql(
+            """
+            CREATE TABLE lineage_records (
+                calculation_id VARCHAR(36) PRIMARY KEY,
+                calculation_type VARCHAR(64) NOT NULL,
+                status VARCHAR(32) NOT NULL,
+                timestamp_utc DATETIME NOT NULL,
+                artifact_names TEXT NOT NULL DEFAULT '',
+                error_message TEXT
+            )
+            """
+        )
+        connection.exec_driver_sql(
+            """
+            CREATE TABLE lineage_payloads (
+                calculation_id VARCHAR(36) PRIMARY KEY,
+                calculation_type VARCHAR(64) NOT NULL,
+                request_json TEXT NOT NULL,
+                response_json TEXT NOT NULL,
+                details_json TEXT NOT NULL,
+                created_at_utc DATETIME NOT NULL,
+                attempt_count INTEGER NOT NULL DEFAULT 0
+            )
+            """
+        )
+
+    store.create_schema()
+
+    payload_columns = {column["name"] for column in inspect(store._engine).get_columns("lineage_payloads")}
+    payload_indexes = {
+        index["name"]: tuple(index["column_names"]) for index in inspect(store._engine).get_indexes("lineage_payloads")
+    }
+
+    assert {"worker_id", "leased_at_utc", "lease_expires_at_utc"}.issubset(payload_columns)
+    assert payload_indexes["ix_lineage_payloads_lease_expires_at"] == ("lease_expires_at_utc",)

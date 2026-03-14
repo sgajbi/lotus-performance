@@ -15,10 +15,13 @@ settings = get_settings()
 
 def process_pending_jobs(*, limit: int | None = None) -> int:
     batch_size = limit or settings.LINEAGE_WORKER_BATCH_SIZE
-    pending = lineage_metadata_store.list_pending_payloads(limit=batch_size)
+    pending = lineage_metadata_store.lease_pending_payloads(
+        worker_id=settings.LINEAGE_WORKER_ID,
+        limit=batch_size,
+        lease_seconds=settings.LINEAGE_WORKER_LEASE_SECONDS,
+    )
     processed = 0
     for payload in pending:
-        lineage_metadata_store.increment_attempt_count(payload.calculation_id)
         success = lineage_service.materialize_payload(
             calculation_id=payload.calculation_id,
             calculation_type=payload.calculation_type,

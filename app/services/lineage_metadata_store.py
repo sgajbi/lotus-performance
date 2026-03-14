@@ -3,12 +3,12 @@ from __future__ import annotations
 import json
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from enum import StrEnum
 from typing import Iterator
 from uuid import UUID
 
-from sqlalchemy import DateTime, Index, Integer, String, Text, case, create_engine, func, select
+from sqlalchemy import DateTime, Index, Integer, String, Text, case, create_engine, func, inspect, select, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.core.config import get_settings
@@ -38,7 +38,10 @@ class LineageRecordModel(Base):
 
 class LineagePayloadModel(Base):
     __tablename__ = "lineage_payloads"
-    __table_args__ = (Index("ix_lineage_payloads_created_at", "created_at_utc"),)
+    __table_args__ = (
+        Index("ix_lineage_payloads_created_at", "created_at_utc"),
+        Index("ix_lineage_payloads_lease_expires_at", "lease_expires_at_utc"),
+    )
 
     calculation_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     calculation_type: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -47,6 +50,9 @@ class LineagePayloadModel(Base):
     details_json: Mapped[str] = mapped_column(Text, nullable=False)
     created_at_utc: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    worker_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    leased_at_utc: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    lease_expires_at_utc: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 @dataclass(frozen=True)
@@ -67,6 +73,9 @@ class LineagePayload:
     response_json: str
     details: dict[str, str]
     attempt_count: int
+    worker_id: str | None = None
+    leased_at_utc: str | None = None
+    lease_expires_at_utc: str | None = None
 
 
 @dataclass(frozen=True)
@@ -83,6 +92,12 @@ def _coerce_utc_datetime(value: datetime) -> datetime:
     return value.astimezone(timezone.utc)
 
 
+def _format_timestamp(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    return _coerce_utc_datetime(value).isoformat().replace("+00:00", "Z")
+
+
 class LineageMetadataStore:
     def __init__(self, database_url: str):
         connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
@@ -91,6 +106,7 @@ class LineageMetadataStore:
 
     def create_schema(self) -> None:
         Base.metadata.create_all(self._engine)
+        self._ensure_payload_lease_columns()
 
     @contextmanager
     def _session(self) -> Iterator[Session]:
@@ -133,6 +149,11 @@ class LineageMetadataStore:
                 raise KeyError(f"Lineage record not found: {calculation_id}")
             record.status = LineageStatus.FAILED.value
             record.error_message = error_message
+            payload = session.get(LineagePayloadModel, str(calculation_id))
+            if payload is not None:
+                payload.worker_id = None
+                payload.leased_at_utc = None
+                payload.lease_expires_at_utc = None
 
     def mark_pending(self, calculation_id: UUID) -> None:
         with self._session() as session:
@@ -141,6 +162,11 @@ class LineageMetadataStore:
                 raise KeyError(f"Lineage record not found: {calculation_id}")
             record.status = LineageStatus.PENDING.value
             record.error_message = None
+            payload = session.get(LineagePayloadModel, str(calculation_id))
+            if payload is not None:
+                payload.worker_id = None
+                payload.leased_at_utc = None
+                payload.lease_expires_at_utc = None
 
     def get_record(self, calculation_id: UUID) -> LineageRecord | None:
         with self._session() as session:
@@ -189,6 +215,9 @@ class LineageMetadataStore:
                 details_json=json.dumps(details),
                 created_at_utc=now,
                 attempt_count=0,
+                worker_id=None,
+                leased_at_utc=None,
+                lease_expires_at_utc=None,
             )
             session.merge(record)
             session.merge(payload)
@@ -211,9 +240,31 @@ class LineageMetadataStore:
                     response_json=payload.response_json,
                     details=json.loads(payload.details_json),
                     attempt_count=payload.attempt_count,
+                    worker_id=payload.worker_id,
+                    leased_at_utc=_format_timestamp(payload.leased_at_utc),
+                    lease_expires_at_utc=_format_timestamp(payload.lease_expires_at_utc),
                 )
                 for payload, _ in rows
             ]
+
+    def lease_pending_payloads(self, *, worker_id: str, limit: int, lease_seconds: int) -> list[LineagePayload]:
+        now = datetime.now(timezone.utc)
+        lease_expiry = now + timedelta(seconds=lease_seconds)
+        with self._session() as session:
+            statement = self._build_lease_pending_payloads_statement(
+                now=now,
+                limit=limit,
+                dialect_name=session.bind.dialect.name if session.bind is not None else "",
+            )
+            rows = session.execute(statement).scalars().all()
+            leased: list[LineagePayload] = []
+            for row in rows:
+                row.worker_id = worker_id
+                row.leased_at_utc = now
+                row.lease_expires_at_utc = lease_expiry
+                row.attempt_count += 1
+                leased.append(self._to_payload(row))
+            return leased
 
     def increment_attempt_count(self, calculation_id: UUID) -> None:
         with self._session() as session:
@@ -234,6 +285,9 @@ class LineageMetadataStore:
                 response_json=payload.response_json,
                 details=json.loads(payload.details_json),
                 attempt_count=payload.attempt_count,
+                worker_id=payload.worker_id,
+                leased_at_utc=_format_timestamp(payload.leased_at_utc),
+                lease_expires_at_utc=_format_timestamp(payload.lease_expires_at_utc),
             )
 
     def delete_payload(self, calculation_id: UUID) -> None:
@@ -286,6 +340,60 @@ class LineageMetadataStore:
                 retry_backlog_count=int(aggregate_row.retry_backlog_count or 0),
                 terminal_failure_count=int(aggregate_row.terminal_failure_count or 0),
                 oldest_pending_age_seconds=oldest_pending_age_seconds,
+            )
+
+    def _build_lease_pending_payloads_statement(self, *, now: datetime, limit: int, dialect_name: str):
+        statement = (
+            select(LineagePayloadModel)
+            .join(LineageRecordModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
+            .where(
+                (LineageRecordModel.status == LineageStatus.PENDING.value)
+                & (
+                    LineagePayloadModel.lease_expires_at_utc.is_(None)
+                    | (LineagePayloadModel.lease_expires_at_utc < now)
+                )
+            )
+            .order_by(LineagePayloadModel.created_at_utc.asc())
+            .limit(limit)
+        )
+        if dialect_name == "postgresql":
+            statement = statement.with_for_update(skip_locked=True)
+        return statement
+
+    def _to_payload(self, payload: LineagePayloadModel) -> LineagePayload:
+        return LineagePayload(
+            calculation_id=UUID(payload.calculation_id),
+            calculation_type=payload.calculation_type,
+            request_json=payload.request_json,
+            response_json=payload.response_json,
+            details=json.loads(payload.details_json),
+            attempt_count=payload.attempt_count,
+            worker_id=payload.worker_id,
+            leased_at_utc=_format_timestamp(payload.leased_at_utc),
+            lease_expires_at_utc=_format_timestamp(payload.lease_expires_at_utc),
+        )
+
+    def _ensure_payload_lease_columns(self) -> None:
+        inspector = inspect(self._engine)
+        if "lineage_payloads" not in inspector.get_table_names():
+            return
+
+        existing_columns = {column["name"] for column in inspector.get_columns("lineage_payloads")}
+        missing_columns = {
+            "worker_id": "ALTER TABLE lineage_payloads ADD COLUMN worker_id VARCHAR(128)",
+            "leased_at_utc": "ALTER TABLE lineage_payloads ADD COLUMN leased_at_utc DATETIME",
+            "lease_expires_at_utc": "ALTER TABLE lineage_payloads ADD COLUMN lease_expires_at_utc DATETIME",
+        }
+
+        with self._engine.begin() as connection:
+            for column_name, statement in missing_columns.items():
+                if column_name not in existing_columns:
+                    connection.execute(text(statement))
+            connection.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_lineage_payloads_lease_expires_at "
+                    "ON lineage_payloads (lease_expires_at_utc)"
+                )
             )
 
 
