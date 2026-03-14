@@ -257,6 +257,11 @@ def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
         )
 
     if snapshot.status != "available":
+        if snapshot.reason in {
+            "recovery_drill_artifact_directory_missing",
+            "recovery_drill_manifest_missing",
+        }:
+            return _build_missing_recovery_drill_status(threshold=threshold)
         return RecoveryDrillStatus(
             status="unavailable",
             reason=snapshot.reason or snapshot.status,
@@ -270,28 +275,7 @@ def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
         )
 
     if not snapshot.entries:
-        details: tuple[RuntimeDegradationDetail, ...] = ()
-        missing_history_reasons: tuple[str, ...] = ()
-        if threshold > 0:
-            missing_history_reasons = ("recovery_drill_history_unavailable",)
-            details = (
-                RuntimeDegradationDetail(
-                    reason="recovery_drill_history_unavailable",
-                    observed_value=_as_decimal_number(0),
-                    threshold_value=_as_decimal_number(threshold),
-                ),
-            )
-        return RecoveryDrillStatus(
-            status="available" if not missing_history_reasons else "degraded",
-            reason=None if not missing_history_reasons else missing_history_reasons[0],
-            latest_generated_at_utc=None,
-            latest_status=None,
-            latest_operator_id=None,
-            latest_backup_identifier=None,
-            latest_age_seconds=None,
-            degradation_reasons=missing_history_reasons,
-            degradation_details=details,
-        )
+        return _build_missing_recovery_drill_status(threshold=threshold)
 
     latest = snapshot.entries[0]
     latest_generated_at = datetime.fromisoformat(latest.generated_at_utc.replace("Z", "+00:00"))
@@ -449,6 +433,31 @@ def _lineage_queue_degradation_details(stats: LineageQueueStats, *, settings) ->
 
 def _as_decimal_number(value: object) -> Decimal:
     return Decimal(str(value))
+
+
+def _build_missing_recovery_drill_status(*, threshold: float) -> RecoveryDrillStatus:
+    details: tuple[RuntimeDegradationDetail, ...] = ()
+    missing_history_reasons: tuple[str, ...] = ()
+    if threshold > 0:
+        missing_history_reasons = ("recovery_drill_history_unavailable",)
+        details = (
+            RuntimeDegradationDetail(
+                reason="recovery_drill_history_unavailable",
+                observed_value=_as_decimal_number(0),
+                threshold_value=_as_decimal_number(threshold),
+            ),
+        )
+    return RecoveryDrillStatus(
+        status="available" if not missing_history_reasons else "degraded",
+        reason=None if not missing_history_reasons else missing_history_reasons[0],
+        latest_generated_at_utc=None,
+        latest_status=None,
+        latest_operator_id=None,
+        latest_backup_identifier=None,
+        latest_age_seconds=None,
+        degradation_reasons=missing_history_reasons,
+        degradation_details=details,
+    )
 
 
 def _collect_runtime_degradation_reasons(

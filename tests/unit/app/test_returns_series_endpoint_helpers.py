@@ -37,6 +37,13 @@ from app.models.returns_series import (
     StatefulInput,
     StatelessInput,
 )
+from app.services.execution_registry import execution_registry
+
+
+@pytest.fixture(autouse=True)
+def _reset_execution_registry() -> None:
+    execution_registry.create_schema()
+    execution_registry.clear_all_records()
 
 
 @pytest.mark.parametrize(
