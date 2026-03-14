@@ -13,6 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.core.config import get_settings
+from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
 
 
 class ComputeJobStatus(StrEnum):
@@ -687,5 +688,11 @@ class ComputeJobStore:
         )
 
 
-settings = get_settings()
-compute_job_store = ComputeJobStore(settings.LINEAGE_METADATA_DATABASE_URL)
+_store_cache: dict[str, ComputeJobStore] = {}
+
+
+def get_compute_job_store(*, database_url: str | None = None) -> ComputeJobStore:
+    return resolve_runtime_store(cache=_store_cache, factory=ComputeJobStore, database_url=database_url)
+
+
+compute_job_store = RuntimeStoreProxy(get_compute_job_store)

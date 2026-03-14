@@ -2,13 +2,15 @@ from app.services import durability_health_service
 
 
 def test_durability_health_service_reports_ready(monkeypatch):
-    monkeypatch.setattr(durability_health_service.execution_registry, "ping", lambda: None)
-    monkeypatch.setattr(
-        "app.services.durability_health_service.inspect",
-        lambda _engine: type(
-            "Inspector", (), {"get_table_names": lambda self: list(durability_health_service.REQUIRED_DURABLE_TABLES)}
-        )(),
-    )
+    registry = type(
+        "Registry",
+        (),
+        {
+            "ping": staticmethod(lambda: None),
+            "list_table_names": staticmethod(lambda: list(durability_health_service.REQUIRED_DURABLE_TABLES)),
+        },
+    )()
+    monkeypatch.setattr(durability_health_service, "get_execution_registry", lambda: registry)
 
     status = durability_health_service.check_durable_metadata_store_ready()
 
@@ -21,7 +23,15 @@ def test_durability_health_service_reports_unavailable_on_ping_failure(monkeypat
     def _boom():
         raise RuntimeError("db down")
 
-    monkeypatch.setattr(durability_health_service.execution_registry, "ping", _boom)
+    registry = type(
+        "Registry",
+        (),
+        {
+            "ping": staticmethod(_boom),
+            "list_table_names": staticmethod(lambda: list(durability_health_service.REQUIRED_DURABLE_TABLES)),
+        },
+    )()
+    monkeypatch.setattr(durability_health_service, "get_execution_registry", lambda: registry)
 
     status = durability_health_service.check_durable_metadata_store_ready()
 
@@ -31,15 +41,15 @@ def test_durability_health_service_reports_unavailable_on_ping_failure(monkeypat
 
 
 def test_durability_health_service_reports_unavailable_on_missing_required_schema(monkeypatch):
-    monkeypatch.setattr(durability_health_service.execution_registry, "ping", lambda: None)
-    monkeypatch.setattr(
-        "app.services.durability_health_service.inspect",
-        lambda _engine: type(
-            "Inspector",
-            (),
-            {"get_table_names": lambda self: list(durability_health_service.REQUIRED_DURABLE_TABLES[:-1])},
-        )(),
-    )
+    registry = type(
+        "Registry",
+        (),
+        {
+            "ping": staticmethod(lambda: None),
+            "list_table_names": staticmethod(lambda: list(durability_health_service.REQUIRED_DURABLE_TABLES[:-1])),
+        },
+    )()
+    monkeypatch.setattr(durability_health_service, "get_execution_registry", lambda: registry)
 
     status = durability_health_service.check_durable_metadata_store_ready()
 

@@ -11,7 +11,7 @@ from uuid import UUID
 from sqlalchemy import DateTime, Index, Integer, String, Text, case, create_engine, func, inspect, select, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
-from app.core.config import get_settings
+from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
 
 
 class LineageStatus(StrEnum):
@@ -596,5 +596,11 @@ class LineageMetadataStore:
             )
 
 
-settings = get_settings()
-lineage_metadata_store = LineageMetadataStore(settings.LINEAGE_METADATA_DATABASE_URL)
+_store_cache: dict[str, LineageMetadataStore] = {}
+
+
+def get_lineage_metadata_store(*, database_url: str | None = None) -> LineageMetadataStore:
+    return resolve_runtime_store(cache=_store_cache, factory=LineageMetadataStore, database_url=database_url)
+
+
+lineage_metadata_store = RuntimeStoreProxy(get_lineage_metadata_store)

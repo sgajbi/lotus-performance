@@ -11,7 +11,7 @@ from uuid import UUID
 from sqlalchemy import DateTime, String, Text, create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
-from app.core.config import get_settings
+from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
 
 
 class AsyncResultStatus(StrEnum):
@@ -135,5 +135,11 @@ class AsyncResultStore:
             )
 
 
-settings = get_settings()
-async_result_store = AsyncResultStore(settings.LINEAGE_METADATA_DATABASE_URL)
+_store_cache: dict[str, AsyncResultStore] = {}
+
+
+def get_async_result_store(*, database_url: str | None = None) -> AsyncResultStore:
+    return resolve_runtime_store(cache=_store_cache, factory=AsyncResultStore, database_url=database_url)
+
+
+async_result_store = RuntimeStoreProxy(get_async_result_store)
