@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from app.services.recovery_drill_history_service import build_recovery_drill_history_snapshot
 
@@ -171,3 +172,34 @@ def test_recovery_drill_history_snapshot_applies_offset_and_time_window(tmp_path
         "generated_before": "2026-03-14T00:00:00Z",
     }
     assert [entry.evidence_file_name for entry in snapshot.entries] == ["2026-03-13t00-00-00.json"]
+
+
+def test_recovery_drill_history_snapshot_reads_runtime_config_each_call(tmp_path, mocker):
+    artifact_dir = tmp_path / "artifacts" / "durable-recovery-drill"
+    artifact_dir.mkdir(parents=True)
+    manifest = {
+        "latest_file_name": "2026-03-14t00-00-00.json",
+        "retained_file_names": ["2026-03-14t00-00-00.json"],
+        "retention_limit": 30,
+        "retention_max_age_days": 90,
+        "entries": [
+            {
+                "evidence_file_name": "2026-03-14t00-00-00.json",
+                "generated_at_utc": "2026-03-14T00:00:00Z",
+                "operator_id": "ops-user",
+                "backup_identifier": "backup-123",
+                "status": "passed",
+            }
+        ],
+    }
+    (artifact_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    mocker.patch(
+        "app.services.recovery_drill_history_service.get_settings",
+        return_value=type("Settings", (), {"RECOVERY_DRILL_ARTIFACT_PATH": Path(artifact_dir)})(),
+    )
+
+    snapshot = build_recovery_drill_history_snapshot()
+
+    assert snapshot.status == "available"
+    assert snapshot.artifact_directory == str(artifact_dir)
+    assert snapshot.latest_file_name == "2026-03-14t00-00-00.json"

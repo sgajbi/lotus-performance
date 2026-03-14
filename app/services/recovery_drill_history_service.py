@@ -7,8 +7,6 @@ from pathlib import Path
 
 from app.core.config import get_settings
 
-settings = get_settings()
-
 
 @dataclass(frozen=True)
 class RecoveryDrillHistoryEntry:
@@ -47,7 +45,7 @@ def build_recovery_drill_history_snapshot(
     generated_after: str | None = None,
     generated_before: str | None = None,
 ) -> RecoveryDrillHistorySnapshot:
-    directory = artifact_directory or settings.RECOVERY_DRILL_ARTIFACT_PATH
+    directory = artifact_directory or get_settings().RECOVERY_DRILL_ARTIFACT_PATH
     manifest_path = directory / "manifest.json"
     applied_filters = _build_applied_filters(
         limit=limit,
