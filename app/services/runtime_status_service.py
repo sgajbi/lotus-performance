@@ -13,7 +13,10 @@ from app.services.compute_job_store import (
 )
 from app.services.durability_health_service import (
     DurabilityHealthStatus,
+    LineageStorageCapacitySnapshot,
     check_durable_metadata_store_ready,
+    check_lineage_storage_ready,
+    get_lineage_storage_capacity,
 )
 from app.services.lineage_metadata_store import (
     LineageQueueInspectionAnchors,
@@ -35,6 +38,7 @@ class RuntimeQueueStatus:
     stats: ComputeQueueStats | LineageQueueStats | None
     inspection_anchors: ComputeQueueInspectionAnchors | LineageQueueInspectionAnchors | None
     recent_recoveries: tuple[ComputeRecoveryEvent | LineageRecoveryEvent, ...]
+    storage_capacity: LineageStorageCapacitySnapshot | None = None
 
 
 @dataclass(frozen=True)
@@ -60,6 +64,8 @@ class LineageQueueDegradationPolicy:
     leased_age_seconds: float
     retry_backlog_count: int
     terminal_failure_count: int
+    storage_min_free_bytes: int
+    storage_min_free_ratio: float
 
 
 @dataclass(frozen=True)
@@ -201,11 +207,38 @@ def _build_lineage_queue_status(durability_status: DurabilityHealthStatus, *, se
             inspection_anchors=None,
             recent_recoveries=(),
         )
+    lineage_storage_status = check_lineage_storage_ready()
+    if not lineage_storage_status.is_ready:
+        return RuntimeQueueStatus(
+            status="unavailable",
+            reason=lineage_storage_status.reason or "lineage_storage_unavailable",
+            degradation_reasons=(),
+            degradation_details=(),
+            stats=None,
+            inspection_anchors=None,
+            recent_recoveries=(),
+        )
+    try:
+        storage_capacity = get_lineage_storage_capacity()
+    except Exception:
+        return RuntimeQueueStatus(
+            status="unavailable",
+            reason="lineage_storage_capacity_unreadable",
+            degradation_reasons=(),
+            degradation_details=(),
+            stats=None,
+            inspection_anchors=None,
+            recent_recoveries=(),
+        )
     try:
         stats = lineage_metadata_store.get_pending_payload_stats()
         inspection_anchors = _safe_lineage_queue_inspection_anchors()
         recent_recoveries = _safe_lineage_recent_recoveries(settings=settings)
-        degradation_details = _lineage_queue_degradation_details(stats, settings=settings)
+        degradation_details = _lineage_queue_degradation_details(
+            stats,
+            storage_capacity=storage_capacity,
+            settings=settings,
+        )
         degradation_reasons = tuple(detail.reason for detail in degradation_details)
         if degradation_reasons:
             return RuntimeQueueStatus(
@@ -216,6 +249,7 @@ def _build_lineage_queue_status(durability_status: DurabilityHealthStatus, *, se
                 stats=stats,
                 inspection_anchors=inspection_anchors,
                 recent_recoveries=recent_recoveries,
+                storage_capacity=storage_capacity,
             )
         return RuntimeQueueStatus(
             status="available",
@@ -225,6 +259,7 @@ def _build_lineage_queue_status(durability_status: DurabilityHealthStatus, *, se
             stats=stats,
             inspection_anchors=inspection_anchors,
             recent_recoveries=recent_recoveries,
+            storage_capacity=storage_capacity,
         )
     except Exception as exc:
         return RuntimeQueueStatus(
@@ -417,7 +452,12 @@ def _compute_queue_degradation_details(stats: ComputeQueueStats, *, settings) ->
     return tuple(details)
 
 
-def _lineage_queue_degradation_details(stats: LineageQueueStats, *, settings) -> tuple[RuntimeDegradationDetail, ...]:
+def _lineage_queue_degradation_details(
+    stats: LineageQueueStats,
+    *,
+    storage_capacity: LineageStorageCapacitySnapshot,
+    settings,
+) -> tuple[RuntimeDegradationDetail, ...]:
     details: list[RuntimeDegradationDetail] = []
     lineage_leased_age_degrade_seconds = getattr(settings, "RUNTIME_STATUS_LINEAGE_LEASED_AGE_DEGRADE_SECONDS", 0.0)
     lineage_retry_backlog_degrade_count = getattr(settings, "RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT", 0)
@@ -461,6 +501,24 @@ def _lineage_queue_degradation_details(stats: LineageQueueStats, *, settings) ->
                 reason="lineage_pending_age_exceeded",
                 observed_value=_as_decimal_number(stats.oldest_pending_age_seconds),
                 threshold_value=_as_decimal_number(lineage_pending_age_degrade_seconds),
+            )
+        )
+    lineage_storage_min_free_bytes = getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES", 0)
+    lineage_storage_min_free_ratio = getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO", 0.0)
+    if lineage_storage_min_free_bytes > 0 and storage_capacity.free_bytes <= lineage_storage_min_free_bytes:
+        details.append(
+            RuntimeDegradationDetail(
+                reason="lineage_storage_free_bytes_below_threshold",
+                observed_value=_as_decimal_number(storage_capacity.free_bytes),
+                threshold_value=_as_decimal_number(lineage_storage_min_free_bytes),
+            )
+        )
+    if lineage_storage_min_free_ratio > 0 and storage_capacity.free_ratio <= lineage_storage_min_free_ratio:
+        details.append(
+            RuntimeDegradationDetail(
+                reason="lineage_storage_free_ratio_below_threshold",
+                observed_value=_as_decimal_number(storage_capacity.free_ratio),
+                threshold_value=_as_decimal_number(lineage_storage_min_free_ratio),
             )
         )
     return tuple(details)
@@ -546,6 +604,8 @@ def _build_lineage_queue_policy(*, settings) -> LineageQueueDegradationPolicy:
         leased_age_seconds=getattr(settings, "RUNTIME_STATUS_LINEAGE_LEASED_AGE_DEGRADE_SECONDS", 0.0),
         retry_backlog_count=getattr(settings, "RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT", 0),
         terminal_failure_count=getattr(settings, "RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT", 0),
+        storage_min_free_bytes=getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES", 0),
+        storage_min_free_ratio=getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO", 0.0),
     )
 
 

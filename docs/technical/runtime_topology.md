@@ -73,9 +73,33 @@ Queue-pressure metrics are exposed from the API process by reading durable store
 - `lotus_performance_compute_queue_oldest_pending_age_seconds`
 - `lotus_performance_compute_queue_oldest_leased_age_seconds`
 - `lotus_performance_compute_queue_oldest_running_age_seconds`
+- `lotus_performance_compute_queue_degradation_breach{reason=...}`
 - `lotus_performance_lineage_queue_pending_payloads`
 - `lotus_performance_lineage_queue_failure_pressure_payloads{category=...}`
 - `lotus_performance_lineage_queue_oldest_pending_age_seconds`
+- `lotus_performance_lineage_queue_degradation_breach{reason=...}`
+- `lotus_performance_lineage_storage_capacity_availability`
+- `lotus_performance_lineage_storage_capacity_bytes{segment=...}`
+- `lotus_performance_lineage_storage_free_ratio`
+- `lotus_performance_lineage_storage_pressure_threshold{threshold=...}`
+- `lotus_performance_lineage_storage_pressure_breach{reason=...}`
+- `lotus_performance_recovery_drill_availability`
+- `lotus_performance_recovery_drill_latest_age_seconds`
+- `lotus_performance_recovery_drill_policy_threshold{threshold=...}`
+- `lotus_performance_recovery_drill_degradation_breach{reason=...}`
+
+Operator first response for these breach gauges is governed in
+[runtime-alerts.md](/C:/Users/Sandeep/projects/lotus-performance/docs/runbooks/runtime-alerts.md).
+Prometheus-style rule templates for the same gauges are governed in
+[runtime-alert-rule-templates.md](/C:/Users/Sandeep/projects/lotus-performance/docs/operations/runtime-alert-rule-templates.md).
+Severity and response defaults for those rules are governed in
+[runtime-alert-policy.md](/C:/Users/Sandeep/projects/lotus-performance/docs/standards/runtime-alert-policy.md).
+Recommended dev, staging, and production threshold values are governed in
+[runtime-threshold-profiles.md](/C:/Users/Sandeep/projects/lotus-performance/docs/standards/runtime-threshold-profiles.md).
+Concrete `.env` overlays for those profiles live under
+[`docs/examples/`](/C:/Users/Sandeep/projects/lotus-performance/docs/examples).
+Compose override examples for the same profiles also live there and can be layered over
+[`docker-compose.yml`](/C:/Users/Sandeep/projects/lotus-performance/docker-compose.yml).
 
 For point-in-time operator drill-down, `GET /integration/runtime-status` exposes the same
 durable queue state as a JSON control-plane snapshot, including the oldest pending, leased,

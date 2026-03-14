@@ -45,10 +45,13 @@ Evidence:
 ## Reliability and Operations Baseline
 
 - Resilience controls, health checks, migration contract checks, and operational runbook standards are enforced.
+- Runtime breach gauges, alert templates, and severity defaults are governed.
 
 Evidence:
 - `app/clients/http_resilience.py`
 - `docs/standards/scalability-availability.md`
+- `docs/standards/runtime-alert-policy.md`
+- `docs/standards/runtime-threshold-profiles.md`
 - `docs/standards/migration-contract.md`
 
 ## Privacy and Compliance Baseline

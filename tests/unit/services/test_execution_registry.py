@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
@@ -189,3 +190,31 @@ def test_execution_registry_declares_upstream_snapshot_ordering_index(tmp_path):
 
     assert indexes["ix_upstream_snapshot_calculation_created_at"] == ("calculation_id", "created_at_utc")
     assert "ix_analytics_upstream_snapshot_calculation_id" not in indexes
+
+
+def test_execution_registry_formats_sqlite_timestamps_as_utc(tmp_path):
+    registry = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    registry.create_schema()
+    calculation_id = uuid4()
+    created_at = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+    started_at = datetime(2026, 3, 14, 12, 5, tzinfo=timezone.utc)
+    completed_at = datetime(2026, 3, 14, 12, 10, tzinfo=timezone.utc)
+
+    registry.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="TWR",
+        portfolio_id="PORT-UTC",
+    )
+
+    with registry._session() as session:
+        execution = registry._get_execution_model(session, calculation_id)
+        execution.created_at_utc = created_at
+        execution.started_at_utc = started_at
+        execution.completed_at_utc = completed_at
+
+    record = registry.get_execution(calculation_id)
+
+    assert record is not None
+    assert record.created_at_utc == "2026-03-14T12:00:00Z"
+    assert record.started_at_utc == "2026-03-14T12:05:00Z"
+    assert record.completed_at_utc == "2026-03-14T12:10:00Z"

@@ -11,12 +11,32 @@ def test_build_runtime_recoveries_response_serializes_snapshot():
         queue_filter="both",
         limit=5,
         offset=0,
+        recovered_after=datetime(2026, 3, 13, 0, 0, tzinfo=UTC),
+        recovered_before=datetime(2026, 3, 15, 0, 0, tzinfo=UTC),
+        cursor_recovered_before=datetime(2026, 3, 14, 0, 0, tzinfo=UTC),
+        cursor_calculation_id_before="calc-2",
         calculation_id_contains="calc",
         compute_analytics_type="ReturnsSeries",
         lineage_calculation_type="TWR",
         durable_metadata_store=DurabilityHealthStatus(is_ready=True, status="ready", reason=None),
-        compute_queue=RuntimeRecoveryQueueState(status="available", reason=None, total_count=1, returned_count=1),
-        lineage_queue=RuntimeRecoveryQueueState(status="available", reason=None, total_count=1, returned_count=1),
+        compute_queue=RuntimeRecoveryQueueState(
+            status="available",
+            reason=None,
+            total_count=1,
+            returned_count=1,
+            next_offset=1,
+            next_cursor_recovered_before="2026-03-14T00:00:00Z",
+            next_cursor_calculation_id_before="calc-2",
+        ),
+        lineage_queue=RuntimeRecoveryQueueState(
+            status="available",
+            reason=None,
+            total_count=1,
+            returned_count=1,
+            next_offset=None,
+            next_cursor_recovered_before=None,
+            next_cursor_calculation_id_before=None,
+        ),
         compute_recoveries=[
             type(
                 "ComputeRecovery",
@@ -49,7 +69,14 @@ def test_build_runtime_recoveries_response_serializes_snapshot():
     response = build_runtime_recoveries_response(snapshot)
 
     assert response.queue_filter == "both"
+    assert response.recovered_after == datetime(2026, 3, 13, 0, 0, tzinfo=UTC)
+    assert response.recovered_before == datetime(2026, 3, 15, 0, 0, tzinfo=UTC)
+    assert response.cursor_recovered_before == datetime(2026, 3, 14, 0, 0, tzinfo=UTC)
+    assert response.cursor_calculation_id_before == "calc-2"
     assert response.compute_queue.total_count == 1
+    assert response.compute_queue.next_offset == 1
+    assert response.compute_queue.next_cursor_recovered_before == datetime(2026, 3, 14, 0, 0, tzinfo=UTC)
+    assert response.compute_queue.next_cursor_calculation_id_before == "calc-2"
     assert response.compute_recoveries[0].calculation_id == "calc-1"
     assert response.compute_recoveries[0].execution_path == "/performance/executions/calc-1"
     assert response.compute_recoveries[0].lineage_path == "/performance/lineage/calc-1"

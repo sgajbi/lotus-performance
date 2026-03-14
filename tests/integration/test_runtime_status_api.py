@@ -113,10 +113,9 @@ def test_runtime_status_reports_unavailable_durable_store(mocker):
         "lineage_queue:durable_metadata_store_unreachable",
     ]
     assert body["runtime_degradation_details"] == []
-    assert body["durable_metadata_store"] == {
-        "status": "unavailable",
-        "reason": "durable_metadata_store_unreachable",
-    }
+    assert body["durable_metadata_store"]["status"] == "unavailable"
+    assert body["durable_metadata_store"]["reason"] == "durable_metadata_store_unreachable"
+    assert "database URL" in body["durable_metadata_store"]["remediation_hint"]
     assert body["compute_queue"]["status"] == "unavailable"
     assert "pending_jobs" not in body["compute_queue"]
     assert body["lineage_queue"]["status"] == "unavailable"
@@ -152,6 +151,72 @@ def test_runtime_status_reports_unavailable_recovery_history_snapshot(mocker):
     assert body["recovery_drill"]["status"] == "unavailable"
     assert body["recovery_drill"]["reason"] == "artifact_directory_unreadable"
     assert "latest_status" not in body["recovery_drill"]
+
+
+def test_runtime_status_reports_unavailable_lineage_storage(mocker):
+    mocker.patch(
+        "app.services.runtime_status_service.check_lineage_storage_ready",
+        return_value=type("StorageStatus", (), {"is_ready": False, "reason": "lineage_storage_path_missing"})(),
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/integration/runtime-status")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["runtime_status"] == "degraded"
+    assert body["runtime_degradation_reasons"] == ["lineage_queue:lineage_storage_path_missing"]
+    assert body["lineage_queue"]["status"] == "unavailable"
+    assert body["lineage_queue"]["reason"] == "lineage_storage_path_missing"
+    assert "configured lineage storage directory" in body["lineage_queue"]["remediation_hint"]
+    assert "pending_payloads" not in body["lineage_queue"]
+
+
+def test_runtime_status_reports_degraded_lineage_storage_capacity_pressure(mocker):
+    mocker.patch(
+        "app.services.runtime_status_service.get_lineage_storage_capacity",
+        return_value=type(
+            "Capacity",
+            (),
+            {
+                "total_bytes": 1000,
+                "used_bytes": 850,
+                "free_bytes": 150,
+                "free_ratio": 0.15,
+                "used_ratio": 0.85,
+            },
+        )(),
+    )
+
+    settings = __import__("app.core.config", fromlist=["get_settings"]).get_settings()
+    original_bytes = settings.RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES
+    original_ratio = settings.RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO
+    settings.RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES = 200
+    settings.RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO = 0.2
+
+    try:
+        with TestClient(app) as client:
+            response = client.get("/integration/runtime-status")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["runtime_status"] == "degraded"
+        assert body["runtime_degradation_reasons"] == [
+            "lineage_queue:lineage_storage_free_bytes_below_threshold",
+            "lineage_queue:lineage_storage_free_ratio_below_threshold",
+        ]
+        assert body["lineage_queue"]["status"] == "degraded"
+        assert body["lineage_queue"]["reason"] == "lineage_storage_free_bytes_below_threshold"
+        assert body["lineage_queue"]["remediation_hint"].startswith("Free space on the lineage storage filesystem")
+        assert body["lineage_queue"]["storage_total_bytes"] == 1000
+        assert body["lineage_queue"]["storage_used_bytes"] == 850
+        assert body["lineage_queue"]["storage_free_bytes"] == 150
+        assert body["lineage_queue"]["storage_free_ratio"] == 0.15
+        assert body["lineage_queue_policy"]["storage_min_free_bytes"] == 200
+        assert body["lineage_queue_policy"]["storage_min_free_ratio"] == 0.2
+    finally:
+        settings.RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES = original_bytes
+        settings.RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO = original_ratio
 
 
 def test_runtime_status_reports_degraded_when_compute_age_threshold_is_exceeded():

@@ -111,6 +111,7 @@ class LineageQueueInspectionItem:
 @dataclass(frozen=True)
 class LineageQueueInspectionPage:
     total_count: int
+    next_offset: int | None
     items: list[LineageQueueInspectionItem]
 
 
@@ -126,6 +127,9 @@ class LineageRecoveryEvent:
 @dataclass(frozen=True)
 class LineageRecoveryEventPage:
     total_count: int
+    next_offset: int | None
+    next_cursor_recovered_before: str | None
+    next_cursor_calculation_id_before: str | None
     items: list[LineageRecoveryEvent]
 
 
@@ -133,6 +137,15 @@ def _coerce_utc_datetime(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=timezone.utc)
     return value.astimezone(timezone.utc)
+
+
+def _normalize_filter_datetime(value: datetime | None, *, dialect_name: str) -> datetime | None:
+    if value is None:
+        return None
+    normalized = _coerce_utc_datetime(value)
+    if dialect_name == "sqlite":
+        return normalized.replace(tzinfo=None)
+    return normalized
 
 
 def _format_timestamp(value: datetime | None) -> str | None:
@@ -176,12 +189,18 @@ class LineageMetadataStore:
             )
             session.merge(record)
 
-    def mark_complete(self, calculation_id: UUID, artifact_names: list[str]) -> None:
+    def mark_complete(
+        self,
+        calculation_id: UUID,
+        artifact_names: list[str],
+        *,
+        timestamp_utc: datetime | None = None,
+    ) -> None:
         with self._session() as session:
             record = session.get(LineageRecordModel, str(calculation_id))
             if record is None:
                 raise KeyError(f"Lineage record not found: {calculation_id}")
-            record.timestamp_utc = datetime.now(timezone.utc)
+            record.timestamp_utc = timestamp_utc or datetime.now(timezone.utc)
             record.status = LineageStatus.COMPLETE.value
             record.artifact_names = "\n".join(sorted(artifact_names))
             record.error_message = None
@@ -224,7 +243,7 @@ class LineageMetadataStore:
                 calculation_id=UUID(row.calculation_id),
                 calculation_type=row.calculation_type,
                 status=LineageStatus(row.status),
-                timestamp_utc=row.timestamp_utc.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
+                timestamp_utc=_format_timestamp(row.timestamp_utc) or "",
                 artifact_names=[name for name in row.artifact_names.splitlines() if name],
                 error_message=row.error_message,
             )
@@ -389,14 +408,29 @@ class LineageMetadataStore:
         offset: int = 0,
         calculation_type: str | None = None,
         calculation_id_contains: str | None = None,
+        recovered_after: datetime | None = None,
+        recovered_before: datetime | None = None,
+        cursor_recovered_before: datetime | None = None,
+        cursor_calculation_id_before: str | None = None,
     ) -> LineageRecoveryEventPage:
         with self._session() as session:
+            dialect_name = session.bind.dialect.name if session.bind is not None else ""
+            normalized_recovered_after = _normalize_filter_datetime(recovered_after, dialect_name=dialect_name)
+            normalized_recovered_before = _normalize_filter_datetime(recovered_before, dialect_name=dialect_name)
+            normalized_cursor_recovered_before = _normalize_filter_datetime(
+                cursor_recovered_before,
+                dialect_name=dialect_name,
+            )
             rows = session.execute(
                 self._build_recent_recoveries_statement(
                     limit=limit,
                     offset=offset,
                     calculation_type=calculation_type,
                     calculation_id_contains=calculation_id_contains,
+                    recovered_after=normalized_recovered_after,
+                    recovered_before=normalized_recovered_before,
+                    cursor_recovered_before=normalized_cursor_recovered_before,
+                    cursor_calculation_id_before=cursor_calculation_id_before,
                 )
             ).all()
             events: list[LineageRecoveryEvent] = []
@@ -418,11 +452,27 @@ class LineageMetadataStore:
                     self._build_recent_recoveries_count_statement(
                         calculation_type=calculation_type,
                         calculation_id_contains=calculation_id_contains,
+                        recovered_after=normalized_recovered_after,
+                        recovered_before=normalized_recovered_before,
+                        cursor_recovered_before=normalized_cursor_recovered_before,
+                        cursor_calculation_id_before=cursor_calculation_id_before,
                     )
                 ).scalar_one()
                 or 0
             )
-            return LineageRecoveryEventPage(total_count=total_count, items=events)
+            next_offset = offset + len(events) if offset + len(events) < total_count else None
+            next_cursor_recovered_before = None
+            next_cursor_calculation_id_before = None
+            if next_offset is not None and events:
+                next_cursor_recovered_before = events[-1].recovered_at_utc
+                next_cursor_calculation_id_before = events[-1].calculation_id
+            return LineageRecoveryEventPage(
+                total_count=total_count,
+                next_offset=next_offset,
+                next_cursor_recovered_before=next_cursor_recovered_before,
+                next_cursor_calculation_id_before=next_cursor_calculation_id_before,
+                items=events,
+            )
 
     def list_inspection_items(
         self,
@@ -505,7 +555,8 @@ class LineageMetadataStore:
             rows = session.execute(statement).all()
             items = [self._to_inspection_item(record, payload, now=inspection_now) for record, payload in rows]
             total_count = int(session.execute(count_statement).scalar_one() or 0)
-            return LineageQueueInspectionPage(total_count=total_count, items=items)
+            next_offset = offset + len(items) if offset + len(items) < total_count else None
+            return LineageQueueInspectionPage(total_count=total_count, next_offset=next_offset, items=items)
 
     def _build_pending_payload_stats_statement(self, *, now: datetime):
         return (
@@ -626,19 +677,29 @@ class LineageMetadataStore:
         offset: int,
         calculation_type: str | None,
         calculation_id_contains: str | None,
+        recovered_after: datetime | None,
+        recovered_before: datetime | None,
+        cursor_recovered_before: datetime | None,
+        cursor_calculation_id_before: str | None,
     ):
         statement = (
             select(LineageRecordModel, LineagePayloadModel)
             .join(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
             .where((LineageRecordModel.status == LineageStatus.PENDING.value) & (LineagePayloadModel.attempt_count > 0))
-            .order_by(LineageRecordModel.timestamp_utc.desc(), LineagePayloadModel.created_at_utc.desc())
+            .order_by(LineageRecordModel.timestamp_utc.desc(), LineageRecordModel.calculation_id.desc())
             .offset(offset)
             .limit(limit)
         )
-        return self._apply_inspection_filters(
-            statement,
-            calculation_type=calculation_type,
-            calculation_id_contains=calculation_id_contains,
+        return self._apply_recovery_time_filters(
+            self._apply_inspection_filters(
+                statement,
+                calculation_type=calculation_type,
+                calculation_id_contains=calculation_id_contains,
+            ),
+            recovered_after=recovered_after,
+            recovered_before=recovered_before,
+            cursor_recovered_before=cursor_recovered_before,
+            cursor_calculation_id_before=cursor_calculation_id_before,
         )
 
     def _build_recent_recoveries_count_statement(
@@ -646,6 +707,10 @@ class LineageMetadataStore:
         *,
         calculation_type: str | None,
         calculation_id_contains: str | None,
+        recovered_after: datetime | None,
+        recovered_before: datetime | None,
+        cursor_recovered_before: datetime | None,
+        cursor_calculation_id_before: str | None,
     ):
         statement = (
             select(func.count())
@@ -653,11 +718,40 @@ class LineageMetadataStore:
             .join(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
             .where((LineageRecordModel.status == LineageStatus.PENDING.value) & (LineagePayloadModel.attempt_count > 0))
         )
-        return self._apply_inspection_filters(
-            statement,
-            calculation_type=calculation_type,
-            calculation_id_contains=calculation_id_contains,
+        return self._apply_recovery_time_filters(
+            self._apply_inspection_filters(
+                statement,
+                calculation_type=calculation_type,
+                calculation_id_contains=calculation_id_contains,
+            ),
+            recovered_after=recovered_after,
+            recovered_before=recovered_before,
+            cursor_recovered_before=cursor_recovered_before,
+            cursor_calculation_id_before=cursor_calculation_id_before,
         )
+
+    @staticmethod
+    def _apply_recovery_time_filters(
+        statement,
+        *,
+        recovered_after: datetime | None,
+        recovered_before: datetime | None,
+        cursor_recovered_before: datetime | None,
+        cursor_calculation_id_before: str | None,
+    ):
+        if recovered_after is not None:
+            statement = statement.where(LineageRecordModel.timestamp_utc >= recovered_after)
+        if recovered_before is not None:
+            statement = statement.where(LineageRecordModel.timestamp_utc <= recovered_before)
+        if cursor_recovered_before is not None:
+            cursor_filter = LineageRecordModel.timestamp_utc < cursor_recovered_before
+            if cursor_calculation_id_before:
+                cursor_filter = cursor_filter | (
+                    (LineageRecordModel.timestamp_utc == cursor_recovered_before)
+                    & (LineageRecordModel.calculation_id < cursor_calculation_id_before)
+                )
+            statement = statement.where(cursor_filter)
+        return statement
 
     def _apply_inspection_filters(
         self, statement, *, calculation_type: str | None, calculation_id_contains: str | None

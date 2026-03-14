@@ -76,6 +76,10 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 
 - purpose: retrieve durable lineage status and artifact URLs
 - response model: `app.api.endpoints.lineage.LineageResponse`
+- integrity note:
+  - complete lineage requires a readable `manifest.json` that is structurally valid and consistent with the durable lineage record
+  - complete lineage also requires every declared artifact to exist on disk before URLs are returned
+  - inconsistent or corrupted manifests return `503` instead of silently serving drifted audit metadata
 
 ### `GET /performance/lineage/{calculation_id}/artifacts/{artifact_name}`
 
@@ -84,6 +88,8 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 - contract note:
   - only artifacts listed in the lineage record are downloadable
   - unknown artifact names return `404`
+  - missing or inconsistent lineage manifests return `503`
+  - artifacts declared in durable lineage but missing from storage return `503`
 
 ## Integration APIs
 
@@ -101,6 +107,13 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - aggregate `runtime_degradation_details`
   - draining state
   - durable metadata store availability
+  - remediation hints for durable metadata store and lineage queue unavailability reasons when the service knows the next recovery step
+  - lineage storage availability folded into `lineage_queue.status` / `lineage_queue.reason`
+  - lineage storage capacity details:
+    - `storage_total_bytes`
+    - `storage_used_bytes`
+    - `storage_free_bytes`
+    - `storage_free_ratio`
   - active compute and lineage degradation-policy thresholds
   - compute queue backlog details
   - oldest pending, leased, and running compute-job ages
@@ -118,6 +131,13 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - lineage `degradation_details`
   - lineage `degradation_reasons`
 - runtime may report `degraded` when configured queue-age or failure-pressure thresholds are exceeded
+- runtime also reports `degraded` when lineage storage is missing, invalid, or unreadable even if the durable DB remains healthy
+- runtime can also report lineage-storage saturation pressure before writes fail:
+  - `lineage_storage_free_bytes_below_threshold`
+  - `lineage_storage_free_ratio_below_threshold`
+- lineage queue policy now exposes:
+  - `storage_min_free_bytes`
+  - `storage_min_free_ratio`
 - use the inspection anchors to jump directly to:
   - `/performance/executions/{calculation_id}`
   - `/performance/lineage/{calculation_id}`
@@ -137,12 +157,13 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 - response includes:
   - durable metadata store availability
   - queue-specific availability for compute and lineage inspection
-  - queue-specific `total_count` and `returned_count`
+  - queue-specific `total_count`, `returned_count`, and `next_offset`
   - `reclaimable` isolates work whose durable worker lease already expired and is eligible for recovery or re-lease
   - echoed targeted filters for operator auditability
   - filtered compute work items with calculation handle, direct execution/lineage drill-down paths, optional async `result_path`, lifecycle state, age, attempts, and failure context
   - filtered lineage work items with calculation handle, direct execution/lineage drill-down paths, optional async `result_path`, lifecycle state, age, attempts, and failure context
 - use this when runtime-status tells you there is pressure, and you need the actual work items behind it without querying the database directly
+- `next_offset` is queue-local and only appears when additional filtered work items remain for that queue
 
 ### `GET /integration/runtime-recoveries`
 
@@ -151,16 +172,22 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - `queue`: `both`, `compute`, or `lineage`
   - `limit`: max recovery events returned per queue
   - `offset`: zero-based page offset applied per queue
+  - `recovered_after`: optional inclusive lower UTC timestamp bound on recovery-event timestamps
+  - `recovered_before`: optional inclusive upper UTC timestamp bound on recovery-event timestamps
+  - `cursor_recovered_before`: optional seek cursor timestamp for deterministic traversal of older matching events
+  - `cursor_calculation_id_before`: optional seek cursor calculation handle paired with the cursor timestamp
   - `compute_analytics_type`: optional compute-only analytics family filter
   - `lineage_calculation_type`: optional lineage-only calculation family filter
   - `calculation_id_contains`: optional calculation-handle substring filter across selected queues
 - response includes:
   - durable metadata store availability
   - queue-specific availability for compute and lineage recovery inspection
-  - queue-specific `total_count` and `returned_count`
+  - queue-specific `total_count`, `returned_count`, `next_offset`, `next_cursor_recovered_before`, and `next_cursor_calculation_id_before`
   - filtered compute recovery events with calculation handle, direct execution/lineage drill-down paths, optional async `result_path`, analytics type, recovery kind, recovery timestamp, attempt count, and last durable error type
   - filtered lineage recovery events with calculation handle, direct execution/lineage drill-down paths, optional async `result_path`, calculation type, recovery kind, recovery timestamp, and attempt count
 - use this when runtime-status shows recent recovery activity and you need the concrete event stream behind the bounded status snapshot without querying the database directly
+- `next_offset` is queue-local and only appears when additional filtered events remain for that queue
+- the cursor fields give deterministic seek pagination for hot recovery streams where offset paging may drift as new recoveries arrive
 
 ### `POST /integration/returns/series`
 
@@ -195,13 +222,43 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 - returns readiness only when:
   - the service is not draining
   - the durable metadata store is reachable
+  - lineage storage is present and usable
+- lineage storage usability includes a real write/delete health probe by default, not just path existence checks
 - failure contract:
   - `503 {"status":"draining"}`
   - `503 {"status":"unavailable","reason":"durable_metadata_store_unreachable"}`
+  - `503 {"status":"unavailable","reason":"lineage_storage_path_missing"}`
+  - `503 {"status":"unavailable","reason":"lineage_storage_write_probe_failed"}`
+- readiness failures may also include `remediation_hint` when the service has a concrete recovery recommendation
 
 ### `GET /metrics`
 
 - Prometheus metrics surface
+- includes durable queue metrics for compute and lineage backlog/failure pressure
+- operator runbook:
+  - `docs/runbooks/runtime-alerts.md` is the governed first-response guide for queue, storage, and recovery-drill breach gauges
+- alert templates:
+  - `docs/operations/runtime-alert-rule-templates.md` provides Prometheus-style expressions for the breach and availability gauges exported here
+- alert policy:
+  - `docs/standards/runtime-alert-policy.md` defines the default severity and response class for these breach and availability gauges
+- threshold profiles:
+  - `docs/standards/runtime-threshold-profiles.md` defines recommended dev, staging, and production values for the runtime degradation settings behind these gauges
+  - `docs/examples/runtime-thresholds.production.env` and its dev/staging companions provide concrete env overlays for those settings
+  - `docs/examples/docker-compose.runtime-thresholds.production.yml` and its dev/staging companions provide compose-ready override files for the same thresholds
+- includes alert-ready queue policy breach metrics:
+  - `lotus_performance_compute_queue_degradation_breach{reason=...}`
+  - `lotus_performance_lineage_queue_degradation_breach{reason=...}`
+- includes recovery assurance metrics:
+  - `lotus_performance_recovery_drill_availability`
+  - `lotus_performance_recovery_drill_latest_age_seconds`
+  - `lotus_performance_recovery_drill_policy_threshold{threshold="max_age_seconds"}`
+  - `lotus_performance_recovery_drill_degradation_breach{reason="recovery_drill_latest_not_passed|recovery_drill_age_exceeded"}`
+- includes lineage storage capacity metrics:
+  - `lotus_performance_lineage_storage_capacity_availability`
+  - `lotus_performance_lineage_storage_capacity_bytes{segment="total|used|free"}`
+  - `lotus_performance_lineage_storage_free_ratio`
+  - `lotus_performance_lineage_storage_pressure_threshold{threshold="min_free_bytes|min_free_ratio"}`
+  - `lotus_performance_lineage_storage_pressure_breach{reason="lineage_storage_free_bytes_below_threshold|lineage_storage_free_ratio_below_threshold"}`
 
 ## Async execution pattern
 

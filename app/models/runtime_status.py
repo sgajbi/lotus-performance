@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, PlainSerializer
 
 from app.services.compute_job_store import ComputeQueueInspectionAnchors, ComputeQueueStats, ComputeRecoveryEvent
 from app.services.lineage_metadata_store import LineageQueueInspectionAnchors, LineageQueueStats, LineageRecoveryEvent
+from app.services.remediation_hint_service import get_remediation_hint
 
 if TYPE_CHECKING:
     from app.services.runtime_status_service import RuntimeStatusSnapshot
@@ -21,6 +22,10 @@ class DurableMetadataStoreStatusResponse(BaseModel):
     reason: str | None = Field(
         default=None,
         description="Concrete degradation reason when the durable metadata store is unavailable.",
+    )
+    remediation_hint: str | None = Field(
+        default=None,
+        description="Operator guidance for resolving the current durable metadata store failure reason, when known.",
     )
 
 
@@ -164,6 +169,10 @@ class LineageQueueStatusDetailsResponse(BaseModel):
         default=None,
         description="Primary lineage queue degradation or unavailability reason for simple callers.",
     )
+    remediation_hint: str | None = Field(
+        default=None,
+        description="Operator guidance for resolving the current primary lineage queue failure reason, when known.",
+    )
     degradation_reasons: list[str] = Field(
         default_factory=list,
         description="All active lineage queue degradation reasons contributing to a degraded state.",
@@ -199,6 +208,22 @@ class LineageQueueStatusDetailsResponse(BaseModel):
     oldest_leased_age_seconds: float | None = Field(
         default=None,
         description="Age in seconds of the oldest claimed lineage payload still in progress.",
+    )
+    storage_total_bytes: int | None = Field(
+        default=None,
+        description="Total bytes available on the lineage artifact storage filesystem.",
+    )
+    storage_used_bytes: int | None = Field(
+        default=None,
+        description="Used bytes currently consumed on the lineage artifact storage filesystem.",
+    )
+    storage_free_bytes: int | None = Field(
+        default=None,
+        description="Free bytes currently remaining on the lineage artifact storage filesystem.",
+    )
+    storage_free_ratio: float | None = Field(
+        default=None,
+        description="Fraction of free capacity currently remaining on the lineage artifact storage filesystem.",
     )
     inspection_anchors: LineageQueueInspectionAnchorsResponse | None = Field(
         default=None,
@@ -243,6 +268,12 @@ class LineageQueueDegradationPolicyResponse(BaseModel):
     )
     terminal_failure_count: int = Field(
         description="Configured threshold that degrades runtime on lineage terminal-failure count."
+    )
+    storage_min_free_bytes: int = Field(
+        description="Configured minimum free bytes threshold for lineage storage before runtime degrades."
+    )
+    storage_min_free_ratio: float = Field(
+        description="Configured minimum free-capacity ratio threshold for lineage storage before runtime degrades."
     )
 
 
@@ -345,6 +376,7 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
     lineage_anchors = cast(LineageQueueInspectionAnchors | None, snapshot.lineage_queue.inspection_anchors)
     compute_recoveries = cast(tuple[ComputeRecoveryEvent, ...], snapshot.compute_queue.recent_recoveries)
     lineage_recoveries = cast(tuple[LineageRecoveryEvent, ...], snapshot.lineage_queue.recent_recoveries)
+    lineage_storage_capacity = snapshot.lineage_queue.storage_capacity
 
     return RuntimeStatusResponse(
         contract_version="v1",
@@ -357,6 +389,7 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
         durable_metadata_store=DurableMetadataStoreStatusResponse(
             status=snapshot.durable_metadata_store.status,
             reason=snapshot.durable_metadata_store.reason,
+            remediation_hint=get_remediation_hint(snapshot.durable_metadata_store.reason),
         ),
         compute_queue=ComputeQueueStatusDetailsResponse(
             status=snapshot.compute_queue.status,
@@ -401,6 +434,7 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
         lineage_queue=LineageQueueStatusDetailsResponse(
             status=snapshot.lineage_queue.status,
             reason=snapshot.lineage_queue.reason,
+            remediation_hint=get_remediation_hint(snapshot.lineage_queue.reason),
             degradation_reasons=list(snapshot.lineage_queue.degradation_reasons),
             degradation_details=_degradation_details_response(snapshot.lineage_queue.degradation_details),
             pending_payloads=None if lineage_stats is None else lineage_stats.pending_payload_count,
@@ -410,6 +444,10 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
             terminal_failure_payloads=None if lineage_stats is None else lineage_stats.terminal_failure_count,
             oldest_pending_age_seconds=None if lineage_stats is None else lineage_stats.oldest_pending_age_seconds,
             oldest_leased_age_seconds=None if lineage_stats is None else lineage_stats.oldest_leased_age_seconds,
+            storage_total_bytes=None if lineage_storage_capacity is None else lineage_storage_capacity.total_bytes,
+            storage_used_bytes=None if lineage_storage_capacity is None else lineage_storage_capacity.used_bytes,
+            storage_free_bytes=None if lineage_storage_capacity is None else lineage_storage_capacity.free_bytes,
+            storage_free_ratio=None if lineage_storage_capacity is None else lineage_storage_capacity.free_ratio,
             inspection_anchors=(
                 None
                 if lineage_anchors is None
@@ -455,6 +493,8 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
             leased_age_seconds=snapshot.lineage_queue_policy.leased_age_seconds,
             retry_backlog_count=snapshot.lineage_queue_policy.retry_backlog_count,
             terminal_failure_count=snapshot.lineage_queue_policy.terminal_failure_count,
+            storage_min_free_bytes=snapshot.lineage_queue_policy.storage_min_free_bytes,
+            storage_min_free_ratio=snapshot.lineage_queue_policy.storage_min_free_ratio,
         ),
         recovery_drill_policy=RecoveryDrillDegradationPolicyResponse(
             max_age_seconds=snapshot.recovery_drill_policy.max_age_seconds,

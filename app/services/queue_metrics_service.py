@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from prometheus_client.core import GaugeMetricFamily
 
+from app.core.config import get_settings
 from app.services.compute_job_store import compute_job_store
+from app.services.durability_health_service import get_lineage_storage_capacity
 from app.services.lineage_metadata_store import lineage_metadata_store
+from app.services.recovery_drill_history_service import build_recovery_drill_history_snapshot
 
 
 class DurableQueueCollector:
@@ -36,6 +41,11 @@ class DurableQueueCollector:
             "Age in seconds of the oldest running compute job.",
         )
         yield GaugeMetricFamily(
+            "lotus_performance_compute_queue_degradation_breach",
+            "Whether the compute queue currently breaches a configured runtime degradation threshold.",
+            labels=["reason"],
+        )
+        yield GaugeMetricFamily(
             "lotus_performance_lineage_queue_pending_payloads",
             "Number of pending lineage payloads awaiting materialization.",
         )
@@ -47,6 +57,52 @@ class DurableQueueCollector:
         yield GaugeMetricFamily(
             "lotus_performance_lineage_queue_oldest_pending_age_seconds",
             "Age in seconds of the oldest pending lineage payload.",
+        )
+        yield GaugeMetricFamily(
+            "lotus_performance_lineage_queue_degradation_breach",
+            "Whether the lineage queue currently breaches a configured runtime degradation threshold.",
+            labels=["reason"],
+        )
+        yield GaugeMetricFamily(
+            "lotus_performance_lineage_storage_capacity_availability",
+            "Availability of lineage storage capacity metrics.",
+        )
+        yield GaugeMetricFamily(
+            "lotus_performance_lineage_storage_capacity_bytes",
+            "Lineage storage capacity by segment.",
+            labels=["segment"],
+        )
+        yield GaugeMetricFamily(
+            "lotus_performance_lineage_storage_free_ratio",
+            "Fraction of free lineage storage capacity currently remaining.",
+        )
+        yield GaugeMetricFamily(
+            "lotus_performance_lineage_storage_pressure_threshold",
+            "Configured proactive lineage storage pressure thresholds.",
+            labels=["threshold"],
+        )
+        yield GaugeMetricFamily(
+            "lotus_performance_lineage_storage_pressure_breach",
+            "Whether lineage storage currently breaches a proactive saturation threshold.",
+            labels=["reason"],
+        )
+        yield GaugeMetricFamily(
+            "lotus_performance_recovery_drill_availability",
+            "Availability of retained durable recovery-drill history.",
+        )
+        yield GaugeMetricFamily(
+            "lotus_performance_recovery_drill_latest_age_seconds",
+            "Age in seconds of the latest retained durable recovery drill.",
+        )
+        yield GaugeMetricFamily(
+            "lotus_performance_recovery_drill_policy_threshold",
+            "Configured recovery-drill degradation thresholds.",
+            labels=["threshold"],
+        )
+        yield GaugeMetricFamily(
+            "lotus_performance_recovery_drill_degradation_breach",
+            "Whether retained durable recovery-drill history currently breaches a recovery assurance policy.",
+            labels=["reason"],
         )
 
     def collect(self):
@@ -62,6 +118,19 @@ class DurableQueueCollector:
         except Exception:
             lineage_stats = None
             lineage_available = False
+        try:
+            lineage_storage_capacity = get_lineage_storage_capacity()
+            lineage_storage_capacity_available = True
+        except Exception:
+            lineage_storage_capacity = None
+            lineage_storage_capacity_available = False
+        try:
+            recovery_drill_snapshot = build_recovery_drill_history_snapshot(limit=1)
+            recovery_drill_available = True
+        except Exception:
+            recovery_drill_snapshot = None
+            recovery_drill_available = False
+        settings = get_settings()
 
         availability = GaugeMetricFamily(
             "lotus_performance_durable_queue_store_availability",
@@ -71,6 +140,27 @@ class DurableQueueCollector:
         availability.add_metric(["compute"], 1 if compute_available else 0)
         availability.add_metric(["lineage"], 1 if lineage_available else 0)
         yield availability
+
+        lineage_storage_availability = GaugeMetricFamily(
+            "lotus_performance_lineage_storage_capacity_availability",
+            "Availability of lineage storage capacity metrics.",
+        )
+        lineage_storage_availability.add_metric([], 1 if lineage_storage_capacity_available else 0)
+        yield lineage_storage_availability
+
+        recovery_drill_availability = GaugeMetricFamily(
+            "lotus_performance_recovery_drill_availability",
+            "Availability of retained durable recovery-drill history.",
+        )
+        recovery_drill_availability.add_metric(
+            [],
+            1
+            if recovery_drill_available
+            and recovery_drill_snapshot is not None
+            and recovery_drill_snapshot.status == "available"
+            else 0,
+        )
+        yield recovery_drill_availability
 
         if compute_stats is not None:
             compute_jobs = GaugeMetricFamily(
@@ -121,6 +211,55 @@ class DurableQueueCollector:
             compute_oldest_running.add_metric([], compute_stats.oldest_running_age_seconds)
             yield compute_oldest_running
 
+            compute_breach = GaugeMetricFamily(
+                "lotus_performance_compute_queue_degradation_breach",
+                "Whether the compute queue currently breaches a configured runtime degradation threshold.",
+                labels=["reason"],
+            )
+            compute_breach.add_metric(
+                ["compute_retry_backlog_exceeded"],
+                _breach_flag(
+                    threshold=getattr(settings, "RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT", 0),
+                    observed=compute_stats.retry_backlog_count,
+                ),
+            )
+            compute_breach.add_metric(
+                ["compute_terminal_failure_exceeded"],
+                _breach_flag(
+                    threshold=getattr(settings, "RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT", 0),
+                    observed=compute_stats.terminal_failure_count,
+                ),
+            )
+            compute_breach.add_metric(
+                ["compute_lease_expiry_pressure_exceeded"],
+                _breach_flag(
+                    threshold=getattr(settings, "RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT", 0),
+                    observed=compute_stats.lease_expired_count,
+                ),
+            )
+            compute_breach.add_metric(
+                ["compute_pending_age_exceeded"],
+                _breach_flag(
+                    threshold=getattr(settings, "RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS", 0.0),
+                    observed=compute_stats.oldest_pending_age_seconds,
+                ),
+            )
+            compute_breach.add_metric(
+                ["compute_leased_age_exceeded"],
+                _breach_flag(
+                    threshold=getattr(settings, "RUNTIME_STATUS_COMPUTE_LEASED_AGE_DEGRADE_SECONDS", 0.0),
+                    observed=compute_stats.oldest_leased_age_seconds,
+                ),
+            )
+            compute_breach.add_metric(
+                ["compute_running_age_exceeded"],
+                _breach_flag(
+                    threshold=getattr(settings, "RUNTIME_STATUS_COMPUTE_RUNNING_AGE_DEGRADE_SECONDS", 0.0),
+                    observed=compute_stats.oldest_running_age_seconds,
+                ),
+            )
+            yield compute_breach
+
         if lineage_stats is not None:
             lineage_pending = GaugeMetricFamily(
                 "lotus_performance_lineage_queue_pending_payloads",
@@ -147,3 +286,141 @@ class DurableQueueCollector:
             )
             lineage_oldest_pending.add_metric([], lineage_stats.oldest_pending_age_seconds)
             yield lineage_oldest_pending
+
+            lineage_breach = GaugeMetricFamily(
+                "lotus_performance_lineage_queue_degradation_breach",
+                "Whether the lineage queue currently breaches a configured runtime degradation threshold.",
+                labels=["reason"],
+            )
+            lineage_breach.add_metric(
+                ["lineage_retry_backlog_exceeded"],
+                _breach_flag(
+                    threshold=getattr(settings, "RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT", 0),
+                    observed=lineage_stats.retry_backlog_count,
+                ),
+            )
+            lineage_breach.add_metric(
+                ["lineage_terminal_failure_exceeded"],
+                _breach_flag(
+                    threshold=getattr(settings, "RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT", 0),
+                    observed=lineage_stats.terminal_failure_count,
+                ),
+            )
+            lineage_breach.add_metric(
+                ["lineage_pending_age_exceeded"],
+                _breach_flag(
+                    threshold=getattr(settings, "RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS", 0.0),
+                    observed=lineage_stats.oldest_pending_age_seconds,
+                ),
+            )
+            lineage_breach.add_metric(
+                ["lineage_leased_age_exceeded"],
+                _breach_flag(
+                    threshold=getattr(settings, "RUNTIME_STATUS_LINEAGE_LEASED_AGE_DEGRADE_SECONDS", 0.0),
+                    observed=getattr(lineage_stats, "oldest_leased_age_seconds", 0.0),
+                ),
+            )
+            yield lineage_breach
+
+        if lineage_storage_capacity is not None:
+            lineage_storage_bytes = GaugeMetricFamily(
+                "lotus_performance_lineage_storage_capacity_bytes",
+                "Lineage storage capacity by segment.",
+                labels=["segment"],
+            )
+            lineage_storage_bytes.add_metric(["total"], lineage_storage_capacity.total_bytes)
+            lineage_storage_bytes.add_metric(["used"], lineage_storage_capacity.used_bytes)
+            lineage_storage_bytes.add_metric(["free"], lineage_storage_capacity.free_bytes)
+            yield lineage_storage_bytes
+
+            lineage_storage_free_ratio = GaugeMetricFamily(
+                "lotus_performance_lineage_storage_free_ratio",
+                "Fraction of free lineage storage capacity currently remaining.",
+            )
+            lineage_storage_free_ratio.add_metric([], lineage_storage_capacity.free_ratio)
+            yield lineage_storage_free_ratio
+
+            lineage_storage_breach = GaugeMetricFamily(
+                "lotus_performance_lineage_storage_pressure_breach",
+                "Whether lineage storage currently breaches a proactive saturation threshold.",
+                labels=["reason"],
+            )
+            min_free_bytes = getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES", 0)
+            min_free_ratio = getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO", 0.0)
+            lineage_storage_breach.add_metric(
+                ["lineage_storage_free_bytes_below_threshold"],
+                1 if min_free_bytes > 0 and lineage_storage_capacity.free_bytes <= min_free_bytes else 0,
+            )
+            lineage_storage_breach.add_metric(
+                ["lineage_storage_free_ratio_below_threshold"],
+                1 if min_free_ratio > 0 and lineage_storage_capacity.free_ratio <= min_free_ratio else 0,
+            )
+            yield lineage_storage_breach
+
+        lineage_storage_thresholds = GaugeMetricFamily(
+            "lotus_performance_lineage_storage_pressure_threshold",
+            "Configured proactive lineage storage pressure thresholds.",
+            labels=["threshold"],
+        )
+        lineage_storage_thresholds.add_metric(
+            ["min_free_bytes"],
+            getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES", 0),
+        )
+        lineage_storage_thresholds.add_metric(
+            ["min_free_ratio"],
+            getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO", 0.0),
+        )
+        yield lineage_storage_thresholds
+
+        recovery_drill_thresholds = GaugeMetricFamily(
+            "lotus_performance_recovery_drill_policy_threshold",
+            "Configured recovery-drill degradation thresholds.",
+            labels=["threshold"],
+        )
+        recovery_drill_thresholds.add_metric(
+            ["max_age_seconds"],
+            getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS", 0.0),
+        )
+        yield recovery_drill_thresholds
+
+        if (
+            recovery_drill_snapshot is not None
+            and recovery_drill_snapshot.status == "available"
+            and recovery_drill_snapshot.entries
+        ):
+            latest = recovery_drill_snapshot.entries[0]
+            latest_age_seconds = _age_seconds(latest.generated_at_utc)
+
+            recovery_drill_age = GaugeMetricFamily(
+                "lotus_performance_recovery_drill_latest_age_seconds",
+                "Age in seconds of the latest retained durable recovery drill.",
+            )
+            recovery_drill_age.add_metric([], latest_age_seconds)
+            yield recovery_drill_age
+
+            recovery_drill_breach = GaugeMetricFamily(
+                "lotus_performance_recovery_drill_degradation_breach",
+                "Whether retained durable recovery-drill history currently breaches a recovery assurance policy.",
+                labels=["reason"],
+            )
+            recovery_drill_breach.add_metric(
+                ["recovery_drill_latest_not_passed"],
+                1 if latest.status != "passed" else 0,
+            )
+            recovery_drill_breach.add_metric(
+                ["recovery_drill_age_exceeded"],
+                _breach_flag(
+                    threshold=getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS", 0.0),
+                    observed=latest_age_seconds,
+                ),
+            )
+            yield recovery_drill_breach
+
+
+def _breach_flag(*, threshold: float | int, observed: float | int) -> int:
+    return 1 if threshold > 0 and observed >= threshold else 0
+
+
+def _age_seconds(timestamp_utc: str) -> float:
+    generated_at = datetime.fromisoformat(timestamp_utc.replace("Z", "+00:00"))
+    return max(0.0, (datetime.now(UTC) - generated_at).total_seconds())

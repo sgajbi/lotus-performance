@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import tempfile
+from datetime import datetime, timezone
 from io import StringIO
 from pathlib import PurePath
 from typing import Dict
@@ -86,20 +87,25 @@ class LineageService:
                 "response.json",
                 *(self._validate_artifact_filename(filename) for filename in calculation_details.keys()),
             ]
-            manifest_data = self._metadata_store.get_record(calculation_id)
+            completion_timestamp = datetime.now(timezone.utc)
             self._write_text_atomic(
                 os.path.join(target_dir, "manifest.json"),
                 json.dumps(
                     {
                         "calculation_type": calculation_type,
-                        "timestamp_utc": manifest_data.timestamp_utc if manifest_data else None,
+                        "timestamp_utc": self._format_utc_timestamp(completion_timestamp),
                         "status": "complete",
+                        "artifact_names": sorted(artifact_names),
                     },
                     indent=2,
                 ),
             )
 
-            self._metadata_store.mark_complete(calculation_id=calculation_id, artifact_names=artifact_names)
+            self._metadata_store.mark_complete(
+                calculation_id=calculation_id,
+                artifact_names=artifact_names,
+                timestamp_utc=completion_timestamp,
+            )
             self._metadata_store.delete_payload(calculation_id)
             try:
                 self._execution_store.complete_stage(
@@ -163,6 +169,11 @@ class LineageService:
         ):
             raise ValueError(f"Unsafe lineage artifact filename: {filename}")
         return candidate
+
+    @staticmethod
+    def _format_utc_timestamp(value: datetime) -> str:
+        normalized = value.astimezone(timezone.utc)
+        return normalized.isoformat().replace("+00:00", "Z")
 
     def create_pending_record(self, calculation_id: UUID, calculation_type: str) -> None:
         self._metadata_store.create_pending_record(calculation_id=calculation_id, calculation_type=calculation_type)

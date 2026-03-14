@@ -48,8 +48,14 @@ class AsyncResultRecord:
     updated_at_utc: str
 
 
+def _coerce_utc_datetime(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
 def _format_timestamp(value: datetime) -> str:
-    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    return _coerce_utc_datetime(value).isoformat().replace("+00:00", "Z")
 
 
 class AsyncResultStore:

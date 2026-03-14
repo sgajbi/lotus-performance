@@ -135,6 +135,8 @@ Important compose defaults:
 - API container listens on `8000`
 - host port defaults to `8002`
 - stateful integration resolves lotus-core through `CORE_QUERY_BASE_URL`
+- runtime threshold profile overrides can be layered with:
+  - `docker compose -f docker-compose.yml -f docs/examples/docker-compose.runtime-thresholds.production.yml up`
 
 ## Validation
 

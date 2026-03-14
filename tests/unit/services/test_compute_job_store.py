@@ -543,7 +543,80 @@ def test_compute_job_store_lists_recent_recoveries_with_filters_and_offset(tmp_p
     )
 
     assert page.total_count == 1
+    assert page.next_offset is None
     assert page.items == []
+
+
+def test_compute_job_store_lists_recent_recoveries_with_time_filters_and_next_offset(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    now = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+    ids = [uuid4() for _ in range(3)]
+
+    for calculation_id in ids:
+        store.enqueue_job(calculation_id=calculation_id, analytics_type="ReturnsSeries", request_payload={"p": "1"})
+
+    with store._session() as session:
+        for seconds_ago, calculation_id in zip([30, 15, 5], ids, strict=True):
+            row = store._get_model(session, calculation_id)
+            row.attempt_count = 1
+            row.last_error_at_utc = now - timedelta(seconds=seconds_ago)
+
+    page = store.list_recent_recoveries(
+        limit=1,
+        offset=0,
+        recovered_after=now - timedelta(seconds=20),
+        recovered_before=now - timedelta(seconds=4),
+    )
+
+    assert page.total_count == 2
+    assert page.next_offset == 1
+    assert page.next_cursor_recovered_before == page.items[-1].recovered_at_utc
+    assert page.next_cursor_calculation_id_before == str(ids[2])
+    assert [item.calculation_id for item in page.items] == [str(ids[2])]
+
+
+def test_compute_job_store_lists_recent_recoveries_with_seek_cursor(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    now = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+    ids = [uuid4() for _ in range(3)]
+
+    for calculation_id in ids:
+        store.enqueue_job(calculation_id=calculation_id, analytics_type="ReturnsSeries", request_payload={"p": "1"})
+
+    with store._session() as session:
+        for seconds_ago, calculation_id in zip([30, 20, 10], ids, strict=True):
+            row = store._get_model(session, calculation_id)
+            row.attempt_count = 1
+            row.last_error_at_utc = now - timedelta(seconds=seconds_ago)
+
+    first_page = store.list_recent_recoveries(limit=1)
+    second_page = store.list_recent_recoveries(
+        limit=1,
+        cursor_recovered_before=now - timedelta(seconds=10),
+        cursor_calculation_id_before=str(ids[2]),
+    )
+
+    assert [item.calculation_id for item in first_page.items] == [str(ids[2])]
+    assert [item.calculation_id for item in second_page.items] == [str(ids[1])]
+
+
+def test_compute_job_store_formats_sqlite_recovery_timestamps_as_utc(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+    recovery_time = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+
+    store.enqueue_job(calculation_id=calculation_id, analytics_type="ReturnsSeries", request_payload={"p": "1"})
+    with store._session() as session:
+        row = store._get_model(session, calculation_id)
+        row.attempt_count = 1
+        row.last_error_at_utc = recovery_time
+
+    page = store.list_recent_recoveries(limit=1)
+
+    assert page.items[0].recovered_at_utc == "2026-03-14T12:00:00Z"
 
 
 def test_compute_job_store_declares_hot_path_indexes(tmp_path):

@@ -1,6 +1,7 @@
 # tests/integration/test_lineage_api.py
 import os
 import shutil
+from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
@@ -122,6 +123,55 @@ def test_get_lineage_invalid_manifest_returns_503(client):
     assert response.json()["detail"] == "Lineage manifest is invalid."
 
 
+def test_get_lineage_inconsistent_manifest_returns_503(client):
+    calculation_id = uuid4()
+    lineage_metadata_store.create_pending_record(calculation_id=calculation_id, calculation_type="TWR")
+    lineage_metadata_store.mark_complete(
+        calculation_id=calculation_id,
+        artifact_names=["request.json", "response.json"],
+    )
+    lineage_dir = os.path.join(settings.LINEAGE_STORAGE_PATH, str(calculation_id))
+    os.makedirs(lineage_dir, exist_ok=True)
+
+    manifest_path = os.path.join(lineage_dir, "manifest.json")
+    with open(manifest_path, "w", encoding="utf-8") as f:
+        json_manifest = (
+            '{"calculation_type":"TWR","timestamp_utc":"2026-01-01T00:00:00Z",'
+            '"status":"complete","artifact_names":["request.json"]}'
+        )
+        f.write(json_manifest)
+
+    response = client.get(f"/performance/lineage/{calculation_id}")
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Lineage manifest is inconsistent with durable metadata."
+
+
+def test_get_lineage_returns_503_when_declared_artifact_missing_from_storage(client):
+    calculation_id = uuid4()
+    completion_timestamp = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+    lineage_metadata_store.create_pending_record(calculation_id=calculation_id, calculation_type="TWR")
+    lineage_metadata_store.mark_complete(
+        calculation_id=calculation_id,
+        artifact_names=["request.json", "response.json"],
+        timestamp_utc=completion_timestamp,
+    )
+    lineage_dir = os.path.join(settings.LINEAGE_STORAGE_PATH, str(calculation_id))
+    os.makedirs(lineage_dir, exist_ok=True)
+    with open(os.path.join(lineage_dir, "manifest.json"), "w", encoding="utf-8") as f:
+        f.write(
+            '{"calculation_type":"TWR","timestamp_utc":"2026-03-14T12:00:00Z",'
+            '"status":"complete","artifact_names":["request.json","response.json"]}'
+        )
+    with open(os.path.join(lineage_dir, "request.json"), "w", encoding="utf-8") as f:
+        f.write("{}")
+
+    response = client.get(f"/performance/lineage/{calculation_id}")
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Lineage artifacts are incomplete in storage."
+
+
 def test_get_lineage_pending_returns_pending_status(client):
     calculation_id = uuid4()
     lineage_metadata_store.create_pending_record(calculation_id=calculation_id, calculation_type="TWR")
@@ -159,3 +209,66 @@ def test_get_lineage_artifact_not_found_for_unknown_artifact(client):
     response = client.get(f"/performance/lineage/{calculation_id}/artifacts/unknown.json")
 
     assert response.status_code == 404
+
+
+def test_get_lineage_artifact_returns_503_when_manifest_missing(client):
+    calculation_id = uuid4()
+    lineage_metadata_store.create_pending_record(calculation_id=calculation_id, calculation_type="TWR")
+    lineage_metadata_store.mark_complete(calculation_id=calculation_id, artifact_names=["request.json"])
+    lineage_dir = os.path.join(settings.LINEAGE_STORAGE_PATH, str(calculation_id))
+    os.makedirs(lineage_dir, exist_ok=True)
+    with open(os.path.join(lineage_dir, "request.json"), "w", encoding="utf-8") as f:
+        f.write("{}")
+
+    response = client.get(f"/performance/lineage/{calculation_id}/artifacts/request.json")
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Lineage manifest not found."
+
+
+def test_get_lineage_artifact_returns_503_when_manifest_is_inconsistent(client):
+    calculation_id = uuid4()
+    completion_timestamp = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+    lineage_metadata_store.create_pending_record(calculation_id=calculation_id, calculation_type="TWR")
+    lineage_metadata_store.mark_complete(
+        calculation_id=calculation_id,
+        artifact_names=["request.json"],
+        timestamp_utc=completion_timestamp,
+    )
+    lineage_dir = os.path.join(settings.LINEAGE_STORAGE_PATH, str(calculation_id))
+    os.makedirs(lineage_dir, exist_ok=True)
+    with open(os.path.join(lineage_dir, "request.json"), "w", encoding="utf-8") as f:
+        f.write("{}")
+    with open(os.path.join(lineage_dir, "manifest.json"), "w", encoding="utf-8") as f:
+        f.write(
+            '{"calculation_type":"TWR","timestamp_utc":"2026-03-14T12:00:00Z",'
+            '"status":"complete","artifact_names":["response.json"]}'
+        )
+
+    response = client.get(f"/performance/lineage/{calculation_id}/artifacts/request.json")
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Lineage manifest is inconsistent with durable metadata."
+
+
+def test_get_lineage_artifact_returns_503_when_file_missing_from_storage(client):
+    calculation_id = uuid4()
+    completion_timestamp = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+    lineage_metadata_store.create_pending_record(calculation_id=calculation_id, calculation_type="TWR")
+    lineage_metadata_store.mark_complete(
+        calculation_id=calculation_id,
+        artifact_names=["request.json"],
+        timestamp_utc=completion_timestamp,
+    )
+    lineage_dir = os.path.join(settings.LINEAGE_STORAGE_PATH, str(calculation_id))
+    os.makedirs(lineage_dir, exist_ok=True)
+    with open(os.path.join(lineage_dir, "manifest.json"), "w", encoding="utf-8") as f:
+        f.write(
+            '{"calculation_type":"TWR","timestamp_utc":"2026-03-14T12:00:00Z",'
+            '"status":"complete","artifact_names":["request.json"]}'
+        )
+
+    response = client.get(f"/performance/lineage/{calculation_id}/artifacts/request.json")
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Lineage artifact is missing from storage."
