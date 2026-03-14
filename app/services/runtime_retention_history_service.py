@@ -14,6 +14,8 @@ class RuntimeRetentionHistoryEntry:
     evidence_file_name: str
     generated_at_utc: str
     operator_id: str
+    trigger_mode: str
+    job_id: str | None
     cleanup_mode: str
     status: str
     retention_days: int
@@ -47,6 +49,8 @@ def build_runtime_retention_history_snapshot(
     limit: int | None = None,
     offset: int = 0,
     operator_id: str | None = None,
+    trigger_mode: str | None = None,
+    job_id: str | None = None,
     cleanup_mode: str | None = None,
     status_filter: str | None = None,
     generated_after: str | None = None,
@@ -58,6 +62,8 @@ def build_runtime_retention_history_snapshot(
         limit=limit,
         offset=offset,
         operator_id=operator_id,
+        trigger_mode=trigger_mode,
+        job_id=job_id,
         cleanup_mode=cleanup_mode,
         status_filter=status_filter,
         generated_after=generated_after,
@@ -156,6 +162,8 @@ def build_runtime_retention_history_snapshot(
             evidence_file_name=entry["evidence_file_name"],
             generated_at_utc=entry["generated_at_utc"],
             operator_id=entry["operator_id"],
+            trigger_mode=entry["trigger_mode"],
+            job_id=entry["job_id"],
             cleanup_mode=entry["cleanup_mode"],
             status=entry["status"],
             retention_days=entry["retention_days"],
@@ -170,6 +178,8 @@ def build_runtime_retention_history_snapshot(
     filtered_entries = _filter_entries(
         entries=all_entries,
         operator_id=operator_id,
+        trigger_mode=trigger_mode,
+        job_id=job_id,
         cleanup_mode=cleanup_mode,
         status_filter=status_filter,
         generated_after=generated_after,
@@ -220,11 +230,12 @@ def _validate_manifest_payload(payload: Any) -> dict[str, Any] | None:
     if not isinstance(entries, list):
         return None
 
-    validated_entries: list[dict[str, str | int]] = []
+    validated_entries: list[dict[str, str | int | None]] = []
     for entry in entries:
         if not isinstance(entry, dict):
             return None
         str_keys = ("evidence_file_name", "generated_at_utc", "operator_id", "cleanup_mode", "status")
+        optional_str_keys = ("job_id",)
         int_keys = (
             "retention_days",
             "prunable_execution_count",
@@ -233,11 +244,19 @@ def _validate_manifest_payload(payload: Any) -> dict[str, Any] | None:
             "prunable_lineage_record_count",
             "prunable_lineage_artifact_count",
         )
+        trigger_mode = entry.get("trigger_mode", "manual")
         if any(not isinstance(entry.get(key), str) for key in str_keys):
+            return None
+        if not isinstance(trigger_mode, str):
+            return None
+        if any(entry.get(key) is not None and not isinstance(entry.get(key), str) for key in optional_str_keys):
             return None
         if any(not isinstance(entry.get(key), int) for key in int_keys):
             return None
-        validated_entries.append({key: entry[key] for key in (*str_keys, *int_keys)})
+        validated_entry = {key: entry[key] for key in (*str_keys, *int_keys)}
+        validated_entry["trigger_mode"] = trigger_mode
+        validated_entry["job_id"] = entry.get("job_id")
+        validated_entries.append(validated_entry)
 
     if latest_file_name is not None and latest_file_name not in retained_file_names:
         return None
@@ -255,6 +274,8 @@ def _filter_entries(
     *,
     entries: list[RuntimeRetentionHistoryEntry],
     operator_id: str | None,
+    trigger_mode: str | None,
+    job_id: str | None,
     cleanup_mode: str | None,
     status_filter: str | None,
     generated_after: str | None,
@@ -263,6 +284,10 @@ def _filter_entries(
     filtered = entries
     if operator_id is not None:
         filtered = [entry for entry in filtered if entry.operator_id == operator_id]
+    if trigger_mode is not None:
+        filtered = [entry for entry in filtered if entry.trigger_mode == trigger_mode]
+    if job_id is not None:
+        filtered = [entry for entry in filtered if entry.job_id == job_id]
     if cleanup_mode is not None:
         filtered = [entry for entry in filtered if entry.cleanup_mode == cleanup_mode]
     if status_filter is not None:
@@ -289,6 +314,8 @@ def _build_applied_filters(
     limit: int | None,
     offset: int,
     operator_id: str | None,
+    trigger_mode: str | None,
+    job_id: str | None,
     cleanup_mode: str | None,
     status_filter: str | None,
     generated_after: str | None,
@@ -301,6 +328,10 @@ def _build_applied_filters(
         filters["offset"] = offset
     if operator_id is not None:
         filters["operator_id"] = operator_id
+    if trigger_mode is not None:
+        filters["trigger_mode"] = trigger_mode
+    if job_id is not None:
+        filters["job_id"] = job_id
     if cleanup_mode is not None:
         filters["cleanup_mode"] = cleanup_mode
     if status_filter is not None:

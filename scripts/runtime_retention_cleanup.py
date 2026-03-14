@@ -19,6 +19,8 @@ class RuntimeRetentionCleanupEvidence:
     generated_at_utc: str
     evidence_file_name: str
     operator_id: str
+    trigger_mode: str
+    job_id: str | None
     cleanup_mode: str
     status: str
     retention_days: int
@@ -35,6 +37,8 @@ class RuntimeRetentionManifestEntry:
     evidence_file_name: str
     generated_at_utc: str
     operator_id: str
+    trigger_mode: str
+    job_id: str | None
     cleanup_mode: str
     status: str
     retention_days: int
@@ -69,6 +73,22 @@ def parse_args() -> argparse.Namespace:
         help="Operator or automation identity recorded in retained cleanup evidence.",
     )
     parser.add_argument(
+        "--trigger-mode",
+        choices=("manual", "scheduled"),
+        default="manual",
+        help="Execution trigger recorded in retained cleanup evidence.",
+    )
+    parser.add_argument(
+        "--job-id",
+        default=None,
+        help="Optional scheduler or automation job identity recorded in retained cleanup evidence.",
+    )
+    parser.add_argument(
+        "--scheduled",
+        action="store_true",
+        help="Run with the configured scheduled automation identity and trigger mode.",
+    )
+    parser.add_argument(
         "--output-dir",
         type=Path,
         default=settings.RUNTIME_RETENTION_ARTIFACT_PATH,
@@ -91,6 +111,14 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    settings = get_settings()
+    operator_id = args.operator_id
+    trigger_mode = args.trigger_mode
+    job_id = args.job_id
+    if args.scheduled:
+        operator_id = settings.RUNTIME_RETENTION_AUTOMATION_OPERATOR_ID
+        trigger_mode = "scheduled"
+        job_id = job_id or settings.RUNTIME_RETENTION_AUTOMATION_JOB_ID
     summary = run_runtime_retention_cleanup(
         retention_days=args.retention_days,
         dry_run=not args.apply,
@@ -100,7 +128,9 @@ def main() -> None:
         cleanup_name="runtime_retention_cleanup",
         generated_at_utc=generated_at_utc,
         evidence_file_name=_build_evidence_file_name(generated_at_utc),
-        operator_id=args.operator_id,
+        operator_id=operator_id,
+        trigger_mode=trigger_mode,
+        job_id=job_id,
         cleanup_mode="apply" if args.apply else "dry_run",
         status="applied" if args.apply else "planned",
         retention_days=summary.retention_days,
@@ -186,6 +216,8 @@ def _load_manifest_entry(path: Path) -> RuntimeRetentionManifestEntry:
         evidence_file_name=str(payload["evidence_file_name"]),
         generated_at_utc=str(payload["generated_at_utc"]),
         operator_id=str(payload["operator_id"]),
+        trigger_mode=str(payload.get("trigger_mode", "manual")),
+        job_id=None if payload.get("job_id") is None else str(payload["job_id"]),
         cleanup_mode=str(payload["cleanup_mode"]),
         status=str(payload["status"]),
         retention_days=int(payload["retention_days"]),

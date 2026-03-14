@@ -9,6 +9,8 @@ class RuntimeRetentionHistoryEntryResponse(BaseModel):
     evidence_file_name: str = Field(description="Timestamped runtime-retention cleanup evidence artifact file name.")
     generated_at_utc: str = Field(description="UTC timestamp when this runtime-retention cleanup evidence was generated.")
     operator_id: str = Field(description="Operator or automation identity that ran the runtime-retention cleanup.")
+    trigger_mode: str = Field(description="Whether the runtime-retention cleanup was triggered manually or by scheduled automation.")
+    job_id: str | None = Field(default=None, description="Scheduler or automation job identity recorded for this runtime-retention cleanup, when present.")
     cleanup_mode: str = Field(description="Cleanup mode recorded for the retained runtime-retention execution.")
     status: str = Field(description="Outcome status recorded for the retained runtime-retention execution.")
     retention_days: int = Field(description="Retention window in days applied for this cleanup execution.")
@@ -58,6 +60,8 @@ def build_runtime_retention_history_response(snapshot: RuntimeRetentionHistorySn
                 evidence_file_name=entry.evidence_file_name,
                 generated_at_utc=entry.generated_at_utc,
                 operator_id=entry.operator_id,
+                trigger_mode=entry.trigger_mode,
+                job_id=entry.job_id,
                 cleanup_mode=entry.cleanup_mode,
                 status=entry.status,
                 retention_days=entry.retention_days,

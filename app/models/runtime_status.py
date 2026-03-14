@@ -343,6 +343,8 @@ class RuntimeRetentionStatusResponse(BaseModel):
     latest_generated_at_utc: str | None = Field(default=None, description="UTC timestamp of the latest retained runtime-retention cleanup.")
     latest_status: str | None = Field(default=None, description="Outcome status of the latest retained runtime-retention cleanup.")
     latest_operator_id: str | None = Field(default=None, description="Operator or automation identity that ran the latest retained runtime-retention cleanup.")
+    latest_trigger_mode: str | None = Field(default=None, description="Whether the latest retained runtime-retention cleanup was triggered manually or by scheduled automation.")
+    latest_job_id: str | None = Field(default=None, description="Scheduler or automation job identity recorded for the latest retained runtime-retention cleanup, when present.")
     latest_cleanup_mode: str | None = Field(default=None, description="Cleanup mode recorded for the latest retained runtime-retention cleanup.")
     latest_retention_days: int | None = Field(default=None, description="Retention window in days used by the latest retained runtime-retention cleanup.")
     latest_age_seconds: float | None = Field(default=None, description="Age in seconds of the latest retained runtime-retention cleanup.")
@@ -538,6 +540,8 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
             latest_generated_at_utc=snapshot.runtime_retention.latest_generated_at_utc,
             latest_status=snapshot.runtime_retention.latest_status,
             latest_operator_id=snapshot.runtime_retention.latest_operator_id,
+            latest_trigger_mode=snapshot.runtime_retention.latest_trigger_mode,
+            latest_job_id=snapshot.runtime_retention.latest_job_id,
             latest_cleanup_mode=snapshot.runtime_retention.latest_cleanup_mode,
             latest_retention_days=snapshot.runtime_retention.latest_retention_days,
             latest_age_seconds=snapshot.runtime_retention.latest_age_seconds,

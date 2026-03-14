@@ -106,6 +106,8 @@ class RuntimeRetentionStatus:
     latest_generated_at_utc: str | None
     latest_status: str | None
     latest_operator_id: str | None
+    latest_trigger_mode: str | None
+    latest_job_id: str | None
     latest_cleanup_mode: str | None
     latest_retention_days: int | None
     latest_age_seconds: float | None
@@ -442,6 +444,8 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
             latest_generated_at_utc=None,
             latest_status=None,
             latest_operator_id=None,
+            latest_trigger_mode=None,
+            latest_job_id=None,
             latest_cleanup_mode=None,
             latest_retention_days=None,
             latest_age_seconds=None,
@@ -486,6 +490,8 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
             latest_generated_at_utc=None,
             latest_status=None,
             latest_operator_id=None,
+            latest_trigger_mode=None,
+            latest_job_id=None,
             latest_cleanup_mode=None,
             latest_retention_days=None,
             latest_age_seconds=None,
@@ -545,6 +551,8 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
         latest_generated_at_utc=latest.generated_at_utc,
         latest_status=latest.status,
         latest_operator_id=latest.operator_id,
+        latest_trigger_mode=latest.trigger_mode,
+        latest_job_id=latest.job_id,
         latest_cleanup_mode=latest.cleanup_mode,
         latest_retention_days=latest.retention_days,
         latest_age_seconds=latest_age_seconds,
@@ -766,6 +774,8 @@ def _build_missing_runtime_retention_status(
         latest_generated_at_utc=None,
         latest_status=None,
         latest_operator_id=None,
+        latest_trigger_mode=None,
+        latest_job_id=None,
         latest_cleanup_mode=None,
         latest_retention_days=None,
         latest_age_seconds=None,

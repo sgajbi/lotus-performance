@@ -265,6 +265,8 @@ def test_runtime_status_snapshot_degrades_when_runtime_retention_is_stale_or_not
                     evidence_file_name="latest.json",
                     generated_at_utc="2026-03-14T00:00:00Z",
                     operator_id="ops-user",
+                    trigger_mode="scheduled",
+                    job_id="retention-nightly",
                     cleanup_mode="dry_run",
                     status="planned",
                     retention_days=30,
@@ -303,6 +305,8 @@ def test_runtime_status_snapshot_degrades_when_runtime_retention_is_stale_or_not
     assert snapshot.runtime_retention.reason == "runtime_retention_latest_not_applied"
     assert snapshot.runtime_retention.preview_status == "available"
     assert snapshot.runtime_retention.current_prunable_execution_count == 4
+    assert snapshot.runtime_retention.latest_trigger_mode == "scheduled"
+    assert snapshot.runtime_retention.latest_job_id == "retention-nightly"
     assert snapshot.runtime_retention.latest_cleanup_mode == "dry_run"
     assert snapshot.runtime_retention.latest_retention_days == 30
     assert snapshot.runtime_degradation_reasons == (

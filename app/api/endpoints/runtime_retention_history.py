@@ -20,7 +20,7 @@ router = APIRouter(tags=["Integration"])
     description=(
         "Returns the retained runtime-retention cleanup history manifest for lotus-performance, including the latest "
         "artifact, configured retention policy, and summarized retained cleanup entries. Optional query filters allow "
-        "operators to narrow the history by operator, cleanup mode, status, and bounded result count."
+        "operators to narrow the history by operator, trigger mode, job identity, cleanup mode, status, and bounded result count."
     ),
 )
 async def get_runtime_retention_history(
@@ -32,6 +32,12 @@ async def get_runtime_retention_history(
     ] = 0,
     operator_id: Annotated[
         str | None, Query(description="Filter retained runtime-retention cleanup history by operator or automation identity.")
+    ] = None,
+    trigger_mode: Annotated[
+        str | None, Query(description="Filter retained runtime-retention cleanup history by manual or scheduled trigger mode.")
+    ] = None,
+    job_id: Annotated[
+        str | None, Query(description="Filter retained runtime-retention cleanup history by scheduler or automation job identity.")
     ] = None,
     cleanup_mode: Annotated[
         str | None, Query(description="Filter retained runtime-retention cleanup history by cleanup mode.")
@@ -52,6 +58,8 @@ async def get_runtime_retention_history(
         limit=limit,
         offset=offset,
         operator_id=operator_id,
+        trigger_mode=trigger_mode,
+        job_id=job_id,
         cleanup_mode=cleanup_mode,
         status_filter=status,
         generated_after=generated_after,

@@ -47,6 +47,9 @@ Override the default only with an explicit operator or environment-level reason.
 4. If a non-default window is required, use:
    - `python scripts/runtime_retention_cleanup.py --retention-days <days>`
    - `python scripts/runtime_retention_cleanup.py --retention-days <days> --apply`
+5. For governed scheduled automation, use:
+   - `python scripts/runtime_retention_cleanup.py --scheduled --apply`
+   - confirm the retained evidence records `trigger_mode="scheduled"` and the expected automation `job_id`
 
 ## Guardrails
 
@@ -67,6 +70,7 @@ Override the default only with an explicit operator or environment-level reason.
 ## Evidence to Capture
 
 - operator running the cleanup
+- trigger mode and any automation job identity
 - retention window used
 - dry-run summary
 - apply summary

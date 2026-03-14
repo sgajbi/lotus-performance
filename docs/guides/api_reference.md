@@ -281,6 +281,9 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - `python scripts/runtime_retention_cleanup.py --apply`
 - override behavior:
   - `python scripts/runtime_retention_cleanup.py --retention-days <days>`
+- scheduled automation behavior:
+  - `python scripts/runtime_retention_cleanup.py --scheduled --apply`
+  - evidence records `trigger_mode` plus the configured automation `job_id`
 - safety contract:
   - only terminal executions, terminal compute jobs, async results, terminal lineage metadata, and matching lineage artifacts older than the cutoff are eligible
   - active runtime work is not pruned
@@ -293,11 +296,13 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - retained cleanup artifact directory
   - latest retained cleanup evidence file
   - configured cleanup-history retention policy
-  - paged retained cleanup entries with operator, cleanup mode, status, retention window, and prunable record counts
+  - paged retained cleanup entries with operator, trigger mode, optional job identity, cleanup mode, status, retention window, and prunable record counts
 - query parameters:
   - `limit`
   - `offset`
   - `operator_id`
+  - `trigger_mode`
+  - `job_id`
   - `cleanup_mode`
   - `status`
   - `generated_after`

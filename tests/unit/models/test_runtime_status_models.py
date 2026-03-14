@@ -151,6 +151,8 @@ def test_build_runtime_status_response_serializes_snapshot_details():
             latest_generated_at_utc="2026-03-12T00:00:00Z",
             latest_status="applied",
             latest_operator_id="ops-batch",
+            latest_trigger_mode="scheduled",
+            latest_job_id="retention-nightly",
             latest_cleanup_mode="apply",
             latest_retention_days=30,
             latest_age_seconds=172800.0,
@@ -214,6 +216,8 @@ def test_build_runtime_status_response_serializes_snapshot_details():
     assert response.runtime_retention.preview_status == "available"
     assert response.runtime_retention.current_cutoff_utc == "2026-02-13T00:00:00Z"
     assert response.runtime_retention.current_prunable_execution_count == 7
+    assert response.runtime_retention.latest_trigger_mode == "scheduled"
+    assert response.runtime_retention.latest_job_id == "retention-nightly"
     assert response.runtime_retention.latest_cleanup_mode == "apply"
     assert response.runtime_retention.latest_retention_days == 30
     assert response.runtime_retention.degradation_reasons == ["runtime_retention_age_exceeded"]
@@ -278,6 +282,8 @@ def test_build_runtime_status_response_handles_unavailable_queue_without_stats()
             latest_generated_at_utc=None,
             latest_status=None,
             latest_operator_id=None,
+            latest_trigger_mode=None,
+            latest_job_id=None,
             latest_cleanup_mode=None,
             latest_retention_days=None,
             latest_age_seconds=None,

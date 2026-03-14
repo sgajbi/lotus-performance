@@ -15,6 +15,8 @@ def test_runtime_retention_history_response_omits_next_offset_when_absent():
                 evidence_file_name="2026-03-15t00-00-00z.json",
                 generated_at_utc="2026-03-15T00:00:00Z",
                 operator_id="ops-user",
+                trigger_mode="scheduled",
+                job_id="retention-nightly",
                 cleanup_mode="apply",
                 status="applied",
                 retention_days=30,
@@ -36,5 +38,7 @@ def test_runtime_retention_history_response_omits_next_offset_when_absent():
     dumped = response.model_dump(exclude_none=True)
 
     assert dumped["entries"][0]["cleanup_mode"] == "apply"
+    assert dumped["entries"][0]["trigger_mode"] == "scheduled"
+    assert dumped["entries"][0]["job_id"] == "retention-nightly"
     assert dumped["entries"][0]["prunable_execution_count"] == 1
     assert "next_offset" not in dumped

@@ -103,6 +103,8 @@ def test_runtime_status_reports_runtime_retention_failure_and_age_policy(mocker)
                     evidence_file_name="latest.json",
                     generated_at_utc=(datetime.now(timezone.utc) - timedelta(seconds=600)).isoformat().replace("+00:00", "Z"),
                     operator_id="ops-user",
+                    trigger_mode="scheduled",
+                    job_id="retention-nightly",
                     cleanup_mode="dry_run",
                     status="planned",
                     retention_days=30,
@@ -147,6 +149,8 @@ def test_runtime_status_reports_runtime_retention_failure_and_age_policy(mocker)
         assert body["runtime_retention"]["reason"] == "runtime_retention_latest_not_applied"
         assert body["runtime_retention"]["latest_status"] == "planned"
         assert body["runtime_retention"]["latest_operator_id"] == "ops-user"
+        assert body["runtime_retention"]["latest_trigger_mode"] == "scheduled"
+        assert body["runtime_retention"]["latest_job_id"] == "retention-nightly"
         assert body["runtime_retention"]["latest_cleanup_mode"] == "dry_run"
         assert body["runtime_retention"]["latest_retention_days"] == 30
         assert body["runtime_retention"]["latest_age_seconds"] >= 300.0

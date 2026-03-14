@@ -38,6 +38,8 @@ def test_runtime_retention_history_applies_filters_and_paging(tmp_path):
                 "evidence_file_name": "2026-03-15t00-00-00z.json",
                 "generated_at_utc": "2026-03-15T00:00:00Z",
                 "operator_id": "ops-user",
+                "trigger_mode": "scheduled",
+                "job_id": "retention-nightly",
                 "cleanup_mode": "apply",
                 "status": "applied",
                 "retention_days": 45,
@@ -51,6 +53,8 @@ def test_runtime_retention_history_applies_filters_and_paging(tmp_path):
                 "evidence_file_name": "2026-03-14t00-00-00z.json",
                 "generated_at_utc": "2026-03-14T00:00:00Z",
                 "operator_id": "ops-user",
+                "trigger_mode": "manual",
+                "job_id": None,
                 "cleanup_mode": "dry_run",
                 "status": "planned",
                 "retention_days": 30,
@@ -64,6 +68,8 @@ def test_runtime_retention_history_applies_filters_and_paging(tmp_path):
                 "evidence_file_name": "2026-03-13t00-00-00z.json",
                 "generated_at_utc": "2026-03-13T00:00:00Z",
                 "operator_id": "ops-batch",
+                "trigger_mode": "scheduled",
+                "job_id": "retention-nightly",
                 "cleanup_mode": "apply",
                 "status": "applied",
                 "retention_days": 30,
@@ -82,6 +88,8 @@ def test_runtime_retention_history_applies_filters_and_paging(tmp_path):
         limit=1,
         offset=0,
         operator_id="ops-user",
+        trigger_mode="scheduled",
+        job_id="retention-nightly",
         cleanup_mode="apply",
         status_filter="applied",
         generated_after="2026-03-14T00:00:00Z",
@@ -95,8 +103,12 @@ def test_runtime_retention_history_applies_filters_and_paging(tmp_path):
     assert snapshot.applied_filters == {
         "limit": 1,
         "operator_id": "ops-user",
+        "trigger_mode": "scheduled",
+        "job_id": "retention-nightly",
         "cleanup_mode": "apply",
         "status": "applied",
         "generated_after": "2026-03-14T00:00:00Z",
     }
     assert snapshot.entries[0].evidence_file_name == "2026-03-15t00-00-00z.json"
+    assert snapshot.entries[0].trigger_mode == "scheduled"
+    assert snapshot.entries[0].job_id == "retention-nightly"
