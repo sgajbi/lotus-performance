@@ -195,3 +195,18 @@ def test_lineage_service_uses_injected_execution_store_for_stage_completion(tmp_
 
     assert success is True
     execution_store.complete_stage.assert_called_once()
+
+
+def test_lineage_service_uses_runtime_storage_path_when_not_explicit(tmp_path, mocker):
+    metadata_store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    metadata_store.create_schema()
+    runtime_storage_path = tmp_path / "runtime-lineage"
+    mocker.patch(
+        "app.services.lineage_service.get_settings",
+        return_value=type("Settings", (), {"LINEAGE_STORAGE_PATH": str(runtime_storage_path)})(),
+    )
+
+    service = LineageService(metadata_store=metadata_store)
+
+    assert service.storage_path == str(runtime_storage_path)
+    assert runtime_storage_path.exists()

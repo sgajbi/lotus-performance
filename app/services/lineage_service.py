@@ -14,19 +14,25 @@ from app.services.execution_registry import ExecutionRegistry, execution_registr
 from app.services.lineage_metadata_store import LineageMetadataStore, lineage_metadata_store
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
 
 
 class LineageService:
     def __init__(
         self,
-        storage_path: str,
+        storage_path: str | None = None,
         metadata_store: LineageMetadataStore | None = None,
         execution_store: ExecutionRegistry | None = None,
     ):
-        self.storage_path = storage_path
+        self._storage_path = storage_path
         self._metadata_store = metadata_store or lineage_metadata_store
         self._execution_store = execution_store or execution_registry
+        self._ensure_storage_directory()
+
+    @property
+    def storage_path(self) -> str:
+        return self._storage_path or get_settings().LINEAGE_STORAGE_PATH
+
+    def _ensure_storage_directory(self) -> None:
         if not os.path.exists(self.storage_path):
             os.makedirs(self.storage_path)
             logger.info(f"Created lineage storage directory at: {self.storage_path}")
@@ -59,6 +65,7 @@ class LineageService:
     ) -> bool:
         """Materializes lineage artifacts from a previously enqueued payload."""
         try:
+            self._ensure_storage_directory()
             target_dir = os.path.join(self.storage_path, str(calculation_id))
             if not os.path.exists(target_dir):
                 os.makedirs(target_dir)
@@ -124,4 +131,4 @@ class LineageService:
         self._metadata_store.create_pending_record(calculation_id=calculation_id, calculation_type=calculation_type)
 
 
-lineage_service = LineageService(storage_path=settings.LINEAGE_STORAGE_PATH)
+lineage_service = LineageService()

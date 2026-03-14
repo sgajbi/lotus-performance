@@ -11,7 +11,6 @@ from app.core.config import get_settings
 from app.services.lineage_metadata_store import LineageStatus, lineage_metadata_store
 
 router = APIRouter()
-settings = get_settings()
 
 
 class ArtifactLink(BaseModel):
@@ -40,7 +39,7 @@ async def get_lineage_data(calculation_id: UUID, request: Request):
 
     artifacts = {}
     try:
-        lineage_dir = os.path.join(settings.LINEAGE_STORAGE_PATH, str(calculation_id))
+        lineage_dir = os.path.join(get_settings().LINEAGE_STORAGE_PATH, str(calculation_id))
         if record.status == LineageStatus.PENDING:
             return LineageResponse(
                 calculation_id=calculation_id,
