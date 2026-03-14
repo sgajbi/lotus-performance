@@ -301,62 +301,7 @@ class LineageMetadataStore:
     def get_pending_payload_stats(self, *, now: datetime | None = None) -> LineageQueueStats:
         stats_now = now or datetime.now(timezone.utc)
         with self._session() as session:
-            aggregate_row = session.execute(
-                select(
-                    func.sum(
-                        case((LineageRecordModel.status == LineageStatus.PENDING.value, 1), else_=0)
-                    ).label("pending_payload_count"),
-                    func.sum(
-                        case(
-                            (
-                                (LineageRecordModel.status == LineageStatus.PENDING.value)
-                                & (LineagePayloadModel.leased_at_utc.is_not(None))
-                                & (
-                                    LineagePayloadModel.lease_expires_at_utc.is_(None)
-                                    | (LineagePayloadModel.lease_expires_at_utc >= stats_now)
-                                ),
-                                1,
-                            ),
-                            else_=0,
-                        )
-                    ).label("leased_payload_count"),
-                    func.sum(
-                        case(
-                            (
-                                (LineageRecordModel.status == LineageStatus.PENDING.value)
-                                & (LineagePayloadModel.attempt_count > 0),
-                                1,
-                            ),
-                            else_=0,
-                        )
-                    ).label("retry_backlog_count"),
-                    func.sum(
-                        case((LineageRecordModel.status == LineageStatus.FAILED.value, 1), else_=0)
-                    ).label("terminal_failure_count"),
-                    func.min(
-                        case(
-                            (LineageRecordModel.status == LineageStatus.PENDING.value, LineagePayloadModel.created_at_utc),
-                            else_=None,
-                        )
-                    ).label("oldest_pending_created_at"),
-                    func.min(
-                        case(
-                            (
-                                (LineageRecordModel.status == LineageStatus.PENDING.value)
-                                & (LineagePayloadModel.leased_at_utc.is_not(None))
-                                & (
-                                    LineagePayloadModel.lease_expires_at_utc.is_(None)
-                                    | (LineagePayloadModel.lease_expires_at_utc >= stats_now)
-                                ),
-                                LineagePayloadModel.leased_at_utc,
-                            ),
-                            else_=None,
-                        )
-                    ).label("oldest_leased_at"),
-                )
-                .select_from(LineagePayloadModel)
-                .join(LineageRecordModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
-            ).one()
+            aggregate_row = session.execute(self._build_pending_payload_stats_statement(now=stats_now)).one()
 
             oldest_pending_age_seconds = 0.0
             if aggregate_row.oldest_pending_created_at is not None:
@@ -379,6 +324,60 @@ class LineageMetadataStore:
                 oldest_pending_age_seconds=oldest_pending_age_seconds,
                 oldest_leased_age_seconds=oldest_leased_age_seconds,
             )
+
+    def _build_pending_payload_stats_statement(self, *, now: datetime):
+        return (
+            select(
+                func.sum(case((LineageRecordModel.status == LineageStatus.PENDING.value, 1), else_=0)).label(
+                    "pending_payload_count"
+                ),
+                func.sum(
+                    case(
+                        (
+                            (LineageRecordModel.status == LineageStatus.PENDING.value)
+                            & (LineagePayloadModel.leased_at_utc.is_not(None))
+                            & (
+                                LineagePayloadModel.lease_expires_at_utc.is_(None)
+                                | (LineagePayloadModel.lease_expires_at_utc >= now)
+                            ),
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ).label("leased_payload_count"),
+                func.sum(
+                    case(
+                        (
+                            (LineageRecordModel.status == LineageStatus.PENDING.value)
+                            & (LineagePayloadModel.attempt_count > 0),
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ).label("retry_backlog_count"),
+                func.sum(case((LineageRecordModel.status == LineageStatus.FAILED.value, 1), else_=0)).label(
+                    "terminal_failure_count"
+                ),
+                func.min(
+                    case((LineageRecordModel.status == LineageStatus.PENDING.value, LineagePayloadModel.created_at_utc))
+                ).label("oldest_pending_created_at"),
+                func.min(
+                    case(
+                        (
+                            (LineageRecordModel.status == LineageStatus.PENDING.value)
+                            & (LineagePayloadModel.leased_at_utc.is_not(None))
+                            & (
+                                LineagePayloadModel.lease_expires_at_utc.is_(None)
+                                | (LineagePayloadModel.lease_expires_at_utc >= now)
+                            ),
+                            LineagePayloadModel.leased_at_utc,
+                        )
+                    )
+                ).label("oldest_leased_at"),
+            )
+            .select_from(LineagePayloadModel)
+            .join(LineageRecordModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
+        )
 
     def _build_lease_pending_payloads_statement(self, *, now: datetime, limit: int, dialect_name: str):
         statement = (

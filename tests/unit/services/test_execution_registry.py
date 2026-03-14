@@ -1,6 +1,7 @@
 from uuid import uuid4
 
 import pytest
+from sqlalchemy import inspect
 
 from app.services.execution_registry import (
     ExecutionRegistrationStatus,
@@ -175,3 +176,16 @@ def test_execution_registry_register_execution_distinguishes_create_replay_and_c
     assert replay.existing_status == ExecutionStatus.PENDING
     assert conflict.status == ExecutionRegistrationStatus.CONFLICT
     assert conflict.existing_execution_mode == "async"
+
+
+def test_execution_registry_declares_upstream_snapshot_ordering_index(tmp_path):
+    registry = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    registry.create_schema()
+
+    indexes = {
+        index["name"]: tuple(index["column_names"])
+        for index in inspect(registry._engine).get_indexes("analytics_upstream_snapshot")
+    }
+
+    assert indexes["ix_upstream_snapshot_calculation_created_at"] == ("calculation_id", "created_at_utc")
+    assert "ix_analytics_upstream_snapshot_calculation_id" not in indexes

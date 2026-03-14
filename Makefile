@@ -1,4 +1,4 @@
-.PHONY: install check check-all test test-unit test-integration test-e2e test-all ci ci-local ci-local-docker ci-local-docker-down typecheck lint monetary-float-guard format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate migration-smoke migration-apply recovery-drill-smoke performance-characterization pre-commit docker-up docker-down docker-build
+.PHONY: install check check-all test test-unit test-integration test-e2e test-all ci ci-local ci-local-docker ci-local-docker-down typecheck lint monetary-float-guard format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate migration-smoke migration-apply recovery-drill-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build
 
 install:
 	pip install -r requirements.txt
@@ -68,6 +68,10 @@ recovery-drill-smoke:
 
 performance-characterization:
 	python -m pytest tests/benchmarks -q
+
+performance-characterization-postgres:
+	docker compose up -d performance-lineage-db
+	python -m pytest tests/benchmarks/test_postgres_query_plans.py -q
 
 migration-apply:
 	python scripts/migration_contract_check.py --mode durable-schema

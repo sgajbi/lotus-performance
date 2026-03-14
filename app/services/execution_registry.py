@@ -8,7 +8,7 @@ from enum import StrEnum
 from typing import Any, Iterator
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, create_engine, select, text
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text, create_engine, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
@@ -80,12 +80,18 @@ class AnalyticsExecutionStageModel(Base):
 
 class AnalyticsUpstreamSnapshotModel(Base):
     __tablename__ = "analytics_upstream_snapshot"
+    __table_args__ = (
+        Index(
+            "ix_upstream_snapshot_calculation_created_at",
+            "calculation_id",
+            "created_at_utc",
+        ),
+    )
 
     snapshot_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     calculation_id: Mapped[str] = mapped_column(
         ForeignKey("analytics_execution.calculation_id", ondelete="CASCADE"),
         nullable=False,
-        index=True,
     )
     upstream_endpoint: Mapped[str] = mapped_column(String(255), nullable=False)
     source_identifier: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -159,6 +165,7 @@ class ExecutionRegistry:
 
     def create_schema(self) -> None:
         Base.metadata.create_all(self._engine)
+        self._ensure_runtime_indexes()
 
     def ping(self) -> None:
         with self._engine.connect() as connection:
@@ -363,9 +370,7 @@ class ExecutionRegistry:
 
     def get_execution(self, calculation_id: UUID) -> ExecutionRecord | None:
         with self._session() as session:
-            statement = select(AnalyticsExecutionModel).where(
-                AnalyticsExecutionModel.calculation_id == str(calculation_id)
-            )
+            statement = self._build_execution_lookup_statement(calculation_id)
             execution = session.execute(statement).scalar_one_or_none()
             if execution is None:
                 return None
@@ -471,11 +476,7 @@ class ExecutionRegistry:
 
     def list_upstream_snapshots(self, calculation_id: UUID) -> list[UpstreamSnapshotRecord]:
         with self._session() as session:
-            statement = (
-                select(AnalyticsUpstreamSnapshotModel)
-                .where(AnalyticsUpstreamSnapshotModel.calculation_id == str(calculation_id))
-                .order_by(AnalyticsUpstreamSnapshotModel.created_at_utc.asc())
-            )
+            statement = self._build_upstream_snapshots_statement(calculation_id)
             rows = session.execute(statement).scalars().all()
             return [
                 UpstreamSnapshotRecord(
@@ -492,6 +493,16 @@ class ExecutionRegistry:
                 for row in rows
             ]
 
+    def _build_execution_lookup_statement(self, calculation_id: UUID):
+        return select(AnalyticsExecutionModel).where(AnalyticsExecutionModel.calculation_id == str(calculation_id))
+
+    def _build_upstream_snapshots_statement(self, calculation_id: UUID):
+        return (
+            select(AnalyticsUpstreamSnapshotModel)
+            .where(AnalyticsUpstreamSnapshotModel.calculation_id == str(calculation_id))
+            .order_by(AnalyticsUpstreamSnapshotModel.created_at_utc.asc())
+        )
+
     def _get_execution_model(self, session: Session, calculation_id: UUID) -> AnalyticsExecutionModel:
         execution = session.get(AnalyticsExecutionModel, str(calculation_id))
         if execution is None:
@@ -503,6 +514,16 @@ class ExecutionRegistry:
         if stage is None:
             raise KeyError(f"Execution stage not found: {calculation_id}/{stage_name}")
         return stage
+
+    def _ensure_runtime_indexes(self) -> None:
+        with self._engine.begin() as connection:
+            connection.execute(text("DROP INDEX IF EXISTS ix_analytics_upstream_snapshot_calculation_id"))
+            connection.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_upstream_snapshot_calculation_created_at "
+                    "ON analytics_upstream_snapshot (calculation_id, created_at_utc)"
+                )
+            )
 
     @staticmethod
     def _is_replay_of_existing_execution(

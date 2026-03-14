@@ -433,66 +433,7 @@ class ComputeJobStore:
     def get_queue_stats(self, *, now: datetime | None = None) -> ComputeQueueStats:
         stats_now = now or datetime.now(timezone.utc)
         with self._session() as session:
-            aggregate_row = session.execute(
-                select(
-                    func.sum(
-                        case((ComputeJobModel.job_status == ComputeJobStatus.PENDING.value, 1), else_=0)
-                    ).label("pending_count"),
-                    func.sum(
-                        case((ComputeJobModel.job_status == ComputeJobStatus.LEASED.value, 1), else_=0)
-                    ).label("leased_count"),
-                    func.sum(
-                        case((ComputeJobModel.job_status == ComputeJobStatus.RUNNING.value, 1), else_=0)
-                    ).label("running_count"),
-                    func.sum(
-                        case((ComputeJobModel.job_status == ComputeJobStatus.FAILED.value, 1), else_=0)
-                    ).label("failed_count"),
-                    func.sum(
-                        case((ComputeJobModel.job_status == ComputeJobStatus.COMPLETE.value, 1), else_=0)
-                    ).label("complete_count"),
-                    func.sum(
-                        case(
-                            (
-                                (ComputeJobModel.job_status == ComputeJobStatus.PENDING.value)
-                                & (ComputeJobModel.attempt_count > 0),
-                                1,
-                            ),
-                            else_=0,
-                        )
-                    ).label("retry_backlog_count"),
-                    func.sum(
-                        case((ComputeJobModel.error_type == "LeaseExpired", 1), else_=0)
-                    ).label("lease_expired_count"),
-                    func.sum(
-                        case(
-                            (
-                                (ComputeJobModel.job_status == ComputeJobStatus.FAILED.value)
-                                & (ComputeJobModel.error_type != "LeaseExpired"),
-                                1,
-                            ),
-                            else_=0,
-                        )
-                    ).label("terminal_failure_count"),
-                    func.min(
-                        case(
-                            (ComputeJobModel.job_status == ComputeJobStatus.PENDING.value, ComputeJobModel.created_at_utc),
-                            else_=None,
-                        )
-                    ).label("oldest_pending_created_at"),
-                    func.min(
-                        case(
-                            (ComputeJobModel.job_status == ComputeJobStatus.LEASED.value, ComputeJobModel.leased_at_utc),
-                            else_=None,
-                        )
-                    ).label("oldest_leased_at"),
-                    func.min(
-                        case(
-                            (ComputeJobModel.job_status == ComputeJobStatus.RUNNING.value, ComputeJobModel.started_at_utc),
-                            else_=None,
-                        )
-                    ).label("oldest_running_at"),
-                )
-            ).one()
+            aggregate_row = session.execute(self._build_queue_stats_statement()).one()
 
             oldest_pending_age_seconds = 0.0
             if aggregate_row.oldest_pending_created_at is not None:
@@ -526,6 +467,55 @@ class ComputeJobStore:
                 oldest_leased_age_seconds=oldest_leased_age_seconds,
                 oldest_running_age_seconds=oldest_running_age_seconds,
             )
+
+    def _build_queue_stats_statement(self):
+        return select(
+            func.sum(case((ComputeJobModel.job_status == ComputeJobStatus.PENDING.value, 1), else_=0)).label(
+                "pending_count"
+            ),
+            func.sum(case((ComputeJobModel.job_status == ComputeJobStatus.LEASED.value, 1), else_=0)).label(
+                "leased_count"
+            ),
+            func.sum(case((ComputeJobModel.job_status == ComputeJobStatus.RUNNING.value, 1), else_=0)).label(
+                "running_count"
+            ),
+            func.sum(case((ComputeJobModel.job_status == ComputeJobStatus.FAILED.value, 1), else_=0)).label(
+                "failed_count"
+            ),
+            func.sum(case((ComputeJobModel.job_status == ComputeJobStatus.COMPLETE.value, 1), else_=0)).label(
+                "complete_count"
+            ),
+            func.sum(
+                case(
+                    (
+                        (ComputeJobModel.job_status == ComputeJobStatus.PENDING.value)
+                        & (ComputeJobModel.attempt_count > 0),
+                        1,
+                    ),
+                    else_=0,
+                )
+            ).label("retry_backlog_count"),
+            func.sum(case((ComputeJobModel.error_type == "LeaseExpired", 1), else_=0)).label("lease_expired_count"),
+            func.sum(
+                case(
+                    (
+                        (ComputeJobModel.job_status == ComputeJobStatus.FAILED.value)
+                        & (ComputeJobModel.error_type != "LeaseExpired"),
+                        1,
+                    ),
+                    else_=0,
+                )
+            ).label("terminal_failure_count"),
+            func.min(
+                case((ComputeJobModel.job_status == ComputeJobStatus.PENDING.value, ComputeJobModel.created_at_utc))
+            ).label("oldest_pending_created_at"),
+            func.min(
+                case((ComputeJobModel.job_status == ComputeJobStatus.LEASED.value, ComputeJobModel.leased_at_utc))
+            ).label("oldest_leased_at"),
+            func.min(
+                case((ComputeJobModel.job_status == ComputeJobStatus.RUNNING.value, ComputeJobModel.started_at_utc))
+            ).label("oldest_running_at"),
+        )
 
     def _get_model(self, session: Session, calculation_id: UUID) -> ComputeJobModel:
         row = session.get(ComputeJobModel, str(calculation_id))

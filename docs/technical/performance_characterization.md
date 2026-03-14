@@ -8,7 +8,8 @@ This document records the repo-owned capacity and performance characterization c
 This characterization currently governs the vectorized engine hot path behind
 `engine.compute.run_calculations(...)` plus the durable queue-stat aggregation paths used by
 the runtime control plane and Prometheus collector, plus the public async execution-polling
-read path, plus the stateful portfolio-retrieval orchestration path.
+read path, plus the stateful portfolio-retrieval orchestration path, plus PostgreSQL query-plan
+verification for the durable hot-path reads.
 
 ## Governed workload
 
@@ -104,3 +105,44 @@ These characterize the control-plane query path behind:
 - Metric: median wall-clock runtime across 5 reads after warm-up
 - Budget: `<= 25ms`
 - Test owner: [test_stateful_input_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_stateful_input_performance.py)
+
+## PostgreSQL plan verification
+
+These checks are not generic SQL compilation tests. They run `EXPLAIN (FORMAT JSON)` against a
+live PostgreSQL durable metadata store after explicit `ANALYZE`, so the planner contract is
+based on realistic table statistics rather than empty-table defaults.
+
+### Compute queue stats
+
+- Workload: `5,000` durable compute jobs
+- Plan contract:
+  - root aggregate plan over `analytics_compute_job`
+  - no explicit `Sort`
+  - no planner regression into multi-query application-side aggregation
+- Test owner: [test_postgres_query_plans.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_postgres_query_plans.py)
+
+### Lineage queue stats
+
+- Workload: `1,000` durable lineage payloads with joined lineage records
+- Plan contract:
+  - root aggregate plan over the `lineage_payloads` / `lineage_records` join
+  - no explicit `Sort`
+  - join/aggregate remains in SQL rather than application-side row walks
+- Test owner: [test_postgres_query_plans.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_postgres_query_plans.py)
+
+### Execution snapshot polling
+
+- Workload: `25` executions with `100` upstream snapshots each
+- Plan contract:
+  - ordered snapshot polling uses the composite `ix_upstream_snapshot_calculation_created_at` index
+  - no fallback to sequential scan on `analytics_upstream_snapshot`
+- Notes:
+  - PostgreSQL may still choose a bitmap-heap-plus-sort plan at this cardinality after `ANALYZE`
+    because the query returns all snapshots for one calculation and the sort is cheap; the governed
+    contract is index participation plus no sequential scan, not a brittle “never sort” rule.
+- Test owner: [test_postgres_query_plans.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_postgres_query_plans.py)
+
+## Running the characterization suite
+
+- Full repo-owned characterization: `make performance-characterization`
+- Live PostgreSQL plan verification: `make performance-characterization-postgres`
