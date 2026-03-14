@@ -27,6 +27,9 @@ from app.services.lineage_metadata_store import (
 from app.services.recovery_drill_history_service import (
     build_recovery_drill_history_snapshot,
 )
+from app.services.runtime_retention_history_service import (
+    build_runtime_retention_history_snapshot,
+)
 
 
 @dataclass(frozen=True)
@@ -87,6 +90,25 @@ class RecoveryDrillDegradationPolicy:
 
 
 @dataclass(frozen=True)
+class RuntimeRetentionStatus:
+    status: str
+    reason: str | None
+    latest_generated_at_utc: str | None
+    latest_status: str | None
+    latest_operator_id: str | None
+    latest_cleanup_mode: str | None
+    latest_retention_days: int | None
+    latest_age_seconds: float | None
+    degradation_reasons: tuple["str", ...]
+    degradation_details: tuple["RuntimeDegradationDetail", ...]
+
+
+@dataclass(frozen=True)
+class RuntimeRetentionDegradationPolicy:
+    max_age_seconds: float
+
+
+@dataclass(frozen=True)
 class RuntimeStatusSnapshot:
     generated_at: datetime
     runtime_status: str
@@ -97,9 +119,11 @@ class RuntimeStatusSnapshot:
     compute_queue: RuntimeQueueStatus
     lineage_queue: RuntimeQueueStatus
     recovery_drill: RecoveryDrillStatus
+    runtime_retention: RuntimeRetentionStatus
     compute_queue_policy: ComputeQueueDegradationPolicy
     lineage_queue_policy: LineageQueueDegradationPolicy
     recovery_drill_policy: RecoveryDrillDegradationPolicy
+    runtime_retention_policy: RuntimeRetentionDegradationPolicy
 
 
 def build_runtime_status_snapshot(*, is_draining: bool) -> RuntimeStatusSnapshot:
@@ -109,26 +133,31 @@ def build_runtime_status_snapshot(*, is_draining: bool) -> RuntimeStatusSnapshot
     compute_queue_policy = _build_compute_queue_policy(settings=settings)
     lineage_queue_policy = _build_lineage_queue_policy(settings=settings)
     recovery_drill_policy = _build_recovery_drill_policy(settings=settings)
+    runtime_retention_policy = _build_runtime_retention_policy(settings=settings)
 
     runtime_status = "draining" if is_draining else durability_status.status
     compute_queue = _build_compute_queue_status(durability_status, settings=settings)
     lineage_queue = _build_lineage_queue_status(durability_status, settings=settings)
     recovery_drill = _build_recovery_drill_status(settings=settings)
+    runtime_retention = _build_runtime_retention_status(settings=settings)
     runtime_degradation_reasons = _collect_runtime_degradation_reasons(
         compute_queue=compute_queue,
         lineage_queue=lineage_queue,
         recovery_drill=recovery_drill,
+        runtime_retention=runtime_retention,
     )
     runtime_degradation_details = _collect_runtime_degradation_details(
         compute_queue=compute_queue,
         lineage_queue=lineage_queue,
         recovery_drill=recovery_drill,
+        runtime_retention=runtime_retention,
     )
 
     if runtime_status == "ready" and (
         compute_queue.status != "available"
         or lineage_queue.status != "available"
         or recovery_drill.status != "available"
+        or runtime_retention.status != "available"
     ):
         runtime_status = "degraded"
 
@@ -142,9 +171,11 @@ def build_runtime_status_snapshot(*, is_draining: bool) -> RuntimeStatusSnapshot
         compute_queue=compute_queue,
         lineage_queue=lineage_queue,
         recovery_drill=recovery_drill,
+        runtime_retention=runtime_retention,
         compute_queue_policy=compute_queue_policy,
         lineage_queue_policy=lineage_queue_policy,
         recovery_drill_policy=recovery_drill_policy,
+        runtime_retention_policy=runtime_retention_policy,
     )
 
 
@@ -381,6 +412,81 @@ def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
     )
 
 
+def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
+    threshold = getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS", 0.0)
+    try:
+        snapshot = build_runtime_retention_history_snapshot(limit=1)
+    except Exception as exc:
+        return RuntimeRetentionStatus(
+            status="unavailable",
+            reason=type(exc).__name__,
+            latest_generated_at_utc=None,
+            latest_status=None,
+            latest_operator_id=None,
+            latest_cleanup_mode=None,
+            latest_retention_days=None,
+            latest_age_seconds=None,
+            degradation_reasons=(),
+            degradation_details=(),
+        )
+
+    if snapshot.status != "available":
+        if snapshot.reason in {
+            "runtime_retention_artifact_directory_missing",
+            "runtime_retention_manifest_missing",
+        }:
+            return _build_missing_runtime_retention_status(threshold=threshold)
+        return RuntimeRetentionStatus(
+            status="unavailable",
+            reason=snapshot.reason or snapshot.status,
+            latest_generated_at_utc=None,
+            latest_status=None,
+            latest_operator_id=None,
+            latest_cleanup_mode=None,
+            latest_retention_days=None,
+            latest_age_seconds=None,
+            degradation_reasons=(),
+            degradation_details=(),
+        )
+
+    if not snapshot.entries:
+        return _build_missing_runtime_retention_status(threshold=threshold)
+
+    latest = snapshot.entries[0]
+    latest_generated_at = datetime.fromisoformat(latest.generated_at_utc.replace("Z", "+00:00"))
+    latest_age_seconds = max(0.0, (datetime.now(UTC) - latest_generated_at).total_seconds())
+    degradation_details: list[RuntimeDegradationDetail] = []
+    if latest.cleanup_mode != "apply":
+        degradation_details.append(
+            RuntimeDegradationDetail(
+                reason="runtime_retention_latest_not_applied",
+                observed_value=_as_decimal_number(0),
+                threshold_value=_as_decimal_number(0),
+            )
+        )
+    if threshold > 0 and latest_age_seconds >= threshold:
+        degradation_details.append(
+            RuntimeDegradationDetail(
+                reason="runtime_retention_age_exceeded",
+                observed_value=_as_decimal_number(latest_age_seconds),
+                threshold_value=_as_decimal_number(threshold),
+            )
+        )
+    reasons: tuple[str, ...] = tuple(detail.reason for detail in degradation_details)
+    return RuntimeRetentionStatus(
+        status="degraded" if reasons else "available",
+        reason=reasons[0] if reasons else None,
+        latest_generated_at_utc=latest.generated_at_utc,
+        latest_status=latest.status,
+        latest_operator_id=latest.operator_id,
+        latest_cleanup_mode=latest.cleanup_mode,
+        latest_retention_days=latest.retention_days,
+        latest_age_seconds=latest_age_seconds,
+        degradation_reasons=reasons,
+        degradation_details=tuple(degradation_details),
+    )
+
+
 def _compute_queue_degradation_details(stats: ComputeQueueStats, *, settings) -> tuple[RuntimeDegradationDetail, ...]:
     details: list[RuntimeDegradationDetail] = []
     if (
@@ -553,11 +659,38 @@ def _build_missing_recovery_drill_status(*, threshold: float) -> RecoveryDrillSt
     )
 
 
+def _build_missing_runtime_retention_status(*, threshold: float) -> RuntimeRetentionStatus:
+    details: tuple[RuntimeDegradationDetail, ...] = ()
+    missing_history_reasons: tuple[str, ...] = ()
+    if threshold > 0:
+        missing_history_reasons = ("runtime_retention_history_unavailable",)
+        details = (
+            RuntimeDegradationDetail(
+                reason="runtime_retention_history_unavailable",
+                observed_value=_as_decimal_number(0),
+                threshold_value=_as_decimal_number(threshold),
+            ),
+        )
+    return RuntimeRetentionStatus(
+        status="available" if not missing_history_reasons else "degraded",
+        reason=None if not missing_history_reasons else missing_history_reasons[0],
+        latest_generated_at_utc=None,
+        latest_status=None,
+        latest_operator_id=None,
+        latest_cleanup_mode=None,
+        latest_retention_days=None,
+        latest_age_seconds=None,
+        degradation_reasons=missing_history_reasons,
+        degradation_details=details,
+    )
+
+
 def _collect_runtime_degradation_reasons(
     *,
     compute_queue: RuntimeQueueStatus,
     lineage_queue: RuntimeQueueStatus,
     recovery_drill: RecoveryDrillStatus,
+    runtime_retention: RuntimeRetentionStatus,
 ) -> tuple[str, ...]:
     reasons: list[str] = []
 
@@ -575,6 +708,11 @@ def _collect_runtime_degradation_reasons(
     elif recovery_drill.status == "unavailable" and recovery_drill.reason is not None:
         reasons.append(f"recovery_drill:{recovery_drill.reason}")
 
+    if runtime_retention.status == "degraded":
+        reasons.extend(f"runtime_retention:{reason}" for reason in runtime_retention.degradation_reasons)
+    elif runtime_retention.status == "unavailable" and runtime_retention.reason is not None:
+        reasons.append(f"runtime_retention:{runtime_retention.reason}")
+
     return tuple(reasons)
 
 
@@ -583,8 +721,14 @@ def _collect_runtime_degradation_details(
     compute_queue: RuntimeQueueStatus,
     lineage_queue: RuntimeQueueStatus,
     recovery_drill: RecoveryDrillStatus,
+    runtime_retention: RuntimeRetentionStatus,
 ) -> tuple[RuntimeDegradationDetail, ...]:
-    return compute_queue.degradation_details + lineage_queue.degradation_details + recovery_drill.degradation_details
+    return (
+        compute_queue.degradation_details
+        + lineage_queue.degradation_details
+        + recovery_drill.degradation_details
+        + runtime_retention.degradation_details
+    )
 
 
 def _build_compute_queue_policy(*, settings) -> ComputeQueueDegradationPolicy:
@@ -612,4 +756,10 @@ def _build_lineage_queue_policy(*, settings) -> LineageQueueDegradationPolicy:
 def _build_recovery_drill_policy(*, settings) -> RecoveryDrillDegradationPolicy:
     return RecoveryDrillDegradationPolicy(
         max_age_seconds=getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS", 0.0),
+    )
+
+
+def _build_runtime_retention_policy(*, settings) -> RuntimeRetentionDegradationPolicy:
+    return RuntimeRetentionDegradationPolicy(
+        max_age_seconds=getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS", 0.0),
     )

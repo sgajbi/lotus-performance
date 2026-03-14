@@ -92,9 +92,11 @@ def test_runtime_alert_runbook_covers_breach_gauges():
     assert "lotus_performance_lineage_queue_degradation_breach" in runbook
     assert "lotus_performance_lineage_storage_pressure_breach" in runbook
     assert "lotus_performance_recovery_drill_degradation_breach" in runbook
+    assert "lotus_performance_runtime_retention_degradation_breach" in runbook
     assert "GET /integration/runtime-work-items" in runbook
     assert "GET /integration/runtime-recoveries" in runbook
     assert "GET /integration/recovery-drills" in runbook
+    assert "GET /integration/runtime-retention-cleanups" in runbook
     assert "docs/runbooks/runtime-alerts.md" in api_reference
     assert "runtime-alerts.md" in runtime_topology
 
@@ -109,9 +111,11 @@ def test_runtime_alert_templates_cover_exported_breach_gauges():
     assert "lotus_performance_lineage_queue_degradation_breach" in templates
     assert "lotus_performance_lineage_storage_pressure_breach" in templates
     assert "lotus_performance_recovery_drill_degradation_breach" in templates
+    assert "lotus_performance_runtime_retention_degradation_breach" in templates
     assert "lotus_performance_durable_queue_store_availability" in templates
     assert "lotus_performance_lineage_storage_capacity_availability" in templates
     assert "lotus_performance_recovery_drill_availability" in templates
+    assert "lotus_performance_runtime_retention_availability" in templates
     assert "docs/operations/runtime-alert-rule-templates.md" in runbook
     assert "runtime-alert-rule-templates.md" in api_reference
     assert "runtime-alert-rule-templates.md" in runtime_topology
@@ -130,6 +134,7 @@ def test_runtime_alert_policy_governs_severity_defaults():
     assert "lotus_performance_lineage_queue_degradation_breach" in policy
     assert "lotus_performance_lineage_storage_pressure_breach" in policy
     assert "lotus_performance_recovery_drill_degradation_breach" in policy
+    assert "lotus_performance_runtime_retention_degradation_breach" in policy
     assert "`page`" in policy
     assert "`ticket`" in policy
     assert "docs/standards/runtime-alert-policy.md" in templates
@@ -154,6 +159,7 @@ def test_runtime_threshold_profiles_cover_controlled_settings():
     assert "RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS" in profiles
     assert "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES" in profiles
     assert "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS" in profiles
+    assert "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS" in profiles
     assert "Development" in profiles
     assert "Staging" in profiles
     assert "Production" in profiles
@@ -185,6 +191,9 @@ def test_runtime_threshold_env_examples_match_profile_defaults():
     assert "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS=1209600" in development
     assert "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS=604800" in staging
     assert "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS=259200" in production
+    assert "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS=1209600" in development
+    assert "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS=604800" in staging
+    assert "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS=259200" in production
     assert "runtime-thresholds.production.env" in api_reference
     assert "docs/examples/" in runtime_topology
 
@@ -207,6 +216,9 @@ def test_runtime_threshold_compose_overlays_match_profile_defaults():
     assert 'RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO: "0.10"' in development
     assert 'RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO: "0.15"' in staging
     assert 'RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO: "0.20"' in production
+    assert 'RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS: "1209600"' in development
+    assert 'RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS: "604800"' in staging
+    assert 'RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS: "259200"' in production
     assert (
         "docker compose -f docker-compose.yml -f docs/examples/docker-compose.runtime-thresholds.production.yml up"
         in readme

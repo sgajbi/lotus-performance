@@ -4,6 +4,7 @@ from app.services.compute_job_store import ComputeQueueInspectionAnchors, Comput
 from app.services.durability_health_service import DurabilityHealthStatus
 from app.services.lineage_metadata_store import LineageQueueInspectionAnchors, LineageQueueStats, LineageRecoveryEvent
 from app.services.recovery_drill_history_service import RecoveryDrillHistoryEntry, RecoveryDrillHistorySnapshot
+from app.services.runtime_retention_history_service import RuntimeRetentionHistoryEntry, RuntimeRetentionHistorySnapshot
 from app.services.runtime_status_service import build_runtime_status_snapshot
 
 
@@ -166,6 +167,130 @@ def test_runtime_status_snapshot_reports_ready_with_queue_stats(mocker):
     assert snapshot.recovery_drill.latest_status is None
     assert snapshot.recovery_drill.degradation_reasons == ()
     assert snapshot.recovery_drill_policy.max_age_seconds == 0.0
+    assert snapshot.runtime_retention.status == "available"
+    assert snapshot.runtime_retention.latest_status is None
+
+
+def test_runtime_status_snapshot_degrades_when_runtime_retention_is_stale_or_not_applied(mocker):
+    mocker.patch(
+        "app.services.runtime_status_service.get_settings",
+        return_value=type(
+            "Settings",
+            (),
+            {
+                "RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_COMPUTE_LEASED_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_COMPUTE_RUNNING_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_LINEAGE_LEASED_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES": 0,
+                "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO": 0.0,
+                "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS": 0.0,
+                "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS": 60.0,
+                "RUNTIME_STATUS_RECENT_RECOVERY_LIMIT": 0,
+            },
+        )(),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.check_durable_metadata_store_ready",
+        return_value=DurabilityHealthStatus(is_ready=True, status="ready", reason=None),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.check_lineage_storage_ready",
+        return_value=type("StorageStatus", (), {"is_ready": True, "reason": None})(),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.compute_job_store.get_queue_stats",
+        return_value=ComputeQueueStats(
+            pending_count=0,
+            leased_count=0,
+            running_count=0,
+            failed_count=0,
+            complete_count=0,
+            retry_backlog_count=0,
+            lease_expired_count=0,
+            terminal_failure_count=0,
+            oldest_pending_age_seconds=0.0,
+            oldest_leased_age_seconds=0.0,
+            oldest_running_age_seconds=0.0,
+        ),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.lineage_metadata_store.get_pending_payload_stats",
+        return_value=LineageQueueStats(
+            pending_payload_count=0,
+            leased_payload_count=0,
+            retry_backlog_count=0,
+            terminal_failure_count=0,
+            oldest_pending_age_seconds=0.0,
+            oldest_leased_age_seconds=0.0,
+        ),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.build_recovery_drill_history_snapshot",
+        return_value=RecoveryDrillHistorySnapshot(
+            status="available",
+            artifact_directory="artifacts/durable-recovery-drill",
+            latest_file_name="latest.json",
+            retained_file_names=["latest.json"],
+            retention_limit=30,
+            retention_max_age_days=90,
+            entries=[],
+            total_entries=0,
+            matched_entries=0,
+            returned_entries=0,
+            next_offset=None,
+            applied_filters={},
+        ),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.build_runtime_retention_history_snapshot",
+        return_value=RuntimeRetentionHistorySnapshot(
+            status="available",
+            artifact_directory="artifacts/runtime-retention-cleanup",
+            latest_file_name="latest.json",
+            retained_file_names=["latest.json"],
+            retention_limit=30,
+            retention_max_age_days=90,
+            entries=[
+                RuntimeRetentionHistoryEntry(
+                    evidence_file_name="latest.json",
+                    generated_at_utc="2026-03-14T00:00:00Z",
+                    operator_id="ops-user",
+                    cleanup_mode="dry_run",
+                    status="planned",
+                    retention_days=30,
+                    prunable_execution_count=1,
+                    prunable_compute_job_count=1,
+                    prunable_async_result_count=1,
+                    prunable_lineage_record_count=1,
+                    prunable_lineage_artifact_count=1,
+                )
+            ],
+            total_entries=1,
+            matched_entries=1,
+            returned_entries=1,
+            next_offset=None,
+            applied_filters={},
+        ),
+    )
+
+    snapshot = build_runtime_status_snapshot(is_draining=False)
+
+    assert snapshot.runtime_status == "degraded"
+    assert snapshot.runtime_retention.status == "degraded"
+    assert snapshot.runtime_retention.reason == "runtime_retention_latest_not_applied"
+    assert snapshot.runtime_retention.latest_cleanup_mode == "dry_run"
+    assert snapshot.runtime_retention.latest_retention_days == 30
+    assert snapshot.runtime_degradation_reasons == (
+        "runtime_retention:runtime_retention_latest_not_applied",
+        "runtime_retention:runtime_retention_age_exceeded",
+    )
 
 
 def test_runtime_status_snapshot_reports_unavailable_when_recovery_history_snapshot_is_unavailable(mocker):

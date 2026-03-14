@@ -65,6 +65,7 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
                 "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES": 200,
                 "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO": 0.25,
                 "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS": 3600.0,
+                "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS": 3600.0,
             },
         )(),
     )
@@ -82,6 +83,26 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
                         {
                             "generated_at_utc": "2099-01-01T00:00:00Z",
                             "status": "passed",
+                        },
+                    )()
+                ],
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.build_runtime_retention_history_snapshot",
+        lambda limit=1: type(
+            "RuntimeRetentionSnapshot",
+            (),
+            {
+                "status": "available",
+                "entries": [
+                    type(
+                        "RuntimeRetentionEntry",
+                        (),
+                        {
+                            "generated_at_utc": "2099-01-01T00:00:00Z",
+                            "cleanup_mode": "apply",
                         },
                     )()
                 ],
@@ -112,6 +133,10 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
     assert "lotus_performance_recovery_drill_latest_age_seconds" in metric_names
     assert "lotus_performance_recovery_drill_policy_threshold" in metric_names
     assert "lotus_performance_recovery_drill_degradation_breach" in metric_names
+    assert "lotus_performance_runtime_retention_availability" in metric_names
+    assert "lotus_performance_runtime_retention_latest_age_seconds" in metric_names
+    assert "lotus_performance_runtime_retention_policy_threshold" in metric_names
+    assert "lotus_performance_runtime_retention_degradation_breach" in metric_names
 
     compute_breach_metric = next(
         metric for metric in metrics if metric.name == "lotus_performance_compute_queue_degradation_breach"

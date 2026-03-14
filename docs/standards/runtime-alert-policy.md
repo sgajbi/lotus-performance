@@ -21,7 +21,7 @@
   - use for live runtime availability, queue degradation, and lineage storage pressure
 - `ticket`
   - remediation is required, but the condition is governance or readiness drift rather than immediate runtime outage
-  - use for stale or failed retained recovery drills unless the environment chooses a stricter local policy
+  - use for stale or failed retained recovery drills and stale or unapplied runtime-retention cleanup unless the environment chooses a stricter local policy
 
 ## Alert Policy Matrix
 
@@ -31,9 +31,11 @@
 | `lotus_performance_lineage_queue_degradation_breach` | `page` | Lineage backlog or failure pressure threatens audit artifact completeness and reproducibility. |
 | `lotus_performance_lineage_storage_pressure_breach` | `page` | Storage pressure is a pre-failure signal for lineage write outages and should be treated before artifacts stop materializing. |
 | `lotus_performance_recovery_drill_degradation_breach` | `ticket` | Recovery assurance drift weakens operational readiness, but does not necessarily mean the live service is failing now. |
+| `lotus_performance_runtime_retention_degradation_breach` | `ticket` | Retention lifecycle drift weakens durable-state governance, but does not necessarily mean the live service is failing now. |
 | `lotus_performance_durable_queue_store_availability` == `0` | `page` | Queue telemetry source loss makes queue-health and breach gauges non-authoritative. |
 | `lotus_performance_lineage_storage_capacity_availability` == `0` | `page` | Storage-capacity blindness removes early warning before lineage write failure. |
 | `lotus_performance_recovery_drill_availability` == `0` | `page` | Recovery evidence becomes unreadable, so recovery-governance signals are no longer trustworthy. |
+| `lotus_performance_runtime_retention_availability` == `0` | `page` | Retention evidence becomes unreadable, so lifecycle-governance signals are no longer trustworthy. |
 
 ## Response Targets
 
