@@ -235,6 +235,9 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 
 - Prometheus metrics surface
 - includes durable queue metrics for compute and lineage backlog/failure pressure
+- includes alert-ready queue policy breach metrics:
+  - `lotus_performance_compute_queue_degradation_breach{reason=...}`
+  - `lotus_performance_lineage_queue_degradation_breach{reason=...}`
 - includes lineage storage capacity metrics:
   - `lotus_performance_lineage_storage_capacity_availability`
   - `lotus_performance_lineage_storage_capacity_bytes{segment="total|used|free"}`

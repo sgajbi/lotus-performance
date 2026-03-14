@@ -73,9 +73,11 @@ Queue-pressure metrics are exposed from the API process by reading durable store
 - `lotus_performance_compute_queue_oldest_pending_age_seconds`
 - `lotus_performance_compute_queue_oldest_leased_age_seconds`
 - `lotus_performance_compute_queue_oldest_running_age_seconds`
+- `lotus_performance_compute_queue_degradation_breach{reason=...}`
 - `lotus_performance_lineage_queue_pending_payloads`
 - `lotus_performance_lineage_queue_failure_pressure_payloads{category=...}`
 - `lotus_performance_lineage_queue_oldest_pending_age_seconds`
+- `lotus_performance_lineage_queue_degradation_breach{reason=...}`
 - `lotus_performance_lineage_storage_capacity_availability`
 - `lotus_performance_lineage_storage_capacity_bytes{segment=...}`
 - `lotus_performance_lineage_storage_free_ratio`

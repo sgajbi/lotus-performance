@@ -1,11 +1,12 @@
 import re
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
 from app.services.compute_job_store import compute_job_store
 from app.services.durability_health_service import DurabilityHealthStatus
-from app.services.lineage_metadata_store import lineage_metadata_store
+from app.services.lineage_metadata_store import LineagePayloadModel, lineage_metadata_store
 from main import app
 
 
@@ -300,3 +301,150 @@ def test_metrics_include_lineage_storage_pressure_breach_signals(mocker):
     finally:
         settings.RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES = original_bytes
         settings.RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO = original_ratio
+
+
+def test_metrics_include_queue_policy_breach_signals():
+    settings = __import__("app.core.config", fromlist=["get_settings"]).get_settings()
+    originals = (
+        settings.RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS,
+        settings.RUNTIME_STATUS_COMPUTE_LEASED_AGE_DEGRADE_SECONDS,
+        settings.RUNTIME_STATUS_COMPUTE_RUNNING_AGE_DEGRADE_SECONDS,
+        settings.RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT,
+        settings.RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT,
+        settings.RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT,
+        settings.RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS,
+        settings.RUNTIME_STATUS_LINEAGE_LEASED_AGE_DEGRADE_SECONDS,
+        settings.RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT,
+        settings.RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT,
+    )
+    settings.RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS = 30.0
+    settings.RUNTIME_STATUS_COMPUTE_LEASED_AGE_DEGRADE_SECONDS = 10.0
+    settings.RUNTIME_STATUS_COMPUTE_RUNNING_AGE_DEGRADE_SECONDS = 5.0
+    settings.RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT = 1
+    settings.RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT = 1
+    settings.RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT = 1
+    settings.RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS = 20.0
+    settings.RUNTIME_STATUS_LINEAGE_LEASED_AGE_DEGRADE_SECONDS = 10.0
+    settings.RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT = 1
+    settings.RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT = 1
+
+    compute_job_store.create_schema()
+    lineage_metadata_store.create_schema()
+    compute_job_store.clear_all_records()
+    lineage_metadata_store.clear_all_records()
+    retry_id = uuid4()
+    leased_id = uuid4()
+    running_id = uuid4()
+    failed_id = uuid4()
+    lineage_id = uuid4()
+    lineage_leased_id = uuid4()
+    lineage_failed_id = uuid4()
+    compute_job_store.enqueue_job(
+        calculation_id=retry_id,
+        analytics_type="ReturnsSeries",
+        request_payload={"portfolio_id": "PF-RETRY"},
+    )
+    compute_job_store.enqueue_job(
+        calculation_id=leased_id,
+        analytics_type="ReturnsSeries",
+        request_payload={"portfolio_id": "PF-LEASED"},
+    )
+    compute_job_store.enqueue_job(
+        calculation_id=running_id,
+        analytics_type="ReturnsSeries",
+        request_payload={"portfolio_id": "PF-RUN"},
+    )
+    compute_job_store.enqueue_job(
+        calculation_id=failed_id,
+        analytics_type="ReturnsSeries",
+        request_payload={"portfolio_id": "PF-FAIL"},
+    )
+    lineage_metadata_store.enqueue_lineage_payload(
+        calculation_id=lineage_id,
+        calculation_type="TWR",
+        request_json="{}",
+        response_json="{}",
+        details={"request.json": "{}"},
+    )
+    lineage_metadata_store.enqueue_lineage_payload(
+        calculation_id=lineage_leased_id,
+        calculation_type="TWR",
+        request_json="{}",
+        response_json="{}",
+        details={"request.json": "{}"},
+    )
+    lineage_metadata_store.enqueue_lineage_payload(
+        calculation_id=lineage_failed_id,
+        calculation_type="TWR",
+        request_json="{}",
+        response_json="{}",
+        details={"request.json": "{}"},
+    )
+
+    with compute_job_store._session() as session:
+        retry_row = compute_job_store._get_model(session, retry_id)
+        retry_row.attempt_count = 1
+        retry_row.error_type = "LeaseExpired"
+        retry_row.created_at_utc = datetime.now(timezone.utc) - timedelta(seconds=45)
+
+        leased_row = compute_job_store._get_model(session, leased_id)
+        leased_row.job_status = "leased"
+        leased_row.leased_at_utc = datetime.now(timezone.utc) - timedelta(seconds=18)
+        leased_row.lease_expires_at_utc = datetime.now(timezone.utc) + timedelta(seconds=30)
+
+        running_row = compute_job_store._get_model(session, running_id)
+        running_row.job_status = "running"
+        running_row.started_at_utc = datetime.now(timezone.utc) - timedelta(seconds=12)
+        running_row.leased_at_utc = datetime.now(timezone.utc) - timedelta(seconds=12)
+        running_row.lease_expires_at_utc = datetime.now(timezone.utc) + timedelta(seconds=30)
+
+        failed_row = compute_job_store._get_model(session, failed_id)
+        failed_row.job_status = "failed"
+        failed_row.error_type = "RuntimeError"
+
+    lineage_metadata_store.increment_attempt_count(lineage_id)
+    with lineage_metadata_store._session() as session:
+        payload = session.get(LineagePayloadModel, str(lineage_id))
+        assert payload is not None
+        payload.created_at_utc = datetime.now(timezone.utc) - timedelta(seconds=30)
+        payload.leased_at_utc = datetime.now(timezone.utc) - timedelta(seconds=15)
+        payload.lease_expires_at_utc = datetime.now(timezone.utc) - timedelta(seconds=5)
+        leased_payload = session.get(LineagePayloadModel, str(lineage_leased_id))
+        assert leased_payload is not None
+        leased_payload.leased_at_utc = datetime.now(timezone.utc) - timedelta(seconds=15)
+        leased_payload.lease_expires_at_utc = datetime.now(timezone.utc) + timedelta(seconds=30)
+    lineage_metadata_store.mark_failed(lineage_id, error_message="lineage failed")
+    lineage_metadata_store.mark_pending(lineage_id)
+    lineage_metadata_store.increment_attempt_count(lineage_failed_id)
+    lineage_metadata_store.mark_failed(lineage_failed_id, error_message="lineage terminal failure")
+
+    try:
+        with TestClient(app) as client:
+            metrics = client.get("/metrics")
+
+        assert metrics.status_code == 200
+        assert 'lotus_performance_compute_queue_degradation_breach{reason="compute_retry_backlog_exceeded"} 1.0' in metrics.text
+        assert 'lotus_performance_compute_queue_degradation_breach{reason="compute_lease_expiry_pressure_exceeded"} 1.0' in metrics.text
+        assert 'lotus_performance_compute_queue_degradation_breach{reason="compute_terminal_failure_exceeded"} 1.0' in metrics.text
+        assert 'lotus_performance_compute_queue_degradation_breach{reason="compute_pending_age_exceeded"} 1.0' in metrics.text
+        assert 'lotus_performance_compute_queue_degradation_breach{reason="compute_leased_age_exceeded"} 1.0' in metrics.text
+        assert 'lotus_performance_compute_queue_degradation_breach{reason="compute_running_age_exceeded"} 1.0' in metrics.text
+        assert 'lotus_performance_lineage_queue_degradation_breach{reason="lineage_retry_backlog_exceeded"} 1.0' in metrics.text
+        assert 'lotus_performance_lineage_queue_degradation_breach{reason="lineage_terminal_failure_exceeded"} 1.0' in metrics.text
+        assert 'lotus_performance_lineage_queue_degradation_breach{reason="lineage_pending_age_exceeded"} 1.0' in metrics.text
+        assert 'lotus_performance_lineage_queue_degradation_breach{reason="lineage_leased_age_exceeded"} 1.0' in metrics.text
+    finally:
+        (
+            settings.RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS,
+            settings.RUNTIME_STATUS_COMPUTE_LEASED_AGE_DEGRADE_SECONDS,
+            settings.RUNTIME_STATUS_COMPUTE_RUNNING_AGE_DEGRADE_SECONDS,
+            settings.RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT,
+            settings.RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT,
+            settings.RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT,
+            settings.RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS,
+            settings.RUNTIME_STATUS_LINEAGE_LEASED_AGE_DEGRADE_SECONDS,
+            settings.RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT,
+            settings.RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT,
+        ) = originals
+        compute_job_store.clear_all_records()
+        lineage_metadata_store.clear_all_records()
