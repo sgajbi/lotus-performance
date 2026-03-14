@@ -81,6 +81,26 @@ def test_authorize_write_request_requires_runtime_manage_capability_for_retentio
     assert allowed_reason is None
 
 
+def test_authorize_write_request_requires_runtime_manage_capability_for_recovery_drill_run(monkeypatch):
+    monkeypatch.setenv("ENTERPRISE_ENFORCE_AUTHZ", "true")
+    headers = {
+        "X-Actor-Id": "a1",
+        "X-Tenant-Id": "t1",
+        "X-Role": "operator",
+        "X-Correlation-Id": "c1",
+        "X-Service-Identity": "pa",
+        "X-Capabilities": "operations.runtime.read",
+    }
+    denied, denied_reason = authorize_write_request("POST", "/integration/recovery-drills/run", headers)
+    assert denied is False
+    assert denied_reason == "missing_capability:operations.runtime.manage"
+
+    headers["X-Capabilities"] = "operations.runtime.read,operations.runtime.manage"
+    allowed, allowed_reason = authorize_write_request("POST", "/integration/recovery-drills/run", headers)
+    assert allowed is True
+    assert allowed_reason is None
+
+
 def test_authorize_privileged_read_request_enforces_required_headers_and_capability(monkeypatch):
     monkeypatch.setenv("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "true")
     denied, denied_reason = authorize_privileged_read_request("GET", "/integration/runtime-status", {})

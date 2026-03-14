@@ -111,6 +111,7 @@ def test_enterprise_readiness_covers_privileged_operator_reads():
     assert "operations.runtime.read" in api_reference
     assert "operations.runtime.manage" in api_reference
     assert "governed surface and required-capability metadata" in api_reference
+    assert "/integration/recovery-drills/run" in enterprise
 
 
 def test_runtime_alert_templates_cover_exported_breach_gauges():
@@ -261,6 +262,16 @@ def test_runtime_retention_cleanup_runbook_is_governed():
     assert "/integration/runtime-retention-cleanups" in api_reference
     assert "/integration/runtime-retention-cleanups/run" in api_reference
     assert "trigger_mode" in api_reference
+    assert "tenant_id" in api_reference
+    assert "correlation_id" in api_reference
+
+
+def test_recovery_drill_control_plane_is_governed():
+    api_reference = _read("docs/guides/api_reference.md")
+
+    assert "GET /integration/recovery-drills" in api_reference
+    assert "POST /integration/recovery-drills/run" in api_reference
+    assert "backup_identifier" in api_reference
     assert "tenant_id" in api_reference
     assert "correlation_id" in api_reference
     assert "job_id" in api_reference

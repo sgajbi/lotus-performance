@@ -14,6 +14,7 @@ _WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 _REQUIRED_HEADERS = {"x-actor-id", "x-tenant-id", "x-role", "x-correlation-id"}
 _DEFAULT_CAPABILITY_RULES = {
     "POST /integration/runtime-retention-cleanups/run": "operations.runtime.manage",
+    "POST /integration/recovery-drills/run": "operations.runtime.manage",
 }
 _DEFAULT_PRIVILEGED_READ_RULES = {
     "GET /integration/runtime-status": "operations.runtime.read",

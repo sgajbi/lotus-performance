@@ -21,6 +21,8 @@ def test_run_recovery_drill_emits_passing_evidence_and_writes_artifact_history(t
 
     assert evidence.status == "passed"
     assert evidence.operator_id == "test-operator"
+    assert evidence.tenant_id is None
+    assert evidence.correlation_id is None
     assert evidence.backup_identifier == "backup-001"
     assert evidence.processed_payload_count == 1
     assert evidence.compute_job_processed_count == 1
@@ -36,6 +38,8 @@ def test_run_recovery_drill_emits_passing_evidence_and_writes_artifact_history(t
     persisted = json.loads(output_path.read_text(encoding="utf-8"))
     assert persisted["status"] == "passed"
     assert persisted["operator_id"] == "test-operator"
+    assert persisted["tenant_id"] is None
+    assert persisted["correlation_id"] is None
     assert persisted["backup_identifier"] == "backup-001"
     assert persisted["processed_payload_count"] == 1
     assert persisted["compute_job_processed_count"] == 1
@@ -101,6 +105,8 @@ def test_run_recovery_drill_prunes_history_older_than_max_age(tmp_path):
         "generated_at_utc": (datetime.now(UTC) - timedelta(days=120)).isoformat(),
         "evidence_file_name": "stale.json",
         "operator_id": "old-operator",
+        "tenant_id": "tenant-old",
+        "correlation_id": "corr-old",
         "backup_identifier": "old-backup",
         "database_path": "stale.db",
         "restored_schema_mode": "legacy_lineage_schema_upgraded_in_place",
@@ -146,3 +152,27 @@ def test_write_text_atomic_does_not_leave_partial_target(tmp_path, mocker):
 
     assert not target_path.exists()
     assert list(tmp_path.glob(".recovery-drill-*.tmp")) == []
+
+
+def test_run_recovery_drill_persists_enterprise_context(tmp_path):
+    output_dir = tmp_path / "artifacts" / "durable-recovery-drill"
+
+    evidence = run_recovery_drill(
+        output_dir=output_dir,
+        operator_id="test-operator",
+        tenant_id="tenant-a",
+        correlation_id="corr-1",
+        backup_identifier="backup-ctx",
+        retention_limit=2,
+        retention_max_age_days=30,
+    )
+
+    latest = json.loads((output_dir / "latest.json").read_text(encoding="utf-8"))
+    manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
+
+    assert evidence.tenant_id == "tenant-a"
+    assert evidence.correlation_id == "corr-1"
+    assert latest["tenant_id"] == "tenant-a"
+    assert latest["correlation_id"] == "corr-1"
+    assert manifest["entries"][0]["tenant_id"] == "tenant-a"
+    assert manifest["entries"][0]["correlation_id"] == "corr-1"

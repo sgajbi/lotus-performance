@@ -14,6 +14,8 @@ class RecoveryDrillHistoryEntry:
     evidence_file_name: str
     generated_at_utc: str
     operator_id: str
+    tenant_id: str | None
+    correlation_id: str | None
     backup_identifier: str
     status: str
 
@@ -148,6 +150,8 @@ def build_recovery_drill_history_snapshot(
             evidence_file_name=entry["evidence_file_name"],
             generated_at_utc=entry["generated_at_utc"],
             operator_id=entry["operator_id"],
+            tenant_id=entry["tenant_id"],
+            correlation_id=entry["correlation_id"],
             backup_identifier=entry["backup_identifier"],
             status=entry["status"],
         )
@@ -205,7 +209,7 @@ def _validate_manifest_payload(payload: Any) -> dict[str, Any] | None:
     if not isinstance(entries, list):
         return None
 
-    validated_entries: list[dict[str, str]] = []
+    validated_entries: list[dict[str, str | None]] = []
     for entry in entries:
         if not isinstance(entry, dict):
             return None
@@ -218,11 +222,17 @@ def _validate_manifest_payload(payload: Any) -> dict[str, Any] | None:
         )
         if any(not isinstance(value, str) for value in required):
             return None
+        if entry.get("tenant_id") is not None and not isinstance(entry.get("tenant_id"), str):
+            return None
+        if entry.get("correlation_id") is not None and not isinstance(entry.get("correlation_id"), str):
+            return None
         validated_entries.append(
             {
                 "evidence_file_name": entry["evidence_file_name"],
                 "generated_at_utc": entry["generated_at_utc"],
                 "operator_id": entry["operator_id"],
+                "tenant_id": entry.get("tenant_id"),
+                "correlation_id": entry.get("correlation_id"),
                 "backup_identifier": entry["backup_identifier"],
                 "status": entry["status"],
             }

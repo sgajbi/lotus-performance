@@ -9,8 +9,36 @@ class RecoveryDrillHistoryEntryResponse(BaseModel):
     evidence_file_name: str = Field(description="Timestamped recovery-drill evidence artifact file name.")
     generated_at_utc: str = Field(description="UTC timestamp when this recovery drill evidence was generated.")
     operator_id: str = Field(description="Operator or automation identity that ran the recovery drill.")
+    tenant_id: str | None = Field(default=None, description="Enterprise tenant identity retained with this recovery drill, when present.")
+    correlation_id: str | None = Field(default=None, description="Enterprise correlation identifier retained with this recovery drill, when present.")
     backup_identifier: str = Field(description="Backup or restore-set identifier validated by the recovery drill.")
     status: str = Field(description="Outcome status recorded for the retained recovery drill.")
+
+
+class RecoveryDrillRunRequest(BaseModel):
+    backup_identifier: str = Field(description="Backup or restore-set identifier to validate with this recovery drill.")
+
+
+class RecoveryDrillRunResponse(BaseModel):
+    contract_version: str = Field(description="Version of the recovery-drill run response contract.")
+    source_service: str = Field(description="Owning service that executed the recovery-drill run request.")
+    drill_name: str = Field(description="Logical name of the durable recovery drill action.")
+    generated_at_utc: str = Field(description="UTC timestamp when this recovery drill evidence was generated.")
+    evidence_file_name: str = Field(description="Timestamped recovery-drill evidence artifact file name.")
+    operator_id: str = Field(description="Enterprise actor or service identity recorded for this recovery drill run.")
+    tenant_id: str | None = Field(default=None, description="Enterprise tenant identity recorded for this recovery drill run, when present.")
+    correlation_id: str | None = Field(default=None, description="Enterprise correlation identifier recorded for this recovery drill run, when present.")
+    backup_identifier: str = Field(description="Backup or restore-set identifier validated by this recovery drill.")
+    status: str = Field(description="Outcome status recorded for this recovery drill run.")
+    database_path: str = Field(description="Ephemeral durable metadata database path used during the recovery drill.")
+    restored_schema_mode: str = Field(description="Schema restore or upgrade mode exercised during the recovery drill.")
+    owned_tables_present: list[str] = Field(description="Owned durable tables confirmed present during the recovery drill.")
+    compute_job_processed_count: int = Field(description="Compute jobs processed during the recovery drill.")
+    compute_async_result_status: str = Field(description="Async result status observed during the recovery drill.")
+    compute_execution_status: str = Field(description="Execution status observed during the recovery drill.")
+    processed_payload_count: int = Field(description="Lineage payloads processed during the recovery drill.")
+    materialized_artifact_path: str = Field(description="Materialized artifact path produced by the recovery drill.")
+    materialized_artifact_exists: bool = Field(description="Whether the recovery drill confirmed the expected lineage artifact exists.")
 
 
 class RecoveryDrillHistoryResponse(BaseModel):
@@ -80,9 +108,54 @@ def build_recovery_drill_history_response(snapshot: RecoveryDrillHistorySnapshot
                 evidence_file_name=entry.evidence_file_name,
                 generated_at_utc=entry.generated_at_utc,
                 operator_id=entry.operator_id,
+                tenant_id=entry.tenant_id,
+                correlation_id=entry.correlation_id,
                 backup_identifier=entry.backup_identifier,
                 status=entry.status,
             )
             for entry in snapshot.entries
         ],
+    )
+
+
+def build_recovery_drill_run_response(
+    *,
+    drill_name: str,
+    generated_at_utc: str,
+    evidence_file_name: str,
+    operator_id: str,
+    tenant_id: str | None,
+    correlation_id: str | None,
+    backup_identifier: str,
+    status: str,
+    database_path: str,
+    restored_schema_mode: str,
+    owned_tables_present: list[str],
+    compute_job_processed_count: int,
+    compute_async_result_status: str,
+    compute_execution_status: str,
+    processed_payload_count: int,
+    materialized_artifact_path: str,
+    materialized_artifact_exists: bool,
+) -> RecoveryDrillRunResponse:
+    return RecoveryDrillRunResponse(
+        contract_version="v1",
+        source_service="lotus-performance",
+        drill_name=drill_name,
+        generated_at_utc=generated_at_utc,
+        evidence_file_name=evidence_file_name,
+        operator_id=operator_id,
+        tenant_id=tenant_id,
+        correlation_id=correlation_id,
+        backup_identifier=backup_identifier,
+        status=status,
+        database_path=database_path,
+        restored_schema_mode=restored_schema_mode,
+        owned_tables_present=owned_tables_present,
+        compute_job_processed_count=compute_job_processed_count,
+        compute_async_result_status=compute_async_result_status,
+        compute_execution_status=compute_execution_status,
+        processed_payload_count=processed_payload_count,
+        materialized_artifact_path=materialized_artifact_path,
+        materialized_artifact_exists=materialized_artifact_exists,
     )

@@ -27,6 +27,8 @@ def test_recovery_drill_history_snapshot_reads_manifest(tmp_path):
                 "evidence_file_name": "2026-03-14t00-00-00.json",
                 "generated_at_utc": "2026-03-14T00:00:00Z",
                 "operator_id": "ops-user",
+                "tenant_id": "tenant-a",
+                "correlation_id": "corr-1",
                 "backup_identifier": "backup-123",
                 "status": "passed",
             },
@@ -34,6 +36,8 @@ def test_recovery_drill_history_snapshot_reads_manifest(tmp_path):
                 "evidence_file_name": "2026-03-13t00-00-00.json",
                 "generated_at_utc": "2026-03-13T00:00:00Z",
                 "operator_id": "ops-batch",
+                "tenant_id": "tenant-b",
+                "correlation_id": "corr-2",
                 "backup_identifier": "backup-999",
                 "status": "failed",
             },
@@ -54,6 +58,8 @@ def test_recovery_drill_history_snapshot_reads_manifest(tmp_path):
     assert snapshot.applied_filters == {}
     assert len(snapshot.entries) == 2
     assert snapshot.entries[0].operator_id == "ops-user"
+    assert snapshot.entries[0].tenant_id == "tenant-a"
+    assert snapshot.entries[0].correlation_id == "corr-1"
 
 
 def test_recovery_drill_history_snapshot_reports_invalid_manifest(tmp_path):

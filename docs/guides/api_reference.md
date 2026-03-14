@@ -199,6 +199,34 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 - `next_offset` is queue-local and only appears when additional filtered events remain for that queue
 - the cursor fields give deterministic seek pagination for hot recovery streams where offset paging may drift as new recoveries arrive
 
+### `GET /integration/recovery-drills`
+
+- purpose: inspect retained durable recovery-drill evidence and manifest state
+- privileged-read auth:
+  - when `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`, this route requires enterprise identity headers plus capability `operations.runtime.read`
+  - allowed access is enterprise-audited with governed surface and required-capability metadata
+- response includes:
+  - retained recovery-drill evidence artifacts
+  - latest retained drill summary
+  - filtering by operator, backup identifier, status, and bounded time window
+  - retained enterprise request context when available:
+    - `tenant_id`
+    - `correlation_id`
+
+### `POST /integration/recovery-drills/run`
+
+- purpose: execute a governed durable recovery drill through the service-owned control plane
+- privileged-write auth:
+  - when `ENTERPRISE_ENFORCE_AUTHZ=true`, this route requires enterprise identity headers
+  - default governed capability: `operations.runtime.manage`
+- request includes:
+  - `backup_identifier`
+- response includes:
+  - immediate recovery-drill summary for the run that just executed
+  - operator identity carried from `X-Actor-Id` or `X-Service-Identity`
+  - retained enterprise request context from `X-Tenant-Id` and `X-Correlation-Id` when supplied
+- use this when an operator needs an audited recovery drill without shell access
+
 ### `GET /integration/runtime-retention-cleanups`
 
 - purpose: inspect retained runtime-retention cleanup evidence and manifest state
