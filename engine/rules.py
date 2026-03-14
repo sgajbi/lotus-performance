@@ -88,7 +88,6 @@ def calculate_initial_resets(
     if not df.empty:
         next_date_is_after_end.iloc[-1] = True
 
-    # --- START FIX: Revert the logic to remove dependency on 'sign' ---
     cond_common = (
         (df[PortfolioColumns.BOD_CF.value] != zero)
         | (next_day_bod_cf != zero)
@@ -96,7 +95,6 @@ def calculate_initial_resets(
         | eom_mask
         | next_date_is_after_end
     )
-    # --- END FIX ---
 
     cond_nctrl1 = df[temp_long_col] < -100
     cond_nctrl2 = df[temp_short_col] > 100

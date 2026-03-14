@@ -46,7 +46,6 @@ def run_calculations(df: pd.DataFrame, config: EngineConfig) -> Tuple[pd.DataFra
         if config.data_policy:
             _flag_outliers(working_df, config.data_policy, policy_diagnostics)
 
-        # Sign must be calculated before cumulative returns and resets that depend on it.
         working_df[PortfolioColumns.SIGN.value] = calculate_sign(working_df)
         working_df[PortfolioColumns.NIP.value] = calculate_nip(working_df, config)
 
