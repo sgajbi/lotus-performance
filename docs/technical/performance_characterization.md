@@ -6,7 +6,8 @@ This document records the repo-owned capacity and performance characterization c
 ## Scope
 
 This characterization currently governs the vectorized engine hot path behind
-`engine.compute.run_calculations(...)`.
+`engine.compute.run_calculations(...)` plus the durable queue-stat aggregation paths used by
+the runtime control plane and Prometheus collector.
 
 ## Governed workload
 
@@ -34,3 +35,24 @@ vectorized path with unique dates.
 This is a characterization contract, not a theoretical peak claim. If the engine changes
 materially, we should refresh the budget using measured evidence and record that change in the
 review ledger.
+
+## Durable queue-stat budgets
+
+These characterize the control-plane query path behind:
+
+- `/integration/runtime-status`
+- `/metrics`
+
+### Compute queue stats
+
+- Workload: `5,000` durable compute jobs
+- Metric: median wall-clock runtime across 10 reads
+- Budget: `<= 15ms`
+- Test owner: [test_runtime_store_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_runtime_store_performance.py)
+
+### Lineage queue stats
+
+- Workload: `1,000` durable lineage payloads
+- Metric: median wall-clock runtime across 10 reads
+- Budget: `<= 10ms`
+- Test owner: [test_runtime_store_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_runtime_store_performance.py)

@@ -67,7 +67,7 @@ recovery-drill-smoke:
 	python scripts/durable_recovery_drill.py --output-dir artifacts/durable-recovery-drill --retention-limit 30 --retention-max-age-days 90 --operator-id migration-smoke --backup-identifier migration-smoke-local
 
 performance-characterization:
-	python -m pytest tests/benchmarks/test_engine_performance.py -q
+	python -m pytest tests/benchmarks -q
 
 migration-apply:
 	python scripts/migration_contract_check.py --mode durable-schema
