@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from app.services.compute_job_store import compute_job_store
 from app.services.durability_health_service import DurabilityHealthStatus
 from app.services.lineage_metadata_store import LineagePayloadModel, lineage_metadata_store
+from app.services.recovery_drill_history_service import RecoveryDrillHistoryEntry, RecoveryDrillHistorySnapshot
 from main import app
 
 
@@ -448,3 +449,48 @@ def test_metrics_include_queue_policy_breach_signals():
         ) = originals
         compute_job_store.clear_all_records()
         lineage_metadata_store.clear_all_records()
+
+
+def test_metrics_include_recovery_drill_breach_signals(mocker):
+    settings = __import__("app.core.config", fromlist=["get_settings"]).get_settings()
+    original_threshold = settings.RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS
+    settings.RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS = 300.0
+    mocker.patch(
+        "app.services.queue_metrics_service.build_recovery_drill_history_snapshot",
+        return_value=RecoveryDrillHistorySnapshot(
+            status="available",
+            artifact_directory="artifacts/durable-recovery-drill",
+            latest_file_name="latest.json",
+            retained_file_names=["latest.json"],
+            retention_limit=30,
+            retention_max_age_days=90,
+            entries=[
+                RecoveryDrillHistoryEntry(
+                    evidence_file_name="latest.json",
+                    generated_at_utc="2026-03-13T00:00:00Z",
+                    operator_id="ops-user",
+                    backup_identifier="backup-123",
+                    status="failed",
+                )
+            ],
+            total_entries=1,
+            matched_entries=1,
+            returned_entries=1,
+            next_offset=None,
+            applied_filters={},
+            reason=None,
+        ),
+    )
+
+    try:
+        with TestClient(app) as client:
+            metrics = client.get("/metrics")
+
+        assert metrics.status_code == 200
+        assert "lotus_performance_recovery_drill_availability 1.0" in metrics.text
+        assert "lotus_performance_recovery_drill_latest_age_seconds" in metrics.text
+        assert 'lotus_performance_recovery_drill_policy_threshold{threshold="max_age_seconds"} 300.0' in metrics.text
+        assert 'lotus_performance_recovery_drill_degradation_breach{reason="recovery_drill_latest_not_passed"} 1.0' in metrics.text
+        assert 'lotus_performance_recovery_drill_degradation_breach{reason="recovery_drill_age_exceeded"} 1.0' in metrics.text
+    finally:
+        settings.RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS = original_threshold

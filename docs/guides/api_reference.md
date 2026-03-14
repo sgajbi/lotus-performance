@@ -238,6 +238,11 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 - includes alert-ready queue policy breach metrics:
   - `lotus_performance_compute_queue_degradation_breach{reason=...}`
   - `lotus_performance_lineage_queue_degradation_breach{reason=...}`
+- includes recovery assurance metrics:
+  - `lotus_performance_recovery_drill_availability`
+  - `lotus_performance_recovery_drill_latest_age_seconds`
+  - `lotus_performance_recovery_drill_policy_threshold{threshold="max_age_seconds"}`
+  - `lotus_performance_recovery_drill_degradation_breach{reason="recovery_drill_latest_not_passed|recovery_drill_age_exceeded"}`
 - includes lineage storage capacity metrics:
   - `lotus_performance_lineage_storage_capacity_availability`
   - `lotus_performance_lineage_storage_capacity_bytes{segment="total|used|free"}`
