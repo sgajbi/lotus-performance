@@ -6,10 +6,12 @@
   - `docs/runbooks/runtime-alerts.md`
   - `docs/guides/api_reference.md`
   - `docs/technical/runtime_topology.md`
+  - `docs/standards/runtime-alert-policy.md`
 
 These templates are intentionally metric-first and environment-neutral. They convert the
 service-owned breach gauges into alert expressions without re-encoding queue or storage
-policy logic outside the service.
+policy logic outside the service. Severity defaults here follow
+`docs/standards/runtime-alert-policy.md`.
 
 ## Queue Degradation Alerts
 

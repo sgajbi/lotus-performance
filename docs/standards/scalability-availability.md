@@ -39,6 +39,7 @@ This repository adopts the platform-wide standard defined in lotus-platform/Scal
 ## Scale Signal Metrics Coverage
 
 - lotus-performance exposes `/metrics` for latency/error/throughput and downstream dependency instrumentation.
+- Runtime breach-gauge severity and response defaults are governed in `docs/standards/runtime-alert-policy.md`.
 - Platform-shared metrics for CPU/memory, DB performance, and queue/consumer lag are sourced from:
   - `lotus-platform/platform-stack/prometheus/prometheus.yml`
   - `lotus-platform/platform-stack/docker-compose.yml`

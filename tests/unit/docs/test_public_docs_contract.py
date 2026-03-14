@@ -111,3 +111,26 @@ def test_runtime_alert_templates_cover_exported_breach_gauges():
     assert "docs/operations/runtime-alert-rule-templates.md" in runbook
     assert "runtime-alert-rule-templates.md" in api_reference
     assert "runtime-alert-rule-templates.md" in runtime_topology
+
+
+def test_runtime_alert_policy_governs_severity_defaults():
+    policy = _read("docs/standards/runtime-alert-policy.md")
+    templates = _read("docs/operations/runtime-alert-rule-templates.md")
+    runbook = _read("docs/runbooks/runtime-alerts.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    runtime_topology = _read("docs/technical/runtime_topology.md")
+    scalability = _read("docs/standards/scalability-availability.md")
+    enterprise = _read("docs/standards/enterprise-readiness.md")
+
+    assert "lotus_performance_compute_queue_degradation_breach" in policy
+    assert "lotus_performance_lineage_queue_degradation_breach" in policy
+    assert "lotus_performance_lineage_storage_pressure_breach" in policy
+    assert "lotus_performance_recovery_drill_degradation_breach" in policy
+    assert "`page`" in policy
+    assert "`ticket`" in policy
+    assert "docs/standards/runtime-alert-policy.md" in templates
+    assert "docs/standards/runtime-alert-policy.md" in runbook
+    assert "runtime-alert-policy.md" in api_reference
+    assert "runtime-alert-policy.md" in runtime_topology
+    assert "runtime-alert-policy.md" in scalability
+    assert "runtime-alert-policy.md" in enterprise
