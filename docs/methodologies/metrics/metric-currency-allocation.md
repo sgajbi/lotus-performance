@@ -3,7 +3,10 @@ Currency Attribution Currency Allocation (`currency_attribution[].effects.curren
 
 ## Endpoint and Mode Coverage
 - Endpoint: `POST /performance/attribution`
-- Available only in currency attribution path (`currency_mode=BOTH` + required fields + `currency` key).
+- Available only in currency attribution path:
+  - `currency_mode=BOTH`
+  - required local/FX columns are present in the aligned effects panel
+  - `group_by` includes the `currency` key so the engine can aggregate by currency
 
 ## Inputs
 - `w_p`, `w_b`
@@ -22,6 +25,8 @@ Currency Attribution Currency Allocation (`currency_attribution[].effects.curren
 - `r_local_b,c,t`: benchmark local return (decimal)
 - `r_fx_b,c,t`: benchmark FX return (decimal)
 - `CA_c,t`: currency allocation effect (decimal)
+- `CA_c`: aggregated currency allocation effect for currency `c`
+- `TE_c`: per-currency total effect in decimal
 
 ## Methodology and Formulas
 - Implemented formula:
@@ -30,6 +35,7 @@ Currency Attribution Currency Allocation (`currency_attribution[].effects.curren
 Aggregation:
 - `CA_c = sum_t CA_c,t`
 - response field = `100 * CA_c`
+- `TE_c = LA_c + LS_c + CA_c + CS_c`
 
 ## Step-by-Step Computation
 1. Build currency-level panel by date.
@@ -48,6 +54,7 @@ Aggregation:
 
 ## Outputs
 - `results_by_period.<period>.currency_attribution[].effects.currency_allocation`
+- contributes to `results_by_period.<period>.currency_attribution[].effects.total_effect`
 
 ## Worked Example
 

@@ -7,6 +7,9 @@ Position Total Contribution (`position_contributions[].total_contribution`)
 - Output shapes:
   - flat position output when `hierarchy` is null
   - hierarchical output when `hierarchy` is provided
+- Period coverage:
+  - both flat and hierarchical paths resolve `analyses[]` into `results_by_period`
+  - each resolved period is aggregated independently from the same master-window daily contribution set
 
 ## Inputs
 - `portfolio_data.valuation_points[]`
@@ -64,6 +67,10 @@ Position Total Contribution (`position_contributions[].total_contribution`)
 - Portfolio period return from portfolio daily series: `R_P = prod_t(1 + R_P,t) - 1`
 - Sum-of-parts residual: `residual = R_P - sum_i C_i`
 - If `CARINO` and `sum_i avg_weight_i > 0`, allocate residual by average weight proportion.
+- Hierarchical period aggregation uses the same period slice:
+  - aggregate position contributions to `summary.portfolio_contribution`
+  - roll up by `hierarchy[]` levels from `position_id` metadata
+  - emit one hierarchy summary per resolved period, not one master-window hierarchy
 
 ## Step-by-Step Computation
 1. Resolve requested periods.
@@ -72,8 +79,9 @@ Position Total Contribution (`position_contributions[].total_contribution`)
 4. Compute daily weights and raw daily contributions.
 5. Apply smoothing method (`CARINO` or `NONE`).
 6. Zero contribution rows on NIP/reset dates.
-7. Slice by period, aggregate by position, and apply residual reconciliation when applicable.
-8. Convert decimal contributions to pp in response (`*100`).
+7. Slice both contribution rows and portfolio daily-return rows by each resolved period.
+8. Aggregate by position or hierarchy within that period slice and apply residual reconciliation when applicable.
+9. Convert decimal contributions to pp in response (`*100`).
 
 ## Validation and Failure Behavior
 - Empty `analyses` is request validation error.
@@ -97,6 +105,7 @@ Primary fields:
 Hierarchical path fields:
 - `results_by_period.<period>.summary.portfolio_contribution`
 - `results_by_period.<period>.levels[].rows[].contribution`
+- `results_by_period.<period>.summary.local_contribution` and `fx_contribution` when `currency_mode=BOTH`
 
 ## Worked Example
 Two-day single-position example (`smoothing=NONE`):
@@ -112,3 +121,4 @@ Aggregation:
 
 Output mapping:
 - `results_by_period.ITD.position_contributions[0].total_contribution = 1.80`
+- In hierarchy mode, the same period slice would map to `results_by_period.ITD.summary.portfolio_contribution = 1.80`

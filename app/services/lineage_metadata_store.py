@@ -3,12 +3,12 @@ from __future__ import annotations
 import json
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from enum import StrEnum
 from typing import Iterator
 from uuid import UUID
 
-from sqlalchemy import DateTime, Index, Integer, String, Text, create_engine, func, select
+from sqlalchemy import DateTime, Index, Integer, String, Text, case, create_engine, func, inspect, select, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.core.config import get_settings
@@ -38,7 +38,10 @@ class LineageRecordModel(Base):
 
 class LineagePayloadModel(Base):
     __tablename__ = "lineage_payloads"
-    __table_args__ = (Index("ix_lineage_payloads_created_at", "created_at_utc"),)
+    __table_args__ = (
+        Index("ix_lineage_payloads_created_at", "created_at_utc"),
+        Index("ix_lineage_payloads_lease_expires_at", "lease_expires_at_utc"),
+    )
 
     calculation_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     calculation_type: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -47,6 +50,9 @@ class LineagePayloadModel(Base):
     details_json: Mapped[str] = mapped_column(Text, nullable=False)
     created_at_utc: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    worker_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    leased_at_utc: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    lease_expires_at_utc: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 @dataclass(frozen=True)
@@ -67,18 +73,49 @@ class LineagePayload:
     response_json: str
     details: dict[str, str]
     attempt_count: int
+    worker_id: str | None = None
+    leased_at_utc: str | None = None
+    lease_expires_at_utc: str | None = None
 
 
 @dataclass(frozen=True)
 class LineageQueueStats:
-    pending_payload_count: int
-    oldest_pending_age_seconds: float
+    pending_payload_count: int = 0
+    leased_payload_count: int = 0
+    retry_backlog_count: int = 0
+    terminal_failure_count: int = 0
+    oldest_pending_age_seconds: float = 0.0
+    oldest_leased_age_seconds: float = 0.0
+
+
+@dataclass(frozen=True)
+class LineageQueueInspectionAnchors:
+    oldest_pending_calculation_id: str | None = None
+    oldest_leased_calculation_id: str | None = None
+    latest_terminal_failure_calculation_id: str | None = None
+
+
+@dataclass(frozen=True)
+class LineageQueueInspectionItem:
+    calculation_id: str
+    calculation_type: str
+    status: str
+    active_since_utc: str | None
+    age_seconds: float | None
+    attempt_count: int
+    error_message: str | None
 
 
 def _coerce_utc_datetime(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=timezone.utc)
     return value.astimezone(timezone.utc)
+
+
+def _format_timestamp(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    return _coerce_utc_datetime(value).isoformat().replace("+00:00", "Z")
 
 
 class LineageMetadataStore:
@@ -89,6 +126,7 @@ class LineageMetadataStore:
 
     def create_schema(self) -> None:
         Base.metadata.create_all(self._engine)
+        self._ensure_payload_lease_columns()
 
     @contextmanager
     def _session(self) -> Iterator[Session]:
@@ -131,6 +169,24 @@ class LineageMetadataStore:
                 raise KeyError(f"Lineage record not found: {calculation_id}")
             record.status = LineageStatus.FAILED.value
             record.error_message = error_message
+            payload = session.get(LineagePayloadModel, str(calculation_id))
+            if payload is not None:
+                payload.worker_id = None
+                payload.leased_at_utc = None
+                payload.lease_expires_at_utc = None
+
+    def mark_pending(self, calculation_id: UUID) -> None:
+        with self._session() as session:
+            record = session.get(LineageRecordModel, str(calculation_id))
+            if record is None:
+                raise KeyError(f"Lineage record not found: {calculation_id}")
+            record.status = LineageStatus.PENDING.value
+            record.error_message = None
+            payload = session.get(LineagePayloadModel, str(calculation_id))
+            if payload is not None:
+                payload.worker_id = None
+                payload.leased_at_utc = None
+                payload.lease_expires_at_utc = None
 
     def get_record(self, calculation_id: UUID) -> LineageRecord | None:
         with self._session() as session:
@@ -179,6 +235,9 @@ class LineageMetadataStore:
                 details_json=json.dumps(details),
                 created_at_utc=now,
                 attempt_count=0,
+                worker_id=None,
+                leased_at_utc=None,
+                lease_expires_at_utc=None,
             )
             session.merge(record)
             session.merge(payload)
@@ -201,9 +260,31 @@ class LineageMetadataStore:
                     response_json=payload.response_json,
                     details=json.loads(payload.details_json),
                     attempt_count=payload.attempt_count,
+                    worker_id=payload.worker_id,
+                    leased_at_utc=_format_timestamp(payload.leased_at_utc),
+                    lease_expires_at_utc=_format_timestamp(payload.lease_expires_at_utc),
                 )
                 for payload, _ in rows
             ]
+
+    def lease_pending_payloads(self, *, worker_id: str, limit: int, lease_seconds: int) -> list[LineagePayload]:
+        now = datetime.now(timezone.utc)
+        lease_expiry = now + timedelta(seconds=lease_seconds)
+        with self._session() as session:
+            statement = self._build_lease_pending_payloads_statement(
+                now=now,
+                limit=limit,
+                dialect_name=session.bind.dialect.name if session.bind is not None else "",
+            )
+            rows = session.execute(statement).scalars().all()
+            leased: list[LineagePayload] = []
+            for row in rows:
+                row.worker_id = worker_id
+                row.leased_at_utc = now
+                row.lease_expires_at_utc = lease_expiry
+                row.attempt_count += 1
+                leased.append(self._to_payload(row))
+            return leased
 
     def increment_attempt_count(self, calculation_id: UUID) -> None:
         with self._session() as session:
@@ -211,6 +292,23 @@ class LineageMetadataStore:
             if payload is None:
                 raise KeyError(f"Lineage payload not found: {calculation_id}")
             payload.attempt_count += 1
+
+    def get_payload(self, calculation_id: UUID) -> LineagePayload | None:
+        with self._session() as session:
+            payload = session.get(LineagePayloadModel, str(calculation_id))
+            if payload is None:
+                return None
+            return LineagePayload(
+                calculation_id=UUID(payload.calculation_id),
+                calculation_type=payload.calculation_type,
+                request_json=payload.request_json,
+                response_json=payload.response_json,
+                details=json.loads(payload.details_json),
+                attempt_count=payload.attempt_count,
+                worker_id=payload.worker_id,
+                leased_at_utc=_format_timestamp(payload.leased_at_utc),
+                lease_expires_at_utc=_format_timestamp(payload.lease_expires_at_utc),
+            )
 
     def delete_payload(self, calculation_id: UUID) -> None:
         with self._session() as session:
@@ -221,30 +319,280 @@ class LineageMetadataStore:
     def get_pending_payload_stats(self, *, now: datetime | None = None) -> LineageQueueStats:
         stats_now = now or datetime.now(timezone.utc)
         with self._session() as session:
-            pending_count = session.execute(
-                select(func.count())
-                .select_from(LineagePayloadModel)
-                .join(LineageRecordModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
-                .where(LineageRecordModel.status == LineageStatus.PENDING.value)
-            ).scalar_one()
-
-            oldest_pending_created_at = session.execute(
-                select(func.min(LineagePayloadModel.created_at_utc))
-                .select_from(LineagePayloadModel)
-                .join(LineageRecordModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
-                .where(LineageRecordModel.status == LineageStatus.PENDING.value)
-            ).scalar_one()
+            aggregate_row = session.execute(self._build_pending_payload_stats_statement(now=stats_now)).one()
 
             oldest_pending_age_seconds = 0.0
-            if oldest_pending_created_at is not None:
+            if aggregate_row.oldest_pending_created_at is not None:
                 oldest_pending_age_seconds = max(
                     0.0,
-                    (stats_now - _coerce_utc_datetime(oldest_pending_created_at)).total_seconds(),
+                    (stats_now - _coerce_utc_datetime(aggregate_row.oldest_pending_created_at)).total_seconds(),
+                )
+            oldest_leased_age_seconds = 0.0
+            if aggregate_row.oldest_leased_at is not None:
+                oldest_leased_age_seconds = max(
+                    0.0,
+                    (stats_now - _coerce_utc_datetime(aggregate_row.oldest_leased_at)).total_seconds(),
                 )
 
             return LineageQueueStats(
-                pending_payload_count=int(pending_count),
+                pending_payload_count=int(aggregate_row.pending_payload_count or 0),
+                leased_payload_count=int(aggregate_row.leased_payload_count or 0),
+                retry_backlog_count=int(aggregate_row.retry_backlog_count or 0),
+                terminal_failure_count=int(aggregate_row.terminal_failure_count or 0),
                 oldest_pending_age_seconds=oldest_pending_age_seconds,
+                oldest_leased_age_seconds=oldest_leased_age_seconds,
+            )
+
+    def get_queue_inspection_anchors(self, *, now: datetime | None = None) -> LineageQueueInspectionAnchors:
+        with self._session() as session:
+            row = session.execute(
+                self._build_queue_inspection_anchors_statement(now=now or datetime.now(timezone.utc))
+            ).one()
+            return LineageQueueInspectionAnchors(
+                oldest_pending_calculation_id=row.oldest_pending_calculation_id,
+                oldest_leased_calculation_id=row.oldest_leased_calculation_id,
+                latest_terminal_failure_calculation_id=row.latest_terminal_failure_calculation_id,
+            )
+
+    def list_inspection_items(
+        self,
+        *,
+        status_filter: str,
+        limit: int,
+        now: datetime | None = None,
+    ) -> list[LineageQueueInspectionItem]:
+        inspection_now = now or datetime.now(timezone.utc)
+        normalized_status_filter = status_filter.lower()
+
+        with self._session() as session:
+            if normalized_status_filter == "active":
+                rows = session.execute(
+                    self._build_active_inspection_items_statement(now=inspection_now, limit=limit)
+                ).all()
+            elif normalized_status_filter == "failed":
+                rows = session.execute(self._build_failed_inspection_items_statement(limit=limit)).all()
+            elif normalized_status_filter == "all":
+                active_rows = session.execute(
+                    self._build_active_inspection_items_statement(now=inspection_now, limit=limit)
+                ).all()
+                failed_rows = session.execute(self._build_failed_inspection_items_statement(limit=limit)).all()
+                rows = [*active_rows, *failed_rows][:limit]
+            else:
+                raise ValueError(f"Unsupported status filter: {status_filter}")
+            return [self._to_inspection_item(record, payload, now=inspection_now) for record, payload in rows]
+
+    def _build_pending_payload_stats_statement(self, *, now: datetime):
+        return (
+            select(
+                func.sum(case((LineageRecordModel.status == LineageStatus.PENDING.value, 1), else_=0)).label(
+                    "pending_payload_count"
+                ),
+                func.sum(
+                    case(
+                        (
+                            (LineageRecordModel.status == LineageStatus.PENDING.value)
+                            & (LineagePayloadModel.leased_at_utc.is_not(None))
+                            & (
+                                LineagePayloadModel.lease_expires_at_utc.is_(None)
+                                | (LineagePayloadModel.lease_expires_at_utc >= now)
+                            ),
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ).label("leased_payload_count"),
+                func.sum(
+                    case(
+                        (
+                            (LineageRecordModel.status == LineageStatus.PENDING.value)
+                            & (LineagePayloadModel.attempt_count > 0),
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ).label("retry_backlog_count"),
+                func.sum(case((LineageRecordModel.status == LineageStatus.FAILED.value, 1), else_=0)).label(
+                    "terminal_failure_count"
+                ),
+                func.min(
+                    case((LineageRecordModel.status == LineageStatus.PENDING.value, LineagePayloadModel.created_at_utc))
+                ).label("oldest_pending_created_at"),
+                func.min(
+                    case(
+                        (
+                            (LineageRecordModel.status == LineageStatus.PENDING.value)
+                            & (LineagePayloadModel.leased_at_utc.is_not(None))
+                            & (
+                                LineagePayloadModel.lease_expires_at_utc.is_(None)
+                                | (LineagePayloadModel.lease_expires_at_utc >= now)
+                            ),
+                            LineagePayloadModel.leased_at_utc,
+                        )
+                    )
+                ).label("oldest_leased_at"),
+            )
+            .select_from(LineagePayloadModel)
+            .join(LineageRecordModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
+        )
+
+    def _build_queue_inspection_anchors_statement(self, *, now: datetime):
+        pending_lookup = (
+            select(LineagePayloadModel.calculation_id)
+            .join(LineageRecordModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
+            .where(LineageRecordModel.status == LineageStatus.PENDING.value)
+            .order_by(LineagePayloadModel.created_at_utc.asc())
+            .limit(1)
+            .scalar_subquery()
+        )
+        leased_lookup = (
+            select(LineagePayloadModel.calculation_id)
+            .join(LineageRecordModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
+            .where(
+                (LineageRecordModel.status == LineageStatus.PENDING.value)
+                & (LineagePayloadModel.leased_at_utc.is_not(None))
+                & (
+                    LineagePayloadModel.lease_expires_at_utc.is_(None)
+                    | (LineagePayloadModel.lease_expires_at_utc >= now)
+                )
+            )
+            .order_by(LineagePayloadModel.leased_at_utc.asc(), LineagePayloadModel.created_at_utc.asc())
+            .limit(1)
+            .scalar_subquery()
+        )
+        failed_lookup = (
+            select(LineageRecordModel.calculation_id)
+            .where(LineageRecordModel.status == LineageStatus.FAILED.value)
+            .order_by(LineageRecordModel.timestamp_utc.desc())
+            .limit(1)
+            .scalar_subquery()
+        )
+        return select(
+            pending_lookup.label("oldest_pending_calculation_id"),
+            leased_lookup.label("oldest_leased_calculation_id"),
+            failed_lookup.label("latest_terminal_failure_calculation_id"),
+        )
+
+    def _build_active_inspection_items_statement(self, *, now: datetime, limit: int):
+        active_since = case(
+            (
+                (LineagePayloadModel.leased_at_utc.is_not(None))
+                & (
+                    LineagePayloadModel.lease_expires_at_utc.is_(None)
+                    | (LineagePayloadModel.lease_expires_at_utc >= now)
+                ),
+                LineagePayloadModel.leased_at_utc,
+            ),
+            else_=LineagePayloadModel.created_at_utc,
+        )
+        return (
+            select(LineageRecordModel, LineagePayloadModel)
+            .join(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
+            .where(LineageRecordModel.status == LineageStatus.PENDING.value)
+            .order_by(active_since.asc(), LineagePayloadModel.created_at_utc.asc())
+            .limit(limit)
+        )
+
+    def _build_failed_inspection_items_statement(self, *, limit: int):
+        return (
+            select(LineageRecordModel, LineagePayloadModel)
+            .outerjoin(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
+            .where(LineageRecordModel.status == LineageStatus.FAILED.value)
+            .order_by(LineageRecordModel.timestamp_utc.desc())
+            .limit(limit)
+        )
+
+    def _build_lease_pending_payloads_statement(self, *, now: datetime, limit: int, dialect_name: str):
+        statement = (
+            select(LineagePayloadModel)
+            .join(LineageRecordModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
+            .where(
+                (LineageRecordModel.status == LineageStatus.PENDING.value)
+                & (
+                    LineagePayloadModel.lease_expires_at_utc.is_(None)
+                    | (LineagePayloadModel.lease_expires_at_utc < now)
+                )
+            )
+            .order_by(LineagePayloadModel.created_at_utc.asc())
+            .limit(limit)
+        )
+        if dialect_name == "postgresql":
+            statement = statement.with_for_update(skip_locked=True)
+        return statement
+
+    def _to_payload(self, payload: LineagePayloadModel) -> LineagePayload:
+        return LineagePayload(
+            calculation_id=UUID(payload.calculation_id),
+            calculation_type=payload.calculation_type,
+            request_json=payload.request_json,
+            response_json=payload.response_json,
+            details=json.loads(payload.details_json),
+            attempt_count=payload.attempt_count,
+            worker_id=payload.worker_id,
+            leased_at_utc=_format_timestamp(payload.leased_at_utc),
+            lease_expires_at_utc=_format_timestamp(payload.lease_expires_at_utc),
+        )
+
+    def _to_inspection_item(
+        self,
+        record: LineageRecordModel,
+        payload: LineagePayloadModel | None,
+        *,
+        now: datetime,
+    ) -> LineageQueueInspectionItem:
+        leased_at = None if payload is None else payload.leased_at_utc
+        lease_expires_at = None if payload is None else payload.lease_expires_at_utc
+        normalized_lease_expires_at = None if lease_expires_at is None else _coerce_utc_datetime(lease_expires_at)
+        is_leased = (
+            record.status == LineageStatus.PENDING.value
+            and payload is not None
+            and leased_at is not None
+            and (normalized_lease_expires_at is None or normalized_lease_expires_at >= now)
+        )
+        if record.status == LineageStatus.FAILED.value:
+            active_since = record.timestamp_utc
+            status = LineageStatus.FAILED.value
+        elif is_leased:
+            active_since = leased_at
+            status = "leased"
+        else:
+            active_since = payload.created_at_utc if payload is not None else record.timestamp_utc
+            status = LineageStatus.PENDING.value
+
+        age_seconds = None
+        if active_since is not None:
+            age_seconds = max(0.0, (now - _coerce_utc_datetime(active_since)).total_seconds())
+
+        return LineageQueueInspectionItem(
+            calculation_id=record.calculation_id,
+            calculation_type=record.calculation_type,
+            status=status,
+            active_since_utc=_format_timestamp(active_since),
+            age_seconds=age_seconds,
+            attempt_count=0 if payload is None else payload.attempt_count,
+            error_message=record.error_message,
+        )
+
+    def _ensure_payload_lease_columns(self) -> None:
+        inspector = inspect(self._engine)
+        if "lineage_payloads" not in inspector.get_table_names():
+            return
+
+        existing_columns = {column["name"] for column in inspector.get_columns("lineage_payloads")}
+        missing_columns = {
+            "worker_id": "ALTER TABLE lineage_payloads ADD COLUMN worker_id VARCHAR(128)",
+            "leased_at_utc": "ALTER TABLE lineage_payloads ADD COLUMN leased_at_utc DATETIME",
+            "lease_expires_at_utc": "ALTER TABLE lineage_payloads ADD COLUMN lease_expires_at_utc DATETIME",
+        }
+
+        with self._engine.begin() as connection:
+            for column_name, statement in missing_columns.items():
+                if column_name not in existing_columns:
+                    connection.execute(text(statement))
+            connection.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_lineage_payloads_lease_expires_at "
+                    "ON lineage_payloads (lease_expires_at_utc)"
+                )
             )
 
 

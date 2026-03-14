@@ -41,7 +41,7 @@ on in-process background tasks.
 You can retrieve the download URLs for all captured artifacts using a `GET` request to the lineage endpoint.
 
   * **Endpoint**: `GET /performance/lineage/{calculation_id}`
-  * **Response**: The API returns a JSON object containing durable lineage status plus URLs for each available artifact. These URLs can be used to download the files directly.
+  * **Response**: The API returns a JSON object containing durable lineage status plus controlled download URLs for each available artifact. Artifact downloads are served through the service-owned route `GET /performance/lineage/{calculation_id}/artifacts/{artifact_name}`.
 
 **Example Response for a TWR Calculation:**
 
@@ -51,9 +51,9 @@ You can retrieve the download URLs for all captured artifacts using a `GET` requ
   "calculation_type": "TWR",
   "timestamp_utc": "2025-09-08T12:45:00Z",
   "artifacts": {
-    "request_payload.json": "[http://127.0.0.1:8000/lineage/a4b7.../request.json](http://127.0.0.1:8000/lineage/a4b7.../request.json)",
-    "response_payload.json": "[http://127.0.0.1:8000/lineage/a4b7.../response.json](http://127.0.0.1:8000/lineage/a4b7.../response.json)",
-    "twr_calculation_details.csv": "[http://127.0.0.1:8000/lineage/a4b7.../twr_calculation_details.csv](http://127.0.0.1:8000/lineage/a4b7.../twr_calculation_details.csv)"
+    "request_payload.json": "[http://127.0.0.1:8000/performance/lineage/a4b7.../artifacts/request.json](http://127.0.0.1:8000/performance/lineage/a4b7.../artifacts/request.json)",
+    "response_payload.json": "[http://127.0.0.1:8000/performance/lineage/a4b7.../artifacts/response.json](http://127.0.0.1:8000/performance/lineage/a4b7.../artifacts/response.json)",
+    "twr_calculation_details.csv": "[http://127.0.0.1:8000/performance/lineage/a4b7.../artifacts/twr_calculation_details.csv](http://127.0.0.1:8000/performance/lineage/a4b7.../artifacts/twr_calculation_details.csv)"
   }
 }
 ```

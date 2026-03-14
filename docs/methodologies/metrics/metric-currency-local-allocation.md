@@ -6,7 +6,7 @@ Currency Attribution Local Allocation (`currency_attribution[].effects.local_all
 - Availability conditions:
   - `currency_mode="BOTH"`
   - aligned effects contain required local/FX columns
-  - grouped data includes `currency` key
+  - `group_by` includes `currency`
 
 ## Inputs
 - Per-currency aggregated series by date:
@@ -26,6 +26,8 @@ Currency Attribution Local Allocation (`currency_attribution[].effects.local_all
 - `w_b,c,t`: benchmark weight for currency `c` at period `t`
 - `r_local_b,c,t`: benchmark local return (decimal)
 - `LA_c,t`: local allocation effect (decimal)
+- `LA_c`: aggregated local allocation effect for currency `c`
+- `TE_c`: per-currency total effect in decimal
 
 ## Methodology and Formulas
 - Karnosky-Singer local allocation (implemented formula):
@@ -34,6 +36,7 @@ Currency Attribution Local Allocation (`currency_attribution[].effects.local_all
 Period/currency aggregation in response:
 - `LA_c = sum_t LA_c,t`
 - Response field value: `100 * LA_c`
+- `TE_c = LA_c + LS_c + CA_c + CS_c`
 
 ## Step-by-Step Computation
 1. Build daily attribution panel and aggregate by (`date`, `currency`).
@@ -51,6 +54,7 @@ Period/currency aggregation in response:
 
 ## Outputs
 - `results_by_period.<period>.currency_attribution[].effects.local_allocation`
+- contributes to `results_by_period.<period>.currency_attribution[].effects.total_effect`
 
 ## Worked Example
 

@@ -5,13 +5,14 @@ from typing import Dict, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request, status
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from app.core.config import get_settings
 from app.services.lineage_metadata_store import LineageStatus, lineage_metadata_store
+from app.services.lineage_service import LineageService
 
 router = APIRouter()
-settings = get_settings()
 
 
 class ArtifactLink(BaseModel):
@@ -27,6 +28,12 @@ class LineageResponse(BaseModel):
     error_message: Optional[str] = None
 
 
+def _resolve_lineage_artifact_path(*, calculation_id: UUID, artifact_name: str) -> str:
+    safe_artifact_name = LineageService._validate_artifact_filename(artifact_name)
+    lineage_dir = os.path.join(get_settings().LINEAGE_STORAGE_PATH, str(calculation_id))
+    return os.path.join(lineage_dir, safe_artifact_name)
+
+
 @router.get("/lineage/{calculation_id}", response_model=LineageResponse, summary="Retrieve Data Lineage Artifacts")
 async def get_lineage_data(calculation_id: UUID, request: Request):
     """
@@ -40,7 +47,7 @@ async def get_lineage_data(calculation_id: UUID, request: Request):
 
     artifacts = {}
     try:
-        lineage_dir = os.path.join(settings.LINEAGE_STORAGE_PATH, str(calculation_id))
+        lineage_dir = os.path.join(get_settings().LINEAGE_STORAGE_PATH, str(calculation_id))
         if record.status == LineageStatus.PENDING:
             return LineageResponse(
                 calculation_id=calculation_id,
@@ -65,12 +72,27 @@ async def get_lineage_data(calculation_id: UUID, request: Request):
         if not os.path.exists(manifest_path):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lineage manifest not found.")
 
-        with open(manifest_path, "r") as f:
-            manifest_data = json.load(f)
+        try:
+            with open(manifest_path, "r", encoding="utf-8") as f:
+                manifest_data = json.load(f)
+        except OSError:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Lineage manifest is unreadable.",
+            ) from None
+        except json.JSONDecodeError:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Lineage manifest is invalid.",
+            ) from None
 
         for filename in record.artifact_names:
             if filename != "manifest.json":
-                file_url = request.url_for("lineage_files", path=f"{calculation_id}/{filename}")
+                file_url = request.url_for(
+                    "lineage_artifact_file",
+                    calculation_id=str(calculation_id),
+                    artifact_name=filename,
+                )
                 artifacts[filename] = ArtifactLink(url=str(file_url))
 
         return LineageResponse(
@@ -87,3 +109,22 @@ async def get_lineage_data(calculation_id: UUID, request: Request):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to retrieve lineage artifacts: {e}"
         )
+
+
+@router.get(
+    "/lineage/{calculation_id}/artifacts/{artifact_name}",
+    name="lineage_artifact_file",
+    include_in_schema=False,
+)
+async def get_lineage_artifact(calculation_id: UUID, artifact_name: str):
+    record = lineage_metadata_store.get_record(calculation_id)
+    if record is None or record.status != LineageStatus.COMPLETE:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lineage artifact not found.")
+    if artifact_name not in record.artifact_names:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lineage artifact not found.")
+
+    artifact_path = _resolve_lineage_artifact_path(calculation_id=calculation_id, artifact_name=artifact_name)
+    if not os.path.exists(artifact_path):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lineage artifact not found.")
+
+    return FileResponse(path=artifact_path, filename=artifact_name)

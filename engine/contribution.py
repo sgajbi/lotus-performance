@@ -4,11 +4,10 @@ from typing import Dict, Tuple
 import numpy as np
 import pandas as pd
 
-from adapters.api_adapter import create_engine_dataframe
 from app.models.contribution_requests import ContributionRequest, Smoothing
 from common.enums import WeightingScheme
-from engine.compute import run_calculations
 from engine.config import EngineConfig
+from engine.runtime import run_engine_for_valuation_points
 from engine.schema import PortfolioColumns
 
 
@@ -35,7 +34,8 @@ def _calculate_daily_instrument_contributions(
         df["capital_port"] = df[f"{PortfolioColumns.BEGIN_MV.value}_port"] + df[f"{PortfolioColumns.BOD_CF.value}_port"]
 
     with np.errstate(divide="ignore", invalid="ignore"):
-        df["daily_weight"] = (df["capital_inst"] / df["capital_port"]).fillna(0.0)
+        daily_weight = df["capital_inst"] / df["capital_port"]
+    df["daily_weight"] = daily_weight.replace([np.inf, -np.inf], np.nan).fillna(0.0)
 
     df["raw_local_contribution"] = df["daily_weight"] * (df.get("local_ror", 0.0) / 100)
     df["raw_fx_contribution"] = df["daily_weight"] * (df.get("fx_ror", 0.0) / 100)
@@ -93,22 +93,10 @@ def _prepare_hierarchical_data(request: ContributionRequest) -> Tuple[pd.DataFra
         hedging=request.hedging,
     )
 
-    portfolio_df = create_engine_dataframe([item.model_dump() for item in request.portfolio_data.valuation_points])
-
-    portfolio_twr_config = twr_config
-    if twr_config.currency_mode == "BOTH":
-        portfolio_twr_config = EngineConfig(
-            performance_start_date=twr_config.performance_start_date,
-            report_start_date=twr_config.report_start_date,
-            report_end_date=twr_config.report_end_date,
-            metric_basis=twr_config.metric_basis,
-            period_type=twr_config.period_type,
-            currency_mode="BASE_ONLY",
-        )
-    portfolio_results_df, portfolio_diags = run_calculations(portfolio_df, portfolio_twr_config)
-
-    portfolio_results_df[PortfolioColumns.PERF_DATE.value] = pd.to_datetime(
-        portfolio_results_df[PortfolioColumns.PERF_DATE.value]
+    portfolio_results_df = run_engine_for_valuation_points(
+        [item.model_dump() for item in request.portfolio_data.valuation_points],
+        twr_config,
+        force_base_only=twr_config.currency_mode == "BOTH",
     )
 
     fx_rates_df = pd.DataFrame()
@@ -119,25 +107,14 @@ def _prepare_hierarchical_data(request: ContributionRequest) -> Tuple[pd.DataFra
 
     all_positions_data = []
     for position in request.positions_data:
-        position_df = create_engine_dataframe([item.model_dump() for item in position.valuation_points])
-        if position_df.empty:
+        if not position.valuation_points:
             continue
 
-        pos_twr_config = twr_config
         position_ccy = position.meta.get("currency")
-        if not (request.currency_mode == "BOTH" and position_ccy != request.report_ccy):
-            pos_twr_config = EngineConfig(
-                performance_start_date=twr_config.performance_start_date,
-                report_start_date=twr_config.report_start_date,
-                report_end_date=twr_config.report_end_date,
-                metric_basis=twr_config.metric_basis,
-                period_type=twr_config.period_type,
-                currency_mode="BASE_ONLY",
-            )
-
-        position_results_df, _ = run_calculations(position_df.copy(), pos_twr_config)
-        position_results_df[PortfolioColumns.PERF_DATE.value] = pd.to_datetime(
-            position_results_df[PortfolioColumns.PERF_DATE.value]
+        position_results_df = run_engine_for_valuation_points(
+            [item.model_dump() for item in position.valuation_points],
+            twr_config,
+            force_base_only=not (request.currency_mode == "BOTH" and position_ccy != request.report_ccy),
         )
         position_results_df["position_id"] = position.position_id
         for key, value in position.meta.items():
@@ -175,6 +152,37 @@ def calculate_hierarchical_contribution(request: ContributionRequest) -> Tuple[D
         instruments_df, portfolio_results_df, request.weighting_scheme, request.smoothing
     )
 
+    port_ror_series = portfolio_results_df[PortfolioColumns.DAILY_ROR.value] / 100
+    total_portfolio_return = (1 + port_ror_series).prod() - 1
+
+    results = build_hierarchical_contribution_result(
+        daily_contributions_df,
+        request,
+        total_portfolio_return=float(total_portfolio_return),
+    )
+    lineage_data = {"portfolio_twr.csv": portfolio_results_df, "daily_contributions.csv": daily_contributions_df}
+
+    return results, lineage_data
+
+
+def build_hierarchical_contribution_result(
+    daily_contributions_df: pd.DataFrame,
+    request: ContributionRequest,
+    *,
+    total_portfolio_return: float,
+) -> Dict:
+    """Aggregates hierarchical contribution output for a single period slice."""
+    if daily_contributions_df.empty:
+        summary = {
+            "portfolio_contribution": 0.0,
+            "coverage_mv_pct": 100.0,
+            "weighting_scheme": request.weighting_scheme.value,
+        }
+        if request.currency_mode == "BOTH":
+            summary["local_contribution"] = 0.0
+            summary["fx_contribution"] = 0.0
+        return {"summary": summary, "levels": []}
+
     totals = (
         daily_contributions_df.groupby("position_id")
         .agg(
@@ -186,8 +194,6 @@ def calculate_hierarchical_contribution(request: ContributionRequest) -> Tuple[D
         .reset_index()
     )
 
-    port_ror_series = portfolio_results_df[PortfolioColumns.DAILY_ROR.value] / 100
-    total_portfolio_return = (1 + port_ror_series).prod() - 1
     sum_of_contributions = totals["contribution"].sum()
     residual = total_portfolio_return - sum_of_contributions
     total_avg_weight = totals["weight_avg"].sum()
@@ -251,10 +257,7 @@ def calculate_hierarchical_contribution(request: ContributionRequest) -> Tuple[D
         summary["local_contribution"] = aggregated_df["local_contribution"].sum() * 100
         summary["fx_contribution"] = aggregated_df["fx_contribution"].sum() * 100
 
-    results = {"summary": summary, "levels": response_levels}
-    lineage_data = {"portfolio_twr.csv": portfolio_results_df, "daily_contributions.csv": daily_contributions_df}
-
-    return results, lineage_data
+    return {"summary": summary, "levels": response_levels}
 
 
 def _calculate_carino_factors(ror_series: pd.Series) -> pd.Series:

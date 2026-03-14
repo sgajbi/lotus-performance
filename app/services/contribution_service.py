@@ -12,18 +12,19 @@ from app.models.contribution_responses import (
     PositionContribution,
     SinglePeriodContributionResult,
 )
+from app.services.execution_lifecycle_service import (
+    complete_execution_with_lineage,
+    record_execution_failure,
+)
 from app.services.execution_registry import execution_registry
-from app.services.lineage_service import lineage_service
 from core.envelope import Audit, Diagnostics, Meta
 from core.periods import resolve_periods
 from engine.contribution import (
     _calculate_daily_instrument_contributions,
     _prepare_hierarchical_data,
-    calculate_hierarchical_contribution,
+    build_hierarchical_contribution_result,
 )
 from engine.schema import PortfolioColumns
-
-settings = get_settings()
 
 
 def _as_numeric(value: Any, default: Any = 0) -> Any:
@@ -33,12 +34,22 @@ def _as_numeric(value: Any, default: Any = 0) -> Any:
     return numeric
 
 
+def _calculate_total_portfolio_return_from_slice(portfolio_period_slice_df: pd.DataFrame) -> Any:
+    daily_returns = pd.to_numeric(
+        portfolio_period_slice_df[PortfolioColumns.DAILY_ROR.value],
+        errors="coerce",
+    )
+    total_portfolio_return_product: Any = (1 + daily_returns / 100).prod()
+    return _as_numeric(total_portfolio_return_product - 1)
+
+
 def calculate_contribution(
     request: ContributionRequest,
     *,
     input_fingerprint: str,
     calculation_hash: str,
 ) -> ContributionResponse:
+    active_settings = get_settings()
     execution_registry.mark_running(request.calculation_id)
     execution_registry.start_stage(request.calculation_id, "execution")
 
@@ -56,21 +67,46 @@ def calculate_contribution(
 
         master_start_date = min(p.start_date for p in resolved_periods)
         master_end_date = max(p.end_date for p in resolved_periods)
-        if request.hierarchy:
-            results, lineage_details = calculate_hierarchical_contribution(request)
-            period_result = SinglePeriodContributionResult(summary=results.get("summary"), levels=results.get("levels"))
-            results_by_period = {resolved_periods[0].name: period_result}
-            portfolio_results_df = lineage_details.get("portfolio_twr.csv", pd.DataFrame())
-            daily_contributions_df = lineage_details.get("daily_contributions.csv", pd.DataFrame())
-        else:
-            instruments_df, portfolio_results_df = _prepare_hierarchical_data(request)
-            daily_contributions_df = _calculate_daily_instrument_contributions(
-                instruments_df, portfolio_results_df, request.weighting_scheme, request.smoothing
-            )
-            daily_contributions_df[PortfolioColumns.PERF_DATE.value] = pd.to_datetime(
-                daily_contributions_df[PortfolioColumns.PERF_DATE.value]
-            ).dt.date
+        instruments_df, portfolio_results_df = _prepare_hierarchical_data(request)
+        daily_contributions_df = _calculate_daily_instrument_contributions(
+            instruments_df, portfolio_results_df, request.weighting_scheme, request.smoothing
+        )
+        daily_contributions_df[PortfolioColumns.PERF_DATE.value] = pd.to_datetime(
+            daily_contributions_df[PortfolioColumns.PERF_DATE.value]
+        ).dt.date
 
+        if request.hierarchy:
+            results_by_period = {}
+            for period in resolved_periods:
+                period_slice_df = daily_contributions_df[
+                    (daily_contributions_df[PortfolioColumns.PERF_DATE.value] >= period.start_date)
+                    & (daily_contributions_df[PortfolioColumns.PERF_DATE.value] <= period.end_date)
+                ].copy()
+                portfolio_period_slice_df = portfolio_results_df[
+                    (
+                        pd.to_datetime(portfolio_results_df[PortfolioColumns.PERF_DATE.value]).dt.date
+                        >= period.start_date
+                    )
+                    & (
+                        pd.to_datetime(portfolio_results_df[PortfolioColumns.PERF_DATE.value]).dt.date
+                        <= period.end_date
+                    )
+                ]
+
+                if period_slice_df.empty or portfolio_period_slice_df.empty:
+                    continue
+
+                total_portfolio_return = _calculate_total_portfolio_return_from_slice(portfolio_period_slice_df)
+                period_results = build_hierarchical_contribution_result(
+                    period_slice_df,
+                    request,
+                    total_portfolio_return=total_portfolio_return,
+                )
+                results_by_period[period.name] = SinglePeriodContributionResult(
+                    summary=period_results.get("summary"),
+                    levels=period_results.get("levels"),
+                )
+        else:
             results_by_period = {}
             for period in resolved_periods:
                 period_slice_df = daily_contributions_df[
@@ -102,12 +138,7 @@ def calculate_contribution(
                     )
                 ]
 
-                daily_returns = pd.to_numeric(
-                    portfolio_period_slice_df[PortfolioColumns.DAILY_ROR.value],
-                    errors="coerce",
-                )
-                total_portfolio_return_product: Any = (1 + daily_returns / 100).prod()
-                total_portfolio_return = _as_numeric(total_portfolio_return_product - 1)
+                total_portfolio_return = _calculate_total_portfolio_return_from_slice(portfolio_period_slice_df)
                 sum_of_contributions = _as_numeric(totals["total_contribution"].sum())
                 residual = total_portfolio_return - sum_of_contributions
                 total_avg_weight = _as_numeric(totals["average_weight"].sum())
@@ -135,13 +166,17 @@ def calculate_contribution(
                     position_contributions=position_contributions,
                 )
     except HTTPException as exc:
-        execution_registry.fail_stage(request.calculation_id, "execution", str(exc.detail))
-        execution_registry.mark_failed(request.calculation_id, str(exc.detail))
+        record_execution_failure(
+            calculation_id=request.calculation_id,
+            message=str(exc.detail),
+            execution_stage_started=True,
+        )
         raise
     except Exception as exc:
-        execution_registry.fail_stage(request.calculation_id, "execution", str(exc))
-        execution_registry.mark_failed(
-            request.calculation_id, f"An unexpected error occurred during contribution calculation: {str(exc)}"
+        record_execution_failure(
+            calculation_id=request.calculation_id,
+            message=f"An unexpected error occurred during contribution calculation: {str(exc)}",
+            execution_stage_started=True,
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -150,7 +185,7 @@ def calculate_contribution(
 
     meta = Meta(
         calculation_id=request.calculation_id,
-        engine_version=settings.APP_VERSION,
+        engine_version=active_settings.APP_VERSION,
         precision_mode=request.precision_mode,
         calendar=request.calendar,
         annualization=request.annualization,
@@ -175,21 +210,15 @@ def calculate_contribution(
         audit=audit,
     )
 
-    execution_registry.complete_stage(
-        request.calculation_id,
-        "execution",
-        details={"input_positions": len(request.positions_data)},
-    )
-    execution_registry.start_stage(request.calculation_id, "lineage_materialization")
-    lineage_service.enqueue_capture(
+    complete_execution_with_lineage(
         calculation_id=request.calculation_id,
         calculation_type="Contribution",
         request_model=request,
         response_model=response_model,
+        execution_details={"input_positions": len(request.positions_data)},
         calculation_details={
             "portfolio_twr.csv": portfolio_results_df,
             "daily_contributions.csv": daily_contributions_df,
         },
     )
-    execution_registry.mark_complete(request.calculation_id)
     return response_model

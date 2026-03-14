@@ -39,6 +39,12 @@ Async-capable endpoints follow one common pattern:
 3. client polls `/performance/executions/{calculation_id}`
 4. client retrieves the endpoint-specific async result from `result_path`
 
+`calculation_id` is the durable execution handle for that workflow:
+
+- exact async resubmission with the same `calculation_id` is treated as an idempotent replay
+- payload drift with the same `calculation_id` is rejected with `409 Conflict`
+- synchronous submissions should use a fresh `calculation_id` each time
+
 ## Current request-model shape
 
 ### TWR

@@ -12,10 +12,8 @@ from engine.schema import PortfolioColumns
 
 def _calculate_period_summary_dict(
     period_df: pd.DataFrame,
-    full_history_df: pd.DataFrame,
     annualization: Annualization,
     include_cumulative: bool,
-    rounding_precision: int,
 ) -> Dict:
     """Calculates an aggregated summary dict for a given period DataFrame."""
     first_day = period_df.iloc[0]
@@ -43,11 +41,9 @@ def _calculate_period_summary_dict(
             252 if annualization.basis == "BUS/252" else 365.25 if annualization.basis == "ACT/ACT" else 365.0
         )
 
-        # --- START FIX: Remove conditional logic to always annualize if requested ---
         if days_in_period > 0:
             annualized_return = annualize_return(period_ror, days_in_period, ppy, annualization.basis) * 100
             summary["annualized_return_pct"] = float(quantize_performance(annualized_return))
-        # --- END FIX ---
 
     return summary
 
@@ -98,9 +94,7 @@ def generate_performance_breakdowns(
             for period_timestamp, period_df in resampler:
                 if period_df.empty:
                     continue
-                summary = _calculate_period_summary_dict(
-                    period_df, daily_df, annualization, include_cumulative, rounding_precision
-                )
+                summary = _calculate_period_summary_dict(period_df, annualization, include_cumulative)
                 if freq == Frequency.MONTHLY:
                     period_str = period_timestamp.strftime("%Y-%m")
                 elif freq == Frequency.QUARTERLY:

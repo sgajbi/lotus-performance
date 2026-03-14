@@ -257,3 +257,80 @@ async def test_calculate_returns_series_handles_unexpected_exception_and_strict_
     execution = store.get_execution(failing_request.calculation_id)
     assert execution is not None
     assert execution.status.value == "failed"
+
+
+@pytest.mark.asyncio
+async def test_calculate_returns_series_uses_runtime_stateful_settings(monkeypatch, tmp_path):
+    request = _build_stateful_request(
+        series_selection={"include_portfolio": True, "include_benchmark": False, "include_risk_free": False},
+        data_policy={"missing_data_policy": "ALLOW_PARTIAL"},
+    )
+    _seed_execution(monkeypatch, tmp_path, request)
+    captured: dict[str, object] = {}
+
+    class _FakeCoreService:
+        def __init__(self, *, base_url, timeout_seconds, max_retries, retry_backoff_seconds):
+            captured["core_init"] = {
+                "base_url": base_url,
+                "timeout_seconds": timeout_seconds,
+                "max_retries": max_retries,
+                "retry_backoff_seconds": retry_backoff_seconds,
+            }
+
+    class _FakeStatefulInputService:
+        def __init__(self, *, core_service, portfolio_chunk_days, reference_chunk_days, max_concurrent_chunks):
+            captured["stateful_init"] = {
+                "portfolio_chunk_days": portfolio_chunk_days,
+                "reference_chunk_days": reference_chunk_days,
+                "max_concurrent_chunks": max_concurrent_chunks,
+            }
+
+        async def get_portfolio_timeseries(self, **kwargs):
+            return 200, {
+                "portfolio_open_date": "2026-02-23",
+                "observations": [
+                    {"valuation_date": "2026-02-23", "beginning_market_value": "100", "ending_market_value": "101"}
+                ],
+            }
+
+    monkeypatch.setattr(
+        returns_series_service,
+        "get_settings",
+        lambda: type(
+            "Settings",
+            (),
+            {
+                "CORE_QUERY_BASE_URL": "http://runtime-core",
+                "CORE_TIMEOUT_SECONDS": 17.0,
+                "CORE_MAX_RETRIES": 5,
+                "CORE_RETRY_BACKOFF_SECONDS": 1.5,
+                "STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS": 13,
+                "STATEFUL_INPUT_REFERENCE_CHUNK_DAYS": 29,
+                "STATEFUL_INPUT_MAX_CONCURRENT_CHUNKS": 7,
+            },
+        )(),
+    )
+    monkeypatch.setattr(returns_series_service, "CoreIntegrationService", _FakeCoreService)
+    monkeypatch.setattr(returns_series_service, "StatefulInputService", _FakeStatefulInputService)
+    monkeypatch.setattr(
+        returns_series_service,
+        "daily_ror_from_portfolio_timeseries",
+        lambda **kwargs: __import__("pandas").DataFrame(
+            {"date": __import__("pandas").to_datetime(["2026-02-23"]), "return_value": [0.01]}
+        ),
+    )
+
+    response = await returns_series_service.calculate_returns_series(request)
+
+    assert captured["core_init"] == {
+        "base_url": "http://runtime-core",
+        "timeout_seconds": 17.0,
+        "max_retries": 5,
+        "retry_backoff_seconds": 1.5,
+    }
+    assert captured["stateful_init"] == {
+        "portfolio_chunk_days": 13,
+        "reference_chunk_days": 29,
+        "max_concurrent_chunks": 7,
+    }
+    assert len(response.series.portfolio_returns) == 1

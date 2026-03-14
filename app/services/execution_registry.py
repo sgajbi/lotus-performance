@@ -8,7 +8,8 @@ from enum import StrEnum
 from typing import Any, Iterator
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, create_engine, select, text
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text, create_engine, select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
 from app.core.config import get_settings
@@ -26,6 +27,12 @@ class ExecutionStageStatus(StrEnum):
     IN_PROGRESS = "in_progress"
     COMPLETE = "complete"
     FAILED = "failed"
+
+
+class ExecutionRegistrationStatus(StrEnum):
+    CREATED = "created"
+    REPLAY = "replay"
+    CONFLICT = "conflict"
 
 
 class Base(DeclarativeBase):
@@ -73,12 +80,18 @@ class AnalyticsExecutionStageModel(Base):
 
 class AnalyticsUpstreamSnapshotModel(Base):
     __tablename__ = "analytics_upstream_snapshot"
+    __table_args__ = (
+        Index(
+            "ix_upstream_snapshot_calculation_created_at",
+            "calculation_id",
+            "created_at_utc",
+        ),
+    )
 
     snapshot_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     calculation_id: Mapped[str] = mapped_column(
         ForeignKey("analytics_execution.calculation_id", ondelete="CASCADE"),
         nullable=False,
-        index=True,
     )
     upstream_endpoint: Mapped[str] = mapped_column(String(255), nullable=False)
     source_identifier: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -131,6 +144,13 @@ class ExecutionRecord:
     upstream_snapshots: list[UpstreamSnapshotRecord]
 
 
+@dataclass(frozen=True)
+class ExecutionRegistrationResult:
+    status: ExecutionRegistrationStatus
+    existing_status: ExecutionStatus | None = None
+    existing_execution_mode: str | None = None
+
+
 def _format_timestamp(value: datetime | None) -> str | None:
     if value is None:
         return None
@@ -145,6 +165,7 @@ class ExecutionRegistry:
 
     def create_schema(self) -> None:
         Base.metadata.create_all(self._engine)
+        self._ensure_runtime_indexes()
 
     def ping(self) -> None:
         with self._engine.connect() as connection:
@@ -167,6 +188,12 @@ class ExecutionRegistry:
             session.query(AnalyticsUpstreamSnapshotModel).delete()
             session.query(AnalyticsExecutionStageModel).delete()
             session.query(AnalyticsExecutionModel).delete()
+
+    def delete_execution(self, calculation_id: UUID) -> None:
+        with self._session() as session:
+            execution = session.get(AnalyticsExecutionModel, str(calculation_id))
+            if execution is not None:
+                session.delete(execution)
 
     def create_execution(
         self,
@@ -196,6 +223,66 @@ class ExecutionRegistry:
                 completed_at_utc=None,
             )
             session.merge(execution)
+
+    def register_execution(
+        self,
+        *,
+        calculation_id: UUID,
+        analytics_type: str,
+        portfolio_id: str | None,
+        execution_mode: str = "sync",
+        requested_window: dict[str, Any] | None = None,
+        input_fingerprint: str | None = None,
+        calculation_hash: str | None = None,
+    ) -> ExecutionRegistrationResult:
+        now = datetime.now(timezone.utc)
+        requested_window_json = json.dumps(requested_window or {}, sort_keys=True)
+        execution = AnalyticsExecutionModel(
+            calculation_id=str(calculation_id),
+            analytics_type=analytics_type,
+            portfolio_id=portfolio_id,
+            execution_mode=execution_mode,
+            status=ExecutionStatus.PENDING.value,
+            requested_window_json=requested_window_json,
+            input_fingerprint=input_fingerprint,
+            calculation_hash=calculation_hash,
+            error_message=None,
+            created_at_utc=now,
+            started_at_utc=None,
+            completed_at_utc=None,
+        )
+
+        session = self._session_factory()
+        try:
+            session.add(execution)
+            session.commit()
+            return ExecutionRegistrationResult(status=ExecutionRegistrationStatus.CREATED)
+        except IntegrityError:
+            session.rollback()
+            existing = session.get(AnalyticsExecutionModel, str(calculation_id))
+            if existing is None:
+                raise
+            if self._is_replay_of_existing_execution(
+                existing=existing,
+                analytics_type=analytics_type,
+                portfolio_id=portfolio_id,
+                execution_mode=execution_mode,
+                requested_window_json=requested_window_json,
+                input_fingerprint=input_fingerprint,
+                calculation_hash=calculation_hash,
+            ):
+                return ExecutionRegistrationResult(
+                    status=ExecutionRegistrationStatus.REPLAY,
+                    existing_status=ExecutionStatus(existing.status),
+                    existing_execution_mode=existing.execution_mode,
+                )
+            return ExecutionRegistrationResult(
+                status=ExecutionRegistrationStatus.CONFLICT,
+                existing_status=ExecutionStatus(existing.status),
+                existing_execution_mode=existing.execution_mode,
+            )
+        finally:
+            session.close()
 
     def mark_running(self, calculation_id: UUID) -> None:
         with self._session() as session:
@@ -283,9 +370,7 @@ class ExecutionRegistry:
 
     def get_execution(self, calculation_id: UUID) -> ExecutionRecord | None:
         with self._session() as session:
-            statement = select(AnalyticsExecutionModel).where(
-                AnalyticsExecutionModel.calculation_id == str(calculation_id)
-            )
+            statement = self._build_execution_lookup_statement(calculation_id)
             execution = session.execute(statement).scalar_one_or_none()
             if execution is None:
                 return None
@@ -347,13 +432,51 @@ class ExecutionRegistry:
                 )
             )
 
+    def record_upstream_snapshots(
+        self,
+        *,
+        calculation_id: UUID,
+        snapshots: list[dict[str, Any]],
+    ) -> None:
+        if not snapshots:
+            return
+        with self._session() as session:
+            self._get_execution_model(session, calculation_id)
+            snapshot_ids = [snapshot["snapshot_id"] for snapshot in snapshots]
+            existing_snapshot_ids = {
+                row[0]
+                for row in session.execute(
+                    select(AnalyticsUpstreamSnapshotModel.snapshot_id).where(
+                        AnalyticsUpstreamSnapshotModel.snapshot_id.in_(snapshot_ids)
+                    )
+                ).all()
+            }
+            created_at = datetime.now(timezone.utc)
+            for snapshot in snapshots:
+                if snapshot["snapshot_id"] in existing_snapshot_ids:
+                    continue
+                session.merge(
+                    AnalyticsUpstreamSnapshotModel(
+                        snapshot_id=snapshot["snapshot_id"],
+                        calculation_id=str(calculation_id),
+                        upstream_endpoint=snapshot["upstream_endpoint"],
+                        source_identifier=snapshot["source_identifier"],
+                        as_of_date=snapshot["as_of_date"],
+                        request_fingerprint=snapshot["request_fingerprint"],
+                        response_fingerprint=snapshot["response_fingerprint"],
+                        retrieval_status=snapshot["retrieval_status"],
+                        paging_metadata_json=(
+                            json.dumps(snapshot["paging_metadata"], sort_keys=True)
+                            if snapshot.get("paging_metadata") is not None
+                            else None
+                        ),
+                        created_at_utc=created_at,
+                    )
+                )
+
     def list_upstream_snapshots(self, calculation_id: UUID) -> list[UpstreamSnapshotRecord]:
         with self._session() as session:
-            statement = (
-                select(AnalyticsUpstreamSnapshotModel)
-                .where(AnalyticsUpstreamSnapshotModel.calculation_id == str(calculation_id))
-                .order_by(AnalyticsUpstreamSnapshotModel.created_at_utc.asc())
-            )
+            statement = self._build_upstream_snapshots_statement(calculation_id)
             rows = session.execute(statement).scalars().all()
             return [
                 UpstreamSnapshotRecord(
@@ -370,6 +493,25 @@ class ExecutionRegistry:
                 for row in rows
             ]
 
+    def list_upstream_snapshot_ids(self, calculation_id: UUID) -> set[str]:
+        with self._session() as session:
+            rows = session.execute(
+                select(AnalyticsUpstreamSnapshotModel.snapshot_id).where(
+                    AnalyticsUpstreamSnapshotModel.calculation_id == str(calculation_id)
+                )
+            ).all()
+            return {row[0] for row in rows}
+
+    def _build_execution_lookup_statement(self, calculation_id: UUID):
+        return select(AnalyticsExecutionModel).where(AnalyticsExecutionModel.calculation_id == str(calculation_id))
+
+    def _build_upstream_snapshots_statement(self, calculation_id: UUID):
+        return (
+            select(AnalyticsUpstreamSnapshotModel)
+            .where(AnalyticsUpstreamSnapshotModel.calculation_id == str(calculation_id))
+            .order_by(AnalyticsUpstreamSnapshotModel.created_at_utc.asc())
+        )
+
     def _get_execution_model(self, session: Session, calculation_id: UUID) -> AnalyticsExecutionModel:
         execution = session.get(AnalyticsExecutionModel, str(calculation_id))
         if execution is None:
@@ -381,6 +523,36 @@ class ExecutionRegistry:
         if stage is None:
             raise KeyError(f"Execution stage not found: {calculation_id}/{stage_name}")
         return stage
+
+    def _ensure_runtime_indexes(self) -> None:
+        with self._engine.begin() as connection:
+            connection.execute(text("DROP INDEX IF EXISTS ix_analytics_upstream_snapshot_calculation_id"))
+            connection.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_upstream_snapshot_calculation_created_at "
+                    "ON analytics_upstream_snapshot (calculation_id, created_at_utc)"
+                )
+            )
+
+    @staticmethod
+    def _is_replay_of_existing_execution(
+        *,
+        existing: AnalyticsExecutionModel,
+        analytics_type: str,
+        portfolio_id: str | None,
+        execution_mode: str,
+        requested_window_json: str,
+        input_fingerprint: str | None,
+        calculation_hash: str | None,
+    ) -> bool:
+        return (
+            existing.analytics_type == analytics_type
+            and existing.portfolio_id == portfolio_id
+            and existing.execution_mode == execution_mode
+            and existing.requested_window_json == requested_window_json
+            and existing.input_fingerprint == input_fingerprint
+            and existing.calculation_hash == calculation_hash
+        )
 
 
 settings = get_settings()

@@ -1,7 +1,7 @@
 {
   "description": "Approved baseline monetary-float findings. New findings fail CI.",
   "policy_version": "1.1.0",
-  "generated_at": "2026-03-01T03:09:33Z",
+  "generated_at": "2026-03-14T08:38:56Z",
   "allowlist": [
     {
       "finding": "app/models/attribution_requests.py:44:weight_bop: float",
@@ -88,36 +88,6 @@
       "review_by": "2026-08-28"
     },
     {
-      "finding": "app/models/pas_connected_responses.py:11:net_cumulative_return: float | None = None",
-      "justification": "Temporary approved monetary float usage; migrate to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-08-24"
-    },
-    {
-      "finding": "app/models/pas_connected_responses.py:12:net_annualized_return: float | None = None",
-      "justification": "Temporary approved monetary float usage; migrate to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-08-24"
-    },
-    {
-      "finding": "app/models/pas_connected_responses.py:13:gross_cumulative_return: float | None = None",
-      "justification": "Temporary approved monetary float usage; migrate to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-08-24"
-    },
-    {
-      "finding": "app/models/pas_connected_responses.py:14:gross_annualized_return: float | None = None",
-      "justification": "Temporary approved monetary float usage; migrate to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-08-24"
-    },
-    {
-      "finding": "app/models/positions_analytics_responses.py:11:total_market_value: float",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-08-28"
-    },
-    {
       "finding": "app/models/requests.py:38:end_mv: float = Field(..., description=\"The market value of the portfolio at the end of the day.\")",
       "justification": "Temporary approved monetary float usage; migrate to Decimal.",
       "owner": "platform-governance",
@@ -154,22 +124,34 @@
       "review_by": "2026-08-24"
     },
     {
-      "finding": "engine/breakdown.py:30:\"period_return_pct\": float(quantize_performance(period_ror * 100)),",
-      "justification": "Temporary approved monetary float usage; migrate to Decimal.",
+      "finding": "engine/breakdown.py:28:\"period_return_pct\": float(quantize_performance(period_ror * 100)),",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
-      "review_by": "2026-08-24"
+      "review_by": "2026-09-10"
     },
     {
-      "finding": "engine/breakdown.py:34:summary[\"cumulative_return_pct_to_date\"] = float(",
-      "justification": "Temporary approved monetary float usage; migrate to Decimal.",
+      "finding": "engine/breakdown.py:32:summary[\"cumulative_return_pct_to_date\"] = float(",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
-      "review_by": "2026-08-24"
+      "review_by": "2026-09-10"
     },
     {
-      "finding": "engine/breakdown.py:49:summary[\"annualized_return_pct\"] = float(quantize_performance(annualized_return))",
-      "justification": "Temporary approved monetary float usage; migrate to Decimal.",
+      "finding": "engine/breakdown.py:46:summary[\"annualized_return_pct\"] = float(quantize_performance(annualized_return))",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
-      "review_by": "2026-08-24"
+      "review_by": "2026-09-10"
+    },
+    {
+      "finding": "engine/contribution.py:161:total_portfolio_return=float(total_portfolio_return),",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-10"
+    },
+    {
+      "finding": "engine/contribution.py:172:total_portfolio_return: float,",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-10"
     },
     {
       "finding": "engine/ror.py:15:Calculates the daily rate of return, supporting both float and Decimal.",

@@ -33,6 +33,7 @@ Source of truth for the local topology is [docker-compose.yml](/C:/Users/Sandeep
 - polls durable lineage payload metadata
 - materializes artifact files asynchronously
 - updates durable lineage status for polling and retrieval
+- retries failed lineage materialization within a bounded attempt budget before marking terminal failure
 - supports explicit quiescence via a worker stop signal instead of relying on process kill semantics
 
 ### `performance-lineage-db`
@@ -68,12 +69,31 @@ Source of truth for the local topology is [docker-compose.yml](/C:/Users/Sandeep
 Queue-pressure metrics are exposed from the API process by reading durable store state:
 
 - `lotus_performance_compute_queue_jobs{status=...}`
+- `lotus_performance_compute_queue_failure_pressure_jobs{category=...}`
 - `lotus_performance_compute_queue_oldest_pending_age_seconds`
+- `lotus_performance_compute_queue_oldest_leased_age_seconds`
+- `lotus_performance_compute_queue_oldest_running_age_seconds`
 - `lotus_performance_lineage_queue_pending_payloads`
+- `lotus_performance_lineage_queue_failure_pressure_payloads{category=...}`
 - `lotus_performance_lineage_queue_oldest_pending_age_seconds`
 
 For point-in-time operator drill-down, `GET /integration/runtime-status` exposes the same
-durable queue state as a JSON control-plane snapshot.
+durable queue state as a JSON control-plane snapshot, including the oldest pending, leased,
+and running compute-job ages plus retry-backlog, lease-expiry, and terminal-failure counts
+for compute and lineage. If configured age thresholds are exceeded, the runtime-status surface
+degrades proactively instead of only reporting raw queue numbers. Runtime status can also
+degrade when configured failure-pressure thresholds are crossed for compute retry backlog,
+compute lease-expiry recoveries, compute terminal failures, lineage retry backlog, or lineage
+terminal failures. For degraded runtimes, the response now carries queue-level
+`degradation_reasons` lists and a top-level `runtime_degradation_reasons` summary so operators
+can see every active trigger without inferring from counters manually. These queue snapshots are
+derived through SQL-side aggregate queries rather than Python-side row scans so control-plane and
+metrics reads remain bounded as durable queue tables grow. The runtime-status payload also exposes
+the active compute and lineage degradation-policy thresholds so support can interpret a degraded
+runtime against live configuration without reading environment variables separately. For each
+active degradation, the control plane also returns the observed value and breached threshold so
+incident handling can distinguish "what fired" from "by how much" without reconstructing it from
+raw queue counters.
 
 ## Failure recovery model
 

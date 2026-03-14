@@ -15,19 +15,24 @@ from app.models.attribution_requests import AttributionRequest
 from app.models.attribution_responses import AttributionAcceptedResponse, AttributionResponse
 from app.models.mwr_requests import MoneyWeightedReturnRequest
 from app.models.mwr_responses import MoneyWeightedReturnResponse
+from app.models.performance_diagnostics import build_performance_diagnostics, build_reset_events
 from app.models.requests import PerformanceRequest
 from app.models.responses import (
     PerformanceResponse,
     PortfolioReturnDecomposition,
-    ResetEvent,
     SinglePeriodPerformanceResult,
 )
 from app.services.async_result_service import resolve_async_result
-from app.services.async_result_store import async_result_store
 from app.services.attribution_service import calculate_attribution
-from app.services.compute_job_store import compute_job_store
+from app.services.execution_lifecycle_service import (
+    complete_execution_with_lineage,
+    record_execution_failure,
+)
 from app.services.execution_registry import execution_registry
-from app.services.lineage_service import lineage_service
+from app.services.submission_fencing_service import (
+    register_async_submission_or_raise,
+    register_sync_execution_or_raise,
+)
 from core.envelope import Audit, Diagnostics, Meta
 from core.periods import resolve_periods
 from core.repro import generate_canonical_hash
@@ -38,21 +43,6 @@ from engine.mwr import calculate_money_weighted_return
 from engine.schema import PortfolioColumns
 
 router = APIRouter(tags=["Performance"])
-settings = get_settings()
-
-
-def _record_execution_failure(
-    *,
-    calculation_id,
-    message: str,
-    execution_stage_started: bool = False,
-    lineage_stage_started: bool = False,
-) -> None:
-    if lineage_stage_started:
-        execution_registry.fail_stage(calculation_id, "lineage_materialization", message)
-    elif execution_stage_started:
-        execution_registry.fail_stage(calculation_id, "execution", message)
-    execution_registry.mark_failed(calculation_id, message)
 
 
 def _as_numeric(value: object, default=0):
@@ -147,8 +137,8 @@ async def calculate_twr_endpoint(request: PerformanceRequest):
     Calculates time-weighted return (TWR) for one or more requested periods
     and provides performance breakdowns by requested frequencies.
     """
-    input_fingerprint, calculation_hash = generate_canonical_hash(request, settings.APP_VERSION)
-    execution_registry.create_execution(
+    input_fingerprint, calculation_hash = generate_canonical_hash(request, get_settings().APP_VERSION)
+    register_sync_execution_or_raise(
         calculation_id=request.calculation_id,
         analytics_type="TWR",
         portfolio_id=request.portfolio_id,
@@ -181,7 +171,7 @@ async def calculate_twr_endpoint(request: PerformanceRequest):
 
         engine_config = create_engine_config(request, master_start_date, master_end_date)
         engine_df = create_engine_dataframe([item.model_dump() for item in request.valuation_points])
-        daily_results_df, diagnostics_data = run_calculations(engine_df, engine_config)
+        daily_results_df, engine_diagnostics = run_calculations(engine_df, engine_config)
 
         results_by_period = {}
         daily_results_df[PortfolioColumns.PERF_DATE.value] = pd.to_datetime(
@@ -214,17 +204,17 @@ async def calculate_twr_endpoint(request: PerformanceRequest):
                 breakdowns=formatted_breakdowns, portfolio_return=period_return_summary
             )
 
-            if request.reset_policy.emit and diagnostics_data.get("resets"):
+            if request.reset_policy.emit and engine_diagnostics.resets:
                 period_result.reset_events = [
-                    ResetEvent(**event)
-                    for event in diagnostics_data["resets"]
-                    if period.start_date <= event["date"] <= period.end_date
+                    event
+                    for event in build_reset_events(engine_diagnostics)
+                    if period.start_date <= event.date <= period.end_date
                 ]
 
             results_by_period[period.name] = period_result
 
     except InvalidEngineInputError as e:
-        _record_execution_failure(
+        record_execution_failure(
             calculation_id=request.calculation_id,
             message=f"Invalid Input: {e.message}",
             execution_stage_started=execution_stage_started,
@@ -232,7 +222,7 @@ async def calculate_twr_endpoint(request: PerformanceRequest):
         )
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid Input: {e.message}")
     except EngineCalculationError as e:
-        _record_execution_failure(
+        record_execution_failure(
             calculation_id=request.calculation_id,
             message=f"Calculation Error: {e.message}",
             execution_stage_started=execution_stage_started,
@@ -240,7 +230,7 @@ async def calculate_twr_endpoint(request: PerformanceRequest):
         )
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Calculation Error: {e.message}")
     except HTTPException:
-        _record_execution_failure(
+        record_execution_failure(
             calculation_id=request.calculation_id,
             message="HTTPException raised during TWR execution.",
             execution_stage_started=execution_stage_started,
@@ -248,7 +238,7 @@ async def calculate_twr_endpoint(request: PerformanceRequest):
         )
         raise
     except Exception as e:
-        _record_execution_failure(
+        record_execution_failure(
             calculation_id=request.calculation_id,
             message=f"An unexpected server error occurred: {str(e)}",
             execution_stage_started=execution_stage_started,
@@ -261,7 +251,7 @@ async def calculate_twr_endpoint(request: PerformanceRequest):
 
     meta = Meta(
         calculation_id=request.calculation_id,
-        engine_version=settings.APP_VERSION,
+        engine_version=get_settings().APP_VERSION,
         precision_mode=request.precision_mode,
         calendar=request.calendar,
         annualization=request.annualization,
@@ -274,14 +264,7 @@ async def calculate_twr_endpoint(request: PerformanceRequest):
         calculation_hash=calculation_hash,
         report_ccy=engine_config.report_ccy,
     )
-    diagnostics = Diagnostics(
-        nip_days=diagnostics_data.get("nip_days", 0),
-        reset_days=diagnostics_data.get("reset_days", 0),
-        effective_period_start=diagnostics_data.get("effective_period_start"),
-        notes=diagnostics_data.get("notes", []),
-        policy=diagnostics_data.get("policy"),
-        samples=diagnostics_data.get("samples"),
-    )
+    diagnostics = build_performance_diagnostics(engine_diagnostics)
     audit = Audit(counts={"input_rows": len(request.valuation_points), "output_rows": len(daily_results_df)})
 
     response_model = PerformanceResponse(
@@ -293,22 +276,14 @@ async def calculate_twr_endpoint(request: PerformanceRequest):
         audit=audit,
     )
 
-    execution_registry.complete_stage(
-        request.calculation_id,
-        "execution",
-        details={"input_rows": len(request.valuation_points), "output_rows": len(daily_results_df)},
-    )
-    execution_stage_started = False
-    execution_registry.start_stage(request.calculation_id, "lineage_materialization")
-    lineage_stage_started = True
-    lineage_service.enqueue_capture(
+    complete_execution_with_lineage(
         calculation_id=request.calculation_id,
         calculation_type="TWR",
         request_model=request,
         response_model=response_model,
+        execution_details={"input_rows": len(request.valuation_points), "output_rows": len(daily_results_df)},
         calculation_details={"twr_calculation_details.csv": daily_results_df},
     )
-    execution_registry.mark_complete(request.calculation_id)
 
     return response_model
 
@@ -316,8 +291,8 @@ async def calculate_twr_endpoint(request: PerformanceRequest):
 @router.post("/mwr", response_model=MoneyWeightedReturnResponse, summary="Calculate Money-Weighted Return")
 async def calculate_mwr_endpoint(request: MoneyWeightedReturnRequest):
     """Calculates the money-weighted return (MWR) for a portfolio over a given period."""
-    input_fingerprint, calculation_hash = generate_canonical_hash(request, settings.APP_VERSION)
-    execution_registry.create_execution(
+    input_fingerprint, calculation_hash = generate_canonical_hash(request, get_settings().APP_VERSION)
+    register_sync_execution_or_raise(
         calculation_id=request.calculation_id,
         analytics_type="MWR",
         portfolio_id=request.portfolio_id,
@@ -341,7 +316,7 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnRequest):
             as_of=request.as_of,
         )
     except HTTPException:
-        _record_execution_failure(
+        record_execution_failure(
             calculation_id=request.calculation_id,
             message="HTTPException raised during MWR execution.",
             execution_stage_started=execution_stage_started,
@@ -349,7 +324,7 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnRequest):
         )
         raise
     except Exception as e:
-        _record_execution_failure(
+        record_execution_failure(
             calculation_id=request.calculation_id,
             message=f"An unexpected error occurred during MWR calculation: {str(e)}",
             execution_stage_started=execution_stage_started,
@@ -362,7 +337,7 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnRequest):
 
     meta = Meta(
         calculation_id=request.calculation_id,
-        engine_version=settings.APP_VERSION,
+        engine_version=get_settings().APP_VERSION,
         precision_mode=request.precision_mode,
         annualization=request.annualization,
         calendar=request.calendar,
@@ -402,22 +377,14 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnRequest):
     lineage_df_data.append({"date": str(request.as_of), "type": "end_mv", "amount": request.end_mv})
     lineage_df = pd.DataFrame(lineage_df_data)
 
-    execution_registry.complete_stage(
-        request.calculation_id,
-        "execution",
-        details={"cashflows": len(request.cash_flows)},
-    )
-    execution_stage_started = False
-    execution_registry.start_stage(request.calculation_id, "lineage_materialization")
-    lineage_stage_started = True
-    lineage_service.enqueue_capture(
+    complete_execution_with_lineage(
         calculation_id=request.calculation_id,
         calculation_type="MWR",
         request_model=request,
         response_model=response_model,
+        execution_details={"cashflows": len(request.cash_flows)},
         calculation_details={"mwr_cashflow_schedule.csv": lineage_df},
     )
-    execution_registry.mark_complete(request.calculation_id)
 
     return response_model
 
@@ -432,41 +399,37 @@ async def calculate_attribution_endpoint(request: AttributionRequest) -> Attribu
     Calculates multi-level, Brinson-style performance attribution, decomposing
     active return into allocation, selection, and interaction effects.
     """
-    input_fingerprint, calculation_hash = generate_canonical_hash(request, settings.APP_VERSION)
-    execution_registry.create_schema()
-    compute_job_store.create_schema()
-    async_result_store.create_schema()
+    input_fingerprint, calculation_hash = generate_canonical_hash(request, get_settings().APP_VERSION)
     execution_mode = "async" if _should_offload_attribution(request) else "sync"
-    execution_registry.create_execution(
+    requested_window = {
+        "report_start_date": str(request.report_start_date),
+        "report_end_date": str(request.report_end_date),
+        "requested_periods": [analysis.period.value for analysis in request.analyses],
+        "input_count": _attribution_input_count(request),
+        "mode": request.mode.value,
+        "group_by": request.group_by,
+    }
+    if execution_mode == "async":
+        return register_async_submission_or_raise(
+            calculation_id=request.calculation_id,
+            analytics_type="Attribution",
+            portfolio_id=request.portfolio_id,
+            requested_window=requested_window,
+            input_fingerprint=input_fingerprint,
+            calculation_hash=calculation_hash,
+            request_payload=request.model_dump(mode="json"),
+            offload_reason="large_attribution_input_set",
+            accepted_response_factory=_accepted_attribution_response,
+        )
+
+    register_sync_execution_or_raise(
         calculation_id=request.calculation_id,
         analytics_type="Attribution",
         portfolio_id=request.portfolio_id,
-        execution_mode=execution_mode,
-        requested_window={
-            "report_start_date": str(request.report_start_date),
-            "report_end_date": str(request.report_end_date),
-            "requested_periods": [analysis.period.value for analysis in request.analyses],
-            "input_count": _attribution_input_count(request),
-            "mode": request.mode.value,
-            "group_by": request.group_by,
-        },
+        requested_window=requested_window,
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
     )
-    if execution_mode == "async":
-        execution_registry.start_stage(request.calculation_id, "submission")
-        compute_job_store.enqueue_job(
-            calculation_id=request.calculation_id,
-            analytics_type="Attribution",
-            request_payload=request.model_dump(mode="json"),
-        )
-        execution_registry.complete_stage(
-            request.calculation_id,
-            "submission",
-            details={"offload_reason": "large_attribution_input_set"},
-        )
-        accepted = _accepted_attribution_response(request.calculation_id)
-        return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=accepted.model_dump(mode="json"))
 
     return calculate_attribution(
         request,
@@ -484,7 +447,7 @@ def _attribution_input_count(request: AttributionRequest) -> int:
 
 
 def _should_offload_attribution(request: AttributionRequest) -> bool:
-    return _attribution_input_count(request) >= settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT
+    return _attribution_input_count(request) >= get_settings().ATTRIBUTION_EXECUTOR_INPUT_COUNT
 
 
 def _accepted_attribution_response(calculation_id) -> AttributionAcceptedResponse:

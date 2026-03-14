@@ -125,6 +125,7 @@ Lineage is handled asynchronously:
 - the API stores lineage payload metadata durably
 - the lineage worker materializes request, response, and detail artifacts
 - clients retrieve artifact references through `/performance/lineage/{calculation_id}`
+- artifact downloads are served through `/performance/lineage/{calculation_id}/artifacts/{artifact_name}`
 
 See:
 

@@ -1,0 +1,54 @@
+from __future__ import annotations
+
+from typing import Any
+from uuid import UUID
+
+from app.services.execution_registry import execution_registry
+from app.services.lineage_service import lineage_service
+
+
+def record_execution_failure(
+    *,
+    calculation_id: UUID,
+    message: str,
+    execution_stage_started: bool = False,
+    lineage_stage_started: bool = False,
+) -> None:
+    if lineage_stage_started:
+        execution_registry.fail_stage(calculation_id, "lineage_materialization", message)
+    elif execution_stage_started:
+        execution_registry.fail_stage(calculation_id, "execution", message)
+    execution_registry.mark_failed(calculation_id, message)
+
+
+def complete_execution_with_lineage(
+    *,
+    calculation_id: UUID,
+    calculation_type: str,
+    request_model: Any,
+    response_model: Any,
+    execution_details: dict[str, Any] | None = None,
+    calculation_details: dict[str, Any] | None = None,
+) -> None:
+    execution_registry.complete_stage(
+        calculation_id,
+        "execution",
+        details=execution_details or {},
+    )
+    execution_registry.start_stage(calculation_id, "lineage_materialization")
+    try:
+        lineage_service.enqueue_capture(
+            calculation_id=calculation_id,
+            calculation_type=calculation_type,
+            request_model=request_model,
+            response_model=response_model,
+            calculation_details=calculation_details or {},
+        )
+    except Exception as exc:
+        record_execution_failure(
+            calculation_id=calculation_id,
+            message=f"Failed to enqueue lineage capture: {exc}",
+            lineage_stage_started=True,
+        )
+        raise
+    execution_registry.mark_complete(calculation_id)

@@ -1,4 +1,4 @@
-.PHONY: install check check-all test test-unit test-integration test-e2e test-all ci ci-local ci-local-docker ci-local-docker-down typecheck lint monetary-float-guard format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate migration-smoke migration-apply pre-commit docker-up docker-down docker-build
+.PHONY: install check check-all test test-unit test-integration test-e2e test-all ci ci-local ci-local-docker ci-local-docker-down typecheck lint monetary-float-guard format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate migration-smoke migration-apply recovery-drill-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build
 
 install:
 	pip install -r requirements.txt
@@ -58,10 +58,23 @@ no-alias-gate:
 	python scripts/no_alias_contract_guard.py
 
 migration-smoke:
-	python scripts/migration_contract_check.py --mode no-schema
+	python scripts/migration_contract_check.py --mode durable-schema
+	python scripts/durable_schema_inventory_check.py
+	python scripts/durable_recovery_runbook_check.py
+	$(MAKE) recovery-drill-smoke
+
+recovery-drill-smoke:
+	python scripts/durable_recovery_drill.py --output-dir artifacts/durable-recovery-drill --retention-limit 30 --retention-max-age-days 90 --operator-id migration-smoke --backup-identifier migration-smoke-local
+
+performance-characterization:
+	python -m pytest tests/benchmarks -q
+
+performance-characterization-postgres:
+	docker compose up -d performance-lineage-db
+	python -m pytest tests/benchmarks/test_postgres_query_plans.py tests/benchmarks/test_postgres_concurrency_contracts.py -q
 
 migration-apply:
-	python scripts/migration_contract_check.py --mode no-schema
+	python scripts/migration_contract_check.py --mode durable-schema
 
 lint:
 	python -m ruff check .

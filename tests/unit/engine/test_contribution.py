@@ -4,12 +4,15 @@ import pytest
 
 from app.models.contribution_requests import ContributionRequest, Smoothing
 from common.enums import WeightingScheme
+from engine.config import EngineConfig, PeriodType, PrecisionMode
 from engine.contribution import (
     _calculate_carino_factors,
     _calculate_daily_instrument_contributions,
     _prepare_hierarchical_data,
+    build_hierarchical_contribution_result,
     calculate_hierarchical_contribution,
 )
+from engine.runtime import base_only_engine_config
 
 
 @pytest.fixture
@@ -96,6 +99,44 @@ def test_calculate_daily_contributions_returns_empty_for_empty_instruments(prepa
     assert result_df.empty
 
 
+def test_calculate_daily_contributions_zero_portfolio_capital_forces_zero_weight():
+    instruments_df = pd.DataFrame(
+        [
+            {
+                "perf_date": pd.Timestamp("2025-01-01"),
+                "position_id": "P1",
+                "begin_mv": 50.0,
+                "bod_cf": 0.0,
+                "daily_ror": 2.0,
+                "local_ror": 2.0,
+                "fx_ror": 0.0,
+            }
+        ]
+    )
+    portfolio_df = pd.DataFrame(
+        [
+            {
+                "perf_date": pd.Timestamp("2025-01-01"),
+                "begin_mv": 0.0,
+                "bod_cf": 0.0,
+                "daily_ror": 0.0,
+                "nip": 0,
+                "perf_reset": 0,
+            }
+        ]
+    )
+
+    result_df = _calculate_daily_instrument_contributions(
+        instruments_df, portfolio_df, WeightingScheme.BOD, Smoothing(method="NONE")
+    )
+
+    row = result_df.iloc[0]
+    assert row["daily_weight"] == 0.0
+    assert row["raw_contribution"] == 0.0
+    assert row["raw_local_contribution"] == 0.0
+    assert row["raw_fx_contribution"] == 0.0
+
+
 def test_prepare_hierarchical_data_returns_empty_instruments_when_positions_missing(happy_path_payload):
     payload = happy_path_payload.copy()
     payload["hierarchy"] = ["sector"]
@@ -138,3 +179,47 @@ def test_calculate_hierarchical_contribution_includes_currency_breakdown_for_bot
     assert "fx_contribution" in first_row
     assert "local_contribution" in results["summary"]
     assert "fx_contribution" in results["summary"]
+
+
+def test_build_hierarchical_contribution_result_empty_daily_data_preserves_currency_breakout(
+    hierarchical_request_fixture,
+):
+    request = hierarchical_request_fixture.model_copy(update={"currency_mode": "BOTH"})
+
+    result = build_hierarchical_contribution_result(
+        pd.DataFrame(),
+        request,
+        total_portfolio_return=0.0,
+    )
+
+    assert result == {
+        "summary": {
+            "portfolio_contribution": 0.0,
+            "coverage_mv_pct": 100.0,
+            "weighting_scheme": request.weighting_scheme.value,
+            "local_contribution": 0.0,
+            "fx_contribution": 0.0,
+        },
+        "levels": [],
+    }
+
+
+def test_base_only_engine_config_preserves_non_currency_settings():
+    config = EngineConfig(
+        performance_start_date=pd.Timestamp("2025-01-01").date(),
+        report_start_date=pd.Timestamp("2025-01-02").date(),
+        report_end_date=pd.Timestamp("2025-01-31").date(),
+        metric_basis="NET",
+        period_type=PeriodType.YTD,
+        rounding_precision=6,
+        precision_mode=PrecisionMode.DECIMAL_STRICT,
+        currency_mode="BOTH",
+        report_ccy="EUR",
+    )
+
+    overridden = base_only_engine_config(config)
+
+    assert overridden.currency_mode == "BASE_ONLY"
+    assert overridden.rounding_precision == 6
+    assert overridden.precision_mode == PrecisionMode.DECIMAL_STRICT
+    assert overridden.report_ccy == "EUR"

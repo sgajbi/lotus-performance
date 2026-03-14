@@ -71,6 +71,7 @@ Attribution Total Active Return (`reconciliation.total_active_return`)
 - `results_by_period.<period>.reconciliation.total_active_return`
 - `results_by_period.<period>.reconciliation.sum_of_effects`
 - `results_by_period.<period>.reconciliation.residual`
+- Top-level response context remains on `model` and `linking`; those fields are not repeated inside each period result.
 
 ## Worked Example
 Assume two sub-periods:

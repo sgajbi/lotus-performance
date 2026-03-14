@@ -7,13 +7,34 @@ from fastapi import HTTPException
 from app.models.attribution_requests import AttributionRequest
 from app.models.contribution_requests import ContributionRequest
 from app.models.returns_series import ReturnsSeriesRequest
-from app.services import attribution_service, contribution_service, returns_series_service
+from app.services import (
+    attribution_service,
+    contribution_service,
+    execution_lifecycle_service,
+    returns_series_service,
+)
 from app.services.async_result_store import AsyncResultStatus, AsyncResultStore
 from app.services.compute_job_store import ComputeJobStatus, ComputeJobStore
 from app.services.execution_registry import ExecutionRegistry
 from app.services.lineage_metadata_store import LineageMetadataStore
 from app.services.lineage_service import LineageService
 from app.workers import compute_executor_worker
+
+
+def _worker_settings(**overrides):
+    return type(
+        "Settings",
+        (),
+        {
+            "APP_VERSION": "1.0.0",
+            "LOG_LEVEL": "INFO",
+            "COMPUTE_EXECUTOR_BATCH_SIZE": 10,
+            "COMPUTE_EXECUTOR_WORKER_ID": "worker-test",
+            "COMPUTE_EXECUTOR_LEASE_SECONDS": 30,
+            "COMPUTE_EXECUTOR_POLL_SECONDS": 5.0,
+            **overrides,
+        },
+    )()
 
 
 def test_compute_executor_worker_processes_pending_returns_series_job(tmp_path, monkeypatch):
@@ -82,13 +103,14 @@ def test_compute_executor_worker_processes_pending_contribution_job(tmp_path, mo
     execution_store.create_schema()
     monkeypatch.setattr(compute_executor_worker, "execution_registry", execution_store)
     monkeypatch.setattr(contribution_service, "execution_registry", execution_store)
+    monkeypatch.setattr(execution_lifecycle_service, "execution_registry", execution_store)
     result_store = AsyncResultStore(f"sqlite:///{tmp_path / 'results.db'}")
     result_store.create_schema()
     monkeypatch.setattr(compute_executor_worker, "async_result_store", result_store)
     lineage_store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
     lineage_store.create_schema()
     monkeypatch.setattr(
-        contribution_service,
+        execution_lifecycle_service,
         "lineage_service",
         LineageService(storage_path=str(tmp_path / "lineage"), metadata_store=lineage_store),
     )
@@ -157,13 +179,14 @@ def test_compute_executor_worker_processes_pending_attribution_job(tmp_path, mon
     execution_store.create_schema()
     monkeypatch.setattr(compute_executor_worker, "execution_registry", execution_store)
     monkeypatch.setattr(attribution_service, "execution_registry", execution_store)
+    monkeypatch.setattr(execution_lifecycle_service, "execution_registry", execution_store)
     result_store = AsyncResultStore(f"sqlite:///{tmp_path / 'results.db'}")
     result_store.create_schema()
     monkeypatch.setattr(compute_executor_worker, "async_result_store", result_store)
     lineage_store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
     lineage_store.create_schema()
     monkeypatch.setattr(
-        attribution_service,
+        execution_lifecycle_service,
         "lineage_service",
         LineageService(storage_path=str(tmp_path / "lineage"), metadata_store=lineage_store),
     )
@@ -476,6 +499,7 @@ def test_compute_executor_worker_records_terminal_failure_when_execution_missing
 
 def test_compute_executor_worker_run_forever_bootstraps_and_sleeps(monkeypatch):
     calls: list[str] = []
+    settings = _worker_settings(COMPUTE_EXECUTOR_POLL_SECONDS=7.0)
     monkeypatch.setattr(
         compute_executor_worker.execution_registry, "create_schema", lambda: calls.append("exec_schema")
     )
@@ -483,7 +507,11 @@ def test_compute_executor_worker_run_forever_bootstraps_and_sleeps(monkeypatch):
     monkeypatch.setattr(
         compute_executor_worker.async_result_store, "create_schema", lambda: calls.append("result_schema")
     )
-    monkeypatch.setattr(compute_executor_worker, "process_pending_jobs", lambda: calls.append("process") or 0)
+    monkeypatch.setattr(
+        compute_executor_worker,
+        "process_pending_jobs",
+        lambda **kwargs: calls.append("process") or 0,
+    )
 
     def _sleep(seconds):
         calls.append(f"sleep:{seconds}")
@@ -492,14 +520,14 @@ def test_compute_executor_worker_run_forever_bootstraps_and_sleeps(monkeypatch):
     monkeypatch.setattr(compute_executor_worker.time, "sleep", _sleep)
 
     with pytest.raises(RuntimeError, match="stop"):
-        compute_executor_worker.run_forever()
+        compute_executor_worker.run_forever(settings=settings)
 
     assert calls == [
         "exec_schema",
         "job_schema",
         "result_schema",
         "process",
-        f"sleep:{compute_executor_worker.settings.COMPUTE_EXECUTOR_POLL_SECONDS}",
+        f"sleep:{settings.COMPUTE_EXECUTOR_POLL_SECONDS}",
     ]
 
 
@@ -507,6 +535,7 @@ def test_compute_executor_worker_run_forever_honors_pre_set_stop_event(monkeypat
     stop_event = Event()
     stop_event.set()
     calls: list[str] = []
+    settings = _worker_settings()
 
     monkeypatch.setattr(
         compute_executor_worker.execution_registry, "create_schema", lambda: calls.append("exec_schema")
@@ -515,9 +544,13 @@ def test_compute_executor_worker_run_forever_honors_pre_set_stop_event(monkeypat
     monkeypatch.setattr(
         compute_executor_worker.async_result_store, "create_schema", lambda: calls.append("result_schema")
     )
-    monkeypatch.setattr(compute_executor_worker, "process_pending_jobs", lambda: calls.append("process") or 1)
+    monkeypatch.setattr(
+        compute_executor_worker,
+        "process_pending_jobs",
+        lambda **kwargs: calls.append("process") or 1,
+    )
 
-    compute_executor_worker.run_forever(stop_event=stop_event)
+    compute_executor_worker.run_forever(stop_event=stop_event, settings=settings)
 
     assert calls == ["exec_schema", "job_schema", "result_schema"]
 
@@ -525,6 +558,7 @@ def test_compute_executor_worker_run_forever_honors_pre_set_stop_event(monkeypat
 def test_compute_executor_worker_run_forever_stops_during_idle_wait(monkeypatch):
     stop_event = Event()
     calls: list[str] = []
+    settings = _worker_settings(COMPUTE_EXECUTOR_POLL_SECONDS=3.0)
 
     monkeypatch.setattr(
         compute_executor_worker.execution_registry, "create_schema", lambda: calls.append("exec_schema")
@@ -533,7 +567,11 @@ def test_compute_executor_worker_run_forever_stops_during_idle_wait(monkeypatch)
     monkeypatch.setattr(
         compute_executor_worker.async_result_store, "create_schema", lambda: calls.append("result_schema")
     )
-    monkeypatch.setattr(compute_executor_worker, "process_pending_jobs", lambda: calls.append("process") or 0)
+    monkeypatch.setattr(
+        compute_executor_worker,
+        "process_pending_jobs",
+        lambda **kwargs: calls.append("process") or 0,
+    )
 
     def _wait(timeout: float) -> bool:
         calls.append(f"wait:{timeout}")
@@ -542,12 +580,12 @@ def test_compute_executor_worker_run_forever_stops_during_idle_wait(monkeypatch)
 
     monkeypatch.setattr(stop_event, "wait", _wait)
 
-    compute_executor_worker.run_forever(stop_event=stop_event)
+    compute_executor_worker.run_forever(stop_event=stop_event, settings=settings)
 
     assert calls == [
         "exec_schema",
         "job_schema",
         "result_schema",
         "process",
-        f"wait:{compute_executor_worker.settings.COMPUTE_EXECUTOR_POLL_SECONDS}",
+        f"wait:{settings.COMPUTE_EXECUTOR_POLL_SECONDS}",
     ]

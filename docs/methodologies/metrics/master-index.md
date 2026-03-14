@@ -31,12 +31,22 @@ This index maps implemented lotus-performance metrics to detailed methodology do
 
 
 ## Documentation Standard
-Each metric document in this set follows the same architecture review template:
-- endpoint and mode scope
-- upstream data dependencies
-- explicit inputs
-- formulas and methodology
-- output field semantics
-- configuration levers
-- assumptions and edge-case handling
-- worked numerical example
+Each metric document in this set follows the strict v3 methodology standard with this exact section order:
+- `## Metric`
+- `## Endpoint and Mode Coverage`
+- `## Inputs`
+- `## Upstream Data Sources`
+- `## Unit Conventions`
+- `## Variable Dictionary`
+- `## Methodology and Formulas`
+- `## Step-by-Step Computation`
+- `## Validation and Failure Behavior`
+- `## Configuration Options`
+- `## Outputs`
+- `## Worked Example`
+
+This standard is intentionally audit-oriented:
+- symbols in formulas are defined explicitly
+- units are stated as decimal vs percentage-point outputs
+- validation and failure behavior are derived from the shipped implementation
+- worked examples map final values back to exact response fields

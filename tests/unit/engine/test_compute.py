@@ -7,6 +7,7 @@ import pytest
 
 from engine.compute import run_calculations
 from engine.config import EngineConfig, PeriodType, PrecisionMode
+from engine.diagnostics import EngineDiagnostics
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
 from engine.schema import PortfolioColumns
 
@@ -51,8 +52,9 @@ def test_run_calculations_empty_dataframe():
         period_type=PeriodType.YTD,
     )
     empty_df = pd.DataFrame()
-    result, _ = run_calculations(empty_df, config)
+    result, diagnostics = run_calculations(empty_df, config)
     assert result.empty
+    assert diagnostics == EngineDiagnostics()
 
 
 def test_run_calculations_float_mode_rounding():
@@ -74,6 +76,31 @@ def test_run_calculations_float_mode_rounding():
     df = pd.DataFrame(data)
     result_df, _ = run_calculations(df, config)
     assert result_df[PortfolioColumns.DAILY_ROR.value].iloc[0] == 1.1235
+
+
+def test_run_calculations_does_not_mutate_caller_dataframe():
+    config = EngineConfig(
+        performance_start_date=date(2025, 1, 1),
+        report_end_date=date(2025, 1, 1),
+        metric_basis="NET",
+        period_type=PeriodType.YTD,
+    )
+    df = pd.DataFrame(
+        {
+            PortfolioColumns.PERF_DATE.value: [date(2025, 1, 1)],
+            PortfolioColumns.BEGIN_MV.value: [100.0],
+            PortfolioColumns.BOD_CF.value: [0.0],
+            PortfolioColumns.EOD_CF.value: [0.0],
+            PortfolioColumns.MGMT_FEES.value: [0.0],
+            PortfolioColumns.END_MV.value: [101.0],
+        }
+    )
+    original = df.copy(deep=True)
+
+    result_df, _ = run_calculations(df, config)
+
+    assert PortfolioColumns.DAILY_ROR.value in result_df.columns
+    pd.testing.assert_frame_equal(df, original)
 
 
 def test_run_calculations_invalid_date_input():
@@ -164,7 +191,7 @@ def test_run_calculations_emits_all_reset_reason_codes(mocker):
     mocker.patch("engine.compute.calculate_cumulative_ror", side_effect=_mock_cumulative)
 
     _, diagnostics = run_calculations(df, config)
-    assert diagnostics["resets"]
-    assert "NCTRL_2" in diagnostics["resets"][0]["reason"]
-    assert "NCTRL_3" in diagnostics["resets"][0]["reason"]
-    assert "NCTRL_4" in diagnostics["resets"][0]["reason"]
+    assert diagnostics.resets
+    assert "NCTRL_2" in diagnostics.resets[0].reason
+    assert "NCTRL_3" in diagnostics.resets[0].reason
+    assert "NCTRL_4" in diagnostics.resets[0].reason

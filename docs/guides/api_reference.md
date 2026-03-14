@@ -77,6 +77,14 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 - purpose: retrieve durable lineage status and artifact URLs
 - response model: `app.api.endpoints.lineage.LineageResponse`
 
+### `GET /performance/lineage/{calculation_id}/artifacts/{artifact_name}`
+
+- purpose: download a specific lineage artifact through a controlled calculation/artifact route
+- execution mode: synchronous file retrieval
+- contract note:
+  - only artifacts listed in the lineage record are downloadable
+  - unknown artifact names return `404`
+
 ## Integration APIs
 
 ### `GET /integration/capabilities`
@@ -89,10 +97,39 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 - purpose: expose an operational snapshot of runtime state for support and platform operators
 - response includes:
   - aggregate runtime status
+  - aggregate `runtime_degradation_reasons`
+  - aggregate `runtime_degradation_details`
   - draining state
   - durable metadata store availability
+  - active compute and lineage degradation-policy thresholds
   - compute queue backlog details
+  - oldest pending, leased, and running compute-job ages
+  - retry-backlog, lease-expiry, and terminal-failure compute-job counts
+  - compute inspection anchors for the oldest pending, leased, and running work plus the latest terminal failure
+  - compute `degradation_reasons`
+  - compute `degradation_details`
   - lineage queue backlog details
+  - retry-backlog and terminal-failure lineage payload counts
+  - lineage inspection anchors for the oldest pending and leased work plus the latest terminal failure
+  - lineage `degradation_details`
+  - lineage `degradation_reasons`
+- runtime may report `degraded` when configured queue-age or failure-pressure thresholds are exceeded
+- use the inspection anchors to jump directly to:
+  - `/performance/executions/{calculation_id}`
+  - `/performance/lineage/{calculation_id}`
+
+### `GET /integration/runtime-work-items`
+
+- purpose: return exact compute and lineage work items for operator drill-down
+- query parameters:
+  - `status`: `active`, `failed`, or `all`
+  - `limit`: max items returned per queue
+- response includes:
+  - durable metadata store availability
+  - queue-specific availability for compute and lineage inspection
+  - filtered compute work items with calculation handle, lifecycle state, age, attempts, and failure context
+  - filtered lineage work items with calculation handle, lifecycle state, age, attempts, and failure context
+- use this when runtime-status tells you there is pressure, and you need the actual work items behind it without querying the database directly
 
 ### `POST /integration/returns/series`
 
@@ -143,6 +180,12 @@ Executor-backed endpoints use one common pattern:
 2. API returns either a final result or `202 Accepted`
 3. client polls `/performance/executions/{calculation_id}`
 4. client retrieves the endpoint-specific async result at the provided `result_path`
+
+`calculation_id` is a durable execution handle, not a best-effort correlation field:
+
+- async endpoints treat an exact resubmission with the same `calculation_id` as an idempotent replay and return the same accepted handle
+- reusing the same `calculation_id` with a different payload returns `409 Conflict`
+- synchronous endpoints require a fresh `calculation_id` for each new submission
 
 ## Contract guidance
 

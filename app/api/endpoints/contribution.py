@@ -2,7 +2,7 @@
 from uuid import UUID
 
 import pandas as pd
-from fastapi import APIRouter, status
+from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
 from app.core.config import get_settings
@@ -12,14 +12,14 @@ from app.models.contribution_responses import (
     ContributionResponse,
 )
 from app.services.async_result_service import resolve_async_result
-from app.services.async_result_store import async_result_store
-from app.services.compute_job_store import compute_job_store
 from app.services.contribution_service import calculate_contribution
-from app.services.execution_registry import execution_registry
+from app.services.submission_fencing_service import (
+    register_async_submission_or_raise,
+    register_sync_execution_or_raise,
+)
 from core.repro import generate_canonical_hash
 
 router = APIRouter()
-settings = get_settings()
 
 
 def _as_numeric(value: object, default=0):
@@ -30,7 +30,7 @@ def _as_numeric(value: object, default=0):
 
 
 def _should_offload_contribution(request: ContributionRequest) -> bool:
-    return len(request.positions_data) >= settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT
+    return len(request.positions_data) >= get_settings().CONTRIBUTION_EXECUTOR_POSITION_COUNT
 
 
 def _build_execution_window(request: ContributionRequest) -> dict[str, object]:
@@ -57,34 +57,29 @@ def _accepted_response(calculation_id) -> ContributionAcceptedResponse:
     summary="Calculate Position Contribution",
 )
 async def calculate_contribution_endpoint(request: ContributionRequest) -> ContributionResponse | JSONResponse:
-    input_fingerprint, calculation_hash = generate_canonical_hash(request, settings.APP_VERSION)
-    execution_registry.create_schema()
-    compute_job_store.create_schema()
-    async_result_store.create_schema()
+    input_fingerprint, calculation_hash = generate_canonical_hash(request, get_settings().APP_VERSION)
     execution_mode = "async" if _should_offload_contribution(request) else "sync"
-    execution_registry.create_execution(
+    if execution_mode == "async":
+        return register_async_submission_or_raise(
+            calculation_id=request.calculation_id,
+            analytics_type="Contribution",
+            portfolio_id=request.portfolio_id,
+            requested_window=_build_execution_window(request),
+            input_fingerprint=input_fingerprint,
+            calculation_hash=calculation_hash,
+            request_payload=request.model_dump(mode="json"),
+            offload_reason="large_position_count_contribution",
+            accepted_response_factory=_accepted_response,
+        )
+
+    register_sync_execution_or_raise(
         calculation_id=request.calculation_id,
         analytics_type="Contribution",
         portfolio_id=request.portfolio_id,
-        execution_mode=execution_mode,
         requested_window=_build_execution_window(request),
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
     )
-    if execution_mode == "async":
-        execution_registry.start_stage(request.calculation_id, "submission")
-        compute_job_store.enqueue_job(
-            calculation_id=request.calculation_id,
-            analytics_type="Contribution",
-            request_payload=request.model_dump(mode="json"),
-        )
-        execution_registry.complete_stage(
-            request.calculation_id,
-            "submission",
-            details={"offload_reason": "large_position_count_contribution"},
-        )
-        accepted = _accepted_response(request.calculation_id)
-        return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=accepted.model_dump(mode="json"))
 
     return calculate_contribution(
         request,

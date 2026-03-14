@@ -6,28 +6,15 @@ from fastapi import HTTPException, status
 from app.core.config import get_settings
 from app.models.attribution_requests import AttributionRequest
 from app.models.attribution_responses import AttributionResponse
+from app.services.execution_lifecycle_service import (
+    complete_execution_with_lineage,
+    record_execution_failure,
+)
 from app.services.execution_registry import execution_registry
-from app.services.lineage_service import lineage_service
 from core.envelope import Meta
 from core.periods import resolve_periods
 from engine.attribution import aggregate_attribution_results, run_attribution_calculations
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
-
-settings = get_settings()
-
-
-def _record_execution_failure(
-    *,
-    calculation_id,
-    message: str,
-    execution_stage_started: bool = False,
-    lineage_stage_started: bool = False,
-) -> None:
-    if lineage_stage_started:
-        execution_registry.fail_stage(calculation_id, "lineage_materialization", message)
-    elif execution_stage_started:
-        execution_registry.fail_stage(calculation_id, "execution", message)
-    execution_registry.mark_failed(calculation_id, message)
 
 
 def calculate_attribution(
@@ -36,6 +23,7 @@ def calculate_attribution(
     input_fingerprint: str,
     calculation_hash: str,
 ) -> AttributionResponse:
+    active_settings = get_settings()
     execution_registry.mark_running(request.calculation_id)
     execution_stage_started = False
     lineage_stage_started = False
@@ -75,7 +63,7 @@ def calculate_attribution(
 
         meta = Meta(
             calculation_id=request.calculation_id,
-            engine_version=settings.APP_VERSION,
+            engine_version=active_settings.APP_VERSION,
             precision_mode=request.precision_mode,
             annualization=request.annualization,
             calendar=request.calendar,
@@ -97,25 +85,17 @@ def calculate_attribution(
             meta=meta,
         )
 
-        execution_registry.complete_stage(
-            request.calculation_id,
-            "execution",
-            details={"period_count": len(results_by_period)},
-        )
-        execution_stage_started = False
-        execution_registry.start_stage(request.calculation_id, "lineage_materialization")
-        lineage_stage_started = True
-        lineage_service.enqueue_capture(
+        complete_execution_with_lineage(
             calculation_id=request.calculation_id,
             calculation_type="Attribution",
             request_model=request,
             response_model=response_model,
+            execution_details={"period_count": len(results_by_period)},
             calculation_details=lineage_data,
         )
-        execution_registry.mark_complete(request.calculation_id)
         return response_model
     except (InvalidEngineInputError, ValueError, NotImplementedError) as exc:
-        _record_execution_failure(
+        record_execution_failure(
             calculation_id=request.calculation_id,
             message=str(exc),
             execution_stage_started=execution_stage_started,
@@ -123,7 +103,7 @@ def calculate_attribution(
         )
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except EngineCalculationError as exc:
-        _record_execution_failure(
+        record_execution_failure(
             calculation_id=request.calculation_id,
             message=f"Calculation Error: {exc.message}",
             execution_stage_started=execution_stage_started,
@@ -134,7 +114,7 @@ def calculate_attribution(
             detail=f"Calculation Error: {exc.message}",
         ) from exc
     except HTTPException as exc:
-        _record_execution_failure(
+        record_execution_failure(
             calculation_id=request.calculation_id,
             message=str(exc.detail),
             execution_stage_started=execution_stage_started,
@@ -142,7 +122,7 @@ def calculate_attribution(
         )
         raise
     except Exception as exc:
-        _record_execution_failure(
+        record_execution_failure(
             calculation_id=request.calculation_id,
             message=f"An unexpected server error occurred: {str(exc)}",
             execution_stage_started=execution_stage_started,

@@ -1,5 +1,7 @@
 # tests/benchmarks/test_engine_performance.py
-from datetime import date
+from datetime import date, timedelta
+from statistics import median
+from time import perf_counter
 
 import pytest
 
@@ -7,10 +9,18 @@ from adapters.api_adapter import create_engine_config, create_engine_dataframe
 from app.models.requests import PerformanceRequest
 from engine.compute import run_calculations
 
+CHARACTERIZATION_ROW_COUNT = 75_000
+CHARACTERIZATION_MEDIAN_SECONDS_BUDGET = 0.50
 
-@pytest.fixture(scope="module")
-def large_input_data():
-    """Creates a large, realistic dataset for benchmarking per the RFC."""
+
+def _build_characterization_payload() -> dict:
+    """Create a large but representable daily workload for engine characterization.
+
+    A true 500k unique-daily-row dataset is not representable in this engine path because
+    pandas/numpy timestamp bounds cap realistic daily dates well below that size. This
+    fixture therefore uses the largest practical daily-row scale that still exercises the
+    vectorized hot path with real date uniqueness.
+    """
     base_payload = {
         "portfolio_id": "BENCHMARK_PORT_01",
         "performance_start_date": "2023-12-31",
@@ -18,35 +28,59 @@ def large_input_data():
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
         "rounding_precision": 4,
     }
-    original_daily_data = [
-        {"day": 1, "perf_date": "2024-01-01", "begin_mv": 100000.0, "end_mv": 101000.0},
-        {"day": 2, "perf_date": "2024-01-02", "begin_mv": 101000.0, "end_mv": 102500.0},
+    valuation_templates = [
+        {"begin_mv": 100000.0, "end_mv": 101000.0},
+        {"begin_mv": 101000.0, "end_mv": 102500.0},
         {
-            "day": 3,
-            "perf_date": "2024-01-03",
             "begin_mv": 102500.0,
             "bod_cf": 5000.0,
             "mgmt_fees": -10.0,
             "end_mv": 108000.0,
         },
     ]
-    extended_daily_data = []
-    num_replications = 167000  # Aim for ~500k rows
-    for i in range(num_replications):
-        for idx, entry in enumerate(original_daily_data):
-            new_entry = entry.copy()
-            day_offset = (i * len(original_daily_data)) + idx + 1
-            new_entry["day"] = day_offset
-            extended_daily_data.append(new_entry)
-
-    base_payload["valuation_points"] = extended_daily_data
-    base_payload["report_end_date"] = original_daily_data[-1]["perf_date"]
-
+    start_date = date(2024, 1, 1)
+    valuation_points = []
+    for day_offset in range(CHARACTERIZATION_ROW_COUNT):
+        template = valuation_templates[day_offset % len(valuation_templates)]
+        perf_date = start_date + timedelta(days=day_offset)
+        valuation_points.append(
+            {
+                "day": day_offset + 1,
+                "perf_date": perf_date.isoformat(),
+                **template,
+            }
+        )
+    base_payload["valuation_points"] = valuation_points
+    base_payload["report_end_date"] = valuation_points[-1]["perf_date"]
     return base_payload
 
 
+@pytest.fixture(scope="module")
+def large_input_data():
+    return _build_characterization_payload()
+
+
 def test_vectorized_engine_performance(benchmark, large_input_data):
-    """Benchmarks the new, high-performance vectorized engine (V2)."""
+    """Benchmarks the vectorized engine on the governed large daily workload."""
+    pydantic_request = PerformanceRequest.model_validate(large_input_data)
+
+    effective_start_date = date.fromisoformat(large_input_data["valuation_points"][0]["perf_date"])
+    effective_end_date = date.fromisoformat(large_input_data["report_end_date"])
+
+    engine_config = create_engine_config(pydantic_request, effective_start_date, effective_end_date)
+    valuation_points_list = [item.model_dump() for item in pydantic_request.valuation_points]
+    engine_df = create_engine_dataframe(valuation_points_list)
+    assert len(engine_df) == CHARACTERIZATION_ROW_COUNT
+
+    def run():
+        run_calculations(engine_df.copy(deep=True), engine_config)
+
+    benchmark.group = f"Engine Performance ({CHARACTERIZATION_ROW_COUNT} daily rows)"
+    benchmark(run)
+
+
+def test_vectorized_engine_characterization_contract(large_input_data):
+    """Enforces a non-flaky runtime budget for the governed large daily workload."""
     pydantic_request = PerformanceRequest.model_validate(large_input_data)
 
     effective_start_date = date.fromisoformat(large_input_data["valuation_points"][0]["perf_date"])
@@ -56,8 +90,19 @@ def test_vectorized_engine_performance(benchmark, large_input_data):
     valuation_points_list = [item.model_dump() for item in pydantic_request.valuation_points]
     engine_df = create_engine_dataframe(valuation_points_list)
 
-    def run():
-        run_calculations(engine_df.copy(), engine_config)
+    assert len(engine_df) == CHARACTERIZATION_ROW_COUNT
 
-    benchmark.group = "Engine Performance (500k rows)"
-    benchmark(run)
+    run_calculations(engine_df.copy(deep=True), engine_config)
+
+    timings = []
+    for _ in range(5):
+        start = perf_counter()
+        run_calculations(engine_df.copy(deep=True), engine_config)
+        timings.append(perf_counter() - start)
+
+    median_seconds = median(timings)
+    assert median_seconds <= CHARACTERIZATION_MEDIAN_SECONDS_BUDGET, (
+        f"Vectorized engine median runtime {median_seconds:.3f}s exceeded "
+        f"budget {CHARACTERIZATION_MEDIAN_SECONDS_BUDGET:.3f}s "
+        f"for {CHARACTERIZATION_ROW_COUNT} daily rows."
+    )

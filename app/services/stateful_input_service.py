@@ -117,6 +117,7 @@ class StatefulInputService:
         frequency: str = "daily",
         calculation_id: UUID | None = None,
     ) -> tuple[int, dict[str, Any]]:
+        existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
         chunks = self.plan_chunks(
             start_date=start_date,
             end_date=end_date,
@@ -133,20 +134,38 @@ class StatefulInputService:
             ),
         )
         if calculation_id is not None:
+            snapshot_batch: list[dict[str, Any]] = []
             for chunk, response in zip(chunks, responses):
-                self._record_snapshot(
+                request_payload = {
+                    "benchmark_id": benchmark_id,
+                    "start_date": str(chunk.start_date),
+                    "end_date": str(chunk.end_date),
+                    "frequency": frequency,
+                }
+                snapshot_id, request_fingerprint = self._build_snapshot_identity(
                     calculation_id=calculation_id,
                     upstream_endpoint="benchmark_return_series",
                     source_identifier=benchmark_id,
-                    as_of_date=as_of_date,
-                    request_payload={
-                        "benchmark_id": benchmark_id,
-                        "start_date": str(chunk.start_date),
-                        "end_date": str(chunk.end_date),
-                        "frequency": frequency,
-                    },
-                    response=response,
+                    request_payload=request_payload,
                 )
+                if snapshot_id in existing_snapshot_ids:
+                    continue
+                snapshot_batch.append(
+                    self._build_snapshot(
+                        calculation_id=calculation_id,
+                        upstream_endpoint="benchmark_return_series",
+                        source_identifier=benchmark_id,
+                        as_of_date=as_of_date,
+                        request_payload=request_payload,
+                        response=response,
+                        snapshot_id=snapshot_id,
+                        request_fingerprint=request_fingerprint,
+                    )
+                )
+            self._execution_store.record_upstream_snapshots(
+                calculation_id=calculation_id,
+                snapshots=snapshot_batch,
+            )
         failure = self._first_failure(responses)
         if failure is not None:
             return failure
@@ -173,6 +192,7 @@ class StatefulInputService:
         series_mode: str = "return_series",
         calculation_id: UUID | None = None,
     ) -> tuple[int, dict[str, Any]]:
+        existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
         chunks = self.plan_chunks(
             start_date=start_date,
             end_date=end_date,
@@ -190,21 +210,39 @@ class StatefulInputService:
             ),
         )
         if calculation_id is not None:
+            snapshot_batch: list[dict[str, Any]] = []
             for chunk, response in zip(chunks, responses):
-                self._record_snapshot(
+                request_payload = {
+                    "currency": currency,
+                    "start_date": str(chunk.start_date),
+                    "end_date": str(chunk.end_date),
+                    "frequency": frequency,
+                    "series_mode": series_mode,
+                }
+                snapshot_id, request_fingerprint = self._build_snapshot_identity(
                     calculation_id=calculation_id,
                     upstream_endpoint="risk_free_series",
                     source_identifier=currency,
-                    as_of_date=as_of_date,
-                    request_payload={
-                        "currency": currency,
-                        "start_date": str(chunk.start_date),
-                        "end_date": str(chunk.end_date),
-                        "frequency": frequency,
-                        "series_mode": series_mode,
-                    },
-                    response=response,
+                    request_payload=request_payload,
                 )
+                if snapshot_id in existing_snapshot_ids:
+                    continue
+                snapshot_batch.append(
+                    self._build_snapshot(
+                        calculation_id=calculation_id,
+                        upstream_endpoint="risk_free_series",
+                        source_identifier=currency,
+                        as_of_date=as_of_date,
+                        request_payload=request_payload,
+                        response=response,
+                        snapshot_id=snapshot_id,
+                        request_fingerprint=request_fingerprint,
+                    )
+                )
+            self._execution_store.record_upstream_snapshots(
+                calculation_id=calculation_id,
+                snapshots=snapshot_batch,
+            )
         failure = self._first_failure(responses)
         if failure is not None:
             return failure
@@ -233,6 +271,8 @@ class StatefulInputService:
         page_token: str | None = None
         merged_observations: list[dict[str, Any]] = []
         portfolio_open_date: str | None = None
+        snapshot_batch: list[dict[str, Any]] = []
+        existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
 
         while True:
             status_code, payload = await self._core_service.get_portfolio_analytics_timeseries(
@@ -245,22 +285,40 @@ class StatefulInputService:
                 page_token=page_token,
             )
             if calculation_id is not None:
-                self._record_snapshot(
+                request_payload = {
+                    "portfolio_id": portfolio_id,
+                    "start_date": str(chunk.start_date),
+                    "end_date": str(chunk.end_date),
+                    "reporting_currency": reporting_currency,
+                    "consumer_system": consumer_system,
+                    "page_token": page_token,
+                }
+                snapshot_id, request_fingerprint = self._build_snapshot_identity(
                     calculation_id=calculation_id,
                     upstream_endpoint="portfolio_timeseries",
                     source_identifier=portfolio_id,
-                    as_of_date=as_of_date,
-                    request_payload={
-                        "portfolio_id": portfolio_id,
-                        "start_date": str(chunk.start_date),
-                        "end_date": str(chunk.end_date),
-                        "reporting_currency": reporting_currency,
-                        "consumer_system": consumer_system,
-                        "page_token": page_token,
-                    },
-                    response=(status_code, payload),
+                    request_payload=request_payload,
                 )
+                if snapshot_id not in existing_snapshot_ids:
+                    snapshot_batch.append(
+                        self._build_snapshot(
+                            calculation_id=calculation_id,
+                            upstream_endpoint="portfolio_timeseries",
+                            source_identifier=portfolio_id,
+                            as_of_date=as_of_date,
+                            request_payload=request_payload,
+                            response=(status_code, payload),
+                            snapshot_id=snapshot_id,
+                            request_fingerprint=request_fingerprint,
+                        )
+                    )
+                    existing_snapshot_ids.add(snapshot_id)
             if status_code >= 400:
+                if calculation_id is not None:
+                    self._execution_store.record_upstream_snapshots(
+                        calculation_id=calculation_id,
+                        snapshots=snapshot_batch,
+                    )
                 return status_code, payload
 
             if portfolio_open_date is None and isinstance(payload.get("portfolio_open_date"), str):
@@ -273,6 +331,12 @@ class StatefulInputService:
             page_token = self._next_page_token(payload)
             if not page_token:
                 break
+
+        if calculation_id is not None:
+            self._execution_store.record_upstream_snapshots(
+                calculation_id=calculation_id,
+                snapshots=snapshot_batch,
+            )
 
         return 200, {
             "portfolio_open_date": portfolio_open_date,
@@ -318,7 +382,7 @@ class StatefulInputService:
                 deduped[record_date] = record
         return [deduped[key] for key in sorted(deduped)]
 
-    def _record_snapshot(
+    def _build_snapshot(
         self,
         *,
         calculation_id: UUID,
@@ -327,23 +391,46 @@ class StatefulInputService:
         as_of_date: date,
         request_payload: dict[str, Any],
         response: tuple[int, dict[str, Any]],
-    ) -> None:
+        snapshot_id: str | None = None,
+        request_fingerprint: str | None = None,
+    ) -> dict[str, Any]:
         status_code, payload = response
-        request_json = json.dumps(request_payload, sort_keys=True)
+        if snapshot_id is None or request_fingerprint is None:
+            snapshot_id, request_fingerprint = self._build_snapshot_identity(
+                calculation_id=calculation_id,
+                upstream_endpoint=upstream_endpoint,
+                source_identifier=source_identifier,
+                request_payload=request_payload,
+            )
         response_json = json.dumps(payload, sort_keys=True)
-        request_fingerprint = hashlib.sha256(request_json.encode("utf-8")).hexdigest()
         response_fingerprint = hashlib.sha256(response_json.encode("utf-8")).hexdigest()
+        return {
+            "snapshot_id": snapshot_id,
+            "upstream_endpoint": upstream_endpoint,
+            "source_identifier": source_identifier,
+            "as_of_date": str(as_of_date),
+            "request_fingerprint": request_fingerprint,
+            "response_fingerprint": response_fingerprint,
+            "retrieval_status": str(status_code),
+            "paging_metadata": request_payload,
+        }
+
+    def _build_snapshot_identity(
+        self,
+        *,
+        calculation_id: UUID,
+        upstream_endpoint: str,
+        source_identifier: str,
+        request_payload: dict[str, Any],
+    ) -> tuple[str, str]:
+        request_json = json.dumps(request_payload, sort_keys=True)
+        request_fingerprint = hashlib.sha256(request_json.encode("utf-8")).hexdigest()
         snapshot_id = hashlib.sha256(
             f"{calculation_id}:{upstream_endpoint}:{source_identifier}:{request_fingerprint}".encode("utf-8")
         ).hexdigest()
-        self._execution_store.record_upstream_snapshot(
-            calculation_id=calculation_id,
-            snapshot_id=snapshot_id,
-            upstream_endpoint=upstream_endpoint,
-            source_identifier=source_identifier,
-            as_of_date=str(as_of_date),
-            request_fingerprint=request_fingerprint,
-            response_fingerprint=response_fingerprint,
-            retrieval_status=str(status_code),
-            paging_metadata=request_payload,
-        )
+        return snapshot_id, request_fingerprint
+
+    def _existing_snapshot_ids(self, calculation_id: UUID | None) -> set[str]:
+        if calculation_id is None:
+            return set()
+        return self._execution_store.list_upstream_snapshot_ids(calculation_id)

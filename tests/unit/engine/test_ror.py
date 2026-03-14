@@ -8,8 +8,6 @@ import pytest
 from core.envelope import HedgingRequestBlock
 from engine.config import EngineConfig, FXRequestBlock
 from engine.periods import get_effective_period_start_dates
-
-# FIX: Import the _compound_ror helper function and HedgingRequestBlock
 from engine.ror import _compound_ror, calculate_daily_ror
 from engine.schema import PortfolioColumns
 

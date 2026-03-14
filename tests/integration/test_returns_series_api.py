@@ -84,6 +84,21 @@ def test_returns_series_rejects_duplicate_dates():
     assert response.json()["detail"]["code"] == "INVALID_REQUEST"
 
 
+def test_returns_series_sync_duplicate_submission_conflicts_on_reused_calculation_id():
+    calculation_id = str(uuid4())
+    payload = {
+        **_stateless_base_payload(),
+        "calculation_id": calculation_id,
+    }
+
+    with TestClient(app) as client:
+        first = client.post("/integration/returns/series", json=payload)
+        second = client.post("/integration/returns/series", json=payload)
+
+    assert first.status_code == 200
+    assert second.status_code == 409
+
+
 def test_returns_series_stateful_fetches_benchmark_and_risk_free(monkeypatch):
     async def _mock_get_portfolio_analytics_timeseries(self, **kwargs):  # noqa: ARG001
         return (
@@ -184,12 +199,8 @@ def test_returns_series_stateful_fetches_benchmark_and_risk_free(monkeypatch):
 
 
 def test_returns_series_stateful_long_window_uses_chunked_portfolio_retrieval(monkeypatch):
-    original_chunk_days = __import__(
-        "app.api.endpoints.returns_series", fromlist=["settings"]
-    ).settings.STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS
-    __import__(
-        "app.api.endpoints.returns_series", fromlist=["settings"]
-    ).settings.STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS = 2
+    original_chunk_days = settings.STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS
+    settings.STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS = 2
     calls: list[tuple[str, str]] = []
 
     async def _mock_get_portfolio_analytics_timeseries(self, **kwargs):  # noqa: ARG001
@@ -232,9 +243,7 @@ def test_returns_series_stateful_long_window_uses_chunked_portfolio_retrieval(mo
         with TestClient(app) as client:
             response = client.post("/integration/returns/series", json=payload)
     finally:
-        __import__(
-            "app.api.endpoints.returns_series", fromlist=["settings"]
-        ).settings.STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS = original_chunk_days
+        settings.STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS = original_chunk_days
 
     assert response.status_code == 200
     assert calls == [
@@ -437,6 +446,100 @@ def test_returns_series_async_result_not_found_and_failed(monkeypatch):
             failed = client.get(f"/integration/returns/series/results/{calculation_id}")
             assert failed.status_code == 409
             assert failed.json()["detail"] == "executor boom"
+    finally:
+        settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = original_threshold
+
+
+def test_returns_series_async_duplicate_submission_replays_same_request(monkeypatch):
+    original_threshold = settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS
+    settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = 0
+
+    async def _mock_get_portfolio_analytics_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2026-02-23",
+                "observations": [
+                    {"valuation_date": "2026-02-23", "beginning_market_value": "1000", "ending_market_value": "1010"},
+                    {"valuation_date": "2026-02-24", "beginning_market_value": "1010", "ending_market_value": "1015"},
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.returns_series_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
+        _mock_get_portfolio_analytics_timeseries,
+    )
+
+    calculation_id = str(uuid4())
+    payload = {
+        "calculation_id": calculation_id,
+        "portfolio_id": "DEMO_DPM_EUR_001",
+        "as_of_date": "2026-02-24",
+        "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-24"},
+        "frequency": "DAILY",
+        "metric_basis": "NET",
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    try:
+        with TestClient(app) as client:
+            first = client.post("/integration/returns/series", json=payload)
+            second = client.post("/integration/returns/series", json=payload)
+
+        assert first.status_code == 202
+        assert second.status_code == 202
+        assert first.json()["calculation_id"] == calculation_id
+        assert second.json()["calculation_id"] == calculation_id
+    finally:
+        settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = original_threshold
+
+
+def test_returns_series_async_duplicate_submission_conflicts_on_payload_drift(monkeypatch):
+    original_threshold = settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS
+    settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = 0
+
+    async def _mock_get_portfolio_analytics_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2026-02-23",
+                "observations": [
+                    {"valuation_date": "2026-02-23", "beginning_market_value": "1000", "ending_market_value": "1010"},
+                    {"valuation_date": "2026-02-24", "beginning_market_value": "1010", "ending_market_value": "1015"},
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.returns_series_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
+        _mock_get_portfolio_analytics_timeseries,
+    )
+
+    calculation_id = str(uuid4())
+    first_payload = {
+        "calculation_id": calculation_id,
+        "portfolio_id": "DEMO_DPM_EUR_001",
+        "as_of_date": "2026-02-24",
+        "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-24"},
+        "frequency": "DAILY",
+        "metric_basis": "NET",
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+    second_payload = {
+        **first_payload,
+        "frequency": "WEEKLY",
+    }
+
+    try:
+        with TestClient(app) as client:
+            first = client.post("/integration/returns/series", json=first_payload)
+            second = client.post("/integration/returns/series", json=second_payload)
+
+        assert first.status_code == 202
+        assert second.status_code == 409
     finally:
         settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = original_threshold
 

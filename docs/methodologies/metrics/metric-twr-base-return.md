@@ -39,9 +39,11 @@ TWR Base Return (`portfolio_return.base`)
 - `I_NET`: indicator, `1` when `metric_basis=NET`, else `0`
 - `N_t`: daily numerator `E_t - CFB_t - B_t - CFE_t + I_NET * F_t`
 - `D_t`: daily denominator `abs(B_t + CFB_t)`
-- `r_t`: daily return in decimal
+- `r_t`: daily base return in decimal
 - `r_t_pp`: daily return in pp (`100 * r_t`)
-- `R_P_pp`: period-linked return in pp
+- `C_start_pp`: cumulative base return in pp on the day before the slice start after reset processing
+- `C_end_pp`: cumulative base return in pp on the slice end date after reset processing
+- `R_P_pp`: period-linked base return in pp
 
 ## Methodology and Formulas
 1. Daily base return (engine `calculate_daily_ror`):
@@ -71,6 +73,7 @@ TWR Base Return (`portfolio_return.base`)
 7. For each non-empty period slice:
 - Build requested frequency breakdowns (`period_return_pct`, optional cumulative/annualized fields).
 - Compute `portfolio_return.base` using reset-aware or non-reset path.
+- If the slice contains any `perf_reset=1` row, rebase the slice return from cumulative return state; otherwise compound daily `daily_ror` directly.
 8. Return `results_by_period` plus diagnostics/meta/audit.
 
 ## Validation and Failure Behavior
@@ -79,6 +82,7 @@ TWR Base Return (`portfolio_return.base`)
 - No resolvable periods: HTTP 400 (`No valid periods could be resolved.`).
 - Period resolves but has zero rows after slicing: that period key is omitted from `results_by_period`.
 - Zero daily denominator (`abs(begin_mv + bod_cf)=0`): daily return forced to `0` for that row.
+- Rows before `effective_period_start_date` are also forced to zero daily return by the engine.
 - Unexpected engine failures: HTTP 500.
 
 ## Configuration Options
@@ -99,6 +103,7 @@ Related supporting fields from same computation path:
 - `results_by_period.<period>.breakdowns.<frequency>[].summary.period_return_pct`
 - `results_by_period.<period>.breakdowns.<frequency>[].summary.cumulative_return_pct_to_date` (optional)
 - `results_by_period.<period>.breakdowns.<frequency>[].summary.annualized_return_pct` (optional)
+- `results_by_period.<period>.reset_events[]` when `reset_policy.emit=true`
 
 ## Worked Example
 Sample input rows (`metric_basis=NET`):

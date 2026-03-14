@@ -3,6 +3,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.models.attribution_requests import AttributionRequest
+from app.models.attribution_responses import SinglePeriodAttributionResult
 from common.enums import PeriodType
 
 
@@ -27,29 +28,29 @@ def base_attribution_payload():
 
 def test_attribution_request_with_analyses_passes(base_attribution_payload):
     """Tests that a request using the new 'analyses' array is valid."""
-    # --- START FIX: Align test with new model ---
     payload = base_attribution_payload.copy()
     payload["analyses"] = [{"period": PeriodType.YTD, "frequencies": ["monthly"]}]
     try:
         AttributionRequest.model_validate(payload)
     except ValidationError as e:
         pytest.fail(f"Validation failed unexpectedly with 'analyses': {e}")
-    # --- END FIX ---
 
 
 def test_attribution_request_with_empty_analyses_fails(base_attribution_payload):
     """Tests that validation fails if 'analyses' is an empty list."""
-    # --- START FIX: Align test with new model ---
     payload = base_attribution_payload.copy()
     payload["analyses"] = []
     with pytest.raises(ValidationError, match="analyses list cannot be empty"):
         AttributionRequest.model_validate(payload)
-    # --- END FIX ---
 
 
 def test_attribution_request_with_no_analyses_fails(base_attribution_payload):
     """Tests that validation fails if the 'analyses' field is missing entirely."""
-    # --- START FIX: Align test with new model ---
     with pytest.raises(ValidationError, match="Field required"):
         AttributionRequest.model_validate(base_attribution_payload)
-    # --- END FIX ---
+
+
+def test_single_period_attribution_result_schema_excludes_dead_currency_totals_field():
+    schema = SinglePeriodAttributionResult.model_json_schema()
+
+    assert "currency_attribution_totals" not in schema.get("properties", {})

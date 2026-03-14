@@ -17,6 +17,7 @@ from app.api.endpoints.returns_series import (
     _portfolio_timeseries_to_valuation_points,
     _resample_returns,
     _resolve_window,
+    _should_offload_returns_series,
     _to_dataframe,
     get_returns_series,
 )
@@ -24,6 +25,7 @@ from app.models.returns_series import (
     CalendarPolicy,
     DataPolicy,
     InputMode,
+    MetricBasis,
     ResolvedWindow,
     ReturnPoint,
     ReturnsFrequency,
@@ -35,6 +37,13 @@ from app.models.returns_series import (
     StatefulInput,
     StatelessInput,
 )
+from app.services.execution_registry import execution_registry
+
+
+@pytest.fixture(autouse=True)
+def _reset_execution_registry() -> None:
+    execution_registry.create_schema()
+    execution_registry.clear_all_records()
 
 
 @pytest.mark.parametrize(
@@ -87,7 +96,7 @@ def test_resolve_window_relative_success_and_missing_period_error():
         as_of_date=date(2026, 2, 27),
         window=ReturnsWindow.model_construct(mode=ReturnsWindowMode.RELATIVE, period=None, year=None),
         frequency=ReturnsFrequency.DAILY,
-        metric_basis="NET",
+        metric_basis=MetricBasis.NET,
         reporting_currency=None,
         series_selection=SeriesSelection(),
         benchmark=None,
@@ -226,7 +235,7 @@ async def test_get_returns_series_guards_stateless_mode_without_input():
             to_date=date(2026, 2, 27),
         ),
         frequency=ReturnsFrequency.DAILY,
-        metric_basis="NET",
+        metric_basis=MetricBasis.NET,
         reporting_currency=None,
         series_selection=SeriesSelection(),
         benchmark=None,
@@ -252,7 +261,7 @@ async def test_get_returns_series_guards_stateful_mode_without_input():
             to_date=date(2026, 2, 27),
         ),
         frequency=ReturnsFrequency.DAILY,
-        metric_basis="NET",
+        metric_basis=MetricBasis.NET,
         reporting_currency=None,
         series_selection=SeriesSelection(),
         benchmark=None,
@@ -265,3 +274,21 @@ async def test_get_returns_series_guards_stateful_mode_without_input():
     with pytest.raises(HTTPException) as exc:
         await get_returns_series(request)
     assert exc.value.status_code == 400
+
+
+def test_should_offload_returns_series_uses_runtime_settings(mocker):
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-27",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-24", "to_date": "2026-02-27"},
+            "input_mode": "stateful",
+            "stateful_input": {"consumer_system": "lotus-performance"},
+        }
+    )
+    mocker.patch(
+        "app.api.endpoints.returns_series.get_settings",
+        return_value=type("Settings", (), {"RETURNS_SERIES_EXECUTOR_WINDOW_DAYS": 2})(),
+    )
+
+    assert _should_offload_returns_series(request) is True

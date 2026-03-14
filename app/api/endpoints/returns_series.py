@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
 from app.core.config import get_settings
@@ -12,10 +12,7 @@ from app.models.returns_series import (
     ReturnsSeriesResponse,
 )
 from app.services.async_result_service import resolve_async_result
-from app.services.async_result_store import async_result_store
-from app.services.compute_job_store import compute_job_store
 from app.services.core_integration_service import CoreIntegrationService  # noqa: F401
-from app.services.execution_registry import execution_registry
 from app.services.returns_series_service import (
     calculate_returns_series,
     core_points_to_dataframe,
@@ -29,10 +26,13 @@ from app.services.returns_series_service import (
     resolve_window,
     to_dataframe,
 )
+from app.services.submission_fencing_service import (
+    register_async_submission_or_raise,
+    register_sync_execution_or_raise,
+)
 from core.repro import generate_canonical_hash
 
 router = APIRouter(tags=["Integration"])
-settings = get_settings()
 
 _core_points_to_dataframe = core_points_to_dataframe
 _date_range_count = date_range_count
@@ -47,10 +47,13 @@ _to_dataframe = to_dataframe
 
 
 def _should_offload_returns_series(request: ReturnsSeriesRequest) -> bool:
+    active_settings = get_settings()
     if request.input_mode.value != "stateful":
         return False
     resolved_window = _resolve_window(request)
-    return (resolved_window.end_date - resolved_window.start_date).days >= settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS
+    return (
+        resolved_window.end_date - resolved_window.start_date
+    ).days >= active_settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS
 
 
 def _build_execution_window(request: ReturnsSeriesRequest) -> dict[str, object]:
@@ -83,34 +86,28 @@ def _accepted_response(calculation_id) -> ReturnsSeriesAcceptedResponse:
 )
 async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResponse | JSONResponse:
     input_fingerprint, calculation_hash = generate_canonical_hash(request, "returns-series-v1")
-    execution_registry.create_schema()
-    compute_job_store.create_schema()
-    async_result_store.create_schema()
     execution_mode = "async" if _should_offload_returns_series(request) else "sync"
-    execution_registry.create_execution(
+    if execution_mode == "async":
+        return register_async_submission_or_raise(
+            calculation_id=request.calculation_id,
+            analytics_type="ReturnsSeries",
+            portfolio_id=request.portfolio_id,
+            requested_window=_build_execution_window(request),
+            input_fingerprint=input_fingerprint,
+            calculation_hash=calculation_hash,
+            request_payload=request.model_dump(mode="json"),
+            offload_reason="long_window_stateful_returns_series",
+            accepted_response_factory=_accepted_response,
+        )
+
+    register_sync_execution_or_raise(
         calculation_id=request.calculation_id,
         analytics_type="ReturnsSeries",
         portfolio_id=request.portfolio_id,
-        execution_mode=execution_mode,
         requested_window=_build_execution_window(request),
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
     )
-
-    if execution_mode == "async":
-        execution_registry.start_stage(request.calculation_id, "submission")
-        compute_job_store.enqueue_job(
-            calculation_id=request.calculation_id,
-            analytics_type="ReturnsSeries",
-            request_payload=request.model_dump(mode="json"),
-        )
-        execution_registry.complete_stage(
-            request.calculation_id,
-            "submission",
-            details={"offload_reason": "long_window_stateful_returns_series"},
-        )
-        accepted = _accepted_response(request.calculation_id)
-        return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=accepted.model_dump(mode="json"))
 
     return await calculate_returns_series(request)
 

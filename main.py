@@ -1,5 +1,4 @@
 # main.py
-import os
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator
 
@@ -7,7 +6,6 @@ import orjson
 from fastapi import FastAPI
 from fastapi.encoders import jsonable_encoder
 from fastapi.openapi.utils import get_openapi
-from fastapi.staticfiles import StaticFiles
 from starlette.responses import JSONResponse
 
 from app.api.endpoints import (
@@ -17,8 +15,10 @@ from app.api.endpoints import (
     integration_capabilities,
     lineage,
     performance,
+    recovery_drill_history,
     returns_series,
     runtime_status,
+    runtime_work_items,
 )
 from app.core.config import get_settings
 from app.core.exceptions import PerformanceCalculatorError
@@ -28,6 +28,7 @@ from app.observability import setup_observability
 from app.openapi_enrichment import enrich_openapi_schema
 from app.services.async_result_store import async_result_store
 from app.services.compute_job_store import compute_job_store
+from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
 from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import lineage_metadata_store
 
@@ -89,10 +90,12 @@ settings = get_settings()
 @asynccontextmanager
 async def _app_lifespan(application: FastAPI) -> AsyncIterator[None]:
     application.state.is_draining = False
-    execution_registry.create_schema()
-    compute_job_store.create_schema()
-    async_result_store.create_schema()
-    lineage_metadata_store.create_schema()
+    bootstrap_durable_metadata_stores(
+        execution_store=execution_registry,
+        compute_store=compute_job_store,
+        async_result_store_=async_result_store,
+        lineage_store=lineage_metadata_store,
+    )
     yield
     application.state.is_draining = True
 
@@ -137,12 +140,6 @@ setup_observability(app, log_level=settings.LOG_LEVEL)
 validate_enterprise_runtime_config()
 app.middleware("http")(build_enterprise_audit_middleware())
 
-# Create lineage directory if it doesn't exist
-if not os.path.exists(settings.LINEAGE_STORAGE_PATH):
-    os.makedirs(settings.LINEAGE_STORAGE_PATH)
-
-app.mount("/lineage", StaticFiles(directory=settings.LINEAGE_STORAGE_PATH), name="lineage_files")
-
 app.add_exception_handler(PerformanceCalculatorError, performance_calculator_exception_handler)
 
 # Add a prefix to group performance-related endpoints
@@ -153,6 +150,8 @@ app.include_router(lineage.router, prefix="/performance")
 app.include_router(integration_capabilities.router, prefix="/integration")
 app.include_router(returns_series.router, prefix="/integration")
 app.include_router(runtime_status.router, prefix="/integration")
+app.include_router(runtime_work_items.router, prefix="/integration")
+app.include_router(recovery_drill_history.router, prefix="/integration")
 app.include_router(health.router)
 
 

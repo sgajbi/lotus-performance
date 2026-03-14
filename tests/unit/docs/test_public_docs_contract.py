@@ -23,6 +23,7 @@ def test_user_guide_documents_async_execution_surfaces():
     assert "/performance/executions/{calculation_id}" in guide
     assert "/integration/returns/series/results/{calculation_id}" in guide
     assert "/integration/runtime-status" in guide
+    assert "/performance/lineage/{calculation_id}/artifacts/{artifact_name}" in guide
 
 
 def test_twr_guide_uses_current_request_shape():
@@ -63,6 +64,7 @@ def test_contribution_guide_uses_current_request_shape():
     assert "analyses" in guide
     assert "valuation_points" in guide
     assert "Older examples using nested `daily_data`" in guide
+    assert "one hierarchy result under each `results_by_period.<period>` key" in guide
 
 
 def test_attribution_guide_uses_current_request_shape():
@@ -71,3 +73,7 @@ def test_attribution_guide_uses_current_request_shape():
     assert "analyses" in guide
     assert "valuation_points" in guide
     assert "Older examples using request-level `period_type`" in guide
+    assert "- `model`" in guide
+    assert "- `linking`" in guide
+    assert "currency_attribution" in guide
+    assert "`group_by` includes the `currency` dimension" in guide

@@ -99,21 +99,9 @@ def calculate_cumulative_ror(df: pd.DataFrame, config):
     one = Decimal(1) if is_decimal_mode else 1.0
     hundred = Decimal(100) if is_decimal_mode else 100.0
 
-    # --- START FIX: Ensure base calculation is done first and separately ---
-    base_components = [PortfolioColumns.DAILY_ROR.value]
-    other_components = []
-    if "local_ror" in df.columns:
-        other_components.append("local_ror")
-    if "fx_ror" in df.columns:
-        other_components.append("fx_ror")
+    component_names = _cumulative_component_names(df)
+    _calculate_component_cumulative_returns(df, component_names, temp=True, use_resets=False)
 
-    # Step 1: Calculate temp cumulative returns for all components (pre-reset)
-    for component_name in base_components + other_components:
-        prefix = f"{component_name}_" if component_name != PortfolioColumns.DAILY_ROR.value else ""
-        df[f"temp_{prefix}long_cum_ror"] = _compound_ror(df, df[component_name], "long", use_resets=False)
-        df[f"temp_{prefix}short_cum_ror"] = _compound_ror(df, df[component_name], "short", use_resets=False)
-
-    # Step 2: Determine resets based ONLY on the base TWR
     initial_resets, nctrl1, nctrl2, nctrl3 = calculate_initial_resets(
         df,
         pd.to_datetime(config.report_end_date),
@@ -125,47 +113,80 @@ def calculate_cumulative_ror(df: pd.DataFrame, config):
     df[PortfolioColumns.NCTRL_3.value] = nctrl3.astype(int)
     df[PortfolioColumns.PERF_RESET.value] = initial_resets.astype(int)
 
-    # Step 3: Recalculate all cumulative returns applying the same reset logic
-    for component_name in base_components + other_components:
-        prefix = f"{component_name}_" if component_name != PortfolioColumns.DAILY_ROR.value else ""
-        df[f"{prefix}long_cum_ror"] = _compound_ror(df, df[component_name], "long", use_resets=True)
-        df[f"{prefix}short_cum_ror"] = _compound_ror(df, df[component_name], "short", use_resets=True)
+    _calculate_component_cumulative_returns(df, component_names, temp=False, use_resets=True)
+    _zero_component_cumulative_returns(
+        df,
+        component_names,
+        reset_mask=df[PortfolioColumns.PERF_RESET.value] == 1,
+    )
 
-    is_initial_reset_day = df[PortfolioColumns.PERF_RESET.value] == 1
-    for component_name in base_components + other_components:
-        prefix = f"{component_name}_" if component_name != PortfolioColumns.DAILY_ROR.value else ""
-        df.loc[is_initial_reset_day, [f"{prefix}long_cum_ror", f"{prefix}short_cum_ror"]] = 0.0
-
-    # Step 4: Final reset calculations based on base TWR
     nctrl4_resets = calculate_nctrl4_reset(
         df,
         long_cum_col=PortfolioColumns.LONG_CUM_ROR.value,
         short_cum_col=PortfolioColumns.SHORT_CUM_ROR.value,
     )
     df[PortfolioColumns.NCTRL_4.value] = nctrl4_resets.astype(int)
-    df.loc[nctrl4_resets, PortfolioColumns.PERF_RESET.value] = 1  # Use .loc to update
+    df.loc[nctrl4_resets, PortfolioColumns.PERF_RESET.value] = 1
+    _zero_component_cumulative_returns(
+        df,
+        component_names,
+        reset_mask=df[PortfolioColumns.PERF_RESET.value] == 1,
+    )
+    _apply_nip_to_component_cumulative_returns(df, component_names)
 
-    is_final_reset_day = df[PortfolioColumns.PERF_RESET.value] == 1
-    for component_name in base_components + other_components:
-        prefix = f"{component_name}_" if component_name != PortfolioColumns.DAILY_ROR.value else ""
-        df.loc[is_final_reset_day, [f"{prefix}long_cum_ror", f"{prefix}short_cum_ror"]] = 0.0
-
-    # Step 5: Handle NIP days for all components
-    is_nip = df[PortfolioColumns.NIP.value] == 1
-    for component_name in base_components + other_components:
-        prefix = f"{component_name}_" if component_name != PortfolioColumns.DAILY_ROR.value else ""
-        df.loc[is_nip, [f"{prefix}long_cum_ror", f"{prefix}short_cum_ror"]] = np.nan
-        df[[f"{prefix}long_cum_ror", f"{prefix}short_cum_ror"]] = (
-            df[[f"{prefix}long_cum_ror", f"{prefix}short_cum_ror"]].ffill().fillna(0.0)
-        )
-
-    # Step 6: Calculate the final cumulative return based ONLY on the base components
     df[PortfolioColumns.FINAL_CUM_ROR.value] = (
         (one + df[PortfolioColumns.LONG_CUM_ROR.value] / hundred)
         * (one + df[PortfolioColumns.SHORT_CUM_ROR.value] / hundred)
         - one
     ) * hundred
-    # --- END FIX ---
+
+
+def _cumulative_component_names(df: pd.DataFrame) -> list[str]:
+    component_names = [PortfolioColumns.DAILY_ROR.value]
+    if "local_ror" in df.columns:
+        component_names.append("local_ror")
+    if "fx_ror" in df.columns:
+        component_names.append("fx_ror")
+    return component_names
+
+
+def _component_prefix(component_name: str, *, temp: bool) -> str:
+    base_prefix = "" if component_name == PortfolioColumns.DAILY_ROR.value else f"{component_name}_"
+    return f"temp_{base_prefix}" if temp else base_prefix
+
+
+def _calculate_component_cumulative_returns(
+    df: pd.DataFrame,
+    component_names: list[str],
+    *,
+    temp: bool,
+    use_resets: bool,
+) -> None:
+    for component_name in component_names:
+        prefix = _component_prefix(component_name, temp=temp)
+        df[f"{prefix}long_cum_ror"] = _compound_ror(df, df[component_name], "long", use_resets=use_resets)
+        df[f"{prefix}short_cum_ror"] = _compound_ror(df, df[component_name], "short", use_resets=use_resets)
+
+
+def _zero_component_cumulative_returns(
+    df: pd.DataFrame,
+    component_names: list[str],
+    *,
+    reset_mask: pd.Series,
+) -> None:
+    zero_value = 0.0
+    for component_name in component_names:
+        prefix = _component_prefix(component_name, temp=False)
+        df.loc[reset_mask, [f"{prefix}long_cum_ror", f"{prefix}short_cum_ror"]] = zero_value
+
+
+def _apply_nip_to_component_cumulative_returns(df: pd.DataFrame, component_names: list[str]) -> None:
+    is_nip = df[PortfolioColumns.NIP.value] == 1
+    for component_name in component_names:
+        prefix = _component_prefix(component_name, temp=False)
+        columns = [f"{prefix}long_cum_ror", f"{prefix}short_cum_ror"]
+        df.loc[is_nip, columns] = np.nan
+        df[columns] = df[columns].ffill().fillna(0.0)
 
 
 def _compound_ror(df: pd.DataFrame, daily_ror: pd.Series, leg: str, use_resets=False) -> pd.Series:

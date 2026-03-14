@@ -220,3 +220,47 @@ async def test_stateful_input_service_records_upstream_snapshots(tmp_path):
         "portfolio_timeseries",
         "benchmark_return_series",
     }
+
+
+@pytest.mark.asyncio
+async def test_stateful_input_service_skips_duplicate_snapshot_builds_for_existing_calculation(tmp_path, mocker):
+    core_service = _CoreServiceStub()
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    calculation_id = uuid4()
+    execution_store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        portfolio_id="PORT_1",
+    )
+    service = StatefulInputService(
+        core_service=core_service,
+        execution_store=execution_store,
+        portfolio_chunk_days=2,
+        reference_chunk_days=2,
+        max_concurrent_chunks=2,
+    )
+
+    await service.get_portfolio_timeseries(
+        portfolio_id="PORT_1",
+        as_of_date=date(2026, 1, 3),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 3),
+        reporting_currency="USD",
+        consumer_system="lotus-performance",
+        calculation_id=calculation_id,
+    )
+
+    snapshot_builder = mocker.patch.object(service, "_build_snapshot", wraps=service._build_snapshot)
+
+    await service.get_portfolio_timeseries(
+        portfolio_id="PORT_1",
+        as_of_date=date(2026, 1, 3),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 3),
+        reporting_currency="USD",
+        consumer_system="lotus-performance",
+        calculation_id=calculation_id,
+    )
+
+    assert snapshot_builder.call_count == 0

@@ -21,8 +21,8 @@ from app.models.attribution_responses import (
     SinglePeriodAttributionResult,
 )
 from common.enums import AttributionMode, LinkingMethod
-from engine.compute import run_calculations
 from engine.config import EngineConfig
+from engine.runtime import run_engine_for_valuation_points
 from engine.schema import PortfolioColumns
 
 
@@ -34,16 +34,12 @@ def _prepare_data_from_instruments(request: AttributionRequest) -> List[Portfoli
     if not request.portfolio_data or not request.instruments_data:
         raise ValueError("'portfolio_data' and 'instruments_data' are required for 'by_instrument' mode.")
 
-    # --- START FIX: Use the new 'analyses' structure ---
-    period_type_to_use = request.analyses[0].period if request.analyses else "ITD"
-    # --- END FIX ---
-
     twr_config = EngineConfig(
         performance_start_date=request.report_start_date,
         report_start_date=request.report_start_date,
         report_end_date=request.report_end_date,
         metric_basis=request.portfolio_data.metric_basis,
-        period_type=period_type_to_use,
+        period_type=request.analyses[0].period,
         currency_mode=request.currency_mode,
         report_ccy=request.report_ccy,
         fx=request.fx,
@@ -57,29 +53,20 @@ def _prepare_data_from_instruments(request: AttributionRequest) -> List[Portfoli
 
     all_instruments = []
     for inst in request.instruments_data:
-        inst_df = create_engine_dataframe([item.model_dump() for item in inst.valuation_points])
-        if inst_df.empty:
+        if not inst.valuation_points:
             continue
 
-        inst_twr_config = twr_config
-        if request.currency_mode == "BOTH" and inst.meta.get("currency") != request.report_ccy:
-            pass
-        else:
-            inst_twr_config = EngineConfig(
-                performance_start_date=twr_config.performance_start_date,
-                report_start_date=twr_config.report_start_date,
-                report_end_date=twr_config.report_end_date,
-                metric_basis=twr_config.metric_basis,
-                period_type=twr_config.period_type,
-                currency_mode="BASE_ONLY",
-            )
-
-        inst_results, _ = run_calculations(inst_df.copy(), inst_twr_config)
-        inst_results[PortfolioColumns.PERF_DATE.value] = pd.to_datetime(inst_results[PortfolioColumns.PERF_DATE.value])
+        inst_results = run_engine_for_valuation_points(
+            [item.model_dump() for item in inst.valuation_points],
+            twr_config,
+            force_base_only=not (request.currency_mode == "BOTH" and inst.meta.get("currency") != request.report_ccy),
+        )
         inst_results = inst_results.set_index(PortfolioColumns.PERF_DATE.value)
 
         inst_bop_mv = inst_results[PortfolioColumns.BEGIN_MV.value] + inst_results[PortfolioColumns.BOD_CF.value]
-        inst_results["weight_bop"] = inst_bop_mv / portfolio_bop_mv
+        with np.errstate(divide="ignore", invalid="ignore"):
+            weight_bop = inst_bop_mv / portfolio_bop_mv
+        inst_results["weight_bop"] = weight_bop.replace([np.inf, -np.inf], np.nan).fillna(0.0)
 
         inst_results.rename(
             columns={
@@ -117,7 +104,8 @@ def _prepare_data_from_instruments(request: AttributionRequest) -> List[Portfoli
         if f"weighted_{col}" in full_df.columns:
             group_weighted_ror = grouped[f"weighted_{col}"].sum()
             with np.errstate(divide="ignore", invalid="ignore"):
-                group_returns = (group_weighted_ror / group_weights).fillna(0.0)
+                group_returns = group_weighted_ror / group_weights
+            group_returns = group_returns.replace([np.inf, -np.inf], np.nan).fillna(0.0)
             aggregated_panel[col] = group_returns
 
     aggregated_panel.reset_index(inplace=True)

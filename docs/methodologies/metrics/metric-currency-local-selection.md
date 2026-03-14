@@ -3,7 +3,10 @@ Currency Attribution Local Selection (`currency_attribution[].effects.local_sele
 
 ## Endpoint and Mode Coverage
 - Endpoint: `POST /performance/attribution`
-- Availability requires currency attribution path to be active (`currency_mode=BOTH`, required columns present, `currency` dimension available).
+- Availability requires currency attribution path to be active:
+  - `currency_mode=BOTH`
+  - required columns are present in the aligned effects panel
+  - `group_by` includes the `currency` dimension
 
 ## Inputs
 - `w_b` (benchmark currency weight)
@@ -22,6 +25,8 @@ Currency Attribution Local Selection (`currency_attribution[].effects.local_sele
 - `r_local_p,c,t`: portfolio local return (decimal)
 - `r_local_b,c,t`: benchmark local return (decimal)
 - `LS_c,t`: local selection effect (decimal)
+- `LS_c`: aggregated local selection effect for currency `c`
+- `TE_c`: per-currency total effect in decimal
 
 ## Methodology and Formulas
 - Karnosky-Singer local selection:
@@ -30,6 +35,7 @@ Currency Attribution Local Selection (`currency_attribution[].effects.local_sele
 Aggregation:
 - `LS_c = sum_t LS_c,t`
 - response field = `100 * LS_c`
+- `TE_c = LA_c + LS_c + CA_c + CS_c`
 
 ## Step-by-Step Computation
 1. Aggregate aligned panel by (`date`, `currency`).
@@ -47,6 +53,7 @@ Aggregation:
 
 ## Outputs
 - `results_by_period.<period>.currency_attribution[].effects.local_selection`
+- contributes to `results_by_period.<period>.currency_attribution[].effects.total_effect`
 
 ## Worked Example
 

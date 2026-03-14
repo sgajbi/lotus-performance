@@ -1,5 +1,6 @@
 import os
 import shutil
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -258,9 +259,7 @@ def test_attribution_endpoint_currency_attribution(client):
     lineage_response = client.get(f"/performance/lineage/{calculation_id}")
     assert lineage_response.status_code == 200
     lineage_data = lineage_response.json()
-    # --- START FIX: Update assertion to expect period-prefixed artifact name ---
     assert "ITD_currency_attribution_effects.csv" in lineage_data["artifacts"]
-    # --- END FIX ---
 
 
 @pytest.mark.parametrize(
@@ -440,3 +439,82 @@ def test_attribution_async_result_not_found_and_failed(client, mocker):
     finally:
         settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = original_threshold
         settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS = original_attempts
+
+
+def test_attribution_async_duplicate_submission_replays_same_request(client):
+    original_threshold = settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT
+    settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = 0
+    calculation_id = str(uuid4())
+    payload = {
+        "calculation_id": calculation_id,
+        "portfolio_id": "ATTRIB_ASYNC_REPLAY_01",
+        "mode": "by_group",
+        "group_by": ["sector"],
+        "linking": "none",
+        "frequency": "daily",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "portfolio_groups_data": [
+            {
+                "key": {"sector": "Tech"},
+                "observations": [{"date": "2025-01-01", "return_base": 0.015, "weight_bop": 1.0}],
+            }
+        ],
+        "benchmark_groups_data": [
+            {
+                "key": {"sector": "Tech"},
+                "observations": [{"date": "2025-01-01", "return_base": 0.01, "weight_bop": 1.0}],
+            }
+        ],
+    }
+
+    try:
+        first = client.post("/performance/attribution", json=payload)
+        second = client.post("/performance/attribution", json=payload)
+
+        assert first.status_code == 202
+        assert second.status_code == 202
+        assert first.json()["calculation_id"] == calculation_id
+        assert second.json()["calculation_id"] == calculation_id
+    finally:
+        settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = original_threshold
+
+
+def test_attribution_async_duplicate_submission_conflicts_on_payload_drift(client):
+    original_threshold = settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT
+    settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = 0
+    calculation_id = str(uuid4())
+    first_payload = {
+        "calculation_id": calculation_id,
+        "portfolio_id": "ATTRIB_ASYNC_CONFLICT_01",
+        "mode": "by_group",
+        "group_by": ["sector"],
+        "linking": "none",
+        "frequency": "daily",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "portfolio_groups_data": [
+            {
+                "key": {"sector": "Tech"},
+                "observations": [{"date": "2025-01-01", "return_base": 0.015, "weight_bop": 1.0}],
+            }
+        ],
+        "benchmark_groups_data": [
+            {
+                "key": {"sector": "Tech"},
+                "observations": [{"date": "2025-01-01", "return_base": 0.01, "weight_bop": 1.0}],
+            }
+        ],
+    }
+    second_payload = {**first_payload, "group_by": ["currency"]}
+
+    try:
+        first = client.post("/performance/attribution", json=first_payload)
+        second = client.post("/performance/attribution", json=second_payload)
+
+        assert first.status_code == 202
+        assert second.status_code == 409
+    finally:
+        settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = original_threshold

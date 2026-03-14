@@ -6,6 +6,7 @@ from app.models.attribution_requests import AttributionRequest
 from common.enums import AttributionModel
 from engine.attribution import (
     _align_and_prepare_data,
+    _calculate_currency_attribution_effects,
     _calculate_single_period_effects,
     _link_effects_top_down,
     _prepare_data_from_instruments,
@@ -33,7 +34,6 @@ def single_period_data():
 @pytest.fixture
 def by_group_request_data():
     """Provides a sample AttributionRequest for by_group mode where weights sum to 1."""
-    # --- START FIX: Align fixture with new model ---
     return {
         "portfolio_id": "ATTRIB_UNIT_TEST_01",
         "mode": "by_group",
@@ -77,7 +77,6 @@ def by_group_request_data():
             },
         ],
     }
-    # --- END FIX ---
 
 
 def test_align_and_prepare_data_by_group(by_group_request_data):
@@ -100,6 +99,44 @@ def test_calculate_single_period_brinson_hood_beebower(single_period_data):
     result_df = _calculate_single_period_effects(single_period_data, AttributionModel.BRINSON_HOOD_BEEBOWER)
     total_effects = result_df[["allocation", "selection", "interaction"]].sum().sum()
     assert total_effects == pytest.approx(0.021)
+
+
+def test_calculate_single_period_effects_matches_exact_brinson_fachler_formulas():
+    df = pd.DataFrame(
+        {
+            "w_p": [0.60],
+            "w_b": [0.50],
+            "r_base_p": [0.05],
+            "r_base_b": [0.04],
+            "r_b_total": [0.03],
+        }
+    )
+
+    result_df = _calculate_single_period_effects(df.copy(), AttributionModel.BRINSON_FACHLER)
+
+    row = result_df.iloc[0]
+    assert row["allocation"] == pytest.approx((0.60 - 0.50) * (0.04 - 0.03))
+    assert row["selection"] == pytest.approx(0.50 * (0.05 - 0.04))
+    assert row["interaction"] == pytest.approx((0.60 - 0.50) * (0.05 - 0.04))
+
+
+def test_calculate_single_period_effects_matches_exact_brinson_hood_beebower_formulas():
+    df = pd.DataFrame(
+        {
+            "w_p": [0.60],
+            "w_b": [0.50],
+            "r_base_p": [0.05],
+            "r_base_b": [0.04],
+            "r_b_total": [0.03],
+        }
+    )
+
+    result_df = _calculate_single_period_effects(df.copy(), AttributionModel.BRINSON_HOOD_BEEBOWER)
+
+    row = result_df.iloc[0]
+    assert row["allocation"] == pytest.approx((0.60 - 0.50) * 0.04)
+    assert row["selection"] == pytest.approx(0.60 * (0.05 - 0.04))
+    assert row["interaction"] == pytest.approx((0.60 - 0.50) * (0.05 - 0.04))
 
 
 def test_run_attribution_calculations_and_aggregation(by_group_request_data):
@@ -131,7 +168,6 @@ def test_prepare_data_from_instruments():
     daily_data_aapl = [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 600, "end_mv": 624}]
     daily_data_msft = [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 400, "end_mv": 401}]
 
-    # --- START FIX: Align fixture with new model ---
     request_data = {
         "portfolio_id": "TEST",
         "mode": "by_instrument",
@@ -148,7 +184,6 @@ def test_prepare_data_from_instruments():
         ],
         "benchmark_groups_data": [],
     }
-    # --- END FIX ---
     request = AttributionRequest.model_validate(request_data)
 
     result_groups = _prepare_data_from_instruments(request)
@@ -163,7 +198,6 @@ def test_prepare_data_from_instruments():
 
 def test_prepare_data_from_instruments_missing_portfolio_data():
     """Tests that a ValueError is raised if portfolio_data is missing in by_instrument mode."""
-    # --- START FIX: Align fixture with new model ---
     request_data = {
         "portfolio_id": "TEST",
         "mode": "by_instrument",
@@ -176,7 +210,6 @@ def test_prepare_data_from_instruments_missing_portfolio_data():
         "report_end_date": "2025-01-01",
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
     }
-    # --- END FIX ---
     request = AttributionRequest.model_validate(request_data)
     with pytest.raises(ValueError, match="'portfolio_data' and 'instruments_data' are required"):
         _prepare_data_from_instruments(request)
@@ -203,6 +236,39 @@ def test_prepare_data_from_instruments_returns_empty_when_all_inputs_empty():
     assert _prepare_data_from_instruments(request) == []
 
 
+def test_prepare_data_from_instruments_zero_portfolio_capital_forces_zero_group_weight():
+    request_data = {
+        "portfolio_id": "TEST",
+        "mode": "by_instrument",
+        "group_by": ["sector"],
+        "linking": "none",
+        "frequency": "daily",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 0, "bod_cf": 0, "end_mv": 0}],
+        },
+        "instruments_data": [
+            {
+                "instrument_id": "AAPL",
+                "meta": {"sector": "Tech"},
+                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 50, "end_mv": 51}],
+            }
+        ],
+        "benchmark_groups_data": [],
+    }
+    request = AttributionRequest.model_validate(request_data)
+
+    result_groups = _prepare_data_from_instruments(request)
+
+    assert len(result_groups) == 1
+    obs = result_groups[0].observations[0]
+    assert obs["weight_bop"] == 0.0
+    assert obs["return_base"] == 0.0
+
+
 def test_prepare_panel_from_groups_handles_empty_cases():
     assert _prepare_panel_from_groups([], ["sector"]).empty
 
@@ -225,6 +291,44 @@ def test_link_effects_top_down_noop_when_arithmetic_total_zero():
     effects_df = pd.DataFrame({"allocation": [0.1], "selection": [0.2], "interaction": [-0.3]})
     result = _link_effects_top_down(effects_df, geometric_total_ar=0.05, arithmetic_total_ar=0.0)
     pd.testing.assert_frame_equal(result, effects_df)
+
+
+def test_link_effects_top_down_scales_only_effect_columns():
+    effects_df = pd.DataFrame(
+        {
+            "allocation": [0.10, 0.20],
+            "selection": [0.05, 0.15],
+            "interaction": [0.02, 0.03],
+            "sector": ["Tech", "Health"],
+        }
+    )
+
+    result = _link_effects_top_down(effects_df, geometric_total_ar=0.25, arithmetic_total_ar=0.50)
+
+    assert result["allocation"].tolist() == pytest.approx([0.05, 0.10])
+    assert result["selection"].tolist() == pytest.approx([0.025, 0.075])
+    assert result["interaction"].tolist() == pytest.approx([0.01, 0.015])
+    assert result["sector"].tolist() == ["Tech", "Health"]
+
+
+def test_calculate_currency_attribution_effects_matches_exact_formulas():
+    df = pd.DataFrame(
+        {
+            "w_p": [0.55],
+            "w_b": [0.50],
+            "r_local_p": [0.025],
+            "r_local_b": [0.020],
+            "r_fx_b": [0.010],
+        }
+    )
+
+    result_df = _calculate_currency_attribution_effects(df.copy())
+    row = result_df.iloc[0]
+
+    assert row["local_allocation"] == pytest.approx((0.55 - 0.50) * 0.020)
+    assert row["local_selection"] == pytest.approx(0.50 * (0.025 - 0.020))
+    assert row["currency_allocation"] == pytest.approx((0.55 - 0.50) * (1 + 0.020) * 0.010)
+    assert row["currency_selection"] == pytest.approx(0.50 * (0.025 - 0.020) * 0.010)
 
 
 def test_run_attribution_calculations_invalid_mode_raises_value_error():

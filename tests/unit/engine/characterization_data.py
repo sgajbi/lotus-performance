@@ -59,7 +59,6 @@ def long_flip_scenario():
             PortfolioColumns.END_MV: [500.0, -50.0, 1050.0, 1155.0],
         }
     )
-    # --- START FIX: Align expected data with correct engine calculation ---
     expected_df = pd.DataFrame(
         {
             PortfolioColumns.PERF_DATE: [date(2025, 1, 1), date(2025, 1, 2), date(2025, 1, 3), date(2025, 1, 4)],
@@ -79,7 +78,6 @@ def long_flip_scenario():
             PortfolioColumns.FINAL_CUM_ROR: [-50.0, 0.0, 10.5263, 21.5789],
         }
     )
-    # --- END FIX ---
     return engine_config, input_df, expected_df
 
 
@@ -316,3 +314,16 @@ def multi_currency_scenario():
         }
     )
     return engine_config, input_df, expected_df
+
+
+CHARACTERIZATION_SCENARIOS = [
+    ("long_flip", long_flip_scenario),
+    ("short_flip", short_flip_scenario),
+    ("zero_value_nip", zero_value_nip_scenario),
+    ("standard_growth", standard_growth_scenario),
+    ("short_growth", short_growth_scenario),
+    ("eod_flip_net", eod_flip_net_scenario),
+    ("eod_flip_gross", eod_flip_gross_scenario),
+    ("multi_currency", multi_currency_scenario),
+    ("cumulative_return", cumulative_return_scenario),
+]
