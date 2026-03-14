@@ -221,6 +221,7 @@ def test_runtime_retention_cleanup_runbook_is_governed():
 
     assert "python scripts/runtime_retention_cleanup.py" in runbook
     assert "python scripts/runtime_retention_cleanup.py --apply" in runbook
+    assert "GET /integration/runtime-retention-cleanups" in runbook
     assert "RUNTIME_RETENTION_DAYS" in runbook
     assert "analytics_execution" in runbook
     assert "analytics_compute_job" in runbook
@@ -228,3 +229,4 @@ def test_runtime_retention_cleanup_runbook_is_governed():
     assert "lineage_records" in runbook
     assert "LINEAGE_STORAGE_PATH" in runbook
     assert "docs/runbooks/runtime-retention-cleanup.md" in api_reference
+    assert "/integration/runtime-retention-cleanups" in api_reference

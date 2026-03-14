@@ -276,6 +276,26 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 - safety contract:
   - only terminal executions, terminal compute jobs, async results, terminal lineage metadata, and matching lineage artifacts older than the cutoff are eligible
   - active runtime work is not pruned
+  - each execution persists timestamped evidence plus refreshed `latest.json` and `manifest.json` under the configured retention artifact directory
+
+### `GET /integration/runtime-retention-cleanups`
+
+- purpose: inspect retained runtime-retention cleanup evidence and history
+- response includes:
+  - retained cleanup artifact directory
+  - latest retained cleanup evidence file
+  - configured cleanup-history retention policy
+  - paged retained cleanup entries with operator, cleanup mode, status, retention window, and prunable record counts
+- query parameters:
+  - `limit`
+  - `offset`
+  - `operator_id`
+  - `cleanup_mode`
+  - `status`
+  - `generated_after`
+  - `generated_before`
+- governed runbook:
+  - `docs/runbooks/runtime-retention-cleanup.md`
   - `lotus_performance_lineage_storage_pressure_breach{reason="lineage_storage_free_bytes_below_threshold|lineage_storage_free_ratio_below_threshold"}`
 
 ## Async execution pattern

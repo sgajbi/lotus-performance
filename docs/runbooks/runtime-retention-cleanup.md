@@ -59,6 +59,7 @@ Override the default only with an explicit operator or environment-level reason.
 
 - `GET /health/ready`
 - `GET /integration/runtime-status`
+- `GET /integration/runtime-retention-cleanups`
 - verify no active execution or lineage work was removed
 - if cleanup was substantial, capture the JSON summary as an operator artifact
 
