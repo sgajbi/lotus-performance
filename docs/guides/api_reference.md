@@ -130,7 +130,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - a bounded `recent_recoveries` list for lineage showing the latest requeued items, recovery kind, timestamp, and attempt count
   - lineage `degradation_details`
   - lineage `degradation_reasons`
-  - retained runtime-retention cleanup assurance with latest operator, cleanup mode, retention window, and freshness
+  - retained runtime-retention cleanup assurance with latest operator, cleanup mode, retention window, freshness, and live dry-run preview counts under the current policy
 - runtime may report `degraded` when configured queue-age or failure-pressure thresholds are exceeded
 - runtime also reports `degraded` when lineage storage is missing, invalid, or unreadable even if the durable DB remains healthy
 - runtime can also report lineage-storage saturation pressure before writes fail:
@@ -256,9 +256,11 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - `lotus_performance_recovery_drill_degradation_breach{reason="recovery_drill_latest_not_passed|recovery_drill_age_exceeded"}`
 - includes runtime-retention lifecycle metrics:
   - `lotus_performance_runtime_retention_availability`
+  - `lotus_performance_runtime_retention_preview_availability`
   - `lotus_performance_runtime_retention_latest_age_seconds`
   - `lotus_performance_runtime_retention_policy_threshold{threshold="max_age_seconds"}`
   - `lotus_performance_runtime_retention_degradation_breach{reason="runtime_retention_latest_not_applied|runtime_retention_age_exceeded"}`
+  - `lotus_performance_runtime_retention_prunable_items{category="execution|compute_job|async_result|lineage_record|lineage_artifact"}`
 - includes lineage storage capacity metrics:
   - `lotus_performance_lineage_storage_capacity_availability`
   - `lotus_performance_lineage_storage_capacity_bytes{segment="total|used|free"}`

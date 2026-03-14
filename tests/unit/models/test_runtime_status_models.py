@@ -139,6 +139,15 @@ def test_build_runtime_status_response_serializes_snapshot_details():
         runtime_retention=RuntimeRetentionStatus(
             status="degraded",
             reason="runtime_retention_age_exceeded",
+            preview_status="available",
+            preview_reason=None,
+            current_cutoff_utc="2026-02-13T00:00:00Z",
+            current_retention_days=30,
+            current_prunable_execution_count=7,
+            current_prunable_compute_job_count=6,
+            current_prunable_async_result_count=5,
+            current_prunable_lineage_record_count=4,
+            current_prunable_lineage_artifact_count=3,
             latest_generated_at_utc="2026-03-12T00:00:00Z",
             latest_status="applied",
             latest_operator_id="ops-batch",
@@ -202,6 +211,9 @@ def test_build_runtime_status_response_serializes_snapshot_details():
     assert response.recovery_drill.latest_operator_id == "ops-user"
     assert response.recovery_drill.degradation_reasons == ["recovery_drill_age_exceeded"]
     assert response.runtime_retention.status == "degraded"
+    assert response.runtime_retention.preview_status == "available"
+    assert response.runtime_retention.current_cutoff_utc == "2026-02-13T00:00:00Z"
+    assert response.runtime_retention.current_prunable_execution_count == 7
     assert response.runtime_retention.latest_cleanup_mode == "apply"
     assert response.runtime_retention.latest_retention_days == 30
     assert response.runtime_retention.degradation_reasons == ["runtime_retention_age_exceeded"]
@@ -254,6 +266,15 @@ def test_build_runtime_status_response_handles_unavailable_queue_without_stats()
         runtime_retention=RuntimeRetentionStatus(
             status="available",
             reason=None,
+            preview_status="unavailable",
+            preview_reason="RuntimeError",
+            current_cutoff_utc=None,
+            current_retention_days=None,
+            current_prunable_execution_count=None,
+            current_prunable_compute_job_count=None,
+            current_prunable_async_result_count=None,
+            current_prunable_lineage_record_count=None,
+            current_prunable_lineage_artifact_count=None,
             latest_generated_at_utc=None,
             latest_status=None,
             latest_operator_id=None,
@@ -292,4 +313,6 @@ def test_build_runtime_status_response_handles_unavailable_queue_without_stats()
     assert response.recovery_drill.status == "available"
     assert response.recovery_drill.latest_status is None
     assert response.runtime_retention.status == "available"
+    assert response.runtime_retention.preview_status == "unavailable"
+    assert response.runtime_retention.preview_reason == "RuntimeError"
     assert response.runtime_retention.latest_status is None

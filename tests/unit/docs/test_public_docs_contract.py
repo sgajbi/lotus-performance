@@ -240,5 +240,8 @@ def test_runtime_retention_cleanup_runbook_is_governed():
     assert "analytics_async_result" in runbook
     assert "lineage_records" in runbook
     assert "LINEAGE_STORAGE_PATH" in runbook
+    assert "runtime_retention.preview_status" in runbook
     assert "docs/runbooks/runtime-retention-cleanup.md" in api_reference
     assert "/integration/runtime-retention-cleanups" in api_reference
+    assert "lotus_performance_runtime_retention_preview_availability" in api_reference
+    assert "lotus_performance_runtime_retention_prunable_items" in api_reference

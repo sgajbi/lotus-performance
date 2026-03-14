@@ -109,6 +109,20 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
             },
         )(),
     )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.run_runtime_retention_cleanup",
+        lambda dry_run=True: type(
+            "RuntimeRetentionPreview",
+            (),
+            {
+                "prunable_execution_count": 4,
+                "prunable_compute_job_count": 3,
+                "prunable_async_result_count": 2,
+                "prunable_lineage_record_count": 1,
+                "prunable_lineage_artifact_count": 1,
+            },
+        )(),
+    )
 
     metrics = list(DurableQueueCollector().collect())
     metric_names = {metric.name for metric in metrics}
@@ -137,6 +151,8 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
     assert "lotus_performance_runtime_retention_latest_age_seconds" in metric_names
     assert "lotus_performance_runtime_retention_policy_threshold" in metric_names
     assert "lotus_performance_runtime_retention_degradation_breach" in metric_names
+    assert "lotus_performance_runtime_retention_preview_availability" in metric_names
+    assert "lotus_performance_runtime_retention_prunable_items" in metric_names
 
     compute_breach_metric = next(
         metric for metric in metrics if metric.name == "lotus_performance_compute_queue_degradation_breach"

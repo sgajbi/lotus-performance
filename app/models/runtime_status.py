@@ -325,6 +325,13 @@ class RuntimeRetentionStatusResponse(BaseModel):
         default=None,
         description="Primary runtime-retention degradation or unavailability reason for simple callers.",
     )
+    preview_status: str = Field(
+        description="Availability of the live runtime-retention preview under the current retention policy."
+    )
+    preview_reason: str | None = Field(
+        default=None,
+        description="Concrete reason when the live runtime-retention preview is unavailable.",
+    )
     degradation_reasons: list[str] = Field(
         default_factory=list,
         description="All active runtime-retention degradation reasons contributing to a degraded state.",
@@ -339,6 +346,13 @@ class RuntimeRetentionStatusResponse(BaseModel):
     latest_cleanup_mode: str | None = Field(default=None, description="Cleanup mode recorded for the latest retained runtime-retention cleanup.")
     latest_retention_days: int | None = Field(default=None, description="Retention window in days used by the latest retained runtime-retention cleanup.")
     latest_age_seconds: float | None = Field(default=None, description="Age in seconds of the latest retained runtime-retention cleanup.")
+    current_cutoff_utc: str | None = Field(default=None, description="Current runtime-retention cutoff timestamp under the active retention policy.")
+    current_retention_days: int | None = Field(default=None, description="Current runtime-retention window in days under the active retention policy.")
+    current_prunable_execution_count: int | None = Field(default=None, description="Current number of terminal execution records that would be pruned by a dry-run cleanup.")
+    current_prunable_compute_job_count: int | None = Field(default=None, description="Current number of terminal compute jobs that would be pruned by a dry-run cleanup.")
+    current_prunable_async_result_count: int | None = Field(default=None, description="Current number of async results that would be pruned by a dry-run cleanup.")
+    current_prunable_lineage_record_count: int | None = Field(default=None, description="Current number of terminal lineage records that would be pruned by a dry-run cleanup.")
+    current_prunable_lineage_artifact_count: int | None = Field(default=None, description="Current number of lineage artifact directories that would be pruned by a dry-run cleanup.")
 
 
 class RuntimeRetentionDegradationPolicyResponse(BaseModel):
@@ -517,6 +531,8 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
         runtime_retention=RuntimeRetentionStatusResponse(
             status=snapshot.runtime_retention.status,
             reason=snapshot.runtime_retention.reason,
+            preview_status=snapshot.runtime_retention.preview_status,
+            preview_reason=snapshot.runtime_retention.preview_reason,
             degradation_reasons=list(snapshot.runtime_retention.degradation_reasons),
             degradation_details=_degradation_details_response(snapshot.runtime_retention.degradation_details),
             latest_generated_at_utc=snapshot.runtime_retention.latest_generated_at_utc,
@@ -525,6 +541,13 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
             latest_cleanup_mode=snapshot.runtime_retention.latest_cleanup_mode,
             latest_retention_days=snapshot.runtime_retention.latest_retention_days,
             latest_age_seconds=snapshot.runtime_retention.latest_age_seconds,
+            current_cutoff_utc=snapshot.runtime_retention.current_cutoff_utc,
+            current_retention_days=snapshot.runtime_retention.current_retention_days,
+            current_prunable_execution_count=snapshot.runtime_retention.current_prunable_execution_count,
+            current_prunable_compute_job_count=snapshot.runtime_retention.current_prunable_compute_job_count,
+            current_prunable_async_result_count=snapshot.runtime_retention.current_prunable_async_result_count,
+            current_prunable_lineage_record_count=snapshot.runtime_retention.current_prunable_lineage_record_count,
+            current_prunable_lineage_artifact_count=snapshot.runtime_retention.current_prunable_lineage_artifact_count,
         ),
         compute_queue_policy=ComputeQueueDegradationPolicyResponse(
             pending_age_seconds=snapshot.compute_queue_policy.pending_age_seconds,

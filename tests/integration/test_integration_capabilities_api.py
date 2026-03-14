@@ -557,6 +557,20 @@ def test_metrics_include_recovery_drill_breach_signals(mocker):
             applied_filters={},
         ),
     )
+    mocker.patch(
+        "app.services.queue_metrics_service.run_runtime_retention_cleanup",
+        return_value=type(
+            "RuntimeRetentionPreview",
+            (),
+            {
+                "prunable_execution_count": 4,
+                "prunable_compute_job_count": 3,
+                "prunable_async_result_count": 2,
+                "prunable_lineage_record_count": 1,
+                "prunable_lineage_artifact_count": 1,
+            },
+        )(),
+    )
 
     try:
         with TestClient(app) as client:
@@ -575,6 +589,7 @@ def test_metrics_include_recovery_drill_breach_signals(mocker):
             in metrics.text
         )
         assert "lotus_performance_runtime_retention_availability 1.0" in metrics.text
+        assert "lotus_performance_runtime_retention_preview_availability 1.0" in metrics.text
         assert "lotus_performance_runtime_retention_latest_age_seconds" in metrics.text
         assert 'lotus_performance_runtime_retention_policy_threshold{threshold="max_age_seconds"} 300.0' in metrics.text
         assert (
@@ -585,6 +600,7 @@ def test_metrics_include_recovery_drill_breach_signals(mocker):
             'lotus_performance_runtime_retention_degradation_breach{reason="runtime_retention_age_exceeded"} 1.0'
             in metrics.text
         )
+        assert 'lotus_performance_runtime_retention_prunable_items{category="execution"} 4.0' in metrics.text
     finally:
         settings.RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS = original_threshold
         settings.RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS = original_retention_threshold

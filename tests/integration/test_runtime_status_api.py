@@ -79,6 +79,7 @@ def test_runtime_status_reports_durable_queue_state():
     assert body["recovery_drill_policy"]["max_age_seconds"] >= 0.0
     assert body["runtime_retention"]["status"] == "available"
     assert body["runtime_retention"]["degradation_reasons"] == []
+    assert body["runtime_retention"]["preview_status"] == "available"
     assert body["runtime_retention_policy"]["max_age_seconds"] >= 0.0
 
 
@@ -119,6 +120,22 @@ def test_runtime_status_reports_runtime_retention_failure_and_age_policy(mocker)
             applied_filters={},
         ),
     )
+    mocker.patch(
+        "app.services.runtime_status_service.run_runtime_retention_cleanup",
+        return_value=type(
+            "RuntimeRetentionPreview",
+            (),
+            {
+                "retention_days": 30,
+                "cutoff_utc": "2026-02-13T00:00:00Z",
+                "prunable_execution_count": 4,
+                "prunable_compute_job_count": 3,
+                "prunable_async_result_count": 2,
+                "prunable_lineage_record_count": 1,
+                "prunable_lineage_artifact_count": 1,
+            },
+        )(),
+    )
 
     try:
         with TestClient(app) as client:
@@ -133,6 +150,8 @@ def test_runtime_status_reports_runtime_retention_failure_and_age_policy(mocker)
         assert body["runtime_retention"]["latest_cleanup_mode"] == "dry_run"
         assert body["runtime_retention"]["latest_retention_days"] == 30
         assert body["runtime_retention"]["latest_age_seconds"] >= 300.0
+        assert body["runtime_retention"]["preview_status"] == "available"
+        assert body["runtime_retention"]["current_prunable_execution_count"] == 4
         assert body["runtime_retention"]["degradation_reasons"] == [
             "runtime_retention_latest_not_applied",
             "runtime_retention_age_exceeded",

@@ -30,6 +30,7 @@ from app.services.recovery_drill_history_service import (
 from app.services.runtime_retention_history_service import (
     build_runtime_retention_history_snapshot,
 )
+from app.services.runtime_retention_service import run_runtime_retention_cleanup
 
 
 @dataclass(frozen=True)
@@ -93,6 +94,15 @@ class RecoveryDrillDegradationPolicy:
 class RuntimeRetentionStatus:
     status: str
     reason: str | None
+    preview_status: str
+    preview_reason: str | None
+    current_cutoff_utc: str | None
+    current_retention_days: int | None
+    current_prunable_execution_count: int | None
+    current_prunable_compute_job_count: int | None
+    current_prunable_async_result_count: int | None
+    current_prunable_lineage_record_count: int | None
+    current_prunable_lineage_artifact_count: int | None
     latest_generated_at_utc: str | None
     latest_status: str | None
     latest_operator_id: str | None
@@ -420,6 +430,15 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
         return RuntimeRetentionStatus(
             status="unavailable",
             reason=type(exc).__name__,
+            preview_status="unavailable",
+            preview_reason="runtime_retention_preview_unavailable",
+            current_cutoff_utc=None,
+            current_retention_days=None,
+            current_prunable_execution_count=None,
+            current_prunable_compute_job_count=None,
+            current_prunable_async_result_count=None,
+            current_prunable_lineage_record_count=None,
+            current_prunable_lineage_artifact_count=None,
             latest_generated_at_utc=None,
             latest_status=None,
             latest_operator_id=None,
@@ -429,16 +448,41 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
             degradation_reasons=(),
             degradation_details=(),
         )
+    preview_status, preview_reason, preview_summary = _build_runtime_retention_preview()
 
     if snapshot.status != "available":
         if snapshot.reason in {
             "runtime_retention_artifact_directory_missing",
             "runtime_retention_manifest_missing",
         }:
-            return _build_missing_runtime_retention_status(threshold=threshold)
+            return _build_missing_runtime_retention_status(
+                threshold=threshold,
+                preview_status=preview_status,
+                preview_reason=preview_reason,
+                preview_summary=preview_summary,
+            )
         return RuntimeRetentionStatus(
             status="unavailable",
             reason=snapshot.reason or snapshot.status,
+            preview_status=preview_status,
+            preview_reason=preview_reason,
+            current_cutoff_utc=None if preview_summary is None else preview_summary.cutoff_utc,
+            current_retention_days=None if preview_summary is None else preview_summary.retention_days,
+            current_prunable_execution_count=(
+                None if preview_summary is None else preview_summary.prunable_execution_count
+            ),
+            current_prunable_compute_job_count=(
+                None if preview_summary is None else preview_summary.prunable_compute_job_count
+            ),
+            current_prunable_async_result_count=(
+                None if preview_summary is None else preview_summary.prunable_async_result_count
+            ),
+            current_prunable_lineage_record_count=(
+                None if preview_summary is None else preview_summary.prunable_lineage_record_count
+            ),
+            current_prunable_lineage_artifact_count=(
+                None if preview_summary is None else preview_summary.prunable_lineage_artifact_count
+            ),
             latest_generated_at_utc=None,
             latest_status=None,
             latest_operator_id=None,
@@ -450,7 +494,12 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
         )
 
     if not snapshot.entries:
-        return _build_missing_runtime_retention_status(threshold=threshold)
+        return _build_missing_runtime_retention_status(
+            threshold=threshold,
+            preview_status=preview_status,
+            preview_reason=preview_reason,
+            preview_summary=preview_summary,
+        )
 
     latest = snapshot.entries[0]
     latest_generated_at = datetime.fromisoformat(latest.generated_at_utc.replace("Z", "+00:00"))
@@ -476,6 +525,23 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
     return RuntimeRetentionStatus(
         status="degraded" if reasons else "available",
         reason=reasons[0] if reasons else None,
+        preview_status=preview_status,
+        preview_reason=preview_reason,
+        current_cutoff_utc=None if preview_summary is None else preview_summary.cutoff_utc,
+        current_retention_days=None if preview_summary is None else preview_summary.retention_days,
+        current_prunable_execution_count=None if preview_summary is None else preview_summary.prunable_execution_count,
+        current_prunable_compute_job_count=(
+            None if preview_summary is None else preview_summary.prunable_compute_job_count
+        ),
+        current_prunable_async_result_count=(
+            None if preview_summary is None else preview_summary.prunable_async_result_count
+        ),
+        current_prunable_lineage_record_count=(
+            None if preview_summary is None else preview_summary.prunable_lineage_record_count
+        ),
+        current_prunable_lineage_artifact_count=(
+            None if preview_summary is None else preview_summary.prunable_lineage_artifact_count
+        ),
         latest_generated_at_utc=latest.generated_at_utc,
         latest_status=latest.status,
         latest_operator_id=latest.operator_id,
@@ -659,7 +725,13 @@ def _build_missing_recovery_drill_status(*, threshold: float) -> RecoveryDrillSt
     )
 
 
-def _build_missing_runtime_retention_status(*, threshold: float) -> RuntimeRetentionStatus:
+def _build_missing_runtime_retention_status(
+    *,
+    threshold: float,
+    preview_status: str,
+    preview_reason: str | None,
+    preview_summary,
+) -> RuntimeRetentionStatus:
     details: tuple[RuntimeDegradationDetail, ...] = ()
     missing_history_reasons: tuple[str, ...] = ()
     if threshold > 0:
@@ -674,6 +746,23 @@ def _build_missing_runtime_retention_status(*, threshold: float) -> RuntimeReten
     return RuntimeRetentionStatus(
         status="available" if not missing_history_reasons else "degraded",
         reason=None if not missing_history_reasons else missing_history_reasons[0],
+        preview_status=preview_status,
+        preview_reason=preview_reason,
+        current_cutoff_utc=None if preview_summary is None else preview_summary.cutoff_utc,
+        current_retention_days=None if preview_summary is None else preview_summary.retention_days,
+        current_prunable_execution_count=None if preview_summary is None else preview_summary.prunable_execution_count,
+        current_prunable_compute_job_count=(
+            None if preview_summary is None else preview_summary.prunable_compute_job_count
+        ),
+        current_prunable_async_result_count=(
+            None if preview_summary is None else preview_summary.prunable_async_result_count
+        ),
+        current_prunable_lineage_record_count=(
+            None if preview_summary is None else preview_summary.prunable_lineage_record_count
+        ),
+        current_prunable_lineage_artifact_count=(
+            None if preview_summary is None else preview_summary.prunable_lineage_artifact_count
+        ),
         latest_generated_at_utc=None,
         latest_status=None,
         latest_operator_id=None,
@@ -683,6 +772,14 @@ def _build_missing_runtime_retention_status(*, threshold: float) -> RuntimeReten
         degradation_reasons=missing_history_reasons,
         degradation_details=details,
     )
+
+
+def _build_runtime_retention_preview():
+    try:
+        summary = run_runtime_retention_cleanup(dry_run=True)
+        return "available", None, summary
+    except Exception as exc:
+        return "unavailable", type(exc).__name__, None
 
 
 def _collect_runtime_degradation_reasons(
