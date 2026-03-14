@@ -4,12 +4,14 @@ import pytest
 
 from app.models.contribution_requests import ContributionRequest, Smoothing
 from common.enums import WeightingScheme
+from engine.config import EngineConfig, PeriodType, PrecisionMode
 from engine.contribution import (
     _calculate_carino_factors,
     _calculate_daily_instrument_contributions,
     _prepare_hierarchical_data,
     calculate_hierarchical_contribution,
 )
+from engine.runtime import base_only_engine_config
 
 
 @pytest.fixture
@@ -176,3 +178,24 @@ def test_calculate_hierarchical_contribution_includes_currency_breakdown_for_bot
     assert "fx_contribution" in first_row
     assert "local_contribution" in results["summary"]
     assert "fx_contribution" in results["summary"]
+
+
+def test_base_only_engine_config_preserves_non_currency_settings():
+    config = EngineConfig(
+        performance_start_date=pd.Timestamp("2025-01-01").date(),
+        report_start_date=pd.Timestamp("2025-01-02").date(),
+        report_end_date=pd.Timestamp("2025-01-31").date(),
+        metric_basis="NET",
+        period_type=PeriodType.YTD,
+        rounding_precision=6,
+        precision_mode=PrecisionMode.DECIMAL_STRICT,
+        currency_mode="BOTH",
+        report_ccy="EUR",
+    )
+
+    overridden = base_only_engine_config(config)
+
+    assert overridden.currency_mode == "BASE_ONLY"
+    assert overridden.rounding_precision == 6
+    assert overridden.precision_mode == PrecisionMode.DECIMAL_STRICT
+    assert overridden.report_ccy == "EUR"

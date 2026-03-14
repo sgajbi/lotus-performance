@@ -4,11 +4,10 @@ from typing import Dict, Tuple
 import numpy as np
 import pandas as pd
 
-from adapters.api_adapter import create_engine_dataframe
 from app.models.contribution_requests import ContributionRequest, Smoothing
 from common.enums import WeightingScheme
-from engine.compute import run_calculations
 from engine.config import EngineConfig
+from engine.runtime import run_engine_for_valuation_points
 from engine.schema import PortfolioColumns
 
 
@@ -94,22 +93,10 @@ def _prepare_hierarchical_data(request: ContributionRequest) -> Tuple[pd.DataFra
         hedging=request.hedging,
     )
 
-    portfolio_df = create_engine_dataframe([item.model_dump() for item in request.portfolio_data.valuation_points])
-
-    portfolio_twr_config = twr_config
-    if twr_config.currency_mode == "BOTH":
-        portfolio_twr_config = EngineConfig(
-            performance_start_date=twr_config.performance_start_date,
-            report_start_date=twr_config.report_start_date,
-            report_end_date=twr_config.report_end_date,
-            metric_basis=twr_config.metric_basis,
-            period_type=twr_config.period_type,
-            currency_mode="BASE_ONLY",
-        )
-    portfolio_results_df, portfolio_diags = run_calculations(portfolio_df, portfolio_twr_config)
-
-    portfolio_results_df[PortfolioColumns.PERF_DATE.value] = pd.to_datetime(
-        portfolio_results_df[PortfolioColumns.PERF_DATE.value]
+    portfolio_results_df = run_engine_for_valuation_points(
+        [item.model_dump() for item in request.portfolio_data.valuation_points],
+        twr_config,
+        force_base_only=twr_config.currency_mode == "BOTH",
     )
 
     fx_rates_df = pd.DataFrame()
@@ -120,25 +107,14 @@ def _prepare_hierarchical_data(request: ContributionRequest) -> Tuple[pd.DataFra
 
     all_positions_data = []
     for position in request.positions_data:
-        position_df = create_engine_dataframe([item.model_dump() for item in position.valuation_points])
-        if position_df.empty:
+        if not position.valuation_points:
             continue
 
-        pos_twr_config = twr_config
         position_ccy = position.meta.get("currency")
-        if not (request.currency_mode == "BOTH" and position_ccy != request.report_ccy):
-            pos_twr_config = EngineConfig(
-                performance_start_date=twr_config.performance_start_date,
-                report_start_date=twr_config.report_start_date,
-                report_end_date=twr_config.report_end_date,
-                metric_basis=twr_config.metric_basis,
-                period_type=twr_config.period_type,
-                currency_mode="BASE_ONLY",
-            )
-
-        position_results_df, _ = run_calculations(position_df, pos_twr_config)
-        position_results_df[PortfolioColumns.PERF_DATE.value] = pd.to_datetime(
-            position_results_df[PortfolioColumns.PERF_DATE.value]
+        position_results_df = run_engine_for_valuation_points(
+            [item.model_dump() for item in position.valuation_points],
+            twr_config,
+            force_base_only=not (request.currency_mode == "BOTH" and position_ccy != request.report_ccy),
         )
         position_results_df["position_id"] = position.position_id
         for key, value in position.meta.items():
