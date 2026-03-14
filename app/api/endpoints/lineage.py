@@ -79,6 +79,18 @@ def _load_and_validate_manifest(*, manifest_path: str, record) -> LineageManifes
     return manifest
 
 
+def _ensure_declared_artifacts_exist(*, calculation_id: UUID, artifact_names: list[str]) -> None:
+    for artifact_name in artifact_names:
+        if artifact_name == "manifest.json":
+            continue
+        artifact_path = _resolve_lineage_artifact_path(calculation_id=calculation_id, artifact_name=artifact_name)
+        if not os.path.exists(artifact_path):
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Lineage artifacts are incomplete in storage.",
+            )
+
+
 @router.get("/lineage/{calculation_id}", response_model=LineageResponse, summary="Retrieve Data Lineage Artifacts")
 async def get_lineage_data(calculation_id: UUID, request: Request):
     """
@@ -118,6 +130,7 @@ async def get_lineage_data(calculation_id: UUID, request: Request):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lineage manifest not found.")
 
         manifest = _load_and_validate_manifest(manifest_path=manifest_path, record=record)
+        _ensure_declared_artifacts_exist(calculation_id=calculation_id, artifact_names=record.artifact_names)
 
         for filename in record.artifact_names:
             if filename != "manifest.json":
