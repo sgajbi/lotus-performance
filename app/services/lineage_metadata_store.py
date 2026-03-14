@@ -94,6 +94,7 @@ class LineageQueueInspectionAnchors:
     oldest_pending_calculation_id: str | None = None
     oldest_leased_calculation_id: str | None = None
     latest_terminal_failure_calculation_id: str | None = None
+    latest_recovered_calculation_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -165,6 +166,7 @@ class LineageMetadataStore:
             record = session.get(LineageRecordModel, str(calculation_id))
             if record is None:
                 raise KeyError(f"Lineage record not found: {calculation_id}")
+            record.timestamp_utc = datetime.now(timezone.utc)
             record.status = LineageStatus.COMPLETE.value
             record.artifact_names = "\n".join(sorted(artifact_names))
             record.error_message = None
@@ -174,6 +176,7 @@ class LineageMetadataStore:
             record = session.get(LineageRecordModel, str(calculation_id))
             if record is None:
                 raise KeyError(f"Lineage record not found: {calculation_id}")
+            record.timestamp_utc = datetime.now(timezone.utc)
             record.status = LineageStatus.FAILED.value
             record.error_message = error_message
             payload = session.get(LineagePayloadModel, str(calculation_id))
@@ -187,6 +190,7 @@ class LineageMetadataStore:
             record = session.get(LineageRecordModel, str(calculation_id))
             if record is None:
                 raise KeyError(f"Lineage record not found: {calculation_id}")
+            record.timestamp_utc = datetime.now(timezone.utc)
             record.status = LineageStatus.PENDING.value
             record.error_message = None
             payload = session.get(LineagePayloadModel, str(calculation_id))
@@ -360,6 +364,7 @@ class LineageMetadataStore:
                 oldest_pending_calculation_id=row.oldest_pending_calculation_id,
                 oldest_leased_calculation_id=row.oldest_leased_calculation_id,
                 latest_terminal_failure_calculation_id=row.latest_terminal_failure_calculation_id,
+                latest_recovered_calculation_id=row.latest_recovered_calculation_id,
             )
 
     def list_inspection_items(
@@ -547,6 +552,17 @@ class LineageMetadataStore:
             pending_lookup.label("oldest_pending_calculation_id"),
             leased_lookup.label("oldest_leased_calculation_id"),
             failed_lookup.label("latest_terminal_failure_calculation_id"),
+            (
+                select(LineageRecordModel.calculation_id)
+                .join(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
+                .where(
+                    (LineageRecordModel.status == LineageStatus.PENDING.value)
+                    & (LineagePayloadModel.attempt_count > 0)
+                )
+                .order_by(LineageRecordModel.timestamp_utc.desc())
+                .limit(1)
+                .scalar_subquery()
+            ).label("latest_recovered_calculation_id"),
         )
 
     def _apply_inspection_filters(self, statement, *, calculation_type: str | None, calculation_id_contains: str | None):

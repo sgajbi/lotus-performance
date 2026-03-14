@@ -114,6 +114,7 @@ class ComputeQueueInspectionAnchors:
     oldest_leased_calculation_id: str | None
     oldest_running_calculation_id: str | None
     latest_terminal_failure_calculation_id: str | None
+    latest_recovered_calculation_id: str | None
 
 
 @dataclass(frozen=True)
@@ -506,6 +507,7 @@ class ComputeJobStore:
                 oldest_leased_calculation_id=row.oldest_leased_calculation_id,
                 oldest_running_calculation_id=row.oldest_running_calculation_id,
                 latest_terminal_failure_calculation_id=row.latest_terminal_failure_calculation_id,
+                latest_recovered_calculation_id=row.latest_recovered_calculation_id,
             )
 
     def list_inspection_items(
@@ -678,6 +680,16 @@ class ComputeJobStore:
             .limit(1)
             .scalar_subquery()
             .label("latest_terminal_failure_calculation_id"),
+            select(ComputeJobModel.calculation_id)
+            .where(
+                (ComputeJobModel.job_status == ComputeJobStatus.PENDING.value)
+                & (ComputeJobModel.attempt_count > 0)
+                & ComputeJobModel.last_error_at_utc.is_not(None)
+            )
+            .order_by(ComputeJobModel.last_error_at_utc.desc(), ComputeJobModel.created_at_utc.desc())
+            .limit(1)
+            .scalar_subquery()
+            .label("latest_recovered_calculation_id"),
         )
 
     def _apply_inspection_filters(self, statement, *, analytics_type: str | None, calculation_id_contains: str | None):

@@ -49,6 +49,10 @@ class ComputeQueueInspectionAnchorsResponse(BaseModel):
         default=None,
         description="Calculation handle of the most recently terminally failed compute job, if one exists.",
     )
+    latest_recovered_calculation_id: str | None = Field(
+        default=None,
+        description="Calculation handle of the most recently requeued compute job after retry or stale-lease recovery, if one exists.",
+    )
 
 
 class LineageQueueInspectionAnchorsResponse(BaseModel):
@@ -63,6 +67,10 @@ class LineageQueueInspectionAnchorsResponse(BaseModel):
     latest_terminal_failure_calculation_id: str | None = Field(
         default=None,
         description="Calculation handle of the most recently terminally failed lineage item, if one exists.",
+    )
+    latest_recovered_calculation_id: str | None = Field(
+        default=None,
+        description="Calculation handle of the most recently requeued lineage item after a retryable materialization failure, if one exists.",
     )
 
 
@@ -341,6 +349,7 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
                     oldest_leased_calculation_id=compute_anchors.oldest_leased_calculation_id,
                     oldest_running_calculation_id=compute_anchors.oldest_running_calculation_id,
                     latest_terminal_failure_calculation_id=compute_anchors.latest_terminal_failure_calculation_id,
+                    latest_recovered_calculation_id=compute_anchors.latest_recovered_calculation_id,
                 )
             ),
         ),
@@ -363,6 +372,7 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
                     oldest_pending_calculation_id=lineage_anchors.oldest_pending_calculation_id,
                     oldest_leased_calculation_id=lineage_anchors.oldest_leased_calculation_id,
                     latest_terminal_failure_calculation_id=lineage_anchors.latest_terminal_failure_calculation_id,
+                    latest_recovered_calculation_id=lineage_anchors.latest_recovered_calculation_id,
                 )
             ),
         ),

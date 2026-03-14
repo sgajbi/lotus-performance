@@ -106,11 +106,13 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - oldest pending, leased, and running compute-job ages
   - retry-backlog, lease-expiry, reclaimable, and terminal-failure compute-job counts
   - compute inspection anchors for the oldest pending, leased, and running work plus the latest terminal failure
+  - compute inspection anchors also include the latest recovered compute job returned to pending after retry or stale-lease recovery
   - compute `degradation_reasons`
   - compute `degradation_details`
   - lineage queue backlog details
   - retry-backlog, reclaimable, and terminal-failure lineage payload counts
   - lineage inspection anchors for the oldest pending and leased work plus the latest terminal failure
+  - lineage inspection anchors also include the latest recovered lineage item returned to pending after a retryable materialization failure
   - lineage `degradation_details`
   - lineage `degradation_reasons`
 - runtime may report `degraded` when configured queue-age or failure-pressure thresholds are exceeded

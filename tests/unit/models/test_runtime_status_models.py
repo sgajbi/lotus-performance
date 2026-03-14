@@ -59,6 +59,7 @@ def test_build_runtime_status_response_serializes_snapshot_details():
                 oldest_leased_calculation_id="calc-leased",
                 oldest_running_calculation_id="calc-running",
                 latest_terminal_failure_calculation_id="calc-failed",
+                latest_recovered_calculation_id="calc-recovered",
             ),
         ),
         lineage_queue=RuntimeQueueStatus(
@@ -79,6 +80,7 @@ def test_build_runtime_status_response_serializes_snapshot_details():
                 oldest_pending_calculation_id="lineage-pending",
                 oldest_leased_calculation_id="lineage-leased",
                 latest_terminal_failure_calculation_id="lineage-failed",
+                latest_recovered_calculation_id="lineage-recovered",
             ),
         ),
         recovery_drill=RecoveryDrillStatus(
@@ -125,11 +127,13 @@ def test_build_runtime_status_response_serializes_snapshot_details():
     assert response.compute_queue.reclaimable_jobs == 2
     assert response.compute_queue.inspection_anchors is not None
     assert response.compute_queue.inspection_anchors.oldest_pending_calculation_id == "calc-pending"
+    assert response.compute_queue.inspection_anchors.latest_recovered_calculation_id == "calc-recovered"
     assert response.lineage_queue.pending_payloads == 9
     assert response.lineage_queue.leased_payloads == 2
     assert response.lineage_queue.reclaimable_payloads == 1
     assert response.lineage_queue.inspection_anchors is not None
     assert response.lineage_queue.inspection_anchors.latest_terminal_failure_calculation_id == "lineage-failed"
+    assert response.lineage_queue.inspection_anchors.latest_recovered_calculation_id == "lineage-recovered"
     assert response.recovery_drill.status == "degraded"
     assert response.recovery_drill.latest_status == "passed"
     assert response.recovery_drill.latest_operator_id == "ops-user"

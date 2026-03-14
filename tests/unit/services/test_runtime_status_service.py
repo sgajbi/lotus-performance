@@ -53,6 +53,7 @@ def test_runtime_status_snapshot_reports_ready_with_queue_stats(mocker):
             oldest_leased_calculation_id="calc-leased",
             oldest_running_calculation_id="calc-running",
             latest_terminal_failure_calculation_id="calc-failed",
+            latest_recovered_calculation_id="calc-recovered",
         ),
     )
     mocker.patch(
@@ -72,6 +73,7 @@ def test_runtime_status_snapshot_reports_ready_with_queue_stats(mocker):
             oldest_pending_calculation_id="lineage-pending",
             oldest_leased_calculation_id="lineage-leased",
             latest_terminal_failure_calculation_id="lineage-failed",
+            latest_recovered_calculation_id="lineage-recovered",
         ),
     )
     mocker.patch(
@@ -109,6 +111,7 @@ def test_runtime_status_snapshot_reports_ready_with_queue_stats(mocker):
     assert snapshot.compute_queue.stats.pending_count == 2
     assert snapshot.compute_queue.inspection_anchors is not None
     assert snapshot.compute_queue.inspection_anchors.oldest_running_calculation_id == "calc-running"
+    assert snapshot.compute_queue.inspection_anchors.latest_recovered_calculation_id == "calc-recovered"
     assert snapshot.lineage_queue.status == "available"
     assert snapshot.lineage_queue.degradation_reasons == ()
     assert snapshot.lineage_queue.degradation_details == ()
@@ -118,6 +121,7 @@ def test_runtime_status_snapshot_reports_ready_with_queue_stats(mocker):
     assert snapshot.lineage_queue.stats.retry_backlog_count == 2
     assert snapshot.lineage_queue.inspection_anchors is not None
     assert snapshot.lineage_queue.inspection_anchors.latest_terminal_failure_calculation_id == "lineage-failed"
+    assert snapshot.lineage_queue.inspection_anchors.latest_recovered_calculation_id == "lineage-recovered"
     assert isinstance(snapshot.generated_at, datetime)
     assert snapshot.generated_at.tzinfo == UTC
     assert snapshot.recovery_drill.status == "available"

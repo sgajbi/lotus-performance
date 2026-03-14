@@ -60,6 +60,7 @@ def test_runtime_status_reports_durable_queue_state():
     assert body["compute_queue"]["oldest_running_age_seconds"] == 0.0
     assert body["compute_queue"]["inspection_anchors"]["oldest_pending_calculation_id"] is not None
     assert body["compute_queue"]["inspection_anchors"].get("oldest_leased_calculation_id") is None
+    assert body["compute_queue"]["inspection_anchors"].get("latest_recovered_calculation_id") is None
     assert body["lineage_queue"]["status"] == "available"
     assert body["lineage_queue"]["degradation_reasons"] == []
     assert body["lineage_queue"]["degradation_details"] == []
@@ -71,6 +72,7 @@ def test_runtime_status_reports_durable_queue_state():
     assert body["lineage_queue"]["oldest_leased_age_seconds"] == 0.0
     assert body["lineage_queue"]["inspection_anchors"]["oldest_pending_calculation_id"] is not None
     assert body["lineage_queue"]["inspection_anchors"].get("oldest_leased_calculation_id") is None
+    assert body["lineage_queue"]["inspection_anchors"].get("latest_recovered_calculation_id") is None
     assert body["recovery_drill"]["status"] == "available"
     assert body["recovery_drill"]["degradation_reasons"] == []
     assert body["recovery_drill_policy"]["max_age_seconds"] >= 0.0
@@ -277,6 +279,51 @@ def test_runtime_status_exposes_lineage_failure_pressure_counts():
         assert body["lineage_queue"]["reclaimable_payloads"] == 1
         assert body["lineage_queue"]["terminal_failure_payloads"] == 1
     finally:
+        lineage_metadata_store.clear_all_records()
+
+
+def test_runtime_status_exposes_latest_recovered_inspection_anchors():
+    compute_job_store.create_schema()
+    lineage_metadata_store.create_schema()
+    compute_job_store.clear_all_records()
+    lineage_metadata_store.clear_all_records()
+    compute_recovered_id = uuid4()
+    lineage_recovered_id = uuid4()
+
+    compute_job_store.enqueue_job(
+        calculation_id=compute_recovered_id,
+        analytics_type="ReturnsSeries",
+        request_payload={"portfolio_id": "PF-RECOVERED"},
+    )
+    with compute_job_store._session() as session:
+        row = compute_job_store._get_model(session, compute_recovered_id)
+        row.attempt_count = 1
+        row.last_error_at_utc = datetime.now(timezone.utc) - timedelta(seconds=3)
+
+    lineage_metadata_store.enqueue_lineage_payload(
+        calculation_id=lineage_recovered_id,
+        calculation_type="TWR",
+        request_json="{}",
+        response_json="{}",
+        details={"request.json": "{}"},
+    )
+    lineage_metadata_store.increment_attempt_count(lineage_recovered_id)
+    lineage_metadata_store.mark_pending(lineage_recovered_id)
+
+    try:
+        with TestClient(app) as client:
+            response = client.get("/integration/runtime-status")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["compute_queue"]["inspection_anchors"]["latest_recovered_calculation_id"] == str(
+            compute_recovered_id
+        )
+        assert body["lineage_queue"]["inspection_anchors"]["latest_recovered_calculation_id"] == str(
+            lineage_recovered_id
+        )
+    finally:
+        compute_job_store.clear_all_records()
         lineage_metadata_store.clear_all_records()
 
 

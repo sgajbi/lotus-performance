@@ -35,6 +35,37 @@ def test_lineage_metadata_store_pending_complete_and_failed(tmp_path):
     assert failed.error_message == "write failed"
 
 
+def test_lineage_metadata_store_updates_record_timestamp_on_status_transitions(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+
+    store.create_pending_record(calculation_id=calculation_id, calculation_type="TWR")
+    first = store.get_record(calculation_id)
+    assert first is not None
+
+    store.mark_complete(calculation_id=calculation_id, artifact_names=["request.json"])
+    complete = store.get_record(calculation_id)
+    assert complete is not None
+
+    store.mark_failed(calculation_id=calculation_id, error_message="boom")
+    failed = store.get_record(calculation_id)
+    assert failed is not None
+
+    store.mark_pending(calculation_id=calculation_id)
+    pending_again = store.get_record(calculation_id)
+    assert pending_again is not None
+
+    first_ts = datetime.fromisoformat(first.timestamp_utc.replace("Z", "+00:00"))
+    complete_ts = datetime.fromisoformat(complete.timestamp_utc.replace("Z", "+00:00"))
+    failed_ts = datetime.fromisoformat(failed.timestamp_utc.replace("Z", "+00:00"))
+    pending_again_ts = datetime.fromisoformat(pending_again.timestamp_utc.replace("Z", "+00:00"))
+
+    assert complete_ts >= first_ts
+    assert failed_ts >= complete_ts
+    assert pending_again_ts >= failed_ts
+
+
 def test_lineage_metadata_store_raises_for_missing_record_updates(tmp_path):
     store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
     store.create_schema()
@@ -215,8 +246,9 @@ def test_lineage_metadata_store_queue_inspection_anchors(tmp_path):
     pending_id = uuid4()
     leased_id = uuid4()
     failed_id = uuid4()
+    recovered_id = uuid4()
 
-    for calculation_id in [pending_id, leased_id, failed_id]:
+    for calculation_id in [pending_id, leased_id, failed_id, recovered_id]:
         store.enqueue_lineage_payload(
             calculation_id=calculation_id,
             calculation_type="TWR",
@@ -226,25 +258,34 @@ def test_lineage_metadata_store_queue_inspection_anchors(tmp_path):
         )
 
     store.mark_failed(failed_id, error_message="boom")
+    store.increment_attempt_count(recovered_id)
+    store.mark_pending(recovered_id)
 
     with store._session() as session:
         pending_payload = session.get(LineagePayloadModel, str(pending_id))
         leased_payload = session.get(LineagePayloadModel, str(leased_id))
         failed_record = session.get(LineageRecordModel, str(failed_id))
+        recovered_record = session.get(LineageRecordModel, str(recovered_id))
+        recovered_payload = session.get(LineagePayloadModel, str(recovered_id))
         assert pending_payload is not None
         assert leased_payload is not None
         assert failed_record is not None
+        assert recovered_record is not None
+        assert recovered_payload is not None
         pending_payload.created_at_utc = now - timedelta(seconds=120)
         leased_payload.created_at_utc = now - timedelta(seconds=60)
+        recovered_payload.created_at_utc = now - timedelta(seconds=30)
         leased_payload.leased_at_utc = now - timedelta(seconds=90)
         leased_payload.lease_expires_at_utc = now + timedelta(seconds=30)
         failed_record.timestamp_utc = now - timedelta(seconds=5)
+        recovered_record.timestamp_utc = now - timedelta(seconds=2)
 
     anchors = store.get_queue_inspection_anchors(now=now)
 
     assert anchors.oldest_pending_calculation_id == str(pending_id)
     assert anchors.oldest_leased_calculation_id == str(leased_id)
     assert anchors.latest_terminal_failure_calculation_id == str(failed_id)
+    assert anchors.latest_recovered_calculation_id == str(recovered_id)
 
 
 def test_lineage_metadata_store_lists_active_and_failed_inspection_items(tmp_path):
