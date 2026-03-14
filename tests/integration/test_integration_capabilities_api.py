@@ -132,6 +132,8 @@ def test_metrics_include_durable_queue_pressure_signals():
     lineage_metadata_store.clear_all_records()
 
     assert metrics.status_code == 200
+    assert 'lotus_performance_durable_queue_store_availability{store="compute"} 1.0' in metrics.text
+    assert 'lotus_performance_durable_queue_store_availability{store="lineage"} 1.0' in metrics.text
     assert "lotus_performance_compute_queue_jobs" in metrics.text
     assert "lotus_performance_compute_queue_failure_pressure_jobs" in metrics.text
     assert 'lotus_performance_compute_queue_jobs{status="pending"} 1.0' in metrics.text, metrics.text
@@ -141,3 +143,23 @@ def test_metrics_include_durable_queue_pressure_signals():
     assert lineage_match is not None, metrics.text
     assert float(lineage_match.group(1)) >= 1.0
     assert "lotus_performance_lineage_queue_failure_pressure_payloads" in metrics.text
+
+
+def test_metrics_expose_store_unavailability_without_false_zero_queue_samples(mocker):
+    mocker.patch(
+        "app.services.queue_metrics_service.compute_job_store.get_queue_stats",
+        side_effect=RuntimeError("compute unavailable"),
+    )
+    mocker.patch(
+        "app.services.queue_metrics_service.lineage_metadata_store.get_pending_payload_stats",
+        side_effect=RuntimeError("lineage unavailable"),
+    )
+
+    with TestClient(app) as client:
+        metrics = client.get("/metrics")
+
+    assert metrics.status_code == 200
+    assert 'lotus_performance_durable_queue_store_availability{store="compute"} 0.0' in metrics.text
+    assert 'lotus_performance_durable_queue_store_availability{store="lineage"} 0.0' in metrics.text
+    assert "lotus_performance_compute_queue_jobs" not in metrics.text
+    assert "lotus_performance_lineage_queue_pending_payloads" not in metrics.text
