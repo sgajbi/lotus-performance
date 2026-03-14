@@ -218,3 +218,31 @@ def test_execution_registry_formats_sqlite_timestamps_as_utc(tmp_path):
     assert record.created_at_utc == "2026-03-14T12:00:00Z"
     assert record.started_at_utc == "2026-03-14T12:05:00Z"
     assert record.completed_at_utc == "2026-03-14T12:10:00Z"
+
+
+def test_execution_registry_lists_and_deletes_terminal_executions_older_than_cutoff(tmp_path):
+    registry = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    registry.create_schema()
+    old_id = uuid4()
+    recent_id = uuid4()
+
+    for calculation_id in (old_id, recent_id):
+        registry.create_execution(
+            calculation_id=calculation_id,
+            analytics_type="TWR",
+            portfolio_id="PORT-RETENTION",
+        )
+        registry.mark_complete(calculation_id)
+
+    with registry._session() as session:
+        old_row = registry._get_execution_model(session, old_id)
+        recent_row = registry._get_execution_model(session, recent_id)
+        old_row.completed_at_utc = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        recent_row.completed_at_utc = datetime(2026, 3, 10, tzinfo=timezone.utc)
+
+    cutoff = datetime(2026, 2, 1, tzinfo=timezone.utc)
+
+    assert registry.list_terminal_execution_ids_older_than(cutoff) == [str(old_id)]
+    assert registry.delete_executions([str(old_id)]) == 1
+    assert registry.get_execution(old_id) is None
+    assert registry.get_execution(recent_id) is not None

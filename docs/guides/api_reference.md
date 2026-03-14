@@ -258,6 +258,24 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - `lotus_performance_lineage_storage_capacity_bytes{segment="total|used|free"}`
   - `lotus_performance_lineage_storage_free_ratio`
   - `lotus_performance_lineage_storage_pressure_threshold{threshold="min_free_bytes|min_free_ratio"}`
+
+## Runtime Operations
+
+### `python scripts/runtime_retention_cleanup.py`
+
+- purpose: inspect or prune retained terminal runtime state and lineage artifacts beyond the configured retention window
+- governed runbook:
+  - `docs/runbooks/runtime-retention-cleanup.md`
+- default behavior:
+  - dry run only
+  - prints a JSON summary of prunable runtime records and lineage artifact directories
+- apply behavior:
+  - `python scripts/runtime_retention_cleanup.py --apply`
+- override behavior:
+  - `python scripts/runtime_retention_cleanup.py --retention-days <days>`
+- safety contract:
+  - only terminal executions, terminal compute jobs, async results, terminal lineage metadata, and matching lineage artifacts older than the cutoff are eligible
+  - active runtime work is not pruned
   - `lotus_performance_lineage_storage_pressure_breach{reason="lineage_storage_free_bytes_below_threshold|lineage_storage_free_ratio_below_threshold"}`
 
 ## Async execution pattern

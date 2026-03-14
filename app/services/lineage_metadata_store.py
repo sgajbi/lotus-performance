@@ -253,6 +253,40 @@ class LineageMetadataStore:
             session.query(LineageRecordModel).delete()
             session.query(LineagePayloadModel).delete()
 
+    def list_terminal_calculation_ids_older_than(self, older_than: datetime) -> list[str]:
+        with self._session() as session:
+            cutoff = _normalize_filter_datetime(
+                older_than,
+                dialect_name=session.bind.dialect.name if session.bind is not None else "",
+            )
+            statement = (
+                select(LineageRecordModel.calculation_id)
+                .where(LineageRecordModel.status.in_([LineageStatus.COMPLETE.value, LineageStatus.FAILED.value]))
+                .where(LineageRecordModel.timestamp_utc <= cutoff)
+                .order_by(LineageRecordModel.timestamp_utc.asc(), LineageRecordModel.calculation_id.asc())
+            )
+            return [row[0] for row in session.execute(statement).all()]
+
+    def delete_calculation_ids(self, calculation_ids: list[str]) -> int:
+        if not calculation_ids:
+            return 0
+        with self._session() as session:
+            payloads = (
+                session.execute(select(LineagePayloadModel).where(LineagePayloadModel.calculation_id.in_(calculation_ids)))
+                .scalars()
+                .all()
+            )
+            records = (
+                session.execute(select(LineageRecordModel).where(LineageRecordModel.calculation_id.in_(calculation_ids)))
+                .scalars()
+                .all()
+            )
+            for payload in payloads:
+                session.delete(payload)
+            for record in records:
+                session.delete(record)
+            return len(records)
+
     def enqueue_lineage_payload(
         self,
         *,

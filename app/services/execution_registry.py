@@ -163,6 +163,13 @@ def _format_timestamp(value: datetime | None) -> str | None:
     return _coerce_utc_datetime(value).isoformat().replace("+00:00", "Z")
 
 
+def _normalize_filter_datetime(value: datetime, *, dialect_name: str) -> datetime:
+    normalized = _coerce_utc_datetime(value)
+    if dialect_name == "sqlite":
+        return normalized.replace(tzinfo=None)
+    return normalized
+
+
 class ExecutionRegistry:
     def __init__(self, database_url: str):
         connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
@@ -205,6 +212,34 @@ class ExecutionRegistry:
             execution = session.get(AnalyticsExecutionModel, str(calculation_id))
             if execution is not None:
                 session.delete(execution)
+
+    def list_terminal_execution_ids_older_than(self, older_than: datetime) -> list[str]:
+        with self._session() as session:
+            dialect_name = session.bind.dialect.name if session.bind is not None else ""
+            cutoff = _normalize_filter_datetime(older_than, dialect_name=dialect_name)
+            statement = (
+                select(AnalyticsExecutionModel.calculation_id)
+                .where(AnalyticsExecutionModel.status.in_([ExecutionStatus.COMPLETE.value, ExecutionStatus.FAILED.value]))
+                .where(AnalyticsExecutionModel.completed_at_utc.is_not(None))
+                .where(AnalyticsExecutionModel.completed_at_utc <= cutoff)
+                .order_by(AnalyticsExecutionModel.completed_at_utc.asc(), AnalyticsExecutionModel.created_at_utc.asc())
+            )
+            return [row[0] for row in session.execute(statement).all()]
+
+    def delete_executions(self, calculation_ids: list[str]) -> int:
+        if not calculation_ids:
+            return 0
+        with self._session() as session:
+            rows = (
+                session.execute(
+                    select(AnalyticsExecutionModel).where(AnalyticsExecutionModel.calculation_id.in_(calculation_ids))
+                )
+                .scalars()
+                .all()
+            )
+            for row in rows:
+                session.delete(row)
+            return len(rows)
 
     def create_execution(
         self,

@@ -213,3 +213,18 @@ def test_runtime_threshold_compose_overlays_match_profile_defaults():
     )
     assert "docker-compose.runtime-thresholds.production.yml" in api_reference
     assert "docker-compose.yml" in runtime_topology
+
+
+def test_runtime_retention_cleanup_runbook_is_governed():
+    runbook = _read("docs/runbooks/runtime-retention-cleanup.md")
+    api_reference = _read("docs/guides/api_reference.md")
+
+    assert "python scripts/runtime_retention_cleanup.py" in runbook
+    assert "python scripts/runtime_retention_cleanup.py --apply" in runbook
+    assert "RUNTIME_RETENTION_DAYS" in runbook
+    assert "analytics_execution" in runbook
+    assert "analytics_compute_job" in runbook
+    assert "analytics_async_result" in runbook
+    assert "lineage_records" in runbook
+    assert "LINEAGE_STORAGE_PATH" in runbook
+    assert "docs/runbooks/runtime-retention-cleanup.md" in api_reference
