@@ -25,14 +25,20 @@ router = APIRouter(tags=["Integration"])
 )
 async def get_recovery_drill_history(
     limit: Annotated[int | None, Query(ge=1, le=100, description="Maximum number of retained recovery-drill entries to return.")] = None,
+    offset: Annotated[int, Query(ge=0, description="Zero-based offset into the filtered retained recovery-drill history.")] = 0,
     operator_id: Annotated[str | None, Query(description="Filter retained recovery-drill history by operator or automation identity.")] = None,
     backup_identifier: Annotated[str | None, Query(description="Filter retained recovery-drill history by backup or restore-set identifier.")] = None,
     status: Annotated[str | None, Query(description="Filter retained recovery-drill history by drill outcome status.")] = None,
+    generated_after: Annotated[str | None, Query(description="Filter retained recovery-drill history to entries generated at or after this ISO-8601 timestamp.")] = None,
+    generated_before: Annotated[str | None, Query(description="Filter retained recovery-drill history to entries generated at or before this ISO-8601 timestamp.")] = None,
 ) -> RecoveryDrillHistoryResponse:
     snapshot = build_recovery_drill_history_snapshot(
         limit=limit,
+        offset=offset,
         operator_id=operator_id,
         backup_identifier=backup_identifier,
         status_filter=status,
+        generated_after=generated_after,
+        generated_before=generated_before,
     )
     return build_recovery_drill_history_response(snapshot)

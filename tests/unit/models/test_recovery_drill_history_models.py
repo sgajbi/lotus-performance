@@ -14,7 +14,9 @@ def test_build_recovery_drill_history_response_serializes_snapshot():
         retention_limit=30,
         retention_max_age_days=90,
         total_entries=2,
+        matched_entries=1,
         returned_entries=1,
+        next_offset=1,
         applied_filters={"limit": 1, "status": "passed"},
         entries=[
             RecoveryDrillHistoryEntry(
@@ -35,6 +37,8 @@ def test_build_recovery_drill_history_response_serializes_snapshot():
     assert response.status == "available"
     assert response.retention_max_age_days == 90
     assert response.total_entries == 2
+    assert response.matched_entries == 1
     assert response.returned_entries == 1
+    assert response.next_offset == 1
     assert response.applied_filters == {"limit": 1, "status": "passed"}
     assert response.entries[0].backup_identifier == "backup-123"

@@ -101,6 +101,7 @@ def test_recovery_drill_history_snapshot_applies_filters_and_limit(tmp_path):
 
     assert snapshot.status == "available"
     assert snapshot.total_entries == 3
+    assert snapshot.matched_entries == 1
     assert snapshot.returned_entries == 1
     assert snapshot.applied_filters == {
         "limit": 1,
@@ -109,3 +110,64 @@ def test_recovery_drill_history_snapshot_applies_filters_and_limit(tmp_path):
         "status": "passed",
     }
     assert [entry.evidence_file_name for entry in snapshot.entries] == ["2026-03-14t00-00-00.json"]
+
+
+def test_recovery_drill_history_snapshot_applies_offset_and_time_window(tmp_path):
+    artifact_dir = tmp_path / "artifacts" / "durable-recovery-drill"
+    artifact_dir.mkdir(parents=True)
+    manifest = {
+        "latest_file_name": "2026-03-14t00-00-00.json",
+        "retained_file_names": [
+            "2026-03-14t00-00-00.json",
+            "2026-03-13t00-00-00.json",
+            "2026-03-12t00-00-00.json",
+        ],
+        "retention_limit": 30,
+        "retention_max_age_days": 90,
+        "entries": [
+            {
+                "evidence_file_name": "2026-03-14t00-00-00.json",
+                "generated_at_utc": "2026-03-14T00:00:00Z",
+                "operator_id": "ops-user",
+                "backup_identifier": "backup-123",
+                "status": "passed",
+            },
+            {
+                "evidence_file_name": "2026-03-13t00-00-00.json",
+                "generated_at_utc": "2026-03-13T00:00:00Z",
+                "operator_id": "ops-user",
+                "backup_identifier": "backup-123",
+                "status": "passed",
+            },
+            {
+                "evidence_file_name": "2026-03-12t00-00-00.json",
+                "generated_at_utc": "2026-03-12T00:00:00Z",
+                "operator_id": "ops-user",
+                "backup_identifier": "backup-123",
+                "status": "passed",
+            },
+        ],
+    }
+    (artifact_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    snapshot = build_recovery_drill_history_snapshot(
+        artifact_directory=artifact_dir,
+        limit=1,
+        offset=1,
+        generated_after="2026-03-12T00:00:00Z",
+        generated_before="2026-03-14T00:00:00Z",
+        status_filter="passed",
+    )
+
+    assert snapshot.total_entries == 3
+    assert snapshot.matched_entries == 3
+    assert snapshot.returned_entries == 1
+    assert snapshot.next_offset == 2
+    assert snapshot.applied_filters == {
+        "limit": 1,
+        "offset": 1,
+        "status": "passed",
+        "generated_after": "2026-03-12T00:00:00Z",
+        "generated_before": "2026-03-14T00:00:00Z",
+    }
+    assert [entry.evidence_file_name for entry in snapshot.entries] == ["2026-03-13t00-00-00.json"]
