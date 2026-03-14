@@ -23,6 +23,18 @@ _REMEDIATION_HINTS: dict[str, str] = {
         "Check free space, mount health, and write permissions on the lineage storage directory; the service could "
         "not complete a write/delete probe."
     ),
+    "lineage_storage_capacity_unreadable": (
+        "Inspect the lineage storage mount and filesystem health; the service could not read storage-capacity "
+        "metrics needed for proactive saturation monitoring."
+    ),
+    "lineage_storage_free_bytes_below_threshold": (
+        "Free space on the lineage storage filesystem is below the configured byte threshold; expand capacity or "
+        "clear retained artifacts before lineage writes fail."
+    ),
+    "lineage_storage_free_ratio_below_threshold": (
+        "Free capacity on the lineage storage filesystem is below the configured ratio threshold; expand capacity "
+        "or clear retained artifacts before lineage writes fail."
+    ),
 }
 
 

@@ -519,6 +519,191 @@ def test_runtime_status_snapshot_reports_unavailable_when_lineage_storage_is_una
     assert snapshot.lineage_queue.stats is None
 
 
+def test_runtime_status_snapshot_degrades_when_lineage_storage_free_space_is_low(mocker):
+    mocker.patch(
+        "app.services.runtime_status_service.get_settings",
+        return_value=type(
+            "Settings",
+            (),
+            {
+                "RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_COMPUTE_LEASED_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_COMPUTE_RUNNING_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_LINEAGE_LEASED_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES": 500,
+                "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO": 0.3,
+                "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS": 0.0,
+            },
+        )(),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.check_durable_metadata_store_ready",
+        return_value=DurabilityHealthStatus(is_ready=True, status="ready", reason=None),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.check_lineage_storage_ready",
+        return_value=type("StorageStatus", (), {"is_ready": True, "reason": None})(),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.get_lineage_storage_capacity",
+        return_value=type(
+            "Capacity",
+            (),
+            {
+                "total_bytes": 1000,
+                "used_bytes": 800,
+                "free_bytes": 200,
+                "free_ratio": 0.2,
+                "used_ratio": 0.8,
+            },
+        )(),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.compute_job_store.get_queue_stats",
+        return_value=ComputeQueueStats(
+            pending_count=0,
+            leased_count=0,
+            running_count=0,
+            failed_count=0,
+            complete_count=0,
+            retry_backlog_count=0,
+            lease_expired_count=0,
+            terminal_failure_count=0,
+            oldest_pending_age_seconds=0.0,
+            oldest_leased_age_seconds=0.0,
+            oldest_running_age_seconds=0.0,
+        ),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.lineage_metadata_store.get_pending_payload_stats",
+        return_value=LineageQueueStats(
+            pending_payload_count=1,
+            leased_payload_count=0,
+            retry_backlog_count=0,
+            terminal_failure_count=0,
+            oldest_pending_age_seconds=0.0,
+            oldest_leased_age_seconds=0.0,
+        ),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.build_recovery_drill_history_snapshot",
+        return_value=RecoveryDrillHistorySnapshot(
+            status="available",
+            artifact_directory="artifacts/durable-recovery-drill",
+            latest_file_name="latest.json",
+            retained_file_names=["latest.json"],
+            retention_limit=30,
+            retention_max_age_days=90,
+            entries=[],
+            total_entries=0,
+            matched_entries=0,
+            returned_entries=0,
+            next_offset=None,
+            applied_filters={},
+            reason=None,
+        ),
+    )
+
+    snapshot = build_runtime_status_snapshot(is_draining=False)
+
+    assert snapshot.runtime_status == "degraded"
+    assert snapshot.runtime_degradation_reasons == (
+        "lineage_queue:lineage_storage_free_bytes_below_threshold",
+        "lineage_queue:lineage_storage_free_ratio_below_threshold",
+    )
+    assert snapshot.lineage_queue.status == "degraded"
+    assert snapshot.lineage_queue.reason == "lineage_storage_free_bytes_below_threshold"
+    assert snapshot.lineage_queue.storage_capacity is not None
+    assert snapshot.lineage_queue.storage_capacity.free_bytes == 200
+    assert snapshot.lineage_queue.storage_capacity.free_ratio == 0.2
+    assert snapshot.lineage_queue_policy.storage_min_free_bytes == 500
+    assert snapshot.lineage_queue_policy.storage_min_free_ratio == 0.3
+
+
+def test_runtime_status_snapshot_reports_unavailable_when_lineage_storage_capacity_is_unreadable(mocker):
+    mocker.patch(
+        "app.services.runtime_status_service.get_settings",
+        return_value=type(
+            "Settings",
+            (),
+            {
+                "RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_COMPUTE_LEASED_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_COMPUTE_RUNNING_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_LINEAGE_LEASED_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES": 0,
+                "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO": 0.0,
+                "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS": 0.0,
+            },
+        )(),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.check_durable_metadata_store_ready",
+        return_value=DurabilityHealthStatus(is_ready=True, status="ready", reason=None),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.check_lineage_storage_ready",
+        return_value=type("StorageStatus", (), {"is_ready": True, "reason": None})(),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.get_lineage_storage_capacity",
+        side_effect=OSError("disk usage unavailable"),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.compute_job_store.get_queue_stats",
+        return_value=ComputeQueueStats(
+            pending_count=0,
+            leased_count=0,
+            running_count=0,
+            failed_count=0,
+            complete_count=0,
+            retry_backlog_count=0,
+            lease_expired_count=0,
+            terminal_failure_count=0,
+            oldest_pending_age_seconds=0.0,
+            oldest_leased_age_seconds=0.0,
+            oldest_running_age_seconds=0.0,
+        ),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.build_recovery_drill_history_snapshot",
+        return_value=RecoveryDrillHistorySnapshot(
+            status="available",
+            artifact_directory="artifacts/durable-recovery-drill",
+            latest_file_name="latest.json",
+            retained_file_names=["latest.json"],
+            retention_limit=30,
+            retention_max_age_days=90,
+            entries=[],
+            total_entries=0,
+            matched_entries=0,
+            returned_entries=0,
+            next_offset=None,
+            applied_filters={},
+            reason=None,
+        ),
+    )
+
+    snapshot = build_runtime_status_snapshot(is_draining=False)
+
+    assert snapshot.runtime_status == "degraded"
+    assert snapshot.runtime_degradation_reasons == ("lineage_queue:lineage_storage_capacity_unreadable",)
+    assert snapshot.lineage_queue.status == "unavailable"
+    assert snapshot.lineage_queue.reason == "lineage_storage_capacity_unreadable"
+
+
 def test_runtime_status_snapshot_reports_unavailable_when_lineage_queue_read_fails(mocker):
     mocker.patch(
         "app.services.runtime_status_service.get_settings",

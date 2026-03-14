@@ -209,6 +209,22 @@ class LineageQueueStatusDetailsResponse(BaseModel):
         default=None,
         description="Age in seconds of the oldest claimed lineage payload still in progress.",
     )
+    storage_total_bytes: int | None = Field(
+        default=None,
+        description="Total bytes available on the lineage artifact storage filesystem.",
+    )
+    storage_used_bytes: int | None = Field(
+        default=None,
+        description="Used bytes currently consumed on the lineage artifact storage filesystem.",
+    )
+    storage_free_bytes: int | None = Field(
+        default=None,
+        description="Free bytes currently remaining on the lineage artifact storage filesystem.",
+    )
+    storage_free_ratio: float | None = Field(
+        default=None,
+        description="Fraction of free capacity currently remaining on the lineage artifact storage filesystem.",
+    )
     inspection_anchors: LineageQueueInspectionAnchorsResponse | None = Field(
         default=None,
         description="Concrete calculation handles for the current oldest or most recent lineage work items of operator interest.",
@@ -252,6 +268,12 @@ class LineageQueueDegradationPolicyResponse(BaseModel):
     )
     terminal_failure_count: int = Field(
         description="Configured threshold that degrades runtime on lineage terminal-failure count."
+    )
+    storage_min_free_bytes: int = Field(
+        description="Configured minimum free bytes threshold for lineage storage before runtime degrades."
+    )
+    storage_min_free_ratio: float = Field(
+        description="Configured minimum free-capacity ratio threshold for lineage storage before runtime degrades."
     )
 
 
@@ -354,6 +376,7 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
     lineage_anchors = cast(LineageQueueInspectionAnchors | None, snapshot.lineage_queue.inspection_anchors)
     compute_recoveries = cast(tuple[ComputeRecoveryEvent, ...], snapshot.compute_queue.recent_recoveries)
     lineage_recoveries = cast(tuple[LineageRecoveryEvent, ...], snapshot.lineage_queue.recent_recoveries)
+    lineage_storage_capacity = snapshot.lineage_queue.storage_capacity
 
     return RuntimeStatusResponse(
         contract_version="v1",
@@ -421,6 +444,10 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
             terminal_failure_payloads=None if lineage_stats is None else lineage_stats.terminal_failure_count,
             oldest_pending_age_seconds=None if lineage_stats is None else lineage_stats.oldest_pending_age_seconds,
             oldest_leased_age_seconds=None if lineage_stats is None else lineage_stats.oldest_leased_age_seconds,
+            storage_total_bytes=None if lineage_storage_capacity is None else lineage_storage_capacity.total_bytes,
+            storage_used_bytes=None if lineage_storage_capacity is None else lineage_storage_capacity.used_bytes,
+            storage_free_bytes=None if lineage_storage_capacity is None else lineage_storage_capacity.free_bytes,
+            storage_free_ratio=None if lineage_storage_capacity is None else lineage_storage_capacity.free_ratio,
             inspection_anchors=(
                 None
                 if lineage_anchors is None
@@ -466,6 +493,8 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
             leased_age_seconds=snapshot.lineage_queue_policy.leased_age_seconds,
             retry_backlog_count=snapshot.lineage_queue_policy.retry_backlog_count,
             terminal_failure_count=snapshot.lineage_queue_policy.terminal_failure_count,
+            storage_min_free_bytes=snapshot.lineage_queue_policy.storage_min_free_bytes,
+            storage_min_free_ratio=snapshot.lineage_queue_policy.storage_min_free_ratio,
         ),
         recovery_drill_policy=RecoveryDrillDegradationPolicyResponse(
             max_age_seconds=snapshot.recovery_drill_policy.max_age_seconds,

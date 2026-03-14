@@ -109,6 +109,11 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - durable metadata store availability
   - remediation hints for durable metadata store and lineage queue unavailability reasons when the service knows the next recovery step
   - lineage storage availability folded into `lineage_queue.status` / `lineage_queue.reason`
+  - lineage storage capacity details:
+    - `storage_total_bytes`
+    - `storage_used_bytes`
+    - `storage_free_bytes`
+    - `storage_free_ratio`
   - active compute and lineage degradation-policy thresholds
   - compute queue backlog details
   - oldest pending, leased, and running compute-job ages
@@ -127,6 +132,12 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - lineage `degradation_reasons`
 - runtime may report `degraded` when configured queue-age or failure-pressure thresholds are exceeded
 - runtime also reports `degraded` when lineage storage is missing, invalid, or unreadable even if the durable DB remains healthy
+- runtime can also report lineage-storage saturation pressure before writes fail:
+  - `lineage_storage_free_bytes_below_threshold`
+  - `lineage_storage_free_ratio_below_threshold`
+- lineage queue policy now exposes:
+  - `storage_min_free_bytes`
+  - `storage_min_free_ratio`
 - use the inspection anchors to jump directly to:
   - `/performance/executions/{calculation_id}`
   - `/performance/lineage/{calculation_id}`

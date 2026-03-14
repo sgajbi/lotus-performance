@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 from app.models.runtime_status import build_runtime_status_response
 from app.services.compute_job_store import ComputeQueueInspectionAnchors, ComputeQueueStats
-from app.services.durability_health_service import DurabilityHealthStatus
+from app.services.durability_health_service import DurabilityHealthStatus, LineageStorageCapacitySnapshot
 from app.services.lineage_metadata_store import LineageQueueInspectionAnchors, LineageQueueStats
 from app.services.runtime_status_service import (
     ComputeQueueDegradationPolicy,
@@ -109,6 +109,13 @@ def test_build_runtime_status_response_serializes_snapshot_details():
                     },
                 )(),
             ),
+            storage_capacity=LineageStorageCapacitySnapshot(
+                total_bytes=1000,
+                used_bytes=700,
+                free_bytes=300,
+                free_ratio=0.3,
+                used_ratio=0.7,
+            ),
         ),
         recovery_drill=RecoveryDrillStatus(
             status="degraded",
@@ -140,6 +147,8 @@ def test_build_runtime_status_response_serializes_snapshot_details():
             leased_age_seconds=8.0,
             retry_backlog_count=4,
             terminal_failure_count=5,
+            storage_min_free_bytes=200,
+            storage_min_free_ratio=0.25,
         ),
         recovery_drill_policy=RecoveryDrillDegradationPolicy(max_age_seconds=3600.0),
     )
@@ -164,6 +173,9 @@ def test_build_runtime_status_response_serializes_snapshot_details():
     assert response.lineage_queue.inspection_anchors.latest_terminal_failure_calculation_id == "lineage-failed"
     assert response.lineage_queue.inspection_anchors.latest_recovered_calculation_id == "lineage-recovered"
     assert response.lineage_queue.recent_recoveries[0].calculation_id == "lineage-recovered"
+    assert response.lineage_queue.storage_total_bytes == 1000
+    assert response.lineage_queue.storage_free_bytes == 300
+    assert response.lineage_queue.storage_free_ratio == 0.3
     assert response.recovery_drill.status == "degraded"
     assert response.recovery_drill.latest_status == "passed"
     assert response.recovery_drill.latest_operator_id == "ops-user"
@@ -171,6 +183,8 @@ def test_build_runtime_status_response_serializes_snapshot_details():
     assert response.compute_queue_policy.pending_age_seconds == 30.0
     assert response.lineage_queue_policy.leased_age_seconds == 8.0
     assert response.lineage_queue_policy.terminal_failure_count == 5
+    assert response.lineage_queue_policy.storage_min_free_bytes == 200
+    assert response.lineage_queue_policy.storage_min_free_ratio == 0.25
     assert response.recovery_drill_policy.max_age_seconds == 3600.0
 
 
@@ -224,6 +238,8 @@ def test_build_runtime_status_response_handles_unavailable_queue_without_stats()
             leased_age_seconds=8.0,
             retry_backlog_count=4,
             terminal_failure_count=5,
+            storage_min_free_bytes=0,
+            storage_min_free_ratio=0.0,
         ),
         recovery_drill_policy=RecoveryDrillDegradationPolicy(max_age_seconds=0.0),
     )

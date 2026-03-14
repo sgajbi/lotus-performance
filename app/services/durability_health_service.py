@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import tempfile
 from dataclasses import dataclass
 
@@ -23,6 +24,15 @@ class DurabilityHealthStatus:
     is_ready: bool
     status: str
     reason: str | None = None
+
+
+@dataclass(frozen=True)
+class LineageStorageCapacitySnapshot:
+    total_bytes: int
+    used_bytes: int
+    free_bytes: int
+    free_ratio: float
+    used_ratio: float
 
 
 def check_durable_metadata_store_ready() -> DurabilityHealthStatus:
@@ -77,6 +87,30 @@ def check_lineage_storage_ready() -> DurabilityHealthStatus:
                 reason="lineage_storage_write_probe_failed",
             )
     return DurabilityHealthStatus(is_ready=True, status="ready")
+
+
+def get_lineage_storage_capacity() -> LineageStorageCapacitySnapshot:
+    settings = get_settings()
+    storage_path = getattr(settings, "LINEAGE_STORAGE_PATH", None)
+    if not storage_path:
+        raise FileNotFoundError("lineage storage path is not configured")
+    usage = shutil.disk_usage(storage_path)
+    total_bytes = int(usage.total)
+    used_bytes = int(usage.used)
+    free_bytes = int(usage.free)
+    if total_bytes <= 0:
+        free_ratio = 0.0
+        used_ratio = 0.0
+    else:
+        free_ratio = free_bytes / total_bytes
+        used_ratio = used_bytes / total_bytes
+    return LineageStorageCapacitySnapshot(
+        total_bytes=total_bytes,
+        used_bytes=used_bytes,
+        free_bytes=free_bytes,
+        free_ratio=free_ratio,
+        used_ratio=used_ratio,
+    )
 
 
 def _probe_lineage_storage_write(storage_path: str) -> bool:

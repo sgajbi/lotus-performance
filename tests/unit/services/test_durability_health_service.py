@@ -156,3 +156,30 @@ def test_lineage_storage_health_write_probe_cleans_up_temp_file(tmp_path):
 
     assert ready is True
     assert list(storage_path.iterdir()) == []
+
+
+def test_get_lineage_storage_capacity_returns_free_space_snapshot(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        durability_health_service,
+        "get_settings",
+        lambda: type(
+            "Settings",
+            (),
+            {
+                "LINEAGE_STORAGE_PATH": tmp_path,
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        durability_health_service.shutil,
+        "disk_usage",
+        lambda _: type("Usage", (), {"total": 1000, "used": 250, "free": 750})(),
+    )
+
+    snapshot = durability_health_service.get_lineage_storage_capacity()
+
+    assert snapshot.total_bytes == 1000
+    assert snapshot.used_bytes == 250
+    assert snapshot.free_bytes == 750
+    assert snapshot.free_ratio == 0.75
+    assert snapshot.used_ratio == 0.25
