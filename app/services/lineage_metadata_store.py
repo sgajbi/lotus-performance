@@ -126,6 +126,7 @@ class LineageRecoveryEvent:
 @dataclass(frozen=True)
 class LineageRecoveryEventPage:
     total_count: int
+    next_offset: int | None
     items: list[LineageRecoveryEvent]
 
 
@@ -389,6 +390,8 @@ class LineageMetadataStore:
         offset: int = 0,
         calculation_type: str | None = None,
         calculation_id_contains: str | None = None,
+        recovered_after: datetime | None = None,
+        recovered_before: datetime | None = None,
     ) -> LineageRecoveryEventPage:
         with self._session() as session:
             rows = session.execute(
@@ -397,6 +400,8 @@ class LineageMetadataStore:
                     offset=offset,
                     calculation_type=calculation_type,
                     calculation_id_contains=calculation_id_contains,
+                    recovered_after=recovered_after,
+                    recovered_before=recovered_before,
                 )
             ).all()
             events: list[LineageRecoveryEvent] = []
@@ -418,11 +423,14 @@ class LineageMetadataStore:
                     self._build_recent_recoveries_count_statement(
                         calculation_type=calculation_type,
                         calculation_id_contains=calculation_id_contains,
+                        recovered_after=recovered_after,
+                        recovered_before=recovered_before,
                     )
                 ).scalar_one()
                 or 0
             )
-            return LineageRecoveryEventPage(total_count=total_count, items=events)
+            next_offset = offset + len(events) if offset + len(events) < total_count else None
+            return LineageRecoveryEventPage(total_count=total_count, next_offset=next_offset, items=events)
 
     def list_inspection_items(
         self,
@@ -626,6 +634,8 @@ class LineageMetadataStore:
         offset: int,
         calculation_type: str | None,
         calculation_id_contains: str | None,
+        recovered_after: datetime | None,
+        recovered_before: datetime | None,
     ):
         statement = (
             select(LineageRecordModel, LineagePayloadModel)
@@ -635,10 +645,14 @@ class LineageMetadataStore:
             .offset(offset)
             .limit(limit)
         )
-        return self._apply_inspection_filters(
-            statement,
-            calculation_type=calculation_type,
-            calculation_id_contains=calculation_id_contains,
+        return self._apply_recovery_time_filters(
+            self._apply_inspection_filters(
+                statement,
+                calculation_type=calculation_type,
+                calculation_id_contains=calculation_id_contains,
+            ),
+            recovered_after=recovered_after,
+            recovered_before=recovered_before,
         )
 
     def _build_recent_recoveries_count_statement(
@@ -646,6 +660,8 @@ class LineageMetadataStore:
         *,
         calculation_type: str | None,
         calculation_id_contains: str | None,
+        recovered_after: datetime | None,
+        recovered_before: datetime | None,
     ):
         statement = (
             select(func.count())
@@ -653,11 +669,28 @@ class LineageMetadataStore:
             .join(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
             .where((LineageRecordModel.status == LineageStatus.PENDING.value) & (LineagePayloadModel.attempt_count > 0))
         )
-        return self._apply_inspection_filters(
-            statement,
-            calculation_type=calculation_type,
-            calculation_id_contains=calculation_id_contains,
+        return self._apply_recovery_time_filters(
+            self._apply_inspection_filters(
+                statement,
+                calculation_type=calculation_type,
+                calculation_id_contains=calculation_id_contains,
+            ),
+            recovered_after=recovered_after,
+            recovered_before=recovered_before,
         )
+
+    @staticmethod
+    def _apply_recovery_time_filters(
+        statement,
+        *,
+        recovered_after: datetime | None,
+        recovered_before: datetime | None,
+    ):
+        if recovered_after is not None:
+            statement = statement.where(LineageRecordModel.timestamp_utc >= recovered_after)
+        if recovered_before is not None:
+            statement = statement.where(LineageRecordModel.timestamp_utc <= recovered_before)
+        return statement
 
     def _apply_inspection_filters(
         self, statement, *, calculation_type: str | None, calculation_id_contains: str | None

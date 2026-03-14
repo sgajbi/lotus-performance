@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 
 from fastapi import APIRouter, Query
@@ -35,6 +36,14 @@ async def get_runtime_recoveries(
         ge=0,
         description="Zero-based page offset applied to each selected queue before limiting results.",
     ),
+    recovered_after: datetime | None = Query(
+        default=None,
+        description="Optional inclusive lower UTC timestamp bound applied to recovery-event timestamps.",
+    ),
+    recovered_before: datetime | None = Query(
+        default=None,
+        description="Optional inclusive upper UTC timestamp bound applied to recovery-event timestamps.",
+    ),
     compute_analytics_type: str | None = Query(
         default=None,
         description="Optional compute analytics-type filter, such as ReturnsSeries or Attribution.",
@@ -52,6 +61,8 @@ async def get_runtime_recoveries(
         queue_filter=queue,
         limit=limit,
         offset=offset,
+        recovered_after=recovered_after,
+        recovered_before=recovered_before,
         calculation_id_contains=calculation_id_contains,
         compute_analytics_type=compute_analytics_type,
         lineage_calculation_type=lineage_calculation_type,

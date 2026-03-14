@@ -543,7 +543,35 @@ def test_compute_job_store_lists_recent_recoveries_with_filters_and_offset(tmp_p
     )
 
     assert page.total_count == 1
+    assert page.next_offset is None
     assert page.items == []
+
+
+def test_compute_job_store_lists_recent_recoveries_with_time_filters_and_next_offset(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    now = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+    ids = [uuid4() for _ in range(3)]
+
+    for calculation_id in ids:
+        store.enqueue_job(calculation_id=calculation_id, analytics_type="ReturnsSeries", request_payload={"p": "1"})
+
+    with store._session() as session:
+        for seconds_ago, calculation_id in zip([30, 15, 5], ids, strict=True):
+            row = store._get_model(session, calculation_id)
+            row.attempt_count = 1
+            row.last_error_at_utc = now - timedelta(seconds=seconds_ago)
+
+    page = store.list_recent_recoveries(
+        limit=1,
+        offset=0,
+        recovered_after=now - timedelta(seconds=20),
+        recovered_before=now - timedelta(seconds=4),
+    )
+
+    assert page.total_count == 2
+    assert page.next_offset == 1
+    assert [item.calculation_id for item in page.items] == [str(ids[2])]
 
 
 def test_compute_job_store_declares_hot_path_indexes(tmp_path):

@@ -55,6 +55,10 @@ class RuntimeRecoveriesQueueStatusResponse(BaseModel):
     returned_count: int = Field(
         description="Number of recovery events included for this queue in the current response page."
     )
+    next_offset: int | None = Field(
+        default=None,
+        description="Next queue-local offset to request when additional matching recovery events remain.",
+    )
 
 
 class RuntimeRecoveriesResponse(BaseModel):
@@ -64,6 +68,14 @@ class RuntimeRecoveriesResponse(BaseModel):
     queue_filter: str = Field(description="Requested queue filter applied to runtime recovery inspection.")
     limit: int = Field(description="Maximum number of recovery events returned per queue.")
     offset: int = Field(description="Zero-based page offset applied per queue before limiting results.")
+    recovered_after: datetime | None = Field(
+        default=None,
+        description="Optional inclusive lower UTC timestamp bound applied to recovery-event timestamps.",
+    )
+    recovered_before: datetime | None = Field(
+        default=None,
+        description="Optional inclusive upper UTC timestamp bound applied to recovery-event timestamps.",
+    )
     calculation_id_contains: str | None = Field(
         default=None,
         description="Optional substring filter applied to calculation identifiers in the selected queues.",
@@ -103,6 +115,8 @@ def build_runtime_recoveries_response(snapshot: RuntimeRecoverySnapshot) -> Runt
         queue_filter=snapshot.queue_filter,
         limit=snapshot.limit,
         offset=snapshot.offset,
+        recovered_after=snapshot.recovered_after,
+        recovered_before=snapshot.recovered_before,
         calculation_id_contains=snapshot.calculation_id_contains,
         compute_analytics_type=snapshot.compute_analytics_type,
         lineage_calculation_type=snapshot.lineage_calculation_type,
@@ -115,12 +129,14 @@ def build_runtime_recoveries_response(snapshot: RuntimeRecoverySnapshot) -> Runt
             reason=snapshot.compute_queue.reason,
             total_count=snapshot.compute_queue.total_count,
             returned_count=snapshot.compute_queue.returned_count,
+            next_offset=snapshot.compute_queue.next_offset,
         ),
         lineage_queue=RuntimeRecoveriesQueueStatusResponse(
             status=snapshot.lineage_queue.status,
             reason=snapshot.lineage_queue.reason,
             total_count=snapshot.lineage_queue.total_count,
             returned_count=snapshot.lineage_queue.returned_count,
+            next_offset=snapshot.lineage_queue.next_offset,
         ),
         compute_recoveries=[
             ComputeRecoveryEventResponse(**_build_compute_recovery_payload(item))

@@ -351,7 +351,43 @@ def test_lineage_metadata_store_lists_recent_recoveries_with_filters_and_offset(
     )
 
     assert page.total_count == 1
+    assert page.next_offset is None
     assert page.items == []
+
+
+def test_lineage_metadata_store_lists_recent_recoveries_with_time_filters_and_next_offset(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    now = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+    ids = [uuid4() for _ in range(3)]
+
+    for calculation_id in ids:
+        store.enqueue_lineage_payload(
+            calculation_id=calculation_id,
+            calculation_type="TWR",
+            request_json="{}",
+            response_json="{}",
+            details={"details.json": "{}"},
+        )
+        store.increment_attempt_count(calculation_id)
+        store.mark_pending(calculation_id)
+
+    with store._session() as session:
+        for seconds_ago, calculation_id in zip([30, 15, 5], ids, strict=True):
+            record = session.get(LineageRecordModel, str(calculation_id))
+            assert record is not None
+            record.timestamp_utc = now - timedelta(seconds=seconds_ago)
+
+    page = store.list_recent_recoveries(
+        limit=1,
+        offset=0,
+        recovered_after=now - timedelta(seconds=20),
+        recovered_before=now - timedelta(seconds=4),
+    )
+
+    assert page.total_count == 2
+    assert page.next_offset == 1
+    assert [item.calculation_id for item in page.items] == [str(ids[2])]
 
 
 def test_lineage_metadata_store_lists_active_and_failed_inspection_items(tmp_path):

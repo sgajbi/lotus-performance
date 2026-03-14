@@ -149,6 +149,7 @@ class ComputeRecoveryEvent:
 @dataclass(frozen=True)
 class ComputeRecoveryEventPage:
     total_count: int
+    next_offset: int | None
     items: list[ComputeRecoveryEvent]
 
 
@@ -533,6 +534,8 @@ class ComputeJobStore:
         offset: int = 0,
         analytics_type: str | None = None,
         calculation_id_contains: str | None = None,
+        recovered_after: datetime | None = None,
+        recovered_before: datetime | None = None,
     ) -> ComputeRecoveryEventPage:
         with self._session() as session:
             rows = (
@@ -542,6 +545,8 @@ class ComputeJobStore:
                         offset=offset,
                         analytics_type=analytics_type,
                         calculation_id_contains=calculation_id_contains,
+                        recovered_after=recovered_after,
+                        recovered_before=recovered_before,
                     )
                 )
                 .scalars()
@@ -568,11 +573,14 @@ class ComputeJobStore:
                     self._build_recent_recoveries_count_statement(
                         analytics_type=analytics_type,
                         calculation_id_contains=calculation_id_contains,
+                        recovered_after=recovered_after,
+                        recovered_before=recovered_before,
                     )
                 ).scalar_one()
                 or 0
             )
-            return ComputeRecoveryEventPage(total_count=total_count, items=events)
+            next_offset = offset + len(events) if offset + len(events) < total_count else None
+            return ComputeRecoveryEventPage(total_count=total_count, next_offset=next_offset, items=events)
 
     def list_inspection_items(
         self,
@@ -759,6 +767,19 @@ class ComputeJobStore:
             statement = statement.where(ComputeJobModel.calculation_id.contains(calculation_id_contains))
         return statement
 
+    @staticmethod
+    def _apply_recovery_time_filters(
+        statement,
+        *,
+        recovered_after: datetime | None,
+        recovered_before: datetime | None,
+    ):
+        if recovered_after is not None:
+            statement = statement.where(ComputeJobModel.last_error_at_utc >= recovered_after)
+        if recovered_before is not None:
+            statement = statement.where(ComputeJobModel.last_error_at_utc <= recovered_before)
+        return statement
+
     def _build_recent_recoveries_statement(
         self,
         *,
@@ -766,6 +787,8 @@ class ComputeJobStore:
         offset: int,
         analytics_type: str | None,
         calculation_id_contains: str | None,
+        recovered_after: datetime | None,
+        recovered_before: datetime | None,
     ):
         statement = (
             select(ComputeJobModel)
@@ -778,10 +801,14 @@ class ComputeJobStore:
             .offset(offset)
             .limit(limit)
         )
-        return self._apply_recovery_filters(
-            statement,
-            analytics_type=analytics_type,
-            calculation_id_contains=calculation_id_contains,
+        return self._apply_recovery_time_filters(
+            self._apply_recovery_filters(
+                statement,
+                analytics_type=analytics_type,
+                calculation_id_contains=calculation_id_contains,
+            ),
+            recovered_after=recovered_after,
+            recovered_before=recovered_before,
         )
 
     def _build_recent_recoveries_count_statement(
@@ -789,6 +816,8 @@ class ComputeJobStore:
         *,
         analytics_type: str | None,
         calculation_id_contains: str | None,
+        recovered_after: datetime | None,
+        recovered_before: datetime | None,
     ):
         statement = (
             select(func.count())
@@ -799,10 +828,14 @@ class ComputeJobStore:
                 & ComputeJobModel.last_error_at_utc.is_not(None)
             )
         )
-        return self._apply_recovery_filters(
-            statement,
-            analytics_type=analytics_type,
-            calculation_id_contains=calculation_id_contains,
+        return self._apply_recovery_time_filters(
+            self._apply_recovery_filters(
+                statement,
+                analytics_type=analytics_type,
+                calculation_id_contains=calculation_id_contains,
+            ),
+            recovered_after=recovered_after,
+            recovered_before=recovered_before,
         )
 
     def _apply_inspection_filters(self, statement, *, analytics_type: str | None, calculation_id_contains: str | None):

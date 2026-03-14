@@ -151,16 +151,19 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - `queue`: `both`, `compute`, or `lineage`
   - `limit`: max recovery events returned per queue
   - `offset`: zero-based page offset applied per queue
+  - `recovered_after`: optional inclusive lower UTC timestamp bound on recovery-event timestamps
+  - `recovered_before`: optional inclusive upper UTC timestamp bound on recovery-event timestamps
   - `compute_analytics_type`: optional compute-only analytics family filter
   - `lineage_calculation_type`: optional lineage-only calculation family filter
   - `calculation_id_contains`: optional calculation-handle substring filter across selected queues
 - response includes:
   - durable metadata store availability
   - queue-specific availability for compute and lineage recovery inspection
-  - queue-specific `total_count` and `returned_count`
+  - queue-specific `total_count`, `returned_count`, and `next_offset`
   - filtered compute recovery events with calculation handle, direct execution/lineage drill-down paths, optional async `result_path`, analytics type, recovery kind, recovery timestamp, attempt count, and last durable error type
   - filtered lineage recovery events with calculation handle, direct execution/lineage drill-down paths, optional async `result_path`, calculation type, recovery kind, recovery timestamp, and attempt count
 - use this when runtime-status shows recent recovery activity and you need the concrete event stream behind the bounded status snapshot without querying the database directly
+- `next_offset` is queue-local and only appears when additional filtered events remain for that queue
 
 ### `POST /integration/returns/series`
 
