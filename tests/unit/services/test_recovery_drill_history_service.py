@@ -18,6 +18,7 @@ def test_recovery_drill_history_snapshot_reads_manifest(tmp_path):
         "latest_file_name": "2026-03-14t00-00-00.json",
         "retained_file_names": ["2026-03-14t00-00-00.json"],
         "retention_limit": 30,
+        "retention_max_age_days": 90,
         "entries": [
             {
                 "evidence_file_name": "2026-03-14t00-00-00.json",
@@ -37,5 +38,6 @@ def test_recovery_drill_history_snapshot_reads_manifest(tmp_path):
     assert snapshot.latest_file_name == "2026-03-14t00-00-00.json"
     assert snapshot.retained_file_names == ["2026-03-14t00-00-00.json"]
     assert snapshot.retention_limit == 30
+    assert snapshot.retention_max_age_days == 90
     assert len(snapshot.entries) == 1
     assert snapshot.entries[0].operator_id == "ops-user"

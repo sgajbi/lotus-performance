@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     CONTRIBUTION_EXECUTOR_POSITION_COUNT: int = 250
     ATTRIBUTION_EXECUTOR_INPUT_COUNT: int = 250
     RECOVERY_DRILL_RETENTION_LIMIT: int = 30
+    RECOVERY_DRILL_RETENTION_MAX_AGE_DAYS: int = 90
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

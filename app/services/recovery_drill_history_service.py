@@ -25,6 +25,7 @@ class RecoveryDrillHistorySnapshot:
     latest_file_name: str | None
     retained_file_names: list[str]
     retention_limit: int | None
+    retention_max_age_days: int | None
     entries: list[RecoveryDrillHistoryEntry]
     reason: str | None = None
 
@@ -42,6 +43,7 @@ def build_recovery_drill_history_snapshot(
             latest_file_name=None,
             retained_file_names=[],
             retention_limit=None,
+            retention_max_age_days=None,
             entries=[],
             reason="recovery_drill_artifact_directory_missing",
         )
@@ -53,6 +55,7 @@ def build_recovery_drill_history_snapshot(
             latest_file_name=None,
             retained_file_names=[],
             retention_limit=None,
+            retention_max_age_days=None,
             entries=[],
             reason="recovery_drill_manifest_missing",
         )
@@ -74,6 +77,7 @@ def build_recovery_drill_history_snapshot(
         latest_file_name=payload.get("latest_file_name"),
         retained_file_names=list(payload.get("retained_file_names", [])),
         retention_limit=payload.get("retention_limit"),
+        retention_max_age_days=payload.get("retention_max_age_days"),
         entries=entries,
         reason=None,
     )

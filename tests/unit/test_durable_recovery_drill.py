@@ -1,4 +1,5 @@
 import json
+from datetime import UTC, datetime, timedelta
 
 from scripts.durable_recovery_drill import REQUIRED_TABLES, run_recovery_drill
 
@@ -13,6 +14,7 @@ def test_run_recovery_drill_emits_passing_evidence_and_writes_artifact_history(t
         operator_id="test-operator",
         backup_identifier="backup-001",
         retention_limit=2,
+        retention_max_age_days=30,
     )
 
     assert evidence.status == "passed"
@@ -46,6 +48,7 @@ def test_run_recovery_drill_emits_passing_evidence_and_writes_artifact_history(t
     assert historical["evidence_file_name"] == evidence.evidence_file_name
     assert manifest["latest_file_name"] == evidence.evidence_file_name
     assert manifest["retention_limit"] == 2
+    assert manifest["retention_max_age_days"] == 30
     assert manifest["retained_file_names"] == [evidence.evidence_file_name]
 
 
@@ -57,18 +60,21 @@ def test_run_recovery_drill_prunes_history_to_retention_limit(tmp_path):
         operator_id="test-operator",
         backup_identifier="backup-001",
         retention_limit=2,
+        retention_max_age_days=30,
     )
     second = run_recovery_drill(
         output_dir=output_dir,
         operator_id="test-operator",
         backup_identifier="backup-002",
         retention_limit=2,
+        retention_max_age_days=30,
     )
     third = run_recovery_drill(
         output_dir=output_dir,
         operator_id="test-operator",
         backup_identifier="backup-003",
         retention_limit=2,
+        retention_max_age_days=30,
     )
 
     retained = sorted(
@@ -80,5 +86,46 @@ def test_run_recovery_drill_prunes_history_to_retention_limit(tmp_path):
     assert first.evidence_file_name not in retained
     assert retained == sorted([second.evidence_file_name, third.evidence_file_name])
     assert manifest["retention_limit"] == 2
+    assert manifest["retention_max_age_days"] == 30
     assert manifest["retained_file_names"] == sorted([second.evidence_file_name, third.evidence_file_name])
     assert latest["evidence_file_name"] == third.evidence_file_name
+
+
+def test_run_recovery_drill_prunes_history_older_than_max_age(tmp_path):
+    output_dir = tmp_path / "artifacts" / "durable-recovery-drill"
+    output_dir.mkdir(parents=True)
+    stale_payload = {
+        "drill_name": "durable_metadata_restore_recovery",
+        "generated_at_utc": (datetime.now(UTC) - timedelta(days=120)).isoformat(),
+        "evidence_file_name": "stale.json",
+        "operator_id": "old-operator",
+        "backup_identifier": "old-backup",
+        "database_path": "stale.db",
+        "restored_schema_mode": "legacy_lineage_schema_upgraded_in_place",
+        "owned_tables_present": list(REQUIRED_TABLES),
+        "compute_job_processed_count": 1,
+        "compute_async_result_status": "complete",
+        "compute_execution_status": "complete",
+        "processed_payload_count": 1,
+        "materialized_artifact_path": "details.csv",
+        "materialized_artifact_exists": True,
+        "status": "passed",
+    }
+    (output_dir / "stale.json").write_text(json.dumps(stale_payload), encoding="utf-8")
+
+    current = run_recovery_drill(
+        output_dir=output_dir,
+        operator_id="test-operator",
+        backup_identifier="backup-004",
+        retention_limit=5,
+        retention_max_age_days=30,
+    )
+
+    retained = sorted(
+        path.name for path in output_dir.glob("*.json") if path.name not in {"latest.json", "manifest.json"}
+    )
+    manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
+
+    assert "stale.json" not in retained
+    assert retained == [current.evidence_file_name]
+    assert manifest["retained_file_names"] == [current.evidence_file_name]

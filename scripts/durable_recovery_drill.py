@@ -5,7 +5,7 @@ import json
 import re
 import sys
 from dataclasses import asdict, dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, Callable, Coroutine
@@ -81,6 +81,7 @@ class RecoveryDrillManifest:
     latest_file_name: str
     retained_file_names: list[str]
     retention_limit: int
+    retention_max_age_days: int
     entries: list[RecoveryDrillManifestEntry]
 
 
@@ -91,6 +92,7 @@ def run_recovery_drill(
     operator_id: str = "unknown-operator",
     backup_identifier: str = "unknown-backup",
     retention_limit: int = 30,
+    retention_max_age_days: int = 90,
 ) -> RecoveryDrillEvidence:
     from app.models.returns_series import ReturnsSeriesRequest
     from app.services.async_result_store import AsyncResultStore
@@ -222,7 +224,12 @@ def run_recovery_drill(
                 output_path.parent.mkdir(parents=True, exist_ok=True)
                 output_path.write_text(json.dumps(asdict(evidence), indent=2), encoding="utf-8")
             if output_dir is not None:
-                _persist_evidence_history(output_dir=output_dir, evidence=evidence, retention_limit=retention_limit)
+                _persist_evidence_history(
+                    output_dir=output_dir,
+                    evidence=evidence,
+                    retention_limit=retention_limit,
+                    retention_max_age_days=retention_max_age_days,
+                )
 
             return evidence
         finally:
@@ -299,29 +306,46 @@ def _build_evidence_file_name(generated_at_utc: str) -> str:
     return f"{sanitized}.json"
 
 
-def _persist_evidence_history(*, output_dir: Path, evidence: RecoveryDrillEvidence, retention_limit: int) -> None:
+def _persist_evidence_history(
+    *,
+    output_dir: Path,
+    evidence: RecoveryDrillEvidence,
+    retention_limit: int,
+    retention_max_age_days: int,
+) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(asdict(evidence), indent=2)
     (output_dir / evidence.evidence_file_name).write_text(payload, encoding="utf-8")
     (output_dir / "latest.json").write_text(payload, encoding="utf-8")
-    _prune_historical_evidence(output_dir=output_dir, retention_limit=retention_limit)
-    _write_manifest(output_dir=output_dir, latest_file_name=evidence.evidence_file_name, retention_limit=retention_limit)
-
-
-def _prune_historical_evidence(*, output_dir: Path, retention_limit: int) -> None:
-    historical_files = sorted(
-        path
-        for path in output_dir.glob("*.json")
-        if path.name not in {"latest.json", "manifest.json"}
+    _prune_historical_evidence(
+        output_dir=output_dir,
+        retention_limit=retention_limit,
+        retention_max_age_days=retention_max_age_days,
     )
-    retained = historical_files[-retention_limit:] if retention_limit > 0 else []
+    _write_manifest(
+        output_dir=output_dir,
+        latest_file_name=evidence.evidence_file_name,
+        retention_limit=retention_limit,
+        retention_max_age_days=retention_max_age_days,
+    )
+
+
+def _prune_historical_evidence(*, output_dir: Path, retention_limit: int, retention_max_age_days: int) -> None:
+    historical_files = sorted(
+        path for path in output_dir.glob("*.json") if path.name not in {"latest.json", "manifest.json"}
+    )
+    fresh_files = _filter_fresh_history(
+        historical_files=historical_files,
+        retention_max_age_days=retention_max_age_days,
+    )
+    retained = fresh_files[-retention_limit:] if retention_limit > 0 else []
     retained_names = {path.name for path in retained}
     for path in historical_files:
         if path.name not in retained_names:
             path.unlink(missing_ok=True)
 
 
-def _write_manifest(*, output_dir: Path, latest_file_name: str, retention_limit: int) -> None:
+def _write_manifest(*, output_dir: Path, latest_file_name: str, retention_limit: int, retention_max_age_days: int) -> None:
     entries: list[RecoveryDrillManifestEntry] = []
     for evidence_path in sorted(
         path
@@ -342,9 +366,23 @@ def _write_manifest(*, output_dir: Path, latest_file_name: str, retention_limit:
         latest_file_name=latest_file_name,
         retained_file_names=[entry.evidence_file_name for entry in entries],
         retention_limit=retention_limit,
+        retention_max_age_days=retention_max_age_days,
         entries=entries,
     )
     (output_dir / "manifest.json").write_text(json.dumps(asdict(manifest), indent=2), encoding="utf-8")
+
+
+def _filter_fresh_history(*, historical_files: list[Path], retention_max_age_days: int) -> list[Path]:
+    if retention_max_age_days <= 0:
+        return historical_files
+    cutoff = datetime.now(UTC) - timedelta(days=retention_max_age_days)
+    fresh_files: list[Path] = []
+    for path in historical_files:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        generated_at = datetime.fromisoformat(payload["generated_at_utc"])
+        if generated_at >= cutoff:
+            fresh_files.append(path)
+    return fresh_files
 
 
 def main() -> int:
@@ -363,6 +401,12 @@ def main() -> int:
         default=settings.RECOVERY_DRILL_RETENTION_LIMIT,
         help="Maximum number of timestamped historical evidence files to retain.",
     )
+    parser.add_argument(
+        "--retention-max-age-days",
+        type=int,
+        default=settings.RECOVERY_DRILL_RETENTION_MAX_AGE_DAYS,
+        help="Maximum age in days for retained historical recovery-drill evidence.",
+    )
     parser.add_argument("--operator-id", default="unknown-operator", help="Operator or automation identity for the drill.")
     parser.add_argument("--backup-identifier", default="unknown-backup", help="Backup or restore-set identifier used for the drill.")
     args = parser.parse_args()
@@ -373,6 +417,7 @@ def main() -> int:
         operator_id=args.operator_id,
         backup_identifier=args.backup_identifier,
         retention_limit=args.retention_limit,
+        retention_max_age_days=args.retention_max_age_days,
     )
     print(json.dumps(asdict(evidence), indent=2))
     return 0 if evidence.status == "passed" else 1

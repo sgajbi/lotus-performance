@@ -12,6 +12,7 @@ def test_build_recovery_drill_history_response_serializes_snapshot():
         latest_file_name="2026-03-14t00-00-00.json",
         retained_file_names=["2026-03-14t00-00-00.json"],
         retention_limit=30,
+        retention_max_age_days=90,
         entries=[
             RecoveryDrillHistoryEntry(
                 evidence_file_name="2026-03-14t00-00-00.json",
@@ -29,4 +30,5 @@ def test_build_recovery_drill_history_response_serializes_snapshot():
     assert response.contract_version == "v1"
     assert response.source_service == "lotus-performance"
     assert response.status == "available"
+    assert response.retention_max_age_days == 90
     assert response.entries[0].backup_identifier == "backup-123"

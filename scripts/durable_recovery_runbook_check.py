@@ -19,6 +19,7 @@ REQUIRED_PHRASES = (
     "timestamped evidence file",
     "manifest.json",
     "retention limit",
+    "maximum age policy",
     "/health/ready",
     "/integration/runtime-status",
     "forward-only",
