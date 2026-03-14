@@ -44,7 +44,8 @@ def run_calculations(df: pd.DataFrame, config: EngineConfig) -> Tuple[pd.DataFra
             working_df[col] = ror_df[col]
 
         if config.data_policy:
-            _flag_outliers(working_df, config.data_policy, policy_diagnostics)
+            ignored_dates = {ignored_date for item in config.data_policy.ignore_days or [] for ignored_date in item.dates}
+            _flag_outliers(working_df, config.data_policy, policy_diagnostics, ignored_dates=ignored_dates)
 
         working_df[PortfolioColumns.SIGN.value] = calculate_sign(working_df)
         working_df[PortfolioColumns.NIP.value] = calculate_nip(working_df, config)
