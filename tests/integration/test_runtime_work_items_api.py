@@ -175,7 +175,7 @@ def test_runtime_work_items_reports_partial_queue_unavailability(mocker):
     )
     mocker.patch(
         "app.services.runtime_work_item_service.lineage_metadata_store.list_inspection_items",
-        return_value=type("Page", (), {"total_count": 0, "items": []})(),
+        return_value=type("Page", (), {"total_count": 0, "next_offset": None, "items": []})(),
     )
 
     with TestClient(app) as client:
@@ -228,6 +228,7 @@ def test_runtime_work_items_supports_queue_offset_and_age_filters():
         assert body["min_age_seconds"] == 120.0
         assert body["compute_queue"]["total_count"] == 2
         assert body["compute_queue"]["returned_count"] == 1
+        assert "next_offset" not in body["compute_queue"]
         assert [item["calculation_id"] for item in body["compute_items"]] == [str(compute_ids[1])]
         assert body["lineage_queue"] == {"status": "excluded", "total_count": 0, "returned_count": 0}
         assert body["lineage_items"] == []
@@ -363,10 +364,46 @@ def test_runtime_work_items_supports_reclaimable_filter():
         assert body["compute_queue"]["returned_count"] == 1
         assert body["lineage_queue"]["total_count"] == 1
         assert body["lineage_queue"]["returned_count"] == 1
+        assert "next_offset" not in body["compute_queue"]
+        assert "next_offset" not in body["lineage_queue"]
         assert [item["calculation_id"] for item in body["compute_items"]] == [str(compute_reclaimable_id)]
         assert [item["calculation_id"] for item in body["lineage_items"]] == [str(lineage_reclaimable_id)]
         assert body["compute_items"][0]["status"] == "running"
         assert body["lineage_items"][0]["status"] == "pending"
+    finally:
+        compute_job_store.clear_all_records()
+        lineage_metadata_store.clear_all_records()
+
+
+def test_runtime_work_items_returns_next_offset_for_additional_matching_items():
+    compute_job_store.create_schema()
+    lineage_metadata_store.create_schema()
+    compute_job_store.clear_all_records()
+    lineage_metadata_store.clear_all_records()
+    now = datetime.now(timezone.utc)
+
+    compute_ids = [uuid4() for _ in range(3)]
+    for index, calculation_id in enumerate(compute_ids):
+        compute_job_store.enqueue_job(
+            calculation_id=calculation_id,
+            analytics_type="ReturnsSeries",
+            request_payload={"portfolio_id": str(calculation_id)},
+            max_attempts=3,
+        )
+        with compute_job_store._session() as session:
+            row = compute_job_store._get_model(session, calculation_id)
+            row.created_at_utc = now - timedelta(seconds=300 - (index * 50))
+
+    try:
+        with TestClient(app) as client:
+            response = client.get("/integration/runtime-work-items", params={"queue": "compute", "limit": 1})
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["compute_queue"]["total_count"] == 3
+        assert body["compute_queue"]["returned_count"] == 1
+        assert body["compute_queue"]["next_offset"] == 1
+        assert body["lineage_queue"] == {"status": "excluded", "total_count": 0, "returned_count": 0}
     finally:
         compute_job_store.clear_all_records()
         lineage_metadata_store.clear_all_records()

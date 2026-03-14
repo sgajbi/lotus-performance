@@ -133,6 +133,7 @@ class ComputeQueueInspectionItem:
 @dataclass(frozen=True)
 class ComputeQueueInspectionPage:
     total_count: int
+    next_offset: int | None
     items: list[ComputeQueueInspectionItem]
 
 
@@ -657,7 +658,8 @@ class ComputeJobStore:
             rows = session.execute(statement).scalars().all()
             items = [self._to_inspection_item(row, now=inspection_now) for row in rows]
             total_count = int(session.execute(count_statement).scalar_one() or 0)
-            return ComputeQueueInspectionPage(total_count=total_count, items=items)
+            next_offset = offset + len(items) if offset + len(items) < total_count else None
+            return ComputeQueueInspectionPage(total_count=total_count, next_offset=next_offset, items=items)
 
     def _build_queue_stats_statement(self, *, now: datetime):
         return select(

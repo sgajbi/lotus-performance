@@ -111,6 +111,7 @@ class LineageQueueInspectionItem:
 @dataclass(frozen=True)
 class LineageQueueInspectionPage:
     total_count: int
+    next_offset: int | None
     items: list[LineageQueueInspectionItem]
 
 
@@ -513,7 +514,8 @@ class LineageMetadataStore:
             rows = session.execute(statement).all()
             items = [self._to_inspection_item(record, payload, now=inspection_now) for record, payload in rows]
             total_count = int(session.execute(count_statement).scalar_one() or 0)
-            return LineageQueueInspectionPage(total_count=total_count, items=items)
+            next_offset = offset + len(items) if offset + len(items) < total_count else None
+            return LineageQueueInspectionPage(total_count=total_count, next_offset=next_offset, items=items)
 
     def _build_pending_payload_stats_statement(self, *, now: datetime):
         return (

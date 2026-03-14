@@ -76,6 +76,10 @@ class RuntimeWorkItemQueueStatusResponse(BaseModel):
     returned_count: int = Field(
         description="Number of work items included for this queue in the current response page."
     )
+    next_offset: int | None = Field(
+        default=None,
+        description="Next queue-local offset to request when additional matching work items remain.",
+    )
 
 
 class RuntimeWorkItemsResponse(BaseModel):
@@ -142,12 +146,14 @@ def build_runtime_work_items_response(snapshot: RuntimeWorkItemSnapshot) -> Runt
             reason=snapshot.compute_queue.reason,
             total_count=snapshot.compute_queue.total_count,
             returned_count=snapshot.compute_queue.returned_count,
+            next_offset=snapshot.compute_queue.next_offset,
         ),
         lineage_queue=RuntimeWorkItemQueueStatusResponse(
             status=snapshot.lineage_queue.status,
             reason=snapshot.lineage_queue.reason,
             total_count=snapshot.lineage_queue.total_count,
             returned_count=snapshot.lineage_queue.returned_count,
+            next_offset=snapshot.lineage_queue.next_offset,
         ),
         compute_items=[
             ComputeRuntimeWorkItemResponse(**_build_compute_item_payload(item)) for item in snapshot.compute_items

@@ -17,8 +17,12 @@ def test_build_runtime_work_items_response_serializes_operator_navigation_links(
         lineage_calculation_type="TWR",
         calculation_id_contains="calc",
         durable_metadata_store=DurabilityHealthStatus(is_ready=True, status="ready", reason=None),
-        compute_queue=RuntimeWorkItemQueueState(status="available", reason=None, total_count=1, returned_count=1),
-        lineage_queue=RuntimeWorkItemQueueState(status="available", reason=None, total_count=1, returned_count=1),
+        compute_queue=RuntimeWorkItemQueueState(
+            status="available", reason=None, total_count=1, returned_count=1, next_offset=1
+        ),
+        lineage_queue=RuntimeWorkItemQueueState(
+            status="available", reason=None, total_count=1, returned_count=1, next_offset=None
+        ),
         compute_items=[
             type(
                 "ComputeWorkItem",
@@ -55,6 +59,7 @@ def test_build_runtime_work_items_response_serializes_operator_navigation_links(
 
     response = build_runtime_work_items_response(snapshot)
 
+    assert response.compute_queue.next_offset == 1
     assert response.compute_items[0].execution_path == "/performance/executions/calc-1"
     assert response.compute_items[0].lineage_path == "/performance/lineage/calc-1"
     assert response.compute_items[0].result_path == "/integration/returns/series/results/calc-1"

@@ -137,12 +137,13 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 - response includes:
   - durable metadata store availability
   - queue-specific availability for compute and lineage inspection
-  - queue-specific `total_count` and `returned_count`
+  - queue-specific `total_count`, `returned_count`, and `next_offset`
   - `reclaimable` isolates work whose durable worker lease already expired and is eligible for recovery or re-lease
   - echoed targeted filters for operator auditability
   - filtered compute work items with calculation handle, direct execution/lineage drill-down paths, optional async `result_path`, lifecycle state, age, attempts, and failure context
   - filtered lineage work items with calculation handle, direct execution/lineage drill-down paths, optional async `result_path`, lifecycle state, age, attempts, and failure context
 - use this when runtime-status tells you there is pressure, and you need the actual work items behind it without querying the database directly
+- `next_offset` is queue-local and only appears when additional filtered work items remain for that queue
 
 ### `GET /integration/runtime-recoveries`
 

@@ -14,6 +14,7 @@ class RuntimeWorkItemQueueState:
     reason: str | None
     total_count: int
     returned_count: int
+    next_offset: int | None
 
 
 @dataclass(frozen=True)
@@ -65,12 +66,14 @@ def build_runtime_work_item_snapshot(
                 reason=durability_status.reason or "durable_metadata_store_unreachable",
                 total_count=0,
                 returned_count=0,
+                next_offset=None,
             ),
             lineage_queue=RuntimeWorkItemQueueState(
                 status="unavailable",
                 reason=durability_status.reason or "durable_metadata_store_unreachable",
                 total_count=0,
                 returned_count=0,
+                next_offset=None,
             ),
             compute_items=[],
             lineage_items=[],
@@ -130,7 +133,9 @@ def _safe_compute_items(
     generated_at: datetime,
 ) -> tuple[RuntimeWorkItemQueueState, list[ComputeQueueInspectionItem]]:
     if not include_queue:
-        return RuntimeWorkItemQueueState(status="excluded", reason=None, total_count=0, returned_count=0), []
+        return RuntimeWorkItemQueueState(
+            status="excluded", reason=None, total_count=0, returned_count=0, next_offset=None
+        ), []
     try:
         page = compute_job_store.list_inspection_items(
             status_filter=status_filter,
@@ -147,6 +152,7 @@ def _safe_compute_items(
                 reason=None,
                 total_count=page.total_count,
                 returned_count=len(page.items),
+                next_offset=page.next_offset,
             ),
             page.items,
         )
@@ -156,6 +162,7 @@ def _safe_compute_items(
             reason=type(exc).__name__,
             total_count=0,
             returned_count=0,
+            next_offset=None,
         ), []
 
 
@@ -171,7 +178,9 @@ def _safe_lineage_items(
     generated_at: datetime,
 ) -> tuple[RuntimeWorkItemQueueState, list[LineageQueueInspectionItem]]:
     if not include_queue:
-        return RuntimeWorkItemQueueState(status="excluded", reason=None, total_count=0, returned_count=0), []
+        return RuntimeWorkItemQueueState(
+            status="excluded", reason=None, total_count=0, returned_count=0, next_offset=None
+        ), []
     try:
         page = lineage_metadata_store.list_inspection_items(
             status_filter=status_filter,
@@ -188,6 +197,7 @@ def _safe_lineage_items(
                 reason=None,
                 total_count=page.total_count,
                 returned_count=len(page.items),
+                next_offset=page.next_offset,
             ),
             page.items,
         )
@@ -197,4 +207,5 @@ def _safe_lineage_items(
             reason=type(exc).__name__,
             total_count=0,
             returned_count=0,
+            next_offset=None,
         ), []
