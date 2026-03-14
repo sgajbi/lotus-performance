@@ -62,6 +62,10 @@ def test_lineage_end_to_end_flow(client):
     assert "request.json" in lineage_data["artifacts"]
     assert "response.json" in lineage_data["artifacts"]
     assert "twr_calculation_details.csv" in lineage_data["artifacts"]
+    artifact_url = lineage_data["artifacts"]["request.json"]["url"]
+    artifact_response = client.get(artifact_url)
+    assert artifact_response.status_code == 200
+    assert '"portfolio_id": "LINEAGE_TEST"' in artifact_response.text
 
 
 def test_get_lineage_data_not_found(client):
@@ -123,3 +127,19 @@ def test_get_lineage_failed_returns_failed_status(client):
     assert response.status_code == 200
     assert response.json()["status"] == "failed"
     assert response.json()["error_message"] == "write failed"
+
+
+def test_get_lineage_artifact_not_found_for_unknown_artifact(client):
+    calculation_id = uuid4()
+    lineage_metadata_store.create_pending_record(calculation_id=calculation_id, calculation_type="TWR")
+    lineage_metadata_store.mark_complete(calculation_id=calculation_id, artifact_names=["request.json"])
+    lineage_dir = os.path.join(settings.LINEAGE_STORAGE_PATH, str(calculation_id))
+    os.makedirs(lineage_dir, exist_ok=True)
+    with open(os.path.join(lineage_dir, "manifest.json"), "w") as f:
+        f.write('{"calculation_type":"TWR","timestamp_utc":"2026-01-01T00:00:00Z"}')
+    with open(os.path.join(lineage_dir, "request.json"), "w") as f:
+        f.write("{}")
+
+    response = client.get(f"/performance/lineage/{calculation_id}/artifacts/unknown.json")
+
+    assert response.status_code == 404

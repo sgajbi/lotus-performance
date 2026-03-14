@@ -34,9 +34,10 @@ class LineageService:
         return self._storage_path or get_settings().LINEAGE_STORAGE_PATH
 
     def _ensure_storage_directory(self) -> None:
-        if not os.path.exists(self.storage_path):
-            os.makedirs(self.storage_path)
-            logger.info(f"Created lineage storage directory at: {self.storage_path}")
+        if os.path.isdir(self.storage_path):
+            return
+        os.makedirs(self.storage_path, exist_ok=True)
+        logger.info(f"Created lineage storage directory at: {self.storage_path}")
 
     def enqueue_capture(
         self,

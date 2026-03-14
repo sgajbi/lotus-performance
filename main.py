@@ -1,5 +1,4 @@
 # main.py
-import os
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator
 
@@ -7,7 +6,6 @@ import orjson
 from fastapi import FastAPI
 from fastapi.encoders import jsonable_encoder
 from fastapi.openapi.utils import get_openapi
-from fastapi.staticfiles import StaticFiles
 from starlette.responses import JSONResponse
 
 from app.api.endpoints import (
@@ -140,12 +138,6 @@ app.openapi = custom_openapi
 setup_observability(app, log_level=settings.LOG_LEVEL)
 validate_enterprise_runtime_config()
 app.middleware("http")(build_enterprise_audit_middleware())
-
-# Create lineage directory if it doesn't exist
-if not os.path.exists(settings.LINEAGE_STORAGE_PATH):
-    os.makedirs(settings.LINEAGE_STORAGE_PATH)
-
-app.mount("/lineage", StaticFiles(directory=settings.LINEAGE_STORAGE_PATH), name="lineage_files")
 
 app.add_exception_handler(PerformanceCalculatorError, performance_calculator_exception_handler)
 
