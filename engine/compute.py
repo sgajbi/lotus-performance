@@ -30,36 +30,37 @@ def run_calculations(df: pd.DataFrame, config: EngineConfig) -> Tuple[pd.DataFra
         if df.empty:
             return pd.DataFrame(), {}
 
-        _prepare_dataframe(df, config)
+        working_df = df.copy(deep=True)
+        _prepare_dataframe(working_df, config)
 
-        df, policy_diagnostics = apply_robustness_policies(df, config.data_policy)
+        working_df, policy_diagnostics = apply_robustness_policies(working_df, config.data_policy)
 
-        df[PortfolioColumns.EFFECTIVE_PERIOD_START_DATE.value] = get_effective_period_start_dates(
-            df[PortfolioColumns.PERF_DATE.value], config
+        working_df[PortfolioColumns.EFFECTIVE_PERIOD_START_DATE.value] = get_effective_period_start_dates(
+            working_df[PortfolioColumns.PERF_DATE.value], config
         )
 
-        ror_df = calculate_daily_ror(df, config.metric_basis, config)
+        ror_df = calculate_daily_ror(working_df, config.metric_basis, config)
         for col in ror_df.columns:
-            df[col] = ror_df[col]
+            working_df[col] = ror_df[col]
 
         if config.data_policy:
-            _flag_outliers(df, config.data_policy, policy_diagnostics)
+            _flag_outliers(working_df, config.data_policy, policy_diagnostics)
 
-        # --- START FIX: Ensure correct order of operations for sign and reset ---
         # Sign must be calculated before cumulative returns and resets that depend on it.
-        df[PortfolioColumns.SIGN.value] = calculate_sign(df)
-        df[PortfolioColumns.NIP.value] = calculate_nip(df, config)
+        working_df[PortfolioColumns.SIGN.value] = calculate_sign(working_df)
+        working_df[PortfolioColumns.NIP.value] = calculate_nip(working_df, config)
 
-        calculate_cumulative_ror(df, config)
-        # --- END FIX ---
+        calculate_cumulative_ror(working_df, config)
 
-        df[PortfolioColumns.LONG_SHORT.value] = np.select(
-            [df[PortfolioColumns.SIGN.value] == -1, df[PortfolioColumns.SIGN.value] == 1], ["S", "L"], default="N"
+        working_df[PortfolioColumns.LONG_SHORT.value] = np.select(
+            [working_df[PortfolioColumns.SIGN.value] == -1, working_df[PortfolioColumns.SIGN.value] == 1],
+            ["S", "L"],
+            default="N",
         )
 
         reset_events = []
-        df[PortfolioColumns.PERF_RESET.value] = df[PortfolioColumns.PERF_RESET.value].astype(int)
-        reset_rows = df[df[PortfolioColumns.PERF_RESET.value] == 1]
+        working_df[PortfolioColumns.PERF_RESET.value] = working_df[PortfolioColumns.PERF_RESET.value].astype(int)
+        reset_rows = working_df[working_df[PortfolioColumns.PERF_RESET.value] == 1]
         for _, row in reset_rows.iterrows():
             reason_codes = []
             if row[PortfolioColumns.NCTRL_1.value]:
@@ -78,7 +79,7 @@ def run_calculations(df: pd.DataFrame, config: EngineConfig) -> Tuple[pd.DataFra
                 }
             )
 
-        final_df = _filter_results_to_reporting_period(df, config)
+        final_df = _filter_results_to_reporting_period(working_df, config)
 
         if config.precision_mode != PrecisionMode.DECIMAL_STRICT:
             _round_float_columns(final_df, config.rounding_precision)
@@ -86,7 +87,7 @@ def run_calculations(df: pd.DataFrame, config: EngineConfig) -> Tuple[pd.DataFra
         diagnostics = {
             "nip_days": int(final_df[PortfolioColumns.NIP.value].sum()),
             "reset_days": int(final_df[PortfolioColumns.PERF_RESET.value].sum()),
-            "effective_period_start": df[PortfolioColumns.EFFECTIVE_PERIOD_START_DATE.value].min().date(),
+            "effective_period_start": working_df[PortfolioColumns.EFFECTIVE_PERIOD_START_DATE.value].min().date(),
             "notes": policy_diagnostics.get("notes", []),
             "resets": reset_events,
             "policy": policy_diagnostics.get("policy"),
@@ -133,9 +134,7 @@ def _prepare_dataframe(df: pd.DataFrame, config: EngineConfig):
             PortfolioColumns.EFFECTIVE_PERIOD_START_DATE.value,
         ]:
             df[col.value] = Decimal(0) if config.precision_mode == PrecisionMode.DECIMAL_STRICT else 0.0
-    # --- START FIX: Initialize PERF_RESET earlier ---
     df[PortfolioColumns.PERF_RESET.value] = 0
-    # --- END FIX ---
     df[PortfolioColumns.LONG_SHORT.value] = ""
 
 
