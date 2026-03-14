@@ -58,10 +58,13 @@ def test_runtime_status_snapshot_reports_ready_with_queue_stats(mocker):
     snapshot = build_runtime_status_snapshot(is_draining=False)
 
     assert snapshot.runtime_status == "ready"
+    assert snapshot.runtime_degradation_reasons == ()
     assert snapshot.compute_queue.status == "available"
+    assert snapshot.compute_queue.degradation_reasons == ()
     assert snapshot.compute_queue.stats is not None
     assert snapshot.compute_queue.stats.pending_count == 2
     assert snapshot.lineage_queue.status == "available"
+    assert snapshot.lineage_queue.degradation_reasons == ()
     assert snapshot.lineage_queue.stats is not None
     assert snapshot.lineage_queue.stats.pending_payload_count == 6
     assert snapshot.lineage_queue.stats.retry_backlog_count == 2
@@ -121,6 +124,7 @@ def test_runtime_status_snapshot_reports_draining_when_app_is_draining(mocker):
     snapshot = build_runtime_status_snapshot(is_draining=True)
 
     assert snapshot.runtime_status == "draining"
+    assert snapshot.runtime_degradation_reasons == ()
     assert snapshot.draining is True
 
 
@@ -155,10 +159,16 @@ def test_runtime_status_snapshot_reports_degraded_when_durable_store_is_unavaila
     snapshot = build_runtime_status_snapshot(is_draining=False)
 
     assert snapshot.runtime_status == "unavailable"
+    assert snapshot.runtime_degradation_reasons == (
+        "compute_queue:durable_metadata_store_unreachable",
+        "lineage_queue:durable_metadata_store_unreachable",
+    )
     assert snapshot.compute_queue.status == "unavailable"
     assert snapshot.compute_queue.reason == "durable_metadata_store_unreachable"
+    assert snapshot.compute_queue.degradation_reasons == ()
     assert snapshot.compute_queue.stats is None
     assert snapshot.lineage_queue.status == "unavailable"
+    assert snapshot.lineage_queue.degradation_reasons == ()
     assert snapshot.lineage_queue.stats is None
 
 
@@ -202,8 +212,10 @@ def test_runtime_status_snapshot_reports_degraded_when_queue_read_fails(mocker):
     snapshot = build_runtime_status_snapshot(is_draining=False)
 
     assert snapshot.runtime_status == "degraded"
+    assert snapshot.runtime_degradation_reasons == ("compute_queue:RuntimeError",)
     assert snapshot.compute_queue.status == "unavailable"
     assert snapshot.compute_queue.reason == "RuntimeError"
+    assert snapshot.compute_queue.degradation_reasons == ()
     assert snapshot.lineage_queue.status == "available"
 
 
@@ -259,8 +271,10 @@ def test_runtime_status_snapshot_degrades_when_compute_age_threshold_is_exceeded
     snapshot = build_runtime_status_snapshot(is_draining=False)
 
     assert snapshot.runtime_status == "degraded"
+    assert snapshot.runtime_degradation_reasons == ("compute_queue:compute_running_age_exceeded",)
     assert snapshot.compute_queue.status == "degraded"
     assert snapshot.compute_queue.reason == "compute_running_age_exceeded"
+    assert snapshot.compute_queue.degradation_reasons == ("compute_running_age_exceeded",)
 
 
 def test_runtime_status_snapshot_degrades_when_lineage_age_threshold_is_exceeded(mocker):
@@ -315,8 +329,10 @@ def test_runtime_status_snapshot_degrades_when_lineage_age_threshold_is_exceeded
     snapshot = build_runtime_status_snapshot(is_draining=False)
 
     assert snapshot.runtime_status == "degraded"
+    assert snapshot.runtime_degradation_reasons == ("lineage_queue:lineage_pending_age_exceeded",)
     assert snapshot.lineage_queue.status == "degraded"
     assert snapshot.lineage_queue.reason == "lineage_pending_age_exceeded"
+    assert snapshot.lineage_queue.degradation_reasons == ("lineage_pending_age_exceeded",)
 
 
 def test_runtime_status_snapshot_degrades_when_compute_failure_pressure_threshold_is_exceeded(mocker):
@@ -371,8 +387,10 @@ def test_runtime_status_snapshot_degrades_when_compute_failure_pressure_threshol
     snapshot = build_runtime_status_snapshot(is_draining=False)
 
     assert snapshot.runtime_status == "degraded"
+    assert snapshot.runtime_degradation_reasons == ("compute_queue:compute_retry_backlog_exceeded",)
     assert snapshot.compute_queue.status == "degraded"
     assert snapshot.compute_queue.reason == "compute_retry_backlog_exceeded"
+    assert snapshot.compute_queue.degradation_reasons == ("compute_retry_backlog_exceeded",)
 
 
 def test_runtime_status_snapshot_degrades_when_lineage_failure_pressure_threshold_is_exceeded(mocker):
@@ -427,5 +445,87 @@ def test_runtime_status_snapshot_degrades_when_lineage_failure_pressure_threshol
     snapshot = build_runtime_status_snapshot(is_draining=False)
 
     assert snapshot.runtime_status == "degraded"
+    assert snapshot.runtime_degradation_reasons == ("lineage_queue:lineage_terminal_failure_exceeded",)
     assert snapshot.lineage_queue.status == "degraded"
     assert snapshot.lineage_queue.reason == "lineage_terminal_failure_exceeded"
+    assert snapshot.lineage_queue.degradation_reasons == ("lineage_terminal_failure_exceeded",)
+
+
+def test_runtime_status_snapshot_reports_all_active_degradation_reasons(mocker):
+    mocker.patch(
+        "app.services.runtime_status_service.get_settings",
+        return_value=type(
+            "Settings",
+            (),
+            {
+                "RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS": 10.0,
+                "RUNTIME_STATUS_COMPUTE_LEASED_AGE_DEGRADE_SECONDS": 5.0,
+                "RUNTIME_STATUS_COMPUTE_RUNNING_AGE_DEGRADE_SECONDS": 1.0,
+                "RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT": 1,
+                "RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT": 1,
+                "RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT": 1,
+                "RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS": 5.0,
+                "RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT": 1,
+                "RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT": 1,
+            },
+        )(),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.check_durable_metadata_store_ready",
+        return_value=DurabilityHealthStatus(is_ready=True, status="ready", reason=None),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.compute_job_store.get_queue_stats",
+        return_value=ComputeQueueStats(
+            pending_count=1,
+            leased_count=1,
+            running_count=1,
+            failed_count=1,
+            complete_count=0,
+            retry_backlog_count=1,
+            lease_expired_count=1,
+            terminal_failure_count=1,
+            oldest_pending_age_seconds=20.0,
+            oldest_leased_age_seconds=10.0,
+            oldest_running_age_seconds=2.0,
+        ),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.lineage_metadata_store.get_pending_payload_stats",
+        return_value=LineageQueueStats(
+            pending_payload_count=1,
+            retry_backlog_count=1,
+            terminal_failure_count=1,
+            oldest_pending_age_seconds=10.0,
+        ),
+    )
+
+    snapshot = build_runtime_status_snapshot(is_draining=False)
+
+    assert snapshot.runtime_status == "degraded"
+    assert snapshot.compute_queue.reason == "compute_retry_backlog_exceeded"
+    assert snapshot.compute_queue.degradation_reasons == (
+        "compute_retry_backlog_exceeded",
+        "compute_terminal_failure_exceeded",
+        "compute_lease_expiry_pressure_exceeded",
+        "compute_pending_age_exceeded",
+        "compute_leased_age_exceeded",
+        "compute_running_age_exceeded",
+    )
+    assert snapshot.lineage_queue.reason == "lineage_retry_backlog_exceeded"
+    assert snapshot.lineage_queue.degradation_reasons == (
+        "lineage_retry_backlog_exceeded",
+        "lineage_terminal_failure_exceeded",
+        "lineage_pending_age_exceeded",
+    )
+    assert snapshot.runtime_degradation_reasons == (
+        "compute_queue:compute_retry_backlog_exceeded",
+        "compute_queue:compute_terminal_failure_exceeded",
+        "compute_queue:compute_lease_expiry_pressure_exceeded",
+        "compute_queue:compute_pending_age_exceeded",
+        "compute_queue:compute_leased_age_exceeded",
+        "compute_queue:compute_running_age_exceeded",
+        "lineage_queue:lineage_retry_backlog_exceeded",
+        "lineage_queue:lineage_terminal_failure_exceeded",
+        "lineage_queue:lineage_pending_age_exceeded",
+    )

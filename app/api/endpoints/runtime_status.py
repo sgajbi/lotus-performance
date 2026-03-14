@@ -25,7 +25,11 @@ class ComputeQueueStatusDetailsResponse(BaseModel):
     status: str = Field(description="Compute queue visibility state for the control-plane endpoint.")
     reason: str | None = Field(
         default=None,
-        description="Reason compute queue details are unavailable.",
+        description="Primary compute queue degradation or unavailability reason for simple callers.",
+    )
+    degradation_reasons: list[str] = Field(
+        default_factory=list,
+        description="All active compute queue degradation reasons contributing to a degraded state.",
     )
     pending_jobs: int | None = Field(
         default=None,
@@ -77,7 +81,11 @@ class LineageQueueStatusDetailsResponse(BaseModel):
     status: str = Field(description="Lineage queue visibility state for the control-plane endpoint.")
     reason: str | None = Field(
         default=None,
-        description="Reason lineage queue details are unavailable.",
+        description="Primary lineage queue degradation or unavailability reason for simple callers.",
+    )
+    degradation_reasons: list[str] = Field(
+        default_factory=list,
+        description="All active lineage queue degradation reasons contributing to a degraded state.",
     )
     pending_payloads: int | None = Field(
         default=None,
@@ -103,6 +111,10 @@ class RuntimeStatusResponse(BaseModel):
     generated_at: datetime = Field(description="Timestamp when the runtime snapshot was generated.")
     runtime_status: str = Field(
         description="Aggregate runtime state for this service: ready, draining, unavailable, or degraded.",
+    )
+    runtime_degradation_reasons: list[str] = Field(
+        default_factory=list,
+        description="All active queue-level degradation or unavailability reasons contributing to aggregate runtime status.",
     )
     draining: bool = Field(description="Whether the API process is intentionally draining traffic.")
     durable_metadata_store: DurableMetadataStoreStatusResponse = Field(
@@ -135,6 +147,7 @@ async def get_runtime_status(request: Request) -> RuntimeStatusResponse:
         source_service="lotus-performance",
         generated_at=snapshot.generated_at,
         runtime_status=snapshot.runtime_status,
+        runtime_degradation_reasons=list(snapshot.runtime_degradation_reasons),
         draining=snapshot.draining,
         durable_metadata_store=DurableMetadataStoreStatusResponse(
             status=snapshot.durable_metadata_store.status,
@@ -143,6 +156,7 @@ async def get_runtime_status(request: Request) -> RuntimeStatusResponse:
         compute_queue=ComputeQueueStatusDetailsResponse(
             status=snapshot.compute_queue.status,
             reason=snapshot.compute_queue.reason,
+            degradation_reasons=list(snapshot.compute_queue.degradation_reasons),
             pending_jobs=None if compute_stats is None else compute_stats.pending_count,
             leased_jobs=None if compute_stats is None else compute_stats.leased_count,
             running_jobs=None if compute_stats is None else compute_stats.running_count,
@@ -158,6 +172,7 @@ async def get_runtime_status(request: Request) -> RuntimeStatusResponse:
         lineage_queue=LineageQueueStatusDetailsResponse(
             status=snapshot.lineage_queue.status,
             reason=snapshot.lineage_queue.reason,
+            degradation_reasons=list(snapshot.lineage_queue.degradation_reasons),
             pending_payloads=None if lineage_stats is None else lineage_stats.pending_payload_count,
             retry_backlog_payloads=None if lineage_stats is None else lineage_stats.retry_backlog_count,
             terminal_failure_payloads=None if lineage_stats is None else lineage_stats.terminal_failure_count,

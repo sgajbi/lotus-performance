@@ -89,13 +89,16 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 - purpose: expose an operational snapshot of runtime state for support and platform operators
 - response includes:
   - aggregate runtime status
+  - aggregate `runtime_degradation_reasons`
   - draining state
   - durable metadata store availability
   - compute queue backlog details
   - oldest pending, leased, and running compute-job ages
   - retry-backlog, lease-expiry, and terminal-failure compute-job counts
+  - compute `degradation_reasons`
   - lineage queue backlog details
   - retry-backlog and terminal-failure lineage payload counts
+  - lineage `degradation_reasons`
 - runtime may report `degraded` when configured queue-age or failure-pressure thresholds are exceeded
 
 ### `POST /integration/returns/series`

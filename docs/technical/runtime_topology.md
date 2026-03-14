@@ -84,7 +84,9 @@ for compute and lineage. If configured age thresholds are exceeded, the runtime-
 degrades proactively instead of only reporting raw queue numbers. Runtime status can also
 degrade when configured failure-pressure thresholds are crossed for compute retry backlog,
 compute lease-expiry recoveries, compute terminal failures, lineage retry backlog, or lineage
-terminal failures.
+terminal failures. For degraded runtimes, the response now carries queue-level
+`degradation_reasons` lists and a top-level `runtime_degradation_reasons` summary so operators
+can see every active trigger without inferring from counters manually.
 
 ## Failure recovery model
 
