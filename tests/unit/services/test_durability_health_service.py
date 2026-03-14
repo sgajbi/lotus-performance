@@ -5,7 +5,9 @@ def test_durability_health_service_reports_ready(monkeypatch):
     monkeypatch.setattr(durability_health_service.execution_registry, "ping", lambda: None)
     monkeypatch.setattr(
         "app.services.durability_health_service.inspect",
-        lambda _engine: type("Inspector", (), {"get_table_names": lambda self: list(durability_health_service.REQUIRED_DURABLE_TABLES)})(),
+        lambda _engine: type(
+            "Inspector", (), {"get_table_names": lambda self: list(durability_health_service.REQUIRED_DURABLE_TABLES)}
+        )(),
     )
 
     status = durability_health_service.check_durable_metadata_store_ready()

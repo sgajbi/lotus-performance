@@ -1,15 +1,19 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, cast
+from decimal import Decimal
+from typing import TYPE_CHECKING, Annotated, cast
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PlainSerializer
 
 from app.services.compute_job_store import ComputeQueueInspectionAnchors, ComputeQueueStats
 from app.services.lineage_metadata_store import LineageQueueInspectionAnchors, LineageQueueStats
 
 if TYPE_CHECKING:
     from app.services.runtime_status_service import RuntimeStatusSnapshot
+
+
+DegradationNumeric = Annotated[Decimal, PlainSerializer(lambda v: float(v))]
 
 
 class DurableMetadataStoreStatusResponse(BaseModel):
@@ -22,8 +26,10 @@ class DurableMetadataStoreStatusResponse(BaseModel):
 
 class RuntimeDegradationDetailResponse(BaseModel):
     reason: str = Field(description="Concrete degradation trigger identifier.")
-    observed_value: float = Field(description="Observed runtime value that breached the configured threshold.")
-    threshold_value: float = Field(description="Configured threshold value that was exceeded.")
+    observed_value: DegradationNumeric = Field(
+        description="Observed runtime value that breached the configured threshold."
+    )
+    threshold_value: DegradationNumeric = Field(description="Configured threshold value that was exceeded.")
 
 
 class ComputeQueueInspectionAnchorsResponse(BaseModel):

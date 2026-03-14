@@ -78,7 +78,7 @@ def test_recovery_drill_history_api_returns_retained_manifest(tmp_path, monkeypa
                 "operator_id": "ops-user",
                 "backup_identifier": "backup-123",
                 "status": "failed",
-            }
+            },
         ],
     }
     (artifact_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
@@ -111,7 +111,7 @@ def test_recovery_drill_history_api_returns_retained_manifest(tmp_path, monkeypa
             "operator_id": "ops-user",
             "backup_identifier": "backup-123",
             "status": "failed",
-        }
+        },
     ]
 
 

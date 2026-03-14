@@ -345,7 +345,9 @@ class LineageMetadataStore:
 
     def get_queue_inspection_anchors(self, *, now: datetime | None = None) -> LineageQueueInspectionAnchors:
         with self._session() as session:
-            row = session.execute(self._build_queue_inspection_anchors_statement(now=now or datetime.now(timezone.utc))).one()
+            row = session.execute(
+                self._build_queue_inspection_anchors_statement(now=now or datetime.now(timezone.utc))
+            ).one()
             return LineageQueueInspectionAnchors(
                 oldest_pending_calculation_id=row.oldest_pending_calculation_id,
                 oldest_leased_calculation_id=row.oldest_leased_calculation_id,

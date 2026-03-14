@@ -34,7 +34,7 @@ def _as_numeric(value: Any, default: Any = 0) -> Any:
     return numeric
 
 
-def _calculate_total_portfolio_return_from_slice(portfolio_period_slice_df: pd.DataFrame) -> float:
+def _calculate_total_portfolio_return_from_slice(portfolio_period_slice_df: pd.DataFrame) -> Any:
     daily_returns = pd.to_numeric(
         portfolio_period_slice_df[PortfolioColumns.DAILY_ROR.value],
         errors="coerce",

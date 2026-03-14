@@ -34,7 +34,7 @@ def test_recovery_drill_history_snapshot_reads_manifest(tmp_path):
                 "operator_id": "ops-batch",
                 "backup_identifier": "backup-999",
                 "status": "failed",
-            }
+            },
         ],
     }
     (artifact_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")

@@ -202,7 +202,9 @@ def run_recovery_drill(
                 restored_schema_mode="legacy_lineage_schema_upgraded_in_place",
                 owned_tables_present=_fetch_owned_tables(lineage_store),
                 compute_job_processed_count=compute_job_processed_count,
-                compute_async_result_status=compute_result.result_status.value if compute_result is not None else "missing",
+                compute_async_result_status=compute_result.result_status.value
+                if compute_result is not None
+                else "missing",
                 compute_execution_status=compute_execution.status.value if compute_execution is not None else "missing",
                 processed_payload_count=processed_payload_count,
                 materialized_artifact_path=str(artifact_path),
@@ -286,7 +288,9 @@ def _build_compute_recovery_calculator(
 ) -> Callable[[BaseModel], Coroutine[object, object, _ComputeDrillResponse]]:
     async def _calculate(request: BaseModel) -> _ComputeDrillResponse:
         calculation_id = UUID(str(getattr(request, "calculation_id")))
-        execution_store.complete_stage(calculation_id, "execution", details={"drill": "durable_metadata_restore_recovery"})
+        execution_store.complete_stage(
+            calculation_id, "execution", details={"drill": "durable_metadata_restore_recovery"}
+        )
         execution_store.mark_complete(calculation_id)
         return _ComputeDrillResponse(calculation_id=calculation_id, status="complete")
 
@@ -346,12 +350,12 @@ def _prune_historical_evidence(*, output_dir: Path, retention_limit: int, retent
             path.unlink(missing_ok=True)
 
 
-def _write_manifest(*, output_dir: Path, latest_file_name: str, retention_limit: int, retention_max_age_days: int) -> None:
+def _write_manifest(
+    *, output_dir: Path, latest_file_name: str, retention_limit: int, retention_max_age_days: int
+) -> None:
     entries: list[RecoveryDrillManifestEntry] = []
     for evidence_path in sorted(
-        path
-        for path in output_dir.glob("*.json")
-        if path.name not in {"latest.json", "manifest.json"}
+        path for path in output_dir.glob("*.json") if path.name not in {"latest.json", "manifest.json"}
     ):
         payload = json.loads(evidence_path.read_text(encoding="utf-8"))
         entries.append(
@@ -407,7 +411,9 @@ def _filter_fresh_history(*, historical_files: list[Path], retention_max_age_day
 
 def main() -> int:
     settings = _get_settings()
-    parser = argparse.ArgumentParser(description="Run the durable metadata recovery drill and emit structured evidence.")
+    parser = argparse.ArgumentParser(
+        description="Run the durable metadata recovery drill and emit structured evidence."
+    )
     parser.add_argument("--output", type=Path, default=None, help="Optional path for a JSON evidence artifact.")
     parser.add_argument(
         "--output-dir",
@@ -427,8 +433,12 @@ def main() -> int:
         default=settings.RECOVERY_DRILL_RETENTION_MAX_AGE_DAYS,
         help="Maximum age in days for retained historical recovery-drill evidence.",
     )
-    parser.add_argument("--operator-id", default="unknown-operator", help="Operator or automation identity for the drill.")
-    parser.add_argument("--backup-identifier", default="unknown-backup", help="Backup or restore-set identifier used for the drill.")
+    parser.add_argument(
+        "--operator-id", default="unknown-operator", help="Operator or automation identity for the drill."
+    )
+    parser.add_argument(
+        "--backup-identifier", default="unknown-backup", help="Backup or restore-set identifier used for the drill."
+    )
     args = parser.parse_args()
 
     evidence = run_recovery_drill(

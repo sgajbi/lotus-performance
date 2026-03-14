@@ -28,9 +28,7 @@ def test_build_performance_diagnostics_maps_engine_payload():
             ignored_days_count=4,
             outliers=OutlierDiagnostics(flagged_rows=5),
         ),
-        samples=EngineDiagnosticSamples(
-            outliers=[OutlierSample(date="2025-01-10", raw_return=12.5, threshold=3.0)]
-        ),
+        samples=EngineDiagnosticSamples(outliers=[OutlierSample(date="2025-01-10", raw_return=12.5, threshold=3.0)]),
     )
 
     response_diagnostics = build_performance_diagnostics(diagnostics)
@@ -44,9 +42,7 @@ def test_build_performance_diagnostics_maps_engine_payload():
 
 
 def test_build_reset_events_maps_engine_events():
-    diagnostics = EngineDiagnostics(
-        resets=[EngineResetEvent(date=date(2025, 1, 2), reason="NCTRL_1", impacted_rows=1)]
-    )
+    diagnostics = EngineDiagnostics(resets=[EngineResetEvent(date=date(2025, 1, 2), reason="NCTRL_1", impacted_rows=1)])
 
     reset_events = build_reset_events(diagnostics)
 

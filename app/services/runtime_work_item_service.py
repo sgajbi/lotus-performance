@@ -48,8 +48,12 @@ def build_runtime_work_item_snapshot(*, status_filter: str, limit: int) -> Runti
             lineage_items=[],
         )
 
-    compute_queue_state, compute_items = _safe_compute_items(status_filter=status_filter, limit=limit, generated_at=generated_at)
-    lineage_queue_state, lineage_items = _safe_lineage_items(status_filter=status_filter, limit=limit, generated_at=generated_at)
+    compute_queue_state, compute_items = _safe_compute_items(
+        status_filter=status_filter, limit=limit, generated_at=generated_at
+    )
+    lineage_queue_state, lineage_items = _safe_lineage_items(
+        status_filter=status_filter, limit=limit, generated_at=generated_at
+    )
 
     return RuntimeWorkItemSnapshot(
         generated_at=generated_at,

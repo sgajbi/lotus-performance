@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-03-14T08:23:17.265609+00:00",
+  "generatedAt": "2026-03-14T08:43:06.404614+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.active_since_utc",
@@ -789,8 +789,8 @@
       "example": [
         {
           "reason": "example_reason",
-          "observed_value": 0.1234,
-          "threshold_value": 0.1234
+          "observed_value": "example_observed_value",
+          "threshold_value": "example_threshold_value"
         }
       ],
       "type": "array",
@@ -2124,13 +2124,13 @@
       "canonicalTerm": "observed_value",
       "preferredName": "observed_value",
       "description": "Observed runtime value that breached the configured threshold.",
-      "example": 0.1234,
-      "type": "number",
+      "example": "example_observed_value",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "number"
+        "string"
       ]
     },
     {
@@ -2991,8 +2991,8 @@
       "example": [
         {
           "reason": "example_reason",
-          "observed_value": 0.1234,
-          "threshold_value": 0.1234
+          "observed_value": "example_observed_value",
+          "threshold_value": "example_threshold_value"
         }
       ],
       "type": "array",
@@ -3378,13 +3378,13 @@
       "canonicalTerm": "threshold_value",
       "preferredName": "threshold_value",
       "description": "Configured threshold value that was exceeded.",
-      "example": 0.1234,
-      "type": "number",
+      "example": "example_threshold_value",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "number"
+        "string"
       ]
     },
     {
@@ -6870,7 +6870,7 @@
             "name": "runtime_degradation_details[].observed_value",
             "location": "body",
             "required": true,
-            "type": "number",
+            "type": "string",
             "semanticId": "lotus.observed_value",
             "attributeRef": "#/attributeCatalog/lotus.observed_value"
           },
@@ -6878,7 +6878,7 @@
             "name": "runtime_degradation_details[].threshold_value",
             "location": "body",
             "required": true,
-            "type": "number",
+            "type": "string",
             "semanticId": "lotus.threshold_value",
             "attributeRef": "#/attributeCatalog/lotus.threshold_value"
           },
@@ -6966,7 +6966,7 @@
             "name": "compute_queue.degradation_details[].observed_value",
             "location": "body",
             "required": true,
-            "type": "number",
+            "type": "string",
             "semanticId": "lotus.observed_value",
             "attributeRef": "#/attributeCatalog/lotus.observed_value"
           },
@@ -6974,7 +6974,7 @@
             "name": "compute_queue.degradation_details[].threshold_value",
             "location": "body",
             "required": true,
-            "type": "number",
+            "type": "string",
             "semanticId": "lotus.threshold_value",
             "attributeRef": "#/attributeCatalog/lotus.threshold_value"
           },
@@ -7126,7 +7126,7 @@
             "name": "lineage_queue.degradation_details[].observed_value",
             "location": "body",
             "required": true,
-            "type": "number",
+            "type": "string",
             "semanticId": "lotus.observed_value",
             "attributeRef": "#/attributeCatalog/lotus.observed_value"
           },
@@ -7134,7 +7134,7 @@
             "name": "lineage_queue.degradation_details[].threshold_value",
             "location": "body",
             "required": true,
-            "type": "number",
+            "type": "string",
             "semanticId": "lotus.threshold_value",
             "attributeRef": "#/attributeCatalog/lotus.threshold_value"
           },
@@ -7246,7 +7246,7 @@
             "name": "recovery_drill.degradation_details[].observed_value",
             "location": "body",
             "required": true,
-            "type": "number",
+            "type": "string",
             "semanticId": "lotus.observed_value",
             "attributeRef": "#/attributeCatalog/lotus.observed_value"
           },
@@ -7254,7 +7254,7 @@
             "name": "recovery_drill.degradation_details[].threshold_value",
             "location": "body",
             "required": true,
-            "type": "number",
+            "type": "string",
             "semanticId": "lotus.threshold_value",
             "attributeRef": "#/attributeCatalog/lotus.threshold_value"
           },

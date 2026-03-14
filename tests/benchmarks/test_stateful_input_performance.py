@@ -25,7 +25,9 @@ class _StatefulCoreServiceStub:
         if page_token is None:
             return 200, {
                 "portfolio_open_date": "2024-01-01",
-                "observations": _build_observations(start_date=start_date, end_date=midpoint, ending_market_value="101"),
+                "observations": _build_observations(
+                    start_date=start_date, end_date=midpoint, ending_market_value="101"
+                ),
                 "page": {"next_page_token": "page-2"},
             }
         return 200, {

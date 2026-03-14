@@ -76,4 +76,4 @@ def test_attribution_guide_uses_current_request_shape():
     assert "- `model`" in guide
     assert "- `linking`" in guide
     assert "currency_attribution" in guide
-    assert '`group_by` includes the `currency` dimension' in guide
+    assert "`group_by` includes the `currency` dimension" in guide

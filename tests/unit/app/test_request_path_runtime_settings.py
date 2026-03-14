@@ -49,10 +49,16 @@ def test_should_offload_attribution_uses_runtime_settings(mocker):
             "report_end_date": "2025-01-01",
             "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
             "portfolio_groups_data": [
-                {"key": {"sector": "Tech"}, "observations": [{"date": "2025-01-01", "return_base": 0.015, "weight_bop": 1.0}]}
+                {
+                    "key": {"sector": "Tech"},
+                    "observations": [{"date": "2025-01-01", "return_base": 0.015, "weight_bop": 1.0}],
+                }
             ],
             "benchmark_groups_data": [
-                {"key": {"sector": "Tech"}, "observations": [{"date": "2025-01-01", "return_base": 0.01, "weight_bop": 1.0}]}
+                {
+                    "key": {"sector": "Tech"},
+                    "observations": [{"date": "2025-01-01", "return_base": 0.01, "weight_bop": 1.0}],
+                }
             ],
         }
     )
@@ -78,7 +84,14 @@ def test_contribution_service_uses_runtime_app_version(mocker):
     )
     mocker.patch(
         "app.services.contribution_service.resolve_periods",
-        return_value=[SimpleNamespace(name="ITD", start_date=pd.Timestamp("2025-01-01").date(), end_date=pd.Timestamp("2025-01-02").date(), value=PeriodType.ITD)],
+        return_value=[
+            SimpleNamespace(
+                name="ITD",
+                start_date=pd.Timestamp("2025-01-01").date(),
+                end_date=pd.Timestamp("2025-01-02").date(),
+                value=PeriodType.ITD,
+            )
+        ],
     )
     mocker.patch(
         "app.services.contribution_service._prepare_hierarchical_data",
@@ -151,7 +164,14 @@ def test_attribution_service_uses_runtime_app_version(mocker):
     )
     mocker.patch(
         "app.services.attribution_service.resolve_periods",
-        return_value=[SimpleNamespace(name="ITD", start_date=pd.Timestamp("2025-01-01").date(), end_date=pd.Timestamp("2025-01-01").date(), value=PeriodType.ITD)],
+        return_value=[
+            SimpleNamespace(
+                name="ITD",
+                start_date=pd.Timestamp("2025-01-01").date(),
+                end_date=pd.Timestamp("2025-01-01").date(),
+                value=PeriodType.ITD,
+            )
+        ],
     )
     effects_df = pd.DataFrame(
         {
@@ -217,10 +237,16 @@ def test_attribution_service_uses_runtime_app_version(mocker):
             "report_end_date": "2025-01-01",
             "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
             "portfolio_groups_data": [
-                {"key": {"sector": "Tech"}, "observations": [{"date": "2025-01-01", "return_base": 0.015, "weight_bop": 1.0}]}
+                {
+                    "key": {"sector": "Tech"},
+                    "observations": [{"date": "2025-01-01", "return_base": 0.015, "weight_bop": 1.0}],
+                }
             ],
             "benchmark_groups_data": [
-                {"key": {"sector": "Tech"}, "observations": [{"date": "2025-01-01", "return_base": 0.01, "weight_bop": 1.0}]}
+                {
+                    "key": {"sector": "Tech"},
+                    "observations": [{"date": "2025-01-01", "return_base": 0.01, "weight_bop": 1.0}],
+                }
             ],
         }
     )

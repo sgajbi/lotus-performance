@@ -515,8 +515,12 @@ class ComputeJobStore:
             elif normalized_status_filter == "failed":
                 rows = session.execute(self._build_failed_inspection_items_statement(limit=limit)).scalars().all()
             elif normalized_status_filter == "all":
-                active_rows = session.execute(self._build_active_inspection_items_statement(limit=limit)).scalars().all()
-                failed_rows = session.execute(self._build_failed_inspection_items_statement(limit=limit)).scalars().all()
+                active_rows = (
+                    session.execute(self._build_active_inspection_items_statement(limit=limit)).scalars().all()
+                )
+                failed_rows = (
+                    session.execute(self._build_failed_inspection_items_statement(limit=limit)).scalars().all()
+                )
                 rows = [*active_rows, *failed_rows][:limit]
             else:
                 raise ValueError(f"Unsupported status filter: {status_filter}")

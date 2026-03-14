@@ -21,7 +21,9 @@ class RecoveryDrillHistoryResponse(BaseModel):
         default=None,
         description="Concrete reason when retained recovery-drill history is unavailable.",
     )
-    artifact_directory: str = Field(description="Filesystem directory where retained recovery-drill evidence is stored.")
+    artifact_directory: str = Field(
+        description="Filesystem directory where retained recovery-drill evidence is stored."
+    )
     latest_file_name: str | None = Field(
         default=None,
         description="Latest retained recovery-drill evidence artifact file name.",
@@ -39,7 +41,9 @@ class RecoveryDrillHistoryResponse(BaseModel):
         description="Configured maximum age in days for retained recovery-drill evidence artifacts.",
     )
     total_entries: int = Field(description="Total retained recovery-drill entries before any API-side filtering.")
-    matched_entries: int = Field(description="Number of retained recovery-drill entries matching the applied filters before paging.")
+    matched_entries: int = Field(
+        description="Number of retained recovery-drill entries matching the applied filters before paging."
+    )
     returned_entries: int = Field(description="Number of recovery-drill entries returned after applying filters.")
     next_offset: int | None = Field(
         default=None,
