@@ -74,6 +74,12 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
     assert "lotus_performance_lineage_storage_capacity_bytes" in metric_names
     assert "lotus_performance_lineage_storage_free_ratio" in metric_names
     assert "lotus_performance_lineage_storage_pressure_threshold" in metric_names
+    assert "lotus_performance_lineage_storage_pressure_breach" in metric_names
+
+    breach_metric = next(metric for metric in metrics if metric.name == "lotus_performance_lineage_storage_pressure_breach")
+    breach_samples = {sample.labels["reason"]: sample.value for sample in breach_metric.samples}
+    assert breach_samples["lineage_storage_free_bytes_below_threshold"] == 0
+    assert breach_samples["lineage_storage_free_ratio_below_threshold"] == 0
 
 
 def test_queue_metrics_collector_exposes_store_unavailability_without_false_zero_backlog(monkeypatch):
@@ -111,6 +117,7 @@ def test_queue_metrics_collector_exposes_store_unavailability_without_false_zero
     assert "lotus_performance_lineage_queue_pending_payloads" not in metric_names
     assert "lotus_performance_lineage_storage_capacity_bytes" not in metric_names
     assert "lotus_performance_lineage_storage_free_ratio" not in metric_names
+    assert "lotus_performance_lineage_storage_pressure_breach" not in metric_names
 
     availability_metric = next(
         metric for metric in metrics if metric.name == "lotus_performance_durable_queue_store_availability"
@@ -123,3 +130,72 @@ def test_queue_metrics_collector_exposes_store_unavailability_without_false_zero
         metric for metric in metrics if metric.name == "lotus_performance_lineage_storage_capacity_availability"
     )
     assert storage_availability_metric.samples[0].value == 0
+
+
+def test_queue_metrics_collector_emits_lineage_storage_breach_state(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.compute_job_store.get_queue_stats",
+        lambda: type(
+            "ComputeStats",
+            (),
+            {
+                "pending_count": 0,
+                "leased_count": 0,
+                "running_count": 0,
+                "failed_count": 0,
+                "complete_count": 0,
+                "retry_backlog_count": 0,
+                "lease_expired_count": 0,
+                "reclaimable_count": 0,
+                "terminal_failure_count": 0,
+                "oldest_pending_age_seconds": 0.0,
+                "oldest_leased_age_seconds": 0.0,
+                "oldest_running_age_seconds": 0.0,
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.lineage_metadata_store.get_pending_payload_stats",
+        lambda: type(
+            "LineageStats",
+            (),
+            {
+                "pending_payload_count": 0,
+                "retry_backlog_count": 0,
+                "reclaimable_count": 0,
+                "terminal_failure_count": 0,
+                "oldest_pending_age_seconds": 0.0,
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.get_lineage_storage_capacity",
+        lambda: type(
+            "Capacity",
+            (),
+            {
+                "total_bytes": 1000,
+                "used_bytes": 900,
+                "free_bytes": 100,
+                "free_ratio": 0.1,
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.get_settings",
+        lambda: type(
+            "Settings",
+            (),
+            {
+                "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES": 250,
+                "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO": 0.2,
+            },
+        )(),
+    )
+
+    metrics = list(DurableQueueCollector().collect())
+
+    breach_metric = next(metric for metric in metrics if metric.name == "lotus_performance_lineage_storage_pressure_breach")
+    breach_samples = {sample.labels["reason"]: sample.value for sample in breach_metric.samples}
+    assert breach_samples["lineage_storage_free_bytes_below_threshold"] == 1
+    assert breach_samples["lineage_storage_free_ratio_below_threshold"] == 1

@@ -68,6 +68,11 @@ class DurableQueueCollector:
             "Configured proactive lineage storage pressure thresholds.",
             labels=["threshold"],
         )
+        yield GaugeMetricFamily(
+            "lotus_performance_lineage_storage_pressure_breach",
+            "Whether lineage storage currently breaches a proactive saturation threshold.",
+            labels=["reason"],
+        )
 
     def collect(self):
         try:
@@ -199,6 +204,23 @@ class DurableQueueCollector:
             )
             lineage_storage_free_ratio.add_metric([], lineage_storage_capacity.free_ratio)
             yield lineage_storage_free_ratio
+
+            lineage_storage_breach = GaugeMetricFamily(
+                "lotus_performance_lineage_storage_pressure_breach",
+                "Whether lineage storage currently breaches a proactive saturation threshold.",
+                labels=["reason"],
+            )
+            min_free_bytes = getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES", 0)
+            min_free_ratio = getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO", 0.0)
+            lineage_storage_breach.add_metric(
+                ["lineage_storage_free_bytes_below_threshold"],
+                1 if min_free_bytes > 0 and lineage_storage_capacity.free_bytes <= min_free_bytes else 0,
+            )
+            lineage_storage_breach.add_metric(
+                ["lineage_storage_free_ratio_below_threshold"],
+                1 if min_free_ratio > 0 and lineage_storage_capacity.free_ratio <= min_free_ratio else 0,
+            )
+            yield lineage_storage_breach
 
         lineage_storage_thresholds = GaugeMetricFamily(
             "lotus_performance_lineage_storage_pressure_threshold",

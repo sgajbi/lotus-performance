@@ -217,6 +217,14 @@ def test_metrics_include_lineage_storage_capacity_signals(mocker):
         assert 'lotus_performance_lineage_storage_capacity_bytes{segment="free"} 300.0' in metrics.text
         assert "lotus_performance_lineage_storage_free_ratio 0.3" in metrics.text
         assert (
+            'lotus_performance_lineage_storage_pressure_breach{reason="lineage_storage_free_bytes_below_threshold"} 0.0'
+            in metrics.text
+        )
+        assert (
+            'lotus_performance_lineage_storage_pressure_breach{reason="lineage_storage_free_ratio_below_threshold"} 0.0'
+            in metrics.text
+        )
+        assert (
             'lotus_performance_lineage_storage_pressure_threshold{threshold="min_free_bytes"} 250.0'
             in metrics.text
         )
@@ -253,3 +261,42 @@ def test_metrics_expose_store_unavailability_without_false_zero_queue_samples(mo
     assert "lotus_performance_compute_queue_jobs" not in metrics.text
     assert "lotus_performance_lineage_queue_pending_payloads" not in metrics.text
     assert "lotus_performance_lineage_storage_capacity_bytes" not in metrics.text
+    assert "lotus_performance_lineage_storage_pressure_breach" not in metrics.text
+
+
+def test_metrics_include_lineage_storage_pressure_breach_signals(mocker):
+    mocker.patch(
+        "app.services.queue_metrics_service.get_lineage_storage_capacity",
+        return_value=type(
+            "Capacity",
+            (),
+            {
+                "total_bytes": 1000,
+                "used_bytes": 925,
+                "free_bytes": 75,
+                "free_ratio": 0.075,
+            },
+        )(),
+    )
+    settings = __import__("app.core.config", fromlist=["get_settings"]).get_settings()
+    original_bytes = settings.RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES
+    original_ratio = settings.RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO
+    settings.RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES = 150
+    settings.RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO = 0.1
+
+    try:
+        with TestClient(app) as client:
+            metrics = client.get("/metrics")
+
+        assert metrics.status_code == 200
+        assert (
+            'lotus_performance_lineage_storage_pressure_breach{reason="lineage_storage_free_bytes_below_threshold"} 1.0'
+            in metrics.text
+        )
+        assert (
+            'lotus_performance_lineage_storage_pressure_breach{reason="lineage_storage_free_ratio_below_threshold"} 1.0'
+            in metrics.text
+        )
+    finally:
+        settings.RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES = original_bytes
+        settings.RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO = original_ratio

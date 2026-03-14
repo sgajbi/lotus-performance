@@ -240,6 +240,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - `lotus_performance_lineage_storage_capacity_bytes{segment="total|used|free"}`
   - `lotus_performance_lineage_storage_free_ratio`
   - `lotus_performance_lineage_storage_pressure_threshold{threshold="min_free_bytes|min_free_ratio"}`
+  - `lotus_performance_lineage_storage_pressure_breach{reason="lineage_storage_free_bytes_below_threshold|lineage_storage_free_ratio_below_threshold"}`
 
 ## Async execution pattern
 
