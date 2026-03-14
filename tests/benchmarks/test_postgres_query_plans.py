@@ -1,36 +1,17 @@
-import os
 from datetime import datetime, timezone
 from uuid import uuid4
 
-import pytest
-from sqlalchemy import create_engine, text
-from sqlalchemy.exc import OperationalError
+from sqlalchemy import create_engine
 
 from app.services.compute_job_store import ComputeJobStore
 from app.services.execution_registry import ExecutionRegistry
 from app.services.lineage_metadata_store import LineageMetadataStore
+from tests.benchmarks.postgres_runtime_helpers import get_postgres_database_url
 
-POSTGRES_PLAN_DATABASE_URL = os.getenv(
-    "LOTUS_POSTGRES_PLAN_DATABASE_URL",
-    "postgresql+psycopg://lotus:lotus@127.0.0.1:5435/lotus_performance",
-)
 COMPUTE_QUEUE_PLAN_ROWS = 5_000
 LINEAGE_QUEUE_PLAN_ROWS = 1_000
 EXECUTION_POLLING_PLAN_EXECUTIONS = 25
 EXECUTION_POLLING_PLAN_SNAPSHOTS_PER_EXECUTION = 100
-
-
-@pytest.fixture(scope="module")
-def postgres_database_url():
-    engine = create_engine(POSTGRES_PLAN_DATABASE_URL, future=True)
-    try:
-        with engine.connect() as connection:
-            connection.execute(text("SELECT 1"))
-    except OperationalError:
-        pytest.skip(f"PostgreSQL plan database unavailable at {POSTGRES_PLAN_DATABASE_URL}")
-    finally:
-        engine.dispose()
-    return POSTGRES_PLAN_DATABASE_URL
 
 
 def _explain_json(database_url: str, statement) -> dict[str, object]:
@@ -81,7 +62,8 @@ def _collect_index_names(plan: dict[str, object]) -> list[str]:
     return index_names
 
 
-def test_postgres_compute_queue_stats_plan_contract(postgres_database_url):
+def test_postgres_compute_queue_stats_plan_contract():
+    postgres_database_url = get_postgres_database_url()
     store = ComputeJobStore(postgres_database_url)
     store.create_schema()
     store.clear_all_records()
@@ -103,7 +85,8 @@ def test_postgres_compute_queue_stats_plan_contract(postgres_database_url):
     assert "analytics_compute_job" in relation_names
 
 
-def test_postgres_lineage_queue_stats_plan_contract(postgres_database_url):
+def test_postgres_lineage_queue_stats_plan_contract():
+    postgres_database_url = get_postgres_database_url()
     store = LineageMetadataStore(postgres_database_url)
     store.create_schema()
     store.clear_all_records()
@@ -131,7 +114,8 @@ def test_postgres_lineage_queue_stats_plan_contract(postgres_database_url):
     assert "lineage_records" in relation_names
 
 
-def test_postgres_execution_polling_plan_contract(postgres_database_url):
+def test_postgres_execution_polling_plan_contract():
+    postgres_database_url = get_postgres_database_url()
     registry = ExecutionRegistry(postgres_database_url)
     registry.create_schema()
     registry.clear_all_records()

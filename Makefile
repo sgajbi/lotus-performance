@@ -71,7 +71,7 @@ performance-characterization:
 
 performance-characterization-postgres:
 	docker compose up -d performance-lineage-db
-	python -m pytest tests/benchmarks/test_postgres_query_plans.py -q
+	python -m pytest tests/benchmarks/test_postgres_query_plans.py tests/benchmarks/test_postgres_concurrency_contracts.py -q
 
 migration-apply:
 	python scripts/migration_contract_check.py --mode durable-schema

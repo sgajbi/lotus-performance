@@ -146,3 +146,25 @@ based on realistic table statistics rather than empty-table defaults.
 
 - Full repo-owned characterization: `make performance-characterization`
 - Live PostgreSQL plan verification: `make performance-characterization-postgres`
+
+## PostgreSQL concurrency proof
+
+These are live multi-worker claim contracts against PostgreSQL, not SQLite compilation proxies.
+
+### Compute queue claims
+
+- Workload: `20` pending compute jobs, `2` workers, `10` claims each
+- Contract:
+  - claims are disjoint across workers
+  - all available jobs are claimed exactly once
+  - a third worker sees no additional pending claims
+- Test owner: [test_postgres_concurrency_contracts.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_postgres_concurrency_contracts.py)
+
+### Lineage payload claims
+
+- Workload: `20` pending lineage payloads, `2` workers, `10` claims each
+- Contract:
+  - claims are disjoint across workers
+  - all available payloads are claimed exactly once
+  - a third worker sees no additional pending claims
+- Test owner: [test_postgres_concurrency_contracts.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_postgres_concurrency_contracts.py)
