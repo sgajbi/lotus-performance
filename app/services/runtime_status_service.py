@@ -8,6 +8,7 @@ from app.core.config import get_settings
 from app.services.compute_job_store import (
     ComputeQueueInspectionAnchors,
     ComputeQueueStats,
+    ComputeRecoveryEvent,
     compute_job_store,
 )
 from app.services.durability_health_service import (
@@ -17,6 +18,7 @@ from app.services.durability_health_service import (
 from app.services.lineage_metadata_store import (
     LineageQueueInspectionAnchors,
     LineageQueueStats,
+    LineageRecoveryEvent,
     lineage_metadata_store,
 )
 from app.services.recovery_drill_history_service import (
@@ -32,6 +34,7 @@ class RuntimeQueueStatus:
     degradation_details: tuple["RuntimeDegradationDetail", ...]
     stats: ComputeQueueStats | LineageQueueStats | None
     inspection_anchors: ComputeQueueInspectionAnchors | LineageQueueInspectionAnchors | None
+    recent_recoveries: tuple[ComputeRecoveryEvent | LineageRecoveryEvent, ...]
 
 
 @dataclass(frozen=True)
@@ -148,10 +151,12 @@ def _build_compute_queue_status(durability_status: DurabilityHealthStatus, *, se
             degradation_details=(),
             stats=None,
             inspection_anchors=None,
+            recent_recoveries=(),
         )
     try:
         stats = compute_job_store.get_queue_stats()
         inspection_anchors = _safe_compute_queue_inspection_anchors()
+        recent_recoveries = _safe_compute_recent_recoveries(settings=settings)
         degradation_details = _compute_queue_degradation_details(stats, settings=settings)
         degradation_reasons = tuple(detail.reason for detail in degradation_details)
         if degradation_reasons:
@@ -162,6 +167,7 @@ def _build_compute_queue_status(durability_status: DurabilityHealthStatus, *, se
                 degradation_details=degradation_details,
                 stats=stats,
                 inspection_anchors=inspection_anchors,
+                recent_recoveries=recent_recoveries,
             )
         return RuntimeQueueStatus(
             status="available",
@@ -170,6 +176,7 @@ def _build_compute_queue_status(durability_status: DurabilityHealthStatus, *, se
             degradation_details=(),
             stats=stats,
             inspection_anchors=inspection_anchors,
+            recent_recoveries=recent_recoveries,
         )
     except Exception as exc:
         return RuntimeQueueStatus(
@@ -179,6 +186,7 @@ def _build_compute_queue_status(durability_status: DurabilityHealthStatus, *, se
             degradation_details=(),
             stats=None,
             inspection_anchors=None,
+            recent_recoveries=(),
         )
 
 
@@ -191,10 +199,12 @@ def _build_lineage_queue_status(durability_status: DurabilityHealthStatus, *, se
             degradation_details=(),
             stats=None,
             inspection_anchors=None,
+            recent_recoveries=(),
         )
     try:
         stats = lineage_metadata_store.get_pending_payload_stats()
         inspection_anchors = _safe_lineage_queue_inspection_anchors()
+        recent_recoveries = _safe_lineage_recent_recoveries(settings=settings)
         degradation_details = _lineage_queue_degradation_details(stats, settings=settings)
         degradation_reasons = tuple(detail.reason for detail in degradation_details)
         if degradation_reasons:
@@ -205,6 +215,7 @@ def _build_lineage_queue_status(durability_status: DurabilityHealthStatus, *, se
                 degradation_details=degradation_details,
                 stats=stats,
                 inspection_anchors=inspection_anchors,
+                recent_recoveries=recent_recoveries,
             )
         return RuntimeQueueStatus(
             status="available",
@@ -213,6 +224,7 @@ def _build_lineage_queue_status(durability_status: DurabilityHealthStatus, *, se
             degradation_details=(),
             stats=stats,
             inspection_anchors=inspection_anchors,
+            recent_recoveries=recent_recoveries,
         )
     except Exception as exc:
         return RuntimeQueueStatus(
@@ -222,6 +234,7 @@ def _build_lineage_queue_status(durability_status: DurabilityHealthStatus, *, se
             degradation_details=(),
             stats=None,
             inspection_anchors=None,
+            recent_recoveries=(),
         )
 
 
@@ -237,6 +250,26 @@ def _safe_lineage_queue_inspection_anchors() -> LineageQueueInspectionAnchors | 
         return lineage_metadata_store.get_queue_inspection_anchors()
     except Exception:
         return None
+
+
+def _safe_compute_recent_recoveries(*, settings) -> tuple[ComputeRecoveryEvent, ...]:
+    try:
+        limit = max(0, int(getattr(settings, "RUNTIME_STATUS_RECENT_RECOVERY_LIMIT", 5)))
+        if limit == 0:
+            return ()
+        return tuple(compute_job_store.list_recent_recoveries(limit=limit))
+    except Exception:
+        return ()
+
+
+def _safe_lineage_recent_recoveries(*, settings) -> tuple[LineageRecoveryEvent, ...]:
+    try:
+        limit = max(0, int(getattr(settings, "RUNTIME_STATUS_RECENT_RECOVERY_LIMIT", 5)))
+        if limit == 0:
+            return ()
+        return tuple(lineage_metadata_store.list_recent_recoveries(limit=limit))
+    except Exception:
+        return ()
 
 
 def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:

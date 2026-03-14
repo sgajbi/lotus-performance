@@ -114,6 +114,15 @@ class LineageQueueInspectionPage:
     items: list[LineageQueueInspectionItem]
 
 
+@dataclass(frozen=True)
+class LineageRecoveryEvent:
+    calculation_id: str
+    calculation_type: str
+    recovery_kind: str
+    recovered_at_utc: str
+    attempt_count: int
+
+
 def _coerce_utc_datetime(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=timezone.utc)
@@ -367,6 +376,25 @@ class LineageMetadataStore:
                 latest_recovered_calculation_id=row.latest_recovered_calculation_id,
             )
 
+    def list_recent_recoveries(self, *, limit: int = 5) -> list[LineageRecoveryEvent]:
+        with self._session() as session:
+            rows = session.execute(self._build_recent_recoveries_statement(limit=limit)).all()
+            events: list[LineageRecoveryEvent] = []
+            for record, payload in rows:
+                recovered_at_utc = _format_timestamp(record.timestamp_utc)
+                if recovered_at_utc is None:
+                    continue
+                events.append(
+                    LineageRecoveryEvent(
+                        calculation_id=record.calculation_id,
+                        calculation_type=record.calculation_type,
+                        recovery_kind="retryable_materialization_failure",
+                        recovered_at_utc=recovered_at_utc,
+                        attempt_count=payload.attempt_count,
+                    )
+                )
+            return events
+
     def list_inspection_items(
         self,
         *,
@@ -563,6 +591,18 @@ class LineageMetadataStore:
                 .limit(1)
                 .scalar_subquery()
             ).label("latest_recovered_calculation_id"),
+        )
+
+    def _build_recent_recoveries_statement(self, *, limit: int):
+        return (
+            select(LineageRecordModel, LineagePayloadModel)
+            .join(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
+            .where(
+                (LineageRecordModel.status == LineageStatus.PENDING.value)
+                & (LineagePayloadModel.attempt_count > 0)
+            )
+            .order_by(LineageRecordModel.timestamp_utc.desc(), LineagePayloadModel.created_at_utc.desc())
+            .limit(limit)
         )
 
     def _apply_inspection_filters(self, statement, *, calculation_type: str | None, calculation_id_contains: str | None):

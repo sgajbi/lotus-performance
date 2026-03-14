@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING, Annotated, cast
 
 from pydantic import BaseModel, Field, PlainSerializer
 
-from app.services.compute_job_store import ComputeQueueInspectionAnchors, ComputeQueueStats
-from app.services.lineage_metadata_store import LineageQueueInspectionAnchors, LineageQueueStats
+from app.services.compute_job_store import ComputeQueueInspectionAnchors, ComputeQueueStats, ComputeRecoveryEvent
+from app.services.lineage_metadata_store import LineageQueueInspectionAnchors, LineageQueueStats, LineageRecoveryEvent
 
 if TYPE_CHECKING:
     from app.services.runtime_status_service import RuntimeStatusSnapshot
@@ -74,6 +74,26 @@ class LineageQueueInspectionAnchorsResponse(BaseModel):
     )
 
 
+class ComputeRecoveryEventResponse(BaseModel):
+    calculation_id: str = Field(description="Calculation handle of the recovered compute job.")
+    analytics_type: str = Field(description="Analytics workflow type for the recovered compute job.")
+    recovery_kind: str = Field(description="Recovery path that returned the compute job to pending state.")
+    recovered_at_utc: str = Field(description="UTC timestamp when the compute job most recently re-entered pending state.")
+    attempt_count: int = Field(description="Attempt count already consumed by the recovered compute job.")
+    error_type: str | None = Field(
+        default=None,
+        description="Last durable compute error type associated with the recovery event, when present.",
+    )
+
+
+class LineageRecoveryEventResponse(BaseModel):
+    calculation_id: str = Field(description="Calculation handle of the recovered lineage item.")
+    calculation_type: str = Field(description="Analytics workflow type for the recovered lineage item.")
+    recovery_kind: str = Field(description="Recovery path that returned the lineage item to pending state.")
+    recovered_at_utc: str = Field(description="UTC timestamp when the lineage item most recently re-entered pending state.")
+    attempt_count: int = Field(description="Attempt count already consumed by the recovered lineage item.")
+
+
 class ComputeQueueStatusDetailsResponse(BaseModel):
     status: str = Field(description="Compute queue visibility state for the control-plane endpoint.")
     reason: str | None = Field(
@@ -128,6 +148,10 @@ class ComputeQueueStatusDetailsResponse(BaseModel):
         default=None,
         description="Concrete calculation handles for the current oldest or most recent compute work items of operator interest.",
     )
+    recent_recoveries: list[ComputeRecoveryEventResponse] = Field(
+        default_factory=list,
+        description="Most recent durable compute recovery events returned to pending state for operator triage.",
+    )
 
 
 class LineageQueueStatusDetailsResponse(BaseModel):
@@ -175,6 +199,10 @@ class LineageQueueStatusDetailsResponse(BaseModel):
     inspection_anchors: LineageQueueInspectionAnchorsResponse | None = Field(
         default=None,
         description="Concrete calculation handles for the current oldest or most recent lineage work items of operator interest.",
+    )
+    recent_recoveries: list[LineageRecoveryEventResponse] = Field(
+        default_factory=list,
+        description="Most recent durable lineage recovery events returned to pending state for operator triage.",
     )
 
 
@@ -311,6 +339,8 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
     lineage_stats = cast(LineageQueueStats | None, snapshot.lineage_queue.stats)
     compute_anchors = cast(ComputeQueueInspectionAnchors | None, snapshot.compute_queue.inspection_anchors)
     lineage_anchors = cast(LineageQueueInspectionAnchors | None, snapshot.lineage_queue.inspection_anchors)
+    compute_recoveries = cast(tuple[ComputeRecoveryEvent, ...], snapshot.compute_queue.recent_recoveries)
+    lineage_recoveries = cast(tuple[LineageRecoveryEvent, ...], snapshot.lineage_queue.recent_recoveries)
 
     return RuntimeStatusResponse(
         contract_version="v1",
@@ -352,6 +382,17 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
                     latest_recovered_calculation_id=compute_anchors.latest_recovered_calculation_id,
                 )
             ),
+            recent_recoveries=[
+                ComputeRecoveryEventResponse(
+                    calculation_id=item.calculation_id,
+                    analytics_type=item.analytics_type,
+                    recovery_kind=item.recovery_kind,
+                    recovered_at_utc=item.recovered_at_utc,
+                    attempt_count=item.attempt_count,
+                    error_type=item.error_type,
+                )
+                for item in compute_recoveries
+            ],
         ),
         lineage_queue=LineageQueueStatusDetailsResponse(
             status=snapshot.lineage_queue.status,
@@ -375,6 +416,16 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
                     latest_recovered_calculation_id=lineage_anchors.latest_recovered_calculation_id,
                 )
             ),
+            recent_recoveries=[
+                LineageRecoveryEventResponse(
+                    calculation_id=item.calculation_id,
+                    calculation_type=item.calculation_type,
+                    recovery_kind=item.recovery_kind,
+                    recovered_at_utc=item.recovered_at_utc,
+                    attempt_count=item.attempt_count,
+                )
+                for item in lineage_recoveries
+            ],
         ),
         recovery_drill=RecoveryDrillStatusResponse(
             status=snapshot.recovery_drill.status,

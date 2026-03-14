@@ -481,6 +481,39 @@ def test_compute_job_store_queue_inspection_anchors_include_latest_recovered(tmp
     assert anchors.latest_recovered_calculation_id == str(recovered_id)
 
 
+def test_compute_job_store_lists_recent_recoveries_in_descending_order(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    now = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+    first_id = uuid4()
+    second_id = uuid4()
+
+    for calculation_id in [first_id, second_id]:
+        store.enqueue_job(
+            calculation_id=calculation_id,
+            analytics_type="ReturnsSeries",
+            request_payload={"portfolio_id": str(calculation_id)},
+            max_attempts=3,
+        )
+
+    with store._session() as session:
+        first_row = store._get_model(session, first_id)
+        first_row.attempt_count = 1
+        first_row.last_error_at_utc = now - timedelta(seconds=10)
+        first_row.error_type = "RuntimeError"
+
+        second_row = store._get_model(session, second_id)
+        second_row.attempt_count = 2
+        second_row.last_error_at_utc = now - timedelta(seconds=5)
+        second_row.error_type = "LeaseExpired"
+
+    events = store.list_recent_recoveries(limit=5)
+
+    assert [event.calculation_id for event in events] == [str(second_id), str(first_id)]
+    assert events[0].recovery_kind == "stale_lease_recovered"
+    assert events[1].recovery_kind == "retryable_failure"
+
+
 def test_compute_job_store_declares_hot_path_indexes(tmp_path):
     store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
     store.create_schema()

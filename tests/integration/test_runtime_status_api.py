@@ -319,9 +319,11 @@ def test_runtime_status_exposes_latest_recovered_inspection_anchors():
         assert body["compute_queue"]["inspection_anchors"]["latest_recovered_calculation_id"] == str(
             compute_recovered_id
         )
+        assert body["compute_queue"]["recent_recoveries"][0]["calculation_id"] == str(compute_recovered_id)
         assert body["lineage_queue"]["inspection_anchors"]["latest_recovered_calculation_id"] == str(
             lineage_recovered_id
         )
+        assert body["lineage_queue"]["recent_recoveries"][0]["calculation_id"] == str(lineage_recovered_id)
     finally:
         compute_job_store.clear_all_records()
         lineage_metadata_store.clear_all_records()

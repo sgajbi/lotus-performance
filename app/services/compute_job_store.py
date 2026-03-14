@@ -137,6 +137,16 @@ class ComputeQueueInspectionPage:
 
 
 @dataclass(frozen=True)
+class ComputeRecoveryEvent:
+    calculation_id: str
+    analytics_type: str
+    recovery_kind: str
+    recovered_at_utc: str
+    attempt_count: int
+    error_type: str | None
+
+
+@dataclass(frozen=True)
 class ComputeJobRegistrationResult:
     status: ComputeJobRegistrationStatus
     existing_status: ComputeJobStatus | None = None
@@ -510,6 +520,27 @@ class ComputeJobStore:
                 latest_recovered_calculation_id=row.latest_recovered_calculation_id,
             )
 
+    def list_recent_recoveries(self, *, limit: int = 5) -> list[ComputeRecoveryEvent]:
+        with self._session() as session:
+            rows = session.execute(self._build_recent_recoveries_statement(limit=limit)).scalars().all()
+            events: list[ComputeRecoveryEvent] = []
+            for row in rows:
+                recovered_at_utc = _format_timestamp(row.last_error_at_utc)
+                if recovered_at_utc is None:
+                    continue
+                recovery_kind = "stale_lease_recovered" if row.error_type == "LeaseExpired" else "retryable_failure"
+                events.append(
+                    ComputeRecoveryEvent(
+                        calculation_id=row.calculation_id,
+                        analytics_type=row.analytics_type,
+                        recovery_kind=recovery_kind,
+                        recovered_at_utc=recovered_at_utc,
+                        attempt_count=row.attempt_count,
+                        error_type=row.error_type,
+                    )
+                )
+            return events
+
     def list_inspection_items(
         self,
         *,
@@ -690,6 +721,18 @@ class ComputeJobStore:
             .limit(1)
             .scalar_subquery()
             .label("latest_recovered_calculation_id"),
+        )
+
+    def _build_recent_recoveries_statement(self, *, limit: int):
+        return (
+            select(ComputeJobModel)
+            .where(
+                (ComputeJobModel.job_status == ComputeJobStatus.PENDING.value)
+                & (ComputeJobModel.attempt_count > 0)
+                & ComputeJobModel.last_error_at_utc.is_not(None)
+            )
+            .order_by(ComputeJobModel.last_error_at_utc.desc(), ComputeJobModel.created_at_utc.desc())
+            .limit(limit)
         )
 
     def _apply_inspection_filters(self, statement, *, analytics_type: str | None, calculation_id_contains: str | None):

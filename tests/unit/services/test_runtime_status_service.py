@@ -1,8 +1,8 @@
 from datetime import UTC, datetime
 
-from app.services.compute_job_store import ComputeQueueInspectionAnchors, ComputeQueueStats
+from app.services.compute_job_store import ComputeQueueInspectionAnchors, ComputeQueueStats, ComputeRecoveryEvent
 from app.services.durability_health_service import DurabilityHealthStatus
-from app.services.lineage_metadata_store import LineageQueueInspectionAnchors, LineageQueueStats
+from app.services.lineage_metadata_store import LineageQueueInspectionAnchors, LineageQueueStats, LineageRecoveryEvent
 from app.services.recovery_drill_history_service import RecoveryDrillHistoryEntry, RecoveryDrillHistorySnapshot
 from app.services.runtime_status_service import build_runtime_status_snapshot
 
@@ -23,6 +23,7 @@ def test_runtime_status_snapshot_reports_ready_with_queue_stats(mocker):
                 "RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS": 0.0,
                 "RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT": 0,
                 "RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_RECENT_RECOVERY_LIMIT": 2,
             },
         )(),
     )
@@ -57,6 +58,19 @@ def test_runtime_status_snapshot_reports_ready_with_queue_stats(mocker):
         ),
     )
     mocker.patch(
+        "app.services.runtime_status_service.compute_job_store.list_recent_recoveries",
+        return_value=[
+            ComputeRecoveryEvent(
+                calculation_id="calc-recovered",
+                analytics_type="ReturnsSeries",
+                recovery_kind="retryable_failure",
+                recovered_at_utc="2026-03-14T00:00:00Z",
+                attempt_count=1,
+                error_type="RuntimeError",
+            )
+        ],
+    )
+    mocker.patch(
         "app.services.runtime_status_service.lineage_metadata_store.get_pending_payload_stats",
         return_value=LineageQueueStats(
             pending_payload_count=6,
@@ -75,6 +89,18 @@ def test_runtime_status_snapshot_reports_ready_with_queue_stats(mocker):
             latest_terminal_failure_calculation_id="lineage-failed",
             latest_recovered_calculation_id="lineage-recovered",
         ),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.lineage_metadata_store.list_recent_recoveries",
+        return_value=[
+            LineageRecoveryEvent(
+                calculation_id="lineage-recovered",
+                calculation_type="TWR",
+                recovery_kind="retryable_materialization_failure",
+                recovered_at_utc="2026-03-14T00:00:01Z",
+                attempt_count=2,
+            )
+        ],
     )
     mocker.patch(
         "app.services.runtime_status_service.build_recovery_drill_history_snapshot",
@@ -112,6 +138,8 @@ def test_runtime_status_snapshot_reports_ready_with_queue_stats(mocker):
     assert snapshot.compute_queue.inspection_anchors is not None
     assert snapshot.compute_queue.inspection_anchors.oldest_running_calculation_id == "calc-running"
     assert snapshot.compute_queue.inspection_anchors.latest_recovered_calculation_id == "calc-recovered"
+    assert len(snapshot.compute_queue.recent_recoveries) == 1
+    assert snapshot.compute_queue.recent_recoveries[0].calculation_id == "calc-recovered"
     assert snapshot.lineage_queue.status == "available"
     assert snapshot.lineage_queue.degradation_reasons == ()
     assert snapshot.lineage_queue.degradation_details == ()
@@ -122,6 +150,8 @@ def test_runtime_status_snapshot_reports_ready_with_queue_stats(mocker):
     assert snapshot.lineage_queue.inspection_anchors is not None
     assert snapshot.lineage_queue.inspection_anchors.latest_terminal_failure_calculation_id == "lineage-failed"
     assert snapshot.lineage_queue.inspection_anchors.latest_recovered_calculation_id == "lineage-recovered"
+    assert len(snapshot.lineage_queue.recent_recoveries) == 1
+    assert snapshot.lineage_queue.recent_recoveries[0].calculation_id == "lineage-recovered"
     assert isinstance(snapshot.generated_at, datetime)
     assert snapshot.generated_at.tzinfo == UTC
     assert snapshot.recovery_drill.status == "available"

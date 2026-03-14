@@ -288,6 +288,38 @@ def test_lineage_metadata_store_queue_inspection_anchors(tmp_path):
     assert anchors.latest_recovered_calculation_id == str(recovered_id)
 
 
+def test_lineage_metadata_store_lists_recent_recoveries_in_descending_order(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    now = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+    first_id = uuid4()
+    second_id = uuid4()
+
+    for calculation_id in [first_id, second_id]:
+        store.enqueue_lineage_payload(
+            calculation_id=calculation_id,
+            calculation_type="TWR",
+            request_json="{}",
+            response_json="{}",
+            details={"details.json": "{}"},
+        )
+        store.increment_attempt_count(calculation_id)
+        store.mark_pending(calculation_id)
+
+    with store._session() as session:
+        first_record = session.get(LineageRecordModel, str(first_id))
+        second_record = session.get(LineageRecordModel, str(second_id))
+        assert first_record is not None
+        assert second_record is not None
+        first_record.timestamp_utc = now - timedelta(seconds=10)
+        second_record.timestamp_utc = now - timedelta(seconds=5)
+
+    events = store.list_recent_recoveries(limit=5)
+
+    assert [event.calculation_id for event in events] == [str(second_id), str(first_id)]
+    assert all(event.recovery_kind == "retryable_materialization_failure" for event in events)
+
+
 def test_lineage_metadata_store_lists_active_and_failed_inspection_items(tmp_path):
     store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
     store.create_schema()
