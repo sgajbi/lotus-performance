@@ -59,6 +59,7 @@ no-alias-gate:
 
 migration-smoke:
 	python scripts/migration_contract_check.py --mode durable-schema
+	python scripts/durable_schema_inventory_check.py
 
 migration-apply:
 	python scripts/migration_contract_check.py --mode durable-schema
