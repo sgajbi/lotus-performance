@@ -72,8 +72,19 @@ async def get_lineage_data(calculation_id: UUID, request: Request):
         if not os.path.exists(manifest_path):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lineage manifest not found.")
 
-        with open(manifest_path, "r") as f:
-            manifest_data = json.load(f)
+        try:
+            with open(manifest_path, "r", encoding="utf-8") as f:
+                manifest_data = json.load(f)
+        except OSError:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Lineage manifest is unreadable.",
+            ) from None
+        except json.JSONDecodeError:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Lineage manifest is invalid.",
+            ) from None
 
         for filename in record.artifact_names:
             if filename != "manifest.json":

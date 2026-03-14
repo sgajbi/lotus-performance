@@ -106,6 +106,22 @@ def test_get_lineage_internal_error_returns_500(client, mocker):
     assert "Failed to retrieve lineage artifacts" in response.json()["detail"]
 
 
+def test_get_lineage_invalid_manifest_returns_503(client):
+    calculation_id = uuid4()
+    lineage_metadata_store.create_pending_record(calculation_id=calculation_id, calculation_type="TWR")
+    lineage_metadata_store.mark_complete(calculation_id=calculation_id, artifact_names=["request.json"])
+    lineage_dir = os.path.join(settings.LINEAGE_STORAGE_PATH, str(calculation_id))
+    os.makedirs(lineage_dir, exist_ok=True)
+
+    manifest_path = os.path.join(lineage_dir, "manifest.json")
+    with open(manifest_path, "w", encoding="utf-8") as f:
+        f.write("{not-json")
+
+    response = client.get(f"/performance/lineage/{calculation_id}")
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Lineage manifest is invalid."
+
+
 def test_get_lineage_pending_returns_pending_status(client):
     calculation_id = uuid4()
     lineage_metadata_store.create_pending_record(calculation_id=calculation_id, calculation_type="TWR")
