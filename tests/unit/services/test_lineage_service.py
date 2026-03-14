@@ -250,3 +250,18 @@ def test_lineage_service_rejects_unsafe_artifact_filename_on_materialize(tmp_pat
     record = metadata_store.get_record(calc_id)
     assert record is not None
     assert record.status == LineageStatus.PENDING
+
+
+def test_lineage_service_atomic_write_does_not_leave_partial_target(tmp_path, mocker):
+    target_path = tmp_path / "artifact.json"
+
+    def _failing_replace(src, dst):
+        raise OSError("replace failed")
+
+    mocker.patch("app.services.lineage_service.os.replace", side_effect=_failing_replace)
+
+    with pytest.raises(OSError, match="replace failed"):
+        LineageService._write_text_atomic(str(target_path), '{"status":"complete"}')
+
+    assert not target_path.exists()
+    assert list(tmp_path.glob(".lineage-*.tmp")) == []

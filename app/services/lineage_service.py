@@ -2,6 +2,7 @@
 import json
 import logging
 import os
+import tempfile
 from io import StringIO
 from pathlib import PurePath
 from typing import Dict
@@ -70,18 +71,15 @@ class LineageService:
             self._ensure_storage_directory()
             target_dir = os.path.join(self.storage_path, str(calculation_id))
             if not os.path.exists(target_dir):
-                os.makedirs(target_dir)
+                os.makedirs(target_dir, exist_ok=True)
 
-            with open(os.path.join(target_dir, "request.json"), "w") as f:
-                f.write(request_json)
+            self._write_text_atomic(os.path.join(target_dir, "request.json"), request_json)
 
-            with open(os.path.join(target_dir, "response.json"), "w") as f:
-                f.write(response_json)
+            self._write_text_atomic(os.path.join(target_dir, "response.json"), response_json)
 
             for filename, csv_payload in calculation_details.items():
                 safe_filename = self._validate_artifact_filename(filename)
-                with open(os.path.join(target_dir, safe_filename), "w") as f:
-                    f.write(csv_payload)
+                self._write_text_atomic(os.path.join(target_dir, safe_filename), csv_payload)
 
             artifact_names = [
                 "request.json",
@@ -89,16 +87,17 @@ class LineageService:
                 *(self._validate_artifact_filename(filename) for filename in calculation_details.keys()),
             ]
             manifest_data = self._metadata_store.get_record(calculation_id)
-            with open(os.path.join(target_dir, "manifest.json"), "w") as f:
-                json.dump(
+            self._write_text_atomic(
+                os.path.join(target_dir, "manifest.json"),
+                json.dumps(
                     {
                         "calculation_type": calculation_type,
                         "timestamp_utc": manifest_data.timestamp_utc if manifest_data else None,
                         "status": "complete",
                     },
-                    f,
                     indent=2,
-                )
+                ),
+            )
 
             self._metadata_store.mark_complete(calculation_id=calculation_id, artifact_names=artifact_names)
             self._metadata_store.delete_payload(calculation_id)
@@ -134,6 +133,22 @@ class LineageService:
             df.to_csv(buffer, index=False)
             serialized[safe_filename] = buffer.getvalue()
         return serialized
+
+    @staticmethod
+    def _write_text_atomic(path: str, content: str) -> None:
+        directory = os.path.dirname(path)
+        os.makedirs(directory, exist_ok=True)
+        fd, temp_path = tempfile.mkstemp(dir=directory, prefix=".lineage-", suffix=".tmp", text=True)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8", newline="") as handle:
+                handle.write(content)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temp_path, path)
+        except Exception:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+            raise
 
     @staticmethod
     def _validate_artifact_filename(filename: str) -> str:
