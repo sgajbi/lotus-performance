@@ -70,7 +70,7 @@ def test_runtime_status_reports_durable_queue_state():
     assert body["lineage_queue"]["inspection_anchors"]["oldest_pending_calculation_id"] is not None
     assert body["lineage_queue"]["inspection_anchors"].get("oldest_leased_calculation_id") is None
     assert body["recovery_drill"]["status"] == "available"
-    assert "latest_status" in body["recovery_drill"]
+    assert body["recovery_drill"]["degradation_reasons"] == []
     assert body["recovery_drill_policy"]["max_age_seconds"] >= 0.0
 
 
