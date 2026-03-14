@@ -70,6 +70,18 @@ class RuntimeWorkItemsResponse(BaseModel):
     limit: int = Field(description="Maximum number of work items returned per queue.")
     offset: int = Field(description="Zero-based page offset applied per queue before limiting results.")
     min_age_seconds: float = Field(description="Minimum work-item age filter applied after durable ordering for this snapshot.")
+    compute_analytics_type: str | None = Field(
+        default=None,
+        description="Optional compute analytics-type filter applied to compute work-item inspection.",
+    )
+    lineage_calculation_type: str | None = Field(
+        default=None,
+        description="Optional lineage calculation-type filter applied to lineage work-item inspection.",
+    )
+    calculation_id_contains: str | None = Field(
+        default=None,
+        description="Optional substring filter applied to calculation identifiers in both selected queues.",
+    )
     durable_metadata_store: DurableMetadataStoreStatusResponse = Field(
         description="Availability of the durable metadata store backing compute and lineage work items.",
     )
@@ -99,6 +111,9 @@ def build_runtime_work_items_response(snapshot: RuntimeWorkItemSnapshot) -> Runt
         limit=snapshot.limit,
         offset=snapshot.offset,
         min_age_seconds=snapshot.min_age_seconds,
+        compute_analytics_type=snapshot.compute_analytics_type,
+        lineage_calculation_type=snapshot.lineage_calculation_type,
+        calculation_id_contains=snapshot.calculation_id_contains,
         durable_metadata_store=DurableMetadataStoreStatusResponse(
             status=snapshot.durable_metadata_store.status,
             reason=snapshot.durable_metadata_store.reason,

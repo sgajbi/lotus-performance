@@ -127,10 +127,14 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - `limit`: max items returned per queue
   - `offset`: zero-based page offset applied per queue
   - `min_age_seconds`: optional stale-item filter for operator triage
+  - `compute_analytics_type`: optional compute-only analytics family filter
+  - `lineage_calculation_type`: optional lineage-only calculation family filter
+  - `calculation_id_contains`: optional calculation-handle substring filter across selected queues
 - response includes:
   - durable metadata store availability
   - queue-specific availability for compute and lineage inspection
   - queue-specific `total_count` and `returned_count`
+  - echoed targeted filters for operator auditability
   - filtered compute work items with calculation handle, lifecycle state, age, attempts, and failure context
   - filtered lineage work items with calculation handle, lifecycle state, age, attempts, and failure context
 - use this when runtime-status tells you there is pressure, and you need the actual work items behind it without querying the database directly

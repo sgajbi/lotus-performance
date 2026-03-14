@@ -513,6 +513,8 @@ class ComputeJobStore:
         limit: int,
         offset: int = 0,
         min_age_seconds: float = 0.0,
+        analytics_type: str | None = None,
+        calculation_id_contains: str | None = None,
         now: datetime | None = None,
     ) -> ComputeQueueInspectionPage:
         inspection_now = now or datetime.now(timezone.utc)
@@ -520,14 +522,38 @@ class ComputeJobStore:
 
         with self._session() as session:
             if normalized_status_filter == "active":
-                count_statement = self._build_active_inspection_count_statement()
-                statement = self._build_active_inspection_items_statement(limit=limit, offset=offset)
+                count_statement = self._build_active_inspection_count_statement(
+                    analytics_type=analytics_type,
+                    calculation_id_contains=calculation_id_contains,
+                )
+                statement = self._build_active_inspection_items_statement(
+                    limit=limit,
+                    offset=offset,
+                    analytics_type=analytics_type,
+                    calculation_id_contains=calculation_id_contains,
+                )
             elif normalized_status_filter == "failed":
-                count_statement = self._build_failed_inspection_count_statement()
-                statement = self._build_failed_inspection_items_statement(limit=limit, offset=offset)
+                count_statement = self._build_failed_inspection_count_statement(
+                    analytics_type=analytics_type,
+                    calculation_id_contains=calculation_id_contains,
+                )
+                statement = self._build_failed_inspection_items_statement(
+                    limit=limit,
+                    offset=offset,
+                    analytics_type=analytics_type,
+                    calculation_id_contains=calculation_id_contains,
+                )
             elif normalized_status_filter == "all":
-                count_statement = self._build_all_inspection_count_statement()
-                statement = self._build_all_inspection_items_statement(limit=limit, offset=offset)
+                count_statement = self._build_all_inspection_count_statement(
+                    analytics_type=analytics_type,
+                    calculation_id_contains=calculation_id_contains,
+                )
+                statement = self._build_all_inspection_items_statement(
+                    limit=limit,
+                    offset=offset,
+                    analytics_type=analytics_type,
+                    calculation_id_contains=calculation_id_contains,
+                )
             else:
                 raise ValueError(f"Unsupported status filter: {status_filter}")
             rows = session.execute(statement).scalars().all()
@@ -617,13 +643,27 @@ class ComputeJobStore:
             .label("latest_terminal_failure_calculation_id"),
         )
 
-    def _build_active_inspection_items_statement(self, *, limit: int, offset: int):
+    def _apply_inspection_filters(self, statement, *, analytics_type: str | None, calculation_id_contains: str | None):
+        if analytics_type is not None:
+            statement = statement.where(ComputeJobModel.analytics_type == analytics_type)
+        if calculation_id_contains:
+            statement = statement.where(ComputeJobModel.calculation_id.contains(calculation_id_contains))
+        return statement
+
+    def _build_active_inspection_items_statement(
+        self,
+        *,
+        limit: int,
+        offset: int,
+        analytics_type: str | None,
+        calculation_id_contains: str | None,
+    ):
         active_since = case(
             (ComputeJobModel.job_status == ComputeJobStatus.RUNNING.value, ComputeJobModel.started_at_utc),
             (ComputeJobModel.job_status == ComputeJobStatus.LEASED.value, ComputeJobModel.leased_at_utc),
             else_=ComputeJobModel.created_at_utc,
         )
-        return (
+        statement = (
             select(ComputeJobModel)
             .where(
                 ComputeJobModel.job_status.in_(
@@ -638,32 +678,61 @@ class ComputeJobStore:
             .offset(offset)
             .limit(limit)
         )
+        return self._apply_inspection_filters(
+            statement,
+            analytics_type=analytics_type,
+            calculation_id_contains=calculation_id_contains,
+        )
 
-    def _build_failed_inspection_items_statement(self, *, limit: int, offset: int):
-        return (
+    def _build_failed_inspection_items_statement(
+        self,
+        *,
+        limit: int,
+        offset: int,
+        analytics_type: str | None,
+        calculation_id_contains: str | None,
+    ):
+        statement = (
             select(ComputeJobModel)
             .where(ComputeJobModel.job_status == ComputeJobStatus.FAILED.value)
             .order_by(ComputeJobModel.completed_at_utc.desc(), ComputeJobModel.created_at_utc.desc())
             .offset(offset)
             .limit(limit)
         )
+        return self._apply_inspection_filters(
+            statement,
+            analytics_type=analytics_type,
+            calculation_id_contains=calculation_id_contains,
+        )
 
-    def _build_all_inspection_items_statement(self, *, limit: int, offset: int):
+    def _build_all_inspection_items_statement(
+        self,
+        *,
+        limit: int,
+        offset: int,
+        analytics_type: str | None,
+        calculation_id_contains: str | None,
+    ):
         active_since = case(
             (ComputeJobModel.job_status == ComputeJobStatus.RUNNING.value, ComputeJobModel.started_at_utc),
             (ComputeJobModel.job_status == ComputeJobStatus.LEASED.value, ComputeJobModel.leased_at_utc),
             (ComputeJobModel.job_status == ComputeJobStatus.FAILED.value, ComputeJobModel.completed_at_utc),
             else_=ComputeJobModel.created_at_utc,
         )
-        return (
+        statement = (
             select(ComputeJobModel)
             .order_by(active_since.asc().nullslast(), ComputeJobModel.created_at_utc.asc())
             .offset(offset)
             .limit(limit)
         )
+        return self._apply_inspection_filters(
+            statement,
+            analytics_type=analytics_type,
+            calculation_id_contains=calculation_id_contains,
+        )
 
-    def _build_active_inspection_count_statement(self):
-        return select(func.count()).select_from(ComputeJobModel).where(
+    def _build_active_inspection_count_statement(self, *, analytics_type: str | None, calculation_id_contains: str | None):
+        statement = select(func.count()).select_from(ComputeJobModel).where(
             ComputeJobModel.job_status.in_(
                 [
                     ComputeJobStatus.PENDING.value,
@@ -672,14 +741,29 @@ class ComputeJobStore:
                 ]
             )
         )
-
-    def _build_failed_inspection_count_statement(self):
-        return select(func.count()).select_from(ComputeJobModel).where(
-            ComputeJobModel.job_status == ComputeJobStatus.FAILED.value
+        return self._apply_inspection_filters(
+            statement,
+            analytics_type=analytics_type,
+            calculation_id_contains=calculation_id_contains,
         )
 
-    def _build_all_inspection_count_statement(self):
-        return select(func.count()).select_from(ComputeJobModel)
+    def _build_failed_inspection_count_statement(self, *, analytics_type: str | None, calculation_id_contains: str | None):
+        statement = select(func.count()).select_from(ComputeJobModel).where(
+            ComputeJobModel.job_status == ComputeJobStatus.FAILED.value
+        )
+        return self._apply_inspection_filters(
+            statement,
+            analytics_type=analytics_type,
+            calculation_id_contains=calculation_id_contains,
+        )
+
+    def _build_all_inspection_count_statement(self, *, analytics_type: str | None, calculation_id_contains: str | None):
+        statement = select(func.count()).select_from(ComputeJobModel)
+        return self._apply_inspection_filters(
+            statement,
+            analytics_type=analytics_type,
+            calculation_id_contains=calculation_id_contains,
+        )
 
     def _get_model(self, session: Session, calculation_id: UUID) -> ComputeJobModel:
         row = session.get(ComputeJobModel, str(calculation_id))

@@ -66,6 +66,9 @@ def test_runtime_work_items_reports_active_compute_and_lineage_items():
         assert body["limit"] == 10
         assert body["offset"] == 0
         assert body["min_age_seconds"] == 0.0
+        assert "compute_analytics_type" not in body
+        assert "lineage_calculation_type" not in body
+        assert "calculation_id_contains" not in body
         assert body["durable_metadata_store"]["status"] == "ready"
         assert body["compute_queue"]["status"] == "available"
         assert body["compute_queue"]["total_count"] == 2
@@ -215,6 +218,72 @@ def test_runtime_work_items_supports_queue_offset_and_age_filters():
         assert body["compute_queue"]["returned_count"] == 1
         assert [item["calculation_id"] for item in body["compute_items"]] == [str(compute_ids[1])]
         assert body["lineage_queue"] == {"status": "excluded", "total_count": 0, "returned_count": 0}
+        assert body["lineage_items"] == []
+    finally:
+        compute_job_store.clear_all_records()
+        lineage_metadata_store.clear_all_records()
+
+
+def test_runtime_work_items_supports_targeted_type_and_calculation_filters():
+    compute_job_store.create_schema()
+    lineage_metadata_store.create_schema()
+    compute_job_store.clear_all_records()
+    lineage_metadata_store.clear_all_records()
+
+    matching_compute_id = uuid4()
+    other_compute_id = uuid4()
+    matching_lineage_id = uuid4()
+    other_lineage_id = uuid4()
+    match_fragment = str(matching_compute_id)[:8]
+
+    compute_job_store.enqueue_job(
+        calculation_id=matching_compute_id,
+        analytics_type="Attribution",
+        request_payload={"portfolio_id": "PF-1"},
+        max_attempts=3,
+    )
+    compute_job_store.enqueue_job(
+        calculation_id=other_compute_id,
+        analytics_type="Contribution",
+        request_payload={"portfolio_id": "PF-2"},
+        max_attempts=3,
+    )
+    lineage_metadata_store.enqueue_lineage_payload(
+        calculation_id=matching_lineage_id,
+        calculation_type="Attribution",
+        request_json="{}",
+        response_json="{}",
+        details={"details.json": "{}"},
+    )
+    lineage_metadata_store.enqueue_lineage_payload(
+        calculation_id=other_lineage_id,
+        calculation_type="TWR",
+        request_json="{}",
+        response_json="{}",
+        details={"details.json": "{}"},
+    )
+
+    try:
+        with TestClient(app) as client:
+            response = client.get(
+                "/integration/runtime-work-items",
+                params={
+                    "queue": "both",
+                    "status": "all",
+                    "compute_analytics_type": "Attribution",
+                    "lineage_calculation_type": "Attribution",
+                    "calculation_id_contains": match_fragment,
+                },
+            )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["compute_analytics_type"] == "Attribution"
+        assert body["lineage_calculation_type"] == "Attribution"
+        assert body["calculation_id_contains"] == match_fragment
+        assert body["compute_queue"]["total_count"] == 1
+        assert body["lineage_queue"]["total_count"] == 0
+        assert [item["calculation_id"] for item in body["compute_items"]] == [str(matching_compute_id)]
         assert body["lineage_items"] == []
     finally:
         compute_job_store.clear_all_records()

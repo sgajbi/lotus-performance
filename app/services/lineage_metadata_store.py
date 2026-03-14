@@ -367,6 +367,8 @@ class LineageMetadataStore:
         limit: int,
         offset: int = 0,
         min_age_seconds: float = 0.0,
+        calculation_type: str | None = None,
+        calculation_id_contains: str | None = None,
         now: datetime | None = None,
     ) -> LineageQueueInspectionPage:
         inspection_now = now or datetime.now(timezone.utc)
@@ -374,14 +376,40 @@ class LineageMetadataStore:
 
         with self._session() as session:
             if normalized_status_filter == "active":
-                count_statement = self._build_active_inspection_count_statement()
-                statement = self._build_active_inspection_items_statement(now=inspection_now, limit=limit, offset=offset)
+                count_statement = self._build_active_inspection_count_statement(
+                    calculation_type=calculation_type,
+                    calculation_id_contains=calculation_id_contains,
+                )
+                statement = self._build_active_inspection_items_statement(
+                    now=inspection_now,
+                    limit=limit,
+                    offset=offset,
+                    calculation_type=calculation_type,
+                    calculation_id_contains=calculation_id_contains,
+                )
             elif normalized_status_filter == "failed":
-                count_statement = self._build_failed_inspection_count_statement()
-                statement = self._build_failed_inspection_items_statement(limit=limit, offset=offset)
+                count_statement = self._build_failed_inspection_count_statement(
+                    calculation_type=calculation_type,
+                    calculation_id_contains=calculation_id_contains,
+                )
+                statement = self._build_failed_inspection_items_statement(
+                    limit=limit,
+                    offset=offset,
+                    calculation_type=calculation_type,
+                    calculation_id_contains=calculation_id_contains,
+                )
             elif normalized_status_filter == "all":
-                count_statement = self._build_all_inspection_count_statement()
-                statement = self._build_all_inspection_items_statement(now=inspection_now, limit=limit, offset=offset)
+                count_statement = self._build_all_inspection_count_statement(
+                    calculation_type=calculation_type,
+                    calculation_id_contains=calculation_id_contains,
+                )
+                statement = self._build_all_inspection_items_statement(
+                    now=inspection_now,
+                    limit=limit,
+                    offset=offset,
+                    calculation_type=calculation_type,
+                    calculation_id_contains=calculation_id_contains,
+                )
             else:
                 raise ValueError(f"Unsupported status filter: {status_filter}")
             rows = session.execute(statement).all()
@@ -482,23 +510,68 @@ class LineageMetadataStore:
             failed_lookup.label("latest_terminal_failure_calculation_id"),
         )
 
-    def _build_active_inspection_count_statement(self):
-        return (
+    def _apply_inspection_filters(self, statement, *, calculation_type: str | None, calculation_id_contains: str | None):
+        if calculation_type is not None:
+            statement = statement.where(LineageRecordModel.calculation_type == calculation_type)
+        if calculation_id_contains:
+            statement = statement.where(LineageRecordModel.calculation_id.contains(calculation_id_contains))
+        return statement
+
+    def _build_active_inspection_count_statement(
+        self,
+        *,
+        calculation_type: str | None,
+        calculation_id_contains: str | None,
+    ):
+        statement = (
             select(func.count())
             .select_from(LineageRecordModel)
             .join(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
             .where(LineageRecordModel.status == LineageStatus.PENDING.value)
         )
-
-    def _build_failed_inspection_count_statement(self):
-        return select(func.count()).select_from(LineageRecordModel).where(
-            LineageRecordModel.status == LineageStatus.FAILED.value
+        return self._apply_inspection_filters(
+            statement,
+            calculation_type=calculation_type,
+            calculation_id_contains=calculation_id_contains,
         )
 
-    def _build_all_inspection_count_statement(self):
-        return select(func.count()).select_from(LineageRecordModel)
+    def _build_failed_inspection_count_statement(
+        self,
+        *,
+        calculation_type: str | None,
+        calculation_id_contains: str | None,
+    ):
+        statement = select(func.count()).select_from(LineageRecordModel).where(
+            LineageRecordModel.status == LineageStatus.FAILED.value
+        )
+        return self._apply_inspection_filters(
+            statement,
+            calculation_type=calculation_type,
+            calculation_id_contains=calculation_id_contains,
+        )
 
-    def _build_active_inspection_items_statement(self, *, now: datetime, limit: int, offset: int):
+    def _build_all_inspection_count_statement(
+        self,
+        *,
+        calculation_type: str | None,
+        calculation_id_contains: str | None,
+    ):
+        statement = select(func.count()).select_from(LineageRecordModel)
+        return self._apply_inspection_filters(
+            statement,
+            calculation_type=calculation_type,
+            calculation_id_contains=calculation_id_contains,
+        )
+
+    def _build_active_inspection_items_statement(
+        self,
+        *,
+        now: datetime,
+        limit: int,
+        offset: int,
+        calculation_type: str | None,
+        calculation_id_contains: str | None,
+    ):
         active_since = case(
             (
                 (LineagePayloadModel.leased_at_utc.is_not(None))
@@ -510,7 +583,7 @@ class LineageMetadataStore:
             ),
             else_=LineagePayloadModel.created_at_utc,
         )
-        return (
+        statement = (
             select(LineageRecordModel, LineagePayloadModel)
             .join(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
             .where(LineageRecordModel.status == LineageStatus.PENDING.value)
@@ -518,9 +591,21 @@ class LineageMetadataStore:
             .offset(offset)
             .limit(limit)
         )
+        return self._apply_inspection_filters(
+            statement,
+            calculation_type=calculation_type,
+            calculation_id_contains=calculation_id_contains,
+        )
 
-    def _build_failed_inspection_items_statement(self, *, limit: int, offset: int):
-        return (
+    def _build_failed_inspection_items_statement(
+        self,
+        *,
+        limit: int,
+        offset: int,
+        calculation_type: str | None,
+        calculation_id_contains: str | None,
+    ):
+        statement = (
             select(LineageRecordModel, LineagePayloadModel)
             .outerjoin(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
             .where(LineageRecordModel.status == LineageStatus.FAILED.value)
@@ -528,8 +613,21 @@ class LineageMetadataStore:
             .offset(offset)
             .limit(limit)
         )
+        return self._apply_inspection_filters(
+            statement,
+            calculation_type=calculation_type,
+            calculation_id_contains=calculation_id_contains,
+        )
 
-    def _build_all_inspection_items_statement(self, *, now: datetime, limit: int, offset: int):
+    def _build_all_inspection_items_statement(
+        self,
+        *,
+        now: datetime,
+        limit: int,
+        offset: int,
+        calculation_type: str | None,
+        calculation_id_contains: str | None,
+    ):
         active_since = case(
             (LineageRecordModel.status == LineageStatus.FAILED.value, LineageRecordModel.timestamp_utc),
             (
@@ -542,12 +640,17 @@ class LineageMetadataStore:
             ),
             else_=LineagePayloadModel.created_at_utc,
         )
-        return (
+        statement = (
             select(LineageRecordModel, LineagePayloadModel)
             .outerjoin(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
             .order_by(active_since.asc().nullslast(), LineageRecordModel.timestamp_utc.asc())
             .offset(offset)
             .limit(limit)
+        )
+        return self._apply_inspection_filters(
+            statement,
+            calculation_type=calculation_type,
+            calculation_id_contains=calculation_id_contains,
         )
 
     def _build_lease_pending_payloads_statement(self, *, now: datetime, limit: int, dialect_name: str):

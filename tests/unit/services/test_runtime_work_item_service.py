@@ -36,7 +36,14 @@ def test_runtime_work_item_snapshot_reports_partial_queue_failure(mocker):
     )
 
     snapshot = build_runtime_work_item_snapshot(
-        queue_filter="both", status_filter="active", limit=5, offset=0, min_age_seconds=0.0
+        queue_filter="both",
+        status_filter="active",
+        limit=5,
+        offset=0,
+        min_age_seconds=0.0,
+        compute_analytics_type=None,
+        lineage_calculation_type=None,
+        calculation_id_contains=None,
     )
 
     assert snapshot.compute_queue.status == "unavailable"
@@ -60,7 +67,14 @@ def test_runtime_work_item_snapshot_reports_unavailable_when_durable_store_is_do
     )
 
     snapshot = build_runtime_work_item_snapshot(
-        queue_filter="both", status_filter="failed", limit=10, offset=0, min_age_seconds=0.0
+        queue_filter="both",
+        status_filter="failed",
+        limit=10,
+        offset=0,
+        min_age_seconds=0.0,
+        compute_analytics_type=None,
+        lineage_calculation_type=None,
+        calculation_id_contains=None,
     )
 
     assert snapshot.durable_metadata_store.status == "unavailable"
@@ -96,12 +110,22 @@ def test_runtime_work_item_snapshot_excludes_unselected_queue(mocker):
     )
 
     snapshot = build_runtime_work_item_snapshot(
-        queue_filter="lineage", status_filter="failed", limit=5, offset=3, min_age_seconds=60.0
+        queue_filter="lineage",
+        status_filter="failed",
+        limit=5,
+        offset=3,
+        min_age_seconds=60.0,
+        compute_analytics_type="Contribution",
+        lineage_calculation_type="TWR",
+        calculation_id_contains="calc",
     )
 
     compute_list.assert_not_called()
     assert snapshot.queue_filter == "lineage"
     assert snapshot.offset == 3
     assert snapshot.min_age_seconds == 60.0
+    assert snapshot.compute_analytics_type == "Contribution"
+    assert snapshot.lineage_calculation_type == "TWR"
+    assert snapshot.calculation_id_contains == "calc"
     assert snapshot.compute_queue.status == "excluded"
     assert snapshot.compute_queue.total_count == 0

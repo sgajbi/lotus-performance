@@ -24,6 +24,9 @@ class RuntimeWorkItemSnapshot:
     limit: int
     offset: int
     min_age_seconds: float
+    compute_analytics_type: str | None
+    lineage_calculation_type: str | None
+    calculation_id_contains: str | None
     durable_metadata_store: DurabilityHealthStatus
     compute_queue: RuntimeWorkItemQueueState
     lineage_queue: RuntimeWorkItemQueueState
@@ -38,6 +41,9 @@ def build_runtime_work_item_snapshot(
     limit: int,
     offset: int,
     min_age_seconds: float,
+    compute_analytics_type: str | None,
+    lineage_calculation_type: str | None,
+    calculation_id_contains: str | None,
 ) -> RuntimeWorkItemSnapshot:
     generated_at = datetime.now(UTC)
     durability_status = check_durable_metadata_store_ready()
@@ -50,6 +56,9 @@ def build_runtime_work_item_snapshot(
             limit=limit,
             offset=offset,
             min_age_seconds=min_age_seconds,
+            compute_analytics_type=compute_analytics_type,
+            lineage_calculation_type=lineage_calculation_type,
+            calculation_id_contains=calculation_id_contains,
             durable_metadata_store=durability_status,
             compute_queue=RuntimeWorkItemQueueState(
                 status="unavailable",
@@ -76,6 +85,8 @@ def build_runtime_work_item_snapshot(
         limit=limit,
         offset=offset,
         min_age_seconds=min_age_seconds,
+        compute_analytics_type=compute_analytics_type,
+        calculation_id_contains=calculation_id_contains,
         generated_at=generated_at,
     )
     lineage_queue_state, lineage_items = _safe_lineage_items(
@@ -84,6 +95,8 @@ def build_runtime_work_item_snapshot(
         limit=limit,
         offset=offset,
         min_age_seconds=min_age_seconds,
+        lineage_calculation_type=lineage_calculation_type,
+        calculation_id_contains=calculation_id_contains,
         generated_at=generated_at,
     )
 
@@ -94,6 +107,9 @@ def build_runtime_work_item_snapshot(
         limit=limit,
         offset=offset,
         min_age_seconds=min_age_seconds,
+        compute_analytics_type=compute_analytics_type,
+        lineage_calculation_type=lineage_calculation_type,
+        calculation_id_contains=calculation_id_contains,
         durable_metadata_store=durability_status,
         compute_queue=compute_queue_state,
         lineage_queue=lineage_queue_state,
@@ -109,6 +125,8 @@ def _safe_compute_items(
     limit: int,
     offset: int,
     min_age_seconds: float,
+    compute_analytics_type: str | None,
+    calculation_id_contains: str | None,
     generated_at: datetime,
 ) -> tuple[RuntimeWorkItemQueueState, list[ComputeQueueInspectionItem]]:
     if not include_queue:
@@ -119,6 +137,8 @@ def _safe_compute_items(
             limit=limit,
             offset=offset,
             min_age_seconds=min_age_seconds,
+            analytics_type=compute_analytics_type,
+            calculation_id_contains=calculation_id_contains,
             now=generated_at,
         )
         return (
@@ -146,6 +166,8 @@ def _safe_lineage_items(
     limit: int,
     offset: int,
     min_age_seconds: float,
+    lineage_calculation_type: str | None,
+    calculation_id_contains: str | None,
     generated_at: datetime,
 ) -> tuple[RuntimeWorkItemQueueState, list[LineageQueueInspectionItem]]:
     if not include_queue:
@@ -156,6 +178,8 @@ def _safe_lineage_items(
             limit=limit,
             offset=offset,
             min_age_seconds=min_age_seconds,
+            calculation_type=lineage_calculation_type,
+            calculation_id_contains=calculation_id_contains,
             now=generated_at,
         )
         return (
