@@ -237,7 +237,7 @@ class LineageMetadataStore:
                 calculation_id=UUID(row.calculation_id),
                 calculation_type=row.calculation_type,
                 status=LineageStatus(row.status),
-                timestamp_utc=row.timestamp_utc.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
+                timestamp_utc=_format_timestamp(row.timestamp_utc) or "",
                 artifact_names=[name for name in row.artifact_names.splitlines() if name],
                 error_message=row.error_message,
             )
