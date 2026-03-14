@@ -8,7 +8,6 @@ from fastapi import HTTPException, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from app.services.async_result_store import async_result_store
 from app.services.compute_job_store import (
     ComputeJobRegistrationStatus,
     compute_job_store,
@@ -59,10 +58,6 @@ def register_async_submission_or_raise(
     offload_reason: str,
     accepted_response_factory: Callable[[UUID], BaseModel],
 ) -> JSONResponse:
-    execution_registry.create_schema()
-    compute_job_store.create_schema()
-    async_result_store.create_schema()
-
     registration = execution_registry.register_execution(
         calculation_id=calculation_id,
         analytics_type=analytics_type,
