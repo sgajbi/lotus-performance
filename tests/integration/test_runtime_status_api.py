@@ -154,6 +154,24 @@ def test_runtime_status_reports_unavailable_recovery_history_snapshot(mocker):
     assert "latest_status" not in body["recovery_drill"]
 
 
+def test_runtime_status_reports_unavailable_lineage_storage(mocker):
+    mocker.patch(
+        "app.services.runtime_status_service._check_lineage_storage_ready",
+        return_value=type("StorageStatus", (), {"is_ready": False, "reason": "lineage_storage_path_missing"})(),
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/integration/runtime-status")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["runtime_status"] == "degraded"
+    assert body["runtime_degradation_reasons"] == ["lineage_queue:lineage_storage_path_missing"]
+    assert body["lineage_queue"]["status"] == "unavailable"
+    assert body["lineage_queue"]["reason"] == "lineage_storage_path_missing"
+    assert "pending_payloads" not in body["lineage_queue"]
+
+
 def test_runtime_status_reports_degraded_when_compute_age_threshold_is_exceeded():
     settings = __import__("app.core.config", fromlist=["get_settings"]).get_settings()
     original_threshold = settings.RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS

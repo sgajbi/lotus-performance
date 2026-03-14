@@ -107,6 +107,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - aggregate `runtime_degradation_details`
   - draining state
   - durable metadata store availability
+  - lineage storage availability folded into `lineage_queue.status` / `lineage_queue.reason`
   - active compute and lineage degradation-policy thresholds
   - compute queue backlog details
   - oldest pending, leased, and running compute-job ages
@@ -124,6 +125,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - lineage `degradation_details`
   - lineage `degradation_reasons`
 - runtime may report `degraded` when configured queue-age or failure-pressure thresholds are exceeded
+- runtime also reports `degraded` when lineage storage is missing, invalid, or unreadable even if the durable DB remains healthy
 - use the inspection anchors to jump directly to:
   - `/performance/executions/{calculation_id}`
   - `/performance/lineage/{calculation_id}`
