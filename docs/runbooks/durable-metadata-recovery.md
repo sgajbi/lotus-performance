@@ -48,6 +48,7 @@ Recovery must include:
 ## Post-Restore Validation
 
 - `make migration-smoke`
+- `python scripts/durable_recovery_drill.py --output artifacts/durable-recovery-drill/latest.json`
 - `GET /health/ready`
 - `GET /integration/runtime-status`
 - verify durable execution polling for a known `calculation_id`
@@ -65,3 +66,4 @@ Recovery must include:
 - schema bootstrap/upgrade output
 - readiness result after restore
 - runtime-status snapshot after worker restart
+- structured recovery evidence JSON from `scripts/durable_recovery_drill.py`

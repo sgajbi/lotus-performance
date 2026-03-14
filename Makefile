@@ -1,4 +1,4 @@
-.PHONY: install check check-all test test-unit test-integration test-e2e test-all ci ci-local ci-local-docker ci-local-docker-down typecheck lint monetary-float-guard format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate migration-smoke migration-apply pre-commit docker-up docker-down docker-build
+.PHONY: install check check-all test test-unit test-integration test-e2e test-all ci ci-local ci-local-docker ci-local-docker-down typecheck lint monetary-float-guard format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate migration-smoke migration-apply recovery-drill-smoke pre-commit docker-up docker-down docker-build
 
 install:
 	pip install -r requirements.txt
@@ -61,6 +61,10 @@ migration-smoke:
 	python scripts/migration_contract_check.py --mode durable-schema
 	python scripts/durable_schema_inventory_check.py
 	python scripts/durable_recovery_runbook_check.py
+	$(MAKE) recovery-drill-smoke
+
+recovery-drill-smoke:
+	python scripts/durable_recovery_drill.py --output artifacts/durable-recovery-drill/latest.json
 
 migration-apply:
 	python scripts/migration_contract_check.py --mode durable-schema

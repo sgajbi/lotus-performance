@@ -12,6 +12,8 @@ REQUIRED_PHRASES = (
     "analytics_execution",
     "analytics_compute_job",
     "lineage_payloads",
+    "scripts/durable_recovery_drill.py",
+    "structured recovery evidence json",
     "/health/ready",
     "/integration/runtime-status",
     "forward-only",

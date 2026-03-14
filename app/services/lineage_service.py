@@ -10,7 +10,7 @@ import pandas as pd
 from pydantic import BaseModel
 
 from app.core.config import get_settings
-from app.services.execution_registry import execution_registry
+from app.services.execution_registry import ExecutionRegistry, execution_registry
 from app.services.lineage_metadata_store import LineageMetadataStore, lineage_metadata_store
 
 logger = logging.getLogger(__name__)
@@ -18,9 +18,15 @@ settings = get_settings()
 
 
 class LineageService:
-    def __init__(self, storage_path: str, metadata_store: LineageMetadataStore | None = None):
+    def __init__(
+        self,
+        storage_path: str,
+        metadata_store: LineageMetadataStore | None = None,
+        execution_store: ExecutionRegistry | None = None,
+    ):
         self.storage_path = storage_path
         self._metadata_store = metadata_store or lineage_metadata_store
+        self._execution_store = execution_store or execution_registry
         if not os.path.exists(self.storage_path):
             os.makedirs(self.storage_path)
             logger.info(f"Created lineage storage directory at: {self.storage_path}")
@@ -83,7 +89,7 @@ class LineageService:
             self._metadata_store.mark_complete(calculation_id=calculation_id, artifact_names=artifact_names)
             self._metadata_store.delete_payload(calculation_id)
             try:
-                execution_registry.complete_stage(
+                self._execution_store.complete_stage(
                     calculation_id,
                     "lineage_materialization",
                     details={"artifact_names": sorted(artifact_names)},

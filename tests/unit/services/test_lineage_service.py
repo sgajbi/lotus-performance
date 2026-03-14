@@ -160,3 +160,38 @@ def test_lineage_service_create_pending_record_passthrough(tmp_path):
     record = metadata_store.get_record(calc_id)
     assert record is not None
     assert record.status == LineageStatus.PENDING
+
+
+def test_lineage_service_uses_injected_execution_store_for_stage_completion(tmp_path, mocker):
+    metadata_store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    metadata_store.create_schema()
+    execution_store = mocker.Mock()
+    service = LineageService(
+        storage_path=str(tmp_path),
+        metadata_store=metadata_store,
+        execution_store=execution_store,
+    )
+    calc_id = uuid4()
+    req_model = MockModel(key="request")
+    res_model = MockModel(key="response")
+    details_df = pd.DataFrame([{"colA": 1, "colB": 2}])
+
+    service.enqueue_capture(
+        calculation_id=calc_id,
+        calculation_type="TEST",
+        request_model=req_model,
+        response_model=res_model,
+        calculation_details={"details.csv": details_df},
+    )
+    payload = metadata_store.list_pending_payloads(limit=10)[0]
+
+    success = service.materialize_payload(
+        calculation_id=payload.calculation_id,
+        calculation_type=payload.calculation_type,
+        request_json=payload.request_json,
+        response_json=payload.response_json,
+        calculation_details=payload.details,
+    )
+
+    assert success is True
+    execution_store.complete_stage.assert_called_once()
