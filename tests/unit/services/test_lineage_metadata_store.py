@@ -247,6 +247,53 @@ def test_lineage_metadata_store_queue_inspection_anchors(tmp_path):
     assert anchors.latest_terminal_failure_calculation_id == str(failed_id)
 
 
+def test_lineage_metadata_store_lists_active_and_failed_inspection_items(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    now = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+    pending_id = uuid4()
+    leased_id = uuid4()
+    failed_id = uuid4()
+
+    for calculation_id in [pending_id, leased_id, failed_id]:
+        store.enqueue_lineage_payload(
+            calculation_id=calculation_id,
+            calculation_type="TWR",
+            request_json="{}",
+            response_json="{}",
+            details={"details.json": "{}"},
+        )
+
+    store.mark_failed(failed_id, error_message="boom")
+
+    with store._session() as session:
+        pending_payload = session.get(LineagePayloadModel, str(pending_id))
+        leased_payload = session.get(LineagePayloadModel, str(leased_id))
+        failed_record = session.get(LineageRecordModel, str(failed_id))
+        assert pending_payload is not None
+        assert leased_payload is not None
+        assert failed_record is not None
+        pending_payload.created_at_utc = now - timedelta(seconds=120)
+        leased_payload.created_at_utc = now - timedelta(seconds=60)
+        leased_payload.leased_at_utc = now - timedelta(seconds=90)
+        leased_payload.lease_expires_at_utc = now + timedelta(seconds=30)
+        failed_record.timestamp_utc = now - timedelta(seconds=10)
+
+    active_items = store.list_inspection_items(status_filter="active", limit=10, now=now)
+    failed_items = store.list_inspection_items(status_filter="failed", limit=10, now=now)
+
+    assert [item.calculation_id for item in active_items] == [str(pending_id), str(leased_id)]
+    assert active_items[0].status == LineageStatus.PENDING.value
+    assert active_items[0].age_seconds == 120.0
+    assert active_items[1].status == "leased"
+    assert active_items[1].age_seconds == 90.0
+    assert len(failed_items) == 1
+    assert failed_items[0].calculation_id == str(failed_id)
+    assert failed_items[0].status == LineageStatus.FAILED.value
+    assert failed_items[0].error_message == "boom"
+    assert failed_items[0].age_seconds == 10.0
+
+
 def test_lineage_metadata_store_mark_pending_clears_error(tmp_path):
     store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
     store.create_schema()

@@ -115,6 +115,19 @@ class ComputeQueueInspectionAnchors:
 
 
 @dataclass(frozen=True)
+class ComputeQueueInspectionItem:
+    calculation_id: str
+    analytics_type: str
+    status: str
+    active_since_utc: str | None
+    age_seconds: float | None
+    attempt_count: int
+    max_attempts: int
+    error_type: str | None
+    error_message: str | None
+
+
+@dataclass(frozen=True)
 class ComputeJobRegistrationResult:
     status: ComputeJobRegistrationStatus
     existing_status: ComputeJobStatus | None = None
@@ -486,6 +499,29 @@ class ComputeJobStore:
                 latest_terminal_failure_calculation_id=row.latest_terminal_failure_calculation_id,
             )
 
+    def list_inspection_items(
+        self,
+        *,
+        status_filter: str,
+        limit: int,
+        now: datetime | None = None,
+    ) -> list[ComputeQueueInspectionItem]:
+        inspection_now = now or datetime.now(timezone.utc)
+        normalized_status_filter = status_filter.lower()
+
+        with self._session() as session:
+            if normalized_status_filter == "active":
+                rows = session.execute(self._build_active_inspection_items_statement(limit=limit)).scalars().all()
+            elif normalized_status_filter == "failed":
+                rows = session.execute(self._build_failed_inspection_items_statement(limit=limit)).scalars().all()
+            elif normalized_status_filter == "all":
+                active_rows = session.execute(self._build_active_inspection_items_statement(limit=limit)).scalars().all()
+                failed_rows = session.execute(self._build_failed_inspection_items_statement(limit=limit)).scalars().all()
+                rows = [*active_rows, *failed_rows][:limit]
+            else:
+                raise ValueError(f"Unsupported status filter: {status_filter}")
+            return [self._to_inspection_item(row, now=inspection_now) for row in rows]
+
     def _build_queue_stats_statement(self):
         return select(
             func.sum(case((ComputeJobModel.job_status == ComputeJobStatus.PENDING.value, 1), else_=0)).label(
@@ -566,6 +602,35 @@ class ComputeJobStore:
             .label("latest_terminal_failure_calculation_id"),
         )
 
+    def _build_active_inspection_items_statement(self, *, limit: int):
+        active_since = case(
+            (ComputeJobModel.job_status == ComputeJobStatus.RUNNING.value, ComputeJobModel.started_at_utc),
+            (ComputeJobModel.job_status == ComputeJobStatus.LEASED.value, ComputeJobModel.leased_at_utc),
+            else_=ComputeJobModel.created_at_utc,
+        )
+        return (
+            select(ComputeJobModel)
+            .where(
+                ComputeJobModel.job_status.in_(
+                    [
+                        ComputeJobStatus.PENDING.value,
+                        ComputeJobStatus.LEASED.value,
+                        ComputeJobStatus.RUNNING.value,
+                    ]
+                )
+            )
+            .order_by(active_since.asc(), ComputeJobModel.created_at_utc.asc())
+            .limit(limit)
+        )
+
+    def _build_failed_inspection_items_statement(self, *, limit: int):
+        return (
+            select(ComputeJobModel)
+            .where(ComputeJobModel.job_status == ComputeJobStatus.FAILED.value)
+            .order_by(ComputeJobModel.completed_at_utc.desc(), ComputeJobModel.created_at_utc.desc())
+            .limit(limit)
+        )
+
     def _get_model(self, session: Session, calculation_id: UUID) -> ComputeJobModel:
         row = session.get(ComputeJobModel, str(calculation_id))
         if row is None:
@@ -590,6 +655,31 @@ class ComputeJobStore:
             created_at_utc=_format_timestamp(row.created_at_utc) or "",
             started_at_utc=_format_timestamp(row.started_at_utc),
             completed_at_utc=_format_timestamp(row.completed_at_utc),
+        )
+
+    def _to_inspection_item(self, row: ComputeJobModel, *, now: datetime) -> ComputeQueueInspectionItem:
+        active_since = row.created_at_utc
+        if row.job_status == ComputeJobStatus.LEASED.value:
+            active_since = row.leased_at_utc or row.created_at_utc
+        elif row.job_status == ComputeJobStatus.RUNNING.value:
+            active_since = row.started_at_utc or row.leased_at_utc or row.created_at_utc
+        elif row.job_status == ComputeJobStatus.FAILED.value:
+            active_since = row.completed_at_utc or row.created_at_utc
+
+        age_seconds = None
+        if active_since is not None:
+            age_seconds = max(0.0, (now - _coerce_utc_datetime(active_since)).total_seconds())
+
+        return ComputeQueueInspectionItem(
+            calculation_id=row.calculation_id,
+            analytics_type=row.analytics_type,
+            status=row.job_status,
+            active_since_utc=_format_timestamp(active_since),
+            age_seconds=age_seconds,
+            attempt_count=row.attempt_count,
+            max_attempts=row.max_attempts,
+            error_type=row.error_type,
+            error_message=row.error_message,
         )
 
 

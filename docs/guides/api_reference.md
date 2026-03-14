@@ -118,6 +118,18 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - `/performance/executions/{calculation_id}`
   - `/performance/lineage/{calculation_id}`
 
+### `GET /integration/runtime-work-items`
+
+- purpose: return exact compute and lineage work items for operator drill-down
+- query parameters:
+  - `status`: `active`, `failed`, or `all`
+  - `limit`: max items returned per queue
+- response includes:
+  - durable metadata store availability
+  - filtered compute work items with calculation handle, lifecycle state, age, attempts, and failure context
+  - filtered lineage work items with calculation handle, lifecycle state, age, attempts, and failure context
+- use this when runtime-status tells you there is pressure, and you need the actual work items behind it without querying the database directly
+
 ### `POST /integration/returns/series`
 
 - purpose: return canonical portfolio, benchmark, and risk-free return series for downstream analytics
