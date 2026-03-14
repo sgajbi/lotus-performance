@@ -96,6 +96,8 @@ Severity and response defaults for those rules are governed in
 [runtime-alert-policy.md](/C:/Users/Sandeep/projects/lotus-performance/docs/standards/runtime-alert-policy.md).
 Recommended dev, staging, and production threshold values are governed in
 [runtime-threshold-profiles.md](/C:/Users/Sandeep/projects/lotus-performance/docs/standards/runtime-threshold-profiles.md).
+Concrete `.env` overlays for those profiles live under
+[`docs/examples/`](/C:/Users/Sandeep/projects/lotus-performance/docs/examples).
 
 For point-in-time operator drill-down, `GET /integration/runtime-status` exposes the same
 durable queue state as a JSON control-plane snapshot, including the oldest pending, leased,

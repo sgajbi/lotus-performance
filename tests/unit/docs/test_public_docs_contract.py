@@ -7,6 +7,10 @@ def _read(relative_path: str) -> str:
     return (REPO_ROOT / relative_path).read_text(encoding="utf-8")
 
 
+def _read_lines(relative_path: str) -> list[str]:
+    return _read(relative_path).splitlines()
+
+
 def test_readme_uses_current_twr_contract_terms():
     readme = _read("README.md")
 
@@ -159,3 +163,27 @@ def test_runtime_threshold_profiles_cover_controlled_settings():
     assert "runtime-threshold-profiles.md" in runtime_topology
     assert "runtime-threshold-profiles.md" in scalability
     assert "runtime-threshold-profiles.md" in enterprise
+
+
+def test_runtime_threshold_env_examples_match_profile_defaults():
+    profiles = _read("docs/standards/runtime-threshold-profiles.md")
+    development = _read_lines("docs/examples/runtime-thresholds.development.env")
+    staging = _read_lines("docs/examples/runtime-thresholds.staging.env")
+    production = _read_lines("docs/examples/runtime-thresholds.production.env")
+    api_reference = _read("docs/guides/api_reference.md")
+    runtime_topology = _read("docs/technical/runtime_topology.md")
+
+    assert "docs/examples/runtime-thresholds.development.env" in profiles
+    assert "docs/examples/runtime-thresholds.staging.env" in profiles
+    assert "docs/examples/runtime-thresholds.production.env" in profiles
+    assert "RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS=1800" in development
+    assert "RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS=900" in staging
+    assert "RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS=600" in production
+    assert "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO=0.10" in development
+    assert "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO=0.15" in staging
+    assert "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO=0.20" in production
+    assert "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS=1209600" in development
+    assert "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS=604800" in staging
+    assert "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS=259200" in production
+    assert "runtime-thresholds.production.env" in api_reference
+    assert "docs/examples/" in runtime_topology

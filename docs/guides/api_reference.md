@@ -243,6 +243,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - `docs/standards/runtime-alert-policy.md` defines the default severity and response class for these breach and availability gauges
 - threshold profiles:
   - `docs/standards/runtime-threshold-profiles.md` defines recommended dev, staging, and production values for the runtime degradation settings behind these gauges
+  - `docs/examples/runtime-thresholds.production.env` and its dev/staging companions provide concrete env overlays for those settings
 - includes alert-ready queue policy breach metrics:
   - `lotus_performance_compute_queue_degradation_breach{reason=...}`
   - `lotus_performance_lineage_queue_degradation_breach{reason=...}`

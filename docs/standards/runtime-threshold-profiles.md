@@ -100,3 +100,11 @@ Use operator-grade thresholds aligned to the alert policy and recovery expectati
 - Any override from the production defaults requires an operational rationale and review.
 - Alert definitions should use the breach gauges exported by the service, not restate the thresholds externally.
 - If an environment needs stricter local thresholds, update the deployment overlay without changing severity semantics from `docs/standards/runtime-alert-policy.md` unless explicitly approved.
+
+## Deployment Artifacts
+
+Repo-owned example overlays are provided for direct adoption or adaptation:
+
+- `docs/examples/runtime-thresholds.development.env`
+- `docs/examples/runtime-thresholds.staging.env`
+- `docs/examples/runtime-thresholds.production.env`
