@@ -3,6 +3,7 @@ import json
 import logging
 import os
 from io import StringIO
+from pathlib import PurePath
 from typing import Dict
 from uuid import UUID
 
@@ -77,10 +78,15 @@ class LineageService:
                 f.write(response_json)
 
             for filename, csv_payload in calculation_details.items():
-                with open(os.path.join(target_dir, filename), "w") as f:
+                safe_filename = self._validate_artifact_filename(filename)
+                with open(os.path.join(target_dir, safe_filename), "w") as f:
                     f.write(csv_payload)
 
-            artifact_names = ["request.json", "response.json", *calculation_details.keys()]
+            artifact_names = [
+                "request.json",
+                "response.json",
+                *(self._validate_artifact_filename(filename) for filename in calculation_details.keys()),
+            ]
             manifest_data = self._metadata_store.get_record(calculation_id)
             with open(os.path.join(target_dir, "manifest.json"), "w") as f:
                 json.dump(
@@ -122,10 +128,25 @@ class LineageService:
     def _serialize_details(self, calculation_details: Dict[str, pd.DataFrame]) -> dict[str, str]:
         serialized: dict[str, str] = {}
         for filename, df in calculation_details.items():
+            safe_filename = self._validate_artifact_filename(filename)
             buffer = StringIO()
             df.to_csv(buffer, index=False)
-            serialized[filename] = buffer.getvalue()
+            serialized[safe_filename] = buffer.getvalue()
         return serialized
+
+    @staticmethod
+    def _validate_artifact_filename(filename: str) -> str:
+        candidate = filename.strip()
+        path = PurePath(candidate)
+        if (
+            not candidate
+            or candidate in {".", ".."}
+            or path.is_absolute()
+            or path.name != candidate
+            or any(part == ".." for part in path.parts)
+        ):
+            raise ValueError(f"Unsafe lineage artifact filename: {filename}")
+        return candidate
 
     def create_pending_record(self, calculation_id: UUID, calculation_type: str) -> None:
         self._metadata_store.create_pending_record(calculation_id=calculation_id, calculation_type=calculation_type)

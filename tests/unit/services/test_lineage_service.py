@@ -4,6 +4,7 @@ import os
 from uuid import uuid4
 
 import pandas as pd
+import pytest
 from pydantic import BaseModel
 
 from app.services.lineage_metadata_store import LineageMetadataStore, LineageStatus
@@ -210,3 +211,42 @@ def test_lineage_service_uses_runtime_storage_path_when_not_explicit(tmp_path, m
 
     assert service.storage_path == str(runtime_storage_path)
     assert runtime_storage_path.exists()
+
+
+def test_lineage_service_rejects_unsafe_artifact_filename_on_enqueue(tmp_path):
+    metadata_store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    metadata_store.create_schema()
+    service = LineageService(storage_path=str(tmp_path), metadata_store=metadata_store)
+    calc_id = uuid4()
+
+    with pytest.raises(ValueError, match="Unsafe lineage artifact filename"):
+        service.enqueue_capture(
+            calculation_id=calc_id,
+            calculation_type="TEST",
+            request_model=MockModel(key="request"),
+            response_model=MockModel(key="response"),
+            calculation_details={"../escape.csv": pd.DataFrame([{"a": 1}])},
+        )
+
+
+def test_lineage_service_rejects_unsafe_artifact_filename_on_materialize(tmp_path, caplog):
+    metadata_store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    metadata_store.create_schema()
+    service = LineageService(storage_path=str(tmp_path), metadata_store=metadata_store)
+    calc_id = uuid4()
+    metadata_store.create_pending_record(calculation_id=calc_id, calculation_type="TEST")
+
+    with caplog.at_level("ERROR"):
+        success = service.materialize_payload(
+            calculation_id=calc_id,
+            calculation_type="TEST",
+            request_json='{"key":"request"}',
+            response_json='{"key":"response"}',
+            calculation_details={"../escape.csv": "a\n1\n"},
+        )
+
+    assert success is False
+    assert any("Unsafe lineage artifact filename" in record.message for record in caplog.records)
+    record = metadata_store.get_record(calc_id)
+    assert record is not None
+    assert record.status == LineageStatus.PENDING
