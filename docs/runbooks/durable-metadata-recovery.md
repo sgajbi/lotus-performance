@@ -50,7 +50,8 @@ Recovery must include:
 - `make migration-smoke`
 - `python scripts/durable_recovery_drill.py --operator-id <operator> --backup-identifier <backup-id>`
   - verify the emitted evidence shows both `compute_async_result_status="complete"` and lineage artifact materialization success
-  - verify `artifacts/durable-recovery-drill/` contains a timestamped evidence file plus refreshed `latest.json`
+  - verify `artifacts/durable-recovery-drill/` contains a timestamped evidence file, refreshed `latest.json`, and `manifest.json`
+  - verify retained drill history respects the configured retention limit
 - `GET /health/ready`
 - `GET /integration/runtime-status`
 - verify durable execution polling for a known `calculation_id`
@@ -66,6 +67,7 @@ Recovery must include:
 - backup identifier and restore timestamp
 - operator performing restore
 - timestamped recovery evidence artifact path
+- manifest/index entry for the retained drill history
 - schema bootstrap/upgrade output
 - readiness result after restore
 - runtime-status snapshot after worker restart

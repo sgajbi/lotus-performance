@@ -61,12 +61,30 @@ class RecoveryDrillEvidence:
     status: str
 
 
+@dataclass(frozen=True)
+class RecoveryDrillManifestEntry:
+    evidence_file_name: str
+    generated_at_utc: str
+    operator_id: str
+    backup_identifier: str
+    status: str
+
+
+@dataclass(frozen=True)
+class RecoveryDrillManifest:
+    latest_file_name: str
+    retained_file_names: list[str]
+    retention_limit: int
+    entries: list[RecoveryDrillManifestEntry]
+
+
 def run_recovery_drill(
     *,
     output_path: Path | None = None,
     output_dir: Path | None = None,
     operator_id: str = "unknown-operator",
     backup_identifier: str = "unknown-backup",
+    retention_limit: int = 30,
 ) -> RecoveryDrillEvidence:
     from app.models.returns_series import ReturnsSeriesRequest
     from app.services.async_result_store import AsyncResultStore
@@ -198,7 +216,7 @@ def run_recovery_drill(
                 output_path.parent.mkdir(parents=True, exist_ok=True)
                 output_path.write_text(json.dumps(asdict(evidence), indent=2), encoding="utf-8")
             if output_dir is not None:
-                _persist_evidence_history(output_dir=output_dir, evidence=evidence)
+                _persist_evidence_history(output_dir=output_dir, evidence=evidence, retention_limit=retention_limit)
 
             return evidence
         finally:
@@ -275,11 +293,52 @@ def _build_evidence_file_name(generated_at_utc: str) -> str:
     return f"{sanitized}.json"
 
 
-def _persist_evidence_history(*, output_dir: Path, evidence: RecoveryDrillEvidence) -> None:
+def _persist_evidence_history(*, output_dir: Path, evidence: RecoveryDrillEvidence, retention_limit: int) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(asdict(evidence), indent=2)
     (output_dir / evidence.evidence_file_name).write_text(payload, encoding="utf-8")
     (output_dir / "latest.json").write_text(payload, encoding="utf-8")
+    _prune_historical_evidence(output_dir=output_dir, retention_limit=retention_limit)
+    _write_manifest(output_dir=output_dir, latest_file_name=evidence.evidence_file_name, retention_limit=retention_limit)
+
+
+def _prune_historical_evidence(*, output_dir: Path, retention_limit: int) -> None:
+    historical_files = sorted(
+        path
+        for path in output_dir.glob("*.json")
+        if path.name not in {"latest.json", "manifest.json"}
+    )
+    retained = historical_files[-retention_limit:] if retention_limit > 0 else []
+    retained_names = {path.name for path in retained}
+    for path in historical_files:
+        if path.name not in retained_names:
+            path.unlink(missing_ok=True)
+
+
+def _write_manifest(*, output_dir: Path, latest_file_name: str, retention_limit: int) -> None:
+    entries: list[RecoveryDrillManifestEntry] = []
+    for evidence_path in sorted(
+        path
+        for path in output_dir.glob("*.json")
+        if path.name not in {"latest.json", "manifest.json"}
+    ):
+        payload = json.loads(evidence_path.read_text(encoding="utf-8"))
+        entries.append(
+            RecoveryDrillManifestEntry(
+                evidence_file_name=payload["evidence_file_name"],
+                generated_at_utc=payload["generated_at_utc"],
+                operator_id=payload["operator_id"],
+                backup_identifier=payload["backup_identifier"],
+                status=payload["status"],
+            )
+        )
+    manifest = RecoveryDrillManifest(
+        latest_file_name=latest_file_name,
+        retained_file_names=[entry.evidence_file_name for entry in entries],
+        retention_limit=retention_limit,
+        entries=entries,
+    )
+    (output_dir / "manifest.json").write_text(json.dumps(asdict(manifest), indent=2), encoding="utf-8")
 
 
 def main() -> int:
@@ -291,6 +350,12 @@ def main() -> int:
         default=Path("artifacts/durable-recovery-drill"),
         help="Directory for timestamped evidence history plus latest.json.",
     )
+    parser.add_argument(
+        "--retention-limit",
+        type=int,
+        default=30,
+        help="Maximum number of timestamped historical evidence files to retain.",
+    )
     parser.add_argument("--operator-id", default="unknown-operator", help="Operator or automation identity for the drill.")
     parser.add_argument("--backup-identifier", default="unknown-backup", help="Backup or restore-set identifier used for the drill.")
     args = parser.parse_args()
@@ -300,6 +365,7 @@ def main() -> int:
         output_dir=args.output_dir,
         operator_id=args.operator_id,
         backup_identifier=args.backup_identifier,
+        retention_limit=args.retention_limit,
     )
     print(json.dumps(asdict(evidence), indent=2))
     return 0 if evidence.status == "passed" else 1

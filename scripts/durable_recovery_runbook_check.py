@@ -17,6 +17,8 @@ REQUIRED_PHRASES = (
     "operator-id",
     "backup-identifier",
     "timestamped evidence file",
+    "manifest.json",
+    "retention limit",
     "/health/ready",
     "/integration/runtime-status",
     "forward-only",
