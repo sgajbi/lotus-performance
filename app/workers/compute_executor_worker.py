@@ -17,6 +17,7 @@ from app.services.async_result_store import async_result_store
 from app.services.attribution_service import calculate_attribution
 from app.services.compute_job_store import compute_job_store
 from app.services.contribution_service import calculate_contribution
+from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
 from app.services.execution_registry import execution_registry
 from app.services.returns_series_service import calculate_returns_series
 from core.repro import generate_canonical_hash
@@ -152,9 +153,11 @@ def _record_terminal_failure(
 def run_forever(*, stop_event: Event | None = None) -> None:
     logging.basicConfig(level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO))
     logger.info("Starting compute executor poller")
-    execution_registry.create_schema()
-    compute_job_store.create_schema()
-    async_result_store.create_schema()
+    bootstrap_durable_metadata_stores(
+        execution_store=execution_registry,
+        compute_store=compute_job_store,
+        async_result_store_=async_result_store,
+    )
     while not _stop_requested(stop_event):
         processed = process_pending_jobs()
         if processed == 0 and _wait_for_next_poll(stop_event, settings.COMPUTE_EXECUTOR_POLL_SECONDS):

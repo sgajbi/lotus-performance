@@ -28,6 +28,7 @@ from app.observability import setup_observability
 from app.openapi_enrichment import enrich_openapi_schema
 from app.services.async_result_store import async_result_store
 from app.services.compute_job_store import compute_job_store
+from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
 from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import lineage_metadata_store
 
@@ -89,10 +90,12 @@ settings = get_settings()
 @asynccontextmanager
 async def _app_lifespan(application: FastAPI) -> AsyncIterator[None]:
     application.state.is_draining = False
-    execution_registry.create_schema()
-    compute_job_store.create_schema()
-    async_result_store.create_schema()
-    lineage_metadata_store.create_schema()
+    bootstrap_durable_metadata_stores(
+        execution_store=execution_registry,
+        compute_store=compute_job_store,
+        async_result_store_=async_result_store,
+        lineage_store=lineage_metadata_store,
+    )
     yield
     application.state.is_draining = True
 

@@ -5,6 +5,7 @@ import time
 from threading import Event
 
 from app.core.config import get_settings
+from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
 from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import lineage_metadata_store
 from app.services.lineage_service import lineage_service
@@ -61,8 +62,10 @@ def process_pending_jobs(*, limit: int | None = None) -> int:
 def run_forever(*, stop_event: Event | None = None) -> None:
     logging.basicConfig(level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO))
     logger.info("Starting lineage worker poller")
-    execution_registry.create_schema()
-    lineage_metadata_store.create_schema()
+    bootstrap_durable_metadata_stores(
+        execution_store=execution_registry,
+        lineage_store=lineage_metadata_store,
+    )
     while not _stop_requested(stop_event):
         processed = process_pending_jobs()
         if processed == 0 and _wait_for_next_poll(stop_event, settings.LINEAGE_WORKER_POLL_SECONDS):
