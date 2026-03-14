@@ -19,6 +19,21 @@ def test_recovery_drill_history_api_reports_unavailable_when_manifest_missing(tm
     assert body["reason"] == "recovery_drill_artifact_directory_missing"
 
 
+def test_recovery_drill_history_api_reports_unavailable_when_manifest_is_invalid(tmp_path, monkeypatch):
+    artifact_dir = tmp_path / "artifacts" / "durable-recovery-drill"
+    artifact_dir.mkdir(parents=True)
+    (artifact_dir / "manifest.json").write_text("{not-json", encoding="utf-8")
+    monkeypatch.setattr(get_settings(), "RECOVERY_DRILL_ARTIFACT_PATH", artifact_dir)
+
+    with TestClient(app) as client:
+        response = client.get("/integration/recovery-drills")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "unavailable"
+    assert body["reason"] == "recovery_drill_manifest_invalid"
+
+
 def test_recovery_drill_history_api_returns_retained_manifest(tmp_path, monkeypatch):
     artifact_dir = tmp_path / "artifacts" / "durable-recovery-drill"
     artifact_dir.mkdir(parents=True)

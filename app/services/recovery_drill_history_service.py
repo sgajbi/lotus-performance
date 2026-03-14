@@ -91,7 +91,40 @@ def build_recovery_drill_history_snapshot(
             reason="recovery_drill_manifest_missing",
         )
 
-    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except OSError:
+        return RecoveryDrillHistorySnapshot(
+            status="unavailable",
+            artifact_directory=str(directory),
+            latest_file_name=None,
+            retained_file_names=[],
+            retention_limit=None,
+            retention_max_age_days=None,
+            entries=[],
+            total_entries=0,
+            matched_entries=0,
+            returned_entries=0,
+            next_offset=None,
+            applied_filters=applied_filters,
+            reason="recovery_drill_manifest_unreadable",
+        )
+    except json.JSONDecodeError:
+        return RecoveryDrillHistorySnapshot(
+            status="unavailable",
+            artifact_directory=str(directory),
+            latest_file_name=None,
+            retained_file_names=[],
+            retention_limit=None,
+            retention_max_age_days=None,
+            entries=[],
+            total_entries=0,
+            matched_entries=0,
+            returned_entries=0,
+            next_offset=None,
+            applied_filters=applied_filters,
+            reason="recovery_drill_manifest_invalid",
+        )
     all_entries = [
         RecoveryDrillHistoryEntry(
             evidence_file_name=entry["evidence_file_name"],

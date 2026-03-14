@@ -54,6 +54,18 @@ def test_recovery_drill_history_snapshot_reads_manifest(tmp_path):
     assert snapshot.entries[0].operator_id == "ops-user"
 
 
+def test_recovery_drill_history_snapshot_reports_invalid_manifest(tmp_path):
+    artifact_dir = tmp_path / "artifacts" / "durable-recovery-drill"
+    artifact_dir.mkdir(parents=True)
+    (artifact_dir / "manifest.json").write_text("{not-json", encoding="utf-8")
+
+    snapshot = build_recovery_drill_history_snapshot(artifact_directory=artifact_dir)
+
+    assert snapshot.status == "unavailable"
+    assert snapshot.reason == "recovery_drill_manifest_invalid"
+    assert snapshot.entries == []
+
+
 def test_recovery_drill_history_snapshot_applies_filters_and_limit(tmp_path):
     artifact_dir = tmp_path / "artifacts" / "durable-recovery-drill"
     artifact_dir.mkdir(parents=True)
