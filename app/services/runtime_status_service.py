@@ -17,7 +17,15 @@ class RuntimeQueueStatus:
     status: str
     reason: str | None
     degradation_reasons: tuple[str, ...]
+    degradation_details: tuple["RuntimeDegradationDetail", ...]
     stats: ComputeQueueStats | LineageQueueStats | None
+
+
+@dataclass(frozen=True)
+class RuntimeDegradationDetail:
+    reason: str
+    observed_value: float
+    threshold_value: float
 
 
 @dataclass(frozen=True)
@@ -42,6 +50,7 @@ class RuntimeStatusSnapshot:
     generated_at: datetime
     runtime_status: str
     runtime_degradation_reasons: tuple[str, ...]
+    runtime_degradation_details: tuple[RuntimeDegradationDetail, ...]
     draining: bool
     durable_metadata_store: DurabilityHealthStatus
     compute_queue: RuntimeQueueStatus
@@ -64,6 +73,10 @@ def build_runtime_status_snapshot(*, is_draining: bool) -> RuntimeStatusSnapshot
         compute_queue=compute_queue,
         lineage_queue=lineage_queue,
     )
+    runtime_degradation_details = _collect_runtime_degradation_details(
+        compute_queue=compute_queue,
+        lineage_queue=lineage_queue,
+    )
 
     if runtime_status == "ready" and (compute_queue.status != "available" or lineage_queue.status != "available"):
         runtime_status = "degraded"
@@ -72,6 +85,7 @@ def build_runtime_status_snapshot(*, is_draining: bool) -> RuntimeStatusSnapshot
         generated_at=generated_at,
         runtime_status=runtime_status,
         runtime_degradation_reasons=runtime_degradation_reasons,
+        runtime_degradation_details=runtime_degradation_details,
         draining=is_draining,
         durable_metadata_store=durability_status,
         compute_queue=compute_queue,
@@ -87,24 +101,34 @@ def _build_compute_queue_status(durability_status: DurabilityHealthStatus, *, se
             status="unavailable",
             reason=durability_status.reason or "durable_metadata_store_unreachable",
             degradation_reasons=(),
+            degradation_details=(),
             stats=None,
         )
     try:
         stats = compute_job_store.get_queue_stats()
-        degradation_reasons = _compute_queue_degrade_reasons(stats, settings=settings)
+        degradation_details = _compute_queue_degradation_details(stats, settings=settings)
+        degradation_reasons = tuple(detail.reason for detail in degradation_details)
         if degradation_reasons:
             return RuntimeQueueStatus(
                 status="degraded",
                 reason=degradation_reasons[0],
                 degradation_reasons=degradation_reasons,
+                degradation_details=degradation_details,
                 stats=stats,
             )
-        return RuntimeQueueStatus(status="available", reason=None, degradation_reasons=(), stats=stats)
+        return RuntimeQueueStatus(
+            status="available",
+            reason=None,
+            degradation_reasons=(),
+            degradation_details=(),
+            stats=stats,
+        )
     except Exception as exc:
         return RuntimeQueueStatus(
             status="unavailable",
             reason=type(exc).__name__,
             degradation_reasons=(),
+            degradation_details=(),
             stats=None,
         )
 
@@ -115,22 +139,26 @@ def _build_lineage_queue_status(durability_status: DurabilityHealthStatus, *, se
             status="unavailable",
             reason=durability_status.reason or "durable_metadata_store_unreachable",
             degradation_reasons=(),
+            degradation_details=(),
             stats=None,
         )
     try:
         stats = lineage_metadata_store.get_pending_payload_stats()
-        degradation_reasons = _lineage_queue_degrade_reasons(stats, settings=settings)
+        degradation_details = _lineage_queue_degradation_details(stats, settings=settings)
+        degradation_reasons = tuple(detail.reason for detail in degradation_details)
         if degradation_reasons:
             return RuntimeQueueStatus(
                 status="degraded",
                 reason=degradation_reasons[0],
                 degradation_reasons=degradation_reasons,
+                degradation_details=degradation_details,
                 stats=stats,
             )
         return RuntimeQueueStatus(
             status="available",
             reason=None,
             degradation_reasons=(),
+            degradation_details=(),
             stats=stats,
         )
     except Exception as exc:
@@ -138,63 +166,122 @@ def _build_lineage_queue_status(durability_status: DurabilityHealthStatus, *, se
             status="unavailable",
             reason=type(exc).__name__,
             degradation_reasons=(),
+            degradation_details=(),
             stats=None,
         )
 
 
-def _compute_queue_degrade_reasons(stats: ComputeQueueStats, *, settings) -> tuple[str, ...]:
-    reasons: list[str] = []
+def _compute_queue_degradation_details(
+    stats: ComputeQueueStats, *, settings
+) -> tuple[RuntimeDegradationDetail, ...]:
+    details: list[RuntimeDegradationDetail] = []
     if (
         settings.RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT > 0
         and stats.retry_backlog_count >= settings.RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT
     ):
-        reasons.append("compute_retry_backlog_exceeded")
+        details.append(
+            RuntimeDegradationDetail(
+                reason="compute_retry_backlog_exceeded",
+                observed_value=float(stats.retry_backlog_count),
+                threshold_value=float(settings.RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT),
+            )
+        )
     if (
         settings.RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT > 0
         and stats.terminal_failure_count >= settings.RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT
     ):
-        reasons.append("compute_terminal_failure_exceeded")
+        details.append(
+            RuntimeDegradationDetail(
+                reason="compute_terminal_failure_exceeded",
+                observed_value=float(stats.terminal_failure_count),
+                threshold_value=float(settings.RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT),
+            )
+        )
     if (
         settings.RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT > 0
         and stats.lease_expired_count >= settings.RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT
     ):
-        reasons.append("compute_lease_expiry_pressure_exceeded")
+        details.append(
+            RuntimeDegradationDetail(
+                reason="compute_lease_expiry_pressure_exceeded",
+                observed_value=float(stats.lease_expired_count),
+                threshold_value=float(settings.RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT),
+            )
+        )
     if (
         settings.RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS > 0
         and stats.oldest_pending_age_seconds >= settings.RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS
     ):
-        reasons.append("compute_pending_age_exceeded")
+        details.append(
+            RuntimeDegradationDetail(
+                reason="compute_pending_age_exceeded",
+                observed_value=stats.oldest_pending_age_seconds,
+                threshold_value=settings.RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS,
+            )
+        )
     if (
         settings.RUNTIME_STATUS_COMPUTE_LEASED_AGE_DEGRADE_SECONDS > 0
         and stats.oldest_leased_age_seconds >= settings.RUNTIME_STATUS_COMPUTE_LEASED_AGE_DEGRADE_SECONDS
     ):
-        reasons.append("compute_leased_age_exceeded")
+        details.append(
+            RuntimeDegradationDetail(
+                reason="compute_leased_age_exceeded",
+                observed_value=stats.oldest_leased_age_seconds,
+                threshold_value=settings.RUNTIME_STATUS_COMPUTE_LEASED_AGE_DEGRADE_SECONDS,
+            )
+        )
     if (
         settings.RUNTIME_STATUS_COMPUTE_RUNNING_AGE_DEGRADE_SECONDS > 0
         and stats.oldest_running_age_seconds >= settings.RUNTIME_STATUS_COMPUTE_RUNNING_AGE_DEGRADE_SECONDS
     ):
-        reasons.append("compute_running_age_exceeded")
-    return tuple(reasons)
+        details.append(
+            RuntimeDegradationDetail(
+                reason="compute_running_age_exceeded",
+                observed_value=stats.oldest_running_age_seconds,
+                threshold_value=settings.RUNTIME_STATUS_COMPUTE_RUNNING_AGE_DEGRADE_SECONDS,
+            )
+        )
+    return tuple(details)
 
 
-def _lineage_queue_degrade_reasons(stats: LineageQueueStats, *, settings) -> tuple[str, ...]:
-    reasons: list[str] = []
+def _lineage_queue_degradation_details(
+    stats: LineageQueueStats, *, settings
+) -> tuple[RuntimeDegradationDetail, ...]:
+    details: list[RuntimeDegradationDetail] = []
     if (
         settings.RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT > 0
         and stats.retry_backlog_count >= settings.RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT
     ):
-        reasons.append("lineage_retry_backlog_exceeded")
+        details.append(
+            RuntimeDegradationDetail(
+                reason="lineage_retry_backlog_exceeded",
+                observed_value=float(stats.retry_backlog_count),
+                threshold_value=float(settings.RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT),
+            )
+        )
     if (
         settings.RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT > 0
         and stats.terminal_failure_count >= settings.RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT
     ):
-        reasons.append("lineage_terminal_failure_exceeded")
+        details.append(
+            RuntimeDegradationDetail(
+                reason="lineage_terminal_failure_exceeded",
+                observed_value=float(stats.terminal_failure_count),
+                threshold_value=float(settings.RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT),
+            )
+        )
     if (
         settings.RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS > 0
         and stats.oldest_pending_age_seconds >= settings.RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS
     ):
-        reasons.append("lineage_pending_age_exceeded")
-    return tuple(reasons)
+        details.append(
+            RuntimeDegradationDetail(
+                reason="lineage_pending_age_exceeded",
+                observed_value=stats.oldest_pending_age_seconds,
+                threshold_value=settings.RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS,
+            )
+        )
+    return tuple(details)
 
 
 def _collect_runtime_degradation_reasons(
@@ -214,6 +301,14 @@ def _collect_runtime_degradation_reasons(
             reasons.append(f"{prefix}:{queue_status.reason}")
 
     return tuple(reasons)
+
+
+def _collect_runtime_degradation_details(
+    *,
+    compute_queue: RuntimeQueueStatus,
+    lineage_queue: RuntimeQueueStatus,
+) -> tuple[RuntimeDegradationDetail, ...]:
+    return compute_queue.degradation_details + lineage_queue.degradation_details
 
 
 def _build_compute_queue_policy(*, settings) -> ComputeQueueDegradationPolicy:

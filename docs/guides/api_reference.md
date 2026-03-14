@@ -90,6 +90,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 - response includes:
   - aggregate runtime status
   - aggregate `runtime_degradation_reasons`
+  - aggregate `runtime_degradation_details`
   - draining state
   - durable metadata store availability
   - active compute and lineage degradation-policy thresholds
@@ -97,8 +98,10 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - oldest pending, leased, and running compute-job ages
   - retry-backlog, lease-expiry, and terminal-failure compute-job counts
   - compute `degradation_reasons`
+  - compute `degradation_details`
   - lineage queue backlog details
   - retry-backlog and terminal-failure lineage payload counts
+  - lineage `degradation_details`
   - lineage `degradation_reasons`
 - runtime may report `degraded` when configured queue-age or failure-pressure thresholds are exceeded
 

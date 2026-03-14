@@ -90,7 +90,10 @@ can see every active trigger without inferring from counters manually. These que
 derived through SQL-side aggregate queries rather than Python-side row scans so control-plane and
 metrics reads remain bounded as durable queue tables grow. The runtime-status payload also exposes
 the active compute and lineage degradation-policy thresholds so support can interpret a degraded
-runtime against live configuration without reading environment variables separately.
+runtime against live configuration without reading environment variables separately. For each
+active degradation, the control plane also returns the observed value and breached threshold so
+incident handling can distinguish "what fired" from "by how much" without reconstructing it from
+raw queue counters.
 
 ## Failure recovery model
 

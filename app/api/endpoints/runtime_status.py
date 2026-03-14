@@ -21,6 +21,12 @@ class DurableMetadataStoreStatusResponse(BaseModel):
     )
 
 
+class RuntimeDegradationDetailResponse(BaseModel):
+    reason: str = Field(description="Concrete degradation trigger identifier.")
+    observed_value: float = Field(description="Observed runtime value that breached the configured threshold.")
+    threshold_value: float = Field(description="Configured threshold value that was exceeded.")
+
+
 class ComputeQueueStatusDetailsResponse(BaseModel):
     status: str = Field(description="Compute queue visibility state for the control-plane endpoint.")
     reason: str | None = Field(
@@ -30,6 +36,10 @@ class ComputeQueueStatusDetailsResponse(BaseModel):
     degradation_reasons: list[str] = Field(
         default_factory=list,
         description="All active compute queue degradation reasons contributing to a degraded state.",
+    )
+    degradation_details: list[RuntimeDegradationDetailResponse] = Field(
+        default_factory=list,
+        description="Detailed compute queue degradation triggers with observed and threshold values.",
     )
     pending_jobs: int | None = Field(
         default=None,
@@ -87,6 +97,10 @@ class LineageQueueStatusDetailsResponse(BaseModel):
         default_factory=list,
         description="All active lineage queue degradation reasons contributing to a degraded state.",
     )
+    degradation_details: list[RuntimeDegradationDetailResponse] = Field(
+        default_factory=list,
+        description="Detailed lineage queue degradation triggers with observed and threshold values.",
+    )
     pending_payloads: int | None = Field(
         default=None,
         description="Number of pending lineage payloads awaiting worker materialization.",
@@ -131,6 +145,10 @@ class RuntimeStatusResponse(BaseModel):
         default_factory=list,
         description="All active queue-level degradation or unavailability reasons contributing to aggregate runtime status.",
     )
+    runtime_degradation_details: list[RuntimeDegradationDetailResponse] = Field(
+        default_factory=list,
+        description="Detailed active degradation triggers across compute and lineage queues.",
+    )
     draining: bool = Field(description="Whether the API process is intentionally draining traffic.")
     durable_metadata_store: DurableMetadataStoreStatusResponse = Field(
         description="Availability of the durable metadata store that backs execution and lineage state.",
@@ -169,6 +187,14 @@ async def get_runtime_status(request: Request) -> RuntimeStatusResponse:
         generated_at=snapshot.generated_at,
         runtime_status=snapshot.runtime_status,
         runtime_degradation_reasons=list(snapshot.runtime_degradation_reasons),
+        runtime_degradation_details=[
+            RuntimeDegradationDetailResponse(
+                reason=detail.reason,
+                observed_value=detail.observed_value,
+                threshold_value=detail.threshold_value,
+            )
+            for detail in snapshot.runtime_degradation_details
+        ],
         draining=snapshot.draining,
         durable_metadata_store=DurableMetadataStoreStatusResponse(
             status=snapshot.durable_metadata_store.status,
@@ -178,6 +204,14 @@ async def get_runtime_status(request: Request) -> RuntimeStatusResponse:
             status=snapshot.compute_queue.status,
             reason=snapshot.compute_queue.reason,
             degradation_reasons=list(snapshot.compute_queue.degradation_reasons),
+            degradation_details=[
+                RuntimeDegradationDetailResponse(
+                    reason=detail.reason,
+                    observed_value=detail.observed_value,
+                    threshold_value=detail.threshold_value,
+                )
+                for detail in snapshot.compute_queue.degradation_details
+            ],
             pending_jobs=None if compute_stats is None else compute_stats.pending_count,
             leased_jobs=None if compute_stats is None else compute_stats.leased_count,
             running_jobs=None if compute_stats is None else compute_stats.running_count,
@@ -194,6 +228,14 @@ async def get_runtime_status(request: Request) -> RuntimeStatusResponse:
             status=snapshot.lineage_queue.status,
             reason=snapshot.lineage_queue.reason,
             degradation_reasons=list(snapshot.lineage_queue.degradation_reasons),
+            degradation_details=[
+                RuntimeDegradationDetailResponse(
+                    reason=detail.reason,
+                    observed_value=detail.observed_value,
+                    threshold_value=detail.threshold_value,
+                )
+                for detail in snapshot.lineage_queue.degradation_details
+            ],
             pending_payloads=None if lineage_stats is None else lineage_stats.pending_payload_count,
             retry_backlog_payloads=None if lineage_stats is None else lineage_stats.retry_backlog_count,
             terminal_failure_payloads=None if lineage_stats is None else lineage_stats.terminal_failure_count,
