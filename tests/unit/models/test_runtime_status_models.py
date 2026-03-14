@@ -59,9 +59,11 @@ def test_build_runtime_status_response_serializes_snapshot_details():
             degradation_details=(),
             stats=LineageQueueStats(
                 pending_payload_count=9,
+                leased_payload_count=2,
                 retry_backlog_count=10,
                 terminal_failure_count=11,
                 oldest_pending_age_seconds=45.0,
+                oldest_leased_age_seconds=12.0,
             ),
         ),
         compute_queue_policy=ComputeQueueDegradationPolicy(
@@ -74,6 +76,7 @@ def test_build_runtime_status_response_serializes_snapshot_details():
         ),
         lineage_queue_policy=LineageQueueDegradationPolicy(
             pending_age_seconds=15.0,
+            leased_age_seconds=8.0,
             retry_backlog_count=4,
             terminal_failure_count=5,
         ),
@@ -87,7 +90,9 @@ def test_build_runtime_status_response_serializes_snapshot_details():
     assert response.compute_queue.pending_jobs == 1
     assert response.compute_queue.lease_expired_jobs == 7
     assert response.lineage_queue.pending_payloads == 9
+    assert response.lineage_queue.leased_payloads == 2
     assert response.compute_queue_policy.pending_age_seconds == 30.0
+    assert response.lineage_queue_policy.leased_age_seconds == 8.0
     assert response.lineage_queue_policy.terminal_failure_count == 5
 
 
@@ -123,6 +128,7 @@ def test_build_runtime_status_response_handles_unavailable_queue_without_stats()
         ),
         lineage_queue_policy=LineageQueueDegradationPolicy(
             pending_age_seconds=15.0,
+            leased_age_seconds=8.0,
             retry_backlog_count=4,
             terminal_failure_count=5,
         ),

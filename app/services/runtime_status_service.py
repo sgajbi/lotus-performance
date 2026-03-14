@@ -41,6 +41,7 @@ class ComputeQueueDegradationPolicy:
 @dataclass(frozen=True)
 class LineageQueueDegradationPolicy:
     pending_age_seconds: float
+    leased_age_seconds: float
     retry_backlog_count: int
     terminal_failure_count: int
 
@@ -248,37 +249,52 @@ def _lineage_queue_degradation_details(
     stats: LineageQueueStats, *, settings
 ) -> tuple[RuntimeDegradationDetail, ...]:
     details: list[RuntimeDegradationDetail] = []
+    lineage_leased_age_degrade_seconds = getattr(settings, "RUNTIME_STATUS_LINEAGE_LEASED_AGE_DEGRADE_SECONDS", 0.0)
+    lineage_retry_backlog_degrade_count = getattr(settings, "RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT", 0)
+    lineage_terminal_failure_degrade_count = getattr(settings, "RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT", 0)
+    lineage_pending_age_degrade_seconds = getattr(settings, "RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS", 0.0)
     if (
-        settings.RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT > 0
-        and stats.retry_backlog_count >= settings.RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT
+        lineage_leased_age_degrade_seconds > 0
+        and stats.oldest_leased_age_seconds >= lineage_leased_age_degrade_seconds
+    ):
+        details.append(
+            RuntimeDegradationDetail(
+                reason="lineage_leased_age_exceeded",
+                observed_value=stats.oldest_leased_age_seconds,
+                threshold_value=lineage_leased_age_degrade_seconds,
+            )
+        )
+    if (
+        lineage_retry_backlog_degrade_count > 0
+        and stats.retry_backlog_count >= lineage_retry_backlog_degrade_count
     ):
         details.append(
             RuntimeDegradationDetail(
                 reason="lineage_retry_backlog_exceeded",
                 observed_value=float(stats.retry_backlog_count),
-                threshold_value=float(settings.RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT),
+                threshold_value=float(lineage_retry_backlog_degrade_count),
             )
         )
     if (
-        settings.RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT > 0
-        and stats.terminal_failure_count >= settings.RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT
+        lineage_terminal_failure_degrade_count > 0
+        and stats.terminal_failure_count >= lineage_terminal_failure_degrade_count
     ):
         details.append(
             RuntimeDegradationDetail(
                 reason="lineage_terminal_failure_exceeded",
                 observed_value=float(stats.terminal_failure_count),
-                threshold_value=float(settings.RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT),
+                threshold_value=float(lineage_terminal_failure_degrade_count),
             )
         )
     if (
-        settings.RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS > 0
-        and stats.oldest_pending_age_seconds >= settings.RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS
+        lineage_pending_age_degrade_seconds > 0
+        and stats.oldest_pending_age_seconds >= lineage_pending_age_degrade_seconds
     ):
         details.append(
             RuntimeDegradationDetail(
                 reason="lineage_pending_age_exceeded",
                 observed_value=stats.oldest_pending_age_seconds,
-                threshold_value=settings.RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS,
+                threshold_value=lineage_pending_age_degrade_seconds,
             )
         )
     return tuple(details)
@@ -324,7 +340,8 @@ def _build_compute_queue_policy(*, settings) -> ComputeQueueDegradationPolicy:
 
 def _build_lineage_queue_policy(*, settings) -> LineageQueueDegradationPolicy:
     return LineageQueueDegradationPolicy(
-        pending_age_seconds=settings.RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS,
-        retry_backlog_count=settings.RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT,
-        terminal_failure_count=settings.RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT,
+        pending_age_seconds=getattr(settings, "RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS", 0.0),
+        leased_age_seconds=getattr(settings, "RUNTIME_STATUS_LINEAGE_LEASED_AGE_DEGRADE_SECONDS", 0.0),
+        retry_backlog_count=getattr(settings, "RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT", 0),
+        terminal_failure_count=getattr(settings, "RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT", 0),
     )

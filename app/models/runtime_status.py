@@ -92,6 +92,10 @@ class LineageQueueStatusDetailsResponse(BaseModel):
         default=None,
         description="Number of pending lineage payloads awaiting worker materialization.",
     )
+    leased_payloads: int | None = Field(
+        default=None,
+        description="Number of lineage payloads currently claimed by a worker for materialization.",
+    )
     retry_backlog_payloads: int | None = Field(
         default=None,
         description="Number of pending lineage payloads awaiting a retry after a prior materialization failure.",
@@ -103,6 +107,10 @@ class LineageQueueStatusDetailsResponse(BaseModel):
     oldest_pending_age_seconds: float | None = Field(
         default=None,
         description="Age in seconds of the oldest pending lineage payload.",
+    )
+    oldest_leased_age_seconds: float | None = Field(
+        default=None,
+        description="Age in seconds of the oldest claimed lineage payload still in progress.",
     )
 
 
@@ -130,6 +138,9 @@ class ComputeQueueDegradationPolicyResponse(BaseModel):
 class LineageQueueDegradationPolicyResponse(BaseModel):
     pending_age_seconds: float = Field(
         description="Configured threshold that degrades runtime on oldest pending lineage-payload age."
+    )
+    leased_age_seconds: float = Field(
+        description="Configured threshold that degrades runtime on oldest claimed lineage-payload age."
     )
     retry_backlog_count: int = Field(
         description="Configured threshold that degrades runtime on lineage retry-backlog count."
@@ -222,9 +233,11 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
             degradation_reasons=list(snapshot.lineage_queue.degradation_reasons),
             degradation_details=_degradation_details_response(snapshot.lineage_queue.degradation_details),
             pending_payloads=None if lineage_stats is None else lineage_stats.pending_payload_count,
+            leased_payloads=None if lineage_stats is None else lineage_stats.leased_payload_count,
             retry_backlog_payloads=None if lineage_stats is None else lineage_stats.retry_backlog_count,
             terminal_failure_payloads=None if lineage_stats is None else lineage_stats.terminal_failure_count,
             oldest_pending_age_seconds=None if lineage_stats is None else lineage_stats.oldest_pending_age_seconds,
+            oldest_leased_age_seconds=None if lineage_stats is None else lineage_stats.oldest_leased_age_seconds,
         ),
         compute_queue_policy=ComputeQueueDegradationPolicyResponse(
             pending_age_seconds=snapshot.compute_queue_policy.pending_age_seconds,
@@ -236,6 +249,7 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
         ),
         lineage_queue_policy=LineageQueueDegradationPolicyResponse(
             pending_age_seconds=snapshot.lineage_queue_policy.pending_age_seconds,
+            leased_age_seconds=snapshot.lineage_queue_policy.leased_age_seconds,
             retry_backlog_count=snapshot.lineage_queue_policy.retry_backlog_count,
             terminal_failure_count=snapshot.lineage_queue_policy.terminal_failure_count,
         ),

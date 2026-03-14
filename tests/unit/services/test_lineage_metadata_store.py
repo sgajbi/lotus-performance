@@ -141,9 +141,11 @@ def test_lineage_metadata_store_pending_payload_stats(tmp_path):
     stats = store.get_pending_payload_stats(now=now)
 
     assert stats.pending_payload_count == 1
+    assert stats.leased_payload_count == 0
     assert stats.retry_backlog_count == 1
     assert stats.terminal_failure_count == 1
     assert stats.oldest_pending_age_seconds == 45.0
+    assert stats.oldest_leased_age_seconds == 0.0
 
 
 def test_lineage_metadata_store_leases_pending_payloads_once_until_expiry(tmp_path):
@@ -175,6 +177,34 @@ def test_lineage_metadata_store_leases_pending_payloads_once_until_expiry(tmp_pa
     assert len(reclaimed) == 1
     assert reclaimed[0].worker_id == "lineage-worker-2"
     assert reclaimed[0].attempt_count == 2
+
+
+def test_lineage_metadata_store_pending_payload_stats_include_active_leases(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    now = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+    calculation_id = uuid4()
+
+    store.enqueue_lineage_payload(
+        calculation_id=calculation_id,
+        calculation_type="TWR",
+        request_json="{}",
+        response_json="{}",
+        details={"details.json": "{}"},
+    )
+    store.lease_pending_payloads(worker_id="lineage-worker-1", limit=10, lease_seconds=60)
+
+    with store._session() as session:
+        payload = session.get(LineagePayloadModel, str(calculation_id))
+        assert payload is not None
+        payload.leased_at_utc = now - timedelta(seconds=15)
+        payload.lease_expires_at_utc = now + timedelta(seconds=45)
+
+    stats = store.get_pending_payload_stats(now=now)
+
+    assert stats.pending_payload_count == 1
+    assert stats.leased_payload_count == 1
+    assert stats.oldest_leased_age_seconds == 15.0
 
 
 def test_lineage_metadata_store_mark_pending_clears_error(tmp_path):

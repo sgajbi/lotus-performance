@@ -60,8 +60,10 @@ def test_runtime_status_reports_durable_queue_state():
     assert body["lineage_queue"]["degradation_reasons"] == []
     assert body["lineage_queue"]["degradation_details"] == []
     assert body["lineage_queue"]["pending_payloads"] == 1
+    assert body["lineage_queue"]["leased_payloads"] == 0
     assert body["lineage_queue"]["retry_backlog_payloads"] == 0
     assert body["lineage_queue"]["terminal_failure_payloads"] == 0
+    assert body["lineage_queue"]["oldest_leased_age_seconds"] == 0.0
 
 
 def test_runtime_status_reports_draining_state():

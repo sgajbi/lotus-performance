@@ -80,10 +80,12 @@ class LineagePayload:
 
 @dataclass(frozen=True)
 class LineageQueueStats:
-    pending_payload_count: int
-    retry_backlog_count: int
-    terminal_failure_count: int
-    oldest_pending_age_seconds: float
+    pending_payload_count: int = 0
+    leased_payload_count: int = 0
+    retry_backlog_count: int = 0
+    terminal_failure_count: int = 0
+    oldest_pending_age_seconds: float = 0.0
+    oldest_leased_age_seconds: float = 0.0
 
 
 def _coerce_utc_datetime(value: datetime) -> datetime:
@@ -308,6 +310,20 @@ class LineageMetadataStore:
                         case(
                             (
                                 (LineageRecordModel.status == LineageStatus.PENDING.value)
+                                & (LineagePayloadModel.leased_at_utc.is_not(None))
+                                & (
+                                    LineagePayloadModel.lease_expires_at_utc.is_(None)
+                                    | (LineagePayloadModel.lease_expires_at_utc >= stats_now)
+                                ),
+                                1,
+                            ),
+                            else_=0,
+                        )
+                    ).label("leased_payload_count"),
+                    func.sum(
+                        case(
+                            (
+                                (LineageRecordModel.status == LineageStatus.PENDING.value)
                                 & (LineagePayloadModel.attempt_count > 0),
                                 1,
                             ),
@@ -323,6 +339,20 @@ class LineageMetadataStore:
                             else_=None,
                         )
                     ).label("oldest_pending_created_at"),
+                    func.min(
+                        case(
+                            (
+                                (LineageRecordModel.status == LineageStatus.PENDING.value)
+                                & (LineagePayloadModel.leased_at_utc.is_not(None))
+                                & (
+                                    LineagePayloadModel.lease_expires_at_utc.is_(None)
+                                    | (LineagePayloadModel.lease_expires_at_utc >= stats_now)
+                                ),
+                                LineagePayloadModel.leased_at_utc,
+                            ),
+                            else_=None,
+                        )
+                    ).label("oldest_leased_at"),
                 )
                 .select_from(LineagePayloadModel)
                 .join(LineageRecordModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
@@ -334,12 +364,20 @@ class LineageMetadataStore:
                     0.0,
                     (stats_now - _coerce_utc_datetime(aggregate_row.oldest_pending_created_at)).total_seconds(),
                 )
+            oldest_leased_age_seconds = 0.0
+            if aggregate_row.oldest_leased_at is not None:
+                oldest_leased_age_seconds = max(
+                    0.0,
+                    (stats_now - _coerce_utc_datetime(aggregate_row.oldest_leased_at)).total_seconds(),
+                )
 
             return LineageQueueStats(
                 pending_payload_count=int(aggregate_row.pending_payload_count or 0),
+                leased_payload_count=int(aggregate_row.leased_payload_count or 0),
                 retry_backlog_count=int(aggregate_row.retry_backlog_count or 0),
                 terminal_failure_count=int(aggregate_row.terminal_failure_count or 0),
                 oldest_pending_age_seconds=oldest_pending_age_seconds,
+                oldest_leased_age_seconds=oldest_leased_age_seconds,
             )
 
     def _build_lease_pending_payloads_statement(self, *, now: datetime, limit: int, dialect_name: str):
