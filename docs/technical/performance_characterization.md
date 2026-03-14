@@ -7,7 +7,8 @@ This document records the repo-owned capacity and performance characterization c
 
 This characterization currently governs the vectorized engine hot path behind
 `engine.compute.run_calculations(...)` plus the durable queue-stat aggregation paths used by
-the runtime control plane and Prometheus collector.
+the runtime control plane and Prometheus collector, plus the public async execution-polling
+read path.
 
 ## Governed workload
 
@@ -56,3 +57,14 @@ These characterize the control-plane query path behind:
 - Metric: median wall-clock runtime across 10 reads
 - Budget: `<= 10ms`
 - Test owner: [test_runtime_store_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_runtime_store_performance.py)
+
+## Execution polling budget
+
+- Workload: one async execution with:
+  - `5` lifecycle stages
+  - `100` upstream snapshots
+  - durable compute-job metadata
+  - durable async-result metadata
+- Metric: median wall-clock runtime across 20 reads
+- Budget: `<= 20ms`
+- Test owner: [test_execution_polling_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_execution_polling_performance.py)
