@@ -284,6 +284,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 - scheduled automation behavior:
   - `python scripts/runtime_retention_cleanup.py --scheduled --apply`
   - evidence records `trigger_mode` plus the configured automation `job_id`
+  - `make runtime-retention-smoke` runs the governed scheduled dry-run path with retained evidence
 - safety contract:
   - only terminal executions, terminal compute jobs, async results, terminal lineage metadata, and matching lineage artifacts older than the cutoff are eligible
   - active runtime work is not pruned
@@ -309,6 +310,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - `generated_before`
 - governed runbook:
   - `docs/runbooks/runtime-retention-cleanup.md`
+  - the optional runtime-retention worker uses the same scheduled automation identity and persisted evidence path
   - `lotus_performance_lineage_storage_pressure_breach{reason="lineage_storage_free_bytes_below_threshold|lineage_storage_free_ratio_below_threshold"}`
 
 ## Async execution pattern

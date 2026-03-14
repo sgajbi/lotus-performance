@@ -50,6 +50,8 @@ Override the default only with an explicit operator or environment-level reason.
 5. For governed scheduled automation, use:
    - `python scripts/runtime_retention_cleanup.py --scheduled --apply`
    - confirm the retained evidence records `trigger_mode="scheduled"` and the expected automation `job_id`
+   - for a safe scheduled dry run, use `make runtime-retention-smoke`
+   - for continuous scheduled execution, enable the optional `performance-runtime-retention-worker` compose service
 
 ## Guardrails
 

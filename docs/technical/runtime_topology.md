@@ -8,6 +8,10 @@ deployments:
 3. `performance-lineage-worker`
 4. `performance-lineage-db`
 
+Optional ops profile:
+
+5. `performance-runtime-retention-worker`
+
 Source of truth for the local topology is [docker-compose.yml](/C:/Users/Sandeep/projects/lotus-performance/docker-compose.yml).
 
 ## Service roles
@@ -46,6 +50,13 @@ Source of truth for the local topology is [docker-compose.yml](/C:/Users/Sandeep
   - async results
   - lineage metadata
   - upstream retrieval snapshots
+
+### `performance-runtime-retention-worker`
+
+- optional scheduled runtime-retention automation under the compose `ops` profile
+- executes the same governed cleanup path as `python scripts/runtime_retention_cleanup.py --scheduled`
+- persists retained cleanup evidence with scheduled automation identity and job id
+- defaults to dry-run mode unless `RUNTIME_RETENTION_WORKER_APPLY=true` is set explicitly
 
 ## Readiness model
 

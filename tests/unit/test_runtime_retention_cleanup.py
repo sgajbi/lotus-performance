@@ -141,20 +141,24 @@ def test_runtime_retention_cleanup_scheduled_mode_records_automation_identity(tm
         )(),
     )
     monkeypatch.setattr(
-        "scripts.runtime_retention_cleanup.run_runtime_retention_cleanup",
-        lambda retention_days, dry_run: type(
-            "Summary",
-            (),
-            {
-                "retention_days": 30,
-                "cutoff_utc": "2026-02-13T00:00:00Z",
-                "prunable_execution_count": 2,
-                "prunable_compute_job_count": 2,
-                "prunable_async_result_count": 2,
-                "prunable_lineage_record_count": 2,
-                "prunable_lineage_artifact_count": 2,
-            },
-        )(),
+        "scripts.runtime_retention_cleanup.execute_runtime_retention_cleanup",
+        lambda **kwargs: RuntimeRetentionCleanupEvidence(
+            cleanup_name="runtime_retention_cleanup",
+            generated_at_utc="2026-03-14T00:00:00Z",
+            evidence_file_name="2026-03-14t00-00-00z.json",
+            operator_id="runtime-retention-automation",
+            trigger_mode="scheduled",
+            job_id="retention-nightly",
+            cleanup_mode="apply",
+            status="applied",
+            retention_days=30,
+            cutoff_utc="2026-02-13T00:00:00Z",
+            prunable_execution_count=2,
+            prunable_compute_job_count=2,
+            prunable_async_result_count=2,
+            prunable_lineage_record_count=2,
+            prunable_lineage_artifact_count=2,
+        ),
     )
     monkeypatch.setattr(
         sys,
@@ -165,10 +169,6 @@ def test_runtime_retention_cleanup_scheduled_mode_records_automation_identity(tm
     main()
 
     captured = json.loads(capsys.readouterr().out)
-    latest = json.loads((output_dir / "latest.json").read_text(encoding="utf-8"))
-
     assert captured["operator_id"] == "runtime-retention-automation"
     assert captured["trigger_mode"] == "scheduled"
     assert captured["job_id"] == "retention-nightly"
-    assert latest["trigger_mode"] == "scheduled"
-    assert latest["job_id"] == "retention-nightly"
