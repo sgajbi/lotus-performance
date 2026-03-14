@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING, Annotated, cast
 
 from pydantic import BaseModel, Field, PlainSerializer
 
-from app.services.compute_job_store import ComputeQueueInspectionAnchors, ComputeQueueStats
-from app.services.lineage_metadata_store import LineageQueueInspectionAnchors, LineageQueueStats
+from app.services.compute_job_store import ComputeQueueInspectionAnchors, ComputeQueueStats, ComputeRecoveryEvent
+from app.services.lineage_metadata_store import LineageQueueInspectionAnchors, LineageQueueStats, LineageRecoveryEvent
 
 if TYPE_CHECKING:
     from app.services.runtime_status_service import RuntimeStatusSnapshot
@@ -49,6 +49,10 @@ class ComputeQueueInspectionAnchorsResponse(BaseModel):
         default=None,
         description="Calculation handle of the most recently terminally failed compute job, if one exists.",
     )
+    latest_recovered_calculation_id: str | None = Field(
+        default=None,
+        description="Calculation handle of the most recently requeued compute job after retry or stale-lease recovery, if one exists.",
+    )
 
 
 class LineageQueueInspectionAnchorsResponse(BaseModel):
@@ -64,6 +68,34 @@ class LineageQueueInspectionAnchorsResponse(BaseModel):
         default=None,
         description="Calculation handle of the most recently terminally failed lineage item, if one exists.",
     )
+    latest_recovered_calculation_id: str | None = Field(
+        default=None,
+        description="Calculation handle of the most recently requeued lineage item after a retryable materialization failure, if one exists.",
+    )
+
+
+class ComputeRecoveryEventResponse(BaseModel):
+    calculation_id: str = Field(description="Calculation handle of the recovered compute job.")
+    analytics_type: str = Field(description="Analytics workflow type for the recovered compute job.")
+    recovery_kind: str = Field(description="Recovery path that returned the compute job to pending state.")
+    recovered_at_utc: str = Field(
+        description="UTC timestamp when the compute job most recently re-entered pending state."
+    )
+    attempt_count: int = Field(description="Attempt count already consumed by the recovered compute job.")
+    error_type: str | None = Field(
+        default=None,
+        description="Last durable compute error type associated with the recovery event, when present.",
+    )
+
+
+class LineageRecoveryEventResponse(BaseModel):
+    calculation_id: str = Field(description="Calculation handle of the recovered lineage item.")
+    calculation_type: str = Field(description="Analytics workflow type for the recovered lineage item.")
+    recovery_kind: str = Field(description="Recovery path that returned the lineage item to pending state.")
+    recovered_at_utc: str = Field(
+        description="UTC timestamp when the lineage item most recently re-entered pending state."
+    )
+    attempt_count: int = Field(description="Attempt count already consumed by the recovered lineage item.")
 
 
 class ComputeQueueStatusDetailsResponse(BaseModel):
@@ -96,6 +128,10 @@ class ComputeQueueStatusDetailsResponse(BaseModel):
         default=None,
         description="Number of compute jobs carrying expired-lease recovery state.",
     )
+    reclaimable_jobs: int | None = Field(
+        default=None,
+        description="Number of compute jobs whose durable worker lease already expired and are eligible for recovery.",
+    )
     terminal_failure_jobs: int | None = Field(
         default=None,
         description="Number of compute jobs that failed terminally for non-lease-expiry reasons.",
@@ -115,6 +151,10 @@ class ComputeQueueStatusDetailsResponse(BaseModel):
     inspection_anchors: ComputeQueueInspectionAnchorsResponse | None = Field(
         default=None,
         description="Concrete calculation handles for the current oldest or most recent compute work items of operator interest.",
+    )
+    recent_recoveries: list[ComputeRecoveryEventResponse] = Field(
+        default_factory=list,
+        description="Most recent durable compute recovery events returned to pending state for operator triage.",
     )
 
 
@@ -148,6 +188,10 @@ class LineageQueueStatusDetailsResponse(BaseModel):
         default=None,
         description="Number of lineage payloads that exhausted retry budget and failed terminally.",
     )
+    reclaimable_payloads: int | None = Field(
+        default=None,
+        description="Number of pending lineage payloads whose durable worker lease already expired and are eligible for recovery.",
+    )
     oldest_pending_age_seconds: float | None = Field(
         default=None,
         description="Age in seconds of the oldest pending lineage payload.",
@@ -159,6 +203,10 @@ class LineageQueueStatusDetailsResponse(BaseModel):
     inspection_anchors: LineageQueueInspectionAnchorsResponse | None = Field(
         default=None,
         description="Concrete calculation handles for the current oldest or most recent lineage work items of operator interest.",
+    )
+    recent_recoveries: list[LineageRecoveryEventResponse] = Field(
+        default_factory=list,
+        description="Most recent durable lineage recovery events returned to pending state for operator triage.",
     )
 
 
@@ -295,6 +343,8 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
     lineage_stats = cast(LineageQueueStats | None, snapshot.lineage_queue.stats)
     compute_anchors = cast(ComputeQueueInspectionAnchors | None, snapshot.compute_queue.inspection_anchors)
     lineage_anchors = cast(LineageQueueInspectionAnchors | None, snapshot.lineage_queue.inspection_anchors)
+    compute_recoveries = cast(tuple[ComputeRecoveryEvent, ...], snapshot.compute_queue.recent_recoveries)
+    lineage_recoveries = cast(tuple[LineageRecoveryEvent, ...], snapshot.lineage_queue.recent_recoveries)
 
     return RuntimeStatusResponse(
         contract_version="v1",
@@ -320,6 +370,7 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
             complete_jobs=None if compute_stats is None else compute_stats.complete_count,
             retry_backlog_jobs=None if compute_stats is None else compute_stats.retry_backlog_count,
             lease_expired_jobs=None if compute_stats is None else compute_stats.lease_expired_count,
+            reclaimable_jobs=None if compute_stats is None else compute_stats.reclaimable_count,
             terminal_failure_jobs=None if compute_stats is None else compute_stats.terminal_failure_count,
             oldest_pending_age_seconds=None if compute_stats is None else compute_stats.oldest_pending_age_seconds,
             oldest_leased_age_seconds=None if compute_stats is None else compute_stats.oldest_leased_age_seconds,
@@ -332,8 +383,20 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
                     oldest_leased_calculation_id=compute_anchors.oldest_leased_calculation_id,
                     oldest_running_calculation_id=compute_anchors.oldest_running_calculation_id,
                     latest_terminal_failure_calculation_id=compute_anchors.latest_terminal_failure_calculation_id,
+                    latest_recovered_calculation_id=compute_anchors.latest_recovered_calculation_id,
                 )
             ),
+            recent_recoveries=[
+                ComputeRecoveryEventResponse(
+                    calculation_id=item.calculation_id,
+                    analytics_type=item.analytics_type,
+                    recovery_kind=item.recovery_kind,
+                    recovered_at_utc=item.recovered_at_utc,
+                    attempt_count=item.attempt_count,
+                    error_type=item.error_type,
+                )
+                for item in compute_recoveries
+            ],
         ),
         lineage_queue=LineageQueueStatusDetailsResponse(
             status=snapshot.lineage_queue.status,
@@ -343,6 +406,7 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
             pending_payloads=None if lineage_stats is None else lineage_stats.pending_payload_count,
             leased_payloads=None if lineage_stats is None else lineage_stats.leased_payload_count,
             retry_backlog_payloads=None if lineage_stats is None else lineage_stats.retry_backlog_count,
+            reclaimable_payloads=None if lineage_stats is None else lineage_stats.reclaimable_count,
             terminal_failure_payloads=None if lineage_stats is None else lineage_stats.terminal_failure_count,
             oldest_pending_age_seconds=None if lineage_stats is None else lineage_stats.oldest_pending_age_seconds,
             oldest_leased_age_seconds=None if lineage_stats is None else lineage_stats.oldest_leased_age_seconds,
@@ -353,8 +417,19 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
                     oldest_pending_calculation_id=lineage_anchors.oldest_pending_calculation_id,
                     oldest_leased_calculation_id=lineage_anchors.oldest_leased_calculation_id,
                     latest_terminal_failure_calculation_id=lineage_anchors.latest_terminal_failure_calculation_id,
+                    latest_recovered_calculation_id=lineage_anchors.latest_recovered_calculation_id,
                 )
             ),
+            recent_recoveries=[
+                LineageRecoveryEventResponse(
+                    calculation_id=item.calculation_id,
+                    calculation_type=item.calculation_type,
+                    recovery_kind=item.recovery_kind,
+                    recovered_at_utc=item.recovered_at_utc,
+                    attempt_count=item.attempt_count,
+                )
+                for item in lineage_recoveries
+            ],
         ),
         recovery_drill=RecoveryDrillStatusResponse(
             status=snapshot.recovery_drill.status,

@@ -2,9 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from sqlalchemy import inspect
-
-from app.services.execution_registry import execution_registry
+from app.services.execution_registry import get_execution_registry
 
 REQUIRED_DURABLE_TABLES = (
     "analytics_execution",
@@ -25,6 +23,7 @@ class DurabilityHealthStatus:
 
 
 def check_durable_metadata_store_ready() -> DurabilityHealthStatus:
+    execution_registry = get_execution_registry()
     try:
         execution_registry.ping()
     except Exception:
@@ -33,7 +32,7 @@ def check_durable_metadata_store_ready() -> DurabilityHealthStatus:
             status="unavailable",
             reason="durable_metadata_store_unreachable",
         )
-    available_tables = set(inspect(execution_registry._engine).get_table_names())
+    available_tables = set(execution_registry.list_table_names())
     if any(table_name not in available_tables for table_name in REQUIRED_DURABLE_TABLES):
         return DurabilityHealthStatus(
             is_ready=False,

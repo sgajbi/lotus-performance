@@ -7,6 +7,7 @@ from uuid import UUID
 
 from app.core.config import get_settings
 from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
+from app.services.durable_store_runtime import RuntimeStoreProxy
 from app.services.execution_registry import ExecutionRegistry, execution_registry
 from app.services.lineage_metadata_store import LineageMetadataStore, lineage_metadata_store
 from app.services.lineage_service import LineageService, lineage_service
@@ -17,9 +18,9 @@ logger = logging.getLogger(__name__)
 def process_pending_jobs(
     *,
     limit: int | None = None,
-    lineage_store: LineageMetadataStore | None = None,
+    lineage_store: LineageMetadataStore | RuntimeStoreProxy[LineageMetadataStore] | None = None,
     lineage_service_: LineageService | None = None,
-    execution_store: ExecutionRegistry | None = None,
+    execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry] | None = None,
     worker_id: str | None = None,
     lease_seconds: int | None = None,
     max_attempts: int | None = None,
@@ -94,8 +95,8 @@ def _wait_for_next_poll(stop_event: Event | None, poll_seconds: float) -> bool:
 def _mark_lineage_materialization_failed(
     *,
     calculation_id: UUID,
-    lineage_store: LineageMetadataStore,
-    execution_store: ExecutionRegistry,
+    lineage_store: LineageMetadataStore | RuntimeStoreProxy[LineageMetadataStore],
+    execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry],
     error_message: str,
 ) -> None:
     lineage_store.mark_failed(

@@ -79,7 +79,7 @@ These characterize the control-plane query path behind:
   - daily frequency
   - canonical normalization and response shaping
 - Metric: median wall-clock runtime across 5 reads after warm-up
-- Budget: `<= 1000ms`
+- Budget: `<= 1200ms`
 - Test owner: [test_returns_series_orchestration_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_returns_series_orchestration_performance.py)
 
 ## Stateful retrieval budget

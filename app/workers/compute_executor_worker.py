@@ -19,6 +19,7 @@ from app.services.attribution_service import calculate_attribution
 from app.services.compute_job_store import ComputeJobStore, compute_job_store
 from app.services.contribution_service import calculate_contribution
 from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
+from app.services.durable_store_runtime import RuntimeStoreProxy
 from app.services.execution_registry import ExecutionRegistry, execution_registry
 from app.services.returns_series_service import calculate_returns_series
 from core.repro import generate_canonical_hash
@@ -34,9 +35,9 @@ def process_pending_jobs(*, limit: int | None = None, settings=None) -> int:
 def _process_pending_jobs(
     *,
     limit: int | None = None,
-    job_store: ComputeJobStore | None = None,
-    execution_store: ExecutionRegistry | None = None,
-    result_store: AsyncResultStore | None = None,
+    job_store: ComputeJobStore | RuntimeStoreProxy[ComputeJobStore] | None = None,
+    execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry] | None = None,
+    result_store: AsyncResultStore | RuntimeStoreProxy[AsyncResultStore] | None = None,
     worker_id: str | None = None,
     lease_seconds: int | None = None,
     returns_series_calculator: Callable[[ReturnsSeriesRequest], Coroutine[Any, Any, Any]] | None = None,
@@ -167,8 +168,8 @@ def _record_terminal_failure(
     error_message: str,
     error_type: str,
     missing_execution_log_message: str,
-    result_store: AsyncResultStore | None = None,
-    execution_store: ExecutionRegistry | None = None,
+    result_store: AsyncResultStore | RuntimeStoreProxy[AsyncResultStore] | None = None,
+    execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry] | None = None,
 ) -> None:
     active_result_store = result_store or async_result_store
     active_execution_store = execution_store or execution_registry

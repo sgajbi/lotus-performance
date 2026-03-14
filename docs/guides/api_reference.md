@@ -104,13 +104,17 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - active compute and lineage degradation-policy thresholds
   - compute queue backlog details
   - oldest pending, leased, and running compute-job ages
-  - retry-backlog, lease-expiry, and terminal-failure compute-job counts
+  - retry-backlog, lease-expiry, reclaimable, and terminal-failure compute-job counts
   - compute inspection anchors for the oldest pending, leased, and running work plus the latest terminal failure
+  - compute inspection anchors also include the latest recovered compute job returned to pending after retry or stale-lease recovery
+  - a bounded `recent_recoveries` list for compute showing the latest requeued items, recovery kind, timestamp, and attempt count
   - compute `degradation_reasons`
   - compute `degradation_details`
   - lineage queue backlog details
-  - retry-backlog and terminal-failure lineage payload counts
+  - retry-backlog, reclaimable, and terminal-failure lineage payload counts
   - lineage inspection anchors for the oldest pending and leased work plus the latest terminal failure
+  - lineage inspection anchors also include the latest recovered lineage item returned to pending after a retryable materialization failure
+  - a bounded `recent_recoveries` list for lineage showing the latest requeued items, recovery kind, timestamp, and attempt count
   - lineage `degradation_details`
   - lineage `degradation_reasons`
 - runtime may report `degraded` when configured queue-age or failure-pressure thresholds are exceeded
@@ -122,14 +126,41 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 
 - purpose: return exact compute and lineage work items for operator drill-down
 - query parameters:
-  - `status`: `active`, `failed`, or `all`
+  - `queue`: `both`, `compute`, or `lineage`
+  - `status`: `active`, `failed`, `all`, or `reclaimable`
   - `limit`: max items returned per queue
+  - `offset`: zero-based page offset applied per queue
+  - `min_age_seconds`: optional stale-item filter for operator triage
+  - `compute_analytics_type`: optional compute-only analytics family filter
+  - `lineage_calculation_type`: optional lineage-only calculation family filter
+  - `calculation_id_contains`: optional calculation-handle substring filter across selected queues
 - response includes:
   - durable metadata store availability
   - queue-specific availability for compute and lineage inspection
-  - filtered compute work items with calculation handle, lifecycle state, age, attempts, and failure context
-  - filtered lineage work items with calculation handle, lifecycle state, age, attempts, and failure context
+  - queue-specific `total_count` and `returned_count`
+  - `reclaimable` isolates work whose durable worker lease already expired and is eligible for recovery or re-lease
+  - echoed targeted filters for operator auditability
+  - filtered compute work items with calculation handle, direct execution/lineage drill-down paths, optional async `result_path`, lifecycle state, age, attempts, and failure context
+  - filtered lineage work items with calculation handle, direct execution/lineage drill-down paths, optional async `result_path`, lifecycle state, age, attempts, and failure context
 - use this when runtime-status tells you there is pressure, and you need the actual work items behind it without querying the database directly
+
+### `GET /integration/runtime-recoveries`
+
+- purpose: return recent compute and lineage recovery events for operator drill-down
+- query parameters:
+  - `queue`: `both`, `compute`, or `lineage`
+  - `limit`: max recovery events returned per queue
+  - `offset`: zero-based page offset applied per queue
+  - `compute_analytics_type`: optional compute-only analytics family filter
+  - `lineage_calculation_type`: optional lineage-only calculation family filter
+  - `calculation_id_contains`: optional calculation-handle substring filter across selected queues
+- response includes:
+  - durable metadata store availability
+  - queue-specific availability for compute and lineage recovery inspection
+  - queue-specific `total_count` and `returned_count`
+  - filtered compute recovery events with calculation handle, direct execution/lineage drill-down paths, optional async `result_path`, analytics type, recovery kind, recovery timestamp, attempt count, and last durable error type
+  - filtered lineage recovery events with calculation handle, direct execution/lineage drill-down paths, optional async `result_path`, calculation type, recovery kind, recovery timestamp, and attempt count
+- use this when runtime-status shows recent recovery activity and you need the concrete event stream behind the bounded status snapshot without querying the database directly
 
 ### `POST /integration/returns/series`
 

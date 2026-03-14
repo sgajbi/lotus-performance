@@ -13,6 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.core.config import get_settings
+from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
 
 
 class ComputeJobStatus(StrEnum):
@@ -104,6 +105,7 @@ class ComputeQueueStats:
     oldest_pending_age_seconds: float
     oldest_leased_age_seconds: float
     oldest_running_age_seconds: float
+    reclaimable_count: int = 0
 
 
 @dataclass(frozen=True)
@@ -112,6 +114,7 @@ class ComputeQueueInspectionAnchors:
     oldest_leased_calculation_id: str | None
     oldest_running_calculation_id: str | None
     latest_terminal_failure_calculation_id: str | None
+    latest_recovered_calculation_id: str | None
 
 
 @dataclass(frozen=True)
@@ -125,6 +128,28 @@ class ComputeQueueInspectionItem:
     max_attempts: int
     error_type: str | None
     error_message: str | None
+
+
+@dataclass(frozen=True)
+class ComputeQueueInspectionPage:
+    total_count: int
+    items: list[ComputeQueueInspectionItem]
+
+
+@dataclass(frozen=True)
+class ComputeRecoveryEvent:
+    calculation_id: str
+    analytics_type: str
+    recovery_kind: str
+    recovered_at_utc: str
+    attempt_count: int
+    error_type: str | None
+
+
+@dataclass(frozen=True)
+class ComputeRecoveryEventPage:
+    total_count: int
+    items: list[ComputeRecoveryEvent]
 
 
 @dataclass(frozen=True)
@@ -454,7 +479,7 @@ class ComputeJobStore:
     def get_queue_stats(self, *, now: datetime | None = None) -> ComputeQueueStats:
         stats_now = now or datetime.now(timezone.utc)
         with self._session() as session:
-            aggregate_row = session.execute(self._build_queue_stats_statement()).one()
+            aggregate_row = session.execute(self._build_queue_stats_statement(now=stats_now)).one()
 
             oldest_pending_age_seconds = 0.0
             if aggregate_row.oldest_pending_created_at is not None:
@@ -487,6 +512,7 @@ class ComputeJobStore:
                 oldest_pending_age_seconds=oldest_pending_age_seconds,
                 oldest_leased_age_seconds=oldest_leased_age_seconds,
                 oldest_running_age_seconds=oldest_running_age_seconds,
+                reclaimable_count=int(aggregate_row.reclaimable_count or 0),
             )
 
     def get_queue_inspection_anchors(self) -> ComputeQueueInspectionAnchors:
@@ -497,36 +523,135 @@ class ComputeJobStore:
                 oldest_leased_calculation_id=row.oldest_leased_calculation_id,
                 oldest_running_calculation_id=row.oldest_running_calculation_id,
                 latest_terminal_failure_calculation_id=row.latest_terminal_failure_calculation_id,
+                latest_recovered_calculation_id=row.latest_recovered_calculation_id,
             )
+
+    def list_recent_recoveries(
+        self,
+        *,
+        limit: int = 5,
+        offset: int = 0,
+        analytics_type: str | None = None,
+        calculation_id_contains: str | None = None,
+    ) -> ComputeRecoveryEventPage:
+        with self._session() as session:
+            rows = (
+                session.execute(
+                    self._build_recent_recoveries_statement(
+                        limit=limit,
+                        offset=offset,
+                        analytics_type=analytics_type,
+                        calculation_id_contains=calculation_id_contains,
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            events: list[ComputeRecoveryEvent] = []
+            for row in rows:
+                recovered_at_utc = _format_timestamp(row.last_error_at_utc)
+                if recovered_at_utc is None:
+                    continue
+                recovery_kind = "stale_lease_recovered" if row.error_type == "LeaseExpired" else "retryable_failure"
+                events.append(
+                    ComputeRecoveryEvent(
+                        calculation_id=row.calculation_id,
+                        analytics_type=row.analytics_type,
+                        recovery_kind=recovery_kind,
+                        recovered_at_utc=recovered_at_utc,
+                        attempt_count=row.attempt_count,
+                        error_type=row.error_type,
+                    )
+                )
+            total_count = int(
+                session.execute(
+                    self._build_recent_recoveries_count_statement(
+                        analytics_type=analytics_type,
+                        calculation_id_contains=calculation_id_contains,
+                    )
+                ).scalar_one()
+                or 0
+            )
+            return ComputeRecoveryEventPage(total_count=total_count, items=events)
 
     def list_inspection_items(
         self,
         *,
         status_filter: str,
         limit: int,
+        offset: int = 0,
+        min_age_seconds: float = 0.0,
+        analytics_type: str | None = None,
+        calculation_id_contains: str | None = None,
         now: datetime | None = None,
-    ) -> list[ComputeQueueInspectionItem]:
+    ) -> ComputeQueueInspectionPage:
         inspection_now = now or datetime.now(timezone.utc)
         normalized_status_filter = status_filter.lower()
+        min_age_threshold = inspection_now - timedelta(seconds=min_age_seconds) if min_age_seconds > 0 else None
 
         with self._session() as session:
             if normalized_status_filter == "active":
-                rows = session.execute(self._build_active_inspection_items_statement(limit=limit)).scalars().all()
+                count_statement = self._build_active_inspection_count_statement(
+                    analytics_type=analytics_type,
+                    calculation_id_contains=calculation_id_contains,
+                    min_age_threshold=min_age_threshold,
+                )
+                statement = self._build_active_inspection_items_statement(
+                    limit=limit,
+                    offset=offset,
+                    analytics_type=analytics_type,
+                    calculation_id_contains=calculation_id_contains,
+                    min_age_threshold=min_age_threshold,
+                )
             elif normalized_status_filter == "failed":
-                rows = session.execute(self._build_failed_inspection_items_statement(limit=limit)).scalars().all()
+                count_statement = self._build_failed_inspection_count_statement(
+                    analytics_type=analytics_type,
+                    calculation_id_contains=calculation_id_contains,
+                    min_age_threshold=min_age_threshold,
+                )
+                statement = self._build_failed_inspection_items_statement(
+                    limit=limit,
+                    offset=offset,
+                    analytics_type=analytics_type,
+                    calculation_id_contains=calculation_id_contains,
+                    min_age_threshold=min_age_threshold,
+                )
             elif normalized_status_filter == "all":
-                active_rows = (
-                    session.execute(self._build_active_inspection_items_statement(limit=limit)).scalars().all()
+                count_statement = self._build_all_inspection_count_statement(
+                    analytics_type=analytics_type,
+                    calculation_id_contains=calculation_id_contains,
+                    min_age_threshold=min_age_threshold,
                 )
-                failed_rows = (
-                    session.execute(self._build_failed_inspection_items_statement(limit=limit)).scalars().all()
+                statement = self._build_all_inspection_items_statement(
+                    limit=limit,
+                    offset=offset,
+                    analytics_type=analytics_type,
+                    calculation_id_contains=calculation_id_contains,
+                    min_age_threshold=min_age_threshold,
                 )
-                rows = [*active_rows, *failed_rows][:limit]
+            elif normalized_status_filter == "reclaimable":
+                count_statement = self._build_reclaimable_inspection_count_statement(
+                    analytics_type=analytics_type,
+                    calculation_id_contains=calculation_id_contains,
+                    now=inspection_now,
+                    min_age_threshold=min_age_threshold,
+                )
+                statement = self._build_reclaimable_inspection_items_statement(
+                    limit=limit,
+                    offset=offset,
+                    analytics_type=analytics_type,
+                    calculation_id_contains=calculation_id_contains,
+                    now=inspection_now,
+                    min_age_threshold=min_age_threshold,
+                )
             else:
                 raise ValueError(f"Unsupported status filter: {status_filter}")
-            return [self._to_inspection_item(row, now=inspection_now) for row in rows]
+            rows = session.execute(statement).scalars().all()
+            items = [self._to_inspection_item(row, now=inspection_now) for row in rows]
+            total_count = int(session.execute(count_statement).scalar_one() or 0)
+            return ComputeQueueInspectionPage(total_count=total_count, items=items)
 
-    def _build_queue_stats_statement(self):
+    def _build_queue_stats_statement(self, *, now: datetime):
         return select(
             func.sum(case((ComputeJobModel.job_status == ComputeJobStatus.PENDING.value, 1), else_=0)).label(
                 "pending_count"
@@ -554,6 +679,17 @@ class ComputeJobStore:
                 )
             ).label("retry_backlog_count"),
             func.sum(case((ComputeJobModel.error_type == "LeaseExpired", 1), else_=0)).label("lease_expired_count"),
+            func.sum(
+                case(
+                    (
+                        ComputeJobModel.job_status.in_([ComputeJobStatus.LEASED.value, ComputeJobStatus.RUNNING.value])
+                        & ComputeJobModel.lease_expires_at_utc.is_not(None)
+                        & (ComputeJobModel.lease_expires_at_utc < now),
+                        1,
+                    ),
+                    else_=0,
+                )
+            ).label("reclaimable_count"),
             func.sum(
                 case(
                     (
@@ -604,15 +740,103 @@ class ComputeJobStore:
             .limit(1)
             .scalar_subquery()
             .label("latest_terminal_failure_calculation_id"),
+            select(ComputeJobModel.calculation_id)
+            .where(
+                (ComputeJobModel.job_status == ComputeJobStatus.PENDING.value)
+                & (ComputeJobModel.attempt_count > 0)
+                & ComputeJobModel.last_error_at_utc.is_not(None)
+            )
+            .order_by(ComputeJobModel.last_error_at_utc.desc(), ComputeJobModel.created_at_utc.desc())
+            .limit(1)
+            .scalar_subquery()
+            .label("latest_recovered_calculation_id"),
         )
 
-    def _build_active_inspection_items_statement(self, *, limit: int):
-        active_since = case(
+    def _apply_recovery_filters(self, statement, *, analytics_type: str | None, calculation_id_contains: str | None):
+        if analytics_type is not None:
+            statement = statement.where(ComputeJobModel.analytics_type == analytics_type)
+        if calculation_id_contains:
+            statement = statement.where(ComputeJobModel.calculation_id.contains(calculation_id_contains))
+        return statement
+
+    def _build_recent_recoveries_statement(
+        self,
+        *,
+        limit: int,
+        offset: int,
+        analytics_type: str | None,
+        calculation_id_contains: str | None,
+    ):
+        statement = (
+            select(ComputeJobModel)
+            .where(
+                (ComputeJobModel.job_status == ComputeJobStatus.PENDING.value)
+                & (ComputeJobModel.attempt_count > 0)
+                & ComputeJobModel.last_error_at_utc.is_not(None)
+            )
+            .order_by(ComputeJobModel.last_error_at_utc.desc(), ComputeJobModel.created_at_utc.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        return self._apply_recovery_filters(
+            statement,
+            analytics_type=analytics_type,
+            calculation_id_contains=calculation_id_contains,
+        )
+
+    def _build_recent_recoveries_count_statement(
+        self,
+        *,
+        analytics_type: str | None,
+        calculation_id_contains: str | None,
+    ):
+        statement = (
+            select(func.count())
+            .select_from(ComputeJobModel)
+            .where(
+                (ComputeJobModel.job_status == ComputeJobStatus.PENDING.value)
+                & (ComputeJobModel.attempt_count > 0)
+                & ComputeJobModel.last_error_at_utc.is_not(None)
+            )
+        )
+        return self._apply_recovery_filters(
+            statement,
+            analytics_type=analytics_type,
+            calculation_id_contains=calculation_id_contains,
+        )
+
+    def _apply_inspection_filters(self, statement, *, analytics_type: str | None, calculation_id_contains: str | None):
+        if analytics_type is not None:
+            statement = statement.where(ComputeJobModel.analytics_type == analytics_type)
+        if calculation_id_contains:
+            statement = statement.where(ComputeJobModel.calculation_id.contains(calculation_id_contains))
+        return statement
+
+    @staticmethod
+    def _build_active_since_expression():
+        return case(
             (ComputeJobModel.job_status == ComputeJobStatus.RUNNING.value, ComputeJobModel.started_at_utc),
             (ComputeJobModel.job_status == ComputeJobStatus.LEASED.value, ComputeJobModel.leased_at_utc),
+            (ComputeJobModel.job_status == ComputeJobStatus.FAILED.value, ComputeJobModel.completed_at_utc),
             else_=ComputeJobModel.created_at_utc,
         )
-        return (
+
+    def _apply_min_age_filter(self, statement, *, min_age_threshold: datetime | None):
+        if min_age_threshold is None:
+            return statement
+        return statement.where(self._build_active_since_expression() <= min_age_threshold)
+
+    def _build_active_inspection_items_statement(
+        self,
+        *,
+        limit: int,
+        offset: int,
+        analytics_type: str | None,
+        calculation_id_contains: str | None,
+        min_age_threshold: datetime | None,
+    ):
+        active_since = self._build_active_since_expression()
+        statement = (
             select(ComputeJobModel)
             .where(
                 ComputeJobModel.job_status.in_(
@@ -624,15 +848,165 @@ class ComputeJobStore:
                 )
             )
             .order_by(active_since.asc(), ComputeJobModel.created_at_utc.asc())
+            .offset(offset)
             .limit(limit)
         )
+        return self._apply_inspection_filters(
+            self._apply_min_age_filter(statement, min_age_threshold=min_age_threshold),
+            analytics_type=analytics_type,
+            calculation_id_contains=calculation_id_contains,
+        )
 
-    def _build_failed_inspection_items_statement(self, *, limit: int):
-        return (
+    def _build_failed_inspection_items_statement(
+        self,
+        *,
+        limit: int,
+        offset: int,
+        analytics_type: str | None,
+        calculation_id_contains: str | None,
+        min_age_threshold: datetime | None,
+    ):
+        statement = (
             select(ComputeJobModel)
             .where(ComputeJobModel.job_status == ComputeJobStatus.FAILED.value)
             .order_by(ComputeJobModel.completed_at_utc.desc(), ComputeJobModel.created_at_utc.desc())
+            .offset(offset)
             .limit(limit)
+        )
+        return self._apply_inspection_filters(
+            self._apply_min_age_filter(statement, min_age_threshold=min_age_threshold),
+            analytics_type=analytics_type,
+            calculation_id_contains=calculation_id_contains,
+        )
+
+    def _build_all_inspection_items_statement(
+        self,
+        *,
+        limit: int,
+        offset: int,
+        analytics_type: str | None,
+        calculation_id_contains: str | None,
+        min_age_threshold: datetime | None,
+    ):
+        active_since = self._build_active_since_expression()
+        statement = (
+            select(ComputeJobModel)
+            .order_by(active_since.asc().nullslast(), ComputeJobModel.created_at_utc.asc())
+            .offset(offset)
+            .limit(limit)
+        )
+        return self._apply_inspection_filters(
+            self._apply_min_age_filter(statement, min_age_threshold=min_age_threshold),
+            analytics_type=analytics_type,
+            calculation_id_contains=calculation_id_contains,
+        )
+
+    def _build_active_inspection_count_statement(
+        self,
+        *,
+        analytics_type: str | None,
+        calculation_id_contains: str | None,
+        min_age_threshold: datetime | None,
+    ):
+        statement = (
+            select(func.count())
+            .select_from(ComputeJobModel)
+            .where(
+                ComputeJobModel.job_status.in_(
+                    [
+                        ComputeJobStatus.PENDING.value,
+                        ComputeJobStatus.LEASED.value,
+                        ComputeJobStatus.RUNNING.value,
+                    ]
+                )
+            )
+        )
+        return self._apply_inspection_filters(
+            self._apply_min_age_filter(statement, min_age_threshold=min_age_threshold),
+            analytics_type=analytics_type,
+            calculation_id_contains=calculation_id_contains,
+        )
+
+    def _build_failed_inspection_count_statement(
+        self,
+        *,
+        analytics_type: str | None,
+        calculation_id_contains: str | None,
+        min_age_threshold: datetime | None,
+    ):
+        statement = (
+            select(func.count())
+            .select_from(ComputeJobModel)
+            .where(ComputeJobModel.job_status == ComputeJobStatus.FAILED.value)
+        )
+        return self._apply_inspection_filters(
+            self._apply_min_age_filter(statement, min_age_threshold=min_age_threshold),
+            analytics_type=analytics_type,
+            calculation_id_contains=calculation_id_contains,
+        )
+
+    def _build_all_inspection_count_statement(
+        self,
+        *,
+        analytics_type: str | None,
+        calculation_id_contains: str | None,
+        min_age_threshold: datetime | None,
+    ):
+        statement = select(func.count()).select_from(ComputeJobModel)
+        return self._apply_inspection_filters(
+            self._apply_min_age_filter(statement, min_age_threshold=min_age_threshold),
+            analytics_type=analytics_type,
+            calculation_id_contains=calculation_id_contains,
+        )
+
+    def _build_reclaimable_inspection_items_statement(
+        self,
+        *,
+        limit: int,
+        offset: int,
+        analytics_type: str | None,
+        calculation_id_contains: str | None,
+        now: datetime,
+        min_age_threshold: datetime | None,
+    ):
+        statement = (
+            select(ComputeJobModel)
+            .where(
+                ComputeJobModel.job_status.in_([ComputeJobStatus.LEASED.value, ComputeJobStatus.RUNNING.value])
+                & ComputeJobModel.lease_expires_at_utc.is_not(None)
+                & (ComputeJobModel.lease_expires_at_utc < now)
+            )
+            .order_by(ComputeJobModel.lease_expires_at_utc.asc(), ComputeJobModel.created_at_utc.asc())
+            .offset(offset)
+            .limit(limit)
+        )
+        return self._apply_inspection_filters(
+            self._apply_min_age_filter(statement, min_age_threshold=min_age_threshold),
+            analytics_type=analytics_type,
+            calculation_id_contains=calculation_id_contains,
+        )
+
+    def _build_reclaimable_inspection_count_statement(
+        self,
+        *,
+        analytics_type: str | None,
+        calculation_id_contains: str | None,
+        now: datetime,
+        min_age_threshold: datetime | None,
+    ):
+        statement = (
+            select(func.count())
+            .select_from(ComputeJobModel)
+            .where(
+                ComputeJobModel.job_status.in_([ComputeJobStatus.LEASED.value, ComputeJobStatus.RUNNING.value])
+                & ComputeJobModel.lease_expires_at_utc.is_not(None)
+                & (ComputeJobModel.lease_expires_at_utc < now)
+            )
+        )
+        return self._apply_inspection_filters(
+            self._apply_min_age_filter(statement, min_age_threshold=min_age_threshold),
+            analytics_type=analytics_type,
+            calculation_id_contains=calculation_id_contains,
         )
 
     def _get_model(self, session: Session, calculation_id: UUID) -> ComputeJobModel:
@@ -687,5 +1061,11 @@ class ComputeJobStore:
         )
 
 
-settings = get_settings()
-compute_job_store = ComputeJobStore(settings.LINEAGE_METADATA_DATABASE_URL)
+_store_cache: dict[str, ComputeJobStore] = {}
+
+
+def get_compute_job_store(*, database_url: str | None = None) -> ComputeJobStore:
+    return resolve_runtime_store(cache=_store_cache, factory=ComputeJobStore, database_url=database_url)
+
+
+compute_job_store = RuntimeStoreProxy(get_compute_job_store)

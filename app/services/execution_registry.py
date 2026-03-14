@@ -12,7 +12,7 @@ from sqlalchemy import DateTime, ForeignKey, Index, String, Text, create_engine,
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
-from app.core.config import get_settings
+from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
 
 
 class ExecutionStatus(StrEnum):
@@ -170,6 +170,11 @@ class ExecutionRegistry:
     def ping(self) -> None:
         with self._engine.connect() as connection:
             connection.execute(text("SELECT 1"))
+
+    def list_table_names(self) -> tuple[str, ...]:
+        from sqlalchemy import inspect
+
+        return tuple(inspect(self._engine).get_table_names())
 
     @contextmanager
     def _session(self) -> Iterator[Session]:
@@ -555,5 +560,11 @@ class ExecutionRegistry:
         )
 
 
-settings = get_settings()
-execution_registry = ExecutionRegistry(settings.LINEAGE_METADATA_DATABASE_URL)
+_store_cache: dict[str, ExecutionRegistry] = {}
+
+
+def get_execution_registry(*, database_url: str | None = None) -> ExecutionRegistry:
+    return resolve_runtime_store(cache=_store_cache, factory=ExecutionRegistry, database_url=database_url)
+
+
+execution_registry = RuntimeStoreProxy(get_execution_registry)

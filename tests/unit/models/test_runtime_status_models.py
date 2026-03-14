@@ -52,12 +52,28 @@ def test_build_runtime_status_response_serializes_snapshot_details():
                 oldest_pending_age_seconds=120.0,
                 oldest_leased_age_seconds=90.0,
                 oldest_running_age_seconds=60.0,
+                reclaimable_count=2,
             ),
             inspection_anchors=ComputeQueueInspectionAnchors(
                 oldest_pending_calculation_id="calc-pending",
                 oldest_leased_calculation_id="calc-leased",
                 oldest_running_calculation_id="calc-running",
                 latest_terminal_failure_calculation_id="calc-failed",
+                latest_recovered_calculation_id="calc-recovered",
+            ),
+            recent_recoveries=(
+                type(
+                    "ComputeRecovery",
+                    (),
+                    {
+                        "calculation_id": "calc-recovered",
+                        "analytics_type": "ReturnsSeries",
+                        "recovery_kind": "retryable_failure",
+                        "recovered_at_utc": "2026-03-14T00:00:00Z",
+                        "attempt_count": 1,
+                        "error_type": "RuntimeError",
+                    },
+                )(),
             ),
         ),
         lineage_queue=RuntimeQueueStatus(
@@ -72,11 +88,26 @@ def test_build_runtime_status_response_serializes_snapshot_details():
                 terminal_failure_count=11,
                 oldest_pending_age_seconds=45.0,
                 oldest_leased_age_seconds=12.0,
+                reclaimable_count=1,
             ),
             inspection_anchors=LineageQueueInspectionAnchors(
                 oldest_pending_calculation_id="lineage-pending",
                 oldest_leased_calculation_id="lineage-leased",
                 latest_terminal_failure_calculation_id="lineage-failed",
+                latest_recovered_calculation_id="lineage-recovered",
+            ),
+            recent_recoveries=(
+                type(
+                    "LineageRecovery",
+                    (),
+                    {
+                        "calculation_id": "lineage-recovered",
+                        "calculation_type": "TWR",
+                        "recovery_kind": "retryable_materialization_failure",
+                        "recovered_at_utc": "2026-03-14T00:00:01Z",
+                        "attempt_count": 2,
+                    },
+                )(),
             ),
         ),
         recovery_drill=RecoveryDrillStatus(
@@ -120,12 +151,19 @@ def test_build_runtime_status_response_serializes_snapshot_details():
     assert response.runtime_degradation_details[0].reason == "compute_pending_age_exceeded"
     assert response.compute_queue.pending_jobs == 1
     assert response.compute_queue.lease_expired_jobs == 7
+    assert response.compute_queue.reclaimable_jobs == 2
     assert response.compute_queue.inspection_anchors is not None
     assert response.compute_queue.inspection_anchors.oldest_pending_calculation_id == "calc-pending"
+    assert response.compute_queue.inspection_anchors.latest_recovered_calculation_id == "calc-recovered"
+    assert response.compute_queue.recent_recoveries[0].calculation_id == "calc-recovered"
+    assert response.compute_queue.recent_recoveries[0].recovery_kind == "retryable_failure"
     assert response.lineage_queue.pending_payloads == 9
     assert response.lineage_queue.leased_payloads == 2
+    assert response.lineage_queue.reclaimable_payloads == 1
     assert response.lineage_queue.inspection_anchors is not None
     assert response.lineage_queue.inspection_anchors.latest_terminal_failure_calculation_id == "lineage-failed"
+    assert response.lineage_queue.inspection_anchors.latest_recovered_calculation_id == "lineage-recovered"
+    assert response.lineage_queue.recent_recoveries[0].calculation_id == "lineage-recovered"
     assert response.recovery_drill.status == "degraded"
     assert response.recovery_drill.latest_status == "passed"
     assert response.recovery_drill.latest_operator_id == "ops-user"
@@ -151,6 +189,7 @@ def test_build_runtime_status_response_handles_unavailable_queue_without_stats()
             degradation_details=(),
             stats=None,
             inspection_anchors=None,
+            recent_recoveries=(),
         ),
         lineage_queue=RuntimeQueueStatus(
             status="available",
@@ -159,6 +198,7 @@ def test_build_runtime_status_response_handles_unavailable_queue_without_stats()
             degradation_details=(),
             stats=None,
             inspection_anchors=None,
+            recent_recoveries=(),
         ),
         recovery_drill=RecoveryDrillStatus(
             status="available",

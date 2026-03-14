@@ -35,6 +35,37 @@ def test_lineage_metadata_store_pending_complete_and_failed(tmp_path):
     assert failed.error_message == "write failed"
 
 
+def test_lineage_metadata_store_updates_record_timestamp_on_status_transitions(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+
+    store.create_pending_record(calculation_id=calculation_id, calculation_type="TWR")
+    first = store.get_record(calculation_id)
+    assert first is not None
+
+    store.mark_complete(calculation_id=calculation_id, artifact_names=["request.json"])
+    complete = store.get_record(calculation_id)
+    assert complete is not None
+
+    store.mark_failed(calculation_id=calculation_id, error_message="boom")
+    failed = store.get_record(calculation_id)
+    assert failed is not None
+
+    store.mark_pending(calculation_id=calculation_id)
+    pending_again = store.get_record(calculation_id)
+    assert pending_again is not None
+
+    first_ts = datetime.fromisoformat(first.timestamp_utc.replace("Z", "+00:00"))
+    complete_ts = datetime.fromisoformat(complete.timestamp_utc.replace("Z", "+00:00"))
+    failed_ts = datetime.fromisoformat(failed.timestamp_utc.replace("Z", "+00:00"))
+    pending_again_ts = datetime.fromisoformat(pending_again.timestamp_utc.replace("Z", "+00:00"))
+
+    assert complete_ts >= first_ts
+    assert failed_ts >= complete_ts
+    assert pending_again_ts >= failed_ts
+
+
 def test_lineage_metadata_store_raises_for_missing_record_updates(tmp_path):
     store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
     store.create_schema()
@@ -215,8 +246,9 @@ def test_lineage_metadata_store_queue_inspection_anchors(tmp_path):
     pending_id = uuid4()
     leased_id = uuid4()
     failed_id = uuid4()
+    recovered_id = uuid4()
 
-    for calculation_id in [pending_id, leased_id, failed_id]:
+    for calculation_id in [pending_id, leased_id, failed_id, recovered_id]:
         store.enqueue_lineage_payload(
             calculation_id=calculation_id,
             calculation_type="TWR",
@@ -226,25 +258,100 @@ def test_lineage_metadata_store_queue_inspection_anchors(tmp_path):
         )
 
     store.mark_failed(failed_id, error_message="boom")
+    store.increment_attempt_count(recovered_id)
+    store.mark_pending(recovered_id)
 
     with store._session() as session:
         pending_payload = session.get(LineagePayloadModel, str(pending_id))
         leased_payload = session.get(LineagePayloadModel, str(leased_id))
         failed_record = session.get(LineageRecordModel, str(failed_id))
+        recovered_record = session.get(LineageRecordModel, str(recovered_id))
+        recovered_payload = session.get(LineagePayloadModel, str(recovered_id))
         assert pending_payload is not None
         assert leased_payload is not None
         assert failed_record is not None
+        assert recovered_record is not None
+        assert recovered_payload is not None
         pending_payload.created_at_utc = now - timedelta(seconds=120)
         leased_payload.created_at_utc = now - timedelta(seconds=60)
+        recovered_payload.created_at_utc = now - timedelta(seconds=30)
         leased_payload.leased_at_utc = now - timedelta(seconds=90)
         leased_payload.lease_expires_at_utc = now + timedelta(seconds=30)
         failed_record.timestamp_utc = now - timedelta(seconds=5)
+        recovered_record.timestamp_utc = now - timedelta(seconds=2)
 
     anchors = store.get_queue_inspection_anchors(now=now)
 
     assert anchors.oldest_pending_calculation_id == str(pending_id)
     assert anchors.oldest_leased_calculation_id == str(leased_id)
     assert anchors.latest_terminal_failure_calculation_id == str(failed_id)
+    assert anchors.latest_recovered_calculation_id == str(recovered_id)
+
+
+def test_lineage_metadata_store_lists_recent_recoveries_in_descending_order(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    now = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+    first_id = uuid4()
+    second_id = uuid4()
+
+    for calculation_id in [first_id, second_id]:
+        store.enqueue_lineage_payload(
+            calculation_id=calculation_id,
+            calculation_type="TWR",
+            request_json="{}",
+            response_json="{}",
+            details={"details.json": "{}"},
+        )
+        store.increment_attempt_count(calculation_id)
+        store.mark_pending(calculation_id)
+
+    with store._session() as session:
+        first_record = session.get(LineageRecordModel, str(first_id))
+        second_record = session.get(LineageRecordModel, str(second_id))
+        assert first_record is not None
+        assert second_record is not None
+        first_record.timestamp_utc = now - timedelta(seconds=10)
+        second_record.timestamp_utc = now - timedelta(seconds=5)
+
+    events = store.list_recent_recoveries(limit=5).items
+
+    assert [event.calculation_id for event in events] == [str(second_id), str(first_id)]
+    assert all(event.recovery_kind == "retryable_materialization_failure" for event in events)
+
+
+def test_lineage_metadata_store_lists_recent_recoveries_with_filters_and_offset(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    now = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+    ids = [uuid4() for _ in range(3)]
+
+    for calculation_id, calculation_type in zip(ids, ["TWR", "Attribution", "TWR"], strict=True):
+        store.enqueue_lineage_payload(
+            calculation_id=calculation_id,
+            calculation_type=calculation_type,
+            request_json="{}",
+            response_json="{}",
+            details={"details.json": "{}"},
+        )
+        store.increment_attempt_count(calculation_id)
+        store.mark_pending(calculation_id)
+
+    with store._session() as session:
+        for seconds_ago, calculation_id in zip([20, 10, 5], ids, strict=True):
+            record = session.get(LineageRecordModel, str(calculation_id))
+            assert record is not None
+            record.timestamp_utc = now - timedelta(seconds=seconds_ago)
+
+    page = store.list_recent_recoveries(
+        limit=1,
+        offset=1,
+        calculation_type="TWR",
+        calculation_id_contains=str(ids[0])[:8],
+    )
+
+    assert page.total_count == 1
+    assert page.items == []
 
 
 def test_lineage_metadata_store_lists_active_and_failed_inspection_items(tmp_path):
@@ -279,19 +386,50 @@ def test_lineage_metadata_store_lists_active_and_failed_inspection_items(tmp_pat
         leased_payload.lease_expires_at_utc = now + timedelta(seconds=30)
         failed_record.timestamp_utc = now - timedelta(seconds=10)
 
-    active_items = store.list_inspection_items(status_filter="active", limit=10, now=now)
-    failed_items = store.list_inspection_items(status_filter="failed", limit=10, now=now)
+    active_page = store.list_inspection_items(status_filter="active", limit=10, now=now)
+    failed_page = store.list_inspection_items(status_filter="failed", limit=10, now=now)
+    stale_page = store.list_inspection_items(status_filter="active", limit=10, min_age_seconds=100.0, now=now)
 
-    assert [item.calculation_id for item in active_items] == [str(pending_id), str(leased_id)]
-    assert active_items[0].status == LineageStatus.PENDING.value
-    assert active_items[0].age_seconds == 120.0
-    assert active_items[1].status == "leased"
-    assert active_items[1].age_seconds == 90.0
-    assert len(failed_items) == 1
-    assert failed_items[0].calculation_id == str(failed_id)
-    assert failed_items[0].status == LineageStatus.FAILED.value
-    assert failed_items[0].error_message == "boom"
-    assert failed_items[0].age_seconds == 10.0
+    assert active_page.total_count == 2
+    assert [item.calculation_id for item in active_page.items] == [str(pending_id), str(leased_id)]
+    assert active_page.items[0].status == LineageStatus.PENDING.value
+    assert active_page.items[0].age_seconds == 120.0
+    assert active_page.items[1].status == "leased"
+    assert active_page.items[1].age_seconds == 90.0
+    assert failed_page.total_count == 1
+    assert len(failed_page.items) == 1
+    assert failed_page.items[0].calculation_id == str(failed_id)
+    assert failed_page.items[0].status == LineageStatus.FAILED.value
+    assert failed_page.items[0].error_message == "boom"
+    assert failed_page.items[0].age_seconds == 10.0
+    assert stale_page.total_count == 1
+    assert [item.calculation_id for item in stale_page.items] == [str(pending_id)]
+
+
+def test_lineage_metadata_store_filters_inspection_items_by_type_and_calculation_substring(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    ids = [uuid4() for _ in range(3)]
+    types = ["TWR", "Attribution", "TWR"]
+
+    for calculation_id, calculation_type in zip(ids, types, strict=True):
+        store.enqueue_lineage_payload(
+            calculation_id=calculation_id,
+            calculation_type=calculation_type,
+            request_json="{}",
+            response_json="{}",
+            details={"details.json": "{}"},
+        )
+
+    filtered = store.list_inspection_items(
+        status_filter="all",
+        limit=10,
+        calculation_type="TWR",
+        calculation_id_contains=str(ids[2])[:8],
+    )
+
+    assert filtered.total_count == 1
+    assert [item.calculation_id for item in filtered.items] == [str(ids[2])]
 
 
 def test_lineage_metadata_store_mark_pending_clears_error(tmp_path):
@@ -332,6 +470,64 @@ def test_lineage_metadata_store_mark_pending_releases_payload_lease(tmp_path):
     assert payload.worker_id is None
     assert payload.leased_at_utc is None
     assert payload.lease_expires_at_utc is None
+
+
+def test_lineage_metadata_store_lists_reclaimable_items_with_expired_leases(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    now = datetime.now(timezone.utc)
+    reclaimable_id = uuid4()
+    active_id = uuid4()
+
+    for calculation_id in [reclaimable_id, active_id]:
+        store.enqueue_lineage_payload(
+            calculation_id=calculation_id,
+            calculation_type="TWR",
+            request_json="{}",
+            response_json="{}",
+            details={"details.json": "{}"},
+        )
+
+    with store._session() as session:
+        reclaimable_payload = session.get(LineagePayloadModel, str(reclaimable_id))
+        active_payload = session.get(LineagePayloadModel, str(active_id))
+        assert reclaimable_payload is not None
+        assert active_payload is not None
+        reclaimable_payload.leased_at_utc = now - timedelta(seconds=80)
+        reclaimable_payload.lease_expires_at_utc = now - timedelta(seconds=15)
+        active_payload.leased_at_utc = now - timedelta(seconds=70)
+        active_payload.lease_expires_at_utc = now + timedelta(seconds=30)
+
+    page = store.list_inspection_items(status_filter="reclaimable", limit=10, now=now)
+
+    assert page.total_count == 1
+    assert [item.calculation_id for item in page.items] == [str(reclaimable_id)]
+    assert page.items[0].status == "pending"
+
+
+def test_lineage_metadata_store_queue_stats_include_reclaimable_count(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    now = datetime.now(timezone.utc)
+    reclaimable_id = uuid4()
+
+    store.enqueue_lineage_payload(
+        calculation_id=reclaimable_id,
+        calculation_type="TWR",
+        request_json="{}",
+        response_json="{}",
+        details={"details.json": "{}"},
+    )
+
+    with store._session() as session:
+        reclaimable_payload = session.get(LineagePayloadModel, str(reclaimable_id))
+        assert reclaimable_payload is not None
+        reclaimable_payload.leased_at_utc = now - timedelta(seconds=30)
+        reclaimable_payload.lease_expires_at_utc = now - timedelta(seconds=5)
+
+    stats = store.get_pending_payload_stats(now=now)
+
+    assert stats.reclaimable_count == 1
 
 
 def test_lineage_metadata_store_declares_hot_path_indexes(tmp_path):

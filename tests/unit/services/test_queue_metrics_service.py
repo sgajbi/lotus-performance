@@ -10,6 +10,7 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
         complete_count = 5
         retry_backlog_count = 6
         lease_expired_count = 7
+        reclaimable_count = 2
         terminal_failure_count = 8
         oldest_pending_age_seconds = 12.5
         oldest_leased_age_seconds = 6.25
@@ -17,9 +18,12 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
 
     class _LineageStats:
         pending_payload_count = 6
+        leased_payload_count = 1
         retry_backlog_count = 2
+        reclaimable_count = 1
         terminal_failure_count = 1
         oldest_pending_age_seconds = 7.5
+        oldest_leased_age_seconds = 4.0
 
     monkeypatch.setattr(
         "app.services.queue_metrics_service.compute_job_store.get_queue_stats",
