@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
+import tempfile
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -315,8 +317,8 @@ def _persist_evidence_history(
 ) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(asdict(evidence), indent=2)
-    (output_dir / evidence.evidence_file_name).write_text(payload, encoding="utf-8")
-    (output_dir / "latest.json").write_text(payload, encoding="utf-8")
+    _write_text_atomic(output_dir / evidence.evidence_file_name, payload)
+    _write_text_atomic(output_dir / "latest.json", payload)
     _prune_historical_evidence(
         output_dir=output_dir,
         retention_limit=retention_limit,
@@ -369,7 +371,26 @@ def _write_manifest(*, output_dir: Path, latest_file_name: str, retention_limit:
         retention_max_age_days=retention_max_age_days,
         entries=entries,
     )
-    (output_dir / "manifest.json").write_text(json.dumps(asdict(manifest), indent=2), encoding="utf-8")
+    _write_text_atomic(output_dir / "manifest.json", json.dumps(asdict(manifest), indent=2))
+
+
+def _write_text_atomic(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temp_path = tempfile.mkstemp(dir=path.parent, prefix=".recovery-drill-", suffix=".tmp", text=True)
+    try:
+        with open(fd, "w", encoding="utf-8", newline="", closefd=False) as handle:
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.close(fd)
+        Path(temp_path).replace(path)
+    except Exception:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        Path(temp_path).unlink(missing_ok=True)
+        raise
 
 
 def _filter_fresh_history(*, historical_files: list[Path], retention_max_age_days: int) -> list[Path]:

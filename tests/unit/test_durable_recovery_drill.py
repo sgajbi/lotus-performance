@@ -1,7 +1,9 @@
 import json
 from datetime import UTC, datetime, timedelta
 
-from scripts.durable_recovery_drill import REQUIRED_TABLES, run_recovery_drill
+import pytest
+
+from scripts.durable_recovery_drill import REQUIRED_TABLES, _write_text_atomic, run_recovery_drill
 
 
 def test_run_recovery_drill_emits_passing_evidence_and_writes_artifact_history(tmp_path):
@@ -129,3 +131,18 @@ def test_run_recovery_drill_prunes_history_older_than_max_age(tmp_path):
     assert "stale.json" not in retained
     assert retained == [current.evidence_file_name]
     assert manifest["retained_file_names"] == [current.evidence_file_name]
+
+
+def test_write_text_atomic_does_not_leave_partial_target(tmp_path, mocker):
+    target_path = tmp_path / "manifest.json"
+
+    def _failing_replace(_dst):
+        raise OSError("replace failed")
+
+    mocker.patch("scripts.durable_recovery_drill.Path.replace", side_effect=_failing_replace)
+
+    with pytest.raises(OSError, match="replace failed"):
+        _write_text_atomic(target_path, '{"status":"passed"}')
+
+    assert not target_path.exists()
+    assert list(tmp_path.glob(".recovery-drill-*.tmp")) == []
