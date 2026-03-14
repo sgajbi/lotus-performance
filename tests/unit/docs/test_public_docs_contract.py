@@ -207,6 +207,9 @@ def test_runtime_threshold_compose_overlays_match_profile_defaults():
     assert 'RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO: "0.10"' in development
     assert 'RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO: "0.15"' in staging
     assert 'RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO: "0.20"' in production
-    assert "docker compose -f docker-compose.yml -f docs/examples/docker-compose.runtime-thresholds.production.yml up" in readme
+    assert (
+        "docker compose -f docker-compose.yml -f docs/examples/docker-compose.runtime-thresholds.production.yml up"
+        in readme
+    )
     assert "docker-compose.runtime-thresholds.production.yml" in api_reference
     assert "docker-compose.yml" in runtime_topology

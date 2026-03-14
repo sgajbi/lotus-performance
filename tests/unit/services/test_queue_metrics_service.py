@@ -113,23 +113,31 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
     assert "lotus_performance_recovery_drill_policy_threshold" in metric_names
     assert "lotus_performance_recovery_drill_degradation_breach" in metric_names
 
-    compute_breach_metric = next(metric for metric in metrics if metric.name == "lotus_performance_compute_queue_degradation_breach")
+    compute_breach_metric = next(
+        metric for metric in metrics if metric.name == "lotus_performance_compute_queue_degradation_breach"
+    )
     compute_breach_samples = {sample.labels["reason"]: sample.value for sample in compute_breach_metric.samples}
     assert compute_breach_samples["compute_pending_age_exceeded"] == 0
     assert compute_breach_samples["compute_leased_age_exceeded"] == 0
     assert compute_breach_samples["compute_running_age_exceeded"] == 0
 
-    lineage_breach_metric = next(metric for metric in metrics if metric.name == "lotus_performance_lineage_queue_degradation_breach")
+    lineage_breach_metric = next(
+        metric for metric in metrics if metric.name == "lotus_performance_lineage_queue_degradation_breach"
+    )
     lineage_breach_samples = {sample.labels["reason"]: sample.value for sample in lineage_breach_metric.samples}
     assert lineage_breach_samples["lineage_pending_age_exceeded"] == 0
     assert lineage_breach_samples["lineage_leased_age_exceeded"] == 0
 
-    breach_metric = next(metric for metric in metrics if metric.name == "lotus_performance_lineage_storage_pressure_breach")
+    breach_metric = next(
+        metric for metric in metrics if metric.name == "lotus_performance_lineage_storage_pressure_breach"
+    )
     breach_samples = {sample.labels["reason"]: sample.value for sample in breach_metric.samples}
     assert breach_samples["lineage_storage_free_bytes_below_threshold"] == 0
     assert breach_samples["lineage_storage_free_ratio_below_threshold"] == 0
 
-    recovery_breach_metric = next(metric for metric in metrics if metric.name == "lotus_performance_recovery_drill_degradation_breach")
+    recovery_breach_metric = next(
+        metric for metric in metrics if metric.name == "lotus_performance_recovery_drill_degradation_breach"
+    )
     recovery_breach_samples = {sample.labels["reason"]: sample.value for sample in recovery_breach_metric.samples}
     assert recovery_breach_samples["recovery_drill_latest_not_passed"] == 0
     assert recovery_breach_samples["recovery_drill_age_exceeded"] == 0
@@ -284,7 +292,9 @@ def test_queue_metrics_collector_emits_lineage_storage_breach_state(monkeypatch)
 
     metrics = list(DurableQueueCollector().collect())
 
-    breach_metric = next(metric for metric in metrics if metric.name == "lotus_performance_lineage_storage_pressure_breach")
+    breach_metric = next(
+        metric for metric in metrics if metric.name == "lotus_performance_lineage_storage_pressure_breach"
+    )
     breach_samples = {sample.labels["reason"]: sample.value for sample in breach_metric.samples}
     assert breach_samples["lineage_storage_free_bytes_below_threshold"] == 1
     assert breach_samples["lineage_storage_free_ratio_below_threshold"] == 1
@@ -364,7 +374,9 @@ def test_queue_metrics_collector_emits_queue_policy_breach_state(monkeypatch):
 
     metrics = list(DurableQueueCollector().collect())
 
-    compute_metric = next(metric for metric in metrics if metric.name == "lotus_performance_compute_queue_degradation_breach")
+    compute_metric = next(
+        metric for metric in metrics if metric.name == "lotus_performance_compute_queue_degradation_breach"
+    )
     compute_samples = {sample.labels["reason"]: sample.value for sample in compute_metric.samples}
     assert compute_samples["compute_retry_backlog_exceeded"] == 1
     assert compute_samples["compute_lease_expiry_pressure_exceeded"] == 1
@@ -373,7 +385,9 @@ def test_queue_metrics_collector_emits_queue_policy_breach_state(monkeypatch):
     assert compute_samples["compute_leased_age_exceeded"] == 1
     assert compute_samples["compute_running_age_exceeded"] == 1
 
-    lineage_metric = next(metric for metric in metrics if metric.name == "lotus_performance_lineage_queue_degradation_breach")
+    lineage_metric = next(
+        metric for metric in metrics if metric.name == "lotus_performance_lineage_queue_degradation_breach"
+    )
     lineage_samples = {sample.labels["reason"]: sample.value for sample in lineage_metric.samples}
     assert lineage_samples["lineage_retry_backlog_exceeded"] == 1
     assert lineage_samples["lineage_terminal_failure_exceeded"] == 1
@@ -476,7 +490,9 @@ def test_queue_metrics_collector_emits_recovery_drill_breach_state(monkeypatch):
 
     metrics = list(DurableQueueCollector().collect())
 
-    recovery_metric = next(metric for metric in metrics if metric.name == "lotus_performance_recovery_drill_degradation_breach")
+    recovery_metric = next(
+        metric for metric in metrics if metric.name == "lotus_performance_recovery_drill_degradation_breach"
+    )
     recovery_samples = {sample.labels["reason"]: sample.value for sample in recovery_metric.samples}
     assert recovery_samples["recovery_drill_latest_not_passed"] == 1
     assert recovery_samples["recovery_drill_age_exceeded"] == 1

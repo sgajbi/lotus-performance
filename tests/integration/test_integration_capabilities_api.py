@@ -1,14 +1,33 @@
+import os
 import re
+import shutil
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
+from app.core.config import get_settings
 from app.services.compute_job_store import compute_job_store
 from app.services.durability_health_service import DurabilityHealthStatus
 from app.services.lineage_metadata_store import LineagePayloadModel, lineage_metadata_store
 from app.services.recovery_drill_history_service import RecoveryDrillHistoryEntry, RecoveryDrillHistorySnapshot
 from main import app
+
+settings = get_settings()
+
+
+@pytest.fixture()
+def client():
+    if os.path.exists(settings.LINEAGE_STORAGE_PATH):
+        shutil.rmtree(settings.LINEAGE_STORAGE_PATH)
+    os.makedirs(settings.LINEAGE_STORAGE_PATH, exist_ok=True)
+
+    with TestClient(app) as c:
+        yield c
+
+    if os.path.exists(settings.LINEAGE_STORAGE_PATH):
+        shutil.rmtree(settings.LINEAGE_STORAGE_PATH)
 
 
 def test_integration_capabilities_default_contract():
@@ -61,12 +80,11 @@ def test_integration_capabilities_limit_guardrails():
     assert len(body["workflows"]) == 1
 
 
-def test_health_and_metrics_endpoints_available():
-    with TestClient(app) as client:
-        health = client.get("/health")
-        live = client.get("/health/live")
-        ready = client.get("/health/ready")
-        metrics = client.get("/metrics")
+def test_health_and_metrics_endpoints_available(client):
+    health = client.get("/health")
+    live = client.get("/health/live")
+    ready = client.get("/health/ready")
+    metrics = client.get("/metrics")
 
     assert health.status_code == 200
     assert live.status_code == 200
@@ -226,14 +244,8 @@ def test_metrics_include_lineage_storage_capacity_signals(mocker):
             'lotus_performance_lineage_storage_pressure_breach{reason="lineage_storage_free_ratio_below_threshold"} 0.0'
             in metrics.text
         )
-        assert (
-            'lotus_performance_lineage_storage_pressure_threshold{threshold="min_free_bytes"} 250.0'
-            in metrics.text
-        )
-        assert (
-            'lotus_performance_lineage_storage_pressure_threshold{threshold="min_free_ratio"} 0.2'
-            in metrics.text
-        )
+        assert 'lotus_performance_lineage_storage_pressure_threshold{threshold="min_free_bytes"} 250.0' in metrics.text
+        assert 'lotus_performance_lineage_storage_pressure_threshold{threshold="min_free_ratio"} 0.2' in metrics.text
     finally:
         settings.RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES = original_bytes
         settings.RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO = original_ratio
@@ -424,16 +436,46 @@ def test_metrics_include_queue_policy_breach_signals():
             metrics = client.get("/metrics")
 
         assert metrics.status_code == 200
-        assert 'lotus_performance_compute_queue_degradation_breach{reason="compute_retry_backlog_exceeded"} 1.0' in metrics.text
-        assert 'lotus_performance_compute_queue_degradation_breach{reason="compute_lease_expiry_pressure_exceeded"} 1.0' in metrics.text
-        assert 'lotus_performance_compute_queue_degradation_breach{reason="compute_terminal_failure_exceeded"} 1.0' in metrics.text
-        assert 'lotus_performance_compute_queue_degradation_breach{reason="compute_pending_age_exceeded"} 1.0' in metrics.text
-        assert 'lotus_performance_compute_queue_degradation_breach{reason="compute_leased_age_exceeded"} 1.0' in metrics.text
-        assert 'lotus_performance_compute_queue_degradation_breach{reason="compute_running_age_exceeded"} 1.0' in metrics.text
-        assert 'lotus_performance_lineage_queue_degradation_breach{reason="lineage_retry_backlog_exceeded"} 1.0' in metrics.text
-        assert 'lotus_performance_lineage_queue_degradation_breach{reason="lineage_terminal_failure_exceeded"} 1.0' in metrics.text
-        assert 'lotus_performance_lineage_queue_degradation_breach{reason="lineage_pending_age_exceeded"} 1.0' in metrics.text
-        assert 'lotus_performance_lineage_queue_degradation_breach{reason="lineage_leased_age_exceeded"} 1.0' in metrics.text
+        assert (
+            'lotus_performance_compute_queue_degradation_breach{reason="compute_retry_backlog_exceeded"} 1.0'
+            in metrics.text
+        )
+        assert (
+            'lotus_performance_compute_queue_degradation_breach{reason="compute_lease_expiry_pressure_exceeded"} 1.0'
+            in metrics.text
+        )
+        assert (
+            'lotus_performance_compute_queue_degradation_breach{reason="compute_terminal_failure_exceeded"} 1.0'
+            in metrics.text
+        )
+        assert (
+            'lotus_performance_compute_queue_degradation_breach{reason="compute_pending_age_exceeded"} 1.0'
+            in metrics.text
+        )
+        assert (
+            'lotus_performance_compute_queue_degradation_breach{reason="compute_leased_age_exceeded"} 1.0'
+            in metrics.text
+        )
+        assert (
+            'lotus_performance_compute_queue_degradation_breach{reason="compute_running_age_exceeded"} 1.0'
+            in metrics.text
+        )
+        assert (
+            'lotus_performance_lineage_queue_degradation_breach{reason="lineage_retry_backlog_exceeded"} 1.0'
+            in metrics.text
+        )
+        assert (
+            'lotus_performance_lineage_queue_degradation_breach{reason="lineage_terminal_failure_exceeded"} 1.0'
+            in metrics.text
+        )
+        assert (
+            'lotus_performance_lineage_queue_degradation_breach{reason="lineage_pending_age_exceeded"} 1.0'
+            in metrics.text
+        )
+        assert (
+            'lotus_performance_lineage_queue_degradation_breach{reason="lineage_leased_age_exceeded"} 1.0'
+            in metrics.text
+        )
     finally:
         (
             settings.RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS,
@@ -490,7 +532,13 @@ def test_metrics_include_recovery_drill_breach_signals(mocker):
         assert "lotus_performance_recovery_drill_availability 1.0" in metrics.text
         assert "lotus_performance_recovery_drill_latest_age_seconds" in metrics.text
         assert 'lotus_performance_recovery_drill_policy_threshold{threshold="max_age_seconds"} 300.0' in metrics.text
-        assert 'lotus_performance_recovery_drill_degradation_breach{reason="recovery_drill_latest_not_passed"} 1.0' in metrics.text
-        assert 'lotus_performance_recovery_drill_degradation_breach{reason="recovery_drill_age_exceeded"} 1.0' in metrics.text
+        assert (
+            'lotus_performance_recovery_drill_degradation_breach{reason="recovery_drill_latest_not_passed"} 1.0'
+            in metrics.text
+        )
+        assert (
+            'lotus_performance_recovery_drill_degradation_breach{reason="recovery_drill_age_exceeded"} 1.0'
+            in metrics.text
+        )
     finally:
         settings.RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS = original_threshold

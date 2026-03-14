@@ -154,7 +154,11 @@ class DurableQueueCollector:
         )
         recovery_drill_availability.add_metric(
             [],
-            1 if recovery_drill_available and recovery_drill_snapshot is not None and recovery_drill_snapshot.status == "available" else 0,
+            1
+            if recovery_drill_available
+            and recovery_drill_snapshot is not None
+            and recovery_drill_snapshot.status == "available"
+            else 0,
         )
         yield recovery_drill_availability
 
@@ -379,7 +383,11 @@ class DurableQueueCollector:
         )
         yield recovery_drill_thresholds
 
-        if recovery_drill_snapshot is not None and recovery_drill_snapshot.status == "available" and recovery_drill_snapshot.entries:
+        if (
+            recovery_drill_snapshot is not None
+            and recovery_drill_snapshot.status == "available"
+            and recovery_drill_snapshot.entries
+        ):
             latest = recovery_drill_snapshot.entries[0]
             latest_age_seconds = _age_seconds(latest.generated_at_utc)
 

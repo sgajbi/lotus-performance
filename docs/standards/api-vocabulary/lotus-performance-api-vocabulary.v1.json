@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-03-14T09:56:52.137912+00:00",
+  "generatedAt": "2026-03-14T11:53:46.383013+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.active_since_utc",
@@ -759,6 +759,36 @@
       "example": "BASE_ONLY",
       "type": "object",
       "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.cursor_calculation_id_before",
+      "canonicalTerm": "cursor_calculation_id_before",
+      "preferredName": "cursor_calculation_id_before",
+      "description": "Canonical cursor calculation id before used by lotus-performance APIs.",
+      "example": null,
+      "type": "object",
+      "locations": [
+        "query",
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.cursor_recovered_before",
+      "canonicalTerm": "cursor_recovered_before",
+      "preferredName": "cursor_recovered_before",
+      "description": "Canonical cursor recovered before used by lotus-performance APIs.",
+      "example": null,
+      "type": "object",
+      "locations": [
+        "query",
         "body"
       ],
       "observedTypes": [
@@ -2202,10 +2232,38 @@
       ]
     },
     {
+      "semanticId": "lotus.next_cursor_calculation_id_before",
+      "canonicalTerm": "next_cursor_calculation_id_before",
+      "preferredName": "next_cursor_calculation_id_before",
+      "description": "Cursor calculation handle used with the cursor recovery timestamp to paginate older matching events.",
+      "example": "example_next_cursor_calculation_id_before",
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.next_cursor_recovered_before",
+      "canonicalTerm": "next_cursor_recovered_before",
+      "preferredName": "next_cursor_recovered_before",
+      "description": "Cursor recovery timestamp for deterministic seek pagination of older matching events.",
+      "example": "2026-02-27T10:30:00Z",
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
       "semanticId": "lotus.next_offset",
       "canonicalTerm": "next_offset",
       "preferredName": "next_offset",
-      "description": "Offset for the next page of retained recovery-drill entries when more filtered results remain.",
+      "description": "Next queue-local offset to request when additional matching work items remain.",
       "example": 1,
       "type": "object",
       "locations": [
@@ -2774,6 +2832,21 @@
       ]
     },
     {
+      "semanticId": "lotus.recovered_after",
+      "canonicalTerm": "recovered_after",
+      "preferredName": "recovered_after",
+      "description": "Canonical recovered after used by lotus-performance APIs.",
+      "example": null,
+      "type": "object",
+      "locations": [
+        "query",
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
       "semanticId": "lotus.recovered_at_utc",
       "canonicalTerm": "recovered_at_utc",
       "preferredName": "recovered_at_utc",
@@ -2785,6 +2858,21 @@
       ],
       "observedTypes": [
         "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.recovered_before",
+      "canonicalTerm": "recovered_before",
+      "preferredName": "recovered_before",
+      "description": "Canonical recovered before used by lotus-performance APIs.",
+      "example": null,
+      "type": "object",
+      "locations": [
+        "query",
+        "body"
+      ],
+      "observedTypes": [
+        "object"
       ]
     },
     {
@@ -2831,6 +2919,20 @@
       ],
       "observedTypes": [
         "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.remediation_hint",
+      "canonicalTerm": "remediation_hint",
+      "preferredName": "remediation_hint",
+      "description": "Operator guidance for resolving the current durable metadata store failure reason, when known.",
+      "example": "example_remediation_hint",
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
       ]
     },
     {
@@ -3571,6 +3673,90 @@
       ]
     },
     {
+      "semanticId": "lotus.storage_free_bytes",
+      "canonicalTerm": "storage_free_bytes",
+      "preferredName": "storage_free_bytes",
+      "description": "Free bytes currently remaining on the lineage artifact storage filesystem.",
+      "example": 1,
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.storage_free_ratio",
+      "canonicalTerm": "storage_free_ratio",
+      "preferredName": "storage_free_ratio",
+      "description": "Fraction of free capacity currently remaining on the lineage artifact storage filesystem.",
+      "example": 0.1234,
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.storage_min_free_bytes",
+      "canonicalTerm": "storage_min_free_bytes",
+      "preferredName": "storage_min_free_bytes",
+      "description": "Configured minimum free bytes threshold for lineage storage before runtime degrades.",
+      "example": 1,
+      "type": "integer",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "integer"
+      ]
+    },
+    {
+      "semanticId": "lotus.storage_min_free_ratio",
+      "canonicalTerm": "storage_min_free_ratio",
+      "preferredName": "storage_min_free_ratio",
+      "description": "Configured minimum free-capacity ratio threshold for lineage storage before runtime degrades.",
+      "example": 0.1234,
+      "type": "number",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "number"
+      ]
+    },
+    {
+      "semanticId": "lotus.storage_total_bytes",
+      "canonicalTerm": "storage_total_bytes",
+      "preferredName": "storage_total_bytes",
+      "description": "Total bytes available on the lineage artifact storage filesystem.",
+      "example": 1,
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.storage_used_bytes",
+      "canonicalTerm": "storage_used_bytes",
+      "preferredName": "storage_used_bytes",
+      "description": "Used bytes currently consumed on the lineage artifact storage filesystem.",
+      "example": 1,
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
       "semanticId": "lotus.sum_of_parts_vs_total_bp",
       "canonicalTerm": "sum_of_parts_vs_total_bp",
       "preferredName": "sum_of_parts_vs_total_bp",
@@ -4259,6 +4445,54 @@
       "allowedValues": [],
       "semanticId": "lotus.offset",
       "attributeRef": "#/attributeCatalog/lotus.offset"
+    },
+    {
+      "name": "recovered_after",
+      "kind": "request_option",
+      "location": "query",
+      "required": false,
+      "type": "object",
+      "description": "Optional inclusive lower UTC timestamp bound applied to recovery-event timestamps.",
+      "example": "STANDARD_VALUE",
+      "allowedValues": [],
+      "semanticId": "lotus.recovered_after",
+      "attributeRef": "#/attributeCatalog/lotus.recovered_after"
+    },
+    {
+      "name": "recovered_before",
+      "kind": "request_option",
+      "location": "query",
+      "required": false,
+      "type": "object",
+      "description": "Optional inclusive upper UTC timestamp bound applied to recovery-event timestamps.",
+      "example": "STANDARD_VALUE",
+      "allowedValues": [],
+      "semanticId": "lotus.recovered_before",
+      "attributeRef": "#/attributeCatalog/lotus.recovered_before"
+    },
+    {
+      "name": "cursor_recovered_before",
+      "kind": "request_option",
+      "location": "query",
+      "required": false,
+      "type": "object",
+      "description": "Optional cursor recovery timestamp used for deterministic seek pagination of older matching events.",
+      "example": "STANDARD_VALUE",
+      "allowedValues": [],
+      "semanticId": "lotus.cursor_recovered_before",
+      "attributeRef": "#/attributeCatalog/lotus.cursor_recovered_before"
+    },
+    {
+      "name": "cursor_calculation_id_before",
+      "kind": "request_option",
+      "location": "query",
+      "required": false,
+      "type": "object",
+      "description": "Optional cursor calculation handle paired with the cursor recovery timestamp for seek pagination.",
+      "example": "STANDARD_VALUE",
+      "allowedValues": [],
+      "semanticId": "lotus.cursor_calculation_id_before",
+      "attributeRef": "#/attributeCatalog/lotus.cursor_calculation_id_before"
     },
     {
       "name": "compute_analytics_type",
@@ -7366,6 +7600,14 @@
             "attributeRef": "#/attributeCatalog/lotus.reason"
           },
           {
+            "name": "durable_metadata_store.remediation_hint",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.remediation_hint",
+            "attributeRef": "#/attributeCatalog/lotus.remediation_hint"
+          },
+          {
             "name": "compute_queue",
             "location": "body",
             "required": true,
@@ -7614,6 +7856,14 @@
             "attributeRef": "#/attributeCatalog/lotus.reason"
           },
           {
+            "name": "lineage_queue.remediation_hint",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.remediation_hint",
+            "attributeRef": "#/attributeCatalog/lotus.remediation_hint"
+          },
+          {
             "name": "lineage_queue.degradation_reasons",
             "location": "body",
             "required": false,
@@ -7708,6 +7958,38 @@
             "type": "object",
             "semanticId": "lotus.oldest_leased_age_seconds",
             "attributeRef": "#/attributeCatalog/lotus.oldest_leased_age_seconds"
+          },
+          {
+            "name": "lineage_queue.storage_total_bytes",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.storage_total_bytes",
+            "attributeRef": "#/attributeCatalog/lotus.storage_total_bytes"
+          },
+          {
+            "name": "lineage_queue.storage_used_bytes",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.storage_used_bytes",
+            "attributeRef": "#/attributeCatalog/lotus.storage_used_bytes"
+          },
+          {
+            "name": "lineage_queue.storage_free_bytes",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.storage_free_bytes",
+            "attributeRef": "#/attributeCatalog/lotus.storage_free_bytes"
+          },
+          {
+            "name": "lineage_queue.storage_free_ratio",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.storage_free_ratio",
+            "attributeRef": "#/attributeCatalog/lotus.storage_free_ratio"
           },
           {
             "name": "lineage_queue.inspection_anchors",
@@ -7966,6 +8248,22 @@
             "attributeRef": "#/attributeCatalog/lotus.terminal_failure_count"
           },
           {
+            "name": "lineage_queue_policy.storage_min_free_bytes",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.storage_min_free_bytes",
+            "attributeRef": "#/attributeCatalog/lotus.storage_min_free_bytes"
+          },
+          {
+            "name": "lineage_queue_policy.storage_min_free_ratio",
+            "location": "body",
+            "required": true,
+            "type": "number",
+            "semanticId": "lotus.storage_min_free_ratio",
+            "attributeRef": "#/attributeCatalog/lotus.storage_min_free_ratio"
+          },
+          {
             "name": "recovery_drill_policy",
             "location": "body",
             "required": true,
@@ -8173,6 +8471,14 @@
             "attributeRef": "#/attributeCatalog/lotus.reason"
           },
           {
+            "name": "durable_metadata_store.remediation_hint",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.remediation_hint",
+            "attributeRef": "#/attributeCatalog/lotus.remediation_hint"
+          },
+          {
             "name": "compute_queue",
             "location": "body",
             "required": true,
@@ -8213,6 +8519,14 @@
             "attributeRef": "#/attributeCatalog/lotus.returned_count"
           },
           {
+            "name": "compute_queue.next_offset",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.next_offset",
+            "attributeRef": "#/attributeCatalog/lotus.next_offset"
+          },
+          {
             "name": "lineage_queue",
             "location": "body",
             "required": true,
@@ -8251,6 +8565,14 @@
             "type": "integer",
             "semanticId": "lotus.returned_count",
             "attributeRef": "#/attributeCatalog/lotus.returned_count"
+          },
+          {
+            "name": "lineage_queue.next_offset",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.next_offset",
+            "attributeRef": "#/attributeCatalog/lotus.next_offset"
           },
           {
             "name": "compute_items",
@@ -8480,6 +8802,38 @@
             "attributeRef": "#/attributeCatalog/lotus.offset"
           },
           {
+            "name": "recovered_after",
+            "location": "query",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.recovered_after",
+            "attributeRef": "#/attributeCatalog/lotus.recovered_after"
+          },
+          {
+            "name": "recovered_before",
+            "location": "query",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.recovered_before",
+            "attributeRef": "#/attributeCatalog/lotus.recovered_before"
+          },
+          {
+            "name": "cursor_recovered_before",
+            "location": "query",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.cursor_recovered_before",
+            "attributeRef": "#/attributeCatalog/lotus.cursor_recovered_before"
+          },
+          {
+            "name": "cursor_calculation_id_before",
+            "location": "query",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.cursor_calculation_id_before",
+            "attributeRef": "#/attributeCatalog/lotus.cursor_calculation_id_before"
+          },
+          {
             "name": "compute_analytics_type",
             "location": "query",
             "required": false,
@@ -8556,6 +8910,38 @@
             "attributeRef": "#/attributeCatalog/lotus.offset"
           },
           {
+            "name": "recovered_after",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.recovered_after",
+            "attributeRef": "#/attributeCatalog/lotus.recovered_after"
+          },
+          {
+            "name": "recovered_before",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.recovered_before",
+            "attributeRef": "#/attributeCatalog/lotus.recovered_before"
+          },
+          {
+            "name": "cursor_recovered_before",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.cursor_recovered_before",
+            "attributeRef": "#/attributeCatalog/lotus.cursor_recovered_before"
+          },
+          {
+            "name": "cursor_calculation_id_before",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.cursor_calculation_id_before",
+            "attributeRef": "#/attributeCatalog/lotus.cursor_calculation_id_before"
+          },
+          {
             "name": "calculation_id_contains",
             "location": "body",
             "required": false,
@@ -8604,6 +8990,14 @@
             "attributeRef": "#/attributeCatalog/lotus.reason"
           },
           {
+            "name": "durable_metadata_store.remediation_hint",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.remediation_hint",
+            "attributeRef": "#/attributeCatalog/lotus.remediation_hint"
+          },
+          {
             "name": "compute_queue",
             "location": "body",
             "required": true,
@@ -8644,6 +9038,30 @@
             "attributeRef": "#/attributeCatalog/lotus.returned_count"
           },
           {
+            "name": "compute_queue.next_offset",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.next_offset",
+            "attributeRef": "#/attributeCatalog/lotus.next_offset"
+          },
+          {
+            "name": "compute_queue.next_cursor_recovered_before",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.next_cursor_recovered_before",
+            "attributeRef": "#/attributeCatalog/lotus.next_cursor_recovered_before"
+          },
+          {
+            "name": "compute_queue.next_cursor_calculation_id_before",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.next_cursor_calculation_id_before",
+            "attributeRef": "#/attributeCatalog/lotus.next_cursor_calculation_id_before"
+          },
+          {
             "name": "lineage_queue",
             "location": "body",
             "required": true,
@@ -8682,6 +9100,30 @@
             "type": "integer",
             "semanticId": "lotus.returned_count",
             "attributeRef": "#/attributeCatalog/lotus.returned_count"
+          },
+          {
+            "name": "lineage_queue.next_offset",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.next_offset",
+            "attributeRef": "#/attributeCatalog/lotus.next_offset"
+          },
+          {
+            "name": "lineage_queue.next_cursor_recovered_before",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.next_cursor_recovered_before",
+            "attributeRef": "#/attributeCatalog/lotus.next_cursor_recovered_before"
+          },
+          {
+            "name": "lineage_queue.next_cursor_calculation_id_before",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.next_cursor_calculation_id_before",
+            "attributeRef": "#/attributeCatalog/lotus.next_cursor_calculation_id_before"
           },
           {
             "name": "compute_recoveries",

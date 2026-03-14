@@ -40,6 +40,7 @@ class RuntimeQueueStatus:
     recent_recoveries: tuple[ComputeRecoveryEvent | LineageRecoveryEvent, ...]
     storage_capacity: LineageStorageCapacitySnapshot | None = None
 
+
 @dataclass(frozen=True)
 class RuntimeDegradationDetail:
     reason: str
@@ -504,10 +505,7 @@ def _lineage_queue_degradation_details(
         )
     lineage_storage_min_free_bytes = getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES", 0)
     lineage_storage_min_free_ratio = getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO", 0.0)
-    if (
-        lineage_storage_min_free_bytes > 0
-        and storage_capacity.free_bytes <= lineage_storage_min_free_bytes
-    ):
+    if lineage_storage_min_free_bytes > 0 and storage_capacity.free_bytes <= lineage_storage_min_free_bytes:
         details.append(
             RuntimeDegradationDetail(
                 reason="lineage_storage_free_bytes_below_threshold",
@@ -515,10 +513,7 @@ def _lineage_queue_degradation_details(
                 threshold_value=_as_decimal_number(lineage_storage_min_free_bytes),
             )
         )
-    if (
-        lineage_storage_min_free_ratio > 0
-        and storage_capacity.free_ratio <= lineage_storage_min_free_ratio
-    ):
+    if lineage_storage_min_free_ratio > 0 and storage_capacity.free_ratio <= lineage_storage_min_free_ratio:
         details.append(
             RuntimeDegradationDetail(
                 reason="lineage_storage_free_ratio_below_threshold",
