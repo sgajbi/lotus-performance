@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     decimal_precision: int = 28
     LINEAGE_STORAGE_PATH: Path = Path("lineage_data")
+    LINEAGE_STORAGE_HEALTHCHECK_WRITE_PROBE_ENABLED: bool = True
     RECOVERY_DRILL_ARTIFACT_PATH: Path = Path("artifacts/durable-recovery-drill")
     LINEAGE_METADATA_DATABASE_URL: str = "sqlite:///./lineage_metadata.db"
     LINEAGE_WORKER_POLL_SECONDS: float = 1.0

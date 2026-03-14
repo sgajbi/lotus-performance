@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import tempfile
 from dataclasses import dataclass
 
 from app.core.config import get_settings
@@ -48,7 +49,8 @@ def check_durable_metadata_store_ready() -> DurabilityHealthStatus:
 
 
 def check_lineage_storage_ready() -> DurabilityHealthStatus:
-    storage_path = getattr(get_settings(), "LINEAGE_STORAGE_PATH", None)
+    settings = get_settings()
+    storage_path = getattr(settings, "LINEAGE_STORAGE_PATH", None)
     if not storage_path or not os.path.exists(storage_path):
         return DurabilityHealthStatus(
             is_ready=False,
@@ -67,4 +69,37 @@ def check_lineage_storage_ready() -> DurabilityHealthStatus:
             status="unavailable",
             reason="lineage_storage_path_unreadable",
         )
+    if getattr(settings, "LINEAGE_STORAGE_HEALTHCHECK_WRITE_PROBE_ENABLED", True):
+        if not _probe_lineage_storage_write(str(storage_path)):
+            return DurabilityHealthStatus(
+                is_ready=False,
+                status="unavailable",
+                reason="lineage_storage_write_probe_failed",
+            )
     return DurabilityHealthStatus(is_ready=True, status="ready")
+
+
+def _probe_lineage_storage_write(storage_path: str) -> bool:
+    fd: int | None = None
+    temp_path: str | None = None
+    try:
+        fd, temp_path = tempfile.mkstemp(
+            dir=storage_path,
+            prefix=".lotus-lineage-healthcheck-",
+            suffix=".tmp",
+        )
+        with os.fdopen(fd, "wb") as handle:
+            fd = None
+            handle.write(b"lotus-performance-lineage-healthcheck\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.remove(temp_path)
+        temp_path = None
+        return True
+    except OSError:
+        return False
+    finally:
+        if fd is not None:
+            os.close(fd)
+        if temp_path is not None and os.path.exists(temp_path):
+            os.remove(temp_path)

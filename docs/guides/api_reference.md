@@ -211,10 +211,12 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - the service is not draining
   - the durable metadata store is reachable
   - lineage storage is present and usable
+- lineage storage usability includes a real write/delete health probe by default, not just path existence checks
 - failure contract:
   - `503 {"status":"draining"}`
   - `503 {"status":"unavailable","reason":"durable_metadata_store_unreachable"}`
   - `503 {"status":"unavailable","reason":"lineage_storage_path_missing"}`
+  - `503 {"status":"unavailable","reason":"lineage_storage_write_probe_failed"}`
 
 ### `GET /metrics`
 
