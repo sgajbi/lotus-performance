@@ -51,6 +51,7 @@ Evidence:
 - `app/clients/http_resilience.py`
 - `docs/standards/scalability-availability.md`
 - `docs/standards/runtime-alert-policy.md`
+- `docs/standards/runtime-threshold-profiles.md`
 - `docs/standards/migration-contract.md`
 
 ## Privacy and Compliance Baseline

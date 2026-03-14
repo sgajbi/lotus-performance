@@ -6,6 +6,7 @@
   - `docs/operations/runtime-alert-rule-templates.md`
   - `docs/runbooks/runtime-alerts.md`
   - `docs/standards/scalability-availability.md`
+  - `docs/standards/runtime-threshold-profiles.md`
 
 ## Policy Goals
 

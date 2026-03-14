@@ -7,6 +7,7 @@
   - `docs/guides/api_reference.md`
   - `docs/technical/runtime_topology.md`
   - `docs/standards/runtime-alert-policy.md`
+  - `docs/standards/runtime-threshold-profiles.md`
 
 These templates are intentionally metric-first and environment-neutral. They convert the
 service-owned breach gauges into alert expressions without re-encoding queue or storage

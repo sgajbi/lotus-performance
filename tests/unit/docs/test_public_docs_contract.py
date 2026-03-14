@@ -134,3 +134,28 @@ def test_runtime_alert_policy_governs_severity_defaults():
     assert "runtime-alert-policy.md" in runtime_topology
     assert "runtime-alert-policy.md" in scalability
     assert "runtime-alert-policy.md" in enterprise
+
+
+def test_runtime_threshold_profiles_cover_controlled_settings():
+    profiles = _read("docs/standards/runtime-threshold-profiles.md")
+    policy = _read("docs/standards/runtime-alert-policy.md")
+    templates = _read("docs/operations/runtime-alert-rule-templates.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    runtime_topology = _read("docs/technical/runtime_topology.md")
+    scalability = _read("docs/standards/scalability-availability.md")
+    enterprise = _read("docs/standards/enterprise-readiness.md")
+
+    assert "RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS" in profiles
+    assert "RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT" in profiles
+    assert "RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS" in profiles
+    assert "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES" in profiles
+    assert "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS" in profiles
+    assert "Development" in profiles
+    assert "Staging" in profiles
+    assert "Production" in profiles
+    assert "docs/standards/runtime-threshold-profiles.md" in policy
+    assert "docs/standards/runtime-threshold-profiles.md" in templates
+    assert "runtime-threshold-profiles.md" in api_reference
+    assert "runtime-threshold-profiles.md" in runtime_topology
+    assert "runtime-threshold-profiles.md" in scalability
+    assert "runtime-threshold-profiles.md" in enterprise

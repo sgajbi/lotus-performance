@@ -241,6 +241,8 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - `docs/operations/runtime-alert-rule-templates.md` provides Prometheus-style expressions for the breach and availability gauges exported here
 - alert policy:
   - `docs/standards/runtime-alert-policy.md` defines the default severity and response class for these breach and availability gauges
+- threshold profiles:
+  - `docs/standards/runtime-threshold-profiles.md` defines recommended dev, staging, and production values for the runtime degradation settings behind these gauges
 - includes alert-ready queue policy breach metrics:
   - `lotus_performance_compute_queue_degradation_breach{reason=...}`
   - `lotus_performance_lineage_queue_degradation_breach{reason=...}`
