@@ -101,6 +101,15 @@ def test_runtime_alert_runbook_covers_breach_gauges():
     assert "runtime-alerts.md" in runtime_topology
 
 
+def test_enterprise_readiness_covers_privileged_operator_reads():
+    enterprise = _read("docs/standards/enterprise-readiness.md")
+    api_reference = _read("docs/guides/api_reference.md")
+
+    assert "Privileged operator read surfaces can be protected" in enterprise
+    assert "ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ" in api_reference
+    assert "operations.runtime.read" in api_reference
+
+
 def test_runtime_alert_templates_cover_exported_breach_gauges():
     templates = _read("docs/operations/runtime-alert-rule-templates.md")
     runbook = _read("docs/runbooks/runtime-alerts.md")

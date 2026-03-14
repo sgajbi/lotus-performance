@@ -7,6 +7,7 @@
 ## Security and IAM Baseline
 
 - Audit middleware logs privileged write operations with actor/tenant/role context.
+- Privileged operator read surfaces can be protected with capability-gated enterprise authz.
 - Sensitive attributes are redacted before audit emission.
 
 Evidence:

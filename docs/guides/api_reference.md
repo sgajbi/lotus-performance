@@ -101,6 +101,8 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 ### `GET /integration/runtime-status`
 
 - purpose: expose an operational snapshot of runtime state for support and platform operators
+- privileged-read auth:
+  - when `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`, this route requires enterprise identity headers plus capability `operations.runtime.read`
 - response includes:
   - aggregate runtime status
   - aggregate `runtime_degradation_reasons`
@@ -146,6 +148,8 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 ### `GET /integration/runtime-work-items`
 
 - purpose: return exact compute and lineage work items for operator drill-down
+- privileged-read auth:
+  - when `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`, this route requires enterprise identity headers plus capability `operations.runtime.read`
 - query parameters:
   - `queue`: `both`, `compute`, or `lineage`
   - `status`: `active`, `failed`, `all`, or `reclaimable`
@@ -169,6 +173,8 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 ### `GET /integration/runtime-recoveries`
 
 - purpose: return recent compute and lineage recovery events for operator drill-down
+- privileged-read auth:
+  - when `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`, this route requires enterprise identity headers plus capability `operations.runtime.read`
 - query parameters:
   - `queue`: `both`, `compute`, or `lineage`
   - `limit`: max recovery events returned per queue
@@ -293,6 +299,8 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 ### `GET /integration/runtime-retention-cleanups`
 
 - purpose: inspect retained runtime-retention cleanup evidence and history
+- privileged-read auth:
+  - when `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`, this route requires enterprise identity headers plus capability `operations.runtime.read`
 - response includes:
   - retained cleanup artifact directory
   - latest retained cleanup evidence file
