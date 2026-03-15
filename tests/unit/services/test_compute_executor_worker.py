@@ -757,5 +757,3 @@ def test_compute_executor_worker_rejects_unsupported_analytics_type(tmp_path, mo
     assert job is not None
     assert job.job_status == ComputeJobStatus.FAILED
     assert "Unsupported compute job analytics_type" in (job.error_message or "")
-
-

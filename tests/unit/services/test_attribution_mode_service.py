@@ -49,8 +49,12 @@ async def test_resolve_attribution_request_fails_retrieval_stage(monkeypatch):
 
     monkeypatch.setattr("app.services.attribution_mode_service.build_stateful_input_service", lambda settings: object())
     monkeypatch.setattr("app.services.attribution_mode_service.retrieve_stateful_attribution_source_input", _boom)
-    monkeypatch.setattr("app.services.attribution_mode_service.execution_registry.start_stage", lambda *args, **kwargs: None)
-    monkeypatch.setattr("app.services.attribution_mode_service.execution_registry.complete_stage", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "app.services.attribution_mode_service.execution_registry.start_stage", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        "app.services.attribution_mode_service.execution_registry.complete_stage", lambda *args, **kwargs: None
+    )
     monkeypatch.setattr(
         "app.services.attribution_mode_service.execution_registry.fail_stage",
         lambda *args, **kwargs: failed.append(args),
@@ -106,13 +110,19 @@ async def test_resolve_attribution_request_fails_normalization_stage(monkeypatch
     async def _mock_retrieve(**kwargs):  # noqa: ARG001
         return source_input
 
-    monkeypatch.setattr("app.services.attribution_mode_service.retrieve_stateful_attribution_source_input", _mock_retrieve)
+    monkeypatch.setattr(
+        "app.services.attribution_mode_service.retrieve_stateful_attribution_source_input", _mock_retrieve
+    )
     monkeypatch.setattr(
         "app.services.attribution_mode_service.build_stateful_attribution_input",
         lambda **kwargs: (_ for _ in ()).throw(ValueError("bad normalization")),
     )
-    monkeypatch.setattr("app.services.attribution_mode_service.execution_registry.start_stage", lambda *args, **kwargs: None)
-    monkeypatch.setattr("app.services.attribution_mode_service.execution_registry.complete_stage", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "app.services.attribution_mode_service.execution_registry.start_stage", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        "app.services.attribution_mode_service.execution_registry.complete_stage", lambda *args, **kwargs: None
+    )
     monkeypatch.setattr(
         "app.services.attribution_mode_service.execution_registry.fail_stage",
         lambda *args, **kwargs: failed.append(args),
