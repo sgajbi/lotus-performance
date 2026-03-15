@@ -289,7 +289,9 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest):
         report_ccy=engine_config.report_ccy,
     )
     diagnostics = build_performance_diagnostics(engine_diagnostics)
-    audit = Audit(counts={"input_rows": len(performance_request.valuation_points), "output_rows": len(daily_results_df)})
+    audit = Audit(
+        counts={"input_rows": len(performance_request.valuation_points), "output_rows": len(daily_results_df)}
+    )
 
     response_model = PerformanceResponse(
         calculation_id=request.calculation_id,
@@ -306,7 +308,10 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest):
         calculation_type="TWR",
         request_model=performance_request if resolved_request.input_mode == TWRInputMode.STATEFUL else request,
         response_model=response_model,
-        execution_details={"input_rows": len(performance_request.valuation_points), "output_rows": len(daily_results_df)},
+        execution_details={
+            "input_rows": len(performance_request.valuation_points),
+            "output_rows": len(daily_results_df),
+        },
         calculation_details={"twr_calculation_details.csv": daily_results_df},
     )
 
@@ -327,7 +332,9 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
             "start_date": (
                 str(request.stateful_input.window_start_date)
                 if request.input_mode == MWRInputMode.STATEFUL and request.stateful_input is not None
-                else str(request.start_date) if request.start_date is not None else None
+                else str(request.start_date)
+                if request.start_date is not None
+                else None
             ),
         },
         input_fingerprint=input_fingerprint,
@@ -417,7 +424,9 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
 
     response_model = MoneyWeightedReturnResponse.model_validate(response_payload)
 
-    lineage_df_data = [{"date": str(mwr_request.start_date or mwr_request.as_of), "type": "begin_mv", "amount": mwr_request.begin_mv}]
+    lineage_df_data = [
+        {"date": str(mwr_request.start_date or mwr_request.as_of), "type": "begin_mv", "amount": mwr_request.begin_mv}
+    ]
     lineage_df_data.extend(
         [{"date": str(cf.date), "type": "cash_flow", "amount": cf.amount} for cf in mwr_request.cash_flows]
     )
@@ -540,7 +549,9 @@ def _should_offload_attribution(request: AttributionAnalyticsRequest | Attributi
     active_settings = get_settings()
     input_mode = getattr(request, "input_mode", AttributionInputMode.STATELESS)
     if input_mode == AttributionInputMode.STATEFUL:
-        return (request.report_end_date - request.report_start_date).days >= active_settings.ATTRIBUTION_EXECUTOR_WINDOW_DAYS
+        return (
+            request.report_end_date - request.report_start_date
+        ).days >= active_settings.ATTRIBUTION_EXECUTOR_WINDOW_DAYS
     return _attribution_input_count(request) >= active_settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT
 
 

@@ -472,8 +472,22 @@ def test_contribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [
-                    {"day": 1, "perf_date": "2025-01-01", "begin_mv": "1000", "end_mv": "1010", "bod_cf": "0", "eod_cf": "0"},
-                    {"day": 2, "perf_date": "2025-01-02", "begin_mv": "1010", "end_mv": "1020.1", "bod_cf": "0", "eod_cf": "0"},
+                    {
+                        "day": 1,
+                        "perf_date": "2025-01-01",
+                        "begin_mv": "1000",
+                        "end_mv": "1010",
+                        "bod_cf": "0",
+                        "eod_cf": "0",
+                    },
+                    {
+                        "day": 2,
+                        "perf_date": "2025-01-02",
+                        "begin_mv": "1010",
+                        "end_mv": "1020.1",
+                        "bod_cf": "0",
+                        "eod_cf": "0",
+                    },
                 ],
             },
             "positions_data": [
@@ -481,14 +495,30 @@ def test_contribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch
                     "position_id": "SEC_1",
                     "meta": {"security_id": "SEC_1", "sector": "Technology"},
                     "valuation_points": [
-                        {"day": 0, "perf_date": "2025-01-01", "begin_mv": "1000", "end_mv": "1010", "bod_cf": "0", "eod_cf": "0"},
-                        {"day": 0, "perf_date": "2025-01-02", "begin_mv": "1010", "end_mv": "1020.1", "bod_cf": "0", "eod_cf": "0"},
+                        {
+                            "day": 0,
+                            "perf_date": "2025-01-01",
+                            "begin_mv": "1000",
+                            "end_mv": "1010",
+                            "bod_cf": "0",
+                            "eod_cf": "0",
+                        },
+                        {
+                            "day": 0,
+                            "perf_date": "2025-01-02",
+                            "begin_mv": "1010",
+                            "end_mv": "1020.1",
+                            "bod_cf": "0",
+                            "eod_cf": "0",
+                        },
                     ],
                 }
             ],
         }
     )
-    expected_input_fingerprint, expected_calculation_hash = generate_canonical_hash(expected_request, settings.APP_VERSION)
+    expected_input_fingerprint, expected_calculation_hash = generate_canonical_hash(
+        expected_request, settings.APP_VERSION
+    )
 
     assert body["meta"]["input_fingerprint"] == expected_input_fingerprint
     assert body["meta"]["calculation_hash"] == expected_calculation_hash

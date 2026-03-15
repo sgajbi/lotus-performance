@@ -54,7 +54,9 @@ async def test_calculate_returns_series_requires_open_date(monkeypatch, tmp_path
             ]
         }
 
-    monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_portfolio_analytics_timeseries", _portfolio)
+    monkeypatch.setattr(
+        portfolio_source_service.CoreIntegrationService, "get_portfolio_analytics_timeseries", _portfolio
+    )
 
     with pytest.raises(HTTPException) as exc:
         await returns_series_service.calculate_returns_series(request)
@@ -78,7 +80,9 @@ async def test_calculate_returns_series_maps_assignment_source_unavailable(monke
     async def _assignment(self, **kwargs):  # noqa: ARG001
         return 503, {"detail": "down"}
 
-    monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_portfolio_analytics_timeseries", _portfolio)
+    monkeypatch.setattr(
+        portfolio_source_service.CoreIntegrationService, "get_portfolio_analytics_timeseries", _portfolio
+    )
     monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_benchmark_assignment", _assignment)
 
     with pytest.raises(HTTPException) as exc:
@@ -104,8 +108,12 @@ async def test_calculate_returns_series_requires_benchmark_id_and_points(monkeyp
     async def _missing_assignment(self, **kwargs):  # noqa: ARG001
         return 200, {}
 
-    monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_portfolio_analytics_timeseries", _portfolio)
-    monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_benchmark_assignment", _missing_assignment)
+    monkeypatch.setattr(
+        portfolio_source_service.CoreIntegrationService, "get_portfolio_analytics_timeseries", _portfolio
+    )
+    monkeypatch.setattr(
+        portfolio_source_service.CoreIntegrationService, "get_benchmark_assignment", _missing_assignment
+    )
 
     with pytest.raises(HTTPException) as exc_missing_id:
         await returns_series_service.calculate_returns_series(request)
@@ -146,7 +154,9 @@ async def test_calculate_returns_series_maps_benchmark_and_risk_free_errors(monk
     async def _assignment(self, **kwargs):  # noqa: ARG001
         return 200, {"benchmark_id": "BMK"}
 
-    monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_portfolio_analytics_timeseries", _portfolio)
+    monkeypatch.setattr(
+        portfolio_source_service.CoreIntegrationService, "get_portfolio_analytics_timeseries", _portfolio
+    )
     monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_benchmark_assignment", _assignment)
 
     async def _benchmark_404(self, **kwargs):  # noqa: ARG001
@@ -287,7 +297,9 @@ async def test_calculate_returns_series_updates_stateful_identity_from_resolved_
             ]
         }
 
-    monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_portfolio_analytics_timeseries", _portfolio)
+    monkeypatch.setattr(
+        portfolio_source_service.CoreIntegrationService, "get_portfolio_analytics_timeseries", _portfolio
+    )
     monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_benchmark_assignment", _assignment)
     monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_benchmark_return_series", _benchmark)
 

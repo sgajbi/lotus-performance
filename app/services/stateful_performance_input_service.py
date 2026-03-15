@@ -19,7 +19,9 @@ from app.services.valuation_points_service import portfolio_timeseries_to_valuat
 class StatefulPortfolioInput:
     performance_start_date: date
     observations: list[dict[str, object]]
-    retrieval_metadata: RetrievalMetadata = field(default_factory=lambda: RetrievalMetadata(chunk_count=1, page_count=1))
+    retrieval_metadata: RetrievalMetadata = field(
+        default_factory=lambda: RetrievalMetadata(chunk_count=1, page_count=1)
+    )
 
 
 @dataclass(frozen=True)

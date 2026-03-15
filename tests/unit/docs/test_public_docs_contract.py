@@ -77,7 +77,9 @@ def test_contribution_guide_uses_current_request_shape():
     assert "Older examples using nested `daily_data`" in guide
     assert "one hierarchy result under each `results_by_period.<period>` key" in guide
     assert "app.models.contribution_analytics_requests.ContributionAnalyticsRequest" in api_reference
-    assert "stateful mode sources portfolio and position timeseries from lotus-core query-control-plane" in api_reference
+    assert (
+        "stateful mode sources portfolio and position timeseries from lotus-core query-control-plane" in api_reference
+    )
     assert 'input_mode: "stateless" | "stateful"' in readme
     assert "stateful_input.consumer_system" in readme
 
@@ -118,7 +120,7 @@ def test_api_examples_recipes_match_current_dual_mode_contract():
     assert '"analyses"' in guide
     assert '"valuation_points"' in guide
     assert "window_start_date" in guide
-    assert "currency attribution with `currency_mode=\"both\"` currently requires stateless inputs" in guide.lower()
+    assert 'currency attribution with `currency_mode="both"` currently requires stateless inputs' in guide.lower()
     assert "Older examples using request-level `period_type` or nested `daily_data` are not current." in guide
     assert '"period_type"' not in guide
     assert '"daily_data"' not in guide

@@ -51,7 +51,7 @@ def build_stateful_mwr_input_for_window(
             cash_flows_by_date[valuation_date] += Decimal(str(flow["amount"]))
 
     cash_flows = [
-        CashFlow(amount=float(amount), date=cash_flow_date)
+        CashFlow(amount=amount, date=cash_flow_date)
         for cash_flow_date, amount in sorted(cash_flows_by_date.items())
         if amount != 0
     ]

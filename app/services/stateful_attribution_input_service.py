@@ -55,7 +55,9 @@ async def retrieve_stateful_attribution_source_input(
     benchmark_id_override: str | None,
 ) -> StatefulAttributionSourceInput:
     _validate_stateful_group_by(group_by)
-    requested_dimensions = sorted({*dimensions, *[dimension for dimension in group_by if dimension in _SUPPORTED_ATTRIBUTION_GROUPS]})
+    requested_dimensions = sorted(
+        {*dimensions, *[dimension for dimension in group_by if dimension in _SUPPORTED_ATTRIBUTION_GROUPS]}
+    )
 
     portfolio_input = await retrieve_stateful_portfolio_input(
         settings=settings,
@@ -418,7 +420,11 @@ def _parse_position_rows(payload: dict[str, object]) -> list[dict[str, object]]:
 
 def _parse_component_series(payload: dict[str, object]) -> list[dict[str, object]]:
     component_series_raw = payload.get("component_series")
-    return [component for component in component_series_raw if isinstance(component, dict)] if isinstance(component_series_raw, list) else []
+    return (
+        [component for component in component_series_raw if isinstance(component, dict)]
+        if isinstance(component_series_raw, list)
+        else []
+    )
 
 
 def _parse_index_catalog(payload: dict[str, object]) -> list[dict[str, object]]:

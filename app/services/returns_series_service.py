@@ -271,18 +271,16 @@ def _build_stateful_resolved_returns_payload(
     }
 
 
-def _records_from_df(df: pd.DataFrame | None) -> list[dict[str, str]] | None:
-    if df is None:
+def _records_from_points(points: list[ReturnPoint] | None) -> list[dict[str, str]] | None:
+    if points is None:
         return None
-    records: list[dict[str, str]] = []
-    for _, row in df.iterrows():
-        records.append(
-            {
-                "date": row["date"].date().isoformat(),
-                "return_value": format(Decimal(str(row["return_value"])).quantize(Decimal("0.000000000001")), "f"),
-            }
-        )
-    return records
+    return [
+        {
+            "date": point.date.isoformat(),
+            "return_value": format(point.return_value, "f"),
+        }
+        for point in points
+    ]
 
 
 async def calculate_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResponse:
@@ -589,9 +587,9 @@ async def calculate_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeri
             resolved_stateful_payload = _build_stateful_resolved_returns_payload(
                 request=request,
                 resolved_window=resolved_window,
-                portfolio_records=_records_from_df(portfolio_df) or [],
-                benchmark_records=_records_from_df(benchmark_df),
-                risk_free_records=_records_from_df(risk_free_df),
+                portfolio_records=_records_from_points(portfolio_return_points) or [],
+                benchmark_records=_records_from_points(benchmark_return_points),
+                risk_free_records=_records_from_points(risk_free_return_points),
                 resolved_benchmark_id=resolved_benchmark_id,
             )
             input_fingerprint, calculation_hash = generate_canonical_hash(

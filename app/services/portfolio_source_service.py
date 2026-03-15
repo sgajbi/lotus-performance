@@ -60,11 +60,11 @@ def parse_stateful_portfolio_timeseries_payload(
     require_open_date: bool,
 ) -> StatefulPortfolioTimeseries:
     observations_raw = payload.get("observations")
-    observations = [
-        observation
-        for observation in observations_raw
-        if isinstance(observation, dict)
-    ] if isinstance(observations_raw, list) else []
+    observations = (
+        [observation for observation in observations_raw if isinstance(observation, dict)]
+        if isinstance(observations_raw, list)
+        else []
+    )
     portfolio_open_date_raw = payload.get("portfolio_open_date")
     portfolio_open_date = portfolio_open_date_raw if isinstance(portfolio_open_date_raw, str) else None
     if require_open_date and portfolio_open_date is None:

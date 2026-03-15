@@ -68,8 +68,8 @@ class AttributionAnalyticsRequest(AttributionRequest):
         default=None,
         description="Legacy stateless grouped portfolio attribution payload. Prefer stateless_input for new integrations.",
     )
-    benchmark_groups_data: list[BenchmarkGroup] | None = Field(
-        default=None,
+    benchmark_groups_data: list[BenchmarkGroup] = Field(
+        default_factory=list,
         description="Legacy stateless benchmark attribution payload. Prefer stateless_input for new integrations.",
     )
     input_mode: AttributionInputMode = Field(
@@ -91,11 +91,13 @@ class AttributionAnalyticsRequest(AttributionRequest):
         has_legacy_by_instrument = self.portfolio_data is not None or self.instruments_data is not None
         has_partial_legacy_by_instrument = (self.portfolio_data is None) != (self.instruments_data is None)
         has_legacy_by_group = self.portfolio_groups_data is not None
-        has_legacy_benchmark = self.benchmark_groups_data is not None
+        has_legacy_benchmark = len(self.benchmark_groups_data) > 0
         has_legacy_stateless = has_legacy_by_instrument or has_legacy_by_group or has_legacy_benchmark
 
         if has_partial_legacy_by_instrument:
-            raise ValueError("portfolio_data and instruments_data must be provided together for legacy by_instrument mode")
+            raise ValueError(
+                "portfolio_data and instruments_data must be provided together for legacy by_instrument mode"
+            )
 
         if self.input_mode == AttributionInputMode.STATELESS:
             if self.stateful_input is not None:
@@ -145,7 +147,7 @@ class AttributionAnalyticsRequest(AttributionRequest):
             resolved_portfolio_data = self.portfolio_data
             resolved_instruments_data = self.instruments_data
             resolved_portfolio_groups = self.portfolio_groups_data
-        if resolved_benchmark_groups is None:
+        if not resolved_benchmark_groups:
             raise ValueError("No stateless benchmark_groups_data are available to build an AttributionRequest")
 
         payload = self.model_dump(
@@ -173,7 +175,5 @@ class AttributionAnalyticsRequest(AttributionRequest):
             if resolved_portfolio_groups is not None
             else None
         )
-        payload["benchmark_groups_data"] = [
-            group.model_dump(mode="python") for group in resolved_benchmark_groups
-        ]
+        payload["benchmark_groups_data"] = [group.model_dump(mode="python") for group in resolved_benchmark_groups]
         return AttributionRequest.model_validate(payload)

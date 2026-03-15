@@ -93,8 +93,10 @@ def _process_pending_jobs(
                 response = asyncio.run(active_returns_series_calculator(request))
             elif job.analytics_type == "Attribution":
                 analytics_request = AttributionAnalyticsRequest.model_validate(job.request_payload)
-                resolved = asyncio.run(resolve_attribution_request(analytics_request, settings=active_settings))
-                request = resolved.attribution_request
+                resolved_attribution = asyncio.run(
+                    resolve_attribution_request(analytics_request, settings=active_settings)
+                )
+                request = resolved_attribution.attribution_request
                 input_fingerprint, calculation_hash = generate_canonical_hash(
                     request,
                     active_settings.APP_VERSION,
@@ -108,12 +110,14 @@ def _process_pending_jobs(
                     request,
                     input_fingerprint=input_fingerprint,
                     calculation_hash=calculation_hash,
-                    input_mode=resolved.input_mode,
+                    input_mode=resolved_attribution.input_mode,
                 )
             elif job.analytics_type == "Contribution":
                 analytics_request = ContributionAnalyticsRequest.model_validate(job.request_payload)
-                resolved = asyncio.run(resolve_contribution_request(analytics_request, settings=active_settings))
-                request = resolved.contribution_request
+                resolved_contribution = asyncio.run(
+                    resolve_contribution_request(analytics_request, settings=active_settings)
+                )
+                request = resolved_contribution.contribution_request
                 input_fingerprint, calculation_hash = generate_canonical_hash(
                     request,
                     active_settings.APP_VERSION,
@@ -127,7 +131,7 @@ def _process_pending_jobs(
                     request,
                     input_fingerprint=input_fingerprint,
                     calculation_hash=calculation_hash,
-                    input_mode=resolved.input_mode,
+                    input_mode=resolved_contribution.input_mode,
                 )
             else:
                 raise ValueError(f"Unsupported compute job analytics_type: {job.analytics_type}")

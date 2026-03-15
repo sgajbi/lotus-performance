@@ -61,9 +61,9 @@ class MoneyWeightedReturnAnalyticsRequest(MoneyWeightedReturnRequestBase):
     @model_validator(mode="after")
     def validate_mode_payloads(self) -> "MoneyWeightedReturnAnalyticsRequest":
         has_legacy_stateless = self.begin_mv is not None or self.end_mv is not None or self.cash_flows is not None
-        has_partial_legacy = any(
-            value is None for value in (self.begin_mv, self.end_mv, self.cash_flows)
-        ) and has_legacy_stateless
+        has_partial_legacy = (
+            any(value is None for value in (self.begin_mv, self.end_mv, self.cash_flows)) and has_legacy_stateless
+        )
         if has_partial_legacy:
             raise ValueError("begin_mv, end_mv, and cash_flows must be provided together for legacy stateless mode")
 
@@ -75,7 +75,9 @@ class MoneyWeightedReturnAnalyticsRequest(MoneyWeightedReturnRequestBase):
                     "Provide either stateless_input or legacy begin_mv/end_mv/cash_flows, not both, for stateless mode"
                 )
             if self.stateless_input is None and not has_legacy_stateless:
-                raise ValueError("stateless_input or legacy begin_mv/end_mv/cash_flows is required when input_mode=stateless")
+                raise ValueError(
+                    "stateless_input or legacy begin_mv/end_mv/cash_flows is required when input_mode=stateless"
+                )
 
         if self.input_mode == MWRInputMode.STATEFUL:
             if self.stateful_input is None:

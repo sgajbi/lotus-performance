@@ -373,11 +373,7 @@ class StatefulInputService:
             return failure
 
         component_series = self._merge_component_series(
-            payloads=[
-                payload
-                for _, payload in responses
-                if isinstance(payload, dict)
-            ]
+            payloads=[payload for _, payload in responses if isinstance(payload, dict)]
         )
         return 200, {
             "component_series": component_series,
@@ -763,7 +759,9 @@ class StatefulInputService:
                 if not isinstance(index_id, str):
                     continue
                 points_raw = component.get("points")
-                points = [point for point in points_raw if isinstance(point, dict)] if isinstance(points_raw, list) else []
+                points = (
+                    [point for point in points_raw if isinstance(point, dict)] if isinstance(points_raw, list) else []
+                )
                 merged_by_index.setdefault(index_id, []).extend(points)
 
         merged_components: list[dict[str, Any]] = []
