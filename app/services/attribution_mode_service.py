@@ -111,10 +111,7 @@ async def resolve_attribution_request(
             benchmark_groups_data=normalized_input.benchmark_groups_data,
         ),
         input_mode=AttributionInputMode.STATEFUL,
-        input_count=(
-            len(normalized_input.instruments_data)
-            + len(normalized_input.benchmark_groups_data)
-        ),
+        input_count=(len(normalized_input.instruments_data) + len(normalized_input.benchmark_groups_data)),
     )
 
 

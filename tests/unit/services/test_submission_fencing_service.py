@@ -226,8 +226,12 @@ def test_promote_existing_execution_defers_execution_mutation_until_job_registra
         "app.services.submission_fencing_service.compute_job_store.register_job",
         return_value=ComputeJobRegistrationResult(status=ComputeJobRegistrationStatus.CREATED),
     )
-    update_contract = mocker.patch("app.services.submission_fencing_service.execution_registry.update_execution_contract")
-    update_identity = mocker.patch("app.services.submission_fencing_service.execution_registry.update_execution_identity")
+    update_contract = mocker.patch(
+        "app.services.submission_fencing_service.execution_registry.update_execution_contract"
+    )
+    update_identity = mocker.patch(
+        "app.services.submission_fencing_service.execution_registry.update_execution_identity"
+    )
     start_stage = mocker.patch("app.services.submission_fencing_service.execution_registry.start_stage")
     complete_stage = mocker.patch("app.services.submission_fencing_service.execution_registry.complete_stage")
 
@@ -260,8 +264,12 @@ def test_promote_existing_execution_leaves_execution_unchanged_on_job_conflict(m
         "app.services.submission_fencing_service.compute_job_store.register_job",
         return_value=ComputeJobRegistrationResult(status=ComputeJobRegistrationStatus.CONFLICT),
     )
-    update_contract = mocker.patch("app.services.submission_fencing_service.execution_registry.update_execution_contract")
-    update_identity = mocker.patch("app.services.submission_fencing_service.execution_registry.update_execution_identity")
+    update_contract = mocker.patch(
+        "app.services.submission_fencing_service.execution_registry.update_execution_contract"
+    )
+    update_identity = mocker.patch(
+        "app.services.submission_fencing_service.execution_registry.update_execution_identity"
+    )
     start_stage = mocker.patch("app.services.submission_fencing_service.execution_registry.start_stage")
     complete_stage = mocker.patch("app.services.submission_fencing_service.execution_registry.complete_stage")
 
