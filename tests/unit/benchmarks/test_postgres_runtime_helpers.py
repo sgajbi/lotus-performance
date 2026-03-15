@@ -15,8 +15,7 @@ def test_get_postgres_database_url_uses_short_connect_timeout(mocker):
     database_url = postgres_runtime_helpers.get_postgres_database_url()
 
     assert database_url == (
-        f"{postgres_runtime_helpers.POSTGRES_RUNTIME_DATABASE_URL}"
-        "?options=-csearch_path%3Dlotus_perf_bench_abc123"
+        f"{postgres_runtime_helpers.POSTGRES_RUNTIME_DATABASE_URL}" "?options=-csearch_path%3Dlotus_perf_bench_abc123"
     )
     mocked_create_engine.assert_called_once_with(
         postgres_runtime_helpers.POSTGRES_RUNTIME_DATABASE_URL,
