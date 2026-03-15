@@ -160,6 +160,7 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
     assert "lotus_performance_recovery_drill_active_actions" in metric_names
     assert "lotus_performance_recovery_drill_latest_age_seconds" in metric_names
     assert "lotus_performance_recovery_drill_latest_reclaimed_action_age_seconds" not in metric_names
+    assert "lotus_performance_recovery_drill_reclaimed_actions" not in metric_names
     assert "lotus_performance_recovery_drill_policy_threshold" in metric_names
     assert "lotus_performance_recovery_drill_degradation_breach" in metric_names
     assert "lotus_performance_runtime_retention_availability" in metric_names
@@ -167,6 +168,7 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
     assert "lotus_performance_runtime_retention_active_actions" in metric_names
     assert "lotus_performance_runtime_retention_latest_age_seconds" in metric_names
     assert "lotus_performance_runtime_retention_latest_reclaimed_action_age_seconds" not in metric_names
+    assert "lotus_performance_runtime_retention_reclaimed_actions" not in metric_names
     assert "lotus_performance_runtime_retention_policy_threshold" in metric_names
     assert "lotus_performance_runtime_retention_degradation_breach" in metric_names
     assert "lotus_performance_runtime_retention_preview_availability" in metric_names
@@ -373,15 +375,15 @@ def test_queue_metrics_collector_emits_governed_action_lease_metrics(monkeypatch
                 "LeaseSnapshot",
                 (),
                 {
-                    "status": "available",
-                    "active_leases": (
-                        type("Lease", (), {"acquired_at_utc": "2026-03-14T00:00:00Z"})(),
-                    ),
-                    "latest_reclaimed_lease": type(
-                        "Reclaim",
-                        (),
-                        {"reclaimed_at_utc": "2026-03-14T00:30:00Z"},
-                    )(),
+                        "status": "available",
+                        "active_leases": (
+                            type("Lease", (), {"acquired_at_utc": "2026-03-14T00:00:00Z"})(),
+                        ),
+                        "latest_reclaimed_lease": type(
+                            "Reclaim",
+                            (),
+                            {"reclaimed_at_utc": "2026-03-14T00:30:00Z", "reclaim_count": 3},
+                        )(),
                 },
             )(),
             type(
@@ -393,11 +395,11 @@ def test_queue_metrics_collector_emits_governed_action_lease_metrics(monkeypatch
                         type("Lease", (), {"acquired_at_utc": "2026-03-14T00:00:00Z"})(),
                         type("Lease", (), {"acquired_at_utc": "2026-03-14T01:00:00Z"})(),
                     ),
-                    "latest_reclaimed_lease": type(
-                        "Reclaim",
-                        (),
-                        {"reclaimed_at_utc": "2026-03-14T01:30:00Z"},
-                    )(),
+                        "latest_reclaimed_lease": type(
+                            "Reclaim",
+                            (),
+                            {"reclaimed_at_utc": "2026-03-14T01:30:00Z", "reclaim_count": 4},
+                        )(),
                 },
             )(),
         )
@@ -440,6 +442,10 @@ def test_queue_metrics_collector_emits_governed_action_lease_metrics(monkeypatch
         metric for metric in metrics if metric.name == "lotus_performance_recovery_drill_latest_reclaimed_action_age_seconds"
     )
     assert recovery_reclaimed.samples[0].value >= 0
+    recovery_reclaimed_count = next(
+        metric for metric in metrics if metric.name == "lotus_performance_recovery_drill_reclaimed_actions"
+    )
+    assert recovery_reclaimed_count.samples[0].value == 3
     runtime_retention_actions = next(
         metric for metric in metrics if metric.name == "lotus_performance_runtime_retention_active_actions"
     )
@@ -450,6 +456,10 @@ def test_queue_metrics_collector_emits_governed_action_lease_metrics(monkeypatch
         if metric.name == "lotus_performance_runtime_retention_latest_reclaimed_action_age_seconds"
     )
     assert runtime_retention_reclaimed.samples[0].value >= 0
+    runtime_retention_reclaimed_count = next(
+        metric for metric in metrics if metric.name == "lotus_performance_runtime_retention_reclaimed_actions"
+    )
+    assert runtime_retention_reclaimed_count.samples[0].value == 4
 
 
 def test_queue_metrics_collector_emits_lineage_storage_breach_state(monkeypatch):

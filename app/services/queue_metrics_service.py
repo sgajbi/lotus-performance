@@ -111,6 +111,10 @@ class DurableQueueCollector:
             "Age in seconds since the latest stale governed recovery-drill lease reclaim.",
         )
         yield GaugeMetricFamily(
+            "lotus_performance_recovery_drill_reclaimed_actions",
+            "Count of stale governed recovery-drill leases reclaimed and retained in the current control-plane counter.",
+        )
+        yield GaugeMetricFamily(
             "lotus_performance_recovery_drill_latest_age_seconds",
             "Age in seconds of the latest retained durable recovery drill.",
         )
@@ -143,6 +147,10 @@ class DurableQueueCollector:
         yield GaugeMetricFamily(
             "lotus_performance_runtime_retention_latest_reclaimed_action_age_seconds",
             "Age in seconds since the latest stale governed runtime-retention lease reclaim.",
+        )
+        yield GaugeMetricFamily(
+            "lotus_performance_runtime_retention_reclaimed_actions",
+            "Count of stale governed runtime-retention leases reclaimed and retained in the current control-plane counter.",
         )
         yield GaugeMetricFamily(
             "lotus_performance_runtime_retention_latest_age_seconds",
@@ -571,6 +579,15 @@ class DurableQueueCollector:
                     _age_seconds(recovery_drill_action_snapshot.latest_reclaimed_lease.reclaimed_at_utc),
                 )
                 yield recovery_drill_latest_reclaimed_action_age
+                recovery_drill_reclaimed_actions = GaugeMetricFamily(
+                    "lotus_performance_recovery_drill_reclaimed_actions",
+                    "Count of stale governed recovery-drill leases reclaimed and retained in the current control-plane counter.",
+                )
+                recovery_drill_reclaimed_actions.add_metric(
+                    [],
+                    recovery_drill_action_snapshot.latest_reclaimed_lease.reclaim_count,
+                )
+                yield recovery_drill_reclaimed_actions
 
         runtime_retention_thresholds = GaugeMetricFamily(
             "lotus_performance_runtime_retention_policy_threshold",
@@ -610,6 +627,15 @@ class DurableQueueCollector:
                     _age_seconds(runtime_retention_action_snapshot.latest_reclaimed_lease.reclaimed_at_utc),
                 )
                 yield runtime_retention_latest_reclaimed_action_age
+                runtime_retention_reclaimed_actions = GaugeMetricFamily(
+                    "lotus_performance_runtime_retention_reclaimed_actions",
+                    "Count of stale governed runtime-retention leases reclaimed and retained in the current control-plane counter.",
+                )
+                runtime_retention_reclaimed_actions.add_metric(
+                    [],
+                    runtime_retention_action_snapshot.latest_reclaimed_lease.reclaim_count,
+                )
+                yield runtime_retention_reclaimed_actions
 
         if (
             recovery_drill_snapshot is not None

@@ -259,6 +259,7 @@ def test_runtime_status_snapshot_reports_ready_with_queue_stats(mocker):
     assert snapshot.recovery_drill.active_run_status == "available"
     assert snapshot.recovery_drill.active_run_count == 0
     assert snapshot.recovery_drill.latest_reclaimed_run_operator_id is None
+    assert snapshot.recovery_drill.reclaimed_run_count == 0
     assert snapshot.recovery_drill.latest_status is None
     assert snapshot.recovery_drill.degradation_reasons == ()
     assert snapshot.recovery_drill_policy.max_age_seconds == 0.0
@@ -266,6 +267,7 @@ def test_runtime_status_snapshot_reports_ready_with_queue_stats(mocker):
     assert snapshot.runtime_retention.active_run_status == "available"
     assert snapshot.runtime_retention.active_run_count == 0
     assert snapshot.runtime_retention.latest_reclaimed_run_operator_id is None
+    assert snapshot.runtime_retention.reclaimed_run_count == 0
     assert snapshot.runtime_retention.preview_status == "available"
     assert snapshot.runtime_retention.current_prunable_execution_count == 0
     assert snapshot.runtime_retention.latest_status == "applied"
@@ -361,6 +363,7 @@ def test_runtime_status_snapshot_reports_active_governed_actions(mocker):
                             "governed_target": "backup-old",
                             "acquired_at_utc": "2026-03-13T23:00:00Z",
                             "reclaimed_at_utc": "2026-03-14T00:30:00Z",
+                            "reclaim_count": 3,
                         },
                     )(),
                 },
@@ -402,6 +405,7 @@ def test_runtime_status_snapshot_reports_active_governed_actions(mocker):
                             "governed_target": "apply:30:old-job",
                             "acquired_at_utc": "2026-03-13T22:00:00Z",
                             "reclaimed_at_utc": "2026-03-14T01:30:00Z",
+                            "reclaim_count": 4,
                         },
                     )(),
                 },
@@ -419,12 +423,14 @@ def test_runtime_status_snapshot_reports_active_governed_actions(mocker):
     assert snapshot.recovery_drill.latest_reclaimed_run_operator_id == "ops-user-old"
     assert snapshot.recovery_drill.latest_reclaimed_run_governed_target == "backup-old"
     assert snapshot.recovery_drill.latest_reclaimed_run_age_seconds is not None
+    assert snapshot.recovery_drill.reclaimed_run_count == 3
     assert snapshot.runtime_retention.active_run_status == "active"
     assert snapshot.runtime_retention.active_run_count == 2
     assert snapshot.runtime_retention.oldest_active_run_operator_id == "ops-batch"
     assert snapshot.runtime_retention.oldest_active_run_governed_target == "apply:30:retention-nightly"
     assert snapshot.runtime_retention.latest_reclaimed_run_operator_id == "ops-batch-old"
     assert snapshot.runtime_retention.latest_reclaimed_run_governed_target == "apply:30:old-job"
+    assert snapshot.runtime_retention.reclaimed_run_count == 4
 
 
 def test_runtime_status_snapshot_degrades_when_runtime_retention_is_stale_or_not_applied(mocker):

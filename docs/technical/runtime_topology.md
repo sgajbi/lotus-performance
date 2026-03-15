@@ -132,7 +132,9 @@ raw queue counters. The same snapshot now exposes governed recovery-drill and ru
 action lease visibility, including whether an action is active, how many governed runs are
 currently in flight, the oldest active-run anchor for operator triage, and the latest stale
 lease reclaim anchor so support can distinguish an active run from a recently recovered
-post-crash or post-interruption action.
+post-crash or post-interruption action. The same reclaim visibility now carries a cumulative
+reclaim count so repeated stale governed-action recovery is visible without reconstructing it
+from logs.
 
 ## Failure recovery model
 

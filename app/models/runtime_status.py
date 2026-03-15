@@ -337,6 +337,9 @@ class RecoveryDrillStatusResponse(BaseModel):
         default=None,
         description="Age in seconds since the latest stale governed recovery-drill lease was reclaimed.",
     )
+    reclaimed_run_count: int = Field(
+        description="Number of stale governed recovery-drill leases reclaimed and retained in the current control-plane counter."
+    )
     degradation_reasons: list[str] = Field(
         default_factory=list,
         description="All active recovery-drill degradation reasons contributing to a degraded state.",
@@ -434,6 +437,9 @@ class RuntimeRetentionStatusResponse(BaseModel):
     latest_reclaimed_run_age_seconds: float | None = Field(
         default=None,
         description="Age in seconds since the latest stale governed runtime-retention lease was reclaimed.",
+    )
+    reclaimed_run_count: int = Field(
+        description="Number of stale governed runtime-retention leases reclaimed and retained in the current control-plane counter."
     )
     preview_status: str = Field(
         description="Availability of the live runtime-retention preview under the current retention policy."
@@ -682,6 +688,7 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
             latest_reclaimed_run_acquired_at_utc=snapshot.recovery_drill.latest_reclaimed_run_acquired_at_utc,
             latest_reclaimed_run_reclaimed_at_utc=snapshot.recovery_drill.latest_reclaimed_run_reclaimed_at_utc,
             latest_reclaimed_run_age_seconds=snapshot.recovery_drill.latest_reclaimed_run_age_seconds,
+            reclaimed_run_count=snapshot.recovery_drill.reclaimed_run_count,
             degradation_reasons=list(snapshot.recovery_drill.degradation_reasons),
             degradation_details=_degradation_details_response(snapshot.recovery_drill.degradation_details),
             latest_generated_at_utc=snapshot.recovery_drill.latest_generated_at_utc,
@@ -707,6 +714,7 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
             latest_reclaimed_run_acquired_at_utc=snapshot.runtime_retention.latest_reclaimed_run_acquired_at_utc,
             latest_reclaimed_run_reclaimed_at_utc=snapshot.runtime_retention.latest_reclaimed_run_reclaimed_at_utc,
             latest_reclaimed_run_age_seconds=snapshot.runtime_retention.latest_reclaimed_run_age_seconds,
+            reclaimed_run_count=snapshot.runtime_retention.reclaimed_run_count,
             preview_status=snapshot.runtime_retention.preview_status,
             preview_reason=snapshot.runtime_retention.preview_reason,
             degradation_reasons=list(snapshot.runtime_retention.degradation_reasons),

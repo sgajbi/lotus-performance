@@ -49,6 +49,7 @@ class ReclaimedOperatorActionLeaseEvent:
     acquired_at_utc: str
     reclaimed_at_utc: str
     stale_after_seconds: float
+    reclaim_count: int
 
 
 def build_runtime_retention_action_key(
@@ -280,6 +281,7 @@ def _read_latest_reclaimed_lease(
     acquired_at_utc = payload.get("acquired_at_utc")
     reclaimed_at_utc = payload.get("reclaimed_at_utc")
     stale_after_seconds = payload.get("stale_after_seconds")
+    reclaim_count = payload.get("reclaim_count", 1)
     action_key = payload.get("action_key")
     if not isinstance(operator_id, str):
         return _INVALID_LEASE
@@ -292,6 +294,8 @@ def _read_latest_reclaimed_lease(
     if not isinstance(reclaimed_at_utc, str):
         return _INVALID_LEASE
     if not isinstance(stale_after_seconds, (int, float)):
+        return _INVALID_LEASE
+    if not isinstance(reclaim_count, int):
         return _INVALID_LEASE
     if not isinstance(action_key, str):
         return _INVALID_LEASE
@@ -309,13 +313,29 @@ def _read_latest_reclaimed_lease(
         acquired_at_utc=acquired_at_utc,
         reclaimed_at_utc=reclaimed_at_utc,
         stale_after_seconds=float(stale_after_seconds),
+        reclaim_count=reclaim_count,
     )
 
 
 def _write_latest_reclaimed_lease(*, locks_dir: Path, event: ReclaimedOperatorActionLeaseEvent) -> None:
     latest_reclaim_path = locks_dir / "latest-reclaim.json"
     temp_path = locks_dir / "latest-reclaim.json.tmp"
-    payload = json.dumps(asdict(event), indent=2)
+    prior_count = 0
+    existing = _read_latest_reclaimed_lease(locks_dir=locks_dir, action_name=event.action_name)
+    if isinstance(existing, ReclaimedOperatorActionLeaseEvent):
+        prior_count = existing.reclaim_count
+    updated_event = ReclaimedOperatorActionLeaseEvent(
+        action_key=event.action_key,
+        action_name=event.action_name,
+        operator_id=event.operator_id,
+        tenant_id=event.tenant_id,
+        governed_target=event.governed_target,
+        acquired_at_utc=event.acquired_at_utc,
+        reclaimed_at_utc=event.reclaimed_at_utc,
+        stale_after_seconds=event.stale_after_seconds,
+        reclaim_count=prior_count + 1,
+    )
+    payload = json.dumps(asdict(updated_event), indent=2)
     with temp_path.open("w", encoding="utf-8") as handle:
         handle.write(payload)
         handle.flush()
@@ -377,6 +397,7 @@ def _reclaim_stale_lock(
                 acquired_at_utc=acquired_at_utc,
                 reclaimed_at_utc=current_time.isoformat().replace("+00:00", "Z"),
                 stale_after_seconds=stale_after_seconds,
+                reclaim_count=0,
             ),
         )
     except OSError:

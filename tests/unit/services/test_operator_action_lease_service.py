@@ -124,6 +124,7 @@ def test_operator_action_lease_reclaims_stale_lock(tmp_path):
     assert latest_reclaim["action_name"] == "recovery_drill"
     assert latest_reclaim["governed_target"] == "backup-123"
     assert latest_reclaim["stale_after_seconds"] == 300.0
+    assert latest_reclaim["reclaim_count"] == 1
 
 
 def test_operator_action_lease_snapshot_lists_oldest_active_leases(tmp_path):
@@ -211,6 +212,7 @@ def test_operator_action_lease_snapshot_exposes_latest_reclaimed_event(tmp_path)
                 "acquired_at_utc": "2026-03-15T00:00:00Z",
                 "reclaimed_at_utc": "2026-03-15T02:00:00Z",
                 "stale_after_seconds": 300.0,
+                "reclaim_count": 2,
             }
         ),
         encoding="utf-8",
@@ -225,6 +227,7 @@ def test_operator_action_lease_snapshot_exposes_latest_reclaimed_event(tmp_path)
     assert snapshot.latest_reclaimed_lease is not None
     assert snapshot.latest_reclaimed_lease.operator_id == "ops-user"
     assert snapshot.latest_reclaimed_lease.governed_target == "backup-123"
+    assert snapshot.latest_reclaimed_lease.reclaim_count == 2
 
 
 def test_operator_action_lease_snapshot_reports_invalid_reclaim_payload(tmp_path):
