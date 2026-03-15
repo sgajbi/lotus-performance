@@ -222,3 +222,32 @@ def test_runtime_work_item_snapshot_ignores_lineage_storage_outage_when_metadata
     assert snapshot.compute_queue.total_count == 1
     assert snapshot.lineage_queue.status == "available"
     lineage_list.assert_called_once()
+
+
+def test_runtime_work_item_snapshot_reports_lineage_queue_failure(mocker):
+    mocker.patch(
+        "app.services.runtime_work_item_service.check_durable_metadata_schema_ready",
+        return_value=DurabilityHealthStatus(is_ready=True, status="ready", reason=None),
+    )
+    mocker.patch(
+        "app.services.runtime_work_item_service.compute_job_store.list_inspection_items",
+        return_value=ComputeQueueInspectionPage(total_count=0, next_offset=None, items=[]),
+    )
+    mocker.patch(
+        "app.services.runtime_work_item_service.lineage_metadata_store.list_inspection_items",
+        side_effect=RuntimeError("lineage unavailable"),
+    )
+
+    snapshot = build_runtime_work_item_snapshot(
+        queue_filter="both",
+        status_filter="active",
+        limit=5,
+        offset=0,
+        min_age_seconds=0.0,
+        compute_analytics_type=None,
+        lineage_calculation_type=None,
+        calculation_id_contains=None,
+    )
+
+    assert snapshot.lineage_queue.status == "unavailable"
+    assert snapshot.lineage_queue.reason == "RuntimeError"

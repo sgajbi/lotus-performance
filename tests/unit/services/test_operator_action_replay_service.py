@@ -295,3 +295,172 @@ def test_recovery_drill_manual_replay_rejects_different_operator_or_tenant(tmp_p
         )
         is None
     )
+
+
+def test_runtime_retention_manual_replay_handles_missing_correlation_and_unreadable_payload(tmp_path):
+    artifact_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
+    artifact_dir.mkdir(parents=True)
+    snapshot = RuntimeRetentionHistorySnapshot(
+        status="available",
+        artifact_directory=str(artifact_dir),
+        latest_file_name="missing.json",
+        retained_file_names=["missing.json"],
+        retention_limit=30,
+        retention_max_age_days=90,
+        entries=[
+            RuntimeRetentionHistoryEntry(
+                evidence_file_name="missing.json",
+                generated_at_utc="2026-03-15T00:00:00Z",
+                operator_id="ops-user",
+                tenant_id="tenant-a",
+                correlation_id="corr-1",
+                trigger_mode="manual",
+                job_id="ticket-7",
+                cleanup_mode="dry_run",
+                status="planned",
+                retention_days=30,
+                prunable_execution_count=1,
+                prunable_compute_job_count=1,
+                prunable_async_result_count=1,
+                prunable_lineage_record_count=1,
+                prunable_lineage_artifact_count=1,
+            )
+        ],
+        total_entries=1,
+        matched_entries=1,
+        returned_entries=1,
+        next_offset=None,
+        applied_filters={},
+    )
+
+    assert (
+        resolve_runtime_retention_manual_replay(
+            snapshot,
+            artifact_directory=artifact_dir,
+            operator_id="ops-user",
+            tenant_id="tenant-a",
+            correlation_id=None,
+            apply=False,
+            retention_days=30,
+            job_id="ticket-7",
+        )
+        is None
+    )
+    assert (
+        resolve_runtime_retention_manual_replay(
+            snapshot,
+            artifact_directory=artifact_dir,
+            operator_id="ops-user",
+            tenant_id="tenant-a",
+            correlation_id="corr-1",
+            apply=False,
+            retention_days=30,
+            job_id="ticket-7",
+        )
+        is None
+    )
+
+
+def test_runtime_retention_manual_replay_rejects_mismatched_cleanup_shape(tmp_path):
+    artifact_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
+    artifact_dir.mkdir(parents=True)
+    payload = {"ok": True}
+    (artifact_dir / "evidence.json").write_text(__import__("json").dumps(payload), encoding="utf-8")
+    snapshot = RuntimeRetentionHistorySnapshot(
+        status="available",
+        artifact_directory=str(artifact_dir),
+        latest_file_name="evidence.json",
+        retained_file_names=["evidence.json"],
+        retention_limit=30,
+        retention_max_age_days=90,
+        entries=[
+            RuntimeRetentionHistoryEntry(
+                evidence_file_name="evidence.json",
+                generated_at_utc="2026-03-15T00:00:00Z",
+                operator_id="ops-user",
+                tenant_id="tenant-a",
+                correlation_id="corr-1",
+                trigger_mode="manual",
+                job_id="job-1",
+                cleanup_mode="apply",
+                status="applied",
+                retention_days=60,
+                prunable_execution_count=0,
+                prunable_compute_job_count=0,
+                prunable_async_result_count=0,
+                prunable_lineage_record_count=0,
+                prunable_lineage_artifact_count=0,
+            )
+        ],
+        total_entries=1,
+        matched_entries=1,
+        returned_entries=1,
+        next_offset=None,
+        applied_filters={},
+    )
+
+    assert (
+        resolve_runtime_retention_manual_replay(
+            snapshot,
+            artifact_directory=artifact_dir,
+            operator_id="ops-user",
+            tenant_id="tenant-a",
+            correlation_id="corr-1",
+            apply=False,
+            retention_days=30,
+            job_id="job-1",
+        )
+        is None
+    )
+
+
+def test_recovery_drill_manual_replay_handles_missing_correlation_and_unreadable_payload(tmp_path):
+    artifact_dir = tmp_path / "artifacts" / "durable-recovery-drill"
+    artifact_dir.mkdir(parents=True)
+    snapshot = RecoveryDrillHistorySnapshot(
+        status="available",
+        artifact_directory=str(artifact_dir),
+        latest_file_name="missing.json",
+        retained_file_names=["missing.json"],
+        retention_limit=30,
+        retention_max_age_days=90,
+        entries=[
+            RecoveryDrillHistoryEntry(
+                evidence_file_name="missing.json",
+                generated_at_utc="2026-03-15T00:00:00Z",
+                operator_id="ops-user",
+                tenant_id="tenant-a",
+                correlation_id="corr-1",
+                backup_identifier="backup-123",
+                status="passed",
+            )
+        ],
+        total_entries=1,
+        matched_entries=1,
+        returned_entries=1,
+        next_offset=None,
+        applied_filters={},
+    )
+
+    assert (
+        resolve_recovery_drill_manual_replay(
+            snapshot,
+            artifact_directory=artifact_dir,
+            operator_id="ops-user",
+            tenant_id="tenant-a",
+            correlation_id=None,
+            backup_identifier="backup-123",
+        )
+        is None
+    )
+    assert (
+        resolve_recovery_drill_manual_replay(
+            snapshot,
+            artifact_directory=artifact_dir,
+            operator_id="ops-user",
+            tenant_id="tenant-a",
+            correlation_id="corr-1",
+            backup_identifier="backup-123",
+        )
+        is None
+    )

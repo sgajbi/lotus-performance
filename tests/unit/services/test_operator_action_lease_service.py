@@ -6,6 +6,13 @@ from fastapi import HTTPException
 
 from app.services.operator_action_lease_service import (
     OperatorActionLeaseMetadata,
+    _parse_reclaimed_event_payload,
+    _parse_utc,
+    _read_active_operator_action_lease,
+    _read_latest_reclaimed_lease,
+    _read_recent_reclaimed_leases,
+    _reclaim_stale_lock,
+    _write_latest_reclaimed_lease,
     build_operator_action_lease_snapshot,
     build_recovery_drill_action_key,
     build_runtime_retention_action_key,
@@ -304,3 +311,314 @@ def test_operator_action_lease_snapshot_reports_invalid_reclaim_history_payload(
 
     assert snapshot.status == "unavailable"
     assert snapshot.reason == "operator_action_reclaim_history_invalid"
+
+
+@pytest.mark.parametrize(
+    ("payload",),
+    [
+        ({"operator_id": "ops-user"},),
+        ({"action_name": 1, "operator_id": "ops-user", "governed_target": "x", "acquired_at_utc": "2026-03-15T00:00:00Z"},),
+        ({"action_name": "recovery_drill", "operator_id": 1, "governed_target": "x", "acquired_at_utc": "2026-03-15T00:00:00Z"},),
+        ({"action_name": "recovery_drill", "operator_id": "ops-user", "tenant_id": 1, "governed_target": "x", "acquired_at_utc": "2026-03-15T00:00:00Z"},),
+        ({"action_name": "recovery_drill", "operator_id": "ops-user", "governed_target": 1, "acquired_at_utc": "2026-03-15T00:00:00Z"},),
+        ({"action_name": "recovery_drill", "operator_id": "ops-user", "governed_target": "x", "acquired_at_utc": 1},),
+        ({"action_name": "recovery_drill", "operator_id": "ops-user", "governed_target": "x", "acquired_at_utc": "bad"},),
+    ],
+)
+def test_read_active_operator_action_lease_rejects_invalid_payload_shapes(tmp_path, payload):
+    lock_path = tmp_path / "bad.lock"
+    lock_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    assert _read_active_operator_action_lease(lock_path=lock_path).__class__.__name__ == "_InvalidLease"
+
+
+def test_build_operator_action_lease_snapshot_reports_unreadable_directory(monkeypatch, tmp_path):
+    artifact_dir = tmp_path / "artifacts"
+    locks_dir = artifact_dir / ".action-locks"
+    locks_dir.mkdir(parents=True)
+    monkeypatch.setattr(
+        type(locks_dir),
+        "glob",
+        lambda self, pattern: (_ for _ in ()).throw(OSError("boom")),
+    )
+
+    snapshot = build_operator_action_lease_snapshot(artifact_directory=artifact_dir, action_name="recovery_drill")
+
+    assert snapshot.status == "unavailable"
+    assert snapshot.reason == "operator_action_lease_directory_unreadable"
+
+
+def test_read_reclaim_files_reject_invalid_json_and_shapes(tmp_path):
+    locks_dir = tmp_path / ".action-locks"
+    locks_dir.mkdir(parents=True)
+    (locks_dir / "latest-reclaim.json").write_text("{bad", encoding="utf-8")
+    (locks_dir / "reclaim-history.json").write_text("{bad", encoding="utf-8")
+
+    assert _read_latest_reclaimed_lease(locks_dir=locks_dir, action_name="recovery_drill").__class__.__name__ == "_InvalidLease"
+    assert _read_recent_reclaimed_leases(locks_dir=locks_dir, action_name="recovery_drill").__class__.__name__ == "_InvalidLease"
+
+
+def test_parse_reclaimed_event_payload_rejects_invalid_fields_and_filters_other_action():
+    assert _parse_reclaimed_event_payload(payload=[], action_name="recovery_drill").__class__.__name__ == "_InvalidLease"
+    assert _parse_reclaimed_event_payload(
+        payload={"action_name": "runtime_retention_cleanup"},
+        action_name="recovery_drill",
+    ) is None
+    invalid = {
+        "action_name": "recovery_drill",
+        "operator_id": "ops-user",
+        "tenant_id": 1,
+        "governed_target": "backup-1",
+        "acquired_at_utc": "2026-03-15T00:00:00Z",
+        "reclaimed_at_utc": "2026-03-15T01:00:00Z",
+        "stale_after_seconds": 30.0,
+        "reclaim_count": 1,
+        "action_key": "key",
+    }
+    assert _parse_reclaimed_event_payload(payload=invalid, action_name="recovery_drill").__class__.__name__ == "_InvalidLease"
+
+
+def test_write_latest_reclaimed_lease_increments_prior_count_and_history(tmp_path):
+    locks_dir = tmp_path / ".action-locks"
+    locks_dir.mkdir(parents=True)
+    existing = {
+        "action_key": "key-1",
+        "action_name": "recovery_drill",
+        "operator_id": "ops-user",
+        "tenant_id": None,
+        "governed_target": "backup-1",
+        "acquired_at_utc": "2026-03-15T00:00:00Z",
+        "reclaimed_at_utc": "2026-03-15T00:10:00Z",
+        "stale_after_seconds": 30.0,
+        "reclaim_count": 2,
+    }
+    (locks_dir / "latest-reclaim.json").write_text(json.dumps(existing), encoding="utf-8")
+    _write_latest_reclaimed_lease(
+        locks_dir=locks_dir,
+        event=type(
+            "Event",
+            (),
+            {
+                "action_key": "key-1",
+                "action_name": "recovery_drill",
+                "operator_id": "ops-user",
+                "tenant_id": None,
+                "governed_target": "backup-1",
+                "acquired_at_utc": "2026-03-15T00:20:00Z",
+                "reclaimed_at_utc": "2026-03-15T00:30:00Z",
+                "stale_after_seconds": 30.0,
+                "reclaim_count": 0,
+            },
+        )(),
+    )
+
+    latest = json.loads((locks_dir / "latest-reclaim.json").read_text(encoding="utf-8"))
+    history = json.loads((locks_dir / "reclaim-history.json").read_text(encoding="utf-8"))
+    assert latest["reclaim_count"] == 3
+    assert history[0]["reclaim_count"] == 3
+
+
+def test_parse_utc_and_reclaim_stale_lock_invalid_paths(tmp_path):
+    assert _parse_utc("2026-03-15T00:00:00").tzinfo == UTC
+    lock_path = tmp_path / "bad.lock"
+    lock_path.write_text('{"action_name":"recovery_drill"}', encoding="utf-8")
+    assert _reclaim_stale_lock(
+        lock_path=lock_path,
+        stale_after_seconds=30.0,
+        action_key="key",
+        now_utc=datetime(2026, 3, 15, 1, 0, tzinfo=UTC),
+    ) is False
+    assert _reclaim_stale_lock(
+        lock_path=lock_path,
+        stale_after_seconds=0.0,
+        action_key="key",
+        now_utc=datetime(2026, 3, 15, 1, 0, tzinfo=UTC),
+    ) is False
+
+
+def test_operator_action_lease_rejects_running_action_when_lock_payload_is_unreadable(tmp_path):
+    artifact_dir = tmp_path / "artifacts"
+    action_key = build_recovery_drill_action_key(
+        operator_id="ops-user",
+        tenant_id=None,
+        backup_identifier="backup-1",
+    )
+    lock_dir = artifact_dir / ".action-locks"
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    (lock_dir / f"{action_key}.lock").write_text("{bad", encoding="utf-8")
+    metadata = OperatorActionLeaseMetadata(
+        action_name="recovery_drill",
+        operator_id="ops-user",
+        tenant_id=None,
+        governed_target="backup-1",
+        acquired_at_utc="2026-03-15T00:00:00Z",
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        with operator_action_lease(
+            artifact_directory=artifact_dir,
+            action_key=action_key,
+            metadata=metadata,
+            stale_after_seconds=3600.0,
+        ):
+            pass
+
+    assert exc_info.value.detail["action_key"] == action_key
+    assert "active_operator_id" not in exc_info.value.detail or exc_info.value.detail["active_operator_id"] is None
+
+
+def test_build_operator_action_lease_snapshot_ignores_other_action_names(tmp_path):
+    artifact_dir = tmp_path / "artifacts"
+    locks_dir = artifact_dir / ".action-locks"
+    locks_dir.mkdir(parents=True, exist_ok=True)
+    (locks_dir / "runtime-retention.lock").write_text(
+        json.dumps(
+            {
+                "action_name": "runtime_retention_cleanup",
+                "operator_id": "ops-c",
+                "tenant_id": "tenant-c",
+                "governed_target": "apply:30:job-1",
+                "acquired_at_utc": "2026-03-15T02:00:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    snapshot = build_operator_action_lease_snapshot(
+        artifact_directory=artifact_dir,
+        action_name="recovery_drill",
+    )
+
+    assert snapshot.status == "available"
+    assert snapshot.active_leases == ()
+
+
+def test_read_recent_reclaimed_leases_rejects_non_list_payload(tmp_path):
+    locks_dir = tmp_path / ".action-locks"
+    locks_dir.mkdir(parents=True)
+    (locks_dir / "reclaim-history.json").write_text("{}", encoding="utf-8")
+
+    assert _read_recent_reclaimed_leases(locks_dir=locks_dir, action_name="recovery_drill").__class__.__name__ == "_InvalidLease"
+
+
+@pytest.mark.parametrize(
+    ("payload",),
+    [
+        ({"action_name": None},),
+        (
+            {
+                "action_name": "recovery_drill",
+                "operator_id": "ops-user",
+                "tenant_id": None,
+                "governed_target": 1,
+                "acquired_at_utc": "2026-03-15T00:00:00Z",
+                "reclaimed_at_utc": "2026-03-15T01:00:00Z",
+                "stale_after_seconds": 30.0,
+                "reclaim_count": 1,
+                "action_key": "key",
+            },
+        ),
+        (
+            {
+                "action_name": "recovery_drill",
+                "operator_id": "ops-user",
+                "tenant_id": None,
+                "governed_target": "backup-1",
+                "acquired_at_utc": 1,
+                "reclaimed_at_utc": "2026-03-15T01:00:00Z",
+                "stale_after_seconds": 30.0,
+                "reclaim_count": 1,
+                "action_key": "key",
+            },
+        ),
+        (
+            {
+                "action_name": "recovery_drill",
+                "operator_id": "ops-user",
+                "tenant_id": None,
+                "governed_target": "backup-1",
+                "acquired_at_utc": "2026-03-15T00:00:00Z",
+                "reclaimed_at_utc": 1,
+                "stale_after_seconds": 30.0,
+                "reclaim_count": 1,
+                "action_key": "key",
+            },
+        ),
+        (
+            {
+                "action_name": "recovery_drill",
+                "operator_id": "ops-user",
+                "tenant_id": None,
+                "governed_target": "backup-1",
+                "acquired_at_utc": "2026-03-15T00:00:00Z",
+                "reclaimed_at_utc": "2026-03-15T01:00:00Z",
+                "stale_after_seconds": "30",
+                "reclaim_count": 1,
+                "action_key": "key",
+            },
+        ),
+        (
+            {
+                "action_name": "recovery_drill",
+                "operator_id": "ops-user",
+                "tenant_id": None,
+                "governed_target": "backup-1",
+                "acquired_at_utc": "2026-03-15T00:00:00Z",
+                "reclaimed_at_utc": "2026-03-15T01:00:00Z",
+                "stale_after_seconds": 30.0,
+                "reclaim_count": "1",
+                "action_key": "key",
+            },
+        ),
+        (
+            {
+                "action_name": "recovery_drill",
+                "operator_id": "ops-user",
+                "tenant_id": None,
+                "governed_target": "backup-1",
+                "acquired_at_utc": "bad",
+                "reclaimed_at_utc": "2026-03-15T01:00:00Z",
+                "stale_after_seconds": 30.0,
+                "reclaim_count": 1,
+                "action_key": "key",
+            },
+        ),
+    ],
+)
+def test_parse_reclaimed_event_payload_rejects_remaining_invalid_shapes(payload):
+    assert _parse_reclaimed_event_payload(payload=payload, action_name="recovery_drill").__class__.__name__ == "_InvalidLease"
+
+
+def test_reclaim_stale_lock_handles_invalid_json_and_failed_reclaim_write(monkeypatch, tmp_path):
+    lock_path = tmp_path / "bad.lock"
+    lock_path.write_text("{bad", encoding="utf-8")
+    assert _reclaim_stale_lock(
+        lock_path=lock_path,
+        stale_after_seconds=30.0,
+        action_key="key",
+        now_utc=datetime(2026, 3, 15, 1, 0, tzinfo=UTC),
+    ) is False
+
+    valid_lock = tmp_path / "valid.lock"
+    valid_lock.write_text(
+        json.dumps(
+            {
+                "action_name": "recovery_drill",
+                "operator_id": "ops-user",
+                "tenant_id": None,
+                "governed_target": "backup-1",
+                "acquired_at_utc": "2026-03-15T00:00:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "app.services.operator_action_lease_service._write_latest_reclaimed_lease",
+        lambda **kwargs: (_ for _ in ()).throw(OSError("boom")),
+    )
+    assert _reclaim_stale_lock(
+        lock_path=valid_lock,
+        stale_after_seconds=30.0,
+        action_key="key",
+        now_utc=datetime(2026, 3, 15, 1, 0, tzinfo=UTC),
+    ) is True
