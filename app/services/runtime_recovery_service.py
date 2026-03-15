@@ -4,7 +4,10 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from app.services.compute_job_store import ComputeRecoveryEvent, ComputeRecoveryEventPage, compute_job_store
-from app.services.durability_health_service import DurabilityHealthStatus, check_durable_metadata_store_ready
+from app.services.durability_health_service import (
+    DurabilityHealthStatus,
+    check_durable_metadata_schema_ready,
+)
 from app.services.lineage_metadata_store import LineageRecoveryEvent, LineageRecoveryEventPage, lineage_metadata_store
 
 
@@ -53,7 +56,7 @@ def build_runtime_recovery_snapshot(
     lineage_calculation_type: str | None,
 ) -> RuntimeRecoverySnapshot:
     generated_at = datetime.now(UTC)
-    durability_status = check_durable_metadata_store_ready()
+    durability_status = check_durable_metadata_schema_ready()
 
     if not durability_status.is_ready:
         unavailable_queue = RuntimeRecoveryQueueState(

@@ -204,9 +204,7 @@ def build_operator_action_lease_snapshot(
             recent_reclaimed_leases=(),
         )
     recent_reclaimed_leases = (
-        recent_reclaimed_leases_candidate
-        if isinstance(recent_reclaimed_leases_candidate, tuple)
-        else ()
+        recent_reclaimed_leases_candidate if isinstance(recent_reclaimed_leases_candidate, tuple) else ()
     )
     latest_reclaimed_lease = (
         latest_reclaimed_lease_candidate

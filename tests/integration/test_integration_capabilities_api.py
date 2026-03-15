@@ -351,9 +351,7 @@ def test_metrics_include_governed_action_reclaim_pressure_breach_signals(mocker)
                 (),
                 {
                     "status": "available",
-                    "active_leases": (
-                        type("Lease", (), {"acquired_at_utc": "2026-03-14T00:00:00Z"})(),
-                    ),
+                    "active_leases": (type("Lease", (), {"acquired_at_utc": "2026-03-14T00:00:00Z"})(),),
                     "latest_reclaimed_lease": type(
                         "Reclaim", (), {"reclaimed_at_utc": "2026-03-14T00:30:00Z", "reclaim_count": 2}
                     )(),
@@ -364,9 +362,7 @@ def test_metrics_include_governed_action_reclaim_pressure_breach_signals(mocker)
                 (),
                 {
                     "status": "available",
-                    "active_leases": (
-                        type("Lease", (), {"acquired_at_utc": "2026-03-14T00:00:00Z"})(),
-                    ),
+                    "active_leases": (type("Lease", (), {"acquired_at_utc": "2026-03-14T00:00:00Z"})(),),
                     "latest_reclaimed_lease": type(
                         "Reclaim", (), {"reclaimed_at_utc": "2026-03-14T01:30:00Z", "reclaim_count": 3}
                     )(),
@@ -381,8 +377,7 @@ def test_metrics_include_governed_action_reclaim_pressure_breach_signals(mocker)
 
         assert metrics.status_code == 200
         assert (
-            'lotus_performance_recovery_drill_policy_threshold{threshold="active_run_age_seconds"} 60.0'
-            in metrics.text
+            'lotus_performance_recovery_drill_policy_threshold{threshold="active_run_age_seconds"} 60.0' in metrics.text
         )
         assert 'lotus_performance_recovery_drill_policy_threshold{threshold="reclaim_count"} 2.0' in metrics.text
         assert (
@@ -679,9 +674,7 @@ def test_metrics_include_recovery_drill_breach_signals(mocker):
                 (),
                 {
                     "status": "available",
-                    "active_leases": (
-                        type("Lease", (), {"acquired_at_utc": "2026-03-14T00:00:00Z"})(),
-                    ),
+                    "active_leases": (type("Lease", (), {"acquired_at_utc": "2026-03-14T00:00:00Z"})(),),
                     "latest_reclaimed_lease": type(
                         "Reclaim",
                         (),

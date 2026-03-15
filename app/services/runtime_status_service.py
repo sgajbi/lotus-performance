@@ -577,7 +577,9 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
     )
     reclaim_threshold = getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT", 0)
     active_run_status = _build_operator_action_status(
-        artifact_directory=getattr(settings, "RUNTIME_RETENTION_ARTIFACT_PATH", Path("artifacts/runtime-retention-cleanup")),
+        artifact_directory=getattr(
+            settings, "RUNTIME_RETENTION_ARTIFACT_PATH", Path("artifacts/runtime-retention-cleanup")
+        ),
         action_name="runtime_retention_cleanup",
     )
     try:

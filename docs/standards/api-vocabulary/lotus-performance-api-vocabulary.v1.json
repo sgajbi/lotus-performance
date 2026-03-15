@@ -8,8 +8,78 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-03-14T13:10:39.166369+00:00",
+  "generatedAt": "2026-03-15T02:18:20.059929+00:00",
   "attributeCatalog": [
+    {
+      "semanticId": "lotus.acquired_at_utc",
+      "canonicalTerm": "acquired_at_utc",
+      "preferredName": "acquired_at_utc",
+      "description": "UTC timestamp when the reclaimed governed action originally acquired its lease.",
+      "example": "example_acquired_at_utc",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.active_run_age_seconds",
+      "canonicalTerm": "active_run_age_seconds",
+      "preferredName": "active_run_age_seconds",
+      "description": "Configured threshold that degrades runtime when the oldest active governed recovery-drill run remains in flight too long.",
+      "example": 0.1234,
+      "type": "number",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "number"
+      ]
+    },
+    {
+      "semanticId": "lotus.active_run_count",
+      "canonicalTerm": "active_run_count",
+      "preferredName": "active_run_count",
+      "description": "Number of active governed recovery-drill runs currently holding an in-flight lease.",
+      "example": 1,
+      "type": "integer",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "integer"
+      ]
+    },
+    {
+      "semanticId": "lotus.active_run_reason",
+      "canonicalTerm": "active_run_reason",
+      "preferredName": "active_run_reason",
+      "description": "Concrete reason when governed recovery-drill action lease visibility is unavailable.",
+      "example": "example_active_run_reason",
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.active_run_status",
+      "canonicalTerm": "active_run_status",
+      "preferredName": "active_run_status",
+      "description": "Availability of the governed recovery-drill action lease surface and whether a drill is currently in flight.",
+      "example": "example_active_run_status",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
     {
       "semanticId": "lotus.active_since_utc",
       "canonicalTerm": "active_since_utc",
@@ -1679,6 +1749,20 @@
       ]
     },
     {
+      "semanticId": "lotus.governed_target",
+      "canonicalTerm": "governed_target",
+      "preferredName": "governed_target",
+      "description": "Governed action target associated with the reclaimed stale lease.",
+      "example": "example_governed_target",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.group_by",
       "canonicalTerm": "group_by",
       "preferredName": "group_by",
@@ -2033,6 +2117,90 @@
       "preferredName": "latest_operator_id",
       "description": "Operator or automation identity that ran the latest retained recovery drill.",
       "example": "LATEST_OPERATOR_001",
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.latest_reclaimed_run_acquired_at_utc",
+      "canonicalTerm": "latest_reclaimed_run_acquired_at_utc",
+      "preferredName": "latest_reclaimed_run_acquired_at_utc",
+      "description": "UTC timestamp when the latest reclaimed stale governed recovery-drill run originally acquired its lease.",
+      "example": "example_latest_reclaimed_run_acquired_at_utc",
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.latest_reclaimed_run_age_seconds",
+      "canonicalTerm": "latest_reclaimed_run_age_seconds",
+      "preferredName": "latest_reclaimed_run_age_seconds",
+      "description": "Age in seconds since the latest stale governed recovery-drill lease was reclaimed.",
+      "example": 0.1234,
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.latest_reclaimed_run_governed_target",
+      "canonicalTerm": "latest_reclaimed_run_governed_target",
+      "preferredName": "latest_reclaimed_run_governed_target",
+      "description": "Governed recovery-drill target from the latest reclaimed stale run, typically the backup identifier.",
+      "example": "example_latest_reclaimed_run_governed_target",
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.latest_reclaimed_run_operator_id",
+      "canonicalTerm": "latest_reclaimed_run_operator_id",
+      "preferredName": "latest_reclaimed_run_operator_id",
+      "description": "Operator or automation identity from the latest reclaimed stale governed recovery-drill run, when present.",
+      "example": "LATEST_RECLAIMED_RUN_OPERATOR_001",
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.latest_reclaimed_run_reclaimed_at_utc",
+      "canonicalTerm": "latest_reclaimed_run_reclaimed_at_utc",
+      "preferredName": "latest_reclaimed_run_reclaimed_at_utc",
+      "description": "UTC timestamp when the latest stale governed recovery-drill lease was reclaimed.",
+      "example": "example_latest_reclaimed_run_reclaimed_at_utc",
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.latest_reclaimed_run_tenant_id",
+      "canonicalTerm": "latest_reclaimed_run_tenant_id",
+      "preferredName": "latest_reclaimed_run_tenant_id",
+      "description": "Tenant context from the latest reclaimed stale governed recovery-drill run, when present.",
+      "example": "LATEST_RECLAIMED_RUN_TENANT_001",
       "type": "object",
       "locations": [
         "body"
@@ -2696,6 +2864,76 @@
       ]
     },
     {
+      "semanticId": "lotus.oldest_active_run_acquired_at_utc",
+      "canonicalTerm": "oldest_active_run_acquired_at_utc",
+      "preferredName": "oldest_active_run_acquired_at_utc",
+      "description": "UTC timestamp when the oldest active governed recovery-drill run acquired its lease.",
+      "example": "example_oldest_active_run_acquired_at_utc",
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.oldest_active_run_age_seconds",
+      "canonicalTerm": "oldest_active_run_age_seconds",
+      "preferredName": "oldest_active_run_age_seconds",
+      "description": "Age in seconds of the oldest active governed recovery-drill run.",
+      "example": 0.1234,
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.oldest_active_run_governed_target",
+      "canonicalTerm": "oldest_active_run_governed_target",
+      "preferredName": "oldest_active_run_governed_target",
+      "description": "Governed recovery-drill target for the oldest active run, typically the backup identifier.",
+      "example": "example_oldest_active_run_governed_target",
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.oldest_active_run_operator_id",
+      "canonicalTerm": "oldest_active_run_operator_id",
+      "preferredName": "oldest_active_run_operator_id",
+      "description": "Operator or automation identity for the oldest active governed recovery-drill run, when present.",
+      "example": "OLDEST_ACTIVE_RUN_OPERATOR_001",
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.oldest_active_run_tenant_id",
+      "canonicalTerm": "oldest_active_run_tenant_id",
+      "preferredName": "oldest_active_run_tenant_id",
+      "description": "Tenant context recorded for the oldest active governed recovery-drill run, when present.",
+      "example": "OLDEST_ACTIVE_RUN_TENANT_001",
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
       "semanticId": "lotus.oldest_leased_age_seconds",
       "canonicalTerm": "oldest_leased_age_seconds",
       "preferredName": "oldest_leased_age_seconds",
@@ -2741,16 +2979,16 @@
       "semanticId": "lotus.operator_id",
       "canonicalTerm": "operator_id",
       "preferredName": "operator_id",
-      "description": "Canonical operator id used by lotus-performance APIs.",
-      "example": null,
-      "type": "object",
+      "description": "Operator or automation identity from the reclaimed governed action.",
+      "example": "OPERATOR_001",
+      "type": "string",
       "locations": [
-        "query",
-        "body"
+        "body",
+        "query"
       ],
       "observedTypes": [
-        "object",
-        "string"
+        "string",
+        "object"
       ]
     },
     {
@@ -3250,6 +3488,30 @@
       ]
     },
     {
+      "semanticId": "lotus.recent_reclaimed_runs",
+      "canonicalTerm": "recent_reclaimed_runs",
+      "preferredName": "recent_reclaimed_runs",
+      "description": "Most recent retained stale governed recovery-drill lease reclaim events for operator triage.",
+      "example": [
+        {
+          "operator_id": "OPERATOR_001",
+          "tenant_id": "default",
+          "governed_target": "example_governed_target",
+          "acquired_at_utc": "example_acquired_at_utc",
+          "reclaimed_at_utc": "example_reclaimed_at_utc",
+          "reclaimed_age_seconds": 0.1234,
+          "reclaim_count": 1
+        }
+      ],
+      "type": "array",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "array"
+      ]
+    },
+    {
       "semanticId": "lotus.recent_recoveries",
       "canonicalTerm": "recent_recoveries",
       "preferredName": "recent_recoveries",
@@ -3270,6 +3532,20 @@
       ],
       "observedTypes": [
         "array"
+      ]
+    },
+    {
+      "semanticId": "lotus.reclaim_count",
+      "canonicalTerm": "reclaim_count",
+      "preferredName": "reclaim_count",
+      "description": "Cumulative reclaim counter recorded at the time of this retained stale-lease reclaim event.",
+      "example": 1,
+      "type": "integer",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "integer"
       ]
     },
     {
@@ -3298,6 +3574,48 @@
       ],
       "observedTypes": [
         "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.reclaimed_age_seconds",
+      "canonicalTerm": "reclaimed_age_seconds",
+      "preferredName": "reclaimed_age_seconds",
+      "description": "Age in seconds since the stale governed action lease was reclaimed.",
+      "example": 0.1234,
+      "type": "number",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "number"
+      ]
+    },
+    {
+      "semanticId": "lotus.reclaimed_at_utc",
+      "canonicalTerm": "reclaimed_at_utc",
+      "preferredName": "reclaimed_at_utc",
+      "description": "UTC timestamp when the stale governed action lease was reclaimed.",
+      "example": "example_reclaimed_at_utc",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.reclaimed_run_count",
+      "canonicalTerm": "reclaimed_run_count",
+      "preferredName": "reclaimed_run_count",
+      "description": "Number of stale governed recovery-drill leases reclaimed and retained in the current control-plane counter.",
+      "example": 1,
+      "type": "integer",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "integer"
       ]
     },
     {
@@ -8727,6 +9045,190 @@
             "attributeRef": "#/attributeCatalog/lotus.reason"
           },
           {
+            "name": "recovery_drill.active_run_status",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.active_run_status",
+            "attributeRef": "#/attributeCatalog/lotus.active_run_status"
+          },
+          {
+            "name": "recovery_drill.active_run_reason",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.active_run_reason",
+            "attributeRef": "#/attributeCatalog/lotus.active_run_reason"
+          },
+          {
+            "name": "recovery_drill.active_run_count",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.active_run_count",
+            "attributeRef": "#/attributeCatalog/lotus.active_run_count"
+          },
+          {
+            "name": "recovery_drill.oldest_active_run_operator_id",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.oldest_active_run_operator_id",
+            "attributeRef": "#/attributeCatalog/lotus.oldest_active_run_operator_id"
+          },
+          {
+            "name": "recovery_drill.oldest_active_run_tenant_id",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.oldest_active_run_tenant_id",
+            "attributeRef": "#/attributeCatalog/lotus.oldest_active_run_tenant_id"
+          },
+          {
+            "name": "recovery_drill.oldest_active_run_governed_target",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.oldest_active_run_governed_target",
+            "attributeRef": "#/attributeCatalog/lotus.oldest_active_run_governed_target"
+          },
+          {
+            "name": "recovery_drill.oldest_active_run_acquired_at_utc",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.oldest_active_run_acquired_at_utc",
+            "attributeRef": "#/attributeCatalog/lotus.oldest_active_run_acquired_at_utc"
+          },
+          {
+            "name": "recovery_drill.oldest_active_run_age_seconds",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.oldest_active_run_age_seconds",
+            "attributeRef": "#/attributeCatalog/lotus.oldest_active_run_age_seconds"
+          },
+          {
+            "name": "recovery_drill.latest_reclaimed_run_operator_id",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.latest_reclaimed_run_operator_id",
+            "attributeRef": "#/attributeCatalog/lotus.latest_reclaimed_run_operator_id"
+          },
+          {
+            "name": "recovery_drill.latest_reclaimed_run_tenant_id",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.latest_reclaimed_run_tenant_id",
+            "attributeRef": "#/attributeCatalog/lotus.latest_reclaimed_run_tenant_id"
+          },
+          {
+            "name": "recovery_drill.latest_reclaimed_run_governed_target",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.latest_reclaimed_run_governed_target",
+            "attributeRef": "#/attributeCatalog/lotus.latest_reclaimed_run_governed_target"
+          },
+          {
+            "name": "recovery_drill.latest_reclaimed_run_acquired_at_utc",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.latest_reclaimed_run_acquired_at_utc",
+            "attributeRef": "#/attributeCatalog/lotus.latest_reclaimed_run_acquired_at_utc"
+          },
+          {
+            "name": "recovery_drill.latest_reclaimed_run_reclaimed_at_utc",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.latest_reclaimed_run_reclaimed_at_utc",
+            "attributeRef": "#/attributeCatalog/lotus.latest_reclaimed_run_reclaimed_at_utc"
+          },
+          {
+            "name": "recovery_drill.latest_reclaimed_run_age_seconds",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.latest_reclaimed_run_age_seconds",
+            "attributeRef": "#/attributeCatalog/lotus.latest_reclaimed_run_age_seconds"
+          },
+          {
+            "name": "recovery_drill.reclaimed_run_count",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.reclaimed_run_count",
+            "attributeRef": "#/attributeCatalog/lotus.reclaimed_run_count"
+          },
+          {
+            "name": "recovery_drill.recent_reclaimed_runs",
+            "location": "body",
+            "required": false,
+            "type": "array",
+            "semanticId": "lotus.recent_reclaimed_runs",
+            "attributeRef": "#/attributeCatalog/lotus.recent_reclaimed_runs"
+          },
+          {
+            "name": "recovery_drill.recent_reclaimed_runs[].operator_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.operator_id",
+            "attributeRef": "#/attributeCatalog/lotus.operator_id"
+          },
+          {
+            "name": "recovery_drill.recent_reclaimed_runs[].tenant_id",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.tenant_id",
+            "attributeRef": "#/attributeCatalog/lotus.tenant_id"
+          },
+          {
+            "name": "recovery_drill.recent_reclaimed_runs[].governed_target",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.governed_target",
+            "attributeRef": "#/attributeCatalog/lotus.governed_target"
+          },
+          {
+            "name": "recovery_drill.recent_reclaimed_runs[].acquired_at_utc",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.acquired_at_utc",
+            "attributeRef": "#/attributeCatalog/lotus.acquired_at_utc"
+          },
+          {
+            "name": "recovery_drill.recent_reclaimed_runs[].reclaimed_at_utc",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.reclaimed_at_utc",
+            "attributeRef": "#/attributeCatalog/lotus.reclaimed_at_utc"
+          },
+          {
+            "name": "recovery_drill.recent_reclaimed_runs[].reclaimed_age_seconds",
+            "location": "body",
+            "required": true,
+            "type": "number",
+            "semanticId": "lotus.reclaimed_age_seconds",
+            "attributeRef": "#/attributeCatalog/lotus.reclaimed_age_seconds"
+          },
+          {
+            "name": "recovery_drill.recent_reclaimed_runs[].reclaim_count",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.reclaim_count",
+            "attributeRef": "#/attributeCatalog/lotus.reclaim_count"
+          },
+          {
             "name": "recovery_drill.degradation_reasons",
             "location": "body",
             "required": false,
@@ -8829,6 +9331,190 @@
             "type": "object",
             "semanticId": "lotus.reason",
             "attributeRef": "#/attributeCatalog/lotus.reason"
+          },
+          {
+            "name": "runtime_retention.active_run_status",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.active_run_status",
+            "attributeRef": "#/attributeCatalog/lotus.active_run_status"
+          },
+          {
+            "name": "runtime_retention.active_run_reason",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.active_run_reason",
+            "attributeRef": "#/attributeCatalog/lotus.active_run_reason"
+          },
+          {
+            "name": "runtime_retention.active_run_count",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.active_run_count",
+            "attributeRef": "#/attributeCatalog/lotus.active_run_count"
+          },
+          {
+            "name": "runtime_retention.oldest_active_run_operator_id",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.oldest_active_run_operator_id",
+            "attributeRef": "#/attributeCatalog/lotus.oldest_active_run_operator_id"
+          },
+          {
+            "name": "runtime_retention.oldest_active_run_tenant_id",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.oldest_active_run_tenant_id",
+            "attributeRef": "#/attributeCatalog/lotus.oldest_active_run_tenant_id"
+          },
+          {
+            "name": "runtime_retention.oldest_active_run_governed_target",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.oldest_active_run_governed_target",
+            "attributeRef": "#/attributeCatalog/lotus.oldest_active_run_governed_target"
+          },
+          {
+            "name": "runtime_retention.oldest_active_run_acquired_at_utc",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.oldest_active_run_acquired_at_utc",
+            "attributeRef": "#/attributeCatalog/lotus.oldest_active_run_acquired_at_utc"
+          },
+          {
+            "name": "runtime_retention.oldest_active_run_age_seconds",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.oldest_active_run_age_seconds",
+            "attributeRef": "#/attributeCatalog/lotus.oldest_active_run_age_seconds"
+          },
+          {
+            "name": "runtime_retention.latest_reclaimed_run_operator_id",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.latest_reclaimed_run_operator_id",
+            "attributeRef": "#/attributeCatalog/lotus.latest_reclaimed_run_operator_id"
+          },
+          {
+            "name": "runtime_retention.latest_reclaimed_run_tenant_id",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.latest_reclaimed_run_tenant_id",
+            "attributeRef": "#/attributeCatalog/lotus.latest_reclaimed_run_tenant_id"
+          },
+          {
+            "name": "runtime_retention.latest_reclaimed_run_governed_target",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.latest_reclaimed_run_governed_target",
+            "attributeRef": "#/attributeCatalog/lotus.latest_reclaimed_run_governed_target"
+          },
+          {
+            "name": "runtime_retention.latest_reclaimed_run_acquired_at_utc",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.latest_reclaimed_run_acquired_at_utc",
+            "attributeRef": "#/attributeCatalog/lotus.latest_reclaimed_run_acquired_at_utc"
+          },
+          {
+            "name": "runtime_retention.latest_reclaimed_run_reclaimed_at_utc",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.latest_reclaimed_run_reclaimed_at_utc",
+            "attributeRef": "#/attributeCatalog/lotus.latest_reclaimed_run_reclaimed_at_utc"
+          },
+          {
+            "name": "runtime_retention.latest_reclaimed_run_age_seconds",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.latest_reclaimed_run_age_seconds",
+            "attributeRef": "#/attributeCatalog/lotus.latest_reclaimed_run_age_seconds"
+          },
+          {
+            "name": "runtime_retention.reclaimed_run_count",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.reclaimed_run_count",
+            "attributeRef": "#/attributeCatalog/lotus.reclaimed_run_count"
+          },
+          {
+            "name": "runtime_retention.recent_reclaimed_runs",
+            "location": "body",
+            "required": false,
+            "type": "array",
+            "semanticId": "lotus.recent_reclaimed_runs",
+            "attributeRef": "#/attributeCatalog/lotus.recent_reclaimed_runs"
+          },
+          {
+            "name": "runtime_retention.recent_reclaimed_runs[].operator_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.operator_id",
+            "attributeRef": "#/attributeCatalog/lotus.operator_id"
+          },
+          {
+            "name": "runtime_retention.recent_reclaimed_runs[].tenant_id",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.tenant_id",
+            "attributeRef": "#/attributeCatalog/lotus.tenant_id"
+          },
+          {
+            "name": "runtime_retention.recent_reclaimed_runs[].governed_target",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.governed_target",
+            "attributeRef": "#/attributeCatalog/lotus.governed_target"
+          },
+          {
+            "name": "runtime_retention.recent_reclaimed_runs[].acquired_at_utc",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.acquired_at_utc",
+            "attributeRef": "#/attributeCatalog/lotus.acquired_at_utc"
+          },
+          {
+            "name": "runtime_retention.recent_reclaimed_runs[].reclaimed_at_utc",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.reclaimed_at_utc",
+            "attributeRef": "#/attributeCatalog/lotus.reclaimed_at_utc"
+          },
+          {
+            "name": "runtime_retention.recent_reclaimed_runs[].reclaimed_age_seconds",
+            "location": "body",
+            "required": true,
+            "type": "number",
+            "semanticId": "lotus.reclaimed_age_seconds",
+            "attributeRef": "#/attributeCatalog/lotus.reclaimed_age_seconds"
+          },
+          {
+            "name": "runtime_retention.recent_reclaimed_runs[].reclaim_count",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.reclaim_count",
+            "attributeRef": "#/attributeCatalog/lotus.reclaim_count"
           },
           {
             "name": "runtime_retention.preview_status",
@@ -9135,6 +9821,22 @@
             "attributeRef": "#/attributeCatalog/lotus.max_age_seconds"
           },
           {
+            "name": "recovery_drill_policy.active_run_age_seconds",
+            "location": "body",
+            "required": true,
+            "type": "number",
+            "semanticId": "lotus.active_run_age_seconds",
+            "attributeRef": "#/attributeCatalog/lotus.active_run_age_seconds"
+          },
+          {
+            "name": "recovery_drill_policy.reclaim_count",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.reclaim_count",
+            "attributeRef": "#/attributeCatalog/lotus.reclaim_count"
+          },
+          {
             "name": "runtime_retention_policy",
             "location": "body",
             "required": true,
@@ -9149,6 +9851,22 @@
             "type": "number",
             "semanticId": "lotus.max_age_seconds",
             "attributeRef": "#/attributeCatalog/lotus.max_age_seconds"
+          },
+          {
+            "name": "runtime_retention_policy.active_run_age_seconds",
+            "location": "body",
+            "required": true,
+            "type": "number",
+            "semanticId": "lotus.active_run_age_seconds",
+            "attributeRef": "#/attributeCatalog/lotus.active_run_age_seconds"
+          },
+          {
+            "name": "runtime_retention_policy.reclaim_count",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.reclaim_count",
+            "attributeRef": "#/attributeCatalog/lotus.reclaim_count"
           }
         ]
       }

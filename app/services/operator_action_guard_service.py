@@ -80,9 +80,7 @@ def enforce_runtime_retention_apply_preview(
             status_code=status.HTTP_409_CONFLICT,
             detail={
                 "code": "runtime_retention_apply_preview_required",
-                "message": (
-                    "A recent matching runtime-retention dry run is required before apply can execute."
-                ),
+                "message": ("A recent matching runtime-retention dry run is required before apply can execute."),
                 "required_cleanup_mode": "dry_run",
                 "required_retention_days": retention_days,
             },
@@ -97,9 +95,7 @@ def enforce_runtime_retention_apply_preview(
         status_code=status.HTTP_409_CONFLICT,
         detail={
             "code": "runtime_retention_apply_preview_required",
-            "message": (
-                "A recent matching runtime-retention dry run is required before apply can execute."
-            ),
+            "message": ("A recent matching runtime-retention dry run is required before apply can execute."),
             "latest_preview_generated_at_utc": preview_entry.generated_at_utc,
             "latest_preview_evidence_file_name": preview_entry.evidence_file_name,
             "preview_max_age_seconds": int(preview_max_age_seconds),

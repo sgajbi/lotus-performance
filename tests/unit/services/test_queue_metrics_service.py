@@ -212,7 +212,9 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
     recovery_threshold_metric = next(
         metric for metric in metrics if metric.name == "lotus_performance_recovery_drill_policy_threshold"
     )
-    recovery_threshold_samples = {sample.labels["threshold"]: sample.value for sample in recovery_threshold_metric.samples}
+    recovery_threshold_samples = {
+        sample.labels["threshold"]: sample.value for sample in recovery_threshold_metric.samples
+    }
     assert recovery_threshold_samples["active_run_age_seconds"] == 1800
     assert recovery_threshold_samples["reclaim_count"] == 2
 
@@ -383,7 +385,10 @@ def test_queue_metrics_collector_emits_governed_action_reclaim_pressure_breaches
         lambda limit=1: type(
             "RecoverySnapshot",
             (),
-            {"status": "available", "entries": [type("Entry", (), {"generated_at_utc": "2099-01-01T00:00:00Z", "status": "passed"})()]},
+            {
+                "status": "available",
+                "entries": [type("Entry", (), {"generated_at_utc": "2099-01-01T00:00:00Z", "status": "passed"})()],
+            },
         )(),
     )
     monkeypatch.setattr(
@@ -391,7 +396,10 @@ def test_queue_metrics_collector_emits_governed_action_reclaim_pressure_breaches
         lambda limit=1: type(
             "RuntimeRetentionSnapshot",
             (),
-            {"status": "available", "entries": [type("Entry", (), {"generated_at_utc": "2099-01-01T00:00:00Z", "cleanup_mode": "apply"})()]},
+            {
+                "status": "available",
+                "entries": [type("Entry", (), {"generated_at_utc": "2099-01-01T00:00:00Z", "cleanup_mode": "apply"})()],
+            },
         )(),
     )
     action_snapshots = iter(
@@ -401,10 +409,10 @@ def test_queue_metrics_collector_emits_governed_action_reclaim_pressure_breaches
                 (),
                 {
                     "status": "available",
-                    "active_leases": (
-                        type("Lease", (), {"acquired_at_utc": "2026-03-14T00:00:00Z"})(),
-                    ),
-                    "latest_reclaimed_lease": type("Reclaim", (), {"reclaimed_at_utc": "2099-01-01T00:00:00Z", "reclaim_count": 2})(),
+                    "active_leases": (type("Lease", (), {"acquired_at_utc": "2026-03-14T00:00:00Z"})(),),
+                    "latest_reclaimed_lease": type(
+                        "Reclaim", (), {"reclaimed_at_utc": "2099-01-01T00:00:00Z", "reclaim_count": 2}
+                    )(),
                 },
             )(),
             type(
@@ -412,10 +420,10 @@ def test_queue_metrics_collector_emits_governed_action_reclaim_pressure_breaches
                 (),
                 {
                     "status": "available",
-                    "active_leases": (
-                        type("Lease", (), {"acquired_at_utc": "2026-03-14T00:00:00Z"})(),
-                    ),
-                    "latest_reclaimed_lease": type("Reclaim", (), {"reclaimed_at_utc": "2099-01-01T00:00:00Z", "reclaim_count": 3})(),
+                    "active_leases": (type("Lease", (), {"acquired_at_utc": "2026-03-14T00:00:00Z"})(),),
+                    "latest_reclaimed_lease": type(
+                        "Reclaim", (), {"reclaimed_at_utc": "2099-01-01T00:00:00Z", "reclaim_count": 3}
+                    )(),
                 },
             )(),
         ]
@@ -535,15 +543,13 @@ def test_queue_metrics_collector_emits_governed_action_lease_metrics(monkeypatch
                 "LeaseSnapshot",
                 (),
                 {
-                        "status": "available",
-                        "active_leases": (
-                            type("Lease", (), {"acquired_at_utc": "2026-03-14T00:00:00Z"})(),
-                        ),
-                        "latest_reclaimed_lease": type(
-                            "Reclaim",
-                            (),
-                            {"reclaimed_at_utc": "2026-03-14T00:30:00Z", "reclaim_count": 3},
-                        )(),
+                    "status": "available",
+                    "active_leases": (type("Lease", (), {"acquired_at_utc": "2026-03-14T00:00:00Z"})(),),
+                    "latest_reclaimed_lease": type(
+                        "Reclaim",
+                        (),
+                        {"reclaimed_at_utc": "2026-03-14T00:30:00Z", "reclaim_count": 3},
+                    )(),
                 },
             )(),
             type(
@@ -555,11 +561,11 @@ def test_queue_metrics_collector_emits_governed_action_lease_metrics(monkeypatch
                         type("Lease", (), {"acquired_at_utc": "2026-03-14T00:00:00Z"})(),
                         type("Lease", (), {"acquired_at_utc": "2026-03-14T01:00:00Z"})(),
                     ),
-                        "latest_reclaimed_lease": type(
-                            "Reclaim",
-                            (),
-                            {"reclaimed_at_utc": "2026-03-14T01:30:00Z", "reclaim_count": 4},
-                        )(),
+                    "latest_reclaimed_lease": type(
+                        "Reclaim",
+                        (),
+                        {"reclaimed_at_utc": "2026-03-14T01:30:00Z", "reclaim_count": 4},
+                    )(),
                 },
             )(),
         )
@@ -599,7 +605,9 @@ def test_queue_metrics_collector_emits_governed_action_lease_metrics(monkeypatch
     )
     assert recovery_actions.samples[0].value == 1
     recovery_reclaimed = next(
-        metric for metric in metrics if metric.name == "lotus_performance_recovery_drill_latest_reclaimed_action_age_seconds"
+        metric
+        for metric in metrics
+        if metric.name == "lotus_performance_recovery_drill_latest_reclaimed_action_age_seconds"
     )
     assert recovery_reclaimed.samples[0].value >= 0
     recovery_reclaimed_count = next(
