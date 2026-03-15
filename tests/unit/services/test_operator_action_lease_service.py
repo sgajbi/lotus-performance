@@ -6,6 +6,7 @@ from fastapi import HTTPException
 
 from app.services.operator_action_lease_service import (
     OperatorActionLeaseMetadata,
+    build_operator_action_lease_snapshot,
     build_recovery_drill_action_key,
     build_runtime_retention_action_key,
     operator_action_lease,
@@ -117,3 +118,73 @@ def test_operator_action_lease_reclaims_stale_lock(tmp_path):
         assert lock_path.exists()
         payload = json.loads(lock_path.read_text(encoding="utf-8"))
         assert payload["acquired_at_utc"] == metadata.acquired_at_utc
+
+
+def test_operator_action_lease_snapshot_lists_oldest_active_leases(tmp_path):
+    artifact_dir = tmp_path / "artifacts"
+    locks_dir = artifact_dir / ".action-locks"
+    locks_dir.mkdir(parents=True, exist_ok=True)
+    (locks_dir / "recovery-drill-first.lock").write_text(
+        json.dumps(
+            {
+                "action_name": "recovery_drill",
+                "operator_id": "ops-a",
+                "tenant_id": "tenant-a",
+                "governed_target": "backup-a",
+                "acquired_at_utc": "2026-03-15T00:00:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (locks_dir / "recovery-drill-second.lock").write_text(
+        json.dumps(
+            {
+                "action_name": "recovery_drill",
+                "operator_id": "ops-b",
+                "tenant_id": "tenant-b",
+                "governed_target": "backup-b",
+                "acquired_at_utc": "2026-03-15T01:00:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (locks_dir / "runtime-retention.lock").write_text(
+        json.dumps(
+            {
+                "action_name": "runtime_retention_cleanup",
+                "operator_id": "ops-c",
+                "tenant_id": "tenant-c",
+                "governed_target": "apply:30:job-1",
+                "acquired_at_utc": "2026-03-15T02:00:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    snapshot = build_operator_action_lease_snapshot(
+        artifact_directory=artifact_dir,
+        action_name="recovery_drill",
+    )
+
+    assert snapshot.status == "available"
+    assert snapshot.reason is None
+    assert len(snapshot.active_leases) == 2
+    assert snapshot.active_leases[0].operator_id == "ops-a"
+    assert snapshot.active_leases[0].governed_target == "backup-a"
+    assert snapshot.active_leases[1].operator_id == "ops-b"
+
+
+def test_operator_action_lease_snapshot_reports_invalid_payload(tmp_path):
+    artifact_dir = tmp_path / "artifacts"
+    locks_dir = artifact_dir / ".action-locks"
+    locks_dir.mkdir(parents=True, exist_ok=True)
+    (locks_dir / "bad.lock").write_text('{"action_name":"recovery_drill"}', encoding="utf-8")
+
+    snapshot = build_operator_action_lease_snapshot(
+        artifact_directory=artifact_dir,
+        action_name="recovery_drill",
+    )
+
+    assert snapshot.status == "unavailable"
+    assert snapshot.reason == "operator_action_lease_invalid"
+    assert snapshot.active_leases == ()

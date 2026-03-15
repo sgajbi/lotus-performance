@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
+from pathlib import Path
 
 from app.core.config import get_settings
 from app.services.compute_job_store import (
@@ -24,6 +25,7 @@ from app.services.lineage_metadata_store import (
     LineageRecoveryEvent,
     lineage_metadata_store,
 )
+from app.services.operator_action_lease_service import build_operator_action_lease_snapshot
 from app.services.recovery_drill_history_service import (
     build_recovery_drill_history_snapshot,
 )
@@ -76,6 +78,14 @@ class LineageQueueDegradationPolicy:
 class RecoveryDrillStatus:
     status: str
     reason: str | None
+    active_run_status: str
+    active_run_reason: str | None
+    active_run_count: int
+    oldest_active_run_operator_id: str | None
+    oldest_active_run_tenant_id: str | None
+    oldest_active_run_governed_target: str | None
+    oldest_active_run_acquired_at_utc: str | None
+    oldest_active_run_age_seconds: float | None
     latest_generated_at_utc: str | None
     latest_status: str | None
     latest_operator_id: str | None
@@ -94,6 +104,14 @@ class RecoveryDrillDegradationPolicy:
 class RuntimeRetentionStatus:
     status: str
     reason: str | None
+    active_run_status: str
+    active_run_reason: str | None
+    active_run_count: int
+    oldest_active_run_operator_id: str | None
+    oldest_active_run_tenant_id: str | None
+    oldest_active_run_governed_target: str | None
+    oldest_active_run_acquired_at_utc: str | None
+    oldest_active_run_age_seconds: float | None
     preview_status: str
     preview_reason: str | None
     current_cutoff_utc: str | None
@@ -118,6 +136,18 @@ class RuntimeRetentionStatus:
 @dataclass(frozen=True)
 class RuntimeRetentionDegradationPolicy:
     max_age_seconds: float
+
+
+@dataclass(frozen=True)
+class OperatorActionStatus:
+    status: str
+    reason: str | None
+    active_run_count: int
+    oldest_active_run_operator_id: str | None
+    oldest_active_run_tenant_id: str | None
+    oldest_active_run_governed_target: str | None
+    oldest_active_run_acquired_at_utc: str | None
+    oldest_active_run_age_seconds: float | None
 
 
 @dataclass(frozen=True)
@@ -354,12 +384,24 @@ def _safe_lineage_recent_recoveries(*, settings) -> tuple[LineageRecoveryEvent, 
 
 def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
     threshold = getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS", 0.0)
+    active_run_status = _build_operator_action_status(
+        artifact_directory=getattr(settings, "RECOVERY_DRILL_ARTIFACT_PATH", Path("artifacts/durable-recovery-drill")),
+        action_name="recovery_drill",
+    )
     try:
         snapshot = build_recovery_drill_history_snapshot(limit=1)
     except Exception as exc:
         return RecoveryDrillStatus(
             status="unavailable",
             reason=type(exc).__name__,
+            active_run_status=active_run_status.status,
+            active_run_reason=active_run_status.reason,
+            active_run_count=active_run_status.active_run_count,
+            oldest_active_run_operator_id=active_run_status.oldest_active_run_operator_id,
+            oldest_active_run_tenant_id=active_run_status.oldest_active_run_tenant_id,
+            oldest_active_run_governed_target=active_run_status.oldest_active_run_governed_target,
+            oldest_active_run_acquired_at_utc=active_run_status.oldest_active_run_acquired_at_utc,
+            oldest_active_run_age_seconds=active_run_status.oldest_active_run_age_seconds,
             latest_generated_at_utc=None,
             latest_status=None,
             latest_operator_id=None,
@@ -374,10 +416,18 @@ def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
             "recovery_drill_artifact_directory_missing",
             "recovery_drill_manifest_missing",
         }:
-            return _build_missing_recovery_drill_status(threshold=threshold)
+            return _build_missing_recovery_drill_status(threshold=threshold, active_run_status=active_run_status)
         return RecoveryDrillStatus(
             status="unavailable",
             reason=snapshot.reason or snapshot.status,
+            active_run_status=active_run_status.status,
+            active_run_reason=active_run_status.reason,
+            active_run_count=active_run_status.active_run_count,
+            oldest_active_run_operator_id=active_run_status.oldest_active_run_operator_id,
+            oldest_active_run_tenant_id=active_run_status.oldest_active_run_tenant_id,
+            oldest_active_run_governed_target=active_run_status.oldest_active_run_governed_target,
+            oldest_active_run_acquired_at_utc=active_run_status.oldest_active_run_acquired_at_utc,
+            oldest_active_run_age_seconds=active_run_status.oldest_active_run_age_seconds,
             latest_generated_at_utc=None,
             latest_status=None,
             latest_operator_id=None,
@@ -388,7 +438,7 @@ def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
         )
 
     if not snapshot.entries:
-        return _build_missing_recovery_drill_status(threshold=threshold)
+        return _build_missing_recovery_drill_status(threshold=threshold, active_run_status=active_run_status)
 
     latest = snapshot.entries[0]
     latest_generated_at = datetime.fromisoformat(latest.generated_at_utc.replace("Z", "+00:00"))
@@ -414,6 +464,14 @@ def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
     return RecoveryDrillStatus(
         status="degraded" if reasons else "available",
         reason=reasons[0] if reasons else None,
+        active_run_status=active_run_status.status,
+        active_run_reason=active_run_status.reason,
+        active_run_count=active_run_status.active_run_count,
+        oldest_active_run_operator_id=active_run_status.oldest_active_run_operator_id,
+        oldest_active_run_tenant_id=active_run_status.oldest_active_run_tenant_id,
+        oldest_active_run_governed_target=active_run_status.oldest_active_run_governed_target,
+        oldest_active_run_acquired_at_utc=active_run_status.oldest_active_run_acquired_at_utc,
+        oldest_active_run_age_seconds=active_run_status.oldest_active_run_age_seconds,
         latest_generated_at_utc=latest.generated_at_utc,
         latest_status=latest.status,
         latest_operator_id=latest.operator_id,
@@ -426,12 +484,24 @@ def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
 
 def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
     threshold = getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS", 0.0)
+    active_run_status = _build_operator_action_status(
+        artifact_directory=getattr(settings, "RUNTIME_RETENTION_ARTIFACT_PATH", Path("artifacts/runtime-retention-cleanup")),
+        action_name="runtime_retention_cleanup",
+    )
     try:
         snapshot = build_runtime_retention_history_snapshot(limit=1)
     except Exception as exc:
         return RuntimeRetentionStatus(
             status="unavailable",
             reason=type(exc).__name__,
+            active_run_status=active_run_status.status,
+            active_run_reason=active_run_status.reason,
+            active_run_count=active_run_status.active_run_count,
+            oldest_active_run_operator_id=active_run_status.oldest_active_run_operator_id,
+            oldest_active_run_tenant_id=active_run_status.oldest_active_run_tenant_id,
+            oldest_active_run_governed_target=active_run_status.oldest_active_run_governed_target,
+            oldest_active_run_acquired_at_utc=active_run_status.oldest_active_run_acquired_at_utc,
+            oldest_active_run_age_seconds=active_run_status.oldest_active_run_age_seconds,
             preview_status="unavailable",
             preview_reason="runtime_retention_preview_unavailable",
             current_cutoff_utc=None,
@@ -461,6 +531,7 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
         }:
             return _build_missing_runtime_retention_status(
                 threshold=threshold,
+                active_run_status=active_run_status,
                 preview_status=preview_status,
                 preview_reason=preview_reason,
                 preview_summary=preview_summary,
@@ -468,6 +539,14 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
         return RuntimeRetentionStatus(
             status="unavailable",
             reason=snapshot.reason or snapshot.status,
+            active_run_status=active_run_status.status,
+            active_run_reason=active_run_status.reason,
+            active_run_count=active_run_status.active_run_count,
+            oldest_active_run_operator_id=active_run_status.oldest_active_run_operator_id,
+            oldest_active_run_tenant_id=active_run_status.oldest_active_run_tenant_id,
+            oldest_active_run_governed_target=active_run_status.oldest_active_run_governed_target,
+            oldest_active_run_acquired_at_utc=active_run_status.oldest_active_run_acquired_at_utc,
+            oldest_active_run_age_seconds=active_run_status.oldest_active_run_age_seconds,
             preview_status=preview_status,
             preview_reason=preview_reason,
             current_cutoff_utc=None if preview_summary is None else preview_summary.cutoff_utc,
@@ -502,6 +581,7 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
     if not snapshot.entries:
         return _build_missing_runtime_retention_status(
             threshold=threshold,
+            active_run_status=active_run_status,
             preview_status=preview_status,
             preview_reason=preview_reason,
             preview_summary=preview_summary,
@@ -531,6 +611,14 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
     return RuntimeRetentionStatus(
         status="degraded" if reasons else "available",
         reason=reasons[0] if reasons else None,
+        active_run_status=active_run_status.status,
+        active_run_reason=active_run_status.reason,
+        active_run_count=active_run_status.active_run_count,
+        oldest_active_run_operator_id=active_run_status.oldest_active_run_operator_id,
+        oldest_active_run_tenant_id=active_run_status.oldest_active_run_tenant_id,
+        oldest_active_run_governed_target=active_run_status.oldest_active_run_governed_target,
+        oldest_active_run_acquired_at_utc=active_run_status.oldest_active_run_acquired_at_utc,
+        oldest_active_run_age_seconds=active_run_status.oldest_active_run_age_seconds,
         preview_status=preview_status,
         preview_reason=preview_reason,
         current_cutoff_utc=None if preview_summary is None else preview_summary.cutoff_utc,
@@ -708,7 +796,11 @@ def _as_decimal_number(value: object) -> Decimal:
     return Decimal(str(value))
 
 
-def _build_missing_recovery_drill_status(*, threshold: float) -> RecoveryDrillStatus:
+def _build_missing_recovery_drill_status(
+    *,
+    threshold: float,
+    active_run_status: OperatorActionStatus,
+) -> RecoveryDrillStatus:
     details: tuple[RuntimeDegradationDetail, ...] = ()
     missing_history_reasons: tuple[str, ...] = ()
     if threshold > 0:
@@ -723,6 +815,14 @@ def _build_missing_recovery_drill_status(*, threshold: float) -> RecoveryDrillSt
     return RecoveryDrillStatus(
         status="available" if not missing_history_reasons else "degraded",
         reason=None if not missing_history_reasons else missing_history_reasons[0],
+        active_run_status=active_run_status.status,
+        active_run_reason=active_run_status.reason,
+        active_run_count=active_run_status.active_run_count,
+        oldest_active_run_operator_id=active_run_status.oldest_active_run_operator_id,
+        oldest_active_run_tenant_id=active_run_status.oldest_active_run_tenant_id,
+        oldest_active_run_governed_target=active_run_status.oldest_active_run_governed_target,
+        oldest_active_run_acquired_at_utc=active_run_status.oldest_active_run_acquired_at_utc,
+        oldest_active_run_age_seconds=active_run_status.oldest_active_run_age_seconds,
         latest_generated_at_utc=None,
         latest_status=None,
         latest_operator_id=None,
@@ -736,6 +836,7 @@ def _build_missing_recovery_drill_status(*, threshold: float) -> RecoveryDrillSt
 def _build_missing_runtime_retention_status(
     *,
     threshold: float,
+    active_run_status: OperatorActionStatus,
     preview_status: str,
     preview_reason: str | None,
     preview_summary,
@@ -754,6 +855,14 @@ def _build_missing_runtime_retention_status(
     return RuntimeRetentionStatus(
         status="available" if not missing_history_reasons else "degraded",
         reason=None if not missing_history_reasons else missing_history_reasons[0],
+        active_run_status=active_run_status.status,
+        active_run_reason=active_run_status.reason,
+        active_run_count=active_run_status.active_run_count,
+        oldest_active_run_operator_id=active_run_status.oldest_active_run_operator_id,
+        oldest_active_run_tenant_id=active_run_status.oldest_active_run_tenant_id,
+        oldest_active_run_governed_target=active_run_status.oldest_active_run_governed_target,
+        oldest_active_run_acquired_at_utc=active_run_status.oldest_active_run_acquired_at_utc,
+        oldest_active_run_age_seconds=active_run_status.oldest_active_run_age_seconds,
         preview_status=preview_status,
         preview_reason=preview_reason,
         current_cutoff_utc=None if preview_summary is None else preview_summary.cutoff_utc,
@@ -790,6 +899,63 @@ def _build_runtime_retention_preview():
         return "available", None, summary
     except Exception as exc:
         return "unavailable", type(exc).__name__, None
+
+
+def _build_operator_action_status(*, artifact_directory, action_name: str) -> OperatorActionStatus:
+    try:
+        snapshot = build_operator_action_lease_snapshot(
+            artifact_directory=artifact_directory,
+            action_name=action_name,
+        )
+    except Exception as exc:
+        return OperatorActionStatus(
+            status="unavailable",
+            reason=type(exc).__name__,
+            active_run_count=0,
+            oldest_active_run_operator_id=None,
+            oldest_active_run_tenant_id=None,
+            oldest_active_run_governed_target=None,
+            oldest_active_run_acquired_at_utc=None,
+            oldest_active_run_age_seconds=None,
+        )
+    if snapshot.status != "available":
+        return OperatorActionStatus(
+            status="unavailable",
+            reason=snapshot.reason,
+            active_run_count=0,
+            oldest_active_run_operator_id=None,
+            oldest_active_run_tenant_id=None,
+            oldest_active_run_governed_target=None,
+            oldest_active_run_acquired_at_utc=None,
+            oldest_active_run_age_seconds=None,
+        )
+    if not snapshot.active_leases:
+        return OperatorActionStatus(
+            status="available",
+            reason=None,
+            active_run_count=0,
+            oldest_active_run_operator_id=None,
+            oldest_active_run_tenant_id=None,
+            oldest_active_run_governed_target=None,
+            oldest_active_run_acquired_at_utc=None,
+            oldest_active_run_age_seconds=None,
+        )
+    oldest = snapshot.active_leases[0]
+    acquired_at = datetime.fromisoformat(oldest.acquired_at_utc.replace("Z", "+00:00"))
+    if acquired_at.tzinfo is None:
+        acquired_at = acquired_at.replace(tzinfo=UTC)
+    else:
+        acquired_at = acquired_at.astimezone(UTC)
+    return OperatorActionStatus(
+        status="active",
+        reason=None,
+        active_run_count=len(snapshot.active_leases),
+        oldest_active_run_operator_id=oldest.operator_id,
+        oldest_active_run_tenant_id=oldest.tenant_id,
+        oldest_active_run_governed_target=oldest.governed_target,
+        oldest_active_run_acquired_at_utc=oldest.acquired_at_utc,
+        oldest_active_run_age_seconds=max(0.0, (datetime.now(UTC) - acquired_at).total_seconds()),
+    )
 
 
 def _collect_runtime_degradation_reasons(

@@ -283,6 +283,36 @@ class RecoveryDrillStatusResponse(BaseModel):
         default=None,
         description="Primary recovery-drill degradation or unavailability reason for simple callers.",
     )
+    active_run_status: str = Field(
+        description="Availability of the governed recovery-drill action lease surface and whether a drill is currently in flight."
+    )
+    active_run_reason: str | None = Field(
+        default=None,
+        description="Concrete reason when governed recovery-drill action lease visibility is unavailable.",
+    )
+    active_run_count: int = Field(
+        description="Number of active governed recovery-drill runs currently holding an in-flight lease."
+    )
+    oldest_active_run_operator_id: str | None = Field(
+        default=None,
+        description="Operator or automation identity for the oldest active governed recovery-drill run, when present.",
+    )
+    oldest_active_run_tenant_id: str | None = Field(
+        default=None,
+        description="Tenant context recorded for the oldest active governed recovery-drill run, when present.",
+    )
+    oldest_active_run_governed_target: str | None = Field(
+        default=None,
+        description="Governed recovery-drill target for the oldest active run, typically the backup identifier.",
+    )
+    oldest_active_run_acquired_at_utc: str | None = Field(
+        default=None,
+        description="UTC timestamp when the oldest active governed recovery-drill run acquired its lease.",
+    )
+    oldest_active_run_age_seconds: float | None = Field(
+        default=None,
+        description="Age in seconds of the oldest active governed recovery-drill run.",
+    )
     degradation_reasons: list[str] = Field(
         default_factory=list,
         description="All active recovery-drill degradation reasons contributing to a degraded state.",
@@ -326,6 +356,36 @@ class RuntimeRetentionStatusResponse(BaseModel):
     reason: str | None = Field(
         default=None,
         description="Primary runtime-retention degradation or unavailability reason for simple callers.",
+    )
+    active_run_status: str = Field(
+        description="Availability of the governed runtime-retention action lease surface and whether a cleanup is currently in flight."
+    )
+    active_run_reason: str | None = Field(
+        default=None,
+        description="Concrete reason when governed runtime-retention action lease visibility is unavailable.",
+    )
+    active_run_count: int = Field(
+        description="Number of active governed runtime-retention cleanups currently holding an in-flight lease."
+    )
+    oldest_active_run_operator_id: str | None = Field(
+        default=None,
+        description="Operator or automation identity for the oldest active governed runtime-retention cleanup, when present.",
+    )
+    oldest_active_run_tenant_id: str | None = Field(
+        default=None,
+        description="Tenant context recorded for the oldest active governed runtime-retention cleanup, when present.",
+    )
+    oldest_active_run_governed_target: str | None = Field(
+        default=None,
+        description="Governed runtime-retention target for the oldest active cleanup.",
+    )
+    oldest_active_run_acquired_at_utc: str | None = Field(
+        default=None,
+        description="UTC timestamp when the oldest active governed runtime-retention cleanup acquired its lease.",
+    )
+    oldest_active_run_age_seconds: float | None = Field(
+        default=None,
+        description="Age in seconds of the oldest active governed runtime-retention cleanup.",
     )
     preview_status: str = Field(
         description="Availability of the live runtime-retention preview under the current retention policy."
@@ -560,6 +620,14 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
         recovery_drill=RecoveryDrillStatusResponse(
             status=snapshot.recovery_drill.status,
             reason=snapshot.recovery_drill.reason,
+            active_run_status=snapshot.recovery_drill.active_run_status,
+            active_run_reason=snapshot.recovery_drill.active_run_reason,
+            active_run_count=snapshot.recovery_drill.active_run_count,
+            oldest_active_run_operator_id=snapshot.recovery_drill.oldest_active_run_operator_id,
+            oldest_active_run_tenant_id=snapshot.recovery_drill.oldest_active_run_tenant_id,
+            oldest_active_run_governed_target=snapshot.recovery_drill.oldest_active_run_governed_target,
+            oldest_active_run_acquired_at_utc=snapshot.recovery_drill.oldest_active_run_acquired_at_utc,
+            oldest_active_run_age_seconds=snapshot.recovery_drill.oldest_active_run_age_seconds,
             degradation_reasons=list(snapshot.recovery_drill.degradation_reasons),
             degradation_details=_degradation_details_response(snapshot.recovery_drill.degradation_details),
             latest_generated_at_utc=snapshot.recovery_drill.latest_generated_at_utc,
@@ -571,6 +639,14 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
         runtime_retention=RuntimeRetentionStatusResponse(
             status=snapshot.runtime_retention.status,
             reason=snapshot.runtime_retention.reason,
+            active_run_status=snapshot.runtime_retention.active_run_status,
+            active_run_reason=snapshot.runtime_retention.active_run_reason,
+            active_run_count=snapshot.runtime_retention.active_run_count,
+            oldest_active_run_operator_id=snapshot.runtime_retention.oldest_active_run_operator_id,
+            oldest_active_run_tenant_id=snapshot.runtime_retention.oldest_active_run_tenant_id,
+            oldest_active_run_governed_target=snapshot.runtime_retention.oldest_active_run_governed_target,
+            oldest_active_run_acquired_at_utc=snapshot.runtime_retention.oldest_active_run_acquired_at_utc,
+            oldest_active_run_age_seconds=snapshot.runtime_retention.oldest_active_run_age_seconds,
             preview_status=snapshot.runtime_retention.preview_status,
             preview_reason=snapshot.runtime_retention.preview_reason,
             degradation_reasons=list(snapshot.runtime_retention.degradation_reasons),

@@ -205,6 +205,10 @@ def test_metrics_include_durable_queue_pressure_signals():
     assert lineage_match is not None, metrics.text
     assert float(lineage_match.group(1)) >= 1.0
     assert "lotus_performance_lineage_queue_failure_pressure_payloads" in metrics.text
+    assert "lotus_performance_recovery_drill_action_availability 1.0" in metrics.text
+    assert "lotus_performance_runtime_retention_action_availability 1.0" in metrics.text
+    assert "lotus_performance_recovery_drill_active_actions 0.0" in metrics.text
+    assert "lotus_performance_runtime_retention_active_actions 0.0" in metrics.text
 
 
 def test_metrics_include_lineage_storage_capacity_signals(mocker):
@@ -265,6 +269,10 @@ def test_metrics_expose_store_unavailability_without_false_zero_queue_samples(mo
         "app.services.queue_metrics_service.get_lineage_storage_capacity",
         side_effect=RuntimeError("storage unavailable"),
     )
+    mocker.patch(
+        "app.services.queue_metrics_service.build_operator_action_lease_snapshot",
+        side_effect=RuntimeError("lease unavailable"),
+    )
 
     with TestClient(app) as client:
         metrics = client.get("/metrics")
@@ -273,10 +281,14 @@ def test_metrics_expose_store_unavailability_without_false_zero_queue_samples(mo
     assert 'lotus_performance_durable_queue_store_availability{store="compute"} 0.0' in metrics.text
     assert 'lotus_performance_durable_queue_store_availability{store="lineage"} 0.0' in metrics.text
     assert "lotus_performance_lineage_storage_capacity_availability 0.0" in metrics.text
+    assert "lotus_performance_recovery_drill_action_availability 0.0" in metrics.text
+    assert "lotus_performance_runtime_retention_action_availability 0.0" in metrics.text
     assert "lotus_performance_compute_queue_jobs" not in metrics.text
     assert "lotus_performance_lineage_queue_pending_payloads" not in metrics.text
     assert "lotus_performance_lineage_storage_capacity_bytes" not in metrics.text
     assert "lotus_performance_lineage_storage_pressure_breach" not in metrics.text
+    assert "lotus_performance_recovery_drill_active_actions" not in metrics.text
+    assert "lotus_performance_runtime_retention_active_actions" not in metrics.text
 
 
 def test_metrics_include_lineage_storage_pressure_breach_signals(mocker):
@@ -575,6 +587,32 @@ def test_metrics_include_recovery_drill_breach_signals(mocker):
             },
         )(),
     )
+    mocker.patch(
+        "app.services.queue_metrics_service.build_operator_action_lease_snapshot",
+        side_effect=[
+            type(
+                "LeaseSnapshot",
+                (),
+                {
+                    "status": "available",
+                    "active_leases": (
+                        type("Lease", (), {"acquired_at_utc": "2026-03-14T00:00:00Z"})(),
+                    ),
+                },
+            )(),
+            type(
+                "LeaseSnapshot",
+                (),
+                {
+                    "status": "available",
+                    "active_leases": (
+                        type("Lease", (), {"acquired_at_utc": "2026-03-14T01:00:00Z"})(),
+                        type("Lease", (), {"acquired_at_utc": "2026-03-14T02:00:00Z"})(),
+                    ),
+                },
+            )(),
+        ],
+    )
 
     try:
         with TestClient(app) as client:
@@ -582,6 +620,9 @@ def test_metrics_include_recovery_drill_breach_signals(mocker):
 
         assert metrics.status_code == 200
         assert "lotus_performance_recovery_drill_availability 1.0" in metrics.text
+        assert "lotus_performance_recovery_drill_action_availability 1.0" in metrics.text
+        assert "lotus_performance_recovery_drill_active_actions 1.0" in metrics.text
+        assert "lotus_performance_recovery_drill_oldest_active_action_age_seconds" in metrics.text
         assert "lotus_performance_recovery_drill_latest_age_seconds" in metrics.text
         assert 'lotus_performance_recovery_drill_policy_threshold{threshold="max_age_seconds"} 300.0' in metrics.text
         assert (
@@ -593,6 +634,9 @@ def test_metrics_include_recovery_drill_breach_signals(mocker):
             in metrics.text
         )
         assert "lotus_performance_runtime_retention_availability 1.0" in metrics.text
+        assert "lotus_performance_runtime_retention_action_availability 1.0" in metrics.text
+        assert "lotus_performance_runtime_retention_active_actions 2.0" in metrics.text
+        assert "lotus_performance_runtime_retention_oldest_active_action_age_seconds" in metrics.text
         assert "lotus_performance_runtime_retention_preview_availability 1.0" in metrics.text
         assert "lotus_performance_runtime_retention_latest_age_seconds" in metrics.text
         assert 'lotus_performance_runtime_retention_policy_threshold{threshold="max_age_seconds"} 300.0' in metrics.text

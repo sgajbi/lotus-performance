@@ -90,6 +90,17 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
         )(),
     )
     monkeypatch.setattr(
+        "app.services.queue_metrics_service.build_operator_action_lease_snapshot",
+        lambda **kwargs: type(
+            "LeaseSnapshot",
+            (),
+            {
+                "status": "available",
+                "active_leases": (),
+            },
+        )(),
+    )
+    monkeypatch.setattr(
         "app.services.queue_metrics_service.build_runtime_retention_history_snapshot",
         lambda limit=1: type(
             "RuntimeRetentionSnapshot",
@@ -144,10 +155,14 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
     assert "lotus_performance_lineage_storage_pressure_threshold" in metric_names
     assert "lotus_performance_lineage_storage_pressure_breach" in metric_names
     assert "lotus_performance_recovery_drill_availability" in metric_names
+    assert "lotus_performance_recovery_drill_action_availability" in metric_names
+    assert "lotus_performance_recovery_drill_active_actions" in metric_names
     assert "lotus_performance_recovery_drill_latest_age_seconds" in metric_names
     assert "lotus_performance_recovery_drill_policy_threshold" in metric_names
     assert "lotus_performance_recovery_drill_degradation_breach" in metric_names
     assert "lotus_performance_runtime_retention_availability" in metric_names
+    assert "lotus_performance_runtime_retention_action_availability" in metric_names
+    assert "lotus_performance_runtime_retention_active_actions" in metric_names
     assert "lotus_performance_runtime_retention_latest_age_seconds" in metric_names
     assert "lotus_performance_runtime_retention_policy_threshold" in metric_names
     assert "lotus_performance_runtime_retention_degradation_breach" in metric_names
@@ -223,6 +238,10 @@ def test_queue_metrics_collector_exposes_store_unavailability_without_false_zero
         "app.services.queue_metrics_service.build_recovery_drill_history_snapshot",
         lambda limit=1: (_ for _ in ()).throw(RuntimeError("recovery unavailable")),
     )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.build_operator_action_lease_snapshot",
+        lambda **kwargs: (_ for _ in ()).throw(RuntimeError("lease unavailable")),
+    )
 
     metrics = list(DurableQueueCollector().collect())
     metric_names = {metric.name for metric in metrics}
@@ -231,7 +250,9 @@ def test_queue_metrics_collector_exposes_store_unavailability_without_false_zero
     assert "lotus_performance_lineage_storage_capacity_availability" in metric_names
     assert "lotus_performance_lineage_storage_pressure_threshold" in metric_names
     assert "lotus_performance_recovery_drill_availability" in metric_names
+    assert "lotus_performance_recovery_drill_action_availability" in metric_names
     assert "lotus_performance_recovery_drill_policy_threshold" in metric_names
+    assert "lotus_performance_runtime_retention_action_availability" in metric_names
     assert "lotus_performance_compute_queue_jobs" not in metric_names
     assert "lotus_performance_lineage_queue_pending_payloads" not in metric_names
     assert "lotus_performance_compute_queue_degradation_breach" not in metric_names
@@ -241,6 +262,8 @@ def test_queue_metrics_collector_exposes_store_unavailability_without_false_zero
     assert "lotus_performance_lineage_storage_pressure_breach" not in metric_names
     assert "lotus_performance_recovery_drill_latest_age_seconds" not in metric_names
     assert "lotus_performance_recovery_drill_degradation_breach" not in metric_names
+    assert "lotus_performance_recovery_drill_active_actions" not in metric_names
+    assert "lotus_performance_runtime_retention_active_actions" not in metric_names
 
     availability_metric = next(
         metric for metric in metrics if metric.name == "lotus_performance_durable_queue_store_availability"
@@ -258,6 +281,152 @@ def test_queue_metrics_collector_exposes_store_unavailability_without_false_zero
         metric for metric in metrics if metric.name == "lotus_performance_recovery_drill_availability"
     )
     assert recovery_availability_metric.samples[0].value == 0
+    recovery_action_availability_metric = next(
+        metric for metric in metrics if metric.name == "lotus_performance_recovery_drill_action_availability"
+    )
+    assert recovery_action_availability_metric.samples[0].value == 0
+    runtime_retention_action_availability_metric = next(
+        metric for metric in metrics if metric.name == "lotus_performance_runtime_retention_action_availability"
+    )
+    assert runtime_retention_action_availability_metric.samples[0].value == 0
+
+
+def test_queue_metrics_collector_emits_governed_action_lease_metrics(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.compute_job_store.get_queue_stats",
+        lambda: type(
+            "ComputeStats",
+            (),
+            {
+                "pending_count": 0,
+                "leased_count": 0,
+                "running_count": 0,
+                "failed_count": 0,
+                "complete_count": 0,
+                "retry_backlog_count": 0,
+                "lease_expired_count": 0,
+                "reclaimable_count": 0,
+                "terminal_failure_count": 0,
+                "oldest_pending_age_seconds": 0.0,
+                "oldest_leased_age_seconds": 0.0,
+                "oldest_running_age_seconds": 0.0,
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.lineage_metadata_store.get_pending_payload_stats",
+        lambda: type(
+            "LineageStats",
+            (),
+            {
+                "pending_payload_count": 0,
+                "leased_payload_count": 0,
+                "retry_backlog_count": 0,
+                "reclaimable_count": 0,
+                "terminal_failure_count": 0,
+                "oldest_pending_age_seconds": 0.0,
+                "oldest_leased_age_seconds": 0.0,
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.get_lineage_storage_capacity",
+        lambda: type(
+            "Capacity",
+            (),
+            {
+                "total_bytes": 1000,
+                "used_bytes": 600,
+                "free_bytes": 400,
+                "free_ratio": 0.4,
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.build_recovery_drill_history_snapshot",
+        lambda limit=1: type("RecoverySnapshot", (), {"status": "available", "entries": []})(),
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.build_runtime_retention_history_snapshot",
+        lambda limit=1: type("RuntimeRetentionSnapshot", (), {"status": "available", "entries": []})(),
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.run_runtime_retention_cleanup",
+        lambda dry_run=True: type(
+            "RuntimeRetentionPreview",
+            (),
+            {
+                "prunable_execution_count": 0,
+                "prunable_compute_job_count": 0,
+                "prunable_async_result_count": 0,
+                "prunable_lineage_record_count": 0,
+                "prunable_lineage_artifact_count": 0,
+            },
+        )(),
+    )
+    lease_snapshots = iter(
+        (
+            type(
+                "LeaseSnapshot",
+                (),
+                {
+                    "status": "available",
+                    "active_leases": (
+                        type("Lease", (), {"acquired_at_utc": "2026-03-14T00:00:00Z"})(),
+                    ),
+                },
+            )(),
+            type(
+                "LeaseSnapshot",
+                (),
+                {
+                    "status": "available",
+                    "active_leases": (
+                        type("Lease", (), {"acquired_at_utc": "2026-03-14T00:00:00Z"})(),
+                        type("Lease", (), {"acquired_at_utc": "2026-03-14T01:00:00Z"})(),
+                    ),
+                },
+            )(),
+        )
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.build_operator_action_lease_snapshot",
+        lambda **kwargs: next(lease_snapshots),
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.get_settings",
+        lambda: type(
+            "Settings",
+            (),
+            {
+                "RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_COMPUTE_LEASED_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_COMPUTE_RUNNING_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_LINEAGE_LEASED_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES": 0,
+                "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO": 0.0,
+                "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS": 0.0,
+                "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS": 0.0,
+            },
+        )(),
+    )
+
+    metrics = list(DurableQueueCollector().collect())
+
+    recovery_actions = next(
+        metric for metric in metrics if metric.name == "lotus_performance_recovery_drill_active_actions"
+    )
+    assert recovery_actions.samples[0].value == 1
+    runtime_retention_actions = next(
+        metric for metric in metrics if metric.name == "lotus_performance_runtime_retention_active_actions"
+    )
+    assert runtime_retention_actions.samples[0].value == 2
 
 
 def test_queue_metrics_collector_emits_lineage_storage_breach_state(monkeypatch):

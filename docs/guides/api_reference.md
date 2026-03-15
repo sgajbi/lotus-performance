@@ -133,7 +133,9 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - a bounded `recent_recoveries` list for lineage showing the latest requeued items, recovery kind, timestamp, and attempt count
   - lineage `degradation_details`
   - lineage `degradation_reasons`
+  - governed recovery-drill action visibility with active-run status, count, and oldest active-run anchor fields
   - retained runtime-retention cleanup assurance with latest operator, cleanup mode, retention window, freshness, and live dry-run preview counts under the current policy
+  - governed runtime-retention action visibility with active-run status, count, and oldest active-run anchor fields
 - runtime may report `degraded` when configured queue-age or failure-pressure thresholds are exceeded
 - runtime also reports `degraded` when lineage storage is missing, invalid, or unreadable even if the durable DB remains healthy
 - runtime can also report lineage-storage saturation pressure before writes fail:
@@ -330,11 +332,17 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - `lotus_performance_lineage_queue_degradation_breach{reason=...}`
 - includes recovery assurance metrics:
   - `lotus_performance_recovery_drill_availability`
+  - `lotus_performance_recovery_drill_action_availability`
+  - `lotus_performance_recovery_drill_active_actions`
+  - `lotus_performance_recovery_drill_oldest_active_action_age_seconds`
   - `lotus_performance_recovery_drill_latest_age_seconds`
   - `lotus_performance_recovery_drill_policy_threshold{threshold="max_age_seconds"}`
   - `lotus_performance_recovery_drill_degradation_breach{reason="recovery_drill_latest_not_passed|recovery_drill_age_exceeded"}`
 - includes runtime-retention lifecycle metrics:
   - `lotus_performance_runtime_retention_availability`
+  - `lotus_performance_runtime_retention_action_availability`
+  - `lotus_performance_runtime_retention_active_actions`
+  - `lotus_performance_runtime_retention_oldest_active_action_age_seconds`
   - `lotus_performance_runtime_retention_preview_availability`
   - `lotus_performance_runtime_retention_latest_age_seconds`
   - `lotus_performance_runtime_retention_policy_threshold{threshold="max_age_seconds"}`

@@ -16,6 +16,18 @@ from main import app
 @pytest.fixture(autouse=True)
 def _isolate_runtime_assurance_history(mocker):
     mocker.patch(
+        "app.services.runtime_status_service.build_operator_action_lease_snapshot",
+        side_effect=lambda **kwargs: type(
+            "LeaseSnapshot",
+            (),
+            {
+                "status": "available",
+                "reason": None,
+                "active_leases": (),
+            },
+        )(),
+    )
+    mocker.patch(
         "app.services.runtime_status_service.build_recovery_drill_history_snapshot",
         return_value=RecoveryDrillHistorySnapshot(
             status="available",
@@ -153,12 +165,78 @@ def test_runtime_status_reports_durable_queue_state():
     assert body["lineage_queue"]["inspection_anchors"].get("oldest_leased_calculation_id") is None
     assert body["lineage_queue"]["inspection_anchors"].get("latest_recovered_calculation_id") is None
     assert body["recovery_drill"]["status"] == "available"
+    assert body["recovery_drill"]["active_run_status"] == "available"
+    assert body["recovery_drill"]["active_run_count"] == 0
     assert body["recovery_drill"]["degradation_reasons"] == []
     assert body["recovery_drill_policy"]["max_age_seconds"] >= 0.0
     assert body["runtime_retention"]["status"] == "available"
+    assert body["runtime_retention"]["active_run_status"] == "available"
+    assert body["runtime_retention"]["active_run_count"] == 0
     assert body["runtime_retention"]["degradation_reasons"] == []
     assert body["runtime_retention"]["preview_status"] == "available"
     assert body["runtime_retention_policy"]["max_age_seconds"] >= 0.0
+
+
+def test_runtime_status_reports_active_governed_action_visibility(mocker):
+    mocker.patch(
+        "app.services.runtime_status_service.build_operator_action_lease_snapshot",
+        side_effect=[
+            type(
+                "LeaseSnapshot",
+                (),
+                {
+                    "status": "available",
+                    "reason": None,
+                    "active_leases": (
+                        type(
+                            "Lease",
+                            (),
+                            {
+                                "operator_id": "ops-user",
+                                "tenant_id": "tenant-a",
+                                "governed_target": "backup-123",
+                                "acquired_at_utc": "2026-03-14T00:00:00Z",
+                            },
+                        )(),
+                    ),
+                },
+            )(),
+            type(
+                "LeaseSnapshot",
+                (),
+                {
+                    "status": "available",
+                    "reason": None,
+                    "active_leases": (
+                        type(
+                            "Lease",
+                            (),
+                            {
+                                "operator_id": "ops-batch",
+                                "tenant_id": "tenant-a",
+                                "governed_target": "apply:30:retention-nightly",
+                                "acquired_at_utc": "2026-03-14T01:00:00Z",
+                            },
+                        )(),
+                    ),
+                },
+            )(),
+        ],
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/integration/runtime-status")
+
+    body = response.json()
+    assert response.status_code == 200
+    assert body["recovery_drill"]["active_run_status"] == "active"
+    assert body["recovery_drill"]["active_run_count"] == 1
+    assert body["recovery_drill"]["oldest_active_run_operator_id"] == "ops-user"
+    assert body["recovery_drill"]["oldest_active_run_governed_target"] == "backup-123"
+    assert body["runtime_retention"]["active_run_status"] == "active"
+    assert body["runtime_retention"]["active_run_count"] == 1
+    assert body["runtime_retention"]["oldest_active_run_operator_id"] == "ops-batch"
+    assert body["runtime_retention"]["oldest_active_run_governed_target"] == "apply:30:retention-nightly"
 
 
 def test_runtime_status_reports_runtime_retention_failure_and_age_policy(mocker):

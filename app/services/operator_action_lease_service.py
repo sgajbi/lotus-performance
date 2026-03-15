@@ -21,6 +21,23 @@ class OperatorActionLeaseMetadata:
     acquired_at_utc: str
 
 
+@dataclass(frozen=True)
+class ActiveOperatorActionLease:
+    action_key: str
+    action_name: str
+    operator_id: str
+    tenant_id: str | None
+    governed_target: str
+    acquired_at_utc: str
+
+
+@dataclass(frozen=True)
+class OperatorActionLeaseSnapshot:
+    status: str
+    reason: str | None
+    active_leases: tuple[ActiveOperatorActionLease, ...]
+
+
 def build_runtime_retention_action_key(
     *,
     operator_id: str,
@@ -111,9 +128,99 @@ def operator_action_lease(
         lock_path.unlink(missing_ok=True)
 
 
+def build_operator_action_lease_snapshot(
+    *,
+    artifact_directory: Path,
+    action_name: str | None = None,
+) -> OperatorActionLeaseSnapshot:
+    locks_dir = artifact_directory / ".action-locks"
+    if not locks_dir.exists():
+        return OperatorActionLeaseSnapshot(status="available", reason=None, active_leases=())
+    try:
+        leases: list[ActiveOperatorActionLease | _InvalidLease] = []
+        for lock_path in sorted(locks_dir.glob("*.lock")):
+            lease = _read_active_operator_action_lease(lock_path=lock_path)
+            if lease is None:
+                continue
+            if not isinstance(lease, ActiveOperatorActionLease):
+                leases.append(lease)
+                continue
+            if action_name is None or lease.action_name == action_name:
+                leases.append(lease)
+    except OSError:
+        return OperatorActionLeaseSnapshot(
+            status="unavailable",
+            reason="operator_action_lease_directory_unreadable",
+            active_leases=(),
+        )
+    if any(lease is _INVALID_LEASE for lease in leases):
+        return OperatorActionLeaseSnapshot(
+            status="unavailable",
+            reason="operator_action_lease_invalid",
+            active_leases=(),
+        )
+    typed_leases = tuple(
+        sorted(
+            (lease for lease in leases if isinstance(lease, ActiveOperatorActionLease)),
+            key=lambda item: _parse_utc(item.acquired_at_utc),
+        )
+    )
+    return OperatorActionLeaseSnapshot(status="available", reason=None, active_leases=typed_leases)
+
+
 def _sanitize_key(*parts: str) -> str:
     sanitized = [re.sub(r"[^0-9A-Za-z]+", "-", part).strip("-").lower() for part in parts]
     return "-".join(part for part in sanitized if part)
+
+
+class _InvalidLease:
+    pass
+
+
+_INVALID_LEASE = _InvalidLease()
+
+
+def _read_active_operator_action_lease(*, lock_path: Path) -> ActiveOperatorActionLease | _InvalidLease | None:
+    try:
+        payload = json.loads(lock_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return _INVALID_LEASE
+    if not isinstance(payload, dict):
+        return _INVALID_LEASE
+    action_name = payload.get("action_name")
+    operator_id = payload.get("operator_id")
+    tenant_id = payload.get("tenant_id")
+    governed_target = payload.get("governed_target")
+    acquired_at_utc = payload.get("acquired_at_utc")
+    if not isinstance(action_name, str):
+        return _INVALID_LEASE
+    if not isinstance(operator_id, str):
+        return _INVALID_LEASE
+    if tenant_id is not None and not isinstance(tenant_id, str):
+        return _INVALID_LEASE
+    if not isinstance(governed_target, str):
+        return _INVALID_LEASE
+    if not isinstance(acquired_at_utc, str):
+        return _INVALID_LEASE
+    try:
+        _parse_utc(acquired_at_utc)
+    except ValueError:
+        return _INVALID_LEASE
+    return ActiveOperatorActionLease(
+        action_key=lock_path.stem,
+        action_name=action_name,
+        operator_id=operator_id,
+        tenant_id=tenant_id,
+        governed_target=governed_target,
+        acquired_at_utc=acquired_at_utc,
+    )
+
+
+def _parse_utc(timestamp_utc: str) -> datetime:
+    parsed = datetime.fromisoformat(timestamp_utc.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
 def _reclaim_stale_lock(
@@ -134,11 +241,7 @@ def _reclaim_stale_lock(
     if not isinstance(acquired_at_utc, str):
         return False
     current_time = now_utc or datetime.now(UTC)
-    acquired_at = datetime.fromisoformat(acquired_at_utc.replace("Z", "+00:00"))
-    if acquired_at.tzinfo is None:
-        acquired_at = acquired_at.replace(tzinfo=UTC)
-    else:
-        acquired_at = acquired_at.astimezone(UTC)
+    acquired_at = _parse_utc(acquired_at_utc)
     if (current_time - acquired_at).total_seconds() <= stale_after_seconds:
         return False
     lock_path.unlink(missing_ok=True)

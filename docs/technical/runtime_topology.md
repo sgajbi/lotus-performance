@@ -128,7 +128,9 @@ the active compute and lineage degradation-policy thresholds so support can inte
 runtime against live configuration without reading environment variables separately. For each
 active degradation, the control plane also returns the observed value and breached threshold so
 incident handling can distinguish "what fired" from "by how much" without reconstructing it from
-raw queue counters.
+raw queue counters. The same snapshot now exposes governed recovery-drill and runtime-retention
+action lease visibility, including whether an action is active, how many governed runs are
+currently in flight, and the oldest active-run anchor for operator triage.
 
 ## Failure recovery model
 
