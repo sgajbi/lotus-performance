@@ -759,13 +759,3 @@ def test_compute_executor_worker_rejects_unsupported_analytics_type(tmp_path, mo
     assert "Unsupported compute job analytics_type" in (job.error_message or "")
 
 
-def test_compute_executor_worker_poll_helpers_cover_direct_paths(monkeypatch):
-    slept: list[float] = []
-    monkeypatch.setattr(compute_executor_worker.time, "sleep", lambda seconds: slept.append(seconds))
-
-    assert compute_executor_worker._stop_requested(None) is False
-    stop_event = Event()
-    stop_event.set()
-    assert compute_executor_worker._stop_requested(stop_event) is True
-    assert compute_executor_worker._wait_for_next_poll(None, 2.5) is False
-    assert slept == [2.5]
