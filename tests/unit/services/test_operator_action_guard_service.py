@@ -4,6 +4,11 @@ import pytest
 from fastapi import HTTPException
 
 from app.services.operator_action_guard_service import (
+    _find_latest_recovery_drill_entry,
+    _find_latest_runtime_retention_entry,
+    _parse_utc_timestamp,
+    _resolve_latest_evidence_file_name,
+    _resolve_latest_generated_at_utc,
     enforce_recovery_drill_manual_run_cooldown,
     enforce_runtime_retention_apply_preview,
     enforce_runtime_retention_manual_run_cooldown,
@@ -210,3 +215,207 @@ def test_recovery_drill_manual_run_cooldown_ignores_different_backup_identifier(
         cooldown_seconds=300.0,
         now_utc=datetime(2026, 3, 15, 0, 2, 0, tzinfo=UTC),
     )
+
+
+def test_runtime_retention_apply_preview_skips_when_threshold_disabled():
+    snapshot = RuntimeRetentionHistorySnapshot(
+        status="available",
+        artifact_directory="artifacts/runtime-retention-cleanup",
+        latest_file_name=None,
+        retained_file_names=[],
+        retention_limit=30,
+        retention_max_age_days=90,
+        entries=[],
+        total_entries=0,
+        matched_entries=0,
+        returned_entries=0,
+        next_offset=None,
+        applied_filters={},
+    )
+
+    enforce_runtime_retention_apply_preview(
+        snapshot,
+        operator_id="ops-user",
+        tenant_id=None,
+        retention_days=30,
+        job_id=None,
+        preview_max_age_seconds=0.0,
+    )
+
+
+def test_runtime_retention_apply_preview_rejects_stale_preview():
+    snapshot = RuntimeRetentionHistorySnapshot(
+        status="available",
+        artifact_directory="artifacts/runtime-retention-cleanup",
+        latest_file_name="latest.json",
+        retained_file_names=["latest.json"],
+        retention_limit=30,
+        retention_max_age_days=90,
+        entries=[
+            RuntimeRetentionHistoryEntry(
+                evidence_file_name="latest.json",
+                generated_at_utc="2026-03-15T00:00:00Z",
+                operator_id="ops-user",
+                tenant_id=None,
+                correlation_id="corr-1",
+                trigger_mode="manual",
+                job_id=None,
+                cleanup_mode="dry_run",
+                status="planned",
+                retention_days=30,
+                prunable_execution_count=1,
+                prunable_compute_job_count=1,
+                prunable_async_result_count=1,
+                prunable_lineage_record_count=1,
+                prunable_lineage_artifact_count=1,
+            )
+        ],
+        total_entries=1,
+        matched_entries=1,
+        returned_entries=1,
+        next_offset=None,
+        applied_filters={},
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        enforce_runtime_retention_apply_preview(
+            snapshot,
+            operator_id="ops-user",
+            tenant_id=None,
+            retention_days=30,
+            job_id=None,
+            preview_max_age_seconds=60.0,
+            now_utc=datetime(2026, 3, 15, 0, 5, 0, tzinfo=UTC),
+        )
+
+    assert exc_info.value.detail["latest_preview_evidence_file_name"] == "latest.json"
+    assert exc_info.value.detail["preview_max_age_seconds"] == 60
+
+
+def test_runtime_retention_manual_run_cooldown_ignores_mismatched_entry_shape():
+    snapshot = RuntimeRetentionHistorySnapshot(
+        status="available",
+        artifact_directory="artifacts/runtime-retention-cleanup",
+        latest_file_name="latest.json",
+        retained_file_names=["latest.json"],
+        retention_limit=30,
+        retention_max_age_days=90,
+        entries=[
+            RuntimeRetentionHistoryEntry(
+                evidence_file_name="latest.json",
+                generated_at_utc="2026-03-15T00:00:00Z",
+                operator_id="ops-user",
+                tenant_id="tenant-a",
+                correlation_id="corr-1",
+                trigger_mode="manual",
+                job_id="job-1",
+                cleanup_mode="apply",
+                status="applied",
+                retention_days=60,
+                prunable_execution_count=0,
+                prunable_compute_job_count=0,
+                prunable_async_result_count=0,
+                prunable_lineage_record_count=0,
+                prunable_lineage_artifact_count=0,
+            )
+        ],
+        total_entries=1,
+        matched_entries=1,
+        returned_entries=1,
+        next_offset=None,
+        applied_filters={},
+    )
+
+    enforce_runtime_retention_manual_run_cooldown(
+        snapshot,
+        apply=False,
+        operator_id="ops-user",
+        tenant_id=None,
+        retention_days=30,
+        job_id=None,
+        cooldown_seconds=300.0,
+        now_utc=datetime(2026, 3, 15, 0, 1, 0, tzinfo=UTC),
+    )
+
+
+def test_find_latest_helpers_and_resolvers_cover_mismatch_paths():
+    retention_entry = RuntimeRetentionHistoryEntry(
+        evidence_file_name="retention.json",
+        generated_at_utc="2026-03-15T00:00:00Z",
+        operator_id="ops-user",
+        tenant_id="tenant-a",
+        correlation_id="corr-1",
+        trigger_mode="manual",
+        job_id="job-1",
+        cleanup_mode="dry_run",
+        status="planned",
+        retention_days=30,
+        prunable_execution_count=1,
+        prunable_compute_job_count=1,
+        prunable_async_result_count=1,
+        prunable_lineage_record_count=1,
+        prunable_lineage_artifact_count=1,
+    )
+    recovery_entry = RecoveryDrillHistoryEntry(
+        evidence_file_name="recovery.json",
+        generated_at_utc="2026-03-15T00:00:00Z",
+        operator_id="ops-user",
+        tenant_id="tenant-a",
+        correlation_id="corr-1",
+        backup_identifier="backup-1",
+        status="passed",
+    )
+    retention_snapshot = RuntimeRetentionHistorySnapshot(
+        status="available",
+        artifact_directory="artifacts/runtime-retention-cleanup",
+        latest_file_name="retention.json",
+        retained_file_names=["retention.json"],
+        retention_limit=30,
+        retention_max_age_days=90,
+        entries=[retention_entry],
+        total_entries=1,
+        matched_entries=1,
+        returned_entries=1,
+        next_offset=None,
+        applied_filters={},
+    )
+    recovery_snapshot = RecoveryDrillHistorySnapshot(
+        status="available",
+        artifact_directory="artifacts/durable-recovery-drill",
+        latest_file_name="recovery.json",
+        retained_file_names=["recovery.json"],
+        retention_limit=30,
+        retention_max_age_days=90,
+        entries=[recovery_entry],
+        total_entries=1,
+        matched_entries=1,
+        returned_entries=1,
+        next_offset=None,
+        applied_filters={},
+    )
+
+    assert (
+        _find_latest_runtime_retention_entry(
+            retention_snapshot,
+            apply=False,
+            operator_id="ops-user",
+            tenant_id="tenant-b",
+            retention_days=30,
+            job_id="job-1",
+        )
+        is None
+    )
+    assert (
+        _find_latest_recovery_drill_entry(
+            recovery_snapshot,
+            operator_id="ops-user",
+            tenant_id="tenant-b",
+            backup_identifier="backup-1",
+        )
+        is None
+    )
+    assert _resolve_latest_generated_at_utc([]) is None
+    assert _resolve_latest_generated_at_utc([object()]) is None
+    assert _resolve_latest_evidence_file_name([]) is None
+    assert _resolve_latest_evidence_file_name([object()]) is None
+    assert _parse_utc_timestamp("2026-03-15T00:00:00").tzinfo == UTC

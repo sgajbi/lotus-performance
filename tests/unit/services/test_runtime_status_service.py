@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 
 import pytest
 
+from app.services import runtime_status_service
 from app.services.compute_job_store import ComputeQueueInspectionAnchors, ComputeQueueStats, ComputeRecoveryEvent
 from app.services.durability_health_service import DurabilityHealthStatus
 from app.services.lineage_metadata_store import LineageQueueInspectionAnchors, LineageQueueStats, LineageRecoveryEvent
@@ -2496,3 +2497,165 @@ def test_runtime_status_snapshot_degrades_when_recovery_drill_history_is_require
     assert snapshot.recovery_drill.degradation_reasons == ()
     assert snapshot.recovery_drill.degradation_details == ()
     assert snapshot.recovery_drill.latest_generated_at_utc is None
+
+
+def test_runtime_status_safe_recent_recoveries_return_empty_on_disabled_limit_and_errors(mocker):
+    settings = type("Settings", (), {"RUNTIME_STATUS_RECENT_RECOVERY_LIMIT": 0})()
+    assert runtime_status_service._safe_compute_recent_recoveries(settings=settings) == ()
+    assert runtime_status_service._safe_lineage_recent_recoveries(settings=settings) == ()
+
+    error_settings = type("Settings", (), {"RUNTIME_STATUS_RECENT_RECOVERY_LIMIT": 2})()
+    mocker.patch(
+        "app.services.runtime_status_service.compute_job_store.list_recent_recoveries",
+        side_effect=RuntimeError("boom"),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.lineage_metadata_store.list_recent_recoveries",
+        side_effect=RuntimeError("boom"),
+    )
+    assert runtime_status_service._safe_compute_recent_recoveries(settings=error_settings) == ()
+    assert runtime_status_service._safe_lineage_recent_recoveries(settings=error_settings) == ()
+
+
+def test_runtime_status_safe_lineage_inspection_anchor_returns_none_on_error(mocker):
+    mocker.patch(
+        "app.services.runtime_status_service.lineage_metadata_store.get_queue_inspection_anchors",
+        side_effect=RuntimeError("boom"),
+    )
+
+    assert runtime_status_service._safe_lineage_queue_inspection_anchors() is None
+
+
+def test_runtime_status_build_missing_runtime_retention_status_degrades_when_threshold_present():
+    active_run_status = type(
+        "ActionStatus",
+        (),
+        {
+            "status": "available",
+            "reason": None,
+            "active_run_count": 0,
+            "oldest_active_run_operator_id": None,
+            "oldest_active_run_tenant_id": None,
+            "oldest_active_run_governed_target": None,
+            "oldest_active_run_acquired_at_utc": None,
+            "oldest_active_run_age_seconds": None,
+            "latest_reclaimed_run_operator_id": None,
+            "latest_reclaimed_run_tenant_id": None,
+            "latest_reclaimed_run_governed_target": None,
+            "latest_reclaimed_run_acquired_at_utc": None,
+            "latest_reclaimed_run_reclaimed_at_utc": None,
+            "latest_reclaimed_run_age_seconds": None,
+            "reclaimed_run_count": 0,
+            "recent_reclaimed_runs": (),
+        },
+    )()
+
+    status = runtime_status_service._build_missing_runtime_retention_status(
+        threshold=300.0,
+        active_run_status=active_run_status,
+        preview_status="available",
+        preview_reason=None,
+        preview_summary=None,
+    )
+
+    assert status.status == "degraded"
+    assert status.degradation_reasons == ("runtime_retention_history_unavailable",)
+
+
+def test_runtime_status_operator_action_status_handles_exceptions_and_unavailable_snapshot(mocker):
+    mocker.patch(
+        "app.services.runtime_status_service.build_operator_action_lease_snapshot",
+        side_effect=RuntimeError("boom"),
+    )
+    unavailable = runtime_status_service._build_operator_action_status(
+        artifact_directory="artifacts/runtime-retention-cleanup",
+        action_name="runtime_retention_cleanup",
+    )
+    assert unavailable.status == "unavailable"
+    assert unavailable.reason == "RuntimeError"
+
+    mocker.patch(
+        "app.services.runtime_status_service.build_operator_action_lease_snapshot",
+        return_value=type(
+            "LeaseSnapshot",
+            (),
+            {
+                "status": "unavailable",
+                "reason": "operator_action_lease_invalid",
+                "active_leases": (),
+                "latest_reclaimed_lease": None,
+                "recent_reclaimed_leases": (),
+            },
+        )(),
+    )
+    unavailable_snapshot = runtime_status_service._build_operator_action_status(
+        artifact_directory="artifacts/runtime-retention-cleanup",
+        action_name="runtime_retention_cleanup",
+    )
+    assert unavailable_snapshot.status == "unavailable"
+    assert unavailable_snapshot.reason == "operator_action_lease_invalid"
+
+
+def test_runtime_status_operator_action_status_normalizes_naive_timestamps(mocker):
+    mocker.patch(
+        "app.services.runtime_status_service.build_operator_action_lease_snapshot",
+        return_value=type(
+            "LeaseSnapshot",
+            (),
+            {
+                "status": "available",
+                "reason": None,
+                "active_leases": (
+                    type(
+                        "Lease",
+                        (),
+                        {
+                            "operator_id": "ops-user",
+                            "tenant_id": None,
+                            "governed_target": "backup-1",
+                            "acquired_at_utc": "2026-03-15T00:00:00",
+                        },
+                    )(),
+                ),
+                "latest_reclaimed_lease": type(
+                    "Reclaim",
+                    (),
+                    {
+                        "operator_id": "ops-user",
+                        "tenant_id": None,
+                        "governed_target": "backup-1",
+                        "acquired_at_utc": "2026-03-15T00:00:00Z",
+                        "reclaimed_at_utc": "2026-03-15T01:00:00",
+                        "reclaim_count": 1,
+                    },
+                )(),
+                "recent_reclaimed_leases": (),
+            },
+        )(),
+    )
+
+    status = runtime_status_service._build_operator_action_status(
+        artifact_directory="artifacts/durable-recovery-drill",
+        action_name="recovery_drill",
+    )
+
+    assert status.status == "active"
+    assert status.latest_reclaimed_run_age_seconds is not None
+    assert status.oldest_active_run_age_seconds is not None
+
+
+def test_runtime_status_parse_reclaimed_at_and_collect_reasons_cover_runtime_retention_unavailable():
+    assert runtime_status_service._parse_reclaimed_at_utc("2026-03-15T00:00:00").tzinfo == UTC
+
+    reasons = runtime_status_service._collect_runtime_degradation_reasons(
+        compute_queue=type("Queue", (), {"status": "available", "reason": None, "degradation_reasons": ()})(),
+        lineage_queue=type("Queue", (), {"status": "available", "reason": None, "degradation_reasons": ()})(),
+        recovery_drill=type("Recovery", (), {"status": "available", "reason": None, "degradation_reasons": ()})(),
+        runtime_retention=type(
+            "Retention",
+            (),
+            {"status": "unavailable", "reason": "runtime_retention_manifest_missing", "degradation_reasons": ()},
+        )(),
+    )
+
+    assert reasons == ("runtime_retention:runtime_retention_manifest_missing",)

@@ -248,3 +248,69 @@ def test_runtime_recovery_snapshot_ignores_lineage_storage_outage_when_metadata_
     assert snapshot.compute_queue.status == "available"
     assert snapshot.compute_queue.total_count == 1
     compute_list.assert_called_once()
+
+
+def test_runtime_recovery_snapshot_reports_unavailable_when_metadata_store_is_down(mocker):
+    mocker.patch(
+        "app.services.runtime_recovery_service.check_durable_metadata_schema_ready",
+        return_value=DurabilityHealthStatus(
+            is_ready=False,
+            status="unavailable",
+            reason="durable_metadata_store_unreachable",
+        ),
+    )
+
+    snapshot = build_runtime_recovery_snapshot(
+        queue_filter="both",
+        limit=5,
+        offset=0,
+        recovered_after=None,
+        recovered_before=None,
+        cursor_recovered_before=None,
+        cursor_calculation_id_before=None,
+        calculation_id_contains=None,
+        compute_analytics_type=None,
+        lineage_calculation_type=None,
+    )
+
+    assert snapshot.compute_queue.status == "unavailable"
+    assert snapshot.lineage_queue.status == "unavailable"
+    assert snapshot.compute_recoveries == []
+    assert snapshot.lineage_recoveries == []
+
+
+def test_runtime_recovery_snapshot_reports_lineage_queue_failure(mocker):
+    mocker.patch(
+        "app.services.runtime_recovery_service.check_durable_metadata_schema_ready",
+        return_value=DurabilityHealthStatus(is_ready=True, status="ready", reason=None),
+    )
+    mocker.patch(
+        "app.services.runtime_recovery_service.compute_job_store.list_recent_recoveries",
+        return_value=ComputeRecoveryEventPage(
+            total_count=0,
+            next_offset=None,
+            next_cursor_recovered_before=None,
+            next_cursor_calculation_id_before=None,
+            items=[],
+        ),
+    )
+    mocker.patch(
+        "app.services.runtime_recovery_service.lineage_metadata_store.list_recent_recoveries",
+        side_effect=RuntimeError("lineage unavailable"),
+    )
+
+    snapshot = build_runtime_recovery_snapshot(
+        queue_filter="both",
+        limit=5,
+        offset=0,
+        recovered_after=None,
+        recovered_before=None,
+        cursor_recovered_before=None,
+        cursor_calculation_id_before=None,
+        calculation_id_contains=None,
+        compute_analytics_type=None,
+        lineage_calculation_type=None,
+    )
+
+    assert snapshot.lineage_queue.status == "unavailable"
+    assert snapshot.lineage_queue.reason == "RuntimeError"

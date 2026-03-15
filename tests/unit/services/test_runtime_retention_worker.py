@@ -114,3 +114,18 @@ def test_runtime_retention_worker_run_forever_honors_pre_set_stop_event(monkeypa
     runtime_retention_worker.run_forever(stop_event=stop_event, settings=_worker_settings())
 
     assert calls == ["exec_schema", "compute_schema", "result_schema", "lineage_schema"]
+
+
+def test_runtime_retention_worker_stop_helpers_cover_none_and_event_paths():
+    stop_event = Event()
+    assert runtime_retention_worker._stop_requested(None) is False
+    assert runtime_retention_worker._stop_requested(stop_event) is False
+    stop_event.set()
+    assert runtime_retention_worker._stop_requested(stop_event) is True
+
+
+def test_runtime_retention_worker_wait_for_next_poll_honors_event(monkeypatch):
+    stop_event = Event()
+    stop_event.set()
+
+    assert runtime_retention_worker._wait_for_next_poll(stop_event, 5.0) is True
