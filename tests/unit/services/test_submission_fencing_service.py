@@ -6,7 +6,10 @@ from pydantic import BaseModel
 
 from app.services.compute_job_store import ComputeJobRegistrationResult, ComputeJobRegistrationStatus
 from app.services.execution_registry import ExecutionRegistrationResult, ExecutionRegistrationStatus
-from app.services.submission_fencing_service import register_async_submission_or_raise
+from app.services.submission_fencing_service import (
+    promote_existing_execution_to_async_submission_or_raise,
+    register_async_submission_or_raise,
+)
 
 
 class _AcceptedResponse(BaseModel):
@@ -215,3 +218,67 @@ def test_register_async_submission_cleans_up_new_execution_when_job_registration
         )
 
     delete_execution.assert_called_once_with(calculation_id)
+
+
+def test_promote_existing_execution_defers_execution_mutation_until_job_registration_succeeds(mocker):
+    calculation_id = uuid4()
+    register_job = mocker.patch(
+        "app.services.submission_fencing_service.compute_job_store.register_job",
+        return_value=ComputeJobRegistrationResult(status=ComputeJobRegistrationStatus.CREATED),
+    )
+    update_contract = mocker.patch("app.services.submission_fencing_service.execution_registry.update_execution_contract")
+    update_identity = mocker.patch("app.services.submission_fencing_service.execution_registry.update_execution_identity")
+    start_stage = mocker.patch("app.services.submission_fencing_service.execution_registry.start_stage")
+    complete_stage = mocker.patch("app.services.submission_fencing_service.execution_registry.complete_stage")
+
+    response = promote_existing_execution_to_async_submission_or_raise(
+        calculation_id=calculation_id,
+        analytics_type="Contribution",
+        requested_window={"requested_periods": ["ITD"]},
+        input_fingerprint="fingerprint",
+        calculation_hash="hash",
+        request_payload={"calculation_id": str(calculation_id)},
+        offload_reason="large_resolved_stateful_contribution",
+        accepted_response_factory=_accepted_response_factory,
+    )
+
+    assert response.status_code == 202
+    register_job.assert_called_once()
+    update_contract.assert_called_once()
+    update_identity.assert_called_once()
+    start_stage.assert_called_once_with(calculation_id, "submission")
+    complete_stage.assert_called_once_with(
+        calculation_id,
+        "submission",
+        details={"offload_reason": "large_resolved_stateful_contribution"},
+    )
+
+
+def test_promote_existing_execution_leaves_execution_unchanged_on_job_conflict(mocker):
+    calculation_id = uuid4()
+    mocker.patch(
+        "app.services.submission_fencing_service.compute_job_store.register_job",
+        return_value=ComputeJobRegistrationResult(status=ComputeJobRegistrationStatus.CONFLICT),
+    )
+    update_contract = mocker.patch("app.services.submission_fencing_service.execution_registry.update_execution_contract")
+    update_identity = mocker.patch("app.services.submission_fencing_service.execution_registry.update_execution_identity")
+    start_stage = mocker.patch("app.services.submission_fencing_service.execution_registry.start_stage")
+    complete_stage = mocker.patch("app.services.submission_fencing_service.execution_registry.complete_stage")
+
+    with pytest.raises(HTTPException) as exc_info:
+        promote_existing_execution_to_async_submission_or_raise(
+            calculation_id=calculation_id,
+            analytics_type="Contribution",
+            requested_window={"requested_periods": ["ITD"]},
+            input_fingerprint="fingerprint",
+            calculation_hash="hash",
+            request_payload={"calculation_id": str(calculation_id)},
+            offload_reason="large_resolved_stateful_contribution",
+            accepted_response_factory=_accepted_response_factory,
+        )
+
+    assert exc_info.value.status_code == 409
+    update_contract.assert_not_called()
+    update_identity.assert_not_called()
+    start_stage.assert_not_called()
+    complete_stage.assert_not_called()

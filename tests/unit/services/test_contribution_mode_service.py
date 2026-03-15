@@ -166,7 +166,7 @@ async def test_resolve_contribution_request_fails_retrieval_stage_on_source_erro
 
 
 @pytest.mark.asyncio
-async def test_resolve_contribution_request_rejects_currency_mode_both(monkeypatch):
+async def test_resolve_contribution_request_allows_currency_mode_both_for_same_currency_positions(monkeypatch):
     async def _mock_retrieve_stateful_contribution_source_input(**kwargs):  # noqa: ARG001
         return SimpleNamespace(
             portfolio_input=SimpleNamespace(
@@ -183,6 +183,72 @@ async def test_resolve_contribution_request_rejects_currency_mode_both(monkeypat
                     "position_id": "SEC_1",
                     "security_id": "SEC_1",
                     "valuation_date": "2025-01-01",
+                    "position_currency": "USD",
+                    "beginning_market_value_portfolio_currency": "1000",
+                    "ending_market_value_portfolio_currency": "1010",
+                    "beginning_market_value_position_currency": "1000",
+                    "ending_market_value_position_currency": "1010",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Technology"},
+                }
+            ],
+        )
+
+    monkeypatch.setattr(
+        "app.services.contribution_mode_service.retrieve_stateful_contribution_source_input",
+        _mock_retrieve_stateful_contribution_source_input,
+    )
+
+    request = ContributionAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "CONTRIB_1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-01",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "currency_mode": "BOTH",
+            "report_ccy": "USD",
+            "input_mode": "stateful",
+            "stateful_input": {"consumer_system": "lotus-performance"},
+        }
+    )
+    execution_registry.create_execution(
+        calculation_id=request.calculation_id,
+        analytics_type="Contribution",
+        portfolio_id=request.portfolio_id,
+    )
+
+    resolved = await resolve_contribution_request(request, settings=_settings())
+
+    execution = execution_registry.get_execution(request.calculation_id)
+    assert execution is not None
+    stages = {stage.stage_name: stage for stage in execution.stages}
+    assert stages["normalization"].status.value == "complete"
+    assert resolved.contribution_request.currency_mode == "BOTH"
+    assert resolved.contribution_request.positions_data[0].meta["currency"] == "USD"
+
+
+@pytest.mark.asyncio
+async def test_resolve_contribution_request_rejects_currency_mode_both_without_fx_for_mixed_currency_positions(
+    monkeypatch,
+):
+    async def _mock_retrieve_stateful_contribution_source_input(**kwargs):  # noqa: ARG001
+        return SimpleNamespace(
+            portfolio_input=SimpleNamespace(
+                observations=[
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1010",
+                    },
+                ],
+            ),
+            position_rows=[
+                {
+                    "position_id": "SEC_1",
+                    "security_id": "SEC_1",
+                    "valuation_date": "2025-01-01",
+                    "position_currency": "EUR",
                     "beginning_market_value_portfolio_currency": "1000",
                     "ending_market_value_portfolio_currency": "1010",
                     "beginning_market_value_position_currency": "900",
@@ -217,7 +283,7 @@ async def test_resolve_contribution_request_rejects_currency_mode_both(monkeypat
         portfolio_id=request.portfolio_id,
     )
 
-    with pytest.raises(HTTPException, match="position-timeseries exposes position_currency"):
+    with pytest.raises(HTTPException, match="requires fx.rates"):
         await resolve_contribution_request(request, settings=_settings())
 
     execution = execution_registry.get_execution(request.calculation_id)

@@ -32,6 +32,10 @@ from app.services.execution_lifecycle_service import (
 )
 from app.services.execution_registry import execution_registry
 from app.services.mwr_mode_service import resolve_mwr_request
+from app.services.stateful_execution_policy_service import (
+    finalize_resolved_stateful_execution,
+    replay_promoted_stateful_async_execution,
+)
 from app.services.submission_fencing_service import (
     register_async_submission_or_raise,
     register_sync_execution_or_raise,
@@ -457,16 +461,12 @@ async def calculate_attribution_endpoint(request: AttributionAnalyticsRequest) -
     """
     active_settings = get_settings()
     input_fingerprint, calculation_hash = generate_canonical_hash(request, active_settings.APP_VERSION)
-    execution_mode = "async" if _should_offload_attribution(request) else "sync"
-    requested_window = {
-        "report_start_date": str(request.report_start_date),
-        "report_end_date": str(request.report_end_date),
-        "requested_periods": [analysis.period.value for analysis in request.analyses],
-        "input_count": _attribution_input_count(request),
-        "mode": request.mode.value,
-        "group_by": request.group_by,
-    }
-    if execution_mode == "async":
+    source_request_fingerprint = input_fingerprint
+    requested_window = _build_attribution_execution_window(
+        request,
+        input_count=_attribution_input_count(request),
+    )
+    if _should_offload_attribution(request):
         return register_async_submission_or_raise(
             calculation_id=request.calculation_id,
             analytics_type="Attribution",
@@ -481,6 +481,21 @@ async def calculate_attribution_endpoint(request: AttributionAnalyticsRequest) -
                 else "large_attribution_input_set"
             ),
             accepted_response_factory=_accepted_attribution_response,
+        )
+
+    if request.input_mode == AttributionInputMode.STATEFUL:
+        replay_response = replay_promoted_stateful_async_execution(
+            calculation_id=request.calculation_id,
+            analytics_type="Attribution",
+            source_request_fingerprint=source_request_fingerprint,
+            accepted_response_factory=_accepted_attribution_response,
+        )
+        if replay_response is not None:
+            return replay_response
+        requested_window = _build_attribution_execution_window(
+            request,
+            input_count=_attribution_input_count(request),
+            source_request_fingerprint=source_request_fingerprint,
         )
 
     register_sync_execution_or_raise(
@@ -499,11 +514,24 @@ async def calculate_attribution_endpoint(request: AttributionAnalyticsRequest) -
                 resolved.attribution_request,
                 active_settings.APP_VERSION,
             )
-            execution_registry.update_execution_identity(
-                request.calculation_id,
+            requested_window = _build_attribution_execution_window(
+                request,
+                input_count=resolved.input_count,
+                source_request_fingerprint=source_request_fingerprint,
+            )
+            accepted_response = finalize_resolved_stateful_execution(
+                calculation_id=request.calculation_id,
+                analytics_type="Attribution",
+                requested_window=requested_window,
                 input_fingerprint=input_fingerprint,
                 calculation_hash=calculation_hash,
+                resolved_request_payload=resolved.attribution_request.model_dump(mode="json"),
+                should_offload=_should_offload_resolved_attribution(resolved.input_count),
+                offload_reason="large_resolved_stateful_attribution",
+                accepted_response_factory=_accepted_attribution_response,
             )
+            if accepted_response is not None:
+                return accepted_response
         return calculate_attribution(
             resolved.attribution_request,
             input_fingerprint=input_fingerprint,
@@ -553,6 +581,31 @@ def _should_offload_attribution(request: AttributionAnalyticsRequest | Attributi
             request.report_end_date - request.report_start_date
         ).days >= active_settings.ATTRIBUTION_EXECUTOR_WINDOW_DAYS
     return _attribution_input_count(request) >= active_settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT
+
+
+def _should_offload_resolved_attribution(input_count: int) -> bool:
+    active_settings = get_settings()
+    return input_count >= active_settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT
+
+
+def _build_attribution_execution_window(
+    request: AttributionAnalyticsRequest | AttributionRequest,
+    *,
+    input_count: int,
+    source_request_fingerprint: str | None = None,
+) -> dict[str, object]:
+    requested_window = {
+        "report_start_date": str(request.report_start_date),
+        "report_end_date": str(request.report_end_date),
+        "requested_periods": [analysis.period.value for analysis in request.analyses],
+        "input_count": input_count,
+        "mode": request.mode.value,
+        "group_by": request.group_by,
+        "input_mode": getattr(request, "input_mode", AttributionInputMode.STATELESS).value,
+    }
+    if source_request_fingerprint is not None:
+        requested_window["source_request_fingerprint"] = source_request_fingerprint
+    return requested_window
 
 
 def _accepted_attribution_response(calculation_id) -> AttributionAcceptedResponse:

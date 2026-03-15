@@ -72,6 +72,248 @@ def test_e2e_performance_twr_and_mwr_workflow() -> None:
     assert mwr_body["portfolio_id"] == "E2E_WORKFLOW_001"
 
 
+def test_e2e_stateful_analytics_workflow(monkeypatch) -> None:
+    async def _mock_fetch_stateful_portfolio_timeseries(**kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2024-12-31",
+                "observations": [
+                    {"valuation_date": "2025-01-01", "beginning_market_value": "1000", "ending_market_value": "1010"},
+                    {"valuation_date": "2025-01-02", "beginning_market_value": "1010", "ending_market_value": "1020.1"},
+                ],
+            },
+        )
+
+    async def _mock_get_portfolio_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2025-01-01",
+                "observations": [
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "100000",
+                        "ending_market_value": "110000",
+                        "cash_flows": [{"amount": "10000", "timing": "bod"}],
+                    },
+                    {
+                        "valuation_date": "2025-01-03",
+                        "beginning_market_value": "110000",
+                        "ending_market_value": "111000",
+                        "cash_flows": [],
+                    },
+                ],
+            },
+        )
+
+    async def _mock_retrieve_stateful_contribution_source_input(**kwargs):  # noqa: ARG001
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            portfolio_input=SimpleNamespace(
+                observations=[
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1010",
+                    },
+                    {
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value": "1010",
+                        "ending_market_value": "1020.1",
+                    },
+                ],
+            ),
+            position_rows=[
+                {
+                    "position_id": "SEC_1",
+                    "security_id": "SEC_1",
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value_portfolio_currency": "1000",
+                    "ending_market_value_portfolio_currency": "1010",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Technology"},
+                },
+                {
+                    "position_id": "SEC_1",
+                    "security_id": "SEC_1",
+                    "valuation_date": "2025-01-02",
+                    "beginning_market_value_portfolio_currency": "1010",
+                    "ending_market_value_portfolio_currency": "1020.1",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Technology"},
+                },
+            ],
+        )
+
+    async def _mock_get_position_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "rows": [
+                    {
+                        "position_id": "POS_1",
+                        "security_id": "SEC_1",
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value_portfolio_currency": "1000",
+                        "ending_market_value_portfolio_currency": "1010",
+                        "cash_flows": [],
+                        "dimensions": {"sector": "Technology"},
+                    },
+                    {
+                        "position_id": "POS_1",
+                        "security_id": "SEC_1",
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value_portfolio_currency": "1010",
+                        "ending_market_value_portfolio_currency": "1020.1",
+                        "cash_flows": [],
+                        "dimensions": {"sector": "Technology"},
+                    },
+                ]
+            },
+        )
+
+    async def _mock_get_benchmark_assignment(self, **kwargs):  # noqa: ARG001
+        return 200, {"benchmark_id": "BMK_1"}
+
+    async def _mock_get_benchmark_market_series(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "component_series": [
+                    {
+                        "index_id": "IDX_1",
+                        "points": [
+                            {"series_date": "2025-01-01", "component_weight": "1.0", "index_return": "0.01"},
+                            {"series_date": "2025-01-02", "component_weight": "1.0", "index_return": "0.01"},
+                        ],
+                    }
+                ]
+            },
+        )
+
+    async def _mock_get_index_catalog(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "records": [
+                    {
+                        "index_id": "IDX_1",
+                        "classification_labels": {"sector": "Technology"},
+                    }
+                ]
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.stateful_performance_input_service.fetch_stateful_portfolio_timeseries",
+        _mock_fetch_stateful_portfolio_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_portfolio_timeseries",
+        _mock_get_portfolio_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.services.contribution_mode_service.retrieve_stateful_contribution_source_input",
+        _mock_retrieve_stateful_contribution_source_input,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_position_timeseries",
+        _mock_get_position_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_benchmark_assignment",
+        _mock_get_benchmark_assignment,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_benchmark_market_series",
+        _mock_get_benchmark_market_series,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_index_catalog",
+        _mock_get_index_catalog,
+    )
+    twr_payload = {
+        "portfolio_id": "E2E_STATEFUL_001",
+        "performance_start_date": "2024-12-31",
+        "report_end_date": "2025-01-02",
+        "metric_basis": "NET",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+    mwr_payload = {
+        "portfolio_id": "E2E_STATEFUL_001",
+        "as_of": "2025-01-02",
+        "mwr_method": "DIETZ",
+        "input_mode": "stateful",
+        "stateful_input": {
+            "consumer_system": "lotus-performance",
+            "window_start_date": "2025-01-01",
+        },
+    }
+    contribution_payload = {
+        "portfolio_id": "E2E_STATEFUL_001",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+    attribution_payload = {
+        "portfolio_id": "E2E_STATEFUL_001",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "mode": "by_instrument",
+        "group_by": ["sector"],
+        "frequency": "daily",
+        "currency_mode": "BASE_ONLY",
+        "linking": "none",
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    with TestClient(app) as client:
+        twr_response = client.post("/performance/twr", json=twr_payload)
+        mwr_response = client.post("/performance/mwr", json=mwr_payload)
+        contribution_response = client.post("/performance/contribution", json=contribution_payload)
+        attribution_response = client.post("/performance/attribution", json=attribution_payload)
+
+        twr_execution = client.get(f"/performance/executions/{twr_response.json()['calculation_id']}")
+        mwr_execution = client.get(f"/performance/executions/{mwr_response.json()['calculation_id']}")
+        contribution_execution = client.get(f"/performance/executions/{contribution_response.json()['calculation_id']}")
+        attribution_execution = client.get(f"/performance/executions/{attribution_response.json()['calculation_id']}")
+
+    assert twr_response.status_code == 200
+    assert mwr_response.status_code == 200
+    assert contribution_response.status_code == 200
+    assert attribution_response.status_code == 200
+
+    assert twr_response.json()["input_mode"] == "stateful"
+    assert mwr_response.json()["input_mode"] == "stateful"
+    assert contribution_response.json()["input_mode"] == "stateful"
+    assert attribution_response.json()["input_mode"] == "stateful"
+
+    for execution in (
+        twr_execution,
+        mwr_execution,
+        contribution_execution,
+        attribution_execution,
+    ):
+        assert execution.status_code == 200
+        execution_body = execution.json()
+        stage_names = {stage["stage_name"] for stage in execution_body["stages"]}
+        assert "retrieval" in stage_names
+        assert "normalization" in stage_names
+
+    assert "YTD" in twr_response.json()["results_by_period"]
+    assert mwr_response.json()["method"] == "DIETZ"
+    assert "ITD" in contribution_response.json()["results_by_period"]
+    assert "ITD" in attribution_response.json()["results_by_period"]
+
+
 def test_e2e_contribution_attribution_and_lineage() -> None:
     contribution_payload = {
         "portfolio_id": "E2E_CONTRIB_001",

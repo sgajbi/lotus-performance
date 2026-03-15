@@ -1,6 +1,6 @@
 import os
 import shutil
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pandas as pd
 import pytest
@@ -403,6 +403,192 @@ def test_contribution_supports_stateful_input_mode(client, monkeypatch):
     assert "ITD" in body["results_by_period"]
 
 
+def test_contribution_stateful_offloads_on_resolved_position_count(client, monkeypatch):
+    original_window_threshold = settings.CONTRIBUTION_EXECUTOR_WINDOW_DAYS
+    original_position_threshold = settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT
+    settings.CONTRIBUTION_EXECUTOR_WINDOW_DAYS = 30
+    settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = 2
+
+    async def _mock_retrieve_stateful_contribution_source_input(**kwargs):  # noqa: ARG001
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            portfolio_input=SimpleNamespace(
+                observations=[
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1010",
+                    },
+                    {
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value": "1010",
+                        "ending_market_value": "1020.1",
+                    },
+                ],
+            ),
+            position_rows=[
+                {
+                    "position_id": "SEC_1",
+                    "security_id": "SEC_1",
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value_portfolio_currency": "600",
+                    "ending_market_value_portfolio_currency": "606",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Technology"},
+                },
+                {
+                    "position_id": "SEC_1",
+                    "security_id": "SEC_1",
+                    "valuation_date": "2025-01-02",
+                    "beginning_market_value_portfolio_currency": "606",
+                    "ending_market_value_portfolio_currency": "612.06",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Technology"},
+                },
+                {
+                    "position_id": "SEC_2",
+                    "security_id": "SEC_2",
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value_portfolio_currency": "400",
+                    "ending_market_value_portfolio_currency": "404",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Healthcare"},
+                },
+                {
+                    "position_id": "SEC_2",
+                    "security_id": "SEC_2",
+                    "valuation_date": "2025-01-02",
+                    "beginning_market_value_portfolio_currency": "404",
+                    "ending_market_value_portfolio_currency": "408.04",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Healthcare"},
+                },
+            ],
+        )
+
+    monkeypatch.setattr(
+        "app.services.contribution_mode_service.retrieve_stateful_contribution_source_input",
+        _mock_retrieve_stateful_contribution_source_input,
+    )
+
+    payload = {
+        "portfolio_id": "CONTRIB_STATEFUL_ASYNC",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    try:
+        accepted = client.post("/performance/contribution", json=payload)
+
+        assert accepted.status_code == 202
+        calculation_id = accepted.json()["calculation_id"]
+        execution = execution_registry.get_execution(UUID(calculation_id))
+        assert execution is not None
+        assert execution.requested_window["position_count"] == 2
+        assert execution.requested_window["input_mode"] == "stateful"
+        job = compute_job_store.get_job(calculation_id)
+        assert job is not None
+        assert "stateful_input" not in job.request_payload
+        assert "portfolio_data" in job.request_payload
+
+        assert drain_compute_queue() == 1
+
+        complete = client.get(f"/performance/contribution/results/{calculation_id}")
+        assert complete.status_code == 200
+        assert complete.json()["input_mode"] == "stateful"
+    finally:
+        settings.CONTRIBUTION_EXECUTOR_WINDOW_DAYS = original_window_threshold
+        settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = original_position_threshold
+
+
+def test_contribution_stateful_promoted_async_replays_identical_retry(client, monkeypatch):
+    original_window_threshold = settings.CONTRIBUTION_EXECUTOR_WINDOW_DAYS
+    original_position_threshold = settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT
+    settings.CONTRIBUTION_EXECUTOR_WINDOW_DAYS = 30
+    settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = 2
+
+    async def _mock_retrieve_stateful_contribution_source_input(**kwargs):  # noqa: ARG001
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            portfolio_input=SimpleNamespace(
+                observations=[
+                    {"valuation_date": "2025-01-01", "beginning_market_value": "1000", "ending_market_value": "1010"},
+                    {"valuation_date": "2025-01-02", "beginning_market_value": "1010", "ending_market_value": "1020.1"},
+                ],
+            ),
+            position_rows=[
+                {
+                    "position_id": "SEC_1",
+                    "security_id": "SEC_1",
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value_portfolio_currency": "600",
+                    "ending_market_value_portfolio_currency": "606",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Technology"},
+                },
+                {
+                    "position_id": "SEC_1",
+                    "security_id": "SEC_1",
+                    "valuation_date": "2025-01-02",
+                    "beginning_market_value_portfolio_currency": "606",
+                    "ending_market_value_portfolio_currency": "612.06",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Technology"},
+                },
+                {
+                    "position_id": "SEC_2",
+                    "security_id": "SEC_2",
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value_portfolio_currency": "400",
+                    "ending_market_value_portfolio_currency": "404",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Healthcare"},
+                },
+                {
+                    "position_id": "SEC_2",
+                    "security_id": "SEC_2",
+                    "valuation_date": "2025-01-02",
+                    "beginning_market_value_portfolio_currency": "404",
+                    "ending_market_value_portfolio_currency": "408.04",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Healthcare"},
+                },
+            ],
+        )
+
+    monkeypatch.setattr(
+        "app.services.contribution_mode_service.retrieve_stateful_contribution_source_input",
+        _mock_retrieve_stateful_contribution_source_input,
+    )
+
+    payload = {
+        "calculation_id": str(uuid4()),
+        "portfolio_id": "CONTRIB_STATEFUL_ASYNC_REPLAY",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    try:
+        first = client.post("/performance/contribution", json=payload)
+        second = client.post("/performance/contribution", json=payload)
+
+        assert first.status_code == 202
+        assert second.status_code == 202
+        assert first.json()["calculation_id"] == payload["calculation_id"]
+        assert second.json()["calculation_id"] == payload["calculation_id"]
+    finally:
+        settings.CONTRIBUTION_EXECUTOR_WINDOW_DAYS = original_window_threshold
+        settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = original_position_threshold
+
+
 def test_contribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch):
     async def _mock_retrieve_stateful_contribution_source_input(**kwargs):  # noqa: ARG001
         from types import SimpleNamespace
@@ -524,7 +710,7 @@ def test_contribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch
     assert body["meta"]["calculation_hash"] == expected_calculation_hash
 
 
-def test_contribution_stateful_currency_mode_both_rejected(client, monkeypatch):
+def test_contribution_stateful_currency_mode_both_allows_same_currency_positions(client, monkeypatch):
     async def _mock_retrieve_stateful_contribution_source_input(**kwargs):  # noqa: ARG001
         from types import SimpleNamespace
 
@@ -543,6 +729,63 @@ def test_contribution_stateful_currency_mode_both_rejected(client, monkeypatch):
                     "position_id": "SEC_1",
                     "security_id": "SEC_1",
                     "valuation_date": "2025-01-01",
+                    "position_currency": "USD",
+                    "beginning_market_value_portfolio_currency": "1000",
+                    "ending_market_value_portfolio_currency": "1010",
+                    "beginning_market_value_position_currency": "1000",
+                    "ending_market_value_position_currency": "1010",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Technology"},
+                }
+            ],
+        )
+
+    monkeypatch.setattr(
+        "app.services.contribution_mode_service.retrieve_stateful_contribution_source_input",
+        _mock_retrieve_stateful_contribution_source_input,
+    )
+
+    payload = {
+        "portfolio_id": "CONTRIB_STATEFUL",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "currency_mode": "BOTH",
+        "report_ccy": "USD",
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    response = client.post("/performance/contribution", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    result = body["results_by_period"]["ITD"]
+    assert body["input_mode"] == "stateful"
+    assert result["position_contributions"][0]["local_contribution"] == pytest.approx(1.0)
+    assert result["position_contributions"][0]["fx_contribution"] == pytest.approx(0.0)
+
+
+def test_contribution_stateful_currency_mode_both_requires_fx_for_mixed_currency_positions(client, monkeypatch):
+    async def _mock_retrieve_stateful_contribution_source_input(**kwargs):  # noqa: ARG001
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            portfolio_input=SimpleNamespace(
+                observations=[
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1010",
+                    },
+                ],
+            ),
+            position_rows=[
+                {
+                    "position_id": "SEC_1",
+                    "security_id": "SEC_1",
+                    "valuation_date": "2025-01-01",
+                    "position_currency": "EUR",
                     "beginning_market_value_portfolio_currency": "1000",
                     "ending_market_value_portfolio_currency": "1010",
                     "beginning_market_value_position_currency": "900",
@@ -572,7 +815,7 @@ def test_contribution_stateful_currency_mode_both_rejected(client, monkeypatch):
     response = client.post("/performance/contribution", json=payload)
 
     assert response.status_code == 422
-    assert "position-timeseries exposes position_currency" in response.json()["detail"]
+    assert "requires fx.rates" in response.json()["detail"]
 
 
 def test_contribution_async_result_not_found_and_failed(client, happy_path_payload, mocker):

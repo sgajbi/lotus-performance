@@ -1,6 +1,6 @@
 import os
 import shutil
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -527,6 +527,320 @@ def test_attribution_supports_stateful_input_mode(client, monkeypatch):
     assert body["portfolio_id"] == "ATTRIB_STATEFUL"
     assert body["input_mode"] == "stateful"
     assert "ITD" in body["results_by_period"]
+
+
+def test_attribution_stateful_offloads_on_resolved_input_count(client, monkeypatch):
+    original_window_threshold = settings.ATTRIBUTION_EXECUTOR_WINDOW_DAYS
+    original_input_threshold = settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT
+    settings.ATTRIBUTION_EXECUTOR_WINDOW_DAYS = 30
+    settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = 2
+
+    async def _mock_get_portfolio_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2025-01-01",
+                "observations": [
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1010",
+                    },
+                    {
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value": "1010",
+                        "ending_market_value": "1020.1",
+                    },
+                ],
+            },
+        )
+
+    async def _mock_get_position_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "rows": [
+                    {
+                        "position_id": "POS_1",
+                        "security_id": "SEC_1",
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value_portfolio_currency": "600",
+                        "ending_market_value_portfolio_currency": "606",
+                        "cash_flows": [],
+                        "dimensions": {"sector": "Technology"},
+                    },
+                    {
+                        "position_id": "POS_1",
+                        "security_id": "SEC_1",
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value_portfolio_currency": "606",
+                        "ending_market_value_portfolio_currency": "612.06",
+                        "cash_flows": [],
+                        "dimensions": {"sector": "Technology"},
+                    },
+                    {
+                        "position_id": "POS_2",
+                        "security_id": "SEC_2",
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value_portfolio_currency": "400",
+                        "ending_market_value_portfolio_currency": "404",
+                        "cash_flows": [],
+                        "dimensions": {"sector": "Healthcare"},
+                    },
+                    {
+                        "position_id": "POS_2",
+                        "security_id": "SEC_2",
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value_portfolio_currency": "404",
+                        "ending_market_value_portfolio_currency": "408.04",
+                        "cash_flows": [],
+                        "dimensions": {"sector": "Healthcare"},
+                    },
+                ]
+            },
+        )
+
+    async def _mock_get_benchmark_assignment(self, **kwargs):  # noqa: ARG001
+        return 200, {"benchmark_id": "BMK_1"}
+
+    async def _mock_get_benchmark_market_series(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "component_series": [
+                    {
+                        "index_id": "IDX_1",
+                        "points": [
+                            {"series_date": "2025-01-01", "component_weight": "0.5", "index_return": "0.01"},
+                            {"series_date": "2025-01-02", "component_weight": "0.5", "index_return": "0.01"},
+                        ],
+                    },
+                    {
+                        "index_id": "IDX_2",
+                        "points": [
+                            {"series_date": "2025-01-01", "component_weight": "0.5", "index_return": "0.015"},
+                            {"series_date": "2025-01-02", "component_weight": "0.5", "index_return": "0.015"},
+                        ],
+                    },
+                ]
+            },
+        )
+
+    async def _mock_get_index_catalog(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "records": [
+                    {"index_id": "IDX_1", "classification_labels": {"sector": "Technology"}},
+                    {"index_id": "IDX_2", "classification_labels": {"sector": "Healthcare"}},
+                ]
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_portfolio_timeseries",
+        _mock_get_portfolio_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_position_timeseries",
+        _mock_get_position_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_benchmark_assignment",
+        _mock_get_benchmark_assignment,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_benchmark_market_series",
+        _mock_get_benchmark_market_series,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_index_catalog",
+        _mock_get_index_catalog,
+    )
+
+    payload = {
+        "portfolio_id": "ATTRIB_STATEFUL_ASYNC",
+        "mode": "by_instrument",
+        "group_by": ["sector"],
+        "linking": "none",
+        "frequency": "daily",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    try:
+        accepted = client.post("/performance/attribution", json=payload)
+
+        assert accepted.status_code == 202
+        calculation_id = UUID(accepted.json()["calculation_id"])
+        execution = execution_registry.get_execution(calculation_id)
+        assert execution is not None
+        assert execution.requested_window["input_count"] == 4
+        assert execution.requested_window["input_mode"] == "stateful"
+        job = compute_job_store.get_job(calculation_id)
+        assert job is not None
+        assert "stateful_input" not in job.request_payload
+        assert "benchmark_groups_data" in job.request_payload
+
+        assert drain_compute_queue() == 1
+
+        complete = client.get(f"/performance/attribution/results/{calculation_id}")
+        assert complete.status_code == 200
+        assert complete.json()["input_mode"] == "stateful"
+    finally:
+        settings.ATTRIBUTION_EXECUTOR_WINDOW_DAYS = original_window_threshold
+        settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = original_input_threshold
+
+
+def test_attribution_stateful_promoted_async_replays_identical_retry(client, monkeypatch):
+    original_window_threshold = settings.ATTRIBUTION_EXECUTOR_WINDOW_DAYS
+    original_input_threshold = settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT
+    settings.ATTRIBUTION_EXECUTOR_WINDOW_DAYS = 30
+    settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = 2
+
+    async def _mock_get_portfolio_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2025-01-01",
+                "observations": [
+                    {"valuation_date": "2025-01-01", "beginning_market_value": "1000", "ending_market_value": "1010"},
+                    {"valuation_date": "2025-01-02", "beginning_market_value": "1010", "ending_market_value": "1020.1"},
+                ],
+            },
+        )
+
+    async def _mock_get_position_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "rows": [
+                    {
+                        "position_id": "POS_1",
+                        "security_id": "SEC_1",
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value_portfolio_currency": "600",
+                        "ending_market_value_portfolio_currency": "606",
+                        "cash_flows": [],
+                        "dimensions": {"sector": "Technology"},
+                    },
+                    {
+                        "position_id": "POS_1",
+                        "security_id": "SEC_1",
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value_portfolio_currency": "606",
+                        "ending_market_value_portfolio_currency": "612.06",
+                        "cash_flows": [],
+                        "dimensions": {"sector": "Technology"},
+                    },
+                    {
+                        "position_id": "POS_2",
+                        "security_id": "SEC_2",
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value_portfolio_currency": "400",
+                        "ending_market_value_portfolio_currency": "404",
+                        "cash_flows": [],
+                        "dimensions": {"sector": "Healthcare"},
+                    },
+                    {
+                        "position_id": "POS_2",
+                        "security_id": "SEC_2",
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value_portfolio_currency": "404",
+                        "ending_market_value_portfolio_currency": "408.04",
+                        "cash_flows": [],
+                        "dimensions": {"sector": "Healthcare"},
+                    },
+                ]
+            },
+        )
+
+    async def _mock_get_benchmark_assignment(self, **kwargs):  # noqa: ARG001
+        return 200, {"benchmark_id": "BMK_1"}
+
+    async def _mock_get_benchmark_market_series(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "component_series": [
+                    {
+                        "index_id": "IDX_1",
+                        "points": [
+                            {"series_date": "2025-01-01", "component_weight": "0.5", "index_return": "0.01"},
+                            {"series_date": "2025-01-02", "component_weight": "0.5", "index_return": "0.01"},
+                        ],
+                    },
+                    {
+                        "index_id": "IDX_2",
+                        "points": [
+                            {"series_date": "2025-01-01", "component_weight": "0.5", "index_return": "0.015"},
+                            {"series_date": "2025-01-02", "component_weight": "0.5", "index_return": "0.015"},
+                        ],
+                    },
+                ]
+            },
+        )
+
+    async def _mock_get_index_catalog(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "records": [
+                    {"index_id": "IDX_1", "classification_labels": {"sector": "Technology"}},
+                    {"index_id": "IDX_2", "classification_labels": {"sector": "Healthcare"}},
+                ]
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_portfolio_timeseries",
+        _mock_get_portfolio_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_position_timeseries",
+        _mock_get_position_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_benchmark_assignment",
+        _mock_get_benchmark_assignment,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_benchmark_market_series",
+        _mock_get_benchmark_market_series,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_index_catalog",
+        _mock_get_index_catalog,
+    )
+
+    payload = {
+        "calculation_id": str(uuid4()),
+        "portfolio_id": "ATTRIB_STATEFUL_ASYNC_REPLAY",
+        "mode": "by_instrument",
+        "group_by": ["sector"],
+        "linking": "none",
+        "frequency": "daily",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    try:
+        first = client.post("/performance/attribution", json=payload)
+        second = client.post("/performance/attribution", json=payload)
+
+        assert first.status_code == 202
+        assert second.status_code == 202
+        assert first.json()["calculation_id"] == payload["calculation_id"]
+        assert second.json()["calculation_id"] == payload["calculation_id"]
+    finally:
+        settings.ATTRIBUTION_EXECUTOR_WINDOW_DAYS = original_window_threshold
+        settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = original_input_threshold
 
 
 def test_attribution_stateful_currency_mode_both_rejected(client, monkeypatch):

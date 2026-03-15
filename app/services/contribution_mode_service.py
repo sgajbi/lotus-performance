@@ -23,6 +23,7 @@ from app.services.stateful_input_service import RetrievalMetadata
 class ResolvedContributionRequest:
     contribution_request: ContributionRequest
     input_mode: ContributionInputMode
+    position_count: int
 
 
 async def resolve_contribution_request(
@@ -31,9 +32,11 @@ async def resolve_contribution_request(
     settings: Settings,
 ) -> ResolvedContributionRequest:
     if request.input_mode == ContributionInputMode.STATELESS:
+        contribution_request = request.to_stateless_contribution_request()
         return ResolvedContributionRequest(
-            contribution_request=request.to_stateless_contribution_request(),
+            contribution_request=contribution_request,
             input_mode=ContributionInputMode.STATELESS,
+            position_count=len(contribution_request.positions_data),
         )
 
     stateful_input = request.stateful_input
@@ -82,6 +85,7 @@ async def resolve_contribution_request(
             source_input=source_input,
             metric_basis=stateful_input.metric_basis,
             currency_mode=request.currency_mode,
+            fx=request.fx,
             reporting_currency=request.report_ccy,
         )
         execution_registry.complete_stage(
@@ -102,6 +106,7 @@ async def resolve_contribution_request(
             positions_data=normalized_input.positions_data,
         ),
         input_mode=ContributionInputMode.STATEFUL,
+        position_count=len(normalized_input.positions_data),
     )
 
 
