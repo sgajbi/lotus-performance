@@ -31,7 +31,5 @@ def get_postgres_database_url() -> str:
     database_url = make_url(POSTGRES_RUNTIME_DATABASE_URL)
     existing_options = database_url.query.get("options")
     search_path_option = f"-csearch_path={isolated_schema_name}"
-    combined_options = (
-        f"{existing_options} {search_path_option}".strip() if existing_options else search_path_option
-    )
+    combined_options = f"{existing_options} {search_path_option}".strip() if existing_options else search_path_option
     return database_url.update_query_dict({"options": combined_options}).render_as_string(hide_password=False)
