@@ -228,6 +228,52 @@ def test_operator_action_lease_snapshot_exposes_latest_reclaimed_event(tmp_path)
     assert snapshot.latest_reclaimed_lease.operator_id == "ops-user"
     assert snapshot.latest_reclaimed_lease.governed_target == "backup-123"
     assert snapshot.latest_reclaimed_lease.reclaim_count == 2
+    assert snapshot.recent_reclaimed_leases == ()
+
+
+def test_operator_action_lease_snapshot_exposes_recent_reclaim_history(tmp_path):
+    artifact_dir = tmp_path / "artifacts"
+    locks_dir = artifact_dir / ".action-locks"
+    locks_dir.mkdir(parents=True, exist_ok=True)
+    (locks_dir / "reclaim-history.json").write_text(
+        json.dumps(
+            [
+                {
+                    "action_key": "recovery-drill-ops-user-tenant-a-backup-123",
+                    "action_name": "recovery_drill",
+                    "operator_id": "ops-user",
+                    "tenant_id": "tenant-a",
+                    "governed_target": "backup-123",
+                    "acquired_at_utc": "2026-03-15T00:00:00Z",
+                    "reclaimed_at_utc": "2026-03-15T02:00:00Z",
+                    "stale_after_seconds": 300.0,
+                    "reclaim_count": 2,
+                },
+                {
+                    "action_key": "runtime-retention-ops-batch-tenant-b-apply-30-job-1",
+                    "action_name": "runtime_retention_cleanup",
+                    "operator_id": "ops-batch",
+                    "tenant_id": "tenant-b",
+                    "governed_target": "apply:30:job-1",
+                    "acquired_at_utc": "2026-03-15T01:00:00Z",
+                    "reclaimed_at_utc": "2026-03-15T03:00:00Z",
+                    "stale_after_seconds": 300.0,
+                    "reclaim_count": 1,
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    snapshot = build_operator_action_lease_snapshot(
+        artifact_directory=artifact_dir,
+        action_name="recovery_drill",
+    )
+
+    assert snapshot.status == "available"
+    assert len(snapshot.recent_reclaimed_leases) == 1
+    assert snapshot.recent_reclaimed_leases[0].operator_id == "ops-user"
+    assert snapshot.recent_reclaimed_leases[0].reclaim_count == 2
 
 
 def test_operator_action_lease_snapshot_reports_invalid_reclaim_payload(tmp_path):
@@ -243,3 +289,18 @@ def test_operator_action_lease_snapshot_reports_invalid_reclaim_payload(tmp_path
 
     assert snapshot.status == "unavailable"
     assert snapshot.reason == "operator_action_reclaim_event_invalid"
+
+
+def test_operator_action_lease_snapshot_reports_invalid_reclaim_history_payload(tmp_path):
+    artifact_dir = tmp_path / "artifacts"
+    locks_dir = artifact_dir / ".action-locks"
+    locks_dir.mkdir(parents=True, exist_ok=True)
+    (locks_dir / "reclaim-history.json").write_text('[{"action_name":"recovery_drill"}]', encoding="utf-8")
+
+    snapshot = build_operator_action_lease_snapshot(
+        artifact_directory=artifact_dir,
+        action_name="recovery_drill",
+    )
+
+    assert snapshot.status == "unavailable"
+    assert snapshot.reason == "operator_action_reclaim_history_invalid"

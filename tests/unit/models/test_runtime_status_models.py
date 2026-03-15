@@ -137,6 +137,21 @@ def test_build_runtime_status_response_serializes_snapshot_details():
             latest_reclaimed_run_reclaimed_at_utc="2026-03-14T00:15:00Z",
             latest_reclaimed_run_age_seconds=2700.0,
             reclaimed_run_count=3,
+            recent_reclaimed_runs=(
+                type(
+                    "RecentReclaim",
+                    (),
+                    {
+                        "operator_id": "ops-old",
+                        "tenant_id": "tenant-a",
+                        "governed_target": "backup-old",
+                        "acquired_at_utc": "2026-03-13T22:30:00Z",
+                        "reclaimed_at_utc": "2026-03-14T00:15:00Z",
+                        "reclaimed_age_seconds": 2700.0,
+                        "reclaim_count": 3,
+                    },
+                )(),
+            ),
             latest_generated_at_utc="2026-03-13T00:00:00Z",
             latest_status="passed",
             latest_operator_id="ops-user",
@@ -169,6 +184,21 @@ def test_build_runtime_status_response_serializes_snapshot_details():
             latest_reclaimed_run_reclaimed_at_utc="2026-03-13T23:15:00Z",
             latest_reclaimed_run_age_seconds=4500.0,
             reclaimed_run_count=4,
+            recent_reclaimed_runs=(
+                type(
+                    "RecentReclaim",
+                    (),
+                    {
+                        "operator_id": "ops-old-batch",
+                        "tenant_id": "tenant-a",
+                        "governed_target": "apply:30:old-job",
+                        "acquired_at_utc": "2026-03-13T22:00:00Z",
+                        "reclaimed_at_utc": "2026-03-13T23:15:00Z",
+                        "reclaimed_age_seconds": 4500.0,
+                        "reclaim_count": 4,
+                    },
+                )(),
+            ),
             preview_status="available",
             preview_reason=None,
             current_cutoff_utc="2026-02-13T00:00:00Z",
@@ -245,6 +275,7 @@ def test_build_runtime_status_response_serializes_snapshot_details():
     assert response.recovery_drill.latest_reclaimed_run_operator_id == "ops-old"
     assert response.recovery_drill.latest_reclaimed_run_governed_target == "backup-old"
     assert response.recovery_drill.reclaimed_run_count == 3
+    assert response.recovery_drill.recent_reclaimed_runs[0].operator_id == "ops-old"
     assert response.recovery_drill.latest_status == "passed"
     assert response.recovery_drill.latest_operator_id == "ops-user"
     assert response.recovery_drill.degradation_reasons == ["recovery_drill_age_exceeded"]
@@ -255,6 +286,7 @@ def test_build_runtime_status_response_serializes_snapshot_details():
     assert response.runtime_retention.latest_reclaimed_run_operator_id == "ops-old-batch"
     assert response.runtime_retention.latest_reclaimed_run_governed_target == "apply:30:old-job"
     assert response.runtime_retention.reclaimed_run_count == 4
+    assert response.runtime_retention.recent_reclaimed_runs[0].operator_id == "ops-old-batch"
     assert response.runtime_retention.preview_status == "available"
     assert response.runtime_retention.current_cutoff_utc == "2026-02-13T00:00:00Z"
     assert response.runtime_retention.current_prunable_execution_count == 7
@@ -318,6 +350,7 @@ def test_build_runtime_status_response_handles_unavailable_queue_without_stats()
             latest_reclaimed_run_reclaimed_at_utc=None,
             latest_reclaimed_run_age_seconds=None,
             reclaimed_run_count=0,
+            recent_reclaimed_runs=(),
             latest_generated_at_utc=None,
             latest_status=None,
             latest_operator_id=None,
@@ -344,6 +377,7 @@ def test_build_runtime_status_response_handles_unavailable_queue_without_stats()
             latest_reclaimed_run_reclaimed_at_utc=None,
             latest_reclaimed_run_age_seconds=None,
             reclaimed_run_count=0,
+            recent_reclaimed_runs=(),
             preview_status="unavailable",
             preview_reason="RuntimeError",
             current_cutoff_utc=None,

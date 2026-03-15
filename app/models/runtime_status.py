@@ -103,6 +103,25 @@ class LineageRecoveryEventResponse(BaseModel):
     attempt_count: int = Field(description="Attempt count already consumed by the recovered lineage item.")
 
 
+class OperatorActionReclaimEventResponse(BaseModel):
+    operator_id: str = Field(description="Operator or automation identity from the reclaimed governed action.")
+    tenant_id: str | None = Field(
+        default=None,
+        description="Tenant context retained for the reclaimed governed action, when present.",
+    )
+    governed_target: str = Field(description="Governed action target associated with the reclaimed stale lease.")
+    acquired_at_utc: str = Field(
+        description="UTC timestamp when the reclaimed governed action originally acquired its lease."
+    )
+    reclaimed_at_utc: str = Field(description="UTC timestamp when the stale governed action lease was reclaimed.")
+    reclaimed_age_seconds: float = Field(
+        description="Age in seconds since the stale governed action lease was reclaimed."
+    )
+    reclaim_count: int = Field(
+        description="Cumulative reclaim counter recorded at the time of this retained stale-lease reclaim event."
+    )
+
+
 class ComputeQueueStatusDetailsResponse(BaseModel):
     status: str = Field(description="Compute queue visibility state for the control-plane endpoint.")
     reason: str | None = Field(
@@ -340,6 +359,10 @@ class RecoveryDrillStatusResponse(BaseModel):
     reclaimed_run_count: int = Field(
         description="Number of stale governed recovery-drill leases reclaimed and retained in the current control-plane counter."
     )
+    recent_reclaimed_runs: list[OperatorActionReclaimEventResponse] = Field(
+        default_factory=list,
+        description="Most recent retained stale governed recovery-drill lease reclaim events for operator triage.",
+    )
     degradation_reasons: list[str] = Field(
         default_factory=list,
         description="All active recovery-drill degradation reasons contributing to a degraded state.",
@@ -443,6 +466,10 @@ class RuntimeRetentionStatusResponse(BaseModel):
     )
     reclaimed_run_count: int = Field(
         description="Number of stale governed runtime-retention leases reclaimed and retained in the current control-plane counter."
+    )
+    recent_reclaimed_runs: list[OperatorActionReclaimEventResponse] = Field(
+        default_factory=list,
+        description="Most recent retained stale governed runtime-retention lease reclaim events for operator triage.",
     )
     preview_status: str = Field(
         description="Availability of the live runtime-retention preview under the current retention policy."
@@ -695,6 +722,18 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
             latest_reclaimed_run_reclaimed_at_utc=snapshot.recovery_drill.latest_reclaimed_run_reclaimed_at_utc,
             latest_reclaimed_run_age_seconds=snapshot.recovery_drill.latest_reclaimed_run_age_seconds,
             reclaimed_run_count=snapshot.recovery_drill.reclaimed_run_count,
+            recent_reclaimed_runs=[
+                OperatorActionReclaimEventResponse(
+                    operator_id=event.operator_id,
+                    tenant_id=event.tenant_id,
+                    governed_target=event.governed_target,
+                    acquired_at_utc=event.acquired_at_utc,
+                    reclaimed_at_utc=event.reclaimed_at_utc,
+                    reclaimed_age_seconds=event.reclaimed_age_seconds,
+                    reclaim_count=event.reclaim_count,
+                )
+                for event in snapshot.recovery_drill.recent_reclaimed_runs
+            ],
             degradation_reasons=list(snapshot.recovery_drill.degradation_reasons),
             degradation_details=_degradation_details_response(snapshot.recovery_drill.degradation_details),
             latest_generated_at_utc=snapshot.recovery_drill.latest_generated_at_utc,
@@ -721,6 +760,18 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
             latest_reclaimed_run_reclaimed_at_utc=snapshot.runtime_retention.latest_reclaimed_run_reclaimed_at_utc,
             latest_reclaimed_run_age_seconds=snapshot.runtime_retention.latest_reclaimed_run_age_seconds,
             reclaimed_run_count=snapshot.runtime_retention.reclaimed_run_count,
+            recent_reclaimed_runs=[
+                OperatorActionReclaimEventResponse(
+                    operator_id=event.operator_id,
+                    tenant_id=event.tenant_id,
+                    governed_target=event.governed_target,
+                    acquired_at_utc=event.acquired_at_utc,
+                    reclaimed_at_utc=event.reclaimed_at_utc,
+                    reclaimed_age_seconds=event.reclaimed_age_seconds,
+                    reclaim_count=event.reclaim_count,
+                )
+                for event in snapshot.runtime_retention.recent_reclaimed_runs
+            ],
             preview_status=snapshot.runtime_retention.preview_status,
             preview_reason=snapshot.runtime_retention.preview_reason,
             degradation_reasons=list(snapshot.runtime_retention.degradation_reasons),

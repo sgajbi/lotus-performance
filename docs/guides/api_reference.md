@@ -354,6 +354,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - `lotus_performance_runtime_retention_policy_threshold{threshold="max_age_seconds|reclaim_count"}`
   - `lotus_performance_runtime_retention_degradation_breach{reason="runtime_retention_latest_not_applied|runtime_retention_age_exceeded|runtime_retention_reclaim_pressure_exceeded"}`
   - `lotus_performance_runtime_retention_prunable_items{category="execution|compute_job|async_result|lineage_record|lineage_artifact"}`
+- `GET /integration/runtime-status` now also carries bounded `recent_reclaimed_runs` lists for both governed action lanes, so operators can inspect the last few stale-lease recoveries without leaving the primary control-plane snapshot
 - includes lineage storage capacity metrics:
   - `lotus_performance_lineage_storage_capacity_availability`
   - `lotus_performance_lineage_storage_capacity_bytes{segment="total|used|free"}`

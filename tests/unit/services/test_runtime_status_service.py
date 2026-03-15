@@ -23,6 +23,7 @@ def _isolate_runtime_assurance_history(mocker):
                 "reason": None,
                 "active_leases": (),
                 "latest_reclaimed_lease": None,
+                "recent_reclaimed_leases": (),
             },
         )(),
     )
@@ -384,6 +385,20 @@ def test_runtime_status_snapshot_reports_active_governed_actions(mocker):
                             "reclaim_count": 3,
                         },
                     )(),
+                    "recent_reclaimed_leases": (
+                        type(
+                            "Reclaim",
+                            (),
+                            {
+                                "operator_id": "ops-user-old",
+                                "tenant_id": "tenant-a",
+                                "governed_target": "backup-old",
+                                "acquired_at_utc": "2026-03-13T23:00:00Z",
+                                "reclaimed_at_utc": "2026-03-14T00:30:00Z",
+                                "reclaim_count": 3,
+                            },
+                        )(),
+                    ),
                 },
             )(),
             type(
@@ -426,6 +441,20 @@ def test_runtime_status_snapshot_reports_active_governed_actions(mocker):
                             "reclaim_count": 4,
                         },
                     )(),
+                    "recent_reclaimed_leases": (
+                        type(
+                            "Reclaim",
+                            (),
+                            {
+                                "operator_id": "ops-batch-old",
+                                "tenant_id": "tenant-b",
+                                "governed_target": "apply:30:old-job",
+                                "acquired_at_utc": "2026-03-13T22:00:00Z",
+                                "reclaimed_at_utc": "2026-03-14T01:30:00Z",
+                                "reclaim_count": 4,
+                            },
+                        )(),
+                    ),
                 },
             )(),
         ],
@@ -442,6 +471,7 @@ def test_runtime_status_snapshot_reports_active_governed_actions(mocker):
     assert snapshot.recovery_drill.latest_reclaimed_run_governed_target == "backup-old"
     assert snapshot.recovery_drill.latest_reclaimed_run_age_seconds is not None
     assert snapshot.recovery_drill.reclaimed_run_count == 3
+    assert snapshot.recovery_drill.recent_reclaimed_runs[0].operator_id == "ops-user-old"
     assert snapshot.runtime_retention.active_run_status == "active"
     assert snapshot.runtime_retention.active_run_count == 2
     assert snapshot.runtime_retention.oldest_active_run_operator_id == "ops-batch"
@@ -449,6 +479,7 @@ def test_runtime_status_snapshot_reports_active_governed_actions(mocker):
     assert snapshot.runtime_retention.latest_reclaimed_run_operator_id == "ops-batch-old"
     assert snapshot.runtime_retention.latest_reclaimed_run_governed_target == "apply:30:old-job"
     assert snapshot.runtime_retention.reclaimed_run_count == 4
+    assert snapshot.runtime_retention.recent_reclaimed_runs[0].operator_id == "ops-batch-old"
 
 
 def test_runtime_status_snapshot_degrades_when_runtime_retention_is_stale_or_not_applied(mocker):

@@ -136,7 +136,9 @@ currently in flight, the oldest active-run anchor for operator triage, and the l
 lease reclaim anchor so support can distinguish an active run from a recently recovered
 post-crash or post-interruption action. The same reclaim visibility now carries a cumulative
 reclaim count so repeated stale governed-action recovery is visible without reconstructing it
-from logs.
+from logs. Runtime status now also carries a bounded recent reclaim event list for both governed
+action lanes so support can distinguish an isolated stale-lease recovery from recurring
+operator-action instability without querying the filesystem directly.
 
 ## Failure recovery model
 
