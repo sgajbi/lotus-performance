@@ -105,6 +105,94 @@ async def test_get_benchmark_return_series_posts_contract_payload():
 
 
 @pytest.mark.asyncio
+async def test_get_position_analytics_timeseries_posts_contract_payload():
+    service = CoreIntegrationService(base_url="http://core", timeout_seconds=2.0)
+    _FakeAsyncClient.queue_json(200, {"rows": []})
+
+    status_code, payload = await service.get_position_analytics_timeseries(
+        portfolio_id="PORT-6",
+        as_of_date=date(2026, 2, 24),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 2, 24),
+        reporting_currency="USD",
+        consumer_system="lotus-performance",
+        dimensions=["sector"],
+        include_cash_flows=False,
+        filters={"security_ids": ["SEC_1"]},
+        page_size=123,
+        page_token="next-page",
+    )
+
+    assert status_code == 200
+    assert payload["rows"] == []
+    assert _FakeAsyncClient.calls[0]["url"] == "http://core/integration/portfolios/PORT-6/analytics/position-timeseries"
+    assert _FakeAsyncClient.calls[0]["json"]["dimensions"] == ["sector"]
+    assert _FakeAsyncClient.calls[0]["json"]["include_cash_flows"] is False
+    assert _FakeAsyncClient.calls[0]["json"]["filters"] == {"security_ids": ["SEC_1"]}
+    assert _FakeAsyncClient.calls[0]["json"]["page"] == {"page_size": 123, "page_token": "next-page"}
+
+
+@pytest.mark.asyncio
+async def test_get_benchmark_definition_posts_contract_payload():
+    service = CoreIntegrationService(base_url="http://core", timeout_seconds=2.0)
+    _FakeAsyncClient.queue_json(200, {"benchmark_id": "BMK_2"})
+
+    status_code, payload = await service.get_benchmark_definition(
+        benchmark_id="BMK_2",
+        as_of_date=date(2026, 2, 24),
+    )
+
+    assert status_code == 200
+    assert payload["benchmark_id"] == "BMK_2"
+    assert _FakeAsyncClient.calls[0]["url"] == "http://core/integration/benchmarks/BMK_2/definition"
+    assert _FakeAsyncClient.calls[0]["json"] == {"as_of_date": "2026-02-24"}
+
+
+@pytest.mark.asyncio
+async def test_get_benchmark_market_series_posts_contract_payload():
+    service = CoreIntegrationService(base_url="http://core", timeout_seconds=2.0)
+    _FakeAsyncClient.queue_json(200, {"component_series": []})
+
+    status_code, payload = await service.get_benchmark_market_series(
+        benchmark_id="BMK_3",
+        as_of_date=date(2026, 2, 24),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 2, 24),
+        target_currency="USD",
+        series_fields=["index_return", "component_weight", "fx_return"],
+    )
+
+    assert status_code == 200
+    assert payload["component_series"] == []
+    assert _FakeAsyncClient.calls[0]["url"] == "http://core/integration/benchmarks/BMK_3/market-series"
+    assert _FakeAsyncClient.calls[0]["json"]["target_currency"] == "USD"
+    assert _FakeAsyncClient.calls[0]["json"]["series_fields"] == ["index_return", "component_weight", "fx_return"]
+
+
+@pytest.mark.asyncio
+async def test_get_index_catalog_posts_contract_payload():
+    service = CoreIntegrationService(base_url="http://core", timeout_seconds=2.0)
+    _FakeAsyncClient.queue_json(200, {"records": []})
+
+    status_code, payload = await service.get_index_catalog(
+        as_of_date=date(2026, 2, 24),
+        index_currency="USD",
+        index_type="BENCHMARK",
+        index_status="ACTIVE",
+    )
+
+    assert status_code == 200
+    assert payload["records"] == []
+    assert _FakeAsyncClient.calls[0]["url"] == "http://core/integration/indices/catalog"
+    assert _FakeAsyncClient.calls[0]["json"] == {
+        "as_of_date": "2026-02-24",
+        "index_currency": "USD",
+        "index_type": "BENCHMARK",
+        "index_status": "ACTIVE",
+    }
+
+
+@pytest.mark.asyncio
 async def test_get_risk_free_series_posts_contract_payload():
     service = CoreIntegrationService(base_url="http://core", timeout_seconds=2.0)
     _FakeAsyncClient.queue_json(200, {"points": []})

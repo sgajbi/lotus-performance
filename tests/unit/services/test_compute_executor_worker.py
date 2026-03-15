@@ -693,3 +693,79 @@ def test_compute_executor_worker_run_forever_stops_during_idle_wait(monkeypatch)
         "process",
         f"wait:{settings.COMPUTE_EXECUTOR_POLL_SECONDS}",
     ]
+
+
+def test_compute_executor_worker_logs_requeued_stale_job(monkeypatch):
+    class _ReconciledJob:
+        def __init__(self):
+            self.calculation_id = uuid4()
+            self.analytics_type = "ReturnsSeries"
+            self.reconciled_status = type("Status", (), {"value": "pending"})()
+            self.previous_status = type("Status", (), {"value": "running"})()
+
+    warnings: list[tuple] = []
+    job_store = type(
+        "JobStore",
+        (),
+        {
+            "reconcile_stale_jobs": lambda self: [_ReconciledJob()],
+            "lease_pending_jobs": lambda self, **kwargs: [],
+        },
+    )()
+    monkeypatch.setattr(compute_executor_worker.logger, "warning", lambda *args, **kwargs: warnings.append(args))
+
+    processed = compute_executor_worker._process_pending_jobs(
+        job_store=job_store,
+        execution_store=compute_executor_worker.execution_registry,
+        result_store=compute_executor_worker.async_result_store,
+        settings=_worker_settings(),
+    )
+
+    assert processed == 0
+    assert warnings and "Requeued stale compute job %s after expired %s lease" in warnings[0][0]
+
+
+def test_compute_executor_worker_rejects_unsupported_analytics_type(tmp_path, monkeypatch):
+    job_store = ComputeJobStore(f"sqlite:///{tmp_path / 'jobs.db'}")
+    job_store.create_schema()
+    monkeypatch.setattr(compute_executor_worker, "compute_job_store", job_store)
+
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    monkeypatch.setattr(compute_executor_worker, "execution_registry", execution_store)
+    result_store = AsyncResultStore(f"sqlite:///{tmp_path / 'results.db'}")
+    result_store.create_schema()
+    monkeypatch.setattr(compute_executor_worker, "async_result_store", result_store)
+
+    calculation_id = uuid4()
+    execution_store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="Unknown",
+        portfolio_id="P1",
+        execution_mode="async",
+        requested_window={},
+    )
+    job_store.enqueue_job(
+        calculation_id=calculation_id,
+        analytics_type="Unknown",
+        request_payload={"portfolio_id": "P1"},
+        max_attempts=1,
+    )
+
+    assert compute_executor_worker.process_pending_jobs(limit=10) == 1
+    job = job_store.get_job(calculation_id)
+    assert job is not None
+    assert job.job_status == ComputeJobStatus.FAILED
+    assert "Unsupported compute job analytics_type" in (job.error_message or "")
+
+
+def test_compute_executor_worker_poll_helpers_cover_direct_paths(monkeypatch):
+    slept: list[float] = []
+    monkeypatch.setattr(compute_executor_worker.time, "sleep", lambda seconds: slept.append(seconds))
+
+    assert compute_executor_worker._stop_requested(None) is False
+    stop_event = Event()
+    stop_event.set()
+    assert compute_executor_worker._stop_requested(stop_event) is True
+    assert compute_executor_worker._wait_for_next_poll(None, 2.5) is False
+    assert slept == [2.5]
