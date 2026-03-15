@@ -242,9 +242,9 @@ def _build_stateful_resolved_returns_payload(
     *,
     request: ReturnsSeriesRequest,
     resolved_window: ResolvedWindow,
-    portfolio_df: pd.DataFrame,
-    benchmark_df: pd.DataFrame | None,
-    risk_free_df: pd.DataFrame | None,
+    portfolio_records: list[dict[str, str]],
+    benchmark_records: list[dict[str, str]] | None,
+    risk_free_records: list[dict[str, str]] | None,
     resolved_benchmark_id: str | None,
 ) -> dict[str, Any]:
     return {
@@ -264,15 +264,25 @@ def _build_stateful_resolved_returns_payload(
         "data_policy": request.data_policy.model_dump(mode="json"),
         "input_mode": InputMode.STATELESS.value,
         "stateless_input": {
-            "portfolio_returns": [point.model_dump(mode="json") for point in points_from_df(portfolio_df)],
-            "benchmark_returns": (
-                [point.model_dump(mode="json") for point in points_from_df(benchmark_df)] if benchmark_df is not None else None
-            ),
-            "risk_free_returns": (
-                [point.model_dump(mode="json") for point in points_from_df(risk_free_df)] if risk_free_df is not None else None
-            ),
+            "portfolio_returns": portfolio_records,
+            "benchmark_returns": benchmark_records,
+            "risk_free_returns": risk_free_records,
         },
     }
+
+
+def _records_from_df(df: pd.DataFrame | None) -> list[dict[str, str]] | None:
+    if df is None:
+        return None
+    records: list[dict[str, str]] = []
+    for _, row in df.iterrows():
+        records.append(
+            {
+                "date": row["date"].date().isoformat(),
+                "return_value": format(Decimal(str(row["return_value"])).quantize(Decimal("0.000000000001")), "f"),
+            }
+        )
+    return records
 
 
 async def calculate_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResponse:
@@ -571,13 +581,17 @@ async def calculate_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeri
             if risk_free_df is not None:
                 risk_free_df = risk_free_df.set_index("date").reindex(portfolio_df["date"]).fillna(0.0).reset_index()
 
+        portfolio_return_points = points_from_df(portfolio_df)
+        benchmark_return_points = points_from_df(benchmark_df) if benchmark_df is not None else None
+        risk_free_return_points = points_from_df(risk_free_df) if risk_free_df is not None else None
+
         if request.input_mode == InputMode.STATEFUL:
             resolved_stateful_payload = _build_stateful_resolved_returns_payload(
                 request=request,
                 resolved_window=resolved_window,
-                portfolio_df=portfolio_df,
-                benchmark_df=benchmark_df,
-                risk_free_df=risk_free_df,
+                portfolio_records=_records_from_df(portfolio_df) or [],
+                benchmark_records=_records_from_df(benchmark_df),
+                risk_free_records=_records_from_df(risk_free_df),
                 resolved_benchmark_id=resolved_benchmark_id,
             )
             input_fingerprint, calculation_hash = generate_canonical_hash(
@@ -616,9 +630,9 @@ async def calculate_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeri
             metric_basis=request.metric_basis,
             resolved_window=resolved_window,
             series=ReturnsSeriesPayload(
-                portfolio_returns=points_from_df(portfolio_df),
-                benchmark_returns=points_from_df(benchmark_df) if benchmark_df is not None else None,
-                risk_free_returns=points_from_df(risk_free_df) if risk_free_df is not None else None,
+                portfolio_returns=portfolio_return_points,
+                benchmark_returns=benchmark_return_points,
+                risk_free_returns=risk_free_return_points,
             ),
             provenance=ReturnsProvenance(
                 input_mode=request.input_mode,

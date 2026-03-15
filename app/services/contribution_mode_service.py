@@ -16,6 +16,7 @@ from app.services.stateful_contribution_input_service import (
     build_stateful_contribution_input,
     retrieve_stateful_contribution_source_input,
 )
+from app.services.stateful_input_service import RetrievalMetadata
 
 
 @dataclass(frozen=True)
@@ -65,10 +66,10 @@ async def resolve_contribution_request(
             details={
                 "portfolio_observations": len(source_input.portfolio_input.observations),
                 "position_rows": len(source_input.position_rows),
-                "portfolio_chunk_count": source_input.portfolio_input.retrieval_metadata.chunk_count,
-                "portfolio_page_count": source_input.portfolio_input.retrieval_metadata.page_count,
-                "position_chunk_count": source_input.position_retrieval_metadata.chunk_count,
-                "position_page_count": source_input.position_retrieval_metadata.page_count,
+                "portfolio_chunk_count": _portfolio_retrieval_metadata(source_input).chunk_count,
+                "portfolio_page_count": _portfolio_retrieval_metadata(source_input).page_count,
+                "position_chunk_count": _position_retrieval_metadata(source_input).chunk_count,
+                "position_page_count": _position_retrieval_metadata(source_input).page_count,
             },
         )
     except HTTPException as exc:
@@ -102,3 +103,18 @@ async def resolve_contribution_request(
         ),
         input_mode=ContributionInputMode.STATEFUL,
     )
+
+
+def _portfolio_retrieval_metadata(source_input: object) -> RetrievalMetadata:
+    portfolio_input = getattr(source_input, "portfolio_input", None)
+    metadata = getattr(portfolio_input, "retrieval_metadata", None)
+    if isinstance(metadata, RetrievalMetadata):
+        return metadata
+    return RetrievalMetadata(chunk_count=1, page_count=1)
+
+
+def _position_retrieval_metadata(source_input: object) -> RetrievalMetadata:
+    metadata = getattr(source_input, "position_retrieval_metadata", None)
+    if isinstance(metadata, RetrievalMetadata):
+        return metadata
+    return RetrievalMetadata(chunk_count=1, page_count=1)

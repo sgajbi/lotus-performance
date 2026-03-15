@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from uuid import UUID
 
@@ -19,7 +19,7 @@ from app.services.valuation_points_service import portfolio_timeseries_to_valuat
 class StatefulPortfolioInput:
     performance_start_date: date
     observations: list[dict[str, object]]
-    retrieval_metadata: RetrievalMetadata
+    retrieval_metadata: RetrievalMetadata = field(default_factory=lambda: RetrievalMetadata(chunk_count=1, page_count=1))
 
 
 @dataclass(frozen=True)

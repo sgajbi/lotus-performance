@@ -298,9 +298,9 @@ async def test_calculate_returns_series_updates_stateful_identity_from_resolved_
     resolved_payload = returns_series_service._build_stateful_resolved_returns_payload(
         request=request,
         resolved_window=response.resolved_window,
-        portfolio_df=returns_series_service.to_dataframe(response.series.portfolio_returns, series_type="portfolio"),
-        benchmark_df=returns_series_service.to_dataframe(response.series.benchmark_returns or [], series_type="benchmark"),
-        risk_free_df=None,
+        portfolio_records=[point.model_dump(mode="json") for point in response.series.portfolio_returns],
+        benchmark_records=[point.model_dump(mode="json") for point in (response.series.benchmark_returns or [])],
+        risk_free_records=None,
         resolved_benchmark_id="BMK_RESOLVED",
     )
     expected_input_fingerprint, expected_calculation_hash = generate_canonical_hash(
