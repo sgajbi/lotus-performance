@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -181,7 +182,9 @@ async def run_runtime_retention_cleanup(
             operator_id=operator_id,
             tenant_id=tenant_id,
             governed_target=f"{'apply' if cleanup_request.apply else 'dry_run'}:{resolved_retention_days}:{cleanup_request.job_id or 'no-job'}",
+            acquired_at_utc=datetime.now(UTC).isoformat(),
         ),
+        stale_after_seconds=settings.RUNTIME_RETENTION_ACTION_LEASE_STALE_SECONDS,
     ):
         evidence = execute_runtime_retention_cleanup(
             apply=cleanup_request.apply,

@@ -229,6 +229,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - same-correlation retries replay the original retained evidence only when operator and tenant ownership also match, returning `X-Idempotent-Replay: true`; otherwise the request is treated as a fresh governed action
   - `409` plus `Retry-After` when a recent matching manual drill for the same operator, tenant, and backup identifier already completed inside the configured cooldown window
   - `409` when the same governed drill is already running in-flight for the same operator, tenant, and backup identifier
+  - stale in-flight drill leases are reclaimed automatically after the configured stale threshold instead of blocking forever after a crash
 - use this when an operator needs an audited recovery drill without shell access
 
 ### `GET /integration/runtime-retention-cleanups`
@@ -265,6 +266,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - `apply=true` requires a recent matching `dry_run` preview for the same governed request shape before execution
   - `409` plus `Retry-After` when a recent manual cleanup already completed inside the configured cooldown window
   - `409` when the same governed cleanup action is already running in-flight for the same operator, tenant, action mode, retention window, and job identity
+  - stale in-flight cleanup leases are reclaimed automatically after the configured stale threshold instead of blocking forever after a crash
 - use this when an operator needs an audited cleanup preview or a deliberate apply action without shell access
 
 ### `POST /integration/returns/series`

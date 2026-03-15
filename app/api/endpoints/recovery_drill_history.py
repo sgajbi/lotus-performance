@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -149,7 +150,9 @@ async def run_recovery_drill(
             operator_id=operator_id,
             tenant_id=tenant_id,
             governed_target=recovery_request.backup_identifier,
+            acquired_at_utc=datetime.now(UTC).isoformat(),
         ),
+        stale_after_seconds=settings.RECOVERY_DRILL_ACTION_LEASE_STALE_SECONDS,
     ):
         evidence = execute_recovery_drill(
             output_dir=settings.RECOVERY_DRILL_ARTIFACT_PATH,

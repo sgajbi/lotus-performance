@@ -19,6 +19,7 @@
 - Cooldown fences should be scoped to the governed action shape so one safe operator action does not incorrectly block a distinct remediation request.
 - Replay ownership must be scoped to the same operator and tenant context so reused correlation identifiers cannot replay another actor's durable evidence.
 - Governed action policy should also fence in-flight same-shape execution so duplicate submissions cannot race before durable evidence is written.
+- In-flight action leases should be reclaimable after a bounded stale threshold so a crashed process cannot block a governed action forever.
 - Sensitive attributes are redacted before audit emission.
 
 Evidence:
