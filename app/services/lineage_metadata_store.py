@@ -8,7 +8,7 @@ from enum import StrEnum
 from typing import Iterator
 from uuid import UUID
 
-from sqlalchemy import DateTime, Index, Integer, String, Text, case, create_engine, func, inspect, select, text
+from sqlalchemy import DateTime, Index, Integer, String, Text, case, create_engine, exists, func, inspect, select, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
@@ -354,10 +354,19 @@ class LineageMetadataStore:
         now = datetime.now(timezone.utc)
         lease_expiry = now + timedelta(seconds=lease_seconds)
         with self._session() as session:
+            dialect_name = session.bind.dialect.name if session.bind is not None else ""
+            if dialect_name == "postgresql":
+                return self._lease_pending_payloads_postgresql(
+                    session=session,
+                    now=now,
+                    lease_expiry=lease_expiry,
+                    worker_id=worker_id,
+                    limit=limit,
+                )
             statement = self._build_lease_pending_payloads_statement(
                 now=now,
                 limit=limit,
-                dialect_name=session.bind.dialect.name if session.bind is not None else "",
+                dialect_name=dialect_name,
             )
             rows = session.execute(statement).scalars().all()
             leased: list[LineagePayload] = []
@@ -1005,22 +1014,98 @@ class LineageMetadataStore:
         )
 
     def _build_lease_pending_payloads_statement(self, *, now: datetime, limit: int, dialect_name: str):
+        pending_record_exists = exists(
+            select(1).where(
+                (LineageRecordModel.calculation_id == LineagePayloadModel.calculation_id)
+                & (LineageRecordModel.status == LineageStatus.PENDING.value)
+            )
+        )
         statement = (
             select(LineagePayloadModel)
-            .join(LineageRecordModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
             .where(
-                (LineageRecordModel.status == LineageStatus.PENDING.value)
+                pending_record_exists
                 & (
                     LineagePayloadModel.lease_expires_at_utc.is_(None)
                     | (LineagePayloadModel.lease_expires_at_utc < now)
                 )
             )
-            .order_by(LineagePayloadModel.created_at_utc.asc())
+            .order_by(LineagePayloadModel.created_at_utc.asc(), LineagePayloadModel.calculation_id.asc())
             .limit(limit)
         )
         if dialect_name == "postgresql":
-            statement = statement.with_for_update(skip_locked=True)
+            statement = statement.with_for_update(of=LineagePayloadModel, skip_locked=True)
         return statement
+
+    def _lease_pending_payloads_postgresql(
+        self,
+        *,
+        session: Session,
+        now: datetime,
+        lease_expiry: datetime,
+        worker_id: str,
+        limit: int,
+    ) -> list[LineagePayload]:
+        statement = text(
+            """
+            UPDATE lineage_payloads AS payload
+            SET worker_id = :worker_id,
+                leased_at_utc = :leased_at_utc,
+                lease_expires_at_utc = :lease_expires_at_utc,
+                attempt_count = payload.attempt_count + 1
+            FROM (
+                SELECT payload.calculation_id
+                FROM lineage_payloads AS payload
+                WHERE EXISTS (
+                    SELECT 1
+                    FROM lineage_records AS record
+                    WHERE record.calculation_id = payload.calculation_id
+                      AND record.status = :pending_status
+                )
+                  AND (
+                    payload.lease_expires_at_utc IS NULL
+                    OR payload.lease_expires_at_utc < :leased_at_utc
+                  )
+                ORDER BY payload.created_at_utc ASC, payload.calculation_id ASC
+                FOR UPDATE OF payload SKIP LOCKED
+                LIMIT :limit
+            ) AS claimable
+            WHERE payload.calculation_id = claimable.calculation_id
+            RETURNING
+                payload.calculation_id,
+                payload.calculation_type,
+                payload.request_json,
+                payload.response_json,
+                payload.details_json,
+                payload.attempt_count,
+                payload.worker_id,
+                payload.leased_at_utc,
+                payload.lease_expires_at_utc
+            """
+        )
+        rows = session.execute(
+            statement,
+            {
+                "worker_id": worker_id,
+                "leased_at_utc": now,
+                "lease_expires_at_utc": lease_expiry,
+                "pending_status": LineageStatus.PENDING.value,
+                "limit": limit,
+            },
+        ).mappings()
+        return [
+            LineagePayload(
+                calculation_id=UUID(str(row["calculation_id"])),
+                calculation_type=str(row["calculation_type"]),
+                request_json=str(row["request_json"]),
+                response_json=str(row["response_json"]),
+                details=json.loads(str(row["details_json"])),
+                attempt_count=int(row["attempt_count"]),
+                worker_id=None if row["worker_id"] is None else str(row["worker_id"]),
+                leased_at_utc=_format_timestamp(row["leased_at_utc"]),
+                lease_expires_at_utc=_format_timestamp(row["lease_expires_at_utc"]),
+            )
+            for row in rows
+        ]
 
     def _to_payload(self, payload: LineagePayloadModel) -> LineagePayload:
         return LineagePayload(
