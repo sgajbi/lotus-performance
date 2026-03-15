@@ -344,6 +344,65 @@ def test_metrics_include_governed_action_reclaim_pressure_breach_signals(mocker)
     settings.RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT = 3
     settings.RUNTIME_STATUS_RUNTIME_RETENTION_ACTIVE_RUN_AGE_DEGRADE_SECONDS = 120.0
     mocker.patch(
+        "app.services.queue_metrics_service.build_recovery_drill_history_snapshot",
+        return_value=RecoveryDrillHistorySnapshot(
+            status="available",
+            artifact_directory="artifacts/durable-recovery-drill",
+            latest_file_name="latest.json",
+            retained_file_names=["latest.json"],
+            retention_limit=30,
+            retention_max_age_days=90,
+            entries=[
+                RecoveryDrillHistoryEntry(
+                    evidence_file_name="latest.json",
+                    generated_at_utc="2026-03-14T02:00:00Z",
+                    operator_id="ops-user",
+                    backup_identifier="backup-123",
+                    status="passed",
+                )
+            ],
+            total_entries=1,
+            matched_entries=1,
+            returned_entries=1,
+            next_offset=None,
+            applied_filters={},
+            reason=None,
+        ),
+    )
+    mocker.patch(
+        "app.services.queue_metrics_service.build_runtime_retention_history_snapshot",
+        return_value=RuntimeRetentionHistorySnapshot(
+            status="available",
+            artifact_directory="artifacts/runtime-retention-cleanup",
+            latest_file_name="latest.json",
+            retained_file_names=["latest.json"],
+            retention_limit=30,
+            retention_max_age_days=90,
+            entries=[
+                RuntimeRetentionHistoryEntry(
+                    evidence_file_name="latest.json",
+                    generated_at_utc="2026-03-14T02:00:00Z",
+                    operator_id="ops-user",
+                    trigger_mode="scheduled",
+                    job_id="retention-nightly",
+                    cleanup_mode="apply",
+                    status="applied",
+                    retention_days=30,
+                    prunable_execution_count=0,
+                    prunable_compute_job_count=0,
+                    prunable_async_result_count=0,
+                    prunable_lineage_record_count=0,
+                    prunable_lineage_artifact_count=0,
+                )
+            ],
+            total_entries=1,
+            matched_entries=1,
+            returned_entries=1,
+            next_offset=None,
+            applied_filters={},
+        ),
+    )
+    mocker.patch(
         "app.services.queue_metrics_service.build_operator_action_lease_snapshot",
         side_effect=[
             type(
