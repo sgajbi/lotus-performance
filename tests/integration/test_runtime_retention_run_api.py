@@ -76,3 +76,28 @@ def test_runtime_retention_run_api_requires_runtime_manage_capability_when_enter
     assert denied.status_code == 403
     assert denied.json()["reason"] == "missing_capability:operations.runtime.manage"
     assert allowed.status_code == 200
+
+
+def test_runtime_retention_run_api_rejects_immediate_manual_replay(tmp_path, monkeypatch):
+    artifact_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
+    settings = get_settings()
+    monkeypatch.setattr(settings, "RUNTIME_RETENTION_ARTIFACT_PATH", artifact_dir)
+    monkeypatch.setattr(settings, "RUNTIME_RETENTION_MANUAL_RUN_COOLDOWN_SECONDS", 300.0)
+
+    with TestClient(app) as client:
+        first = client.post(
+            "/integration/runtime-retention-cleanups/run",
+            headers={"X-Actor-Id": "ops-user"},
+            json={"apply": False},
+        )
+        second = client.post(
+            "/integration/runtime-retention-cleanups/run",
+            headers={"X-Actor-Id": "ops-user"},
+            json={"apply": False},
+        )
+
+    assert first.status_code == 200
+    assert second.status_code == 409
+    assert second.headers["Retry-After"] == str(second.json()["detail"]["retry_after_seconds"])
+    assert second.json()["detail"]["code"] == "runtime_retention_manual_run_cooldown_active"
+    assert second.json()["detail"]["latest_evidence_file_name"] == first.json()["evidence_file_name"]

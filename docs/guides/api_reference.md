@@ -226,6 +226,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - immediate recovery-drill summary for the run that just executed
   - operator identity carried from `X-Actor-Id` or `X-Service-Identity`
   - retained enterprise request context from `X-Tenant-Id` and `X-Correlation-Id` when supplied
+  - `409` plus `Retry-After` when a recent manual drill already completed inside the configured cooldown window
 - use this when an operator needs an audited recovery drill without shell access
 
 ### `GET /integration/runtime-retention-cleanups`
@@ -258,6 +259,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - operator identity carried from `X-Actor-Id` or `X-Service-Identity`
   - retained enterprise request context from `X-Tenant-Id` and `X-Correlation-Id` when supplied
   - `trigger_mode="manual"` for this control-plane action path
+  - `409` plus `Retry-After` when a recent manual cleanup already completed inside the configured cooldown window
 - use this when an operator needs an audited cleanup preview or a deliberate apply action without shell access
 
 ### `POST /integration/returns/series`

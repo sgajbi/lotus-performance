@@ -12,6 +12,7 @@ from app.models.recovery_drill_history import (
     build_recovery_drill_history_response,
     build_recovery_drill_run_response,
 )
+from app.services.operator_action_guard_service import enforce_recovery_drill_manual_run_cooldown
 from app.services.recovery_drill_history_service import build_recovery_drill_history_snapshot
 from scripts.durable_recovery_drill import run_recovery_drill as execute_recovery_drill
 
@@ -102,6 +103,10 @@ async def run_recovery_drill(
     request: Request,
     recovery_request: RecoveryDrillRunRequest,
 ) -> RecoveryDrillRunResponse:
+    enforce_recovery_drill_manual_run_cooldown(
+        build_recovery_drill_history_snapshot(limit=1),
+        cooldown_seconds=get_settings().RECOVERY_DRILL_MANUAL_RUN_COOLDOWN_SECONDS,
+    )
     evidence = execute_recovery_drill(
         output_dir=get_settings().RECOVERY_DRILL_ARTIFACT_PATH,
         operator_id=_resolve_operator_identity(request),

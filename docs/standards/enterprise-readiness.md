@@ -13,6 +13,7 @@
 - Sensitive operator write surfaces can require governed runtime-management capability, including `POST /integration/runtime-retention-cleanups/run`.
 - Sensitive operator write surfaces can require governed runtime-management capability, including `POST /integration/recovery-drills/run`.
 - Service-owned privileged actions should retain enterprise tenant and correlation context in durable evidence when that context exists at request time.
+- Governed remediation actions should fence accidental manual double-submit with a service-owned cooldown before executing the mutation.
 - Sensitive attributes are redacted before audit emission.
 
 Evidence:
