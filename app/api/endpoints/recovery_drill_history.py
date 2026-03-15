@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 
 from app.core.config import get_settings
 from app.models.recovery_drill_history import (
@@ -13,6 +14,7 @@ from app.models.recovery_drill_history import (
     build_recovery_drill_run_response,
 )
 from app.services.operator_action_guard_service import enforce_recovery_drill_manual_run_cooldown
+from app.services.operator_action_replay_service import resolve_recovery_drill_manual_replay
 from app.services.recovery_drill_history_service import build_recovery_drill_history_snapshot
 from scripts.durable_recovery_drill import run_recovery_drill as execute_recovery_drill
 
@@ -103,12 +105,26 @@ async def run_recovery_drill(
     request: Request,
     recovery_request: RecoveryDrillRunRequest,
 ) -> RecoveryDrillRunResponse:
+    settings = get_settings()
+    history_snapshot = build_recovery_drill_history_snapshot(limit=10)
+    replay = resolve_recovery_drill_manual_replay(
+        history_snapshot,
+        artifact_directory=settings.RECOVERY_DRILL_ARTIFACT_PATH,
+        correlation_id=_resolve_correlation_id(request),
+        backup_identifier=recovery_request.backup_identifier,
+    )
+    if replay is not None:
+        return JSONResponse(
+            status_code=200,
+            content=build_recovery_drill_run_response(**replay.payload).model_dump(mode="json"),
+            headers={"X-Idempotent-Replay": "true"},
+        )
     enforce_recovery_drill_manual_run_cooldown(
-        build_recovery_drill_history_snapshot(limit=1),
-        cooldown_seconds=get_settings().RECOVERY_DRILL_MANUAL_RUN_COOLDOWN_SECONDS,
+        history_snapshot,
+        cooldown_seconds=settings.RECOVERY_DRILL_MANUAL_RUN_COOLDOWN_SECONDS,
     )
     evidence = execute_recovery_drill(
-        output_dir=get_settings().RECOVERY_DRILL_ARTIFACT_PATH,
+        output_dir=settings.RECOVERY_DRILL_ARTIFACT_PATH,
         operator_id=_resolve_operator_identity(request),
         tenant_id=_resolve_tenant_id(request),
         correlation_id=_resolve_correlation_id(request),
