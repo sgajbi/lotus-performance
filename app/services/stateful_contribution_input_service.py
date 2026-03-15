@@ -87,16 +87,15 @@ def build_stateful_contribution_input(
     source_input: StatefulContributionSourceInput,
     metric_basis: str,
     currency_mode: str | None,
+    fx: object,
     reporting_currency: str | None,
 ) -> StatefulContributionNormalizedInput:
     normalized_currency_mode = currency_mode or "BASE_ONLY"
     if normalized_currency_mode == "BOTH":
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=(
-                "Stateful contribution input does not support currency_mode=BOTH until lotus-core "
-                "position-timeseries exposes position_currency."
-            ),
+        _validate_stateful_both_currency_support(
+            rows=source_input.position_rows,
+            reporting_currency=reporting_currency,
+            fx=fx,
         )
 
     portfolio_valuation_points = portfolio_timeseries_to_valuation_points(
@@ -159,6 +158,9 @@ def _position_row_to_daily_point(
     elif reporting_currency is not None:
         begin_value = row.get("beginning_market_value_reporting_currency")
         end_value = row.get("ending_market_value_reporting_currency")
+        if begin_value is None or end_value is None:
+            begin_value = row.get("beginning_market_value_portfolio_currency")
+            end_value = row.get("ending_market_value_portfolio_currency")
     else:
         begin_value = row.get("beginning_market_value_portfolio_currency")
         end_value = row.get("ending_market_value_portfolio_currency")
@@ -208,6 +210,9 @@ def _position_meta_from_row(row: dict[str, object]) -> dict[str, object]:
     security_id = row.get("security_id")
     if isinstance(security_id, str):
         meta["security_id"] = security_id
+    position_currency = row.get("position_currency")
+    if isinstance(position_currency, str) and position_currency:
+        meta["currency"] = position_currency
 
     dimensions_raw = row.get("dimensions")
     if isinstance(dimensions_raw, dict):
@@ -215,6 +220,43 @@ def _position_meta_from_row(row: dict[str, object]) -> dict[str, object]:
             if isinstance(key, str) and value is not None:
                 meta[key] = value
     return meta
+
+
+def _validate_stateful_both_currency_support(
+    *,
+    rows: list[dict[str, object]],
+    reporting_currency: str | None,
+    fx: object,
+) -> None:
+    if not reporting_currency:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Stateful contribution input requires report_ccy when currency_mode=BOTH.",
+        )
+
+    position_currencies = {
+        str(position_currency)
+        for row in rows
+        for position_currency in [row.get("position_currency")]
+        if isinstance(position_currency, str) and position_currency
+    }
+    if not position_currencies:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "Stateful contribution input requires position_currency on lotus-core position-timeseries rows "
+                "when currency_mode=BOTH."
+            ),
+        )
+
+    if any(position_currency != reporting_currency for position_currency in position_currencies) and fx is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "Stateful contribution input requires fx.rates when currency_mode=BOTH and sourced positions "
+                "include currencies different from report_ccy."
+            ),
+        )
 
 
 def _parse_retrieval_metadata(payload: dict[str, object]) -> RetrievalMetadata:

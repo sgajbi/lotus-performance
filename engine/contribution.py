@@ -116,6 +116,13 @@ def _prepare_hierarchical_data(request: ContributionRequest) -> Tuple[pd.DataFra
             twr_config,
             force_base_only=not (request.currency_mode == "BOTH" and position_ccy != request.report_ccy),
         )
+        if (
+            request.currency_mode == "BOTH"
+            and position_ccy == request.report_ccy
+            and "local_ror" not in position_results_df.columns
+        ):
+            position_results_df["local_ror"] = position_results_df[PortfolioColumns.DAILY_ROR.value]
+            position_results_df["fx_ror"] = 0.0
         position_results_df["position_id"] = position.position_id
         for key, value in position.meta.items():
             position_results_df[key] = value

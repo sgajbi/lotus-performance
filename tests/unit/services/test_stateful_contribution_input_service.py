@@ -168,6 +168,7 @@ def test_build_stateful_contribution_input_builds_positions_and_currency_selecti
         metric_basis="NET",
         currency_mode="BASE_ONLY",
         reporting_currency="USD",
+        fx=None,
     )
 
     assert normalized.portfolio_data.metric_basis == "NET"
@@ -181,7 +182,7 @@ def test_build_stateful_contribution_input_builds_positions_and_currency_selecti
     assert normalized.positions_data[0].meta["sector"] == "Tech"
 
 
-def test_build_stateful_contribution_input_rejects_currency_mode_both():
+def test_build_stateful_contribution_input_allows_currency_mode_both_for_same_currency_positions():
     source_input = StatefulContributionSourceInput(
         portfolio_input=StatefulPortfolioInput(
             performance_start_date=date(2025, 1, 1),
@@ -193,17 +194,32 @@ def test_build_stateful_contribution_input_rejects_currency_mode_both():
                 }
             ],
         ),
-        position_rows=[],
+        position_rows=[
+            {
+                "position_id": "POS_1",
+                "security_id": "SEC_1",
+                "position_currency": "USD",
+                "valuation_date": "2025-01-01",
+                "beginning_market_value_reporting_currency": "900",
+                "ending_market_value_reporting_currency": "909",
+                "beginning_market_value_position_currency": "900",
+                "ending_market_value_position_currency": "909",
+                "cash_flows": [],
+            }
+        ],
         position_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
     )
 
-    with pytest.raises(HTTPException, match="currency_mode=BOTH"):
-        build_stateful_contribution_input(
-            source_input=source_input,
-            metric_basis="NET",
-            currency_mode="BOTH",
-            reporting_currency="USD",
-        )
+    normalized = build_stateful_contribution_input(
+        source_input=source_input,
+        metric_basis="NET",
+        currency_mode="BOTH",
+        reporting_currency="USD",
+        fx=None,
+    )
+
+    assert len(normalized.positions_data) == 1
+    assert normalized.positions_data[0].meta["currency"] == "USD"
 
 
 def test_position_row_to_daily_point_uses_local_currency_values():

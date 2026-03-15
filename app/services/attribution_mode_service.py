@@ -19,6 +19,7 @@ from app.services.stateful_attribution_input_service import (
 class ResolvedAttributionRequest:
     attribution_request: AttributionRequest
     input_mode: AttributionInputMode
+    input_count: int
 
 
 async def resolve_attribution_request(
@@ -27,9 +28,11 @@ async def resolve_attribution_request(
     settings: Settings,
 ) -> ResolvedAttributionRequest:
     if request.input_mode == AttributionInputMode.STATELESS:
+        attribution_request = request.to_stateless_attribution_request()
         return ResolvedAttributionRequest(
-            attribution_request=request.to_stateless_attribution_request(),
+            attribution_request=attribution_request,
             input_mode=AttributionInputMode.STATELESS,
+            input_count=_resolved_attribution_input_count(attribution_request),
         )
 
     stateful_input = request.stateful_input
@@ -108,4 +111,16 @@ async def resolve_attribution_request(
             benchmark_groups_data=normalized_input.benchmark_groups_data,
         ),
         input_mode=AttributionInputMode.STATEFUL,
+        input_count=(
+            len(normalized_input.instruments_data)
+            + len(normalized_input.benchmark_groups_data)
+        ),
+    )
+
+
+def _resolved_attribution_input_count(request: AttributionRequest) -> int:
+    return (
+        len(request.instruments_data or [])
+        + len(request.portfolio_groups_data or [])
+        + len(request.benchmark_groups_data or [])
     )

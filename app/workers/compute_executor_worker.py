@@ -11,8 +11,10 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.core.config import get_settings
-from app.models.attribution_analytics_requests import AttributionAnalyticsRequest
-from app.models.contribution_analytics_requests import ContributionAnalyticsRequest
+from app.models.attribution_analytics_requests import AttributionAnalyticsRequest, AttributionInputMode
+from app.models.attribution_requests import AttributionRequest
+from app.models.contribution_analytics_requests import ContributionAnalyticsRequest, ContributionInputMode
+from app.models.contribution_requests import ContributionRequest
 from app.models.returns_series import ReturnsSeriesRequest
 from app.services.async_result_store import AsyncResultStore, async_result_store
 from app.services.attribution_mode_service import resolve_attribution_request
@@ -92,13 +94,12 @@ def _process_pending_jobs(
                 request = ReturnsSeriesRequest.model_validate(job.request_payload)
                 response = asyncio.run(active_returns_series_calculator(request))
             elif job.analytics_type == "Attribution":
-                analytics_request = AttributionAnalyticsRequest.model_validate(job.request_payload)
-                resolved_attribution = asyncio.run(
-                    resolve_attribution_request(analytics_request, settings=active_settings)
+                attribution_request, attribution_input_mode = _resolve_async_attribution_job_request(
+                    job.request_payload,
+                    settings=active_settings,
                 )
-                request = resolved_attribution.attribution_request
                 input_fingerprint, calculation_hash = generate_canonical_hash(
-                    request,
+                    attribution_request,
                     active_settings.APP_VERSION,
                 )
                 active_execution_store.update_execution_identity(
@@ -107,19 +108,18 @@ def _process_pending_jobs(
                     calculation_hash=calculation_hash,
                 )
                 response = active_attribution_calculator(
-                    request,
+                    attribution_request,
                     input_fingerprint=input_fingerprint,
                     calculation_hash=calculation_hash,
-                    input_mode=resolved_attribution.input_mode,
+                    input_mode=attribution_input_mode,
                 )
             elif job.analytics_type == "Contribution":
-                analytics_request = ContributionAnalyticsRequest.model_validate(job.request_payload)
-                resolved_contribution = asyncio.run(
-                    resolve_contribution_request(analytics_request, settings=active_settings)
+                contribution_request, contribution_input_mode = _resolve_async_contribution_job_request(
+                    job.request_payload,
+                    settings=active_settings,
                 )
-                request = resolved_contribution.contribution_request
                 input_fingerprint, calculation_hash = generate_canonical_hash(
-                    request,
+                    contribution_request,
                     active_settings.APP_VERSION,
                 )
                 active_execution_store.update_execution_identity(
@@ -128,10 +128,10 @@ def _process_pending_jobs(
                     calculation_hash=calculation_hash,
                 )
                 response = active_contribution_calculator(
-                    request,
+                    contribution_request,
                     input_fingerprint=input_fingerprint,
                     calculation_hash=calculation_hash,
-                    input_mode=resolved_contribution.input_mode,
+                    input_mode=contribution_input_mode,
                 )
             else:
                 raise ValueError(f"Unsupported compute job analytics_type: {job.analytics_type}")
@@ -187,6 +187,38 @@ def _is_retryable_exception(exc: Exception) -> bool:
     if isinstance(exc, HTTPException):
         return exc.status_code >= 500
     return True
+
+
+def _resolve_async_contribution_job_request(
+    payload: dict[str, Any],
+    *,
+    settings,
+) -> tuple[ContributionRequest, ContributionInputMode]:
+    try:
+        request = ContributionRequest.model_validate(payload)
+    except ValidationError:
+        analytics_request = ContributionAnalyticsRequest.model_validate(payload)
+        resolved_contribution = asyncio.run(
+            resolve_contribution_request(analytics_request, settings=settings)
+        )
+        return resolved_contribution.contribution_request, resolved_contribution.input_mode
+    return request, ContributionInputMode.STATEFUL
+
+
+def _resolve_async_attribution_job_request(
+    payload: dict[str, Any],
+    *,
+    settings,
+) -> tuple[AttributionRequest, AttributionInputMode]:
+    try:
+        request = AttributionRequest.model_validate(payload)
+    except ValidationError:
+        analytics_request = AttributionAnalyticsRequest.model_validate(payload)
+        resolved_attribution = asyncio.run(
+            resolve_attribution_request(analytics_request, settings=settings)
+        )
+        return resolved_attribution.attribution_request, resolved_attribution.input_mode
+    return request, AttributionInputMode.STATEFUL
 
 
 def _record_terminal_failure(

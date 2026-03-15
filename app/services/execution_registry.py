@@ -370,6 +370,20 @@ class ExecutionRegistry:
             execution.input_fingerprint = input_fingerprint
             execution.calculation_hash = calculation_hash
 
+    def update_execution_contract(
+        self,
+        calculation_id: UUID,
+        *,
+        execution_mode: str | None = None,
+        requested_window: dict[str, Any] | None = None,
+    ) -> None:
+        with self._session() as session:
+            execution = self._get_execution_model(session, calculation_id)
+            if execution_mode is not None:
+                execution.execution_mode = execution_mode
+            if requested_window is not None:
+                execution.requested_window_json = json.dumps(requested_window, sort_keys=True)
+
     def start_stage(self, calculation_id: UUID, stage_name: str, details: dict[str, Any] | None = None) -> None:
         with self._session() as session:
             self._get_execution_model(session, calculation_id)

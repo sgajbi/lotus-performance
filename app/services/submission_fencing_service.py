@@ -120,3 +120,47 @@ def register_async_submission_or_raise(
 
     accepted = accepted_response_factory(calculation_id)
     return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=accepted.model_dump(mode="json"))
+
+
+def promote_existing_execution_to_async_submission_or_raise(
+    *,
+    calculation_id: UUID,
+    analytics_type: str,
+    requested_window: dict[str, Any],
+    input_fingerprint: str | None,
+    calculation_hash: str | None,
+    request_payload: dict[str, Any],
+    offload_reason: str,
+    accepted_response_factory: Callable[[UUID], BaseModel],
+) -> JSONResponse:
+    job_registration = compute_job_store.register_job(
+        calculation_id=calculation_id,
+        analytics_type=analytics_type,
+        request_payload=request_payload,
+    )
+    if job_registration.status == ComputeJobRegistrationStatus.CONFLICT:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "A different async compute job already exists for this calculation_id. "
+                "Reuse the original request exactly or submit with a new calculation_id."
+            ),
+        )
+    execution_registry.update_execution_contract(
+        calculation_id,
+        execution_mode="async",
+        requested_window=requested_window,
+    )
+    execution_registry.update_execution_identity(
+        calculation_id,
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+    )
+    execution_registry.start_stage(calculation_id, "submission")
+    execution_registry.complete_stage(
+        calculation_id,
+        "submission",
+        details={"offload_reason": offload_reason},
+    )
+    accepted = accepted_response_factory(calculation_id)
+    return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=accepted.model_dump(mode="json"))
