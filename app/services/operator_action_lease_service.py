@@ -36,6 +36,19 @@ class OperatorActionLeaseSnapshot:
     status: str
     reason: str | None
     active_leases: tuple[ActiveOperatorActionLease, ...]
+    latest_reclaimed_lease: "ReclaimedOperatorActionLeaseEvent | None"
+
+
+@dataclass(frozen=True)
+class ReclaimedOperatorActionLeaseEvent:
+    action_key: str
+    action_name: str
+    operator_id: str
+    tenant_id: str | None
+    governed_target: str
+    acquired_at_utc: str
+    reclaimed_at_utc: str
+    stale_after_seconds: float
 
 
 def build_runtime_retention_action_key(
@@ -91,6 +104,7 @@ def operator_action_lease(
         if _reclaim_stale_lock(
             lock_path=lock_path,
             stale_after_seconds=stale_after_seconds,
+            action_key=action_key,
             now_utc=now_utc,
         ):
             fd = os.open(str(lock_path), flags)
@@ -135,7 +149,12 @@ def build_operator_action_lease_snapshot(
 ) -> OperatorActionLeaseSnapshot:
     locks_dir = artifact_directory / ".action-locks"
     if not locks_dir.exists():
-        return OperatorActionLeaseSnapshot(status="available", reason=None, active_leases=())
+        return OperatorActionLeaseSnapshot(
+            status="available",
+            reason=None,
+            active_leases=(),
+            latest_reclaimed_lease=None,
+        )
     try:
         leases: list[ActiveOperatorActionLease | _InvalidLease] = []
         for lock_path in sorted(locks_dir.glob("*.lock")):
@@ -152,20 +171,40 @@ def build_operator_action_lease_snapshot(
             status="unavailable",
             reason="operator_action_lease_directory_unreadable",
             active_leases=(),
+            latest_reclaimed_lease=None,
         )
     if any(lease is _INVALID_LEASE for lease in leases):
         return OperatorActionLeaseSnapshot(
             status="unavailable",
             reason="operator_action_lease_invalid",
             active_leases=(),
+            latest_reclaimed_lease=None,
         )
+    latest_reclaimed_lease_candidate = _read_latest_reclaimed_lease(locks_dir=locks_dir, action_name=action_name)
+    if latest_reclaimed_lease_candidate is _INVALID_LEASE:
+        return OperatorActionLeaseSnapshot(
+            status="unavailable",
+            reason="operator_action_reclaim_event_invalid",
+            active_leases=(),
+            latest_reclaimed_lease=None,
+        )
+    latest_reclaimed_lease = (
+        latest_reclaimed_lease_candidate
+        if isinstance(latest_reclaimed_lease_candidate, ReclaimedOperatorActionLeaseEvent)
+        else None
+    )
     typed_leases = tuple(
         sorted(
             (lease for lease in leases if isinstance(lease, ActiveOperatorActionLease)),
             key=lambda item: _parse_utc(item.acquired_at_utc),
         )
     )
-    return OperatorActionLeaseSnapshot(status="available", reason=None, active_leases=typed_leases)
+    return OperatorActionLeaseSnapshot(
+        status="available",
+        reason=None,
+        active_leases=typed_leases,
+        latest_reclaimed_lease=latest_reclaimed_lease,
+    )
 
 
 def _sanitize_key(*parts: str) -> str:
@@ -216,6 +255,74 @@ def _read_active_operator_action_lease(*, lock_path: Path) -> ActiveOperatorActi
     )
 
 
+def _read_latest_reclaimed_lease(
+    *,
+    locks_dir: Path,
+    action_name: str | None,
+) -> ReclaimedOperatorActionLeaseEvent | _InvalidLease | None:
+    latest_reclaim_path = locks_dir / "latest-reclaim.json"
+    if not latest_reclaim_path.exists():
+        return None
+    try:
+        payload = json.loads(latest_reclaim_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return _INVALID_LEASE
+    if not isinstance(payload, dict):
+        return _INVALID_LEASE
+    candidate_action_name = payload.get("action_name")
+    if not isinstance(candidate_action_name, str):
+        return _INVALID_LEASE
+    if action_name is not None and candidate_action_name != action_name:
+        return None
+    operator_id = payload.get("operator_id")
+    tenant_id = payload.get("tenant_id")
+    governed_target = payload.get("governed_target")
+    acquired_at_utc = payload.get("acquired_at_utc")
+    reclaimed_at_utc = payload.get("reclaimed_at_utc")
+    stale_after_seconds = payload.get("stale_after_seconds")
+    action_key = payload.get("action_key")
+    if not isinstance(operator_id, str):
+        return _INVALID_LEASE
+    if tenant_id is not None and not isinstance(tenant_id, str):
+        return _INVALID_LEASE
+    if not isinstance(governed_target, str):
+        return _INVALID_LEASE
+    if not isinstance(acquired_at_utc, str):
+        return _INVALID_LEASE
+    if not isinstance(reclaimed_at_utc, str):
+        return _INVALID_LEASE
+    if not isinstance(stale_after_seconds, (int, float)):
+        return _INVALID_LEASE
+    if not isinstance(action_key, str):
+        return _INVALID_LEASE
+    try:
+        _parse_utc(acquired_at_utc)
+        _parse_utc(reclaimed_at_utc)
+    except ValueError:
+        return _INVALID_LEASE
+    return ReclaimedOperatorActionLeaseEvent(
+        action_key=action_key,
+        action_name=candidate_action_name,
+        operator_id=operator_id,
+        tenant_id=tenant_id,
+        governed_target=governed_target,
+        acquired_at_utc=acquired_at_utc,
+        reclaimed_at_utc=reclaimed_at_utc,
+        stale_after_seconds=float(stale_after_seconds),
+    )
+
+
+def _write_latest_reclaimed_lease(*, locks_dir: Path, event: ReclaimedOperatorActionLeaseEvent) -> None:
+    latest_reclaim_path = locks_dir / "latest-reclaim.json"
+    temp_path = locks_dir / "latest-reclaim.json.tmp"
+    payload = json.dumps(asdict(event), indent=2)
+    with temp_path.open("w", encoding="utf-8") as handle:
+        handle.write(payload)
+        handle.flush()
+        os.fsync(handle.fileno())
+    os.replace(temp_path, latest_reclaim_path)
+
+
 def _parse_utc(timestamp_utc: str) -> datetime:
     parsed = datetime.fromisoformat(timestamp_utc.replace("Z", "+00:00"))
     if parsed.tzinfo is None:
@@ -227,6 +334,7 @@ def _reclaim_stale_lock(
     *,
     lock_path: Path,
     stale_after_seconds: float,
+    action_key: str,
     now_utc: datetime | None,
 ) -> bool:
     if stale_after_seconds <= 0:
@@ -237,7 +345,19 @@ def _reclaim_stale_lock(
         return False
     if not isinstance(payload, dict):
         return False
+    action_name = payload.get("action_name")
+    operator_id = payload.get("operator_id")
+    tenant_id = payload.get("tenant_id")
+    governed_target = payload.get("governed_target")
     acquired_at_utc = payload.get("acquired_at_utc")
+    if not isinstance(action_name, str):
+        return False
+    if not isinstance(operator_id, str):
+        return False
+    if tenant_id is not None and not isinstance(tenant_id, str):
+        return False
+    if not isinstance(governed_target, str):
+        return False
     if not isinstance(acquired_at_utc, str):
         return False
     current_time = now_utc or datetime.now(UTC)
@@ -245,4 +365,20 @@ def _reclaim_stale_lock(
     if (current_time - acquired_at).total_seconds() <= stale_after_seconds:
         return False
     lock_path.unlink(missing_ok=True)
+    try:
+        _write_latest_reclaimed_lease(
+            locks_dir=lock_path.parent,
+            event=ReclaimedOperatorActionLeaseEvent(
+                action_key=action_key,
+                action_name=action_name,
+                operator_id=operator_id,
+                tenant_id=tenant_id,
+                governed_target=governed_target,
+                acquired_at_utc=acquired_at_utc,
+                reclaimed_at_utc=current_time.isoformat().replace("+00:00", "Z"),
+                stale_after_seconds=stale_after_seconds,
+            ),
+        )
+    except OSError:
+        pass
     return True

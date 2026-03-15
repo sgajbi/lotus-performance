@@ -130,7 +130,9 @@ active degradation, the control plane also returns the observed value and breach
 incident handling can distinguish "what fired" from "by how much" without reconstructing it from
 raw queue counters. The same snapshot now exposes governed recovery-drill and runtime-retention
 action lease visibility, including whether an action is active, how many governed runs are
-currently in flight, and the oldest active-run anchor for operator triage.
+currently in flight, the oldest active-run anchor for operator triage, and the latest stale
+lease reclaim anchor so support can distinguish an active run from a recently recovered
+post-crash or post-interruption action.
 
 ## Failure recovery model
 

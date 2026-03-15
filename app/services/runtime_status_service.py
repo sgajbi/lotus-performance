@@ -86,6 +86,12 @@ class RecoveryDrillStatus:
     oldest_active_run_governed_target: str | None
     oldest_active_run_acquired_at_utc: str | None
     oldest_active_run_age_seconds: float | None
+    latest_reclaimed_run_operator_id: str | None
+    latest_reclaimed_run_tenant_id: str | None
+    latest_reclaimed_run_governed_target: str | None
+    latest_reclaimed_run_acquired_at_utc: str | None
+    latest_reclaimed_run_reclaimed_at_utc: str | None
+    latest_reclaimed_run_age_seconds: float | None
     latest_generated_at_utc: str | None
     latest_status: str | None
     latest_operator_id: str | None
@@ -112,6 +118,12 @@ class RuntimeRetentionStatus:
     oldest_active_run_governed_target: str | None
     oldest_active_run_acquired_at_utc: str | None
     oldest_active_run_age_seconds: float | None
+    latest_reclaimed_run_operator_id: str | None
+    latest_reclaimed_run_tenant_id: str | None
+    latest_reclaimed_run_governed_target: str | None
+    latest_reclaimed_run_acquired_at_utc: str | None
+    latest_reclaimed_run_reclaimed_at_utc: str | None
+    latest_reclaimed_run_age_seconds: float | None
     preview_status: str
     preview_reason: str | None
     current_cutoff_utc: str | None
@@ -148,6 +160,12 @@ class OperatorActionStatus:
     oldest_active_run_governed_target: str | None
     oldest_active_run_acquired_at_utc: str | None
     oldest_active_run_age_seconds: float | None
+    latest_reclaimed_run_operator_id: str | None
+    latest_reclaimed_run_tenant_id: str | None
+    latest_reclaimed_run_governed_target: str | None
+    latest_reclaimed_run_acquired_at_utc: str | None
+    latest_reclaimed_run_reclaimed_at_utc: str | None
+    latest_reclaimed_run_age_seconds: float | None
 
 
 @dataclass(frozen=True)
@@ -402,6 +420,12 @@ def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
             oldest_active_run_governed_target=active_run_status.oldest_active_run_governed_target,
             oldest_active_run_acquired_at_utc=active_run_status.oldest_active_run_acquired_at_utc,
             oldest_active_run_age_seconds=active_run_status.oldest_active_run_age_seconds,
+            latest_reclaimed_run_operator_id=active_run_status.latest_reclaimed_run_operator_id,
+            latest_reclaimed_run_tenant_id=active_run_status.latest_reclaimed_run_tenant_id,
+            latest_reclaimed_run_governed_target=active_run_status.latest_reclaimed_run_governed_target,
+            latest_reclaimed_run_acquired_at_utc=active_run_status.latest_reclaimed_run_acquired_at_utc,
+            latest_reclaimed_run_reclaimed_at_utc=active_run_status.latest_reclaimed_run_reclaimed_at_utc,
+            latest_reclaimed_run_age_seconds=active_run_status.latest_reclaimed_run_age_seconds,
             latest_generated_at_utc=None,
             latest_status=None,
             latest_operator_id=None,
@@ -428,6 +452,12 @@ def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
             oldest_active_run_governed_target=active_run_status.oldest_active_run_governed_target,
             oldest_active_run_acquired_at_utc=active_run_status.oldest_active_run_acquired_at_utc,
             oldest_active_run_age_seconds=active_run_status.oldest_active_run_age_seconds,
+            latest_reclaimed_run_operator_id=active_run_status.latest_reclaimed_run_operator_id,
+            latest_reclaimed_run_tenant_id=active_run_status.latest_reclaimed_run_tenant_id,
+            latest_reclaimed_run_governed_target=active_run_status.latest_reclaimed_run_governed_target,
+            latest_reclaimed_run_acquired_at_utc=active_run_status.latest_reclaimed_run_acquired_at_utc,
+            latest_reclaimed_run_reclaimed_at_utc=active_run_status.latest_reclaimed_run_reclaimed_at_utc,
+            latest_reclaimed_run_age_seconds=active_run_status.latest_reclaimed_run_age_seconds,
             latest_generated_at_utc=None,
             latest_status=None,
             latest_operator_id=None,
@@ -472,6 +502,12 @@ def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
         oldest_active_run_governed_target=active_run_status.oldest_active_run_governed_target,
         oldest_active_run_acquired_at_utc=active_run_status.oldest_active_run_acquired_at_utc,
         oldest_active_run_age_seconds=active_run_status.oldest_active_run_age_seconds,
+        latest_reclaimed_run_operator_id=active_run_status.latest_reclaimed_run_operator_id,
+        latest_reclaimed_run_tenant_id=active_run_status.latest_reclaimed_run_tenant_id,
+        latest_reclaimed_run_governed_target=active_run_status.latest_reclaimed_run_governed_target,
+        latest_reclaimed_run_acquired_at_utc=active_run_status.latest_reclaimed_run_acquired_at_utc,
+        latest_reclaimed_run_reclaimed_at_utc=active_run_status.latest_reclaimed_run_reclaimed_at_utc,
+        latest_reclaimed_run_age_seconds=active_run_status.latest_reclaimed_run_age_seconds,
         latest_generated_at_utc=latest.generated_at_utc,
         latest_status=latest.status,
         latest_operator_id=latest.operator_id,
@@ -502,6 +538,12 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
             oldest_active_run_governed_target=active_run_status.oldest_active_run_governed_target,
             oldest_active_run_acquired_at_utc=active_run_status.oldest_active_run_acquired_at_utc,
             oldest_active_run_age_seconds=active_run_status.oldest_active_run_age_seconds,
+            latest_reclaimed_run_operator_id=active_run_status.latest_reclaimed_run_operator_id,
+            latest_reclaimed_run_tenant_id=active_run_status.latest_reclaimed_run_tenant_id,
+            latest_reclaimed_run_governed_target=active_run_status.latest_reclaimed_run_governed_target,
+            latest_reclaimed_run_acquired_at_utc=active_run_status.latest_reclaimed_run_acquired_at_utc,
+            latest_reclaimed_run_reclaimed_at_utc=active_run_status.latest_reclaimed_run_reclaimed_at_utc,
+            latest_reclaimed_run_age_seconds=active_run_status.latest_reclaimed_run_age_seconds,
             preview_status="unavailable",
             preview_reason="runtime_retention_preview_unavailable",
             current_cutoff_utc=None,
@@ -547,6 +589,12 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
             oldest_active_run_governed_target=active_run_status.oldest_active_run_governed_target,
             oldest_active_run_acquired_at_utc=active_run_status.oldest_active_run_acquired_at_utc,
             oldest_active_run_age_seconds=active_run_status.oldest_active_run_age_seconds,
+            latest_reclaimed_run_operator_id=active_run_status.latest_reclaimed_run_operator_id,
+            latest_reclaimed_run_tenant_id=active_run_status.latest_reclaimed_run_tenant_id,
+            latest_reclaimed_run_governed_target=active_run_status.latest_reclaimed_run_governed_target,
+            latest_reclaimed_run_acquired_at_utc=active_run_status.latest_reclaimed_run_acquired_at_utc,
+            latest_reclaimed_run_reclaimed_at_utc=active_run_status.latest_reclaimed_run_reclaimed_at_utc,
+            latest_reclaimed_run_age_seconds=active_run_status.latest_reclaimed_run_age_seconds,
             preview_status=preview_status,
             preview_reason=preview_reason,
             current_cutoff_utc=None if preview_summary is None else preview_summary.cutoff_utc,
@@ -619,6 +667,12 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
         oldest_active_run_governed_target=active_run_status.oldest_active_run_governed_target,
         oldest_active_run_acquired_at_utc=active_run_status.oldest_active_run_acquired_at_utc,
         oldest_active_run_age_seconds=active_run_status.oldest_active_run_age_seconds,
+        latest_reclaimed_run_operator_id=active_run_status.latest_reclaimed_run_operator_id,
+        latest_reclaimed_run_tenant_id=active_run_status.latest_reclaimed_run_tenant_id,
+        latest_reclaimed_run_governed_target=active_run_status.latest_reclaimed_run_governed_target,
+        latest_reclaimed_run_acquired_at_utc=active_run_status.latest_reclaimed_run_acquired_at_utc,
+        latest_reclaimed_run_reclaimed_at_utc=active_run_status.latest_reclaimed_run_reclaimed_at_utc,
+        latest_reclaimed_run_age_seconds=active_run_status.latest_reclaimed_run_age_seconds,
         preview_status=preview_status,
         preview_reason=preview_reason,
         current_cutoff_utc=None if preview_summary is None else preview_summary.cutoff_utc,
@@ -823,6 +877,12 @@ def _build_missing_recovery_drill_status(
         oldest_active_run_governed_target=active_run_status.oldest_active_run_governed_target,
         oldest_active_run_acquired_at_utc=active_run_status.oldest_active_run_acquired_at_utc,
         oldest_active_run_age_seconds=active_run_status.oldest_active_run_age_seconds,
+        latest_reclaimed_run_operator_id=active_run_status.latest_reclaimed_run_operator_id,
+        latest_reclaimed_run_tenant_id=active_run_status.latest_reclaimed_run_tenant_id,
+        latest_reclaimed_run_governed_target=active_run_status.latest_reclaimed_run_governed_target,
+        latest_reclaimed_run_acquired_at_utc=active_run_status.latest_reclaimed_run_acquired_at_utc,
+        latest_reclaimed_run_reclaimed_at_utc=active_run_status.latest_reclaimed_run_reclaimed_at_utc,
+        latest_reclaimed_run_age_seconds=active_run_status.latest_reclaimed_run_age_seconds,
         latest_generated_at_utc=None,
         latest_status=None,
         latest_operator_id=None,
@@ -863,6 +923,12 @@ def _build_missing_runtime_retention_status(
         oldest_active_run_governed_target=active_run_status.oldest_active_run_governed_target,
         oldest_active_run_acquired_at_utc=active_run_status.oldest_active_run_acquired_at_utc,
         oldest_active_run_age_seconds=active_run_status.oldest_active_run_age_seconds,
+        latest_reclaimed_run_operator_id=active_run_status.latest_reclaimed_run_operator_id,
+        latest_reclaimed_run_tenant_id=active_run_status.latest_reclaimed_run_tenant_id,
+        latest_reclaimed_run_governed_target=active_run_status.latest_reclaimed_run_governed_target,
+        latest_reclaimed_run_acquired_at_utc=active_run_status.latest_reclaimed_run_acquired_at_utc,
+        latest_reclaimed_run_reclaimed_at_utc=active_run_status.latest_reclaimed_run_reclaimed_at_utc,
+        latest_reclaimed_run_age_seconds=active_run_status.latest_reclaimed_run_age_seconds,
         preview_status=preview_status,
         preview_reason=preview_reason,
         current_cutoff_utc=None if preview_summary is None else preview_summary.cutoff_utc,
@@ -917,6 +983,12 @@ def _build_operator_action_status(*, artifact_directory, action_name: str) -> Op
             oldest_active_run_governed_target=None,
             oldest_active_run_acquired_at_utc=None,
             oldest_active_run_age_seconds=None,
+            latest_reclaimed_run_operator_id=None,
+            latest_reclaimed_run_tenant_id=None,
+            latest_reclaimed_run_governed_target=None,
+            latest_reclaimed_run_acquired_at_utc=None,
+            latest_reclaimed_run_reclaimed_at_utc=None,
+            latest_reclaimed_run_age_seconds=None,
         )
     if snapshot.status != "available":
         return OperatorActionStatus(
@@ -928,7 +1000,22 @@ def _build_operator_action_status(*, artifact_directory, action_name: str) -> Op
             oldest_active_run_governed_target=None,
             oldest_active_run_acquired_at_utc=None,
             oldest_active_run_age_seconds=None,
+            latest_reclaimed_run_operator_id=None,
+            latest_reclaimed_run_tenant_id=None,
+            latest_reclaimed_run_governed_target=None,
+            latest_reclaimed_run_acquired_at_utc=None,
+            latest_reclaimed_run_reclaimed_at_utc=None,
+            latest_reclaimed_run_age_seconds=None,
         )
+    latest_reclaimed_run = snapshot.latest_reclaimed_lease
+    latest_reclaimed_run_age_seconds = None
+    if latest_reclaimed_run is not None:
+        reclaimed_at = datetime.fromisoformat(latest_reclaimed_run.reclaimed_at_utc.replace("Z", "+00:00"))
+        if reclaimed_at.tzinfo is None:
+            reclaimed_at = reclaimed_at.replace(tzinfo=UTC)
+        else:
+            reclaimed_at = reclaimed_at.astimezone(UTC)
+        latest_reclaimed_run_age_seconds = max(0.0, (datetime.now(UTC) - reclaimed_at).total_seconds())
     if not snapshot.active_leases:
         return OperatorActionStatus(
             status="available",
@@ -939,6 +1026,20 @@ def _build_operator_action_status(*, artifact_directory, action_name: str) -> Op
             oldest_active_run_governed_target=None,
             oldest_active_run_acquired_at_utc=None,
             oldest_active_run_age_seconds=None,
+            latest_reclaimed_run_operator_id=(
+                None if latest_reclaimed_run is None else latest_reclaimed_run.operator_id
+            ),
+            latest_reclaimed_run_tenant_id=None if latest_reclaimed_run is None else latest_reclaimed_run.tenant_id,
+            latest_reclaimed_run_governed_target=(
+                None if latest_reclaimed_run is None else latest_reclaimed_run.governed_target
+            ),
+            latest_reclaimed_run_acquired_at_utc=(
+                None if latest_reclaimed_run is None else latest_reclaimed_run.acquired_at_utc
+            ),
+            latest_reclaimed_run_reclaimed_at_utc=(
+                None if latest_reclaimed_run is None else latest_reclaimed_run.reclaimed_at_utc
+            ),
+            latest_reclaimed_run_age_seconds=latest_reclaimed_run_age_seconds,
         )
     oldest = snapshot.active_leases[0]
     acquired_at = datetime.fromisoformat(oldest.acquired_at_utc.replace("Z", "+00:00"))
@@ -955,6 +1056,18 @@ def _build_operator_action_status(*, artifact_directory, action_name: str) -> Op
         oldest_active_run_governed_target=oldest.governed_target,
         oldest_active_run_acquired_at_utc=oldest.acquired_at_utc,
         oldest_active_run_age_seconds=max(0.0, (datetime.now(UTC) - acquired_at).total_seconds()),
+        latest_reclaimed_run_operator_id=None if latest_reclaimed_run is None else latest_reclaimed_run.operator_id,
+        latest_reclaimed_run_tenant_id=None if latest_reclaimed_run is None else latest_reclaimed_run.tenant_id,
+        latest_reclaimed_run_governed_target=(
+            None if latest_reclaimed_run is None else latest_reclaimed_run.governed_target
+        ),
+        latest_reclaimed_run_acquired_at_utc=(
+            None if latest_reclaimed_run is None else latest_reclaimed_run.acquired_at_utc
+        ),
+        latest_reclaimed_run_reclaimed_at_utc=(
+            None if latest_reclaimed_run is None else latest_reclaimed_run.reclaimed_at_utc
+        ),
+        latest_reclaimed_run_age_seconds=latest_reclaimed_run_age_seconds,
     )
 
 

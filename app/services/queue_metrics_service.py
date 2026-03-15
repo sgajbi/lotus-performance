@@ -107,6 +107,10 @@ class DurableQueueCollector:
             "Age in seconds of the oldest active governed recovery-drill run.",
         )
         yield GaugeMetricFamily(
+            "lotus_performance_recovery_drill_latest_reclaimed_action_age_seconds",
+            "Age in seconds since the latest stale governed recovery-drill lease reclaim.",
+        )
+        yield GaugeMetricFamily(
             "lotus_performance_recovery_drill_latest_age_seconds",
             "Age in seconds of the latest retained durable recovery drill.",
         )
@@ -135,6 +139,10 @@ class DurableQueueCollector:
         yield GaugeMetricFamily(
             "lotus_performance_runtime_retention_oldest_active_action_age_seconds",
             "Age in seconds of the oldest active governed runtime-retention cleanup.",
+        )
+        yield GaugeMetricFamily(
+            "lotus_performance_runtime_retention_latest_reclaimed_action_age_seconds",
+            "Age in seconds since the latest stale governed runtime-retention lease reclaim.",
         )
         yield GaugeMetricFamily(
             "lotus_performance_runtime_retention_latest_age_seconds",
@@ -553,6 +561,16 @@ class DurableQueueCollector:
                     _age_seconds(recovery_drill_action_snapshot.active_leases[0].acquired_at_utc),
                 )
                 yield recovery_drill_oldest_active_action_age
+            if recovery_drill_action_snapshot.latest_reclaimed_lease is not None:
+                recovery_drill_latest_reclaimed_action_age = GaugeMetricFamily(
+                    "lotus_performance_recovery_drill_latest_reclaimed_action_age_seconds",
+                    "Age in seconds since the latest stale governed recovery-drill lease reclaim.",
+                )
+                recovery_drill_latest_reclaimed_action_age.add_metric(
+                    [],
+                    _age_seconds(recovery_drill_action_snapshot.latest_reclaimed_lease.reclaimed_at_utc),
+                )
+                yield recovery_drill_latest_reclaimed_action_age
 
         runtime_retention_thresholds = GaugeMetricFamily(
             "lotus_performance_runtime_retention_policy_threshold",
@@ -582,6 +600,16 @@ class DurableQueueCollector:
                     _age_seconds(runtime_retention_action_snapshot.active_leases[0].acquired_at_utc),
                 )
                 yield runtime_retention_oldest_active_action_age
+            if runtime_retention_action_snapshot.latest_reclaimed_lease is not None:
+                runtime_retention_latest_reclaimed_action_age = GaugeMetricFamily(
+                    "lotus_performance_runtime_retention_latest_reclaimed_action_age_seconds",
+                    "Age in seconds since the latest stale governed runtime-retention lease reclaim.",
+                )
+                runtime_retention_latest_reclaimed_action_age.add_metric(
+                    [],
+                    _age_seconds(runtime_retention_action_snapshot.latest_reclaimed_lease.reclaimed_at_utc),
+                )
+                yield runtime_retention_latest_reclaimed_action_age
 
         if (
             recovery_drill_snapshot is not None

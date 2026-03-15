@@ -24,6 +24,7 @@ def _isolate_runtime_assurance_history(mocker):
                 "status": "available",
                 "reason": None,
                 "active_leases": (),
+                "latest_reclaimed_lease": None,
             },
         )(),
     )
@@ -167,11 +168,13 @@ def test_runtime_status_reports_durable_queue_state():
     assert body["recovery_drill"]["status"] == "available"
     assert body["recovery_drill"]["active_run_status"] == "available"
     assert body["recovery_drill"]["active_run_count"] == 0
+    assert body["recovery_drill"].get("latest_reclaimed_run_operator_id") is None
     assert body["recovery_drill"]["degradation_reasons"] == []
     assert body["recovery_drill_policy"]["max_age_seconds"] >= 0.0
     assert body["runtime_retention"]["status"] == "available"
     assert body["runtime_retention"]["active_run_status"] == "available"
     assert body["runtime_retention"]["active_run_count"] == 0
+    assert body["runtime_retention"].get("latest_reclaimed_run_operator_id") is None
     assert body["runtime_retention"]["degradation_reasons"] == []
     assert body["runtime_retention"]["preview_status"] == "available"
     assert body["runtime_retention_policy"]["max_age_seconds"] >= 0.0
@@ -199,6 +202,17 @@ def test_runtime_status_reports_active_governed_action_visibility(mocker):
                             },
                         )(),
                     ),
+                    "latest_reclaimed_lease": type(
+                        "Reclaim",
+                        (),
+                        {
+                            "operator_id": "ops-user-old",
+                            "tenant_id": "tenant-a",
+                            "governed_target": "backup-old",
+                            "acquired_at_utc": "2026-03-13T23:00:00Z",
+                            "reclaimed_at_utc": "2026-03-14T00:30:00Z",
+                        },
+                    )(),
                 },
             )(),
             type(
@@ -219,6 +233,17 @@ def test_runtime_status_reports_active_governed_action_visibility(mocker):
                             },
                         )(),
                     ),
+                    "latest_reclaimed_lease": type(
+                        "Reclaim",
+                        (),
+                        {
+                            "operator_id": "ops-batch-old",
+                            "tenant_id": "tenant-a",
+                            "governed_target": "apply:30:old-job",
+                            "acquired_at_utc": "2026-03-13T22:30:00Z",
+                            "reclaimed_at_utc": "2026-03-14T01:30:00Z",
+                        },
+                    )(),
                 },
             )(),
         ],
@@ -233,10 +258,14 @@ def test_runtime_status_reports_active_governed_action_visibility(mocker):
     assert body["recovery_drill"]["active_run_count"] == 1
     assert body["recovery_drill"]["oldest_active_run_operator_id"] == "ops-user"
     assert body["recovery_drill"]["oldest_active_run_governed_target"] == "backup-123"
+    assert body["recovery_drill"]["latest_reclaimed_run_operator_id"] == "ops-user-old"
+    assert body["recovery_drill"]["latest_reclaimed_run_governed_target"] == "backup-old"
     assert body["runtime_retention"]["active_run_status"] == "active"
     assert body["runtime_retention"]["active_run_count"] == 1
     assert body["runtime_retention"]["oldest_active_run_operator_id"] == "ops-batch"
     assert body["runtime_retention"]["oldest_active_run_governed_target"] == "apply:30:retention-nightly"
+    assert body["runtime_retention"]["latest_reclaimed_run_operator_id"] == "ops-batch-old"
+    assert body["runtime_retention"]["latest_reclaimed_run_governed_target"] == "apply:30:old-job"
 
 
 def test_runtime_status_reports_runtime_retention_failure_and_age_policy(mocker):

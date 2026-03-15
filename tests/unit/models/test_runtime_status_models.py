@@ -130,6 +130,12 @@ def test_build_runtime_status_response_serializes_snapshot_details():
             oldest_active_run_governed_target="backup-123",
             oldest_active_run_acquired_at_utc="2026-03-14T00:30:00Z",
             oldest_active_run_age_seconds=1800.0,
+            latest_reclaimed_run_operator_id="ops-old",
+            latest_reclaimed_run_tenant_id="tenant-a",
+            latest_reclaimed_run_governed_target="backup-old",
+            latest_reclaimed_run_acquired_at_utc="2026-03-13T22:30:00Z",
+            latest_reclaimed_run_reclaimed_at_utc="2026-03-14T00:15:00Z",
+            latest_reclaimed_run_age_seconds=2700.0,
             latest_generated_at_utc="2026-03-13T00:00:00Z",
             latest_status="passed",
             latest_operator_id="ops-user",
@@ -155,6 +161,12 @@ def test_build_runtime_status_response_serializes_snapshot_details():
             oldest_active_run_governed_target="apply:30:retention-nightly",
             oldest_active_run_acquired_at_utc="2026-03-13T23:30:00Z",
             oldest_active_run_age_seconds=1800.0,
+            latest_reclaimed_run_operator_id="ops-old-batch",
+            latest_reclaimed_run_tenant_id="tenant-a",
+            latest_reclaimed_run_governed_target="apply:30:old-job",
+            latest_reclaimed_run_acquired_at_utc="2026-03-13T22:00:00Z",
+            latest_reclaimed_run_reclaimed_at_utc="2026-03-13T23:15:00Z",
+            latest_reclaimed_run_age_seconds=4500.0,
             preview_status="available",
             preview_reason=None,
             current_cutoff_utc="2026-02-13T00:00:00Z",
@@ -228,6 +240,8 @@ def test_build_runtime_status_response_serializes_snapshot_details():
     assert response.recovery_drill.active_run_status == "active"
     assert response.recovery_drill.active_run_count == 1
     assert response.recovery_drill.oldest_active_run_governed_target == "backup-123"
+    assert response.recovery_drill.latest_reclaimed_run_operator_id == "ops-old"
+    assert response.recovery_drill.latest_reclaimed_run_governed_target == "backup-old"
     assert response.recovery_drill.latest_status == "passed"
     assert response.recovery_drill.latest_operator_id == "ops-user"
     assert response.recovery_drill.degradation_reasons == ["recovery_drill_age_exceeded"]
@@ -235,6 +249,8 @@ def test_build_runtime_status_response_serializes_snapshot_details():
     assert response.runtime_retention.active_run_status == "active"
     assert response.runtime_retention.active_run_count == 2
     assert response.runtime_retention.oldest_active_run_governed_target == "apply:30:retention-nightly"
+    assert response.runtime_retention.latest_reclaimed_run_operator_id == "ops-old-batch"
+    assert response.runtime_retention.latest_reclaimed_run_governed_target == "apply:30:old-job"
     assert response.runtime_retention.preview_status == "available"
     assert response.runtime_retention.current_cutoff_utc == "2026-02-13T00:00:00Z"
     assert response.runtime_retention.current_prunable_execution_count == 7
@@ -289,6 +305,12 @@ def test_build_runtime_status_response_handles_unavailable_queue_without_stats()
             oldest_active_run_governed_target=None,
             oldest_active_run_acquired_at_utc=None,
             oldest_active_run_age_seconds=None,
+            latest_reclaimed_run_operator_id=None,
+            latest_reclaimed_run_tenant_id=None,
+            latest_reclaimed_run_governed_target=None,
+            latest_reclaimed_run_acquired_at_utc=None,
+            latest_reclaimed_run_reclaimed_at_utc=None,
+            latest_reclaimed_run_age_seconds=None,
             latest_generated_at_utc=None,
             latest_status=None,
             latest_operator_id=None,
@@ -308,6 +330,12 @@ def test_build_runtime_status_response_handles_unavailable_queue_without_stats()
             oldest_active_run_governed_target=None,
             oldest_active_run_acquired_at_utc=None,
             oldest_active_run_age_seconds=None,
+            latest_reclaimed_run_operator_id=None,
+            latest_reclaimed_run_tenant_id=None,
+            latest_reclaimed_run_governed_target=None,
+            latest_reclaimed_run_acquired_at_utc=None,
+            latest_reclaimed_run_reclaimed_at_utc=None,
+            latest_reclaimed_run_age_seconds=None,
             preview_status="unavailable",
             preview_reason="RuntimeError",
             current_cutoff_utc=None,
