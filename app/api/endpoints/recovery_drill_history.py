@@ -14,6 +14,11 @@ from app.models.recovery_drill_history import (
     build_recovery_drill_run_response,
 )
 from app.services.operator_action_guard_service import enforce_recovery_drill_manual_run_cooldown
+from app.services.operator_action_lease_service import (
+    OperatorActionLeaseMetadata,
+    build_recovery_drill_action_key,
+    operator_action_lease,
+)
 from app.services.operator_action_replay_service import resolve_recovery_drill_manual_replay
 from app.services.recovery_drill_history_service import build_recovery_drill_history_snapshot
 from scripts.durable_recovery_drill import run_recovery_drill as execute_recovery_drill
@@ -131,13 +136,28 @@ async def run_recovery_drill(
         backup_identifier=recovery_request.backup_identifier,
         cooldown_seconds=settings.RECOVERY_DRILL_MANUAL_RUN_COOLDOWN_SECONDS,
     )
-    evidence = execute_recovery_drill(
-        output_dir=settings.RECOVERY_DRILL_ARTIFACT_PATH,
+    action_key = build_recovery_drill_action_key(
         operator_id=operator_id,
         tenant_id=tenant_id,
-        correlation_id=correlation_id,
         backup_identifier=recovery_request.backup_identifier,
     )
+    with operator_action_lease(
+        artifact_directory=settings.RECOVERY_DRILL_ARTIFACT_PATH,
+        action_key=action_key,
+        metadata=OperatorActionLeaseMetadata(
+            action_name="recovery_drill",
+            operator_id=operator_id,
+            tenant_id=tenant_id,
+            governed_target=recovery_request.backup_identifier,
+        ),
+    ):
+        evidence = execute_recovery_drill(
+            output_dir=settings.RECOVERY_DRILL_ARTIFACT_PATH,
+            operator_id=operator_id,
+            tenant_id=tenant_id,
+            correlation_id=correlation_id,
+            backup_identifier=recovery_request.backup_identifier,
+        )
     return build_recovery_drill_run_response(
         drill_name=evidence.drill_name,
         generated_at_utc=evidence.generated_at_utc,

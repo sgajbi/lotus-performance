@@ -18,6 +18,7 @@
 - Governed destructive actions should require a recent matching preview when the workflow supports a dry-run review stage.
 - Cooldown fences should be scoped to the governed action shape so one safe operator action does not incorrectly block a distinct remediation request.
 - Replay ownership must be scoped to the same operator and tenant context so reused correlation identifiers cannot replay another actor's durable evidence.
+- Governed action policy should also fence in-flight same-shape execution so duplicate submissions cannot race before durable evidence is written.
 - Sensitive attributes are redacted before audit emission.
 
 Evidence:

@@ -201,3 +201,26 @@ def test_runtime_retention_run_api_does_not_replay_other_operator_correlation(tm
     assert second.status_code == 200
     assert "X-Idempotent-Replay" not in second.headers
     assert second.json()["evidence_file_name"] != first.json()["evidence_file_name"]
+
+
+def test_runtime_retention_run_api_rejects_same_action_when_lease_is_active(tmp_path, monkeypatch):
+    artifact_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
+    settings = get_settings()
+    monkeypatch.setattr(settings, "RUNTIME_RETENTION_ARTIFACT_PATH", artifact_dir)
+    lock_dir = artifact_dir / ".action-locks"
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    lock_path = lock_dir / "runtime-retention-ops-user-tenant-a-dry-run-30-ticket-7.lock"
+    lock_path.write_text(
+        '{"action_name":"runtime_retention_cleanup","operator_id":"ops-user","tenant_id":"tenant-a","governed_target":"dry_run:30:ticket-7"}',
+        encoding="utf-8",
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/integration/runtime-retention-cleanups/run",
+            headers={"X-Actor-Id": "ops-user", "X-Tenant-Id": "tenant-a"},
+            json={"apply": False, "job_id": "ticket-7"},
+        )
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "runtime_retention_cleanup_already_running"

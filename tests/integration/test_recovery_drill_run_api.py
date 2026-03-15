@@ -435,3 +435,26 @@ def test_recovery_drill_run_api_does_not_replay_other_operator_correlation(tmp_p
     assert second.status_code == 200
     assert "X-Idempotent-Replay" not in second.headers
     assert second.json()["operator_id"] == "other-user"
+
+
+def test_recovery_drill_run_api_rejects_same_action_when_lease_is_active(tmp_path, monkeypatch):
+    artifact_dir = tmp_path / "artifacts" / "durable-recovery-drill"
+    settings = get_settings()
+    monkeypatch.setattr(settings, "RECOVERY_DRILL_ARTIFACT_PATH", artifact_dir)
+    lock_dir = artifact_dir / ".action-locks"
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    lock_path = lock_dir / "recovery-drill-ops-user-tenant-a-backup-123.lock"
+    lock_path.write_text(
+        '{"action_name":"recovery_drill","operator_id":"ops-user","tenant_id":"tenant-a","governed_target":"backup-123"}',
+        encoding="utf-8",
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/integration/recovery-drills/run",
+            headers={"X-Actor-Id": "ops-user", "X-Tenant-Id": "tenant-a"},
+            json={"backup_identifier": "backup-123"},
+        )
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "recovery_drill_already_running"

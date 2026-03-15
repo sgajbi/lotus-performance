@@ -17,6 +17,11 @@ from app.services.operator_action_guard_service import (
     enforce_runtime_retention_apply_preview,
     enforce_runtime_retention_manual_run_cooldown,
 )
+from app.services.operator_action_lease_service import (
+    OperatorActionLeaseMetadata,
+    build_runtime_retention_action_key,
+    operator_action_lease,
+)
 from app.services.operator_action_replay_service import resolve_runtime_retention_manual_replay
 from app.services.runtime_retention_execution_service import execute_runtime_retention_cleanup
 from app.services.runtime_retention_history_service import build_runtime_retention_history_snapshot
@@ -161,15 +166,32 @@ async def run_runtime_retention_cleanup(
         job_id=cleanup_request.job_id,
         cooldown_seconds=settings.RUNTIME_RETENTION_MANUAL_RUN_COOLDOWN_SECONDS,
     )
-    evidence = execute_runtime_retention_cleanup(
-        apply=cleanup_request.apply,
-        retention_days=cleanup_request.retention_days,
+    action_key = build_runtime_retention_action_key(
         operator_id=operator_id,
         tenant_id=tenant_id,
-        correlation_id=correlation_id,
-        trigger_mode="manual",
+        apply=cleanup_request.apply,
+        retention_days=resolved_retention_days,
         job_id=cleanup_request.job_id,
     )
+    with operator_action_lease(
+        artifact_directory=settings.RUNTIME_RETENTION_ARTIFACT_PATH,
+        action_key=action_key,
+        metadata=OperatorActionLeaseMetadata(
+            action_name="runtime_retention_cleanup",
+            operator_id=operator_id,
+            tenant_id=tenant_id,
+            governed_target=f"{'apply' if cleanup_request.apply else 'dry_run'}:{resolved_retention_days}:{cleanup_request.job_id or 'no-job'}",
+        ),
+    ):
+        evidence = execute_runtime_retention_cleanup(
+            apply=cleanup_request.apply,
+            retention_days=cleanup_request.retention_days,
+            operator_id=operator_id,
+            tenant_id=tenant_id,
+            correlation_id=correlation_id,
+            trigger_mode="manual",
+            job_id=cleanup_request.job_id,
+        )
     return build_runtime_retention_cleanup_run_response(
         cleanup_name=evidence.cleanup_name,
         generated_at_utc=evidence.generated_at_utc,
