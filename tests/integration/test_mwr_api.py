@@ -4,6 +4,9 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.config import get_settings
+from app.models.mwr_requests import MoneyWeightedReturnRequest
+from core.repro import generate_canonical_hash
 from main import app
 from tests.conftest import drain_lineage_queue
 
@@ -35,9 +38,126 @@ def test_calculate_mwr_endpoint_xirr_happy_path(client):
     assert response.status_code == 200
     response_data = response.json()
     assert response_data["portfolio_id"] == "MWR_XIRR_TEST_01"
+    assert response_data["input_mode"] == "stateless"
     assert response_data["method"] == "XIRR"
     assert response_data["money_weighted_return"] == pytest.approx(11.723, abs=1e-3)
     assert response_data["mwr_annualized"] is not None
+
+
+def test_calculate_mwr_endpoint_supports_stateful_mode(client, monkeypatch):
+    async def _mock_get_portfolio_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2024-01-01",
+                "observations": [
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "100000",
+                        "ending_market_value": "110000",
+                        "cash_flows": [{"amount": "10000", "timing": "bod"}],
+                    },
+                    {
+                        "valuation_date": "2025-01-03",
+                        "beginning_market_value": "110000",
+                        "ending_market_value": "111000",
+                        "cash_flows": [],
+                    },
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_portfolio_timeseries",
+        _mock_get_portfolio_timeseries,
+    )
+
+    payload = {
+        "portfolio_id": "MWR_STATEFUL_01",
+        "as_of": "2025-01-03",
+        "mwr_method": "DIETZ",
+        "input_mode": "stateful",
+        "stateful_input": {
+            "consumer_system": "lotus-performance",
+            "window_start_date": "2025-01-01",
+        },
+    }
+
+    response = client.post("/performance/mwr", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["portfolio_id"] == "MWR_STATEFUL_01"
+    assert body["input_mode"] == "stateful"
+    assert body["start_date"] == "2025-01-01"
+    assert body["method"] == "DIETZ"
+    assert body["audit"]["counts"]["cashflows"] == 1
+
+
+def test_mwr_stateful_hashes_follow_resolved_inputs(client, monkeypatch):
+    async def _mock_get_portfolio_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2024-01-01",
+                "observations": [
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "100000",
+                        "ending_market_value": "110000",
+                        "cash_flows": [{"amount": "10000", "timing": "bod"}],
+                    },
+                    {
+                        "valuation_date": "2025-01-03",
+                        "beginning_market_value": "110000",
+                        "ending_market_value": "111000",
+                        "cash_flows": [],
+                    },
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_portfolio_timeseries",
+        _mock_get_portfolio_timeseries,
+    )
+
+    payload = {
+        "portfolio_id": "MWR_STATEFUL_HASH",
+        "as_of": "2025-01-03",
+        "mwr_method": "DIETZ",
+        "annualization": {"enabled": False},
+        "input_mode": "stateful",
+        "stateful_input": {
+            "consumer_system": "lotus-performance",
+            "window_start_date": "2025-01-01",
+        },
+    }
+
+    response = client.post("/performance/mwr", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    expected_request = MoneyWeightedReturnRequest.model_validate(
+        {
+            "calculation_id": body["calculation_id"],
+            "portfolio_id": "MWR_STATEFUL_HASH",
+            "as_of": "2025-01-03",
+            "start_date": "2025-01-01",
+            "mwr_method": "DIETZ",
+            "annualization": {"enabled": False},
+            "begin_mv": 100000,
+            "end_mv": 111000,
+            "cash_flows": [{"amount": 10000, "date": "2025-01-01"}],
+        }
+    )
+    expected_input_fingerprint, expected_calculation_hash = generate_canonical_hash(
+        expected_request,
+        get_settings().APP_VERSION,
+    )
+
+    assert body["meta"]["input_fingerprint"] == expected_input_fingerprint
+    assert body["meta"]["calculation_hash"] == expected_calculation_hash
 
 
 def test_mwr_lineage_flow(client):

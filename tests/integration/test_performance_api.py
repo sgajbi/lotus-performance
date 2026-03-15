@@ -5,6 +5,11 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
+from app.api.endpoints.performance import _generate_twr_request_hashes
+from app.core.config import get_settings
+from app.models.requests import PerformanceRequest
+from app.models.twr_requests import TWRAnalyticsRequest
+from core.repro import generate_canonical_hash
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
 from main import app
 
@@ -275,6 +280,113 @@ def test_twr_response_includes_portfolio_return_summary(client):
     assert "portfolio_return" in ytd_result
     assert ytd_result["portfolio_return"]["base"] == pytest.approx(2.01)
     assert ytd_result["portfolio_return"]["fx"] == 0.0
+
+
+def test_twr_supports_stateful_input_mode(client, monkeypatch):
+    async def _mock_fetch_stateful_portfolio_timeseries(**kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2024-12-31",
+                "observations": [
+                    {"valuation_date": "2025-01-01", "beginning_market_value": "1000", "ending_market_value": "1010"},
+                    {"valuation_date": "2025-01-02", "beginning_market_value": "1010", "ending_market_value": "1020.1"},
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.stateful_performance_input_service.fetch_stateful_portfolio_timeseries",
+        _mock_fetch_stateful_portfolio_timeseries,
+    )
+
+    payload = {
+        "portfolio_id": "STATEFUL_TWR_TEST",
+        "performance_start_date": "2024-12-31",
+        "metric_basis": "NET",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["input_mode"] == "stateful"
+    assert body["results_by_period"]["YTD"]["portfolio_return"]["base"] == pytest.approx(2.01)
+
+
+def test_twr_stateful_hashes_follow_resolved_inputs(client, monkeypatch):
+    async def _mock_fetch_stateful_portfolio_timeseries(**kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2024-01-15",
+                "observations": [
+                    {"valuation_date": "2025-01-01", "beginning_market_value": "1000", "ending_market_value": "1010"},
+                    {"valuation_date": "2025-01-02", "beginning_market_value": "1010", "ending_market_value": "1020.1"},
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.stateful_performance_input_service.fetch_stateful_portfolio_timeseries",
+        _mock_fetch_stateful_portfolio_timeseries,
+    )
+
+    base_payload = {
+        "calculation_id": str(uuid4()),
+        "portfolio_id": "STATEFUL_TWR_HASH_TEST",
+        "metric_basis": "NET",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    first_payload = {**base_payload, "performance_start_date": "2024-12-31"}
+    second_payload = {**base_payload, "performance_start_date": "2023-01-01"}
+
+    first_request = TWRAnalyticsRequest.model_validate(first_payload)
+    second_request = TWRAnalyticsRequest.model_validate(second_payload)
+    first_pre_resolution_hashes = _generate_twr_request_hashes(first_request, engine_version=get_settings().APP_VERSION)
+    second_pre_resolution_hashes = _generate_twr_request_hashes(
+        second_request,
+        engine_version=get_settings().APP_VERSION,
+    )
+
+    assert first_pre_resolution_hashes == second_pre_resolution_hashes
+
+    first = client.post(
+        "/performance/twr",
+        json=first_payload,
+    )
+
+    assert first.status_code == 200
+
+    expected_request = PerformanceRequest.model_validate(
+        {
+            "calculation_id": first.json()["calculation_id"],
+            "portfolio_id": "STATEFUL_TWR_HASH_TEST",
+            "performance_start_date": "2024-01-15",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "valuation_points": [
+                {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1020.1},
+            ],
+        }
+    )
+    expected_input_fingerprint, expected_calculation_hash = generate_canonical_hash(
+        expected_request,
+        get_settings().APP_VERSION,
+    )
+
+    assert first.json()["meta"]["input_fingerprint"] == expected_input_fingerprint
+    assert first.json()["meta"]["calculation_hash"] == expected_calculation_hash
 
 
 def test_twr_reset_scenario_has_correct_summary(client):

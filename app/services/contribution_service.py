@@ -6,6 +6,7 @@ import pandas as pd
 from fastapi import HTTPException, status
 
 from app.core.config import get_settings
+from app.models.contribution_analytics_requests import ContributionInputMode
 from app.models.contribution_requests import ContributionRequest
 from app.models.contribution_responses import (
     ContributionResponse,
@@ -48,6 +49,7 @@ def calculate_contribution(
     *,
     input_fingerprint: str,
     calculation_hash: str,
+    input_mode: ContributionInputMode = ContributionInputMode.STATELESS,
 ) -> ContributionResponse:
     active_settings = get_settings()
     execution_registry.mark_running(request.calculation_id)
@@ -204,6 +206,7 @@ def calculate_contribution(
     response_model = ContributionResponse(
         calculation_id=request.calculation_id,
         portfolio_id=request.portfolio_id,
+        input_mode=input_mode,
         results_by_period=results_by_period,
         meta=meta,
         diagnostics=diagnostics,

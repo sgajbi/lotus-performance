@@ -5,6 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
+from app.models.contribution_analytics_requests import ContributionInputMode
 from core.envelope import Audit, Diagnostics, Meta
 
 
@@ -91,6 +92,7 @@ class ContributionResponse(BaseModel):
 
     calculation_id: UUID
     portfolio_id: str
+    input_mode: ContributionInputMode = ContributionInputMode.STATELESS
 
     results_by_period: Dict[str, SinglePeriodContributionResult]
 

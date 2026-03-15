@@ -4,6 +4,7 @@ import pandas as pd
 from fastapi import HTTPException, status
 
 from app.core.config import get_settings
+from app.models.attribution_analytics_requests import AttributionInputMode
 from app.models.attribution_requests import AttributionRequest
 from app.models.attribution_responses import AttributionResponse
 from app.services.execution_lifecycle_service import (
@@ -22,6 +23,7 @@ def calculate_attribution(
     *,
     input_fingerprint: str,
     calculation_hash: str,
+    input_mode: AttributionInputMode = AttributionInputMode.STATELESS,
 ) -> AttributionResponse:
     active_settings = get_settings()
     execution_registry.mark_running(request.calculation_id)
@@ -79,6 +81,7 @@ def calculate_attribution(
         response_model = AttributionResponse(
             calculation_id=request.calculation_id,
             portfolio_id=request.portfolio_id,
+            input_mode=input_mode,
             model=request.model,
             linking=request.linking,
             results_by_period=results_by_period,

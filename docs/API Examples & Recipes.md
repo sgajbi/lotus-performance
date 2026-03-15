@@ -1,122 +1,168 @@
-# 🍳 API Examples & Recipes
+# API Examples & Recipes
 
-This document provides a library of **common, real-world request payloads** for the **Performance Analytics Suite**.  
-Use these examples as a starting point for your own implementations.
+This document provides truthful request examples for the shipped `lotus-performance` public
+contract.
 
----
+Use these as starting points for integrations. The examples below follow the current Lotus-style
+mode envelope:
+
+- `input_mode: "stateless" | "stateful"`
+- `stateless_input` for direct caller-supplied data
+- `stateful_input` for lotus-core-backed sourcing
+
+Older examples using request-level `period_type` or nested `daily_data` are not current.
 
 ## 1. Standard Time-Weighted Return (TWR)
 
-Calculates the **daily and monthly TWR** for a simple, single-currency portfolio.
+Calculates daily and monthly TWR from direct caller-supplied valuation points.
 
-**Endpoint:**  
+**Endpoint**
+
+```text
+POST /performance/twr
 ```
 
-POST /performance/twr
+**Payload**
 
-````
-
-**Payload:**
 ```json
 {
+  "input_mode": "stateless",
   "portfolio_id": "TWR_EXAMPLE_01",
   "performance_start_date": "2024-12-31",
-  "metric_basis": "NET",
-  "report_start_date": "2025-01-01",
   "report_end_date": "2025-01-05",
-  "period_type": "YTD",
-  "frequencies": ["daily", "monthly"],
-  "daily_data": [
-    { "day": 1, "perf_date": "2025-01-01", "begin_mv": 100000.0, "end_mv": 101000.0 },
-    { "day": 2, "perf_date": "2025-01-02", "begin_mv": 101000.0, "end_mv": 102500.0 },
-    { "day": 3, "perf_date": "2025-01-03", "begin_mv": 102500.0, "bod_cf": 5000.0, "end_mv": 108000.0 },
-    { "day": 4, "perf_date": "2025-01-04", "begin_mv": 108000.0, "eod_cf": -2000.0, "end_mv": 106500.0 },
-    { "day": 5, "perf_date": "2025-01-05", "begin_mv": 106500.0, "end_mv": 107000.0 }
-  ]
-}
-````
-
----
-
-## 2. Multi-Currency TWR with Hedging
-
-Calculates the **TWR** for a portfolio denominated in **EUR**, reported in **USD**, with a **50% currency hedge** on the first day.
-
-**Endpoint:**
-
-```
-POST /performance/twr
-```
-
-**Payload:**
-
-```json
-{
-  "portfolio_id": "TWR_MCY_HEDGED_01",
-  "performance_start_date": "2024-12-31",
-  "metric_basis": "GROSS",
-  "report_start_date": "2025-01-01",
-  "report_end_date": "2025-01-02",
-  "period_type": "YTD",
-  "frequencies": ["daily"],
-  "daily_data": [
-    { "day": 1, "perf_date": "2025-01-01", "begin_mv": 100, "end_mv": 102 },
-    { "day": 2, "perf_date": "2025-01-02", "begin_mv": 102, "end_mv": 103.02 }
+  "metric_basis": "NET",
+  "analyses": [
+    {
+      "period": "YTD",
+      "frequencies": ["daily", "monthly"]
+    }
   ],
-  "currency_mode": "BOTH",
-  "report_ccy": "USD",
-  "fx": {
-    "rates": [
-      { "date": "2024-12-31", "ccy": "EUR", "rate": 1.05 },
-      { "date": "2025-01-01", "ccy": "EUR", "rate": 1.08 },
-      { "date": "2025-01-02", "ccy": "EUR", "rate": 1.07 }
+  "stateless_input": {
+    "valuation_points": [
+      { "day": 1, "perf_date": "2025-01-01", "begin_mv": 100000.0, "end_mv": 101000.0 },
+      { "day": 2, "perf_date": "2025-01-02", "begin_mv": 101000.0, "end_mv": 102010.0 },
+      { "day": 3, "perf_date": "2025-01-03", "begin_mv": 102010.0, "end_mv": 100989.9 },
+      { "day": 4, "perf_date": "2025-01-04", "begin_mv": 100989.9, "bod_cf": 25000.0, "end_mv": 127249.29 },
+      { "day": 5, "perf_date": "2025-01-05", "begin_mv": 127249.29, "end_mv": 125976.7971 }
     ]
-  },
-  "hedging": {
-    "mode": "RATIO",
-    "series": [{ "date": "2025-01-01", "ccy": "EUR", "hedge_ratio": 0.5 }]
   }
 }
 ```
 
----
+## 2. Stateful TWR from lotus-core
 
-## 3. Multi-Currency Contribution
+Calculates TWR from portfolio timeseries sourced from lotus-core query-control-plane. In stateful
+mode, lotus-performance retrieves the authoritative portfolio open date and normalizes the sourced
+timeseries into the same TWR engine inputs used by stateless requests.
 
-Calculates **contribution** for a portfolio with assets in **EUR** and **JPY**, decomposing the result into **local vs. FX effects**.
+**Endpoint**
 
-**Endpoint:**
-
+```text
+POST /performance/twr
 ```
-POST /performance/contribution
-```
 
-**Payload:**
+**Payload**
 
 ```json
 {
-  "portfolio_id": "MULTI_ASSET_MCY_01",
-  "portfolio_data": {
-    "report_start_date": "2025-01-01",
-    "report_end_date": "2025-01-01",
-    "period_type": "ITD",
-    "metric_basis": "GROSS",
-    "daily_data": [{ "day": 1, "perf_date": "2025-01-01", "begin_mv": 10305.00, "end_mv": 10563.66 }]
+  "input_mode": "stateful",
+  "portfolio_id": "DEMO_DPM_EUR_001",
+  "performance_start_date": "2024-12-31",
+  "report_end_date": "2025-01-31",
+  "metric_basis": "NET",
+  "analyses": [
+    {
+      "period": "YTD",
+      "frequencies": ["daily", "monthly"]
+    }
+  ],
+  "stateful_input": {
+    "consumer_system": "lotus-performance"
+  }
+}
+```
+
+## 3. Stateful Money-Weighted Return (MWR) from lotus-core
+
+Calculates MWR from lotus-core portfolio timeseries over an explicitly requested measurement
+window.
+
+**Endpoint**
+
+```text
+POST /performance/mwr
+```
+
+**Payload**
+
+```json
+{
+  "input_mode": "stateful",
+  "portfolio_id": "MWR_STATEFUL_01",
+  "as_of": "2025-12-31",
+  "mwr_method": "XIRR",
+  "annualization": {
+    "enabled": true,
+    "basis": "ACT/ACT"
   },
-  "positions_data": [
+  "stateful_input": {
+    "consumer_system": "lotus-performance",
+    "window_start_date": "2025-01-01"
+  }
+}
+```
+
+## 4. Multi-Currency Contribution
+
+Calculates contribution for a portfolio with positions in multiple currencies and decomposes the
+result into local and FX-aware portfolio return context.
+
+**Endpoint**
+
+```text
+POST /performance/contribution
+```
+
+**Payload**
+
+```json
+{
+  "input_mode": "stateless",
+  "portfolio_id": "MULTI_ASSET_MCY_01",
+  "report_start_date": "2025-01-01",
+  "report_end_date": "2025-01-01",
+  "analyses": [
     {
-      "position_id": "EUR_STOCK",
-      "meta": { "currency": "EUR", "sector": "Industrials" },
-      "daily_data": [{ "day": 1, "perf_date": "2025-01-01", "begin_mv": 100, "end_mv": 102 }]
-    },
-    {
-      "position_id": "JPY_STOCK",
-      "meta": { "currency": "JPY", "sector": "Technology" },
-      "daily_data": [{ "day": 1, "perf_date": "2025-01-01", "begin_mv": 1500000, "end_mv": 1515000 }]
+      "period": "ITD",
+      "frequencies": ["daily"]
     }
   ],
   "currency_mode": "BOTH",
   "report_ccy": "USD",
+  "stateless_input": {
+    "portfolio_data": {
+      "metric_basis": "GROSS",
+      "valuation_points": [
+        { "day": 1, "perf_date": "2025-01-01", "begin_mv": 10305.0, "end_mv": 10563.66 }
+      ]
+    },
+    "positions_data": [
+      {
+        "position_id": "EUR_STOCK",
+        "meta": { "currency": "EUR", "sector": "Industrials" },
+        "valuation_points": [
+          { "day": 1, "perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": 102.0 }
+        ]
+      },
+      {
+        "position_id": "JPY_STOCK",
+        "meta": { "currency": "JPY", "sector": "Technology" },
+        "valuation_points": [
+          { "day": 1, "perf_date": "2025-01-01", "begin_mv": 1500000.0, "end_mv": 1515000.0 }
+        ]
+      }
+    ]
+  },
   "fx": {
     "rates": [
       { "date": "2024-12-31", "ccy": "EUR", "rate": 1.05 },
@@ -128,22 +174,29 @@ POST /performance/contribution
 }
 ```
 
----
+## 5. Multi-Currency Attribution
 
-## 4. Multi-Currency Attribution
+Runs stateless currency-aware attribution using caller-supplied benchmark groups and FX inputs.
 
-Runs a **Karnosky-Singer currency attribution** to explain whether active return came from **asset selection** or **currency bets**.
+This example is intentionally stateless. The current public stateful attribution path is fenced to:
 
-**Endpoint:**
+- `mode="by_instrument"`
+- `currency_mode="BASE_ONLY"`
+- `group_by` limited to `asset_class`, `sector`, or `country`
 
-```
+Currency attribution with `currency_mode="BOTH"` currently requires stateless inputs.
+
+**Endpoint**
+
+```text
 POST /performance/attribution
 ```
 
-**Payload:**
+**Payload**
 
 ```json
 {
+  "input_mode": "stateless",
   "portfolio_id": "ATTRIB_MCY_01",
   "mode": "by_instrument",
   "group_by": ["currency"],
@@ -151,35 +204,52 @@ POST /performance/attribution
   "frequency": "daily",
   "currency_mode": "BOTH",
   "report_ccy": "USD",
-  "portfolio_data": {
-    "report_start_date": "2025-01-01",
-    "report_end_date": "2025-01-01",
-    "metric_basis": "GROSS",
-    "period_type": "ITD",
-    "daily_data": [{ "day": 1, "perf_date": "2025-01-01", "begin_mv": 100, "end_mv": 103.02 }]
-  },
-  "instruments_data": [
+  "report_start_date": "2025-01-01",
+  "report_end_date": "2025-01-01",
+  "analyses": [
     {
-      "instrument_id": "EUR_ASSET",
-      "meta": { "currency": "EUR" },
-      "daily_data": [{ "day": 1, "perf_date": "2025-01-01", "begin_mv": 100, "end_mv": 102 }]
+      "period": "ITD",
+      "frequencies": ["daily"]
     }
   ],
-  "benchmark_groups_data": [
-    {
-      "key": { "currency": "EUR" },
-      "observations": [
-        { "date": "2025-01-01", "weight_bop": 1, "return_local": 0.015, "return_fx": 0.01, "return_base": 0.02515 }
+  "stateless_input": {
+    "portfolio_data": {
+      "metric_basis": "GROSS",
+      "valuation_points": [
+        { "day": 1, "perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": 103.02 }
       ]
-    }
-  ],
+    },
+    "instruments_data": [
+      {
+        "instrument_id": "EUR_ASSET",
+        "meta": { "currency": "EUR" },
+        "valuation_points": [
+          { "day": 1, "perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": 102.0 }
+        ]
+      }
+    ],
+    "benchmark_groups_data": [
+      {
+        "key": { "currency": "EUR" },
+        "observations": [
+          {
+            "date": "2025-01-01",
+            "weight_bop": 1.0,
+            "return_local": 0.015,
+            "return_fx": 0.01,
+            "return_base": 0.02515
+          }
+        ]
+      }
+    ]
+  },
   "fx": {
     "rates": [
-      { "date": "2024-12-31", "ccy": "EUR", "rate": 1 },
+      { "date": "2024-12-31", "ccy": "EUR", "rate": 1.0 },
       { "date": "2025-01-01", "ccy": "EUR", "rate": 1.01 }
     ]
   }
 }
 ```
 
- 
+Use `/docs` for exact field-level schemas, enums, and the latest generated examples.

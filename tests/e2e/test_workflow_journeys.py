@@ -1,3 +1,4 @@
+import os
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -10,6 +11,8 @@ settings = get_settings()
 
 
 def test_e2e_platform_readiness_and_capabilities_contract() -> None:
+    os.makedirs(settings.LINEAGE_STORAGE_PATH, exist_ok=True)
+
     with TestClient(app) as client:
         health = client.get("/health")
         ready = client.get("/health/ready")
@@ -24,6 +27,13 @@ def test_e2e_platform_readiness_and_capabilities_contract() -> None:
     assert body["source_service"] == "lotus-performance"
     assert "stateful" in body["supported_input_modes"]
     assert "stateless" in body["supported_input_modes"]
+    surfaces = {item["key"]: item for item in body["analytics_surfaces"]}
+    assert surfaces["contribution"]["supports_async"] is True
+    assert surfaces["attribution"]["stateful_restrictions"] == [
+        "mode=by_instrument only",
+        "currency_mode=BASE_ONLY only",
+        "group_by limited to asset_class, sector, country",
+    ]
 
 
 def test_e2e_performance_twr_and_mwr_workflow() -> None:
@@ -224,7 +234,10 @@ def test_e2e_capabilities_toggle_disables_input_modes(monkeypatch) -> None:
     body = response.json()
     assert body["supported_input_modes"] == []
     features = {item["key"]: item["enabled"] for item in body["features"]}
+    surfaces = {item["key"]: item for item in body["analytics_surfaces"]}
     assert features["pa.analytics.attribution"] is False
+    assert surfaces["attribution"]["enabled"] is False
+    assert surfaces["returns_series"]["supported_input_modes"] == []
 
 
 def test_e2e_contribution_rejects_empty_analyses_contract() -> None:

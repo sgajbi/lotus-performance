@@ -21,20 +21,16 @@ class Solver(BaseModel):
     tolerance: float = 1e-10
 
 
-class MoneyWeightedReturnRequest(BaseModel):
-    """Request model for calculating Money-Weighted Return."""
-
+class MoneyWeightedReturnRequestBase(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     calculation_id: UUID = Field(default_factory=uuid4)
     portfolio_id: str
-    begin_mv: float
-    end_mv: float
-    cash_flows: List[CashFlow]
     mwr_method: Literal["XIRR", "MODIFIED_DIETZ", "DIETZ"] = "XIRR"
     solver: Solver = Field(default_factory=Solver)
     emit_cashflows_used: bool = True
     as_of: date
+    start_date: Optional[date] = None
     currency: str = "USD"
     precision_mode: Literal["FLOAT64", "DECIMAL_STRICT"] = "FLOAT64"
     rounding_precision: int = 6
@@ -44,3 +40,11 @@ class MoneyWeightedReturnRequest(BaseModel):
     output: Output = Field(default_factory=Output)
     flags: Flags = Field(default_factory=Flags)
     report_ccy: Optional[str] = None
+
+
+class MoneyWeightedReturnRequest(MoneyWeightedReturnRequestBase):
+    """Request model for calculating Money-Weighted Return."""
+
+    begin_mv: float
+    end_mv: float
+    cash_flows: List[CashFlow]

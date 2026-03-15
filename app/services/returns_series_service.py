@@ -29,9 +29,12 @@ from app.models.returns_series import (
     SeriesGap,
 )
 from app.observability import correlation_id_var, request_id_var, trace_id_var
-from app.services.core_integration_service import CoreIntegrationService
 from app.services.execution_registry import execution_registry
-from app.services.stateful_input_service import StatefulInputService
+from app.services.portfolio_source_service import (
+    build_stateful_input_service,
+)
+from app.services.stateful_performance_input_service import retrieve_stateful_portfolio_input
+from app.services.valuation_points_service import portfolio_timeseries_to_valuation_points
 from common.enums import Frequency, PeriodType
 from core.repro import generate_canonical_hash
 from engine.compute import run_calculations
@@ -181,51 +184,6 @@ def core_points_to_dataframe(
     return to_dataframe(normalized_points, series_type=series_type)
 
 
-def portfolio_timeseries_to_valuation_points(*, observations: list[dict[str, object]]) -> list[dict[str, object]]:
-    valuation_points: list[dict[str, object]] = []
-    for point in observations:
-        valuation_date = point.get("valuation_date")
-        begin_mv = point.get("beginning_market_value")
-        end_mv = point.get("ending_market_value")
-        cash_flows_raw = point.get("cash_flows", [])
-        if not isinstance(valuation_date, str) or begin_mv is None or end_mv is None:
-            continue
-        bod_cf = Decimal("0")
-        eod_cf = Decimal("0")
-        if isinstance(cash_flows_raw, list):
-            for flow in cash_flows_raw:
-                if not isinstance(flow, dict):
-                    continue
-                amount = flow.get("amount")
-                timing = flow.get("timing")
-                if amount is None or timing not in {"bod", "eod"}:
-                    continue
-                dec_amount = Decimal(str(amount))
-                if timing == "bod":
-                    bod_cf += dec_amount
-                else:
-                    eod_cf += dec_amount
-        valuation_points.append(
-            {
-                "day": 0,
-                "perf_date": valuation_date,
-                "begin_mv": Decimal(str(begin_mv)),
-                "end_mv": Decimal(str(end_mv)),
-                "bod_cf": bod_cf,
-                "eod_cf": eod_cf,
-            }
-        )
-    if not valuation_points:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "code": "INSUFFICIENT_DATA",
-                "message": "No valid valuation observations after canonical normalization.",
-            },
-        )
-    return valuation_points
-
-
 def daily_ror_from_portfolio_timeseries(
     *,
     observations: list[dict[str, object]],
@@ -280,6 +238,51 @@ def fail_execution(*, calculation_id, message: str, active_stage: str | None) ->
     execution_registry.mark_failed(calculation_id, message)
 
 
+def _build_stateful_resolved_returns_payload(
+    *,
+    request: ReturnsSeriesRequest,
+    resolved_window: ResolvedWindow,
+    portfolio_records: list[dict[str, str]],
+    benchmark_records: list[dict[str, str]] | None,
+    risk_free_records: list[dict[str, str]] | None,
+    resolved_benchmark_id: str | None,
+) -> dict[str, Any]:
+    return {
+        "portfolio_id": request.portfolio_id,
+        "as_of_date": str(request.as_of_date),
+        "resolved_window": {
+            "start_date": str(resolved_window.start_date),
+            "end_date": str(resolved_window.end_date),
+            "resolved_period_label": resolved_window.resolved_period_label,
+        },
+        "frequency": request.frequency.value,
+        "metric_basis": request.metric_basis.value,
+        "reporting_currency": request.reporting_currency,
+        "series_selection": request.series_selection.model_dump(mode="json"),
+        "benchmark": {"benchmark_id": resolved_benchmark_id} if resolved_benchmark_id else None,
+        "risk_free": request.risk_free.model_dump(mode="json") if request.risk_free is not None else None,
+        "data_policy": request.data_policy.model_dump(mode="json"),
+        "input_mode": InputMode.STATELESS.value,
+        "stateless_input": {
+            "portfolio_returns": portfolio_records,
+            "benchmark_returns": benchmark_records,
+            "risk_free_returns": risk_free_records,
+        },
+    }
+
+
+def _records_from_points(points: list[ReturnPoint] | None) -> list[dict[str, str]] | None:
+    if points is None:
+        return None
+    return [
+        {
+            "date": point.date.isoformat(),
+            "return_value": format(point.return_value, "f"),
+        }
+        for point in points
+    ]
+
+
 async def calculate_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResponse:
     active_settings = get_settings()
     input_fingerprint, calculation_hash = generate_canonical_hash(request, "returns-series-v1")
@@ -289,6 +292,7 @@ async def calculate_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeri
         resolved_window = resolve_window(request)
         benchmark_df = None
         risk_free_df = None
+        resolved_benchmark_id: str | None = request.benchmark.benchmark_id if request.benchmark else None
 
         if request.input_mode == InputMode.STATEFUL:
             active_stage = "retrieval"
@@ -299,49 +303,38 @@ async def calculate_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeri
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail={"code": "INVALID_REQUEST", "message": "stateful_input is required in stateful mode."},
                 )
-            core_service = CoreIntegrationService(
-                base_url=active_settings.CORE_QUERY_BASE_URL,
-                timeout_seconds=active_settings.CORE_TIMEOUT_SECONDS,
-                max_retries=active_settings.CORE_MAX_RETRIES,
-                retry_backoff_seconds=active_settings.CORE_RETRY_BACKOFF_SECONDS,
-            )
-            stateful_input_service = StatefulInputService(
-                core_service=core_service,
-                portfolio_chunk_days=active_settings.STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS,
-                reference_chunk_days=active_settings.STATEFUL_INPUT_REFERENCE_CHUNK_DAYS,
-                max_concurrent_chunks=active_settings.STATEFUL_INPUT_MAX_CONCURRENT_CHUNKS,
-            )
-            upstream_status, upstream_payload = await stateful_input_service.get_portfolio_timeseries(
-                portfolio_id=request.portfolio_id,
-                as_of_date=request.as_of_date,
-                start_date=resolved_window.start_date,
-                end_date=resolved_window.end_date,
-                reporting_currency=request.reporting_currency,
-                consumer_system=stateful_input.consumer_system,
-                calculation_id=request.calculation_id,
-            )
-            if upstream_status >= status.HTTP_400_BAD_REQUEST:
+            stateful_input_service = build_stateful_input_service(settings=active_settings)
+            try:
+                portfolio_source = await retrieve_stateful_portfolio_input(
+                    settings=active_settings,
+                    stateful_input_service=stateful_input_service,
+                    calculation_id=request.calculation_id,
+                    portfolio_id=request.portfolio_id,
+                    as_of_date=request.as_of_date,
+                    start_date=resolved_window.start_date,
+                    end_date=resolved_window.end_date,
+                    reporting_currency=request.reporting_currency,
+                    consumer_system=stateful_input.consumer_system,
+                )
+            except HTTPException as exc:
+                if exc.status_code == status.HTTP_503_SERVICE_UNAVAILABLE:
+                    raise HTTPException(
+                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                        detail={
+                            "code": "SOURCE_UNAVAILABLE",
+                            "message": str(exc.detail),
+                        },
+                    ) from exc
                 raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail={
-                        "code": "SOURCE_UNAVAILABLE",
-                        "message": f"stateful portfolio timeseries source unavailable ({upstream_status}).",
+                        "code": "INSUFFICIENT_DATA",
+                        "message": str(exc.detail),
                     },
-                )
-            observations = upstream_payload.get("observations")
-            if not isinstance(observations, list) or not observations:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail={"code": "INSUFFICIENT_DATA", "message": "Stateful source returned no observations."},
-                )
-            open_date_raw = upstream_payload.get("portfolio_open_date")
-            if not isinstance(open_date_raw, str):
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail={"code": "INSUFFICIENT_DATA", "message": "Stateful source missing portfolio_open_date."},
-                )
+                ) from exc
 
-            benchmark_id = request.benchmark.benchmark_id if request.benchmark else None
+            observations = portfolio_source.observations
+            benchmark_id = resolved_benchmark_id
             if request.series_selection.include_benchmark and not benchmark_id:
                 assignment_status, assignment_payload = await stateful_input_service.get_benchmark_assignment(
                     portfolio_id=request.portfolio_id,
@@ -374,6 +367,7 @@ async def calculate_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeri
                             "message": "Benchmark assignment payload missing benchmark_id.",
                         },
                     )
+                resolved_benchmark_id = benchmark_id
 
             benchmark_points: list[dict[str, Any]] | None = None
             if request.series_selection.include_benchmark and benchmark_id:
@@ -463,24 +457,26 @@ async def calculate_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeri
                     "portfolio_observations": len(observations),
                     "benchmark_points": len(benchmark_points or []),
                     "risk_free_points": len(risk_free_points or []),
+                    "portfolio_chunk_count": portfolio_source.retrieval_metadata.chunk_count,
+                    "portfolio_page_count": portfolio_source.retrieval_metadata.page_count,
+                    "benchmark_chunk_count": (
+                        int(benchmark_payload.get("retrieval_metadata", {}).get("chunk_count", 0))
+                        if benchmark_points is not None
+                        else 0
+                    ),
+                    "risk_free_chunk_count": (
+                        int(risk_free_payload.get("retrieval_metadata", {}).get("chunk_count", 0))
+                        if risk_free_points is not None
+                        else 0
+                    ),
                 },
             )
             active_stage = "normalization"
             execution_registry.start_stage(request.calculation_id, "normalization")
-            try:
-                performance_start_date = date.fromisoformat(open_date_raw)
-            except ValueError as exc:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail={
-                        "code": "INSUFFICIENT_DATA",
-                        "message": "Invalid portfolio_open_date from stateful source.",
-                    },
-                ) from exc
             portfolio_df = resample_returns(
                 daily_ror_from_portfolio_timeseries(
                     observations=observations,
-                    performance_start_date=performance_start_date,
+                    performance_start_date=portfolio_source.performance_start_date,
                     resolved_window=resolved_window,
                     metric_basis=request.metric_basis.value,
                 ),
@@ -583,6 +579,29 @@ async def calculate_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeri
             if risk_free_df is not None:
                 risk_free_df = risk_free_df.set_index("date").reindex(portfolio_df["date"]).fillna(0.0).reset_index()
 
+        portfolio_return_points = points_from_df(portfolio_df)
+        benchmark_return_points = points_from_df(benchmark_df) if benchmark_df is not None else None
+        risk_free_return_points = points_from_df(risk_free_df) if risk_free_df is not None else None
+
+        if request.input_mode == InputMode.STATEFUL:
+            resolved_stateful_payload = _build_stateful_resolved_returns_payload(
+                request=request,
+                resolved_window=resolved_window,
+                portfolio_records=_records_from_points(portfolio_return_points) or [],
+                benchmark_records=_records_from_points(benchmark_return_points),
+                risk_free_records=_records_from_points(risk_free_return_points),
+                resolved_benchmark_id=resolved_benchmark_id,
+            )
+            input_fingerprint, calculation_hash = generate_canonical_hash(
+                resolved_stateful_payload,
+                "returns-series-v1",
+            )
+            execution_registry.update_execution_identity(
+                request.calculation_id,
+                input_fingerprint=input_fingerprint,
+                calculation_hash=calculation_hash,
+            )
+
         requested_points = date_range_count(
             resolved_window, frequency=request.frequency, calendar_policy=request.data_policy.calendar_policy
         )
@@ -609,9 +628,9 @@ async def calculate_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeri
             metric_basis=request.metric_basis,
             resolved_window=resolved_window,
             series=ReturnsSeriesPayload(
-                portfolio_returns=points_from_df(portfolio_df),
-                benchmark_returns=points_from_df(benchmark_df) if benchmark_df is not None else None,
-                risk_free_returns=points_from_df(risk_free_df) if risk_free_df is not None else None,
+                portfolio_returns=portfolio_return_points,
+                benchmark_returns=benchmark_return_points,
+                risk_free_returns=risk_free_return_points,
             ),
             provenance=ReturnsProvenance(
                 input_mode=request.input_mode,

@@ -4,9 +4,9 @@ This index maps implemented lotus-performance metrics to detailed methodology do
 
 | Metric | Primary Endpoint(s) | Modes | Document |
 |---|---|---|---|
-| TWR Base Return | POST /performance/twr | Stateless | [metric-twr-base-return.md](./metric-twr-base-return.md) |
-| TWR Local Return | POST /performance/twr | Stateless | [metric-twr-local-return.md](./metric-twr-local-return.md) |
-| TWR FX Return | POST /performance/twr | Stateless | [metric-twr-fx-return.md](./metric-twr-fx-return.md) |
+| TWR Base Return | POST /performance/twr | Stateless + Stateful | [metric-twr-base-return.md](./metric-twr-base-return.md) |
+| TWR Local Return | POST /performance/twr | Stateless + Stateful | [metric-twr-local-return.md](./metric-twr-local-return.md) |
+| TWR FX Return | POST /performance/twr | Stateless + Stateful | [metric-twr-fx-return.md](./metric-twr-fx-return.md) |
 | MWR (XIRR) | POST /performance/mwr | Stateless | [metric-mwr-xirr.md](./metric-mwr-xirr.md) |
 | MWR (Dietz fallback / explicit) | POST /performance/mwr | Stateless | [metric-mwr-dietz.md](./metric-mwr-dietz.md) |
 | Position Total Contribution | POST /performance/contribution | Stateless | [metric-contribution-total.md](./metric-contribution-total.md) |

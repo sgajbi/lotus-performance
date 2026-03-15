@@ -1,4 +1,5 @@
 {
+  "input_mode": "stateless",
   "portfolio_id": "ATTRIB_EXAMPLE_01",
   "mode": "by_instrument",
   "group_by": [
@@ -6,74 +7,83 @@
   ],
   "linking": "none",
   "frequency": "daily",
-  "portfolio_data": {
-    "report_start_date": "2025-01-01",
-    "report_end_date": "2025-01-01",
-    "metric_basis": "NET",
-    "period_type": "YTD",
-    "daily_data": [
-      {
-        "day": 1,
-        "perf_date": "2025-01-01",
-        "begin_mv": 1000,
-        "end_mv": 1018.5
-      }
-    ]
-  },
-  "instruments_data": [
+  "report_start_date": "2025-01-01",
+  "report_end_date": "2025-01-01",
+  "analyses": [
     {
-      "instrument_id": "AAPL",
-      "meta": {
-        "sector": "Tech"
-      },
-      "daily_data": [
-        {
-          "day": 1,
-          "perf_date": "2025-01-01",
-          "begin_mv": 600,
-          "end_mv": 612
-        }
-      ]
-    },
-    {
-      "instrument_id": "JNJ",
-      "meta": {
-        "sector": "Health"
-      },
-      "daily_data": [
-        {
-          "day": 1,
-          "perf_date": "2025-01-01",
-          "begin_mv": 400,
-          "end_mv": 406.5
-        }
+      "period": "ITD",
+      "frequencies": [
+        "daily"
       ]
     }
   ],
-  "benchmark_groups_data": [
-    {
-      "key": {
-        "sector": "Tech"
-      },
-      "observations": [
+  "stateless_input": {
+    "portfolio_data": {
+      "metric_basis": "NET",
+      "valuation_points": [
         {
-          "date": "2025-01-01",
-          "return": 0.015,
-          "weight_bop": 0.5
+          "day": 1,
+          "perf_date": "2025-01-01",
+          "begin_mv": 1000.0,
+          "end_mv": 1018.5
         }
       ]
     },
-    {
-      "key": {
-        "sector": "Health"
+    "instruments_data": [
+      {
+        "instrument_id": "AAPL",
+        "meta": {
+          "sector": "Tech"
+        },
+        "valuation_points": [
+          {
+            "day": 1,
+            "perf_date": "2025-01-01",
+            "begin_mv": 600.0,
+            "end_mv": 612.0
+          }
+        ]
       },
-      "observations": [
-        {
-          "date": "2025-01-01",
-          "return": 0.02,
-          "weight_bop": 0.5
-        }
-      ]
-    }
-  ]
+      {
+        "instrument_id": "JNJ",
+        "meta": {
+          "sector": "Health"
+        },
+        "valuation_points": [
+          {
+            "day": 1,
+            "perf_date": "2025-01-01",
+            "begin_mv": 400.0,
+            "end_mv": 406.5
+          }
+        ]
+      }
+    ],
+    "benchmark_groups_data": [
+      {
+        "key": {
+          "sector": "Tech"
+        },
+        "observations": [
+          {
+            "date": "2025-01-01",
+            "return_base": 0.015,
+            "weight_bop": 0.5
+          }
+        ]
+      },
+      {
+        "key": {
+          "sector": "Health"
+        },
+        "observations": [
+          {
+            "date": "2025-01-01",
+            "return_base": 0.02,
+            "weight_bop": 0.5
+          }
+        ]
+      }
+    ]
+  }
 }

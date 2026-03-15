@@ -18,7 +18,7 @@ services:
     build: .
     container_name: performance-analytics
     environment:
-      CORE_QUERY_BASE_URL: "${CORE_QUERY_BASE_URL:-http://host.docker.internal:8201}"
+      CORE_QUERY_BASE_URL: "${CORE_QUERY_BASE_URL:-http://host.docker.internal:8202}"
       LINEAGE_METADATA_DATABASE_URL: "${LINEAGE_METADATA_DATABASE_URL:-postgresql+psycopg://lotus:lotus@performance-lineage-db:5432/lotus_performance}"
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -33,7 +33,7 @@ services:
     container_name: performance-lineage-worker
     command: ["python", "-m", "app.workers.lineage_worker"]
     environment:
-      CORE_QUERY_BASE_URL: "${CORE_QUERY_BASE_URL:-http://host.docker.internal:8201}"
+      CORE_QUERY_BASE_URL: "${CORE_QUERY_BASE_URL:-http://host.docker.internal:8202}"
       LINEAGE_METADATA_DATABASE_URL: "${LINEAGE_METADATA_DATABASE_URL:-postgresql+psycopg://lotus:lotus@performance-lineage-db:5432/lotus_performance}"
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -46,7 +46,7 @@ services:
     container_name: performance-compute-executor
     command: ["python", "-m", "app.workers.compute_executor_worker"]
     environment:
-      CORE_QUERY_BASE_URL: "${CORE_QUERY_BASE_URL:-http://host.docker.internal:8201}"
+      CORE_QUERY_BASE_URL: "${CORE_QUERY_BASE_URL:-http://host.docker.internal:8202}"
       LINEAGE_METADATA_DATABASE_URL: "${LINEAGE_METADATA_DATABASE_URL:-postgresql+psycopg://lotus:lotus@performance-lineage-db:5432/lotus_performance}"
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -60,7 +60,7 @@ services:
     command: ["python", "-m", "app.workers.runtime_retention_worker"]
     profiles: ["ops"]
     environment:
-      CORE_QUERY_BASE_URL: "${CORE_QUERY_BASE_URL:-http://host.docker.internal:8201}"
+      CORE_QUERY_BASE_URL: "${CORE_QUERY_BASE_URL:-http://host.docker.internal:8202}"
       LINEAGE_METADATA_DATABASE_URL: "${LINEAGE_METADATA_DATABASE_URL:-postgresql+psycopg://lotus:lotus@performance-lineage-db:5432/lotus_performance}"
       RUNTIME_RETENTION_WORKER_APPLY: "${RUNTIME_RETENTION_WORKER_APPLY:-false}"
     extra_hosts:

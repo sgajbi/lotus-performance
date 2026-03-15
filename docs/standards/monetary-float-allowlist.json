@@ -28,19 +28,19 @@
       "review_by": "2026-08-24"
     },
     {
-      "finding": "app/models/attribution_responses.py:42:total_active_return: float",
+      "finding": "app/models/attribution_responses.py:43:total_active_return: float",
       "justification": "Temporary approved monetary float usage; migrate to Decimal.",
       "owner": "platform-governance",
       "review_by": "2026-08-24"
     },
     {
-      "finding": "app/models/attribution_responses.py:61:weight_portfolio_avg: float",
+      "finding": "app/models/attribution_responses.py:62:weight_portfolio_avg: float",
       "justification": "Temporary approved monetary float usage; migrate to Decimal.",
       "owner": "platform-governance",
       "review_by": "2026-08-24"
     },
     {
-      "finding": "app/models/attribution_responses.py:62:weight_benchmark_avg: float",
+      "finding": "app/models/attribution_responses.py:63:weight_benchmark_avg: float",
       "justification": "Temporary approved monetary float usage; migrate to Decimal.",
       "owner": "platform-governance",
       "review_by": "2026-08-24"
@@ -52,25 +52,25 @@
       "review_by": "2026-08-24"
     },
     {
-      "finding": "app/models/contribution_responses.py:16:average_weight: float",
+      "finding": "app/models/contribution_responses.py:17:average_weight: float",
       "justification": "Temporary approved monetary float usage; migrate to Decimal.",
       "owner": "platform-governance",
       "review_by": "2026-08-24"
     },
     {
-      "finding": "app/models/contribution_responses.py:17:total_return: float",
+      "finding": "app/models/contribution_responses.py:18:total_return: float",
       "justification": "Temporary approved monetary float usage; migrate to Decimal.",
       "owner": "platform-governance",
       "review_by": "2026-08-24"
     },
     {
-      "finding": "app/models/contribution_responses.py:58:weight_avg: Optional[float] = None",
+      "finding": "app/models/contribution_responses.py:59:weight_avg: Optional[float] = None",
       "justification": "Temporary approved monetary float usage; migrate to Decimal.",
       "owner": "platform-governance",
       "review_by": "2026-08-24"
     },
     {
-      "finding": "app/models/contribution_responses.py:78:total_portfolio_return: Optional[float] = None",
+      "finding": "app/models/contribution_responses.py:79:total_portfolio_return: Optional[float] = None",
       "justification": "Temporary approved monetary float usage; migrate to Decimal.",
       "owner": "platform-governance",
       "review_by": "2026-08-24"
@@ -82,7 +82,7 @@
       "review_by": "2026-08-24"
     },
     {
-      "finding": "app/models/mwr_responses.py:36:money_weighted_return: float",
+      "finding": "app/models/mwr_responses.py:38:money_weighted_return: float",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
       "review_by": "2026-08-28"
@@ -94,19 +94,19 @@
       "review_by": "2026-08-24"
     },
     {
-      "finding": "app/models/responses.py:18:period_return_pct: float",
+      "finding": "app/models/responses.py:19:period_return_pct: float",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
       "review_by": "2026-08-28"
     },
     {
-      "finding": "app/models/responses.py:19:cumulative_return_pct_to_date: Optional[float] = None",
+      "finding": "app/models/responses.py:20:cumulative_return_pct_to_date: Optional[float] = None",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
       "review_by": "2026-08-28"
     },
     {
-      "finding": "app/models/responses.py:20:annualized_return_pct: Optional[float] = None",
+      "finding": "app/models/responses.py:21:annualized_return_pct: Optional[float] = None",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
       "review_by": "2026-08-28"

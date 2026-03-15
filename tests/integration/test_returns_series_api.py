@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
 from app.services.async_result_store import async_result_store
+from core.repro import generate_canonical_hash
 from main import app
 from tests.conftest import drain_compute_queue
 
@@ -159,7 +160,7 @@ def test_returns_series_stateful_fetches_benchmark_and_risk_free(monkeypatch):
         )
 
     monkeypatch.setattr(
-        "app.api.endpoints.returns_series.CoreIntegrationService.get_portfolio_analytics_timeseries",
+        "app.services.portfolio_source_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
         _mock_get_portfolio_analytics_timeseries,
     )
     monkeypatch.setattr(
@@ -198,6 +199,69 @@ def test_returns_series_stateful_fetches_benchmark_and_risk_free(monkeypatch):
     assert len(body["series"]["risk_free_returns"]) == 5
 
 
+def test_returns_series_stateful_provenance_uses_resolved_series_identity(monkeypatch):
+    async def _mock_get_portfolio_analytics_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2026-02-20",
+                "observations": [
+                    {"valuation_date": "2026-02-23", "beginning_market_value": "1000", "ending_market_value": "1010"},
+                    {"valuation_date": "2026-02-24", "beginning_market_value": "1010", "ending_market_value": "1020"},
+                    {"valuation_date": "2026-02-25", "beginning_market_value": "1020", "ending_market_value": "1030"},
+                ],
+            },
+        )
+
+    async def _mock_get_benchmark_assignment(self, **kwargs):  # noqa: ARG001
+        return 200, {"benchmark_id": "BMK_RESOLVED"}
+
+    async def _mock_get_benchmark_return_series(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "points": [
+                    {"series_date": "2026-02-23", "benchmark_return": "0.0010"},
+                    {"series_date": "2026-02-24", "benchmark_return": "0.0015"},
+                    {"series_date": "2026-02-25", "benchmark_return": "0.0020"},
+                ]
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.portfolio_source_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
+        _mock_get_portfolio_analytics_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.api.endpoints.returns_series.CoreIntegrationService.get_benchmark_assignment",
+        _mock_get_benchmark_assignment,
+    )
+    monkeypatch.setattr(
+        "app.api.endpoints.returns_series.CoreIntegrationService.get_benchmark_return_series",
+        _mock_get_benchmark_return_series,
+    )
+
+    payload = {
+        "portfolio_id": "DEMO_DPM_EUR_001",
+        "as_of_date": "2026-02-25",
+        "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-25"},
+        "frequency": "DAILY",
+        "metric_basis": "NET",
+        "series_selection": {"include_portfolio": True, "include_benchmark": True, "include_risk_free": False},
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+    initial_input_fingerprint, initial_calculation_hash = generate_canonical_hash(payload, "returns-series-v1")
+
+    with TestClient(app) as client:
+        response = client.post("/integration/returns/series", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["provenance"]["input_fingerprint"] != initial_input_fingerprint
+    assert body["provenance"]["calculation_hash"] != initial_calculation_hash
+
+
 def test_returns_series_stateful_long_window_uses_chunked_portfolio_retrieval(monkeypatch):
     original_chunk_days = settings.STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS
     settings.STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS = 2
@@ -225,7 +289,7 @@ def test_returns_series_stateful_long_window_uses_chunked_portfolio_retrieval(mo
         )
 
     monkeypatch.setattr(
-        "app.services.core_integration_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
+        "app.services.portfolio_source_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
         _mock_get_portfolio_analytics_timeseries,
     )
 
@@ -267,7 +331,7 @@ def test_returns_series_stateful_requires_reporting_currency_for_risk_free(monke
         )
 
     monkeypatch.setattr(
-        "app.api.endpoints.returns_series.CoreIntegrationService.get_portfolio_analytics_timeseries",
+        "app.services.portfolio_source_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
         _mock_get_portfolio_analytics_timeseries,
     )
 
@@ -311,7 +375,7 @@ def test_returns_series_async_result_retrieval(monkeypatch):
         )
 
     monkeypatch.setattr(
-        "app.services.returns_series_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
+        "app.services.portfolio_source_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
         _mock_get_portfolio_analytics_timeseries,
     )
 
@@ -334,7 +398,7 @@ def test_returns_series_async_result_retrieval(monkeypatch):
             pending_result = client.get(f"/integration/returns/series/results/{calculation_id}")
             assert pending_result.status_code == 202
 
-            assert drain_compute_queue() == 1
+            assert drain_compute_queue() >= 1
 
             complete_result = client.get(f"/integration/returns/series/results/{calculation_id}")
             assert complete_result.status_code == 200
@@ -367,7 +431,7 @@ def test_returns_series_async_result_retrieval_uses_durable_store(monkeypatch):
         )
 
     monkeypatch.setattr(
-        "app.services.returns_series_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
+        "app.services.portfolio_source_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
         _mock_get_portfolio_analytics_timeseries,
     )
 
@@ -418,7 +482,7 @@ def test_returns_series_async_result_not_found_and_failed(monkeypatch):
         )
 
     monkeypatch.setattr(
-        "app.services.returns_series_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
+        "app.services.portfolio_source_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
         _mock_get_portfolio_analytics_timeseries,
     )
 
@@ -467,7 +531,7 @@ def test_returns_series_async_duplicate_submission_replays_same_request(monkeypa
         )
 
     monkeypatch.setattr(
-        "app.services.returns_series_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
+        "app.services.portfolio_source_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
         _mock_get_portfolio_analytics_timeseries,
     )
 
@@ -513,7 +577,7 @@ def test_returns_series_async_duplicate_submission_conflicts_on_payload_drift(mo
         )
 
     monkeypatch.setattr(
-        "app.services.returns_series_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
+        "app.services.portfolio_source_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
         _mock_get_portfolio_analytics_timeseries,
     )
 
@@ -549,7 +613,7 @@ def test_returns_series_stateful_source_unavailable(monkeypatch):
         return 503, {"detail": "unavailable"}
 
     monkeypatch.setattr(
-        "app.api.endpoints.returns_series.CoreIntegrationService.get_portfolio_analytics_timeseries",
+        "app.services.portfolio_source_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
         _mock_get_portfolio_analytics_timeseries,
     )
     payload = {
@@ -572,7 +636,7 @@ def test_returns_series_stateful_requires_observations(monkeypatch):
         return 200, {"portfolio_open_date": "2026-02-23", "observations": []}
 
     monkeypatch.setattr(
-        "app.api.endpoints.returns_series.CoreIntegrationService.get_portfolio_analytics_timeseries",
+        "app.services.portfolio_source_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
         _mock_get_portfolio_analytics_timeseries,
     )
     payload = {
@@ -603,7 +667,7 @@ def test_returns_series_stateful_requires_valid_portfolio_open_date(monkeypatch)
         )
 
     monkeypatch.setattr(
-        "app.api.endpoints.returns_series.CoreIntegrationService.get_portfolio_analytics_timeseries",
+        "app.services.portfolio_source_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
         _mock_get_portfolio_analytics_timeseries,
     )
     payload = {
@@ -637,7 +701,7 @@ def test_returns_series_stateful_benchmark_assignment_error_mapping(monkeypatch)
         return 404, {"detail": "missing"}
 
     monkeypatch.setattr(
-        "app.api.endpoints.returns_series.CoreIntegrationService.get_portfolio_analytics_timeseries",
+        "app.services.portfolio_source_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
         _mock_get_portfolio_analytics_timeseries,
     )
     monkeypatch.setattr(

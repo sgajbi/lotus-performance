@@ -35,6 +35,7 @@ def calculate_money_weighted_return(
     calculation_method: Literal["XIRR", "MODIFIED_DIETZ", "DIETZ"],
     annualization: Annualization,
     as_of: date,
+    start_date: date | None = None,
 ) -> MWRResult:
     """
     Orchestrates the MWR calculation using the specified method and fallback logic.
@@ -42,14 +43,15 @@ def calculate_money_weighted_return(
     """
     notes = []
     all_dates = [cf.date for cf in cash_flows]
-    if not all_dates:
-        start_date = as_of
-    else:
-        start_date = min(all_dates)
+    if start_date is None:
+        if not all_dates:
+            start_date = as_of
+        else:
+            start_date = min(all_dates)
     end_date = as_of
 
     if calculation_method == "XIRR":
-        xirr_start_date = min([cf.date for cf in cash_flows] + [end_date]) if cash_flows else end_date
+        xirr_start_date = start_date
         dates = [xirr_start_date] + [cf.date for cf in cash_flows] + [end_date]
         values = [-begin_mv] + [-cf.amount for cf in cash_flows] + [end_mv]
 

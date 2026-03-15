@@ -5,13 +5,30 @@ periods and returns breakdowns by the requested reporting frequencies.
 
 ## Current request contract
 
-The current request shape is:
+`POST /performance/twr` now supports two request modes:
+
+- `input_mode="stateless"`
+- `input_mode="stateful"`
+
+Common top-level fields are:
 
 - `portfolio_id`
 - `performance_start_date`
 - `report_end_date`
 - `analyses`
-- `valuation_points`
+
+Stateless mode accepts either:
+
+- legacy top-level `valuation_points`
+- or `stateless_input.valuation_points`
+
+Stateful mode uses:
+
+- `stateful_input.consumer_system`
+
+In stateful mode, lotus-performance retrieves portfolio timeseries from lotus-core,
+normalizes them into canonical valuation points, then runs the same owned TWR engine
+used by stateless requests.
 
 Optional controls include:
 
@@ -61,6 +78,7 @@ The response contains:
 
 - `calculation_id`
 - `portfolio_id`
+- `input_mode`
 - `results_by_period`
 - `meta`
 - `diagnostics`
@@ -89,6 +107,7 @@ See [multi_currency.md](multi_currency.md) for the detailed multi-currency path.
 
 ```json
 {
+  "input_mode": "stateless",
   "portfolio_id": "TWR_EXAMPLE_01",
   "performance_start_date": "2024-12-31",
   "report_end_date": "2025-01-05",
@@ -115,6 +134,7 @@ See [multi_currency.md](multi_currency.md) for the detailed multi-currency path.
 {
   "calculation_id": "2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
   "portfolio_id": "TWR_EXAMPLE_01",
+  "input_mode": "stateless",
   "results_by_period": {
     "YTD": {
       "breakdowns": {
@@ -131,6 +151,27 @@ See [multi_currency.md](multi_currency.md) for the detailed multi-currency path.
   "meta": {},
   "diagnostics": {},
   "audit": {}
+}
+```
+
+## Example stateful request
+
+```json
+{
+  "input_mode": "stateful",
+  "portfolio_id": "DEMO_DPM_EUR_001",
+  "performance_start_date": "2024-12-31",
+  "report_end_date": "2025-01-31",
+  "metric_basis": "NET",
+  "analyses": [
+    {
+      "period": "YTD",
+      "frequencies": ["daily", "monthly"]
+    }
+  ],
+  "stateful_input": {
+    "consumer_system": "lotus-performance"
+  }
 }
 ```
 

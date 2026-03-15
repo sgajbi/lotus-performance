@@ -4,6 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
+from app.models.attribution_analytics_requests import AttributionInputMode
 from common.enums import AttributionModel, LinkingMethod
 from core.envelope import Audit, Diagnostics, Meta
 
@@ -76,6 +77,7 @@ class AttributionResponse(BaseModel):
 
     calculation_id: UUID
     portfolio_id: str
+    input_mode: AttributionInputMode = AttributionInputMode.STATELESS
     model: AttributionModel
     linking: LinkingMethod
     results_by_period: Dict[str, SinglePeriodAttributionResult]

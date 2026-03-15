@@ -18,6 +18,12 @@ class DateChunk:
     end_date: date
 
 
+@dataclass(frozen=True)
+class RetrievalMetadata:
+    chunk_count: int
+    page_count: int
+
+
 class StatefulInputService:
     def __init__(
         self,
@@ -90,9 +96,77 @@ class StatefulInputService:
             ],
             date_key="valuation_date",
         )
+        total_page_count = sum(
+            int(payload.get("retrieval_metadata", {}).get("page_count", 0))
+            for _, payload in responses
+            if isinstance(payload, dict)
+        )
         return 200, {
             "portfolio_open_date": min(open_dates) if open_dates else None,
             "observations": observations,
+            "retrieval_metadata": {
+                "chunk_count": len(chunks),
+                "page_count": total_page_count,
+            },
+        }
+
+    async def get_position_timeseries(
+        self,
+        *,
+        portfolio_id: str,
+        as_of_date: date,
+        start_date: date,
+        end_date: date,
+        reporting_currency: str | None,
+        consumer_system: str,
+        dimensions: list[str] | None = None,
+        include_cash_flows: bool = True,
+        filters: dict[str, Any] | None = None,
+        calculation_id: UUID | None = None,
+    ) -> tuple[int, dict[str, Any]]:
+        chunks = self.plan_chunks(
+            start_date=start_date,
+            end_date=end_date,
+            chunk_days=self._portfolio_chunk_days,
+        )
+        responses = await self._gather_chunked(
+            chunks=chunks,
+            fetcher=lambda chunk: self._fetch_position_chunk(
+                portfolio_id=portfolio_id,
+                as_of_date=as_of_date,
+                chunk=chunk,
+                reporting_currency=reporting_currency,
+                consumer_system=consumer_system,
+                dimensions=dimensions or [],
+                include_cash_flows=include_cash_flows,
+                filters=filters or {},
+                calculation_id=calculation_id,
+            ),
+        )
+        failure = self._first_failure(responses)
+        if failure is not None:
+            return failure
+
+        rows = self._merge_dedup_records_by_fields(
+            records=[
+                row
+                for _, payload in responses
+                for row in (payload.get("rows", []) if isinstance(payload, dict) else [])
+                if isinstance(row, dict)
+            ],
+            key_fields=("valuation_date", "position_id"),
+        )
+        total_page_count = sum(
+            int(payload.get("retrieval_metadata", {}).get("page_count", 0))
+            for _, payload in responses
+            if isinstance(payload, dict)
+        )
+        return 200, {
+            "rows": rows,
+            "retrieval_metadata": {
+                "chunk_count": len(chunks),
+                "page_count": total_page_count,
+            },
         }
 
     async def get_benchmark_assignment(
@@ -101,12 +175,43 @@ class StatefulInputService:
         portfolio_id: str,
         as_of_date: date,
         reporting_currency: str | None = None,
+        calculation_id: UUID | None = None,
     ) -> tuple[int, dict[str, Any]]:
-        return await self._core_service.get_benchmark_assignment(
+        response = await self._core_service.get_benchmark_assignment(
             portfolio_id=portfolio_id,
             as_of_date=as_of_date,
             reporting_currency=reporting_currency,
         )
+        if calculation_id is not None:
+            request_payload = {
+                "portfolio_id": portfolio_id,
+                "reporting_currency": reporting_currency,
+            }
+            snapshot_id, request_fingerprint = self._build_snapshot_identity(
+                calculation_id=calculation_id,
+                upstream_endpoint="benchmark_assignment",
+                source_identifier=portfolio_id,
+                request_payload=request_payload,
+            )
+            existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
+            if snapshot_id not in existing_snapshot_ids:
+                self._execution_store.record_upstream_snapshots(
+                    calculation_id=calculation_id,
+                    snapshots=[
+                        self._build_snapshot(
+                            calculation_id=calculation_id,
+                            upstream_endpoint="benchmark_assignment",
+                            source_identifier=portfolio_id,
+                            as_of_date=as_of_date,
+                            request_payload=request_payload,
+                            response=response,
+                            snapshot_id=snapshot_id,
+                            request_fingerprint=request_fingerprint,
+                        )
+                    ],
+                )
+                existing_snapshot_ids.add(snapshot_id)
+        return response
 
     async def get_benchmark_return_series(
         self,
@@ -180,7 +285,138 @@ class StatefulInputService:
             ],
             date_key="series_date",
         )
-        return 200, {"points": points}
+        return 200, {
+            "points": points,
+            "retrieval_metadata": {
+                "chunk_count": len(chunks),
+                "page_count": len(chunks),
+            },
+        }
+
+    async def get_benchmark_definition(
+        self,
+        *,
+        benchmark_id: str,
+        as_of_date: date,
+    ) -> tuple[int, dict[str, Any]]:
+        return await self._core_service.get_benchmark_definition(
+            benchmark_id=benchmark_id,
+            as_of_date=as_of_date,
+        )
+
+    async def get_benchmark_market_series(
+        self,
+        *,
+        benchmark_id: str,
+        as_of_date: date,
+        start_date: date,
+        end_date: date,
+        frequency: str = "daily",
+        target_currency: str | None = None,
+        calculation_id: UUID | None = None,
+    ) -> tuple[int, dict[str, Any]]:
+        existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
+        chunks = self.plan_chunks(
+            start_date=start_date,
+            end_date=end_date,
+            chunk_days=self._reference_chunk_days,
+        )
+        responses = await self._gather_chunked(
+            chunks=chunks,
+            fetcher=lambda chunk: self._core_service.get_benchmark_market_series(
+                benchmark_id=benchmark_id,
+                as_of_date=as_of_date,
+                start_date=chunk.start_date,
+                end_date=chunk.end_date,
+                frequency=frequency,
+                target_currency=target_currency,
+                series_fields=["index_return", "component_weight"],
+            ),
+        )
+        if calculation_id is not None:
+            snapshot_batch: list[dict[str, Any]] = []
+            for chunk, response in zip(chunks, responses):
+                request_payload = {
+                    "benchmark_id": benchmark_id,
+                    "start_date": str(chunk.start_date),
+                    "end_date": str(chunk.end_date),
+                    "frequency": frequency,
+                    "target_currency": target_currency,
+                    "series_fields": ["index_return", "component_weight"],
+                }
+                snapshot_id, request_fingerprint = self._build_snapshot_identity(
+                    calculation_id=calculation_id,
+                    upstream_endpoint="benchmark_market_series",
+                    source_identifier=benchmark_id,
+                    request_payload=request_payload,
+                )
+                if snapshot_id in existing_snapshot_ids:
+                    continue
+                snapshot_batch.append(
+                    self._build_snapshot(
+                        calculation_id=calculation_id,
+                        upstream_endpoint="benchmark_market_series",
+                        source_identifier=benchmark_id,
+                        as_of_date=as_of_date,
+                        request_payload=request_payload,
+                        response=response,
+                        snapshot_id=snapshot_id,
+                        request_fingerprint=request_fingerprint,
+                    )
+                )
+            self._execution_store.record_upstream_snapshots(
+                calculation_id=calculation_id,
+                snapshots=snapshot_batch,
+            )
+        failure = self._first_failure(responses)
+        if failure is not None:
+            return failure
+
+        component_series = self._merge_component_series(
+            payloads=[payload for _, payload in responses if isinstance(payload, dict)]
+        )
+        return 200, {
+            "component_series": component_series,
+            "retrieval_metadata": {
+                "chunk_count": len(chunks),
+                "page_count": len(chunks),
+            },
+        }
+
+    async def get_index_catalog(
+        self,
+        *,
+        as_of_date: date,
+        calculation_id: UUID | None = None,
+    ) -> tuple[int, dict[str, Any]]:
+        response = await self._core_service.get_index_catalog(as_of_date=as_of_date)
+        if calculation_id is not None:
+            request_payload = {"as_of_date": str(as_of_date)}
+            snapshot_id, request_fingerprint = self._build_snapshot_identity(
+                calculation_id=calculation_id,
+                upstream_endpoint="index_catalog",
+                source_identifier="all_indices",
+                request_payload=request_payload,
+            )
+            existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
+            if snapshot_id not in existing_snapshot_ids:
+                self._execution_store.record_upstream_snapshots(
+                    calculation_id=calculation_id,
+                    snapshots=[
+                        self._build_snapshot(
+                            calculation_id=calculation_id,
+                            upstream_endpoint="index_catalog",
+                            source_identifier="all_indices",
+                            as_of_date=as_of_date,
+                            request_payload=request_payload,
+                            response=response,
+                            snapshot_id=snapshot_id,
+                            request_fingerprint=request_fingerprint,
+                        )
+                    ],
+                )
+                existing_snapshot_ids.add(snapshot_id)
+        return response
 
     async def get_risk_free_series(
         self,
@@ -257,7 +493,13 @@ class StatefulInputService:
             ],
             date_key="series_date",
         )
-        return 200, {"points": points}
+        return 200, {
+            "points": points,
+            "retrieval_metadata": {
+                "chunk_count": len(chunks),
+                "page_count": len(chunks),
+            },
+        }
 
     async def _fetch_portfolio_chunk(
         self,
@@ -274,6 +516,7 @@ class StatefulInputService:
         portfolio_open_date: str | None = None
         snapshot_batch: list[dict[str, Any]] = []
         existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
+        page_count = 0
 
         while True:
             status_code, payload = await self._core_service.get_portfolio_analytics_timeseries(
@@ -321,6 +564,7 @@ class StatefulInputService:
                         snapshots=snapshot_batch,
                     )
                 return status_code, payload
+            page_count += 1
 
             if portfolio_open_date is None and isinstance(payload.get("portfolio_open_date"), str):
                 portfolio_open_date = payload["portfolio_open_date"]
@@ -342,6 +586,106 @@ class StatefulInputService:
         return 200, {
             "portfolio_open_date": portfolio_open_date,
             "observations": self._merge_dedup_records(records=merged_observations, date_key="valuation_date"),
+            "retrieval_metadata": {
+                "page_count": page_count,
+            },
+        }
+
+    async def _fetch_position_chunk(
+        self,
+        *,
+        portfolio_id: str,
+        as_of_date: date,
+        chunk: DateChunk,
+        reporting_currency: str | None,
+        consumer_system: str,
+        dimensions: list[str],
+        include_cash_flows: bool,
+        filters: dict[str, Any],
+        calculation_id: UUID | None = None,
+    ) -> tuple[int, dict[str, Any]]:
+        page_token: str | None = None
+        merged_rows: list[dict[str, Any]] = []
+        snapshot_batch: list[dict[str, Any]] = []
+        existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
+        page_count = 0
+
+        while True:
+            status_code, payload = await self._core_service.get_position_analytics_timeseries(
+                portfolio_id=portfolio_id,
+                as_of_date=as_of_date,
+                start_date=chunk.start_date,
+                end_date=chunk.end_date,
+                reporting_currency=reporting_currency,
+                consumer_system=consumer_system,
+                dimensions=dimensions,
+                include_cash_flows=include_cash_flows,
+                filters=filters,
+                page_token=page_token,
+            )
+            if calculation_id is not None:
+                request_payload = {
+                    "portfolio_id": portfolio_id,
+                    "start_date": str(chunk.start_date),
+                    "end_date": str(chunk.end_date),
+                    "reporting_currency": reporting_currency,
+                    "consumer_system": consumer_system,
+                    "dimensions": dimensions,
+                    "include_cash_flows": include_cash_flows,
+                    "filters": filters,
+                    "page_token": page_token,
+                }
+                snapshot_id, request_fingerprint = self._build_snapshot_identity(
+                    calculation_id=calculation_id,
+                    upstream_endpoint="position_timeseries",
+                    source_identifier=portfolio_id,
+                    request_payload=request_payload,
+                )
+                if snapshot_id not in existing_snapshot_ids:
+                    snapshot_batch.append(
+                        self._build_snapshot(
+                            calculation_id=calculation_id,
+                            upstream_endpoint="position_timeseries",
+                            source_identifier=portfolio_id,
+                            as_of_date=as_of_date,
+                            request_payload=request_payload,
+                            response=(status_code, payload),
+                            snapshot_id=snapshot_id,
+                            request_fingerprint=request_fingerprint,
+                        )
+                    )
+                    existing_snapshot_ids.add(snapshot_id)
+            if status_code >= 400:
+                if calculation_id is not None:
+                    self._execution_store.record_upstream_snapshots(
+                        calculation_id=calculation_id,
+                        snapshots=snapshot_batch,
+                    )
+                return status_code, payload
+            page_count += 1
+
+            rows = payload.get("rows", [])
+            if isinstance(rows, list):
+                merged_rows.extend(row for row in rows if isinstance(row, dict))
+
+            page_token = self._next_page_token(payload)
+            if not page_token:
+                break
+
+        if calculation_id is not None:
+            self._execution_store.record_upstream_snapshots(
+                calculation_id=calculation_id,
+                snapshots=snapshot_batch,
+            )
+
+        return 200, {
+            "rows": self._merge_dedup_records_by_fields(
+                records=merged_rows,
+                key_fields=("valuation_date", "position_id"),
+            ),
+            "retrieval_metadata": {
+                "page_count": page_count,
+            },
         }
 
     async def _gather_chunked(
@@ -382,6 +726,56 @@ class StatefulInputService:
             if isinstance(record_date, str):
                 deduped[record_date] = record
         return [deduped[key] for key in sorted(deduped)]
+
+    def _merge_dedup_records_by_fields(
+        self,
+        *,
+        records: list[dict[str, Any]],
+        key_fields: tuple[str, ...],
+    ) -> list[dict[str, Any]]:
+        deduped: dict[tuple[str, ...], dict[str, Any]] = {}
+        for record in records:
+            key_values: list[str] = []
+            for field in key_fields:
+                value = record.get(field)
+                if not isinstance(value, str):
+                    break
+                key_values.append(value)
+            if len(key_values) != len(key_fields):
+                continue
+            deduped[tuple(key_values)] = record
+        return [deduped[key] for key in sorted(deduped)]
+
+    def _merge_component_series(self, *, payloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        merged_by_index: dict[str, list[dict[str, Any]]] = {}
+        for payload in payloads:
+            component_series_raw = payload.get("component_series")
+            if not isinstance(component_series_raw, list):
+                continue
+            for component in component_series_raw:
+                if not isinstance(component, dict):
+                    continue
+                index_id = component.get("index_id")
+                if not isinstance(index_id, str):
+                    continue
+                points_raw = component.get("points")
+                points = (
+                    [point for point in points_raw if isinstance(point, dict)] if isinstance(points_raw, list) else []
+                )
+                merged_by_index.setdefault(index_id, []).extend(points)
+
+        merged_components: list[dict[str, Any]] = []
+        for index_id in sorted(merged_by_index):
+            merged_components.append(
+                {
+                    "index_id": index_id,
+                    "points": self._merge_dedup_records(
+                        records=merged_by_index[index_id],
+                        date_key="series_date",
+                    ),
+                }
+            )
+        return merged_components
 
     def _build_snapshot(
         self,

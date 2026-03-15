@@ -6,11 +6,13 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
+from app.models.attribution_requests import AttributionRequest
 from app.services.async_result_store import async_result_store
 from app.services.compute_job_store import compute_job_store
 from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import lineage_metadata_store
 from core.periods import ResolvedPeriod
+from core.repro import generate_canonical_hash
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
 from main import app
 from tests.conftest import drain_compute_queue, drain_lineage_queue
@@ -279,7 +281,12 @@ def test_attribution_endpoint_error_handling(client, mocker, error_class, expect
         "portfolio_id": "ERROR",
         "mode": "by_group",
         "group_by": ["sector"],
-        "benchmark_groups_data": [],
+        "benchmark_groups_data": [
+            {
+                "key": {"sector": "Tech"},
+                "observations": [{"date": "2025-01-31", "return_base": 0.01, "weight_bop": 1.0}],
+            }
+        ],
         "linking": "none",
         "frequency": "monthly",
         "report_start_date": "2025-01-01",
@@ -298,7 +305,12 @@ def test_attribution_endpoint_returns_400_when_no_resolved_periods(client, mocke
         "portfolio_id": "ATTRIB_NO_PERIODS",
         "mode": "by_group",
         "group_by": ["sector"],
-        "benchmark_groups_data": [],
+        "benchmark_groups_data": [
+            {
+                "key": {"sector": "Tech"},
+                "observations": [{"date": "2025-01-31", "return_base": 0.01, "weight_bop": 1.0}],
+            }
+        ],
         "linking": "none",
         "frequency": "monthly",
         "report_start_date": "2025-01-01",
@@ -392,6 +404,415 @@ def test_attribution_async_result_retrieval(client):
         assert complete.json()["calculation_id"] == calculation_id
     finally:
         settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = original_threshold
+
+
+def test_attribution_supports_stateful_input_mode(client, monkeypatch):
+    async def _mock_get_portfolio_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2025-01-01",
+                "observations": [
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1010",
+                    },
+                    {
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value": "1010",
+                        "ending_market_value": "1020.1",
+                    },
+                ],
+            },
+        )
+
+    async def _mock_get_position_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "rows": [
+                    {
+                        "position_id": "POS_1",
+                        "security_id": "SEC_1",
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value_portfolio_currency": "1000",
+                        "ending_market_value_portfolio_currency": "1010",
+                        "cash_flows": [],
+                        "dimensions": {"sector": "Technology"},
+                    },
+                    {
+                        "position_id": "POS_1",
+                        "security_id": "SEC_1",
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value_portfolio_currency": "1010",
+                        "ending_market_value_portfolio_currency": "1020.1",
+                        "cash_flows": [],
+                        "dimensions": {"sector": "Technology"},
+                    },
+                ]
+            },
+        )
+
+    async def _mock_get_benchmark_assignment(self, **kwargs):  # noqa: ARG001
+        return 200, {"benchmark_id": "BMK_1"}
+
+    async def _mock_get_benchmark_market_series(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "component_series": [
+                    {
+                        "index_id": "IDX_1",
+                        "points": [
+                            {"series_date": "2025-01-01", "component_weight": "1.0", "index_return": "0.01"},
+                            {"series_date": "2025-01-02", "component_weight": "1.0", "index_return": "0.01"},
+                        ],
+                    }
+                ]
+            },
+        )
+
+    async def _mock_get_index_catalog(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "records": [
+                    {
+                        "index_id": "IDX_1",
+                        "classification_labels": {"sector": "Technology"},
+                    }
+                ]
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_portfolio_timeseries",
+        _mock_get_portfolio_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_position_timeseries",
+        _mock_get_position_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_benchmark_assignment",
+        _mock_get_benchmark_assignment,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_benchmark_market_series",
+        _mock_get_benchmark_market_series,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_index_catalog",
+        _mock_get_index_catalog,
+    )
+
+    payload = {
+        "portfolio_id": "ATTRIB_STATEFUL",
+        "mode": "by_instrument",
+        "group_by": ["sector"],
+        "linking": "none",
+        "frequency": "daily",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    response = client.post("/performance/attribution", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["portfolio_id"] == "ATTRIB_STATEFUL"
+    assert body["input_mode"] == "stateful"
+    assert "ITD" in body["results_by_period"]
+
+
+def test_attribution_stateful_currency_mode_both_rejected(client, monkeypatch):
+    async def _mock_get_portfolio_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2025-01-01",
+                "observations": [
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1010",
+                    },
+                ],
+            },
+        )
+
+    async def _mock_get_position_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "rows": [
+                    {
+                        "position_id": "POS_1",
+                        "security_id": "SEC_1",
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value_portfolio_currency": "1000",
+                        "ending_market_value_portfolio_currency": "1010",
+                        "cash_flows": [],
+                        "dimensions": {"sector": "Technology"},
+                    }
+                ]
+            },
+        )
+
+    async def _mock_get_benchmark_assignment(self, **kwargs):  # noqa: ARG001
+        return 200, {"benchmark_id": "BMK_1"}
+
+    async def _mock_get_benchmark_market_series(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "component_series": [
+                    {
+                        "index_id": "IDX_1",
+                        "points": [
+                            {"series_date": "2025-01-01", "component_weight": "1.0", "index_return": "0.01"},
+                        ],
+                    }
+                ]
+            },
+        )
+
+    async def _mock_get_index_catalog(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "records": [
+                    {
+                        "index_id": "IDX_1",
+                        "classification_labels": {"sector": "Technology"},
+                    }
+                ]
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_portfolio_timeseries",
+        _mock_get_portfolio_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_position_timeseries",
+        _mock_get_position_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_benchmark_assignment",
+        _mock_get_benchmark_assignment,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_benchmark_market_series",
+        _mock_get_benchmark_market_series,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_index_catalog",
+        _mock_get_index_catalog,
+    )
+
+    payload = {
+        "portfolio_id": "ATTRIB_STATEFUL",
+        "mode": "by_instrument",
+        "group_by": ["sector"],
+        "linking": "none",
+        "frequency": "daily",
+        "currency_mode": "BOTH",
+        "report_ccy": "USD",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    response = client.post("/performance/attribution", json=payload)
+
+    assert response.status_code == 422
+    assert "currency_mode=BASE_ONLY only" in response.json()["detail"]
+
+
+def test_attribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch):
+    async def _mock_get_portfolio_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2025-01-01",
+                "observations": [
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1010",
+                    },
+                    {
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value": "1010",
+                        "ending_market_value": "1020.1",
+                    },
+                ],
+            },
+        )
+
+    async def _mock_get_position_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "rows": [
+                    {
+                        "position_id": "POS_1",
+                        "security_id": "SEC_1",
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value_portfolio_currency": "1000",
+                        "ending_market_value_portfolio_currency": "1010",
+                        "cash_flows": [],
+                        "dimensions": {"sector": "Technology"},
+                    },
+                    {
+                        "position_id": "POS_1",
+                        "security_id": "SEC_1",
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value_portfolio_currency": "1010",
+                        "ending_market_value_portfolio_currency": "1020.1",
+                        "cash_flows": [],
+                        "dimensions": {"sector": "Technology"},
+                    },
+                ]
+            },
+        )
+
+    async def _mock_get_benchmark_assignment(self, **kwargs):  # noqa: ARG001
+        return 200, {"benchmark_id": "BMK_1"}
+
+    async def _mock_get_benchmark_market_series(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "component_series": [
+                    {
+                        "index_id": "IDX_1",
+                        "points": [
+                            {"series_date": "2025-01-01", "component_weight": "1.0", "index_return": "0.01"},
+                            {"series_date": "2025-01-02", "component_weight": "1.0", "index_return": "0.01"},
+                        ],
+                    }
+                ]
+            },
+        )
+
+    async def _mock_get_index_catalog(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "records": [
+                    {
+                        "index_id": "IDX_1",
+                        "classification_labels": {"sector": "Technology"},
+                    }
+                ]
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_portfolio_timeseries",
+        _mock_get_portfolio_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_position_timeseries",
+        _mock_get_position_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_benchmark_assignment",
+        _mock_get_benchmark_assignment,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_benchmark_market_series",
+        _mock_get_benchmark_market_series,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_index_catalog",
+        _mock_get_index_catalog,
+    )
+
+    payload = {
+        "portfolio_id": "ATTRIB_STATEFUL_HASH",
+        "mode": "by_instrument",
+        "group_by": ["sector"],
+        "linking": "none",
+        "frequency": "daily",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    response = client.post("/performance/attribution", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    expected_request = AttributionRequest.model_validate(
+        {
+            "calculation_id": body["calculation_id"],
+            "portfolio_id": "ATTRIB_STATEFUL_HASH",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "mode": "by_instrument",
+            "frequency": "daily",
+            "group_by": ["sector"],
+            "linking": "none",
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [
+                    {"day": 1, "perf_date": "2025-01-01", "begin_mv": "1000", "end_mv": "1010"},
+                    {"day": 2, "perf_date": "2025-01-02", "begin_mv": "1010", "end_mv": "1020.1"},
+                ],
+            },
+            "instruments_data": [
+                {
+                    "instrument_id": "POS_1",
+                    "meta": {"security_id": "SEC_1", "sector": "Technology"},
+                    "valuation_points": [
+                        {
+                            "day": 0,
+                            "perf_date": "2025-01-01",
+                            "begin_mv": "1000",
+                            "end_mv": "1010",
+                            "bod_cf": "0",
+                            "eod_cf": "0",
+                        },
+                        {
+                            "day": 0,
+                            "perf_date": "2025-01-02",
+                            "begin_mv": "1010",
+                            "end_mv": "1020.1",
+                            "bod_cf": "0",
+                            "eod_cf": "0",
+                        },
+                    ],
+                }
+            ],
+            "benchmark_groups_data": [
+                {
+                    "key": {"sector": "Technology"},
+                    "observations": [
+                        {"date": "2025-01-01", "weight_bop": "1.0", "return_base": "0.01"},
+                        {"date": "2025-01-02", "weight_bop": "1.0", "return_base": "0.01"},
+                    ],
+                }
+            ],
+        }
+    )
+    expected_input_fingerprint, expected_calculation_hash = generate_canonical_hash(
+        expected_request, settings.APP_VERSION
+    )
+
+    assert body["meta"]["input_fingerprint"] == expected_input_fingerprint
+    assert body["meta"]["calculation_hash"] == expected_calculation_hash
 
 
 def test_attribution_async_result_not_found_and_failed(client, mocker):

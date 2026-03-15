@@ -7,12 +7,22 @@ contributors.
 
 The current request shape is:
 
+- `input_mode: "stateless" | "stateful"`
 - `portfolio_id`
 - `report_start_date`
 - `report_end_date`
 - `analyses`
-- `portfolio_data`
-- `positions_data`
+- stateless:
+  - legacy top-level `portfolio_data`
+  - legacy top-level `positions_data`
+  - or `stateless_input.portfolio_data`
+  - or `stateless_input.positions_data`
+- stateful:
+  - `stateful_input.consumer_system`
+  - optional `stateful_input.metric_basis`
+  - optional `stateful_input.dimensions`
+  - optional `stateful_input.include_cash_flows`
+  - optional `stateful_input.filters`
 
 Optional controls include:
 
@@ -25,14 +35,19 @@ Optional controls include:
 
 Inside the current contract:
 
-- `portfolio_data` contains `metric_basis` and `valuation_points`
-- each entry in `positions_data` contains `position_id`, optional `meta`, and `valuation_points`
+- stateless `portfolio_data` contains `metric_basis` and `valuation_points`
+- each stateless entry in `positions_data` contains `position_id`, optional `meta`, and `valuation_points`
+- stateful mode sources canonical portfolio and position timeseries from lotus-core and normalizes them into the same stateless engine inputs used by direct requests
 
 Older examples using nested `daily_data` or request-level `period_type` are not current.
 
 ## Async execution
 
 Contribution can run synchronously or asynchronously.
+
+Stateful and stateless requests follow the same execution pattern. The endpoint stays synchronous
+for smaller stateless sets and smaller stateful windows, and returns `202 Accepted` when the
+workload is offloaded to the compute executor.
 
 When the request is offloaded, the API returns `202 Accepted` with:
 

@@ -49,6 +49,43 @@ class CoreIntegrationService:
             backoff_seconds=self._retry_backoff_seconds,
         )
 
+    async def get_position_analytics_timeseries(
+        self,
+        *,
+        portfolio_id: str,
+        as_of_date: date,
+        start_date: date,
+        end_date: date,
+        reporting_currency: str | None,
+        consumer_system: str,
+        dimensions: list[str] | None = None,
+        include_cash_flows: bool = True,
+        filters: dict[str, Any] | None = None,
+        page_size: int = 5000,
+        page_token: str | None = None,
+    ) -> tuple[int, dict[str, Any]]:
+        url = f"{self._base_url}/integration/portfolios/{portfolio_id}/analytics/position-timeseries"
+        payload: dict[str, Any] = {
+            "as_of_date": str(as_of_date),
+            "window": {"start_date": str(start_date), "end_date": str(end_date)},
+            "frequency": "daily",
+            "dimensions": dimensions or [],
+            "include_cash_flows": include_cash_flows,
+            "consumer_system": consumer_system,
+            "filters": filters or {},
+            "page": {"page_size": page_size, "page_token": page_token},
+        }
+        if reporting_currency:
+            payload["reporting_currency"] = reporting_currency
+        return await post_with_retry(
+            url=url,
+            timeout_seconds=self._timeout,
+            json_body=payload,
+            headers=propagation_headers(),
+            max_retries=self._max_retries,
+            backoff_seconds=self._retry_backoff_seconds,
+        )
+
     async def get_benchmark_assignment(
         self,
         *,
@@ -84,6 +121,77 @@ class CoreIntegrationService:
             "window": {"start_date": str(start_date), "end_date": str(end_date)},
             "frequency": frequency,
         }
+        return await post_with_retry(
+            url=url,
+            timeout_seconds=self._timeout,
+            json_body=payload,
+            headers=propagation_headers(),
+            max_retries=self._max_retries,
+            backoff_seconds=self._retry_backoff_seconds,
+        )
+
+    async def get_benchmark_definition(
+        self,
+        *,
+        benchmark_id: str,
+        as_of_date: date,
+    ) -> tuple[int, dict[str, Any]]:
+        url = f"{self._base_url}/integration/benchmarks/{benchmark_id}/definition"
+        payload = {"as_of_date": str(as_of_date)}
+        return await post_with_retry(
+            url=url,
+            timeout_seconds=self._timeout,
+            json_body=payload,
+            headers=propagation_headers(),
+            max_retries=self._max_retries,
+            backoff_seconds=self._retry_backoff_seconds,
+        )
+
+    async def get_benchmark_market_series(
+        self,
+        *,
+        benchmark_id: str,
+        as_of_date: date,
+        start_date: date,
+        end_date: date,
+        frequency: str = "daily",
+        target_currency: str | None = None,
+        series_fields: list[str] | None = None,
+    ) -> tuple[int, dict[str, Any]]:
+        url = f"{self._base_url}/integration/benchmarks/{benchmark_id}/market-series"
+        payload: dict[str, Any] = {
+            "as_of_date": str(as_of_date),
+            "window": {"start_date": str(start_date), "end_date": str(end_date)},
+            "frequency": frequency,
+            "series_fields": series_fields or ["index_return", "component_weight"],
+        }
+        if target_currency:
+            payload["target_currency"] = target_currency
+        return await post_with_retry(
+            url=url,
+            timeout_seconds=self._timeout,
+            json_body=payload,
+            headers=propagation_headers(),
+            max_retries=self._max_retries,
+            backoff_seconds=self._retry_backoff_seconds,
+        )
+
+    async def get_index_catalog(
+        self,
+        *,
+        as_of_date: date,
+        index_currency: str | None = None,
+        index_type: str | None = None,
+        index_status: str | None = None,
+    ) -> tuple[int, dict[str, Any]]:
+        url = f"{self._base_url}/integration/indices/catalog"
+        payload: dict[str, Any] = {"as_of_date": str(as_of_date)}
+        if index_currency:
+            payload["index_currency"] = index_currency
+        if index_type:
+            payload["index_type"] = index_type
+        if index_status:
+            payload["index_status"] = index_status
         return await post_with_retry(
             url=url,
             timeout_seconds=self._timeout,

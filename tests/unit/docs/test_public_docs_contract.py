@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -42,6 +43,8 @@ def test_twr_guide_uses_current_request_shape():
 def test_mwr_guide_matches_current_method_reality():
     guide = _read("docs/guides/mwr.md")
 
+    assert 'input_mode: "stateless" | "stateful"' in guide
+    assert "stateful_input.window_start_date" in guide
     assert 'mwr_method="MODIFIED_DIETZ"' in guide
     assert "maps to the same implemented Dietz computation path" in guide
     assert "[cite_start]" not in guide
@@ -64,16 +67,39 @@ def test_standalone_guide_uses_current_engine_api():
 
 def test_contribution_guide_uses_current_request_shape():
     guide = _read("docs/guides/contribution.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    readme = _read("README.md")
 
+    assert 'input_mode: "stateless" | "stateful"' in guide
+    assert "stateful_input.consumer_system" in guide
     assert "analyses" in guide
     assert "valuation_points" in guide
     assert "Older examples using nested `daily_data`" in guide
     assert "one hierarchy result under each `results_by_period.<period>` key" in guide
+    assert "app.models.contribution_analytics_requests.ContributionAnalyticsRequest" in api_reference
+    assert (
+        "stateful mode sources portfolio and position timeseries from lotus-core query-control-plane" in api_reference
+    )
+    assert 'input_mode: "stateless" | "stateful"' in readme
+    assert "stateful_input.consumer_system" in readme
+
+
+def test_api_reference_documents_endpoint_level_capabilities_contract():
+    api_reference = _read("docs/guides/api_reference.md")
+
+    assert "analytics_surfaces" in api_reference
+    assert "stateful_restrictions" in api_reference
+    assert "supports_async" in api_reference
 
 
 def test_attribution_guide_uses_current_request_shape():
     guide = _read("docs/guides/attribution.md")
 
+    assert 'input_mode: "stateless" | "stateful"' in guide
+    assert "stateful_input.consumer_system" in guide
+    assert '`mode="by_instrument"`' in guide
+    assert '`currency_mode="BASE_ONLY"`' in guide
+    assert "`asset_class`, `sector`, or `country`" in guide
     assert "analyses" in guide
     assert "valuation_points" in guide
     assert "Older examples using request-level `period_type`" in guide
@@ -81,6 +107,52 @@ def test_attribution_guide_uses_current_request_shape():
     assert "- `linking`" in guide
     assert "currency_attribution" in guide
     assert "`group_by` includes the `currency` dimension" in guide
+    assert "currently available only for stateless attribution inputs" in guide
+
+
+def test_api_examples_recipes_match_current_dual_mode_contract():
+    guide = _read("docs/API Examples & Recipes.md")
+
+    assert 'input_mode": "stateless"' in guide
+    assert 'input_mode": "stateful"' in guide
+    assert '"stateless_input"' in guide
+    assert '"stateful_input"' in guide
+    assert '"analyses"' in guide
+    assert '"valuation_points"' in guide
+    assert "window_start_date" in guide
+    assert 'currency attribution with `currency_mode="both"` currently requires stateless inputs' in guide.lower()
+    assert "Older examples using request-level `period_type` or nested `daily_data` are not current." in guide
+    assert '"period_type"' not in guide
+    assert '"daily_data"' not in guide
+
+
+def test_json_examples_match_current_dual_mode_contract():
+    example_paths = [
+        "docs/examples/twr_request.json",
+        "docs/examples/twr_request_multiccy_hedged.json",
+        "docs/examples/mwr_request.json",
+        "docs/examples/contribution_request.json",
+        "docs/examples/contribution_request_multiccy.json",
+        "docs/examples/attribution_request.json",
+        "docs/examples/attribution_request_multiccy.json",
+    ]
+
+    for relative_path in example_paths:
+        payload = json.loads(_read(relative_path))
+        payload_text = json.dumps(payload)
+
+        assert payload["input_mode"] == "stateless"
+        assert "period_type" not in payload_text
+        assert "daily_data" not in payload_text
+
+    assert "stateless_input" in json.loads(_read("docs/examples/twr_request.json"))
+    assert "stateless_input" in json.loads(_read("docs/examples/mwr_request.json"))
+    assert "stateless_input" in json.loads(_read("docs/examples/contribution_request.json"))
+    assert "stateless_input" in json.loads(_read("docs/examples/attribution_request.json"))
+
+    multiccy_attribution = json.loads(_read("docs/examples/attribution_request_multiccy.json"))
+    assert multiccy_attribution["currency_mode"] == "BOTH"
+    assert multiccy_attribution["input_mode"] == "stateless"
 
 
 def test_runtime_alert_runbook_covers_breach_gauges():

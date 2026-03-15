@@ -4,6 +4,7 @@ from uuid import uuid4
 
 import pytest
 
+import app.services.portfolio_source_service as portfolio_source_service
 import app.services.returns_series_service as returns_series_service
 import app.services.stateful_input_service as stateful_input_service
 from app.models.returns_series import ReturnsSeriesRequest
@@ -37,22 +38,22 @@ async def test_returns_series_stateful_orchestration_characterization_contract(t
 
     core_service_stub = _StatefulCoreServiceStub()
     monkeypatch.setattr(
-        returns_series_service.CoreIntegrationService,
+        portfolio_source_service.CoreIntegrationService,
         "get_portfolio_analytics_timeseries",
         core_service_stub.get_portfolio_analytics_timeseries,
     )
     monkeypatch.setattr(
-        returns_series_service.CoreIntegrationService,
+        portfolio_source_service.CoreIntegrationService,
         "get_benchmark_assignment",
         core_service_stub.get_benchmark_assignment,
     )
     monkeypatch.setattr(
-        returns_series_service.CoreIntegrationService,
+        portfolio_source_service.CoreIntegrationService,
         "get_benchmark_return_series",
         core_service_stub.get_benchmark_return_series,
     )
     monkeypatch.setattr(
-        returns_series_service.CoreIntegrationService,
+        portfolio_source_service.CoreIntegrationService,
         "get_risk_free_series",
         core_service_stub.get_risk_free_series,
     )

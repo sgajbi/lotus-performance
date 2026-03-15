@@ -3,7 +3,9 @@ TWR Base Return (`portfolio_return.base`)
 
 ## Endpoint and Mode Coverage
 - Endpoint: `POST /performance/twr`
-- Request mode: stateless payload (`valuation_points` provided by caller)
+- Request mode:
+  - stateless payload (`valuation_points` or `stateless_input.valuation_points`)
+  - stateful payload (`stateful_input`) sourced from lotus-core and normalized into valuation points by lotus-performance
 - Availability: always computed for each resolved period that has at least one valuation row in-range
 
 ## Inputs
@@ -23,7 +25,8 @@ TWR Base Return (`portfolio_return.base`)
 
 ## Upstream Data Sources
 - No runtime cross-service dependency.
-- All economic inputs are caller-supplied in `valuation_points[]`.
+- In stateless mode, all economic inputs are caller-supplied in `valuation_points[]`.
+- In stateful mode, the same economic inputs are sourced from lotus-core portfolio timeseries and normalized into `valuation_points[]` before engine execution.
 
 ## Unit Conventions
 - `begin_mv`, `end_mv`, `bod_cf`, `eod_cf`, `mgmt_fees` are currency amounts.
