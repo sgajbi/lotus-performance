@@ -5,7 +5,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.models.contribution_analytics_requests import ContributionAnalyticsRequest
-from app.models.contribution_requests import ContributionRequest
+from app.models.contribution_requests import ContributionRequest, PortfolioData, PositionData
 from app.models.contribution_responses import ContributionResponse
 
 
@@ -174,6 +174,40 @@ def test_contribution_analytics_request_rejects_mixed_stateless_payload_shapes()
         ContributionAnalyticsRequest.model_validate(payload)
 
 
+def test_contribution_analytics_request_rejects_stateful_input_in_stateless_mode():
+    payload = {
+        "portfolio_id": "CONTRIB_STATELESS",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-31",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateless",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateless_input": {
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [],
+            },
+            "positions_data": [],
+        },
+    }
+
+    with pytest.raises(ValidationError, match="stateful_input must be null when input_mode=stateless"):
+        ContributionAnalyticsRequest.model_validate(payload)
+
+
+def test_contribution_analytics_request_rejects_missing_stateless_payload():
+    payload = {
+        "portfolio_id": "CONTRIB_STATELESS",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-31",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateless",
+    }
+
+    with pytest.raises(ValidationError, match="stateless_input or legacy portfolio_data/positions_data is required"):
+        ContributionAnalyticsRequest.model_validate(payload)
+
+
 def test_contribution_analytics_request_builds_legacy_stateless_request():
     payload = {
         "calculation_id": str(uuid4()),
@@ -194,3 +228,122 @@ def test_contribution_analytics_request_builds_legacy_stateless_request():
     assert stateless_request.portfolio_id == "CONTRIB_LEGACY"
     assert stateless_request.portfolio_data.metric_basis == "NET"
     assert stateless_request.positions_data == []
+
+
+def test_contribution_analytics_request_builds_nested_stateless_request():
+    request = ContributionAnalyticsRequest.model_validate(
+        {
+            "portfolio_id": "CONTRIB_NESTED",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-31",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_data": {
+                    "metric_basis": "NET",
+                    "valuation_points": [],
+                },
+                "positions_data": [{"position_id": "POS_1", "valuation_points": []}],
+            },
+        }
+    )
+
+    stateless = request.to_stateless_contribution_request()
+
+    assert stateless.portfolio_data.metric_basis == "NET"
+    assert stateless.positions_data[0].position_id == "POS_1"
+
+
+def test_contribution_analytics_request_rejects_partial_legacy_stateless_payload():
+    payload = {
+        "portfolio_id": "CONTRIB_PARTIAL",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-31",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [],
+        },
+    }
+
+    with pytest.raises(ValidationError, match="portfolio_data and positions_data must be provided together"):
+        ContributionAnalyticsRequest.model_validate(payload)
+
+
+def test_contribution_analytics_request_rejects_stateful_conflicts():
+    payload = {
+        "portfolio_id": "CONTRIB_STATEFUL",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-31",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateless_input": {
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [],
+            },
+            "positions_data": [],
+        },
+    }
+
+    with pytest.raises(ValidationError, match="stateless_input must be null when input_mode=stateful"):
+        ContributionAnalyticsRequest.model_validate(payload)
+
+    with pytest.raises(
+        ValidationError, match="portfolio_data and positions_data must be null when input_mode=stateful"
+    ):
+        ContributionAnalyticsRequest.model_validate(
+            {
+                **payload,
+                "stateless_input": None,
+                "portfolio_data": {
+                    "metric_basis": "NET",
+                    "valuation_points": [],
+                },
+                "positions_data": [],
+            }
+        )
+
+
+def test_contribution_analytics_request_to_stateless_prefers_override_payload():
+    request = ContributionAnalyticsRequest.model_validate(
+        {
+            "portfolio_id": "CONTRIB_STATELESS",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-31",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_data": {
+                    "metric_basis": "NET",
+                    "valuation_points": [],
+                },
+                "positions_data": [],
+            },
+        }
+    )
+
+    stateless = request.to_stateless_contribution_request(
+        portfolio_data=PortfolioData.model_validate({"metric_basis": "GROSS", "valuation_points": []}),
+        positions_data=[PositionData.model_validate({"position_id": "OVERRIDE", "valuation_points": []})],
+    )
+
+    assert stateless.portfolio_data.metric_basis == "GROSS"
+    assert stateless.positions_data[0].position_id == "OVERRIDE"
+
+
+def test_contribution_analytics_request_to_stateless_fails_without_stateless_payload():
+    request = ContributionAnalyticsRequest.model_validate(
+        {
+            "portfolio_id": "CONTRIB_STATEFUL",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-31",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {"consumer_system": "lotus-performance"},
+        }
+    )
+
+    with pytest.raises(ValueError, match="No stateless contribution inputs are available"):
+        request.to_stateless_contribution_request()

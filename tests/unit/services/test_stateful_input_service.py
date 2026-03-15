@@ -136,6 +136,9 @@ class _CoreServiceStub:
             },
         )
 
+    async def get_benchmark_definition(self, **kwargs):
+        return 200, {"benchmark_id": kwargs["benchmark_id"]}
+
     async def get_risk_free_series(self, **kwargs):
         self.risk_free_calls.append(kwargs)
         return (
@@ -385,3 +388,46 @@ async def test_stateful_input_service_skips_duplicate_snapshot_builds_for_existi
     )
 
     assert snapshot_builder.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_stateful_input_service_returns_first_failure_for_position_chunks():
+    class _FailingCoreService(_CoreServiceStub):
+        async def get_position_analytics_timeseries(self, **kwargs):
+            return 503, {"detail": "unavailable"}
+
+    service = StatefulInputService(core_service=_FailingCoreService())
+
+    status_code, payload = await service.get_position_timeseries(
+        portfolio_id="PORT_1",
+        as_of_date=date(2026, 1, 3),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 3),
+        reporting_currency="USD",
+        consumer_system="lotus-performance",
+    )
+
+    assert status_code == 503
+    assert payload == {"detail": "unavailable"}
+
+
+def test_stateful_input_service_deduplicates_records_and_component_series():
+    service = StatefulInputService(core_service=_CoreServiceStub())
+
+    deduped = service._merge_dedup_records_by_fields(
+        records=[
+            {"valuation_date": "2026-01-01", "position_id": "POS_1", "value": 1},
+            {"valuation_date": "2026-01-01", "position_id": "POS_1", "value": 2},
+            {"valuation_date": "2026-01-02", "position_id": 7},
+        ],
+        key_fields=("valuation_date", "position_id"),
+    )
+    merged_series = service._merge_component_series(
+        payloads=[
+            {"component_series": [{"index_id": "IDX_1", "points": [{"series_date": "2026-01-01"}]}]},
+            {"component_series": [{"index_id": None}, "bad", {"index_id": "IDX_1", "points": "bad"}]},
+        ]
+    )
+
+    assert deduped == [{"valuation_date": "2026-01-01", "position_id": "POS_1", "value": 2}]
+    assert merged_series == [{"index_id": "IDX_1", "points": [{"series_date": "2026-01-01"}]}]
