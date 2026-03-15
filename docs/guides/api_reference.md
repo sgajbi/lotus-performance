@@ -340,8 +340,8 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - `lotus_performance_recovery_drill_latest_reclaimed_action_age_seconds`
   - `lotus_performance_recovery_drill_reclaimed_actions`
   - `lotus_performance_recovery_drill_latest_age_seconds`
-  - `lotus_performance_recovery_drill_policy_threshold{threshold="max_age_seconds"}`
-  - `lotus_performance_recovery_drill_degradation_breach{reason="recovery_drill_latest_not_passed|recovery_drill_age_exceeded"}`
+  - `lotus_performance_recovery_drill_policy_threshold{threshold="max_age_seconds|reclaim_count"}`
+  - `lotus_performance_recovery_drill_degradation_breach{reason="recovery_drill_latest_not_passed|recovery_drill_age_exceeded|recovery_drill_reclaim_pressure_exceeded"}`
 - includes runtime-retention lifecycle metrics:
   - `lotus_performance_runtime_retention_availability`
   - `lotus_performance_runtime_retention_action_availability`
@@ -351,8 +351,8 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - `lotus_performance_runtime_retention_reclaimed_actions`
   - `lotus_performance_runtime_retention_preview_availability`
   - `lotus_performance_runtime_retention_latest_age_seconds`
-  - `lotus_performance_runtime_retention_policy_threshold{threshold="max_age_seconds"}`
-  - `lotus_performance_runtime_retention_degradation_breach{reason="runtime_retention_latest_not_applied|runtime_retention_age_exceeded"}`
+  - `lotus_performance_runtime_retention_policy_threshold{threshold="max_age_seconds|reclaim_count"}`
+  - `lotus_performance_runtime_retention_degradation_breach{reason="runtime_retention_latest_not_applied|runtime_retention_age_exceeded|runtime_retention_reclaim_pressure_exceeded"}`
   - `lotus_performance_runtime_retention_prunable_items{category="execution|compute_job|async_result|lineage_record|lineage_artifact"}`
 - includes lineage storage capacity metrics:
   - `lotus_performance_lineage_storage_capacity_availability`

@@ -75,6 +75,7 @@ Do not treat a missing breach sample as healthy if the corresponding availabilit
 
 - `recovery_drill_latest_not_passed` means the most recent retained recovery drill ended in failure.
 - `recovery_drill_age_exceeded` means the latest retained recovery drill is older than the configured max-age policy.
+- `recovery_drill_reclaim_pressure_exceeded` means stale governed recovery-drill leases have been reclaimed often enough to indicate unstable or interrupted operator-action execution.
 - First actions:
   - inspect `GET /integration/recovery-drills`
   - identify the latest retained drill `operator_id`, `backup_identifier`, and evidence file
@@ -85,6 +86,7 @@ Do not treat a missing breach sample as healthy if the corresponding availabilit
 
 - `runtime_retention_latest_not_applied` means the latest retained cleanup evidence only proves a dry run, not an applied retention cleanup.
 - `runtime_retention_age_exceeded` means the latest retained cleanup evidence is older than the configured max-age policy.
+- `runtime_retention_reclaim_pressure_exceeded` means stale governed runtime-retention cleanup leases have been reclaimed often enough to indicate unstable or interrupted operator-action execution.
 - First actions:
   - inspect `GET /integration/runtime-retention-cleanups`
   - identify the latest retained cleanup `operator_id`, `cleanup_mode`, and `retention_days`

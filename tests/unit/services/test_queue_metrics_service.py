@@ -65,7 +65,9 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
                 "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES": 200,
                 "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO": 0.25,
                 "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS": 3600.0,
+                "RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT": 2,
                 "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS": 3600.0,
+                "RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT": 3,
             },
         )(),
     )
@@ -202,6 +204,13 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
     recovery_breach_samples = {sample.labels["reason"]: sample.value for sample in recovery_breach_metric.samples}
     assert recovery_breach_samples["recovery_drill_latest_not_passed"] == 0
     assert recovery_breach_samples["recovery_drill_age_exceeded"] == 0
+    assert recovery_breach_samples["recovery_drill_reclaim_pressure_exceeded"] == 0
+
+    recovery_threshold_metric = next(
+        metric for metric in metrics if metric.name == "lotus_performance_recovery_drill_policy_threshold"
+    )
+    recovery_threshold_samples = {sample.labels["threshold"]: sample.value for sample in recovery_threshold_metric.samples}
+    assert recovery_threshold_samples["reclaim_count"] == 2
 
 
 def test_queue_metrics_collector_exposes_store_unavailability_without_false_zero_backlog(monkeypatch):
@@ -294,6 +303,145 @@ def test_queue_metrics_collector_exposes_store_unavailability_without_false_zero
         metric for metric in metrics if metric.name == "lotus_performance_runtime_retention_action_availability"
     )
     assert runtime_retention_action_availability_metric.samples[0].value == 0
+
+
+def test_queue_metrics_collector_emits_governed_action_reclaim_pressure_breaches(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.compute_job_store.get_queue_stats",
+        lambda: type(
+            "ComputeStats",
+            (),
+            {
+                "pending_count": 0,
+                "leased_count": 0,
+                "running_count": 0,
+                "failed_count": 0,
+                "complete_count": 0,
+                "retry_backlog_count": 0,
+                "lease_expired_count": 0,
+                "reclaimable_count": 0,
+                "terminal_failure_count": 0,
+                "oldest_pending_age_seconds": 0.0,
+                "oldest_leased_age_seconds": 0.0,
+                "oldest_running_age_seconds": 0.0,
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.lineage_metadata_store.get_pending_payload_stats",
+        lambda: type(
+            "LineageStats",
+            (),
+            {
+                "pending_payload_count": 0,
+                "leased_payload_count": 0,
+                "retry_backlog_count": 0,
+                "reclaimable_count": 0,
+                "terminal_failure_count": 0,
+                "oldest_pending_age_seconds": 0.0,
+                "oldest_leased_age_seconds": 0.0,
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.get_lineage_storage_capacity",
+        lambda: type("Capacity", (), {"total_bytes": 1000, "used_bytes": 600, "free_bytes": 400, "free_ratio": 0.4})(),
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.get_settings",
+        lambda: type(
+            "Settings",
+            (),
+            {
+                "RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_COMPUTE_LEASED_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_COMPUTE_RUNNING_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_LINEAGE_LEASED_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES": 0,
+                "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO": 0.0,
+                "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS": 0.0,
+                "RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT": 2,
+                "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS": 0.0,
+                "RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT": 3,
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.build_recovery_drill_history_snapshot",
+        lambda limit=1: type(
+            "RecoverySnapshot",
+            (),
+            {"status": "available", "entries": [type("Entry", (), {"generated_at_utc": "2099-01-01T00:00:00Z", "status": "passed"})()]},
+        )(),
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.build_runtime_retention_history_snapshot",
+        lambda limit=1: type(
+            "RuntimeRetentionSnapshot",
+            (),
+            {"status": "available", "entries": [type("Entry", (), {"generated_at_utc": "2099-01-01T00:00:00Z", "cleanup_mode": "apply"})()]},
+        )(),
+    )
+    action_snapshots = iter(
+        [
+            type(
+                "LeaseSnapshot",
+                (),
+                {
+                    "status": "available",
+                    "active_leases": (),
+                    "latest_reclaimed_lease": type("Reclaim", (), {"reclaimed_at_utc": "2099-01-01T00:00:00Z", "reclaim_count": 2})(),
+                },
+            )(),
+            type(
+                "LeaseSnapshot",
+                (),
+                {
+                    "status": "available",
+                    "active_leases": (),
+                    "latest_reclaimed_lease": type("Reclaim", (), {"reclaimed_at_utc": "2099-01-01T00:00:00Z", "reclaim_count": 3})(),
+                },
+            )(),
+        ]
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.build_operator_action_lease_snapshot",
+        lambda **kwargs: next(action_snapshots),
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.run_runtime_retention_cleanup",
+        lambda dry_run=True: type(
+            "RuntimeRetentionPreview",
+            (),
+            {
+                "prunable_execution_count": 0,
+                "prunable_compute_job_count": 0,
+                "prunable_async_result_count": 0,
+                "prunable_lineage_record_count": 0,
+                "prunable_lineage_artifact_count": 0,
+            },
+        )(),
+    )
+
+    metrics = list(DurableQueueCollector().collect())
+
+    recovery_breach_metric = next(
+        metric for metric in metrics if metric.name == "lotus_performance_recovery_drill_degradation_breach"
+    )
+    recovery_breach_samples = {sample.labels["reason"]: sample.value for sample in recovery_breach_metric.samples}
+    assert recovery_breach_samples["recovery_drill_reclaim_pressure_exceeded"] == 1
+
+    retention_breach_metric = next(
+        metric for metric in metrics if metric.name == "lotus_performance_runtime_retention_degradation_breach"
+    )
+    retention_breach_samples = {sample.labels["reason"]: sample.value for sample in retention_breach_metric.samples}
+    assert retention_breach_samples["runtime_retention_reclaim_pressure_exceeded"] == 1
 
 
 def test_queue_metrics_collector_emits_governed_action_lease_metrics(monkeypatch):

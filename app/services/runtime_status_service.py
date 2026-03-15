@@ -105,6 +105,7 @@ class RecoveryDrillStatus:
 @dataclass(frozen=True)
 class RecoveryDrillDegradationPolicy:
     max_age_seconds: float
+    reclaim_count: int
 
 
 @dataclass(frozen=True)
@@ -150,6 +151,7 @@ class RuntimeRetentionStatus:
 @dataclass(frozen=True)
 class RuntimeRetentionDegradationPolicy:
     max_age_seconds: float
+    reclaim_count: int
 
 
 @dataclass(frozen=True)
@@ -405,6 +407,7 @@ def _safe_lineage_recent_recoveries(*, settings) -> tuple[LineageRecoveryEvent, 
 
 def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
     threshold = getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS", 0.0)
+    reclaim_threshold = getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT", 0)
     active_run_status = _build_operator_action_status(
         artifact_directory=getattr(settings, "RECOVERY_DRILL_ARTIFACT_PATH", Path("artifacts/durable-recovery-drill")),
         action_name="recovery_drill",
@@ -495,6 +498,14 @@ def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
                 threshold_value=_as_decimal_number(threshold),
             )
         )
+    if reclaim_threshold > 0 and active_run_status.reclaimed_run_count >= reclaim_threshold:
+        degradation_details.append(
+            RuntimeDegradationDetail(
+                reason="recovery_drill_reclaim_pressure_exceeded",
+                observed_value=_as_decimal_number(active_run_status.reclaimed_run_count),
+                threshold_value=_as_decimal_number(reclaim_threshold),
+            )
+        )
     reasons: tuple[str, ...] = tuple(detail.reason for detail in degradation_details)
     return RecoveryDrillStatus(
         status="degraded" if reasons else "available",
@@ -526,6 +537,7 @@ def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
 
 def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
     threshold = getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS", 0.0)
+    reclaim_threshold = getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT", 0)
     active_run_status = _build_operator_action_status(
         artifact_directory=getattr(settings, "RUNTIME_RETENTION_ARTIFACT_PATH", Path("artifacts/runtime-retention-cleanup")),
         action_name="runtime_retention_cleanup",
@@ -661,6 +673,14 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
                 reason="runtime_retention_age_exceeded",
                 observed_value=_as_decimal_number(latest_age_seconds),
                 threshold_value=_as_decimal_number(threshold),
+            )
+        )
+    if reclaim_threshold > 0 and active_run_status.reclaimed_run_count >= reclaim_threshold:
+        degradation_details.append(
+            RuntimeDegradationDetail(
+                reason="runtime_retention_reclaim_pressure_exceeded",
+                observed_value=_as_decimal_number(active_run_status.reclaimed_run_count),
+                threshold_value=_as_decimal_number(reclaim_threshold),
             )
         )
     reasons: tuple[str, ...] = tuple(detail.reason for detail in degradation_details)
@@ -1157,10 +1177,12 @@ def _build_lineage_queue_policy(*, settings) -> LineageQueueDegradationPolicy:
 def _build_recovery_drill_policy(*, settings) -> RecoveryDrillDegradationPolicy:
     return RecoveryDrillDegradationPolicy(
         max_age_seconds=getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS", 0.0),
+        reclaim_count=getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT", 0),
     )
 
 
 def _build_runtime_retention_policy(*, settings) -> RuntimeRetentionDegradationPolicy:
     return RuntimeRetentionDegradationPolicy(
         max_age_seconds=getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS", 0.0),
+        reclaim_count=getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT", 0),
     )

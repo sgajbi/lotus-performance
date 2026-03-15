@@ -333,6 +333,60 @@ def test_metrics_include_lineage_storage_pressure_breach_signals(mocker):
         settings.RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO = original_ratio
 
 
+def test_metrics_include_governed_action_reclaim_pressure_breach_signals(mocker):
+    settings = get_settings()
+    original_recovery_threshold = settings.RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT
+    original_retention_threshold = settings.RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT
+    settings.RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT = 2
+    settings.RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT = 3
+    mocker.patch(
+        "app.services.queue_metrics_service.build_operator_action_lease_snapshot",
+        side_effect=[
+            type(
+                "LeaseSnapshot",
+                (),
+                {
+                    "status": "available",
+                    "active_leases": (),
+                    "latest_reclaimed_lease": type(
+                        "Reclaim", (), {"reclaimed_at_utc": "2026-03-14T00:30:00Z", "reclaim_count": 2}
+                    )(),
+                },
+            )(),
+            type(
+                "LeaseSnapshot",
+                (),
+                {
+                    "status": "available",
+                    "active_leases": (),
+                    "latest_reclaimed_lease": type(
+                        "Reclaim", (), {"reclaimed_at_utc": "2026-03-14T01:30:00Z", "reclaim_count": 3}
+                    )(),
+                },
+            )(),
+        ],
+    )
+
+    try:
+        with TestClient(app) as client:
+            metrics = client.get("/metrics")
+
+        assert metrics.status_code == 200
+        assert 'lotus_performance_recovery_drill_policy_threshold{threshold="reclaim_count"} 2.0' in metrics.text
+        assert 'lotus_performance_runtime_retention_policy_threshold{threshold="reclaim_count"} 3.0' in metrics.text
+        assert (
+            'lotus_performance_recovery_drill_degradation_breach{reason="recovery_drill_reclaim_pressure_exceeded"} 1.0'
+            in metrics.text
+        )
+        assert (
+            'lotus_performance_runtime_retention_degradation_breach{reason="runtime_retention_reclaim_pressure_exceeded"} 1.0'
+            in metrics.text
+        )
+    finally:
+        settings.RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT = original_recovery_threshold
+        settings.RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT = original_retention_threshold
+
+
 def test_metrics_include_queue_policy_breach_signals():
     settings = __import__("app.core.config", fromlist=["get_settings"]).get_settings()
     originals = (

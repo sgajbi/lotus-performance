@@ -550,6 +550,10 @@ class DurableQueueCollector:
             ["max_age_seconds"],
             getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS", 0.0),
         )
+        recovery_drill_thresholds.add_metric(
+            ["reclaim_count"],
+            getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT", 0),
+        )
         yield recovery_drill_thresholds
 
         if recovery_drill_action_snapshot is not None and recovery_drill_action_snapshot.status == "available":
@@ -597,6 +601,10 @@ class DurableQueueCollector:
         runtime_retention_thresholds.add_metric(
             ["max_age_seconds"],
             getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS", 0.0),
+        )
+        runtime_retention_thresholds.add_metric(
+            ["reclaim_count"],
+            getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT", 0),
         )
         yield runtime_retention_thresholds
 
@@ -668,6 +676,19 @@ class DurableQueueCollector:
                     observed=latest_age_seconds,
                 ),
             )
+            recovery_drill_breach.add_metric(
+                ["recovery_drill_reclaim_pressure_exceeded"],
+                _breach_flag(
+                    threshold=getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT", 0),
+                    observed=(
+                        0
+                        if recovery_drill_action_snapshot is None
+                        or recovery_drill_action_snapshot.status != "available"
+                        or recovery_drill_action_snapshot.latest_reclaimed_lease is None
+                        else recovery_drill_action_snapshot.latest_reclaimed_lease.reclaim_count
+                    ),
+                ),
+            )
             yield recovery_drill_breach
 
         if (
@@ -699,6 +720,19 @@ class DurableQueueCollector:
                 _breach_flag(
                     threshold=getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS", 0.0),
                     observed=latest_age_seconds,
+                ),
+            )
+            runtime_retention_breach.add_metric(
+                ["runtime_retention_reclaim_pressure_exceeded"],
+                _breach_flag(
+                    threshold=getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT", 0),
+                    observed=(
+                        0
+                        if runtime_retention_action_snapshot is None
+                        or runtime_retention_action_snapshot.status != "available"
+                        or runtime_retention_action_snapshot.latest_reclaimed_lease is None
+                        else runtime_retention_action_snapshot.latest_reclaimed_lease.reclaim_count
+                    ),
                 ),
             )
             yield runtime_retention_breach
