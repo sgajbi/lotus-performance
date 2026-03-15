@@ -130,6 +130,8 @@ async def run_runtime_retention_cleanup(
     replay = resolve_runtime_retention_manual_replay(
         history_snapshot,
         artifact_directory=settings.RUNTIME_RETENTION_ARTIFACT_PATH,
+        operator_id=operator_id,
+        tenant_id=tenant_id,
         correlation_id=correlation_id,
         apply=cleanup_request.apply,
         retention_days=cleanup_request.retention_days,

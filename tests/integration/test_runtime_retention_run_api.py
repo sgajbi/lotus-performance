@@ -177,3 +177,27 @@ def test_runtime_retention_run_api_allows_apply_after_recent_matching_preview(tm
     assert preview.status_code == 200
     assert apply.status_code == 200
     assert apply.json()["cleanup_mode"] == "apply"
+
+
+def test_runtime_retention_run_api_does_not_replay_other_operator_correlation(tmp_path, monkeypatch):
+    artifact_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
+    settings = get_settings()
+    monkeypatch.setattr(settings, "RUNTIME_RETENTION_ARTIFACT_PATH", artifact_dir)
+    monkeypatch.setattr(settings, "RUNTIME_RETENTION_MANUAL_RUN_COOLDOWN_SECONDS", 300.0)
+
+    with TestClient(app) as client:
+        first = client.post(
+            "/integration/runtime-retention-cleanups/run",
+            headers={"X-Actor-Id": "ops-user", "X-Tenant-Id": "tenant-a", "X-Correlation-Id": "corr-123"},
+            json={"apply": False, "job_id": "ticket-7"},
+        )
+        second = client.post(
+            "/integration/runtime-retention-cleanups/run",
+            headers={"X-Actor-Id": "other-user", "X-Tenant-Id": "tenant-a", "X-Correlation-Id": "corr-123"},
+            json={"apply": False, "job_id": "ticket-7"},
+        )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert "X-Idempotent-Replay" not in second.headers
+    assert second.json()["evidence_file_name"] != first.json()["evidence_file_name"]

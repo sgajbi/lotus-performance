@@ -22,6 +22,8 @@ def resolve_runtime_retention_manual_replay(
     snapshot: RuntimeRetentionHistorySnapshot,
     *,
     artifact_directory: Path,
+    operator_id: str,
+    tenant_id: str | None,
     correlation_id: str | None,
     apply: bool,
     retention_days: int | None,
@@ -32,6 +34,8 @@ def resolve_runtime_retention_manual_replay(
     for entry in snapshot.entries:
         if not _runtime_retention_entry_matches(
             entry,
+            operator_id=operator_id,
+            tenant_id=tenant_id,
             correlation_id=correlation_id,
             apply=apply,
             retention_days=retention_days,
@@ -49,12 +53,18 @@ def resolve_recovery_drill_manual_replay(
     snapshot: RecoveryDrillHistorySnapshot,
     *,
     artifact_directory: Path,
+    operator_id: str,
+    tenant_id: str | None,
     correlation_id: str | None,
     backup_identifier: str,
 ) -> ActionReplayResult | None:
     if not correlation_id:
         return None
     for entry in snapshot.entries:
+        if entry.operator_id != operator_id:
+            continue
+        if entry.tenant_id != tenant_id:
+            continue
         if entry.correlation_id != correlation_id or entry.backup_identifier != backup_identifier:
             continue
         payload = _load_payload(artifact_directory / entry.evidence_file_name)
@@ -67,12 +77,18 @@ def resolve_recovery_drill_manual_replay(
 def _runtime_retention_entry_matches(
     entry: RuntimeRetentionHistoryEntry,
     *,
+    operator_id: str,
+    tenant_id: str | None,
     correlation_id: str,
     apply: bool,
     retention_days: int | None,
     job_id: str | None,
 ) -> bool:
     expected_cleanup_mode = "apply" if apply else "dry_run"
+    if entry.operator_id != operator_id:
+        return False
+    if entry.tenant_id != tenant_id:
+        return False
     if entry.correlation_id != correlation_id:
         return False
     if entry.cleanup_mode != expected_cleanup_mode:

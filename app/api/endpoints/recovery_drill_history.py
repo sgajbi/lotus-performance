@@ -113,6 +113,8 @@ async def run_recovery_drill(
     replay = resolve_recovery_drill_manual_replay(
         history_snapshot,
         artifact_directory=settings.RECOVERY_DRILL_ARTIFACT_PATH,
+        operator_id=operator_id,
+        tenant_id=tenant_id,
         correlation_id=correlation_id,
         backup_identifier=recovery_request.backup_identifier,
     )
