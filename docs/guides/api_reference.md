@@ -226,7 +226,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - immediate recovery-drill summary for the run that just executed
   - operator identity carried from `X-Actor-Id` or `X-Service-Identity`
   - retained enterprise request context from `X-Tenant-Id` and `X-Correlation-Id` when supplied
-  - same-correlation retries replay the original retained evidence only when operator and tenant ownership also match, returning `X-Idempotent-Replay: true`
+  - same-correlation retries replay the original retained evidence only when operator and tenant ownership also match, returning `X-Idempotent-Replay: true`; otherwise the request is treated as a fresh governed action
   - `409` plus `Retry-After` when a recent matching manual drill for the same operator, tenant, and backup identifier already completed inside the configured cooldown window
 - use this when an operator needs an audited recovery drill without shell access
 
@@ -260,7 +260,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - operator identity carried from `X-Actor-Id` or `X-Service-Identity`
   - retained enterprise request context from `X-Tenant-Id` and `X-Correlation-Id` when supplied
   - `trigger_mode="manual"` for this control-plane action path
-  - same-correlation retries replay the original retained evidence only when operator and tenant ownership also match, returning `X-Idempotent-Replay: true`
+  - same-correlation retries replay the original retained evidence only when operator and tenant ownership also match, returning `X-Idempotent-Replay: true`; otherwise the request is treated as a fresh governed action
   - `apply=true` requires a recent matching `dry_run` preview for the same governed request shape before execution
   - `409` plus `Retry-After` when a recent manual cleanup already completed inside the configured cooldown window
 - use this when an operator needs an audited cleanup preview or a deliberate apply action without shell access
