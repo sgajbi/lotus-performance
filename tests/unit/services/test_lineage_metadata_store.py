@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from sqlalchemy import event, inspect
+from sqlalchemy.dialects import postgresql
 
 from app.services.lineage_metadata_store import (
     LineageMetadataStore,
@@ -756,3 +757,107 @@ def test_lineage_metadata_store_create_schema_migrates_existing_payload_table(tm
 
     assert {"worker_id", "leased_at_utc", "lease_expires_at_utc"}.issubset(payload_columns)
     assert payload_indexes["ix_lineage_payloads_lease_expires_at"] == ("lease_expires_at_utc",)
+
+
+def test_lineage_metadata_store_builds_postgres_pending_lease_statement_without_join(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    now = datetime(2026, 3, 15, 12, 0, tzinfo=timezone.utc)
+
+    statement = store._build_lease_pending_payloads_statement(now=now, limit=5, dialect_name="postgresql")
+    compiled = str(statement.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}))
+
+    assert "JOIN lineage_records" not in compiled
+    assert "EXISTS (SELECT 1" in compiled
+    assert "FOR UPDATE OF lineage_payloads SKIP LOCKED" in compiled
+    assert "ORDER BY lineage_payloads.created_at_utc ASC, lineage_payloads.calculation_id ASC" in compiled
+
+
+def test_lineage_metadata_store_builds_sqlite_pending_lease_statement_without_postgres_locking(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    now = datetime(2026, 3, 15, 12, 0, tzinfo=timezone.utc)
+
+    statement = store._build_lease_pending_payloads_statement(now=now, limit=5, dialect_name="sqlite")
+    compiled = str(statement.compile(compile_kwargs={"literal_binds": True}))
+
+    assert "FOR UPDATE" not in compiled
+    assert "EXISTS (SELECT 1" in compiled
+
+
+def test_lineage_metadata_store_leases_pending_payloads_via_postgres_claim_helper(tmp_path, mocker):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    now = datetime(2026, 3, 15, 12, 0, tzinfo=timezone.utc)
+    leased_payload = store._to_payload(
+        LineagePayloadModel(
+            calculation_id=str(uuid4()),
+            calculation_type="TWR",
+            request_json="{}",
+            response_json="{}",
+            details_json='{"details.json": "{}"}',
+            created_at_utc=now,
+            attempt_count=1,
+            worker_id="postgres-lineage-a",
+            leased_at_utc=now,
+            lease_expires_at_utc=now + timedelta(seconds=60),
+        )
+    )
+    postgres_session = mocker.MagicMock()
+    postgres_session.bind.dialect.name = "postgresql"
+    mocked_context = mocker.MagicMock()
+    mocked_context.__enter__.return_value = postgres_session
+    mocked_context.__exit__.return_value = False
+    mocker.patch.object(store, "_session", return_value=mocked_context)
+    helper = mocker.patch.object(store, "_lease_pending_payloads_postgresql", return_value=[leased_payload])
+
+    leased = store.lease_pending_payloads(worker_id="postgres-lineage-a", limit=10, lease_seconds=60)
+
+    assert leased == [leased_payload]
+    helper.assert_called_once()
+
+
+def test_lineage_metadata_store_postgres_claim_helper_normalizes_returned_rows(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    now = datetime(2026, 3, 15, 12, 0, tzinfo=timezone.utc)
+    calculation_id = uuid4()
+    returned_row = {
+        "calculation_id": str(calculation_id),
+        "calculation_type": "TWR",
+        "request_json": "{}",
+        "response_json": '{"ok": true}',
+        "details_json": '{"row_index": "1"}',
+        "attempt_count": 2,
+        "worker_id": "postgres-lineage-a",
+        "leased_at_utc": now,
+        "lease_expires_at_utc": now + timedelta(seconds=60),
+    }
+
+    class _MappingsResult:
+        def mappings(self):
+            return [returned_row]
+
+    class _Session:
+        def __init__(self):
+            self.calls: list[tuple[object, dict[str, object]]] = []
+
+        def execute(self, statement, params):
+            self.calls.append((statement, params))
+            return _MappingsResult()
+
+    session = _Session()
+
+    leased = store._lease_pending_payloads_postgresql(
+        session=session,  # type: ignore[arg-type]
+        now=now,
+        lease_expiry=now + timedelta(seconds=60),
+        worker_id="postgres-lineage-a",
+        limit=10,
+    )
+
+    assert len(leased) == 1
+    assert leased[0].calculation_id == calculation_id
+    assert leased[0].attempt_count == 2
+    assert leased[0].worker_id == "postgres-lineage-a"
+    assert leased[0].details == {"row_index": "1"}
+    executed_statement, executed_params = session.calls[0]
+    assert "UPDATE lineage_payloads AS payload" in str(executed_statement)
+    assert executed_params["pending_status"] == LineageStatus.PENDING.value
+    assert executed_params["limit"] == 10
