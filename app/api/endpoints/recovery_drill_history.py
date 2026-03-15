@@ -106,11 +106,14 @@ async def run_recovery_drill(
     recovery_request: RecoveryDrillRunRequest,
 ) -> RecoveryDrillRunResponse:
     settings = get_settings()
+    operator_id = _resolve_operator_identity(request)
+    tenant_id = _resolve_tenant_id(request)
+    correlation_id = _resolve_correlation_id(request)
     history_snapshot = build_recovery_drill_history_snapshot(limit=10)
     replay = resolve_recovery_drill_manual_replay(
         history_snapshot,
         artifact_directory=settings.RECOVERY_DRILL_ARTIFACT_PATH,
-        correlation_id=_resolve_correlation_id(request),
+        correlation_id=correlation_id,
         backup_identifier=recovery_request.backup_identifier,
     )
     if replay is not None:
@@ -121,13 +124,16 @@ async def run_recovery_drill(
         )
     enforce_recovery_drill_manual_run_cooldown(
         history_snapshot,
+        operator_id=operator_id,
+        tenant_id=tenant_id,
+        backup_identifier=recovery_request.backup_identifier,
         cooldown_seconds=settings.RECOVERY_DRILL_MANUAL_RUN_COOLDOWN_SECONDS,
     )
     evidence = execute_recovery_drill(
         output_dir=settings.RECOVERY_DRILL_ARTIFACT_PATH,
-        operator_id=_resolve_operator_identity(request),
-        tenant_id=_resolve_tenant_id(request),
-        correlation_id=_resolve_correlation_id(request),
+        operator_id=operator_id,
+        tenant_id=tenant_id,
+        correlation_id=correlation_id,
         backup_identifier=recovery_request.backup_identifier,
     )
     return build_recovery_drill_run_response(

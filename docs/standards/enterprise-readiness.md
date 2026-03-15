@@ -16,6 +16,7 @@
 - Governed remediation actions should fence accidental manual double-submit with a service-owned cooldown before executing the mutation.
 - Governed remediation actions should replay the original durable evidence for same-correlation retries of the same manual request instead of executing a duplicate mutation.
 - Governed destructive actions should require a recent matching preview when the workflow supports a dry-run review stage.
+- Cooldown fences should be scoped to the governed action shape so one safe operator action does not incorrectly block a distinct remediation request.
 - Sensitive attributes are redacted before audit emission.
 
 Evidence:

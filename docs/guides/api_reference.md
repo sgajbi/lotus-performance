@@ -227,7 +227,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - operator identity carried from `X-Actor-Id` or `X-Service-Identity`
   - retained enterprise request context from `X-Tenant-Id` and `X-Correlation-Id` when supplied
   - same-correlation retries for the same governed request replay the original retained evidence with `X-Idempotent-Replay: true`
-  - `409` plus `Retry-After` when a recent manual drill already completed inside the configured cooldown window
+  - `409` plus `Retry-After` when a recent matching manual drill for the same operator, tenant, and backup identifier already completed inside the configured cooldown window
 - use this when an operator needs an audited recovery drill without shell access
 
 ### `GET /integration/runtime-retention-cleanups`

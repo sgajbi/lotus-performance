@@ -6,7 +6,10 @@ from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
 
-from app.services.recovery_drill_history_service import RecoveryDrillHistorySnapshot
+from app.services.recovery_drill_history_service import (
+    RecoveryDrillHistoryEntry,
+    RecoveryDrillHistorySnapshot,
+)
 from app.services.runtime_retention_history_service import (
     RuntimeRetentionHistoryEntry,
     RuntimeRetentionHistorySnapshot,
@@ -107,14 +110,23 @@ def enforce_runtime_retention_apply_preview(
 def enforce_recovery_drill_manual_run_cooldown(
     snapshot: RecoveryDrillHistorySnapshot,
     *,
+    operator_id: str,
+    tenant_id: str | None,
+    backup_identifier: str,
     cooldown_seconds: float,
     now_utc: datetime | None = None,
 ) -> None:
+    latest_entry = _find_latest_recovery_drill_entry(
+        snapshot,
+        operator_id=operator_id,
+        tenant_id=tenant_id,
+        backup_identifier=backup_identifier,
+    )
     _enforce_manual_action_cooldown(
         action_name="recovery_drill",
         detail_code="recovery_drill_manual_run_cooldown_active",
-        latest_generated_at_utc=_resolve_latest_generated_at_utc(snapshot.entries),
-        latest_evidence_file_name=_resolve_latest_evidence_file_name(snapshot.entries),
+        latest_generated_at_utc=latest_entry.generated_at_utc if latest_entry is not None else None,
+        latest_evidence_file_name=latest_entry.evidence_file_name if latest_entry is not None else None,
         cooldown_seconds=cooldown_seconds,
         now_utc=now_utc,
     )
@@ -154,6 +166,24 @@ def _find_latest_runtime_retention_entry(
         if entry.retention_days != retention_days:
             continue
         if entry.job_id != job_id:
+            continue
+        return entry
+    return None
+
+
+def _find_latest_recovery_drill_entry(
+    snapshot: RecoveryDrillHistorySnapshot,
+    *,
+    operator_id: str,
+    tenant_id: str | None,
+    backup_identifier: str,
+) -> RecoveryDrillHistoryEntry | None:
+    for entry in snapshot.entries:
+        if entry.operator_id != operator_id:
+            continue
+        if entry.tenant_id != tenant_id:
+            continue
+        if entry.backup_identifier != backup_identifier:
             continue
         return entry
     return None
