@@ -165,7 +165,7 @@ def calculate_hierarchical_contribution(request: ContributionRequest) -> Tuple[D
     results = build_hierarchical_contribution_result(
         daily_contributions_df,
         request,
-        total_portfolio_return=float(total_portfolio_return),
+        total_portfolio_return=total_portfolio_return,
     )
     lineage_data = {"portfolio_twr.csv": portfolio_results_df, "daily_contributions.csv": daily_contributions_df}
 
@@ -176,7 +176,7 @@ def build_hierarchical_contribution_result(
     daily_contributions_df: pd.DataFrame,
     request: ContributionRequest,
     *,
-    total_portfolio_return: float,
+    total_portfolio_return,
 ) -> Dict:
     """Aggregates hierarchical contribution output for a single period slice."""
     if daily_contributions_df.empty:

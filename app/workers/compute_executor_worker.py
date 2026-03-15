@@ -198,9 +198,7 @@ def _resolve_async_contribution_job_request(
         request = ContributionRequest.model_validate(payload)
     except ValidationError:
         analytics_request = ContributionAnalyticsRequest.model_validate(payload)
-        resolved_contribution = asyncio.run(
-            resolve_contribution_request(analytics_request, settings=settings)
-        )
+        resolved_contribution = asyncio.run(resolve_contribution_request(analytics_request, settings=settings))
         return resolved_contribution.contribution_request, resolved_contribution.input_mode
     return request, ContributionInputMode.STATEFUL
 
@@ -214,9 +212,7 @@ def _resolve_async_attribution_job_request(
         request = AttributionRequest.model_validate(payload)
     except ValidationError:
         analytics_request = AttributionAnalyticsRequest.model_validate(payload)
-        resolved_attribution = asyncio.run(
-            resolve_attribution_request(analytics_request, settings=settings)
-        )
+        resolved_attribution = asyncio.run(resolve_attribution_request(analytics_request, settings=settings))
         return resolved_attribution.attribution_request, resolved_attribution.input_mode
     return request, AttributionInputMode.STATEFUL
 
