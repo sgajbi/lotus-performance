@@ -15,6 +15,7 @@
 - Service-owned privileged actions should retain enterprise tenant and correlation context in durable evidence when that context exists at request time.
 - Governed remediation actions should fence accidental manual double-submit with a service-owned cooldown before executing the mutation.
 - Governed remediation actions should replay the original durable evidence for same-correlation retries of the same manual request instead of executing a duplicate mutation.
+- Governed destructive actions should require a recent matching preview when the workflow supports a dry-run review stage.
 - Sensitive attributes are redacted before audit emission.
 
 Evidence:

@@ -130,3 +130,50 @@ def test_runtime_retention_run_api_replays_same_correlation_request(tmp_path, mo
     assert second.status_code == 200
     assert second.headers["X-Idempotent-Replay"] == "true"
     assert second.json()["evidence_file_name"] == first.json()["evidence_file_name"]
+
+
+def test_runtime_retention_run_api_rejects_apply_without_recent_preview(tmp_path, monkeypatch):
+    artifact_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
+    settings = get_settings()
+    monkeypatch.setattr(settings, "RUNTIME_RETENTION_ARTIFACT_PATH", artifact_dir)
+    monkeypatch.setattr(settings, "RUNTIME_RETENTION_MANUAL_RUN_COOLDOWN_SECONDS", 300.0)
+    monkeypatch.setattr(settings, "RUNTIME_RETENTION_APPLY_PREVIEW_MAX_AGE_SECONDS", 3600.0)
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/integration/runtime-retention-cleanups/run",
+            headers={"X-Actor-Id": "ops-user"},
+            json={"apply": True, "job_id": "ticket-7"},
+        )
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "runtime_retention_apply_preview_required"
+
+
+def test_runtime_retention_run_api_allows_apply_after_recent_matching_preview(tmp_path, monkeypatch):
+    artifact_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
+    settings = get_settings()
+    monkeypatch.setattr(settings, "RUNTIME_RETENTION_ARTIFACT_PATH", artifact_dir)
+    monkeypatch.setattr(settings, "RUNTIME_RETENTION_MANUAL_RUN_COOLDOWN_SECONDS", 300.0)
+    monkeypatch.setattr(settings, "RUNTIME_RETENTION_APPLY_PREVIEW_MAX_AGE_SECONDS", 3600.0)
+
+    headers = {
+        "X-Actor-Id": "ops-user",
+        "X-Correlation-Id": "corr-apply",
+    }
+
+    with TestClient(app) as client:
+        preview = client.post(
+            "/integration/runtime-retention-cleanups/run",
+            headers=headers,
+            json={"apply": False, "job_id": "ticket-7"},
+        )
+        apply = client.post(
+            "/integration/runtime-retention-cleanups/run",
+            headers=headers,
+            json={"apply": True, "job_id": "ticket-7"},
+        )
+
+    assert preview.status_code == 200
+    assert apply.status_code == 200
+    assert apply.json()["cleanup_mode"] == "apply"

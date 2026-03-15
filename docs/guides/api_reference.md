@@ -261,6 +261,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - retained enterprise request context from `X-Tenant-Id` and `X-Correlation-Id` when supplied
   - `trigger_mode="manual"` for this control-plane action path
   - same-correlation retries for the same governed request replay the original retained evidence with `X-Idempotent-Replay: true`
+  - `apply=true` requires a recent matching `dry_run` preview for the same governed request shape before execution
   - `409` plus `Retry-After` when a recent manual cleanup already completed inside the configured cooldown window
 - use this when an operator needs an audited cleanup preview or a deliberate apply action without shell access
 

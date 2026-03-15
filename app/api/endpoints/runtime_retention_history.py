@@ -13,7 +13,10 @@ from app.models.runtime_retention_history import (
     build_runtime_retention_cleanup_run_response,
     build_runtime_retention_history_response,
 )
-from app.services.operator_action_guard_service import enforce_runtime_retention_manual_run_cooldown
+from app.services.operator_action_guard_service import (
+    enforce_runtime_retention_apply_preview,
+    enforce_runtime_retention_manual_run_cooldown,
+)
 from app.services.operator_action_replay_service import resolve_runtime_retention_manual_replay
 from app.services.runtime_retention_execution_service import execute_runtime_retention_cleanup
 from app.services.runtime_retention_history_service import build_runtime_retention_history_snapshot
@@ -119,11 +122,15 @@ async def run_runtime_retention_cleanup(
     cleanup_request: RuntimeRetentionCleanupRunRequest,
 ) -> RuntimeRetentionCleanupRunResponse:
     settings = get_settings()
-    history_snapshot = build_runtime_retention_history_snapshot(limit=10, trigger_mode="manual")
+    operator_id = _resolve_operator_identity(request)
+    tenant_id = _resolve_tenant_id(request)
+    correlation_id = _resolve_correlation_id(request)
+    resolved_retention_days = cleanup_request.retention_days or settings.RUNTIME_RETENTION_DAYS
+    history_snapshot = build_runtime_retention_history_snapshot(limit=100, trigger_mode="manual")
     replay = resolve_runtime_retention_manual_replay(
         history_snapshot,
         artifact_directory=settings.RUNTIME_RETENTION_ARTIFACT_PATH,
-        correlation_id=_resolve_correlation_id(request),
+        correlation_id=correlation_id,
         apply=cleanup_request.apply,
         retention_days=cleanup_request.retention_days,
         job_id=cleanup_request.job_id,
@@ -134,16 +141,30 @@ async def run_runtime_retention_cleanup(
             content=build_runtime_retention_cleanup_run_response(**replay.payload).model_dump(mode="json"),
             headers={"X-Idempotent-Replay": "true"},
         )
+    if cleanup_request.apply:
+        enforce_runtime_retention_apply_preview(
+            history_snapshot,
+            operator_id=operator_id,
+            tenant_id=tenant_id,
+            retention_days=resolved_retention_days,
+            job_id=cleanup_request.job_id,
+            preview_max_age_seconds=settings.RUNTIME_RETENTION_APPLY_PREVIEW_MAX_AGE_SECONDS,
+        )
     enforce_runtime_retention_manual_run_cooldown(
         history_snapshot,
+        apply=cleanup_request.apply,
+        operator_id=operator_id,
+        tenant_id=tenant_id,
+        retention_days=resolved_retention_days,
+        job_id=cleanup_request.job_id,
         cooldown_seconds=settings.RUNTIME_RETENTION_MANUAL_RUN_COOLDOWN_SECONDS,
     )
     evidence = execute_runtime_retention_cleanup(
         apply=cleanup_request.apply,
         retention_days=cleanup_request.retention_days,
-        operator_id=_resolve_operator_identity(request),
-        tenant_id=_resolve_tenant_id(request),
-        correlation_id=_resolve_correlation_id(request),
+        operator_id=operator_id,
+        tenant_id=tenant_id,
+        correlation_id=correlation_id,
         trigger_mode="manual",
         job_id=cleanup_request.job_id,
     )
