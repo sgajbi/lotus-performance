@@ -11,12 +11,14 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.core.config import get_settings
-from app.models.attribution_requests import AttributionRequest
-from app.models.contribution_requests import ContributionRequest
+from app.models.attribution_analytics_requests import AttributionAnalyticsRequest
+from app.models.contribution_analytics_requests import ContributionAnalyticsRequest
 from app.models.returns_series import ReturnsSeriesRequest
 from app.services.async_result_store import AsyncResultStore, async_result_store
+from app.services.attribution_mode_service import resolve_attribution_request
 from app.services.attribution_service import calculate_attribution
 from app.services.compute_job_store import ComputeJobStore, compute_job_store
+from app.services.contribution_mode_service import resolve_contribution_request
 from app.services.contribution_service import calculate_contribution
 from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
 from app.services.durable_store_runtime import RuntimeStoreProxy
@@ -90,20 +92,42 @@ def _process_pending_jobs(
                 request = ReturnsSeriesRequest.model_validate(job.request_payload)
                 response = asyncio.run(active_returns_series_calculator(request))
             elif job.analytics_type == "Attribution":
-                request = AttributionRequest.model_validate(job.request_payload)
-                input_fingerprint, calculation_hash = generate_canonical_hash(request, active_settings.APP_VERSION)
+                analytics_request = AttributionAnalyticsRequest.model_validate(job.request_payload)
+                resolved = asyncio.run(resolve_attribution_request(analytics_request, settings=active_settings))
+                request = resolved.attribution_request
+                input_fingerprint, calculation_hash = generate_canonical_hash(
+                    request,
+                    active_settings.APP_VERSION,
+                )
+                active_execution_store.update_execution_identity(
+                    job.calculation_id,
+                    input_fingerprint=input_fingerprint,
+                    calculation_hash=calculation_hash,
+                )
                 response = active_attribution_calculator(
                     request,
                     input_fingerprint=input_fingerprint,
                     calculation_hash=calculation_hash,
+                    input_mode=resolved.input_mode,
                 )
             elif job.analytics_type == "Contribution":
-                request = ContributionRequest.model_validate(job.request_payload)
-                input_fingerprint, calculation_hash = generate_canonical_hash(request, active_settings.APP_VERSION)
+                analytics_request = ContributionAnalyticsRequest.model_validate(job.request_payload)
+                resolved = asyncio.run(resolve_contribution_request(analytics_request, settings=active_settings))
+                request = resolved.contribution_request
+                input_fingerprint, calculation_hash = generate_canonical_hash(
+                    request,
+                    active_settings.APP_VERSION,
+                )
+                active_execution_store.update_execution_identity(
+                    job.calculation_id,
+                    input_fingerprint=input_fingerprint,
+                    calculation_hash=calculation_hash,
+                )
                 response = active_contribution_calculator(
                     request,
                     input_fingerprint=input_fingerprint,
                     calculation_hash=calculation_hash,
+                    input_mode=resolved.input_mode,
                 )
             else:
                 raise ValueError(f"Unsupported compute job analytics_type: {job.analytics_type}")

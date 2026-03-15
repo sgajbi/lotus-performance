@@ -7,15 +7,32 @@ return methods.
 
 The current request shape is:
 
+- `input_mode: "stateless" | "stateful"`
 - `portfolio_id`
-- `begin_mv`
-- `end_mv`
-- `cash_flows`
 - `as_of`
 - `mwr_method`
 
+Stateless callers can use either:
+
+- legacy top-level `begin_mv`, `end_mv`, and `cash_flows`
+- or `stateless_input.begin_mv`, `stateless_input.end_mv`, and `stateless_input.cash_flows`
+
+Stateful callers use:
+
+- `stateful_input.consumer_system`
+- `stateful_input.window_start_date`
+
+In stateful mode, lotus-performance sources portfolio timeseries from lotus-core query-control-plane
+and normalizes them into canonical MWR inputs:
+
+- `begin_mv`
+- `end_mv`
+- `cash_flows`
+- authoritative `start_date`
+
 Optional controls include:
 
+- `start_date`
 - `annualization`
 - `solver`
 - `report_ccy`
@@ -70,6 +87,7 @@ The response contains:
 
 - `calculation_id`
 - `portfolio_id`
+- `input_mode`
 - `money_weighted_return`
 - `mwr_annualized`
 - `method`
@@ -90,14 +108,17 @@ submit `begin_mv`, `end_mv`, and `cash_flows` in one consistent reporting curren
 
 ```json
 {
+  "input_mode": "stateless",
   "portfolio_id": "MWR_EXAMPLE_01",
-  "begin_mv": 100000.0,
-  "end_mv": 115000.0,
   "as_of": "2025-12-31",
-  "cash_flows": [
-    { "amount": 10000.0, "date": "2025-03-15" },
-    { "amount": -5000.0, "date": "2025-09-20" }
-  ],
+  "stateless_input": {
+    "begin_mv": 100000.0,
+    "end_mv": 115000.0,
+    "cash_flows": [
+      { "amount": 10000.0, "date": "2025-03-15" },
+      { "amount": -5000.0, "date": "2025-09-20" }
+    ]
+  },
   "mwr_method": "XIRR",
   "annualization": { "enabled": true, "basis": "ACT/ACT" }
 }
@@ -109,6 +130,7 @@ submit `begin_mv`, `end_mv`, and `cash_flows` in one consistent reporting curren
 {
   "calculation_id": "2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
   "portfolio_id": "MWR_EXAMPLE_01",
+  "input_mode": "stateless",
   "money_weighted_return": 11.723,
   "mwr_annualized": 11.723,
   "method": "XIRR",
@@ -121,5 +143,9 @@ submit `begin_mv`, `end_mv`, and `cash_flows` in one consistent reporting curren
   "audit": { "counts": { "cashflows": 2 } }
 }
 ```
+
+Older examples using only top-level `begin_mv`, `end_mv`, and `cash_flows` are still accepted for
+stateless compatibility, but the Lotus-style mode envelope is the current contract for new
+integrations.
 
 Use `/docs` for the exact response schema and latest examples.

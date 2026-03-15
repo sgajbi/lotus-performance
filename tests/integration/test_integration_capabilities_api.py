@@ -44,6 +44,17 @@ def test_integration_capabilities_default_contract():
     assert body["supported_input_modes"] == ["stateful", "stateless"]
     assert len(body["features"]) >= 4
     assert len(body["workflows"]) >= 3
+    surfaces = {item["key"]: item for item in body["analytics_surfaces"]}
+    assert surfaces["twr"]["path"] == "/performance/twr"
+    assert surfaces["twr"]["supported_input_modes"] == ["stateful", "stateless"]
+    assert surfaces["twr"]["supports_async"] is False
+    assert surfaces["contribution"]["supports_async"] is True
+    assert surfaces["attribution"]["stateful_restrictions"] == [
+        "mode=by_instrument only",
+        "currency_mode=BASE_ONLY only",
+        "group_by limited to asset_class, sector, country",
+    ]
+    assert surfaces["returns_series"]["path"] == "/integration/returns/series"
     features = {item["key"] for item in body["features"]}
     assert "pa.execution.stateful" in features
     assert "pa.execution.stateless" in features
@@ -65,8 +76,12 @@ def test_integration_capabilities_env_override(monkeypatch):
     assert body["tenant_id"] == "tenant-a"
     assert body["policy_version"] == "tenant-a-v4"
     features = {item["key"]: item["enabled"] for item in body["features"]}
+    surfaces = {item["key"]: item for item in body["analytics_surfaces"]}
     assert features["pa.analytics.attribution"] is False
     assert body["supported_input_modes"] == ["stateful"]
+    assert surfaces["twr"]["supported_input_modes"] == ["stateful"]
+    assert surfaces["attribution"]["enabled"] is False
+    assert surfaces["attribution"]["stateful_restrictions"] == []
 
 
 def test_integration_capabilities_limit_guardrails():

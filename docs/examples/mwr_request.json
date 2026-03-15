@@ -1,20 +1,23 @@
 {
+  "input_mode": "stateless",
   "portfolio_id": "MWR_EXAMPLE_01",
-  "begin_mv": 100000.0,
-  "end_mv": 115000.0,
   "as_of": "2025-12-31",
-  "cash_flows": [
-    {
-      "amount": 10000.0,
-      "date": "2025-03-15"
-    },
-    {
-      "amount": -5000.0,
-      "date": "2025-09-20"
-    }
-  ],
   "mwr_method": "XIRR",
   "annualization": {
     "enabled": true
+  },
+  "stateless_input": {
+    "begin_mv": 100000.0,
+    "end_mv": 115000.0,
+    "cash_flows": [
+      {
+        "amount": 10000.0,
+        "date": "2025-03-15"
+      },
+      {
+        "amount": -5000.0,
+        "date": "2025-09-20"
+      }
+    ]
   }
 }

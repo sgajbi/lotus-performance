@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from app.api.endpoints.contribution import _build_execution_window
 from app.core.config import get_settings
+from app.models.contribution_analytics_requests import ContributionAnalyticsRequest
 from app.models.contribution_requests import ContributionRequest
 from app.services.async_result_store import async_result_store
 from app.services.compute_job_store import compute_job_store
@@ -338,6 +339,212 @@ def test_contribution_async_result_retrieval(client, happy_path_payload):
         settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = original_threshold
 
 
+def test_contribution_supports_stateful_input_mode(client, monkeypatch):
+    async def _mock_retrieve_stateful_contribution_source_input(**kwargs):  # noqa: ARG001
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            portfolio_input=SimpleNamespace(
+                observations=[
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1010",
+                    },
+                    {
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value": "1010",
+                        "ending_market_value": "1020.1",
+                    },
+                ],
+            ),
+            position_rows=[
+                {
+                    "position_id": "SEC_1",
+                    "security_id": "SEC_1",
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value_portfolio_currency": "1000",
+                    "ending_market_value_portfolio_currency": "1010",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Technology"},
+                },
+                {
+                    "position_id": "SEC_1",
+                    "security_id": "SEC_1",
+                    "valuation_date": "2025-01-02",
+                    "beginning_market_value_portfolio_currency": "1010",
+                    "ending_market_value_portfolio_currency": "1020.1",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Technology"},
+                },
+            ],
+        )
+
+    monkeypatch.setattr(
+        "app.services.contribution_mode_service.retrieve_stateful_contribution_source_input",
+        _mock_retrieve_stateful_contribution_source_input,
+    )
+
+    payload = {
+        "portfolio_id": "CONTRIB_STATEFUL",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    response = client.post("/performance/contribution", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["portfolio_id"] == "CONTRIB_STATEFUL"
+    assert body["input_mode"] == "stateful"
+    assert "ITD" in body["results_by_period"]
+
+
+def test_contribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch):
+    async def _mock_retrieve_stateful_contribution_source_input(**kwargs):  # noqa: ARG001
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            portfolio_input=SimpleNamespace(
+                observations=[
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1010",
+                    },
+                    {
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value": "1010",
+                        "ending_market_value": "1020.1",
+                    },
+                ],
+            ),
+            position_rows=[
+                {
+                    "position_id": "SEC_1",
+                    "security_id": "SEC_1",
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value_portfolio_currency": "1000",
+                    "ending_market_value_portfolio_currency": "1010",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Technology"},
+                },
+                {
+                    "position_id": "SEC_1",
+                    "security_id": "SEC_1",
+                    "valuation_date": "2025-01-02",
+                    "beginning_market_value_portfolio_currency": "1010",
+                    "ending_market_value_portfolio_currency": "1020.1",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Technology"},
+                },
+            ],
+        )
+
+    monkeypatch.setattr(
+        "app.services.contribution_mode_service.retrieve_stateful_contribution_source_input",
+        _mock_retrieve_stateful_contribution_source_input,
+    )
+
+    payload = {
+        "portfolio_id": "CONTRIB_STATEFUL_HASH",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    response = client.post("/performance/contribution", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    expected_request = ContributionRequest.model_validate(
+        {
+            "calculation_id": body["calculation_id"],
+            "portfolio_id": "CONTRIB_STATEFUL_HASH",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [
+                    {"day": 1, "perf_date": "2025-01-01", "begin_mv": "1000", "end_mv": "1010", "bod_cf": "0", "eod_cf": "0"},
+                    {"day": 2, "perf_date": "2025-01-02", "begin_mv": "1010", "end_mv": "1020.1", "bod_cf": "0", "eod_cf": "0"},
+                ],
+            },
+            "positions_data": [
+                {
+                    "position_id": "SEC_1",
+                    "meta": {"security_id": "SEC_1", "sector": "Technology"},
+                    "valuation_points": [
+                        {"day": 0, "perf_date": "2025-01-01", "begin_mv": "1000", "end_mv": "1010", "bod_cf": "0", "eod_cf": "0"},
+                        {"day": 0, "perf_date": "2025-01-02", "begin_mv": "1010", "end_mv": "1020.1", "bod_cf": "0", "eod_cf": "0"},
+                    ],
+                }
+            ],
+        }
+    )
+    expected_input_fingerprint, expected_calculation_hash = generate_canonical_hash(expected_request, settings.APP_VERSION)
+
+    assert body["meta"]["input_fingerprint"] == expected_input_fingerprint
+    assert body["meta"]["calculation_hash"] == expected_calculation_hash
+
+
+def test_contribution_stateful_currency_mode_both_rejected(client, monkeypatch):
+    async def _mock_retrieve_stateful_contribution_source_input(**kwargs):  # noqa: ARG001
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            portfolio_input=SimpleNamespace(
+                observations=[
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1010",
+                    },
+                ],
+            ),
+            position_rows=[
+                {
+                    "position_id": "SEC_1",
+                    "security_id": "SEC_1",
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value_portfolio_currency": "1000",
+                    "ending_market_value_portfolio_currency": "1010",
+                    "beginning_market_value_position_currency": "900",
+                    "ending_market_value_position_currency": "909",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Technology"},
+                }
+            ],
+        )
+
+    monkeypatch.setattr(
+        "app.services.contribution_mode_service.retrieve_stateful_contribution_source_input",
+        _mock_retrieve_stateful_contribution_source_input,
+    )
+
+    payload = {
+        "portfolio_id": "CONTRIB_STATEFUL",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "currency_mode": "BOTH",
+        "report_ccy": "USD",
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    response = client.post("/performance/contribution", json=payload)
+
+    assert response.status_code == 422
+    assert "position-timeseries exposes position_currency" in response.json()["detail"]
+
+
 def test_contribution_async_result_not_found_and_failed(client, happy_path_payload, mocker):
     original_threshold = settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT
     original_attempts = settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS
@@ -405,7 +612,7 @@ def test_contribution_async_replay_self_heals_missing_compute_job(client, happy_
     payload = {**happy_path_payload, "calculation_id": str(calculation_id)}
 
     try:
-        request_model = ContributionRequest.model_validate(payload)
+        request_model = ContributionAnalyticsRequest.model_validate(payload)
         input_fingerprint, calculation_hash = generate_canonical_hash(request_model, settings.APP_VERSION)
         execution_registry.create_execution(
             calculation_id=calculation_id,

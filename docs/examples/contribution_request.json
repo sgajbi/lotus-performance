@@ -1,71 +1,81 @@
 {
+  "input_mode": "stateless",
   "portfolio_id": "CONTRIB_EXAMPLE_01",
+  "report_start_date": "2025-01-01",
+  "report_end_date": "2025-01-02",
+  "analyses": [
+    {
+      "period": "ITD",
+      "frequencies": [
+        "daily"
+      ]
+    }
+  ],
   "hierarchy": [
     "sector",
     "position_id"
   ],
-  "portfolio_data": {
-    "report_start_date": "2025-01-01",
-    "report_end_date": "2025-01-02",
-    "period_type": "YTD",
-    "metric_basis": "NET",
-    "daily_data": [
-      {
-        "day": 1,
-        "perf_date": "2025-01-01",
-        "begin_mv": 1000,
-        "end_mv": 1020
-      },
-      {
-        "day": 2,
-        "perf_date": "2025-01-02",
-        "begin_mv": 1020,
-        "bod_cf": 50,
-        "end_mv": 1080
-      }
-    ]
-  },
-  "positions_data": [
-    {
-      "position_id": "Stock_A",
-      "meta": {
-        "sector": "Technology"
-      },
-      "daily_data": [
+  "stateless_input": {
+    "portfolio_data": {
+      "metric_basis": "NET",
+      "valuation_points": [
         {
           "day": 1,
           "perf_date": "2025-01-01",
-          "begin_mv": 600,
-          "end_mv": 612
+          "begin_mv": 1000.0,
+          "end_mv": 1020.0
         },
         {
           "day": 2,
           "perf_date": "2025-01-02",
-          "begin_mv": 612,
-          "bod_cf": 50,
-          "end_mv": 670
+          "begin_mv": 1020.0,
+          "bod_cf": 50.0,
+          "end_mv": 1080.0
         }
       ]
     },
-    {
-      "position_id": "Stock_B",
-      "meta": {
-        "sector": "Healthcare"
-      },
-      "daily_data": [
-        {
-          "day": 1,
-          "perf_date": "2025-01-01",
-          "begin_mv": 400,
-          "end_mv": 408
+    "positions_data": [
+      {
+        "position_id": "Stock_A",
+        "meta": {
+          "sector": "Technology"
         },
-        {
-          "day": 2,
-          "perf_date": "2025-01-02",
-          "begin_mv": 408,
-          "end_mv": 410
-        }
-      ]
-    }
-  ]
+        "valuation_points": [
+          {
+            "day": 1,
+            "perf_date": "2025-01-01",
+            "begin_mv": 600.0,
+            "end_mv": 612.0
+          },
+          {
+            "day": 2,
+            "perf_date": "2025-01-02",
+            "begin_mv": 612.0,
+            "bod_cf": 50.0,
+            "end_mv": 670.0
+          }
+        ]
+      },
+      {
+        "position_id": "Stock_B",
+        "meta": {
+          "sector": "Healthcare"
+        },
+        "valuation_points": [
+          {
+            "day": 1,
+            "perf_date": "2025-01-01",
+            "begin_mv": 400.0,
+            "end_mv": 408.0
+          },
+          {
+            "day": 2,
+            "perf_date": "2025-01-02",
+            "begin_mv": 408.0,
+            "end_mv": 410.0
+          }
+        ]
+      }
+    ]
+  }
 }

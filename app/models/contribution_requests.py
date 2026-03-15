@@ -65,8 +65,8 @@ class Lookthrough(BaseModel):
     fallback_policy: Literal["error", "unclassified", "scale_to_1"] = "error"
 
 
-class ContributionRequest(BaseModel):
-    """Request model for the Contribution engine."""
+class ContributionRequestBase(BaseModel):
+    """Common contribution analytics configuration independent of input mode."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -76,8 +76,6 @@ class ContributionRequest(BaseModel):
     report_end_date: date
     analyses: List[Analysis]
 
-    portfolio_data: PortfolioData
-    positions_data: List[PositionData]
     hierarchy: Optional[List[str]] = None
     weighting_scheme: WeightingScheme = WeightingScheme.BOD
     smoothing: Smoothing = Field(default_factory=Smoothing)
@@ -104,3 +102,10 @@ class ContributionRequest(BaseModel):
         if not v:
             raise ValueError("analyses list cannot be empty")
         return v
+
+
+class ContributionRequest(ContributionRequestBase):
+    """Stateless request model consumed by the contribution engine."""
+
+    portfolio_data: PortfolioData
+    positions_data: List[PositionData]

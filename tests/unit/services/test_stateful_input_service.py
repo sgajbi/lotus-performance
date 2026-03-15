@@ -12,6 +12,7 @@ from app.services.stateful_input_service import StatefulInputService
 class _CoreServiceStub:
     def __init__(self) -> None:
         self.portfolio_calls: list[dict] = []
+        self.position_calls: list[dict] = []
         self.benchmark_calls: list[dict] = []
         self.risk_free_calls: list[dict] = []
 
@@ -69,6 +70,59 @@ class _CoreServiceStub:
 
     async def get_benchmark_assignment(self, **kwargs):
         return 200, {"benchmark_id": "BMK_1"}
+
+    async def get_position_analytics_timeseries(self, **kwargs):
+        self.position_calls.append(kwargs)
+        page_token = kwargs.get("page_token")
+        start_date = kwargs["start_date"]
+        if start_date == date(2026, 1, 1) and page_token is None:
+            return (
+                200,
+                {
+                    "rows": [
+                        {
+                            "valuation_date": "2026-01-01",
+                            "position_id": "SEC_1",
+                            "beginning_market_value_portfolio_currency": "100",
+                            "ending_market_value_portfolio_currency": "101",
+                        }
+                    ],
+                    "page": {"next_page_token": "page-2"},
+                },
+            )
+        if start_date == date(2026, 1, 1) and page_token == "page-2":
+            return (
+                200,
+                {
+                    "rows": [
+                        {
+                            "valuation_date": "2026-01-02",
+                            "position_id": "SEC_1",
+                            "beginning_market_value_portfolio_currency": "101",
+                            "ending_market_value_portfolio_currency": "102",
+                        }
+                    ],
+                },
+            )
+        return (
+            200,
+            {
+                "rows": [
+                    {
+                        "valuation_date": "2026-01-03",
+                        "position_id": "SEC_1",
+                        "beginning_market_value_portfolio_currency": "102",
+                        "ending_market_value_portfolio_currency": "103",
+                    },
+                    {
+                        "valuation_date": "2026-01-03",
+                        "position_id": "SEC_1",
+                        "beginning_market_value_portfolio_currency": "102",
+                        "ending_market_value_portfolio_currency": "103",
+                    },
+                ]
+            },
+        )
 
     async def get_benchmark_return_series(self, **kwargs):
         self.benchmark_calls.append(kwargs)
@@ -135,6 +189,7 @@ async def test_get_portfolio_timeseries_merges_chunked_and_paginated_observation
         "2026-01-02",
         "2026-01-03",
     ]
+    assert payload["retrieval_metadata"] == {"chunk_count": 2, "page_count": 3}
     assert len(core_service.portfolio_calls) == 3
 
 
@@ -169,12 +224,14 @@ async def test_reference_series_merge_chunked_points():
         "2026-01-03",
         "2026-01-04",
     ]
+    assert benchmark_payload["retrieval_metadata"] == {"chunk_count": 2, "page_count": 2}
     assert [point["series_date"] for point in risk_free_payload["points"]] == [
         "2026-01-01",
         "2026-01-02",
         "2026-01-03",
         "2026-01-04",
     ]
+    assert risk_free_payload["retrieval_metadata"] == {"chunk_count": 2, "page_count": 2}
 
 
 @pytest.mark.asyncio
@@ -220,6 +277,70 @@ async def test_stateful_input_service_records_upstream_snapshots(tmp_path):
         "portfolio_timeseries",
         "benchmark_return_series",
     }
+
+
+@pytest.mark.asyncio
+async def test_stateful_input_service_records_position_upstream_snapshots(tmp_path):
+    core_service = _CoreServiceStub()
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    calculation_id = uuid4()
+    execution_store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="Contribution",
+        portfolio_id="PORT_1",
+    )
+    service = StatefulInputService(
+        core_service=core_service,
+        execution_store=execution_store,
+        portfolio_chunk_days=2,
+        reference_chunk_days=2,
+        max_concurrent_chunks=2,
+    )
+
+    await service.get_position_timeseries(
+        portfolio_id="PORT_1",
+        as_of_date=date(2026, 1, 3),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 3),
+        reporting_currency="USD",
+        consumer_system="lotus-performance",
+        dimensions=["sector"],
+        calculation_id=calculation_id,
+    )
+
+    snapshots = execution_store.list_upstream_snapshots(calculation_id)
+
+    assert len(snapshots) >= 3
+    assert {snapshot.upstream_endpoint for snapshot in snapshots} >= {"position_timeseries"}
+
+
+@pytest.mark.asyncio
+async def test_get_position_timeseries_reports_chunk_and_page_counts():
+    core_service = _CoreServiceStub()
+    service = StatefulInputService(
+        core_service=core_service,
+        portfolio_chunk_days=2,
+        reference_chunk_days=10,
+        max_concurrent_chunks=2,
+    )
+
+    status_code, payload = await service.get_position_timeseries(
+        portfolio_id="PORT_1",
+        as_of_date=date(2026, 1, 3),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 3),
+        reporting_currency="USD",
+        consumer_system="lotus-performance",
+    )
+
+    assert status_code == 200
+    assert [item["valuation_date"] for item in payload["rows"]] == [
+        "2026-01-01",
+        "2026-01-02",
+        "2026-01-03",
+    ]
+    assert payload["retrieval_metadata"] == {"chunk_count": 2, "page_count": 3}
 
 
 @pytest.mark.asyncio

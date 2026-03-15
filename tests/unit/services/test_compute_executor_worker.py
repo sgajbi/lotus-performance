@@ -5,6 +5,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.models.attribution_requests import AttributionRequest
+from app.models.contribution_analytics_requests import ContributionAnalyticsRequest, ContributionInputMode
 from app.models.contribution_requests import ContributionRequest
 from app.models.returns_series import ReturnsSeriesRequest
 from app.services import (
@@ -172,6 +173,109 @@ def test_compute_executor_worker_processes_pending_contribution_job(tmp_path, mo
     result = result_store.get_result(calculation_id)
     assert result is not None
     assert result.result_status == AsyncResultStatus.COMPLETE
+
+
+def test_compute_executor_worker_updates_identity_for_stateful_contribution_job(tmp_path, monkeypatch):
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    monkeypatch.setattr(compute_executor_worker, "execution_registry", execution_store)
+    monkeypatch.setattr(contribution_service, "execution_registry", execution_store)
+    monkeypatch.setattr(execution_lifecycle_service, "execution_registry", execution_store)
+    result_store = AsyncResultStore(f"sqlite:///{tmp_path / 'results.db'}")
+    result_store.create_schema()
+    monkeypatch.setattr(compute_executor_worker, "async_result_store", result_store)
+    lineage_store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    lineage_store.create_schema()
+    monkeypatch.setattr(
+        execution_lifecycle_service,
+        "lineage_service",
+        LineageService(storage_path=str(tmp_path / "lineage"), metadata_store=lineage_store),
+    )
+
+    job_store = ComputeJobStore(f"sqlite:///{tmp_path / 'jobs.db'}")
+    job_store.create_schema()
+    monkeypatch.setattr(compute_executor_worker, "compute_job_store", job_store)
+
+    calculation_id = uuid4()
+    analytics_request = ContributionAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(calculation_id),
+            "portfolio_id": "P1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {"consumer_system": "lotus-performance"},
+        }
+    )
+    resolved_request = ContributionRequest.model_validate(
+        {
+            "calculation_id": str(calculation_id),
+            "portfolio_id": "P1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [
+                    {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                    {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1030},
+                ],
+            },
+            "positions_data": [
+                {
+                    "position_id": "Stock_A",
+                    "valuation_points": [
+                        {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                        {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1030},
+                    ],
+                }
+            ],
+        }
+    )
+
+    async def _resolve_contribution_request(*_args, **_kwargs):
+        return type(
+            "ResolvedContribution",
+            (),
+            {
+                "contribution_request": resolved_request,
+                "input_mode": ContributionInputMode.STATEFUL,
+            },
+        )()
+
+    monkeypatch.setattr(
+        compute_executor_worker,
+        "resolve_contribution_request",
+        _resolve_contribution_request,
+    )
+
+    execution_store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="Contribution",
+        portfolio_id="P1",
+        execution_mode="async",
+        requested_window={},
+        input_fingerprint="stale-fingerprint",
+        calculation_hash="stale-hash",
+    )
+    job_store.enqueue_job(
+        calculation_id=calculation_id,
+        analytics_type="Contribution",
+        request_payload=analytics_request.model_dump(mode="json"),
+    )
+
+    worker_settings = _worker_settings()
+    assert compute_executor_worker.process_pending_jobs(limit=10, settings=worker_settings) == 1
+
+    expected_input_fingerprint, expected_calculation_hash = compute_executor_worker.generate_canonical_hash(
+        resolved_request,
+        worker_settings.APP_VERSION,
+    )
+    execution = execution_store.get_execution(calculation_id)
+    assert execution is not None
+    assert execution.input_fingerprint == expected_input_fingerprint
+    assert execution.calculation_hash == expected_calculation_hash
 
 
 def test_compute_executor_worker_processes_pending_attribution_job(tmp_path, monkeypatch):

@@ -7,6 +7,7 @@ import pandas as pd
 
 from app.api.endpoints.contribution import _should_offload_contribution
 from app.api.endpoints.performance import _should_offload_attribution
+from app.models.attribution_analytics_requests import AttributionAnalyticsRequest
 from app.models.attribution_requests import AttributionRequest
 from app.models.contribution_requests import ContributionRequest
 from app.services import attribution_service, contribution_service
@@ -65,6 +66,37 @@ def test_should_offload_attribution_uses_runtime_settings(mocker):
     mocker.patch(
         "app.api.endpoints.performance.get_settings",
         return_value=type("Settings", (), {"ATTRIBUTION_EXECUTOR_INPUT_COUNT": 2, "APP_VERSION": "unused"})(),
+    )
+
+    assert _should_offload_attribution(request) is True
+
+
+def test_should_offload_stateful_attribution_uses_window_runtime_settings(mocker):
+    request = AttributionAnalyticsRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "mode": "by_instrument",
+            "group_by": ["sector"],
+            "linking": "none",
+            "frequency": "daily",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-07-31",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {"consumer_system": "lotus-performance"},
+        }
+    )
+    mocker.patch(
+        "app.api.endpoints.performance.get_settings",
+        return_value=type(
+            "Settings",
+            (),
+            {
+                "ATTRIBUTION_EXECUTOR_WINDOW_DAYS": 30,
+                "ATTRIBUTION_EXECUTOR_INPUT_COUNT": 999,
+                "APP_VERSION": "unused",
+            },
+        )(),
     )
 
     assert _should_offload_attribution(request) is True

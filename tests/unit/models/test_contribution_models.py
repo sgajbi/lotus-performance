@@ -4,6 +4,7 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
+from app.models.contribution_analytics_requests import ContributionAnalyticsRequest
 from app.models.contribution_requests import ContributionRequest
 from app.models.contribution_responses import ContributionResponse
 
@@ -133,3 +134,63 @@ def test_contribution_response_legacy_structure_fails(base_response_footer):
 
     with pytest.raises(ValidationError):
         ContributionResponse.model_validate(payload)
+
+
+def test_contribution_analytics_request_requires_stateful_input_for_stateful_mode():
+    payload = {
+        "portfolio_id": "CONTRIB_STATEFUL",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-31",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+    }
+
+    with pytest.raises(ValidationError, match="stateful_input is required"):
+        ContributionAnalyticsRequest.model_validate(payload)
+
+
+def test_contribution_analytics_request_rejects_mixed_stateless_payload_shapes():
+    payload = {
+        "portfolio_id": "CONTRIB_STATELESS",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-31",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateless",
+        "stateless_input": {
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [],
+            },
+            "positions_data": [],
+        },
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [],
+        },
+        "positions_data": [],
+    }
+
+    with pytest.raises(ValidationError, match="Provide either stateless_input or legacy portfolio_data/positions_data"):
+        ContributionAnalyticsRequest.model_validate(payload)
+
+
+def test_contribution_analytics_request_builds_legacy_stateless_request():
+    payload = {
+        "calculation_id": str(uuid4()),
+        "portfolio_id": "CONTRIB_LEGACY",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-31",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [],
+        },
+        "positions_data": [],
+    }
+
+    request = ContributionAnalyticsRequest.model_validate(payload)
+    stateless_request = request.to_stateless_contribution_request()
+
+    assert stateless_request.portfolio_id == "CONTRIB_LEGACY"
+    assert stateless_request.portfolio_data.metric_basis == "NET"
+    assert stateless_request.positions_data == []

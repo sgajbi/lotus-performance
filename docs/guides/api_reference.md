@@ -13,28 +13,48 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 ### `POST /performance/twr`
 
 - purpose: calculate time-weighted return
-- request model: `app.models.requests.PerformanceRequest`
+- request model: `app.models.twr_requests.TWRAnalyticsRequest`
 - response model: `app.models.responses.PerformanceResponse`
 - execution mode: synchronous
 - lineage: durable lineage metadata is written and artifacts are materialized asynchronously
+- supported input modes:
+  - `stateless`
+  - `stateful`
+- contract note:
+  - existing stateless callers can continue sending top-level `valuation_points`
+  - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
+  - stateful mode sources portfolio timeseries from lotus-core query-control-plane and normalizes them into canonical valuation points before engine execution
 
 ### `POST /performance/mwr`
 
 - purpose: calculate money-weighted return
-- request model: `app.models.mwr_requests.MoneyWeightedReturnRequest`
+- request model: `app.models.mwr_analytics_requests.MoneyWeightedReturnAnalyticsRequest`
 - response model: `app.models.mwr_responses.MoneyWeightedReturnResponse`
 - execution mode: synchronous
 - lineage: durable lineage metadata is written and artifacts are materialized asynchronously
+- supported input modes:
+  - `stateless`
+  - `stateful`
+- contract note:
+  - existing stateless callers can continue sending top-level `begin_mv`, `end_mv`, and `cash_flows`
+  - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
+  - stateful mode sources portfolio timeseries from lotus-core query-control-plane and normalizes them into canonical `begin_mv`, `end_mv`, `cash_flows`, and authoritative `start_date` before engine execution
 
 ### `POST /performance/contribution`
 
 - purpose: calculate position contribution
-- request model: `app.models.contribution_requests.ContributionRequest`
+- request model: `app.models.contribution_analytics_requests.ContributionAnalyticsRequest`
 - response model:
   - sync: `app.models.contribution_responses.ContributionResponse`
   - async accepted: `app.models.contribution_responses.ContributionAcceptedResponse`
+- input modes:
+  - `stateless`
+  - `stateful`
+  - existing stateless callers can continue sending top-level `portfolio_data` and `positions_data`
+  - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
+  - stateful mode sources portfolio and position timeseries from lotus-core query-control-plane and normalizes them into canonical contribution inputs before engine execution
 - execution mode:
-  - synchronous for smaller position sets
+  - synchronous for smaller stateless sets and smaller stateful windows
   - `202 Accepted` with `calculation_id`, `poll_path`, and `result_path` when offloaded to the compute executor
 
 ### `GET /performance/contribution/results/{calculation_id}`
@@ -47,12 +67,21 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 ### `POST /performance/attribution`
 
 - purpose: calculate multi-level attribution
-- request model: `app.models.attribution_requests.AttributionRequest`
+- request model: `app.models.attribution_analytics_requests.AttributionAnalyticsRequest`
 - response model:
   - sync: `app.models.attribution_responses.AttributionResponse`
   - async accepted: `app.models.attribution_responses.AttributionAcceptedResponse`
+- input modes:
+  - `stateless`
+  - `stateful`
+  - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
+  - stateful mode sources portfolio and position timeseries from lotus-core and derives benchmark group inputs from benchmark assignment plus benchmark market-series metadata
+  - current stateful fences:
+    - `mode=by_instrument` only
+    - `currency_mode=BASE_ONLY` only
+    - `group_by` limited to canonical lotus-core attribution dimensions: `asset_class`, `sector`, `country`
 - execution mode:
-  - synchronous for smaller input sets
+  - synchronous for smaller stateless sets and smaller stateful windows
   - `202 Accepted` when offloaded to the compute executor
 
 ### `GET /performance/attribution/results/{calculation_id}`
@@ -97,6 +126,14 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 
 - purpose: advertise lotus-performance capabilities to downstream consumers
 - response model: integration capabilities contract in `app.api.endpoints.integration_capabilities`
+- response includes:
+  - service-level `supported_input_modes`
+  - endpoint-level `analytics_surfaces` entries with:
+    - `path`
+    - `supported_input_modes`
+    - `supports_async`
+    - `stateful_restrictions`
+- use `analytics_surfaces` when a downstream Lotus app needs the actual contract for a specific endpoint rather than only the coarse service-wide mode list
 
 ### `GET /integration/runtime-status`
 

@@ -1,59 +1,65 @@
 {
+  "input_mode": "stateless",
   "portfolio_id": "TWR_EXAMPLE_01",
   "performance_start_date": "2024-12-31",
-  "metric_basis": "NET",
-  "report_start_date": "2025-01-01",
   "report_end_date": "2025-01-05",
-  "period_type": "YTD",
-  "frequencies": [
-    "daily",
-    "monthly"
-  ],
-  "daily_data": [
+  "metric_basis": "NET",
+  "analyses": [
     {
-      "day": 1,
-      "perf_date": "2025-01-01",
-      "begin_mv": 100000.0,
-      "bod_cf": 0.0,
-      "eod_cf": 0.0,
-      "mgmt_fees": 0.0,
-      "end_mv": 101000.0
-    },
-    {
-      "day": 2,
-      "perf_date": "2025-01-02",
-      "begin_mv": 101000.0,
-      "bod_cf": 0.0,
-      "eod_cf": 0.0,
-      "mgmt_fees": 0.0,
-      "end_mv": 102500.0
-    },
-    {
-      "day": 3,
-      "perf_date": "2025-01-03",
-      "begin_mv": 102500.0,
-      "bod_cf": 5000.0,
-      "eod_cf": 0.0,
-      "mgmt_fees": -10.0,
-      "end_mv": 108000.0
-    },
-    {
-      "day": 4,
-      "perf_date": "2025-01-04",
-      "begin_mv": 108000.0,
-      "bod_cf": 0.0,
-      "eod_cf": -2000.0,
-      "mgmt_fees": -12.0,
-      "end_mv": 106500.0
-    },
-    {
-      "day": 5,
-      "perf_date": "2025-01-05",
-      "begin_mv": 106500.0,
-      "bod_cf": 0.0,
-      "eod_cf": 0.0,
-      "mgmt_fees": 0.0,
-      "end_mv": 107000.0
+      "period": "YTD",
+      "frequencies": [
+        "daily",
+        "monthly"
+      ]
     }
-  ]
+  ],
+  "stateless_input": {
+    "valuation_points": [
+      {
+        "day": 1,
+        "perf_date": "2025-01-01",
+        "begin_mv": 100000.0,
+        "bod_cf": 0.0,
+        "eod_cf": 0.0,
+        "mgmt_fees": 0.0,
+        "end_mv": 101000.0
+      },
+      {
+        "day": 2,
+        "perf_date": "2025-01-02",
+        "begin_mv": 101000.0,
+        "bod_cf": 0.0,
+        "eod_cf": 0.0,
+        "mgmt_fees": 0.0,
+        "end_mv": 102500.0
+      },
+      {
+        "day": 3,
+        "perf_date": "2025-01-03",
+        "begin_mv": 102500.0,
+        "bod_cf": 5000.0,
+        "eod_cf": 0.0,
+        "mgmt_fees": -10.0,
+        "end_mv": 108000.0
+      },
+      {
+        "day": 4,
+        "perf_date": "2025-01-04",
+        "begin_mv": 108000.0,
+        "bod_cf": 0.0,
+        "eod_cf": -2000.0,
+        "mgmt_fees": -12.0,
+        "end_mv": 106500.0
+      },
+      {
+        "day": 5,
+        "perf_date": "2025-01-05",
+        "begin_mv": 106500.0,
+        "bod_cf": 0.0,
+        "eod_cf": 0.0,
+        "mgmt_fees": 0.0,
+        "end_mv": 107000.0
+      }
+    ]
+  }
 }

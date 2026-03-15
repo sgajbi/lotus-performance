@@ -62,7 +62,7 @@ class Analysis(BaseModel):
         return v
 
 
-class PerformanceRequest(BaseModel):
+class PerformanceRequestBase(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     calculation_id: UUID = Field(
@@ -112,3 +112,7 @@ class PerformanceRequest(BaseModel):
         if not v:
             raise ValueError("analyses list cannot be empty")
         return v
+
+
+class PerformanceRequest(PerformanceRequestBase):
+    valuation_points: List[DailyInputData]

@@ -115,7 +115,7 @@ def test_execution_api_tracks_returns_series_stateful_stages(client, monkeypatch
         )
 
     monkeypatch.setattr(
-        "app.api.endpoints.returns_series.CoreIntegrationService.get_portfolio_analytics_timeseries",
+        "app.services.portfolio_source_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
         _mock_get_portfolio_analytics_timeseries,
     )
     monkeypatch.setattr(
@@ -153,11 +153,362 @@ def test_execution_api_tracks_returns_series_stateful_stages(client, monkeypatch
     assert stages["normalization"]["status"] == "complete"
     assert stages["execution"]["status"] == "complete"
     assert stages["retrieval"]["details"]["portfolio_observations"] == 3
+    assert stages["retrieval"]["details"]["portfolio_chunk_count"] == 1
+    assert stages["retrieval"]["details"]["portfolio_page_count"] == 1
+    assert stages["retrieval"]["details"]["benchmark_chunk_count"] == 1
+    assert stages["retrieval"]["details"]["risk_free_chunk_count"] == 0
     assert stages["normalization"]["details"]["benchmark_points"] == 3
     assert len(execution_body["upstream_snapshots"]) >= 2
     assert {snapshot["upstream_endpoint"] for snapshot in execution_body["upstream_snapshots"]} >= {
         "portfolio_timeseries",
         "benchmark_return_series",
+    }
+
+
+def test_execution_api_tracks_twr_stateful_stages(client, monkeypatch):
+    async def _mock_get_portfolio_analytics_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2024-12-31",
+                "observations": [
+                    {"valuation_date": "2025-01-01", "beginning_market_value": "1000", "ending_market_value": "1010"},
+                    {"valuation_date": "2025-01-02", "beginning_market_value": "1010", "ending_market_value": "1020.1"},
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.portfolio_source_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
+        _mock_get_portfolio_analytics_timeseries,
+    )
+
+    payload = {
+        "portfolio_id": "STATEFUL_EXEC_TWR",
+        "performance_start_date": "2024-12-31",
+        "metric_basis": "NET",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    twr_response = client.post("/performance/twr", json=payload)
+
+    assert twr_response.status_code == 200
+    calculation_id = twr_response.json()["calculation_id"]
+    execution_response = client.get(f"/performance/executions/{calculation_id}")
+
+    assert execution_response.status_code == 200
+    execution_body = execution_response.json()
+    assert execution_body["analytics_type"] == "TWR"
+    stages = {stage["stage_name"]: stage for stage in execution_body["stages"]}
+    assert stages["retrieval"]["status"] == "complete"
+    assert stages["normalization"]["status"] == "complete"
+    assert stages["execution"]["status"] == "complete"
+    assert stages["retrieval"]["details"]["portfolio_observations"] == 2
+    assert stages["retrieval"]["details"]["portfolio_chunk_count"] == 1
+    assert stages["retrieval"]["details"]["portfolio_page_count"] == 1
+    assert stages["normalization"]["details"]["valuation_points"] == 2
+    assert len(execution_body["upstream_snapshots"]) >= 1
+    assert execution_body["upstream_snapshots"][0]["upstream_endpoint"] == "portfolio_timeseries"
+
+
+def test_execution_api_tracks_mwr_stateful_stages(client, monkeypatch):
+    async def _mock_get_portfolio_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2025-01-01",
+                "observations": [
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "100000",
+                        "ending_market_value": "110000",
+                        "cash_flows": [{"amount": "10000", "timing": "bod"}],
+                    },
+                    {
+                        "valuation_date": "2025-01-03",
+                        "beginning_market_value": "110000",
+                        "ending_market_value": "111000",
+                        "cash_flows": [],
+                    },
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.core_integration_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
+        _mock_get_portfolio_timeseries,
+    )
+
+    payload = {
+        "portfolio_id": "MWR_STATEFUL_EXEC",
+        "as_of": "2025-01-03",
+        "mwr_method": "DIETZ",
+        "input_mode": "stateful",
+        "stateful_input": {
+            "consumer_system": "lotus-performance",
+            "window_start_date": "2025-01-01",
+        },
+    }
+
+    response = client.post("/performance/mwr", json=payload)
+
+    assert response.status_code == 200
+    calculation_id = response.json()["calculation_id"]
+    execution_response = client.get(f"/performance/executions/{calculation_id}")
+
+    assert execution_response.status_code == 200
+    execution_body = execution_response.json()
+    assert execution_body["analytics_type"] == "MWR"
+    stages = {stage["stage_name"]: stage for stage in execution_body["stages"]}
+    assert stages["retrieval"]["status"] == "complete"
+    assert stages["normalization"]["status"] == "complete"
+    assert stages["execution"]["status"] == "complete"
+    assert stages["retrieval"]["details"]["portfolio_observations"] == 2
+    assert stages["retrieval"]["details"]["portfolio_chunk_count"] == 1
+    assert stages["retrieval"]["details"]["portfolio_page_count"] == 1
+    assert stages["normalization"]["details"]["cashflows"] == 1
+    assert len(execution_body["upstream_snapshots"]) >= 1
+    assert execution_body["upstream_snapshots"][0]["upstream_endpoint"] == "portfolio_timeseries"
+
+
+def test_execution_api_tracks_contribution_stateful_stages(client, monkeypatch):
+    async def _mock_get_portfolio_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2025-01-01",
+                "observations": [
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1010",
+                    },
+                    {
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value": "1010",
+                        "ending_market_value": "1020.1",
+                    },
+                ],
+            },
+        )
+
+    async def _mock_get_position_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "rows": [
+                    {
+                        "position_id": "SEC_1",
+                        "security_id": "SEC_1",
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value_portfolio_currency": "1000",
+                        "ending_market_value_portfolio_currency": "1010",
+                        "cash_flows": [],
+                        "dimensions": {"sector": "Technology"},
+                    },
+                    {
+                        "position_id": "SEC_1",
+                        "security_id": "SEC_1",
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value_portfolio_currency": "1010",
+                        "ending_market_value_portfolio_currency": "1020.1",
+                        "cash_flows": [],
+                        "dimensions": {"sector": "Technology"},
+                    },
+                ]
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_portfolio_timeseries",
+        _mock_get_portfolio_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_position_timeseries",
+        _mock_get_position_timeseries,
+    )
+
+    payload = {
+        "portfolio_id": "CONTRIB_STATEFUL_EXEC",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    response = client.post("/performance/contribution", json=payload)
+
+    assert response.status_code == 200
+    calculation_id = response.json()["calculation_id"]
+    execution_response = client.get(f"/performance/executions/{calculation_id}")
+
+    assert execution_response.status_code == 200
+    execution_body = execution_response.json()
+    assert execution_body["analytics_type"] == "Contribution"
+    stages = {stage["stage_name"]: stage for stage in execution_body["stages"]}
+    assert stages["retrieval"]["status"] == "complete"
+    assert stages["normalization"]["status"] == "complete"
+    assert stages["execution"]["status"] == "complete"
+    assert stages["retrieval"]["details"]["portfolio_observations"] == 2
+    assert stages["retrieval"]["details"]["position_rows"] == 2
+    assert stages["retrieval"]["details"]["portfolio_chunk_count"] == 1
+    assert stages["retrieval"]["details"]["portfolio_page_count"] == 1
+    assert stages["retrieval"]["details"]["position_chunk_count"] == 1
+    assert stages["retrieval"]["details"]["position_page_count"] == 1
+    assert stages["normalization"]["details"]["portfolio_points"] == 2
+    assert stages["normalization"]["details"]["positions"] == 1
+
+
+def test_execution_api_tracks_attribution_stateful_stages(client, monkeypatch):
+    async def _mock_get_portfolio_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2025-01-01",
+                "observations": [
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1010",
+                    },
+                    {
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value": "1010",
+                        "ending_market_value": "1020.1",
+                    },
+                ],
+            },
+        )
+
+    async def _mock_get_position_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "rows": [
+                    {
+                        "position_id": "POS_1",
+                        "security_id": "SEC_1",
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value_portfolio_currency": "1000",
+                        "ending_market_value_portfolio_currency": "1010",
+                        "cash_flows": [],
+                        "dimensions": {"sector": "Technology"},
+                    },
+                    {
+                        "position_id": "POS_1",
+                        "security_id": "SEC_1",
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value_portfolio_currency": "1010",
+                        "ending_market_value_portfolio_currency": "1020.1",
+                        "cash_flows": [],
+                        "dimensions": {"sector": "Technology"},
+                    },
+                ]
+            },
+        )
+
+    async def _mock_get_benchmark_assignment(self, **kwargs):  # noqa: ARG001
+        return 200, {"benchmark_id": "BMK_1"}
+
+    async def _mock_get_benchmark_market_series(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "component_series": [
+                    {
+                        "index_id": "IDX_1",
+                        "points": [
+                            {"series_date": "2025-01-01", "component_weight": "1.0", "index_return": "0.01"},
+                            {"series_date": "2025-01-02", "component_weight": "1.0", "index_return": "0.01"},
+                        ],
+                    }
+                ]
+            },
+        )
+
+    async def _mock_get_index_catalog(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "records": [
+                    {
+                        "index_id": "IDX_1",
+                        "classification_labels": {"sector": "Technology"},
+                    }
+                ]
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.core_integration_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
+        _mock_get_portfolio_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.services.core_integration_service.CoreIntegrationService.get_position_analytics_timeseries",
+        _mock_get_position_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.services.core_integration_service.CoreIntegrationService.get_benchmark_assignment",
+        _mock_get_benchmark_assignment,
+    )
+    monkeypatch.setattr(
+        "app.services.core_integration_service.CoreIntegrationService.get_benchmark_market_series",
+        _mock_get_benchmark_market_series,
+    )
+    monkeypatch.setattr(
+        "app.services.core_integration_service.CoreIntegrationService.get_index_catalog",
+        _mock_get_index_catalog,
+    )
+
+    payload = {
+        "portfolio_id": "ATTRIB_STATEFUL_EXEC",
+        "mode": "by_instrument",
+        "group_by": ["sector"],
+        "linking": "none",
+        "frequency": "daily",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    response = client.post("/performance/attribution", json=payload)
+
+    assert response.status_code == 200
+    calculation_id = response.json()["calculation_id"]
+    execution_response = client.get(f"/performance/executions/{calculation_id}")
+
+    assert execution_response.status_code == 200
+    execution_body = execution_response.json()
+    assert execution_body["analytics_type"] == "Attribution"
+    stages = {stage["stage_name"]: stage for stage in execution_body["stages"]}
+    assert stages["retrieval"]["status"] == "complete"
+    assert stages["normalization"]["status"] == "complete"
+    assert stages["execution"]["status"] == "complete"
+    assert stages["retrieval"]["details"]["portfolio_observations"] == 2
+    assert stages["retrieval"]["details"]["position_rows"] == 2
+    assert stages["retrieval"]["details"]["benchmark_components"] == 1
+    assert stages["retrieval"]["details"]["portfolio_chunk_count"] == 1
+    assert stages["retrieval"]["details"]["portfolio_page_count"] == 1
+    assert stages["retrieval"]["details"]["position_chunk_count"] == 1
+    assert stages["retrieval"]["details"]["position_page_count"] == 1
+    assert stages["retrieval"]["details"]["benchmark_chunk_count"] == 1
+    assert stages["retrieval"]["details"]["benchmark_page_count"] == 1
+    assert stages["retrieval"]["details"]["index_request_count"] == 1
+    assert stages["normalization"]["details"]["portfolio_points"] == 2
+    assert stages["normalization"]["details"]["instruments"] == 1
+    assert stages["normalization"]["details"]["benchmark_groups"] == 1
+    assert {snapshot["upstream_endpoint"] for snapshot in execution_body["upstream_snapshots"]} >= {
+        "portfolio_timeseries",
+        "position_timeseries",
+        "benchmark_assignment",
+        "benchmark_market_series",
+        "index_catalog",
     }
 
 
@@ -183,7 +534,7 @@ def test_execution_api_tracks_async_returns_series_job_state(client, monkeypatch
         )
 
     monkeypatch.setattr(
-        "app.services.returns_series_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
+        "app.services.portfolio_source_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
         _mock_get_portfolio_analytics_timeseries,
     )
 

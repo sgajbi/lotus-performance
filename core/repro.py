@@ -1,19 +1,21 @@
 # core/repro.py
 import hashlib
 import json
+from typing import Any
 
 from pydantic import BaseModel
 
 
-def generate_canonical_hash(request_model: BaseModel, engine_version: str) -> tuple[str, str]:
+def _canonicalize_value(value: BaseModel | dict[str, Any], *, engine_version: str) -> tuple[str, str]:
     """
-    Generates a deterministic hash for a given request model and engine version.
+    Generates a deterministic hash for a given canonical value and engine version.
 
     Returns a tuple of (input_fingerprint, calculation_hash).
     """
-    # For Pydantic V2, dump the model to a dictionary, letting Pydantic's 'json'
-    # mode handle serialization of special types like dates, UUIDs, and Decimals.
-    request_dict = request_model.model_dump(mode="json")
+    if isinstance(value, BaseModel):
+        request_dict = value.model_dump(mode="json")
+    else:
+        request_dict = value
 
     # Use the standard json library to create a canonical string with sorted keys.
     canonical_string = json.dumps(request_dict, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
@@ -25,3 +27,14 @@ def generate_canonical_hash(request_model: BaseModel, engine_version: str) -> tu
     calculation_hash = f"sha256:{hashlib.sha256(full_string_to_hash.encode('utf-8')).hexdigest()}"
 
     return input_fingerprint, calculation_hash
+
+
+def generate_canonical_hash(request_model: BaseModel, engine_version: str) -> tuple[str, str]:
+    return _canonicalize_value(request_model, engine_version=engine_version)
+
+
+def generate_canonical_hash_from_value(
+    request_value: BaseModel | dict[str, Any],
+    engine_version: str,
+) -> tuple[str, str]:
+    return _canonicalize_value(request_value, engine_version=engine_version)

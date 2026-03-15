@@ -1,0 +1,122 @@
+from datetime import date
+from decimal import Decimal
+from uuid import uuid4
+
+import pytest
+
+from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest, MWRInputMode
+from app.services.mwr_mode_service import resolve_mwr_request
+from app.services.stateful_mwr_input_service import build_stateful_mwr_input, build_stateful_mwr_input_for_window
+from app.services.stateful_performance_input_service import StatefulPortfolioInput
+
+
+def test_build_stateful_mwr_input_aggregates_cash_flows():
+    source_input = StatefulPortfolioInput(
+        performance_start_date=date(2025, 1, 1),
+        observations=[
+            {
+                "valuation_date": "2025-01-01",
+                "beginning_market_value": "1000",
+                "ending_market_value": "1110",
+                "cash_flows": [{"amount": "100", "timing": "bod"}, {"amount": "10", "timing": "eod"}],
+            },
+            {
+                "valuation_date": "2025-01-02",
+                "beginning_market_value": "1110",
+                "ending_market_value": "1120",
+                "cash_flows": [{"amount": "-20", "timing": "bod"}],
+            },
+        ],
+    )
+
+    normalized = build_stateful_mwr_input(source_input=source_input)
+
+    assert normalized.start_date == date(2025, 1, 1)
+    assert normalized.begin_mv == Decimal("1000")
+    assert normalized.end_mv == Decimal("1120")
+    assert [(cash_flow.date.isoformat(), cash_flow.amount) for cash_flow in normalized.cash_flows] == [
+        ("2025-01-01", 110.0),
+        ("2025-01-02", -20.0),
+    ]
+
+
+def test_build_stateful_mwr_input_for_window_uses_requested_window_start():
+    source_input = StatefulPortfolioInput(
+        performance_start_date=date(2024, 1, 1),
+        observations=[
+            {
+                "valuation_date": "2025-01-10",
+                "beginning_market_value": "1000",
+                "ending_market_value": "1005",
+                "cash_flows": [],
+            },
+            {
+                "valuation_date": "2025-01-31",
+                "beginning_market_value": "1005",
+                "ending_market_value": "1010",
+                "cash_flows": [],
+            },
+        ],
+    )
+
+    normalized = build_stateful_mwr_input_for_window(
+        source_input=source_input,
+        window_start_date=date(2025, 1, 10),
+    )
+
+    assert normalized.start_date == date(2025, 1, 10)
+
+
+@pytest.mark.asyncio
+async def test_resolve_mwr_request_uses_stateful_portfolio_window(monkeypatch):
+    async def _mock_retrieve_stateful_portfolio_input(**kwargs):
+        assert kwargs["start_date"] == date(2025, 1, 1)
+        assert kwargs["end_date"] == date(2025, 1, 3)
+        return StatefulPortfolioInput(
+            performance_start_date=date(2024, 1, 1),
+            observations=[
+                {
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value": "1000",
+                    "ending_market_value": "1110",
+                    "cash_flows": [{"amount": "100", "timing": "bod"}],
+                },
+                {
+                    "valuation_date": "2025-01-03",
+                    "beginning_market_value": "1110",
+                    "ending_market_value": "1125",
+                    "cash_flows": [],
+                },
+            ],
+        )
+
+    monkeypatch.setattr(
+        "app.services.mwr_mode_service.retrieve_stateful_portfolio_input",
+        _mock_retrieve_stateful_portfolio_input,
+    )
+    monkeypatch.setattr("app.services.mwr_mode_service.execution_registry.start_stage", lambda *args, **kwargs: None)
+    monkeypatch.setattr("app.services.mwr_mode_service.execution_registry.complete_stage", lambda *args, **kwargs: None)
+    monkeypatch.setattr("app.services.mwr_mode_service.execution_registry.fail_stage", lambda *args, **kwargs: None)
+
+    request = MoneyWeightedReturnAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "MWR_STATEFUL",
+            "as_of": "2025-01-03",
+            "mwr_method": "XIRR",
+            "input_mode": "stateful",
+            "stateful_input": {
+                "consumer_system": "lotus-performance",
+                "window_start_date": "2025-01-01",
+            },
+        }
+    )
+
+    settings = type("Settings", (), {})()
+    resolved = await resolve_mwr_request(request, settings=settings)
+
+    assert resolved.input_mode == MWRInputMode.STATEFUL
+    assert resolved.mwr_request.start_date == date(2025, 1, 1)
+    assert resolved.mwr_request.begin_mv == 1000
+    assert resolved.mwr_request.end_mv == 1125
+    assert len(resolved.mwr_request.cash_flows) == 1

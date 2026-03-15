@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-03-15T02:18:20.059929+00:00",
+  "generatedAt": "2026-03-15T05:33:32.478501+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.acquired_at_utc",
@@ -109,24 +109,10 @@
       ]
     },
     {
-      "semanticId": "lotus.amount",
-      "canonicalTerm": "amount",
-      "preferredName": "amount",
-      "description": "Monetary value for amount.",
-      "example": 0.1234,
-      "type": "number",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "number"
-      ]
-    },
-    {
       "semanticId": "lotus.analyses",
       "canonicalTerm": "analyses",
       "preferredName": "analyses",
-      "description": "performance request field: analyses.",
+      "description": "twranalytics request field: analyses.",
       "example": [
         {
           "period": "MTD",
@@ -345,14 +331,14 @@
       "semanticId": "lotus.begin_mv",
       "canonicalTerm": "begin_mv",
       "preferredName": "begin_mv",
-      "description": "The market value of the portfolio at the beginning of the day, before any cash flows.",
+      "description": "Legacy stateless beginning market value. Prefer stateless_input for new integrations.",
       "example": 0.1234,
-      "type": "number",
+      "type": "object",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "number"
+        "object"
       ]
     },
     {
@@ -376,7 +362,7 @@
       "semanticId": "lotus.benchmark_groups_data",
       "canonicalTerm": "benchmark_groups_data",
       "preferredName": "benchmark_groups_data",
-      "description": "attribution request field: benchmark groups data.",
+      "description": "Legacy stateless benchmark attribution payload. Prefer stateless_input for new integrations.",
       "example": [
         {
           "key": {
@@ -393,33 +379,19 @@
           ]
         }
       ],
-      "type": "array",
+      "type": "object",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "array"
-      ]
-    },
-    {
-      "semanticId": "lotus.bod_cf",
-      "canonicalTerm": "bod_cf",
-      "preferredName": "bod_cf",
-      "description": "Cash flow occurring at the beginning of the day (before trading). Positive for inflows, negative for outflows.",
-      "example": 0.1234,
-      "type": "number",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "number"
+        "object"
       ]
     },
     {
       "semanticId": "lotus.bucketing",
       "canonicalTerm": "bucketing",
       "preferredName": "bucketing",
-      "description": "contribution request field: bucketing.",
+      "description": "contribution analytics request field: bucketing.",
       "example": {
         "key": "value"
       },
@@ -551,19 +523,19 @@
       "semanticId": "lotus.cash_flows",
       "canonicalTerm": "cash_flows",
       "preferredName": "cash_flows",
-      "description": "money weighted return request field: cash flows.",
+      "description": "Legacy stateless cash flow schedule. Prefer stateless_input for new integrations.",
       "example": [
         {
           "amount": 0.1234,
           "date": "2026-02-27"
         }
       ],
-      "type": "array",
+      "type": "object",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "array"
+        "object"
       ]
     },
     {
@@ -1081,7 +1053,7 @@
       "semanticId": "lotus.data_policy",
       "canonicalTerm": "data_policy",
       "preferredName": "data_policy",
-      "description": "performance request field: data policy.",
+      "description": "twranalytics request field: data policy.",
       "example": {
         "overrides": {
           "market_values": [
@@ -1137,34 +1109,6 @@
       ],
       "observedTypes": [
         "string"
-      ]
-    },
-    {
-      "semanticId": "lotus.date",
-      "canonicalTerm": "date",
-      "preferredName": "date",
-      "description": "Business date for date.",
-      "example": "2026-02-27",
-      "type": "string",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "string"
-      ]
-    },
-    {
-      "semanticId": "lotus.day",
-      "canonicalTerm": "day",
-      "preferredName": "day",
-      "description": "A sequential day number for the record within the request payload.",
-      "example": 1,
-      "type": "integer",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "integer"
       ]
     },
     {
@@ -1326,7 +1270,7 @@
       "semanticId": "lotus.emit_cashflows_used",
       "canonicalTerm": "emit_cashflows_used",
       "preferredName": "emit_cashflows_used",
-      "description": "money weighted return request field: emit cashflows used.",
+      "description": "money weighted return analytics request field: emit cashflows used.",
       "example": true,
       "type": "boolean",
       "locations": [
@@ -1368,14 +1312,14 @@
       "semanticId": "lotus.end_mv",
       "canonicalTerm": "end_mv",
       "preferredName": "end_mv",
-      "description": "The market value of the portfolio at the end of the day.",
+      "description": "Legacy stateless ending market value. Prefer stateless_input for new integrations.",
       "example": 0.1234,
-      "type": "number",
+      "type": "object",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "number"
+        "object"
       ]
     },
     {
@@ -1414,20 +1358,6 @@
       ],
       "observedTypes": [
         "array"
-      ]
-    },
-    {
-      "semanticId": "lotus.eod_cf",
-      "canonicalTerm": "eod_cf",
-      "preferredName": "eod_cf",
-      "description": "Cash flow occurring at the end of the day (after trading). Positive for inflows, negative for outflows.",
-      "example": 0.1234,
-      "type": "number",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "number"
       ]
     },
     {
@@ -1672,7 +1602,7 @@
       "semanticId": "lotus.fx",
       "canonicalTerm": "fx",
       "preferredName": "fx",
-      "description": "performance request field: fx.",
+      "description": "twranalytics request field: fx.",
       "example": {
         "source": "example_source",
         "fixing": "example_fixing",
@@ -1766,7 +1696,7 @@
       "semanticId": "lotus.group_by",
       "canonicalTerm": "group_by",
       "preferredName": "group_by",
-      "description": "attribution request field: group by.",
+      "description": "attribution analytics request field: group by.",
       "example": [
         "example_group_by_item"
       ],
@@ -1782,7 +1712,7 @@
       "semanticId": "lotus.hedging",
       "canonicalTerm": "hedging",
       "preferredName": "hedging",
-      "description": "performance request field: hedging.",
+      "description": "twranalytics request field: hedging.",
       "example": {
         "mode": "example_mode",
         "series": [
@@ -1805,7 +1735,7 @@
       "semanticId": "lotus.hierarchy",
       "canonicalTerm": "hierarchy",
       "preferredName": "hierarchy",
-      "description": "contribution request field: hierarchy.",
+      "description": "contribution analytics request field: hierarchy.",
       "example": [
         "example_hierarchy_item"
       ],
@@ -1933,13 +1863,17 @@
       "semanticId": "lotus.input_mode",
       "canonicalTerm": "input_mode",
       "preferredName": "input_mode",
-      "description": "input mode schema.",
+      "description": "twrinput mode schema.",
       "example": "stateless",
-      "type": "InputMode",
+      "type": "TWRInputMode",
       "locations": [
         "body"
       ],
       "observedTypes": [
+        "TWRInputMode",
+        "MWRInputMode",
+        "AttributionInputMode",
+        "ContributionInputMode",
         "InputMode"
       ]
     },
@@ -1967,7 +1901,7 @@
       "semanticId": "lotus.instruments_data",
       "canonicalTerm": "instruments_data",
       "preferredName": "instruments_data",
-      "description": "attribution request field: instruments data.",
+      "description": "Legacy stateless instrument attribution payload. Prefer stateless_input for new integrations.",
       "example": [
         {
           "instrument_id": "INSTRUMENT_001",
@@ -2014,16 +1948,13 @@
       "semanticId": "lotus.key",
       "canonicalTerm": "key",
       "preferredName": "key",
-      "description": "benchmark group field: key.",
-      "example": {
-        "key": "value"
-      },
-      "type": "object",
+      "description": "Canonical feature key.",
+      "example": "example_key",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object",
         "string"
       ]
     },
@@ -2593,8 +2524,7 @@
         "body"
       ],
       "observedTypes": [
-        "Meta",
-        "object"
+        "Meta"
       ]
     },
     {
@@ -2624,20 +2554,6 @@
       "observedTypes": [
         "string",
         "MetricBasis"
-      ]
-    },
-    {
-      "semanticId": "lotus.mgmt_fees",
-      "canonicalTerm": "mgmt_fees",
-      "preferredName": "mgmt_fees",
-      "description": "Management or other fees charged for the day. Should be a negative value to reduce performance.",
-      "example": 0.1234,
-      "type": "number",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "number"
       ]
     },
     {
@@ -2730,7 +2646,7 @@
       "semanticId": "lotus.mwr_method",
       "canonicalTerm": "mwr_method",
       "preferredName": "mwr_method",
-      "description": "money weighted return request field: mwr method.",
+      "description": "money weighted return analytics request field: mwr method.",
       "example": "XIRR",
       "type": "string",
       "locations": [
@@ -2803,28 +2719,6 @@
       "description": "diagnostics field: notes.",
       "example": [
         "example_notes_item"
-      ],
-      "type": "array",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "array"
-      ]
-    },
-    {
-      "semanticId": "lotus.observations",
-      "canonicalTerm": "observations",
-      "preferredName": "observations",
-      "description": "benchmark group field: observations.",
-      "example": [
-        {
-          "date": "2026-02-27",
-          "weight_bop": 0.1234,
-          "return_base": 0.1234,
-          "return_local": 0.1234,
-          "return_fx": 0.1234
-        }
       ],
       "type": "array",
       "locations": [
@@ -3096,20 +2990,6 @@
       ]
     },
     {
-      "semanticId": "lotus.perf_date",
-      "canonicalTerm": "perf_date",
-      "preferredName": "perf_date",
-      "description": "The specific date of the observation in YYYY-MM-DD format.",
-      "example": "2026-02-27",
-      "type": "string",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "string"
-      ]
-    },
-    {
       "semanticId": "lotus.performance_start_date",
       "canonicalTerm": "performance_start_date",
       "preferredName": "performance_start_date",
@@ -3208,7 +3088,7 @@
       "semanticId": "lotus.portfolio_data",
       "canonicalTerm": "portfolio_data",
       "preferredName": "portfolio_data",
-      "description": "attribution request field: portfolio data.",
+      "description": "Legacy stateless portfolio attribution payload. Prefer stateless_input for new integrations.",
       "example": {
         "metric_basis": "NET",
         "valuation_points": [
@@ -3228,15 +3108,14 @@
         "body"
       ],
       "observedTypes": [
-        "object",
-        "PortfolioData"
+        "object"
       ]
     },
     {
       "semanticId": "lotus.portfolio_groups_data",
       "canonicalTerm": "portfolio_groups_data",
       "preferredName": "portfolio_groups_data",
-      "description": "attribution request field: portfolio groups data.",
+      "description": "Legacy stateless grouped portfolio attribution payload. Prefer stateless_input for new integrations.",
       "example": [
         {
           "key": {
@@ -3273,24 +3152,10 @@
       ]
     },
     {
-      "semanticId": "lotus.position_id",
-      "canonicalTerm": "position_id",
-      "preferredName": "position_id",
-      "description": "Unique position identifier.",
-      "example": "POSITION_001",
-      "type": "string",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "string"
-      ]
-    },
-    {
       "semanticId": "lotus.positions_data",
       "canonicalTerm": "positions_data",
       "preferredName": "positions_data",
-      "description": "contribution request field: positions data.",
+      "description": "Legacy stateless positions contribution payload. Prefer stateless_input for new integrations.",
       "example": [
         {
           "position_id": "POSITION_001",
@@ -3310,12 +3175,12 @@
           ]
         }
       ],
-      "type": "array",
+      "type": "object",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "array"
+        "object"
       ]
     },
     {
@@ -3726,7 +3591,7 @@
       "semanticId": "lotus.report_ccy",
       "canonicalTerm": "report_ccy",
       "preferredName": "report_ccy",
-      "description": "performance request field: report ccy.",
+      "description": "twranalytics request field: report ccy.",
       "example": "example_report_ccy",
       "type": "object",
       "locations": [
@@ -4057,48 +3922,6 @@
       ]
     },
     {
-      "semanticId": "lotus.return_base",
-      "canonicalTerm": "return_base",
-      "preferredName": "return_base",
-      "description": "Performance metric value for return base.",
-      "example": 0.1234,
-      "type": "number",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "number"
-      ]
-    },
-    {
-      "semanticId": "lotus.return_fx",
-      "canonicalTerm": "return_fx",
-      "preferredName": "return_fx",
-      "description": "Performance metric value for return fx.",
-      "example": 0.1234,
-      "type": "object",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "object"
-      ]
-    },
-    {
-      "semanticId": "lotus.return_local",
-      "canonicalTerm": "return_local",
-      "preferredName": "return_local",
-      "description": "Performance metric value for return local.",
-      "example": 0.1234,
-      "type": "object",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "object"
-      ]
-    },
-    {
       "semanticId": "lotus.returned_count",
       "canonicalTerm": "returned_count",
       "preferredName": "returned_count",
@@ -4416,13 +4239,14 @@
       "semanticId": "lotus.start_date",
       "canonicalTerm": "start_date",
       "preferredName": "start_date",
-      "description": "Business date for start date.",
+      "description": "money weighted return analytics request field: start date.",
       "example": "2026-02-27",
-      "type": "string",
+      "type": "object",
       "locations": [
         "body"
       ],
       "observedTypes": [
+        "object",
         "string"
       ]
     },
@@ -4444,7 +4268,7 @@
       "semanticId": "lotus.stateful_input",
       "canonicalTerm": "stateful_input",
       "preferredName": "stateful_input",
-      "description": "returns series request field: stateful input.",
+      "description": "Stateful TWR input payload resolved through lotus-core integrations.",
       "example": {
         "consumer_system": "lotus-performance"
       },
@@ -4460,24 +4284,17 @@
       "semanticId": "lotus.stateless_input",
       "canonicalTerm": "stateless_input",
       "preferredName": "stateless_input",
-      "description": "returns series request field: stateless input.",
+      "description": "Stateless TWR input payload.",
       "example": {
-        "portfolio_returns": [
+        "valuation_points": [
           {
-            "date": "2026-02-26",
-            "return_value": "0.0012"
-          }
-        ],
-        "benchmark_returns": [
-          {
-            "date": "2026-02-26",
-            "return_value": "0.0012"
-          }
-        ],
-        "risk_free_returns": [
-          {
-            "date": "2026-02-26",
-            "return_value": "0.0012"
+            "day": 1,
+            "perf_date": "2026-02-27",
+            "begin_mv": 0.1234,
+            "bod_cf": 0.1234,
+            "eod_cf": 0.1234,
+            "mgmt_fees": 0.1234,
+            "end_mv": 0.1234
           }
         ]
       },
@@ -4922,7 +4739,7 @@
       "semanticId": "lotus.valuation_points",
       "canonicalTerm": "valuation_points",
       "preferredName": "valuation_points",
-      "description": "performance request field: valuation points.",
+      "description": "Legacy stateless valuation input payload. Prefer stateless_input for new integrations.",
       "example": [
         {
           "day": 1,
@@ -4934,26 +4751,12 @@
           "end_mv": 0.1234
         }
       ],
-      "type": "array",
+      "type": "object",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "array"
-      ]
-    },
-    {
-      "semanticId": "lotus.weight_bop",
-      "canonicalTerm": "weight_bop",
-      "preferredName": "weight_bop",
-      "description": "benchmark observation field: weight bop.",
-      "example": 0.1234,
-      "type": "number",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "number"
+        "object"
       ]
     },
     {
@@ -5685,66 +5488,10 @@
           {
             "name": "valuation_points",
             "location": "body",
-            "required": true,
-            "type": "array",
+            "required": false,
+            "type": "object",
             "semanticId": "lotus.valuation_points",
             "attributeRef": "#/attributeCatalog/lotus.valuation_points"
-          },
-          {
-            "name": "valuation_points[].day",
-            "location": "body",
-            "required": true,
-            "type": "integer",
-            "semanticId": "lotus.day",
-            "attributeRef": "#/attributeCatalog/lotus.day"
-          },
-          {
-            "name": "valuation_points[].perf_date",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.perf_date",
-            "attributeRef": "#/attributeCatalog/lotus.perf_date"
-          },
-          {
-            "name": "valuation_points[].begin_mv",
-            "location": "body",
-            "required": true,
-            "type": "number",
-            "semanticId": "lotus.begin_mv",
-            "attributeRef": "#/attributeCatalog/lotus.begin_mv"
-          },
-          {
-            "name": "valuation_points[].bod_cf",
-            "location": "body",
-            "required": false,
-            "type": "number",
-            "semanticId": "lotus.bod_cf",
-            "attributeRef": "#/attributeCatalog/lotus.bod_cf"
-          },
-          {
-            "name": "valuation_points[].eod_cf",
-            "location": "body",
-            "required": false,
-            "type": "number",
-            "semanticId": "lotus.eod_cf",
-            "attributeRef": "#/attributeCatalog/lotus.eod_cf"
-          },
-          {
-            "name": "valuation_points[].mgmt_fees",
-            "location": "body",
-            "required": false,
-            "type": "number",
-            "semanticId": "lotus.mgmt_fees",
-            "attributeRef": "#/attributeCatalog/lotus.mgmt_fees"
-          },
-          {
-            "name": "valuation_points[].end_mv",
-            "location": "body",
-            "required": true,
-            "type": "number",
-            "semanticId": "lotus.end_mv",
-            "attributeRef": "#/attributeCatalog/lotus.end_mv"
           },
           {
             "name": "currency",
@@ -5945,6 +5692,30 @@
             "type": "object",
             "semanticId": "lotus.hedging",
             "attributeRef": "#/attributeCatalog/lotus.hedging"
+          },
+          {
+            "name": "input_mode",
+            "location": "body",
+            "required": false,
+            "type": "TWRInputMode",
+            "semanticId": "lotus.input_mode",
+            "attributeRef": "#/attributeCatalog/lotus.input_mode"
+          },
+          {
+            "name": "stateless_input",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.stateless_input",
+            "attributeRef": "#/attributeCatalog/lotus.stateless_input"
+          },
+          {
+            "name": "stateful_input",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.stateful_input",
+            "attributeRef": "#/attributeCatalog/lotus.stateful_input"
           }
         ]
       },
@@ -5965,6 +5736,14 @@
             "type": "string",
             "semanticId": "lotus.portfolio_id",
             "attributeRef": "#/attributeCatalog/lotus.portfolio_id"
+          },
+          {
+            "name": "input_mode",
+            "location": "body",
+            "required": false,
+            "type": "TWRInputMode",
+            "semanticId": "lotus.input_mode",
+            "attributeRef": "#/attributeCatalog/lotus.input_mode"
           },
           {
             "name": "results_by_period",
@@ -6210,46 +5989,6 @@
             "attributeRef": "#/attributeCatalog/lotus.portfolio_id"
           },
           {
-            "name": "begin_mv",
-            "location": "body",
-            "required": true,
-            "type": "number",
-            "semanticId": "lotus.begin_mv",
-            "attributeRef": "#/attributeCatalog/lotus.begin_mv"
-          },
-          {
-            "name": "end_mv",
-            "location": "body",
-            "required": true,
-            "type": "number",
-            "semanticId": "lotus.end_mv",
-            "attributeRef": "#/attributeCatalog/lotus.end_mv"
-          },
-          {
-            "name": "cash_flows",
-            "location": "body",
-            "required": true,
-            "type": "array",
-            "semanticId": "lotus.cash_flows",
-            "attributeRef": "#/attributeCatalog/lotus.cash_flows"
-          },
-          {
-            "name": "cash_flows[].amount",
-            "location": "body",
-            "required": true,
-            "type": "number",
-            "semanticId": "lotus.amount",
-            "attributeRef": "#/attributeCatalog/lotus.amount"
-          },
-          {
-            "name": "cash_flows[].date",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.date",
-            "attributeRef": "#/attributeCatalog/lotus.date"
-          },
-          {
             "name": "mwr_method",
             "location": "body",
             "required": false,
@@ -6304,6 +6043,14 @@
             "type": "string",
             "semanticId": "lotus.as_of",
             "attributeRef": "#/attributeCatalog/lotus.as_of"
+          },
+          {
+            "name": "start_date",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.start_date",
+            "attributeRef": "#/attributeCatalog/lotus.start_date"
           },
           {
             "name": "currency",
@@ -6448,6 +6195,54 @@
             "type": "object",
             "semanticId": "lotus.report_ccy",
             "attributeRef": "#/attributeCatalog/lotus.report_ccy"
+          },
+          {
+            "name": "input_mode",
+            "location": "body",
+            "required": false,
+            "type": "MWRInputMode",
+            "semanticId": "lotus.input_mode",
+            "attributeRef": "#/attributeCatalog/lotus.input_mode"
+          },
+          {
+            "name": "stateless_input",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.stateless_input",
+            "attributeRef": "#/attributeCatalog/lotus.stateless_input"
+          },
+          {
+            "name": "stateful_input",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.stateful_input",
+            "attributeRef": "#/attributeCatalog/lotus.stateful_input"
+          },
+          {
+            "name": "begin_mv",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.begin_mv",
+            "attributeRef": "#/attributeCatalog/lotus.begin_mv"
+          },
+          {
+            "name": "end_mv",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.end_mv",
+            "attributeRef": "#/attributeCatalog/lotus.end_mv"
+          },
+          {
+            "name": "cash_flows",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.cash_flows",
+            "attributeRef": "#/attributeCatalog/lotus.cash_flows"
           }
         ]
       },
@@ -6468,6 +6263,14 @@
             "type": "string",
             "semanticId": "lotus.portfolio_id",
             "attributeRef": "#/attributeCatalog/lotus.portfolio_id"
+          },
+          {
+            "name": "input_mode",
+            "location": "body",
+            "required": false,
+            "type": "MWRInputMode",
+            "semanticId": "lotus.input_mode",
+            "attributeRef": "#/attributeCatalog/lotus.input_mode"
           },
           {
             "name": "money_weighted_return",
@@ -6875,66 +6678,10 @@
           {
             "name": "benchmark_groups_data",
             "location": "body",
-            "required": true,
-            "type": "array",
+            "required": false,
+            "type": "object",
             "semanticId": "lotus.benchmark_groups_data",
             "attributeRef": "#/attributeCatalog/lotus.benchmark_groups_data"
-          },
-          {
-            "name": "benchmark_groups_data[].key",
-            "location": "body",
-            "required": true,
-            "type": "object",
-            "semanticId": "lotus.key",
-            "attributeRef": "#/attributeCatalog/lotus.key"
-          },
-          {
-            "name": "benchmark_groups_data[].observations",
-            "location": "body",
-            "required": true,
-            "type": "array",
-            "semanticId": "lotus.observations",
-            "attributeRef": "#/attributeCatalog/lotus.observations"
-          },
-          {
-            "name": "benchmark_groups_data[].observations[].date",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.date",
-            "attributeRef": "#/attributeCatalog/lotus.date"
-          },
-          {
-            "name": "benchmark_groups_data[].observations[].weight_bop",
-            "location": "body",
-            "required": true,
-            "type": "number",
-            "semanticId": "lotus.weight_bop",
-            "attributeRef": "#/attributeCatalog/lotus.weight_bop"
-          },
-          {
-            "name": "benchmark_groups_data[].observations[].return_base",
-            "location": "body",
-            "required": true,
-            "type": "number",
-            "semanticId": "lotus.return_base",
-            "attributeRef": "#/attributeCatalog/lotus.return_base"
-          },
-          {
-            "name": "benchmark_groups_data[].observations[].return_local",
-            "location": "body",
-            "required": false,
-            "type": "object",
-            "semanticId": "lotus.return_local",
-            "attributeRef": "#/attributeCatalog/lotus.return_local"
-          },
-          {
-            "name": "benchmark_groups_data[].observations[].return_fx",
-            "location": "body",
-            "required": false,
-            "type": "object",
-            "semanticId": "lotus.return_fx",
-            "attributeRef": "#/attributeCatalog/lotus.return_fx"
           },
           {
             "name": "currency",
@@ -7095,6 +6842,30 @@
             "type": "object",
             "semanticId": "lotus.hedging",
             "attributeRef": "#/attributeCatalog/lotus.hedging"
+          },
+          {
+            "name": "input_mode",
+            "location": "body",
+            "required": false,
+            "type": "AttributionInputMode",
+            "semanticId": "lotus.input_mode",
+            "attributeRef": "#/attributeCatalog/lotus.input_mode"
+          },
+          {
+            "name": "stateless_input",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.stateless_input",
+            "attributeRef": "#/attributeCatalog/lotus.stateless_input"
+          },
+          {
+            "name": "stateful_input",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.stateful_input",
+            "attributeRef": "#/attributeCatalog/lotus.stateful_input"
           }
         ]
       },
@@ -7187,174 +6958,6 @@
             "type": "array",
             "semanticId": "lotus.frequencies",
             "attributeRef": "#/attributeCatalog/lotus.frequencies"
-          },
-          {
-            "name": "portfolio_data",
-            "location": "body",
-            "required": true,
-            "type": "PortfolioData",
-            "semanticId": "lotus.portfolio_data",
-            "attributeRef": "#/attributeCatalog/lotus.portfolio_data"
-          },
-          {
-            "name": "portfolio_data.metric_basis",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.metric_basis",
-            "attributeRef": "#/attributeCatalog/lotus.metric_basis"
-          },
-          {
-            "name": "portfolio_data.valuation_points",
-            "location": "body",
-            "required": true,
-            "type": "array",
-            "semanticId": "lotus.valuation_points",
-            "attributeRef": "#/attributeCatalog/lotus.valuation_points"
-          },
-          {
-            "name": "portfolio_data.valuation_points[].day",
-            "location": "body",
-            "required": true,
-            "type": "integer",
-            "semanticId": "lotus.day",
-            "attributeRef": "#/attributeCatalog/lotus.day"
-          },
-          {
-            "name": "portfolio_data.valuation_points[].perf_date",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.perf_date",
-            "attributeRef": "#/attributeCatalog/lotus.perf_date"
-          },
-          {
-            "name": "portfolio_data.valuation_points[].begin_mv",
-            "location": "body",
-            "required": true,
-            "type": "number",
-            "semanticId": "lotus.begin_mv",
-            "attributeRef": "#/attributeCatalog/lotus.begin_mv"
-          },
-          {
-            "name": "portfolio_data.valuation_points[].end_mv",
-            "location": "body",
-            "required": true,
-            "type": "number",
-            "semanticId": "lotus.end_mv",
-            "attributeRef": "#/attributeCatalog/lotus.end_mv"
-          },
-          {
-            "name": "portfolio_data.valuation_points[].bod_cf",
-            "location": "body",
-            "required": false,
-            "type": "number",
-            "semanticId": "lotus.bod_cf",
-            "attributeRef": "#/attributeCatalog/lotus.bod_cf"
-          },
-          {
-            "name": "portfolio_data.valuation_points[].eod_cf",
-            "location": "body",
-            "required": false,
-            "type": "number",
-            "semanticId": "lotus.eod_cf",
-            "attributeRef": "#/attributeCatalog/lotus.eod_cf"
-          },
-          {
-            "name": "portfolio_data.valuation_points[].mgmt_fees",
-            "location": "body",
-            "required": false,
-            "type": "number",
-            "semanticId": "lotus.mgmt_fees",
-            "attributeRef": "#/attributeCatalog/lotus.mgmt_fees"
-          },
-          {
-            "name": "positions_data",
-            "location": "body",
-            "required": true,
-            "type": "array",
-            "semanticId": "lotus.positions_data",
-            "attributeRef": "#/attributeCatalog/lotus.positions_data"
-          },
-          {
-            "name": "positions_data[].position_id",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.position_id",
-            "attributeRef": "#/attributeCatalog/lotus.position_id"
-          },
-          {
-            "name": "positions_data[].meta",
-            "location": "body",
-            "required": false,
-            "type": "object",
-            "semanticId": "lotus.meta",
-            "attributeRef": "#/attributeCatalog/lotus.meta"
-          },
-          {
-            "name": "positions_data[].valuation_points",
-            "location": "body",
-            "required": true,
-            "type": "array",
-            "semanticId": "lotus.valuation_points",
-            "attributeRef": "#/attributeCatalog/lotus.valuation_points"
-          },
-          {
-            "name": "positions_data[].valuation_points[].day",
-            "location": "body",
-            "required": true,
-            "type": "integer",
-            "semanticId": "lotus.day",
-            "attributeRef": "#/attributeCatalog/lotus.day"
-          },
-          {
-            "name": "positions_data[].valuation_points[].perf_date",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.perf_date",
-            "attributeRef": "#/attributeCatalog/lotus.perf_date"
-          },
-          {
-            "name": "positions_data[].valuation_points[].begin_mv",
-            "location": "body",
-            "required": true,
-            "type": "number",
-            "semanticId": "lotus.begin_mv",
-            "attributeRef": "#/attributeCatalog/lotus.begin_mv"
-          },
-          {
-            "name": "positions_data[].valuation_points[].end_mv",
-            "location": "body",
-            "required": true,
-            "type": "number",
-            "semanticId": "lotus.end_mv",
-            "attributeRef": "#/attributeCatalog/lotus.end_mv"
-          },
-          {
-            "name": "positions_data[].valuation_points[].bod_cf",
-            "location": "body",
-            "required": false,
-            "type": "number",
-            "semanticId": "lotus.bod_cf",
-            "attributeRef": "#/attributeCatalog/lotus.bod_cf"
-          },
-          {
-            "name": "positions_data[].valuation_points[].eod_cf",
-            "location": "body",
-            "required": false,
-            "type": "number",
-            "semanticId": "lotus.eod_cf",
-            "attributeRef": "#/attributeCatalog/lotus.eod_cf"
-          },
-          {
-            "name": "positions_data[].valuation_points[].mgmt_fees",
-            "location": "body",
-            "required": false,
-            "type": "number",
-            "semanticId": "lotus.mgmt_fees",
-            "attributeRef": "#/attributeCatalog/lotus.mgmt_fees"
           },
           {
             "name": "hierarchy",
@@ -7659,6 +7262,46 @@
             "type": "object",
             "semanticId": "lotus.hedging",
             "attributeRef": "#/attributeCatalog/lotus.hedging"
+          },
+          {
+            "name": "input_mode",
+            "location": "body",
+            "required": false,
+            "type": "ContributionInputMode",
+            "semanticId": "lotus.input_mode",
+            "attributeRef": "#/attributeCatalog/lotus.input_mode"
+          },
+          {
+            "name": "stateless_input",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.stateless_input",
+            "attributeRef": "#/attributeCatalog/lotus.stateless_input"
+          },
+          {
+            "name": "stateful_input",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.stateful_input",
+            "attributeRef": "#/attributeCatalog/lotus.stateful_input"
+          },
+          {
+            "name": "portfolio_data",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.portfolio_data",
+            "attributeRef": "#/attributeCatalog/lotus.portfolio_data"
+          },
+          {
+            "name": "positions_data",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.positions_data",
+            "attributeRef": "#/attributeCatalog/lotus.positions_data"
           }
         ]
       },

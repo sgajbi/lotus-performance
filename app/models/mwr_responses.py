@@ -5,6 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from app.models.mwr_analytics_requests import MWRInputMode
 from app.models.mwr_requests import CashFlow
 from core.envelope import Audit, Diagnostics, Meta
 
@@ -32,6 +33,7 @@ class MoneyWeightedReturnResponse(BaseModel):
 
     calculation_id: UUID
     portfolio_id: str
+    input_mode: MWRInputMode = MWRInputMode.STATELESS
 
     money_weighted_return: float
     mwr_annualized: Optional[float] = None

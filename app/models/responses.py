@@ -5,6 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
+from app.models.twr_requests import TWRInputMode
 from common.enums import Frequency
 from core.envelope import Audit, Diagnostics, Meta
 
@@ -59,6 +60,7 @@ class PerformanceResponse(BaseModel):
 
     calculation_id: UUID
     portfolio_id: str
+    input_mode: TWRInputMode = TWRInputMode.STATELESS
 
     results_by_period: Dict[str, SinglePeriodPerformanceResult]
 

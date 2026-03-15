@@ -1,30 +1,35 @@
-
 {
+  "input_mode": "stateless",
   "portfolio_id": "TWR_MCY_HEDGED_01",
   "performance_start_date": "2024-12-31",
-  "metric_basis": "GROSS",
-  "report_start_date": "2025-01-01",
   "report_end_date": "2025-01-02",
-  "period_type": "YTD",
-  "frequencies": [
-    "daily"
-  ],
-  "daily_data": [
+  "metric_basis": "GROSS",
+  "analyses": [
     {
-      "day": 1,
-      "perf_date": "2025-01-01",
-      "begin_mv": 100,
-      "end_mv": 102
-    },
-    {
-      "day": 2,
-      "perf_date": "2025-01-02",
-      "begin_mv": 102,
-      "end_mv": 103.02
+      "period": "YTD",
+      "frequencies": [
+        "daily"
+      ]
     }
   ],
   "currency_mode": "BOTH",
   "report_ccy": "USD",
+  "stateless_input": {
+    "valuation_points": [
+      {
+        "day": 1,
+        "perf_date": "2025-01-01",
+        "begin_mv": 100.0,
+        "end_mv": 102.0
+      },
+      {
+        "day": 2,
+        "perf_date": "2025-01-02",
+        "begin_mv": 102.0,
+        "end_mv": 103.02
+      }
+    ]
+  },
   "fx": {
     "rates": [
       {

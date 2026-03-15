@@ -51,11 +51,17 @@ Async-capable endpoints follow one common pattern:
 
 `POST /performance/twr` uses:
 
+- `input_mode: "stateless" | "stateful"`
 - `portfolio_id`
 - `performance_start_date`
 - `report_end_date`
 - `analyses`
-- `valuation_points`
+- stateless:
+  - `valuation_points` for legacy callers
+  - or `stateless_input.valuation_points` for Lotus-style mode envelopes
+- stateful:
+  - `stateful_input.consumer_system`
+  - lotus-core portfolio timeseries are normalized into canonical valuation points inside lotus-performance
 
 The public request contract is analysis-based. Older examples using `period_type`,
 `frequencies`, or `daily_data` are not current.
@@ -64,25 +70,39 @@ The public request contract is analysis-based. Older examples using `period_type
 
 `POST /performance/mwr` uses:
 
+- `input_mode: "stateless" | "stateful"`
 - `portfolio_id`
-- `begin_mv`
-- `end_mv`
-- `cash_flows`
 - `as_of`
 - `mwr_method`
+- stateless:
+  - legacy top-level `begin_mv`, `end_mv`, and `cash_flows`
+  - or `stateless_input.begin_mv`, `stateless_input.end_mv`, and `stateless_input.cash_flows`
+- stateful:
+  - `stateful_input.consumer_system`
+  - `stateful_input.window_start_date`
+  - lotus-core portfolio timeseries are normalized into canonical MWR inputs inside lotus-performance
 
 ### Contribution
 
 `POST /performance/contribution` uses:
 
+- `input_mode: "stateless" | "stateful"`
 - `portfolio_id`
 - `report_start_date`
 - `report_end_date`
 - `analyses`
-- `portfolio_data`
-- `positions_data`
+- stateless:
+  - legacy top-level `portfolio_data` and `positions_data`
+  - or `stateless_input.portfolio_data` and `stateless_input.positions_data`
+- stateful:
+  - `stateful_input.consumer_system`
+  - optional `stateful_input.metric_basis`
+  - optional `stateful_input.dimensions`
+  - optional `stateful_input.include_cash_flows`
+  - optional `stateful_input.filters`
+  - lotus-core portfolio and position timeseries are normalized into canonical contribution inputs inside lotus-performance
 
-Large position sets can be executor-offloaded and return `202 Accepted`.
+Large position sets and long-window stateful contribution requests can be executor-offloaded and return `202 Accepted`.
 
 ### Attribution
 
@@ -92,11 +112,18 @@ Large position sets can be executor-offloaded and return `202 Accepted`.
 - `report_start_date`
 - `report_end_date`
 - `analyses`
+- `input_mode: "stateless" | "stateful"`
 - `mode`
 - `group_by`
-- benchmark and portfolio input blocks
+- stateless:
+  - benchmark and portfolio input blocks
+- stateful:
+  - `stateful_input.consumer_system`
+  - optional `stateful_input.benchmark_id`
+  - portfolio and position inputs sourced from lotus-core query-control-plane
+  - current fences: `mode="by_instrument"`, `currency_mode="BASE_ONLY"`, and `group_by` limited to `asset_class`, `sector`, `country`
 
-Large input sets can be executor-offloaded and return `202 Accepted`.
+Large input sets and long-window stateful attribution requests can be executor-offloaded and return `202 Accepted`.
 
 ### Returns series integration
 
@@ -134,7 +161,8 @@ Important compose defaults:
 
 - API container listens on `8000`
 - host port defaults to `8002`
-- stateful integration resolves lotus-core through `CORE_QUERY_BASE_URL`
+- stateful integration resolves lotus-core query-control-plane through `CORE_QUERY_BASE_URL`
+- local compose default for `CORE_QUERY_BASE_URL` is `http://host.docker.internal:8202`
 - runtime threshold profile overrides can be layered with:
   - `docker compose -f docker-compose.yml -f docs/examples/docker-compose.runtime-thresholds.production.yml up`
 - optional scheduled runtime-retention automation can be enabled with the ops profile:

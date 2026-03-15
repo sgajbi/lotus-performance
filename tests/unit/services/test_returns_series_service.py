@@ -6,8 +6,9 @@ import pytest
 from fastapi import HTTPException
 
 from app.models.returns_series import ReturnsSeriesRequest
-from app.services import returns_series_service, stateful_input_service
+from app.services import portfolio_source_service, returns_series_service, stateful_input_service
 from app.services.execution_registry import ExecutionRegistry
+from core.repro import generate_canonical_hash
 
 
 def _build_stateful_request(**overrides):
@@ -53,7 +54,7 @@ async def test_calculate_returns_series_requires_open_date(monkeypatch, tmp_path
             ]
         }
 
-    monkeypatch.setattr(returns_series_service.CoreIntegrationService, "get_portfolio_analytics_timeseries", _portfolio)
+    monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_portfolio_analytics_timeseries", _portfolio)
 
     with pytest.raises(HTTPException) as exc:
         await returns_series_service.calculate_returns_series(request)
@@ -77,8 +78,8 @@ async def test_calculate_returns_series_maps_assignment_source_unavailable(monke
     async def _assignment(self, **kwargs):  # noqa: ARG001
         return 503, {"detail": "down"}
 
-    monkeypatch.setattr(returns_series_service.CoreIntegrationService, "get_portfolio_analytics_timeseries", _portfolio)
-    monkeypatch.setattr(returns_series_service.CoreIntegrationService, "get_benchmark_assignment", _assignment)
+    monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_portfolio_analytics_timeseries", _portfolio)
+    monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_benchmark_assignment", _assignment)
 
     with pytest.raises(HTTPException) as exc:
         await returns_series_service.calculate_returns_series(request)
@@ -103,8 +104,8 @@ async def test_calculate_returns_series_requires_benchmark_id_and_points(monkeyp
     async def _missing_assignment(self, **kwargs):  # noqa: ARG001
         return 200, {}
 
-    monkeypatch.setattr(returns_series_service.CoreIntegrationService, "get_portfolio_analytics_timeseries", _portfolio)
-    monkeypatch.setattr(returns_series_service.CoreIntegrationService, "get_benchmark_assignment", _missing_assignment)
+    monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_portfolio_analytics_timeseries", _portfolio)
+    monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_benchmark_assignment", _missing_assignment)
 
     with pytest.raises(HTTPException) as exc_missing_id:
         await returns_series_service.calculate_returns_series(request)
@@ -116,8 +117,8 @@ async def test_calculate_returns_series_requires_benchmark_id_and_points(monkeyp
     async def _bad_points(self, **kwargs):  # noqa: ARG001
         return 200, {"bad": []}
 
-    monkeypatch.setattr(returns_series_service.CoreIntegrationService, "get_benchmark_assignment", _assignment)
-    monkeypatch.setattr(returns_series_service.CoreIntegrationService, "get_benchmark_return_series", _bad_points)
+    monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_benchmark_assignment", _assignment)
+    monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_benchmark_return_series", _bad_points)
 
     with pytest.raises(HTTPException) as exc_bad_points:
         await returns_series_service.calculate_returns_series(request)
@@ -145,13 +146,13 @@ async def test_calculate_returns_series_maps_benchmark_and_risk_free_errors(monk
     async def _assignment(self, **kwargs):  # noqa: ARG001
         return 200, {"benchmark_id": "BMK"}
 
-    monkeypatch.setattr(returns_series_service.CoreIntegrationService, "get_portfolio_analytics_timeseries", _portfolio)
-    monkeypatch.setattr(returns_series_service.CoreIntegrationService, "get_benchmark_assignment", _assignment)
+    monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_portfolio_analytics_timeseries", _portfolio)
+    monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_benchmark_assignment", _assignment)
 
     async def _benchmark_404(self, **kwargs):  # noqa: ARG001
         return 404, {}
 
-    monkeypatch.setattr(returns_series_service.CoreIntegrationService, "get_benchmark_return_series", _benchmark_404)
+    monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_benchmark_return_series", _benchmark_404)
     with pytest.raises(HTTPException) as exc_bmk_404:
         await returns_series_service.calculate_returns_series(request)
     assert exc_bmk_404.value.status_code == 404
@@ -159,7 +160,7 @@ async def test_calculate_returns_series_maps_benchmark_and_risk_free_errors(monk
     async def _benchmark_503(self, **kwargs):  # noqa: ARG001
         return 503, {}
 
-    monkeypatch.setattr(returns_series_service.CoreIntegrationService, "get_benchmark_return_series", _benchmark_503)
+    monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_benchmark_return_series", _benchmark_503)
     with pytest.raises(HTTPException) as exc_bmk_503:
         await returns_series_service.calculate_returns_series(request)
     assert exc_bmk_503.value.status_code == 503
@@ -170,8 +171,8 @@ async def test_calculate_returns_series_maps_benchmark_and_risk_free_errors(monk
     async def _risk_free_404(self, **kwargs):  # noqa: ARG001
         return 404, {}
 
-    monkeypatch.setattr(returns_series_service.CoreIntegrationService, "get_benchmark_return_series", _benchmark_ok)
-    monkeypatch.setattr(returns_series_service.CoreIntegrationService, "get_risk_free_series", _risk_free_404)
+    monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_benchmark_return_series", _benchmark_ok)
+    monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_risk_free_series", _risk_free_404)
     with pytest.raises(HTTPException) as exc_rf_404:
         await returns_series_service.calculate_returns_series(request)
     assert exc_rf_404.value.status_code == 404
@@ -179,7 +180,7 @@ async def test_calculate_returns_series_maps_benchmark_and_risk_free_errors(monk
     async def _risk_free_503(self, **kwargs):  # noqa: ARG001
         return 503, {}
 
-    monkeypatch.setattr(returns_series_service.CoreIntegrationService, "get_risk_free_series", _risk_free_503)
+    monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_risk_free_series", _risk_free_503)
     with pytest.raises(HTTPException) as exc_rf_503:
         await returns_series_service.calculate_returns_series(request)
     assert exc_rf_503.value.status_code == 503
@@ -260,6 +261,65 @@ async def test_calculate_returns_series_handles_unexpected_exception_and_strict_
 
 
 @pytest.mark.asyncio
+async def test_calculate_returns_series_updates_stateful_identity_from_resolved_series(monkeypatch, tmp_path):
+    request = _build_stateful_request(reporting_currency="USD")
+    store = _seed_execution(monkeypatch, tmp_path, request)
+
+    async def _portfolio(self, **kwargs):  # noqa: ARG001
+        return 200, {
+            "portfolio_open_date": "2026-02-20",
+            "observations": [
+                {"valuation_date": "2026-02-23", "beginning_market_value": "100", "ending_market_value": "101"},
+                {"valuation_date": "2026-02-24", "beginning_market_value": "101", "ending_market_value": "102"},
+                {"valuation_date": "2026-02-25", "beginning_market_value": "102", "ending_market_value": "103"},
+            ],
+        }
+
+    async def _assignment(self, **kwargs):  # noqa: ARG001
+        return 200, {"benchmark_id": "BMK_RESOLVED"}
+
+    async def _benchmark(self, **kwargs):  # noqa: ARG001
+        return 200, {
+            "points": [
+                {"series_date": "2026-02-23", "benchmark_return": "0.0010"},
+                {"series_date": "2026-02-24", "benchmark_return": "0.0020"},
+                {"series_date": "2026-02-25", "benchmark_return": "0.0030"},
+            ]
+        }
+
+    monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_portfolio_analytics_timeseries", _portfolio)
+    monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_benchmark_assignment", _assignment)
+    monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_benchmark_return_series", _benchmark)
+
+    initial_input_fingerprint, initial_calculation_hash = generate_canonical_hash(request, "returns-series-v1")
+
+    response = await returns_series_service.calculate_returns_series(request)
+
+    resolved_payload = returns_series_service._build_stateful_resolved_returns_payload(
+        request=request,
+        resolved_window=response.resolved_window,
+        portfolio_df=returns_series_service.to_dataframe(response.series.portfolio_returns, series_type="portfolio"),
+        benchmark_df=returns_series_service.to_dataframe(response.series.benchmark_returns or [], series_type="benchmark"),
+        risk_free_df=None,
+        resolved_benchmark_id="BMK_RESOLVED",
+    )
+    expected_input_fingerprint, expected_calculation_hash = generate_canonical_hash(
+        resolved_payload,
+        "returns-series-v1",
+    )
+
+    assert response.provenance.input_fingerprint == expected_input_fingerprint
+    assert response.provenance.calculation_hash == expected_calculation_hash
+    assert response.provenance.input_fingerprint != initial_input_fingerprint
+    assert response.provenance.calculation_hash != initial_calculation_hash
+
+    execution = store.get_execution(request.calculation_id)
+    assert execution is not None
+    assert execution.input_fingerprint == expected_input_fingerprint
+    assert execution.calculation_hash == expected_calculation_hash
+
+
+@pytest.mark.asyncio
 async def test_calculate_returns_series_uses_runtime_stateful_settings(monkeypatch, tmp_path):
     request = _build_stateful_request(
         series_selection={"include_portfolio": True, "include_benchmark": False, "include_risk_free": False},
@@ -268,17 +328,14 @@ async def test_calculate_returns_series_uses_runtime_stateful_settings(monkeypat
     _seed_execution(monkeypatch, tmp_path, request)
     captured: dict[str, object] = {}
 
-    class _FakeCoreService:
-        def __init__(self, *, base_url, timeout_seconds, max_retries, retry_backoff_seconds):
-            captured["core_init"] = {
-                "base_url": base_url,
-                "timeout_seconds": timeout_seconds,
-                "max_retries": max_retries,
-                "retry_backoff_seconds": retry_backoff_seconds,
-            }
-
     class _FakeStatefulInputService:
         def __init__(self, *, core_service, portfolio_chunk_days, reference_chunk_days, max_concurrent_chunks):
+            captured["core_init"] = {
+                "base_url": getattr(core_service, "_base_url"),
+                "timeout_seconds": getattr(core_service, "_timeout"),
+                "max_retries": getattr(core_service, "_max_retries"),
+                "retry_backoff_seconds": getattr(core_service, "_retry_backoff_seconds"),
+            }
             captured["stateful_init"] = {
                 "portfolio_chunk_days": portfolio_chunk_days,
                 "reference_chunk_days": reference_chunk_days,
@@ -310,8 +367,7 @@ async def test_calculate_returns_series_uses_runtime_stateful_settings(monkeypat
             },
         )(),
     )
-    monkeypatch.setattr(returns_series_service, "CoreIntegrationService", _FakeCoreService)
-    monkeypatch.setattr(returns_series_service, "StatefulInputService", _FakeStatefulInputService)
+    monkeypatch.setattr(portfolio_source_service, "StatefulInputService", _FakeStatefulInputService)
     monkeypatch.setattr(
         returns_series_service,
         "daily_ror_from_portfolio_timeseries",

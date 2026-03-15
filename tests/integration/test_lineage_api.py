@@ -69,6 +69,51 @@ def test_lineage_end_to_end_flow(client):
     assert '"portfolio_id": "LINEAGE_TEST"' in artifact_response.text
 
 
+def test_stateful_twr_lineage_captures_resolved_request(client, monkeypatch):
+    async def _mock_fetch_stateful_portfolio_timeseries(**kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2024-01-15",
+                "observations": [
+                    {"valuation_date": "2025-01-01", "beginning_market_value": "1000", "ending_market_value": "1010"},
+                    {"valuation_date": "2025-01-02", "beginning_market_value": "1010", "ending_market_value": "1020.1"},
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.stateful_performance_input_service.fetch_stateful_portfolio_timeseries",
+        _mock_fetch_stateful_portfolio_timeseries,
+    )
+
+    payload = {
+        "portfolio_id": "STATEFUL_LINEAGE_TEST",
+        "performance_start_date": "2024-12-31",
+        "metric_basis": "NET",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    response = client.post("/performance/twr", json=payload)
+    assert response.status_code == 200
+    calculation_id = response.json()["calculation_id"]
+    assert drain_lineage_queue() >= 1
+
+    lineage_response = client.get(f"/performance/lineage/{calculation_id}")
+    assert lineage_response.status_code == 200
+
+    request_artifact_url = lineage_response.json()["artifacts"]["request.json"]["url"]
+    artifact_response = client.get(request_artifact_url)
+
+    assert artifact_response.status_code == 200
+    assert '"performance_start_date": "2024-01-15"' in artifact_response.text
+    assert '"valuation_points"' in artifact_response.text
+    assert '"stateful_input"' not in artifact_response.text
+
+
 def test_get_lineage_data_not_found(client):
     """Tests that a 404 is returned for a non-existent calculation_id."""
     non_existent_id = uuid4()

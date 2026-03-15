@@ -1,5 +1,5 @@
-
 {
+  "input_mode": "stateless",
   "portfolio_id": "ATTRIB_MCY_01",
   "mode": "by_instrument",
   "group_by": [
@@ -9,58 +9,67 @@
   "frequency": "daily",
   "currency_mode": "BOTH",
   "report_ccy": "USD",
-  "portfolio_data": {
-    "report_start_date": "2025-01-01",
-    "report_end_date": "2025-01-01",
-    "metric_basis": "GROSS",
-    "period_type": "ITD",
-    "daily_data": [
-      {
-        "day": 1,
-        "perf_date": "2025-01-01",
-        "begin_mv": 100,
-        "end_mv": 103.02
-      }
-    ]
-  },
-  "instruments_data": [
+  "report_start_date": "2025-01-01",
+  "report_end_date": "2025-01-01",
+  "analyses": [
     {
-      "instrument_id": "EUR_ASSET",
-      "meta": {
-        "currency": "EUR"
-      },
-      "daily_data": [
+      "period": "ITD",
+      "frequencies": [
+        "daily"
+      ]
+    }
+  ],
+  "stateless_input": {
+    "portfolio_data": {
+      "metric_basis": "GROSS",
+      "valuation_points": [
         {
           "day": 1,
           "perf_date": "2025-01-01",
-          "begin_mv": 100,
-          "end_mv": 102
+          "begin_mv": 100.0,
+          "end_mv": 103.02
         }
       ]
-    }
-  ],
-  "benchmark_groups_data": [
-    {
-      "key": {
-        "currency": "EUR"
-      },
-      "observations": [
-        {
-          "date": "2025-01-01",
-          "weight_bop": 1,
-          "return_local": 0.015,
-          "return_fx": 0.01,
-          "return_base": 0.02515
-        }
-      ]
-    }
-  ],
+    },
+    "instruments_data": [
+      {
+        "instrument_id": "EUR_ASSET",
+        "meta": {
+          "currency": "EUR"
+        },
+        "valuation_points": [
+          {
+            "day": 1,
+            "perf_date": "2025-01-01",
+            "begin_mv": 100.0,
+            "end_mv": 102.0
+          }
+        ]
+      }
+    ],
+    "benchmark_groups_data": [
+      {
+        "key": {
+          "currency": "EUR"
+        },
+        "observations": [
+          {
+            "date": "2025-01-01",
+            "weight_bop": 1.0,
+            "return_local": 0.015,
+            "return_fx": 0.01,
+            "return_base": 0.02515
+          }
+        ]
+      }
+    ]
+  },
   "fx": {
     "rates": [
       {
         "date": "2024-12-31",
         "ccy": "EUR",
-        "rate": 1
+        "rate": 1.0
       },
       {
         "date": "2025-01-01",

@@ -358,6 +358,18 @@ class ExecutionRegistry:
             execution.completed_at_utc = now
             execution.error_message = error_message
 
+    def update_execution_identity(
+        self,
+        calculation_id: UUID,
+        *,
+        input_fingerprint: str | None,
+        calculation_hash: str | None,
+    ) -> None:
+        with self._session() as session:
+            execution = self._get_execution_model(session, calculation_id)
+            execution.input_fingerprint = input_fingerprint
+            execution.calculation_hash = calculation_hash
+
     def start_stage(self, calculation_id: UUID, stage_name: str, details: dict[str, Any] | None = None) -> None:
         with self._session() as session:
             self._get_execution_model(session, calculation_id)

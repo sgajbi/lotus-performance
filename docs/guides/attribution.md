@@ -7,18 +7,38 @@ selection, and interaction effects.
 
 The current request shape is:
 
+- `input_mode: "stateless" | "stateful"`
 - `portfolio_id`
 - `report_start_date`
 - `report_end_date`
 - `analyses`
 - `mode`
 - `group_by`
+
+Stateless callers provide:
+
 - `benchmark_groups_data`
-
-Depending on `mode`, callers also provide:
-
 - `portfolio_data` plus `instruments_data` for `mode="by_instrument"`
 - `portfolio_groups_data` for `mode="by_group"`
+
+Stateful callers provide:
+
+- `stateful_input.consumer_system`
+- optional `stateful_input.metric_basis`
+- optional `stateful_input.benchmark_id`
+- optional `stateful_input.dimensions`
+- optional `stateful_input.include_cash_flows`
+- optional `stateful_input.filters`
+
+In stateful mode, lotus-performance sources portfolio and position timeseries from lotus-core,
+resolves benchmark assignment when needed, retrieves benchmark market-series metadata, and
+normalizes those upstream inputs into the same stateless engine request used by direct callers.
+
+The current stateful public contract is intentionally fenced to:
+
+- `mode="by_instrument"`
+- `currency_mode="BASE_ONLY"`
+- `group_by` limited to `asset_class`, `sector`, or `country`
 
 Optional controls include:
 
@@ -32,7 +52,10 @@ dimensions are not current.
 
 ## Async execution
 
-Attribution can run synchronously or asynchronously depending on request size.
+Attribution can run synchronously or asynchronously depending on workload shape.
+
+The endpoint stays synchronous for smaller stateless sets and smaller stateful windows, and returns
+`202 Accepted` when the request is offloaded to the compute executor.
 
 When the request is offloaded, the API returns `202 Accepted` with:
 
@@ -95,12 +118,17 @@ Currency attribution is emitted only when all of these are true:
 - the aligned attribution panel contains the required local and FX return columns
 - `group_by` includes the `currency` dimension so the engine can aggregate by currency
 
+That path is currently available only for stateless attribution inputs. Stateful attribution is
+currently fenced to `currency_mode="BASE_ONLY"` until lotus-core exposes the upstream benchmark
+contracts needed for local and FX attribution inputs.
+
 ## Current response shape
 
 The response contains:
 
 - `calculation_id`
 - `portfolio_id`
+- `input_mode`
 - `model`
 - `linking`
 - `results_by_period`
