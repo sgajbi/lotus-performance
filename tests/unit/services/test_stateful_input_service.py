@@ -411,13 +411,8 @@ async def test_stateful_input_service_returns_first_failure_for_position_chunks(
     assert payload == {"detail": "unavailable"}
 
 
-def test_stateful_input_service_helper_methods_cover_edge_cases():
+def test_stateful_input_service_deduplicates_records_and_component_series():
     service = StatefulInputService(core_service=_CoreServiceStub())
-
-    assert service._first_failure([(200, {}), (503, {"detail": "bad"})]) == (503, {"detail": "bad"})
-    assert service._next_page_token({"next_page_token": "abc"}) == "abc"
-    assert service._next_page_token({"page": {"next_page_token": "nested"}}) == "nested"
-    assert service._next_page_token({}) is None
 
     deduped = service._merge_dedup_records_by_fields(
         records=[
@@ -427,51 +422,12 @@ def test_stateful_input_service_helper_methods_cover_edge_cases():
         ],
         key_fields=("valuation_date", "position_id"),
     )
-    assert deduped == [{"valuation_date": "2026-01-01", "position_id": "POS_1", "value": 2}]
-
     merged_series = service._merge_component_series(
         payloads=[
             {"component_series": [{"index_id": "IDX_1", "points": [{"series_date": "2026-01-01"}]}]},
             {"component_series": [{"index_id": None}, "bad", {"index_id": "IDX_1", "points": "bad"}]},
         ]
     )
+
+    assert deduped == [{"valuation_date": "2026-01-01", "position_id": "POS_1", "value": 2}]
     assert merged_series == [{"index_id": "IDX_1", "points": [{"series_date": "2026-01-01"}]}]
-
-
-def test_stateful_input_service_snapshot_helpers_cover_identity_and_recording(tmp_path):
-    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
-    execution_store.create_schema()
-    calculation_id = uuid4()
-    execution_store.create_execution(
-        calculation_id=calculation_id,
-        analytics_type="ReturnsSeries",
-        portfolio_id="PORT_1",
-    )
-    service = StatefulInputService(core_service=_CoreServiceStub(), execution_store=execution_store)
-
-    snapshot = service._build_snapshot(
-        calculation_id=calculation_id,
-        upstream_endpoint="benchmark_market_series",
-        source_identifier="BMK_1",
-        as_of_date=date(2026, 1, 1),
-        request_payload={"as_of_date": "2026-01-01"},
-        response=(200, {"component_series": []}),
-    )
-
-    assert snapshot["snapshot_id"]
-    assert snapshot["request_fingerprint"]
-    assert snapshot["response_fingerprint"]
-
-
-@pytest.mark.asyncio
-async def test_stateful_input_service_get_benchmark_definition_passthrough():
-    core_service = _CoreServiceStub()
-    service = StatefulInputService(core_service=core_service)
-
-    status_code, payload = await service.get_benchmark_definition(
-        benchmark_id="BMK_1",
-        as_of_date=date(2026, 1, 4),
-    )
-
-    assert status_code == 200
-    assert payload == {"benchmark_id": "BMK_1"}

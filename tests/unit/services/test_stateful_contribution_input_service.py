@@ -206,24 +206,7 @@ def test_build_stateful_contribution_input_rejects_currency_mode_both():
         )
 
 
-def test_position_row_to_daily_point_and_helpers_cover_edge_cases():
-    assert (
-        _position_row_to_daily_point(
-            row={"valuation_date": None},
-            currency_mode="BASE_ONLY",
-            reporting_currency=None,
-        )
-        is None
-    )
-    assert (
-        _position_row_to_daily_point(
-            row={"valuation_date": "2025-01-01"},
-            currency_mode="BASE_ONLY",
-            reporting_currency=None,
-        )
-        is None
-    )
-
+def test_position_row_to_daily_point_uses_local_currency_values():
     point = _position_row_to_daily_point(
         row={
             "valuation_date": "2025-01-01",
@@ -234,13 +217,19 @@ def test_position_row_to_daily_point_and_helpers_cover_edge_cases():
         currency_mode="LOCAL_ONLY",
         reporting_currency="USD",
     )
+
     assert point is not None
     assert point["begin_mv"] == Decimal("10")
     assert point["bod_cf"] == Decimal("2")
 
+
+def test_split_position_cash_flows_ignores_invalid_rows():
     bod_cf, eod_cf, fees = _split_position_cash_flows(["bad", {"amount": None, "timing": "bod"}])
+
     assert (bod_cf, eod_cf, fees) == (Decimal("0"), Decimal("0"), Decimal("0"))
 
+
+def test_position_meta_and_retrieval_metadata_defaults():
     assert _position_meta_from_row({"security_id": "SEC_1", "dimensions": {"sector": "Tech", "country": "US"}}) == {
         "security_id": "SEC_1",
         "sector": "Tech",

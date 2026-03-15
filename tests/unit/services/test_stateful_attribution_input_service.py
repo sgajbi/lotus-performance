@@ -266,7 +266,7 @@ def test_build_stateful_attribution_input_rejects_mode_and_currency_fences():
         )
 
 
-def test_stateful_attribution_helper_functions_cover_error_paths():
+def test_stateful_attribution_group_by_and_benchmark_validation_errors():
     with pytest.raises(HTTPException, match="Unsupported: issuer"):
         _validate_stateful_group_by(["issuer"])
 
@@ -287,14 +287,8 @@ def test_stateful_attribution_helper_functions_cover_error_paths():
             index_records=[{"index_id": "IDX_1", "classification_labels": {"sector": "Tech"}}],
         )
 
-    assert _position_row_to_daily_point(row={"valuation_date": None}, reporting_currency=None) is None
-    assert (
-        _position_row_to_daily_point(
-            row={"valuation_date": "2025-01-01"},
-            reporting_currency="USD",
-        )
-        is None
-    )
+
+def test_stateful_attribution_parsers_filter_invalid_rows():
     assert _split_position_cash_flows(["bad", {"amount": None, "timing": "bod"}]) == (0, 0)
     assert _position_meta_from_row({"security_id": "SEC_1", "dimensions": {"sector": "Tech"}}) == {
         "security_id": "SEC_1",
@@ -304,3 +298,8 @@ def test_stateful_attribution_helper_functions_cover_error_paths():
     assert _parse_component_series({"component_series": [{"index_id": "IDX_1"}, "bad"]}) == [{"index_id": "IDX_1"}]
     assert _parse_index_catalog({"records": [{"index_id": "IDX_1"}, "bad"]}) == [{"index_id": "IDX_1"}]
     assert _parse_retrieval_metadata({}) == RetrievalMetadata(chunk_count=1, page_count=1)
+
+
+def test_stateful_attribution_position_row_to_daily_point_requires_market_values():
+    assert _position_row_to_daily_point(row={"valuation_date": None}, reporting_currency=None) is None
+    assert _position_row_to_daily_point(row={"valuation_date": "2025-01-01"}, reporting_currency="USD") is None
