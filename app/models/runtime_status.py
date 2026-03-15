@@ -397,6 +397,9 @@ class RecoveryDrillDegradationPolicyResponse(BaseModel):
     max_age_seconds: float = Field(
         description="Configured threshold that degrades runtime when the latest retained recovery drill is too old."
     )
+    active_run_age_seconds: float = Field(
+        description="Configured threshold that degrades runtime when the oldest active governed recovery-drill run remains in flight too long."
+    )
     reclaim_count: int = Field(
         description="Configured threshold that degrades runtime when stale governed recovery-drill lease reclaims accumulate."
     )
@@ -542,6 +545,9 @@ class RuntimeRetentionStatusResponse(BaseModel):
 class RuntimeRetentionDegradationPolicyResponse(BaseModel):
     max_age_seconds: float = Field(
         description="Configured threshold that degrades runtime when the latest retained runtime-retention cleanup is too old."
+    )
+    active_run_age_seconds: float = Field(
+        description="Configured threshold that degrades runtime when the oldest active governed runtime-retention cleanup remains in flight too long."
     )
     reclaim_count: int = Field(
         description="Configured threshold that degrades runtime when stale governed runtime-retention cleanup lease reclaims accumulate."
@@ -810,10 +816,12 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
         ),
         recovery_drill_policy=RecoveryDrillDegradationPolicyResponse(
             max_age_seconds=snapshot.recovery_drill_policy.max_age_seconds,
+            active_run_age_seconds=snapshot.recovery_drill_policy.active_run_age_seconds,
             reclaim_count=snapshot.recovery_drill_policy.reclaim_count,
         ),
         runtime_retention_policy=RuntimeRetentionDegradationPolicyResponse(
             max_age_seconds=snapshot.runtime_retention_policy.max_age_seconds,
+            active_run_age_seconds=snapshot.runtime_retention_policy.active_run_age_seconds,
             reclaim_count=snapshot.runtime_retention_policy.reclaim_count,
         ),
     )

@@ -551,6 +551,10 @@ class DurableQueueCollector:
             getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS", 0.0),
         )
         recovery_drill_thresholds.add_metric(
+            ["active_run_age_seconds"],
+            getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_ACTIVE_RUN_AGE_DEGRADE_SECONDS", 0.0),
+        )
+        recovery_drill_thresholds.add_metric(
             ["reclaim_count"],
             getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT", 0),
         )
@@ -601,6 +605,10 @@ class DurableQueueCollector:
         runtime_retention_thresholds.add_metric(
             ["max_age_seconds"],
             getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS", 0.0),
+        )
+        runtime_retention_thresholds.add_metric(
+            ["active_run_age_seconds"],
+            getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_ACTIVE_RUN_AGE_DEGRADE_SECONDS", 0.0),
         )
         runtime_retention_thresholds.add_metric(
             ["reclaim_count"],
@@ -677,6 +685,19 @@ class DurableQueueCollector:
                 ),
             )
             recovery_drill_breach.add_metric(
+                ["recovery_drill_active_run_age_exceeded"],
+                _breach_flag(
+                    threshold=getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_ACTIVE_RUN_AGE_DEGRADE_SECONDS", 0.0),
+                    observed=(
+                        0.0
+                        if recovery_drill_action_snapshot is None
+                        or recovery_drill_action_snapshot.status != "available"
+                        or not recovery_drill_action_snapshot.active_leases
+                        else _age_seconds(recovery_drill_action_snapshot.active_leases[0].acquired_at_utc)
+                    ),
+                ),
+            )
+            recovery_drill_breach.add_metric(
                 ["recovery_drill_reclaim_pressure_exceeded"],
                 _breach_flag(
                     threshold=getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT", 0),
@@ -720,6 +741,23 @@ class DurableQueueCollector:
                 _breach_flag(
                     threshold=getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS", 0.0),
                     observed=latest_age_seconds,
+                ),
+            )
+            runtime_retention_breach.add_metric(
+                ["runtime_retention_active_run_age_exceeded"],
+                _breach_flag(
+                    threshold=getattr(
+                        settings,
+                        "RUNTIME_STATUS_RUNTIME_RETENTION_ACTIVE_RUN_AGE_DEGRADE_SECONDS",
+                        0.0,
+                    ),
+                    observed=(
+                        0.0
+                        if runtime_retention_action_snapshot is None
+                        or runtime_retention_action_snapshot.status != "available"
+                        or not runtime_retention_action_snapshot.active_leases
+                        else _age_seconds(runtime_retention_action_snapshot.active_leases[0].acquired_at_utc)
+                    ),
                 ),
             )
             runtime_retention_breach.add_metric(

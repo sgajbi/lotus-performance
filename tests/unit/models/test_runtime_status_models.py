@@ -241,8 +241,16 @@ def test_build_runtime_status_response_serializes_snapshot_details():
             storage_min_free_bytes=200,
             storage_min_free_ratio=0.25,
         ),
-        recovery_drill_policy=RecoveryDrillDegradationPolicy(max_age_seconds=3600.0, reclaim_count=2),
-        runtime_retention_policy=RuntimeRetentionDegradationPolicy(max_age_seconds=3600.0, reclaim_count=3),
+        recovery_drill_policy=RecoveryDrillDegradationPolicy(
+            max_age_seconds=3600.0,
+            active_run_age_seconds=900.0,
+            reclaim_count=2,
+        ),
+        runtime_retention_policy=RuntimeRetentionDegradationPolicy(
+            max_age_seconds=3600.0,
+            active_run_age_seconds=1200.0,
+            reclaim_count=3,
+        ),
     )
 
     response = build_runtime_status_response(snapshot)
@@ -301,8 +309,10 @@ def test_build_runtime_status_response_serializes_snapshot_details():
     assert response.lineage_queue_policy.storage_min_free_bytes == 200
     assert response.lineage_queue_policy.storage_min_free_ratio == 0.25
     assert response.recovery_drill_policy.max_age_seconds == 3600.0
+    assert response.recovery_drill_policy.active_run_age_seconds == 900.0
     assert response.recovery_drill_policy.reclaim_count == 2
     assert response.runtime_retention_policy.max_age_seconds == 3600.0
+    assert response.runtime_retention_policy.active_run_age_seconds == 1200.0
     assert response.runtime_retention_policy.reclaim_count == 3
 
 
@@ -414,8 +424,16 @@ def test_build_runtime_status_response_handles_unavailable_queue_without_stats()
             storage_min_free_bytes=0,
             storage_min_free_ratio=0.0,
         ),
-        recovery_drill_policy=RecoveryDrillDegradationPolicy(max_age_seconds=0.0, reclaim_count=0),
-        runtime_retention_policy=RuntimeRetentionDegradationPolicy(max_age_seconds=0.0, reclaim_count=0),
+        recovery_drill_policy=RecoveryDrillDegradationPolicy(
+            max_age_seconds=0.0,
+            active_run_age_seconds=0.0,
+            reclaim_count=0,
+        ),
+        runtime_retention_policy=RuntimeRetentionDegradationPolicy(
+            max_age_seconds=0.0,
+            active_run_age_seconds=0.0,
+            reclaim_count=0,
+        ),
     )
 
     response = build_runtime_status_response(snapshot)

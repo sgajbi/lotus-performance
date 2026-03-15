@@ -183,6 +183,7 @@ def test_runtime_status_reports_durable_queue_state():
     assert body["recovery_drill"]["reclaimed_run_count"] == 0
     assert body["recovery_drill"]["degradation_reasons"] == []
     assert body["recovery_drill_policy"]["max_age_seconds"] >= 0.0
+    assert body["recovery_drill_policy"]["active_run_age_seconds"] >= 0.0
     assert body["runtime_retention"]["status"] == "available"
     assert body["runtime_retention"]["active_run_status"] == "available"
     assert body["runtime_retention"]["active_run_count"] == 0
@@ -191,6 +192,7 @@ def test_runtime_status_reports_durable_queue_state():
     assert body["runtime_retention"]["degradation_reasons"] == []
     assert body["runtime_retention"]["preview_status"] == "available"
     assert body["runtime_retention_policy"]["max_age_seconds"] >= 0.0
+    assert body["runtime_retention_policy"]["active_run_age_seconds"] >= 0.0
 
 
 def test_runtime_status_reports_active_governed_action_visibility(mocker):
@@ -384,6 +386,78 @@ def test_runtime_status_reports_governed_action_reclaim_pressure_degradation(moc
     finally:
         settings.RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT = original_recovery_threshold
         settings.RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT = original_retention_threshold
+
+
+def test_runtime_status_reports_governed_active_run_age_degradation(mocker):
+    settings = get_settings()
+    original_recovery_threshold = settings.RUNTIME_STATUS_RECOVERY_DRILL_ACTIVE_RUN_AGE_DEGRADE_SECONDS
+    original_retention_threshold = settings.RUNTIME_STATUS_RUNTIME_RETENTION_ACTIVE_RUN_AGE_DEGRADE_SECONDS
+    settings.RUNTIME_STATUS_RECOVERY_DRILL_ACTIVE_RUN_AGE_DEGRADE_SECONDS = 60.0
+    settings.RUNTIME_STATUS_RUNTIME_RETENTION_ACTIVE_RUN_AGE_DEGRADE_SECONDS = 120.0
+    mocker.patch(
+        "app.services.runtime_status_service.build_operator_action_lease_snapshot",
+        side_effect=[
+            type(
+                "LeaseSnapshot",
+                (),
+                {
+                    "status": "available",
+                    "reason": None,
+                    "active_leases": (
+                        type(
+                            "Lease",
+                            (),
+                            {
+                                "operator_id": "ops-user",
+                                "tenant_id": "tenant-a",
+                                "governed_target": "backup-123",
+                                "acquired_at_utc": "2026-03-14T00:00:00Z",
+                            },
+                        )(),
+                    ),
+                    "latest_reclaimed_lease": None,
+                    "recent_reclaimed_leases": (),
+                },
+            )(),
+            type(
+                "LeaseSnapshot",
+                (),
+                {
+                    "status": "available",
+                    "reason": None,
+                    "active_leases": (
+                        type(
+                            "Lease",
+                            (),
+                            {
+                                "operator_id": "ops-batch",
+                                "tenant_id": "tenant-b",
+                                "governed_target": "apply:30:retention-nightly",
+                                "acquired_at_utc": "2026-03-14T00:00:00Z",
+                            },
+                        )(),
+                    ),
+                    "latest_reclaimed_lease": None,
+                    "recent_reclaimed_leases": (),
+                },
+            )(),
+        ],
+    )
+    try:
+        with TestClient(app) as client:
+            response = client.get("/integration/runtime-status")
+        body = response.json()
+        assert response.status_code == 200
+        assert body["runtime_status"] == "degraded"
+        assert body["recovery_drill"]["reason"] == "recovery_drill_active_run_age_exceeded"
+        assert body["recovery_drill"]["degradation_reasons"] == ["recovery_drill_active_run_age_exceeded"]
+        assert body["recovery_drill_policy"]["active_run_age_seconds"] == 60.0
+        assert body["runtime_retention"]["reason"] == "runtime_retention_active_run_age_exceeded"
+        assert body["runtime_retention"]["degradation_reasons"] == ["runtime_retention_active_run_age_exceeded"]
+        assert body["runtime_retention_policy"]["active_run_age_seconds"] == 120.0
+    finally:
+        settings.RUNTIME_STATUS_RECOVERY_DRILL_ACTIVE_RUN_AGE_DEGRADE_SECONDS = original_recovery_threshold
+        settings.RUNTIME_STATUS_RUNTIME_RETENTION_ACTIVE_RUN_AGE_DEGRADE_SECONDS = original_retention_threshold
 
 
 def test_runtime_status_reports_runtime_retention_failure_and_age_policy(mocker):

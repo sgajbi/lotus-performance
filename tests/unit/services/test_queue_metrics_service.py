@@ -65,8 +65,10 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
                 "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES": 200,
                 "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO": 0.25,
                 "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS": 3600.0,
+                "RUNTIME_STATUS_RECOVERY_DRILL_ACTIVE_RUN_AGE_DEGRADE_SECONDS": 1800.0,
                 "RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT": 2,
                 "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS": 3600.0,
+                "RUNTIME_STATUS_RUNTIME_RETENTION_ACTIVE_RUN_AGE_DEGRADE_SECONDS": 1800.0,
                 "RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT": 3,
             },
         )(),
@@ -204,12 +206,14 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
     recovery_breach_samples = {sample.labels["reason"]: sample.value for sample in recovery_breach_metric.samples}
     assert recovery_breach_samples["recovery_drill_latest_not_passed"] == 0
     assert recovery_breach_samples["recovery_drill_age_exceeded"] == 0
+    assert recovery_breach_samples["recovery_drill_active_run_age_exceeded"] == 0
     assert recovery_breach_samples["recovery_drill_reclaim_pressure_exceeded"] == 0
 
     recovery_threshold_metric = next(
         metric for metric in metrics if metric.name == "lotus_performance_recovery_drill_policy_threshold"
     )
     recovery_threshold_samples = {sample.labels["threshold"]: sample.value for sample in recovery_threshold_metric.samples}
+    assert recovery_threshold_samples["active_run_age_seconds"] == 1800
     assert recovery_threshold_samples["reclaim_count"] == 2
 
 
@@ -366,8 +370,10 @@ def test_queue_metrics_collector_emits_governed_action_reclaim_pressure_breaches
                 "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES": 0,
                 "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO": 0.0,
                 "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS": 0.0,
+                "RUNTIME_STATUS_RECOVERY_DRILL_ACTIVE_RUN_AGE_DEGRADE_SECONDS": 60.0,
                 "RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT": 2,
                 "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS": 0.0,
+                "RUNTIME_STATUS_RUNTIME_RETENTION_ACTIVE_RUN_AGE_DEGRADE_SECONDS": 120.0,
                 "RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT": 3,
             },
         )(),
@@ -395,7 +401,9 @@ def test_queue_metrics_collector_emits_governed_action_reclaim_pressure_breaches
                 (),
                 {
                     "status": "available",
-                    "active_leases": (),
+                    "active_leases": (
+                        type("Lease", (), {"acquired_at_utc": "2026-03-14T00:00:00Z"})(),
+                    ),
                     "latest_reclaimed_lease": type("Reclaim", (), {"reclaimed_at_utc": "2099-01-01T00:00:00Z", "reclaim_count": 2})(),
                 },
             )(),
@@ -404,7 +412,9 @@ def test_queue_metrics_collector_emits_governed_action_reclaim_pressure_breaches
                 (),
                 {
                     "status": "available",
-                    "active_leases": (),
+                    "active_leases": (
+                        type("Lease", (), {"acquired_at_utc": "2026-03-14T00:00:00Z"})(),
+                    ),
                     "latest_reclaimed_lease": type("Reclaim", (), {"reclaimed_at_utc": "2099-01-01T00:00:00Z", "reclaim_count": 3})(),
                 },
             )(),
@@ -435,12 +445,14 @@ def test_queue_metrics_collector_emits_governed_action_reclaim_pressure_breaches
         metric for metric in metrics if metric.name == "lotus_performance_recovery_drill_degradation_breach"
     )
     recovery_breach_samples = {sample.labels["reason"]: sample.value for sample in recovery_breach_metric.samples}
+    assert recovery_breach_samples["recovery_drill_active_run_age_exceeded"] == 1
     assert recovery_breach_samples["recovery_drill_reclaim_pressure_exceeded"] == 1
 
     retention_breach_metric = next(
         metric for metric in metrics if metric.name == "lotus_performance_runtime_retention_degradation_breach"
     )
     retention_breach_samples = {sample.labels["reason"]: sample.value for sample in retention_breach_metric.samples}
+    assert retention_breach_samples["runtime_retention_active_run_age_exceeded"] == 1
     assert retention_breach_samples["runtime_retention_reclaim_pressure_exceeded"] == 1
 
 

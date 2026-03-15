@@ -278,6 +278,7 @@ def test_runtime_status_snapshot_reports_ready_with_queue_stats(mocker):
     assert snapshot.recovery_drill.latest_status is None
     assert snapshot.recovery_drill.degradation_reasons == ()
     assert snapshot.recovery_drill_policy.max_age_seconds == 0.0
+    assert snapshot.recovery_drill_policy.active_run_age_seconds == 0.0
     assert snapshot.recovery_drill_policy.reclaim_count == 0
     assert snapshot.runtime_retention.status == "available"
     assert snapshot.runtime_retention.active_run_status == "available"
@@ -287,6 +288,7 @@ def test_runtime_status_snapshot_reports_ready_with_queue_stats(mocker):
     assert snapshot.runtime_retention.preview_status == "available"
     assert snapshot.runtime_retention.current_prunable_execution_count == 0
     assert snapshot.runtime_retention.latest_status == "applied"
+    assert snapshot.runtime_retention_policy.active_run_age_seconds == 0.0
     assert snapshot.runtime_retention_policy.reclaim_count == 0
 
 
@@ -750,6 +752,135 @@ def test_runtime_status_snapshot_degrades_when_governed_action_reclaim_pressure_
     assert snapshot.runtime_retention_policy.reclaim_count == 3
     assert "recovery_drill:recovery_drill_reclaim_pressure_exceeded" in snapshot.runtime_degradation_reasons
     assert "runtime_retention:runtime_retention_reclaim_pressure_exceeded" in snapshot.runtime_degradation_reasons
+
+
+def test_runtime_status_snapshot_degrades_when_governed_active_run_age_accumulates(mocker):
+    mocker.patch(
+        "app.services.runtime_status_service.get_settings",
+        return_value=type(
+            "Settings",
+            (),
+            {
+                "RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_COMPUTE_LEASED_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_COMPUTE_RUNNING_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_LINEAGE_LEASED_AGE_DEGRADE_SECONDS": 0.0,
+                "RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES": 0,
+                "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO": 0.0,
+                "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS": 0.0,
+                "RUNTIME_STATUS_RECOVERY_DRILL_ACTIVE_RUN_AGE_DEGRADE_SECONDS": 60.0,
+                "RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS": 0.0,
+                "RUNTIME_STATUS_RUNTIME_RETENTION_ACTIVE_RUN_AGE_DEGRADE_SECONDS": 120.0,
+                "RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT": 0,
+                "RUNTIME_STATUS_RECENT_RECOVERY_LIMIT": 0,
+            },
+        )(),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.check_durable_metadata_store_ready",
+        return_value=DurabilityHealthStatus(is_ready=True, status="ready", reason=None),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.check_lineage_storage_ready",
+        return_value=type("StorageStatus", (), {"is_ready": True, "reason": None})(),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.compute_job_store.get_queue_stats",
+        return_value=ComputeQueueStats(
+            pending_count=0,
+            leased_count=0,
+            running_count=0,
+            failed_count=0,
+            complete_count=0,
+            retry_backlog_count=0,
+            lease_expired_count=0,
+            terminal_failure_count=0,
+            oldest_pending_age_seconds=0.0,
+            oldest_leased_age_seconds=0.0,
+            oldest_running_age_seconds=0.0,
+        ),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.lineage_metadata_store.get_pending_payload_stats",
+        return_value=LineageQueueStats(
+            pending_payload_count=0,
+            leased_payload_count=0,
+            retry_backlog_count=0,
+            terminal_failure_count=0,
+            oldest_pending_age_seconds=0.0,
+            oldest_leased_age_seconds=0.0,
+        ),
+    )
+    mocker.patch(
+        "app.services.runtime_status_service.build_operator_action_lease_snapshot",
+        side_effect=[
+            type(
+                "LeaseSnapshot",
+                (),
+                {
+                    "status": "available",
+                    "reason": None,
+                    "active_leases": (
+                        type(
+                            "Lease",
+                            (),
+                            {
+                                "operator_id": "ops-user",
+                                "tenant_id": "tenant-a",
+                                "governed_target": "backup-123",
+                                "acquired_at_utc": "2026-03-14T00:00:00Z",
+                            },
+                        )(),
+                    ),
+                    "latest_reclaimed_lease": None,
+                    "recent_reclaimed_leases": (),
+                },
+            )(),
+            type(
+                "LeaseSnapshot",
+                (),
+                {
+                    "status": "available",
+                    "reason": None,
+                    "active_leases": (
+                        type(
+                            "Lease",
+                            (),
+                            {
+                                "operator_id": "ops-batch",
+                                "tenant_id": "tenant-b",
+                                "governed_target": "apply:30:retention-nightly",
+                                "acquired_at_utc": "2026-03-14T00:00:00Z",
+                            },
+                        )(),
+                    ),
+                    "latest_reclaimed_lease": None,
+                    "recent_reclaimed_leases": (),
+                },
+            )(),
+        ],
+    )
+
+    snapshot = build_runtime_status_snapshot(is_draining=False)
+
+    assert snapshot.runtime_status == "degraded"
+    assert snapshot.recovery_drill.reason == "recovery_drill_active_run_age_exceeded"
+    assert snapshot.recovery_drill.degradation_reasons == ("recovery_drill_active_run_age_exceeded",)
+    assert snapshot.recovery_drill.degradation_details[0].threshold_value == 60
+    assert snapshot.recovery_drill_policy.active_run_age_seconds == 60.0
+    assert snapshot.runtime_retention.reason == "runtime_retention_active_run_age_exceeded"
+    assert snapshot.runtime_retention.degradation_reasons == ("runtime_retention_active_run_age_exceeded",)
+    assert snapshot.runtime_retention.degradation_details[0].threshold_value == 120
+    assert snapshot.runtime_retention_policy.active_run_age_seconds == 120.0
+    assert "recovery_drill:recovery_drill_active_run_age_exceeded" in snapshot.runtime_degradation_reasons
+    assert "runtime_retention:runtime_retention_active_run_age_exceeded" in snapshot.runtime_degradation_reasons
 
 
 def test_runtime_status_snapshot_reports_unavailable_runtime_retention_preview(mocker):

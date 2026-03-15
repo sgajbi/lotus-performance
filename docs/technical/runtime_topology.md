@@ -95,10 +95,16 @@ Queue-pressure metrics are exposed from the API process by reading durable store
 - `lotus_performance_lineage_storage_pressure_threshold{threshold=...}`
 - `lotus_performance_lineage_storage_pressure_breach{reason=...}`
 - `lotus_performance_recovery_drill_availability`
+- `lotus_performance_recovery_drill_action_availability`
+- `lotus_performance_recovery_drill_active_actions`
+- `lotus_performance_recovery_drill_oldest_active_action_age_seconds`
 - `lotus_performance_recovery_drill_latest_age_seconds`
 - `lotus_performance_recovery_drill_policy_threshold{threshold=...}`
 - `lotus_performance_recovery_drill_degradation_breach{reason=...}`
 - `lotus_performance_recovery_drill_reclaimed_actions`
+- `lotus_performance_runtime_retention_action_availability`
+- `lotus_performance_runtime_retention_active_actions`
+- `lotus_performance_runtime_retention_oldest_active_action_age_seconds`
 - `lotus_performance_runtime_retention_reclaimed_actions`
 
 Operator first response for these breach gauges is governed in

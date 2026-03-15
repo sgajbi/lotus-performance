@@ -337,8 +337,12 @@ def test_metrics_include_governed_action_reclaim_pressure_breach_signals(mocker)
     settings = get_settings()
     original_recovery_threshold = settings.RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT
     original_retention_threshold = settings.RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT
+    original_recovery_active_threshold = settings.RUNTIME_STATUS_RECOVERY_DRILL_ACTIVE_RUN_AGE_DEGRADE_SECONDS
+    original_retention_active_threshold = settings.RUNTIME_STATUS_RUNTIME_RETENTION_ACTIVE_RUN_AGE_DEGRADE_SECONDS
     settings.RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT = 2
+    settings.RUNTIME_STATUS_RECOVERY_DRILL_ACTIVE_RUN_AGE_DEGRADE_SECONDS = 60.0
     settings.RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT = 3
+    settings.RUNTIME_STATUS_RUNTIME_RETENTION_ACTIVE_RUN_AGE_DEGRADE_SECONDS = 120.0
     mocker.patch(
         "app.services.queue_metrics_service.build_operator_action_lease_snapshot",
         side_effect=[
@@ -347,7 +351,9 @@ def test_metrics_include_governed_action_reclaim_pressure_breach_signals(mocker)
                 (),
                 {
                     "status": "available",
-                    "active_leases": (),
+                    "active_leases": (
+                        type("Lease", (), {"acquired_at_utc": "2026-03-14T00:00:00Z"})(),
+                    ),
                     "latest_reclaimed_lease": type(
                         "Reclaim", (), {"reclaimed_at_utc": "2026-03-14T00:30:00Z", "reclaim_count": 2}
                     )(),
@@ -358,7 +364,9 @@ def test_metrics_include_governed_action_reclaim_pressure_breach_signals(mocker)
                 (),
                 {
                     "status": "available",
-                    "active_leases": (),
+                    "active_leases": (
+                        type("Lease", (), {"acquired_at_utc": "2026-03-14T00:00:00Z"})(),
+                    ),
                     "latest_reclaimed_lease": type(
                         "Reclaim", (), {"reclaimed_at_utc": "2026-03-14T01:30:00Z", "reclaim_count": 3}
                     )(),
@@ -372,10 +380,26 @@ def test_metrics_include_governed_action_reclaim_pressure_breach_signals(mocker)
             metrics = client.get("/metrics")
 
         assert metrics.status_code == 200
+        assert (
+            'lotus_performance_recovery_drill_policy_threshold{threshold="active_run_age_seconds"} 60.0'
+            in metrics.text
+        )
         assert 'lotus_performance_recovery_drill_policy_threshold{threshold="reclaim_count"} 2.0' in metrics.text
+        assert (
+            'lotus_performance_runtime_retention_policy_threshold{threshold="active_run_age_seconds"} 120.0'
+            in metrics.text
+        )
         assert 'lotus_performance_runtime_retention_policy_threshold{threshold="reclaim_count"} 3.0' in metrics.text
         assert (
+            'lotus_performance_recovery_drill_degradation_breach{reason="recovery_drill_active_run_age_exceeded"} 1.0'
+            in metrics.text
+        )
+        assert (
             'lotus_performance_recovery_drill_degradation_breach{reason="recovery_drill_reclaim_pressure_exceeded"} 1.0'
+            in metrics.text
+        )
+        assert (
+            'lotus_performance_runtime_retention_degradation_breach{reason="runtime_retention_active_run_age_exceeded"} 1.0'
             in metrics.text
         )
         assert (
@@ -385,6 +409,8 @@ def test_metrics_include_governed_action_reclaim_pressure_breach_signals(mocker)
     finally:
         settings.RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT = original_recovery_threshold
         settings.RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT = original_retention_threshold
+        settings.RUNTIME_STATUS_RECOVERY_DRILL_ACTIVE_RUN_AGE_DEGRADE_SECONDS = original_recovery_active_threshold
+        settings.RUNTIME_STATUS_RUNTIME_RETENTION_ACTIVE_RUN_AGE_DEGRADE_SECONDS = original_retention_active_threshold
 
 
 def test_metrics_include_queue_policy_breach_signals():
