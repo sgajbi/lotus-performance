@@ -4,7 +4,10 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from app.services.compute_job_store import ComputeQueueInspectionItem, compute_job_store
-from app.services.durability_health_service import DurabilityHealthStatus, check_durable_metadata_store_ready
+from app.services.durability_health_service import (
+    DurabilityHealthStatus,
+    check_durable_metadata_schema_ready,
+)
 from app.services.lineage_metadata_store import LineageQueueInspectionItem, lineage_metadata_store
 
 
@@ -47,7 +50,7 @@ def build_runtime_work_item_snapshot(
     calculation_id_contains: str | None,
 ) -> RuntimeWorkItemSnapshot:
     generated_at = datetime.now(UTC)
-    durability_status = check_durable_metadata_store_ready()
+    durability_status = check_durable_metadata_schema_ready()
 
     if not durability_status.is_ready:
         return RuntimeWorkItemSnapshot(

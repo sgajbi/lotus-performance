@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
+from pathlib import Path
 
 from app.core.config import get_settings
 from app.services.compute_job_store import (
@@ -24,6 +25,7 @@ from app.services.lineage_metadata_store import (
     LineageRecoveryEvent,
     lineage_metadata_store,
 )
+from app.services.operator_action_lease_service import build_operator_action_lease_snapshot
 from app.services.recovery_drill_history_service import (
     build_recovery_drill_history_snapshot,
 )
@@ -76,6 +78,22 @@ class LineageQueueDegradationPolicy:
 class RecoveryDrillStatus:
     status: str
     reason: str | None
+    active_run_status: str
+    active_run_reason: str | None
+    active_run_count: int
+    oldest_active_run_operator_id: str | None
+    oldest_active_run_tenant_id: str | None
+    oldest_active_run_governed_target: str | None
+    oldest_active_run_acquired_at_utc: str | None
+    oldest_active_run_age_seconds: float | None
+    latest_reclaimed_run_operator_id: str | None
+    latest_reclaimed_run_tenant_id: str | None
+    latest_reclaimed_run_governed_target: str | None
+    latest_reclaimed_run_acquired_at_utc: str | None
+    latest_reclaimed_run_reclaimed_at_utc: str | None
+    latest_reclaimed_run_age_seconds: float | None
+    reclaimed_run_count: int
+    recent_reclaimed_runs: tuple["RecentOperatorActionReclaim", ...]
     latest_generated_at_utc: str | None
     latest_status: str | None
     latest_operator_id: str | None
@@ -88,12 +106,30 @@ class RecoveryDrillStatus:
 @dataclass(frozen=True)
 class RecoveryDrillDegradationPolicy:
     max_age_seconds: float
+    active_run_age_seconds: float
+    reclaim_count: int
 
 
 @dataclass(frozen=True)
 class RuntimeRetentionStatus:
     status: str
     reason: str | None
+    active_run_status: str
+    active_run_reason: str | None
+    active_run_count: int
+    oldest_active_run_operator_id: str | None
+    oldest_active_run_tenant_id: str | None
+    oldest_active_run_governed_target: str | None
+    oldest_active_run_acquired_at_utc: str | None
+    oldest_active_run_age_seconds: float | None
+    latest_reclaimed_run_operator_id: str | None
+    latest_reclaimed_run_tenant_id: str | None
+    latest_reclaimed_run_governed_target: str | None
+    latest_reclaimed_run_acquired_at_utc: str | None
+    latest_reclaimed_run_reclaimed_at_utc: str | None
+    latest_reclaimed_run_age_seconds: float | None
+    reclaimed_run_count: int
+    recent_reclaimed_runs: tuple["RecentOperatorActionReclaim", ...]
     preview_status: str
     preview_reason: str | None
     current_cutoff_utc: str | None
@@ -118,6 +154,39 @@ class RuntimeRetentionStatus:
 @dataclass(frozen=True)
 class RuntimeRetentionDegradationPolicy:
     max_age_seconds: float
+    active_run_age_seconds: float
+    reclaim_count: int
+
+
+@dataclass(frozen=True)
+class OperatorActionStatus:
+    status: str
+    reason: str | None
+    active_run_count: int
+    oldest_active_run_operator_id: str | None
+    oldest_active_run_tenant_id: str | None
+    oldest_active_run_governed_target: str | None
+    oldest_active_run_acquired_at_utc: str | None
+    oldest_active_run_age_seconds: float | None
+    latest_reclaimed_run_operator_id: str | None
+    latest_reclaimed_run_tenant_id: str | None
+    latest_reclaimed_run_governed_target: str | None
+    latest_reclaimed_run_acquired_at_utc: str | None
+    latest_reclaimed_run_reclaimed_at_utc: str | None
+    latest_reclaimed_run_age_seconds: float | None
+    reclaimed_run_count: int
+    recent_reclaimed_runs: tuple["RecentOperatorActionReclaim", ...]
+
+
+@dataclass(frozen=True)
+class RecentOperatorActionReclaim:
+    operator_id: str
+    tenant_id: str | None
+    governed_target: str
+    acquired_at_utc: str
+    reclaimed_at_utc: str
+    reclaimed_age_seconds: float
+    reclaim_count: int
 
 
 @dataclass(frozen=True)
@@ -354,12 +423,34 @@ def _safe_lineage_recent_recoveries(*, settings) -> tuple[LineageRecoveryEvent, 
 
 def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
     threshold = getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS", 0.0)
+    active_run_age_threshold = getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_ACTIVE_RUN_AGE_DEGRADE_SECONDS", 0.0)
+    reclaim_threshold = getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT", 0)
+    active_run_status = _build_operator_action_status(
+        artifact_directory=getattr(settings, "RECOVERY_DRILL_ARTIFACT_PATH", Path("artifacts/durable-recovery-drill")),
+        action_name="recovery_drill",
+    )
     try:
         snapshot = build_recovery_drill_history_snapshot(limit=1)
     except Exception as exc:
         return RecoveryDrillStatus(
             status="unavailable",
             reason=type(exc).__name__,
+            active_run_status=active_run_status.status,
+            active_run_reason=active_run_status.reason,
+            active_run_count=active_run_status.active_run_count,
+            oldest_active_run_operator_id=active_run_status.oldest_active_run_operator_id,
+            oldest_active_run_tenant_id=active_run_status.oldest_active_run_tenant_id,
+            oldest_active_run_governed_target=active_run_status.oldest_active_run_governed_target,
+            oldest_active_run_acquired_at_utc=active_run_status.oldest_active_run_acquired_at_utc,
+            oldest_active_run_age_seconds=active_run_status.oldest_active_run_age_seconds,
+            latest_reclaimed_run_operator_id=active_run_status.latest_reclaimed_run_operator_id,
+            latest_reclaimed_run_tenant_id=active_run_status.latest_reclaimed_run_tenant_id,
+            latest_reclaimed_run_governed_target=active_run_status.latest_reclaimed_run_governed_target,
+            latest_reclaimed_run_acquired_at_utc=active_run_status.latest_reclaimed_run_acquired_at_utc,
+            latest_reclaimed_run_reclaimed_at_utc=active_run_status.latest_reclaimed_run_reclaimed_at_utc,
+            latest_reclaimed_run_age_seconds=active_run_status.latest_reclaimed_run_age_seconds,
+            reclaimed_run_count=active_run_status.reclaimed_run_count,
+            recent_reclaimed_runs=active_run_status.recent_reclaimed_runs,
             latest_generated_at_utc=None,
             latest_status=None,
             latest_operator_id=None,
@@ -374,10 +465,26 @@ def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
             "recovery_drill_artifact_directory_missing",
             "recovery_drill_manifest_missing",
         }:
-            return _build_missing_recovery_drill_status(threshold=threshold)
+            return _build_missing_recovery_drill_status(threshold=threshold, active_run_status=active_run_status)
         return RecoveryDrillStatus(
             status="unavailable",
             reason=snapshot.reason or snapshot.status,
+            active_run_status=active_run_status.status,
+            active_run_reason=active_run_status.reason,
+            active_run_count=active_run_status.active_run_count,
+            oldest_active_run_operator_id=active_run_status.oldest_active_run_operator_id,
+            oldest_active_run_tenant_id=active_run_status.oldest_active_run_tenant_id,
+            oldest_active_run_governed_target=active_run_status.oldest_active_run_governed_target,
+            oldest_active_run_acquired_at_utc=active_run_status.oldest_active_run_acquired_at_utc,
+            oldest_active_run_age_seconds=active_run_status.oldest_active_run_age_seconds,
+            latest_reclaimed_run_operator_id=active_run_status.latest_reclaimed_run_operator_id,
+            latest_reclaimed_run_tenant_id=active_run_status.latest_reclaimed_run_tenant_id,
+            latest_reclaimed_run_governed_target=active_run_status.latest_reclaimed_run_governed_target,
+            latest_reclaimed_run_acquired_at_utc=active_run_status.latest_reclaimed_run_acquired_at_utc,
+            latest_reclaimed_run_reclaimed_at_utc=active_run_status.latest_reclaimed_run_reclaimed_at_utc,
+            latest_reclaimed_run_age_seconds=active_run_status.latest_reclaimed_run_age_seconds,
+            reclaimed_run_count=active_run_status.reclaimed_run_count,
+            recent_reclaimed_runs=active_run_status.recent_reclaimed_runs,
             latest_generated_at_utc=None,
             latest_status=None,
             latest_operator_id=None,
@@ -388,7 +495,7 @@ def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
         )
 
     if not snapshot.entries:
-        return _build_missing_recovery_drill_status(threshold=threshold)
+        return _build_missing_recovery_drill_status(threshold=threshold, active_run_status=active_run_status)
 
     latest = snapshot.entries[0]
     latest_generated_at = datetime.fromisoformat(latest.generated_at_utc.replace("Z", "+00:00"))
@@ -410,10 +517,47 @@ def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
                 threshold_value=_as_decimal_number(threshold),
             )
         )
+    if (
+        active_run_age_threshold > 0
+        and active_run_status.status == "active"
+        and active_run_status.oldest_active_run_age_seconds is not None
+        and active_run_status.oldest_active_run_age_seconds >= active_run_age_threshold
+    ):
+        degradation_details.append(
+            RuntimeDegradationDetail(
+                reason="recovery_drill_active_run_age_exceeded",
+                observed_value=_as_decimal_number(active_run_status.oldest_active_run_age_seconds),
+                threshold_value=_as_decimal_number(active_run_age_threshold),
+            )
+        )
+    if reclaim_threshold > 0 and active_run_status.reclaimed_run_count >= reclaim_threshold:
+        degradation_details.append(
+            RuntimeDegradationDetail(
+                reason="recovery_drill_reclaim_pressure_exceeded",
+                observed_value=_as_decimal_number(active_run_status.reclaimed_run_count),
+                threshold_value=_as_decimal_number(reclaim_threshold),
+            )
+        )
     reasons: tuple[str, ...] = tuple(detail.reason for detail in degradation_details)
     return RecoveryDrillStatus(
         status="degraded" if reasons else "available",
         reason=reasons[0] if reasons else None,
+        active_run_status=active_run_status.status,
+        active_run_reason=active_run_status.reason,
+        active_run_count=active_run_status.active_run_count,
+        oldest_active_run_operator_id=active_run_status.oldest_active_run_operator_id,
+        oldest_active_run_tenant_id=active_run_status.oldest_active_run_tenant_id,
+        oldest_active_run_governed_target=active_run_status.oldest_active_run_governed_target,
+        oldest_active_run_acquired_at_utc=active_run_status.oldest_active_run_acquired_at_utc,
+        oldest_active_run_age_seconds=active_run_status.oldest_active_run_age_seconds,
+        latest_reclaimed_run_operator_id=active_run_status.latest_reclaimed_run_operator_id,
+        latest_reclaimed_run_tenant_id=active_run_status.latest_reclaimed_run_tenant_id,
+        latest_reclaimed_run_governed_target=active_run_status.latest_reclaimed_run_governed_target,
+        latest_reclaimed_run_acquired_at_utc=active_run_status.latest_reclaimed_run_acquired_at_utc,
+        latest_reclaimed_run_reclaimed_at_utc=active_run_status.latest_reclaimed_run_reclaimed_at_utc,
+        latest_reclaimed_run_age_seconds=active_run_status.latest_reclaimed_run_age_seconds,
+        reclaimed_run_count=active_run_status.reclaimed_run_count,
+        recent_reclaimed_runs=active_run_status.recent_reclaimed_runs,
         latest_generated_at_utc=latest.generated_at_utc,
         latest_status=latest.status,
         latest_operator_id=latest.operator_id,
@@ -426,12 +570,40 @@ def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
 
 def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
     threshold = getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS", 0.0)
+    active_run_age_threshold = getattr(
+        settings,
+        "RUNTIME_STATUS_RUNTIME_RETENTION_ACTIVE_RUN_AGE_DEGRADE_SECONDS",
+        0.0,
+    )
+    reclaim_threshold = getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT", 0)
+    active_run_status = _build_operator_action_status(
+        artifact_directory=getattr(
+            settings, "RUNTIME_RETENTION_ARTIFACT_PATH", Path("artifacts/runtime-retention-cleanup")
+        ),
+        action_name="runtime_retention_cleanup",
+    )
     try:
         snapshot = build_runtime_retention_history_snapshot(limit=1)
     except Exception as exc:
         return RuntimeRetentionStatus(
             status="unavailable",
             reason=type(exc).__name__,
+            active_run_status=active_run_status.status,
+            active_run_reason=active_run_status.reason,
+            active_run_count=active_run_status.active_run_count,
+            oldest_active_run_operator_id=active_run_status.oldest_active_run_operator_id,
+            oldest_active_run_tenant_id=active_run_status.oldest_active_run_tenant_id,
+            oldest_active_run_governed_target=active_run_status.oldest_active_run_governed_target,
+            oldest_active_run_acquired_at_utc=active_run_status.oldest_active_run_acquired_at_utc,
+            oldest_active_run_age_seconds=active_run_status.oldest_active_run_age_seconds,
+            latest_reclaimed_run_operator_id=active_run_status.latest_reclaimed_run_operator_id,
+            latest_reclaimed_run_tenant_id=active_run_status.latest_reclaimed_run_tenant_id,
+            latest_reclaimed_run_governed_target=active_run_status.latest_reclaimed_run_governed_target,
+            latest_reclaimed_run_acquired_at_utc=active_run_status.latest_reclaimed_run_acquired_at_utc,
+            latest_reclaimed_run_reclaimed_at_utc=active_run_status.latest_reclaimed_run_reclaimed_at_utc,
+            latest_reclaimed_run_age_seconds=active_run_status.latest_reclaimed_run_age_seconds,
+            reclaimed_run_count=active_run_status.reclaimed_run_count,
+            recent_reclaimed_runs=active_run_status.recent_reclaimed_runs,
             preview_status="unavailable",
             preview_reason="runtime_retention_preview_unavailable",
             current_cutoff_utc=None,
@@ -461,6 +633,7 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
         }:
             return _build_missing_runtime_retention_status(
                 threshold=threshold,
+                active_run_status=active_run_status,
                 preview_status=preview_status,
                 preview_reason=preview_reason,
                 preview_summary=preview_summary,
@@ -468,6 +641,22 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
         return RuntimeRetentionStatus(
             status="unavailable",
             reason=snapshot.reason or snapshot.status,
+            active_run_status=active_run_status.status,
+            active_run_reason=active_run_status.reason,
+            active_run_count=active_run_status.active_run_count,
+            oldest_active_run_operator_id=active_run_status.oldest_active_run_operator_id,
+            oldest_active_run_tenant_id=active_run_status.oldest_active_run_tenant_id,
+            oldest_active_run_governed_target=active_run_status.oldest_active_run_governed_target,
+            oldest_active_run_acquired_at_utc=active_run_status.oldest_active_run_acquired_at_utc,
+            oldest_active_run_age_seconds=active_run_status.oldest_active_run_age_seconds,
+            latest_reclaimed_run_operator_id=active_run_status.latest_reclaimed_run_operator_id,
+            latest_reclaimed_run_tenant_id=active_run_status.latest_reclaimed_run_tenant_id,
+            latest_reclaimed_run_governed_target=active_run_status.latest_reclaimed_run_governed_target,
+            latest_reclaimed_run_acquired_at_utc=active_run_status.latest_reclaimed_run_acquired_at_utc,
+            latest_reclaimed_run_reclaimed_at_utc=active_run_status.latest_reclaimed_run_reclaimed_at_utc,
+            latest_reclaimed_run_age_seconds=active_run_status.latest_reclaimed_run_age_seconds,
+            reclaimed_run_count=active_run_status.reclaimed_run_count,
+            recent_reclaimed_runs=active_run_status.recent_reclaimed_runs,
             preview_status=preview_status,
             preview_reason=preview_reason,
             current_cutoff_utc=None if preview_summary is None else preview_summary.cutoff_utc,
@@ -502,6 +691,7 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
     if not snapshot.entries:
         return _build_missing_runtime_retention_status(
             threshold=threshold,
+            active_run_status=active_run_status,
             preview_status=preview_status,
             preview_reason=preview_reason,
             preview_summary=preview_summary,
@@ -527,10 +717,47 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
                 threshold_value=_as_decimal_number(threshold),
             )
         )
+    if (
+        active_run_age_threshold > 0
+        and active_run_status.status == "active"
+        and active_run_status.oldest_active_run_age_seconds is not None
+        and active_run_status.oldest_active_run_age_seconds >= active_run_age_threshold
+    ):
+        degradation_details.append(
+            RuntimeDegradationDetail(
+                reason="runtime_retention_active_run_age_exceeded",
+                observed_value=_as_decimal_number(active_run_status.oldest_active_run_age_seconds),
+                threshold_value=_as_decimal_number(active_run_age_threshold),
+            )
+        )
+    if reclaim_threshold > 0 and active_run_status.reclaimed_run_count >= reclaim_threshold:
+        degradation_details.append(
+            RuntimeDegradationDetail(
+                reason="runtime_retention_reclaim_pressure_exceeded",
+                observed_value=_as_decimal_number(active_run_status.reclaimed_run_count),
+                threshold_value=_as_decimal_number(reclaim_threshold),
+            )
+        )
     reasons: tuple[str, ...] = tuple(detail.reason for detail in degradation_details)
     return RuntimeRetentionStatus(
         status="degraded" if reasons else "available",
         reason=reasons[0] if reasons else None,
+        active_run_status=active_run_status.status,
+        active_run_reason=active_run_status.reason,
+        active_run_count=active_run_status.active_run_count,
+        oldest_active_run_operator_id=active_run_status.oldest_active_run_operator_id,
+        oldest_active_run_tenant_id=active_run_status.oldest_active_run_tenant_id,
+        oldest_active_run_governed_target=active_run_status.oldest_active_run_governed_target,
+        oldest_active_run_acquired_at_utc=active_run_status.oldest_active_run_acquired_at_utc,
+        oldest_active_run_age_seconds=active_run_status.oldest_active_run_age_seconds,
+        latest_reclaimed_run_operator_id=active_run_status.latest_reclaimed_run_operator_id,
+        latest_reclaimed_run_tenant_id=active_run_status.latest_reclaimed_run_tenant_id,
+        latest_reclaimed_run_governed_target=active_run_status.latest_reclaimed_run_governed_target,
+        latest_reclaimed_run_acquired_at_utc=active_run_status.latest_reclaimed_run_acquired_at_utc,
+        latest_reclaimed_run_reclaimed_at_utc=active_run_status.latest_reclaimed_run_reclaimed_at_utc,
+        latest_reclaimed_run_age_seconds=active_run_status.latest_reclaimed_run_age_seconds,
+        reclaimed_run_count=active_run_status.reclaimed_run_count,
+        recent_reclaimed_runs=active_run_status.recent_reclaimed_runs,
         preview_status=preview_status,
         preview_reason=preview_reason,
         current_cutoff_utc=None if preview_summary is None else preview_summary.cutoff_utc,
@@ -708,7 +935,11 @@ def _as_decimal_number(value: object) -> Decimal:
     return Decimal(str(value))
 
 
-def _build_missing_recovery_drill_status(*, threshold: float) -> RecoveryDrillStatus:
+def _build_missing_recovery_drill_status(
+    *,
+    threshold: float,
+    active_run_status: OperatorActionStatus,
+) -> RecoveryDrillStatus:
     details: tuple[RuntimeDegradationDetail, ...] = ()
     missing_history_reasons: tuple[str, ...] = ()
     if threshold > 0:
@@ -723,6 +954,22 @@ def _build_missing_recovery_drill_status(*, threshold: float) -> RecoveryDrillSt
     return RecoveryDrillStatus(
         status="available" if not missing_history_reasons else "degraded",
         reason=None if not missing_history_reasons else missing_history_reasons[0],
+        active_run_status=active_run_status.status,
+        active_run_reason=active_run_status.reason,
+        active_run_count=active_run_status.active_run_count,
+        oldest_active_run_operator_id=active_run_status.oldest_active_run_operator_id,
+        oldest_active_run_tenant_id=active_run_status.oldest_active_run_tenant_id,
+        oldest_active_run_governed_target=active_run_status.oldest_active_run_governed_target,
+        oldest_active_run_acquired_at_utc=active_run_status.oldest_active_run_acquired_at_utc,
+        oldest_active_run_age_seconds=active_run_status.oldest_active_run_age_seconds,
+        latest_reclaimed_run_operator_id=active_run_status.latest_reclaimed_run_operator_id,
+        latest_reclaimed_run_tenant_id=active_run_status.latest_reclaimed_run_tenant_id,
+        latest_reclaimed_run_governed_target=active_run_status.latest_reclaimed_run_governed_target,
+        latest_reclaimed_run_acquired_at_utc=active_run_status.latest_reclaimed_run_acquired_at_utc,
+        latest_reclaimed_run_reclaimed_at_utc=active_run_status.latest_reclaimed_run_reclaimed_at_utc,
+        latest_reclaimed_run_age_seconds=active_run_status.latest_reclaimed_run_age_seconds,
+        reclaimed_run_count=active_run_status.reclaimed_run_count,
+        recent_reclaimed_runs=active_run_status.recent_reclaimed_runs,
         latest_generated_at_utc=None,
         latest_status=None,
         latest_operator_id=None,
@@ -736,6 +983,7 @@ def _build_missing_recovery_drill_status(*, threshold: float) -> RecoveryDrillSt
 def _build_missing_runtime_retention_status(
     *,
     threshold: float,
+    active_run_status: OperatorActionStatus,
     preview_status: str,
     preview_reason: str | None,
     preview_summary,
@@ -754,6 +1002,22 @@ def _build_missing_runtime_retention_status(
     return RuntimeRetentionStatus(
         status="available" if not missing_history_reasons else "degraded",
         reason=None if not missing_history_reasons else missing_history_reasons[0],
+        active_run_status=active_run_status.status,
+        active_run_reason=active_run_status.reason,
+        active_run_count=active_run_status.active_run_count,
+        oldest_active_run_operator_id=active_run_status.oldest_active_run_operator_id,
+        oldest_active_run_tenant_id=active_run_status.oldest_active_run_tenant_id,
+        oldest_active_run_governed_target=active_run_status.oldest_active_run_governed_target,
+        oldest_active_run_acquired_at_utc=active_run_status.oldest_active_run_acquired_at_utc,
+        oldest_active_run_age_seconds=active_run_status.oldest_active_run_age_seconds,
+        latest_reclaimed_run_operator_id=active_run_status.latest_reclaimed_run_operator_id,
+        latest_reclaimed_run_tenant_id=active_run_status.latest_reclaimed_run_tenant_id,
+        latest_reclaimed_run_governed_target=active_run_status.latest_reclaimed_run_governed_target,
+        latest_reclaimed_run_acquired_at_utc=active_run_status.latest_reclaimed_run_acquired_at_utc,
+        latest_reclaimed_run_reclaimed_at_utc=active_run_status.latest_reclaimed_run_reclaimed_at_utc,
+        latest_reclaimed_run_age_seconds=active_run_status.latest_reclaimed_run_age_seconds,
+        reclaimed_run_count=active_run_status.reclaimed_run_count,
+        recent_reclaimed_runs=active_run_status.recent_reclaimed_runs,
         preview_status=preview_status,
         preview_reason=preview_reason,
         current_cutoff_utc=None if preview_summary is None else preview_summary.cutoff_utc,
@@ -790,6 +1054,145 @@ def _build_runtime_retention_preview():
         return "available", None, summary
     except Exception as exc:
         return "unavailable", type(exc).__name__, None
+
+
+def _build_operator_action_status(*, artifact_directory, action_name: str) -> OperatorActionStatus:
+    try:
+        snapshot = build_operator_action_lease_snapshot(
+            artifact_directory=artifact_directory,
+            action_name=action_name,
+        )
+    except Exception as exc:
+        return OperatorActionStatus(
+            status="unavailable",
+            reason=type(exc).__name__,
+            active_run_count=0,
+            oldest_active_run_operator_id=None,
+            oldest_active_run_tenant_id=None,
+            oldest_active_run_governed_target=None,
+            oldest_active_run_acquired_at_utc=None,
+            oldest_active_run_age_seconds=None,
+            latest_reclaimed_run_operator_id=None,
+            latest_reclaimed_run_tenant_id=None,
+            latest_reclaimed_run_governed_target=None,
+            latest_reclaimed_run_acquired_at_utc=None,
+            latest_reclaimed_run_reclaimed_at_utc=None,
+            latest_reclaimed_run_age_seconds=None,
+            reclaimed_run_count=0,
+            recent_reclaimed_runs=(),
+        )
+    if snapshot.status != "available":
+        return OperatorActionStatus(
+            status="unavailable",
+            reason=snapshot.reason,
+            active_run_count=0,
+            oldest_active_run_operator_id=None,
+            oldest_active_run_tenant_id=None,
+            oldest_active_run_governed_target=None,
+            oldest_active_run_acquired_at_utc=None,
+            oldest_active_run_age_seconds=None,
+            latest_reclaimed_run_operator_id=None,
+            latest_reclaimed_run_tenant_id=None,
+            latest_reclaimed_run_governed_target=None,
+            latest_reclaimed_run_acquired_at_utc=None,
+            latest_reclaimed_run_reclaimed_at_utc=None,
+            latest_reclaimed_run_age_seconds=None,
+            reclaimed_run_count=0,
+            recent_reclaimed_runs=(),
+        )
+    latest_reclaimed_run = snapshot.latest_reclaimed_lease
+    recent_reclaimed_runs = _build_recent_operator_action_reclaims(snapshot=snapshot)
+    latest_reclaimed_run_age_seconds = None
+    if latest_reclaimed_run is not None:
+        reclaimed_at = datetime.fromisoformat(latest_reclaimed_run.reclaimed_at_utc.replace("Z", "+00:00"))
+        if reclaimed_at.tzinfo is None:
+            reclaimed_at = reclaimed_at.replace(tzinfo=UTC)
+        else:
+            reclaimed_at = reclaimed_at.astimezone(UTC)
+        latest_reclaimed_run_age_seconds = max(0.0, (datetime.now(UTC) - reclaimed_at).total_seconds())
+    if not snapshot.active_leases:
+        return OperatorActionStatus(
+            status="available",
+            reason=None,
+            active_run_count=0,
+            oldest_active_run_operator_id=None,
+            oldest_active_run_tenant_id=None,
+            oldest_active_run_governed_target=None,
+            oldest_active_run_acquired_at_utc=None,
+            oldest_active_run_age_seconds=None,
+            latest_reclaimed_run_operator_id=(
+                None if latest_reclaimed_run is None else latest_reclaimed_run.operator_id
+            ),
+            latest_reclaimed_run_tenant_id=None if latest_reclaimed_run is None else latest_reclaimed_run.tenant_id,
+            latest_reclaimed_run_governed_target=(
+                None if latest_reclaimed_run is None else latest_reclaimed_run.governed_target
+            ),
+            latest_reclaimed_run_acquired_at_utc=(
+                None if latest_reclaimed_run is None else latest_reclaimed_run.acquired_at_utc
+            ),
+            latest_reclaimed_run_reclaimed_at_utc=(
+                None if latest_reclaimed_run is None else latest_reclaimed_run.reclaimed_at_utc
+            ),
+            latest_reclaimed_run_age_seconds=latest_reclaimed_run_age_seconds,
+            reclaimed_run_count=0 if latest_reclaimed_run is None else latest_reclaimed_run.reclaim_count,
+            recent_reclaimed_runs=recent_reclaimed_runs,
+        )
+    oldest = snapshot.active_leases[0]
+    acquired_at = datetime.fromisoformat(oldest.acquired_at_utc.replace("Z", "+00:00"))
+    if acquired_at.tzinfo is None:
+        acquired_at = acquired_at.replace(tzinfo=UTC)
+    else:
+        acquired_at = acquired_at.astimezone(UTC)
+    return OperatorActionStatus(
+        status="active",
+        reason=None,
+        active_run_count=len(snapshot.active_leases),
+        oldest_active_run_operator_id=oldest.operator_id,
+        oldest_active_run_tenant_id=oldest.tenant_id,
+        oldest_active_run_governed_target=oldest.governed_target,
+        oldest_active_run_acquired_at_utc=oldest.acquired_at_utc,
+        oldest_active_run_age_seconds=max(0.0, (datetime.now(UTC) - acquired_at).total_seconds()),
+        latest_reclaimed_run_operator_id=None if latest_reclaimed_run is None else latest_reclaimed_run.operator_id,
+        latest_reclaimed_run_tenant_id=None if latest_reclaimed_run is None else latest_reclaimed_run.tenant_id,
+        latest_reclaimed_run_governed_target=(
+            None if latest_reclaimed_run is None else latest_reclaimed_run.governed_target
+        ),
+        latest_reclaimed_run_acquired_at_utc=(
+            None if latest_reclaimed_run is None else latest_reclaimed_run.acquired_at_utc
+        ),
+        latest_reclaimed_run_reclaimed_at_utc=(
+            None if latest_reclaimed_run is None else latest_reclaimed_run.reclaimed_at_utc
+        ),
+        latest_reclaimed_run_age_seconds=latest_reclaimed_run_age_seconds,
+        reclaimed_run_count=0 if latest_reclaimed_run is None else latest_reclaimed_run.reclaim_count,
+        recent_reclaimed_runs=recent_reclaimed_runs,
+    )
+
+
+def _build_recent_operator_action_reclaims(*, snapshot) -> tuple[RecentOperatorActionReclaim, ...]:
+    events = tuple(getattr(snapshot, "recent_reclaimed_leases", ()))
+    return tuple(
+        RecentOperatorActionReclaim(
+            operator_id=event.operator_id,
+            tenant_id=event.tenant_id,
+            governed_target=event.governed_target,
+            acquired_at_utc=event.acquired_at_utc,
+            reclaimed_at_utc=event.reclaimed_at_utc,
+            reclaimed_age_seconds=max(
+                0.0,
+                (datetime.now(UTC) - _parse_reclaimed_at_utc(event.reclaimed_at_utc)).total_seconds(),
+            ),
+            reclaim_count=event.reclaim_count,
+        )
+        for event in events[:5]
+    )
+
+
+def _parse_reclaimed_at_utc(timestamp_utc: str) -> datetime:
+    reclaimed_at = datetime.fromisoformat(timestamp_utc.replace("Z", "+00:00"))
+    if reclaimed_at.tzinfo is None:
+        return reclaimed_at.replace(tzinfo=UTC)
+    return reclaimed_at.astimezone(UTC)
 
 
 def _collect_runtime_degradation_reasons(
@@ -863,10 +1266,22 @@ def _build_lineage_queue_policy(*, settings) -> LineageQueueDegradationPolicy:
 def _build_recovery_drill_policy(*, settings) -> RecoveryDrillDegradationPolicy:
     return RecoveryDrillDegradationPolicy(
         max_age_seconds=getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS", 0.0),
+        active_run_age_seconds=getattr(
+            settings,
+            "RUNTIME_STATUS_RECOVERY_DRILL_ACTIVE_RUN_AGE_DEGRADE_SECONDS",
+            0.0,
+        ),
+        reclaim_count=getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT", 0),
     )
 
 
 def _build_runtime_retention_policy(*, settings) -> RuntimeRetentionDegradationPolicy:
     return RuntimeRetentionDegradationPolicy(
         max_age_seconds=getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS", 0.0),
+        active_run_age_seconds=getattr(
+            settings,
+            "RUNTIME_STATUS_RUNTIME_RETENTION_ACTIVE_RUN_AGE_DEGRADE_SECONDS",
+            0.0,
+        ),
+        reclaim_count=getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT", 0),
     )

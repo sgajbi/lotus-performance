@@ -36,6 +36,16 @@ class LineageStorageCapacitySnapshot:
 
 
 def check_durable_metadata_store_ready() -> DurabilityHealthStatus:
+    metadata_store_status = check_durable_metadata_schema_ready()
+    if not metadata_store_status.is_ready:
+        return metadata_store_status
+    lineage_storage_status = check_lineage_storage_ready()
+    if not lineage_storage_status.is_ready:
+        return lineage_storage_status
+    return DurabilityHealthStatus(is_ready=True, status="ready")
+
+
+def check_durable_metadata_schema_ready() -> DurabilityHealthStatus:
     execution_registry = get_execution_registry()
     try:
         execution_registry.ping()
@@ -52,9 +62,6 @@ def check_durable_metadata_store_ready() -> DurabilityHealthStatus:
             status="unavailable",
             reason="durable_metadata_schema_incomplete",
         )
-    lineage_storage_status = check_lineage_storage_ready()
-    if not lineage_storage_status.is_ready:
-        return lineage_storage_status
     return DurabilityHealthStatus(is_ready=True, status="ready")
 
 

@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 
+from app.core.config import get_settings
 from app.models.runtime_retention_history import (
     RuntimeRetentionCleanupRunRequest,
     RuntimeRetentionCleanupRunResponse,
@@ -11,6 +14,16 @@ from app.models.runtime_retention_history import (
     build_runtime_retention_cleanup_run_response,
     build_runtime_retention_history_response,
 )
+from app.services.operator_action_guard_service import (
+    enforce_runtime_retention_apply_preview,
+    enforce_runtime_retention_manual_run_cooldown,
+)
+from app.services.operator_action_lease_service import (
+    OperatorActionLeaseMetadata,
+    build_runtime_retention_action_key,
+    operator_action_lease,
+)
+from app.services.operator_action_replay_service import resolve_runtime_retention_manual_replay
 from app.services.runtime_retention_execution_service import execute_runtime_retention_cleanup
 from app.services.runtime_retention_history_service import build_runtime_retention_history_snapshot
 
@@ -114,15 +127,74 @@ async def run_runtime_retention_cleanup(
     request: Request,
     cleanup_request: RuntimeRetentionCleanupRunRequest,
 ) -> RuntimeRetentionCleanupRunResponse:
-    evidence = execute_runtime_retention_cleanup(
+    settings = get_settings()
+    operator_id = _resolve_operator_identity(request)
+    tenant_id = _resolve_tenant_id(request)
+    correlation_id = _resolve_correlation_id(request)
+    resolved_retention_days = cleanup_request.retention_days or settings.RUNTIME_RETENTION_DAYS
+    history_snapshot = build_runtime_retention_history_snapshot(limit=100, trigger_mode="manual")
+    replay = resolve_runtime_retention_manual_replay(
+        history_snapshot,
+        artifact_directory=settings.RUNTIME_RETENTION_ARTIFACT_PATH,
+        operator_id=operator_id,
+        tenant_id=tenant_id,
+        correlation_id=correlation_id,
         apply=cleanup_request.apply,
         retention_days=cleanup_request.retention_days,
-        operator_id=_resolve_operator_identity(request),
-        tenant_id=_resolve_tenant_id(request),
-        correlation_id=_resolve_correlation_id(request),
-        trigger_mode="manual",
         job_id=cleanup_request.job_id,
     )
+    if replay is not None:
+        return JSONResponse(
+            status_code=200,
+            content=build_runtime_retention_cleanup_run_response(**replay.payload).model_dump(mode="json"),
+            headers={"X-Idempotent-Replay": "true"},
+        )
+    if cleanup_request.apply:
+        enforce_runtime_retention_apply_preview(
+            history_snapshot,
+            operator_id=operator_id,
+            tenant_id=tenant_id,
+            retention_days=resolved_retention_days,
+            job_id=cleanup_request.job_id,
+            preview_max_age_seconds=settings.RUNTIME_RETENTION_APPLY_PREVIEW_MAX_AGE_SECONDS,
+        )
+    enforce_runtime_retention_manual_run_cooldown(
+        history_snapshot,
+        apply=cleanup_request.apply,
+        operator_id=operator_id,
+        tenant_id=tenant_id,
+        retention_days=resolved_retention_days,
+        job_id=cleanup_request.job_id,
+        cooldown_seconds=settings.RUNTIME_RETENTION_MANUAL_RUN_COOLDOWN_SECONDS,
+    )
+    action_key = build_runtime_retention_action_key(
+        operator_id=operator_id,
+        tenant_id=tenant_id,
+        apply=cleanup_request.apply,
+        retention_days=resolved_retention_days,
+        job_id=cleanup_request.job_id,
+    )
+    with operator_action_lease(
+        artifact_directory=settings.RUNTIME_RETENTION_ARTIFACT_PATH,
+        action_key=action_key,
+        metadata=OperatorActionLeaseMetadata(
+            action_name="runtime_retention_cleanup",
+            operator_id=operator_id,
+            tenant_id=tenant_id,
+            governed_target=f"{'apply' if cleanup_request.apply else 'dry_run'}:{resolved_retention_days}:{cleanup_request.job_id or 'no-job'}",
+            acquired_at_utc=datetime.now(UTC).isoformat(),
+        ),
+        stale_after_seconds=settings.RUNTIME_RETENTION_ACTION_LEASE_STALE_SECONDS,
+    ):
+        evidence = execute_runtime_retention_cleanup(
+            apply=cleanup_request.apply,
+            retention_days=cleanup_request.retention_days,
+            operator_id=operator_id,
+            tenant_id=tenant_id,
+            correlation_id=correlation_id,
+            trigger_mode="manual",
+            job_id=cleanup_request.job_id,
+        )
     return build_runtime_retention_cleanup_run_response(
         cleanup_name=evidence.cleanup_name,
         generated_at_utc=evidence.generated_at_utc,

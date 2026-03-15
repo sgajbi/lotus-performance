@@ -72,7 +72,7 @@ policy logic outside the service. Severity defaults here follow
     service: lotus-performance
   annotations:
     summary: "lotus-performance recovery drill breach"
-    description: "The latest retained recovery drill is stale or failed."
+    description: "The latest retained recovery drill is stale, an active governed drill is stuck, failed, or repeatedly recovering stale governed-action leases."
     runbook: "docs/runbooks/runtime-alerts.md"
 ```
 
@@ -87,7 +87,7 @@ policy logic outside the service. Severity defaults here follow
     service: lotus-performance
   annotations:
     summary: "lotus-performance runtime retention breach"
-    description: "The latest retained runtime-retention cleanup is stale or was not applied."
+    description: "The latest retained runtime-retention cleanup is stale, an active governed cleanup is stuck, was not applied, or is repeatedly recovering stale governed-action leases."
     runbook: "docs/runbooks/runtime-alerts.md"
 ```
 

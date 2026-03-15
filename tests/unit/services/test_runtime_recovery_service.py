@@ -8,7 +8,7 @@ from app.services.runtime_recovery_service import build_runtime_recovery_snapsho
 
 def test_runtime_recovery_snapshot_reports_partial_queue_failure(mocker):
     mocker.patch(
-        "app.services.runtime_recovery_service.check_durable_metadata_store_ready",
+        "app.services.runtime_recovery_service.check_durable_metadata_schema_ready",
         return_value=DurabilityHealthStatus(is_ready=True, status="ready", reason=None),
     )
     mocker.patch(
@@ -48,7 +48,7 @@ def test_runtime_recovery_snapshot_reports_partial_queue_failure(mocker):
 
 def test_runtime_recovery_snapshot_excludes_unselected_queue(mocker):
     mocker.patch(
-        "app.services.runtime_recovery_service.check_durable_metadata_store_ready",
+        "app.services.runtime_recovery_service.check_durable_metadata_schema_ready",
         return_value=DurabilityHealthStatus(is_ready=True, status="ready", reason=None),
     )
     compute_list = mocker.patch(
@@ -96,7 +96,7 @@ def test_runtime_recovery_snapshot_passes_time_filters_and_next_offset(mocker):
     recovered_after = datetime(2026, 3, 14, 0, 0, tzinfo=UTC)
     recovered_before = datetime(2026, 3, 14, 12, 0, tzinfo=UTC)
     mocker.patch(
-        "app.services.runtime_recovery_service.check_durable_metadata_store_ready",
+        "app.services.runtime_recovery_service.check_durable_metadata_schema_ready",
         return_value=DurabilityHealthStatus(is_ready=True, status="ready", reason=None),
     )
     compute_list = mocker.patch(
@@ -154,7 +154,7 @@ def test_runtime_recovery_snapshot_passes_time_filters_and_next_offset(mocker):
 def test_runtime_recovery_snapshot_passes_seek_cursor(mocker):
     cursor_recovered_before = datetime(2026, 3, 14, 12, 0, tzinfo=UTC)
     mocker.patch(
-        "app.services.runtime_recovery_service.check_durable_metadata_store_ready",
+        "app.services.runtime_recovery_service.check_durable_metadata_schema_ready",
         return_value=DurabilityHealthStatus(is_ready=True, status="ready", reason=None),
     )
     compute_list = mocker.patch(
@@ -203,3 +203,48 @@ def test_runtime_recovery_snapshot_passes_seek_cursor(mocker):
     )
     assert snapshot.cursor_recovered_before == cursor_recovered_before
     assert snapshot.cursor_calculation_id_before == "calc-9"
+
+
+def test_runtime_recovery_snapshot_ignores_lineage_storage_outage_when_metadata_is_ready(mocker):
+    mocker.patch(
+        "app.services.runtime_recovery_service.check_durable_metadata_schema_ready",
+        return_value=DurabilityHealthStatus(is_ready=True, status="ready", reason=None),
+    )
+    compute_list = mocker.patch(
+        "app.services.runtime_recovery_service.compute_job_store.list_recent_recoveries",
+        return_value=ComputeRecoveryEventPage(
+            total_count=1,
+            next_offset=None,
+            next_cursor_recovered_before=None,
+            next_cursor_calculation_id_before=None,
+            items=[],
+        ),
+    )
+    mocker.patch(
+        "app.services.runtime_recovery_service.lineage_metadata_store.list_recent_recoveries",
+        return_value=LineageRecoveryEventPage(
+            total_count=0,
+            next_offset=None,
+            next_cursor_recovered_before=None,
+            next_cursor_calculation_id_before=None,
+            items=[],
+        ),
+    )
+
+    snapshot = build_runtime_recovery_snapshot(
+        queue_filter="compute",
+        limit=5,
+        offset=0,
+        recovered_after=None,
+        recovered_before=None,
+        cursor_recovered_before=None,
+        cursor_calculation_id_before=None,
+        calculation_id_contains=None,
+        compute_analytics_type=None,
+        lineage_calculation_type=None,
+    )
+
+    assert snapshot.durable_metadata_store.status == "ready"
+    assert snapshot.compute_queue.status == "available"
+    assert snapshot.compute_queue.total_count == 1
+    compute_list.assert_called_once()

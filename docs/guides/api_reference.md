@@ -133,7 +133,11 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - a bounded `recent_recoveries` list for lineage showing the latest requeued items, recovery kind, timestamp, and attempt count
   - lineage `degradation_details`
   - lineage `degradation_reasons`
+  - governed recovery-drill action visibility with active-run status, count, and oldest active-run anchor fields
+  - latest stale recovery-drill reclaim visibility with the reclaimed operator, target, acquisition time, reclaim time, reclaim age, and cumulative reclaim count
   - retained runtime-retention cleanup assurance with latest operator, cleanup mode, retention window, freshness, and live dry-run preview counts under the current policy
+  - governed runtime-retention action visibility with active-run status, count, and oldest active-run anchor fields
+  - latest stale runtime-retention reclaim visibility with the reclaimed operator, target, acquisition time, reclaim time, reclaim age, and cumulative reclaim count
 - runtime may report `degraded` when configured queue-age or failure-pressure thresholds are exceeded
 - runtime also reports `degraded` when lineage storage is missing, invalid, or unreadable even if the durable DB remains healthy
 - runtime can also report lineage-storage saturation pressure before writes fail:
@@ -219,12 +223,17 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 - privileged-write auth:
   - when `ENTERPRISE_ENFORCE_AUTHZ=true`, this route requires enterprise identity headers
   - default governed capability: `operations.runtime.manage`
+  - allowed access is enterprise-audited with governed surface and required-capability metadata
 - request includes:
   - `backup_identifier`
 - response includes:
   - immediate recovery-drill summary for the run that just executed
   - operator identity carried from `X-Actor-Id` or `X-Service-Identity`
   - retained enterprise request context from `X-Tenant-Id` and `X-Correlation-Id` when supplied
+  - same-correlation retries replay the original retained evidence only when operator and tenant ownership also match, returning `X-Idempotent-Replay: true`; otherwise the request is treated as a fresh governed action
+  - `409` plus `Retry-After` when a recent matching manual drill for the same operator, tenant, and backup identifier already completed inside the configured cooldown window
+  - `409` when the same governed drill is already running in-flight for the same operator, tenant, and backup identifier
+  - stale in-flight drill leases are reclaimed automatically after the configured stale threshold instead of blocking forever after a crash
 - use this when an operator needs an audited recovery drill without shell access
 
 ### `GET /integration/runtime-retention-cleanups`
@@ -247,6 +256,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 - privileged-write auth:
   - when `ENTERPRISE_ENFORCE_AUTHZ=true`, this route requires enterprise identity headers
   - default governed capability: `operations.runtime.manage`
+  - allowed access is enterprise-audited with governed surface and required-capability metadata
 - request includes:
   - `apply`
   - optional `retention_days`
@@ -256,6 +266,11 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - operator identity carried from `X-Actor-Id` or `X-Service-Identity`
   - retained enterprise request context from `X-Tenant-Id` and `X-Correlation-Id` when supplied
   - `trigger_mode="manual"` for this control-plane action path
+  - same-correlation retries replay the original retained evidence only when operator and tenant ownership also match, returning `X-Idempotent-Replay: true`; otherwise the request is treated as a fresh governed action
+  - `apply=true` requires a recent matching `dry_run` preview for the same governed request shape before execution
+  - `409` plus `Retry-After` when a recent manual cleanup already completed inside the configured cooldown window
+  - `409` when the same governed cleanup action is already running in-flight for the same operator, tenant, action mode, retention window, and job identity
+  - stale in-flight cleanup leases are reclaimed automatically after the configured stale threshold instead of blocking forever after a crash
 - use this when an operator needs an audited cleanup preview or a deliberate apply action without shell access
 
 ### `POST /integration/returns/series`
@@ -319,16 +334,27 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - `lotus_performance_lineage_queue_degradation_breach{reason=...}`
 - includes recovery assurance metrics:
   - `lotus_performance_recovery_drill_availability`
+  - `lotus_performance_recovery_drill_action_availability`
+  - `lotus_performance_recovery_drill_active_actions`
+  - `lotus_performance_recovery_drill_oldest_active_action_age_seconds`
+  - `lotus_performance_recovery_drill_latest_reclaimed_action_age_seconds`
+  - `lotus_performance_recovery_drill_reclaimed_actions`
   - `lotus_performance_recovery_drill_latest_age_seconds`
-  - `lotus_performance_recovery_drill_policy_threshold{threshold="max_age_seconds"}`
-  - `lotus_performance_recovery_drill_degradation_breach{reason="recovery_drill_latest_not_passed|recovery_drill_age_exceeded"}`
+  - `lotus_performance_recovery_drill_policy_threshold{threshold="max_age_seconds|active_run_age_seconds|reclaim_count"}`
+  - `lotus_performance_recovery_drill_degradation_breach{reason="recovery_drill_latest_not_passed|recovery_drill_age_exceeded|recovery_drill_active_run_age_exceeded|recovery_drill_reclaim_pressure_exceeded"}`
 - includes runtime-retention lifecycle metrics:
   - `lotus_performance_runtime_retention_availability`
+  - `lotus_performance_runtime_retention_action_availability`
+  - `lotus_performance_runtime_retention_active_actions`
+  - `lotus_performance_runtime_retention_oldest_active_action_age_seconds`
+  - `lotus_performance_runtime_retention_latest_reclaimed_action_age_seconds`
+  - `lotus_performance_runtime_retention_reclaimed_actions`
   - `lotus_performance_runtime_retention_preview_availability`
   - `lotus_performance_runtime_retention_latest_age_seconds`
-  - `lotus_performance_runtime_retention_policy_threshold{threshold="max_age_seconds"}`
-  - `lotus_performance_runtime_retention_degradation_breach{reason="runtime_retention_latest_not_applied|runtime_retention_age_exceeded"}`
+  - `lotus_performance_runtime_retention_policy_threshold{threshold="max_age_seconds|active_run_age_seconds|reclaim_count"}`
+  - `lotus_performance_runtime_retention_degradation_breach{reason="runtime_retention_latest_not_applied|runtime_retention_age_exceeded|runtime_retention_active_run_age_exceeded|runtime_retention_reclaim_pressure_exceeded"}`
   - `lotus_performance_runtime_retention_prunable_items{category="execution|compute_job|async_result|lineage_record|lineage_artifact"}`
+- `GET /integration/runtime-status` now also carries bounded `recent_reclaimed_runs` lists for both governed action lanes, so operators can inspect the last few stale-lease recoveries without leaving the primary control-plane snapshot
 - includes lineage storage capacity metrics:
   - `lotus_performance_lineage_storage_capacity_availability`
   - `lotus_performance_lineage_storage_capacity_bytes{segment="total|used|free"}`

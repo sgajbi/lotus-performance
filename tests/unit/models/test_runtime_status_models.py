@@ -122,6 +122,36 @@ def test_build_runtime_status_response_serializes_snapshot_details():
         recovery_drill=RecoveryDrillStatus(
             status="degraded",
             reason="recovery_drill_age_exceeded",
+            active_run_status="active",
+            active_run_reason=None,
+            active_run_count=1,
+            oldest_active_run_operator_id="ops-user",
+            oldest_active_run_tenant_id="tenant-a",
+            oldest_active_run_governed_target="backup-123",
+            oldest_active_run_acquired_at_utc="2026-03-14T00:30:00Z",
+            oldest_active_run_age_seconds=1800.0,
+            latest_reclaimed_run_operator_id="ops-old",
+            latest_reclaimed_run_tenant_id="tenant-a",
+            latest_reclaimed_run_governed_target="backup-old",
+            latest_reclaimed_run_acquired_at_utc="2026-03-13T22:30:00Z",
+            latest_reclaimed_run_reclaimed_at_utc="2026-03-14T00:15:00Z",
+            latest_reclaimed_run_age_seconds=2700.0,
+            reclaimed_run_count=3,
+            recent_reclaimed_runs=(
+                type(
+                    "RecentReclaim",
+                    (),
+                    {
+                        "operator_id": "ops-old",
+                        "tenant_id": "tenant-a",
+                        "governed_target": "backup-old",
+                        "acquired_at_utc": "2026-03-13T22:30:00Z",
+                        "reclaimed_at_utc": "2026-03-14T00:15:00Z",
+                        "reclaimed_age_seconds": 2700.0,
+                        "reclaim_count": 3,
+                    },
+                )(),
+            ),
             latest_generated_at_utc="2026-03-13T00:00:00Z",
             latest_status="passed",
             latest_operator_id="ops-user",
@@ -139,6 +169,36 @@ def test_build_runtime_status_response_serializes_snapshot_details():
         runtime_retention=RuntimeRetentionStatus(
             status="degraded",
             reason="runtime_retention_age_exceeded",
+            active_run_status="active",
+            active_run_reason=None,
+            active_run_count=2,
+            oldest_active_run_operator_id="ops-batch",
+            oldest_active_run_tenant_id="tenant-a",
+            oldest_active_run_governed_target="apply:30:retention-nightly",
+            oldest_active_run_acquired_at_utc="2026-03-13T23:30:00Z",
+            oldest_active_run_age_seconds=1800.0,
+            latest_reclaimed_run_operator_id="ops-old-batch",
+            latest_reclaimed_run_tenant_id="tenant-a",
+            latest_reclaimed_run_governed_target="apply:30:old-job",
+            latest_reclaimed_run_acquired_at_utc="2026-03-13T22:00:00Z",
+            latest_reclaimed_run_reclaimed_at_utc="2026-03-13T23:15:00Z",
+            latest_reclaimed_run_age_seconds=4500.0,
+            reclaimed_run_count=4,
+            recent_reclaimed_runs=(
+                type(
+                    "RecentReclaim",
+                    (),
+                    {
+                        "operator_id": "ops-old-batch",
+                        "tenant_id": "tenant-a",
+                        "governed_target": "apply:30:old-job",
+                        "acquired_at_utc": "2026-03-13T22:00:00Z",
+                        "reclaimed_at_utc": "2026-03-13T23:15:00Z",
+                        "reclaimed_age_seconds": 4500.0,
+                        "reclaim_count": 4,
+                    },
+                )(),
+            ),
             preview_status="available",
             preview_reason=None,
             current_cutoff_utc="2026-02-13T00:00:00Z",
@@ -181,8 +241,16 @@ def test_build_runtime_status_response_serializes_snapshot_details():
             storage_min_free_bytes=200,
             storage_min_free_ratio=0.25,
         ),
-        recovery_drill_policy=RecoveryDrillDegradationPolicy(max_age_seconds=3600.0),
-        runtime_retention_policy=RuntimeRetentionDegradationPolicy(max_age_seconds=3600.0),
+        recovery_drill_policy=RecoveryDrillDegradationPolicy(
+            max_age_seconds=3600.0,
+            active_run_age_seconds=900.0,
+            reclaim_count=2,
+        ),
+        runtime_retention_policy=RuntimeRetentionDegradationPolicy(
+            max_age_seconds=3600.0,
+            active_run_age_seconds=1200.0,
+            reclaim_count=3,
+        ),
     )
 
     response = build_runtime_status_response(snapshot)
@@ -209,10 +277,24 @@ def test_build_runtime_status_response_serializes_snapshot_details():
     assert response.lineage_queue.storage_free_bytes == 300
     assert response.lineage_queue.storage_free_ratio == 0.3
     assert response.recovery_drill.status == "degraded"
+    assert response.recovery_drill.active_run_status == "active"
+    assert response.recovery_drill.active_run_count == 1
+    assert response.recovery_drill.oldest_active_run_governed_target == "backup-123"
+    assert response.recovery_drill.latest_reclaimed_run_operator_id == "ops-old"
+    assert response.recovery_drill.latest_reclaimed_run_governed_target == "backup-old"
+    assert response.recovery_drill.reclaimed_run_count == 3
+    assert response.recovery_drill.recent_reclaimed_runs[0].operator_id == "ops-old"
     assert response.recovery_drill.latest_status == "passed"
     assert response.recovery_drill.latest_operator_id == "ops-user"
     assert response.recovery_drill.degradation_reasons == ["recovery_drill_age_exceeded"]
     assert response.runtime_retention.status == "degraded"
+    assert response.runtime_retention.active_run_status == "active"
+    assert response.runtime_retention.active_run_count == 2
+    assert response.runtime_retention.oldest_active_run_governed_target == "apply:30:retention-nightly"
+    assert response.runtime_retention.latest_reclaimed_run_operator_id == "ops-old-batch"
+    assert response.runtime_retention.latest_reclaimed_run_governed_target == "apply:30:old-job"
+    assert response.runtime_retention.reclaimed_run_count == 4
+    assert response.runtime_retention.recent_reclaimed_runs[0].operator_id == "ops-old-batch"
     assert response.runtime_retention.preview_status == "available"
     assert response.runtime_retention.current_cutoff_utc == "2026-02-13T00:00:00Z"
     assert response.runtime_retention.current_prunable_execution_count == 7
@@ -227,7 +309,11 @@ def test_build_runtime_status_response_serializes_snapshot_details():
     assert response.lineage_queue_policy.storage_min_free_bytes == 200
     assert response.lineage_queue_policy.storage_min_free_ratio == 0.25
     assert response.recovery_drill_policy.max_age_seconds == 3600.0
+    assert response.recovery_drill_policy.active_run_age_seconds == 900.0
+    assert response.recovery_drill_policy.reclaim_count == 2
     assert response.runtime_retention_policy.max_age_seconds == 3600.0
+    assert response.runtime_retention_policy.active_run_age_seconds == 1200.0
+    assert response.runtime_retention_policy.reclaim_count == 3
 
 
 def test_build_runtime_status_response_handles_unavailable_queue_without_stats():
@@ -259,6 +345,22 @@ def test_build_runtime_status_response_handles_unavailable_queue_without_stats()
         recovery_drill=RecoveryDrillStatus(
             status="available",
             reason=None,
+            active_run_status="available",
+            active_run_reason=None,
+            active_run_count=0,
+            oldest_active_run_operator_id=None,
+            oldest_active_run_tenant_id=None,
+            oldest_active_run_governed_target=None,
+            oldest_active_run_acquired_at_utc=None,
+            oldest_active_run_age_seconds=None,
+            latest_reclaimed_run_operator_id=None,
+            latest_reclaimed_run_tenant_id=None,
+            latest_reclaimed_run_governed_target=None,
+            latest_reclaimed_run_acquired_at_utc=None,
+            latest_reclaimed_run_reclaimed_at_utc=None,
+            latest_reclaimed_run_age_seconds=None,
+            reclaimed_run_count=0,
+            recent_reclaimed_runs=(),
             latest_generated_at_utc=None,
             latest_status=None,
             latest_operator_id=None,
@@ -270,6 +372,22 @@ def test_build_runtime_status_response_handles_unavailable_queue_without_stats()
         runtime_retention=RuntimeRetentionStatus(
             status="available",
             reason=None,
+            active_run_status="available",
+            active_run_reason=None,
+            active_run_count=0,
+            oldest_active_run_operator_id=None,
+            oldest_active_run_tenant_id=None,
+            oldest_active_run_governed_target=None,
+            oldest_active_run_acquired_at_utc=None,
+            oldest_active_run_age_seconds=None,
+            latest_reclaimed_run_operator_id=None,
+            latest_reclaimed_run_tenant_id=None,
+            latest_reclaimed_run_governed_target=None,
+            latest_reclaimed_run_acquired_at_utc=None,
+            latest_reclaimed_run_reclaimed_at_utc=None,
+            latest_reclaimed_run_age_seconds=None,
+            reclaimed_run_count=0,
+            recent_reclaimed_runs=(),
             preview_status="unavailable",
             preview_reason="RuntimeError",
             current_cutoff_utc=None,
@@ -306,8 +424,16 @@ def test_build_runtime_status_response_handles_unavailable_queue_without_stats()
             storage_min_free_bytes=0,
             storage_min_free_ratio=0.0,
         ),
-        recovery_drill_policy=RecoveryDrillDegradationPolicy(max_age_seconds=0.0),
-        runtime_retention_policy=RuntimeRetentionDegradationPolicy(max_age_seconds=0.0),
+        recovery_drill_policy=RecoveryDrillDegradationPolicy(
+            max_age_seconds=0.0,
+            active_run_age_seconds=0.0,
+            reclaim_count=0,
+        ),
+        runtime_retention_policy=RuntimeRetentionDegradationPolicy(
+            max_age_seconds=0.0,
+            active_run_age_seconds=0.0,
+            reclaim_count=0,
+        ),
     )
 
     response = build_runtime_status_response(snapshot)
@@ -317,8 +443,10 @@ def test_build_runtime_status_response_handles_unavailable_queue_without_stats()
     assert response.compute_queue.pending_jobs is None
     assert response.lineage_queue.pending_payloads is None
     assert response.recovery_drill.status == "available"
+    assert response.recovery_drill.active_run_status == "available"
     assert response.recovery_drill.latest_status is None
     assert response.runtime_retention.status == "available"
+    assert response.runtime_retention.active_run_status == "available"
     assert response.runtime_retention.preview_status == "unavailable"
     assert response.runtime_retention.preview_reason == "RuntimeError"
     assert response.runtime_retention.latest_status is None

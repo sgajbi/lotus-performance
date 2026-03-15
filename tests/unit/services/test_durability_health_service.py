@@ -24,6 +24,29 @@ def test_durability_health_service_reports_ready(monkeypatch):
     assert status.reason is None
 
 
+def test_durable_metadata_schema_health_reports_ready_without_lineage_storage(monkeypatch):
+    registry = type(
+        "Registry",
+        (),
+        {
+            "ping": staticmethod(lambda: None),
+            "list_table_names": staticmethod(lambda: list(durability_health_service.REQUIRED_DURABLE_TABLES)),
+        },
+    )()
+    monkeypatch.setattr(durability_health_service, "get_execution_registry", lambda: registry)
+    monkeypatch.setattr(
+        durability_health_service,
+        "check_lineage_storage_ready",
+        lambda: (_ for _ in ()).throw(AssertionError("lineage storage should not be consulted")),
+    )
+
+    status = durability_health_service.check_durable_metadata_schema_ready()
+
+    assert status.is_ready is True
+    assert status.status == "ready"
+    assert status.reason is None
+
+
 def test_durability_health_service_reports_unavailable_on_ping_failure(monkeypatch):
     def _boom():
         raise RuntimeError("db down")

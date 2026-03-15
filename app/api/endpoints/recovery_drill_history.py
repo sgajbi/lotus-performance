@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 
 from app.core.config import get_settings
 from app.models.recovery_drill_history import (
@@ -12,6 +14,13 @@ from app.models.recovery_drill_history import (
     build_recovery_drill_history_response,
     build_recovery_drill_run_response,
 )
+from app.services.operator_action_guard_service import enforce_recovery_drill_manual_run_cooldown
+from app.services.operator_action_lease_service import (
+    OperatorActionLeaseMetadata,
+    build_recovery_drill_action_key,
+    operator_action_lease,
+)
+from app.services.operator_action_replay_service import resolve_recovery_drill_manual_replay
 from app.services.recovery_drill_history_service import build_recovery_drill_history_snapshot
 from scripts.durable_recovery_drill import run_recovery_drill as execute_recovery_drill
 
@@ -102,13 +111,56 @@ async def run_recovery_drill(
     request: Request,
     recovery_request: RecoveryDrillRunRequest,
 ) -> RecoveryDrillRunResponse:
-    evidence = execute_recovery_drill(
-        output_dir=get_settings().RECOVERY_DRILL_ARTIFACT_PATH,
-        operator_id=_resolve_operator_identity(request),
-        tenant_id=_resolve_tenant_id(request),
-        correlation_id=_resolve_correlation_id(request),
+    settings = get_settings()
+    operator_id = _resolve_operator_identity(request)
+    tenant_id = _resolve_tenant_id(request)
+    correlation_id = _resolve_correlation_id(request)
+    history_snapshot = build_recovery_drill_history_snapshot(limit=10)
+    replay = resolve_recovery_drill_manual_replay(
+        history_snapshot,
+        artifact_directory=settings.RECOVERY_DRILL_ARTIFACT_PATH,
+        operator_id=operator_id,
+        tenant_id=tenant_id,
+        correlation_id=correlation_id,
         backup_identifier=recovery_request.backup_identifier,
     )
+    if replay is not None:
+        return JSONResponse(
+            status_code=200,
+            content=build_recovery_drill_run_response(**replay.payload).model_dump(mode="json"),
+            headers={"X-Idempotent-Replay": "true"},
+        )
+    enforce_recovery_drill_manual_run_cooldown(
+        history_snapshot,
+        operator_id=operator_id,
+        tenant_id=tenant_id,
+        backup_identifier=recovery_request.backup_identifier,
+        cooldown_seconds=settings.RECOVERY_DRILL_MANUAL_RUN_COOLDOWN_SECONDS,
+    )
+    action_key = build_recovery_drill_action_key(
+        operator_id=operator_id,
+        tenant_id=tenant_id,
+        backup_identifier=recovery_request.backup_identifier,
+    )
+    with operator_action_lease(
+        artifact_directory=settings.RECOVERY_DRILL_ARTIFACT_PATH,
+        action_key=action_key,
+        metadata=OperatorActionLeaseMetadata(
+            action_name="recovery_drill",
+            operator_id=operator_id,
+            tenant_id=tenant_id,
+            governed_target=recovery_request.backup_identifier,
+            acquired_at_utc=datetime.now(UTC).isoformat(),
+        ),
+        stale_after_seconds=settings.RECOVERY_DRILL_ACTION_LEASE_STALE_SECONDS,
+    ):
+        evidence = execute_recovery_drill(
+            output_dir=settings.RECOVERY_DRILL_ARTIFACT_PATH,
+            operator_id=operator_id,
+            tenant_id=tenant_id,
+            correlation_id=correlation_id,
+            backup_identifier=recovery_request.backup_identifier,
+        )
     return build_recovery_drill_run_response(
         drill_name=evidence.drill_name,
         generated_at_utc=evidence.generated_at_utc,

@@ -1,9 +1,12 @@
+import os
+import shutil
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.config import get_settings
 from app.services.compute_job_store import compute_job_store
 from app.services.durability_health_service import DurabilityHealthStatus
 from app.services.lineage_metadata_store import LineagePayloadModel, lineage_metadata_store
@@ -15,6 +18,24 @@ from main import app
 
 @pytest.fixture(autouse=True)
 def _isolate_runtime_assurance_history(mocker):
+    settings = get_settings()
+    if os.path.exists(settings.LINEAGE_STORAGE_PATH):
+        shutil.rmtree(settings.LINEAGE_STORAGE_PATH)
+    os.makedirs(settings.LINEAGE_STORAGE_PATH, exist_ok=True)
+    mocker.patch(
+        "app.services.runtime_status_service.build_operator_action_lease_snapshot",
+        side_effect=lambda **kwargs: type(
+            "LeaseSnapshot",
+            (),
+            {
+                "status": "available",
+                "reason": None,
+                "active_leases": (),
+                "latest_reclaimed_lease": None,
+                "recent_reclaimed_leases": (),
+            },
+        )(),
+    )
     mocker.patch(
         "app.services.runtime_status_service.build_recovery_drill_history_snapshot",
         return_value=RecoveryDrillHistorySnapshot(
@@ -87,6 +108,9 @@ def _isolate_runtime_assurance_history(mocker):
             prunable_lineage_artifact_count=0,
         ),
     )
+    yield
+    if os.path.exists(settings.LINEAGE_STORAGE_PATH):
+        shutil.rmtree(settings.LINEAGE_STORAGE_PATH)
 
 
 def test_runtime_status_reports_durable_queue_state():
@@ -153,12 +177,287 @@ def test_runtime_status_reports_durable_queue_state():
     assert body["lineage_queue"]["inspection_anchors"].get("oldest_leased_calculation_id") is None
     assert body["lineage_queue"]["inspection_anchors"].get("latest_recovered_calculation_id") is None
     assert body["recovery_drill"]["status"] == "available"
+    assert body["recovery_drill"]["active_run_status"] == "available"
+    assert body["recovery_drill"]["active_run_count"] == 0
+    assert body["recovery_drill"].get("latest_reclaimed_run_operator_id") is None
+    assert body["recovery_drill"]["reclaimed_run_count"] == 0
     assert body["recovery_drill"]["degradation_reasons"] == []
     assert body["recovery_drill_policy"]["max_age_seconds"] >= 0.0
+    assert body["recovery_drill_policy"]["active_run_age_seconds"] >= 0.0
     assert body["runtime_retention"]["status"] == "available"
+    assert body["runtime_retention"]["active_run_status"] == "available"
+    assert body["runtime_retention"]["active_run_count"] == 0
+    assert body["runtime_retention"].get("latest_reclaimed_run_operator_id") is None
+    assert body["runtime_retention"]["reclaimed_run_count"] == 0
     assert body["runtime_retention"]["degradation_reasons"] == []
     assert body["runtime_retention"]["preview_status"] == "available"
     assert body["runtime_retention_policy"]["max_age_seconds"] >= 0.0
+    assert body["runtime_retention_policy"]["active_run_age_seconds"] >= 0.0
+
+
+def test_runtime_status_reports_active_governed_action_visibility(mocker):
+    mocker.patch(
+        "app.services.runtime_status_service.build_operator_action_lease_snapshot",
+        side_effect=[
+            type(
+                "LeaseSnapshot",
+                (),
+                {
+                    "status": "available",
+                    "reason": None,
+                    "active_leases": (
+                        type(
+                            "Lease",
+                            (),
+                            {
+                                "operator_id": "ops-user",
+                                "tenant_id": "tenant-a",
+                                "governed_target": "backup-123",
+                                "acquired_at_utc": "2026-03-14T00:00:00Z",
+                            },
+                        )(),
+                    ),
+                    "latest_reclaimed_lease": type(
+                        "Reclaim",
+                        (),
+                        {
+                            "operator_id": "ops-user-old",
+                            "tenant_id": "tenant-a",
+                            "governed_target": "backup-old",
+                            "acquired_at_utc": "2026-03-13T23:00:00Z",
+                            "reclaimed_at_utc": "2026-03-14T00:30:00Z",
+                            "reclaim_count": 3,
+                        },
+                    )(),
+                    "recent_reclaimed_leases": (
+                        type(
+                            "Reclaim",
+                            (),
+                            {
+                                "operator_id": "ops-user-old",
+                                "tenant_id": "tenant-a",
+                                "governed_target": "backup-old",
+                                "acquired_at_utc": "2026-03-13T23:00:00Z",
+                                "reclaimed_at_utc": "2026-03-14T00:30:00Z",
+                                "reclaim_count": 3,
+                            },
+                        )(),
+                    ),
+                },
+            )(),
+            type(
+                "LeaseSnapshot",
+                (),
+                {
+                    "status": "available",
+                    "reason": None,
+                    "active_leases": (
+                        type(
+                            "Lease",
+                            (),
+                            {
+                                "operator_id": "ops-batch",
+                                "tenant_id": "tenant-a",
+                                "governed_target": "apply:30:retention-nightly",
+                                "acquired_at_utc": "2026-03-14T01:00:00Z",
+                            },
+                        )(),
+                    ),
+                    "latest_reclaimed_lease": type(
+                        "Reclaim",
+                        (),
+                        {
+                            "operator_id": "ops-batch-old",
+                            "tenant_id": "tenant-a",
+                            "governed_target": "apply:30:old-job",
+                            "acquired_at_utc": "2026-03-13T22:30:00Z",
+                            "reclaimed_at_utc": "2026-03-14T01:30:00Z",
+                            "reclaim_count": 4,
+                        },
+                    )(),
+                    "recent_reclaimed_leases": (
+                        type(
+                            "Reclaim",
+                            (),
+                            {
+                                "operator_id": "ops-batch-old",
+                                "tenant_id": "tenant-a",
+                                "governed_target": "apply:30:old-job",
+                                "acquired_at_utc": "2026-03-13T22:30:00Z",
+                                "reclaimed_at_utc": "2026-03-14T01:30:00Z",
+                                "reclaim_count": 4,
+                            },
+                        )(),
+                    ),
+                },
+            )(),
+        ],
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/integration/runtime-status")
+
+    body = response.json()
+    assert response.status_code == 200
+    assert body["recovery_drill"]["active_run_status"] == "active"
+    assert body["recovery_drill"]["active_run_count"] == 1
+    assert body["recovery_drill"]["oldest_active_run_operator_id"] == "ops-user"
+    assert body["recovery_drill"]["oldest_active_run_governed_target"] == "backup-123"
+    assert body["recovery_drill"]["latest_reclaimed_run_operator_id"] == "ops-user-old"
+    assert body["recovery_drill"]["latest_reclaimed_run_governed_target"] == "backup-old"
+    assert body["recovery_drill"]["reclaimed_run_count"] == 3
+    assert body["recovery_drill"]["recent_reclaimed_runs"][0]["operator_id"] == "ops-user-old"
+    assert body["runtime_retention"]["active_run_status"] == "active"
+    assert body["runtime_retention"]["active_run_count"] == 1
+    assert body["runtime_retention"]["oldest_active_run_operator_id"] == "ops-batch"
+    assert body["runtime_retention"]["oldest_active_run_governed_target"] == "apply:30:retention-nightly"
+    assert body["runtime_retention"]["latest_reclaimed_run_operator_id"] == "ops-batch-old"
+    assert body["runtime_retention"]["latest_reclaimed_run_governed_target"] == "apply:30:old-job"
+    assert body["runtime_retention"]["reclaimed_run_count"] == 4
+    assert body["runtime_retention"]["recent_reclaimed_runs"][0]["operator_id"] == "ops-batch-old"
+
+
+def test_runtime_status_reports_governed_action_reclaim_pressure_degradation(mocker):
+    settings = get_settings()
+    original_recovery_threshold = settings.RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT
+    original_retention_threshold = settings.RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT
+    settings.RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT = 2
+    settings.RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT = 3
+    mocker.patch(
+        "app.services.runtime_status_service.build_operator_action_lease_snapshot",
+        side_effect=[
+            type(
+                "LeaseSnapshot",
+                (),
+                {
+                    "status": "available",
+                    "reason": None,
+                    "active_leases": (),
+                    "latest_reclaimed_lease": type(
+                        "Reclaim",
+                        (),
+                        {
+                            "operator_id": "ops-user-old",
+                            "tenant_id": "tenant-a",
+                            "governed_target": "backup-old",
+                            "acquired_at_utc": "2026-03-13T23:00:00Z",
+                            "reclaimed_at_utc": "2026-03-14T00:30:00Z",
+                            "reclaim_count": 2,
+                        },
+                    )(),
+                },
+            )(),
+            type(
+                "LeaseSnapshot",
+                (),
+                {
+                    "status": "available",
+                    "reason": None,
+                    "active_leases": (),
+                    "latest_reclaimed_lease": type(
+                        "Reclaim",
+                        (),
+                        {
+                            "operator_id": "ops-batch-old",
+                            "tenant_id": "tenant-b",
+                            "governed_target": "apply:30:old-job",
+                            "acquired_at_utc": "2026-03-13T22:00:00Z",
+                            "reclaimed_at_utc": "2026-03-14T01:30:00Z",
+                            "reclaim_count": 3,
+                        },
+                    )(),
+                },
+            )(),
+        ],
+    )
+
+    try:
+        with TestClient(app) as client:
+            response = client.get("/integration/runtime-status")
+        body = response.json()
+        assert response.status_code == 200
+        assert body["runtime_status"] == "degraded"
+        assert body["recovery_drill"]["reason"] == "recovery_drill_reclaim_pressure_exceeded"
+        assert body["recovery_drill"]["degradation_reasons"] == ["recovery_drill_reclaim_pressure_exceeded"]
+        assert body["recovery_drill_policy"]["reclaim_count"] == 2
+        assert body["runtime_retention"]["reason"] == "runtime_retention_reclaim_pressure_exceeded"
+        assert body["runtime_retention"]["degradation_reasons"] == ["runtime_retention_reclaim_pressure_exceeded"]
+        assert body["runtime_retention_policy"]["reclaim_count"] == 3
+    finally:
+        settings.RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT = original_recovery_threshold
+        settings.RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT = original_retention_threshold
+
+
+def test_runtime_status_reports_governed_active_run_age_degradation(mocker):
+    settings = get_settings()
+    original_recovery_threshold = settings.RUNTIME_STATUS_RECOVERY_DRILL_ACTIVE_RUN_AGE_DEGRADE_SECONDS
+    original_retention_threshold = settings.RUNTIME_STATUS_RUNTIME_RETENTION_ACTIVE_RUN_AGE_DEGRADE_SECONDS
+    settings.RUNTIME_STATUS_RECOVERY_DRILL_ACTIVE_RUN_AGE_DEGRADE_SECONDS = 60.0
+    settings.RUNTIME_STATUS_RUNTIME_RETENTION_ACTIVE_RUN_AGE_DEGRADE_SECONDS = 120.0
+    mocker.patch(
+        "app.services.runtime_status_service.build_operator_action_lease_snapshot",
+        side_effect=[
+            type(
+                "LeaseSnapshot",
+                (),
+                {
+                    "status": "available",
+                    "reason": None,
+                    "active_leases": (
+                        type(
+                            "Lease",
+                            (),
+                            {
+                                "operator_id": "ops-user",
+                                "tenant_id": "tenant-a",
+                                "governed_target": "backup-123",
+                                "acquired_at_utc": "2026-03-14T00:00:00Z",
+                            },
+                        )(),
+                    ),
+                    "latest_reclaimed_lease": None,
+                    "recent_reclaimed_leases": (),
+                },
+            )(),
+            type(
+                "LeaseSnapshot",
+                (),
+                {
+                    "status": "available",
+                    "reason": None,
+                    "active_leases": (
+                        type(
+                            "Lease",
+                            (),
+                            {
+                                "operator_id": "ops-batch",
+                                "tenant_id": "tenant-b",
+                                "governed_target": "apply:30:retention-nightly",
+                                "acquired_at_utc": "2026-03-14T00:00:00Z",
+                            },
+                        )(),
+                    ),
+                    "latest_reclaimed_lease": None,
+                    "recent_reclaimed_leases": (),
+                },
+            )(),
+        ],
+    )
+    try:
+        with TestClient(app) as client:
+            response = client.get("/integration/runtime-status")
+        body = response.json()
+        assert response.status_code == 200
+        assert body["runtime_status"] == "degraded"
+        assert body["recovery_drill"]["reason"] == "recovery_drill_active_run_age_exceeded"
+        assert body["recovery_drill"]["degradation_reasons"] == ["recovery_drill_active_run_age_exceeded"]
+        assert body["recovery_drill_policy"]["active_run_age_seconds"] == 60.0
+        assert body["runtime_retention"]["reason"] == "runtime_retention_active_run_age_exceeded"
+        assert body["runtime_retention"]["degradation_reasons"] == ["runtime_retention_active_run_age_exceeded"]
+        assert body["runtime_retention_policy"]["active_run_age_seconds"] == 120.0
+    finally:
+        settings.RUNTIME_STATUS_RECOVERY_DRILL_ACTIVE_RUN_AGE_DEGRADE_SECONDS = original_recovery_threshold
+        settings.RUNTIME_STATUS_RUNTIME_RETENTION_ACTIVE_RUN_AGE_DEGRADE_SECONDS = original_retention_threshold
 
 
 def test_runtime_status_reports_runtime_retention_failure_and_age_policy(mocker):

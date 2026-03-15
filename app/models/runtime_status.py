@@ -103,6 +103,25 @@ class LineageRecoveryEventResponse(BaseModel):
     attempt_count: int = Field(description="Attempt count already consumed by the recovered lineage item.")
 
 
+class OperatorActionReclaimEventResponse(BaseModel):
+    operator_id: str = Field(description="Operator or automation identity from the reclaimed governed action.")
+    tenant_id: str | None = Field(
+        default=None,
+        description="Tenant context retained for the reclaimed governed action, when present.",
+    )
+    governed_target: str = Field(description="Governed action target associated with the reclaimed stale lease.")
+    acquired_at_utc: str = Field(
+        description="UTC timestamp when the reclaimed governed action originally acquired its lease."
+    )
+    reclaimed_at_utc: str = Field(description="UTC timestamp when the stale governed action lease was reclaimed.")
+    reclaimed_age_seconds: float = Field(
+        description="Age in seconds since the stale governed action lease was reclaimed."
+    )
+    reclaim_count: int = Field(
+        description="Cumulative reclaim counter recorded at the time of this retained stale-lease reclaim event."
+    )
+
+
 class ComputeQueueStatusDetailsResponse(BaseModel):
     status: str = Field(description="Compute queue visibility state for the control-plane endpoint.")
     reason: str | None = Field(
@@ -283,6 +302,67 @@ class RecoveryDrillStatusResponse(BaseModel):
         default=None,
         description="Primary recovery-drill degradation or unavailability reason for simple callers.",
     )
+    active_run_status: str = Field(
+        description="Availability of the governed recovery-drill action lease surface and whether a drill is currently in flight."
+    )
+    active_run_reason: str | None = Field(
+        default=None,
+        description="Concrete reason when governed recovery-drill action lease visibility is unavailable.",
+    )
+    active_run_count: int = Field(
+        description="Number of active governed recovery-drill runs currently holding an in-flight lease."
+    )
+    oldest_active_run_operator_id: str | None = Field(
+        default=None,
+        description="Operator or automation identity for the oldest active governed recovery-drill run, when present.",
+    )
+    oldest_active_run_tenant_id: str | None = Field(
+        default=None,
+        description="Tenant context recorded for the oldest active governed recovery-drill run, when present.",
+    )
+    oldest_active_run_governed_target: str | None = Field(
+        default=None,
+        description="Governed recovery-drill target for the oldest active run, typically the backup identifier.",
+    )
+    oldest_active_run_acquired_at_utc: str | None = Field(
+        default=None,
+        description="UTC timestamp when the oldest active governed recovery-drill run acquired its lease.",
+    )
+    oldest_active_run_age_seconds: float | None = Field(
+        default=None,
+        description="Age in seconds of the oldest active governed recovery-drill run.",
+    )
+    latest_reclaimed_run_operator_id: str | None = Field(
+        default=None,
+        description="Operator or automation identity from the latest reclaimed stale governed recovery-drill run, when present.",
+    )
+    latest_reclaimed_run_tenant_id: str | None = Field(
+        default=None,
+        description="Tenant context from the latest reclaimed stale governed recovery-drill run, when present.",
+    )
+    latest_reclaimed_run_governed_target: str | None = Field(
+        default=None,
+        description="Governed recovery-drill target from the latest reclaimed stale run, typically the backup identifier.",
+    )
+    latest_reclaimed_run_acquired_at_utc: str | None = Field(
+        default=None,
+        description="UTC timestamp when the latest reclaimed stale governed recovery-drill run originally acquired its lease.",
+    )
+    latest_reclaimed_run_reclaimed_at_utc: str | None = Field(
+        default=None,
+        description="UTC timestamp when the latest stale governed recovery-drill lease was reclaimed.",
+    )
+    latest_reclaimed_run_age_seconds: float | None = Field(
+        default=None,
+        description="Age in seconds since the latest stale governed recovery-drill lease was reclaimed.",
+    )
+    reclaimed_run_count: int = Field(
+        description="Number of stale governed recovery-drill leases reclaimed and retained in the current control-plane counter."
+    )
+    recent_reclaimed_runs: list[OperatorActionReclaimEventResponse] = Field(
+        default_factory=list,
+        description="Most recent retained stale governed recovery-drill lease reclaim events for operator triage.",
+    )
     degradation_reasons: list[str] = Field(
         default_factory=list,
         description="All active recovery-drill degradation reasons contributing to a degraded state.",
@@ -317,6 +397,12 @@ class RecoveryDrillDegradationPolicyResponse(BaseModel):
     max_age_seconds: float = Field(
         description="Configured threshold that degrades runtime when the latest retained recovery drill is too old."
     )
+    active_run_age_seconds: float = Field(
+        description="Configured threshold that degrades runtime when the oldest active governed recovery-drill run remains in flight too long."
+    )
+    reclaim_count: int = Field(
+        description="Configured threshold that degrades runtime when stale governed recovery-drill lease reclaims accumulate."
+    )
 
 
 class RuntimeRetentionStatusResponse(BaseModel):
@@ -326,6 +412,67 @@ class RuntimeRetentionStatusResponse(BaseModel):
     reason: str | None = Field(
         default=None,
         description="Primary runtime-retention degradation or unavailability reason for simple callers.",
+    )
+    active_run_status: str = Field(
+        description="Availability of the governed runtime-retention action lease surface and whether a cleanup is currently in flight."
+    )
+    active_run_reason: str | None = Field(
+        default=None,
+        description="Concrete reason when governed runtime-retention action lease visibility is unavailable.",
+    )
+    active_run_count: int = Field(
+        description="Number of active governed runtime-retention cleanups currently holding an in-flight lease."
+    )
+    oldest_active_run_operator_id: str | None = Field(
+        default=None,
+        description="Operator or automation identity for the oldest active governed runtime-retention cleanup, when present.",
+    )
+    oldest_active_run_tenant_id: str | None = Field(
+        default=None,
+        description="Tenant context recorded for the oldest active governed runtime-retention cleanup, when present.",
+    )
+    oldest_active_run_governed_target: str | None = Field(
+        default=None,
+        description="Governed runtime-retention target for the oldest active cleanup.",
+    )
+    oldest_active_run_acquired_at_utc: str | None = Field(
+        default=None,
+        description="UTC timestamp when the oldest active governed runtime-retention cleanup acquired its lease.",
+    )
+    oldest_active_run_age_seconds: float | None = Field(
+        default=None,
+        description="Age in seconds of the oldest active governed runtime-retention cleanup.",
+    )
+    latest_reclaimed_run_operator_id: str | None = Field(
+        default=None,
+        description="Operator or automation identity from the latest reclaimed stale governed runtime-retention cleanup, when present.",
+    )
+    latest_reclaimed_run_tenant_id: str | None = Field(
+        default=None,
+        description="Tenant context from the latest reclaimed stale governed runtime-retention cleanup, when present.",
+    )
+    latest_reclaimed_run_governed_target: str | None = Field(
+        default=None,
+        description="Governed runtime-retention target from the latest reclaimed stale cleanup.",
+    )
+    latest_reclaimed_run_acquired_at_utc: str | None = Field(
+        default=None,
+        description="UTC timestamp when the latest reclaimed stale governed runtime-retention cleanup originally acquired its lease.",
+    )
+    latest_reclaimed_run_reclaimed_at_utc: str | None = Field(
+        default=None,
+        description="UTC timestamp when the latest stale governed runtime-retention lease was reclaimed.",
+    )
+    latest_reclaimed_run_age_seconds: float | None = Field(
+        default=None,
+        description="Age in seconds since the latest stale governed runtime-retention lease was reclaimed.",
+    )
+    reclaimed_run_count: int = Field(
+        description="Number of stale governed runtime-retention leases reclaimed and retained in the current control-plane counter."
+    )
+    recent_reclaimed_runs: list[OperatorActionReclaimEventResponse] = Field(
+        default_factory=list,
+        description="Most recent retained stale governed runtime-retention lease reclaim events for operator triage.",
     )
     preview_status: str = Field(
         description="Availability of the live runtime-retention preview under the current retention policy."
@@ -398,6 +545,12 @@ class RuntimeRetentionStatusResponse(BaseModel):
 class RuntimeRetentionDegradationPolicyResponse(BaseModel):
     max_age_seconds: float = Field(
         description="Configured threshold that degrades runtime when the latest retained runtime-retention cleanup is too old."
+    )
+    active_run_age_seconds: float = Field(
+        description="Configured threshold that degrades runtime when the oldest active governed runtime-retention cleanup remains in flight too long."
+    )
+    reclaim_count: int = Field(
+        description="Configured threshold that degrades runtime when stale governed runtime-retention cleanup lease reclaims accumulate."
     )
 
 
@@ -560,6 +713,33 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
         recovery_drill=RecoveryDrillStatusResponse(
             status=snapshot.recovery_drill.status,
             reason=snapshot.recovery_drill.reason,
+            active_run_status=snapshot.recovery_drill.active_run_status,
+            active_run_reason=snapshot.recovery_drill.active_run_reason,
+            active_run_count=snapshot.recovery_drill.active_run_count,
+            oldest_active_run_operator_id=snapshot.recovery_drill.oldest_active_run_operator_id,
+            oldest_active_run_tenant_id=snapshot.recovery_drill.oldest_active_run_tenant_id,
+            oldest_active_run_governed_target=snapshot.recovery_drill.oldest_active_run_governed_target,
+            oldest_active_run_acquired_at_utc=snapshot.recovery_drill.oldest_active_run_acquired_at_utc,
+            oldest_active_run_age_seconds=snapshot.recovery_drill.oldest_active_run_age_seconds,
+            latest_reclaimed_run_operator_id=snapshot.recovery_drill.latest_reclaimed_run_operator_id,
+            latest_reclaimed_run_tenant_id=snapshot.recovery_drill.latest_reclaimed_run_tenant_id,
+            latest_reclaimed_run_governed_target=snapshot.recovery_drill.latest_reclaimed_run_governed_target,
+            latest_reclaimed_run_acquired_at_utc=snapshot.recovery_drill.latest_reclaimed_run_acquired_at_utc,
+            latest_reclaimed_run_reclaimed_at_utc=snapshot.recovery_drill.latest_reclaimed_run_reclaimed_at_utc,
+            latest_reclaimed_run_age_seconds=snapshot.recovery_drill.latest_reclaimed_run_age_seconds,
+            reclaimed_run_count=snapshot.recovery_drill.reclaimed_run_count,
+            recent_reclaimed_runs=[
+                OperatorActionReclaimEventResponse(
+                    operator_id=event.operator_id,
+                    tenant_id=event.tenant_id,
+                    governed_target=event.governed_target,
+                    acquired_at_utc=event.acquired_at_utc,
+                    reclaimed_at_utc=event.reclaimed_at_utc,
+                    reclaimed_age_seconds=event.reclaimed_age_seconds,
+                    reclaim_count=event.reclaim_count,
+                )
+                for event in snapshot.recovery_drill.recent_reclaimed_runs
+            ],
             degradation_reasons=list(snapshot.recovery_drill.degradation_reasons),
             degradation_details=_degradation_details_response(snapshot.recovery_drill.degradation_details),
             latest_generated_at_utc=snapshot.recovery_drill.latest_generated_at_utc,
@@ -571,6 +751,33 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
         runtime_retention=RuntimeRetentionStatusResponse(
             status=snapshot.runtime_retention.status,
             reason=snapshot.runtime_retention.reason,
+            active_run_status=snapshot.runtime_retention.active_run_status,
+            active_run_reason=snapshot.runtime_retention.active_run_reason,
+            active_run_count=snapshot.runtime_retention.active_run_count,
+            oldest_active_run_operator_id=snapshot.runtime_retention.oldest_active_run_operator_id,
+            oldest_active_run_tenant_id=snapshot.runtime_retention.oldest_active_run_tenant_id,
+            oldest_active_run_governed_target=snapshot.runtime_retention.oldest_active_run_governed_target,
+            oldest_active_run_acquired_at_utc=snapshot.runtime_retention.oldest_active_run_acquired_at_utc,
+            oldest_active_run_age_seconds=snapshot.runtime_retention.oldest_active_run_age_seconds,
+            latest_reclaimed_run_operator_id=snapshot.runtime_retention.latest_reclaimed_run_operator_id,
+            latest_reclaimed_run_tenant_id=snapshot.runtime_retention.latest_reclaimed_run_tenant_id,
+            latest_reclaimed_run_governed_target=snapshot.runtime_retention.latest_reclaimed_run_governed_target,
+            latest_reclaimed_run_acquired_at_utc=snapshot.runtime_retention.latest_reclaimed_run_acquired_at_utc,
+            latest_reclaimed_run_reclaimed_at_utc=snapshot.runtime_retention.latest_reclaimed_run_reclaimed_at_utc,
+            latest_reclaimed_run_age_seconds=snapshot.runtime_retention.latest_reclaimed_run_age_seconds,
+            reclaimed_run_count=snapshot.runtime_retention.reclaimed_run_count,
+            recent_reclaimed_runs=[
+                OperatorActionReclaimEventResponse(
+                    operator_id=event.operator_id,
+                    tenant_id=event.tenant_id,
+                    governed_target=event.governed_target,
+                    acquired_at_utc=event.acquired_at_utc,
+                    reclaimed_at_utc=event.reclaimed_at_utc,
+                    reclaimed_age_seconds=event.reclaimed_age_seconds,
+                    reclaim_count=event.reclaim_count,
+                )
+                for event in snapshot.runtime_retention.recent_reclaimed_runs
+            ],
             preview_status=snapshot.runtime_retention.preview_status,
             preview_reason=snapshot.runtime_retention.preview_reason,
             degradation_reasons=list(snapshot.runtime_retention.degradation_reasons),
@@ -609,8 +816,12 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
         ),
         recovery_drill_policy=RecoveryDrillDegradationPolicyResponse(
             max_age_seconds=snapshot.recovery_drill_policy.max_age_seconds,
+            active_run_age_seconds=snapshot.recovery_drill_policy.active_run_age_seconds,
+            reclaim_count=snapshot.recovery_drill_policy.reclaim_count,
         ),
         runtime_retention_policy=RuntimeRetentionDegradationPolicyResponse(
             max_age_seconds=snapshot.runtime_retention_policy.max_age_seconds,
+            active_run_age_seconds=snapshot.runtime_retention_policy.active_run_age_seconds,
+            reclaim_count=snapshot.runtime_retention_policy.reclaim_count,
         ),
     )

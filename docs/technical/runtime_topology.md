@@ -95,9 +95,17 @@ Queue-pressure metrics are exposed from the API process by reading durable store
 - `lotus_performance_lineage_storage_pressure_threshold{threshold=...}`
 - `lotus_performance_lineage_storage_pressure_breach{reason=...}`
 - `lotus_performance_recovery_drill_availability`
+- `lotus_performance_recovery_drill_action_availability`
+- `lotus_performance_recovery_drill_active_actions`
+- `lotus_performance_recovery_drill_oldest_active_action_age_seconds`
 - `lotus_performance_recovery_drill_latest_age_seconds`
 - `lotus_performance_recovery_drill_policy_threshold{threshold=...}`
 - `lotus_performance_recovery_drill_degradation_breach{reason=...}`
+- `lotus_performance_recovery_drill_reclaimed_actions`
+- `lotus_performance_runtime_retention_action_availability`
+- `lotus_performance_runtime_retention_active_actions`
+- `lotus_performance_runtime_retention_oldest_active_action_age_seconds`
+- `lotus_performance_runtime_retention_reclaimed_actions`
 
 Operator first response for these breach gauges is governed in
 [runtime-alerts.md](/C:/Users/Sandeep/projects/lotus-performance/docs/runbooks/runtime-alerts.md).
@@ -128,7 +136,15 @@ the active compute and lineage degradation-policy thresholds so support can inte
 runtime against live configuration without reading environment variables separately. For each
 active degradation, the control plane also returns the observed value and breached threshold so
 incident handling can distinguish "what fired" from "by how much" without reconstructing it from
-raw queue counters.
+raw queue counters. The same snapshot now exposes governed recovery-drill and runtime-retention
+action lease visibility, including whether an action is active, how many governed runs are
+currently in flight, the oldest active-run anchor for operator triage, and the latest stale
+lease reclaim anchor so support can distinguish an active run from a recently recovered
+post-crash or post-interruption action. The same reclaim visibility now carries a cumulative
+reclaim count so repeated stale governed-action recovery is visible without reconstructing it
+from logs. Runtime status now also carries a bounded recent reclaim event list for both governed
+action lanes so support can distinguish an isolated stale-lease recovery from recurring
+operator-action instability without querying the filesystem directly.
 
 ## Failure recovery model
 
