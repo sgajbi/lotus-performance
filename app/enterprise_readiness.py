@@ -255,7 +255,9 @@ def build_enterprise_audit_middleware() -> (
 
         response = await call_next(request)
         response.headers["X-Enterprise-Policy-Version"] = enterprise_policy_version()
+        write_capability = _required_capability(request.method, request.url.path)
         privileged_read_capability = _required_privileged_read_capability(request.method, request.url.path)
+        required_capability = privileged_read_capability if request.method.upper() == "GET" else write_capability
         if request.method in _WRITE_METHODS or (
             request.method.upper() == "GET"
             and _env_enabled("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "false")
@@ -270,8 +272,8 @@ def build_enterprise_audit_middleware() -> (
                 metadata={
                     "status_code": response.status_code,
                     "access_mode": "privileged_read" if request.method.upper() == "GET" else "write",
-                    "required_capability": privileged_read_capability,
-                    "governed_surface": request.url.path if privileged_read_capability is not None else None,
+                    "required_capability": required_capability,
+                    "governed_surface": request.url.path if required_capability is not None else None,
                 },
             )
         return response

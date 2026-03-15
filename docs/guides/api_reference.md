@@ -219,6 +219,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 - privileged-write auth:
   - when `ENTERPRISE_ENFORCE_AUTHZ=true`, this route requires enterprise identity headers
   - default governed capability: `operations.runtime.manage`
+  - allowed access is enterprise-audited with governed surface and required-capability metadata
 - request includes:
   - `backup_identifier`
 - response includes:
@@ -247,6 +248,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 - privileged-write auth:
   - when `ENTERPRISE_ENFORCE_AUTHZ=true`, this route requires enterprise identity headers
   - default governed capability: `operations.runtime.manage`
+  - allowed access is enterprise-audited with governed surface and required-capability metadata
 - request includes:
   - `apply`
   - optional `retention_days`
