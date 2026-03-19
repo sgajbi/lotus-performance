@@ -3,6 +3,7 @@
 `lotus-performance` is the analytics service in the Lotus platform. It owns:
 
 - time-weighted return (`POST /performance/twr`)
+- benchmark performance (`POST /performance/benchmark`)
 - money-weighted return (`POST /performance/mwr`)
 - contribution (`POST /performance/contribution`)
 - attribution (`POST /performance/attribution`)
@@ -81,6 +82,25 @@ The public request contract is analysis-based. Older examples using `period_type
   - `stateful_input.consumer_system`
   - `stateful_input.window_start_date`
   - lotus-core portfolio timeseries are normalized into canonical MWR inputs inside lotus-performance
+
+### Benchmark
+
+`POST /performance/benchmark` uses:
+
+- `input_mode: "stateless" | "stateful"`
+- `benchmark_id`
+- `benchmark_start_date`
+- `report_end_date`
+- `analyses`
+- `return_source: "calculated" | "vendor_series"`
+- stateless:
+  - `stateless_input.benchmark_currency`
+  - `stateless_input.component_observations` for calculated mode
+  - `stateless_input.benchmark_return_points` for vendor-series mode
+- stateful:
+  - `stateful_input.consumer_system`
+  - benchmark definition, component price series, and FX inputs sourced from lotus-core
+  - current calculated-mode fence: the requested window must stay within one effective lotus-core composition segment
 
 ### Contribution
 

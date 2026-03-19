@@ -40,6 +40,24 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
   - stateful mode sources portfolio timeseries from lotus-core query-control-plane and normalizes them into canonical `begin_mv`, `end_mv`, `cash_flows`, and authoritative `start_date` before engine execution
 
+### `POST /performance/benchmark`
+
+- purpose: calculate benchmark performance
+- request model: `app.models.benchmark_analytics_requests.BenchmarkAnalyticsRequest`
+- response model: `app.models.benchmark_responses.BenchmarkPerformanceResponse`
+- execution mode: synchronous
+- lineage: durable lineage metadata is written and artifacts are materialized asynchronously
+- supported input modes:
+  - `stateless`
+  - `stateful`
+- contract note:
+  - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
+  - `return_source=calculated` is the default execution path
+  - `return_source=vendor_series` is an explicit non-default override
+  - stateful calculated mode sources benchmark definition, component price series, and FX inputs from lotus-core and normalizes them into canonical benchmark component observations before engine execution
+  - current stateful calculated-mode fence:
+    - the requested window must remain inside one effective lotus-core composition segment
+
 ### `POST /performance/contribution`
 
 - purpose: calculate position contribution

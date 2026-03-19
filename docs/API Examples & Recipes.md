@@ -112,7 +112,55 @@ POST /performance/mwr
 }
 ```
 
-## 4. Multi-Currency Contribution
+## 4. Dedicated Benchmark Calculation
+
+Calculates benchmark performance directly from benchmark component observations.
+
+**Endpoint**
+
+```text
+POST /performance/benchmark
+```
+
+**Payload**
+
+```json
+{
+  "input_mode": "stateless",
+  "benchmark_id": "BMK_STATELESS_1",
+  "benchmark_start_date": "2026-01-02",
+  "report_end_date": "2026-01-03",
+  "analyses": [
+    {
+      "period": "ITD",
+      "frequencies": ["daily"]
+    }
+  ],
+  "return_source": "calculated",
+  "output": {
+    "include_timeseries": true
+  },
+  "stateless_input": {
+    "benchmark_currency": "USD",
+    "component_observations": [
+      {
+        "component_id": "IDX_A",
+        "date": "2026-01-02",
+        "weight_bop": 0.6,
+        "component_return": 0.02
+      },
+      {
+        "component_id": "IDX_B",
+        "date": "2026-01-02",
+        "weight_bop": 0.4,
+        "component_return": 0.01
+      }
+    ]
+  }
+}
+```
+
+## 5. Multi-Currency Contribution
 
 Calculates contribution for a portfolio with positions in multiple currencies and decomposes the
 result into local and FX-aware portfolio return context.
@@ -174,7 +222,7 @@ POST /performance/contribution
 }
 ```
 
-## 5. Multi-Currency Attribution
+## 6. Multi-Currency Attribution
 
 Runs stateless currency-aware attribution using caller-supplied benchmark groups and FX inputs.
 

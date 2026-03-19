@@ -36,8 +36,24 @@ def test_twr_guide_uses_current_request_shape():
 
     assert "analyses" in guide
     assert "valuation_points" in guide
+    assert 'benchmark.input_mode="stateless" | "stateful"' in guide
+    assert 'benchmark.return_source="calculated" | "vendor_series"' in guide
     assert "Older examples using `period_type`" in guide
     assert "`daily_data` are not current" in guide
+
+
+def test_benchmark_guide_uses_current_request_shape():
+    guide = _read("docs/guides/benchmark.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    readme = _read("README.md")
+
+    assert 'input_mode="stateless"' in guide
+    assert 'input_mode="stateful"' in guide
+    assert 'return_source="calculated"' in guide
+    assert 'return_source="vendor_series"' in guide
+    assert "single effective lotus-core composition segment" in guide
+    assert "app.models.benchmark_analytics_requests.BenchmarkAnalyticsRequest" in api_reference
+    assert "POST /performance/benchmark" in readme
 
 
 def test_mwr_guide_matches_current_method_reality():
@@ -128,6 +144,8 @@ def test_api_examples_recipes_match_current_dual_mode_contract():
 
 def test_json_examples_match_current_dual_mode_contract():
     example_paths = [
+        "docs/examples/benchmark_request.json",
+        "docs/examples/benchmark_vendor_series_request.json",
         "docs/examples/twr_request.json",
         "docs/examples/twr_request_multiccy_hedged.json",
         "docs/examples/mwr_request.json",
@@ -144,6 +162,14 @@ def test_json_examples_match_current_dual_mode_contract():
         assert payload["input_mode"] == "stateless"
         assert "period_type" not in payload_text
         assert "daily_data" not in payload_text
+
+    benchmark_request = json.loads(_read("docs/examples/benchmark_request.json"))
+    assert "stateless_input" in benchmark_request
+    assert benchmark_request["return_source"] == "calculated"
+
+    benchmark_vendor_request = json.loads(_read("docs/examples/benchmark_vendor_series_request.json"))
+    assert "stateless_input" in benchmark_vendor_request
+    assert benchmark_vendor_request["return_source"] == "vendor_series"
 
     assert "stateless_input" in json.loads(_read("docs/examples/twr_request.json"))
     assert "stateless_input" in json.loads(_read("docs/examples/mwr_request.json"))

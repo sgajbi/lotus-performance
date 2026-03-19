@@ -16,6 +16,7 @@ Common top-level fields are:
 - `performance_start_date`
 - `report_end_date`
 - `analyses`
+- optional `benchmark`
 
 Stateless mode accepts either:
 
@@ -38,6 +39,14 @@ Optional controls include:
 - `reset_policy`
 - `data_policy`
 - multi-currency fields such as `currency_mode`, `report_ccy`, `fx`, and `hedging`
+
+When `benchmark` is supplied, TWR returns a parallel benchmark block calculated through the shared
+benchmark engine. Benchmark requests support the same benchmark modes as the dedicated benchmark
+endpoint:
+
+- `benchmark.input_mode="stateless" | "stateful"`
+- `benchmark.return_source="calculated" | "vendor_series"`
+- stateful benchmark mode can resolve benchmark assignment from lotus-core when `benchmark_id` is omitted
 
 Older examples using `period_type`, top-level `frequencies`, or `daily_data` are not current.
 
