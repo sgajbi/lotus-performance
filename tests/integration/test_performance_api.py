@@ -72,12 +72,12 @@ def test_calculate_twr_endpoint_with_annualization(client):
     response = client.post("/performance/twr", json=payload)
     assert response.status_code == 200
     data = response.json()
-    summary = data["results_by_period"]["QTD"]["breakdowns"]["quarterly"][0]["summary"]
+    summary = data["results_by_period"]["QTD"]["portfolio"]["breakdowns"]["quarterly"][0]
 
-    assert "annualized_return_pct" in summary
-    assert summary["period_return_pct"] == pytest.approx(2.01)
+    assert summary["annualized_return"] is not None
+    assert summary["period_return"]["base"] == pytest.approx(2.01)
     # 90 days in Q1 2025. Expected: (1.0201 ** (365 / 90)) - 1 = 8.40545...%
-    assert summary["annualized_return_pct"] == pytest.approx(8.40545, abs=1e-5)
+    assert summary["annualized_return"]["base"] == pytest.approx(8.40545, abs=1e-5)
 
 
 def test_calculate_twr_endpoint_legacy_path_and_diagnostics(client):
@@ -107,7 +107,8 @@ def test_calculate_twr_endpoint_legacy_path_and_diagnostics(client):
     assert "results_by_period" in response_data
     assert "YTD" in response_data["results_by_period"]
     ytd_results = response_data["results_by_period"]["YTD"]
-    assert "breakdowns" in ytd_results
+    assert "portfolio" in ytd_results
+    assert "breakdowns" in ytd_results["portfolio"]
 
     assert "meta" in response_data
     assert response_data["meta"]["engine_version"] is not None
@@ -142,15 +143,15 @@ def test_calculate_twr_endpoint_multi_period(client):
     assert "MTD" in results
     assert "YTD" in results
 
-    mtd_monthly_breakdown = results["MTD"]["breakdowns"]["monthly"]
+    mtd_monthly_breakdown = results["MTD"]["portfolio"]["breakdowns"]["monthly"]
     assert len(mtd_monthly_breakdown) == 1
-    mtd_return = mtd_monthly_breakdown[0]["summary"]["period_return_pct"]
+    mtd_return = mtd_monthly_breakdown[0]["period_return"]["base"]
     assert mtd_return == pytest.approx(2.0)
 
-    ytd_monthly_breakdown = results["YTD"]["breakdowns"]["monthly"]
+    ytd_monthly_breakdown = results["YTD"]["portfolio"]["breakdowns"]["monthly"]
     assert len(ytd_monthly_breakdown) == 2
-    jan_return = ytd_monthly_breakdown[0]["summary"]["period_return_pct"]
-    feb_return = ytd_monthly_breakdown[1]["summary"]["period_return_pct"]
+    jan_return = ytd_monthly_breakdown[0]["period_return"]["base"]
+    feb_return = ytd_monthly_breakdown[1]["period_return"]["base"]
 
     assert jan_return == pytest.approx(1.0)
     assert feb_return == pytest.approx(2.0)
@@ -186,10 +187,10 @@ def test_calculate_twr_endpoint_multi_currency(client):
     data = response.json()
     itd_result = data["results_by_period"]["ITD"]
 
-    assert "portfolio_return" in itd_result
-    assert itd_result["portfolio_return"]["local"] == pytest.approx(3.02)
-    assert itd_result["portfolio_return"]["fx"] == pytest.approx(1.90476, abs=1e-5)
-    assert itd_result["portfolio_return"]["base"] == pytest.approx(4.98228, abs=1e-5)
+    assert "portfolio" in itd_result
+    assert itd_result["portfolio"]["summary"]["period_return"]["local"] == pytest.approx(3.02)
+    assert itd_result["portfolio"]["summary"]["period_return"]["fx"] == pytest.approx(1.90476, abs=1e-5)
+    assert itd_result["portfolio"]["summary"]["period_return"]["base"] == pytest.approx(4.98228, abs=1e-5)
     assert data["meta"]["report_ccy"] == "USD"
 
 
@@ -221,9 +222,9 @@ def test_calculate_twr_endpoint_with_data_policy(client):
     data = response.json()
     itd_result = data["results_by_period"]["ITD"]
 
-    daily_breakdown = itd_result["breakdowns"]["daily"]
-    assert daily_breakdown[4]["summary"]["period_return_pct"] == pytest.approx(0.099602, abs=1e-6)
-    assert daily_breakdown[6]["summary"]["period_return_pct"] == 0.0
+    daily_breakdown = itd_result["portfolio"]["breakdowns"]["daily"]
+    assert daily_breakdown[4]["period_return"]["base"] == pytest.approx(0.099602, abs=1e-6)
+    assert daily_breakdown[6]["period_return"]["base"] == 0.0
 
     diags = data["diagnostics"]
     assert diags["policy"]["overrides"]["applied_mv_count"] == 1
@@ -247,7 +248,7 @@ def test_twr_respects_include_timeseries_flag(client):
     payload_with["output"] = {"include_timeseries": True}
     response_with = client.post("/performance/twr", json=payload_with)
     assert response_with.status_code == 200
-    daily_breakdown_with = response_with.json()["results_by_period"]["YTD"]["breakdowns"]["daily"][0]
+    daily_breakdown_with = response_with.json()["results_by_period"]["YTD"]["portfolio"]["breakdowns"]["daily"][0]
     assert "daily_data" in daily_breakdown_with
     assert daily_breakdown_with["daily_data"] is not None
 
@@ -256,12 +257,14 @@ def test_twr_respects_include_timeseries_flag(client):
     payload_without["output"] = {"include_timeseries": False}
     response_without = client.post("/performance/twr", json=payload_without)
     assert response_without.status_code == 200
-    daily_breakdown_without = response_without.json()["results_by_period"]["YTD"]["breakdowns"]["daily"][0]
-    assert "daily_data" not in daily_breakdown_without
+    daily_breakdown_without = (
+        response_without.json()["results_by_period"]["YTD"]["portfolio"]["breakdowns"]["daily"][0]
+    )
+    assert daily_breakdown_without.get("daily_data") is None
 
 
-def test_twr_response_includes_portfolio_return_summary(client):
-    """Tests that the top-level portfolio_return object is present for single-currency requests."""
+def test_twr_response_includes_portfolio_summary_block(client):
+    """Tests that the portfolio summary block is present for single-currency requests."""
     payload = {
         "portfolio_id": "PORTFOLIO_RETURN_TEST",
         "performance_start_date": "2024-12-31",
@@ -278,9 +281,9 @@ def test_twr_response_includes_portfolio_return_summary(client):
     data = response.json()
     ytd_result = data["results_by_period"]["YTD"]
 
-    assert "portfolio_return" in ytd_result
-    assert ytd_result["portfolio_return"]["base"] == pytest.approx(2.01)
-    assert ytd_result["portfolio_return"]["fx"] == 0.0
+    assert "portfolio" in ytd_result
+    assert ytd_result["portfolio"]["summary"]["period_return"]["base"] == pytest.approx(2.01)
+    assert ytd_result["portfolio"]["summary"]["period_return"]["fx"] == 0.0
 
 
 def test_twr_supports_stateful_input_mode(client, monkeypatch):
@@ -316,7 +319,7 @@ def test_twr_supports_stateful_input_mode(client, monkeypatch):
     assert response.status_code == 200
     body = response.json()
     assert body["input_mode"] == "stateful"
-    assert body["results_by_period"]["YTD"]["portfolio_return"]["base"] == pytest.approx(2.01)
+    assert body["results_by_period"]["YTD"]["portfolio"]["summary"]["period_return"]["base"] == pytest.approx(2.01)
 
 
 def test_twr_supports_stateless_benchmark_request(client):
@@ -349,12 +352,14 @@ def test_twr_supports_stateless_benchmark_request(client):
 
     assert response.status_code == 200
     body = response.json()
-    assert body["benchmark"]["benchmark_id"] == "BMK_STATELESS_1"
-    assert body["benchmark"]["input_mode"] == "stateless"
-    assert body["benchmark"]["benchmark_currency"] == "USD"
-    assert body["benchmark"]["results_by_period"]["YTD"]["benchmark_return"] == pytest.approx(0.02515)
-    assert body["results_by_period"]["YTD"]["relative_performance"]["arithmetic_relative_return"] == pytest.approx(-0.505)
-    assert body["results_by_period"]["YTD"]["relative_performance"]["cumulative_arithmetic_relative_return"] == pytest.approx(-0.505)
+    benchmark_block = body["results_by_period"]["YTD"]["benchmark"]
+    relative_block = body["results_by_period"]["YTD"]["relative_performance"]
+    assert benchmark_block["benchmark_id"] == "BMK_STATELESS_1"
+    assert benchmark_block["input_mode"] == "stateless"
+    assert benchmark_block["benchmark_currency"] == "USD"
+    assert benchmark_block["summary"]["period_return"]["base"] == pytest.approx(2.515)
+    assert relative_block["summary"]["period_return"]["base"] == pytest.approx(-0.505)
+    assert relative_block["summary"]["cumulative_return"]["base"] == pytest.approx(-0.505)
 
 
 def test_twr_supports_stateful_benchmark_assignment(client, monkeypatch):
@@ -425,10 +430,11 @@ def test_twr_supports_stateful_benchmark_assignment(client, monkeypatch):
 
     assert response.status_code == 200
     body = response.json()
-    assert body["benchmark"]["benchmark_id"] == "BMK_ASSIGNED"
-    assert body["benchmark"]["input_mode"] == "stateful"
-    assert body["benchmark"]["results_by_period"]["YTD"]["benchmark_return"] == pytest.approx(0.0201)
-    assert body["results_by_period"]["YTD"]["relative_performance"]["arithmetic_relative_return"] == pytest.approx(0.0)
+    benchmark_block = body["results_by_period"]["YTD"]["benchmark"]
+    assert benchmark_block["benchmark_id"] == "BMK_ASSIGNED"
+    assert benchmark_block["input_mode"] == "stateful"
+    assert benchmark_block["summary"]["period_return"]["base"] == pytest.approx(2.01)
+    assert body["results_by_period"]["YTD"]["relative_performance"]["summary"]["period_return"]["base"] == pytest.approx(0.0)
 
 
 def test_twr_supports_include_benchmark_without_nested_stateful_benchmark_config(client, monkeypatch):
@@ -508,8 +514,8 @@ def test_twr_supports_include_benchmark_without_nested_stateful_benchmark_config
 
     assert response.status_code == 200
     body = response.json()
-    assert body["benchmark"]["benchmark_id"] == "BMK_ASSIGNED_DEFAULT"
-    assert body["benchmark"]["input_mode"] == "stateful"
+    assert body["results_by_period"]["YTD"]["benchmark"]["benchmark_id"] == "BMK_ASSIGNED_DEFAULT"
+    assert body["results_by_period"]["YTD"]["benchmark"]["input_mode"] == "stateful"
 
 
 def test_twr_records_http_failure_detail_in_execution_status(client, monkeypatch):
@@ -624,9 +630,9 @@ def test_twr_supports_stateless_benchmark_price_points(client):
 
     assert response.status_code == 200
     body = response.json()
-    assert body["benchmark"]["benchmark_id"] == "BMK_PRICE_1"
-    assert body["benchmark"]["results_by_period"]["YTD"]["benchmark_return"] == pytest.approx(0.0201)
-    assert body["results_by_period"]["YTD"]["relative_performance"]["arithmetic_relative_return"] == pytest.approx(0.0)
+    assert body["results_by_period"]["YTD"]["benchmark"]["benchmark_id"] == "BMK_PRICE_1"
+    assert body["results_by_period"]["YTD"]["benchmark"]["summary"]["period_return"]["base"] == pytest.approx(2.01)
+    assert body["results_by_period"]["YTD"]["relative_performance"]["summary"]["period_return"]["base"] == pytest.approx(0.0)
 
 
 def test_twr_relative_performance_uses_cumulative_to_date_for_non_itd_periods(client):
@@ -662,13 +668,13 @@ def test_twr_relative_performance_uses_cumulative_to_date_for_non_itd_periods(cl
 
     assert response.status_code == 200
     body = response.json()
-    mtd_relative = body["results_by_period"]["MTD"]["relative_performance"]
-    ytd_relative = body["results_by_period"]["YTD"]["relative_performance"]
+    mtd_relative = body["results_by_period"]["MTD"]["relative_performance"]["summary"]
+    ytd_relative = body["results_by_period"]["YTD"]["relative_performance"]["summary"]
 
-    assert mtd_relative["arithmetic_relative_return"] == pytest.approx(0.5)
-    assert mtd_relative["cumulative_arithmetic_relative_return"] == pytest.approx(1.0125)
-    assert ytd_relative["arithmetic_relative_return"] == pytest.approx(1.0125)
-    assert ytd_relative["cumulative_arithmetic_relative_return"] == pytest.approx(1.0125)
+    assert mtd_relative["period_return"]["base"] == pytest.approx(0.5)
+    assert mtd_relative["cumulative_return"]["base"] == pytest.approx(1.0125)
+    assert ytd_relative["period_return"]["base"] == pytest.approx(1.0125)
+    assert ytd_relative["cumulative_return"]["base"] == pytest.approx(1.0125)
 
 
 def test_twr_hashes_include_resolved_benchmark_request(client):
@@ -835,8 +841,8 @@ def test_twr_reset_scenario_has_correct_summary(client):
     data = response.json()
     itd_result = data["results_by_period"]["ITD"]
 
-    assert "portfolio_return" in itd_result
-    assert itd_result["portfolio_return"]["base"] == pytest.approx(21.578947, abs=1e-6)
+    assert "portfolio" in itd_result
+    assert itd_result["portfolio"]["summary"]["period_return"]["base"] == pytest.approx(21.578947, abs=1e-6)
 
 
 @pytest.mark.parametrize(

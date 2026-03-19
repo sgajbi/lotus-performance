@@ -207,7 +207,7 @@ def test_e2e_performance_twr_and_mwr_workflow() -> None:
 
     twr_body = twr_response.json()
     assert "ITD" in twr_body["results_by_period"]
-    assert twr_body["results_by_period"]["ITD"]["portfolio_return"]["base"] > 0
+    assert twr_body["results_by_period"]["ITD"]["portfolio"]["summary"]["period_return"]["base"] > 0
 
     mwr_body = mwr_response.json()
     assert mwr_body["portfolio_id"] == "E2E_WORKFLOW_001"
@@ -497,7 +497,9 @@ def test_e2e_shared_stateful_benchmark_engine_stays_consistent_across_surfaces(m
     returns_series_body = returns_series_response.json()
 
     benchmark_return = benchmark_body["results_by_period"]["YTD"]["benchmark_return"]
-    twr_benchmark_return = twr_body["benchmark"]["results_by_period"]["YTD"]["benchmark_return"]
+    twr_benchmark_return = (
+        twr_body["results_by_period"]["YTD"]["benchmark"]["summary"]["period_return"]["base"] / 100
+    )
     linked_returns_series_benchmark_return = _link_return_points(returns_series_body["series"]["benchmark_returns"])
 
     assert benchmark_return == pytest.approx(0.0201)

@@ -1,28 +1,29 @@
 from __future__ import annotations
 
-import pandas as pd
-from fastapi import HTTPException, status
+from decimal import Decimal
 
-from adapters.api_adapter import (
-    create_engine_config,
-    create_engine_dataframe,
-    format_breakdowns_for_response,
-)
+import pandas as pd
+from fastapi import HTTPException
+
+from adapters.api_adapter import create_engine_config, create_engine_dataframe
 from app.models.benchmark_analytics_requests import BenchmarkInputMode, BenchmarkReturnSource
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.performance_diagnostics import build_performance_diagnostics, build_reset_events
 from app.models.requests import PerformanceRequest
 from app.models.responses import (
+    ComparativeAnalyticsBlock,
+    ComparativeBreakdownItem,
+    ComparativeReturnValue,
+    ComparativeSummary,
     PerformanceResponse,
     PortfolioReturnDecomposition,
-    RelativePerformanceSummary,
     SinglePeriodPerformanceResult,
-    TWRBenchmarkResponse,
 )
 from app.models.twr_requests import TWRInputMode
 from app.services.benchmark_calculation_service import calculate_benchmark_artifacts
 from app.services.execution_lifecycle_service import complete_execution_with_lineage
 from app.services.execution_registry import execution_registry
+from common.enums import Frequency
 from core.envelope import Audit, Diagnostics, Meta
 from core.periods import resolve_periods
 from engine.breakdown import generate_performance_breakdowns
@@ -121,41 +122,240 @@ def _calculate_total_return_from_slice(
     return _calculate_total_return_from_non_reset_slice(df_slice)
 
 
-def _build_relative_performance_summary(
+def _build_return_value(
+    base: float,
     *,
-    portfolio_return: PortfolioReturnDecomposition,
-    portfolio_cumulative_return_to_date: float,
-    benchmark_return: float,
-    benchmark_cumulative_return_to_date: float,
-) -> RelativePerformanceSummary:
-    arithmetic_relative_return = portfolio_return.base - (benchmark_return * 100)
-    return RelativePerformanceSummary(
-        arithmetic_relative_return=arithmetic_relative_return,
-        cumulative_arithmetic_relative_return=(
-            portfolio_cumulative_return_to_date - (benchmark_cumulative_return_to_date * 100)
+    local: float | None = None,
+    fx: float | None = None,
+) -> ComparativeReturnValue:
+    return ComparativeReturnValue(base=base, local=local, fx=fx)
+
+
+def _build_return_value_from_decomposition(
+    decomposition: PortfolioReturnDecomposition,
+) -> ComparativeReturnValue:
+    return _build_return_value(
+        decomposition.base,
+        local=decomposition.local,
+        fx=decomposition.fx,
+    )
+
+
+def _link_return_series(series: pd.Series) -> float:
+    running = Decimal("1")
+    for value in series.tolist():
+        running *= Decimal("1") + Decimal(str(_as_numeric(value)))
+    return float((running - Decimal("1")) * Decimal("100"))
+
+
+def _calculate_benchmark_return_from_slice(period_daily_df: pd.DataFrame) -> ComparativeReturnValue:
+    local = None
+    fx = None
+    if "benchmark_return_local" in period_daily_df.columns and period_daily_df["benchmark_return_local"].notna().any():
+        local = _link_return_series(period_daily_df["benchmark_return_local"])
+    if "benchmark_return_fx" in period_daily_df.columns and period_daily_df["benchmark_return_fx"].notna().any():
+        fx = _link_return_series(period_daily_df["benchmark_return_fx"])
+    return _build_return_value(
+        _link_return_series(period_daily_df["benchmark_return"]),
+        local=local,
+        fx=fx,
+    )
+
+
+def _build_relative_return_value(
+    portfolio_value: ComparativeReturnValue,
+    benchmark_value: ComparativeReturnValue,
+) -> ComparativeReturnValue:
+    return ComparativeReturnValue(
+        base=portfolio_value.base - benchmark_value.base,
+        local=(
+            None
+            if portfolio_value.local is None or benchmark_value.local is None
+            else portfolio_value.local - benchmark_value.local
+        ),
+        fx=(
+            None
+            if portfolio_value.fx is None or benchmark_value.fx is None
+            else portfolio_value.fx - benchmark_value.fx
         ),
     )
 
 
-def _get_portfolio_cumulative_return_to_date(*, period_end_date, daily_results_df: pd.DataFrame) -> float:
+def _iter_frequency_windows(
+    period_df: pd.DataFrame,
+    *,
+    date_column: str,
+    frequency: Frequency,
+) -> list[tuple[str, object, object, pd.DataFrame]]:
+    if period_df.empty:
+        return []
+    if frequency == Frequency.DAILY:
+        daily_windows: list[tuple[str, object, object, pd.DataFrame]] = []
+        for point_date, group_df in period_df.groupby(date_column, sort=True):
+            label = point_date.isoformat() if hasattr(point_date, "isoformat") else str(point_date)
+            daily_windows.append((label, point_date, point_date, group_df.copy()))
+        return daily_windows
+
+    local_df = period_df.copy()
+    local_df[date_column] = pd.to_datetime(local_df[date_column])
+    indexed = local_df.set_index(local_df[date_column])
+    freq_map = {
+        Frequency.WEEKLY: "W-FRI",
+        Frequency.MONTHLY: "ME",
+        Frequency.QUARTERLY: "QE",
+        Frequency.YEARLY: "YE",
+    }
+
+    windows: list[tuple[str, object, object, pd.DataFrame]] = []
+    for raw_period_timestamp, group_df in indexed.resample(freq_map[frequency]):
+        if group_df.empty:
+            continue
+        period_timestamp = pd.Timestamp(str(raw_period_timestamp))
+        group_df = group_df.copy()
+        group_df[date_column] = pd.to_datetime(group_df[date_column]).dt.date
+        start_date = group_df[date_column].min()
+        end_date = group_df[date_column].max()
+        if frequency == Frequency.MONTHLY:
+            label = period_timestamp.strftime("%Y-%m")
+        elif frequency == Frequency.QUARTERLY:
+            label = f"{period_timestamp.year}-Q{period_timestamp.quarter}"
+        elif frequency == Frequency.YEARLY:
+            label = period_timestamp.strftime("%Y")
+        else:
+            label = period_timestamp.strftime("%Y-%m-%d")
+        windows.append((label, start_date, end_date, group_df))
+    return windows
+
+
+def _build_portfolio_breakdowns(
+    *,
+    period_slice_df: pd.DataFrame,
+    daily_results_df: pd.DataFrame,
+    requested_frequencies: list[Frequency],
+    breakdowns_data: dict[Frequency, list[dict]],
+    include_timeseries: bool,
+) -> dict[Frequency, list[ComparativeBreakdownItem]]:
+    breakdowns: dict[Frequency, list[ComparativeBreakdownItem]] = {}
+    for frequency in requested_frequencies:
+        items: list[ComparativeBreakdownItem] = []
+        window_items = _iter_frequency_windows(
+            period_slice_df,
+            date_column=PortfolioColumns.PERF_DATE.value,
+            frequency=frequency,
+        )
+        summary_items = breakdowns_data.get(frequency, [])
+        for index, (label, start_date, end_date, frequency_df) in enumerate(window_items):
+            cumulative_df = period_slice_df[
+                period_slice_df[PortfolioColumns.PERF_DATE.value] <= end_date
+            ].copy()
+            summary_data = summary_items[index]["summary"] if index < len(summary_items) else {}
+            items.append(
+                ComparativeBreakdownItem(
+                    period=label,
+                    period_start=start_date,
+                    period_end=end_date,
+                    period_return=_build_return_value_from_decomposition(
+                        _calculate_total_return_from_slice(frequency_df, daily_results_df)
+                    ),
+                    cumulative_return=_build_return_value_from_decomposition(
+                        _calculate_total_return_from_slice(cumulative_df, daily_results_df)
+                    ),
+                    annualized_return=(
+                        _build_return_value(summary_data["annualized_return_pct"])
+                        if summary_data.get("annualized_return_pct") is not None
+                        else None
+                    ),
+                    daily_data=(
+                        [frequency_df.iloc[0].to_dict()]
+                        if include_timeseries and frequency == Frequency.DAILY and not frequency_df.empty
+                        else None
+                    ),
+                )
+            )
+        breakdowns[frequency] = items
+    return breakdowns
+
+
+def _build_benchmark_breakdowns(
+    *,
+    period_daily_df: pd.DataFrame,
+    requested_frequencies: list[Frequency],
+) -> dict[Frequency, list[ComparativeBreakdownItem]]:
+    breakdowns: dict[Frequency, list[ComparativeBreakdownItem]] = {}
+    for frequency in requested_frequencies:
+        items: list[ComparativeBreakdownItem] = []
+        for label, start_date, end_date, frequency_df in _iter_frequency_windows(
+            period_daily_df,
+            date_column="date",
+            frequency=frequency,
+        ):
+            cumulative_df = period_daily_df[period_daily_df["date"] <= end_date].copy()
+            items.append(
+                ComparativeBreakdownItem(
+                    period=label,
+                    period_start=start_date,
+                    period_end=end_date,
+                    period_return=_calculate_benchmark_return_from_slice(frequency_df),
+                    cumulative_return=_calculate_benchmark_return_from_slice(cumulative_df),
+                )
+            )
+        breakdowns[frequency] = items
+    return breakdowns
+
+
+def _build_relative_breakdowns(
+    *,
+    portfolio_breakdowns: dict[Frequency, list[ComparativeBreakdownItem]],
+    benchmark_breakdowns: dict[Frequency, list[ComparativeBreakdownItem]],
+) -> dict[Frequency, list[ComparativeBreakdownItem]]:
+    breakdowns: dict[Frequency, list[ComparativeBreakdownItem]] = {}
+    for frequency, portfolio_items in portfolio_breakdowns.items():
+        benchmark_items = benchmark_breakdowns.get(frequency, [])
+        items: list[ComparativeBreakdownItem] = []
+        for portfolio_item, benchmark_item in zip(portfolio_items, benchmark_items):
+            items.append(
+                ComparativeBreakdownItem(
+                    period=portfolio_item.period,
+                    period_start=portfolio_item.period_start,
+                    period_end=portfolio_item.period_end,
+                    period_return=_build_relative_return_value(
+                        portfolio_item.period_return,
+                        benchmark_item.period_return,
+                    ),
+                    cumulative_return=(
+                        None
+                        if portfolio_item.cumulative_return is None or benchmark_item.cumulative_return is None
+                        else _build_relative_return_value(
+                            portfolio_item.cumulative_return,
+                            benchmark_item.cumulative_return,
+                        )
+                    ),
+                )
+            )
+        breakdowns[frequency] = items
+    return breakdowns
+
+
+def _get_portfolio_cumulative_return_to_date(
+    *,
+    period_end_date,
+    daily_results_df: pd.DataFrame,
+) -> ComparativeReturnValue:
     cumulative_rows = daily_results_df[
         daily_results_df[PortfolioColumns.PERF_DATE.value] <= period_end_date
-    ]
-    if cumulative_rows.empty:
-        return 0.0
-    return _calculate_total_return_from_slice(cumulative_rows, daily_results_df).base
+    ].copy()
+    return _build_return_value_from_decomposition(
+        _calculate_total_return_from_slice(cumulative_rows, daily_results_df)
+    )
 
 
 def _get_benchmark_cumulative_return_to_date(
-    *, period_end_date, benchmark_daily_returns_df: pd.DataFrame
-) -> float:
-    cumulative_rows = benchmark_daily_returns_df[benchmark_daily_returns_df["date"] <= period_end_date]
-    if cumulative_rows.empty:
-        return 0.0
-    running = 1.0
-    for benchmark_return in cumulative_rows["benchmark_return"]:
-        running *= 1.0 + _as_numeric(benchmark_return)
-    return running - 1.0
+    *,
+    period_end_date,
+    benchmark_daily_returns_df: pd.DataFrame,
+) -> ComparativeReturnValue:
+    cumulative_rows = benchmark_daily_returns_df[benchmark_daily_returns_df["date"] <= period_end_date].copy()
+    return _calculate_benchmark_return_from_slice(cumulative_rows)
 
 
 def calculate_twr_response(
@@ -183,7 +383,7 @@ def calculate_twr_response(
         as_of_date = performance_request.report_end_date
         resolved_periods = resolve_periods(periods_to_resolve, as_of_date, performance_request.performance_start_date)
         if not resolved_periods:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No valid periods could be resolved.")
+            raise HTTPException(status_code=400, detail="No valid periods could be resolved.")
 
         master_start_date = min(p.start_date for p in resolved_periods)
         master_end_date = max(p.end_date for p in resolved_periods)
@@ -200,8 +400,7 @@ def calculate_twr_response(
         execution_registry.fail_stage(performance_request.calculation_id, "execution", str(exc))
         raise
 
-    results_by_period = {}
-    resolved_period_end_dates: dict[str, object] = {}
+    results_by_period: dict[str, SinglePeriodPerformanceResult] = {}
     daily_results_df[PortfolioColumns.PERF_DATE.value] = pd.to_datetime(
         daily_results_df[PortfolioColumns.PERF_DATE.value]
     ).dt.date
@@ -211,28 +410,81 @@ def calculate_twr_response(
             (daily_results_df[PortfolioColumns.PERF_DATE.value] >= period.start_date)
             & (daily_results_df[PortfolioColumns.PERF_DATE.value] <= period.end_date)
         ].copy()
-
         if period_slice_df.empty:
             continue
-        resolved_period_end_dates[period.name] = period.end_date
 
         requested_frequencies_for_period = freqs_by_period.get(period.name, [])
         breakdowns_data = generate_performance_breakdowns(
-            period_slice_df,
+            period_slice_df.copy(),
             requested_frequencies_for_period,
             performance_request.annualization,
             performance_request.output.include_cumulative,
             performance_request.rounding_precision,
         )
-        formatted_breakdowns = format_breakdowns_for_response(
-            breakdowns_data, period_slice_df, performance_request.output.include_timeseries
+        portfolio_period_return = _calculate_total_return_from_slice(period_slice_df, daily_results_df)
+        portfolio_breakdowns = _build_portfolio_breakdowns(
+            period_slice_df=period_slice_df,
+            daily_results_df=daily_results_df,
+            requested_frequencies=requested_frequencies_for_period,
+            breakdowns_data=breakdowns_data,
+            include_timeseries=performance_request.output.include_timeseries,
         )
 
-        period_return_summary = _calculate_total_return_from_slice(period_slice_df, daily_results_df)
         period_result = SinglePeriodPerformanceResult(
-            breakdowns=formatted_breakdowns,
-            portfolio_return=period_return_summary,
+            portfolio=ComparativeAnalyticsBlock(
+                summary=ComparativeSummary(
+                    period_return=_build_return_value_from_decomposition(portfolio_period_return),
+                    cumulative_return=_get_portfolio_cumulative_return_to_date(
+                        period_end_date=period.end_date,
+                        daily_results_df=daily_results_df,
+                    ),
+                ),
+                breakdowns=portfolio_breakdowns,
+            ),
         )
+
+        if benchmark_artifacts is not None and benchmark_request is not None:
+            benchmark_period_df = benchmark_artifacts.daily_returns_df[
+                (benchmark_artifacts.daily_returns_df["date"] >= period.start_date)
+                & (benchmark_artifacts.daily_returns_df["date"] <= period.end_date)
+            ].copy()
+            if not benchmark_period_df.empty:
+                benchmark_period_return = _calculate_benchmark_return_from_slice(benchmark_period_df)
+                benchmark_breakdowns = _build_benchmark_breakdowns(
+                    period_daily_df=benchmark_period_df,
+                    requested_frequencies=requested_frequencies_for_period,
+                )
+                period_result.benchmark = ComparativeAnalyticsBlock(
+                    summary=ComparativeSummary(
+                        period_return=benchmark_period_return,
+                        cumulative_return=_get_benchmark_cumulative_return_to_date(
+                            period_end_date=period.end_date,
+                            benchmark_daily_returns_df=benchmark_artifacts.daily_returns_df,
+                        ),
+                    ),
+                    breakdowns=benchmark_breakdowns,
+                    benchmark_id=resolved_benchmark_id or benchmark_request.benchmark_id,
+                    benchmark_currency=benchmark_request.benchmark_currency,
+                    input_mode=(benchmark_input_mode or BenchmarkInputMode.STATELESS).value,
+                    return_source=benchmark_return_source.value,
+                )
+                period_result.relative_performance = ComparativeAnalyticsBlock(
+                    summary=ComparativeSummary(
+                        period_return=_build_relative_return_value(
+                            period_result.portfolio.summary.period_return,
+                            benchmark_period_return,
+                        ),
+                        cumulative_return=_build_relative_return_value(
+                            period_result.portfolio.summary.cumulative_return
+                            or period_result.portfolio.summary.period_return,
+                            period_result.benchmark.summary.cumulative_return or benchmark_period_return,
+                        ),
+                    ),
+                    breakdowns=_build_relative_breakdowns(
+                        portfolio_breakdowns=portfolio_breakdowns,
+                        benchmark_breakdowns=benchmark_breakdowns,
+                    ),
+                )
 
         if performance_request.reset_policy.emit and engine_diagnostics.resets:
             period_result.reset_events = [
@@ -243,39 +495,11 @@ def calculate_twr_response(
 
         results_by_period[period.name] = period_result
 
-    benchmark_response = None
-    if benchmark_request is not None and benchmark_artifacts is not None:
-        effective_benchmark_mode = benchmark_input_mode or BenchmarkInputMode.STATELESS
-        for period_name, period_result in results_by_period.items():
-            benchmark_period = benchmark_artifacts.results_by_period.get(period_name)
-            if benchmark_period is None or period_result.portfolio_return is None:
-                continue
-            period_result.relative_performance = _build_relative_performance_summary(
-                portfolio_return=period_result.portfolio_return,
-                portfolio_cumulative_return_to_date=_get_portfolio_cumulative_return_to_date(
-                    period_end_date=resolved_period_end_dates[period_name],
-                    daily_results_df=daily_results_df,
-                ),
-                benchmark_return=benchmark_period.benchmark_return,
-                benchmark_cumulative_return_to_date=_get_benchmark_cumulative_return_to_date(
-                    period_end_date=resolved_period_end_dates[period_name],
-                    benchmark_daily_returns_df=benchmark_artifacts.daily_returns_df,
-                ),
-            )
-        benchmark_response = TWRBenchmarkResponse(
-            benchmark_id=resolved_benchmark_id or benchmark_request.benchmark_id,
-            benchmark_currency=benchmark_request.benchmark_currency,
-            input_mode=effective_benchmark_mode,
-            return_source=benchmark_return_source,
-            results_by_period=benchmark_artifacts.results_by_period,
-        )
-
     response_model = PerformanceResponse(
         calculation_id=performance_request.calculation_id,
         portfolio_id=portfolio_id,
         input_mode=input_mode,
         results_by_period=results_by_period,
-        benchmark=benchmark_response,
         meta=Meta(
             calculation_id=performance_request.calculation_id,
             engine_version=engine_version,

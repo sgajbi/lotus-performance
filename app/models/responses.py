@@ -5,8 +5,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
-from app.models.benchmark_analytics_requests import BenchmarkInputMode, BenchmarkReturnSource
-from app.models.benchmark_responses import SinglePeriodBenchmarkResult
 from app.models.twr_requests import TWRInputMode
 from common.enums import Frequency
 from core.envelope import Audit, Diagnostics, Meta
@@ -51,23 +49,46 @@ class RelativePerformanceSummary(BaseModel):
     cumulative_arithmetic_relative_return: float
 
 
+class ComparativeReturnValue(BaseModel):
+    local: float | None = None
+    fx: float | None = None
+    base: float
+
+
+class ComparativeSummary(BaseModel):
+    period_return: ComparativeReturnValue
+    cumulative_return: ComparativeReturnValue | None = None
+
+
+class ComparativeBreakdownItem(BaseModel):
+    period: str
+    period_start: date
+    period_end: date
+    period_return: ComparativeReturnValue
+    cumulative_return: ComparativeReturnValue | None = None
+    annualized_return: ComparativeReturnValue | None = None
+    daily_data: Optional[List[Dict]] = None
+
+
+ComparativeBreakdown = Dict[Frequency, List[ComparativeBreakdownItem]]
+
+
+class ComparativeAnalyticsBlock(BaseModel):
+    summary: ComparativeSummary
+    breakdowns: ComparativeBreakdown
+    benchmark_id: str | None = None
+    benchmark_currency: str | None = None
+    input_mode: str | None = None
+    return_source: str | None = None
+
+
 class SinglePeriodPerformanceResult(BaseModel):
     """Contains the full set of TWR results for a single, resolved period."""
 
-    breakdowns: PerformanceBreakdown
+    portfolio: ComparativeAnalyticsBlock
+    benchmark: ComparativeAnalyticsBlock | None = None
+    relative_performance: ComparativeAnalyticsBlock | None = None
     reset_events: Optional[List[ResetEvent]] = None
-    portfolio_return: Optional[PortfolioReturnDecomposition] = None
-    relative_performance: RelativePerformanceSummary | None = None
-
-
-class TWRBenchmarkResponse(BaseModel):
-    benchmark_id: str
-    benchmark_currency: str
-    input_mode: BenchmarkInputMode
-    return_source: BenchmarkReturnSource
-    results_by_period: Dict[str, SinglePeriodBenchmarkResult]
-
-    model_config = ConfigDict(extra="forbid")
 
 
 class PerformanceResponse(BaseModel):
@@ -81,7 +102,6 @@ class PerformanceResponse(BaseModel):
     input_mode: TWRInputMode = TWRInputMode.STATELESS
 
     results_by_period: Dict[str, SinglePeriodPerformanceResult]
-    benchmark: TWRBenchmarkResponse | None = None
 
     meta: Meta
     diagnostics: Diagnostics

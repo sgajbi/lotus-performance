@@ -10,6 +10,7 @@ import app.services.twr_service as twr_service
 from app.core.config import get_settings
 from app.models.twr_requests import TWRAnalyticsRequest, TWRResolvedExecutionRequest
 from app.services.execution_registry import ExecutionRegistry
+from app.services.stateful_input_service import StatefulInputService
 from core.repro import generate_canonical_hash, generate_canonical_hash_from_value
 from tests.benchmarks.test_stateful_input_performance import (
     STATEFUL_PORTFOLIO_WINDOW_END,
@@ -42,7 +43,7 @@ async def test_twr_stateful_benchmark_orchestration_characterization_contract(tm
         (),
         {"enqueue_capture": staticmethod(lambda **kwargs: None)},
     )()
-    twr_mode_service.build_stateful_input_service = lambda settings: twr_mode_service.StatefulInputService(
+    twr_mode_service.build_stateful_input_service = lambda settings: StatefulInputService(
         core_service=core_service_stub,
         execution_store=execution_store,
         portfolio_chunk_days=settings.STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS,
@@ -164,8 +165,8 @@ async def test_twr_stateful_benchmark_orchestration_characterization_contract(tm
         execution_lifecycle_service.lineage_service = original_lineage_service
         twr_mode_service.build_stateful_input_service = original_builder
 
-    assert response.benchmark is not None
-    assert response.benchmark.benchmark_id == "BMK-CHAR"
+    assert response.results_by_period["ITD"].benchmark is not None
+    assert response.results_by_period["ITD"].benchmark.benchmark_id == "BMK-CHAR"
     assert response.results_by_period["ITD"].relative_performance is not None
 
     median_ms = median(timings)

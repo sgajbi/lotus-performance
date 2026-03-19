@@ -212,45 +212,118 @@ This keeps the caller override explicit while preserving the default portfolio-t
 
 #### 7.1.3 Response shape
 
-When `include_benchmark=true`, TWR should return:
-- portfolio TWR
-- benchmark TWR
-- relative performance
-- cumulative relative performance
+When `include_benchmark=true`, each resolved TWR period should expose three sibling analytics blocks:
+- `portfolio`
+- `benchmark`
+- `relative_performance`
 
-The benchmark block should remain a first-class sibling result, and each resolved period result should also include a dedicated relative-performance block.
+This is the target comparative contract because it keeps:
+- the same period semantics
+- the same requested-frequency breakdown semantics
+- side-by-side consumption simple for UI, exports, and downstream services
 
 Recommended response direction:
-- keep the existing benchmark result block for benchmark performance details
-- add `relative_performance` under each period result
+- remove the separate top-level benchmark result block from TWR
+- place all comparative output inside each `results_by_period[*]` period result
+- make the three sibling blocks structurally parallel
 
-Recommended relative-performance fields:
-- `arithmetic_relative_return`
-- `cumulative_arithmetic_relative_return`
+Recommended period result shape:
 
-Relative performance should be defined as:
+```json
+{
+  "results_by_period": {
+    "ITD": {
+      "portfolio": {
+        "summary": {
+          "period_return": { "base": 4.52, "local": 4.12, "fx": 0.38 },
+          "cumulative_return": { "base": 4.52, "local": 4.12, "fx": 0.38 }
+        },
+        "breakdowns": {
+          "monthly": [
+            {
+              "period": "2024-01",
+              "period_start": "2024-01-01",
+              "period_end": "2024-01-31",
+              "period_return": { "base": 1.20, "local": 1.10, "fx": 0.10 },
+              "cumulative_return": { "base": 1.20, "local": 1.10, "fx": 0.10 }
+            }
+          ]
+        }
+      },
+      "benchmark": {
+        "summary": {
+          "period_return": { "base": 4.10, "local": 3.90, "fx": 0.20 },
+          "cumulative_return": { "base": 4.10, "local": 3.90, "fx": 0.20 }
+        },
+        "breakdowns": {
+          "monthly": [
+            {
+              "period": "2024-01",
+              "period_start": "2024-01-01",
+              "period_end": "2024-01-31",
+              "period_return": { "base": 1.05, "local": 1.00, "fx": 0.05 },
+              "cumulative_return": { "base": 1.05, "local": 1.00, "fx": 0.05 }
+            }
+          ]
+        },
+        "benchmark_id": "BMK_GLOBAL_1",
+        "benchmark_currency": "USD",
+        "input_mode": "stateful",
+        "return_source": "calculated"
+      },
+      "relative_performance": {
+        "summary": {
+          "period_return": { "base": 0.42 },
+          "cumulative_return": { "base": 0.42 }
+        },
+        "breakdowns": {
+          "monthly": [
+            {
+              "period": "2024-01",
+              "period_start": "2024-01-01",
+              "period_end": "2024-01-31",
+              "period_return": { "base": 0.15 },
+              "cumulative_return": { "base": 0.15 }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+```
 
-`arithmetic_relative_return = portfolio_return - benchmark_return`
+Important semantics:
+- `portfolio.summary.period_return` is the requested period return
+- `benchmark.summary.period_return` is the requested period return
+- `relative_performance.summary.period_return` is arithmetic excess return for the requested period
+- all three sibling blocks should also expose `summary.cumulative_return`
+- all requested-frequency breakdown rows should expose:
+  - `period_return`
+  - `cumulative_return`
 
-Cumulative relative performance should be defined as:
+Cumulative behavior:
+- portfolio cumulative return is geometrically linked through the end of the row
+- benchmark cumulative return is geometrically linked through the end of the row
+- relative-performance cumulative return is arithmetic:
+  - `cumulative_relative_return = cumulative_portfolio_return - cumulative_benchmark_return`
 
-`cumulative_arithmetic_relative_return = cumulative_portfolio_return - cumulative_benchmark_return`
-
-This is intentionally arithmetic relative performance, not geometrically linked active return.
+This preserves mathematical truth while keeping the structural contract symmetrical.
 
 #### 7.1.4 Current implementation status
 
 Current branch reality is close, but not complete:
 - implemented:
+  - top-level `include_benchmark` flag
   - optional nested benchmark request on TWR
   - stateful assignment lookup from `lotus-core` when `benchmark_id` is omitted
   - explicit `benchmark_id` override support
   - shared benchmark engine reuse
-- still to add:
-  - top-level `include_benchmark` flag
-  - validation coupling between `include_benchmark` and the nested `benchmark` configuration object
-  - arithmetic relative performance in TWR response
-  - cumulative relative performance in TWR response
+  - sibling `portfolio`, `benchmark`, and `relative_performance` blocks per resolved period
+  - requested-frequency period-return and cumulative-return rows for all three sibling blocks
+- still to refine:
+  - contract simplification around caller-supplied stateful source metadata
+  - final public sample payloads and guide wording for the new comparative response shape
 
 ### 7.2 Attribution
 
@@ -419,9 +492,9 @@ Remaining questions before implementation:
    - if vendor `benchmark_return` is allowed, what is the exact public configuration field and vocabulary?
    - recommendation: support it only as an explicit non-default `return_source` mode, with clear lineage showing the source path used
 
-4. TWR response placement
-   - should `relative_performance` live only inside each `results_by_period[*]`, or also in the top-level benchmark block?
-   - recommendation: keep it inside each period result, because relative performance is period-resolved output, not benchmark metadata
+4. Comparative TWR response placement
+   - decision: keep `portfolio`, `benchmark`, and `relative_performance` together inside each `results_by_period[*]`
+   - recommendation: do not keep a separate top-level benchmark result block in TWR, because the comparative analytics belong to each resolved period
 
 ## 11. Recommended Implementation Phases
 
