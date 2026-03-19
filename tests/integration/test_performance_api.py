@@ -512,6 +512,48 @@ def test_twr_supports_include_benchmark_without_nested_stateful_benchmark_config
     assert body["benchmark"]["input_mode"] == "stateful"
 
 
+def test_twr_relative_performance_uses_cumulative_to_date_for_non_itd_periods(client):
+    payload = {
+        "portfolio_id": "TWR_BENCHMARK_RELATIVE_MTD",
+        "performance_start_date": "2024-12-31",
+        "metric_basis": "NET",
+        "report_end_date": "2025-02-15",
+        "analyses": [
+            {"period": "MTD", "frequencies": ["monthly"]},
+            {"period": "YTD", "frequencies": ["monthly"]},
+        ],
+        "include_benchmark": True,
+        "valuation_points": [
+            {"day": 1, "perf_date": "2025-01-15", "begin_mv": 1000.0, "end_mv": 1010.0},
+            {"day": 2, "perf_date": "2025-02-10", "begin_mv": 1010.0, "end_mv": 1030.2},
+        ],
+        "benchmark": {
+            "benchmark_id": "BMK_RELATIVE_1",
+            "input_mode": "stateless",
+            "return_source": "calculated",
+            "stateless_input": {
+                "benchmark_currency": "USD",
+                "component_observations": [
+                    {"component_id": "IDX_A", "date": "2025-01-15", "weight_bop": 1.0, "component_return": 0.005},
+                    {"component_id": "IDX_A", "date": "2025-02-10", "weight_bop": 1.0, "component_return": 0.015},
+                ],
+            },
+        },
+    }
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    mtd_relative = body["results_by_period"]["MTD"]["relative_performance"]
+    ytd_relative = body["results_by_period"]["YTD"]["relative_performance"]
+
+    assert mtd_relative["arithmetic_relative_return"] == pytest.approx(0.5)
+    assert mtd_relative["cumulative_arithmetic_relative_return"] == pytest.approx(1.0125)
+    assert ytd_relative["arithmetic_relative_return"] == pytest.approx(1.0125)
+    assert ytd_relative["cumulative_arithmetic_relative_return"] == pytest.approx(1.0125)
+
+
 def test_twr_hashes_include_resolved_benchmark_request(client):
     payload = {
         "portfolio_id": "TWR_BENCHMARK_HASH",

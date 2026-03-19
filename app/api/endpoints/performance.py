@@ -167,13 +167,40 @@ def _build_resolved_twr_identity_payload(
 def _build_relative_performance_summary(
     *,
     portfolio_return: PortfolioReturnDecomposition,
+    portfolio_cumulative_return_to_date: float,
     benchmark_return: float,
+    benchmark_cumulative_return_to_date: float,
 ) -> RelativePerformanceSummary:
     arithmetic_relative_return = portfolio_return.base - (benchmark_return * 100)
     return RelativePerformanceSummary(
         arithmetic_relative_return=arithmetic_relative_return,
-        cumulative_arithmetic_relative_return=arithmetic_relative_return,
+        cumulative_arithmetic_relative_return=(
+            portfolio_cumulative_return_to_date - (benchmark_cumulative_return_to_date * 100)
+        ),
     )
+
+
+def _get_portfolio_cumulative_return_to_date(
+    *, period_end_date, daily_results_df: pd.DataFrame
+) -> float:
+    cumulative_rows = daily_results_df[
+        daily_results_df[PortfolioColumns.PERF_DATE.value] <= period_end_date
+    ]
+    if cumulative_rows.empty:
+        return 0.0
+    return _calculate_total_return_from_slice(cumulative_rows, daily_results_df).base
+
+
+def _get_benchmark_cumulative_return_to_date(
+    *, period_end_date, benchmark_daily_returns_df: pd.DataFrame
+) -> float:
+    cumulative_rows = benchmark_daily_returns_df[benchmark_daily_returns_df["date"] <= period_end_date]
+    if cumulative_rows.empty:
+        return 0.0
+    running = 1.0
+    for benchmark_return in cumulative_rows["benchmark_return"]:
+        running *= 1.0 + _as_numeric(benchmark_return)
+    return running - 1.0
 
 
 @router.post("/twr", response_model=PerformanceResponse, summary="Calculate Time-Weighted Return")
@@ -345,7 +372,15 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest):
                 continue
             period_result.relative_performance = _build_relative_performance_summary(
                 portfolio_return=period_result.portfolio_return,
+                portfolio_cumulative_return_to_date=_get_portfolio_cumulative_return_to_date(
+                    period_end_date=period.end_date,
+                    daily_results_df=daily_results_df,
+                ),
                 benchmark_return=benchmark_period.benchmark_return,
+                benchmark_cumulative_return_to_date=_get_benchmark_cumulative_return_to_date(
+                    period_end_date=period.end_date,
+                    benchmark_daily_returns_df=benchmark_artifacts.daily_returns_df,
+                ),
             )
         benchmark_response = TWRBenchmarkResponse(
             benchmark_id=resolved_request.resolved_benchmark_id or resolved_request.benchmark_request.benchmark_id,
