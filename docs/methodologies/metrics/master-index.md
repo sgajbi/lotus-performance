@@ -22,6 +22,7 @@ This index maps implemented lotus-performance metrics to detailed methodology do
 | Currency Selection | POST /performance/attribution | Stateless (multi-currency path) | [metric-currency-selection.md](./metric-currency-selection.md) |
 | Portfolio Return Series | POST /integration/returns/series | Stateless + Stateful | [metric-returns-series-portfolio.md](./metric-returns-series-portfolio.md) |
 | Benchmark Return Series | POST /integration/returns/series | Stateless + Stateful | [metric-returns-series-benchmark.md](./metric-returns-series-benchmark.md) |
+| Active Return Series | POST /integration/returns/series | Stateless + Stateful | [metric-returns-series-active.md](./metric-returns-series-active.md) |
 | Risk-Free Return Series | POST /integration/returns/series | Stateless + Stateful | [metric-returns-series-risk-free.md](./metric-returns-series-risk-free.md) |
 
 ## Notes
