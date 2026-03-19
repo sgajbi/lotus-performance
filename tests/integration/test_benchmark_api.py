@@ -76,13 +76,13 @@ def test_calculate_benchmark_endpoint_supports_stateless_calculated_mode(client)
 
 
 def test_calculate_benchmark_endpoint_supports_stateful_calculated_mode(client, monkeypatch):
-    async def _mock_get_benchmark_definition(self, **kwargs):  # noqa: ARG001
+    async def _mock_get_benchmark_composition_window(self, **kwargs):  # noqa: ARG001
         return (
             200,
             {
                 "benchmark_id": "BMK_STATEFUL_1",
                 "benchmark_currency": "USD",
-                "components": [
+                "segments": [
                     {
                         "index_id": "IDX_USD",
                         "composition_weight": "0.6",
@@ -139,8 +139,8 @@ def test_calculate_benchmark_endpoint_supports_stateful_calculated_mode(client, 
         )
 
     monkeypatch.setattr(
-        "app.services.stateful_input_service.StatefulInputService.get_benchmark_definition",
-        _mock_get_benchmark_definition,
+        "app.services.stateful_input_service.StatefulInputService.get_benchmark_composition_window",
+        _mock_get_benchmark_composition_window,
     )
     monkeypatch.setattr(
         "app.services.stateful_input_service.StatefulInputService.get_index_price_series",
@@ -180,13 +180,13 @@ def test_calculate_benchmark_endpoint_supports_stateful_calculated_mode(client, 
 def test_calculate_benchmark_endpoint_records_http_failure_detail_in_execution_status(client, monkeypatch):
     calculation_id = str(uuid4())
 
-    async def _mock_get_benchmark_definition(self, **kwargs):  # noqa: ARG001
+    async def _mock_get_benchmark_composition_window(self, **kwargs):  # noqa: ARG001
         return (
             200,
             {
                 "benchmark_id": "BMK_BAD_WINDOW",
                 "benchmark_currency": "USD",
-                "components": [
+                "segments": [
                     {
                         "index_id": "IDX_A",
                         "composition_weight": "1.0",
@@ -198,8 +198,8 @@ def test_calculate_benchmark_endpoint_records_http_failure_detail_in_execution_s
         )
 
     monkeypatch.setattr(
-        "app.services.stateful_input_service.StatefulInputService.get_benchmark_definition",
-        _mock_get_benchmark_definition,
+        "app.services.stateful_input_service.StatefulInputService.get_benchmark_composition_window",
+        _mock_get_benchmark_composition_window,
     )
 
     payload = {
@@ -216,16 +216,16 @@ def test_calculate_benchmark_endpoint_records_http_failure_detail_in_execution_s
     response = client.post("/performance/benchmark", json=payload)
 
     assert response.status_code == 422
-    assert "single effective lotus-core composition segment" in response.json()["detail"]
+    assert "does not cover requested date 2026-01-02" in response.json()["detail"]
 
     execution_response = client.get(f"/performance/executions/{calculation_id}")
     assert execution_response.status_code == 200
     body = execution_response.json()
     assert body["status"] == "failed"
-    assert "single effective lotus-core composition segment" in body["error_message"]
+    assert "does not cover requested date 2026-01-02" in body["error_message"]
     retrieval_stage = {stage["stage_name"]: stage for stage in body["stages"]}["retrieval"]
     assert retrieval_stage["status"] == "failed"
-    assert "single effective lotus-core composition segment" in retrieval_stage["error_message"]
+    assert "does not cover requested date 2026-01-02" in retrieval_stage["error_message"]
 
 
 def test_calculate_benchmark_endpoint_supports_explicit_vendor_series_mode(client, monkeypatch):

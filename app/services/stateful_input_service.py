@@ -335,6 +335,51 @@ class StatefulInputService:
                 existing_snapshot_ids.add(snapshot_id)
         return response
 
+    async def get_benchmark_composition_window(
+        self,
+        *,
+        benchmark_id: str,
+        start_date: date,
+        end_date: date,
+        calculation_id: UUID | None = None,
+    ) -> tuple[int, dict[str, Any]]:
+        response = await self._core_service.get_benchmark_composition_window(
+            benchmark_id=benchmark_id,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        if calculation_id is not None:
+            request_payload = {
+                "benchmark_id": benchmark_id,
+                "start_date": str(start_date),
+                "end_date": str(end_date),
+            }
+            snapshot_id, request_fingerprint = self._build_snapshot_identity(
+                calculation_id=calculation_id,
+                upstream_endpoint="benchmark_composition_window",
+                source_identifier=benchmark_id,
+                request_payload=request_payload,
+            )
+            existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
+            if snapshot_id not in existing_snapshot_ids:
+                self._execution_store.record_upstream_snapshots(
+                    calculation_id=calculation_id,
+                    snapshots=[
+                        self._build_snapshot(
+                            calculation_id=calculation_id,
+                            upstream_endpoint="benchmark_composition_window",
+                            source_identifier=benchmark_id,
+                            as_of_date=end_date,
+                            request_payload=request_payload,
+                            response=response,
+                            snapshot_id=snapshot_id,
+                            request_fingerprint=request_fingerprint,
+                        )
+                    ],
+                )
+                existing_snapshot_ids.add(snapshot_id)
+        return response
+
     async def get_benchmark_market_series(
         self,
         *,

@@ -147,6 +147,26 @@ class CoreIntegrationService:
             backoff_seconds=self._retry_backoff_seconds,
         )
 
+    async def get_benchmark_composition_window(
+        self,
+        *,
+        benchmark_id: str,
+        start_date: date,
+        end_date: date,
+    ) -> tuple[int, dict[str, Any]]:
+        url = f"{self._base_url}/integration/benchmarks/{benchmark_id}/composition-window"
+        payload = {
+            "window": {"start_date": str(start_date), "end_date": str(end_date)},
+        }
+        return await post_with_retry(
+            url=url,
+            timeout_seconds=self._timeout,
+            json_body=payload,
+            headers=propagation_headers(),
+            max_retries=self._max_retries,
+            backoff_seconds=self._retry_backoff_seconds,
+        )
+
     async def get_benchmark_market_series(
         self,
         *,

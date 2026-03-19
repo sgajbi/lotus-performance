@@ -280,13 +280,13 @@ async def test_resolve_twr_request_sources_stateful_benchmark_assignment(monkeyp
         async def get_benchmark_assignment(self, **kwargs):  # noqa: ARG002
             return 200, {"benchmark_id": "BMK_ASSIGNED"}
 
-        async def get_benchmark_definition(self, **kwargs):  # noqa: ARG002
+        async def get_benchmark_composition_window(self, **kwargs):  # noqa: ARG002
             return (
                 200,
                 {
                     "benchmark_id": "BMK_ASSIGNED",
                     "benchmark_currency": "USD",
-                    "components": [
+                    "segments": [
                         {
                             "index_id": "IDX_USD",
                             "composition_weight": "1.0",
@@ -363,13 +363,13 @@ async def test_resolve_twr_request_sources_default_stateful_benchmark_assignment
         async def get_benchmark_assignment(self, **kwargs):  # noqa: ARG002
             return 200, {"benchmark_id": "BMK_ASSIGNED"}
 
-        async def get_benchmark_definition(self, **kwargs):  # noqa: ARG002
+        async def get_benchmark_composition_window(self, **kwargs):  # noqa: ARG002
             return (
                 200,
                 {
                     "benchmark_id": "BMK_ASSIGNED",
                     "benchmark_currency": "USD",
-                    "components": [
+                    "segments": [
                         {
                             "index_id": "IDX_USD",
                             "composition_weight": "1.0",
