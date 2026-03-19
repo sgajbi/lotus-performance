@@ -8,8 +8,8 @@ This document records the repo-owned capacity and performance characterization c
 This characterization currently governs the vectorized engine hot path behind
 `engine.compute.run_calculations(...)` plus the durable queue-stat aggregation paths used by
 the runtime control plane and Prometheus collector, plus the public async execution-polling
-read path, plus the stateful portfolio-retrieval orchestration path, plus PostgreSQL query-plan
-verification for the durable hot-path reads.
+read path, plus the stateful portfolio-retrieval orchestration path, plus calculated stateful
+benchmark normalization, plus PostgreSQL query-plan verification for the durable hot-path reads.
 
 ## Governed workload
 
@@ -116,6 +116,23 @@ These characterize the control-plane query path behind:
   - canonical deduped merge of returned points
 - Metric: median wall-clock runtime across 5 reads after warm-up
 - Budget: `<= 25ms`
+- Test owner: [test_stateful_input_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_stateful_input_performance.py)
+
+## Stateful calculated benchmark normalization budget
+
+- Workload: calculated stateful benchmark normalization across `2024-01-01` to `2033-12-31`
+- Retrieval characteristics:
+  - effective-dated composition-window sourcing
+  - `365`-day component price-series chunks
+  - `365`-day FX-rate chunks for non-benchmark-currency components
+  - beginning-of-day weight application across rebalance segments
+  - durable upstream snapshot recording enabled
+- Benchmark shape:
+  - `4` benchmark components
+  - `8` effective-dated composition segments
+  - `3` FX pairs normalized into benchmark currency
+- Metric: median wall-clock runtime across 5 reads after warm-up
+- Budget: `<= 2200ms`
 - Test owner: [test_stateful_input_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_stateful_input_performance.py)
 
 ## PostgreSQL plan verification
