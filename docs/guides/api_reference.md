@@ -343,6 +343,11 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 - execution mode:
   - synchronous for stateless and smaller stateful windows
   - `202 Accepted` for long-window stateful requests offloaded to the compute executor
+- contract note:
+  - stateless benchmark series are still caller-supplied via `stateless_input.benchmark_returns`
+  - in stateful mode, benchmark sourcing defaults to the shared lotus-performance benchmark calculation path
+  - `benchmark.return_source="vendor_series"` is an explicit stateful-only override for lotus-core benchmark return-series retrieval
+  - `benchmark.benchmark_id` is only meaningful in stateful mode for explicit benchmark override; otherwise lotus-core benchmark assignment can resolve the benchmark id
 
 ### `GET /integration/returns/series/results/{calculation_id}`
 

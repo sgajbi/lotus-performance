@@ -106,7 +106,6 @@ class SeriesSelection(BaseModel):
 
 class BenchmarkSpec(BaseModel):
     benchmark_id: str | None = None
-    benchmark_series_ref: str | None = None
     return_source: BenchmarkReturnSource = BenchmarkReturnSource.CALCULATED
 
 
@@ -171,6 +170,11 @@ class ReturnsSeriesRequest(BaseModel):
         if self.series_selection.include_risk_free and self.input_mode == InputMode.STATELESS:
             if not self.stateless_input or not self.stateless_input.risk_free_returns:
                 raise ValueError("risk_free_returns are required when include_risk_free=true in stateless mode")
+        if self.input_mode == InputMode.STATELESS and self.benchmark is not None:
+            if self.benchmark.benchmark_id is not None:
+                raise ValueError("benchmark.benchmark_id is only supported in stateful mode for returns-series")
+            if self.benchmark.return_source != BenchmarkReturnSource.CALCULATED:
+                raise ValueError("benchmark.return_source is only supported in stateful mode for returns-series")
         return self
 
 

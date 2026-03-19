@@ -31,8 +31,9 @@ Stateful callers provide:
 - optional `stateful_input.filters`
 
 In stateful mode, lotus-performance sources portfolio and position timeseries from lotus-core,
-resolves benchmark assignment when needed, retrieves benchmark market-series metadata, and
-normalizes those upstream inputs into the same stateless engine request used by direct callers.
+resolves benchmark assignment when needed, resolves benchmark component inputs through the shared
+benchmark engine sourcing path, and normalizes those upstream inputs into the same stateless engine
+request used by direct callers.
 
 The current stateful public contract is intentionally fenced to:
 

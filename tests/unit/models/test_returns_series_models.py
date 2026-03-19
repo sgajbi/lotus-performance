@@ -103,12 +103,30 @@ def test_returns_series_request_generates_calculation_id_by_default():
 
 
 def test_returns_series_benchmark_spec_defaults_to_calculated_return_source():
+    from app.models.returns_series import BenchmarkSpec
+
+    benchmark = BenchmarkSpec.model_validate({})
+
+    assert benchmark.return_source.value == "calculated"
+
+
+def test_returns_series_rejects_stateful_only_benchmark_config_in_stateless_mode():
     from app.models.returns_series import ReturnsSeriesRequest
 
     payload = _base_payload()
     payload["benchmark"] = {"benchmark_id": "BMK_1"}
 
-    request = ReturnsSeriesRequest.model_validate(payload)
+    with pytest.raises(
+        ValidationError,
+        match="benchmark.benchmark_id is only supported in stateful mode for returns-series",
+    ):
+        ReturnsSeriesRequest.model_validate(payload)
 
-    assert request.benchmark is not None
-    assert request.benchmark.return_source.value == "calculated"
+    payload = _base_payload()
+    payload["benchmark"] = {"return_source": "vendor_series"}
+
+    with pytest.raises(
+        ValidationError,
+        match="benchmark.return_source is only supported in stateful mode for returns-series",
+    ):
+        ReturnsSeriesRequest.model_validate(payload)

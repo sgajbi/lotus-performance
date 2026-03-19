@@ -129,6 +129,17 @@ def test_attribution_guide_uses_current_request_shape():
     assert "currency_attribution" in guide
     assert "`group_by` includes the `currency` dimension" in guide
     assert "available for both stateless and stateful attribution inputs" in guide
+    assert "benchmark engine sourcing path" in guide
+
+
+def test_returns_series_docs_reflect_benchmark_return_source_contract():
+    readme = _read("README.md")
+    api_reference = _read("docs/guides/api_reference.md")
+
+    assert 'benchmark.return_source="vendor_series"' in readme
+    assert "stateful benchmark sourcing now defaults to lotus-performance benchmark calculation" in readme
+    assert 'benchmark.return_source="vendor_series"' in api_reference
+    assert "stateful mode, benchmark sourcing defaults to the shared lotus-performance benchmark calculation path" in api_reference.lower()
 
 
 def test_api_examples_recipes_match_current_dual_mode_contract():
