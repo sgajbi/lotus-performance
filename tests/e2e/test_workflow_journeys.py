@@ -1,7 +1,9 @@
 import os
 from datetime import date
+from decimal import Decimal
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
@@ -34,6 +36,119 @@ def _patch_stateful_attribution_benchmark_input(monkeypatch, *observations: Benc
         "app.services.stateful_attribution_input_service.build_stateful_benchmark_input",
         _mock_build_stateful_benchmark_input,
     )
+
+
+def _patch_shared_stateful_benchmark_sources(monkeypatch) -> None:
+    async def _mock_fetch_stateful_portfolio_timeseries(**kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2026-02-20",
+                "observations": [
+                    {"valuation_date": "2026-02-23", "beginning_market_value": "1000", "ending_market_value": "1010"},
+                    {"valuation_date": "2026-02-24", "beginning_market_value": "1010", "ending_market_value": "1020.1"},
+                    {"valuation_date": "2026-02-25", "beginning_market_value": "1020.1", "ending_market_value": "1030.301"},
+                ],
+            },
+        )
+
+    async def _mock_get_portfolio_analytics_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2026-02-20",
+                "observations": [
+                    {"valuation_date": "2026-02-23", "beginning_market_value": "1000", "ending_market_value": "1010"},
+                    {"valuation_date": "2026-02-24", "beginning_market_value": "1010", "ending_market_value": "1020.1"},
+                    {"valuation_date": "2026-02-25", "beginning_market_value": "1020.1", "ending_market_value": "1030.301"},
+                ],
+            },
+        )
+
+    async def _mock_get_benchmark_assignment(self, **kwargs):  # noqa: ARG001
+        return 200, {"benchmark_id": "BMK_SHARED_1"}
+
+    async def _mock_get_benchmark_composition_window(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "benchmark_id": "BMK_SHARED_1",
+                "benchmark_currency": "USD",
+                "segments": [
+                    {
+                        "index_id": "IDX_SHARED_1",
+                        "composition_weight": "1.0",
+                        "composition_effective_from": "2026-02-01",
+                        "composition_effective_to": "2026-02-28",
+                    }
+                ],
+            },
+        )
+
+    async def _mock_get_index_price_series(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "points": [
+                    {"series_date": "2026-02-22", "index_price": "100", "series_currency": "USD"},
+                    {"series_date": "2026-02-23", "index_price": "100", "series_currency": "USD"},
+                    {"series_date": "2026-02-24", "index_price": "101", "series_currency": "USD"},
+                    {"series_date": "2026-02-25", "index_price": "102.01", "series_currency": "USD"},
+                ],
+                "retrieval_metadata": {"chunk_count": 1, "page_count": 1},
+            },
+        )
+
+    async def _mock_get_fx_rates(self, **kwargs):  # noqa: ARG001
+        return 200, {"points": [], "retrieval_metadata": {"chunk_count": 0, "page_count": 0}}
+
+    monkeypatch.setattr(
+        "app.services.stateful_performance_input_service.fetch_stateful_portfolio_timeseries",
+        _mock_fetch_stateful_portfolio_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.services.portfolio_source_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
+        _mock_get_portfolio_analytics_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.api.endpoints.returns_series.CoreIntegrationService.get_benchmark_assignment",
+        _mock_get_benchmark_assignment,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_benchmark_assignment",
+        _mock_get_benchmark_assignment,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_benchmark_composition_window",
+        _mock_get_benchmark_composition_window,
+    )
+    monkeypatch.setattr(
+        "app.services.core_integration_service.CoreIntegrationService.get_benchmark_composition_window",
+        _mock_get_benchmark_composition_window,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_index_price_series",
+        _mock_get_index_price_series,
+    )
+    monkeypatch.setattr(
+        "app.services.core_integration_service.CoreIntegrationService.get_index_price_series",
+        _mock_get_index_price_series,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_fx_rates",
+        _mock_get_fx_rates,
+    )
+    monkeypatch.setattr(
+        "app.services.core_integration_service.CoreIntegrationService.get_fx_rates",
+        _mock_get_fx_rates,
+    )
+
+
+def _link_return_points(points: list[dict[str, str]]) -> float:
+    running = Decimal("1")
+    for point in points:
+        running *= Decimal("1") + Decimal(point["return_value"])
+    return float(running - Decimal("1"))
 
 
 def test_e2e_platform_readiness_and_capabilities_contract() -> None:
@@ -333,6 +448,61 @@ def test_e2e_stateful_analytics_workflow(monkeypatch) -> None:
     assert mwr_response.json()["method"] == "DIETZ"
     assert "ITD" in contribution_response.json()["results_by_period"]
     assert "ITD" in attribution_response.json()["results_by_period"]
+
+
+def test_e2e_shared_stateful_benchmark_engine_stays_consistent_across_surfaces(monkeypatch) -> None:
+    _patch_shared_stateful_benchmark_sources(monkeypatch)
+
+    benchmark_payload = {
+        "benchmark_id": "BMK_SHARED_1",
+        "benchmark_start_date": "2026-02-23",
+        "report_end_date": "2026-02-25",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "return_source": "calculated",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+    twr_payload = {
+        "portfolio_id": "E2E_BENCHMARK_SHARED",
+        "performance_start_date": "2026-02-20",
+        "report_end_date": "2026-02-25",
+        "metric_basis": "NET",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "include_benchmark": True,
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+    returns_series_payload = {
+        "portfolio_id": "E2E_BENCHMARK_SHARED",
+        "as_of_date": "2026-02-25",
+        "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-25"},
+        "frequency": "DAILY",
+        "metric_basis": "NET",
+        "series_selection": {"include_portfolio": True, "include_benchmark": True, "include_risk_free": False},
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    with TestClient(app) as client:
+        benchmark_response = client.post("/performance/benchmark", json=benchmark_payload)
+        twr_response = client.post("/performance/twr", json=twr_payload)
+        returns_series_response = client.post("/integration/returns/series", json=returns_series_payload)
+
+    assert benchmark_response.status_code == 200
+    assert twr_response.status_code == 200
+    assert returns_series_response.status_code == 200
+
+    benchmark_body = benchmark_response.json()
+    twr_body = twr_response.json()
+    returns_series_body = returns_series_response.json()
+
+    benchmark_return = benchmark_body["results_by_period"]["YTD"]["benchmark_return"]
+    twr_benchmark_return = twr_body["benchmark"]["results_by_period"]["YTD"]["benchmark_return"]
+    linked_returns_series_benchmark_return = _link_return_points(returns_series_body["series"]["benchmark_returns"])
+
+    assert benchmark_return == pytest.approx(0.0201)
+    assert twr_benchmark_return == pytest.approx(benchmark_return)
+    assert linked_returns_series_benchmark_return == pytest.approx(benchmark_return)
 
 
 def test_e2e_contribution_attribution_and_lineage() -> None:
