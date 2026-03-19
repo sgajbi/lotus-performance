@@ -135,6 +135,24 @@ These characterize the control-plane query path behind:
 - Budget: `<= 2200ms`
 - Test owner: [test_stateful_input_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_stateful_input_performance.py)
 
+## Stateful benchmark orchestration budget
+
+- Workload: full stateful benchmark orchestration across `2024-01-01` to `2033-12-31`
+- Orchestration characteristics:
+  - calculated benchmark mode
+  - shared benchmark request resolution
+  - effective-dated composition-window sourcing
+  - component price loading and FX normalization
+  - benchmark response shaping with daily timeseries enabled
+  - durable execution identity updates and lineage handoff
+- Benchmark shape:
+  - `4` benchmark components
+  - `8` effective-dated composition segments
+  - `3` FX pairs normalized into benchmark currency
+- Metric: median wall-clock runtime across 5 runs after warm-up
+- Budget: `<= 3600ms`
+- Test owner: [test_benchmark_orchestration_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_benchmark_orchestration_performance.py)
+
 ## PostgreSQL plan verification
 
 These checks are not generic SQL compilation tests. They run `EXPLAIN (FORMAT JSON)` against a
