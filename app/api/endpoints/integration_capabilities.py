@@ -169,7 +169,7 @@ async def get_integration_capabilities(
             path="/performance/twr",
             enabled=twr_enabled,
             supported_input_modes=supported_input_modes,
-            supports_async=False,
+            supports_async=True,
         ),
         AnalyticsSurfaceCapability(
             key="mwr",

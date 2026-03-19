@@ -10,6 +10,13 @@ periods and returns breakdowns by the requested reporting frequencies.
 - `input_mode="stateless"`
 - `input_mode="stateful"`
 
+Execution mode:
+
+- synchronous for smaller requests
+- `202 Accepted` when larger TWR workloads are offloaded to the compute executor
+- async poll path: `/performance/executions/{calculation_id}`
+- async result path: `/performance/twr/results/{calculation_id}`
+
 Common top-level fields are:
 
 - `portfolio_id`

@@ -47,7 +47,7 @@ def test_integration_capabilities_default_contract():
     surfaces = {item["key"]: item for item in body["analytics_surfaces"]}
     assert surfaces["twr"]["path"] == "/performance/twr"
     assert surfaces["twr"]["supported_input_modes"] == ["stateful", "stateless"]
-    assert surfaces["twr"]["supports_async"] is False
+    assert surfaces["twr"]["supports_async"] is True
     assert surfaces["benchmark"]["path"] == "/performance/benchmark"
     assert surfaces["benchmark"]["supported_input_modes"] == ["stateful", "stateless"]
     assert surfaces["benchmark"]["supports_async"] is True

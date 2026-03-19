@@ -14,8 +14,8 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 
 - purpose: calculate time-weighted return
 - request model: `app.models.twr_requests.TWRAnalyticsRequest`
-- response model: `app.models.responses.PerformanceResponse`
-- execution mode: synchronous
+- response model: `app.models.responses.PerformanceResponse | app.models.responses.TWRAcceptedResponse`
+- execution mode: synchronous or async depending on workload shape
 - lineage: durable lineage metadata is written and artifacts are materialized asynchronously
 - supported input modes:
   - `stateless`
@@ -28,6 +28,13 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - the nested `benchmark` object is optional configuration; it can supply `benchmark_id`, `input_mode`, and `return_source`
   - when `include_benchmark=true`, explicit `benchmark.benchmark_id` overrides lotus-core assignment lookup; otherwise stateful mode can source the portfolio-to-benchmark mapping from lotus-core
   - when `include_benchmark=true`, each period result also includes arithmetic `relative_performance` versus the resolved benchmark
+
+### `GET /performance/twr/results/{calculation_id}`
+
+- purpose: retrieve durable async TWR result
+- response model:
+  - completed: `app.models.responses.PerformanceResponse`
+  - still running: `app.models.responses.TWRAcceptedResponse`
 
 ### `POST /performance/mwr`
 

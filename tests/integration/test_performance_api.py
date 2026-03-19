@@ -764,7 +764,7 @@ def test_twr_reset_scenario_has_correct_summary(client):
 )
 def test_calculate_twr_endpoint_error_handling(client, mocker, error_class, expected_status):
     """Tests that the TWR endpoint correctly handles engine exceptions."""
-    mocker.patch("app.api.endpoints.performance.run_calculations", side_effect=error_class("Test Error"))
+    mocker.patch("app.services.twr_service.run_calculations", side_effect=error_class("Test Error"))
     payload = {
         "portfolio_id": "ERROR_TEST",
         "performance_start_date": "2023-12-31",
@@ -779,7 +779,7 @@ def test_calculate_twr_endpoint_error_handling(client, mocker, error_class, expe
 
 
 def test_twr_returns_400_when_no_periods_resolve(client, mocker):
-    mocker.patch("app.api.endpoints.performance.resolve_periods", return_value=[])
+    mocker.patch("app.services.twr_service.resolve_periods", return_value=[])
     payload = {
         "portfolio_id": "NO_PERIODS",
         "performance_start_date": "2024-12-31",
@@ -812,7 +812,7 @@ def test_twr_returns_empty_results_when_resolved_period_has_no_data(client):
 
 def test_twr_http_exception_passthrough_branch(client, mocker):
     mocker.patch(
-        "app.api.endpoints.performance.resolve_periods",
+        "app.services.twr_service.resolve_periods",
         side_effect=HTTPException(status_code=418, detail="teapot"),
     )
     payload = {

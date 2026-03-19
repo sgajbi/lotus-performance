@@ -44,6 +44,7 @@ def test_twr_guide_uses_current_request_shape():
     assert "benchmark.stateless_input.component_price_points" in guide
     assert "relative_performance" in guide
     assert "arithmetic_relative_return" in guide
+    assert "/performance/twr/results/{calculation_id}" in guide
     assert "Older examples using `period_type`" in guide
     assert "`daily_data` are not current" in guide
 
@@ -61,6 +62,7 @@ def test_benchmark_guide_uses_current_request_shape():
     assert "multi-segment benchmark composition windows internally" in guide
     assert "app.models.benchmark_analytics_requests.BenchmarkAnalyticsRequest" in api_reference
     assert "POST /performance/benchmark" in readme
+    assert "TWRAcceptedResponse" in api_reference
 
 
 def test_mwr_guide_matches_current_method_reality():

@@ -7,12 +7,14 @@ from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
+from app.models.requests import PerformanceRequest
 from app.services.async_result_store import async_result_store
 from app.services.benchmark_mode_service import ResolvedBenchmarkRequest
 from app.services.compute_job_store import compute_job_store
 from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import lineage_metadata_store
 from app.services.returns_series_service import ResolvedStatefulReturnsSeriesRequest
+from app.services.twr_mode_service import ResolvedTWRRequest
 from main import app
 from tests.conftest import drain_compute_queue, drain_lineage_queue
 
@@ -883,6 +885,92 @@ def test_execution_api_tracks_async_benchmark_job_state(client, monkeypatch):
     finally:
         settings.BENCHMARK_EXECUTOR_WINDOW_DAYS = original_window_threshold
         settings.BENCHMARK_EXECUTOR_INPUT_COUNT = original_input_threshold
+
+
+def test_execution_api_tracks_async_twr_job_state(client, monkeypatch):
+    original_window_threshold = settings.TWR_EXECUTOR_WINDOW_DAYS
+    original_input_threshold = settings.TWR_EXECUTOR_INPUT_COUNT
+    settings.TWR_EXECUTOR_WINDOW_DAYS = 365
+    settings.TWR_EXECUTOR_INPUT_COUNT = 5
+
+    async def _mock_resolve_twr_request(request, *, settings):  # noqa: ARG001
+        return ResolvedTWRRequest(
+            performance_request=PerformanceRequest.model_validate(
+                {
+                    "calculation_id": str(request.calculation_id),
+                    "portfolio_id": request.portfolio_id,
+                    "performance_start_date": "2024-12-31",
+                    "report_end_date": "2025-01-03",
+                    "metric_basis": "NET",
+                    "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+                    "valuation_points": [
+                        {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+                        {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+                        {"day": 3, "perf_date": "2025-01-03", "begin_mv": 1020.1, "end_mv": 1030.301},
+                        {"day": 4, "perf_date": "2025-01-04", "begin_mv": 1030.301, "end_mv": 1040.60401},
+                    ],
+                }
+            ),
+            input_mode=request.input_mode,
+            benchmark_request=BenchmarkPerformanceRequest.model_validate(
+                {
+                    "calculation_id": str(request.calculation_id),
+                    "benchmark_id": "BMK_RESOLVED",
+                    "benchmark_start_date": "2025-01-01",
+                    "report_end_date": "2025-01-03",
+                    "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+                    "return_source": "calculated",
+                    "benchmark_currency": "USD",
+                    "component_observations": [
+                        {"component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
+                        {"component_id": "IDX_A", "date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.01},
+                    ],
+                }
+            ),
+            benchmark_input_mode=None,
+            resolved_benchmark_id="BMK_RESOLVED",
+        )
+
+    monkeypatch.setattr("app.api.endpoints.performance.resolve_twr_request", _mock_resolve_twr_request)
+
+    payload = {
+        "calculation_id": str(uuid4()),
+        "portfolio_id": "TWR_ASYNC_EXEC",
+        "performance_start_date": "2024-12-31",
+        "report_end_date": "2025-01-03",
+        "metric_basis": "NET",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "include_benchmark": True,
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    try:
+        response = client.post("/performance/twr", json=payload)
+        assert response.status_code == 202
+        calculation_id = response.json()["calculation_id"]
+
+        execution_response = client.get(f"/performance/executions/{calculation_id}")
+        assert execution_response.status_code == 200
+        body = execution_response.json()
+        assert body["analytics_type"] == "TWR"
+        assert body["execution_mode"] == "async"
+        assert body["requested_window"]["input_count"] == 6
+        assert body["requested_window"]["benchmark_id"] == "BMK_RESOLVED"
+        assert body["requested_window"]["benchmark_work_units"] == 2
+        assert body["compute_job"]["job_status"] == "pending"
+
+        assert drain_compute_queue() == 1
+
+        execution_after_worker = client.get(f"/performance/executions/{calculation_id}")
+        assert execution_after_worker.status_code == 200
+        body_after_worker = execution_after_worker.json()
+        assert body_after_worker["status"] == "complete"
+        assert body_after_worker["compute_job"]["job_status"] == "complete"
+        assert body_after_worker["async_result"]["result_status"] == "complete"
+    finally:
+        settings.TWR_EXECUTOR_WINDOW_DAYS = original_window_threshold
+        settings.TWR_EXECUTOR_INPUT_COUNT = original_input_threshold
 
 
 def test_execution_api_exposes_retryable_compute_job_metadata(client, monkeypatch):

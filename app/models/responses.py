@@ -88,3 +88,11 @@ class PerformanceResponse(BaseModel):
     audit: Audit
 
     model_config = ConfigDict(extra="forbid")
+
+
+class TWRAcceptedResponse(BaseModel):
+    calculation_id: UUID
+    poll_path: str
+    result_path: str
+
+    model_config = ConfigDict(extra="forbid")

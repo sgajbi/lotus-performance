@@ -64,6 +64,10 @@ Async-capable endpoints follow one common pattern:
 - stateful:
   - `stateful_input.consumer_system`
   - lotus-core portfolio timeseries are normalized into canonical valuation points inside lotus-performance
+- execution:
+  - synchronous for smaller requests
+  - `202 Accepted` when larger TWR workloads are offloaded to the compute executor
+  - async result path: `/performance/twr/results/{calculation_id}`
 - benchmark inclusion:
   - `include_benchmark=true` is the canonical switch for returning benchmark results alongside portfolio TWR
   - the nested `benchmark` object is optional configuration
