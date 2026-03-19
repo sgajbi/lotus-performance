@@ -5,9 +5,11 @@ from uuid import uuid4
 import pytest
 from fastapi import HTTPException
 
+from app.models.benchmark_requests import BenchmarkComponentObservation
 from app.models.returns_series import ReturnsSeriesRequest
 from app.services import portfolio_source_service, returns_series_service, stateful_input_service
 from app.services.execution_registry import ExecutionRegistry
+from app.services.stateful_benchmark_input_service import StatefulBenchmarkNormalizedInput
 from core.repro import generate_canonical_hash
 
 
@@ -93,7 +95,7 @@ async def test_calculate_returns_series_maps_assignment_source_unavailable(monke
 
 @pytest.mark.asyncio
 async def test_calculate_returns_series_requires_benchmark_id_and_points(monkeypatch, tmp_path):
-    request = _build_stateful_request()
+    request = _build_stateful_request(benchmark={"return_source": "vendor_series"})
     _seed_execution(monkeypatch, tmp_path, request)
 
     async def _portfolio(self, **kwargs):  # noqa: ARG001
@@ -139,6 +141,7 @@ async def test_calculate_returns_series_maps_benchmark_and_risk_free_errors(monk
     request = _build_stateful_request(
         series_selection={"include_portfolio": True, "include_benchmark": True, "include_risk_free": True},
         reporting_currency="USD",
+        benchmark={"return_source": "vendor_series"},
     )
     _seed_execution(monkeypatch, tmp_path, request)
 
@@ -288,20 +291,41 @@ async def test_calculate_returns_series_updates_stateful_identity_from_resolved_
     async def _assignment(self, **kwargs):  # noqa: ARG001
         return 200, {"benchmark_id": "BMK_RESOLVED"}
 
-    async def _benchmark(self, **kwargs):  # noqa: ARG001
-        return 200, {
-            "points": [
-                {"series_date": "2026-02-23", "benchmark_return": "0.0010"},
-                {"series_date": "2026-02-24", "benchmark_return": "0.0020"},
-                {"series_date": "2026-02-25", "benchmark_return": "0.0030"},
-            ]
-        }
+    async def _build_benchmark(**kwargs):  # noqa: ARG001
+        return StatefulBenchmarkNormalizedInput(
+            benchmark_currency="USD",
+            component_observations=[
+                BenchmarkComponentObservation(
+                    component_id="IDX1",
+                    date="2026-02-23",
+                    weight_bop=1.0,
+                    component_currency="USD",
+                    component_return=0.0010,
+                ),
+                BenchmarkComponentObservation(
+                    component_id="IDX1",
+                    date="2026-02-24",
+                    weight_bop=1.0,
+                    component_currency="USD",
+                    component_return=0.0020,
+                ),
+                BenchmarkComponentObservation(
+                    component_id="IDX1",
+                    date="2026-02-25",
+                    weight_bop=1.0,
+                    component_currency="USD",
+                    component_return=0.0030,
+                ),
+            ],
+            benchmark_return_points=[],
+            source_details={"benchmark_components": 1, "component_observations": 3, "benchmark_chunk_count": 1},
+        )
 
     monkeypatch.setattr(
         portfolio_source_service.CoreIntegrationService, "get_portfolio_analytics_timeseries", _portfolio
     )
     monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_benchmark_assignment", _assignment)
-    monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_benchmark_return_series", _benchmark)
+    monkeypatch.setattr(returns_series_service, "build_stateful_benchmark_input", _build_benchmark)
 
     initial_input_fingerprint, initial_calculation_hash = generate_canonical_hash(request, "returns-series-v1")
 
@@ -314,6 +338,7 @@ async def test_calculate_returns_series_updates_stateful_identity_from_resolved_
         benchmark_records=[point.model_dump(mode="json") for point in (response.series.benchmark_returns or [])],
         risk_free_records=None,
         resolved_benchmark_id="BMK_RESOLVED",
+        resolved_benchmark_return_source="calculated",
     )
     expected_input_fingerprint, expected_calculation_hash = generate_canonical_hash(
         resolved_payload,

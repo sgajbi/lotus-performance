@@ -9,6 +9,7 @@ from fastapi import HTTPException, status
 
 from adapters.api_adapter import create_engine_config, create_engine_dataframe
 from app.core.config import get_settings
+from app.models.benchmark_analytics_requests import BenchmarkReturnSource
 from app.models.requests import PerformanceRequest
 from app.models.returns_series import (
     CalendarPolicy,
@@ -33,10 +34,12 @@ from app.services.execution_registry import execution_registry
 from app.services.portfolio_source_service import (
     build_stateful_input_service,
 )
+from app.services.stateful_benchmark_input_service import build_stateful_benchmark_input
 from app.services.stateful_performance_input_service import retrieve_stateful_portfolio_input
 from app.services.valuation_points_service import portfolio_timeseries_to_valuation_points
 from common.enums import Frequency, PeriodType
 from core.repro import generate_canonical_hash
+from engine.benchmarks import benchmark_return_points_to_dataframe, calculate_benchmark_returns
 from engine.compute import run_calculations
 from engine.schema import PortfolioColumns
 
@@ -246,6 +249,7 @@ def _build_stateful_resolved_returns_payload(
     benchmark_records: list[dict[str, str]] | None,
     risk_free_records: list[dict[str, str]] | None,
     resolved_benchmark_id: str | None,
+    resolved_benchmark_return_source: str | None,
 ) -> dict[str, Any]:
     return {
         "portfolio_id": request.portfolio_id,
@@ -259,7 +263,14 @@ def _build_stateful_resolved_returns_payload(
         "metric_basis": request.metric_basis.value,
         "reporting_currency": request.reporting_currency,
         "series_selection": request.series_selection.model_dump(mode="json"),
-        "benchmark": {"benchmark_id": resolved_benchmark_id} if resolved_benchmark_id else None,
+        "benchmark": (
+            {
+                "benchmark_id": resolved_benchmark_id,
+                "return_source": resolved_benchmark_return_source,
+            }
+            if resolved_benchmark_id
+            else None
+        ),
         "risk_free": request.risk_free.model_dump(mode="json") if request.risk_free is not None else None,
         "data_policy": request.data_policy.model_dump(mode="json"),
         "input_mode": InputMode.STATELESS.value,
@@ -268,7 +279,7 @@ def _build_stateful_resolved_returns_payload(
             "benchmark_returns": benchmark_records,
             "risk_free_returns": risk_free_records,
         },
-    }
+}
 
 
 def _records_from_points(points: list[ReturnPoint] | None) -> list[dict[str, str]] | None:
@@ -283,6 +294,29 @@ def _records_from_points(points: list[ReturnPoint] | None) -> list[dict[str, str
     ]
 
 
+def _get_requested_benchmark_return_source(request: ReturnsSeriesRequest) -> BenchmarkReturnSource:
+    if request.benchmark is not None:
+        return request.benchmark.return_source
+    return BenchmarkReturnSource.CALCULATED
+
+
+def _benchmark_daily_returns_to_dataframe(daily_returns_df: pd.DataFrame) -> pd.DataFrame:
+    if daily_returns_df.empty:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "INSUFFICIENT_DATA", "message": "Benchmark series is empty."},
+        )
+    benchmark_df = daily_returns_df[["date", "benchmark_return"]].copy()
+    benchmark_df["date"] = pd.to_datetime(benchmark_df["date"])
+    benchmark_df = benchmark_df.rename(columns={"benchmark_return": "return_value"}).sort_values("date")
+    if benchmark_df["date"].duplicated().any():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "INVALID_REQUEST", "message": "benchmark series contains duplicate dates."},
+        )
+    return benchmark_df
+
+
 async def calculate_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResponse:
     active_settings = get_settings()
     input_fingerprint, calculation_hash = generate_canonical_hash(request, "returns-series-v1")
@@ -293,6 +327,7 @@ async def calculate_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeri
         benchmark_df = None
         risk_free_df = None
         resolved_benchmark_id: str | None = request.benchmark.benchmark_id if request.benchmark else None
+        resolved_benchmark_return_source = _get_requested_benchmark_return_source(request)
 
         if request.input_mode == InputMode.STATEFUL:
             active_stage = "retrieval"
@@ -370,40 +405,76 @@ async def calculate_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeri
                 resolved_benchmark_id = benchmark_id
 
             benchmark_points: list[dict[str, Any]] | None = None
+            benchmark_source_details: dict[str, int] = {}
             if request.series_selection.include_benchmark and benchmark_id:
-                benchmark_status, benchmark_payload = await stateful_input_service.get_benchmark_return_series(
-                    benchmark_id=benchmark_id,
-                    as_of_date=request.as_of_date,
-                    start_date=resolved_window.start_date,
-                    end_date=resolved_window.end_date,
-                    frequency=core_frequency_label(request.frequency),
-                    calculation_id=request.calculation_id,
-                )
-                if benchmark_status == status.HTTP_404_NOT_FOUND:
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail={
-                            "code": "RESOURCE_NOT_FOUND",
-                            "message": f"No benchmark return series for {benchmark_id}.",
-                        },
+                if resolved_benchmark_return_source == BenchmarkReturnSource.VENDOR_SERIES:
+                    benchmark_status, benchmark_payload = await stateful_input_service.get_benchmark_return_series(
+                        benchmark_id=benchmark_id,
+                        as_of_date=request.as_of_date,
+                        start_date=resolved_window.start_date,
+                        end_date=resolved_window.end_date,
+                        frequency=core_frequency_label(request.frequency),
+                        calculation_id=request.calculation_id,
                     )
-                if benchmark_status >= status.HTTP_400_BAD_REQUEST:
-                    raise HTTPException(
-                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                        detail={
-                            "code": "SOURCE_UNAVAILABLE",
-                            "message": f"Benchmark return-series source unavailable ({benchmark_status}).",
-                        },
+                    if benchmark_status == status.HTTP_404_NOT_FOUND:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail={
+                                "code": "RESOURCE_NOT_FOUND",
+                                "message": f"No benchmark return series for {benchmark_id}.",
+                            },
+                        )
+                    if benchmark_status >= status.HTTP_400_BAD_REQUEST:
+                        raise HTTPException(
+                            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                            detail={
+                                "code": "SOURCE_UNAVAILABLE",
+                                "message": f"Benchmark return-series source unavailable ({benchmark_status}).",
+                            },
+                        )
+                    benchmark_points = benchmark_payload.get("points")
+                    if not isinstance(benchmark_points, list):
+                        raise HTTPException(
+                            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail={
+                                "code": "CONTRACT_VIOLATION_UPSTREAM",
+                                "message": "Benchmark return-series payload missing points list.",
+                            },
+                        )
+                    benchmark_source_details = {
+                        "benchmark_points": len(benchmark_points),
+                        "benchmark_chunk_count": int(benchmark_payload.get("retrieval_metadata", {}).get("chunk_count", 0)),
+                        "benchmark_page_count": int(benchmark_payload.get("retrieval_metadata", {}).get("page_count", 0)),
+                    }
+                else:
+                    normalized_benchmark_input = await build_stateful_benchmark_input(
+                        stateful_input_service=stateful_input_service,
+                        calculation_id=request.calculation_id,
+                        benchmark_id=benchmark_id,
+                        as_of_date=request.as_of_date,
+                        start_date=resolved_window.start_date,
+                        end_date=resolved_window.end_date,
+                        return_source=resolved_benchmark_return_source,
                     )
-                benchmark_points = benchmark_payload.get("points")
-                if not isinstance(benchmark_points, list):
-                    raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                        detail={
-                            "code": "CONTRACT_VIOLATION_UPSTREAM",
-                            "message": "Benchmark return-series payload missing points list.",
-                        },
+                    benchmark_df = resample_returns(
+                        filter_window(
+                            _benchmark_daily_returns_to_dataframe(
+                                calculate_benchmark_returns(
+                                    normalized_benchmark_input.component_observations
+                                ).daily_returns_df
+                                if resolved_benchmark_return_source == BenchmarkReturnSource.CALCULATED
+                                else benchmark_return_points_to_dataframe(
+                                    normalized_benchmark_input.benchmark_return_points
+                                )
+                            ),
+                            resolved_window=resolved_window,
+                        ),
+                        frequency=request.frequency,
                     )
+                    benchmark_source_details = {
+                        **normalized_benchmark_input.source_details,
+                        "benchmark_points": len(benchmark_df),
+                    }
 
             risk_free_points: list[dict[str, Any]] | None = None
             if request.series_selection.include_risk_free:
@@ -455,15 +526,12 @@ async def calculate_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeri
                 "retrieval",
                 details={
                     "portfolio_observations": len(observations),
-                    "benchmark_points": len(benchmark_points or []),
+                    "benchmark_points": benchmark_source_details.get("benchmark_points", len(benchmark_points or [])),
                     "risk_free_points": len(risk_free_points or []),
                     "portfolio_chunk_count": portfolio_source.retrieval_metadata.chunk_count,
                     "portfolio_page_count": portfolio_source.retrieval_metadata.page_count,
-                    "benchmark_chunk_count": (
-                        int(benchmark_payload.get("retrieval_metadata", {}).get("chunk_count", 0))
-                        if benchmark_points is not None
-                        else 0
-                    ),
+                    "benchmark_chunk_count": benchmark_source_details.get("benchmark_chunk_count", 0),
+                    "benchmark_page_count": benchmark_source_details.get("benchmark_page_count", 0),
                     "risk_free_chunk_count": (
                         int(risk_free_payload.get("retrieval_metadata", {}).get("chunk_count", 0))
                         if risk_free_points is not None
@@ -591,6 +659,9 @@ async def calculate_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeri
                 benchmark_records=_records_from_points(benchmark_return_points),
                 risk_free_records=_records_from_points(risk_free_return_points),
                 resolved_benchmark_id=resolved_benchmark_id,
+                resolved_benchmark_return_source=(
+                    resolved_benchmark_return_source.value if resolved_benchmark_id else None
+                ),
             )
             input_fingerprint, calculation_hash = generate_canonical_hash(
                 resolved_stateful_payload,

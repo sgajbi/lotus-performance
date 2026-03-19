@@ -4,7 +4,9 @@ from uuid import UUID, uuid4
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
+from app.models.benchmark_requests import BenchmarkComponentObservation
 from app.services.async_result_store import async_result_store
+from app.services.stateful_benchmark_input_service import StatefulBenchmarkNormalizedInput
 from core.repro import generate_canonical_hash
 from main import app
 from tests.conftest import drain_compute_queue
@@ -131,18 +133,48 @@ def test_returns_series_stateful_fetches_benchmark_and_risk_free(monkeypatch):
     async def _mock_get_benchmark_assignment(self, **kwargs):  # noqa: ARG001
         return 200, {"benchmark_id": "BMK_GLOBAL_1"}
 
-    async def _mock_get_benchmark_return_series(self, **kwargs):  # noqa: ARG001
-        return (
-            200,
-            {
-                "points": [
-                    {"series_date": "2026-02-23", "benchmark_return": "0.0010"},
-                    {"series_date": "2026-02-24", "benchmark_return": "0.0012"},
-                    {"series_date": "2026-02-25", "benchmark_return": "-0.0004"},
-                    {"series_date": "2026-02-26", "benchmark_return": "0.0008"},
-                    {"series_date": "2026-02-27", "benchmark_return": "0.0005"},
-                ]
-            },
+    async def _mock_build_stateful_benchmark_input(**kwargs):  # noqa: ARG001
+        return StatefulBenchmarkNormalizedInput(
+            benchmark_currency="USD",
+            component_observations=[
+                BenchmarkComponentObservation(
+                    component_id="IDX1",
+                    date="2026-02-23",
+                    weight_bop=1.0,
+                    component_currency="USD",
+                    component_return=0.0010,
+                ),
+                BenchmarkComponentObservation(
+                    component_id="IDX1",
+                    date="2026-02-24",
+                    weight_bop=1.0,
+                    component_currency="USD",
+                    component_return=0.0012,
+                ),
+                BenchmarkComponentObservation(
+                    component_id="IDX1",
+                    date="2026-02-25",
+                    weight_bop=1.0,
+                    component_currency="USD",
+                    component_return=-0.0004,
+                ),
+                BenchmarkComponentObservation(
+                    component_id="IDX1",
+                    date="2026-02-26",
+                    weight_bop=1.0,
+                    component_currency="USD",
+                    component_return=0.0008,
+                ),
+                BenchmarkComponentObservation(
+                    component_id="IDX1",
+                    date="2026-02-27",
+                    weight_bop=1.0,
+                    component_currency="USD",
+                    component_return=0.0005,
+                ),
+            ],
+            benchmark_return_points=[],
+            source_details={"benchmark_components": 1, "component_observations": 5, "benchmark_chunk_count": 1},
         )
 
     async def _mock_get_risk_free_series(self, **kwargs):  # noqa: ARG001
@@ -167,10 +199,7 @@ def test_returns_series_stateful_fetches_benchmark_and_risk_free(monkeypatch):
         "app.api.endpoints.returns_series.CoreIntegrationService.get_benchmark_assignment",
         _mock_get_benchmark_assignment,
     )
-    monkeypatch.setattr(
-        "app.api.endpoints.returns_series.CoreIntegrationService.get_benchmark_return_series",
-        _mock_get_benchmark_return_series,
-    )
+    monkeypatch.setattr("app.services.returns_series_service.build_stateful_benchmark_input", _mock_build_stateful_benchmark_input)
     monkeypatch.setattr(
         "app.api.endpoints.returns_series.CoreIntegrationService.get_risk_free_series",
         _mock_get_risk_free_series,
@@ -216,16 +245,34 @@ def test_returns_series_stateful_provenance_uses_resolved_series_identity(monkey
     async def _mock_get_benchmark_assignment(self, **kwargs):  # noqa: ARG001
         return 200, {"benchmark_id": "BMK_RESOLVED"}
 
-    async def _mock_get_benchmark_return_series(self, **kwargs):  # noqa: ARG001
-        return (
-            200,
-            {
-                "points": [
-                    {"series_date": "2026-02-23", "benchmark_return": "0.0010"},
-                    {"series_date": "2026-02-24", "benchmark_return": "0.0015"},
-                    {"series_date": "2026-02-25", "benchmark_return": "0.0020"},
-                ]
-            },
+    async def _mock_build_stateful_benchmark_input(**kwargs):  # noqa: ARG001
+        return StatefulBenchmarkNormalizedInput(
+            benchmark_currency="USD",
+            component_observations=[
+                BenchmarkComponentObservation(
+                    component_id="IDX1",
+                    date="2026-02-23",
+                    weight_bop=1.0,
+                    component_currency="USD",
+                    component_return=0.0010,
+                ),
+                BenchmarkComponentObservation(
+                    component_id="IDX1",
+                    date="2026-02-24",
+                    weight_bop=1.0,
+                    component_currency="USD",
+                    component_return=0.0015,
+                ),
+                BenchmarkComponentObservation(
+                    component_id="IDX1",
+                    date="2026-02-25",
+                    weight_bop=1.0,
+                    component_currency="USD",
+                    component_return=0.0020,
+                ),
+            ],
+            benchmark_return_points=[],
+            source_details={"benchmark_components": 1, "component_observations": 3, "benchmark_chunk_count": 1},
         )
 
     monkeypatch.setattr(
@@ -236,10 +283,7 @@ def test_returns_series_stateful_provenance_uses_resolved_series_identity(monkey
         "app.api.endpoints.returns_series.CoreIntegrationService.get_benchmark_assignment",
         _mock_get_benchmark_assignment,
     )
-    monkeypatch.setattr(
-        "app.api.endpoints.returns_series.CoreIntegrationService.get_benchmark_return_series",
-        _mock_get_benchmark_return_series,
-    )
+    monkeypatch.setattr("app.services.returns_series_service.build_stateful_benchmark_input", _mock_build_stateful_benchmark_input)
 
     payload = {
         "portfolio_id": "DEMO_DPM_EUR_001",
@@ -260,6 +304,79 @@ def test_returns_series_stateful_provenance_uses_resolved_series_identity(monkey
     body = response.json()
     assert body["provenance"]["input_fingerprint"] != initial_input_fingerprint
     assert body["provenance"]["calculation_hash"] != initial_calculation_hash
+
+
+def test_returns_series_stateful_vendor_series_override_uses_core_benchmark_series(monkeypatch):
+    async def _mock_get_portfolio_analytics_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2026-02-20",
+                "observations": [
+                    {"valuation_date": "2026-02-23", "beginning_market_value": "1000", "ending_market_value": "1010"},
+                    {"valuation_date": "2026-02-24", "beginning_market_value": "1010", "ending_market_value": "1020"},
+                    {"valuation_date": "2026-02-25", "beginning_market_value": "1020", "ending_market_value": "1030"},
+                ],
+            },
+        )
+
+    async def _mock_get_benchmark_assignment(self, **kwargs):  # noqa: ARG001
+        return 200, {"benchmark_id": "BMK_VENDOR"}
+
+    async def _mock_get_benchmark_return_series(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "points": [
+                    {"series_date": "2026-02-23", "benchmark_return": "0.0010"},
+                    {"series_date": "2026-02-24", "benchmark_return": "0.0012"},
+                    {"series_date": "2026-02-25", "benchmark_return": "0.0014"},
+                ]
+            },
+        )
+
+    async def _unexpected_build_stateful_benchmark_input(**kwargs):  # noqa: ARG001
+        raise AssertionError("calculated benchmark path should not run for vendor_series override")
+
+    monkeypatch.setattr(
+        "app.services.portfolio_source_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
+        _mock_get_portfolio_analytics_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.api.endpoints.returns_series.CoreIntegrationService.get_benchmark_assignment",
+        _mock_get_benchmark_assignment,
+    )
+    monkeypatch.setattr(
+        "app.api.endpoints.returns_series.CoreIntegrationService.get_benchmark_return_series",
+        _mock_get_benchmark_return_series,
+    )
+    monkeypatch.setattr(
+        "app.services.returns_series_service.build_stateful_benchmark_input",
+        _unexpected_build_stateful_benchmark_input,
+    )
+
+    payload = {
+        "portfolio_id": "DEMO_DPM_EUR_001",
+        "as_of_date": "2026-02-25",
+        "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-25"},
+        "frequency": "DAILY",
+        "metric_basis": "NET",
+        "series_selection": {"include_portfolio": True, "include_benchmark": True, "include_risk_free": False},
+        "benchmark": {"return_source": "vendor_series"},
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    with TestClient(app) as client:
+        response = client.post("/integration/returns/series", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [point["return_value"] for point in body["series"]["benchmark_returns"]] == [
+        "0.001000000000",
+        "0.001200000000",
+        "0.001400000000",
+    ]
 
 
 def test_returns_series_stateful_long_window_uses_chunked_portfolio_retrieval(monkeypatch):

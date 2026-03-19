@@ -9,6 +9,8 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.models.benchmark_analytics_requests import BenchmarkReturnSource
+
 
 class ReturnsWindowMode(str, Enum):
     EXPLICIT = "EXPLICIT"
@@ -105,6 +107,7 @@ class SeriesSelection(BaseModel):
 class BenchmarkSpec(BaseModel):
     benchmark_id: str | None = None
     benchmark_series_ref: str | None = None
+    return_source: BenchmarkReturnSource = BenchmarkReturnSource.CALCULATED
 
 
 class RiskFreeSpec(BaseModel):

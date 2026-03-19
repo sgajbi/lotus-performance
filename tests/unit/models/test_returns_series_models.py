@@ -100,3 +100,15 @@ def test_returns_series_request_generates_calculation_id_by_default():
     request = ReturnsSeriesRequest.model_validate(_base_payload())
 
     assert request.calculation_id is not None
+
+
+def test_returns_series_benchmark_spec_defaults_to_calculated_return_source():
+    from app.models.returns_series import ReturnsSeriesRequest
+
+    payload = _base_payload()
+    payload["benchmark"] = {"benchmark_id": "BMK_1"}
+
+    request = ReturnsSeriesRequest.model_validate(payload)
+
+    assert request.benchmark is not None
+    assert request.benchmark.return_source.value == "calculated"

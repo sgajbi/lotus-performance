@@ -99,18 +99,33 @@ def test_execution_api_tracks_returns_series_stateful_stages(client, monkeypatch
             },
         )
 
-    async def _mock_get_benchmark_assignment(self, **kwargs):  # noqa: ARG001
-        return 200, {"benchmark_id": "BMK_GLOBAL_1"}
+    async def _mock_get_benchmark_definition(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "benchmark_currency": "USD",
+                "components": [
+                    {
+                        "index_id": "IDX1",
+                        "composition_weight": "1.0",
+                        "composition_effective_from": "2026-02-01",
+                        "composition_effective_to": "2026-02-28",
+                    }
+                ]
+            },
+        )
 
-    async def _mock_get_benchmark_return_series(self, **kwargs):  # noqa: ARG001
+    async def _mock_get_index_price_series(self, **kwargs):  # noqa: ARG001
         return (
             200,
             {
                 "points": [
-                    {"series_date": "2026-02-23", "benchmark_return": "0.0010"},
-                    {"series_date": "2026-02-24", "benchmark_return": "0.0012"},
-                    {"series_date": "2026-02-25", "benchmark_return": "-0.0004"},
-                ]
+                    {"series_date": "2026-02-22", "index_price": "100.0", "series_currency": "USD"},
+                    {"series_date": "2026-02-23", "index_price": "100.1", "series_currency": "USD"},
+                    {"series_date": "2026-02-24", "index_price": "100.22012", "series_currency": "USD"},
+                    {"series_date": "2026-02-25", "index_price": "100.180031952", "series_currency": "USD"},
+                ],
+                "retrieval_metadata": {"chunk_count": 1, "page_count": 1},
             },
         )
 
@@ -119,12 +134,12 @@ def test_execution_api_tracks_returns_series_stateful_stages(client, monkeypatch
         _mock_get_portfolio_analytics_timeseries,
     )
     monkeypatch.setattr(
-        "app.api.endpoints.returns_series.CoreIntegrationService.get_benchmark_assignment",
-        _mock_get_benchmark_assignment,
+        "app.api.endpoints.returns_series.CoreIntegrationService.get_benchmark_definition",
+        _mock_get_benchmark_definition,
     )
     monkeypatch.setattr(
-        "app.api.endpoints.returns_series.CoreIntegrationService.get_benchmark_return_series",
-        _mock_get_benchmark_return_series,
+        "app.api.endpoints.returns_series.CoreIntegrationService.get_index_price_series",
+        _mock_get_index_price_series,
     )
 
     payload = {
@@ -134,6 +149,7 @@ def test_execution_api_tracks_returns_series_stateful_stages(client, monkeypatch
         "frequency": "DAILY",
         "metric_basis": "NET",
         "series_selection": {"include_portfolio": True, "include_benchmark": True},
+        "benchmark": {"benchmark_id": "BMK_GLOBAL_1"},
         "input_mode": "stateful",
         "stateful_input": {"consumer_system": "lotus-performance"},
     }
@@ -156,12 +172,14 @@ def test_execution_api_tracks_returns_series_stateful_stages(client, monkeypatch
     assert stages["retrieval"]["details"]["portfolio_chunk_count"] == 1
     assert stages["retrieval"]["details"]["portfolio_page_count"] == 1
     assert stages["retrieval"]["details"]["benchmark_chunk_count"] == 1
+    assert stages["retrieval"]["details"]["benchmark_page_count"] == 1
     assert stages["retrieval"]["details"]["risk_free_chunk_count"] == 0
     assert stages["normalization"]["details"]["benchmark_points"] == 3
     assert len(execution_body["upstream_snapshots"]) >= 2
     assert {snapshot["upstream_endpoint"] for snapshot in execution_body["upstream_snapshots"]} >= {
         "portfolio_timeseries",
-        "benchmark_return_series",
+        "benchmark_definition",
+        "index_price_series",
     }
 
 
