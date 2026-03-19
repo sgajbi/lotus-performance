@@ -512,6 +512,42 @@ def test_twr_supports_include_benchmark_without_nested_stateful_benchmark_config
     assert body["benchmark"]["input_mode"] == "stateful"
 
 
+def test_twr_supports_stateless_benchmark_price_points(client):
+    payload = {
+        "portfolio_id": "TWR_BENCHMARK_PRICE_POINTS",
+        "performance_start_date": "2024-12-31",
+        "metric_basis": "NET",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "include_benchmark": True,
+        "valuation_points": [
+            {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+            {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+        ],
+        "benchmark": {
+            "benchmark_id": "BMK_PRICE_1",
+            "input_mode": "stateless",
+            "return_source": "calculated",
+            "stateless_input": {
+                "benchmark_currency": "USD",
+                "component_price_points": [
+                    {"component_id": "IDX_A", "date": "2024-12-31", "weight_bop": 1.0, "index_price": 100.0},
+                    {"component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "index_price": 101.0},
+                    {"component_id": "IDX_A", "date": "2025-01-02", "weight_bop": 1.0, "index_price": 102.01},
+                ],
+            },
+        },
+    }
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["benchmark"]["benchmark_id"] == "BMK_PRICE_1"
+    assert body["benchmark"]["results_by_period"]["YTD"]["benchmark_return"] == pytest.approx(0.0201)
+    assert body["results_by_period"]["YTD"]["relative_performance"]["arithmetic_relative_return"] == pytest.approx(0.0)
+
+
 def test_twr_relative_performance_uses_cumulative_to_date_for_non_itd_periods(client):
     payload = {
         "portfolio_id": "TWR_BENCHMARK_RELATIVE_MTD",

@@ -63,9 +63,13 @@ class TWRBenchmarkRequest(BaseModel):
             if not self.benchmark_id:
                 raise ValueError("benchmark.benchmark_id is required when benchmark.input_mode=stateless")
             if self.return_source == BenchmarkReturnSource.CALCULATED:
-                if not self.stateless_input.component_observations:
+                has_component_observations = bool(self.stateless_input.component_observations)
+                has_component_price_points = bool(self.stateless_input.component_price_points)
+                if has_component_observations == has_component_price_points:
                     raise ValueError(
-                        "benchmark.stateless_input.component_observations are required when benchmark.return_source=calculated"
+                        "exactly one of benchmark.stateless_input.component_observations or "
+                        "benchmark.stateless_input.component_price_points is required when "
+                        "benchmark.return_source=calculated"
                     )
                 if self.stateless_input.benchmark_return_points:
                     raise ValueError(
@@ -79,6 +83,10 @@ class TWRBenchmarkRequest(BaseModel):
                 if self.stateless_input.component_observations:
                     raise ValueError(
                         "benchmark.stateless_input.component_observations must be empty when benchmark.return_source=vendor_series"
+                    )
+                if self.stateless_input.component_price_points:
+                    raise ValueError(
+                        "benchmark.stateless_input.component_price_points must be empty when benchmark.return_source=vendor_series"
                     )
         else:
             if self.stateful_input is None:

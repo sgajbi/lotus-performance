@@ -13,6 +13,7 @@ from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.services.execution_registry import execution_registry
 from app.services.portfolio_source_service import build_stateful_input_service
 from app.services.stateful_benchmark_input_service import build_stateful_benchmark_input
+from app.services.stateless_benchmark_input_service import normalize_stateless_component_observations
 
 
 @dataclass(frozen=True)
@@ -36,10 +37,19 @@ async def resolve_benchmark_request(
         return ResolvedBenchmarkRequest(
             benchmark_request=request.to_benchmark_performance_request(
                 benchmark_currency=request.stateless_input.benchmark_currency,
+                component_observations=(
+                    normalize_stateless_component_observations(
+                        benchmark_currency=request.stateless_input.benchmark_currency,
+                        stateless_input=request.stateless_input,
+                    )
+                    if request.return_source.value == "calculated"
+                    else None
+                ),
             ),
             input_mode=BenchmarkInputMode.STATELESS,
             source_details={
                 "component_observations": len(request.stateless_input.component_observations),
+                "component_price_points": len(request.stateless_input.component_price_points),
                 "benchmark_return_points": len(request.stateless_input.benchmark_return_points),
             },
         )

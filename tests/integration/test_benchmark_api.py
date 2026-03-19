@@ -75,6 +75,52 @@ def test_calculate_benchmark_endpoint_supports_stateless_calculated_mode(client)
     assert itd["daily_returns"][0]["benchmark_return_fx"] == pytest.approx(0.0029556650244)
 
 
+def test_calculate_benchmark_endpoint_supports_stateless_component_price_points(client):
+    payload = {
+        "calculation_id": str(uuid4()),
+        "benchmark_id": "BMK_STATELESS_PRICE_1",
+        "benchmark_start_date": "2026-01-02",
+        "report_end_date": "2026-01-02",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateless",
+        "return_source": "calculated",
+        "output": {"include_timeseries": True},
+        "stateless_input": {
+            "benchmark_currency": "USD",
+            "component_price_points": [
+                {"component_id": "IDX_A", "date": "2026-01-01", "weight_bop": 0.6, "index_price": 100.0},
+                {"component_id": "IDX_A", "date": "2026-01-02", "weight_bop": 0.6, "index_price": 102.0},
+                {
+                    "component_id": "IDX_B",
+                    "date": "2026-01-01",
+                    "weight_bop": 0.4,
+                    "index_price": 100.0,
+                    "component_currency": "EUR",
+                    "fx_rate_to_benchmark": 1.2,
+                },
+                {
+                    "component_id": "IDX_B",
+                    "date": "2026-01-02",
+                    "weight_bop": 0.4,
+                    "index_price": 101.0,
+                    "component_currency": "EUR",
+                    "fx_rate_to_benchmark": 1.212,
+                },
+            ],
+        },
+    }
+
+    response = client.post("/performance/benchmark", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    itd = body["results_by_period"]["ITD"]
+    assert itd["benchmark_return"] == pytest.approx(0.02004)
+    assert itd["daily_returns"][0]["benchmark_return_local"] == pytest.approx(0.016)
+    assert itd["daily_returns"][0]["benchmark_return_fx"] == pytest.approx(0.004)
+    assert len(itd["component_contributions"]) == 2
+
+
 def test_calculate_benchmark_endpoint_supports_stateful_calculated_mode(client, monkeypatch):
     async def _mock_get_benchmark_composition_window(self, **kwargs):  # noqa: ARG001
         return (

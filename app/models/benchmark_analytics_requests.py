@@ -46,6 +46,26 @@ class BenchmarkComponentObservationInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class BenchmarkComponentPricePointInput(BaseModel):
+    component_id: str = Field(..., description="Benchmark component identifier.")
+    date: dt_date = Field(..., description="Benchmark price observation date.")
+    weight_bop: float = Field(..., description="Beginning-of-day component benchmark weight.")
+    index_price: float = Field(
+        ...,
+        description="Component price or index level observed on the benchmark date.",
+    )
+    component_currency: str | None = Field(
+        default=None,
+        description="Optional component currency for the price observation.",
+    )
+    fx_rate_to_benchmark: float | None = Field(
+        default=None,
+        description="Optional FX rate used to normalize the component price into benchmark currency.",
+    )
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class BenchmarkReturnPointInput(BaseModel):
     date: dt_date = Field(..., description="Benchmark return observation date.")
     benchmark_return: float = Field(
@@ -59,6 +79,7 @@ class BenchmarkReturnPointInput(BaseModel):
 class BenchmarkStatelessInput(BaseModel):
     benchmark_currency: str = Field(..., description="Benchmark currency.")
     component_observations: list[BenchmarkComponentObservationInput] = Field(default_factory=list)
+    component_price_points: list[BenchmarkComponentPricePointInput] = Field(default_factory=list)
     benchmark_return_points: list[BenchmarkReturnPointInput] = Field(default_factory=list)
 
 
@@ -118,9 +139,12 @@ class BenchmarkAnalyticsRequest(BaseModel):
             if self.stateful_input is not None:
                 raise ValueError("stateful_input must be null when input_mode=stateless")
             if self.return_source == BenchmarkReturnSource.CALCULATED:
-                if not self.stateless_input.component_observations:
+                has_component_observations = bool(self.stateless_input.component_observations)
+                has_component_price_points = bool(self.stateless_input.component_price_points)
+                if has_component_observations == has_component_price_points:
                     raise ValueError(
-                        "stateless_input.component_observations are required when return_source=calculated"
+                        "exactly one of stateless_input.component_observations or "
+                        "stateless_input.component_price_points is required when return_source=calculated"
                     )
                 if self.stateless_input.benchmark_return_points:
                     raise ValueError(
@@ -134,6 +158,10 @@ class BenchmarkAnalyticsRequest(BaseModel):
                 if self.stateless_input.component_observations:
                     raise ValueError(
                         "stateless_input.component_observations must be empty when return_source=vendor_series"
+                    )
+                if self.stateless_input.component_price_points:
+                    raise ValueError(
+                        "stateless_input.component_price_points must be empty when return_source=vendor_series"
                     )
         else:
             if self.stateful_input is None:

@@ -18,6 +18,7 @@ from app.services.stateful_performance_input_service import (
     build_stateful_portfolio_valuation_input,
     retrieve_stateful_portfolio_input,
 )
+from app.services.stateless_benchmark_input_service import normalize_stateless_component_observations
 
 
 @dataclass(frozen=True)
@@ -214,9 +215,14 @@ def _resolve_stateless_twr_benchmark_request(
             "analyses": [analysis.model_dump(mode="python") for analysis in request.analyses],
             "return_source": benchmark.return_source.value,
             "benchmark_currency": stateless_input.benchmark_currency,
-            "component_observations": [
-                point.model_dump(mode="python") for point in stateless_input.component_observations
-            ],
+            "component_observations": (
+                normalize_stateless_component_observations(
+                    benchmark_currency=stateless_input.benchmark_currency,
+                    stateless_input=stateless_input,
+                )
+                if benchmark.return_source == BenchmarkReturnSource.CALCULATED
+                else []
+            ),
             "benchmark_return_points": [
                 point.model_dump(mode="python") for point in stateless_input.benchmark_return_points
             ],
