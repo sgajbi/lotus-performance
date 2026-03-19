@@ -85,6 +85,7 @@ async def get_integration_capabilities(
     mwr_enabled = _env_bool("PA_CAP_MWR_ENABLED", True)
     contribution_enabled = _env_bool("PA_CAP_CONTRIBUTION_ENABLED", True)
     attribution_enabled = _env_bool("PA_CAP_ATTRIBUTION_ENABLED", True)
+    benchmark_enabled = _env_bool("PA_CAP_BENCHMARK_ENABLED", True)
     stateful_mode_enabled = _env_bool("PLATFORM_INPUT_MODE_STATEFUL_ENABLED", True)
     stateless_mode_enabled = _env_bool("PLATFORM_INPUT_MODE_STATELESS_ENABLED", True)
 
@@ -114,6 +115,12 @@ async def get_integration_capabilities(
             description="Attribution analytics APIs.",
         ),
         FeatureCapability(
+            key="pa.analytics.benchmark",
+            enabled=benchmark_enabled,
+            owner_service="lotus-performance",
+            description="Benchmark performance analytics APIs.",
+        ),
+        FeatureCapability(
             key="pa.execution.stateful",
             enabled=stateful_mode_enabled,
             owner_service="lotus-performance",
@@ -130,8 +137,8 @@ async def get_integration_capabilities(
     workflows = [
         WorkflowCapability(
             workflow_key="performance_snapshot",
-            enabled=twr_enabled and mwr_enabled,
-            required_features=["pa.analytics.twr", "pa.analytics.mwr"],
+            enabled=twr_enabled and mwr_enabled and benchmark_enabled,
+            required_features=["pa.analytics.twr", "pa.analytics.mwr", "pa.analytics.benchmark"],
         ),
         WorkflowCapability(
             workflow_key="performance_explainability",
@@ -172,6 +179,13 @@ async def get_integration_capabilities(
             supports_async=False,
         ),
         AnalyticsSurfaceCapability(
+            key="benchmark",
+            path="/performance/benchmark",
+            enabled=benchmark_enabled,
+            supported_input_modes=supported_input_modes,
+            supports_async=False,
+        ),
+        AnalyticsSurfaceCapability(
             key="contribution",
             path="/performance/contribution",
             enabled=contribution_enabled,
@@ -187,8 +201,8 @@ async def get_integration_capabilities(
             stateful_restrictions=(
                 [
                     "mode=by_instrument only",
-                    "currency_mode=BASE_ONLY only",
-                    "group_by limited to asset_class, sector, country",
+                    "group_by limited to asset_class, sector, country, currency",
+                    "currency_mode=BOTH requires report_ccy and fx.rates for mixed-currency positions",
                 ]
                 if stateful_mode_enabled and attribution_enabled
                 else []

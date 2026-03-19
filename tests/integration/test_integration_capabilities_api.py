@@ -48,14 +48,18 @@ def test_integration_capabilities_default_contract():
     assert surfaces["twr"]["path"] == "/performance/twr"
     assert surfaces["twr"]["supported_input_modes"] == ["stateful", "stateless"]
     assert surfaces["twr"]["supports_async"] is False
+    assert surfaces["benchmark"]["path"] == "/performance/benchmark"
+    assert surfaces["benchmark"]["supported_input_modes"] == ["stateful", "stateless"]
+    assert surfaces["benchmark"]["supports_async"] is False
     assert surfaces["contribution"]["supports_async"] is True
     assert surfaces["attribution"]["stateful_restrictions"] == [
         "mode=by_instrument only",
-        "currency_mode=BASE_ONLY only",
-        "group_by limited to asset_class, sector, country",
+        "group_by limited to asset_class, sector, country, currency",
+        "currency_mode=BOTH requires report_ccy and fx.rates for mixed-currency positions",
     ]
     assert surfaces["returns_series"]["path"] == "/integration/returns/series"
     features = {item["key"] for item in body["features"]}
+    assert "pa.analytics.benchmark" in features
     assert "pa.execution.stateful" in features
     assert "pa.execution.stateless" in features
     assert response.headers.get("X-Correlation-Id")

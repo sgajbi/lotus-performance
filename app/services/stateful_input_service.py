@@ -298,11 +298,42 @@ class StatefulInputService:
         *,
         benchmark_id: str,
         as_of_date: date,
+        calculation_id: UUID | None = None,
     ) -> tuple[int, dict[str, Any]]:
-        return await self._core_service.get_benchmark_definition(
+        response = await self._core_service.get_benchmark_definition(
             benchmark_id=benchmark_id,
             as_of_date=as_of_date,
         )
+        if calculation_id is not None:
+            request_payload = {
+                "benchmark_id": benchmark_id,
+                "as_of_date": str(as_of_date),
+            }
+            snapshot_id, request_fingerprint = self._build_snapshot_identity(
+                calculation_id=calculation_id,
+                upstream_endpoint="benchmark_definition",
+                source_identifier=benchmark_id,
+                request_payload=request_payload,
+            )
+            existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
+            if snapshot_id not in existing_snapshot_ids:
+                self._execution_store.record_upstream_snapshots(
+                    calculation_id=calculation_id,
+                    snapshots=[
+                        self._build_snapshot(
+                            calculation_id=calculation_id,
+                            upstream_endpoint="benchmark_definition",
+                            source_identifier=benchmark_id,
+                            as_of_date=as_of_date,
+                            request_payload=request_payload,
+                            response=response,
+                            snapshot_id=snapshot_id,
+                            request_fingerprint=request_fingerprint,
+                        )
+                    ],
+                )
+                existing_snapshot_ids.add(snapshot_id)
+        return response
 
     async def get_benchmark_market_series(
         self,
@@ -313,6 +344,7 @@ class StatefulInputService:
         end_date: date,
         frequency: str = "daily",
         target_currency: str | None = None,
+        series_fields: list[str] | None = None,
         calculation_id: UUID | None = None,
     ) -> tuple[int, dict[str, Any]]:
         existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
@@ -330,7 +362,7 @@ class StatefulInputService:
                 end_date=chunk.end_date,
                 frequency=frequency,
                 target_currency=target_currency,
-                series_fields=["index_return", "component_weight"],
+                series_fields=series_fields or ["index_return", "component_weight"],
             ),
         )
         if calculation_id is not None:
@@ -342,7 +374,7 @@ class StatefulInputService:
                     "end_date": str(chunk.end_date),
                     "frequency": frequency,
                     "target_currency": target_currency,
-                    "series_fields": ["index_return", "component_weight"],
+                    "series_fields": series_fields or ["index_return", "component_weight"],
                 }
                 snapshot_id, request_fingerprint = self._build_snapshot_identity(
                     calculation_id=calculation_id,
@@ -383,6 +415,84 @@ class StatefulInputService:
             },
         }
 
+    async def get_fx_rates(
+        self,
+        *,
+        from_currency: str,
+        to_currency: str,
+        start_date: date,
+        end_date: date,
+        calculation_id: UUID | None = None,
+    ) -> tuple[int, dict[str, Any]]:
+        existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
+        chunks = self.plan_chunks(
+            start_date=start_date,
+            end_date=end_date,
+            chunk_days=self._reference_chunk_days,
+        )
+        responses = await self._gather_chunked(
+            chunks=chunks,
+            fetcher=lambda chunk: self._core_service.get_fx_rates(
+                from_currency=from_currency,
+                to_currency=to_currency,
+                start_date=chunk.start_date,
+                end_date=chunk.end_date,
+            ),
+        )
+        if calculation_id is not None:
+            snapshot_batch: list[dict[str, Any]] = []
+            for chunk, response in zip(chunks, responses):
+                request_payload = {
+                    "from_currency": from_currency,
+                    "to_currency": to_currency,
+                    "start_date": str(chunk.start_date),
+                    "end_date": str(chunk.end_date),
+                }
+                snapshot_id, request_fingerprint = self._build_snapshot_identity(
+                    calculation_id=calculation_id,
+                    upstream_endpoint="fx_rates",
+                    source_identifier=f"{from_currency}/{to_currency}",
+                    request_payload=request_payload,
+                )
+                if snapshot_id in existing_snapshot_ids:
+                    continue
+                snapshot_batch.append(
+                    self._build_snapshot(
+                        calculation_id=calculation_id,
+                        upstream_endpoint="fx_rates",
+                        source_identifier=f"{from_currency}/{to_currency}",
+                        as_of_date=end_date,
+                        request_payload=request_payload,
+                        response=response,
+                        snapshot_id=snapshot_id,
+                        request_fingerprint=request_fingerprint,
+                    )
+                )
+            self._execution_store.record_upstream_snapshots(
+                calculation_id=calculation_id,
+                snapshots=snapshot_batch,
+            )
+        failure = self._first_failure(responses)
+        if failure is not None:
+            return failure
+
+        merged_rates = self._merge_dedup_records(
+            records=[
+                {"series_date": rate.get("rate_date"), "fx_rate": rate.get("rate")}
+                for _, payload in responses
+                for rate in (payload.get("rates", []) if isinstance(payload, dict) else [])
+                if isinstance(rate, dict)
+            ],
+            date_key="series_date",
+        )
+        return 200, {
+            "points": merged_rates,
+            "retrieval_metadata": {
+                "chunk_count": len(chunks),
+                "page_count": len(chunks),
+            },
+        }
+
     async def get_index_catalog(
         self,
         *,
@@ -417,6 +527,90 @@ class StatefulInputService:
                 )
                 existing_snapshot_ids.add(snapshot_id)
         return response
+
+    async def get_index_price_series(
+        self,
+        *,
+        index_id: str,
+        as_of_date: date,
+        start_date: date,
+        end_date: date,
+        frequency: str = "daily",
+        target_currency: str | None = None,
+        calculation_id: UUID | None = None,
+    ) -> tuple[int, dict[str, Any]]:
+        existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
+        chunks = self.plan_chunks(
+            start_date=start_date,
+            end_date=end_date,
+            chunk_days=self._reference_chunk_days,
+        )
+        responses = await self._gather_chunked(
+            chunks=chunks,
+            fetcher=lambda chunk: self._core_service.get_index_price_series(
+                index_id=index_id,
+                as_of_date=as_of_date,
+                start_date=chunk.start_date,
+                end_date=chunk.end_date,
+                frequency=frequency,
+                target_currency=target_currency,
+            ),
+        )
+        if calculation_id is not None:
+            snapshot_batch: list[dict[str, Any]] = []
+            for chunk, response in zip(chunks, responses):
+                request_payload = {
+                    "index_id": index_id,
+                    "start_date": str(chunk.start_date),
+                    "end_date": str(chunk.end_date),
+                    "frequency": frequency,
+                    "target_currency": target_currency,
+                }
+                snapshot_id, request_fingerprint = self._build_snapshot_identity(
+                    calculation_id=calculation_id,
+                    upstream_endpoint="index_price_series",
+                    source_identifier=index_id,
+                    request_payload=request_payload,
+                )
+                if snapshot_id in existing_snapshot_ids:
+                    continue
+                snapshot_batch.append(
+                    self._build_snapshot(
+                        calculation_id=calculation_id,
+                        upstream_endpoint="index_price_series",
+                        source_identifier=index_id,
+                        as_of_date=as_of_date,
+                        request_payload=request_payload,
+                        response=response,
+                        snapshot_id=snapshot_id,
+                        request_fingerprint=request_fingerprint,
+                    )
+                )
+                existing_snapshot_ids.add(snapshot_id)
+            self._execution_store.record_upstream_snapshots(
+                calculation_id=calculation_id,
+                snapshots=snapshot_batch,
+            )
+        failure = self._first_failure(responses)
+        if failure is not None:
+            return failure
+
+        points = self._merge_dedup_records(
+            records=[
+                point
+                for _, payload in responses
+                for point in (payload.get("points", []) if isinstance(payload, dict) else [])
+                if isinstance(point, dict)
+            ],
+            date_key="series_date",
+        )
+        return 200, {
+            "points": points,
+            "retrieval_metadata": {
+                "chunk_count": len(chunks),
+                "page_count": len(chunks),
+            },
+        }
 
     async def get_risk_free_series(
         self,
