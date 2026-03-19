@@ -37,8 +37,9 @@ normalizes those upstream inputs into the same stateless engine request used by 
 The current stateful public contract is intentionally fenced to:
 
 - `mode="by_instrument"`
-- `currency_mode="BASE_ONLY"`
-- `group_by` limited to `asset_class`, `sector`, or `country`
+- `group_by` limited to `asset_class`, `sector`, `country`, or `currency`
+- `currency_mode="BOTH"` requires `report_ccy`
+- `currency_mode="BOTH"` requires `fx.rates` when sourced positions include currencies different from `report_ccy`
 
 Optional controls include:
 
@@ -118,9 +119,10 @@ Currency attribution is emitted only when all of these are true:
 - the aligned attribution panel contains the required local and FX return columns
 - `group_by` includes the `currency` dimension so the engine can aggregate by currency
 
-That path is currently available only for stateless attribution inputs. Stateful attribution is
-currently fenced to `currency_mode="BASE_ONLY"` until lotus-core exposes the upstream benchmark
-contracts needed for local and FX attribution inputs.
+That path is available for both stateless and stateful attribution inputs. In stateful mode,
+lotus-performance sources benchmark components from lotus-core, calculates benchmark returns
+internally, and decomposes portfolio and benchmark returns into local and FX effects inside the
+attribution engine.
 
 ## Current response shape
 

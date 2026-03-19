@@ -181,10 +181,12 @@ Runs stateless currency-aware attribution using caller-supplied benchmark groups
 This example is intentionally stateless. The current public stateful attribution path is fenced to:
 
 - `mode="by_instrument"`
-- `currency_mode="BASE_ONLY"`
-- `group_by` limited to `asset_class`, `sector`, or `country`
+- `group_by` limited to `asset_class`, `sector`, `country`, or `currency`
+- `currency_mode="BOTH"` requires `report_ccy`
+- `currency_mode="BOTH"` requires `fx.rates` when sourced positions include currencies different from `report_ccy`
 
-Currency attribution with `currency_mode="BOTH"` currently requires stateless inputs.
+Stateful attribution can also emit currency attribution when those conditions are met and
+`group_by` includes `currency`.
 
 **Endpoint**
 

@@ -98,8 +98,8 @@ def test_attribution_guide_uses_current_request_shape():
     assert 'input_mode: "stateless" | "stateful"' in guide
     assert "stateful_input.consumer_system" in guide
     assert '`mode="by_instrument"`' in guide
-    assert '`currency_mode="BASE_ONLY"`' in guide
-    assert "`asset_class`, `sector`, or `country`" in guide
+    assert '`currency_mode="BOTH"` requires `report_ccy`' in guide
+    assert "`asset_class`, `sector`, `country`, or `currency`" in guide
     assert "analyses" in guide
     assert "valuation_points" in guide
     assert "Older examples using request-level `period_type`" in guide
@@ -107,7 +107,7 @@ def test_attribution_guide_uses_current_request_shape():
     assert "- `linking`" in guide
     assert "currency_attribution" in guide
     assert "`group_by` includes the `currency` dimension" in guide
-    assert "currently available only for stateless attribution inputs" in guide
+    assert "available for both stateless and stateful attribution inputs" in guide
 
 
 def test_api_examples_recipes_match_current_dual_mode_contract():
@@ -120,7 +120,7 @@ def test_api_examples_recipes_match_current_dual_mode_contract():
     assert '"analyses"' in guide
     assert '"valuation_points"' in guide
     assert "window_start_date" in guide
-    assert 'currency attribution with `currency_mode="both"` currently requires stateless inputs' in guide.lower()
+    assert 'stateful attribution can also emit currency attribution' in guide.lower()
     assert "Older examples using request-level `period_type` or nested `daily_data` are not current." in guide
     assert '"period_type"' not in guide
     assert '"daily_data"' not in guide

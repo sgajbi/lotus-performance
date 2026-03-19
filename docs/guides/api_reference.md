@@ -78,8 +78,9 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - stateful mode sources portfolio and position timeseries from lotus-core and derives benchmark group inputs from benchmark assignment plus benchmark market-series metadata
   - current stateful fences:
     - `mode=by_instrument` only
-    - `currency_mode=BASE_ONLY` only
-    - `group_by` limited to canonical lotus-core attribution dimensions: `asset_class`, `sector`, `country`
+    - `group_by` limited to canonical lotus-core attribution dimensions plus `currency`: `asset_class`, `sector`, `country`, `currency`
+    - `currency_mode=BOTH` requires `report_ccy`
+    - `currency_mode=BOTH` requires `fx.rates` when sourced positions include currencies different from `report_ccy`
 - execution mode:
   - synchronous for smaller stateless sets and smaller stateful windows
   - `202 Accepted` when offloaded to the compute executor
