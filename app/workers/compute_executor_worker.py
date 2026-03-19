@@ -15,7 +15,7 @@ from app.models.attribution_analytics_requests import AttributionAnalyticsReques
 from app.models.attribution_requests import AttributionRequest
 from app.models.contribution_analytics_requests import ContributionAnalyticsRequest, ContributionInputMode
 from app.models.contribution_requests import ContributionRequest
-from app.models.returns_series import ReturnsSeriesRequest
+from app.models.returns_series import InputMode, ReturnsSeriesRequest
 from app.services.async_result_store import AsyncResultStore, async_result_store
 from app.services.attribution_mode_service import resolve_attribution_request
 from app.services.attribution_service import calculate_attribution
@@ -44,7 +44,7 @@ def _process_pending_jobs(
     result_store: AsyncResultStore | RuntimeStoreProxy[AsyncResultStore] | None = None,
     worker_id: str | None = None,
     lease_seconds: int | None = None,
-    returns_series_calculator: Callable[[ReturnsSeriesRequest], Coroutine[Any, Any, Any]] | None = None,
+    returns_series_calculator: Callable[..., Coroutine[Any, Any, Any]] | None = None,
     contribution_calculator: Callable[..., Any] | None = None,
     attribution_calculator: Callable[..., Any] | None = None,
     settings=None,
@@ -91,8 +91,16 @@ def _process_pending_jobs(
         )
         try:
             if job.analytics_type == "ReturnsSeries":
-                request = ReturnsSeriesRequest.model_validate(job.request_payload)
-                response = asyncio.run(active_returns_series_calculator(request))
+                request, source_input_mode = _resolve_async_returns_series_job_request(job.request_payload)
+                if source_input_mode == request.input_mode:
+                    response = asyncio.run(active_returns_series_calculator(request))
+                else:
+                    response = asyncio.run(
+                        active_returns_series_calculator(
+                            request,
+                            source_input_mode=source_input_mode,
+                        )
+                    )
             elif job.analytics_type == "Attribution":
                 attribution_request, attribution_input_mode = _resolve_async_attribution_job_request(
                     job.request_payload,
@@ -201,6 +209,17 @@ def _resolve_async_contribution_job_request(
         resolved_contribution = asyncio.run(resolve_contribution_request(analytics_request, settings=settings))
         return resolved_contribution.contribution_request, resolved_contribution.input_mode
     return request, ContributionInputMode.STATEFUL
+
+
+def _resolve_async_returns_series_job_request(
+    payload: dict[str, Any],
+) -> tuple[ReturnsSeriesRequest, InputMode]:
+    resolved_request_payload = payload.get("resolved_request")
+    source_input_mode = payload.get("source_input_mode")
+    if isinstance(resolved_request_payload, dict) and isinstance(source_input_mode, str):
+        return ReturnsSeriesRequest.model_validate(resolved_request_payload), InputMode(source_input_mode)
+    request = ReturnsSeriesRequest.model_validate(payload)
+    return request, request.input_mode
 
 
 def _resolve_async_attribution_job_request(

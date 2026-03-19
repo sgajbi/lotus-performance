@@ -17,6 +17,7 @@ from app.api.endpoints.returns_series import (
     _portfolio_timeseries_to_valuation_points,
     _resample_returns,
     _resolve_window,
+    _should_offload_resolved_returns_series,
     _should_offload_returns_series,
     _to_dataframe,
     get_returns_series,
@@ -292,3 +293,13 @@ def test_should_offload_returns_series_uses_runtime_settings(mocker):
     )
 
     assert _should_offload_returns_series(request) is True
+
+
+def test_should_offload_resolved_returns_series_uses_runtime_settings(mocker):
+    mocker.patch(
+        "app.api.endpoints.returns_series.get_settings",
+        return_value=type("Settings", (), {"RETURNS_SERIES_EXECUTOR_INPUT_COUNT": 3})(),
+    )
+
+    assert _should_offload_resolved_returns_series(3) is True
+    assert _should_offload_resolved_returns_series(2) is False

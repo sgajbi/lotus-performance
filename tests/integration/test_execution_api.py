@@ -10,6 +10,7 @@ from app.services.async_result_store import async_result_store
 from app.services.compute_job_store import compute_job_store
 from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import lineage_metadata_store
+from app.services.returns_series_service import ResolvedStatefulReturnsSeriesRequest
 from main import app
 from tests.conftest import drain_compute_queue, drain_lineage_queue
 
@@ -609,6 +610,121 @@ def test_execution_api_tracks_async_returns_series_job_state(client, monkeypatch
         assert execution_body_after_worker["async_result"]["result_status"] == "complete"
     finally:
         settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = original_threshold
+
+
+def test_execution_api_tracks_resolved_async_returns_series_job_state(client, monkeypatch):
+    original_window_threshold = settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS
+    original_input_threshold = settings.RETURNS_SERIES_EXECUTOR_INPUT_COUNT
+    settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = 30
+    settings.RETURNS_SERIES_EXECUTOR_INPUT_COUNT = 3
+
+    async def _mock_resolve_stateful_returns_series_request(request):  # noqa: ARG001
+        return ResolvedStatefulReturnsSeriesRequest(
+            request=type(request).model_validate(
+                {
+                    "calculation_id": str(request.calculation_id),
+                    "portfolio_id": request.portfolio_id,
+                    "as_of_date": "2026-02-25",
+                    "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-25"},
+                    "frequency": "DAILY",
+                    "metric_basis": "NET",
+                    "input_mode": "stateless",
+                    "stateless_input": {
+                        "portfolio_returns": [
+                            {"date": "2026-02-23", "return_value": "0.0100"},
+                            {"date": "2026-02-24", "return_value": "0.0050"},
+                            {"date": "2026-02-25", "return_value": "-0.0025"},
+                        ],
+                        "benchmark_returns": [
+                            {"date": "2026-02-23", "return_value": "0.0010"},
+                            {"date": "2026-02-24", "return_value": "0.0012"},
+                            {"date": "2026-02-25", "return_value": "0.0014"},
+                        ],
+                    },
+                }
+            ),
+            identity_payload={
+                "portfolio_id": request.portfolio_id,
+                "as_of_date": "2026-02-25",
+                "resolved_window": {
+                    "start_date": "2026-02-23",
+                    "end_date": "2026-02-25",
+                    "resolved_period_label": None,
+                },
+                "frequency": "DAILY",
+                "metric_basis": "NET",
+                "reporting_currency": None,
+                "series_selection": {
+                    "include_portfolio": True,
+                    "include_benchmark": True,
+                    "include_risk_free": False,
+                },
+                "benchmark": {
+                    "benchmark_id": "BMK_RESOLVED",
+                    "return_source": "calculated",
+                },
+                "risk_free": None,
+                "data_policy": {
+                    "missing_data_policy": "FAIL_FAST",
+                    "fill_method": "NONE",
+                    "calendar_policy": "BUSINESS",
+                    "max_gap_days": None,
+                },
+                "input_mode": "stateless",
+                "stateless_input": {
+                    "portfolio_returns": [
+                        {"date": "2026-02-23", "return_value": "0.0100"},
+                        {"date": "2026-02-24", "return_value": "0.0050"},
+                        {"date": "2026-02-25", "return_value": "-0.0025"},
+                    ],
+                    "benchmark_returns": [
+                        {"date": "2026-02-23", "return_value": "0.0010"},
+                        {"date": "2026-02-24", "return_value": "0.0012"},
+                        {"date": "2026-02-25", "return_value": "0.0014"},
+                    ],
+                    "risk_free_returns": None,
+                },
+            },
+            input_count=5,
+            resolved_benchmark_id="BMK_RESOLVED",
+            resolved_benchmark_return_source="calculated",
+            benchmark_work_units=5,
+        )
+
+    monkeypatch.setattr(
+        "app.api.endpoints.returns_series.resolve_stateful_returns_series_request",
+        _mock_resolve_stateful_returns_series_request,
+    )
+
+    payload = {
+        "portfolio_id": "DEMO_DPM_EUR_001",
+        "as_of_date": "2026-02-25",
+        "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-25"},
+        "frequency": "DAILY",
+        "metric_basis": "NET",
+        "series_selection": {"include_portfolio": True, "include_benchmark": True},
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    try:
+        response = client.post("/integration/returns/series", json=payload)
+        assert response.status_code == 202
+        calculation_id = response.json()["calculation_id"]
+
+        execution_response = client.get(f"/performance/executions/{calculation_id}")
+        assert execution_response.status_code == 200
+        body = execution_response.json()
+        assert body["execution_mode"] == "async"
+        assert body["requested_window"]["input_count"] == 5
+        assert body["requested_window"]["benchmark_id"] == "BMK_RESOLVED"
+        assert body["requested_window"]["benchmark_return_source"] == "calculated"
+        assert body["requested_window"]["benchmark_work_units"] == 5
+
+        assert drain_compute_queue() == 1
+    finally:
+        settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = original_window_threshold
+        settings.RETURNS_SERIES_EXECUTOR_INPUT_COUNT = original_input_threshold
 
 
 def test_execution_api_tracks_async_contribution_job_state(client, happy_path_payload):

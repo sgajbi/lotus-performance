@@ -99,6 +99,63 @@ def test_compute_executor_worker_processes_pending_returns_series_job(tmp_path, 
     assert result.result_status == AsyncResultStatus.COMPLETE
 
 
+def test_compute_executor_worker_processes_resolved_stateful_returns_series_job(tmp_path, monkeypatch):
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    monkeypatch.setattr(compute_executor_worker, "execution_registry", execution_store)
+    monkeypatch.setattr(returns_series_service, "execution_registry", execution_store)
+    result_store = AsyncResultStore(f"sqlite:///{tmp_path / 'results.db'}")
+    result_store.create_schema()
+    monkeypatch.setattr(compute_executor_worker, "async_result_store", result_store)
+
+    job_store = ComputeJobStore(f"sqlite:///{tmp_path / 'jobs.db'}")
+    job_store.create_schema()
+    monkeypatch.setattr(compute_executor_worker, "compute_job_store", job_store)
+
+    calculation_id = uuid4()
+    resolved_request = ReturnsSeriesRequest.model_validate(
+        {
+            "calculation_id": str(calculation_id),
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-25",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-25"},
+            "frequency": "DAILY",
+            "metric_basis": "NET",
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_returns": [
+                    {"date": "2026-02-23", "return_value": "0.01"},
+                    {"date": "2026-02-24", "return_value": "0.02"},
+                    {"date": "2026-02-25", "return_value": "0.03"},
+                ]
+            },
+        }
+    )
+
+    execution_store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        portfolio_id="P1",
+        execution_mode="async",
+        requested_window={},
+    )
+    job_store.enqueue_job(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        request_payload={
+            "resolved_request": resolved_request.model_dump(mode="json"),
+            "source_input_mode": "stateful",
+        },
+    )
+
+    assert compute_executor_worker.process_pending_jobs(limit=10) == 1
+
+    result = result_store.get_result(calculation_id)
+    assert result is not None
+    assert result.result_status == AsyncResultStatus.COMPLETE
+    assert result.response_payload["provenance"]["input_mode"] == "stateful"
+
+
 def test_compute_executor_worker_processes_pending_contribution_job(tmp_path, monkeypatch):
     execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
     execution_store.create_schema()

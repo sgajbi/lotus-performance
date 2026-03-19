@@ -5,7 +5,9 @@ from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
 from app.models.benchmark_requests import BenchmarkComponentObservation
+from app.models.returns_series import InputMode, ReturnsSeriesRequest
 from app.services.async_result_store import async_result_store
+from app.services.returns_series_service import ResolvedStatefulReturnsSeriesRequest
 from app.services.stateful_benchmark_input_service import StatefulBenchmarkNormalizedInput
 from core.repro import generate_canonical_hash
 from main import app
@@ -723,6 +725,124 @@ def test_returns_series_async_duplicate_submission_conflicts_on_payload_drift(mo
         assert second.status_code == 409
     finally:
         settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = original_threshold
+
+
+def test_returns_series_stateful_short_window_offloads_on_resolved_workload(monkeypatch):
+    original_window_threshold = settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS
+    original_input_threshold = settings.RETURNS_SERIES_EXECUTOR_INPUT_COUNT
+    settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = 30
+    settings.RETURNS_SERIES_EXECUTOR_INPUT_COUNT = 3
+
+    resolved_request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "DEMO_DPM_EUR_001",
+            "calculation_id": str(uuid4()),
+            "as_of_date": "2026-02-25",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-25"},
+            "frequency": "DAILY",
+            "metric_basis": "NET",
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_returns": [
+                    {"date": "2026-02-23", "return_value": "0.0100"},
+                    {"date": "2026-02-24", "return_value": "0.0050"},
+                    {"date": "2026-02-25", "return_value": "-0.0025"},
+                ],
+                "benchmark_returns": [
+                    {"date": "2026-02-23", "return_value": "0.0010"},
+                    {"date": "2026-02-24", "return_value": "0.0012"},
+                    {"date": "2026-02-25", "return_value": "0.0014"},
+                ],
+            },
+        }
+    )
+
+    async def _mock_resolve_stateful_returns_series_request(request):  # noqa: ARG001
+        resolved_payload = {
+            "portfolio_id": "DEMO_DPM_EUR_001",
+            "as_of_date": "2026-02-25",
+            "resolved_window": {
+                "start_date": "2026-02-23",
+                "end_date": "2026-02-25",
+                "resolved_period_label": None,
+            },
+            "frequency": "DAILY",
+            "metric_basis": "NET",
+            "reporting_currency": None,
+            "series_selection": {
+                "include_portfolio": True,
+                "include_benchmark": True,
+                "include_risk_free": False,
+            },
+            "benchmark": {
+                "benchmark_id": "BMK_RESOLVED",
+                "return_source": "calculated",
+            },
+            "risk_free": None,
+            "data_policy": {
+                "missing_data_policy": "FAIL_FAST",
+                "fill_method": "NONE",
+                "calendar_policy": "BUSINESS",
+                "max_gap_days": None,
+            },
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_returns": [
+                    {"date": "2026-02-23", "return_value": "0.0100"},
+                    {"date": "2026-02-24", "return_value": "0.0050"},
+                    {"date": "2026-02-25", "return_value": "-0.0025"},
+                ],
+                "benchmark_returns": [
+                    {"date": "2026-02-23", "return_value": "0.0010"},
+                    {"date": "2026-02-24", "return_value": "0.0012"},
+                    {"date": "2026-02-25", "return_value": "0.0014"},
+                ],
+                "risk_free_returns": None,
+            },
+        }
+        return ResolvedStatefulReturnsSeriesRequest(
+            request=resolved_request.model_copy(update={"calculation_id": request.calculation_id}),
+            identity_payload=resolved_payload,
+            input_count=5,
+            resolved_benchmark_id="BMK_RESOLVED",
+            resolved_benchmark_return_source="calculated",
+            benchmark_work_units=5,
+        )
+
+    monkeypatch.setattr(
+        "app.api.endpoints.returns_series.resolve_stateful_returns_series_request",
+        _mock_resolve_stateful_returns_series_request,
+    )
+
+    calculation_id = str(uuid4())
+    payload = {
+        "calculation_id": calculation_id,
+        "portfolio_id": "DEMO_DPM_EUR_001",
+        "as_of_date": "2026-02-25",
+        "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-25"},
+        "frequency": "DAILY",
+        "metric_basis": "NET",
+        "series_selection": {"include_portfolio": True, "include_benchmark": True},
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    try:
+        with TestClient(app) as client:
+            accepted = client.post("/integration/returns/series", json=payload)
+            assert accepted.status_code == 202
+
+            replay = client.post("/integration/returns/series", json=payload)
+            assert replay.status_code == 202
+
+            assert drain_compute_queue() >= 1
+
+            result = client.get(f"/integration/returns/series/results/{calculation_id}")
+            assert result.status_code == 200
+            assert result.json()["provenance"]["input_mode"] == InputMode.STATEFUL.value
+    finally:
+        settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = original_window_threshold
+        settings.RETURNS_SERIES_EXECUTOR_INPUT_COUNT = original_input_threshold
 
 
 def test_returns_series_stateful_source_unavailable(monkeypatch):
