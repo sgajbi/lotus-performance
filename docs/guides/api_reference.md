@@ -58,9 +58,11 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
   - `return_source=calculated` is the default execution path
   - `return_source=vendor_series` is an explicit non-default override
+  - stateless calculated mode accepts exactly one of:
+    - `stateless_input.component_observations`
+    - `stateless_input.component_price_points`
   - stateful calculated mode sources benchmark definition, component price series, and FX inputs from lotus-core and normalizes them into canonical benchmark component observations before engine execution
-  - current stateful calculated-mode fence:
-    - the requested window must remain inside one effective lotus-core composition segment
+  - stateful calculated mode supports multi-segment rebalance windows through the lotus-core composition-window contract
 
 ### `POST /performance/contribution`
 

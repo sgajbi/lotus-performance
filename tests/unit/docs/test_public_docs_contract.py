@@ -155,6 +155,7 @@ def test_api_examples_recipes_match_current_dual_mode_contract():
     assert '"valuation_points"' in guide
     assert '"include_benchmark": true' in guide
     assert '"relative_performance"' in guide
+    assert '"component_price_points"' in guide
     assert "window_start_date" in guide
     assert 'stateful attribution can also emit currency attribution' in guide.lower()
     assert "Older examples using request-level `period_type` or nested `daily_data` are not current." in guide
@@ -165,9 +166,11 @@ def test_api_examples_recipes_match_current_dual_mode_contract():
 def test_json_examples_match_current_dual_mode_contract():
     example_paths = [
         "docs/examples/benchmark_request.json",
+        "docs/examples/benchmark_request_price_points.json",
         "docs/examples/benchmark_vendor_series_request.json",
         "docs/examples/twr_request.json",
         "docs/examples/twr_request_with_benchmark.json",
+        "docs/examples/twr_request_with_benchmark_price_points.json",
         "docs/examples/twr_request_multiccy_hedged.json",
         "docs/examples/mwr_request.json",
         "docs/examples/contribution_request.json",
@@ -188,6 +191,11 @@ def test_json_examples_match_current_dual_mode_contract():
     assert "stateless_input" in benchmark_request
     assert benchmark_request["return_source"] == "calculated"
 
+    benchmark_price_request = json.loads(_read("docs/examples/benchmark_request_price_points.json"))
+    assert "stateless_input" in benchmark_price_request
+    assert "component_price_points" in benchmark_price_request["stateless_input"]
+    assert benchmark_price_request["return_source"] == "calculated"
+
     benchmark_vendor_request = json.loads(_read("docs/examples/benchmark_vendor_series_request.json"))
     assert "stateless_input" in benchmark_vendor_request
     assert benchmark_vendor_request["return_source"] == "vendor_series"
@@ -196,6 +204,9 @@ def test_json_examples_match_current_dual_mode_contract():
     benchmark_twr_request = json.loads(_read("docs/examples/twr_request_with_benchmark.json"))
     assert benchmark_twr_request["include_benchmark"] is True
     assert "benchmark" in benchmark_twr_request
+    benchmark_twr_price_request = json.loads(_read("docs/examples/twr_request_with_benchmark_price_points.json"))
+    assert benchmark_twr_price_request["include_benchmark"] is True
+    assert "component_price_points" in benchmark_twr_price_request["benchmark"]["stateless_input"]
     assert "stateless_input" in json.loads(_read("docs/examples/mwr_request.json"))
     assert "stateless_input" in json.loads(_read("docs/examples/contribution_request.json"))
     assert "stateless_input" in json.loads(_read("docs/examples/attribution_request.json"))

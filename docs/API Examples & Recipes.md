@@ -155,7 +155,63 @@ POST /performance/twr
 }
 ```
 
-## 4. Stateful Money-Weighted Return (MWR) from lotus-core
+## 4. Benchmark from Stateless Component Price Points
+
+Calculates benchmark performance directly from raw component price points. This is useful when the
+caller has component levels but does not want to precompute component returns outside
+`lotus-performance`.
+
+**Endpoint**
+
+```text
+POST /performance/benchmark
+```
+
+**Payload**
+
+```json
+{
+  "input_mode": "stateless",
+  "benchmark_id": "BMK_STATELESS_PRICE_1",
+  "benchmark_start_date": "2026-01-02",
+  "report_end_date": "2026-01-02",
+  "analyses": [
+    {
+      "period": "ITD",
+      "frequencies": ["daily"]
+    }
+  ],
+  "return_source": "calculated",
+  "output": {
+    "include_timeseries": true
+  },
+  "stateless_input": {
+    "benchmark_currency": "USD",
+    "component_price_points": [
+      { "component_id": "IDX_A", "date": "2026-01-01", "weight_bop": 0.6, "index_price": 100.0 },
+      { "component_id": "IDX_A", "date": "2026-01-02", "weight_bop": 0.6, "index_price": 102.0 },
+      {
+        "component_id": "IDX_B",
+        "date": "2026-01-01",
+        "weight_bop": 0.4,
+        "index_price": 100.0,
+        "component_currency": "EUR",
+        "fx_rate_to_benchmark": 1.2
+      },
+      {
+        "component_id": "IDX_B",
+        "date": "2026-01-02",
+        "weight_bop": 0.4,
+        "index_price": 101.0,
+        "component_currency": "EUR",
+        "fx_rate_to_benchmark": 1.212
+      }
+    ]
+  }
+}
+```
+
+## 5. Stateful Money-Weighted Return (MWR) from lotus-core
 
 Calculates MWR from lotus-core portfolio timeseries over an explicitly requested measurement
 window.

@@ -102,12 +102,15 @@ The public request contract is analysis-based. Older examples using `period_type
 - `return_source: "calculated" | "vendor_series"`
 - stateless:
   - `stateless_input.benchmark_currency`
-  - `stateless_input.component_observations` for calculated mode
+  - exactly one of:
+    - `stateless_input.component_observations`
+    - `stateless_input.component_price_points`
+    for calculated mode
   - `stateless_input.benchmark_return_points` for vendor-series mode
 - stateful:
   - `stateful_input.consumer_system`
   - benchmark definition, component price series, and FX inputs sourced from lotus-core
-  - current calculated-mode fence: the requested window must stay within one effective lotus-core composition segment
+  - calculated mode supports multi-segment rebalance windows through the lotus-core composition-window contract
 
 ### Contribution
 
