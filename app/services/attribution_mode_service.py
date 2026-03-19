@@ -67,13 +67,17 @@ async def resolve_attribution_request(
             details={
                 "portfolio_observations": len(source_input.portfolio_input.observations),
                 "position_rows": len(source_input.position_rows),
-                "benchmark_components": len(source_input.benchmark_component_series),
+                "benchmark_components": source_input.benchmark_source_details.get("benchmark_components", 0),
+                "benchmark_component_observations": len(source_input.benchmark_component_observations),
                 "portfolio_chunk_count": source_input.portfolio_input.retrieval_metadata.chunk_count,
                 "portfolio_page_count": source_input.portfolio_input.retrieval_metadata.page_count,
                 "position_chunk_count": source_input.position_retrieval_metadata.chunk_count,
                 "position_page_count": source_input.position_retrieval_metadata.page_count,
                 "benchmark_chunk_count": source_input.benchmark_retrieval_metadata.chunk_count,
                 "benchmark_page_count": source_input.benchmark_retrieval_metadata.page_count,
+                "fx_pair_count": source_input.benchmark_source_details.get("fx_pair_count", 0),
+                "fx_chunk_count": source_input.benchmark_source_details.get("fx_chunk_count", 0),
+                "fx_page_count": source_input.benchmark_source_details.get("fx_page_count", 0),
                 "index_request_count": source_input.index_retrieval_metadata.page_count,
             },
         )
@@ -89,6 +93,7 @@ async def resolve_attribution_request(
             group_by=request.group_by,
             metric_basis=stateful_input.metric_basis,
             currency_mode=request.currency_mode,
+            fx=request.fx,
             reporting_currency=request.report_ccy,
         )
         execution_registry.complete_stage(

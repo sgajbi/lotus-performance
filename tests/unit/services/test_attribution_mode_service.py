@@ -7,6 +7,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.models.attribution_analytics_requests import AttributionAnalyticsRequest, AttributionInputMode
+from app.models.benchmark_requests import BenchmarkComponentObservation
 from app.services.attribution_mode_service import resolve_attribution_request
 from app.services.stateful_attribution_input_service import StatefulAttributionSourceInput
 from app.services.stateful_input_service import RetrievalMetadata
@@ -98,7 +99,15 @@ async def test_resolve_attribution_request_fails_normalization_stage(monkeypatch
         position_rows=[],
         position_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
         benchmark_id="BMK_1",
-        benchmark_component_series=[],
+        benchmark_component_observations=[
+            BenchmarkComponentObservation(
+                component_id="IDX_1",
+                date=date(2025, 1, 1),
+                weight_bop=1.0,
+                component_return=0.01,
+            )
+        ],
+        benchmark_source_details={"benchmark_components": 1},
         benchmark_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
         index_records=[],
         index_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),

@@ -414,19 +414,32 @@ def test_execution_api_tracks_attribution_stateful_stages(client, monkeypatch):
     async def _mock_get_benchmark_assignment(self, **kwargs):  # noqa: ARG001
         return 200, {"benchmark_id": "BMK_1"}
 
-    async def _mock_get_benchmark_market_series(self, **kwargs):  # noqa: ARG001
+    async def _mock_get_benchmark_definition(self, **kwargs):  # noqa: ARG001
         return (
             200,
             {
-                "component_series": [
+                "benchmark_currency": "USD",
+                "components": [
                     {
                         "index_id": "IDX_1",
-                        "points": [
-                            {"series_date": "2025-01-01", "component_weight": "1.0", "index_return": "0.01"},
-                            {"series_date": "2025-01-02", "component_weight": "1.0", "index_return": "0.01"},
-                        ],
+                        "composition_weight": "1.0",
+                        "composition_effective_from": "2025-01-01",
                     }
-                ]
+                ],
+            },
+        )
+
+    async def _mock_get_index_price_series(self, index_id, **kwargs):  # noqa: ARG001
+        assert index_id == "IDX_1"
+        return (
+            200,
+            {
+                "points": [
+                    {"series_date": "2024-12-31", "index_price": "100", "series_currency": "USD"},
+                    {"series_date": "2025-01-01", "index_price": "101", "series_currency": "USD"},
+                    {"series_date": "2025-01-02", "index_price": "102.01", "series_currency": "USD"},
+                ],
+                "retrieval_metadata": {"chunk_count": 1, "page_count": 1},
             },
         )
 
@@ -456,8 +469,12 @@ def test_execution_api_tracks_attribution_stateful_stages(client, monkeypatch):
         _mock_get_benchmark_assignment,
     )
     monkeypatch.setattr(
-        "app.services.core_integration_service.CoreIntegrationService.get_benchmark_market_series",
-        _mock_get_benchmark_market_series,
+        "app.services.core_integration_service.CoreIntegrationService.get_benchmark_definition",
+        _mock_get_benchmark_definition,
+    )
+    monkeypatch.setattr(
+        "app.services.core_integration_service.CoreIntegrationService.get_index_price_series",
+        _mock_get_index_price_series,
     )
     monkeypatch.setattr(
         "app.services.core_integration_service.CoreIntegrationService.get_index_catalog",
@@ -499,6 +516,7 @@ def test_execution_api_tracks_attribution_stateful_stages(client, monkeypatch):
     assert stages["retrieval"]["details"]["position_page_count"] == 1
     assert stages["retrieval"]["details"]["benchmark_chunk_count"] == 1
     assert stages["retrieval"]["details"]["benchmark_page_count"] == 1
+    assert stages["retrieval"]["details"]["benchmark_component_observations"] == 2
     assert stages["retrieval"]["details"]["index_request_count"] == 1
     assert stages["normalization"]["details"]["portfolio_points"] == 2
     assert stages["normalization"]["details"]["instruments"] == 1
@@ -507,7 +525,8 @@ def test_execution_api_tracks_attribution_stateful_stages(client, monkeypatch):
         "portfolio_timeseries",
         "position_timeseries",
         "benchmark_assignment",
-        "benchmark_market_series",
+        "benchmark_definition",
+        "index_price_series",
         "index_catalog",
     }
 

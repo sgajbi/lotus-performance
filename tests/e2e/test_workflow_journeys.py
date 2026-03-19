@@ -1,13 +1,39 @@
 import os
+from datetime import date
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
+from app.models.benchmark_requests import BenchmarkComponentObservation
+from app.services.stateful_benchmark_input_service import StatefulBenchmarkNormalizedInput
 from main import app
 from tests.conftest import drain_compute_queue, drain_lineage_queue
 
 settings = get_settings()
+
+
+def _patch_stateful_attribution_benchmark_input(monkeypatch, *observations: BenchmarkComponentObservation) -> None:
+    async def _mock_build_stateful_benchmark_input(**kwargs):  # noqa: ARG001
+        return StatefulBenchmarkNormalizedInput(
+            benchmark_currency="USD",
+            component_observations=list(observations),
+            benchmark_return_points=[],
+            source_details={
+                "benchmark_components": len({observation.component_id for observation in observations}),
+                "component_observations": len(observations),
+                "benchmark_chunk_count": 1,
+                "benchmark_page_count": 1,
+                "fx_pair_count": 0,
+                "fx_chunk_count": 0,
+                "fx_page_count": 0,
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.stateful_attribution_input_service.build_stateful_benchmark_input",
+        _mock_build_stateful_benchmark_input,
+    )
 
 
 def test_e2e_platform_readiness_and_capabilities_contract() -> None:
@@ -31,8 +57,8 @@ def test_e2e_platform_readiness_and_capabilities_contract() -> None:
     assert surfaces["contribution"]["supports_async"] is True
     assert surfaces["attribution"]["stateful_restrictions"] == [
         "mode=by_instrument only",
-        "currency_mode=BASE_ONLY only",
-        "group_by limited to asset_class, sector, country",
+        "group_by limited to asset_class, sector, country, currency",
+        "currency_mode=BOTH requires report_ccy and fx.rates for mixed-currency positions",
     ]
 
 
@@ -177,22 +203,6 @@ def test_e2e_stateful_analytics_workflow(monkeypatch) -> None:
     async def _mock_get_benchmark_assignment(self, **kwargs):  # noqa: ARG001
         return 200, {"benchmark_id": "BMK_1"}
 
-    async def _mock_get_benchmark_market_series(self, **kwargs):  # noqa: ARG001
-        return (
-            200,
-            {
-                "component_series": [
-                    {
-                        "index_id": "IDX_1",
-                        "points": [
-                            {"series_date": "2025-01-01", "component_weight": "1.0", "index_return": "0.01"},
-                            {"series_date": "2025-01-02", "component_weight": "1.0", "index_return": "0.01"},
-                        ],
-                    }
-                ]
-            },
-        )
-
     async def _mock_get_index_catalog(self, **kwargs):  # noqa: ARG001
         return (
             200,
@@ -226,9 +236,20 @@ def test_e2e_stateful_analytics_workflow(monkeypatch) -> None:
         "app.services.stateful_input_service.StatefulInputService.get_benchmark_assignment",
         _mock_get_benchmark_assignment,
     )
-    monkeypatch.setattr(
-        "app.services.stateful_input_service.StatefulInputService.get_benchmark_market_series",
-        _mock_get_benchmark_market_series,
+    _patch_stateful_attribution_benchmark_input(
+        monkeypatch,
+        BenchmarkComponentObservation(
+            component_id="IDX_1",
+            date=date(2025, 1, 1),
+            weight_bop=1.0,
+            component_return=0.01,
+        ),
+        BenchmarkComponentObservation(
+            component_id="IDX_1",
+            date=date(2025, 1, 2),
+            weight_bop=1.0,
+            component_return=0.01,
+        ),
     )
     monkeypatch.setattr(
         "app.services.stateful_input_service.StatefulInputService.get_index_catalog",
