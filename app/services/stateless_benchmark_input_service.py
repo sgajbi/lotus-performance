@@ -58,6 +58,15 @@ def _build_component_observations_from_price_points(
             current_point = component_points[index]
             previous_date = previous_point.date
             current_date = current_point.date
+            if current_date <= previous_date:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=(
+                        "stateless benchmark component_price_points require strictly increasing unique dates "
+                        f"per component; component_id={component_id} contains duplicate or non-monotonic "
+                        f"date {current_date}."
+                    ),
+                )
             previous_price = float(previous_point.index_price)
             current_price = float(current_point.index_price)
             if previous_price == 0:

@@ -255,6 +255,32 @@ def test_calculate_benchmark_endpoint_rejects_stateless_price_points_with_misali
     assert "same derived return-date set" in response.json()["detail"]
 
 
+def test_calculate_benchmark_endpoint_rejects_stateless_price_points_with_duplicate_component_dates(client):
+    payload = {
+        "calculation_id": str(uuid4()),
+        "benchmark_id": "BMK_STATELESS_PRICE_DUP_DATES",
+        "benchmark_start_date": "2026-01-01",
+        "report_end_date": "2026-01-02",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateless",
+        "return_source": "calculated",
+        "stateless_input": {
+            "benchmark_currency": "USD",
+            "component_price_points": [
+                {"component_id": "IDX_A", "date": "2026-01-01", "weight_bop": 0.6, "index_price": 100.0},
+                {"component_id": "IDX_A", "date": "2026-01-01", "weight_bop": 0.6, "index_price": 101.0},
+                {"component_id": "IDX_B", "date": "2026-01-01", "weight_bop": 0.4, "index_price": 100.0},
+                {"component_id": "IDX_B", "date": "2026-01-02", "weight_bop": 0.4, "index_price": 101.0},
+            ]
+        },
+    }
+
+    response = client.post("/performance/benchmark", json=payload)
+
+    assert response.status_code == 422
+    assert "strictly increasing unique dates" in response.json()["detail"]
+
+
 def test_calculate_benchmark_endpoint_records_http_failure_detail_in_execution_status(client, monkeypatch):
     calculation_id = str(uuid4())
 
