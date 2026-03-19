@@ -112,3 +112,43 @@ def test_normalize_stateless_component_observations_rejects_cross_currency_price
             benchmark_currency="USD",
             stateless_input=stateless_input,
         )
+
+
+def test_normalize_stateless_component_observations_rejects_misaligned_component_return_dates():
+    stateless_input = BenchmarkStatelessInput.model_validate(
+        {
+            "benchmark_currency": "USD",
+            "component_price_points": [
+                {
+                    "component_id": "IDX_A",
+                    "date": "2026-01-01",
+                    "weight_bop": 0.6,
+                    "index_price": 100.0,
+                },
+                {
+                    "component_id": "IDX_A",
+                    "date": "2026-01-02",
+                    "weight_bop": 0.6,
+                    "index_price": 102.0,
+                },
+                {
+                    "component_id": "IDX_B",
+                    "date": "2026-01-01",
+                    "weight_bop": 0.4,
+                    "index_price": 100.0,
+                },
+                {
+                    "component_id": "IDX_B",
+                    "date": "2026-01-03",
+                    "weight_bop": 0.4,
+                    "index_price": 101.0,
+                },
+            ],
+        }
+    )
+
+    with pytest.raises(HTTPException, match="same derived return-date set"):
+        normalize_stateless_component_observations(
+            benchmark_currency="USD",
+            stateless_input=stateless_input,
+        )

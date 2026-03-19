@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from datetime import date
 
 from fastapi import HTTPException, status
 
@@ -48,8 +49,10 @@ def _build_component_observations_from_price_points(
         by_component[price_point.component_id].append(price_point)
 
     observations: list[BenchmarkComponentObservation] = []
+    expected_component_dates: set[date] | None = None
     for component_id in sorted(by_component):
         component_points = sorted(by_component[component_id], key=lambda item: item.date)
+        component_dates: set[date] = set()
         for index in range(1, len(component_points)):
             previous_point = component_points[index - 1]
             current_point = component_points[index]
@@ -102,6 +105,18 @@ def _build_component_observations_from_price_points(
                     component_return_local=component_return_local,
                     component_return_fx=component_return_fx,
                 )
+            )
+            component_dates.add(current_date)
+
+        if expected_component_dates is None:
+            expected_component_dates = component_dates
+        elif component_dates != expected_component_dates:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    "stateless benchmark component_price_points must yield the same derived return-date "
+                    f"set for every component; component_id={component_id} does not match peer coverage."
+                ),
             )
 
     if not observations:
