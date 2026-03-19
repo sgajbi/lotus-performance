@@ -137,3 +137,45 @@ def test_twr_request_to_stateless_fails_without_stateless_payload(base_payload):
 
     with pytest.raises(ValueError, match="No stateless valuation_points are available"):
         request.to_stateless_performance_request()
+
+
+def test_twr_request_accepts_nested_stateless_benchmark_request(base_payload):
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            **base_payload,
+            "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+            "benchmark": {
+                "benchmark_id": "BMK_1",
+                "input_mode": "stateless",
+                "return_source": "calculated",
+                "stateless_input": {
+                    "benchmark_currency": "USD",
+                    "component_observations": [
+                        {
+                            "component_id": "IDX_A",
+                            "date": "2025-01-01",
+                            "weight_bop": 1.0,
+                            "component_return": 0.01,
+                        }
+                    ],
+                },
+            },
+        }
+    )
+
+    assert request.benchmark is not None
+    assert request.benchmark.input_mode.value == "stateless"
+    assert request.to_stateless_performance_request().valuation_points[0].end_mv == 1010
+
+
+def test_twr_request_requires_stateful_benchmark_payload_when_requested(base_payload):
+    with pytest.raises(ValidationError, match="benchmark.stateful_input is required"):
+        TWRAnalyticsRequest.model_validate(
+            {
+                **base_payload,
+                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+                "benchmark": {
+                    "input_mode": "stateful",
+                },
+            }
+        )

@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
+from app.models.benchmark_analytics_requests import BenchmarkInputMode, BenchmarkReturnSource
+from app.models.benchmark_responses import SinglePeriodBenchmarkResult
 from app.models.twr_requests import TWRInputMode
 from common.enums import Frequency
 from core.envelope import Audit, Diagnostics, Meta
@@ -52,6 +54,16 @@ class SinglePeriodPerformanceResult(BaseModel):
     portfolio_return: Optional[PortfolioReturnDecomposition] = None
 
 
+class TWRBenchmarkResponse(BaseModel):
+    benchmark_id: str
+    benchmark_currency: str
+    input_mode: BenchmarkInputMode
+    return_source: BenchmarkReturnSource
+    results_by_period: Dict[str, SinglePeriodBenchmarkResult]
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class PerformanceResponse(BaseModel):
     """
     The main response model for a TWR calculation.
@@ -63,6 +75,7 @@ class PerformanceResponse(BaseModel):
     input_mode: TWRInputMode = TWRInputMode.STATELESS
 
     results_by_period: Dict[str, SinglePeriodPerformanceResult]
+    benchmark: TWRBenchmarkResponse | None = None
 
     meta: Meta
     diagnostics: Diagnostics

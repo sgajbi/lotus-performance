@@ -218,3 +218,137 @@ async def test_resolve_twr_request_fails_normalization_stage_for_invalid_observa
     assert execution is not None
     stages = {stage.stage_name: stage for stage in execution.stages}
     assert stages["normalization"].status.value == "failed"
+
+
+@pytest.mark.asyncio
+async def test_resolve_twr_request_builds_stateless_benchmark_request():
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "performance_start_date": "2024-12-31",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+            "valuation_points": [
+                {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1020.1},
+            ],
+            "benchmark": {
+                "benchmark_id": "BMK_1",
+                "input_mode": "stateless",
+                "return_source": "calculated",
+                "stateless_input": {
+                    "benchmark_currency": "USD",
+                    "component_observations": [
+                        {
+                            "component_id": "IDX_A",
+                            "date": "2025-01-01",
+                            "weight_bop": 1.0,
+                            "component_return": 0.01,
+                        },
+                        {
+                            "component_id": "IDX_A",
+                            "date": "2025-01-02",
+                            "weight_bop": 1.0,
+                            "component_return": 0.02,
+                        },
+                    ],
+                },
+            },
+        }
+    )
+    execution_registry.create_execution(
+        calculation_id=request.calculation_id,
+        analytics_type="TWR",
+        portfolio_id=request.portfolio_id,
+    )
+
+    resolved = await resolve_twr_request(request, settings=_settings())
+
+    assert resolved.input_mode.value == "stateless"
+    assert resolved.benchmark_request is not None
+    assert resolved.resolved_benchmark_id == "BMK_1"
+    assert resolved.benchmark_request.benchmark_currency == "USD"
+    assert len(resolved.benchmark_request.component_observations) == 2
+
+
+@pytest.mark.asyncio
+async def test_resolve_twr_request_sources_stateful_benchmark_assignment(monkeypatch):
+    class _StatefulBenchmarkStub:
+        async def get_benchmark_assignment(self, **kwargs):  # noqa: ARG002
+            return 200, {"benchmark_id": "BMK_ASSIGNED"}
+
+        async def get_benchmark_definition(self, **kwargs):  # noqa: ARG002
+            return (
+                200,
+                {
+                    "benchmark_id": "BMK_ASSIGNED",
+                    "benchmark_currency": "USD",
+                    "components": [
+                        {
+                            "index_id": "IDX_USD",
+                            "composition_weight": "1.0",
+                            "composition_effective_from": "2024-12-31",
+                            "composition_effective_to": "2025-01-31",
+                        }
+                    ],
+                },
+            )
+
+        async def get_index_price_series(self, **kwargs):  # noqa: ARG002
+            return (
+                200,
+                {
+                    "points": [
+                        {"series_date": "2024-12-31", "index_price": "100", "series_currency": "USD"},
+                        {"series_date": "2025-01-01", "index_price": "101", "series_currency": "USD"},
+                        {"series_date": "2025-01-02", "index_price": "102.01", "series_currency": "USD"},
+                    ],
+                    "retrieval_metadata": {"chunk_count": 1, "page_count": 1},
+                },
+            )
+
+        async def get_fx_rates(self, **kwargs):  # noqa: ARG002
+            return 200, {"points": []}
+
+        async def get_benchmark_return_series(self, **kwargs):  # noqa: ARG002
+            return 404, {"detail": "unused"}
+
+    monkeypatch.setattr(
+        "app.services.twr_mode_service.build_stateful_input_service",
+        lambda settings: _StatefulBenchmarkStub(),  # noqa: ARG005
+    )
+
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "performance_start_date": "2024-12-31",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+            "valuation_points": [
+                {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1020.1},
+            ],
+            "benchmark": {
+                "input_mode": "stateful",
+                "return_source": "calculated",
+                "stateful_input": {"consumer_system": "lotus-performance"},
+            },
+        }
+    )
+    execution_registry.create_execution(
+        calculation_id=request.calculation_id,
+        analytics_type="TWR",
+        portfolio_id=request.portfolio_id,
+    )
+
+    resolved = await resolve_twr_request(request, settings=_settings())
+
+    assert resolved.input_mode.value == "stateless"
+    assert resolved.resolved_benchmark_id == "BMK_ASSIGNED"
+    assert resolved.benchmark_request is not None
+    assert resolved.benchmark_request.benchmark_currency == "USD"
+    assert len(resolved.benchmark_request.component_observations) == 2

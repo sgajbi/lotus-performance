@@ -7,9 +7,10 @@ from fastapi.testclient import TestClient
 
 from app.api.endpoints.performance import _generate_twr_request_hashes
 from app.core.config import get_settings
+from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.requests import PerformanceRequest
-from app.models.twr_requests import TWRAnalyticsRequest
-from core.repro import generate_canonical_hash
+from app.models.twr_requests import TWRAnalyticsRequest, TWRResolvedExecutionRequest
+from core.repro import generate_canonical_hash_from_value
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
 from main import app
 
@@ -318,6 +319,181 @@ def test_twr_supports_stateful_input_mode(client, monkeypatch):
     assert body["results_by_period"]["YTD"]["portfolio_return"]["base"] == pytest.approx(2.01)
 
 
+def test_twr_supports_stateless_benchmark_request(client):
+    payload = {
+        "portfolio_id": "TWR_BENCHMARK_STATELESS",
+        "performance_start_date": "2024-12-31",
+        "metric_basis": "NET",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "valuation_points": [
+            {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+            {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+        ],
+        "benchmark": {
+            "benchmark_id": "BMK_STATELESS_1",
+            "input_mode": "stateless",
+            "return_source": "calculated",
+            "stateless_input": {
+                "benchmark_currency": "USD",
+                "component_observations": [
+                    {"component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
+                    {"component_id": "IDX_A", "date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.015},
+                ],
+            },
+        },
+    }
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["benchmark"]["benchmark_id"] == "BMK_STATELESS_1"
+    assert body["benchmark"]["input_mode"] == "stateless"
+    assert body["benchmark"]["benchmark_currency"] == "USD"
+    assert body["benchmark"]["results_by_period"]["YTD"]["benchmark_return"] == pytest.approx(0.02515)
+
+
+def test_twr_supports_stateful_benchmark_assignment(client, monkeypatch):
+    class _StatefulBenchmarkStub:
+        async def get_benchmark_assignment(self, **kwargs):  # noqa: ARG002
+            return 200, {"benchmark_id": "BMK_ASSIGNED"}
+
+        async def get_benchmark_definition(self, **kwargs):  # noqa: ARG002
+            return (
+                200,
+                {
+                    "benchmark_id": "BMK_ASSIGNED",
+                    "benchmark_currency": "USD",
+                    "components": [
+                        {
+                            "index_id": "IDX_USD",
+                            "composition_weight": "1.0",
+                            "composition_effective_from": "2024-12-31",
+                            "composition_effective_to": "2025-01-31",
+                        }
+                    ],
+                },
+            )
+
+        async def get_index_price_series(self, **kwargs):  # noqa: ARG002
+            return (
+                200,
+                {
+                    "points": [
+                        {"series_date": "2024-12-31", "index_price": "100", "series_currency": "USD"},
+                        {"series_date": "2025-01-01", "index_price": "101", "series_currency": "USD"},
+                        {"series_date": "2025-01-02", "index_price": "102.01", "series_currency": "USD"},
+                    ],
+                    "retrieval_metadata": {"chunk_count": 1, "page_count": 1},
+                },
+            )
+
+        async def get_fx_rates(self, **kwargs):  # noqa: ARG002
+            return 200, {"points": []}
+
+        async def get_benchmark_return_series(self, **kwargs):  # noqa: ARG002
+            return 404, {"detail": "unused"}
+
+    monkeypatch.setattr(
+        "app.services.twr_mode_service.build_stateful_input_service",
+        lambda settings: _StatefulBenchmarkStub(),  # noqa: ARG005
+    )
+
+    payload = {
+        "portfolio_id": "TWR_BENCHMARK_STATEFUL",
+        "performance_start_date": "2024-12-31",
+        "metric_basis": "NET",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "valuation_points": [
+            {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+            {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+        ],
+        "benchmark": {
+            "input_mode": "stateful",
+            "return_source": "calculated",
+            "stateful_input": {"consumer_system": "lotus-performance"},
+        },
+    }
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["benchmark"]["benchmark_id"] == "BMK_ASSIGNED"
+    assert body["benchmark"]["input_mode"] == "stateful"
+    assert body["benchmark"]["results_by_period"]["YTD"]["benchmark_return"] == pytest.approx(0.0201)
+
+
+def test_twr_hashes_include_resolved_benchmark_request(client):
+    payload = {
+        "portfolio_id": "TWR_BENCHMARK_HASH",
+        "performance_start_date": "2024-12-31",
+        "metric_basis": "NET",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "valuation_points": [
+            {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+            {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+        ],
+        "benchmark": {
+            "benchmark_id": "BMK_STATELESS_1",
+            "input_mode": "stateless",
+            "return_source": "calculated",
+            "stateless_input": {
+                "benchmark_currency": "USD",
+                "component_observations": [
+                    {"component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
+                    {"component_id": "IDX_A", "date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.015},
+                ],
+            },
+        },
+    }
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    expected_input_fingerprint, expected_calculation_hash = generate_canonical_hash_from_value(
+        TWRResolvedExecutionRequest(
+            portfolio=PerformanceRequest.model_validate(
+                {
+                    "calculation_id": body["calculation_id"],
+                    "portfolio_id": "TWR_BENCHMARK_HASH",
+                    "performance_start_date": "2024-12-31",
+                    "metric_basis": "NET",
+                    "report_end_date": "2025-01-02",
+                    "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+                    "valuation_points": [
+                        {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+                        {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+                    ],
+                }
+            ),
+            benchmark=BenchmarkPerformanceRequest.model_validate(
+                {
+                    "calculation_id": body["calculation_id"],
+                    "benchmark_id": "BMK_STATELESS_1",
+                    "benchmark_start_date": "2025-01-01",
+                    "report_end_date": "2025-01-02",
+                    "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+                    "return_source": "calculated",
+                    "benchmark_currency": "USD",
+                    "component_observations": [
+                        {"component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
+                        {"component_id": "IDX_A", "date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.015},
+                    ],
+                    "benchmark_return_points": [],
+                }
+            ),
+        ),
+        get_settings().APP_VERSION,
+    )
+    assert body["meta"]["input_fingerprint"] == expected_input_fingerprint
+    assert body["meta"]["calculation_hash"] == expected_calculation_hash
+
+
 def test_twr_stateful_hashes_follow_resolved_inputs(client, monkeypatch):
     async def _mock_fetch_stateful_portfolio_timeseries(**kwargs):  # noqa: ARG001
         return (
@@ -380,8 +556,8 @@ def test_twr_stateful_hashes_follow_resolved_inputs(client, monkeypatch):
             ],
         }
     )
-    expected_input_fingerprint, expected_calculation_hash = generate_canonical_hash(
-        expected_request,
+    expected_input_fingerprint, expected_calculation_hash = generate_canonical_hash_from_value(
+        TWRResolvedExecutionRequest(portfolio=expected_request, benchmark=None),
         get_settings().APP_VERSION,
     )
 

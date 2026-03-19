@@ -14,6 +14,7 @@ from app.core.config import get_settings
 from app.models.attribution_analytics_requests import AttributionAnalyticsRequest, AttributionInputMode
 from app.models.attribution_requests import AttributionRequest
 from app.models.attribution_responses import AttributionAcceptedResponse, AttributionResponse
+from app.models.benchmark_analytics_requests import BenchmarkInputMode
 from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest, MWRInputMode
 from app.models.mwr_responses import MoneyWeightedReturnResponse
 from app.models.performance_diagnostics import build_performance_diagnostics, build_reset_events
@@ -21,11 +22,13 @@ from app.models.responses import (
     PerformanceResponse,
     PortfolioReturnDecomposition,
     SinglePeriodPerformanceResult,
+    TWRBenchmarkResponse,
 )
-from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode
+from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode, TWRResolvedExecutionRequest
 from app.services.async_result_service import resolve_async_result
 from app.services.attribution_mode_service import resolve_attribution_request
 from app.services.attribution_service import calculate_attribution
+from app.services.benchmark_calculation_service import calculate_benchmark_artifacts
 from app.services.execution_lifecycle_service import (
     complete_execution_with_lineage,
     record_execution_failure,
@@ -149,6 +152,17 @@ def _generate_twr_request_hashes(request: TWRAnalyticsRequest, *, engine_version
     return generate_canonical_hash(request, engine_version)
 
 
+def _build_resolved_twr_identity_payload(
+    *,
+    performance_request,
+    benchmark_request,
+) -> TWRResolvedExecutionRequest:
+    return TWRResolvedExecutionRequest(
+        portfolio=performance_request,
+        benchmark=benchmark_request,
+    )
+
+
 @router.post("/twr", response_model=PerformanceResponse, summary="Calculate Time-Weighted Return")
 async def calculate_twr_endpoint(request: TWRAnalyticsRequest):
     """
@@ -176,8 +190,15 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest):
     try:
         resolved_request = await resolve_twr_request(request, settings=settings)
         performance_request = resolved_request.performance_request
-        if resolved_request.input_mode == TWRInputMode.STATEFUL:
-            input_fingerprint, calculation_hash = generate_canonical_hash(performance_request, settings.APP_VERSION)
+        resolved_twr_identity_payload = _build_resolved_twr_identity_payload(
+            performance_request=performance_request,
+            benchmark_request=resolved_request.benchmark_request,
+        )
+        if resolved_request.input_mode == TWRInputMode.STATEFUL or resolved_request.benchmark_request is not None:
+            input_fingerprint, calculation_hash = generate_canonical_hash_from_value(
+                resolved_twr_identity_payload,
+                settings.APP_VERSION,
+            )
             execution_registry.update_execution_identity(
                 request.calculation_id,
                 input_fingerprint=input_fingerprint,
@@ -200,6 +221,11 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest):
         engine_config = create_engine_config(performance_request, master_start_date, master_end_date)
         engine_df = create_engine_dataframe([item.model_dump() for item in performance_request.valuation_points])
         daily_results_df, engine_diagnostics = run_calculations(engine_df, engine_config)
+        benchmark_artifacts = (
+            calculate_benchmark_artifacts(resolved_request.benchmark_request)
+            if resolved_request.benchmark_request is not None
+            else None
+        )
 
         results_by_period = {}
         daily_results_df[PortfolioColumns.PERF_DATE.value] = pd.to_datetime(
@@ -297,26 +323,54 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest):
         counts={"input_rows": len(performance_request.valuation_points), "output_rows": len(daily_results_df)}
     )
 
+    benchmark_response = None
+    if resolved_request.benchmark_request is not None and benchmark_artifacts is not None:
+        benchmark_mode = resolved_request.benchmark_input_mode or BenchmarkInputMode.STATELESS
+        benchmark_response = TWRBenchmarkResponse(
+            benchmark_id=resolved_request.resolved_benchmark_id or resolved_request.benchmark_request.benchmark_id,
+            benchmark_currency=resolved_request.benchmark_request.benchmark_currency,
+            input_mode=benchmark_mode,
+            return_source=request.benchmark.return_source if request.benchmark is not None else "calculated",
+            results_by_period=benchmark_artifacts.results_by_period,
+        )
+
     response_model = PerformanceResponse(
         calculation_id=request.calculation_id,
         portfolio_id=request.portfolio_id,
         input_mode=request.input_mode,
         results_by_period=results_by_period,
+        benchmark=benchmark_response,
         meta=meta,
         diagnostics=diagnostics,
         audit=audit,
     )
 
+    calculation_details = {"twr_calculation_details.csv": daily_results_df}
+    execution_details = {
+        "input_rows": len(performance_request.valuation_points),
+        "output_rows": len(daily_results_df),
+    }
+    if benchmark_artifacts is not None:
+        execution_details["benchmark_daily_returns"] = len(benchmark_artifacts.daily_returns_df)
+        execution_details["benchmark_component_contributions"] = len(
+            benchmark_artifacts.component_contributions_df
+        )
+        calculation_details["benchmark_daily_returns.csv"] = benchmark_artifacts.daily_returns_df
+        calculation_details["benchmark_component_contributions.csv"] = (
+            benchmark_artifacts.component_contributions_df
+        )
+
     complete_execution_with_lineage(
         calculation_id=request.calculation_id,
         calculation_type="TWR",
-        request_model=performance_request if resolved_request.input_mode == TWRInputMode.STATEFUL else request,
+        request_model=(
+            resolved_twr_identity_payload
+            if resolved_request.input_mode == TWRInputMode.STATEFUL or resolved_request.benchmark_request is not None
+            else request
+        ),
         response_model=response_model,
-        execution_details={
-            "input_rows": len(performance_request.valuation_points),
-            "output_rows": len(daily_results_df),
-        },
-        calculation_details={"twr_calculation_details.csv": daily_results_df},
+        execution_details=execution_details,
+        calculation_details=calculation_details,
     )
 
     return response_model
