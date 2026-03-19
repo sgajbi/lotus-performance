@@ -57,12 +57,19 @@ Async-capable endpoints follow one common pattern:
 - `performance_start_date`
 - `report_end_date`
 - `analyses`
+- `include_benchmark`
 - stateless:
   - `valuation_points` for legacy callers
   - or `stateless_input.valuation_points` for Lotus-style mode envelopes
 - stateful:
   - `stateful_input.consumer_system`
   - lotus-core portfolio timeseries are normalized into canonical valuation points inside lotus-performance
+- benchmark inclusion:
+  - `include_benchmark=true` is the canonical switch for returning benchmark results alongside portfolio TWR
+  - the nested `benchmark` object is optional configuration
+  - explicit `benchmark.benchmark_id` overrides lotus-core assignment lookup
+  - stateful mode can source the portfolio-to-benchmark mapping from lotus-core when `include_benchmark=true`
+  - per-period responses include arithmetic `relative_performance`
 
 The public request contract is analysis-based. Older examples using `period_type`,
 `frequencies`, or `daily_data` are not current.

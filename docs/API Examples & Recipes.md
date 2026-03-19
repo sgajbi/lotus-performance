@@ -82,7 +82,80 @@ POST /performance/twr
 }
 ```
 
-## 3. Stateful Money-Weighted Return (MWR) from lotus-core
+## 3. TWR with Benchmark and Relative Performance
+
+Calculates portfolio TWR, benchmark TWR, and arithmetic relative performance in one request.
+
+**Endpoint**
+
+```text
+POST /performance/twr
+```
+
+**Payload**
+
+```json
+{
+  "input_mode": "stateless",
+  "portfolio_id": "TWR_WITH_BENCHMARK_01",
+  "performance_start_date": "2024-12-31",
+  "report_end_date": "2025-01-02",
+  "metric_basis": "NET",
+  "include_benchmark": true,
+  "analyses": [
+    {
+      "period": "YTD",
+      "frequencies": ["daily"]
+    }
+  ],
+  "stateless_input": {
+    "valuation_points": [
+      { "day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0 },
+      { "day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1 }
+    ]
+  },
+  "benchmark": {
+    "benchmark_id": "BMK_STATELESS_1",
+    "input_mode": "stateless",
+    "return_source": "calculated",
+    "stateless_input": {
+      "benchmark_currency": "USD",
+      "component_observations": [
+        { "component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01 },
+        { "component_id": "IDX_A", "date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.015 }
+      ]
+    }
+  }
+}
+```
+
+**Response excerpt**
+
+```json
+{
+  "results_by_period": {
+    "YTD": {
+      "portfolio_return": {
+        "base": 2.01
+      },
+      "relative_performance": {
+        "arithmetic_relative_return": -0.505,
+        "cumulative_arithmetic_relative_return": -0.505
+      }
+    }
+  },
+  "benchmark": {
+    "benchmark_id": "BMK_STATELESS_1",
+    "results_by_period": {
+      "YTD": {
+        "benchmark_return": 0.02515
+      }
+    }
+  }
+}
+```
+
+## 4. Stateful Money-Weighted Return (MWR) from lotus-core
 
 Calculates MWR from lotus-core portfolio timeseries over an explicitly requested measurement
 window.
@@ -112,7 +185,7 @@ POST /performance/mwr
 }
 ```
 
-## 4. Dedicated Benchmark Calculation
+## 5. Dedicated Benchmark Calculation
 
 Calculates benchmark performance directly from benchmark component observations.
 
@@ -160,7 +233,7 @@ POST /performance/benchmark
 }
 ```
 
-## 5. Multi-Currency Contribution
+## 6. Multi-Currency Contribution
 
 Calculates contribution for a portfolio with positions in multiple currencies and decomposes the
 result into local and FX-aware portfolio return context.
@@ -222,7 +295,7 @@ POST /performance/contribution
 }
 ```
 
-## 6. Multi-Currency Attribution
+## 7. Multi-Currency Attribution
 
 Runs stateless currency-aware attribution using caller-supplied benchmark groups and FX inputs.
 

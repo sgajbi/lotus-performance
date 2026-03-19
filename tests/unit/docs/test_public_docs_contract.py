@@ -17,6 +17,8 @@ def test_readme_uses_current_twr_contract_terms():
 
     assert "analyses" in readme
     assert "valuation_points" in readme
+    assert "include_benchmark" in readme
+    assert "relative_performance" in readme
     assert "Older examples using `period_type`" in readme
     assert "`daily_data` are not current" in readme
     assert "google.com/search" not in readme
@@ -138,6 +140,8 @@ def test_api_examples_recipes_match_current_dual_mode_contract():
     assert '"stateful_input"' in guide
     assert '"analyses"' in guide
     assert '"valuation_points"' in guide
+    assert '"include_benchmark": true' in guide
+    assert '"relative_performance"' in guide
     assert "window_start_date" in guide
     assert 'stateful attribution can also emit currency attribution' in guide.lower()
     assert "Older examples using request-level `period_type` or nested `daily_data` are not current." in guide
@@ -150,6 +154,7 @@ def test_json_examples_match_current_dual_mode_contract():
         "docs/examples/benchmark_request.json",
         "docs/examples/benchmark_vendor_series_request.json",
         "docs/examples/twr_request.json",
+        "docs/examples/twr_request_with_benchmark.json",
         "docs/examples/twr_request_multiccy_hedged.json",
         "docs/examples/mwr_request.json",
         "docs/examples/contribution_request.json",
@@ -175,6 +180,9 @@ def test_json_examples_match_current_dual_mode_contract():
     assert benchmark_vendor_request["return_source"] == "vendor_series"
 
     assert "stateless_input" in json.loads(_read("docs/examples/twr_request.json"))
+    benchmark_twr_request = json.loads(_read("docs/examples/twr_request_with_benchmark.json"))
+    assert benchmark_twr_request["include_benchmark"] is True
+    assert "benchmark" in benchmark_twr_request
     assert "stateless_input" in json.loads(_read("docs/examples/mwr_request.json"))
     assert "stateless_input" in json.loads(_read("docs/examples/contribution_request.json"))
     assert "stateless_input" in json.loads(_read("docs/examples/attribution_request.json"))
