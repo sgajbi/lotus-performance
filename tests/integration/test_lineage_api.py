@@ -157,6 +157,39 @@ def test_twr_benchmark_lineage_captures_resolved_portfolio_and_benchmark_request
     assert '"benchmark_start_date": "2025-01-01"' in artifact_response.text
 
 
+def test_benchmark_price_point_lineage_captures_resolved_request(client):
+    payload = {
+        "benchmark_id": "BMK_LINEAGE_PRICE_1",
+        "benchmark_start_date": "2026-01-02",
+        "report_end_date": "2026-01-02",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateless",
+        "return_source": "calculated",
+        "stateless_input": {
+            "benchmark_currency": "USD",
+            "component_price_points": [
+                {"component_id": "IDX_A", "date": "2026-01-01", "weight_bop": 1.0, "index_price": 100.0},
+                {"component_id": "IDX_A", "date": "2026-01-02", "weight_bop": 1.0, "index_price": 101.0},
+            ],
+        },
+    }
+
+    response = client.post("/performance/benchmark", json=payload)
+    assert response.status_code == 200
+    calculation_id = response.json()["calculation_id"]
+    assert drain_lineage_queue() >= 1
+
+    lineage_response = client.get(f"/performance/lineage/{calculation_id}")
+    assert lineage_response.status_code == 200
+
+    request_artifact_url = lineage_response.json()["artifacts"]["request.json"]["url"]
+    artifact_response = client.get(request_artifact_url)
+
+    assert artifact_response.status_code == 200
+    assert '"component_observations"' in artifact_response.text
+    assert '"component_price_points"' not in artifact_response.text
+
+
 def test_get_lineage_data_not_found(client):
     """Tests that a 404 is returned for a non-existent calculation_id."""
     non_existent_id = uuid4()

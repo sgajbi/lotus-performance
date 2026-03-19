@@ -51,7 +51,7 @@ async def calculate_benchmark_endpoint(request: BenchmarkAnalyticsRequest):
     try:
         resolved_request = await resolve_benchmark_request(request, settings=settings)
         benchmark_request = resolved_request.benchmark_request
-        if resolved_request.input_mode == BenchmarkInputMode.STATEFUL:
+        if _should_persist_resolved_benchmark_request(request):
             input_fingerprint, calculation_hash = generate_canonical_hash(
                 benchmark_request,
                 settings.APP_VERSION,
@@ -131,7 +131,7 @@ async def calculate_benchmark_endpoint(request: BenchmarkAnalyticsRequest):
     complete_execution_with_lineage(
         calculation_id=request.calculation_id,
         calculation_type="BENCHMARK",
-        request_model=benchmark_request if request.input_mode == BenchmarkInputMode.STATEFUL else request,
+        request_model=benchmark_request if _should_persist_resolved_benchmark_request(request) else request,
         response_model=response_model,
         execution_details={
             "daily_returns": len(benchmark_artifacts.daily_returns_df),
@@ -144,3 +144,12 @@ async def calculate_benchmark_endpoint(request: BenchmarkAnalyticsRequest):
     )
 
     return response_model
+
+
+def _should_persist_resolved_benchmark_request(request: BenchmarkAnalyticsRequest) -> bool:
+    if request.input_mode == BenchmarkInputMode.STATEFUL:
+        return True
+    stateless_input = request.stateless_input
+    if stateless_input is None:
+        return False
+    return bool(stateless_input.component_price_points)

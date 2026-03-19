@@ -3,6 +3,9 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.config import get_settings
+from app.models.benchmark_analytics_requests import BenchmarkAnalyticsRequest
+from core.repro import generate_canonical_hash
 from main import app
 
 
@@ -115,10 +118,13 @@ def test_calculate_benchmark_endpoint_supports_stateless_component_price_points(
     assert response.status_code == 200
     body = response.json()
     itd = body["results_by_period"]["ITD"]
+    raw_request = BenchmarkAnalyticsRequest.model_validate(payload)
+    raw_input_fingerprint, _ = generate_canonical_hash(raw_request, get_settings().APP_VERSION)
     assert itd["benchmark_return"] == pytest.approx(0.02004)
     assert itd["daily_returns"][0]["benchmark_return_local"] == pytest.approx(0.016)
     assert itd["daily_returns"][0]["benchmark_return_fx"] == pytest.approx(0.004)
     assert len(itd["component_contributions"]) == 2
+    assert body["meta"]["input_fingerprint"] != raw_input_fingerprint
 
 
 def test_calculate_benchmark_endpoint_supports_stateful_calculated_mode(client, monkeypatch):
