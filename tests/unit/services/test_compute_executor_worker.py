@@ -5,11 +5,13 @@ import pytest
 from fastapi import HTTPException
 
 from app.models.attribution_requests import AttributionRequest
+from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.contribution_analytics_requests import ContributionAnalyticsRequest, ContributionInputMode
 from app.models.contribution_requests import ContributionRequest
 from app.models.returns_series import ReturnsSeriesRequest
 from app.services import (
     attribution_service,
+    benchmark_service,
     contribution_service,
     execution_lifecycle_service,
     returns_series_service,
@@ -154,6 +156,71 @@ def test_compute_executor_worker_processes_resolved_stateful_returns_series_job(
     assert result is not None
     assert result.result_status == AsyncResultStatus.COMPLETE
     assert result.response_payload["provenance"]["input_mode"] == "stateful"
+
+
+def test_compute_executor_worker_processes_resolved_benchmark_job(tmp_path, monkeypatch):
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    monkeypatch.setattr(compute_executor_worker, "execution_registry", execution_store)
+    monkeypatch.setattr(benchmark_service, "execution_registry", execution_store)
+    monkeypatch.setattr(execution_lifecycle_service, "execution_registry", execution_store)
+    result_store = AsyncResultStore(f"sqlite:///{tmp_path / 'results.db'}")
+    result_store.create_schema()
+    monkeypatch.setattr(compute_executor_worker, "async_result_store", result_store)
+    lineage_store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    lineage_store.create_schema()
+    monkeypatch.setattr(
+        execution_lifecycle_service,
+        "lineage_service",
+        LineageService(storage_path=str(tmp_path / "lineage"), metadata_store=lineage_store),
+    )
+
+    job_store = ComputeJobStore(f"sqlite:///{tmp_path / 'jobs.db'}")
+    job_store.create_schema()
+    monkeypatch.setattr(compute_executor_worker, "compute_job_store", job_store)
+
+    calculation_id = uuid4()
+    resolved_request = BenchmarkPerformanceRequest.model_validate(
+        {
+            "calculation_id": str(calculation_id),
+            "benchmark_id": "BMK_1",
+            "benchmark_start_date": "2026-01-02",
+            "report_end_date": "2026-01-03",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "return_source": "calculated",
+            "benchmark_currency": "USD",
+            "component_observations": [
+                {"component_id": "IDX_A", "date": "2026-01-02", "weight_bop": 0.6, "component_return": 0.01},
+                {"component_id": "IDX_B", "date": "2026-01-02", "weight_bop": 0.4, "component_return": 0.02},
+                {"component_id": "IDX_A", "date": "2026-01-03", "weight_bop": 0.6, "component_return": 0.01},
+                {"component_id": "IDX_B", "date": "2026-01-03", "weight_bop": 0.4, "component_return": 0.02},
+            ],
+        }
+    )
+
+    execution_store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="BENCHMARK",
+        portfolio_id="BMK_1",
+        execution_mode="async",
+        requested_window={},
+    )
+    job_store.enqueue_job(
+        calculation_id=calculation_id,
+        analytics_type="BENCHMARK",
+        request_payload={
+            "resolved_request": resolved_request.model_dump(mode="json"),
+            "source_input_mode": "stateful",
+        },
+    )
+
+    assert compute_executor_worker.process_pending_jobs(limit=10) == 1
+
+    result = result_store.get_result(calculation_id)
+    assert result is not None
+    assert result.result_status == AsyncResultStatus.COMPLETE
+    assert result.response_payload["input_mode"] == "stateful"
+    assert result.response_payload["benchmark_id"] == "BMK_1"
 
 
 def test_compute_executor_worker_processes_pending_contribution_job(tmp_path, monkeypatch):

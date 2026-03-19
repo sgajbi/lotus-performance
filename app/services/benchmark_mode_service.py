@@ -21,6 +21,7 @@ class ResolvedBenchmarkRequest:
     benchmark_request: BenchmarkPerformanceRequest
     input_mode: BenchmarkInputMode
     source_details: dict[str, int]
+    input_count: int
 
 
 async def resolve_benchmark_request(
@@ -52,6 +53,11 @@ async def resolve_benchmark_request(
                 "component_price_points": len(request.stateless_input.component_price_points),
                 "benchmark_return_points": len(request.stateless_input.benchmark_return_points),
             },
+            input_count=(
+                len(request.stateless_input.component_observations)
+                or len(request.stateless_input.component_price_points)
+                or len(request.stateless_input.benchmark_return_points)
+            ),
         )
 
     stateful_input = request.stateful_input
@@ -110,4 +116,9 @@ async def resolve_benchmark_request(
         benchmark_request=benchmark_request,
         input_mode=BenchmarkInputMode.STATEFUL,
         source_details=normalized_input.source_details,
+        input_count=(
+            len(normalized_input.component_observations)
+            if request.return_source.value == "calculated"
+            else len(normalized_input.benchmark_return_points)
+        ),
     )

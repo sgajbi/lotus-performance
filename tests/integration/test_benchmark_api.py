@@ -5,6 +5,8 @@ from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
 from app.models.benchmark_analytics_requests import BenchmarkAnalyticsRequest
+from app.models.benchmark_requests import BenchmarkPerformanceRequest
+from app.services.benchmark_mode_service import ResolvedBenchmarkRequest
 from core.repro import generate_canonical_hash
 from main import app
 
@@ -391,3 +393,61 @@ def test_calculate_benchmark_endpoint_supports_explicit_vendor_series_mode(clien
     assert body["return_source"] == "vendor_series"
     assert itd["benchmark_return"] == pytest.approx(0.0302)
     assert "component_contributions" not in itd
+
+
+def test_calculate_benchmark_endpoint_promotes_stateful_benchmark_to_async_on_resolved_workload(client, monkeypatch):
+    settings = get_settings()
+    original_window_threshold = settings.BENCHMARK_EXECUTOR_WINDOW_DAYS
+    original_input_threshold = settings.BENCHMARK_EXECUTOR_INPUT_COUNT
+    settings.BENCHMARK_EXECUTOR_WINDOW_DAYS = 365
+    settings.BENCHMARK_EXECUTOR_INPUT_COUNT = 4
+
+    async def _mock_resolve_benchmark_request(request, *, settings):  # noqa: ARG001
+        benchmark_request = BenchmarkPerformanceRequest.model_validate(
+            {
+                "calculation_id": str(request.calculation_id),
+                "benchmark_id": request.benchmark_id,
+                "benchmark_start_date": "2026-01-02",
+                "report_end_date": "2026-01-03",
+                "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+                "return_source": "calculated",
+                "benchmark_currency": "USD",
+                "component_observations": [
+                    {"component_id": "IDX_A", "date": "2026-01-02", "weight_bop": 0.6, "component_return": 0.01},
+                    {"component_id": "IDX_B", "date": "2026-01-02", "weight_bop": 0.4, "component_return": 0.02},
+                    {"component_id": "IDX_A", "date": "2026-01-03", "weight_bop": 0.6, "component_return": 0.01},
+                    {"component_id": "IDX_B", "date": "2026-01-03", "weight_bop": 0.4, "component_return": 0.02},
+                ],
+            }
+        )
+        return ResolvedBenchmarkRequest(
+            benchmark_request=benchmark_request,
+            input_mode=request.input_mode,
+            source_details={"benchmark_components": 2},
+            input_count=4,
+        )
+
+    monkeypatch.setattr("app.api.endpoints.benchmark.resolve_benchmark_request", _mock_resolve_benchmark_request)
+
+    payload = {
+        "calculation_id": str(uuid4()),
+        "benchmark_id": "BMK_STATEFUL_ASYNC",
+        "benchmark_start_date": "2026-01-02",
+        "report_end_date": "2026-01-03",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "return_source": "calculated",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    try:
+        response = client.post("/performance/benchmark", json=payload)
+
+        assert response.status_code == 202
+        body = response.json()
+        assert body["poll_path"].endswith(payload["calculation_id"])
+        pending = client.get(body["result_path"])
+        assert pending.status_code == 202
+    finally:
+        settings.BENCHMARK_EXECUTOR_WINDOW_DAYS = original_window_threshold
+        settings.BENCHMARK_EXECUTOR_INPUT_COUNT = original_input_threshold

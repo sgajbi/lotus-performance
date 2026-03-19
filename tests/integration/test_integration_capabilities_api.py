@@ -50,7 +50,7 @@ def test_integration_capabilities_default_contract():
     assert surfaces["twr"]["supports_async"] is False
     assert surfaces["benchmark"]["path"] == "/performance/benchmark"
     assert surfaces["benchmark"]["supported_input_modes"] == ["stateful", "stateless"]
-    assert surfaces["benchmark"]["supports_async"] is False
+    assert surfaces["benchmark"]["supports_async"] is True
     assert surfaces["contribution"]["supports_async"] is True
     assert surfaces["attribution"]["stateful_restrictions"] == [
         "mode=by_instrument only",

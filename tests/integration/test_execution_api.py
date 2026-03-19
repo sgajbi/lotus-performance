@@ -6,7 +6,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
+from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.services.async_result_store import async_result_store
+from app.services.benchmark_mode_service import ResolvedBenchmarkRequest
 from app.services.compute_job_store import compute_job_store
 from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import lineage_metadata_store
@@ -100,12 +102,13 @@ def test_execution_api_tracks_returns_series_stateful_stages(client, monkeypatch
             },
         )
 
-    async def _mock_get_benchmark_definition(self, **kwargs):  # noqa: ARG001
+    async def _mock_get_benchmark_composition_window(self, **kwargs):  # noqa: ARG001
         return (
             200,
             {
+                "benchmark_id": "BMK_GLOBAL_1",
                 "benchmark_currency": "USD",
-                "components": [
+                "segments": [
                     {
                         "index_id": "IDX1",
                         "composition_weight": "1.0",
@@ -135,11 +138,11 @@ def test_execution_api_tracks_returns_series_stateful_stages(client, monkeypatch
         _mock_get_portfolio_analytics_timeseries,
     )
     monkeypatch.setattr(
-        "app.api.endpoints.returns_series.CoreIntegrationService.get_benchmark_definition",
-        _mock_get_benchmark_definition,
+        "app.services.core_integration_service.CoreIntegrationService.get_benchmark_composition_window",
+        _mock_get_benchmark_composition_window,
     )
     monkeypatch.setattr(
-        "app.api.endpoints.returns_series.CoreIntegrationService.get_index_price_series",
+        "app.services.core_integration_service.CoreIntegrationService.get_index_price_series",
         _mock_get_index_price_series,
     )
 
@@ -179,7 +182,7 @@ def test_execution_api_tracks_returns_series_stateful_stages(client, monkeypatch
     assert len(execution_body["upstream_snapshots"]) >= 2
     assert {snapshot["upstream_endpoint"] for snapshot in execution_body["upstream_snapshots"]} >= {
         "portfolio_timeseries",
-        "benchmark_definition",
+        "benchmark_composition_window",
         "index_price_series",
     }
 
@@ -433,12 +436,13 @@ def test_execution_api_tracks_attribution_stateful_stages(client, monkeypatch):
     async def _mock_get_benchmark_assignment(self, **kwargs):  # noqa: ARG001
         return 200, {"benchmark_id": "BMK_1"}
 
-    async def _mock_get_benchmark_definition(self, **kwargs):  # noqa: ARG001
+    async def _mock_get_benchmark_composition_window(self, **kwargs):  # noqa: ARG001
         return (
             200,
             {
+                "benchmark_id": "BMK_1",
                 "benchmark_currency": "USD",
-                "components": [
+                "segments": [
                     {
                         "index_id": "IDX_1",
                         "composition_weight": "1.0",
@@ -488,8 +492,8 @@ def test_execution_api_tracks_attribution_stateful_stages(client, monkeypatch):
         _mock_get_benchmark_assignment,
     )
     monkeypatch.setattr(
-        "app.services.core_integration_service.CoreIntegrationService.get_benchmark_definition",
-        _mock_get_benchmark_definition,
+        "app.services.core_integration_service.CoreIntegrationService.get_benchmark_composition_window",
+        _mock_get_benchmark_composition_window,
     )
     monkeypatch.setattr(
         "app.services.core_integration_service.CoreIntegrationService.get_index_price_series",
@@ -544,7 +548,7 @@ def test_execution_api_tracks_attribution_stateful_stages(client, monkeypatch):
         "portfolio_timeseries",
         "position_timeseries",
         "benchmark_assignment",
-        "benchmark_definition",
+        "benchmark_composition_window",
         "index_price_series",
         "index_catalog",
     }
@@ -810,6 +814,75 @@ def test_execution_api_tracks_async_attribution_job_state(client):
         assert execution_body_after_worker["async_result"]["result_status"] == "complete"
     finally:
         settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = original_threshold
+
+
+def test_execution_api_tracks_async_benchmark_job_state(client, monkeypatch):
+    original_window_threshold = settings.BENCHMARK_EXECUTOR_WINDOW_DAYS
+    original_input_threshold = settings.BENCHMARK_EXECUTOR_INPUT_COUNT
+    settings.BENCHMARK_EXECUTOR_WINDOW_DAYS = 365
+    settings.BENCHMARK_EXECUTOR_INPUT_COUNT = 4
+
+    async def _mock_resolve_benchmark_request(request, *, settings):  # noqa: ARG001
+        return ResolvedBenchmarkRequest(
+            benchmark_request=BenchmarkPerformanceRequest.model_validate(
+                {
+                    "calculation_id": str(request.calculation_id),
+                    "benchmark_id": request.benchmark_id,
+                    "benchmark_start_date": "2026-01-02",
+                    "report_end_date": "2026-01-03",
+                    "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+                    "return_source": "calculated",
+                    "benchmark_currency": "USD",
+                    "component_observations": [
+                        {"component_id": "IDX_A", "date": "2026-01-02", "weight_bop": 0.6, "component_return": 0.01},
+                        {"component_id": "IDX_B", "date": "2026-01-02", "weight_bop": 0.4, "component_return": 0.02},
+                        {"component_id": "IDX_A", "date": "2026-01-03", "weight_bop": 0.6, "component_return": 0.01},
+                        {"component_id": "IDX_B", "date": "2026-01-03", "weight_bop": 0.4, "component_return": 0.02},
+                    ],
+                }
+            ),
+            input_mode=request.input_mode,
+            source_details={"benchmark_components": 2},
+            input_count=4,
+        )
+
+    monkeypatch.setattr("app.api.endpoints.benchmark.resolve_benchmark_request", _mock_resolve_benchmark_request)
+
+    payload = {
+        "calculation_id": str(uuid4()),
+        "benchmark_id": "BMK_ASYNC_EXEC",
+        "benchmark_start_date": "2026-01-02",
+        "report_end_date": "2026-01-03",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "return_source": "calculated",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+    }
+
+    try:
+        response = client.post("/performance/benchmark", json=payload)
+        assert response.status_code == 202
+        calculation_id = response.json()["calculation_id"]
+
+        execution_response = client.get(f"/performance/executions/{calculation_id}")
+        assert execution_response.status_code == 200
+        body = execution_response.json()
+        assert body["analytics_type"] == "BENCHMARK"
+        assert body["execution_mode"] == "async"
+        assert body["requested_window"]["input_count"] == 4
+        assert body["compute_job"]["job_status"] == "pending"
+
+        assert drain_compute_queue() == 1
+
+        execution_after_worker = client.get(f"/performance/executions/{calculation_id}")
+        assert execution_after_worker.status_code == 200
+        body_after_worker = execution_after_worker.json()
+        assert body_after_worker["status"] == "complete"
+        assert body_after_worker["compute_job"]["job_status"] == "complete"
+        assert body_after_worker["async_result"]["result_status"] == "complete"
+    finally:
+        settings.BENCHMARK_EXECUTOR_WINDOW_DAYS = original_window_threshold
+        settings.BENCHMARK_EXECUTOR_INPUT_COUNT = original_input_threshold
 
 
 def test_execution_api_exposes_retryable_compute_job_metadata(client, monkeypatch):

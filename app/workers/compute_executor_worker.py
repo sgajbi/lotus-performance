@@ -13,12 +13,16 @@ from pydantic import ValidationError
 from app.core.config import get_settings
 from app.models.attribution_analytics_requests import AttributionAnalyticsRequest, AttributionInputMode
 from app.models.attribution_requests import AttributionRequest
+from app.models.benchmark_analytics_requests import BenchmarkAnalyticsRequest, BenchmarkInputMode
+from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.contribution_analytics_requests import ContributionAnalyticsRequest, ContributionInputMode
 from app.models.contribution_requests import ContributionRequest
 from app.models.returns_series import InputMode, ReturnsSeriesRequest
 from app.services.async_result_store import AsyncResultStore, async_result_store
 from app.services.attribution_mode_service import resolve_attribution_request
 from app.services.attribution_service import calculate_attribution
+from app.services.benchmark_mode_service import resolve_benchmark_request
+from app.services.benchmark_service import calculate_benchmark_response
 from app.services.compute_job_store import ComputeJobStore, compute_job_store
 from app.services.contribution_mode_service import resolve_contribution_request
 from app.services.contribution_service import calculate_contribution
@@ -47,6 +51,7 @@ def _process_pending_jobs(
     returns_series_calculator: Callable[..., Coroutine[Any, Any, Any]] | None = None,
     contribution_calculator: Callable[..., Any] | None = None,
     attribution_calculator: Callable[..., Any] | None = None,
+    benchmark_calculator: Callable[..., Any] | None = None,
     settings=None,
 ) -> int:
     active_settings = settings or get_settings()
@@ -59,6 +64,7 @@ def _process_pending_jobs(
     active_returns_series_calculator = returns_series_calculator or calculate_returns_series
     active_contribution_calculator = contribution_calculator or calculate_contribution
     active_attribution_calculator = attribution_calculator or calculate_attribution
+    active_benchmark_calculator = benchmark_calculator or calculate_benchmark_response
     reconciled = active_job_store.reconcile_stale_jobs()
     for reconciled_job in reconciled:
         if reconciled_job.reconciled_status.value == "failed":
@@ -140,6 +146,28 @@ def _process_pending_jobs(
                     input_fingerprint=input_fingerprint,
                     calculation_hash=calculation_hash,
                     input_mode=contribution_input_mode,
+                )
+            elif job.analytics_type == "BENCHMARK":
+                benchmark_request, benchmark_input_mode = _resolve_async_benchmark_job_request(
+                    job.request_payload,
+                    settings=active_settings,
+                )
+                input_fingerprint, calculation_hash = generate_canonical_hash(
+                    benchmark_request,
+                    active_settings.APP_VERSION,
+                )
+                active_execution_store.update_execution_identity(
+                    job.calculation_id,
+                    input_fingerprint=input_fingerprint,
+                    calculation_hash=calculation_hash,
+                )
+                response = active_benchmark_calculator(
+                    benchmark_request,
+                    input_fingerprint=input_fingerprint,
+                    calculation_hash=calculation_hash,
+                    input_mode=benchmark_input_mode,
+                    engine_version=active_settings.APP_VERSION,
+                    request_artifact_model=benchmark_request,
                 )
             else:
                 raise ValueError(f"Unsupported compute job analytics_type: {job.analytics_type}")
@@ -234,6 +262,24 @@ def _resolve_async_attribution_job_request(
         resolved_attribution = asyncio.run(resolve_attribution_request(analytics_request, settings=settings))
         return resolved_attribution.attribution_request, resolved_attribution.input_mode
     return request, AttributionInputMode.STATEFUL
+
+
+def _resolve_async_benchmark_job_request(
+    payload: dict[str, Any],
+    *,
+    settings,
+) -> tuple[BenchmarkPerformanceRequest, BenchmarkInputMode]:
+    resolved_request_payload = payload.get("resolved_request")
+    source_input_mode = payload.get("source_input_mode")
+    if isinstance(resolved_request_payload, dict) and isinstance(source_input_mode, str):
+        return BenchmarkPerformanceRequest.model_validate(resolved_request_payload), BenchmarkInputMode(source_input_mode)
+    try:
+        request = BenchmarkPerformanceRequest.model_validate(payload)
+    except ValidationError:
+        analytics_request = BenchmarkAnalyticsRequest.model_validate(payload)
+        resolved_benchmark = asyncio.run(resolve_benchmark_request(analytics_request, settings=settings))
+        return resolved_benchmark.benchmark_request, resolved_benchmark.input_mode
+    return request, BenchmarkInputMode.STATEFUL
 
 
 def _record_terminal_failure(

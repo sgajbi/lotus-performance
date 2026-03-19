@@ -48,12 +48,16 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 
 - purpose: calculate benchmark performance
 - request model: `app.models.benchmark_analytics_requests.BenchmarkAnalyticsRequest`
-- response model: `app.models.benchmark_responses.BenchmarkPerformanceResponse`
-- execution mode: synchronous
+- response model:
+  - sync: `app.models.benchmark_responses.BenchmarkPerformanceResponse`
+  - async accepted: `app.models.benchmark_responses.BenchmarkAcceptedResponse`
 - lineage: durable lineage metadata is written and artifacts are materialized asynchronously
 - supported input modes:
   - `stateless`
   - `stateful`
+- execution mode:
+  - synchronous for stateless and smaller stateful requests
+  - `202 Accepted` for larger stateful benchmark requests offloaded to the compute executor
 - contract note:
   - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
   - `return_source=calculated` is the default execution path
@@ -63,6 +67,13 @@ descriptions and examples are maintained in the generated OpenAPI contract.
     - `stateless_input.component_price_points`
   - stateful calculated mode sources benchmark definition, component price series, and FX inputs from lotus-core and normalizes them into canonical benchmark component observations before engine execution
   - stateful calculated mode supports multi-segment rebalance windows through the lotus-core composition-window contract
+
+### `GET /performance/benchmark/results/{calculation_id}`
+
+- purpose: retrieve the durable async benchmark result
+- response model:
+  - completed: `BenchmarkPerformanceResponse`
+  - still running: `BenchmarkAcceptedResponse`
 
 ### `POST /performance/contribution`
 

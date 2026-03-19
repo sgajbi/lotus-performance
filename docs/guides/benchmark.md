@@ -10,6 +10,13 @@ inputs or lotus-core-backed stateful sourcing.
 - `input_mode="stateless"`
 - `input_mode="stateful"`
 
+Execution mode:
+
+- synchronous for stateless requests and smaller stateful windows
+- `202 Accepted` for larger stateful benchmark requests offloaded to the compute executor
+- async poll path: `/performance/executions/{calculation_id}`
+- async result path: `/performance/benchmark/results/{calculation_id}`
+
 Common top-level fields are:
 
 - `benchmark_id`
