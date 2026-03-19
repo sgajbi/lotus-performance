@@ -55,6 +55,14 @@ def test_returns_series_stateless_daily_success_with_benchmark_and_risk_free():
     assert len(body["series"]["portfolio_returns"]) == 5
     assert len(body["series"]["benchmark_returns"]) == 5
     assert len(body["series"]["risk_free_returns"]) == 5
+    assert len(body["series"]["active_returns"]) == 5
+    assert [point["return_value"] for point in body["series"]["active_returns"]] == [
+        "0E-12",
+        "0E-12",
+        "0E-12",
+        "0E-12",
+        "0E-12",
+    ]
 
 
 def test_returns_series_stateless_weekly_uses_geometric_linking():
@@ -228,6 +236,8 @@ def test_returns_series_stateful_fetches_benchmark_and_risk_free(monkeypatch):
     assert len(body["series"]["portfolio_returns"]) == 5
     assert len(body["series"]["benchmark_returns"]) == 5
     assert len(body["series"]["risk_free_returns"]) == 5
+    assert len(body["series"]["active_returns"]) == 5
+    assert body["series"]["active_returns"][0]["return_value"] == "0.009000000000"
 
 
 def test_returns_series_stateful_provenance_uses_resolved_series_identity(monkeypatch):

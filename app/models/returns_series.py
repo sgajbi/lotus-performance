@@ -222,6 +222,7 @@ class ReturnsSeriesPayload(BaseModel):
     portfolio_returns: list[ReturnPoint]
     benchmark_returns: list[ReturnPoint] | None = None
     risk_free_returns: list[ReturnPoint] | None = None
+    active_returns: list[ReturnPoint] | None = None
 
 
 class ReturnsSeriesResponse(BaseModel):

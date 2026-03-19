@@ -503,6 +503,11 @@ def test_e2e_shared_stateful_benchmark_engine_stays_consistent_across_surfaces(m
     assert benchmark_return == pytest.approx(0.0201)
     assert twr_benchmark_return == pytest.approx(benchmark_return)
     assert linked_returns_series_benchmark_return == pytest.approx(benchmark_return)
+    assert [point["return_value"] for point in returns_series_body["series"]["active_returns"]] == [
+        "0.010000000000",
+        "0E-12",
+        "0E-12",
+    ]
 
 
 def test_e2e_contribution_attribution_and_lineage() -> None:

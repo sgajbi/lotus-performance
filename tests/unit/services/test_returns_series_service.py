@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from uuid import uuid4
 
+import pandas as pd
 import pytest
 from fastapi import HTTPException
 
@@ -11,6 +13,30 @@ from app.services import portfolio_source_service, returns_series_service, state
 from app.services.execution_registry import ExecutionRegistry
 from app.services.stateful_benchmark_input_service import StatefulBenchmarkNormalizedInput
 from core.repro import generate_canonical_hash
+
+
+def test_build_active_return_points_uses_aligned_arithmetic_difference():
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23", "2026-02-24", "2026-02-25"]),
+            "return_value": [Decimal("0.0100"), Decimal("0.0050"), Decimal("-0.0025")],
+        }
+    )
+    benchmark_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24", "2026-02-25"]),
+            "return_value": [Decimal("0.0010"), Decimal("0.0005")],
+        }
+    )
+
+    active_points = returns_series_service.build_active_return_points(
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+    )
+
+    assert active_points is not None
+    assert [point.date.isoformat() for point in active_points] == ["2026-02-24", "2026-02-25"]
+    assert [str(point.return_value) for point in active_points] == ["0.004000000000", "-0.003000000000"]
 
 
 def _build_stateful_request(**overrides):

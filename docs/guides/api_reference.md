@@ -368,6 +368,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - in stateful mode, benchmark sourcing defaults to the shared lotus-performance benchmark calculation path
   - `benchmark.return_source="vendor_series"` is an explicit stateful-only override for lotus-core benchmark return-series retrieval
   - `benchmark.benchmark_id` is only meaningful in stateful mode for explicit benchmark override; otherwise lotus-core benchmark assignment can resolve the benchmark id
+  - when both portfolio and benchmark series are present, the response also emits arithmetic `active_returns`
 
 ### `GET /integration/returns/series/results/{calculation_id}`
 

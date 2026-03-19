@@ -167,6 +167,7 @@ Large input sets and long-window stateful attribution requests can be executor-o
 - `input_mode: "stateless" | "stateful"`
 - canonical portfolio return series
 - optional benchmark and risk-free series
+- optional arithmetic `active_returns` series when both portfolio and benchmark returns are available
 - stateful benchmark sourcing now defaults to lotus-performance benchmark calculation
 - `benchmark.return_source="vendor_series"` is an explicit stateful-only override for lotus-core benchmark return-series retrieval
 - sync or async execution depending on workload shape

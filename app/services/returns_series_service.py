@@ -172,6 +172,41 @@ def points_from_df(df: pd.DataFrame) -> list[ReturnPoint]:
     return out
 
 
+def build_active_return_points(
+    *,
+    portfolio_df: pd.DataFrame,
+    benchmark_df: pd.DataFrame | None,
+) -> list[ReturnPoint] | None:
+    if benchmark_df is None:
+        return None
+
+    aligned_df = (
+        portfolio_df[["date", "return_value"]]
+        .merge(
+            benchmark_df[["date", "return_value"]],
+            on="date",
+            how="inner",
+            suffixes=("_portfolio", "_benchmark"),
+        )
+        .sort_values("date")
+    )
+    if aligned_df.empty:
+        return None
+
+    portfolio_values = [Decimal(str(value)) for value in aligned_df["return_value_portfolio"]]
+    benchmark_values = [Decimal(str(value)) for value in aligned_df["return_value_benchmark"]]
+    active_df = pd.DataFrame(
+        {
+            "date": aligned_df["date"],
+            "return_value": [
+                portfolio_value - benchmark_value
+                for portfolio_value, benchmark_value in zip(portfolio_values, benchmark_values, strict=True)
+            ],
+        }
+    )
+    return points_from_df(active_df)
+
+
 def core_frequency_label(_frequency: ReturnsFrequency) -> str:
     return "daily"
 
@@ -429,6 +464,10 @@ async def _calculate_returns_series(
         portfolio_return_points = points_from_df(portfolio_df)
         benchmark_return_points = points_from_df(benchmark_df) if benchmark_df is not None else None
         risk_free_return_points = points_from_df(risk_free_df) if risk_free_df is not None else None
+        active_return_points = build_active_return_points(
+            portfolio_df=portfolio_df,
+            benchmark_df=benchmark_df,
+        )
 
         if request.input_mode == InputMode.STATEFUL:
             resolved_stateful_payload = _build_stateful_resolved_returns_payload(
@@ -481,6 +520,7 @@ async def _calculate_returns_series(
                 portfolio_returns=portfolio_return_points,
                 benchmark_returns=benchmark_return_points,
                 risk_free_returns=risk_free_return_points,
+                active_returns=active_return_points,
             ),
             provenance=ReturnsProvenance(
                 input_mode=effective_input_mode,
