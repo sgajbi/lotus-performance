@@ -153,6 +153,24 @@ These characterize the control-plane query path behind:
 - Budget: `<= 3600ms`
 - Test owner: [test_benchmark_orchestration_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_benchmark_orchestration_performance.py)
 
+## Stateful benchmark-inclusive TWR orchestration budget
+
+- Workload: full stateful benchmark-inclusive TWR orchestration across `2024-01-01` to `2033-12-31`
+- Orchestration characteristics:
+  - stateful portfolio valuation sourcing
+  - stateful benchmark assignment lookup
+  - calculated benchmark sourcing and normalization
+  - TWR engine execution with benchmark inclusion
+  - arithmetic relative-performance output
+  - durable execution identity updates and lineage handoff
+- Request shape:
+  - `include_benchmark=true`
+  - implicit benchmark assignment from lotus-core
+  - `ITD` request with monthly breakdown output
+- Metric: median wall-clock runtime across 5 runs after warm-up
+- Budget: `<= 4200ms`
+- Test owner: [test_twr_orchestration_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_twr_orchestration_performance.py)
+
 ## PostgreSQL plan verification
 
 These checks are not generic SQL compilation tests. They run `EXPLAIN (FORMAT JSON)` against a
