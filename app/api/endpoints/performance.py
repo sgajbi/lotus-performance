@@ -316,10 +316,10 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest) -> PerformanceRes
             message=f"Calculation Error: {e.message}",
         )
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Calculation Error: {e.message}")
-    except HTTPException:
+    except HTTPException as exc:
         record_execution_failure(
             calculation_id=request.calculation_id,
-            message="HTTPException raised during TWR execution.",
+            message=str(exc.detail),
         )
         raise
     except Exception as e:

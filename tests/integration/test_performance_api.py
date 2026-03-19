@@ -512,6 +512,87 @@ def test_twr_supports_include_benchmark_without_nested_stateful_benchmark_config
     assert body["benchmark"]["input_mode"] == "stateful"
 
 
+def test_twr_records_http_failure_detail_in_execution_status(client, monkeypatch):
+    calculation_id = str(uuid4())
+
+    class _FailingStatefulBenchmarkStub:
+        async def get_benchmark_assignment(self, **kwargs):  # noqa: ARG002
+            return 200, {"benchmark_id": "BMK_BAD_WINDOW"}
+
+        async def get_benchmark_composition_window(self, **kwargs):  # noqa: ARG002
+            return (
+                200,
+                {
+                    "benchmark_id": "BMK_BAD_WINDOW",
+                    "benchmark_currency": "USD",
+                    "segments": [
+                        {
+                            "index_id": "IDX_USD",
+                            "composition_weight": "1.0",
+                            "composition_effective_from": "2025-01-02",
+                            "composition_effective_to": "2025-01-31",
+                        }
+                    ],
+                },
+            )
+
+        async def get_index_price_series(self, **kwargs):  # noqa: ARG002
+            return 404, {"detail": "unused"}
+
+        async def get_fx_rates(self, **kwargs):  # noqa: ARG002
+            return 200, {"points": []}
+
+        async def get_benchmark_return_series(self, **kwargs):  # noqa: ARG002
+            return 404, {"detail": "unused"}
+
+    async def _mock_fetch_stateful_portfolio_timeseries(**kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2024-12-31",
+                "observations": [
+                    {"valuation_date": "2025-01-01", "beginning_market_value": "1000", "ending_market_value": "1010"},
+                    {"valuation_date": "2025-01-02", "beginning_market_value": "1010", "ending_market_value": "1020.1"},
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.twr_mode_service.build_stateful_input_service",
+        lambda settings: _FailingStatefulBenchmarkStub(),  # noqa: ARG005
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_performance_input_service.fetch_stateful_portfolio_timeseries",
+        _mock_fetch_stateful_portfolio_timeseries,
+    )
+
+    payload = {
+        "calculation_id": calculation_id,
+        "portfolio_id": "TWR_BENCHMARK_STATEFUL_FAILURE",
+        "performance_start_date": "2024-12-31",
+        "metric_basis": "NET",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+        "include_benchmark": True,
+    }
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 422
+    assert "does not cover requested date 2025-01-01" in response.json()["detail"]
+
+    execution_response = client.get(f"/performance/executions/{calculation_id}")
+    assert execution_response.status_code == 200
+    body = execution_response.json()
+    assert body["status"] == "failed"
+    assert "does not cover requested date 2025-01-01" in body["error_message"]
+    retrieval_stage = {stage["stage_name"]: stage for stage in body["stages"]}["retrieval"]
+    assert retrieval_stage["status"] == "failed"
+    assert "does not cover requested date 2025-01-01" in retrieval_stage["error_message"]
+
+
 def test_twr_supports_stateless_benchmark_price_points(client):
     payload = {
         "portfolio_id": "TWR_BENCHMARK_PRICE_POINTS",
