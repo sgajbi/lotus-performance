@@ -21,7 +21,10 @@ Common top-level fields are:
 Stateless mode uses:
 
 - `stateless_input.benchmark_currency`
-- `stateless_input.component_observations` when `return_source="calculated"`
+- exactly one of:
+  - `stateless_input.component_observations`
+  - `stateless_input.component_price_points`
+  when `return_source="calculated"`
 - `stateless_input.benchmark_return_points` when `return_source="vendor_series"`
 
 Stateful mode uses:
@@ -44,6 +47,8 @@ Default behavior is `return_source="calculated"`.
 In calculated mode:
 
 - lotus-performance derives component daily returns
+- stateless callers may provide either precomputed component returns or raw component price points
+- when raw price points are supplied, lotus-performance derives component daily returns before contribution math
 - lotus-performance computes daily component contributions
 - lotus-performance sums component contributions into benchmark daily return
 - lotus-performance geometrically links daily benchmark return into period return

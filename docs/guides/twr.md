@@ -59,6 +59,9 @@ Benchmark requests support the same benchmark modes as the dedicated benchmark e
 
 - `benchmark.input_mode="stateless" | "stateful"`
 - `benchmark.return_source="calculated" | "vendor_series"`
+- stateless benchmark calculated mode accepts exactly one of:
+  - `benchmark.stateless_input.component_observations`
+  - `benchmark.stateless_input.component_price_points`
 - stateful benchmark mode can resolve benchmark assignment from lotus-core when `benchmark_id` is omitted
 - stateful benchmark mode can also run with `include_benchmark=true` and no nested `benchmark` block
 

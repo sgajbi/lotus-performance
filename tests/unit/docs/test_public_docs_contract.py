@@ -41,6 +41,7 @@ def test_twr_guide_uses_current_request_shape():
     assert "include_benchmark=true" in guide
     assert 'benchmark.input_mode="stateless" | "stateful"' in guide
     assert 'benchmark.return_source="calculated" | "vendor_series"' in guide
+    assert "benchmark.stateless_input.component_price_points" in guide
     assert "relative_performance" in guide
     assert "arithmetic_relative_return" in guide
     assert "Older examples using `period_type`" in guide
@@ -56,6 +57,7 @@ def test_benchmark_guide_uses_current_request_shape():
     assert 'input_mode="stateful"' in guide
     assert 'return_source="calculated"' in guide
     assert 'return_source="vendor_series"' in guide
+    assert "stateless_input.component_price_points" in guide
     assert "multi-segment benchmark composition windows internally" in guide
     assert "app.models.benchmark_analytics_requests.BenchmarkAnalyticsRequest" in api_reference
     assert "POST /performance/benchmark" in readme
