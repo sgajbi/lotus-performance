@@ -54,18 +54,16 @@ In vendor-series mode:
 - the response still uses the same benchmark period/result shape
 - component contribution output is not emitted because the engine did not calculate the benchmark
 
-## Current stateful fence
+## Stateful calculated sourcing
 
-Calculated stateful benchmark mode currently requires the requested window to remain inside a
-single effective lotus-core composition segment.
+Calculated stateful benchmark mode now sources overlapping effective-dated benchmark composition
+segments from lotus-core and applies beginning-of-day weights across rebalance windows.
 
 That means:
 
-- benchmark definition must cover the request window with one effective component-weight schedule
-- lotus-performance does not yet expand multi-rebalance benchmark composition windows internally
-
-Vendor-series mode does not rely on component expansion and therefore does not carry that specific
-fence.
+- lotus-performance handles multi-segment benchmark composition windows internally
+- benchmark weights remain beginning-of-day effective on each benchmark return date
+- vendor-series mode still bypasses component expansion and uses sourced benchmark return points
 
 ## Core methodology
 

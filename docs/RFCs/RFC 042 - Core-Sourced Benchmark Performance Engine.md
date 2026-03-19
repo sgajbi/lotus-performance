@@ -1,6 +1,6 @@
 # RFC 042 - Core-Sourced Benchmark Performance Engine
 
-**Status:** Draft (Updated For Approval)  
+**Status:** In Progress  
 **Owner:** lotus-performance  
 **Reviewers:** lotus-core, lotus-performance, lotus-platform  
 **Related:** RFC-023, RFC-018, RFC-020, RFC-039, RFC-040, RFC-041
@@ -307,12 +307,11 @@ Current `lotus-core` benchmark-facing contracts already provide a strong base:
 - benchmark market series envelopes for attribution-oriented workflows
 - FX rate retrieval
 
-However, there are two important gaps relative to this RFC:
+However, there were two important gaps relative to this RFC:
 
 1. window-aware composition expansion
-   - current benchmark definition/composition resolution is effectively `as_of_date` based
-   - that is enough for single-composition windows, but it is not yet a clean contract for multi-rebalance benchmark windows
-   - `lotus-performance` should not have to reconstruct composition history by probing many dates
+   - this has now been addressed in `lotus-core` through a composition-window contract returning overlapping effective-dated composition segments
+   - `lotus-performance` now consumes that contract directly for calculated stateful benchmark execution across rebalance windows
 
 2. component-to-benchmark-currency normalization
    - current benchmark market-series responses can include `fx_rate`, but that FX enrichment is target-currency context, not a guaranteed component-price-normalized-to-benchmark-currency contract
@@ -334,9 +333,9 @@ This TWR enhancement does not add a new mandatory `lotus-core` contract beyond t
 The current APIs are good enough to start, but the following upstream improvements would materially improve scalability and contract clarity:
 
 1. benchmark composition window contract
-   - add a window-based endpoint that returns all effective composition segments overlapping a requested date range
-   - preferred shape: one response containing all component-weight segments with `composition_effective_from` and `composition_effective_to`
-   - this is better than daily-expanded weights as the primary contract because it stays compact while still being deterministic
+   - implemented in `lotus-core`
+   - returns effective-dated composition segments overlapping a requested date range
+   - this is the correct upstream shape because it stays compact while still being deterministic
 
 2. optional normalized component series contract
    - either:
@@ -482,6 +481,7 @@ We should require:
 
 2. integration tests
    - stateful benchmark sourcing from mocked `lotus-core`
+   - calculated stateful benchmark execution across multi-segment rebalance windows
    - TWR with benchmark requested
    - TWR with `include_benchmark=true` and implicit assignment lookup
    - TWR with `include_benchmark=true` and explicit `benchmark_id` override

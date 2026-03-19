@@ -56,7 +56,7 @@ def test_benchmark_guide_uses_current_request_shape():
     assert 'input_mode="stateful"' in guide
     assert 'return_source="calculated"' in guide
     assert 'return_source="vendor_series"' in guide
-    assert "single effective lotus-core composition segment" in guide
+    assert "multi-segment benchmark composition windows internally" in guide
     assert "app.models.benchmark_analytics_requests.BenchmarkAnalyticsRequest" in api_reference
     assert "POST /performance/benchmark" in readme
 
