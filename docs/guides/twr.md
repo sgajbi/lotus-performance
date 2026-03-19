@@ -16,6 +16,7 @@ Common top-level fields are:
 - `performance_start_date`
 - `report_end_date`
 - `analyses`
+- optional `include_benchmark`
 - optional `benchmark`
 
 Stateless mode accepts either:
@@ -40,13 +41,26 @@ Optional controls include:
 - `data_policy`
 - multi-currency fields such as `currency_mode`, `report_ccy`, `fx`, and `hedging`
 
-When `benchmark` is supplied, TWR returns a parallel benchmark block calculated through the shared
-benchmark engine. Benchmark requests support the same benchmark modes as the dedicated benchmark
-endpoint:
+Use `include_benchmark=true` when benchmark performance should be returned alongside portfolio TWR.
+The nested `benchmark` object is optional configuration, not the inclusion switch itself.
+
+Benchmark selection follows this precedence:
+
+1. `benchmark.benchmark_id` when supplied
+2. lotus-core benchmark assignment in stateful mode
+3. validation error if stateless mode requests benchmark output without a benchmark configuration
+
+When benchmark output is requested, TWR returns:
+
+- a parallel `benchmark` block calculated through the shared benchmark engine
+- per-period `relative_performance`
+
+Benchmark requests support the same benchmark modes as the dedicated benchmark endpoint:
 
 - `benchmark.input_mode="stateless" | "stateful"`
 - `benchmark.return_source="calculated" | "vendor_series"`
 - stateful benchmark mode can resolve benchmark assignment from lotus-core when `benchmark_id` is omitted
+- stateful benchmark mode can also run with `include_benchmark=true` and no nested `benchmark` block
 
 Older examples using `period_type`, top-level `frequencies`, or `daily_data` are not current.
 
@@ -97,9 +111,17 @@ Each period result may contain:
 
 - `breakdowns`
 - `portfolio_return`
+- `relative_performance`
 - `reset_events`
 
 If `output.include_timeseries` is enabled, daily breakdown entries can also include `daily_data`.
+
+When benchmark output is included, `relative_performance` exposes:
+
+- `arithmetic_relative_return`
+- `cumulative_arithmetic_relative_return`
+
+Both are currently arithmetic active-return values, not geometric active attribution.
 
 ## Multi-currency behavior
 

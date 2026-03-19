@@ -17,10 +17,11 @@ The engine is responsible for calculating benchmark daily performance from bench
 - calculate daily component contributions using effective benchmark weights
 - sum component contributions into daily benchmark returns
 - geometrically link daily benchmark returns into benchmark return for any requested period
-- expose the benchmark result through the TWR path when a benchmark is requested
+- expose the benchmark result through the TWR path when `include_benchmark=true`
 - expose the benchmark result through a dedicated benchmark analytics endpoint
 - reuse the same calculated benchmark series for attribution and other active analytics
 - allow explicit API configuration to consume upstream vendor benchmark return series when a caller deliberately requests that mode
+- calculate arithmetic relative performance and cumulative relative performance when TWR is requested with benchmark output
 
 This engine must remain stateless and must follow the same separation of concerns already established for stateful portfolio analytics:
 - `lotus-core` owns source data and reference data
@@ -40,8 +41,9 @@ What it does not yet own cleanly is benchmark performance calculation as a first
 Current gaps:
 1. `returns-series` can source benchmark return series from `lotus-core`, but benchmark calculation is not a first-class owned engine in `lotus-performance`.
 2. attribution currently builds benchmark group inputs from sourced benchmark market series, but that logic is attribution-specific and not a reusable benchmark performance engine.
-3. TWR does not yet expose a benchmark return calculated by `lotus-performance`.
-4. older RFC-023 assumes caller-supplied benchmark series and a `benchmark_spec` contract, which does not match the current desired ecosystem architecture.
+3. TWR benchmark inclusion is currently driven by an optional nested `benchmark` object, not by a simple top-level inclusion flag aligned to existing Lotus vocabulary.
+4. TWR does not yet expose relative performance or cumulative relative performance when benchmark output is requested.
+5. older RFC-023 assumes caller-supplied benchmark series and a `benchmark_spec` contract, which does not match the current desired ecosystem architecture.
 
 ## 3. Goals
 
@@ -58,6 +60,9 @@ Current gaps:
    - benchmark math engine
 9. Keep naming and API style aligned with Lotus vocabulary and the existing stateful/stateless request model.
 10. Default benchmark execution to self-calculated returns in `lotus-performance`, not upstream vendor return ingestion.
+11. Support benchmark inclusion in TWR through a top-level boolean flag using existing Lotus vocabulary.
+12. Allow callers to override the normal portfolio-to-benchmark assignment by supplying a benchmark ID, while still sourcing benchmark definition and market data from `lotus-core`.
+13. Emit arithmetic relative performance and cumulative relative performance whenever benchmark output is included in TWR.
 
 ## 4. Non-Goals
 
@@ -173,6 +178,80 @@ This RFC does not assume `lotus-performance` must infer rebalances from drifting
 
 The response should include benchmark return as a parallel computed result, not as an attribution-specific afterthought.
 
+#### 7.1.1 Request shape
+
+The TWR surface should use the existing Lotus vocabulary term `include_benchmark` as the top-level switch.
+
+Why this is the right term:
+- it already exists in `lotus-performance` vocabulary and public contracts for `returns-series`
+- it reads cleanly as a capability toggle rather than a mode selector
+- it keeps TWR aligned with established Lotus naming instead of inventing a near-duplicate such as `with_benchmark` or `benchmark_requested`
+
+Recommended request direction:
+- add `include_benchmark: bool = false` to the TWR request
+- keep the nested `benchmark` object as optional configuration, not as the inclusion switch itself
+- require `benchmark` to be absent when `include_benchmark=false`
+- allow `benchmark` to be omitted when `include_benchmark=true` and `input_mode=stateful`, in which case benchmark assignment should be sourced from `lotus-core`
+- allow `benchmark.benchmark_id` to be supplied when `include_benchmark=true` to override the normal portfolio-to-benchmark assignment while still sourcing the benchmark definition and market data from `lotus-core`
+
+This gives TWR the desired flexibility:
+1. simple benchmark-on request: `include_benchmark=true`
+2. normal stateful benchmark path: assignment sourced from `lotus-core`
+3. explicit override path: caller supplies `benchmark_id`
+4. full stateless path: caller supplies benchmark inputs directly
+
+#### 7.1.2 Benchmark resolution precedence
+
+When `include_benchmark=true`, benchmark selection should follow this precedence:
+
+1. explicit `benchmark.benchmark_id` provided by caller
+2. stateful benchmark assignment sourced from `lotus-core`
+3. validation error if neither is available
+
+This keeps the caller override explicit while preserving the default portfolio-to-benchmark linkage from `lotus-core`.
+
+#### 7.1.3 Response shape
+
+When `include_benchmark=true`, TWR should return:
+- portfolio TWR
+- benchmark TWR
+- relative performance
+- cumulative relative performance
+
+The benchmark block should remain a first-class sibling result, and each resolved period result should also include a dedicated relative-performance block.
+
+Recommended response direction:
+- keep the existing benchmark result block for benchmark performance details
+- add `relative_performance` under each period result
+
+Recommended relative-performance fields:
+- `arithmetic_relative_return`
+- `cumulative_arithmetic_relative_return`
+
+Relative performance should be defined as:
+
+`arithmetic_relative_return = portfolio_return - benchmark_return`
+
+Cumulative relative performance should be defined as:
+
+`cumulative_arithmetic_relative_return = cumulative_portfolio_return - cumulative_benchmark_return`
+
+This is intentionally arithmetic relative performance, not geometrically linked active return.
+
+#### 7.1.4 Current implementation status
+
+Current branch reality is close, but not complete:
+- implemented:
+  - optional nested benchmark request on TWR
+  - stateful assignment lookup from `lotus-core` when `benchmark_id` is omitted
+  - explicit `benchmark_id` override support
+  - shared benchmark engine reuse
+- still to add:
+  - top-level `include_benchmark` flag
+  - validation coupling between `include_benchmark` and the nested `benchmark` configuration object
+  - arithmetic relative performance in TWR response
+  - cumulative relative performance in TWR response
+
 ### 7.2 Attribution
 
 Attribution should consume the benchmark engine output or a closely related normalized benchmark series path, rather than embedding benchmark calculation logic inside attribution-only sourcing code.
@@ -245,6 +324,11 @@ However, there are two important gaps relative to this RFC:
    - those are useful as reference, validation, and optionally caller-selected fallback inputs
    - they should not be treated as the default benchmark calculation path for `lotus-performance`
 
+This TWR enhancement does not add a new mandatory `lotus-core` contract beyond the benchmark requirements already captured in this RFC:
+- benchmark assignment already covers the default stateful mapping path
+- benchmark definition and market data already cover the explicit `benchmark_id` override path
+- relative-performance calculation remains fully inside `lotus-performance`
+
 ### 8.2 Recommended `lotus-core` enhancements
 
 The current APIs are good enough to start, but the following upstream improvements would materially improve scalability and contract clarity:
@@ -306,6 +390,16 @@ The following design decisions are now set for this RFC:
    - default benchmark return source is self-calculated in `lotus-performance`
    - upstream raw benchmark return series may be supported only through explicit API configuration, not implicit default behavior
 
+7. TWR benchmark inclusion contract
+   - TWR should use top-level `include_benchmark` as the canonical inclusion flag
+   - the nested `benchmark` object should remain configuration-only
+   - explicit caller-provided `benchmark_id` should override stateful assignment lookup when present
+
+8. Relative performance semantics
+   - TWR relative performance is arithmetic
+   - cumulative relative performance is the arithmetic difference of cumulative portfolio and benchmark returns
+   - this is not a geometric active-return linking contract
+
 Remaining questions before implementation:
 
 1. Stateless payload shape
@@ -325,6 +419,10 @@ Remaining questions before implementation:
 3. Explicit vendor return mode shape
    - if vendor `benchmark_return` is allowed, what is the exact public configuration field and vocabulary?
    - recommendation: support it only as an explicit non-default `return_source` mode, with clear lineage showing the source path used
+
+4. TWR response placement
+   - should `relative_performance` live only inside each `results_by_period[*]`, or also in the top-level benchmark block?
+   - recommendation: keep it inside each period result, because relative performance is period-resolved output, not benchmark metadata
 
 ## 11. Recommended Implementation Phases
 
@@ -362,6 +460,10 @@ Add a first-class benchmark endpoint:
 Add benchmark result support to TWR:
 - stateless
 - stateful
+- top-level `include_benchmark`
+- explicit `benchmark_id` override
+- arithmetic relative performance
+- cumulative relative performance
 
 ### Phase 5: Attribution convergence
 
@@ -381,6 +483,9 @@ We should require:
 2. integration tests
    - stateful benchmark sourcing from mocked `lotus-core`
    - TWR with benchmark requested
+   - TWR with `include_benchmark=true` and implicit assignment lookup
+   - TWR with `include_benchmark=true` and explicit `benchmark_id` override
+   - TWR relative and cumulative relative output correctness
    - attribution consuming benchmark engine output
 
 3. end-to-end tests
@@ -399,7 +504,8 @@ This RFC is ready for implementation when approved with answers to the open ques
 Implementation is complete when:
 1. `lotus-performance` owns a benchmark performance engine with pure calculation logic.
 2. Stateful benchmark sourcing from `lotus-core` is implemented through the shared sourcing architecture.
-3. TWR can emit benchmark return when requested.
-4. Attribution reuses the benchmark engine path or its normalized outputs instead of duplicating benchmark math.
-5. The behavior is covered with meaningful unit, integration, and end-to-end tests.
-6. Docs and API contracts are updated to reflect the benchmark engine as a first-class capability.
+3. TWR can emit benchmark return when requested through `include_benchmark=true`.
+4. TWR emits arithmetic relative performance and cumulative relative performance when benchmark output is included.
+5. Attribution reuses the benchmark engine path or its normalized outputs instead of duplicating benchmark math.
+6. The behavior is covered with meaningful unit, integration, and end-to-end tests.
+7. Docs and API contracts are updated to reflect the benchmark engine as a first-class capability.

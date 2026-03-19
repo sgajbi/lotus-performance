@@ -326,6 +326,7 @@ def test_twr_supports_stateless_benchmark_request(client):
         "metric_basis": "NET",
         "report_end_date": "2025-01-02",
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "include_benchmark": True,
         "valuation_points": [
             {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
             {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
@@ -352,6 +353,8 @@ def test_twr_supports_stateless_benchmark_request(client):
     assert body["benchmark"]["input_mode"] == "stateless"
     assert body["benchmark"]["benchmark_currency"] == "USD"
     assert body["benchmark"]["results_by_period"]["YTD"]["benchmark_return"] == pytest.approx(0.02515)
+    assert body["results_by_period"]["YTD"]["relative_performance"]["arithmetic_relative_return"] == pytest.approx(-0.505)
+    assert body["results_by_period"]["YTD"]["relative_performance"]["cumulative_arithmetic_relative_return"] == pytest.approx(-0.505)
 
 
 def test_twr_supports_stateful_benchmark_assignment(client, monkeypatch):
@@ -406,6 +409,7 @@ def test_twr_supports_stateful_benchmark_assignment(client, monkeypatch):
         "metric_basis": "NET",
         "report_end_date": "2025-01-02",
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "include_benchmark": True,
         "valuation_points": [
             {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
             {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
@@ -424,6 +428,88 @@ def test_twr_supports_stateful_benchmark_assignment(client, monkeypatch):
     assert body["benchmark"]["benchmark_id"] == "BMK_ASSIGNED"
     assert body["benchmark"]["input_mode"] == "stateful"
     assert body["benchmark"]["results_by_period"]["YTD"]["benchmark_return"] == pytest.approx(0.0201)
+    assert body["results_by_period"]["YTD"]["relative_performance"]["arithmetic_relative_return"] == pytest.approx(0.0)
+
+
+def test_twr_supports_include_benchmark_without_nested_stateful_benchmark_config(client, monkeypatch):
+    class _StatefulBenchmarkStub:
+        async def get_benchmark_assignment(self, **kwargs):  # noqa: ARG002
+            return 200, {"benchmark_id": "BMK_ASSIGNED_DEFAULT"}
+
+        async def get_benchmark_definition(self, **kwargs):  # noqa: ARG002
+            return (
+                200,
+                {
+                    "benchmark_id": "BMK_ASSIGNED_DEFAULT",
+                    "benchmark_currency": "USD",
+                    "components": [
+                        {
+                            "index_id": "IDX_USD",
+                            "composition_weight": "1.0",
+                            "composition_effective_from": "2024-12-31",
+                            "composition_effective_to": "2025-01-31",
+                        }
+                    ],
+                },
+            )
+
+        async def get_index_price_series(self, **kwargs):  # noqa: ARG002
+            return (
+                200,
+                {
+                    "points": [
+                        {"series_date": "2024-12-31", "index_price": "100", "series_currency": "USD"},
+                        {"series_date": "2025-01-01", "index_price": "101", "series_currency": "USD"},
+                        {"series_date": "2025-01-02", "index_price": "102.01", "series_currency": "USD"},
+                    ],
+                    "retrieval_metadata": {"chunk_count": 1, "page_count": 1},
+                },
+            )
+
+        async def get_fx_rates(self, **kwargs):  # noqa: ARG002
+            return 200, {"points": []}
+
+        async def get_benchmark_return_series(self, **kwargs):  # noqa: ARG002
+            return 404, {"detail": "unused"}
+
+    async def _mock_fetch_stateful_portfolio_timeseries(**kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2024-12-31",
+                "observations": [
+                    {"valuation_date": "2025-01-01", "beginning_market_value": "1000", "ending_market_value": "1010"},
+                    {"valuation_date": "2025-01-02", "beginning_market_value": "1010", "ending_market_value": "1020.1"},
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.twr_mode_service.build_stateful_input_service",
+        lambda settings: _StatefulBenchmarkStub(),  # noqa: ARG005
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_performance_input_service.fetch_stateful_portfolio_timeseries",
+        _mock_fetch_stateful_portfolio_timeseries,
+    )
+
+    payload = {
+        "portfolio_id": "TWR_BENCHMARK_STATEFUL_DEFAULT",
+        "performance_start_date": "2024-12-31",
+        "metric_basis": "NET",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {"consumer_system": "lotus-performance"},
+        "include_benchmark": True,
+    }
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["benchmark"]["benchmark_id"] == "BMK_ASSIGNED_DEFAULT"
+    assert body["benchmark"]["input_mode"] == "stateful"
 
 
 def test_twr_hashes_include_resolved_benchmark_request(client):
@@ -433,6 +519,7 @@ def test_twr_hashes_include_resolved_benchmark_request(client):
         "metric_basis": "NET",
         "report_end_date": "2025-01-02",
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "include_benchmark": True,
         "valuation_points": [
             {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
             {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},

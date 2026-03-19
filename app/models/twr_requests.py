@@ -96,6 +96,10 @@ class TWRResolvedExecutionRequest(BaseModel):
 
 
 class TWRAnalyticsRequest(PerformanceRequestBase):
+    include_benchmark: bool = Field(
+        default=False,
+        description="Whether benchmark performance should be calculated and returned alongside portfolio TWR.",
+    )
     input_mode: TWRInputMode = Field(
         default=TWRInputMode.STATELESS,
         description="Execution mode for TWR analytics.",
@@ -136,6 +140,10 @@ class TWRAnalyticsRequest(PerformanceRequestBase):
                 raise ValueError("stateless_input must be null when input_mode=stateful")
             if self.valuation_points:
                 raise ValueError("valuation_points must be null when input_mode=stateful")
+        if self.benchmark is not None and not self.include_benchmark:
+            self.include_benchmark = True
+        if self.include_benchmark and self.input_mode == TWRInputMode.STATELESS and self.benchmark is None:
+            raise ValueError("benchmark configuration is required when include_benchmark=true in stateless mode")
         return self
 
     def to_stateless_performance_request(
@@ -156,6 +164,7 @@ class TWRAnalyticsRequest(PerformanceRequestBase):
                 "stateless_input",
                 "stateful_input",
                 "benchmark",
+                "include_benchmark",
                 "valuation_points",
             },
             mode="python",

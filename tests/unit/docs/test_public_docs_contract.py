@@ -36,8 +36,11 @@ def test_twr_guide_uses_current_request_shape():
 
     assert "analyses" in guide
     assert "valuation_points" in guide
+    assert "include_benchmark=true" in guide
     assert 'benchmark.input_mode="stateless" | "stateful"' in guide
     assert 'benchmark.return_source="calculated" | "vendor_series"' in guide
+    assert "relative_performance" in guide
+    assert "arithmetic_relative_return" in guide
     assert "Older examples using `period_type`" in guide
     assert "`daily_data` are not current" in guide
 

@@ -21,6 +21,7 @@ from app.models.performance_diagnostics import build_performance_diagnostics, bu
 from app.models.responses import (
     PerformanceResponse,
     PortfolioReturnDecomposition,
+    RelativePerformanceSummary,
     SinglePeriodPerformanceResult,
     TWRBenchmarkResponse,
 )
@@ -160,6 +161,18 @@ def _build_resolved_twr_identity_payload(
     return TWRResolvedExecutionRequest(
         portfolio=performance_request,
         benchmark=benchmark_request,
+    )
+
+
+def _build_relative_performance_summary(
+    *,
+    portfolio_return: PortfolioReturnDecomposition,
+    benchmark_return: float,
+) -> RelativePerformanceSummary:
+    arithmetic_relative_return = portfolio_return.base - (benchmark_return * 100)
+    return RelativePerformanceSummary(
+        arithmetic_relative_return=arithmetic_relative_return,
+        cumulative_arithmetic_relative_return=arithmetic_relative_return,
     )
 
 
@@ -326,6 +339,14 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest):
     benchmark_response = None
     if resolved_request.benchmark_request is not None and benchmark_artifacts is not None:
         benchmark_mode = resolved_request.benchmark_input_mode or BenchmarkInputMode.STATELESS
+        for period_name, period_result in results_by_period.items():
+            benchmark_period = benchmark_artifacts.results_by_period.get(period_name)
+            if benchmark_period is None or period_result.portfolio_return is None:
+                continue
+            period_result.relative_performance = _build_relative_performance_summary(
+                portfolio_return=period_result.portfolio_return,
+                benchmark_return=benchmark_period.benchmark_return,
+            )
         benchmark_response = TWRBenchmarkResponse(
             benchmark_id=resolved_request.resolved_benchmark_id or resolved_request.benchmark_request.benchmark_id,
             benchmark_currency=resolved_request.benchmark_request.benchmark_currency,

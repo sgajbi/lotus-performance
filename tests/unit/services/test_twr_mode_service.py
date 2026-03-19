@@ -4,6 +4,7 @@ from uuid import uuid4
 import pytest
 from fastapi import HTTPException
 
+from app.models.benchmark_analytics_requests import BenchmarkInputMode
 from app.models.twr_requests import TWRAnalyticsRequest
 from app.services.execution_registry import execution_registry
 from app.services.twr_mode_service import resolve_twr_request
@@ -352,3 +353,95 @@ async def test_resolve_twr_request_sources_stateful_benchmark_assignment(monkeyp
     assert resolved.benchmark_request is not None
     assert resolved.benchmark_request.benchmark_currency == "USD"
     assert len(resolved.benchmark_request.component_observations) == 2
+
+
+@pytest.mark.asyncio
+async def test_resolve_twr_request_sources_default_stateful_benchmark_assignment_when_include_benchmark_enabled(
+    monkeypatch,
+):
+    class _StatefulBenchmarkStub:
+        async def get_benchmark_assignment(self, **kwargs):  # noqa: ARG002
+            return 200, {"benchmark_id": "BMK_ASSIGNED"}
+
+        async def get_benchmark_definition(self, **kwargs):  # noqa: ARG002
+            return (
+                200,
+                {
+                    "benchmark_id": "BMK_ASSIGNED",
+                    "benchmark_currency": "USD",
+                    "components": [
+                        {
+                            "index_id": "IDX_USD",
+                            "composition_weight": "1.0",
+                            "composition_effective_from": "2024-12-31",
+                            "composition_effective_to": "2025-01-31",
+                        }
+                    ],
+                },
+            )
+
+        async def get_index_price_series(self, **kwargs):  # noqa: ARG002
+            return (
+                200,
+                {
+                    "points": [
+                        {"series_date": "2024-12-31", "index_price": "100", "series_currency": "USD"},
+                        {"series_date": "2025-01-01", "index_price": "101", "series_currency": "USD"},
+                        {"series_date": "2025-01-02", "index_price": "102.01", "series_currency": "USD"},
+                    ],
+                    "retrieval_metadata": {"chunk_count": 1, "page_count": 1},
+                },
+            )
+
+        async def get_fx_rates(self, **kwargs):  # noqa: ARG002
+            return 200, {"points": []}
+
+        async def get_benchmark_return_series(self, **kwargs):  # noqa: ARG002
+            return 404, {"detail": "unused"}
+
+    async def _mock_fetch_stateful_portfolio_timeseries(**kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2024-12-31",
+                "observations": [
+                    {"valuation_date": "2025-01-01", "beginning_market_value": "1000", "ending_market_value": "1010"},
+                    {"valuation_date": "2025-01-02", "beginning_market_value": "1010", "ending_market_value": "1020.1"},
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.twr_mode_service.build_stateful_input_service",
+        lambda settings: _StatefulBenchmarkStub(),  # noqa: ARG005
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_performance_input_service.fetch_stateful_portfolio_timeseries",
+        _mock_fetch_stateful_portfolio_timeseries,
+    )
+
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "performance_start_date": "2024-12-31",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {"consumer_system": "lotus-performance"},
+            "include_benchmark": True,
+        }
+    )
+    execution_registry.create_execution(
+        calculation_id=request.calculation_id,
+        analytics_type="TWR",
+        portfolio_id=request.portfolio_id,
+    )
+
+    resolved = await resolve_twr_request(request, settings=_settings())
+
+    assert resolved.input_mode.value == "stateful"
+    assert resolved.resolved_benchmark_id == "BMK_ASSIGNED"
+    assert resolved.benchmark_request is not None
+    assert resolved.benchmark_input_mode == BenchmarkInputMode.STATEFUL

@@ -46,12 +46,18 @@ class PortfolioReturnDecomposition(BaseModel):
     base: float
 
 
+class RelativePerformanceSummary(BaseModel):
+    arithmetic_relative_return: float
+    cumulative_arithmetic_relative_return: float
+
+
 class SinglePeriodPerformanceResult(BaseModel):
     """Contains the full set of TWR results for a single, resolved period."""
 
     breakdowns: PerformanceBreakdown
     reset_events: Optional[List[ResetEvent]] = None
     portfolio_return: Optional[PortfolioReturnDecomposition] = None
+    relative_performance: RelativePerformanceSummary | None = None
 
 
 class TWRBenchmarkResponse(BaseModel):

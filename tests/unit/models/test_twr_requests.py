@@ -143,6 +143,7 @@ def test_twr_request_accepts_nested_stateless_benchmark_request(base_payload):
     request = TWRAnalyticsRequest.model_validate(
         {
             **base_payload,
+            "include_benchmark": True,
             "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
             "benchmark": {
                 "benchmark_id": "BMK_1",
@@ -164,8 +165,34 @@ def test_twr_request_accepts_nested_stateless_benchmark_request(base_payload):
     )
 
     assert request.benchmark is not None
+    assert request.include_benchmark is True
     assert request.benchmark.input_mode.value == "stateless"
     assert request.to_stateless_performance_request().valuation_points[0].end_mv == 1010
+
+
+def test_twr_request_supports_stateful_include_benchmark_without_nested_config(base_payload):
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            **base_payload,
+            "input_mode": "stateful",
+            "stateful_input": {"consumer_system": "lotus-performance"},
+            "include_benchmark": True,
+        }
+    )
+
+    assert request.include_benchmark is True
+    assert request.benchmark is None
+
+
+def test_twr_request_requires_benchmark_config_for_stateless_include_benchmark(base_payload):
+    with pytest.raises(ValidationError, match="benchmark configuration is required when include_benchmark=true"):
+        TWRAnalyticsRequest.model_validate(
+            {
+                **base_payload,
+                "include_benchmark": True,
+                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+            }
+        )
 
 
 def test_twr_request_requires_stateful_benchmark_payload_when_requested(base_payload):

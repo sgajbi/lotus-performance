@@ -24,6 +24,10 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - existing stateless callers can continue sending top-level `valuation_points`
   - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
   - stateful mode sources portfolio timeseries from lotus-core query-control-plane and normalizes them into canonical valuation points before engine execution
+  - `include_benchmark=true` is the canonical switch for returning benchmark performance alongside portfolio TWR
+  - the nested `benchmark` object is optional configuration; it can supply `benchmark_id`, `input_mode`, and `return_source`
+  - when `include_benchmark=true`, explicit `benchmark.benchmark_id` overrides lotus-core assignment lookup; otherwise stateful mode can source the portfolio-to-benchmark mapping from lotus-core
+  - when `include_benchmark=true`, each period result also includes arithmetic `relative_performance` versus the resolved benchmark
 
 ### `POST /performance/mwr`
 
