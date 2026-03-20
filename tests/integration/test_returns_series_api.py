@@ -873,7 +873,12 @@ def test_returns_series_stateful_short_window_offloads_on_resolved_workload(monk
 
             result = client.get(f"/integration/returns/series/results/{calculation_id}")
             assert result.status_code == 200
-            assert result.json()["provenance"]["input_mode"] == InputMode.STATEFUL.value
+            body = result.json()
+            assert body["provenance"]["input_mode"] == InputMode.STATEFUL.value
+            assert body["benchmark_context"] == {
+                "benchmark_id": "BMK_RESOLVED",
+                "return_source": "calculated",
+            }
     finally:
         settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = original_window_threshold
         settings.RETURNS_SERIES_EXECUTOR_INPUT_COUNT = original_input_threshold

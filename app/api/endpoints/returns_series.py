@@ -159,6 +159,8 @@ async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResp
                 resolved_request_payload={
                     "resolved_request": resolved.request.model_dump(mode="json"),
                     "source_input_mode": InputMode.STATEFUL.value,
+                    "resolved_benchmark_id": resolved.resolved_benchmark_id,
+                    "resolved_benchmark_return_source": resolved.resolved_benchmark_return_source,
                 },
                 should_offload=_should_offload_resolved_returns_series(resolved.input_count),
                 offload_reason="large_resolved_stateful_returns_series",
