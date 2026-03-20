@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
+from app.models.benchmark_analytics_requests import BenchmarkInputMode
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.requests import PerformanceRequest
 from app.services.async_result_store import async_result_store
@@ -928,7 +929,7 @@ def test_execution_api_tracks_async_twr_job_state(client, monkeypatch):
                     ],
                 }
             ),
-            benchmark_input_mode=None,
+            benchmark_input_mode=BenchmarkInputMode.STATEFUL,
             resolved_benchmark_id="BMK_RESOLVED",
         )
 
@@ -969,6 +970,17 @@ def test_execution_api_tracks_async_twr_job_state(client, monkeypatch):
         assert body_after_worker["status"] == "complete"
         assert body_after_worker["compute_job"]["job_status"] == "complete"
         assert body_after_worker["async_result"]["result_status"] == "complete"
+
+        twr_result_response = client.get(f"/performance/twr/results/{calculation_id}")
+        assert twr_result_response.status_code == 200
+        twr_result_body = twr_result_response.json()
+        assert twr_result_body["benchmark_context"] == {
+            "benchmark_id": "BMK_RESOLVED",
+            "benchmark_currency": "USD",
+            "input_mode": "stateful",
+            "return_source": "calculated",
+        }
+        assert twr_result_body["results_by_period"]["YTD"]["relative_performance"] is not None
     finally:
         settings.TWR_EXECUTOR_WINDOW_DAYS = original_window_threshold
         settings.TWR_EXECUTOR_INPUT_COUNT = original_input_threshold
