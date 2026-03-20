@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
-from decimal import Decimal
+from decimal import Decimal, localcontext
 from typing import Any, Iterable
 
 import pandas as pd
@@ -46,6 +46,7 @@ from engine.compute import run_calculations
 from engine.schema import PortfolioColumns
 
 DEFAULT_STATEFUL_CONSUMER_SYSTEM = "lotus-performance"
+RETURN_POINT_QUANTUM = Decimal("0.000000000001")
 
 
 @dataclass(frozen=True)
@@ -170,7 +171,7 @@ def detect_gaps(df: pd.DataFrame, *, frequency: ReturnsFrequency, series_type: s
 def points_from_df(df: pd.DataFrame) -> list[ReturnPoint]:
     out: list[ReturnPoint] = []
     for _, row in df.iterrows():
-        value = Decimal(str(row["return_value"])).quantize(Decimal("0.000000000001"))
+        value = _quantize_return_point_decimal(Decimal(str(row["return_value"])))
         out.append(ReturnPoint(date=row["date"].date(), return_value=value))
     return out
 
@@ -185,10 +186,18 @@ def build_cumulative_return_points(df: pd.DataFrame | None) -> list[ReturnPoint]
         cumulative_points.append(
             ReturnPoint(
                 date=row["date"].date(),
-                return_value=(running - Decimal("1")).quantize(Decimal("0.000000000001")),
+                return_value=_quantize_return_point_decimal(running - Decimal("1")),
             )
         )
     return cumulative_points
+
+
+def _quantize_return_point_decimal(value: Decimal) -> Decimal:
+    if value == 0:
+        return Decimal("0").quantize(RETURN_POINT_QUANTUM)
+    with localcontext() as context:
+        context.prec = max(28, value.adjusted() + 16)
+        return value.quantize(RETURN_POINT_QUANTUM)
 
 
 def build_active_return_points(

@@ -3,7 +3,7 @@ from datetime import date
 import pandas as pd
 import pytest
 
-from app.api.endpoints.performance import (
+from app.services.twr_service import (
     _as_numeric,
     _calculate_total_return_from_slice,
     _get_total_cum_ror,
