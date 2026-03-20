@@ -93,7 +93,7 @@ def test_runtime_work_items_reports_active_compute_and_lineage_items():
         assert body["lineage_items"][1]["status"] == "leased"
         assert body["lineage_items"][0]["execution_path"] == f"/performance/executions/{lineage_pending_id}"
         assert body["lineage_items"][0]["lineage_path"] == f"/performance/lineage/{lineage_pending_id}"
-        assert "result_path" not in body["lineage_items"][0]
+        assert body["lineage_items"][0]["result_path"] == f"/performance/twr/results/{lineage_pending_id}"
     finally:
         compute_job_store.clear_all_records()
         lineage_metadata_store.clear_all_records()
@@ -160,9 +160,53 @@ def test_runtime_work_items_reports_failed_compute_and_lineage_items():
         assert body["lineage_items"][0]["calculation_id"] == str(lineage_failed_id)
         assert body["lineage_items"][0]["execution_path"] == f"/performance/executions/{lineage_failed_id}"
         assert body["lineage_items"][0]["lineage_path"] == f"/performance/lineage/{lineage_failed_id}"
-        assert "result_path" not in body["lineage_items"][0]
+        assert body["lineage_items"][0]["result_path"] == f"/performance/twr/results/{lineage_failed_id}"
         assert body["lineage_items"][0]["status"] == "failed"
         assert body["lineage_items"][0]["error_message"] == "lineage failed"
+    finally:
+        compute_job_store.clear_all_records()
+        lineage_metadata_store.clear_all_records()
+
+
+def test_runtime_work_items_exposes_result_paths_for_twr_and_benchmark_jobs():
+    compute_job_store.create_schema()
+    lineage_metadata_store.create_schema()
+    compute_job_store.clear_all_records()
+    lineage_metadata_store.clear_all_records()
+
+    twr_id = uuid4()
+    benchmark_id = uuid4()
+
+    compute_job_store.enqueue_job(
+        calculation_id=twr_id,
+        analytics_type="TWR",
+        request_payload={"portfolio_id": "PF-TWR"},
+        max_attempts=2,
+    )
+    compute_job_store.enqueue_job(
+        calculation_id=benchmark_id,
+        analytics_type="BENCHMARK",
+        request_payload={"benchmark_id": "BMK-1"},
+        max_attempts=2,
+    )
+
+    try:
+        with TestClient(app) as client:
+            twr_response = client.get(
+                "/integration/runtime-work-items",
+                params={"queue": "compute", "status": "active", "compute_analytics_type": "TWR", "limit": 5},
+            )
+            benchmark_response = client.get(
+                "/integration/runtime-work-items",
+                params={"queue": "compute", "status": "active", "compute_analytics_type": "BENCHMARK", "limit": 5},
+            )
+
+        assert twr_response.status_code == 200
+        assert benchmark_response.status_code == 200
+        assert twr_response.json()["compute_items"][0]["result_path"] == f"/performance/twr/results/{twr_id}"
+        assert benchmark_response.json()["compute_items"][0]["result_path"] == (
+            f"/performance/benchmark/results/{benchmark_id}"
+        )
     finally:
         compute_job_store.clear_all_records()
         lineage_metadata_store.clear_all_records()
