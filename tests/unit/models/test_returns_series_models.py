@@ -74,7 +74,7 @@ def test_returns_series_request_rejects_mixed_input_envelopes():
     from app.models.returns_series import ReturnsSeriesRequest
 
     payload = _base_payload()
-    payload["stateful_input"] = {"consumer_system": "lotus-performance"}
+    payload["stateful_input"] = {}
     with pytest.raises(ValidationError, match="stateful_input must be null when input_mode=stateless"):
         ReturnsSeriesRequest.model_validate(payload)
 
@@ -83,7 +83,7 @@ def test_returns_series_request_rejects_mixed_input_envelopes():
         "as_of_date": "2026-02-27",
         "window": {"mode": "EXPLICIT", "from_date": "2026-02-24", "to_date": "2026-02-27"},
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
         "stateless_input": {
             "portfolio_returns": [
                 {"date": "2026-02-24", "return_value": "0.0010"},
@@ -100,3 +100,33 @@ def test_returns_series_request_generates_calculation_id_by_default():
     request = ReturnsSeriesRequest.model_validate(_base_payload())
 
     assert request.calculation_id is not None
+
+
+def test_returns_series_benchmark_spec_defaults_to_calculated_return_source():
+    from app.models.returns_series import BenchmarkSpec
+
+    benchmark = BenchmarkSpec.model_validate({})
+
+    assert benchmark.return_source.value == "calculated"
+
+
+def test_returns_series_rejects_stateful_only_benchmark_config_in_stateless_mode():
+    from app.models.returns_series import ReturnsSeriesRequest
+
+    payload = _base_payload()
+    payload["benchmark"] = {"benchmark_id": "BMK_1"}
+
+    with pytest.raises(
+        ValidationError,
+        match="benchmark.benchmark_id is only supported in stateful mode for returns-series",
+    ):
+        ReturnsSeriesRequest.model_validate(payload)
+
+    payload = _base_payload()
+    payload["benchmark"] = {"return_source": "vendor_series"}
+
+    with pytest.raises(
+        ValidationError,
+        match="benchmark.return_source is only supported in stateful mode for returns-series",
+    ):
+        ReturnsSeriesRequest.model_validate(payload)

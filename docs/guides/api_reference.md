@@ -14,16 +14,29 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 
 - purpose: calculate time-weighted return
 - request model: `app.models.twr_requests.TWRAnalyticsRequest`
-- response model: `app.models.responses.PerformanceResponse`
-- execution mode: synchronous
+- response model: `app.models.responses.PerformanceResponse | app.models.responses.TWRAcceptedResponse`
+- execution mode: synchronous or async depending on workload shape
 - lineage: durable lineage metadata is written and artifacts are materialized asynchronously
 - supported input modes:
   - `stateless`
   - `stateful`
 - contract note:
+  - `calculation_id` is caller-optional; when omitted, lotus-performance generates one and returns it in the response
   - existing stateless callers can continue sending top-level `valuation_points`
   - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
   - stateful mode sources portfolio timeseries from lotus-core query-control-plane and normalizes them into canonical valuation points before engine execution
+  - `include_benchmark=true` is the canonical switch for returning benchmark performance alongside portfolio TWR
+  - the nested `benchmark` object is optional configuration; it can supply `benchmark_id`, `input_mode`, and `return_source`
+  - when `include_benchmark=true`, explicit `benchmark.benchmark_id` overrides lotus-core assignment lookup; otherwise stateful mode can source the portfolio-to-benchmark mapping from lotus-core
+  - when `include_benchmark=true`, each period result also includes arithmetic `relative_performance` versus the resolved benchmark
+  - when a benchmark is resolved, the response also emits top-level `benchmark_context`
+
+### `GET /performance/twr/results/{calculation_id}`
+
+- purpose: retrieve durable async TWR result
+- response model:
+  - completed: `app.models.responses.PerformanceResponse`
+  - still running: `app.models.responses.TWRAcceptedResponse`
 
 ### `POST /performance/mwr`
 
@@ -39,6 +52,39 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - existing stateless callers can continue sending top-level `begin_mv`, `end_mv`, and `cash_flows`
   - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
   - stateful mode sources portfolio timeseries from lotus-core query-control-plane and normalizes them into canonical `begin_mv`, `end_mv`, `cash_flows`, and authoritative `start_date` before engine execution
+  - lotus-performance stamps source consumer identity server-side for the stateful envelope
+
+### `POST /performance/benchmark`
+
+- purpose: calculate benchmark performance
+- request model: `app.models.benchmark_analytics_requests.BenchmarkAnalyticsRequest`
+- response model:
+  - sync: `app.models.benchmark_responses.BenchmarkPerformanceResponse`
+  - async accepted: `app.models.benchmark_responses.BenchmarkAcceptedResponse`
+- lineage: durable lineage metadata is written and artifacts are materialized asynchronously
+- supported input modes:
+  - `stateless`
+  - `stateful`
+- execution mode:
+  - synchronous for stateless and smaller stateful requests
+  - `202 Accepted` for larger stateful benchmark requests offloaded to the compute executor
+- contract note:
+  - `calculation_id` is caller-optional; when omitted, lotus-performance generates one and returns it in the response
+  - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
+  - `return_source=calculated` is the default execution path
+  - `return_source=vendor_series` is an explicit non-default override
+  - stateless calculated mode accepts exactly one of:
+    - `stateless_input.component_observations`
+    - `stateless_input.component_price_points`
+  - stateful calculated mode sources benchmark definition, component price series, and FX inputs from lotus-core and normalizes them into canonical benchmark component observations before engine execution
+  - stateful calculated mode supports multi-segment rebalance windows through the lotus-core composition-window contract
+
+### `GET /performance/benchmark/results/{calculation_id}`
+
+- purpose: retrieve the durable async benchmark result
+- response model:
+  - completed: `BenchmarkPerformanceResponse`
+  - still running: `BenchmarkAcceptedResponse`
 
 ### `POST /performance/contribution`
 
@@ -53,6 +99,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - existing stateless callers can continue sending top-level `portfolio_data` and `positions_data`
   - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
   - stateful mode sources portfolio and position timeseries from lotus-core query-control-plane and normalizes them into canonical contribution inputs before engine execution
+  - lotus-performance stamps source consumer identity server-side for the stateful envelope
 - execution mode:
   - synchronous for smaller stateless sets and smaller stateful windows
   - `202 Accepted` with `calculation_id`, `poll_path`, and `result_path` when offloaded to the compute executor
@@ -75,11 +122,14 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - `stateless`
   - `stateful`
   - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
-  - stateful mode sources portfolio and position timeseries from lotus-core and derives benchmark group inputs from benchmark assignment plus benchmark market-series metadata
+  - stateful mode sources portfolio and position timeseries from lotus-core and derives benchmark group inputs from benchmark assignment plus the shared benchmark engine sourcing path
+  - lotus-performance stamps source consumer identity server-side for the stateful envelope
+  - when a benchmark is resolved, the response also emits top-level `benchmark_context`
   - current stateful fences:
     - `mode=by_instrument` only
-    - `currency_mode=BASE_ONLY` only
-    - `group_by` limited to canonical lotus-core attribution dimensions: `asset_class`, `sector`, `country`
+    - `group_by` limited to canonical lotus-core attribution dimensions plus `currency`: `asset_class`, `sector`, `country`, `currency`
+    - `currency_mode=BOTH` requires `report_ccy`
+    - `currency_mode=BOTH` requires `fx.rates` when sourced positions include currencies different from `report_ccy`
 - execution mode:
   - synchronous for smaller stateless sets and smaller stateful windows
   - `202 Accepted` when offloaded to the compute executor
@@ -210,6 +260,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - echoed targeted filters for operator auditability
   - filtered compute work items with calculation handle, direct execution/lineage drill-down paths, optional async `result_path`, lifecycle state, age, attempts, and failure context
   - filtered lineage work items with calculation handle, direct execution/lineage drill-down paths, optional async `result_path`, lifecycle state, age, attempts, and failure context
+- `result_path` can now point directly to async result routes for `TWR`, `BENCHMARK`, `ReturnsSeries`, `Contribution`, and `Attribution` when that workflow exposes a stable endpoint-specific result surface
 - use this when runtime-status tells you there is pressure, and you need the actual work items behind it without querying the database directly
 - `next_offset` is queue-local and only appears when additional filtered work items remain for that queue
 
@@ -236,6 +287,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - queue-specific `total_count`, `returned_count`, `next_offset`, `next_cursor_recovered_before`, and `next_cursor_calculation_id_before`
   - filtered compute recovery events with calculation handle, direct execution/lineage drill-down paths, optional async `result_path`, analytics type, recovery kind, recovery timestamp, attempt count, and last durable error type
   - filtered lineage recovery events with calculation handle, direct execution/lineage drill-down paths, optional async `result_path`, calculation type, recovery kind, recovery timestamp, and attempt count
+- `result_path` can now point directly to async result routes for `TWR`, `BENCHMARK`, `ReturnsSeries`, `Contribution`, and `Attribution` when that workflow exposes a stable endpoint-specific result surface
 - use this when runtime-status shows recent recovery activity and you need the concrete event stream behind the bounded status snapshot without querying the database directly
 - `next_offset` is queue-local and only appears when additional filtered events remain for that queue
 - the cursor fields give deterministic seek pagination for hot recovery streams where offset paging may drift as new recoveries arrive
@@ -320,6 +372,21 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 - execution mode:
   - synchronous for stateless and smaller stateful windows
   - `202 Accepted` for long-window stateful requests offloaded to the compute executor
+- contract note:
+  - stateless benchmark series are still caller-supplied via `stateless_input.benchmark_returns`
+  - in stateful mode, benchmark sourcing defaults to the shared lotus-performance benchmark calculation path
+  - lotus-performance stamps source consumer identity server-side for the stateful envelope
+  - `benchmark.return_source="vendor_series"` is an explicit stateful-only override for lotus-core benchmark return-series retrieval
+  - `benchmark.benchmark_id` is only meaningful in stateful mode for explicit benchmark override; otherwise lotus-core benchmark assignment can resolve the benchmark id
+  - when both portfolio and benchmark series are present, the response also emits arithmetic `active_returns`
+  - the response also emits cumulative ladders:
+    - `cumulative_portfolio_returns`
+    - `cumulative_benchmark_returns`
+    - `cumulative_risk_free_returns`
+    - `cumulative_active_returns`
+  - cumulative portfolio, benchmark, and risk-free ladders are geometrically linked
+  - `cumulative_active_returns` is arithmetic excess of cumulative portfolio and cumulative benchmark returns
+  - when stateful benchmark resolution is used, the response also emits `benchmark_context` with the resolved `benchmark_id` and `return_source`
 
 ### `GET /integration/returns/series/results/{calculation_id}`
 
@@ -458,6 +525,7 @@ Executor-backed endpoints use one common pattern:
 
 `calculation_id` is a durable execution handle, not a best-effort correlation field:
 
+- callers may omit `calculation_id`; lotus-performance generates one and returns it on both sync and async submissions
 - async endpoints treat an exact resubmission with the same `calculation_id` as an idempotent replay and return the same accepted handle
 - reusing the same `calculation_id` with a different payload returns `409 Conflict`
 - synchronous endpoints require a fresh `calculation_id` for each new submission

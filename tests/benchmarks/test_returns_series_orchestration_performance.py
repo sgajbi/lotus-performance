@@ -12,10 +12,10 @@ from app.services.execution_registry import ExecutionRegistry
 from tests.benchmarks.test_stateful_input_performance import (
     STATEFUL_PORTFOLIO_WINDOW_END,
     STATEFUL_PORTFOLIO_WINDOW_START,
-    _StatefulCoreServiceStub,
+    _StatefulBenchmarkCoreServiceStub,
 )
 
-RETURNS_SERIES_ORCHESTRATION_MEDIAN_MS_BUDGET = 1200.0
+RETURNS_SERIES_ORCHESTRATION_MEDIAN_MS_BUDGET = 4500.0
 
 
 @pytest.mark.asyncio
@@ -36,7 +36,7 @@ async def test_returns_series_stateful_orchestration_characterization_contract(t
     returns_series_service.execution_registry = execution_store
     stateful_input_service.execution_registry = execution_store
 
-    core_service_stub = _StatefulCoreServiceStub()
+    core_service_stub = _StatefulBenchmarkCoreServiceStub()
     monkeypatch.setattr(
         portfolio_source_service.CoreIntegrationService,
         "get_portfolio_analytics_timeseries",
@@ -49,14 +49,20 @@ async def test_returns_series_stateful_orchestration_characterization_contract(t
     )
     monkeypatch.setattr(
         portfolio_source_service.CoreIntegrationService,
-        "get_benchmark_return_series",
-        core_service_stub.get_benchmark_return_series,
+        "get_benchmark_composition_window",
+        core_service_stub.get_benchmark_composition_window,
     )
     monkeypatch.setattr(
         portfolio_source_service.CoreIntegrationService,
-        "get_risk_free_series",
-        core_service_stub.get_risk_free_series,
+        "get_index_price_series",
+        core_service_stub.get_index_price_series,
     )
+    monkeypatch.setattr(
+        portfolio_source_service.CoreIntegrationService,
+        "get_fx_rates",
+        core_service_stub.get_fx_rates,
+    )
+    monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_risk_free_series", core_service_stub.get_risk_free_series)
 
     request = ReturnsSeriesRequest.model_validate(
         {
@@ -77,7 +83,7 @@ async def test_returns_series_stateful_orchestration_characterization_contract(t
                 "include_risk_free": True,
             },
             "input_mode": "stateful",
-            "stateful_input": {"consumer_system": "lotus-performance"},
+            "stateful_input": {},
         }
     )
 

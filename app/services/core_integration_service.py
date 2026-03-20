@@ -2,7 +2,7 @@ from datetime import date
 from typing import Any
 
 from app.observability import propagation_headers
-from app.services.http_resilience import post_with_retry
+from app.services.http_resilience import get_with_retry, post_with_retry
 
 
 class CoreIntegrationService:
@@ -147,6 +147,26 @@ class CoreIntegrationService:
             backoff_seconds=self._retry_backoff_seconds,
         )
 
+    async def get_benchmark_composition_window(
+        self,
+        *,
+        benchmark_id: str,
+        start_date: date,
+        end_date: date,
+    ) -> tuple[int, dict[str, Any]]:
+        url = f"{self._base_url}/integration/benchmarks/{benchmark_id}/composition-window"
+        payload = {
+            "window": {"start_date": str(start_date), "end_date": str(end_date)},
+        }
+        return await post_with_retry(
+            url=url,
+            timeout_seconds=self._timeout,
+            json_body=payload,
+            headers=propagation_headers(),
+            max_retries=self._max_retries,
+            backoff_seconds=self._retry_backoff_seconds,
+        )
+
     async def get_benchmark_market_series(
         self,
         *,
@@ -176,6 +196,30 @@ class CoreIntegrationService:
             backoff_seconds=self._retry_backoff_seconds,
         )
 
+    async def get_fx_rates(
+        self,
+        *,
+        from_currency: str,
+        to_currency: str,
+        start_date: date,
+        end_date: date,
+    ) -> tuple[int, dict[str, Any]]:
+        url = f"{self._base_url}/fx-rates/"
+        query_params = {
+            "from_currency": from_currency,
+            "to_currency": to_currency,
+            "start_date": str(start_date),
+            "end_date": str(end_date),
+        }
+        return await get_with_retry(
+            url=url,
+            timeout_seconds=self._timeout,
+            query_params=query_params,
+            headers=propagation_headers(),
+            max_retries=self._max_retries,
+            backoff_seconds=self._retry_backoff_seconds,
+        )
+
     async def get_index_catalog(
         self,
         *,
@@ -192,6 +236,33 @@ class CoreIntegrationService:
             payload["index_type"] = index_type
         if index_status:
             payload["index_status"] = index_status
+        return await post_with_retry(
+            url=url,
+            timeout_seconds=self._timeout,
+            json_body=payload,
+            headers=propagation_headers(),
+            max_retries=self._max_retries,
+            backoff_seconds=self._retry_backoff_seconds,
+        )
+
+    async def get_index_price_series(
+        self,
+        *,
+        index_id: str,
+        as_of_date: date,
+        start_date: date,
+        end_date: date,
+        frequency: str = "daily",
+        target_currency: str | None = None,
+    ) -> tuple[int, dict[str, Any]]:
+        url = f"{self._base_url}/integration/indices/{index_id}/price-series"
+        payload: dict[str, Any] = {
+            "as_of_date": str(as_of_date),
+            "window": {"start_date": str(start_date), "end_date": str(end_date)},
+            "frequency": frequency,
+        }
+        if target_currency:
+            payload["target_currency"] = target_currency
         return await post_with_retry(
             url=url,
             timeout_seconds=self._timeout,

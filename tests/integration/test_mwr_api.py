@@ -78,7 +78,6 @@ def test_calculate_mwr_endpoint_supports_stateful_mode(client, monkeypatch):
         "mwr_method": "DIETZ",
         "input_mode": "stateful",
         "stateful_input": {
-            "consumer_system": "lotus-performance",
             "window_start_date": "2025-01-01",
         },
     }
@@ -129,7 +128,6 @@ def test_mwr_stateful_hashes_follow_resolved_inputs(client, monkeypatch):
         "annualization": {"enabled": False},
         "input_mode": "stateful",
         "stateful_input": {
-            "consumer_system": "lotus-performance",
             "window_start_date": "2025-01-01",
         },
     }

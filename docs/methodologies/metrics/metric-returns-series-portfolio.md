@@ -13,7 +13,7 @@ Canonical Portfolio Return Series (`series.portfolio_returns`)
 - Stateless path:
   - `stateless_input.portfolio_returns[]` (`date`, `return_value` decimal)
 - Stateful path:
-  - `stateful_input.consumer_system`
+  - `stateful_input`
   - upstream `observations[]` with `valuation_date`, `beginning_market_value`, `ending_market_value`, optional `cash_flows[]` (`timing` in `bod|eod`, `amount`)
   - upstream `portfolio_open_date`
 

@@ -83,7 +83,7 @@ def test_should_offload_stateful_attribution_uses_window_runtime_settings(mocker
             "report_end_date": "2025-07-31",
             "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
             "input_mode": "stateful",
-            "stateful_input": {"consumer_system": "lotus-performance"},
+            "stateful_input": {},
         }
     )
     mocker.patch(

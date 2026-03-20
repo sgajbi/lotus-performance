@@ -8,8 +8,8 @@ This document records the repo-owned capacity and performance characterization c
 This characterization currently governs the vectorized engine hot path behind
 `engine.compute.run_calculations(...)` plus the durable queue-stat aggregation paths used by
 the runtime control plane and Prometheus collector, plus the public async execution-polling
-read path, plus the stateful portfolio-retrieval orchestration path, plus PostgreSQL query-plan
-verification for the durable hot-path reads.
+read path, plus the stateful portfolio-retrieval orchestration path, plus calculated stateful
+benchmark normalization, plus PostgreSQL query-plan verification for the durable hot-path reads.
 
 ## Governed workload
 
@@ -74,12 +74,13 @@ These characterize the control-plane query path behind:
 
 - Workload: one stateful returns-series request across `2024-01-01` to `2033-12-31` with:
   - portfolio return series
-  - benchmark return series
+  - calculated benchmark return series
   - risk-free return series
   - daily frequency
+  - composition-window sourcing, component price loading, and FX normalization for benchmark calculation
   - canonical normalization and response shaping
 - Metric: median wall-clock runtime across 5 reads after warm-up
-- Budget: `<= 1200ms`
+- Budget: `<= 4500ms`
 - Test owner: [test_returns_series_orchestration_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_returns_series_orchestration_performance.py)
 
 ## Stateful retrieval budget
@@ -117,6 +118,59 @@ These characterize the control-plane query path behind:
 - Metric: median wall-clock runtime across 5 reads after warm-up
 - Budget: `<= 25ms`
 - Test owner: [test_stateful_input_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_stateful_input_performance.py)
+
+## Stateful calculated benchmark normalization budget
+
+- Workload: calculated stateful benchmark normalization across `2024-01-01` to `2033-12-31`
+- Retrieval characteristics:
+  - effective-dated composition-window sourcing
+  - `365`-day component price-series chunks
+  - `365`-day FX-rate chunks for non-benchmark-currency components
+  - beginning-of-day weight application across rebalance segments
+  - durable upstream snapshot recording enabled
+- Benchmark shape:
+  - `4` benchmark components
+  - `8` effective-dated composition segments
+  - `3` FX pairs normalized into benchmark currency
+- Metric: median wall-clock runtime across 5 reads after warm-up
+- Budget: `<= 2200ms`
+- Test owner: [test_stateful_input_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_stateful_input_performance.py)
+
+## Stateful benchmark orchestration budget
+
+- Workload: full stateful benchmark orchestration across `2024-01-01` to `2033-12-31`
+- Orchestration characteristics:
+  - calculated benchmark mode
+  - shared benchmark request resolution
+  - effective-dated composition-window sourcing
+  - component price loading and FX normalization
+  - benchmark response shaping with daily timeseries enabled
+  - durable execution identity updates and lineage handoff
+- Benchmark shape:
+  - `4` benchmark components
+  - `8` effective-dated composition segments
+  - `3` FX pairs normalized into benchmark currency
+- Metric: median wall-clock runtime across 5 runs after warm-up
+- Budget: `<= 27000ms`
+- Test owner: [test_benchmark_orchestration_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_benchmark_orchestration_performance.py)
+
+## Stateful benchmark-inclusive TWR orchestration budget
+
+- Workload: full stateful benchmark-inclusive TWR orchestration across `2024-01-01` to `2033-12-31`
+- Orchestration characteristics:
+  - stateful portfolio valuation sourcing
+  - stateful benchmark assignment lookup
+  - calculated benchmark sourcing and normalization
+  - TWR engine execution with benchmark inclusion
+  - arithmetic relative-performance output
+  - durable execution identity updates and lineage handoff
+- Request shape:
+  - `include_benchmark=true`
+  - implicit benchmark assignment from lotus-core
+  - `ITD` request with monthly breakdown output
+- Metric: median wall-clock runtime across 5 runs after warm-up
+- Budget: `<= 5200ms`
+- Test owner: [test_twr_orchestration_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_twr_orchestration_performance.py)
 
 ## PostgreSQL plan verification
 

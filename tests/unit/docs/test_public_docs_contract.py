@@ -17,6 +17,9 @@ def test_readme_uses_current_twr_contract_terms():
 
     assert "analyses" in readme
     assert "valuation_points" in readme
+    assert "include_benchmark" in readme
+    assert "relative_performance" in readme
+    assert "benchmark_context" in readme
     assert "Older examples using `period_type`" in readme
     assert "`daily_data` are not current" in readme
     assert "google.com/search" not in readme
@@ -26,6 +29,8 @@ def test_user_guide_documents_async_execution_surfaces():
     guide = _read("docs/Portfolio Performance Analytics - A User Guide.md")
 
     assert "/performance/executions/{calculation_id}" in guide
+    assert "/performance/twr/results/{calculation_id}" in guide
+    assert "/performance/benchmark/results/{calculation_id}" in guide
     assert "/integration/returns/series/results/{calculation_id}" in guide
     assert "/integration/runtime-status" in guide
     assert "/performance/lineage/{calculation_id}/artifacts/{artifact_name}" in guide
@@ -36,8 +41,38 @@ def test_twr_guide_uses_current_request_shape():
 
     assert "analyses" in guide
     assert "valuation_points" in guide
+    assert "include_benchmark=true" in guide
+    assert 'benchmark.input_mode="stateless" | "stateful"' in guide
+    assert 'benchmark.return_source="calculated" | "vendor_series"' in guide
+    assert "benchmark.stateless_input.component_price_points" in guide
+    assert "relative_performance" in guide
+    assert "benchmark_context" in guide
+    assert "summary.cumulative_return" in guide
+    assert "If `calculation_id` is omitted" in guide
+    assert "/performance/twr/results/{calculation_id}" in guide
     assert "Older examples using `period_type`" in guide
     assert "`daily_data` are not current" in guide
+    assert "stateful_input.consumer_system" not in guide
+
+
+def test_benchmark_guide_uses_current_request_shape():
+    guide = _read("docs/guides/benchmark.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    readme = _read("README.md")
+
+    assert 'input_mode="stateless"' in guide
+    assert 'input_mode="stateful"' in guide
+    assert 'return_source="calculated"' in guide
+    assert 'return_source="vendor_series"' in guide
+    assert "stateless_input.component_price_points" in guide
+    assert "multi-segment benchmark composition windows internally" in guide
+    assert "benchmark.summary.period_return" in guide
+    assert "benchmark.breakdowns.<requested_frequency>[].cumulative_return" in guide
+    assert "If `calculation_id` is omitted" in guide
+    assert "stateful_input.consumer_system" not in guide
+    assert "app.models.benchmark_analytics_requests.BenchmarkAnalyticsRequest" in api_reference
+    assert "POST /performance/benchmark" in readme
+    assert "TWRAcceptedResponse" in api_reference
 
 
 def test_mwr_guide_matches_current_method_reality():
@@ -71,7 +106,7 @@ def test_contribution_guide_uses_current_request_shape():
     readme = _read("README.md")
 
     assert 'input_mode: "stateless" | "stateful"' in guide
-    assert "stateful_input.consumer_system" in guide
+    assert "source consumer identity server-side" in guide
     assert "analyses" in guide
     assert "valuation_points" in guide
     assert "Older examples using nested `daily_data`" in guide
@@ -81,25 +116,34 @@ def test_contribution_guide_uses_current_request_shape():
         "stateful mode sources portfolio and position timeseries from lotus-core query-control-plane" in api_reference
     )
     assert 'input_mode: "stateless" | "stateful"' in readme
-    assert "stateful_input.consumer_system" in readme
+    assert "lotus-performance stamps source consumer identity server-side" in readme
 
 
 def test_api_reference_documents_endpoint_level_capabilities_contract():
     api_reference = _read("docs/guides/api_reference.md")
+    readme = _read("README.md")
+    runtime_topology = _read("docs/technical/runtime_topology.md")
 
     assert "analytics_surfaces" in api_reference
     assert "stateful_restrictions" in api_reference
     assert "supports_async" in api_reference
+    assert "/performance/twr/results/{calculation_id}" in readme
+    assert "/performance/benchmark/results/{calculation_id}" in readme
+    assert "/performance/twr/results/{calculation_id}" in runtime_topology
+    assert "/performance/benchmark/results/{calculation_id}" in runtime_topology
+    assert "`result_path` can now point directly to async result routes for `TWR`, `BENCHMARK`, `ReturnsSeries`, `Contribution`, and `Attribution`" in api_reference
 
 
 def test_attribution_guide_uses_current_request_shape():
     guide = _read("docs/guides/attribution.md")
+    readme = _read("README.md")
+    api_reference = _read("docs/guides/api_reference.md")
 
     assert 'input_mode: "stateless" | "stateful"' in guide
-    assert "stateful_input.consumer_system" in guide
+    assert "source consumer identity server-side" in guide
     assert '`mode="by_instrument"`' in guide
-    assert '`currency_mode="BASE_ONLY"`' in guide
-    assert "`asset_class`, `sector`, or `country`" in guide
+    assert '`currency_mode="BOTH"` requires `report_ccy`' in guide
+    assert "`asset_class`, `sector`, `country`, or `currency`" in guide
     assert "analyses" in guide
     assert "valuation_points" in guide
     assert "Older examples using request-level `period_type`" in guide
@@ -107,7 +151,34 @@ def test_attribution_guide_uses_current_request_shape():
     assert "- `linking`" in guide
     assert "currency_attribution" in guide
     assert "`group_by` includes the `currency` dimension" in guide
-    assert "currently available only for stateless attribution inputs" in guide
+    assert "available for both stateless and stateful attribution inputs" in guide
+    assert "benchmark engine sourcing path" in guide
+    assert "benchmark_context" in guide
+    assert "benchmark_context" in readme
+    assert "benchmark_context" in api_reference
+
+
+def test_returns_series_docs_reflect_benchmark_return_source_contract():
+    readme = _read("README.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    master_index = _read("docs/methodologies/metrics/master-index.md")
+    active_methodology = _read("docs/methodologies/metrics/metric-returns-series-active.md")
+
+    assert 'benchmark.return_source="vendor_series"' in readme
+    assert "active_returns" in readme
+    assert "cumulative_active_returns" in readme
+    assert "benchmark_context" in readme
+    assert "stateful benchmark sourcing now defaults to lotus-performance benchmark calculation" in readme
+    assert "caller may omit `calculation_id`" in readme
+    assert 'benchmark.return_source="vendor_series"' in api_reference
+    assert "active_returns" in api_reference
+    assert "cumulative_active_returns" in api_reference
+    assert "benchmark_context" in api_reference
+    assert "stateful mode, benchmark sourcing defaults to the shared lotus-performance benchmark calculation path" in api_reference.lower()
+    assert "callers may omit `calculation_id`" in api_reference
+    assert "Active Return Series" in master_index
+    assert "series.active_returns" in active_methodology
+    assert "series.cumulative_active_returns" in active_methodology
 
 
 def test_api_examples_recipes_match_current_dual_mode_contract():
@@ -119,8 +190,12 @@ def test_api_examples_recipes_match_current_dual_mode_contract():
     assert '"stateful_input"' in guide
     assert '"analyses"' in guide
     assert '"valuation_points"' in guide
+    assert '"include_benchmark": true' in guide
+    assert '"relative_performance"' in guide
+    assert '"component_price_points"' in guide
     assert "window_start_date" in guide
-    assert 'currency attribution with `currency_mode="both"` currently requires stateless inputs' in guide.lower()
+    assert "consumer_system" not in guide
+    assert 'stateful attribution can also emit currency attribution' in guide.lower()
     assert "Older examples using request-level `period_type` or nested `daily_data` are not current." in guide
     assert '"period_type"' not in guide
     assert '"daily_data"' not in guide
@@ -128,7 +203,12 @@ def test_api_examples_recipes_match_current_dual_mode_contract():
 
 def test_json_examples_match_current_dual_mode_contract():
     example_paths = [
+        "docs/examples/benchmark_request.json",
+        "docs/examples/benchmark_request_price_points.json",
+        "docs/examples/benchmark_vendor_series_request.json",
         "docs/examples/twr_request.json",
+        "docs/examples/twr_request_with_benchmark.json",
+        "docs/examples/twr_request_with_benchmark_price_points.json",
         "docs/examples/twr_request_multiccy_hedged.json",
         "docs/examples/mwr_request.json",
         "docs/examples/contribution_request.json",
@@ -145,7 +225,26 @@ def test_json_examples_match_current_dual_mode_contract():
         assert "period_type" not in payload_text
         assert "daily_data" not in payload_text
 
+    benchmark_request = json.loads(_read("docs/examples/benchmark_request.json"))
+    assert "stateless_input" in benchmark_request
+    assert benchmark_request["return_source"] == "calculated"
+
+    benchmark_price_request = json.loads(_read("docs/examples/benchmark_request_price_points.json"))
+    assert "stateless_input" in benchmark_price_request
+    assert "component_price_points" in benchmark_price_request["stateless_input"]
+    assert benchmark_price_request["return_source"] == "calculated"
+
+    benchmark_vendor_request = json.loads(_read("docs/examples/benchmark_vendor_series_request.json"))
+    assert "stateless_input" in benchmark_vendor_request
+    assert benchmark_vendor_request["return_source"] == "vendor_series"
+
     assert "stateless_input" in json.loads(_read("docs/examples/twr_request.json"))
+    benchmark_twr_request = json.loads(_read("docs/examples/twr_request_with_benchmark.json"))
+    assert benchmark_twr_request["include_benchmark"] is True
+    assert "benchmark" in benchmark_twr_request
+    benchmark_twr_price_request = json.loads(_read("docs/examples/twr_request_with_benchmark_price_points.json"))
+    assert benchmark_twr_price_request["include_benchmark"] is True
+    assert "component_price_points" in benchmark_twr_price_request["benchmark"]["stateless_input"]
     assert "stateless_input" in json.loads(_read("docs/examples/mwr_request.json"))
     assert "stateless_input" in json.loads(_read("docs/examples/contribution_request.json"))
     assert "stateless_input" in json.loads(_read("docs/examples/attribution_request.json"))

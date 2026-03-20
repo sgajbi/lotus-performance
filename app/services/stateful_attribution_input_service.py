@@ -2,20 +2,27 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
+from typing import cast
 
+import pandas as pd
 from fastapi import HTTPException, status
 
 from app.core.config import Settings
 from app.models.attribution_requests import AttributionPortfolioData, BenchmarkGroup, InstrumentData
+from app.models.benchmark_analytics_requests import BenchmarkReturnSource
+from app.models.benchmark_requests import BenchmarkComponentObservation
 from app.models.stateful_position_inputs import StatefulDimensionName
+from app.services.stateful_benchmark_input_service import build_stateful_benchmark_input
 from app.services.stateful_input_service import RetrievalMetadata, StatefulInputService
 from app.services.stateful_performance_input_service import (
     StatefulPortfolioInput,
     retrieve_stateful_portfolio_input,
 )
 from app.services.valuation_points_service import portfolio_timeseries_to_valuation_points
+from engine.benchmarks import calculate_benchmark_returns
 
-_SUPPORTED_ATTRIBUTION_GROUPS: set[str] = {"asset_class", "sector", "country"}
+_SUPPORTED_ATTRIBUTION_GROUPS: set[str] = {"asset_class", "sector", "country", "currency"}
+_UPSTREAM_DIMENSION_GROUPS: set[str] = {"asset_class", "sector", "country"}
 
 
 @dataclass(frozen=True)
@@ -24,7 +31,8 @@ class StatefulAttributionSourceInput:
     position_rows: list[dict[str, object]]
     position_retrieval_metadata: RetrievalMetadata
     benchmark_id: str
-    benchmark_component_series: list[dict[str, object]]
+    benchmark_component_observations: list[BenchmarkComponentObservation]
+    benchmark_source_details: dict[str, int]
     benchmark_retrieval_metadata: RetrievalMetadata
     index_records: list[dict[str, object]]
     index_retrieval_metadata: RetrievalMetadata
@@ -56,7 +64,7 @@ async def retrieve_stateful_attribution_source_input(
 ) -> StatefulAttributionSourceInput:
     _validate_stateful_group_by(group_by)
     requested_dimensions = sorted(
-        {*dimensions, *[dimension for dimension in group_by if dimension in _SUPPORTED_ATTRIBUTION_GROUPS]}
+        {*dimensions, *[dimension for dimension in group_by if dimension in _UPSTREAM_DIMENSION_GROUPS]}
     )
 
     portfolio_input = await retrieve_stateful_portfolio_input(
@@ -116,26 +124,15 @@ async def retrieve_stateful_attribution_source_input(
             )
         benchmark_id = benchmark_id_raw
 
-    market_status, market_payload = await stateful_input_service.get_benchmark_market_series(
+    benchmark_input = await build_stateful_benchmark_input(
+        stateful_input_service=stateful_input_service,
+        calculation_id=calculation_id,
         benchmark_id=benchmark_id,
         as_of_date=as_of_date,
         start_date=report_start_date,
         end_date=report_end_date,
-        frequency="daily",
-        target_currency=reporting_currency,
-        calculation_id=calculation_id,
+        return_source=BenchmarkReturnSource.CALCULATED,
     )
-    if market_status == status.HTTP_404_NOT_FOUND:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"No benchmark market series found for benchmark_id={benchmark_id}.",
-        )
-    if market_status >= status.HTTP_400_BAD_REQUEST:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"benchmark market-series source unavailable ({market_status}).",
-        )
-    benchmark_component_series = _parse_component_series(market_payload)
 
     index_status, index_payload = await stateful_input_service.get_index_catalog(
         as_of_date=as_of_date,
@@ -153,8 +150,12 @@ async def retrieve_stateful_attribution_source_input(
         position_rows=position_rows,
         position_retrieval_metadata=_parse_retrieval_metadata(upstream_payload),
         benchmark_id=benchmark_id,
-        benchmark_component_series=benchmark_component_series,
-        benchmark_retrieval_metadata=_parse_retrieval_metadata(market_payload),
+        benchmark_component_observations=benchmark_input.component_observations,
+        benchmark_source_details=benchmark_input.source_details,
+        benchmark_retrieval_metadata=RetrievalMetadata(
+            chunk_count=benchmark_input.source_details.get("benchmark_chunk_count", 0),
+            page_count=benchmark_input.source_details.get("benchmark_page_count", 0),
+        ),
         index_records=index_records,
         index_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
     )
@@ -167,6 +168,7 @@ def build_stateful_attribution_input(
     group_by: list[str],
     metric_basis: str,
     currency_mode: str | None,
+    fx: object,
     reporting_currency: str | None,
 ) -> StatefulAttributionNormalizedInput:
     if mode != "by_instrument":
@@ -176,13 +178,11 @@ def build_stateful_attribution_input(
         )
 
     normalized_currency_mode = currency_mode or "BASE_ONLY"
-    if normalized_currency_mode != "BASE_ONLY":
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=(
-                "Stateful attribution currently supports currency_mode=BASE_ONLY only until lotus-core exposes "
-                "benchmark-local and FX decomposition contracts."
-            ),
+    if normalized_currency_mode == "BOTH":
+        _validate_stateful_both_currency_support(
+            rows=source_input.position_rows,
+            reporting_currency=reporting_currency,
+            fx=fx,
         )
 
     portfolio_data = AttributionPortfolioData.model_validate(
@@ -195,11 +195,12 @@ def build_stateful_attribution_input(
     )
     instruments_data = _build_instruments_data(
         rows=source_input.position_rows,
+        currency_mode=normalized_currency_mode,
         reporting_currency=reporting_currency,
     )
     benchmark_groups_data = _build_benchmark_groups(
         group_by=group_by,
-        component_series=source_input.benchmark_component_series,
+        component_observations=source_input.benchmark_component_observations,
         index_records=source_input.index_records,
     )
 
@@ -216,7 +217,7 @@ def _validate_stateful_group_by(group_by: list[str]) -> None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
-                "Stateful attribution supports group_by only for canonical lotus-core attribution dimensions: "
+                "Stateful attribution supports group_by only for canonical lotus-core attribution dimensions plus currency: "
                 f"{', '.join(sorted(_SUPPORTED_ATTRIBUTION_GROUPS))}. Unsupported: {', '.join(unsupported)}."
             ),
         )
@@ -225,6 +226,7 @@ def _validate_stateful_group_by(group_by: list[str]) -> None:
 def _build_instruments_data(
     *,
     rows: list[dict[str, object]],
+    currency_mode: str,
     reporting_currency: str | None,
 ) -> list[InstrumentData]:
     positions_by_id: dict[str, list[dict[str, object]]] = {}
@@ -234,11 +236,22 @@ def _build_instruments_data(
         valuation_date = row.get("valuation_date")
         if not isinstance(position_id, str) or not isinstance(valuation_date, str):
             continue
-        point = _position_row_to_daily_point(row=row, reporting_currency=reporting_currency)
+        point = _position_row_to_daily_point(
+            row=row,
+            currency_mode=currency_mode,
+            reporting_currency=reporting_currency,
+        )
         if point is None:
             continue
         positions_by_id.setdefault(position_id, []).append(point)
-        instrument_meta[position_id] = _position_meta_from_row(row)
+        meta = instrument_meta.setdefault(position_id, _position_meta_from_row(row))
+        base_weight_point = _position_row_to_base_weight_point(
+            row=row,
+            reporting_currency=reporting_currency,
+        )
+        if base_weight_point is not None:
+            base_weight_points = cast(list[dict[str, object]], meta.setdefault("base_weight_points", []))
+            base_weight_points.append(base_weight_point)
 
     return [
         InstrumentData.model_validate(
@@ -255,9 +268,15 @@ def _build_instruments_data(
 def _build_benchmark_groups(
     *,
     group_by: list[str],
-    component_series: list[dict[str, object]],
+    component_observations: list[BenchmarkComponentObservation],
     index_records: list[dict[str, object]],
 ) -> list[BenchmarkGroup]:
+    if not component_observations:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="No normalized benchmark component observations are available for stateful attribution.",
+        )
+
     labels_by_index: dict[str, dict[str, object]] = {}
     for record in index_records:
         index_id = record.get("index_id")
@@ -265,45 +284,44 @@ def _build_benchmark_groups(
         if isinstance(index_id, str) and isinstance(labels, dict):
             labels_by_index[index_id] = labels
 
+    engine_result = calculate_benchmark_returns(component_observations)
     grouped: dict[tuple[tuple[str, str], ...], dict[str, dict[str, Decimal]]] = {}
-    for component in component_series:
-        index_id = component.get("index_id")
-        points_raw = component.get("points")
-        if not isinstance(index_id, str) or not isinstance(points_raw, list):
-            continue
+    for _, row in engine_result.component_contributions_df.iterrows():
+        index_id = row["component_id"]
         labels = labels_by_index.get(index_id)
-        if labels is None:
+        component_currency = row.get("component_currency")
+        if labels is None and "currency" not in group_by:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"Index catalog missing classification labels for benchmark component {index_id}.",
             )
-        group_key = _build_group_key(labels=labels, group_by=group_by, index_id=index_id)
+        group_key = _build_group_key(
+            labels=labels or {},
+            group_by=group_by,
+            index_id=index_id,
+            component_currency=str(component_currency) if component_currency is not None else None,
+        )
         group_bucket = grouped.setdefault(group_key, {})
-        for point in points_raw:
-            if not isinstance(point, dict):
-                continue
-            series_date = point.get("series_date")
-            component_weight = point.get("component_weight")
-            index_return = point.get("index_return")
-            if not isinstance(series_date, str) or component_weight is None or index_return is None:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail=(
-                        f"Benchmark market-series payload missing index_return or component_weight for {index_id} "
-                        f"on {series_date}."
-                    ),
-                )
-            date_bucket = group_bucket.setdefault(
-                series_date,
-                {
-                    "weight_sum": Decimal("0"),
-                    "weighted_return_sum": Decimal("0"),
-                },
-            )
-            weight = Decimal(str(component_weight))
-            benchmark_return = Decimal(str(index_return))
-            date_bucket["weight_sum"] += weight
-            date_bucket["weighted_return_sum"] += weight * benchmark_return
+        series_date = row["date"].isoformat()
+        date_bucket = group_bucket.setdefault(
+            series_date,
+            {
+                "weight_sum": Decimal("0"),
+                "weighted_return_sum": Decimal("0"),
+                "weighted_local_return_sum": Decimal("0"),
+                "weighted_fx_return_sum": Decimal("0"),
+            },
+        )
+        weight = Decimal(str(row["weight_bop"]))
+        contribution = Decimal(str(row["contribution"]))
+        date_bucket["weight_sum"] += weight
+        date_bucket["weighted_return_sum"] += contribution
+        component_return_local = row.get("component_return_local")
+        component_return_fx = row.get("component_return_fx")
+        if pd.notna(component_return_local):
+            date_bucket["weighted_local_return_sum"] += weight * Decimal(str(component_return_local))
+        if pd.notna(component_return_fx):
+            date_bucket["weighted_fx_return_sum"] += weight * Decimal(str(component_return_fx))
 
     benchmark_groups: list[BenchmarkGroup] = []
     for key_tuple in sorted(grouped):
@@ -317,6 +335,12 @@ def _build_benchmark_groups(
                     "date": series_date,
                     "weight_bop": weight_sum,
                     "return_base": group_return,
+                    "return_local": (
+                        Decimal("0") if weight_sum == 0 else grouped[key_tuple][series_date]["weighted_local_return_sum"] / weight_sum
+                    ),
+                    "return_fx": (
+                        Decimal("0") if weight_sum == 0 else grouped[key_tuple][series_date]["weighted_fx_return_sum"] / weight_sum
+                    ),
                 }
             )
         benchmark_groups.append(
@@ -335,10 +359,11 @@ def _build_group_key(
     labels: dict[str, object],
     group_by: list[str],
     index_id: str,
+    component_currency: str | None = None,
 ) -> tuple[tuple[str, str], ...]:
     key_parts: list[tuple[str, str]] = []
     for dimension in group_by:
-        raw_value = labels.get(dimension)
+        raw_value = component_currency if dimension == "currency" else labels.get(dimension)
         if not isinstance(raw_value, str) or not raw_value:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -351,13 +376,17 @@ def _build_group_key(
 def _position_row_to_daily_point(
     *,
     row: dict[str, object],
+    currency_mode: str,
     reporting_currency: str | None,
 ) -> dict[str, object] | None:
     valuation_date = row.get("valuation_date")
     if not isinstance(valuation_date, str):
         return None
 
-    if reporting_currency is not None:
+    if currency_mode in {"LOCAL_ONLY", "BOTH"}:
+        begin_value = row.get("beginning_market_value_position_currency")
+        end_value = row.get("ending_market_value_position_currency")
+    elif reporting_currency is not None:
         begin_value = row.get("beginning_market_value_reporting_currency")
         end_value = row.get("ending_market_value_reporting_currency")
     else:
@@ -375,6 +404,32 @@ def _position_row_to_daily_point(
         "end_mv": Decimal(str(end_value)),
         "bod_cf": bod_cf,
         "eod_cf": eod_cf,
+    }
+
+
+def _position_row_to_base_weight_point(
+    *,
+    row: dict[str, object],
+    reporting_currency: str | None,
+) -> dict[str, object] | None:
+    valuation_date = row.get("valuation_date")
+    if not isinstance(valuation_date, str):
+        return None
+
+    if reporting_currency is not None:
+        begin_value = row.get("beginning_market_value_reporting_currency")
+    else:
+        begin_value = row.get("beginning_market_value_portfolio_currency")
+    if begin_value is None:
+        begin_value = row.get("beginning_market_value_portfolio_currency")
+    if begin_value is None:
+        return None
+
+    bod_cf, _ = _split_position_cash_flows(row.get("cash_flows"))
+    return {
+        "perf_date": valuation_date,
+        "begin_mv": Decimal(str(begin_value)),
+        "bod_cf": bod_cf,
     }
 
 
@@ -404,6 +459,9 @@ def _position_meta_from_row(row: dict[str, object]) -> dict[str, object]:
     security_id = row.get("security_id")
     if isinstance(security_id, str):
         meta["security_id"] = security_id
+    position_currency = row.get("position_currency")
+    if isinstance(position_currency, str) and position_currency:
+        meta["currency"] = position_currency
 
     dimensions_raw = row.get("dimensions")
     if isinstance(dimensions_raw, dict):
@@ -418,18 +476,46 @@ def _parse_position_rows(payload: dict[str, object]) -> list[dict[str, object]]:
     return [row for row in rows_raw if isinstance(row, dict)] if isinstance(rows_raw, list) else []
 
 
-def _parse_component_series(payload: dict[str, object]) -> list[dict[str, object]]:
-    component_series_raw = payload.get("component_series")
-    return (
-        [component for component in component_series_raw if isinstance(component, dict)]
-        if isinstance(component_series_raw, list)
-        else []
-    )
-
-
 def _parse_index_catalog(payload: dict[str, object]) -> list[dict[str, object]]:
     records_raw = payload.get("records")
     return [record for record in records_raw if isinstance(record, dict)] if isinstance(records_raw, list) else []
+
+
+def _validate_stateful_both_currency_support(
+    *,
+    rows: list[dict[str, object]],
+    reporting_currency: str | None,
+    fx: object,
+) -> None:
+    if not reporting_currency:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Stateful attribution input requires report_ccy when currency_mode=BOTH.",
+        )
+
+    position_currencies = {
+        str(position_currency)
+        for row in rows
+        for position_currency in [row.get("position_currency")]
+        if isinstance(position_currency, str) and position_currency
+    }
+    if not position_currencies:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "Stateful attribution input requires position_currency on lotus-core position-timeseries rows "
+                "when currency_mode=BOTH."
+            ),
+        )
+
+    if any(position_currency != reporting_currency for position_currency in position_currencies) and fx is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "Stateful attribution input requires fx.rates when currency_mode=BOTH and sourced positions "
+                "include currencies different from report_ccy."
+            ),
+        )
 
 
 def _parse_retrieval_metadata(payload: dict[str, object]) -> RetrievalMetadata:

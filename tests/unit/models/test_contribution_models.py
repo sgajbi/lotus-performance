@@ -181,7 +181,7 @@ def test_contribution_analytics_request_rejects_stateful_input_in_stateless_mode
         "report_end_date": "2025-01-31",
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "input_mode": "stateless",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
         "stateless_input": {
             "portfolio_data": {
                 "metric_basis": "NET",
@@ -277,7 +277,7 @@ def test_contribution_analytics_request_rejects_stateful_conflicts():
         "report_end_date": "2025-01-31",
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
         "stateless_input": {
             "portfolio_data": {
                 "metric_basis": "NET",
@@ -341,7 +341,7 @@ def test_contribution_analytics_request_to_stateless_fails_without_stateless_pay
             "report_end_date": "2025-01-31",
             "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
             "input_mode": "stateful",
-            "stateful_input": {"consumer_system": "lotus-performance"},
+            "stateful_input": {},
         }
     )
 

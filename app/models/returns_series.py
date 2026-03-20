@@ -7,7 +7,9 @@ from enum import Enum
 from typing import Literal
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from app.models.benchmark_analytics_requests import BenchmarkReturnSource
 
 
 class ReturnsWindowMode(str, Enum):
@@ -104,7 +106,7 @@ class SeriesSelection(BaseModel):
 
 class BenchmarkSpec(BaseModel):
     benchmark_id: str | None = None
-    benchmark_series_ref: str | None = None
+    return_source: BenchmarkReturnSource = BenchmarkReturnSource.CALCULATED
 
 
 class RiskFreeSpec(BaseModel):
@@ -126,11 +128,7 @@ class StatelessInput(BaseModel):
 
 
 class StatefulInput(BaseModel):
-    consumer_system: str = Field(
-        default="lotus-performance",
-        description="Consumer system used for stateful upstream retrieval policy and lineage.",
-        examples=["lotus-performance"],
-    )
+    model_config = ConfigDict(extra="forbid")
 
 
 class ReturnsSeriesRequest(BaseModel):
@@ -168,6 +166,11 @@ class ReturnsSeriesRequest(BaseModel):
         if self.series_selection.include_risk_free and self.input_mode == InputMode.STATELESS:
             if not self.stateless_input or not self.stateless_input.risk_free_returns:
                 raise ValueError("risk_free_returns are required when include_risk_free=true in stateless mode")
+        if self.input_mode == InputMode.STATELESS and self.benchmark is not None:
+            if self.benchmark.benchmark_id is not None:
+                raise ValueError("benchmark.benchmark_id is only supported in stateful mode for returns-series")
+            if self.benchmark.return_source != BenchmarkReturnSource.CALCULATED:
+                raise ValueError("benchmark.return_source is only supported in stateful mode for returns-series")
         return self
 
 
@@ -213,8 +216,18 @@ class ReturnsMetadata(BaseModel):
 
 class ReturnsSeriesPayload(BaseModel):
     portfolio_returns: list[ReturnPoint]
+    cumulative_portfolio_returns: list[ReturnPoint] | None = None
     benchmark_returns: list[ReturnPoint] | None = None
+    cumulative_benchmark_returns: list[ReturnPoint] | None = None
     risk_free_returns: list[ReturnPoint] | None = None
+    cumulative_risk_free_returns: list[ReturnPoint] | None = None
+    active_returns: list[ReturnPoint] | None = None
+    cumulative_active_returns: list[ReturnPoint] | None = None
+
+
+class ReturnsSeriesBenchmarkContext(BaseModel):
+    benchmark_id: str
+    return_source: BenchmarkReturnSource
 
 
 class ReturnsSeriesResponse(BaseModel):
@@ -226,6 +239,7 @@ class ReturnsSeriesResponse(BaseModel):
     frequency: ReturnsFrequency
     metric_basis: MetricBasis
     resolved_window: ResolvedWindow
+    benchmark_context: ReturnsSeriesBenchmarkContext | None = None
     series: ReturnsSeriesPayload
     provenance: ReturnsProvenance
     diagnostics: ReturnsDiagnostics

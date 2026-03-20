@@ -23,22 +23,27 @@ Stateless callers provide:
 
 Stateful callers provide:
 
-- `stateful_input.consumer_system`
+- `stateful_input`
 - optional `stateful_input.metric_basis`
 - optional `stateful_input.benchmark_id`
 - optional `stateful_input.dimensions`
 - optional `stateful_input.include_cash_flows`
 - optional `stateful_input.filters`
 
+The stateful envelope is intentionally lightweight. lotus-performance stamps the
+source consumer identity server-side instead of requiring an explicit consumer field.
+
 In stateful mode, lotus-performance sources portfolio and position timeseries from lotus-core,
-resolves benchmark assignment when needed, retrieves benchmark market-series metadata, and
-normalizes those upstream inputs into the same stateless engine request used by direct callers.
+resolves benchmark assignment when needed, resolves benchmark component inputs through the shared
+benchmark engine sourcing path, and normalizes those upstream inputs into the same stateless engine
+request used by direct callers.
 
 The current stateful public contract is intentionally fenced to:
 
 - `mode="by_instrument"`
-- `currency_mode="BASE_ONLY"`
-- `group_by` limited to `asset_class`, `sector`, or `country`
+- `group_by` limited to `asset_class`, `sector`, `country`, or `currency`
+- `currency_mode="BOTH"` requires `report_ccy`
+- `currency_mode="BOTH"` requires `fx.rates` when sourced positions include currencies different from `report_ccy`
 
 Optional controls include:
 
@@ -118,9 +123,10 @@ Currency attribution is emitted only when all of these are true:
 - the aligned attribution panel contains the required local and FX return columns
 - `group_by` includes the `currency` dimension so the engine can aggregate by currency
 
-That path is currently available only for stateless attribution inputs. Stateful attribution is
-currently fenced to `currency_mode="BASE_ONLY"` until lotus-core exposes the upstream benchmark
-contracts needed for local and FX attribution inputs.
+That path is available for both stateless and stateful attribution inputs. In stateful mode,
+lotus-performance sources benchmark components from lotus-core, calculates benchmark returns
+internally, and decomposes portfolio and benchmark returns into local and FX effects inside the
+attribution engine.
 
 ## Current response shape
 
@@ -129,6 +135,7 @@ The response contains:
 - `calculation_id`
 - `portfolio_id`
 - `input_mode`
+- `benchmark_context` when a benchmark was resolved in stateful mode
 - `model`
 - `linking`
 - `results_by_period`
@@ -204,6 +211,10 @@ Each period result can include:
 {
   "calculation_id": "2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
   "portfolio_id": "ATTRIB_EXAMPLE_01",
+  "benchmark_context": {
+    "benchmark_id": "BMK_TECH_1",
+    "return_source": "calculated"
+  },
   "model": "BF",
   "linking": "none",
   "results_by_period": {

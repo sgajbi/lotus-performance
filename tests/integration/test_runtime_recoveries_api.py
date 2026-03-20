@@ -67,7 +67,7 @@ def test_runtime_recoveries_returns_filtered_events():
         assert body["lineage_recoveries"][0]["calculation_id"] == str(lineage_id)
         assert body["lineage_recoveries"][0]["execution_path"] == f"/performance/executions/{lineage_id}"
         assert body["lineage_recoveries"][0]["lineage_path"] == f"/performance/lineage/{lineage_id}"
-        assert "result_path" not in body["lineage_recoveries"][0]
+        assert body["lineage_recoveries"][0]["result_path"] == f"/performance/twr/results/{lineage_id}"
     finally:
         compute_job_store.clear_all_records()
         lineage_metadata_store.clear_all_records()
@@ -104,6 +104,82 @@ def test_runtime_recoveries_returns_next_offset_for_additional_matching_events()
         assert body["compute_queue"]["next_cursor_recovered_before"] is not None
         assert body["compute_queue"]["next_cursor_calculation_id_before"] == str(compute_ids[1])
         assert body["lineage_queue"]["status"] == "excluded"
+    finally:
+        compute_job_store.clear_all_records()
+        lineage_metadata_store.clear_all_records()
+
+
+def test_runtime_recoveries_exposes_result_paths_for_twr_and_benchmark_jobs():
+    compute_job_store.create_schema()
+    lineage_metadata_store.create_schema()
+    compute_job_store.clear_all_records()
+    lineage_metadata_store.clear_all_records()
+    now = datetime.now(timezone.utc)
+    twr_id = uuid4()
+    benchmark_id = uuid4()
+
+    for analytics_type, calculation_id in [("TWR", twr_id), ("BENCHMARK", benchmark_id)]:
+        compute_job_store.enqueue_job(
+            calculation_id=calculation_id,
+            analytics_type=analytics_type,
+            request_payload={"id": str(calculation_id)},
+        )
+        with compute_job_store._session() as session:
+            row = compute_job_store._get_model(session, calculation_id)
+            row.attempt_count = 1
+            row.last_error_at_utc = now - timedelta(seconds=5)
+
+    try:
+        with TestClient(app) as client:
+            twr_response = client.get(
+                "/integration/runtime-recoveries",
+                params={"queue": "compute", "limit": 5, "compute_analytics_type": "TWR"},
+            )
+            benchmark_response = client.get(
+                "/integration/runtime-recoveries",
+                params={"queue": "compute", "limit": 5, "compute_analytics_type": "BENCHMARK"},
+            )
+
+        assert twr_response.status_code == 200
+        assert benchmark_response.status_code == 200
+        assert twr_response.json()["compute_recoveries"][0]["result_path"] == f"/performance/twr/results/{twr_id}"
+        assert benchmark_response.json()["compute_recoveries"][0]["result_path"] == (
+            f"/performance/benchmark/results/{benchmark_id}"
+        )
+    finally:
+        compute_job_store.clear_all_records()
+        lineage_metadata_store.clear_all_records()
+
+
+def test_runtime_recoveries_exposes_result_path_for_benchmark_lineage_events():
+    compute_job_store.create_schema()
+    lineage_metadata_store.create_schema()
+    compute_job_store.clear_all_records()
+    lineage_metadata_store.clear_all_records()
+    benchmark_lineage_id = uuid4()
+
+    lineage_metadata_store.enqueue_lineage_payload(
+        calculation_id=benchmark_lineage_id,
+        calculation_type="BENCHMARK",
+        request_json="{}",
+        response_json="{}",
+        details={"details.json": "{}"},
+    )
+    lineage_metadata_store.increment_attempt_count(benchmark_lineage_id)
+    lineage_metadata_store.mark_pending(benchmark_lineage_id)
+
+    try:
+        with TestClient(app) as client:
+            response = client.get(
+                "/integration/runtime-recoveries",
+                params={"queue": "lineage", "limit": 5, "lineage_calculation_type": "BENCHMARK"},
+            )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["lineage_recoveries"][0]["result_path"] == (
+            f"/performance/benchmark/results/{benchmark_lineage_id}"
+        )
     finally:
         compute_job_store.clear_all_records()
         lineage_metadata_store.clear_all_records()

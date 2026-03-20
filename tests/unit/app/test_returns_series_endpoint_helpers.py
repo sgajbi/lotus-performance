@@ -17,6 +17,7 @@ from app.api.endpoints.returns_series import (
     _portfolio_timeseries_to_valuation_points,
     _resample_returns,
     _resolve_window,
+    _should_offload_resolved_returns_series,
     _should_offload_returns_series,
     _to_dataframe,
     get_returns_series,
@@ -243,7 +244,7 @@ async def test_get_returns_series_guards_stateless_mode_without_input():
         data_policy=DataPolicy(),
         input_mode=InputMode.STATELESS,
         stateless_input=None,
-        stateful_input=StatefulInput.model_construct(consumer_system="lotus-performance"),
+        stateful_input=StatefulInput.model_construct(),
     )
     with pytest.raises(HTTPException) as exc:
         await get_returns_series(request)
@@ -283,7 +284,7 @@ def test_should_offload_returns_series_uses_runtime_settings(mocker):
             "as_of_date": "2026-02-27",
             "window": {"mode": "EXPLICIT", "from_date": "2026-02-24", "to_date": "2026-02-27"},
             "input_mode": "stateful",
-            "stateful_input": {"consumer_system": "lotus-performance"},
+            "stateful_input": {},
         }
     )
     mocker.patch(
@@ -292,3 +293,13 @@ def test_should_offload_returns_series_uses_runtime_settings(mocker):
     )
 
     assert _should_offload_returns_series(request) is True
+
+
+def test_should_offload_resolved_returns_series_uses_runtime_settings(mocker):
+    mocker.patch(
+        "app.api.endpoints.returns_series.get_settings",
+        return_value=type("Settings", (), {"RETURNS_SERIES_EXECUTOR_INPUT_COUNT": 3})(),
+    )
+
+    assert _should_offload_resolved_returns_series(3) is True
+    assert _should_offload_resolved_returns_series(2) is False

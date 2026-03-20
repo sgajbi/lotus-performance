@@ -5,24 +5,15 @@ import pandas as pd
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import JSONResponse
 
-from adapters.api_adapter import (
-    create_engine_config,
-    create_engine_dataframe,
-    format_breakdowns_for_response,
-)
 from app.core.config import get_settings
 from app.models.attribution_analytics_requests import AttributionAnalyticsRequest, AttributionInputMode
 from app.models.attribution_requests import AttributionRequest
 from app.models.attribution_responses import AttributionAcceptedResponse, AttributionResponse
+from app.models.benchmark_analytics_requests import BenchmarkInputMode, BenchmarkReturnSource
 from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest, MWRInputMode
 from app.models.mwr_responses import MoneyWeightedReturnResponse
-from app.models.performance_diagnostics import build_performance_diagnostics, build_reset_events
-from app.models.responses import (
-    PerformanceResponse,
-    PortfolioReturnDecomposition,
-    SinglePeriodPerformanceResult,
-)
-from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode
+from app.models.responses import PerformanceResponse, TWRAcceptedResponse
+from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode, TWRResolvedExecutionRequest
 from app.services.async_result_service import resolve_async_result
 from app.services.attribution_mode_service import resolve_attribution_request
 from app.services.attribution_service import calculate_attribution
@@ -41,102 +32,13 @@ from app.services.submission_fencing_service import (
     register_sync_execution_or_raise,
 )
 from app.services.twr_mode_service import resolve_twr_request
+from app.services.twr_service import calculate_twr_response
 from core.envelope import Audit, Diagnostics, Meta
-from core.periods import resolve_periods
 from core.repro import generate_canonical_hash, generate_canonical_hash_from_value
-from engine.breakdown import generate_performance_breakdowns
-from engine.compute import run_calculations
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
 from engine.mwr import calculate_money_weighted_return
-from engine.schema import PortfolioColumns
 
 router = APIRouter(tags=["Performance"])
-
-
-def _as_numeric(value: object, default=0):
-    numeric = pd.to_numeric(value, errors="coerce")
-    if pd.isna(numeric):
-        return default
-    return numeric
-
-
-def _get_total_cum_ror(row: pd.Series | None, prefix: str = "") -> float:
-    if row is None:
-        return 0.0
-    long_cum = _as_numeric(row.get(f"{prefix}long_cum_ror", 0))
-    short_cum = _as_numeric(row.get(f"{prefix}short_cum_ror", 0))
-    return ((1 + long_cum / 100) * (1 + short_cum / 100) - 1) * 100
-
-
-def _calculate_total_return_from_reset_slice(
-    df_slice: pd.DataFrame, daily_results_df: pd.DataFrame
-) -> PortfolioReturnDecomposition:
-    end_row = df_slice.iloc[-1]
-    full_perf_dates = pd.to_datetime(daily_results_df[PortfolioColumns.PERF_DATE.value]).dt.date
-    slice_min_date = pd.to_datetime(df_slice[PortfolioColumns.PERF_DATE.value].min()).date()
-    day_before_mask = full_perf_dates < slice_min_date
-    day_before_row = daily_results_df[day_before_mask].iloc[-1] if day_before_mask.any() else None
-
-    start_cum_base = _as_numeric(
-        day_before_row[PortfolioColumns.FINAL_CUM_ROR.value] if day_before_row is not None else 0
-    )
-    end_cum_base = _as_numeric(end_row[PortfolioColumns.FINAL_CUM_ROR.value])
-
-    start_base_denom = 1 + start_cum_base / 100
-    if start_base_denom == 0:
-        base_total = end_cum_base
-    else:
-        base_total = (((1 + end_cum_base / 100) / start_base_denom) - 1) * 100
-
-    if "local_ror" not in df_slice.columns:
-        return PortfolioReturnDecomposition(local=base_total, fx=0.0, base=base_total)
-
-    start_cum_local = _get_total_cum_ror(day_before_row, "local_ror_")
-    end_cum_local = _get_total_cum_ror(end_row, "local_ror_")
-
-    start_local_denom = 1 + start_cum_local / 100
-    if start_local_denom == 0:
-        local_total = end_cum_local
-    else:
-        local_total = (((1 + end_cum_local / 100) / start_local_denom) - 1) * 100
-
-    base_denom_for_fx = 1 + local_total / 100
-    if base_denom_for_fx == 0:
-        fx_total = 0.0
-    else:
-        fx_total = (((1 + base_total / 100) / base_denom_for_fx) - 1) * 100
-
-    return PortfolioReturnDecomposition(local=local_total, fx=fx_total, base=base_total)
-
-
-def _calculate_total_return_from_non_reset_slice(df_slice: pd.DataFrame) -> PortfolioReturnDecomposition:
-    daily_ror = pd.to_numeric(df_slice[PortfolioColumns.DAILY_ROR.value], errors="coerce").fillna(0.0)
-    base_total = _as_numeric(((1 + daily_ror / 100).prod() - 1) * 100)
-
-    if "local_ror" not in df_slice.columns:
-        return PortfolioReturnDecomposition(local=base_total, fx=0.0, base=base_total)
-
-    local_ror = pd.to_numeric(df_slice["local_ror"], errors="coerce").fillna(0.0)
-    local_total = _as_numeric(((1 + local_ror / 100).prod() - 1) * 100)
-    base_denom_for_fx = 1 + local_total / 100
-    if base_denom_for_fx == 0:
-        fx_total = 0.0
-    else:
-        fx_total = _as_numeric((((1 + base_total / 100) / base_denom_for_fx) - 1) * 100)
-
-    return PortfolioReturnDecomposition(local=local_total, fx=fx_total, base=base_total)
-
-
-def _calculate_total_return_from_slice(
-    df_slice: pd.DataFrame, daily_results_df: pd.DataFrame
-) -> PortfolioReturnDecomposition:
-    if df_slice.empty:
-        return PortfolioReturnDecomposition(local=0.0, fx=0.0, base=0.0)
-
-    if df_slice[PortfolioColumns.PERF_RESET.value].any():
-        return _calculate_total_return_from_reset_slice(df_slice, daily_results_df)
-
-    return _calculate_total_return_from_non_reset_slice(df_slice)
 
 
 def _generate_twr_request_hashes(request: TWRAnalyticsRequest, *, engine_version: str) -> tuple[str, str]:
@@ -149,177 +51,304 @@ def _generate_twr_request_hashes(request: TWRAnalyticsRequest, *, engine_version
     return generate_canonical_hash(request, engine_version)
 
 
-@router.post("/twr", response_model=PerformanceResponse, summary="Calculate Time-Weighted Return")
-async def calculate_twr_endpoint(request: TWRAnalyticsRequest):
+def _build_resolved_twr_identity_payload(
+    *,
+    performance_request,
+    benchmark_request,
+) -> TWRResolvedExecutionRequest:
+    return TWRResolvedExecutionRequest(
+        portfolio=performance_request,
+        benchmark=benchmark_request,
+    )
+
+def _twr_benchmark_requested(request: TWRAnalyticsRequest) -> bool:
+    return request.include_benchmark or request.benchmark is not None
+
+
+def _twr_requested_benchmark_input_mode(request: TWRAnalyticsRequest) -> str | None:
+    if request.benchmark is not None:
+        return request.benchmark.input_mode.value
+    if request.include_benchmark and request.input_mode == TWRInputMode.STATEFUL:
+        return BenchmarkInputMode.STATEFUL.value
+    return None
+
+
+def _twr_requested_benchmark_return_source(request: TWRAnalyticsRequest) -> str | None:
+    if not _twr_benchmark_requested(request):
+        return None
+    if request.benchmark is not None:
+        return request.benchmark.return_source.value
+    return BenchmarkReturnSource.CALCULATED.value
+
+
+def _twr_requested_benchmark_work_units(request: TWRAnalyticsRequest) -> int:
+    if request.benchmark is None or request.benchmark.input_mode != BenchmarkInputMode.STATELESS:
+        return 0
+    stateless_input = request.benchmark.stateless_input
+    if stateless_input is None:
+        return 0
+    if request.benchmark.return_source == BenchmarkReturnSource.CALCULATED:
+        return len(stateless_input.component_observations) or len(stateless_input.component_price_points)
+    return len(stateless_input.benchmark_return_points)
+
+
+def _twr_requested_input_count(request: TWRAnalyticsRequest) -> int:
+    valuation_points = (
+        len(request.stateless_input.valuation_points)
+        if request.stateless_input is not None
+        else len(request.valuation_points)
+    )
+    return valuation_points + _twr_requested_benchmark_work_units(request)
+
+
+def _twr_resolved_benchmark_work_units(benchmark_request) -> int:
+    if benchmark_request is None:
+        return 0
+    return len(benchmark_request.component_observations) or len(benchmark_request.benchmark_return_points)
+
+
+def _twr_resolved_input_count(performance_request, benchmark_request) -> int:
+    return len(performance_request.valuation_points) + _twr_resolved_benchmark_work_units(benchmark_request)
+
+
+def _should_preemptively_offload_stateful_twr(request: TWRAnalyticsRequest) -> bool:
+    active_settings = get_settings()
+    return (
+        request.input_mode == TWRInputMode.STATEFUL
+        and request.performance_start_date is not None
+        and (request.report_end_date - request.performance_start_date).days >= active_settings.TWR_EXECUTOR_WINDOW_DAYS
+    )
+
+
+def _should_offload_twr(request: TWRAnalyticsRequest) -> bool:
+    active_settings = get_settings()
+    return _should_preemptively_offload_stateful_twr(request) or (
+        _twr_requested_input_count(request) >= active_settings.TWR_EXECUTOR_INPUT_COUNT
+    )
+
+
+def _should_offload_resolved_twr(input_count: int) -> bool:
+    active_settings = get_settings()
+    return input_count >= active_settings.TWR_EXECUTOR_INPUT_COUNT
+
+
+def _build_twr_execution_window(
+    request: TWRAnalyticsRequest,
+    *,
+    input_count: int,
+    source_request_fingerprint: str | None = None,
+    benchmark_id: str | None = None,
+    benchmark_work_units: int | None = None,
+) -> dict[str, object]:
+    requested_window: dict[str, object] = {
+        "performance_start_date": (
+            str(request.performance_start_date) if request.performance_start_date is not None else None
+        ),
+        "report_start_date": str(request.report_start_date) if request.report_start_date else None,
+        "report_end_date": str(request.report_end_date),
+        "requested_periods": [analysis.period.value for analysis in request.analyses],
+        "input_mode": request.input_mode.value,
+        "include_benchmark": request.include_benchmark,
+        "input_count": input_count,
+    }
+    if source_request_fingerprint is not None:
+        requested_window["source_request_fingerprint"] = source_request_fingerprint
+    requested_benchmark_id = benchmark_id or (request.benchmark.benchmark_id if request.benchmark is not None else None)
+    if requested_benchmark_id is not None:
+        requested_window["benchmark_id"] = requested_benchmark_id
+    benchmark_input_mode = _twr_requested_benchmark_input_mode(request)
+    if benchmark_input_mode is not None:
+        requested_window["benchmark_input_mode"] = benchmark_input_mode
+    benchmark_return_source = _twr_requested_benchmark_return_source(request)
+    if benchmark_return_source is not None:
+        requested_window["benchmark_return_source"] = benchmark_return_source
+    if benchmark_work_units is not None:
+        requested_window["benchmark_work_units"] = benchmark_work_units
+    return requested_window
+
+
+def _accepted_twr_response(calculation_id) -> TWRAcceptedResponse:
+    return TWRAcceptedResponse(
+        calculation_id=calculation_id,
+        poll_path=f"/performance/executions/{calculation_id}",
+        result_path=f"/performance/twr/results/{calculation_id}",
+    )
+
+
+@router.post("/twr", response_model=PerformanceResponse | TWRAcceptedResponse, summary="Calculate Time-Weighted Return")
+async def calculate_twr_endpoint(request: TWRAnalyticsRequest) -> PerformanceResponse | JSONResponse:
     """
     Calculates time-weighted return (TWR) for one or more requested periods
     and provides performance breakdowns by requested frequencies.
     """
     settings = get_settings()
     input_fingerprint, calculation_hash = _generate_twr_request_hashes(request, engine_version=settings.APP_VERSION)
+    source_request_fingerprint = input_fingerprint
+    requested_window = _build_twr_execution_window(
+        request,
+        input_count=_twr_requested_input_count(request),
+    )
+    if _should_offload_twr(request):
+        return register_async_submission_or_raise(
+            calculation_id=request.calculation_id,
+            analytics_type="TWR",
+            portfolio_id=request.portfolio_id,
+            requested_window=requested_window,
+            input_fingerprint=input_fingerprint,
+            calculation_hash=calculation_hash,
+            request_payload=request.model_dump(mode="json"),
+            offload_reason=(
+                "long_window_stateful_twr"
+                if request.input_mode == TWRInputMode.STATEFUL
+                else "large_twr_input_set"
+            ),
+            accepted_response_factory=_accepted_twr_response,
+        )
+
+    if request.input_mode == TWRInputMode.STATEFUL:
+        replay_response = replay_promoted_stateful_async_execution(
+            calculation_id=request.calculation_id,
+            analytics_type="TWR",
+            source_request_fingerprint=source_request_fingerprint,
+            accepted_response_factory=_accepted_twr_response,
+        )
+        if replay_response is not None:
+            return replay_response
+        requested_window = _build_twr_execution_window(
+            request,
+            input_count=_twr_requested_input_count(request),
+            source_request_fingerprint=source_request_fingerprint,
+        )
+
     register_sync_execution_or_raise(
         calculation_id=request.calculation_id,
         analytics_type="TWR",
         portfolio_id=request.portfolio_id,
-        requested_window={
-            "report_start_date": str(request.report_start_date) if request.report_start_date else None,
-            "report_end_date": str(request.report_end_date),
-            "requested_periods": [analysis.period.value for analysis in request.analyses],
-        },
+        requested_window=requested_window,
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
     )
-    execution_registry.mark_running(request.calculation_id)
-    execution_stage_started = False
-    lineage_stage_started = False
 
     try:
         resolved_request = await resolve_twr_request(request, settings=settings)
         performance_request = resolved_request.performance_request
-        if resolved_request.input_mode == TWRInputMode.STATEFUL:
-            input_fingerprint, calculation_hash = generate_canonical_hash(performance_request, settings.APP_VERSION)
-            execution_registry.update_execution_identity(
-                request.calculation_id,
-                input_fingerprint=input_fingerprint,
-                calculation_hash=calculation_hash,
+        resolved_twr_identity_payload = _build_resolved_twr_identity_payload(
+            performance_request=performance_request,
+            benchmark_request=resolved_request.benchmark_request,
+        )
+        request_artifact_model = (
+            resolved_twr_identity_payload
+            if resolved_request.input_mode == TWRInputMode.STATEFUL or resolved_request.benchmark_request is not None
+            else request
+        )
+        resolved_input_count = _twr_resolved_input_count(
+            performance_request,
+            resolved_request.benchmark_request,
+        )
+        benchmark_work_units = _twr_resolved_benchmark_work_units(resolved_request.benchmark_request)
+        if resolved_request.input_mode == TWRInputMode.STATEFUL or resolved_request.benchmark_request is not None:
+            input_fingerprint, calculation_hash = generate_canonical_hash_from_value(
+                resolved_twr_identity_payload,
+                settings.APP_VERSION,
             )
-        execution_registry.start_stage(request.calculation_id, "execution")
-        execution_stage_started = True
-        periods_to_resolve = [analysis.period for analysis in performance_request.analyses]
-        freqs_by_period = {analysis.period.value: analysis.frequencies for analysis in performance_request.analyses}
-
-        as_of_date = performance_request.report_end_date
-        resolved_periods = resolve_periods(periods_to_resolve, as_of_date, performance_request.performance_start_date)
-
-        if not resolved_periods:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No valid periods could be resolved.")
-
-        master_start_date = min(p.start_date for p in resolved_periods)
-        master_end_date = max(p.end_date for p in resolved_periods)
-
-        engine_config = create_engine_config(performance_request, master_start_date, master_end_date)
-        engine_df = create_engine_dataframe([item.model_dump() for item in performance_request.valuation_points])
-        daily_results_df, engine_diagnostics = run_calculations(engine_df, engine_config)
-
-        results_by_period = {}
-        daily_results_df[PortfolioColumns.PERF_DATE.value] = pd.to_datetime(
-            daily_results_df[PortfolioColumns.PERF_DATE.value]
-        ).dt.date
-
-        for period in resolved_periods:
-            period_slice_df = daily_results_df[
-                (daily_results_df[PortfolioColumns.PERF_DATE.value] >= period.start_date)
-                & (daily_results_df[PortfolioColumns.PERF_DATE.value] <= period.end_date)
-            ].copy()
-
-            if period_slice_df.empty:
-                continue
-
-            requested_frequencies_for_period = freqs_by_period.get(period.name, [])
-            breakdowns_data = generate_performance_breakdowns(
-                period_slice_df,
-                requested_frequencies_for_period,
-                performance_request.annualization,
-                performance_request.output.include_cumulative,
-                performance_request.rounding_precision,
-            )
-            formatted_breakdowns = format_breakdowns_for_response(
-                breakdowns_data, period_slice_df, performance_request.output.include_timeseries
-            )
-
-            period_return_summary = _calculate_total_return_from_slice(period_slice_df, daily_results_df)
-            period_result = SinglePeriodPerformanceResult(
-                breakdowns=formatted_breakdowns, portfolio_return=period_return_summary
-            )
-
-            if performance_request.reset_policy.emit and engine_diagnostics.resets:
-                period_result.reset_events = [
-                    event
-                    for event in build_reset_events(engine_diagnostics)
-                    if period.start_date <= event.date <= period.end_date
-                ]
-
-            results_by_period[period.name] = period_result
-
+            if request.input_mode == TWRInputMode.STATEFUL:
+                accepted_response = finalize_resolved_stateful_execution(
+                    calculation_id=request.calculation_id,
+                    analytics_type="TWR",
+                    requested_window=_build_twr_execution_window(
+                        request,
+                        input_count=resolved_input_count,
+                        source_request_fingerprint=source_request_fingerprint,
+                        benchmark_id=resolved_request.resolved_benchmark_id,
+                        benchmark_work_units=benchmark_work_units,
+                    ),
+                    input_fingerprint=input_fingerprint,
+                    calculation_hash=calculation_hash,
+                    resolved_request_payload={
+                        "resolved_request": resolved_twr_identity_payload.model_dump(mode="json"),
+                        "source_input_mode": resolved_request.input_mode.value,
+                        "benchmark_input_mode": (
+                            resolved_request.benchmark_input_mode.value
+                            if resolved_request.benchmark_input_mode is not None
+                            else None
+                        ),
+                        "resolved_benchmark_id": resolved_request.resolved_benchmark_id,
+                        "benchmark_return_source": (
+                            request.benchmark.return_source.value
+                            if request.benchmark is not None
+                            else BenchmarkReturnSource.CALCULATED.value
+                        ),
+                        "portfolio_id": request.portfolio_id,
+                    },
+                    should_offload=_should_offload_resolved_twr(resolved_input_count),
+                    offload_reason="large_resolved_stateful_twr",
+                    accepted_response_factory=_accepted_twr_response,
+                )
+                if accepted_response is not None:
+                    return accepted_response
+            else:
+                execution_registry.update_execution_identity(
+                    request.calculation_id,
+                    input_fingerprint=input_fingerprint,
+                    calculation_hash=calculation_hash,
+                )
+        return calculate_twr_response(
+            performance_request,
+            portfolio_id=request.portfolio_id,
+            input_mode=resolved_request.input_mode,
+            input_fingerprint=input_fingerprint,
+            calculation_hash=calculation_hash,
+            engine_version=settings.APP_VERSION,
+            request_artifact_model=request_artifact_model,
+            benchmark_request=resolved_request.benchmark_request,
+            benchmark_input_mode=resolved_request.benchmark_input_mode,
+            resolved_benchmark_id=resolved_request.resolved_benchmark_id,
+            benchmark_return_source=(
+                request.benchmark.return_source if request.benchmark is not None else BenchmarkReturnSource.CALCULATED
+            ),
+        )
     except InvalidEngineInputError as e:
         record_execution_failure(
             calculation_id=request.calculation_id,
             message=f"Invalid Input: {e.message}",
-            execution_stage_started=execution_stage_started,
-            lineage_stage_started=lineage_stage_started,
         )
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid Input: {e.message}")
     except EngineCalculationError as e:
         record_execution_failure(
             calculation_id=request.calculation_id,
             message=f"Calculation Error: {e.message}",
-            execution_stage_started=execution_stage_started,
-            lineage_stage_started=lineage_stage_started,
         )
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Calculation Error: {e.message}")
-    except HTTPException:
+    except HTTPException as exc:
         record_execution_failure(
             calculation_id=request.calculation_id,
-            message="HTTPException raised during TWR execution.",
-            execution_stage_started=execution_stage_started,
-            lineage_stage_started=lineage_stage_started,
+            message=str(exc.detail),
         )
         raise
     except Exception as e:
         record_execution_failure(
             calculation_id=request.calculation_id,
             message=f"An unexpected server error occurred: {str(e)}",
-            execution_stage_started=execution_stage_started,
-            lineage_stage_started=lineage_stage_started,
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An unexpected server error occurred: {str(e)}",
         )
 
-    meta = Meta(
-        calculation_id=request.calculation_id,
-        engine_version=settings.APP_VERSION,
-        precision_mode=performance_request.precision_mode,
-        calendar=performance_request.calendar,
-        annualization=performance_request.annualization,
-        periods={
-            "requested": [p.value for p in periods_to_resolve],
-            "master_start": str(master_start_date),
-            "master_end": str(master_end_date),
-        },
-        input_fingerprint=input_fingerprint,
-        calculation_hash=calculation_hash,
-        report_ccy=engine_config.report_ccy,
-    )
-    diagnostics = build_performance_diagnostics(engine_diagnostics)
-    audit = Audit(
-        counts={"input_rows": len(performance_request.valuation_points), "output_rows": len(daily_results_df)}
-    )
 
-    response_model = PerformanceResponse(
-        calculation_id=request.calculation_id,
-        portfolio_id=request.portfolio_id,
-        input_mode=request.input_mode,
-        results_by_period=results_by_period,
-        meta=meta,
-        diagnostics=diagnostics,
-        audit=audit,
+@router.get(
+    "/twr/results/{calculation_id}",
+    response_model=PerformanceResponse | TWRAcceptedResponse,
+    summary="Retrieve async TWR result",
+)
+async def get_twr_result(calculation_id: UUID) -> PerformanceResponse | JSONResponse:
+    return resolve_async_result(
+        calculation_id=calculation_id,
+        response_model=PerformanceResponse,
+        accepted_response_factory=_accepted_twr_response,
+        not_found_detail="Async TWR result not found for the given calculation_id.",
+        failed_detail="Async TWR execution failed.",
     )
-
-    complete_execution_with_lineage(
-        calculation_id=request.calculation_id,
-        calculation_type="TWR",
-        request_model=performance_request if resolved_request.input_mode == TWRInputMode.STATEFUL else request,
-        response_model=response_model,
-        execution_details={
-            "input_rows": len(performance_request.valuation_points),
-            "output_rows": len(daily_results_df),
-        },
-        calculation_details={"twr_calculation_details.csv": daily_results_df},
-    )
-
-    return response_model
 
 
 @router.post("/mwr", response_model=MoneyWeightedReturnResponse, summary="Calculate Money-Weighted Return")
@@ -518,6 +547,8 @@ async def calculate_attribution_endpoint(request: AttributionAnalyticsRequest) -
                 request,
                 input_count=resolved.input_count,
                 source_request_fingerprint=source_request_fingerprint,
+                benchmark_id=resolved.resolved_benchmark_id,
+                benchmark_return_source=resolved.resolved_benchmark_return_source,
             )
             accepted_response = finalize_resolved_stateful_execution(
                 calculation_id=request.calculation_id,
@@ -525,7 +556,12 @@ async def calculate_attribution_endpoint(request: AttributionAnalyticsRequest) -
                 requested_window=requested_window,
                 input_fingerprint=input_fingerprint,
                 calculation_hash=calculation_hash,
-                resolved_request_payload=resolved.attribution_request.model_dump(mode="json"),
+                resolved_request_payload={
+                    "resolved_request": resolved.attribution_request.model_dump(mode="json"),
+                    "source_input_mode": resolved.input_mode.value,
+                    "resolved_benchmark_id": resolved.resolved_benchmark_id,
+                    "resolved_benchmark_return_source": resolved.resolved_benchmark_return_source,
+                },
                 should_offload=_should_offload_resolved_attribution(resolved.input_count),
                 offload_reason="large_resolved_stateful_attribution",
                 accepted_response_factory=_accepted_attribution_response,
@@ -537,6 +573,8 @@ async def calculate_attribution_endpoint(request: AttributionAnalyticsRequest) -
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
             input_mode=resolved.input_mode,
+            resolved_benchmark_id=resolved.resolved_benchmark_id,
+            resolved_benchmark_return_source=resolved.resolved_benchmark_return_source,
         )
     except HTTPException as exc:
         record_execution_failure(
@@ -593,6 +631,8 @@ def _build_attribution_execution_window(
     *,
     input_count: int,
     source_request_fingerprint: str | None = None,
+    benchmark_id: str | None = None,
+    benchmark_return_source: str | None = None,
 ) -> dict[str, object]:
     requested_window = {
         "report_start_date": str(request.report_start_date),
@@ -605,6 +645,10 @@ def _build_attribution_execution_window(
     }
     if source_request_fingerprint is not None:
         requested_window["source_request_fingerprint"] = source_request_fingerprint
+    if benchmark_id is not None:
+        requested_window["benchmark_id"] = benchmark_id
+    if benchmark_return_source is not None:
+        requested_window["benchmark_return_source"] = benchmark_return_source
     return requested_window
 
 

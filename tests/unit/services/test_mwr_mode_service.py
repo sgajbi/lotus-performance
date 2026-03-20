@@ -137,7 +137,6 @@ async def test_resolve_mwr_request_uses_stateful_portfolio_window(monkeypatch):
             "mwr_method": "XIRR",
             "input_mode": "stateful",
             "stateful_input": {
-                "consumer_system": "lotus-performance",
                 "window_start_date": "2025-01-01",
             },
         }
@@ -195,7 +194,6 @@ async def test_resolve_mwr_request_fails_retrieval_stage(monkeypatch):
             "as_of": "2025-01-03",
             "input_mode": "stateful",
             "stateful_input": {
-                "consumer_system": "lotus-performance",
                 "window_start_date": "2025-01-01",
             },
         }
@@ -245,7 +243,6 @@ async def test_resolve_mwr_request_fails_normalization_stage(monkeypatch):
             "as_of": "2025-01-03",
             "input_mode": "stateful",
             "stateful_input": {
-                "consumer_system": "lotus-performance",
                 "window_start_date": "2025-01-01",
             },
         }

@@ -1,0 +1,37 @@
+{
+  "input_mode": "stateless",
+  "benchmark_id": "BMK_STATELESS_1",
+  "benchmark_start_date": "2026-01-02",
+  "report_end_date": "2026-01-03",
+  "analyses": [
+    {
+      "period": "ITD",
+      "frequencies": ["daily"]
+    }
+  ],
+  "return_source": "calculated",
+  "output": {
+    "include_timeseries": true
+  },
+  "stateless_input": {
+    "benchmark_currency": "USD",
+    "component_observations": [
+      {
+        "component_id": "IDX_A",
+        "date": "2026-01-02",
+        "weight_bop": 0.6,
+        "component_return": 0.02,
+        "component_return_local": 0.015,
+        "component_return_fx": 0.004926108374
+      },
+      {
+        "component_id": "IDX_B",
+        "date": "2026-01-02",
+        "weight_bop": 0.4,
+        "component_return": 0.01,
+        "component_return_local": 0.01,
+        "component_return_fx": 0.0
+      }
+    ]
+  }
+}

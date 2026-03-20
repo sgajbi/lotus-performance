@@ -27,7 +27,7 @@ def test_twr_endpoint_respects_rounding_precision(client):
     response = client.post("/performance/twr", json=payload)
     assert response.status_code == 200
     data = response.json()
-    summary = data["results_by_period"]["MTD"]["breakdowns"]["monthly"][0]["summary"]
+    summary = data["results_by_period"]["MTD"]["portfolio"]["breakdowns"]["monthly"][0]["period_return"]
 
     # The raw return is 1.123456%. It should be rounded to 1.12.
-    assert summary["period_return_pct"] == 1.12
+    assert summary["base"] == pytest.approx(1.12)

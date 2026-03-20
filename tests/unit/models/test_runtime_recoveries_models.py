@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 
 from app.models.runtime_recoveries import build_runtime_recoveries_response
 from app.services.durability_health_service import DurabilityHealthStatus
+from app.services.operator_navigation_service import build_operator_navigation_links
 from app.services.runtime_recovery_service import RuntimeRecoveryQueueState, RuntimeRecoverySnapshot
 
 
@@ -84,4 +85,12 @@ def test_build_runtime_recoveries_response_serializes_snapshot():
     assert response.lineage_recoveries[0].calculation_id == "lineage-1"
     assert response.lineage_recoveries[0].execution_path == "/performance/executions/lineage-1"
     assert response.lineage_recoveries[0].lineage_path == "/performance/lineage/lineage-1"
-    assert response.lineage_recoveries[0].result_path is None
+    assert response.lineage_recoveries[0].result_path == "/performance/twr/results/lineage-1"
+
+
+def test_operator_navigation_links_support_twr_and_benchmark_recovery_results():
+    twr_links = build_operator_navigation_links("recovery-twr", workflow_type="TWR")
+    benchmark_links = build_operator_navigation_links("recovery-bmk", workflow_type="BENCHMARK")
+
+    assert twr_links.result_path == "/performance/twr/results/recovery-twr"
+    assert benchmark_links.result_path == "/performance/benchmark/results/recovery-bmk"

@@ -19,6 +19,10 @@ def build_operator_navigation_links(calculation_id: str, workflow_type: str | No
 
 
 def _build_result_path(*, calculation_id: str, workflow_type: str | None) -> str | None:
+    if workflow_type == "TWR":
+        return f"/performance/twr/results/{calculation_id}"
+    if workflow_type == "BENCHMARK":
+        return f"/performance/benchmark/results/{calculation_id}"
     if workflow_type == "ReturnsSeries":
         return f"/integration/returns/series/results/{calculation_id}"
     if workflow_type == "Contribution":

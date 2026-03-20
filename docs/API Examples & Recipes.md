@@ -67,7 +67,6 @@ POST /performance/twr
 {
   "input_mode": "stateful",
   "portfolio_id": "DEMO_DPM_EUR_001",
-  "performance_start_date": "2024-12-31",
   "report_end_date": "2025-01-31",
   "metric_basis": "NET",
   "analyses": [
@@ -76,13 +75,156 @@ POST /performance/twr
       "frequencies": ["daily", "monthly"]
     }
   ],
-  "stateful_input": {
-    "consumer_system": "lotus-performance"
+  "stateful_input": {}
+}
+```
+
+## 3. TWR with Benchmark and Relative Performance
+
+Calculates portfolio TWR, benchmark TWR, and arithmetic relative performance in one request.
+
+**Endpoint**
+
+```text
+POST /performance/twr
+```
+
+**Payload**
+
+```json
+{
+  "input_mode": "stateless",
+  "portfolio_id": "TWR_WITH_BENCHMARK_01",
+  "performance_start_date": "2024-12-31",
+  "report_end_date": "2025-01-02",
+  "metric_basis": "NET",
+  "include_benchmark": true,
+  "analyses": [
+    {
+      "period": "YTD",
+      "frequencies": ["daily"]
+    }
+  ],
+  "stateless_input": {
+    "valuation_points": [
+      { "day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0 },
+      { "day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1 }
+    ]
+  },
+  "benchmark": {
+    "benchmark_id": "BMK_STATELESS_1",
+    "input_mode": "stateless",
+    "return_source": "calculated",
+    "stateless_input": {
+      "benchmark_currency": "USD",
+      "component_observations": [
+        { "component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01 },
+        { "component_id": "IDX_A", "date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.015 }
+      ]
+    }
   }
 }
 ```
 
-## 3. Stateful Money-Weighted Return (MWR) from lotus-core
+**Response excerpt**
+
+```json
+{
+  "results_by_period": {
+    "YTD": {
+      "portfolio": {
+        "summary": {
+          "period_return": {
+            "base": 2.01
+          },
+          "cumulative_return": {
+            "base": 2.01
+          }
+        }
+      },
+      "benchmark": {
+        "summary": {
+          "period_return": {
+            "base": 2.515
+          },
+          "cumulative_return": {
+            "base": 2.515
+          }
+        },
+        "benchmark_id": "BMK_STATELESS_1"
+      },
+      "relative_performance": {
+        "summary": {
+          "period_return": {
+            "base": -0.505
+          },
+          "cumulative_return": {
+            "base": -0.505
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## 4. Benchmark from Stateless Component Price Points
+
+Calculates benchmark performance directly from raw component price points. This is useful when the
+caller has component levels but does not want to precompute component returns outside
+`lotus-performance`.
+
+**Endpoint**
+
+```text
+POST /performance/benchmark
+```
+
+**Payload**
+
+```json
+{
+  "input_mode": "stateless",
+  "benchmark_id": "BMK_STATELESS_PRICE_1",
+  "benchmark_start_date": "2026-01-02",
+  "report_end_date": "2026-01-02",
+  "analyses": [
+    {
+      "period": "ITD",
+      "frequencies": ["daily"]
+    }
+  ],
+  "return_source": "calculated",
+  "output": {
+    "include_timeseries": true
+  },
+  "stateless_input": {
+    "benchmark_currency": "USD",
+    "component_price_points": [
+      { "component_id": "IDX_A", "date": "2026-01-01", "weight_bop": 0.6, "index_price": 100.0 },
+      { "component_id": "IDX_A", "date": "2026-01-02", "weight_bop": 0.6, "index_price": 102.0 },
+      {
+        "component_id": "IDX_B",
+        "date": "2026-01-01",
+        "weight_bop": 0.4,
+        "index_price": 100.0,
+        "component_currency": "EUR",
+        "fx_rate_to_benchmark": 1.2
+      },
+      {
+        "component_id": "IDX_B",
+        "date": "2026-01-02",
+        "weight_bop": 0.4,
+        "index_price": 101.0,
+        "component_currency": "EUR",
+        "fx_rate_to_benchmark": 1.212
+      }
+    ]
+  }
+}
+```
+
+## 5. Stateful Money-Weighted Return (MWR) from lotus-core
 
 Calculates MWR from lotus-core portfolio timeseries over an explicitly requested measurement
 window.
@@ -106,13 +248,60 @@ POST /performance/mwr
     "basis": "ACT/ACT"
   },
   "stateful_input": {
-    "consumer_system": "lotus-performance",
     "window_start_date": "2025-01-01"
   }
 }
 ```
 
-## 4. Multi-Currency Contribution
+## 5. Dedicated Benchmark Calculation
+
+Calculates benchmark performance directly from benchmark component observations.
+
+**Endpoint**
+
+```text
+POST /performance/benchmark
+```
+
+**Payload**
+
+```json
+{
+  "input_mode": "stateless",
+  "benchmark_id": "BMK_STATELESS_1",
+  "benchmark_start_date": "2026-01-02",
+  "report_end_date": "2026-01-03",
+  "analyses": [
+    {
+      "period": "ITD",
+      "frequencies": ["daily"]
+    }
+  ],
+  "return_source": "calculated",
+  "output": {
+    "include_timeseries": true
+  },
+  "stateless_input": {
+    "benchmark_currency": "USD",
+    "component_observations": [
+      {
+        "component_id": "IDX_A",
+        "date": "2026-01-02",
+        "weight_bop": 0.6,
+        "component_return": 0.02
+      },
+      {
+        "component_id": "IDX_B",
+        "date": "2026-01-02",
+        "weight_bop": 0.4,
+        "component_return": 0.01
+      }
+    ]
+  }
+}
+```
+
+## 6. Multi-Currency Contribution
 
 Calculates contribution for a portfolio with positions in multiple currencies and decomposes the
 result into local and FX-aware portfolio return context.
@@ -174,17 +363,19 @@ POST /performance/contribution
 }
 ```
 
-## 5. Multi-Currency Attribution
+## 7. Multi-Currency Attribution
 
 Runs stateless currency-aware attribution using caller-supplied benchmark groups and FX inputs.
 
 This example is intentionally stateless. The current public stateful attribution path is fenced to:
 
 - `mode="by_instrument"`
-- `currency_mode="BASE_ONLY"`
-- `group_by` limited to `asset_class`, `sector`, or `country`
+- `group_by` limited to `asset_class`, `sector`, `country`, or `currency`
+- `currency_mode="BOTH"` requires `report_ccy`
+- `currency_mode="BOTH"` requires `fx.rates` when sourced positions include currencies different from `report_ccy`
 
-Currency attribution with `currency_mode="BOTH"` currently requires stateless inputs.
+Stateful attribution can also emit currency attribution when those conditions are met and
+`group_by` includes `currency`.
 
 **Endpoint**
 

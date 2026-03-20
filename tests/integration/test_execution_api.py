@@ -6,10 +6,16 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
+from app.models.benchmark_analytics_requests import BenchmarkInputMode
+from app.models.benchmark_requests import BenchmarkPerformanceRequest
+from app.models.requests import PerformanceRequest
 from app.services.async_result_store import async_result_store
+from app.services.benchmark_mode_service import ResolvedBenchmarkRequest
 from app.services.compute_job_store import compute_job_store
 from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import lineage_metadata_store
+from app.services.returns_series_service import ResolvedStatefulReturnsSeriesRequest
+from app.services.twr_mode_service import ResolvedTWRRequest
 from main import app
 from tests.conftest import drain_compute_queue, drain_lineage_queue
 
@@ -99,18 +105,34 @@ def test_execution_api_tracks_returns_series_stateful_stages(client, monkeypatch
             },
         )
 
-    async def _mock_get_benchmark_assignment(self, **kwargs):  # noqa: ARG001
-        return 200, {"benchmark_id": "BMK_GLOBAL_1"}
+    async def _mock_get_benchmark_composition_window(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "benchmark_id": "BMK_GLOBAL_1",
+                "benchmark_currency": "USD",
+                "segments": [
+                    {
+                        "index_id": "IDX1",
+                        "composition_weight": "1.0",
+                        "composition_effective_from": "2026-02-01",
+                        "composition_effective_to": "2026-02-28",
+                    }
+                ]
+            },
+        )
 
-    async def _mock_get_benchmark_return_series(self, **kwargs):  # noqa: ARG001
+    async def _mock_get_index_price_series(self, **kwargs):  # noqa: ARG001
         return (
             200,
             {
                 "points": [
-                    {"series_date": "2026-02-23", "benchmark_return": "0.0010"},
-                    {"series_date": "2026-02-24", "benchmark_return": "0.0012"},
-                    {"series_date": "2026-02-25", "benchmark_return": "-0.0004"},
-                ]
+                    {"series_date": "2026-02-22", "index_price": "100.0", "series_currency": "USD"},
+                    {"series_date": "2026-02-23", "index_price": "100.1", "series_currency": "USD"},
+                    {"series_date": "2026-02-24", "index_price": "100.22012", "series_currency": "USD"},
+                    {"series_date": "2026-02-25", "index_price": "100.180031952", "series_currency": "USD"},
+                ],
+                "retrieval_metadata": {"chunk_count": 1, "page_count": 1},
             },
         )
 
@@ -119,12 +141,12 @@ def test_execution_api_tracks_returns_series_stateful_stages(client, monkeypatch
         _mock_get_portfolio_analytics_timeseries,
     )
     monkeypatch.setattr(
-        "app.api.endpoints.returns_series.CoreIntegrationService.get_benchmark_assignment",
-        _mock_get_benchmark_assignment,
+        "app.services.core_integration_service.CoreIntegrationService.get_benchmark_composition_window",
+        _mock_get_benchmark_composition_window,
     )
     monkeypatch.setattr(
-        "app.api.endpoints.returns_series.CoreIntegrationService.get_benchmark_return_series",
-        _mock_get_benchmark_return_series,
+        "app.services.core_integration_service.CoreIntegrationService.get_index_price_series",
+        _mock_get_index_price_series,
     )
 
     payload = {
@@ -134,8 +156,9 @@ def test_execution_api_tracks_returns_series_stateful_stages(client, monkeypatch
         "frequency": "DAILY",
         "metric_basis": "NET",
         "series_selection": {"include_portfolio": True, "include_benchmark": True},
+        "benchmark": {"benchmark_id": "BMK_GLOBAL_1"},
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     response = client.post("/integration/returns/series", json=payload)
@@ -156,12 +179,14 @@ def test_execution_api_tracks_returns_series_stateful_stages(client, monkeypatch
     assert stages["retrieval"]["details"]["portfolio_chunk_count"] == 1
     assert stages["retrieval"]["details"]["portfolio_page_count"] == 1
     assert stages["retrieval"]["details"]["benchmark_chunk_count"] == 1
+    assert stages["retrieval"]["details"]["benchmark_page_count"] == 1
     assert stages["retrieval"]["details"]["risk_free_chunk_count"] == 0
     assert stages["normalization"]["details"]["benchmark_points"] == 3
     assert len(execution_body["upstream_snapshots"]) >= 2
     assert {snapshot["upstream_endpoint"] for snapshot in execution_body["upstream_snapshots"]} >= {
         "portfolio_timeseries",
-        "benchmark_return_series",
+        "benchmark_composition_window",
+        "index_price_series",
     }
 
 
@@ -190,7 +215,7 @@ def test_execution_api_tracks_twr_stateful_stages(client, monkeypatch):
         "report_end_date": "2025-01-02",
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     twr_response = client.post("/performance/twr", json=payload)
@@ -248,7 +273,6 @@ def test_execution_api_tracks_mwr_stateful_stages(client, monkeypatch):
         "mwr_method": "DIETZ",
         "input_mode": "stateful",
         "stateful_input": {
-            "consumer_system": "lotus-performance",
             "window_start_date": "2025-01-01",
         },
     }
@@ -337,7 +361,7 @@ def test_execution_api_tracks_contribution_stateful_stages(client, monkeypatch):
         "report_end_date": "2025-01-02",
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     response = client.post("/performance/contribution", json=payload)
@@ -414,19 +438,33 @@ def test_execution_api_tracks_attribution_stateful_stages(client, monkeypatch):
     async def _mock_get_benchmark_assignment(self, **kwargs):  # noqa: ARG001
         return 200, {"benchmark_id": "BMK_1"}
 
-    async def _mock_get_benchmark_market_series(self, **kwargs):  # noqa: ARG001
+    async def _mock_get_benchmark_composition_window(self, **kwargs):  # noqa: ARG001
         return (
             200,
             {
-                "component_series": [
+                "benchmark_id": "BMK_1",
+                "benchmark_currency": "USD",
+                "segments": [
                     {
                         "index_id": "IDX_1",
-                        "points": [
-                            {"series_date": "2025-01-01", "component_weight": "1.0", "index_return": "0.01"},
-                            {"series_date": "2025-01-02", "component_weight": "1.0", "index_return": "0.01"},
-                        ],
+                        "composition_weight": "1.0",
+                        "composition_effective_from": "2025-01-01",
                     }
-                ]
+                ],
+            },
+        )
+
+    async def _mock_get_index_price_series(self, index_id, **kwargs):  # noqa: ARG001
+        assert index_id == "IDX_1"
+        return (
+            200,
+            {
+                "points": [
+                    {"series_date": "2024-12-31", "index_price": "100", "series_currency": "USD"},
+                    {"series_date": "2025-01-01", "index_price": "101", "series_currency": "USD"},
+                    {"series_date": "2025-01-02", "index_price": "102.01", "series_currency": "USD"},
+                ],
+                "retrieval_metadata": {"chunk_count": 1, "page_count": 1},
             },
         )
 
@@ -456,8 +494,12 @@ def test_execution_api_tracks_attribution_stateful_stages(client, monkeypatch):
         _mock_get_benchmark_assignment,
     )
     monkeypatch.setattr(
-        "app.services.core_integration_service.CoreIntegrationService.get_benchmark_market_series",
-        _mock_get_benchmark_market_series,
+        "app.services.core_integration_service.CoreIntegrationService.get_benchmark_composition_window",
+        _mock_get_benchmark_composition_window,
+    )
+    monkeypatch.setattr(
+        "app.services.core_integration_service.CoreIntegrationService.get_index_price_series",
+        _mock_get_index_price_series,
     )
     monkeypatch.setattr(
         "app.services.core_integration_service.CoreIntegrationService.get_index_catalog",
@@ -474,7 +516,7 @@ def test_execution_api_tracks_attribution_stateful_stages(client, monkeypatch):
         "report_end_date": "2025-01-02",
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     response = client.post("/performance/attribution", json=payload)
@@ -499,7 +541,10 @@ def test_execution_api_tracks_attribution_stateful_stages(client, monkeypatch):
     assert stages["retrieval"]["details"]["position_page_count"] == 1
     assert stages["retrieval"]["details"]["benchmark_chunk_count"] == 1
     assert stages["retrieval"]["details"]["benchmark_page_count"] == 1
+    assert stages["retrieval"]["details"]["benchmark_component_observations"] == 2
     assert stages["retrieval"]["details"]["index_request_count"] == 1
+    assert execution_body["requested_window"]["benchmark_id"] == "BMK_1"
+    assert execution_body["requested_window"]["benchmark_return_source"] == "calculated"
     assert stages["normalization"]["details"]["portfolio_points"] == 2
     assert stages["normalization"]["details"]["instruments"] == 1
     assert stages["normalization"]["details"]["benchmark_groups"] == 1
@@ -507,7 +552,8 @@ def test_execution_api_tracks_attribution_stateful_stages(client, monkeypatch):
         "portfolio_timeseries",
         "position_timeseries",
         "benchmark_assignment",
-        "benchmark_market_series",
+        "benchmark_composition_window",
+        "index_price_series",
         "index_catalog",
     }
 
@@ -545,7 +591,7 @@ def test_execution_api_tracks_async_returns_series_job_state(client, monkeypatch
         "frequency": "DAILY",
         "metric_basis": "NET",
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     try:
@@ -572,6 +618,121 @@ def test_execution_api_tracks_async_returns_series_job_state(client, monkeypatch
         assert execution_body_after_worker["async_result"]["result_status"] == "complete"
     finally:
         settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = original_threshold
+
+
+def test_execution_api_tracks_resolved_async_returns_series_job_state(client, monkeypatch):
+    original_window_threshold = settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS
+    original_input_threshold = settings.RETURNS_SERIES_EXECUTOR_INPUT_COUNT
+    settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = 30
+    settings.RETURNS_SERIES_EXECUTOR_INPUT_COUNT = 3
+
+    async def _mock_resolve_stateful_returns_series_request(request):  # noqa: ARG001
+        return ResolvedStatefulReturnsSeriesRequest(
+            request=type(request).model_validate(
+                {
+                    "calculation_id": str(request.calculation_id),
+                    "portfolio_id": request.portfolio_id,
+                    "as_of_date": "2026-02-25",
+                    "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-25"},
+                    "frequency": "DAILY",
+                    "metric_basis": "NET",
+                    "input_mode": "stateless",
+                    "stateless_input": {
+                        "portfolio_returns": [
+                            {"date": "2026-02-23", "return_value": "0.0100"},
+                            {"date": "2026-02-24", "return_value": "0.0050"},
+                            {"date": "2026-02-25", "return_value": "-0.0025"},
+                        ],
+                        "benchmark_returns": [
+                            {"date": "2026-02-23", "return_value": "0.0010"},
+                            {"date": "2026-02-24", "return_value": "0.0012"},
+                            {"date": "2026-02-25", "return_value": "0.0014"},
+                        ],
+                    },
+                }
+            ),
+            identity_payload={
+                "portfolio_id": request.portfolio_id,
+                "as_of_date": "2026-02-25",
+                "resolved_window": {
+                    "start_date": "2026-02-23",
+                    "end_date": "2026-02-25",
+                    "resolved_period_label": None,
+                },
+                "frequency": "DAILY",
+                "metric_basis": "NET",
+                "reporting_currency": None,
+                "series_selection": {
+                    "include_portfolio": True,
+                    "include_benchmark": True,
+                    "include_risk_free": False,
+                },
+                "benchmark": {
+                    "benchmark_id": "BMK_RESOLVED",
+                    "return_source": "calculated",
+                },
+                "risk_free": None,
+                "data_policy": {
+                    "missing_data_policy": "FAIL_FAST",
+                    "fill_method": "NONE",
+                    "calendar_policy": "BUSINESS",
+                    "max_gap_days": None,
+                },
+                "input_mode": "stateless",
+                "stateless_input": {
+                    "portfolio_returns": [
+                        {"date": "2026-02-23", "return_value": "0.0100"},
+                        {"date": "2026-02-24", "return_value": "0.0050"},
+                        {"date": "2026-02-25", "return_value": "-0.0025"},
+                    ],
+                    "benchmark_returns": [
+                        {"date": "2026-02-23", "return_value": "0.0010"},
+                        {"date": "2026-02-24", "return_value": "0.0012"},
+                        {"date": "2026-02-25", "return_value": "0.0014"},
+                    ],
+                    "risk_free_returns": None,
+                },
+            },
+            input_count=5,
+            resolved_benchmark_id="BMK_RESOLVED",
+            resolved_benchmark_return_source="calculated",
+            benchmark_work_units=5,
+        )
+
+    monkeypatch.setattr(
+        "app.api.endpoints.returns_series.resolve_stateful_returns_series_request",
+        _mock_resolve_stateful_returns_series_request,
+    )
+
+    payload = {
+        "portfolio_id": "DEMO_DPM_EUR_001",
+        "as_of_date": "2026-02-25",
+        "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-25"},
+        "frequency": "DAILY",
+        "metric_basis": "NET",
+        "series_selection": {"include_portfolio": True, "include_benchmark": True},
+        "input_mode": "stateful",
+        "stateful_input": {},
+    }
+
+    try:
+        response = client.post("/integration/returns/series", json=payload)
+        assert response.status_code == 202
+        calculation_id = response.json()["calculation_id"]
+
+        execution_response = client.get(f"/performance/executions/{calculation_id}")
+        assert execution_response.status_code == 200
+        body = execution_response.json()
+        assert body["execution_mode"] == "async"
+        assert body["requested_window"]["input_count"] == 5
+        assert body["requested_window"]["benchmark_id"] == "BMK_RESOLVED"
+        assert body["requested_window"]["benchmark_return_source"] == "calculated"
+        assert body["requested_window"]["benchmark_work_units"] == 5
+
+        assert drain_compute_queue() == 1
+    finally:
+        settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = original_window_threshold
+        settings.RETURNS_SERIES_EXECUTOR_INPUT_COUNT = original_input_threshold
 
 
 def test_execution_api_tracks_async_contribution_job_state(client, happy_path_payload):
@@ -659,6 +820,172 @@ def test_execution_api_tracks_async_attribution_job_state(client):
         settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = original_threshold
 
 
+def test_execution_api_tracks_async_benchmark_job_state(client, monkeypatch):
+    original_window_threshold = settings.BENCHMARK_EXECUTOR_WINDOW_DAYS
+    original_input_threshold = settings.BENCHMARK_EXECUTOR_INPUT_COUNT
+    settings.BENCHMARK_EXECUTOR_WINDOW_DAYS = 365
+    settings.BENCHMARK_EXECUTOR_INPUT_COUNT = 4
+
+    async def _mock_resolve_benchmark_request(request, *, settings):  # noqa: ARG001
+        return ResolvedBenchmarkRequest(
+            benchmark_request=BenchmarkPerformanceRequest.model_validate(
+                {
+                    "calculation_id": str(request.calculation_id),
+                    "benchmark_id": request.benchmark_id,
+                    "benchmark_start_date": "2026-01-02",
+                    "report_end_date": "2026-01-03",
+                    "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+                    "return_source": "calculated",
+                    "benchmark_currency": "USD",
+                    "component_observations": [
+                        {"component_id": "IDX_A", "date": "2026-01-02", "weight_bop": 0.6, "component_return": 0.01},
+                        {"component_id": "IDX_B", "date": "2026-01-02", "weight_bop": 0.4, "component_return": 0.02},
+                        {"component_id": "IDX_A", "date": "2026-01-03", "weight_bop": 0.6, "component_return": 0.01},
+                        {"component_id": "IDX_B", "date": "2026-01-03", "weight_bop": 0.4, "component_return": 0.02},
+                    ],
+                }
+            ),
+            input_mode=request.input_mode,
+            source_details={"benchmark_components": 2},
+            input_count=4,
+        )
+
+    monkeypatch.setattr("app.api.endpoints.benchmark.resolve_benchmark_request", _mock_resolve_benchmark_request)
+
+    payload = {
+        "calculation_id": str(uuid4()),
+        "benchmark_id": "BMK_ASYNC_EXEC",
+        "benchmark_start_date": "2026-01-02",
+        "report_end_date": "2026-01-03",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "return_source": "calculated",
+        "stateful_input": {},
+    }
+
+    try:
+        response = client.post("/performance/benchmark", json=payload)
+        assert response.status_code == 202
+        calculation_id = response.json()["calculation_id"]
+
+        execution_response = client.get(f"/performance/executions/{calculation_id}")
+        assert execution_response.status_code == 200
+        body = execution_response.json()
+        assert body["analytics_type"] == "BENCHMARK"
+        assert body["execution_mode"] == "async"
+        assert body["requested_window"]["input_count"] == 4
+        assert body["compute_job"]["job_status"] == "pending"
+
+        assert drain_compute_queue() == 1
+
+        execution_after_worker = client.get(f"/performance/executions/{calculation_id}")
+        assert execution_after_worker.status_code == 200
+        body_after_worker = execution_after_worker.json()
+        assert body_after_worker["status"] == "complete"
+        assert body_after_worker["compute_job"]["job_status"] == "complete"
+        assert body_after_worker["async_result"]["result_status"] == "complete"
+    finally:
+        settings.BENCHMARK_EXECUTOR_WINDOW_DAYS = original_window_threshold
+        settings.BENCHMARK_EXECUTOR_INPUT_COUNT = original_input_threshold
+
+
+def test_execution_api_tracks_async_twr_job_state(client, monkeypatch):
+    original_window_threshold = settings.TWR_EXECUTOR_WINDOW_DAYS
+    original_input_threshold = settings.TWR_EXECUTOR_INPUT_COUNT
+    settings.TWR_EXECUTOR_WINDOW_DAYS = 365
+    settings.TWR_EXECUTOR_INPUT_COUNT = 5
+
+    async def _mock_resolve_twr_request(request, *, settings):  # noqa: ARG001
+        return ResolvedTWRRequest(
+            performance_request=PerformanceRequest.model_validate(
+                {
+                    "calculation_id": str(request.calculation_id),
+                    "portfolio_id": request.portfolio_id,
+                    "performance_start_date": "2024-12-31",
+                    "report_end_date": "2025-01-03",
+                    "metric_basis": "NET",
+                    "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+                    "valuation_points": [
+                        {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+                        {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+                        {"day": 3, "perf_date": "2025-01-03", "begin_mv": 1020.1, "end_mv": 1030.301},
+                        {"day": 4, "perf_date": "2025-01-04", "begin_mv": 1030.301, "end_mv": 1040.60401},
+                    ],
+                }
+            ),
+            input_mode=request.input_mode,
+            benchmark_request=BenchmarkPerformanceRequest.model_validate(
+                {
+                    "calculation_id": str(request.calculation_id),
+                    "benchmark_id": "BMK_RESOLVED",
+                    "benchmark_start_date": "2025-01-01",
+                    "report_end_date": "2025-01-03",
+                    "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+                    "return_source": "calculated",
+                    "benchmark_currency": "USD",
+                    "component_observations": [
+                        {"component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
+                        {"component_id": "IDX_A", "date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.01},
+                    ],
+                }
+            ),
+            benchmark_input_mode=BenchmarkInputMode.STATEFUL,
+            resolved_benchmark_id="BMK_RESOLVED",
+        )
+
+    monkeypatch.setattr("app.api.endpoints.performance.resolve_twr_request", _mock_resolve_twr_request)
+
+    payload = {
+        "calculation_id": str(uuid4()),
+        "portfolio_id": "TWR_ASYNC_EXEC",
+        "performance_start_date": "2024-12-31",
+        "report_end_date": "2025-01-03",
+        "metric_basis": "NET",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "include_benchmark": True,
+        "stateful_input": {},
+    }
+
+    try:
+        response = client.post("/performance/twr", json=payload)
+        assert response.status_code == 202
+        calculation_id = response.json()["calculation_id"]
+
+        execution_response = client.get(f"/performance/executions/{calculation_id}")
+        assert execution_response.status_code == 200
+        body = execution_response.json()
+        assert body["analytics_type"] == "TWR"
+        assert body["execution_mode"] == "async"
+        assert body["requested_window"]["input_count"] == 6
+        assert body["requested_window"]["benchmark_id"] == "BMK_RESOLVED"
+        assert body["requested_window"]["benchmark_work_units"] == 2
+        assert body["compute_job"]["job_status"] == "pending"
+
+        assert drain_compute_queue() == 1
+
+        execution_after_worker = client.get(f"/performance/executions/{calculation_id}")
+        assert execution_after_worker.status_code == 200
+        body_after_worker = execution_after_worker.json()
+        assert body_after_worker["status"] == "complete"
+        assert body_after_worker["compute_job"]["job_status"] == "complete"
+        assert body_after_worker["async_result"]["result_status"] == "complete"
+
+        twr_result_response = client.get(f"/performance/twr/results/{calculation_id}")
+        assert twr_result_response.status_code == 200
+        twr_result_body = twr_result_response.json()
+        assert twr_result_body["benchmark_context"] == {
+            "benchmark_id": "BMK_RESOLVED",
+            "benchmark_currency": "USD",
+            "input_mode": "stateful",
+            "return_source": "calculated",
+        }
+        assert twr_result_body["results_by_period"]["YTD"]["relative_performance"] is not None
+    finally:
+        settings.TWR_EXECUTOR_WINDOW_DAYS = original_window_threshold
+        settings.TWR_EXECUTOR_INPUT_COUNT = original_input_threshold
+
+
 def test_execution_api_exposes_retryable_compute_job_metadata(client, monkeypatch):
     original_threshold = settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS
     original_attempts = settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS
@@ -679,7 +1006,7 @@ def test_execution_api_exposes_retryable_compute_job_metadata(client, monkeypatc
         "frequency": "DAILY",
         "metric_basis": "NET",
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     try:
@@ -722,7 +1049,7 @@ def test_execution_api_exposes_terminal_async_result_metadata(client, monkeypatc
         "frequency": "DAILY",
         "metric_basis": "NET",
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     try:

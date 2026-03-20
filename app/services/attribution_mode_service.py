@@ -7,6 +7,7 @@ from fastapi import HTTPException, status
 from app.core.config import Settings
 from app.models.attribution_analytics_requests import AttributionAnalyticsRequest, AttributionInputMode
 from app.models.attribution_requests import AttributionRequest
+from app.models.benchmark_analytics_requests import BenchmarkReturnSource
 from app.services.execution_registry import execution_registry
 from app.services.portfolio_source_service import build_stateful_input_service
 from app.services.stateful_attribution_input_service import (
@@ -14,12 +15,16 @@ from app.services.stateful_attribution_input_service import (
     retrieve_stateful_attribution_source_input,
 )
 
+DEFAULT_STATEFUL_CONSUMER_SYSTEM = "lotus-performance"
+
 
 @dataclass(frozen=True)
 class ResolvedAttributionRequest:
     attribution_request: AttributionRequest
     input_mode: AttributionInputMode
     input_count: int
+    resolved_benchmark_id: str | None = None
+    resolved_benchmark_return_source: str | None = None
 
 
 async def resolve_attribution_request(
@@ -54,7 +59,7 @@ async def resolve_attribution_request(
             report_start_date=request.report_start_date,
             report_end_date=request.report_end_date,
             reporting_currency=request.report_ccy,
-            consumer_system=stateful_input.consumer_system,
+            consumer_system=DEFAULT_STATEFUL_CONSUMER_SYSTEM,
             group_by=request.group_by,
             dimensions=list(stateful_input.dimensions),
             include_cash_flows=stateful_input.include_cash_flows,
@@ -67,13 +72,17 @@ async def resolve_attribution_request(
             details={
                 "portfolio_observations": len(source_input.portfolio_input.observations),
                 "position_rows": len(source_input.position_rows),
-                "benchmark_components": len(source_input.benchmark_component_series),
+                "benchmark_components": source_input.benchmark_source_details.get("benchmark_components", 0),
+                "benchmark_component_observations": len(source_input.benchmark_component_observations),
                 "portfolio_chunk_count": source_input.portfolio_input.retrieval_metadata.chunk_count,
                 "portfolio_page_count": source_input.portfolio_input.retrieval_metadata.page_count,
                 "position_chunk_count": source_input.position_retrieval_metadata.chunk_count,
                 "position_page_count": source_input.position_retrieval_metadata.page_count,
                 "benchmark_chunk_count": source_input.benchmark_retrieval_metadata.chunk_count,
                 "benchmark_page_count": source_input.benchmark_retrieval_metadata.page_count,
+                "fx_pair_count": source_input.benchmark_source_details.get("fx_pair_count", 0),
+                "fx_chunk_count": source_input.benchmark_source_details.get("fx_chunk_count", 0),
+                "fx_page_count": source_input.benchmark_source_details.get("fx_page_count", 0),
                 "index_request_count": source_input.index_retrieval_metadata.page_count,
             },
         )
@@ -89,6 +98,7 @@ async def resolve_attribution_request(
             group_by=request.group_by,
             metric_basis=stateful_input.metric_basis,
             currency_mode=request.currency_mode,
+            fx=request.fx,
             reporting_currency=request.report_ccy,
         )
         execution_registry.complete_stage(
@@ -112,6 +122,8 @@ async def resolve_attribution_request(
         ),
         input_mode=AttributionInputMode.STATEFUL,
         input_count=(len(normalized_input.instruments_data) + len(normalized_input.benchmark_groups_data)),
+        resolved_benchmark_id=source_input.benchmark_id,
+        resolved_benchmark_return_source=BenchmarkReturnSource.CALCULATED.value,
     )
 
 

@@ -70,6 +70,8 @@ Source of truth for the local topology is [docker-compose.yml](/C:/Users/Sandeep
 
 - execution lifecycle: `GET /performance/executions/{calculation_id}`
 - runtime queue snapshot: `GET /integration/runtime-status`
+- async TWR result: `GET /performance/twr/results/{calculation_id}`
+- async benchmark result: `GET /performance/benchmark/results/{calculation_id}`
 - async returns-series result: `GET /integration/returns/series/results/{calculation_id}`
 - async contribution result: `GET /performance/contribution/results/{calculation_id}`
 - async attribution result: `GET /performance/attribution/results/{calculation_id}`

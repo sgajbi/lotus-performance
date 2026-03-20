@@ -63,7 +63,11 @@ def _prepare_data_from_instruments(request: AttributionRequest) -> List[Portfoli
         )
         inst_results = inst_results.set_index(PortfolioColumns.PERF_DATE.value)
 
-        inst_bop_mv = inst_results[PortfolioColumns.BEGIN_MV.value] + inst_results[PortfolioColumns.BOD_CF.value]
+        base_weight_series = _build_base_weight_series(inst.meta)
+        if base_weight_series is not None:
+            inst_bop_mv = base_weight_series.reindex(inst_results.index).fillna(0.0)
+        else:
+            inst_bop_mv = inst_results[PortfolioColumns.BEGIN_MV.value] + inst_results[PortfolioColumns.BOD_CF.value]
         with np.errstate(divide="ignore", invalid="ignore"):
             weight_bop = inst_bop_mv / portfolio_bop_mv
         inst_results["weight_bop"] = weight_bop.replace([np.inf, -np.inf], np.nan).fillna(0.0)
@@ -76,6 +80,12 @@ def _prepare_data_from_instruments(request: AttributionRequest) -> List[Portfoli
             },
             inplace=True,
         )
+
+        if request.currency_mode == "BOTH" and inst.meta.get("currency") == request.report_ccy:
+            if "return_local" not in inst_results.columns:
+                inst_results["return_local"] = inst_results["return_base"]
+            if "return_fx" not in inst_results.columns:
+                inst_results["return_fx"] = 0.0
 
         for col in ["return_base", "return_local", "return_fx"]:
             if col in inst_results.columns:
@@ -124,6 +134,34 @@ def _prepare_data_from_instruments(request: AttributionRequest) -> List[Portfoli
             )
         )
     return output_groups
+
+
+def _build_base_weight_series(meta: dict) -> pd.Series | None:
+    weight_points_raw = meta.get("base_weight_points")
+    if not isinstance(weight_points_raw, list):
+        return None
+
+    records: list[dict[str, float | pd.Timestamp]] = []
+    for item in weight_points_raw:
+        if not isinstance(item, dict):
+            continue
+        perf_date = item.get("perf_date")
+        begin_mv = item.get("begin_mv")
+        bod_cf = item.get("bod_cf", 0.0)
+        if perf_date is None or begin_mv is None:
+            continue
+        records.append(
+            {
+                "date": pd.to_datetime(perf_date),
+                "capital": float(begin_mv) + float(bod_cf),
+            }
+        )
+
+    if not records:
+        return None
+
+    weights_df = pd.DataFrame(records).drop_duplicates(subset=["date"], keep="last").set_index("date")
+    return weights_df["capital"]
 
 
 def _prepare_panel_from_groups(groups: List[PortfolioGroup | BenchmarkGroup], group_by: List[str]) -> pd.DataFrame:

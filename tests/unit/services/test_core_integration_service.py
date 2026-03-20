@@ -149,6 +149,25 @@ async def test_get_benchmark_definition_posts_contract_payload():
 
 
 @pytest.mark.asyncio
+async def test_get_benchmark_composition_window_posts_contract_payload():
+    service = CoreIntegrationService(base_url="http://core", timeout_seconds=2.0)
+    _FakeAsyncClient.queue_json(200, {"segments": []})
+
+    status_code, payload = await service.get_benchmark_composition_window(
+        benchmark_id="BMK_2",
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 2, 24),
+    )
+
+    assert status_code == 200
+    assert payload["segments"] == []
+    assert _FakeAsyncClient.calls[0]["url"] == "http://core/integration/benchmarks/BMK_2/composition-window"
+    assert _FakeAsyncClient.calls[0]["json"] == {
+        "window": {"start_date": "2026-01-01", "end_date": "2026-02-24"}
+    }
+
+
+@pytest.mark.asyncio
 async def test_get_benchmark_market_series_posts_contract_payload():
     service = CoreIntegrationService(base_url="http://core", timeout_seconds=2.0)
     _FakeAsyncClient.queue_json(200, {"component_series": []})

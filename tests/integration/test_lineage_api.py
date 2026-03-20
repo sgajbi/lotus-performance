@@ -62,7 +62,7 @@ def test_lineage_end_to_end_flow(client):
     assert "Z" in lineage_data["timestamp_utc"]
     assert "request.json" in lineage_data["artifacts"]
     assert "response.json" in lineage_data["artifacts"]
-    assert "twr_calculation_details.csv" in lineage_data["artifacts"]
+    assert "daily_results.csv" in lineage_data["artifacts"]
     artifact_url = lineage_data["artifacts"]["request.json"]["url"]
     artifact_response = client.get(artifact_url)
     assert artifact_response.status_code == 200
@@ -94,7 +94,7 @@ def test_stateful_twr_lineage_captures_resolved_request(client, monkeypatch):
         "report_end_date": "2025-01-02",
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     response = client.post("/performance/twr", json=payload)
@@ -112,6 +112,82 @@ def test_stateful_twr_lineage_captures_resolved_request(client, monkeypatch):
     assert '"performance_start_date": "2024-01-15"' in artifact_response.text
     assert '"valuation_points"' in artifact_response.text
     assert '"stateful_input"' not in artifact_response.text
+
+
+def test_twr_benchmark_lineage_captures_resolved_portfolio_and_benchmark_request(client):
+    payload = {
+        "portfolio_id": "LINEAGE_TWR_BENCHMARK",
+        "performance_start_date": "2024-12-31",
+        "metric_basis": "NET",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "valuation_points": [
+            {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+            {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+        ],
+        "benchmark": {
+            "benchmark_id": "BMK_LINEAGE_1",
+            "input_mode": "stateless",
+            "return_source": "calculated",
+            "stateless_input": {
+                "benchmark_currency": "USD",
+                "component_observations": [
+                    {"component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
+                    {"component_id": "IDX_A", "date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.015},
+                ],
+            },
+        },
+    }
+
+    response = client.post("/performance/twr", json=payload)
+    assert response.status_code == 200
+    calculation_id = response.json()["calculation_id"]
+    assert drain_lineage_queue() >= 1
+
+    lineage_response = client.get(f"/performance/lineage/{calculation_id}")
+    assert lineage_response.status_code == 200
+
+    request_artifact_url = lineage_response.json()["artifacts"]["request.json"]["url"]
+    artifact_response = client.get(request_artifact_url)
+
+    assert artifact_response.status_code == 200
+    assert '"portfolio"' in artifact_response.text
+    assert '"benchmark"' in artifact_response.text
+    assert '"benchmark_id": "BMK_LINEAGE_1"' in artifact_response.text
+    assert '"benchmark_start_date": "2025-01-01"' in artifact_response.text
+
+
+def test_benchmark_price_point_lineage_captures_resolved_request(client):
+    payload = {
+        "benchmark_id": "BMK_LINEAGE_PRICE_1",
+        "benchmark_start_date": "2026-01-02",
+        "report_end_date": "2026-01-02",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateless",
+        "return_source": "calculated",
+        "stateless_input": {
+            "benchmark_currency": "USD",
+            "component_price_points": [
+                {"component_id": "IDX_A", "date": "2026-01-01", "weight_bop": 1.0, "index_price": 100.0},
+                {"component_id": "IDX_A", "date": "2026-01-02", "weight_bop": 1.0, "index_price": 101.0},
+            ],
+        },
+    }
+
+    response = client.post("/performance/benchmark", json=payload)
+    assert response.status_code == 200
+    calculation_id = response.json()["calculation_id"]
+    assert drain_lineage_queue() >= 1
+
+    lineage_response = client.get(f"/performance/lineage/{calculation_id}")
+    assert lineage_response.status_code == 200
+
+    request_artifact_url = lineage_response.json()["artifacts"]["request.json"]["url"]
+    artifact_response = client.get(request_artifact_url)
+
+    assert artifact_response.status_code == 200
+    assert '"component_observations"' in artifact_response.text
+    assert '"component_price_points"' not in artifact_response.text
 
 
 def test_get_lineage_data_not_found(client):

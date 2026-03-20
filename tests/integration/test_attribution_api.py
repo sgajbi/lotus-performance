@@ -1,16 +1,21 @@
+import asyncio
 import os
 import shutil
+from datetime import date
 from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
-from app.models.attribution_requests import AttributionRequest
+from app.models.attribution_analytics_requests import AttributionAnalyticsRequest
+from app.models.benchmark_requests import BenchmarkComponentObservation
 from app.services.async_result_store import async_result_store
+from app.services.attribution_mode_service import resolve_attribution_request
 from app.services.compute_job_store import compute_job_store
 from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import lineage_metadata_store
+from app.services.stateful_benchmark_input_service import StatefulBenchmarkNormalizedInput
 from core.periods import ResolvedPeriod
 from core.repro import generate_canonical_hash
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
@@ -18,6 +23,34 @@ from main import app
 from tests.conftest import drain_compute_queue, drain_lineage_queue
 
 settings = get_settings()
+
+
+def _stateful_benchmark_input(*observations: BenchmarkComponentObservation) -> StatefulBenchmarkNormalizedInput:
+    component_ids = {observation.component_id for observation in observations}
+    return StatefulBenchmarkNormalizedInput(
+        benchmark_currency="USD",
+        component_observations=list(observations),
+        benchmark_return_points=[],
+        source_details={
+            "benchmark_components": len(component_ids),
+            "component_observations": len(observations),
+            "benchmark_chunk_count": 1,
+            "benchmark_page_count": 1,
+            "fx_pair_count": 0,
+            "fx_chunk_count": 0,
+            "fx_page_count": 0,
+        },
+    )
+
+
+def _patch_stateful_attribution_benchmark_input(monkeypatch, *observations: BenchmarkComponentObservation) -> None:
+    async def _mock_build_stateful_benchmark_input(**kwargs):  # noqa: ARG001
+        return _stateful_benchmark_input(*observations)
+
+    monkeypatch.setattr(
+        "app.services.stateful_attribution_input_service.build_stateful_benchmark_input",
+        _mock_build_stateful_benchmark_input,
+    )
 
 
 @pytest.fixture()
@@ -457,22 +490,6 @@ def test_attribution_supports_stateful_input_mode(client, monkeypatch):
     async def _mock_get_benchmark_assignment(self, **kwargs):  # noqa: ARG001
         return 200, {"benchmark_id": "BMK_1"}
 
-    async def _mock_get_benchmark_market_series(self, **kwargs):  # noqa: ARG001
-        return (
-            200,
-            {
-                "component_series": [
-                    {
-                        "index_id": "IDX_1",
-                        "points": [
-                            {"series_date": "2025-01-01", "component_weight": "1.0", "index_return": "0.01"},
-                            {"series_date": "2025-01-02", "component_weight": "1.0", "index_return": "0.01"},
-                        ],
-                    }
-                ]
-            },
-        )
-
     async def _mock_get_index_catalog(self, **kwargs):  # noqa: ARG001
         return (
             200,
@@ -498,9 +515,20 @@ def test_attribution_supports_stateful_input_mode(client, monkeypatch):
         "app.services.stateful_input_service.StatefulInputService.get_benchmark_assignment",
         _mock_get_benchmark_assignment,
     )
-    monkeypatch.setattr(
-        "app.services.stateful_input_service.StatefulInputService.get_benchmark_market_series",
-        _mock_get_benchmark_market_series,
+    _patch_stateful_attribution_benchmark_input(
+        monkeypatch,
+        BenchmarkComponentObservation(
+            component_id="IDX_1",
+            date=date(2025, 1, 1),
+            weight_bop=1.0,
+            component_return=0.01,
+        ),
+        BenchmarkComponentObservation(
+            component_id="IDX_1",
+            date=date(2025, 1, 2),
+            weight_bop=1.0,
+            component_return=0.01,
+        ),
     )
     monkeypatch.setattr(
         "app.services.stateful_input_service.StatefulInputService.get_index_catalog",
@@ -517,7 +545,7 @@ def test_attribution_supports_stateful_input_mode(client, monkeypatch):
         "report_end_date": "2025-01-02",
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     response = client.post("/performance/attribution", json=payload)
@@ -526,6 +554,10 @@ def test_attribution_supports_stateful_input_mode(client, monkeypatch):
     body = response.json()
     assert body["portfolio_id"] == "ATTRIB_STATEFUL"
     assert body["input_mode"] == "stateful"
+    assert body["benchmark_context"] == {
+        "benchmark_id": "BMK_1",
+        "return_source": "calculated",
+    }
     assert "ITD" in body["results_by_period"]
 
 
@@ -603,29 +635,6 @@ def test_attribution_stateful_offloads_on_resolved_input_count(client, monkeypat
     async def _mock_get_benchmark_assignment(self, **kwargs):  # noqa: ARG001
         return 200, {"benchmark_id": "BMK_1"}
 
-    async def _mock_get_benchmark_market_series(self, **kwargs):  # noqa: ARG001
-        return (
-            200,
-            {
-                "component_series": [
-                    {
-                        "index_id": "IDX_1",
-                        "points": [
-                            {"series_date": "2025-01-01", "component_weight": "0.5", "index_return": "0.01"},
-                            {"series_date": "2025-01-02", "component_weight": "0.5", "index_return": "0.01"},
-                        ],
-                    },
-                    {
-                        "index_id": "IDX_2",
-                        "points": [
-                            {"series_date": "2025-01-01", "component_weight": "0.5", "index_return": "0.015"},
-                            {"series_date": "2025-01-02", "component_weight": "0.5", "index_return": "0.015"},
-                        ],
-                    },
-                ]
-            },
-        )
-
     async def _mock_get_index_catalog(self, **kwargs):  # noqa: ARG001
         return (
             200,
@@ -649,9 +658,32 @@ def test_attribution_stateful_offloads_on_resolved_input_count(client, monkeypat
         "app.services.stateful_input_service.StatefulInputService.get_benchmark_assignment",
         _mock_get_benchmark_assignment,
     )
-    monkeypatch.setattr(
-        "app.services.stateful_input_service.StatefulInputService.get_benchmark_market_series",
-        _mock_get_benchmark_market_series,
+    _patch_stateful_attribution_benchmark_input(
+        monkeypatch,
+        BenchmarkComponentObservation(
+            component_id="IDX_1",
+            date=date(2025, 1, 1),
+            weight_bop=0.5,
+            component_return=0.01,
+        ),
+        BenchmarkComponentObservation(
+            component_id="IDX_1",
+            date=date(2025, 1, 2),
+            weight_bop=0.5,
+            component_return=0.01,
+        ),
+        BenchmarkComponentObservation(
+            component_id="IDX_2",
+            date=date(2025, 1, 1),
+            weight_bop=0.5,
+            component_return=0.015,
+        ),
+        BenchmarkComponentObservation(
+            component_id="IDX_2",
+            date=date(2025, 1, 2),
+            weight_bop=0.5,
+            component_return=0.015,
+        ),
     )
     monkeypatch.setattr(
         "app.services.stateful_input_service.StatefulInputService.get_index_catalog",
@@ -668,7 +700,7 @@ def test_attribution_stateful_offloads_on_resolved_input_count(client, monkeypat
         "report_end_date": "2025-01-02",
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     try:
@@ -680,16 +712,25 @@ def test_attribution_stateful_offloads_on_resolved_input_count(client, monkeypat
         assert execution is not None
         assert execution.requested_window["input_count"] == 4
         assert execution.requested_window["input_mode"] == "stateful"
+        assert execution.requested_window["benchmark_id"] == "BMK_1"
+        assert execution.requested_window["benchmark_return_source"] == "calculated"
         job = compute_job_store.get_job(calculation_id)
         assert job is not None
-        assert "stateful_input" not in job.request_payload
-        assert "benchmark_groups_data" in job.request_payload
+        assert "stateful_input" not in job.request_payload["resolved_request"]
+        assert "benchmark_groups_data" in job.request_payload["resolved_request"]
+        assert job.request_payload["resolved_benchmark_id"] == "BMK_1"
+        assert job.request_payload["resolved_benchmark_return_source"] == "calculated"
 
         assert drain_compute_queue() == 1
 
         complete = client.get(f"/performance/attribution/results/{calculation_id}")
         assert complete.status_code == 200
-        assert complete.json()["input_mode"] == "stateful"
+        body = complete.json()
+        assert body["input_mode"] == "stateful"
+        assert body["benchmark_context"] == {
+            "benchmark_id": "BMK_1",
+            "return_source": "calculated",
+        }
     finally:
         settings.ATTRIBUTION_EXECUTOR_WINDOW_DAYS = original_window_threshold
         settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = original_input_threshold
@@ -761,29 +802,6 @@ def test_attribution_stateful_promoted_async_replays_identical_retry(client, mon
     async def _mock_get_benchmark_assignment(self, **kwargs):  # noqa: ARG001
         return 200, {"benchmark_id": "BMK_1"}
 
-    async def _mock_get_benchmark_market_series(self, **kwargs):  # noqa: ARG001
-        return (
-            200,
-            {
-                "component_series": [
-                    {
-                        "index_id": "IDX_1",
-                        "points": [
-                            {"series_date": "2025-01-01", "component_weight": "0.5", "index_return": "0.01"},
-                            {"series_date": "2025-01-02", "component_weight": "0.5", "index_return": "0.01"},
-                        ],
-                    },
-                    {
-                        "index_id": "IDX_2",
-                        "points": [
-                            {"series_date": "2025-01-01", "component_weight": "0.5", "index_return": "0.015"},
-                            {"series_date": "2025-01-02", "component_weight": "0.5", "index_return": "0.015"},
-                        ],
-                    },
-                ]
-            },
-        )
-
     async def _mock_get_index_catalog(self, **kwargs):  # noqa: ARG001
         return (
             200,
@@ -807,9 +825,32 @@ def test_attribution_stateful_promoted_async_replays_identical_retry(client, mon
         "app.services.stateful_input_service.StatefulInputService.get_benchmark_assignment",
         _mock_get_benchmark_assignment,
     )
-    monkeypatch.setattr(
-        "app.services.stateful_input_service.StatefulInputService.get_benchmark_market_series",
-        _mock_get_benchmark_market_series,
+    _patch_stateful_attribution_benchmark_input(
+        monkeypatch,
+        BenchmarkComponentObservation(
+            component_id="IDX_1",
+            date=date(2025, 1, 1),
+            weight_bop=0.5,
+            component_return=0.01,
+        ),
+        BenchmarkComponentObservation(
+            component_id="IDX_1",
+            date=date(2025, 1, 2),
+            weight_bop=0.5,
+            component_return=0.01,
+        ),
+        BenchmarkComponentObservation(
+            component_id="IDX_2",
+            date=date(2025, 1, 1),
+            weight_bop=0.5,
+            component_return=0.015,
+        ),
+        BenchmarkComponentObservation(
+            component_id="IDX_2",
+            date=date(2025, 1, 2),
+            weight_bop=0.5,
+            component_return=0.015,
+        ),
     )
     monkeypatch.setattr(
         "app.services.stateful_input_service.StatefulInputService.get_index_catalog",
@@ -827,7 +868,7 @@ def test_attribution_stateful_promoted_async_replays_identical_retry(client, mon
         "report_end_date": "2025-01-02",
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     try:
@@ -843,7 +884,7 @@ def test_attribution_stateful_promoted_async_replays_identical_retry(client, mon
         settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = original_input_threshold
 
 
-def test_attribution_stateful_currency_mode_both_rejected(client, monkeypatch):
+def test_attribution_stateful_currency_mode_both_supports_mixed_currency_decomposition(client, monkeypatch):
     async def _mock_get_portfolio_timeseries(self, **kwargs):  # noqa: ARG001
         return (
             200,
@@ -852,8 +893,8 @@ def test_attribution_stateful_currency_mode_both_rejected(client, monkeypatch):
                 "observations": [
                     {
                         "valuation_date": "2025-01-01",
-                        "beginning_market_value": "1000",
-                        "ending_market_value": "1010",
+                        "beginning_market_value": "200",
+                        "ending_market_value": "205.111",
                     },
                 ],
             },
@@ -865,35 +906,35 @@ def test_attribution_stateful_currency_mode_both_rejected(client, monkeypatch):
             {
                 "rows": [
                     {
-                        "position_id": "POS_1",
-                        "security_id": "SEC_1",
+                        "position_id": "POS_EUR",
+                        "security_id": "SEC_EUR",
+                        "position_currency": "EUR",
                         "valuation_date": "2025-01-01",
-                        "beginning_market_value_portfolio_currency": "1000",
-                        "ending_market_value_portfolio_currency": "1010",
+                        "beginning_market_value_reporting_currency": "110",
+                        "ending_market_value_reporting_currency": "113.311",
+                        "beginning_market_value_position_currency": "100",
+                        "ending_market_value_position_currency": "101",
                         "cash_flows": [],
-                        "dimensions": {"sector": "Technology"},
-                    }
+                        "dimensions": {"sector": "Technology", "country": "DE"},
+                    },
+                    {
+                        "position_id": "POS_USD",
+                        "security_id": "SEC_USD",
+                        "position_currency": "USD",
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value_reporting_currency": "90",
+                        "ending_market_value_reporting_currency": "91.8",
+                        "beginning_market_value_position_currency": "90",
+                        "ending_market_value_position_currency": "91.8",
+                        "cash_flows": [],
+                        "dimensions": {"sector": "Technology", "country": "US"},
+                    },
                 ]
             },
         )
 
     async def _mock_get_benchmark_assignment(self, **kwargs):  # noqa: ARG001
         return 200, {"benchmark_id": "BMK_1"}
-
-    async def _mock_get_benchmark_market_series(self, **kwargs):  # noqa: ARG001
-        return (
-            200,
-            {
-                "component_series": [
-                    {
-                        "index_id": "IDX_1",
-                        "points": [
-                            {"series_date": "2025-01-01", "component_weight": "1.0", "index_return": "0.01"},
-                        ],
-                    }
-                ]
-            },
-        )
 
     async def _mock_get_index_catalog(self, **kwargs):  # noqa: ARG001
         return (
@@ -903,7 +944,11 @@ def test_attribution_stateful_currency_mode_both_rejected(client, monkeypatch):
                     {
                         "index_id": "IDX_1",
                         "classification_labels": {"sector": "Technology"},
-                    }
+                    },
+                    {
+                        "index_id": "IDX_2",
+                        "classification_labels": {"sector": "Technology"},
+                    },
                 ]
             },
         )
@@ -920,9 +965,26 @@ def test_attribution_stateful_currency_mode_both_rejected(client, monkeypatch):
         "app.services.stateful_input_service.StatefulInputService.get_benchmark_assignment",
         _mock_get_benchmark_assignment,
     )
-    monkeypatch.setattr(
-        "app.services.stateful_input_service.StatefulInputService.get_benchmark_market_series",
-        _mock_get_benchmark_market_series,
+    _patch_stateful_attribution_benchmark_input(
+        monkeypatch,
+        BenchmarkComponentObservation(
+            component_id="IDX_1",
+            component_currency="EUR",
+            date=date(2025, 1, 1),
+            weight_bop=0.5,
+            component_return=0.0302,
+            component_return_local=0.02,
+            component_return_fx=0.01,
+        ),
+        BenchmarkComponentObservation(
+            component_id="IDX_2",
+            component_currency="USD",
+            date=date(2025, 1, 1),
+            weight_bop=0.5,
+            component_return=0.02,
+            component_return_local=0.02,
+            component_return_fx=0.0,
+        ),
     )
     monkeypatch.setattr(
         "app.services.stateful_input_service.StatefulInputService.get_index_catalog",
@@ -932,7 +994,7 @@ def test_attribution_stateful_currency_mode_both_rejected(client, monkeypatch):
     payload = {
         "portfolio_id": "ATTRIB_STATEFUL",
         "mode": "by_instrument",
-        "group_by": ["sector"],
+        "group_by": ["currency"],
         "linking": "none",
         "frequency": "daily",
         "currency_mode": "BOTH",
@@ -940,14 +1002,26 @@ def test_attribution_stateful_currency_mode_both_rejected(client, monkeypatch):
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "fx": {
+            "rates": [
+                {"date": "2024-12-31", "ccy": "EUR", "rate": 1.10},
+                {"date": "2025-01-01", "ccy": "EUR", "rate": 1.111},
+            ]
+        },
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     response = client.post("/performance/attribution", json=payload)
 
-    assert response.status_code == 422
-    assert "currency_mode=BASE_ONLY only" in response.json()["detail"]
+    assert response.status_code == 200
+    body = response.json()
+    assert body["input_mode"] == "stateful"
+    currency_results = body["results_by_period"]["ITD"]["currency_attribution"]
+    assert currency_results is not None
+    by_currency = {entry["currency"]: entry for entry in currency_results}
+    assert by_currency["EUR"]["weight_portfolio_avg"] == pytest.approx(55.0)
+    assert by_currency["USD"]["weight_portfolio_avg"] == pytest.approx(45.0)
 
 
 def test_attribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch):
@@ -1001,22 +1075,6 @@ def test_attribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch)
     async def _mock_get_benchmark_assignment(self, **kwargs):  # noqa: ARG001
         return 200, {"benchmark_id": "BMK_1"}
 
-    async def _mock_get_benchmark_market_series(self, **kwargs):  # noqa: ARG001
-        return (
-            200,
-            {
-                "component_series": [
-                    {
-                        "index_id": "IDX_1",
-                        "points": [
-                            {"series_date": "2025-01-01", "component_weight": "1.0", "index_return": "0.01"},
-                            {"series_date": "2025-01-02", "component_weight": "1.0", "index_return": "0.01"},
-                        ],
-                    }
-                ]
-            },
-        )
-
     async def _mock_get_index_catalog(self, **kwargs):  # noqa: ARG001
         return (
             200,
@@ -1042,9 +1100,20 @@ def test_attribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch)
         "app.services.stateful_input_service.StatefulInputService.get_benchmark_assignment",
         _mock_get_benchmark_assignment,
     )
-    monkeypatch.setattr(
-        "app.services.stateful_input_service.StatefulInputService.get_benchmark_market_series",
-        _mock_get_benchmark_market_series,
+    _patch_stateful_attribution_benchmark_input(
+        monkeypatch,
+        BenchmarkComponentObservation(
+            component_id="IDX_1",
+            date=date(2025, 1, 1),
+            weight_bop=1.0,
+            component_return=0.01,
+        ),
+        BenchmarkComponentObservation(
+            component_id="IDX_1",
+            date=date(2025, 1, 2),
+            weight_bop=1.0,
+            component_return=0.01,
+        ),
     )
     monkeypatch.setattr(
         "app.services.stateful_input_service.StatefulInputService.get_index_catalog",
@@ -1061,68 +1130,26 @@ def test_attribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch)
         "report_end_date": "2025-01-02",
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     response = client.post("/performance/attribution", json=payload)
 
     assert response.status_code == 200
     body = response.json()
-    expected_request = AttributionRequest.model_validate(
-        {
-            "calculation_id": body["calculation_id"],
-            "portfolio_id": "ATTRIB_STATEFUL_HASH",
-            "report_start_date": "2025-01-01",
-            "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
-            "mode": "by_instrument",
-            "frequency": "daily",
-            "group_by": ["sector"],
-            "linking": "none",
-            "portfolio_data": {
-                "metric_basis": "NET",
-                "valuation_points": [
-                    {"day": 1, "perf_date": "2025-01-01", "begin_mv": "1000", "end_mv": "1010"},
-                    {"day": 2, "perf_date": "2025-01-02", "begin_mv": "1010", "end_mv": "1020.1"},
-                ],
-            },
-            "instruments_data": [
+    resolved = asyncio.run(
+        resolve_attribution_request(
+            AttributionAnalyticsRequest.model_validate(
                 {
-                    "instrument_id": "POS_1",
-                    "meta": {"security_id": "SEC_1", "sector": "Technology"},
-                    "valuation_points": [
-                        {
-                            "day": 0,
-                            "perf_date": "2025-01-01",
-                            "begin_mv": "1000",
-                            "end_mv": "1010",
-                            "bod_cf": "0",
-                            "eod_cf": "0",
-                        },
-                        {
-                            "day": 0,
-                            "perf_date": "2025-01-02",
-                            "begin_mv": "1010",
-                            "end_mv": "1020.1",
-                            "bod_cf": "0",
-                            "eod_cf": "0",
-                        },
-                    ],
+                    **payload,
+                    "calculation_id": body["calculation_id"],
                 }
-            ],
-            "benchmark_groups_data": [
-                {
-                    "key": {"sector": "Technology"},
-                    "observations": [
-                        {"date": "2025-01-01", "weight_bop": "1.0", "return_base": "0.01"},
-                        {"date": "2025-01-02", "weight_bop": "1.0", "return_base": "0.01"},
-                    ],
-                }
-            ],
-        }
+            ),
+            settings=settings,
+        )
     )
     expected_input_fingerprint, expected_calculation_hash = generate_canonical_hash(
-        expected_request, settings.APP_VERSION
+        resolved.attribution_request, settings.APP_VERSION
     )
 
     assert body["meta"]["input_fingerprint"] == expected_input_fingerprint

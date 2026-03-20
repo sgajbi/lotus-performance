@@ -33,18 +33,22 @@ def base_response_footer():
 def single_period_result_payload():
     """Provides a valid payload for a single period's result."""
     return {
-        "breakdowns": {
-            "daily": [
-                {
-                    "period": "2025-01-01",
-                    "summary": {
-                        "begin_mv": 100,
-                        "end_mv": 101,
-                        "net_cash_flow": 0,
-                        "period_return_pct": 1.0,
-                    },
-                }
-            ]
+        "portfolio": {
+            "summary": {
+                "period_return": {"base": 1.0, "local": 1.0, "fx": 0.0},
+                "cumulative_return": {"base": 1.0, "local": 1.0, "fx": 0.0},
+            },
+            "breakdowns": {
+                "daily": [
+                    {
+                        "period": "2025-01-01",
+                        "period_start": "2025-01-01",
+                        "period_end": "2025-01-01",
+                        "period_return": {"base": 1.0, "local": 1.0, "fx": 0.0},
+                        "cumulative_return": {"base": 1.0, "local": 1.0, "fx": 0.0},
+                    }
+                ]
+            },
         }
     }
 

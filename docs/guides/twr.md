@@ -10,12 +10,22 @@ periods and returns breakdowns by the requested reporting frequencies.
 - `input_mode="stateless"`
 - `input_mode="stateful"`
 
+Execution mode:
+
+- synchronous for smaller requests
+- `202 Accepted` when larger TWR workloads are offloaded to the compute executor
+- async poll path: `/performance/executions/{calculation_id}`
+- async result path: `/performance/twr/results/{calculation_id}`
+
 Common top-level fields are:
 
+- optional `calculation_id`
 - `portfolio_id`
-- `performance_start_date`
+- `performance_start_date` in stateless mode
 - `report_end_date`
 - `analyses`
+- optional `include_benchmark`
+- optional `benchmark`
 
 Stateless mode accepts either:
 
@@ -24,11 +34,16 @@ Stateless mode accepts either:
 
 Stateful mode uses:
 
-- `stateful_input.consumer_system`
+- `stateful_input`
 
 In stateful mode, lotus-performance retrieves portfolio timeseries from lotus-core,
 normalizes them into canonical valuation points, then runs the same owned TWR engine
 used by stateless requests.
+
+The stateful envelope is intentionally lightweight. lotus-performance stamps the
+source consumer identity server-side instead of requiring an explicit consumer field.
+
+If `calculation_id` is omitted, lotus-performance generates one and returns it in the response.
 
 Optional controls include:
 
@@ -38,6 +53,30 @@ Optional controls include:
 - `reset_policy`
 - `data_policy`
 - multi-currency fields such as `currency_mode`, `report_ccy`, `fx`, and `hedging`
+
+Use `include_benchmark=true` when benchmark performance should be returned alongside portfolio TWR.
+The nested `benchmark` object is optional configuration, not the inclusion switch itself.
+
+Benchmark selection follows this precedence:
+
+1. `benchmark.benchmark_id` when supplied
+2. lotus-core benchmark assignment in stateful mode
+3. validation error if stateless mode requests benchmark output without a benchmark configuration
+
+When benchmark output is requested, TWR returns:
+
+- a parallel `benchmark` block calculated through the shared benchmark engine
+- per-period `relative_performance`
+
+Benchmark requests support the same benchmark modes as the dedicated benchmark endpoint:
+
+- `benchmark.input_mode="stateless" | "stateful"`
+- `benchmark.return_source="calculated" | "vendor_series"`
+- stateless benchmark calculated mode accepts exactly one of:
+  - `benchmark.stateless_input.component_observations`
+  - `benchmark.stateless_input.component_price_points`
+- stateful benchmark mode can resolve benchmark assignment from lotus-core when `benchmark_id` is omitted
+- stateful benchmark mode can also run with `include_benchmark=true` and no nested `benchmark` block
 
 Older examples using `period_type`, top-level `frequencies`, or `daily_data` are not current.
 
@@ -86,11 +125,32 @@ The response contains:
 
 Each period result may contain:
 
-- `breakdowns`
-- `portfolio_return`
+- `portfolio`
+- `benchmark`
+- `relative_performance`
 - `reset_events`
 
 If `output.include_timeseries` is enabled, daily breakdown entries can also include `daily_data`.
+
+When benchmark output is included, each period result uses sibling comparative blocks:
+
+- `portfolio`
+- `benchmark`
+- `relative_performance`
+
+The response also emits top-level `benchmark_context` when a benchmark was resolved, so callers do
+not need to infer the benchmark identity from an individual period block.
+
+Each block carries:
+
+- `summary.period_return`
+- `summary.cumulative_return`
+- requested-frequency breakdown rows with `period_return` and `cumulative_return`
+
+Portfolio and benchmark cumulative values are geometrically linked through the row end date.
+Relative-performance cumulative values are arithmetic:
+
+`cumulative_relative_return = cumulative_portfolio_return - cumulative_benchmark_return`
 
 ## Multi-currency behavior
 
@@ -160,7 +220,6 @@ See [multi_currency.md](multi_currency.md) for the detailed multi-currency path.
 {
   "input_mode": "stateful",
   "portfolio_id": "DEMO_DPM_EUR_001",
-  "performance_start_date": "2024-12-31",
   "report_end_date": "2025-01-31",
   "metric_basis": "NET",
   "analyses": [
@@ -169,9 +228,7 @@ See [multi_currency.md](multi_currency.md) for the detailed multi-currency path.
       "frequencies": ["daily", "monthly"]
     }
   ],
-  "stateful_input": {
-    "consumer_system": "lotus-performance"
-  }
+  "stateful_input": {}
 }
 ```
 

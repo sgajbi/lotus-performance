@@ -11,6 +11,8 @@ from app.services.execution_registry import execution_registry
 from app.services.stateful_mwr_input_service import build_stateful_mwr_input_for_window
 from app.services.stateful_performance_input_service import retrieve_stateful_portfolio_input
 
+DEFAULT_STATEFUL_CONSUMER_SYSTEM = "lotus-performance"
+
 
 @dataclass(frozen=True)
 class ResolvedMWRRequest:
@@ -46,7 +48,7 @@ async def resolve_mwr_request(
             start_date=stateful_input.window_start_date,
             end_date=request.as_of,
             reporting_currency=request.report_ccy,
-            consumer_system=stateful_input.consumer_system,
+            consumer_system=DEFAULT_STATEFUL_CONSUMER_SYSTEM,
         )
         execution_registry.complete_stage(
             request.calculation_id,

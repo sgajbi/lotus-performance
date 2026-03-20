@@ -76,7 +76,7 @@ def test_twr_request_rejects_stateful_payload_in_stateless_mode(base_payload):
             {
                 **base_payload,
                 "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
-                "stateful_input": {"consumer_system": "lotus-performance"},
+                "stateful_input": {},
             }
         )
 
@@ -87,7 +87,7 @@ def test_twr_request_rejects_stateless_payloads_in_stateful_mode(base_payload):
             {
                 **base_payload,
                 "input_mode": "stateful",
-                "stateful_input": {"consumer_system": "lotus-performance"},
+                "stateful_input": {},
                 "stateless_input": {
                     "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
                 },
@@ -99,7 +99,7 @@ def test_twr_request_rejects_stateless_payloads_in_stateful_mode(base_payload):
             {
                 **base_payload,
                 "input_mode": "stateful",
-                "stateful_input": {"consumer_system": "lotus-performance"},
+                "stateful_input": {},
                 "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
             }
         )
@@ -131,9 +131,151 @@ def test_twr_request_to_stateless_fails_without_stateless_payload(base_payload):
         {
             **base_payload,
             "input_mode": "stateful",
-            "stateful_input": {"consumer_system": "lotus-performance"},
+            "stateful_input": {},
         }
     )
 
     with pytest.raises(ValueError, match="No stateless valuation_points are available"):
         request.to_stateless_performance_request()
+
+
+def test_twr_request_accepts_nested_stateless_benchmark_request(base_payload):
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            **base_payload,
+            "include_benchmark": True,
+            "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+            "benchmark": {
+                "benchmark_id": "BMK_1",
+                "input_mode": "stateless",
+                "return_source": "calculated",
+                "stateless_input": {
+                    "benchmark_currency": "USD",
+                    "component_observations": [
+                        {
+                            "component_id": "IDX_A",
+                            "date": "2025-01-01",
+                            "weight_bop": 1.0,
+                            "component_return": 0.01,
+                        }
+                    ],
+                },
+            },
+        }
+    )
+
+    assert request.benchmark is not None
+    assert request.include_benchmark is True
+    assert request.benchmark.input_mode.value == "stateless"
+    assert request.to_stateless_performance_request().valuation_points[0].end_mv == 1010
+
+
+def test_twr_request_accepts_stateless_benchmark_price_points(base_payload):
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            **base_payload,
+            "include_benchmark": True,
+            "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+            "benchmark": {
+                "benchmark_id": "BMK_1",
+                "input_mode": "stateless",
+                "return_source": "calculated",
+                "stateless_input": {
+                    "benchmark_currency": "USD",
+                    "component_price_points": [
+                        {"component_id": "IDX_A", "date": "2024-12-31", "weight_bop": 1.0, "index_price": 100.0},
+                        {"component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "index_price": 101.0},
+                    ],
+                },
+            },
+        }
+    )
+
+    assert request.benchmark is not None
+    assert len(request.benchmark.stateless_input.component_price_points) == 2
+
+
+def test_twr_request_supports_stateful_include_benchmark_without_nested_config(base_payload):
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            **base_payload,
+            "input_mode": "stateful",
+            "stateful_input": {},
+            "include_benchmark": True,
+        }
+    )
+
+    assert request.include_benchmark is True
+    assert request.benchmark is None
+
+
+def test_twr_request_allows_missing_start_date_in_stateful_mode(base_payload):
+    payload = {
+        key: value
+        for key, value in base_payload.items()
+        if key != "performance_start_date"
+    }
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            **payload,
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+
+    assert request.performance_start_date is None
+
+
+def test_twr_request_requires_benchmark_config_for_stateless_include_benchmark(base_payload):
+    with pytest.raises(ValidationError, match="benchmark configuration is required when include_benchmark=true"):
+        TWRAnalyticsRequest.model_validate(
+            {
+                **base_payload,
+                "include_benchmark": True,
+                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+            }
+        )
+
+
+def test_twr_request_requires_stateful_benchmark_payload_when_requested(base_payload):
+    with pytest.raises(ValidationError, match="benchmark.stateful_input is required"):
+        TWRAnalyticsRequest.model_validate(
+            {
+                **base_payload,
+                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+                "benchmark": {
+                    "input_mode": "stateful",
+                },
+            }
+        )
+
+
+def test_twr_request_rejects_ambiguous_stateless_benchmark_inputs(base_payload):
+    with pytest.raises(ValidationError, match="exactly one of benchmark.stateless_input.component_observations"):
+        TWRAnalyticsRequest.model_validate(
+            {
+                **base_payload,
+                "include_benchmark": True,
+                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+                "benchmark": {
+                    "benchmark_id": "BMK_1",
+                    "input_mode": "stateless",
+                    "return_source": "calculated",
+                    "stateless_input": {
+                        "benchmark_currency": "USD",
+                        "component_observations": [
+                            {
+                                "component_id": "IDX_A",
+                                "date": "2025-01-01",
+                                "weight_bop": 1.0,
+                                "component_return": 0.01,
+                            }
+                        ],
+                        "component_price_points": [
+                            {"component_id": "IDX_A", "date": "2024-12-31", "weight_bop": 1.0, "index_price": 100.0},
+                            {"component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "index_price": 101.0},
+                        ],
+                    },
+                },
+            }
+        )

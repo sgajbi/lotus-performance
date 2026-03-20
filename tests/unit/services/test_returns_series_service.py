@@ -1,14 +1,69 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from uuid import uuid4
 
+import pandas as pd
 import pytest
 from fastapi import HTTPException
 
+from app.models.benchmark_requests import BenchmarkComponentObservation
 from app.models.returns_series import ReturnsSeriesRequest
 from app.services import portfolio_source_service, returns_series_service, stateful_input_service
 from app.services.execution_registry import ExecutionRegistry
+from app.services.stateful_benchmark_input_service import StatefulBenchmarkNormalizedInput
 from core.repro import generate_canonical_hash
+
+
+def test_build_active_return_points_uses_aligned_arithmetic_difference():
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23", "2026-02-24", "2026-02-25"]),
+            "return_value": [Decimal("0.0100"), Decimal("0.0050"), Decimal("-0.0025")],
+        }
+    )
+    benchmark_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24", "2026-02-25"]),
+            "return_value": [Decimal("0.0010"), Decimal("0.0005")],
+        }
+    )
+
+    active_points = returns_series_service.build_active_return_points(
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+    )
+
+    assert active_points is not None
+    assert [point.date.isoformat() for point in active_points] == ["2026-02-24", "2026-02-25"]
+    assert [str(point.return_value) for point in active_points] == ["0.004000000000", "-0.003000000000"]
+
+
+def test_build_cumulative_active_return_points_uses_cumulative_excess_not_linked_active():
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23", "2026-02-24"]),
+            "return_value": [Decimal("0.1000"), Decimal("0.1000")],
+        }
+    )
+    benchmark_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23", "2026-02-24"]),
+            "return_value": [Decimal("0.0500"), Decimal("0.0500")],
+        }
+    )
+
+    cumulative_active_points = returns_series_service.build_cumulative_active_return_points(
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+    )
+
+    assert cumulative_active_points is not None
+    assert [point.date.isoformat() for point in cumulative_active_points] == ["2026-02-23", "2026-02-24"]
+    assert [str(point.return_value) for point in cumulative_active_points] == [
+        "0.050000000000",
+        "0.107500000000",
+    ]
 
 
 def _build_stateful_request(**overrides):
@@ -21,7 +76,7 @@ def _build_stateful_request(**overrides):
         "metric_basis": "NET",
         "series_selection": {"include_portfolio": True, "include_benchmark": True, "include_risk_free": False},
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
     payload.update(overrides)
     return ReturnsSeriesRequest.model_validate(payload)
@@ -93,7 +148,7 @@ async def test_calculate_returns_series_maps_assignment_source_unavailable(monke
 
 @pytest.mark.asyncio
 async def test_calculate_returns_series_requires_benchmark_id_and_points(monkeypatch, tmp_path):
-    request = _build_stateful_request()
+    request = _build_stateful_request(benchmark={"return_source": "vendor_series"})
     _seed_execution(monkeypatch, tmp_path, request)
 
     async def _portfolio(self, **kwargs):  # noqa: ARG001
@@ -139,6 +194,7 @@ async def test_calculate_returns_series_maps_benchmark_and_risk_free_errors(monk
     request = _build_stateful_request(
         series_selection={"include_portfolio": True, "include_benchmark": True, "include_risk_free": True},
         reporting_currency="USD",
+        benchmark={"return_source": "vendor_series"},
     )
     _seed_execution(monkeypatch, tmp_path, request)
 
@@ -288,24 +344,49 @@ async def test_calculate_returns_series_updates_stateful_identity_from_resolved_
     async def _assignment(self, **kwargs):  # noqa: ARG001
         return 200, {"benchmark_id": "BMK_RESOLVED"}
 
-    async def _benchmark(self, **kwargs):  # noqa: ARG001
-        return 200, {
-            "points": [
-                {"series_date": "2026-02-23", "benchmark_return": "0.0010"},
-                {"series_date": "2026-02-24", "benchmark_return": "0.0020"},
-                {"series_date": "2026-02-25", "benchmark_return": "0.0030"},
-            ]
-        }
+    async def _build_benchmark(**kwargs):  # noqa: ARG001
+        return StatefulBenchmarkNormalizedInput(
+            benchmark_currency="USD",
+            component_observations=[
+                BenchmarkComponentObservation(
+                    component_id="IDX1",
+                    date="2026-02-23",
+                    weight_bop=1.0,
+                    component_currency="USD",
+                    component_return=0.0010,
+                ),
+                BenchmarkComponentObservation(
+                    component_id="IDX1",
+                    date="2026-02-24",
+                    weight_bop=1.0,
+                    component_currency="USD",
+                    component_return=0.0020,
+                ),
+                BenchmarkComponentObservation(
+                    component_id="IDX1",
+                    date="2026-02-25",
+                    weight_bop=1.0,
+                    component_currency="USD",
+                    component_return=0.0030,
+                ),
+            ],
+            benchmark_return_points=[],
+            source_details={"benchmark_components": 1, "component_observations": 3, "benchmark_chunk_count": 1},
+        )
 
     monkeypatch.setattr(
         portfolio_source_service.CoreIntegrationService, "get_portfolio_analytics_timeseries", _portfolio
     )
     monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_benchmark_assignment", _assignment)
-    monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_benchmark_return_series", _benchmark)
+    monkeypatch.setattr(returns_series_service, "build_stateful_benchmark_input", _build_benchmark)
 
     initial_input_fingerprint, initial_calculation_hash = generate_canonical_hash(request, "returns-series-v1")
 
     response = await returns_series_service.calculate_returns_series(request)
+
+    assert response.benchmark_context is not None
+    assert response.benchmark_context.benchmark_id == "BMK_RESOLVED"
+    assert response.benchmark_context.return_source.value == "calculated"
 
     resolved_payload = returns_series_service._build_stateful_resolved_returns_payload(
         request=request,
@@ -314,6 +395,7 @@ async def test_calculate_returns_series_updates_stateful_identity_from_resolved_
         benchmark_records=[point.model_dump(mode="json") for point in (response.series.benchmark_returns or [])],
         risk_free_records=None,
         resolved_benchmark_id="BMK_RESOLVED",
+        resolved_benchmark_return_source="calculated",
     )
     expected_input_fingerprint, expected_calculation_hash = generate_canonical_hash(
         resolved_payload,

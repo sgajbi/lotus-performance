@@ -1,5 +1,5 @@
 # tests/integration/test_performance_api.py
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi import HTTPException
@@ -7,9 +7,12 @@ from fastapi.testclient import TestClient
 
 from app.api.endpoints.performance import _generate_twr_request_hashes
 from app.core.config import get_settings
+from app.models.benchmark_analytics_requests import BenchmarkInputMode
+from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.requests import PerformanceRequest
-from app.models.twr_requests import TWRAnalyticsRequest
-from core.repro import generate_canonical_hash
+from app.models.twr_requests import TWRAnalyticsRequest, TWRResolvedExecutionRequest
+from app.services.twr_mode_service import ResolvedTWRRequest
+from core.repro import generate_canonical_hash_from_value
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
 from main import app
 
@@ -71,12 +74,12 @@ def test_calculate_twr_endpoint_with_annualization(client):
     response = client.post("/performance/twr", json=payload)
     assert response.status_code == 200
     data = response.json()
-    summary = data["results_by_period"]["QTD"]["breakdowns"]["quarterly"][0]["summary"]
+    summary = data["results_by_period"]["QTD"]["portfolio"]["breakdowns"]["quarterly"][0]
 
-    assert "annualized_return_pct" in summary
-    assert summary["period_return_pct"] == pytest.approx(2.01)
+    assert summary["annualized_return"] is not None
+    assert summary["period_return"]["base"] == pytest.approx(2.01)
     # 90 days in Q1 2025. Expected: (1.0201 ** (365 / 90)) - 1 = 8.40545...%
-    assert summary["annualized_return_pct"] == pytest.approx(8.40545, abs=1e-5)
+    assert summary["annualized_return"]["base"] == pytest.approx(8.40545, abs=1e-5)
 
 
 def test_calculate_twr_endpoint_legacy_path_and_diagnostics(client):
@@ -106,7 +109,8 @@ def test_calculate_twr_endpoint_legacy_path_and_diagnostics(client):
     assert "results_by_period" in response_data
     assert "YTD" in response_data["results_by_period"]
     ytd_results = response_data["results_by_period"]["YTD"]
-    assert "breakdowns" in ytd_results
+    assert "portfolio" in ytd_results
+    assert "breakdowns" in ytd_results["portfolio"]
 
     assert "meta" in response_data
     assert response_data["meta"]["engine_version"] is not None
@@ -141,15 +145,15 @@ def test_calculate_twr_endpoint_multi_period(client):
     assert "MTD" in results
     assert "YTD" in results
 
-    mtd_monthly_breakdown = results["MTD"]["breakdowns"]["monthly"]
+    mtd_monthly_breakdown = results["MTD"]["portfolio"]["breakdowns"]["monthly"]
     assert len(mtd_monthly_breakdown) == 1
-    mtd_return = mtd_monthly_breakdown[0]["summary"]["period_return_pct"]
+    mtd_return = mtd_monthly_breakdown[0]["period_return"]["base"]
     assert mtd_return == pytest.approx(2.0)
 
-    ytd_monthly_breakdown = results["YTD"]["breakdowns"]["monthly"]
+    ytd_monthly_breakdown = results["YTD"]["portfolio"]["breakdowns"]["monthly"]
     assert len(ytd_monthly_breakdown) == 2
-    jan_return = ytd_monthly_breakdown[0]["summary"]["period_return_pct"]
-    feb_return = ytd_monthly_breakdown[1]["summary"]["period_return_pct"]
+    jan_return = ytd_monthly_breakdown[0]["period_return"]["base"]
+    feb_return = ytd_monthly_breakdown[1]["period_return"]["base"]
 
     assert jan_return == pytest.approx(1.0)
     assert feb_return == pytest.approx(2.0)
@@ -185,10 +189,10 @@ def test_calculate_twr_endpoint_multi_currency(client):
     data = response.json()
     itd_result = data["results_by_period"]["ITD"]
 
-    assert "portfolio_return" in itd_result
-    assert itd_result["portfolio_return"]["local"] == pytest.approx(3.02)
-    assert itd_result["portfolio_return"]["fx"] == pytest.approx(1.90476, abs=1e-5)
-    assert itd_result["portfolio_return"]["base"] == pytest.approx(4.98228, abs=1e-5)
+    assert "portfolio" in itd_result
+    assert itd_result["portfolio"]["summary"]["period_return"]["local"] == pytest.approx(3.02)
+    assert itd_result["portfolio"]["summary"]["period_return"]["fx"] == pytest.approx(1.90476, abs=1e-5)
+    assert itd_result["portfolio"]["summary"]["period_return"]["base"] == pytest.approx(4.98228, abs=1e-5)
     assert data["meta"]["report_ccy"] == "USD"
 
 
@@ -220,9 +224,9 @@ def test_calculate_twr_endpoint_with_data_policy(client):
     data = response.json()
     itd_result = data["results_by_period"]["ITD"]
 
-    daily_breakdown = itd_result["breakdowns"]["daily"]
-    assert daily_breakdown[4]["summary"]["period_return_pct"] == pytest.approx(0.099602, abs=1e-6)
-    assert daily_breakdown[6]["summary"]["period_return_pct"] == 0.0
+    daily_breakdown = itd_result["portfolio"]["breakdowns"]["daily"]
+    assert daily_breakdown[4]["period_return"]["base"] == pytest.approx(0.099602, abs=1e-6)
+    assert daily_breakdown[6]["period_return"]["base"] == 0.0
 
     diags = data["diagnostics"]
     assert diags["policy"]["overrides"]["applied_mv_count"] == 1
@@ -246,7 +250,7 @@ def test_twr_respects_include_timeseries_flag(client):
     payload_with["output"] = {"include_timeseries": True}
     response_with = client.post("/performance/twr", json=payload_with)
     assert response_with.status_code == 200
-    daily_breakdown_with = response_with.json()["results_by_period"]["YTD"]["breakdowns"]["daily"][0]
+    daily_breakdown_with = response_with.json()["results_by_period"]["YTD"]["portfolio"]["breakdowns"]["daily"][0]
     assert "daily_data" in daily_breakdown_with
     assert daily_breakdown_with["daily_data"] is not None
 
@@ -255,12 +259,14 @@ def test_twr_respects_include_timeseries_flag(client):
     payload_without["output"] = {"include_timeseries": False}
     response_without = client.post("/performance/twr", json=payload_without)
     assert response_without.status_code == 200
-    daily_breakdown_without = response_without.json()["results_by_period"]["YTD"]["breakdowns"]["daily"][0]
-    assert "daily_data" not in daily_breakdown_without
+    daily_breakdown_without = (
+        response_without.json()["results_by_period"]["YTD"]["portfolio"]["breakdowns"]["daily"][0]
+    )
+    assert daily_breakdown_without.get("daily_data") is None
 
 
-def test_twr_response_includes_portfolio_return_summary(client):
-    """Tests that the top-level portfolio_return object is present for single-currency requests."""
+def test_twr_response_includes_portfolio_summary_block(client):
+    """Tests that the portfolio summary block is present for single-currency requests."""
     payload = {
         "portfolio_id": "PORTFOLIO_RETURN_TEST",
         "performance_start_date": "2024-12-31",
@@ -277,9 +283,9 @@ def test_twr_response_includes_portfolio_return_summary(client):
     data = response.json()
     ytd_result = data["results_by_period"]["YTD"]
 
-    assert "portfolio_return" in ytd_result
-    assert ytd_result["portfolio_return"]["base"] == pytest.approx(2.01)
-    assert ytd_result["portfolio_return"]["fx"] == 0.0
+    assert "portfolio" in ytd_result
+    assert ytd_result["portfolio"]["summary"]["period_return"]["base"] == pytest.approx(2.01)
+    assert ytd_result["portfolio"]["summary"]["period_return"]["fx"] == 0.0
 
 
 def test_twr_supports_stateful_input_mode(client, monkeypatch):
@@ -302,12 +308,11 @@ def test_twr_supports_stateful_input_mode(client, monkeypatch):
 
     payload = {
         "portfolio_id": "STATEFUL_TWR_TEST",
-        "performance_start_date": "2024-12-31",
         "metric_basis": "NET",
         "report_end_date": "2025-01-02",
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     response = client.post("/performance/twr", json=payload)
@@ -315,7 +320,705 @@ def test_twr_supports_stateful_input_mode(client, monkeypatch):
     assert response.status_code == 200
     body = response.json()
     assert body["input_mode"] == "stateful"
-    assert body["results_by_period"]["YTD"]["portfolio_return"]["base"] == pytest.approx(2.01)
+    assert body["results_by_period"]["YTD"]["portfolio"]["summary"]["period_return"]["base"] == pytest.approx(2.01)
+
+
+def test_twr_generates_calculation_id_when_omitted_for_benchmark_request(client):
+    payload = {
+        "portfolio_id": "TWR_BENCHMARK_GENERATED_ID",
+        "performance_start_date": "2024-12-31",
+        "metric_basis": "NET",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "include_benchmark": True,
+        "valuation_points": [
+            {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+            {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+        ],
+        "benchmark": {
+            "benchmark_id": "BMK_GENERATED_ID",
+            "input_mode": "stateless",
+            "return_source": "calculated",
+            "stateless_input": {
+                "benchmark_currency": "USD",
+                "component_observations": [
+                    {"component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
+                    {"component_id": "IDX_A", "date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.01},
+                ],
+            },
+        },
+    }
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    generated_calculation_id = body["calculation_id"]
+    assert generated_calculation_id
+    assert body["meta"]["calculation_id"] == generated_calculation_id
+    assert body["results_by_period"]["YTD"]["benchmark"]["benchmark_id"] == "BMK_GENERATED_ID"
+    assert body["results_by_period"]["YTD"]["relative_performance"] is not None
+
+
+def test_twr_supports_stateless_benchmark_request(client):
+    payload = {
+        "portfolio_id": "TWR_BENCHMARK_STATELESS",
+        "performance_start_date": "2024-12-31",
+        "metric_basis": "NET",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "include_benchmark": True,
+        "valuation_points": [
+            {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+            {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+        ],
+        "benchmark": {
+            "benchmark_id": "BMK_STATELESS_1",
+            "input_mode": "stateless",
+            "return_source": "calculated",
+            "stateless_input": {
+                "benchmark_currency": "USD",
+                "component_observations": [
+                    {"component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
+                    {"component_id": "IDX_A", "date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.015},
+                ],
+            },
+        },
+    }
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["benchmark_context"] == {
+        "benchmark_id": "BMK_STATELESS_1",
+        "benchmark_currency": "USD",
+        "input_mode": "stateless",
+        "return_source": "calculated",
+    }
+    benchmark_block = body["results_by_period"]["YTD"]["benchmark"]
+    relative_block = body["results_by_period"]["YTD"]["relative_performance"]
+    assert benchmark_block["benchmark_id"] == "BMK_STATELESS_1"
+    assert benchmark_block["input_mode"] == "stateless"
+    assert benchmark_block["benchmark_currency"] == "USD"
+    assert benchmark_block["summary"]["period_return"]["base"] == pytest.approx(2.515)
+    assert relative_block["summary"]["period_return"]["base"] == pytest.approx(-0.505)
+    assert relative_block["summary"]["cumulative_return"]["base"] == pytest.approx(-0.505)
+
+
+def test_twr_supports_stateful_benchmark_assignment(client, monkeypatch):
+    class _StatefulBenchmarkStub:
+        async def get_benchmark_assignment(self, **kwargs):  # noqa: ARG002
+            return 200, {"benchmark_id": "BMK_ASSIGNED"}
+
+        async def get_benchmark_composition_window(self, **kwargs):  # noqa: ARG002
+            return (
+                200,
+                {
+                    "benchmark_id": "BMK_ASSIGNED",
+                    "benchmark_currency": "USD",
+                    "segments": [
+                        {
+                            "index_id": "IDX_USD",
+                            "composition_weight": "1.0",
+                            "composition_effective_from": "2024-12-31",
+                            "composition_effective_to": "2025-01-31",
+                        }
+                    ],
+                },
+            )
+
+        async def get_index_price_series(self, **kwargs):  # noqa: ARG002
+            return (
+                200,
+                {
+                    "points": [
+                        {"series_date": "2024-12-31", "index_price": "100", "series_currency": "USD"},
+                        {"series_date": "2025-01-01", "index_price": "101", "series_currency": "USD"},
+                        {"series_date": "2025-01-02", "index_price": "102.01", "series_currency": "USD"},
+                    ],
+                    "retrieval_metadata": {"chunk_count": 1, "page_count": 1},
+                },
+            )
+
+        async def get_fx_rates(self, **kwargs):  # noqa: ARG002
+            return 200, {"points": []}
+
+        async def get_benchmark_return_series(self, **kwargs):  # noqa: ARG002
+            return 404, {"detail": "unused"}
+
+    monkeypatch.setattr(
+        "app.services.twr_mode_service.build_stateful_input_service",
+        lambda settings: _StatefulBenchmarkStub(),  # noqa: ARG005
+    )
+
+    payload = {
+        "portfolio_id": "TWR_BENCHMARK_STATEFUL",
+        "performance_start_date": "2024-12-31",
+        "metric_basis": "NET",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "include_benchmark": True,
+        "valuation_points": [
+            {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+            {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+        ],
+        "benchmark": {
+            "input_mode": "stateful",
+            "return_source": "calculated",
+            "stateful_input": {},
+        },
+    }
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["benchmark_context"] == {
+        "benchmark_id": "BMK_ASSIGNED",
+        "benchmark_currency": "USD",
+        "input_mode": "stateful",
+        "return_source": "calculated",
+    }
+    benchmark_block = body["results_by_period"]["YTD"]["benchmark"]
+    assert benchmark_block["benchmark_id"] == "BMK_ASSIGNED"
+    assert benchmark_block["input_mode"] == "stateful"
+    assert benchmark_block["summary"]["period_return"]["base"] == pytest.approx(2.01)
+    assert body["results_by_period"]["YTD"]["relative_performance"]["summary"]["period_return"]["base"] == pytest.approx(0.0)
+
+
+def test_twr_supports_include_benchmark_without_nested_stateful_benchmark_config(client, monkeypatch):
+    class _StatefulBenchmarkStub:
+        async def get_benchmark_assignment(self, **kwargs):  # noqa: ARG002
+            return 200, {"benchmark_id": "BMK_ASSIGNED_DEFAULT"}
+
+        async def get_benchmark_composition_window(self, **kwargs):  # noqa: ARG002
+            return (
+                200,
+                {
+                    "benchmark_id": "BMK_ASSIGNED_DEFAULT",
+                    "benchmark_currency": "USD",
+                    "segments": [
+                        {
+                            "index_id": "IDX_USD",
+                            "composition_weight": "1.0",
+                            "composition_effective_from": "2024-12-31",
+                            "composition_effective_to": "2025-01-31",
+                        }
+                    ],
+                },
+            )
+
+        async def get_index_price_series(self, **kwargs):  # noqa: ARG002
+            return (
+                200,
+                {
+                    "points": [
+                        {"series_date": "2024-12-31", "index_price": "100", "series_currency": "USD"},
+                        {"series_date": "2025-01-01", "index_price": "101", "series_currency": "USD"},
+                        {"series_date": "2025-01-02", "index_price": "102.01", "series_currency": "USD"},
+                    ],
+                    "retrieval_metadata": {"chunk_count": 1, "page_count": 1},
+                },
+            )
+
+        async def get_fx_rates(self, **kwargs):  # noqa: ARG002
+            return 200, {"points": []}
+
+        async def get_benchmark_return_series(self, **kwargs):  # noqa: ARG002
+            return 404, {"detail": "unused"}
+
+    async def _mock_fetch_stateful_portfolio_timeseries(**kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2024-12-31",
+                "observations": [
+                    {"valuation_date": "2025-01-01", "beginning_market_value": "1000", "ending_market_value": "1010"},
+                    {"valuation_date": "2025-01-02", "beginning_market_value": "1010", "ending_market_value": "1020.1"},
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.twr_mode_service.build_stateful_input_service",
+        lambda settings: _StatefulBenchmarkStub(),  # noqa: ARG005
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_performance_input_service.fetch_stateful_portfolio_timeseries",
+        _mock_fetch_stateful_portfolio_timeseries,
+    )
+
+    payload = {
+        "portfolio_id": "TWR_BENCHMARK_STATEFUL_DEFAULT",
+        "metric_basis": "NET",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {},
+        "include_benchmark": True,
+    }
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["benchmark_context"] == {
+        "benchmark_id": "BMK_ASSIGNED_DEFAULT",
+        "benchmark_currency": "USD",
+        "input_mode": "stateful",
+        "return_source": "calculated",
+    }
+    assert body["results_by_period"]["YTD"]["benchmark"]["benchmark_id"] == "BMK_ASSIGNED_DEFAULT"
+    assert body["results_by_period"]["YTD"]["benchmark"]["input_mode"] == "stateful"
+
+
+def test_twr_records_http_failure_detail_in_execution_status(client, monkeypatch):
+    calculation_id = str(uuid4())
+
+    class _FailingStatefulBenchmarkStub:
+        async def get_benchmark_assignment(self, **kwargs):  # noqa: ARG002
+            return 200, {"benchmark_id": "BMK_BAD_WINDOW"}
+
+        async def get_benchmark_composition_window(self, **kwargs):  # noqa: ARG002
+            return (
+                200,
+                {
+                    "benchmark_id": "BMK_BAD_WINDOW",
+                    "benchmark_currency": "USD",
+                    "segments": [
+                        {
+                            "index_id": "IDX_USD",
+                            "composition_weight": "1.0",
+                            "composition_effective_from": "2025-01-02",
+                            "composition_effective_to": "2025-01-31",
+                        }
+                    ],
+                },
+            )
+
+        async def get_index_price_series(self, **kwargs):  # noqa: ARG002
+            return 404, {"detail": "unused"}
+
+        async def get_fx_rates(self, **kwargs):  # noqa: ARG002
+            return 200, {"points": []}
+
+        async def get_benchmark_return_series(self, **kwargs):  # noqa: ARG002
+            return 404, {"detail": "unused"}
+
+    async def _mock_fetch_stateful_portfolio_timeseries(**kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2024-12-31",
+                "observations": [
+                    {"valuation_date": "2025-01-01", "beginning_market_value": "1000", "ending_market_value": "1010"},
+                    {"valuation_date": "2025-01-02", "beginning_market_value": "1010", "ending_market_value": "1020.1"},
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.twr_mode_service.build_stateful_input_service",
+        lambda settings: _FailingStatefulBenchmarkStub(),  # noqa: ARG005
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_performance_input_service.fetch_stateful_portfolio_timeseries",
+        _mock_fetch_stateful_portfolio_timeseries,
+    )
+
+    payload = {
+        "calculation_id": calculation_id,
+        "portfolio_id": "TWR_BENCHMARK_STATEFUL_FAILURE",
+        "metric_basis": "NET",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {},
+        "include_benchmark": True,
+    }
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 422
+    assert "does not cover requested date 2025-01-01" in response.json()["detail"]
+
+    execution_response = client.get(f"/performance/executions/{calculation_id}")
+    assert execution_response.status_code == 200
+    body = execution_response.json()
+    assert body["status"] == "failed"
+    assert "does not cover requested date 2025-01-01" in body["error_message"]
+    retrieval_stage = {stage["stage_name"]: stage for stage in body["stages"]}["retrieval"]
+    assert retrieval_stage["status"] == "failed"
+    assert "does not cover requested date 2025-01-01" in retrieval_stage["error_message"]
+
+
+def test_twr_supports_stateless_benchmark_price_points(client):
+    payload = {
+        "portfolio_id": "TWR_BENCHMARK_PRICE_POINTS",
+        "performance_start_date": "2024-12-31",
+        "metric_basis": "NET",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "include_benchmark": True,
+        "valuation_points": [
+            {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+            {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+        ],
+        "benchmark": {
+            "benchmark_id": "BMK_PRICE_1",
+            "input_mode": "stateless",
+            "return_source": "calculated",
+            "stateless_input": {
+                "benchmark_currency": "USD",
+                "component_price_points": [
+                    {"component_id": "IDX_A", "date": "2024-12-31", "weight_bop": 1.0, "index_price": 100.0},
+                    {"component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "index_price": 101.0},
+                    {"component_id": "IDX_A", "date": "2025-01-02", "weight_bop": 1.0, "index_price": 102.01},
+                ],
+            },
+        },
+    }
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["results_by_period"]["YTD"]["benchmark"]["benchmark_id"] == "BMK_PRICE_1"
+    assert body["results_by_period"]["YTD"]["benchmark"]["summary"]["period_return"]["base"] == pytest.approx(2.01)
+    assert body["results_by_period"]["YTD"]["relative_performance"]["summary"]["period_return"]["base"] == pytest.approx(0.0)
+
+
+def test_twr_relative_performance_uses_cumulative_to_date_for_non_itd_periods(client):
+    payload = {
+        "portfolio_id": "TWR_BENCHMARK_RELATIVE_MTD",
+        "performance_start_date": "2024-12-31",
+        "metric_basis": "NET",
+        "report_end_date": "2025-02-15",
+        "analyses": [
+            {"period": "MTD", "frequencies": ["monthly"]},
+            {"period": "YTD", "frequencies": ["monthly"]},
+        ],
+        "include_benchmark": True,
+        "valuation_points": [
+            {"day": 1, "perf_date": "2025-01-15", "begin_mv": 1000.0, "end_mv": 1010.0},
+            {"day": 2, "perf_date": "2025-02-10", "begin_mv": 1010.0, "end_mv": 1030.2},
+        ],
+        "benchmark": {
+            "benchmark_id": "BMK_RELATIVE_1",
+            "input_mode": "stateless",
+            "return_source": "calculated",
+            "stateless_input": {
+                "benchmark_currency": "USD",
+                "component_observations": [
+                    {"component_id": "IDX_A", "date": "2025-01-15", "weight_bop": 1.0, "component_return": 0.005},
+                    {"component_id": "IDX_A", "date": "2025-02-10", "weight_bop": 1.0, "component_return": 0.015},
+                ],
+            },
+        },
+    }
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    mtd_relative = body["results_by_period"]["MTD"]["relative_performance"]["summary"]
+    ytd_relative = body["results_by_period"]["YTD"]["relative_performance"]["summary"]
+
+    assert mtd_relative["period_return"]["base"] == pytest.approx(0.5)
+    assert mtd_relative["cumulative_return"]["base"] == pytest.approx(1.0125)
+    assert ytd_relative["period_return"]["base"] == pytest.approx(1.0125)
+    assert ytd_relative["cumulative_return"]["base"] == pytest.approx(1.0125)
+
+
+def test_twr_endpoint_returns_async_paths_for_stateful_benchmark_request(client, monkeypatch):
+    settings = get_settings()
+    original_window_threshold = settings.TWR_EXECUTOR_WINDOW_DAYS
+    original_input_threshold = settings.TWR_EXECUTOR_INPUT_COUNT
+    settings.TWR_EXECUTOR_WINDOW_DAYS = 365
+    settings.TWR_EXECUTOR_INPUT_COUNT = 5
+
+    async def _mock_resolve_twr_request(request, *, settings):  # noqa: ARG001
+        return ResolvedTWRRequest(
+            performance_request=PerformanceRequest.model_validate(
+                {
+                    "calculation_id": str(request.calculation_id),
+                    "portfolio_id": request.portfolio_id,
+                    "performance_start_date": "2024-12-31",
+                    "report_end_date": "2025-01-03",
+                    "metric_basis": "NET",
+                    "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+                    "valuation_points": [
+                        {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+                        {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+                        {"day": 3, "perf_date": "2025-01-03", "begin_mv": 1020.1, "end_mv": 1030.301},
+                        {"day": 4, "perf_date": "2025-01-04", "begin_mv": 1030.301, "end_mv": 1040.60401},
+                    ],
+                }
+            ),
+            input_mode=request.input_mode,
+            benchmark_request=BenchmarkPerformanceRequest.model_validate(
+                {
+                    "calculation_id": str(request.calculation_id),
+                    "benchmark_id": "BMK_ASYNC_TWR",
+                    "benchmark_start_date": "2025-01-01",
+                    "report_end_date": "2025-01-03",
+                    "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+                    "return_source": "calculated",
+                    "benchmark_currency": "USD",
+                    "component_observations": [
+                        {"component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
+                        {"component_id": "IDX_A", "date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.01},
+                    ],
+                }
+            ),
+            benchmark_input_mode=BenchmarkInputMode.STATEFUL,
+            resolved_benchmark_id="BMK_ASYNC_TWR",
+        )
+
+    monkeypatch.setattr("app.api.endpoints.performance.resolve_twr_request", _mock_resolve_twr_request)
+
+    payload = {
+        "calculation_id": str(uuid4()),
+        "portfolio_id": "TWR_ASYNC_ACCEPTED",
+        "performance_start_date": "2024-12-31",
+        "report_end_date": "2025-01-03",
+        "metric_basis": "NET",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "include_benchmark": True,
+        "stateful_input": {},
+    }
+
+    try:
+        response = client.post("/performance/twr", json=payload)
+
+        assert response.status_code == 202
+        body = response.json()
+        assert body["poll_path"].endswith(payload["calculation_id"])
+        pending = client.get(body["result_path"])
+        assert pending.status_code == 202
+    finally:
+        settings.TWR_EXECUTOR_WINDOW_DAYS = original_window_threshold
+        settings.TWR_EXECUTOR_INPUT_COUNT = original_input_threshold
+
+
+def test_twr_endpoint_generates_calculation_id_for_async_stateful_benchmark_request(client, monkeypatch):
+    settings = get_settings()
+    original_window_threshold = settings.TWR_EXECUTOR_WINDOW_DAYS
+    original_input_threshold = settings.TWR_EXECUTOR_INPUT_COUNT
+    settings.TWR_EXECUTOR_WINDOW_DAYS = 365
+    settings.TWR_EXECUTOR_INPUT_COUNT = 5
+
+    async def _mock_resolve_twr_request(request, *, settings):  # noqa: ARG001
+        return ResolvedTWRRequest(
+            performance_request=PerformanceRequest.model_validate(
+                {
+                    "calculation_id": str(request.calculation_id),
+                    "portfolio_id": request.portfolio_id,
+                    "performance_start_date": "2024-12-31",
+                    "report_end_date": "2025-01-03",
+                    "metric_basis": "NET",
+                    "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+                    "valuation_points": [
+                        {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+                        {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+                        {"day": 3, "perf_date": "2025-01-03", "begin_mv": 1020.1, "end_mv": 1030.301},
+                        {"day": 4, "perf_date": "2025-01-04", "begin_mv": 1030.301, "end_mv": 1040.60401},
+                    ],
+                }
+            ),
+            input_mode=request.input_mode,
+            benchmark_request=BenchmarkPerformanceRequest.model_validate(
+                {
+                    "calculation_id": str(request.calculation_id),
+                    "benchmark_id": "BMK_ASYNC_TWR",
+                    "benchmark_start_date": "2025-01-01",
+                    "report_end_date": "2025-01-03",
+                    "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+                    "return_source": "calculated",
+                    "benchmark_currency": "USD",
+                    "component_observations": [
+                        {"component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
+                        {"component_id": "IDX_A", "date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.01},
+                    ],
+                }
+            ),
+            benchmark_input_mode=BenchmarkInputMode.STATEFUL,
+            resolved_benchmark_id="BMK_ASYNC_TWR",
+        )
+
+    monkeypatch.setattr("app.api.endpoints.performance.resolve_twr_request", _mock_resolve_twr_request)
+
+    payload = {
+        "portfolio_id": "TWR_GENERATED_ASYNC",
+        "performance_start_date": "2024-12-31",
+        "report_end_date": "2025-01-03",
+        "metric_basis": "NET",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "include_benchmark": True,
+        "stateful_input": {},
+    }
+
+    try:
+        response = client.post("/performance/twr", json=payload)
+
+        assert response.status_code == 202
+        body = response.json()
+        generated_calculation_id = body["calculation_id"]
+        assert generated_calculation_id
+        assert body["poll_path"].endswith(generated_calculation_id)
+        assert body["result_path"].endswith(generated_calculation_id)
+    finally:
+        settings.TWR_EXECUTOR_WINDOW_DAYS = original_window_threshold
+        settings.TWR_EXECUTOR_INPUT_COUNT = original_input_threshold
+
+
+def test_twr_async_result_missing_and_failed_contracts(client, monkeypatch):
+    settings = get_settings()
+    original_window_threshold = settings.TWR_EXECUTOR_WINDOW_DAYS
+    original_input_threshold = settings.TWR_EXECUTOR_INPUT_COUNT
+    settings.TWR_EXECUTOR_WINDOW_DAYS = 365
+    settings.TWR_EXECUTOR_INPUT_COUNT = 5
+
+    async def _mock_resolve_twr_request(request, *, settings):  # noqa: ARG001
+        return ResolvedTWRRequest(
+            performance_request=PerformanceRequest.model_validate(
+                {
+                    "calculation_id": str(request.calculation_id),
+                    "portfolio_id": request.portfolio_id,
+                    "performance_start_date": "2024-12-31",
+                    "report_end_date": "2025-01-03",
+                    "metric_basis": "NET",
+                    "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+                    "valuation_points": [
+                        {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+                        {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+                        {"day": 3, "perf_date": "2025-01-03", "begin_mv": 1020.1, "end_mv": 1030.301},
+                        {"day": 4, "perf_date": "2025-01-04", "begin_mv": 1030.301, "end_mv": 1040.60401},
+                    ],
+                }
+            ),
+            input_mode=request.input_mode,
+            benchmark_request=BenchmarkPerformanceRequest.model_validate(
+                {
+                    "calculation_id": str(request.calculation_id),
+                    "benchmark_id": "BMK_ASYNC_TWR_FAIL",
+                    "benchmark_start_date": "2025-01-01",
+                    "report_end_date": "2025-01-03",
+                    "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+                    "return_source": "calculated",
+                    "benchmark_currency": "USD",
+                    "component_observations": [
+                        {"component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
+                        {"component_id": "IDX_A", "date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.01},
+                    ],
+                }
+            ),
+            benchmark_input_mode=BenchmarkInputMode.STATEFUL,
+            resolved_benchmark_id="BMK_ASYNC_TWR_FAIL",
+        )
+
+    monkeypatch.setattr("app.api.endpoints.performance.resolve_twr_request", _mock_resolve_twr_request)
+
+    payload = {
+        "portfolio_id": "TWR_ASYNC_FAIL",
+        "performance_start_date": "2024-12-31",
+        "report_end_date": "2025-01-03",
+        "metric_basis": "NET",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "include_benchmark": True,
+        "stateful_input": {},
+    }
+
+    try:
+        missing = client.get(f"/performance/twr/results/{uuid4()}")
+        assert missing.status_code == 404
+
+        accepted = client.post("/performance/twr", json=payload)
+        assert accepted.status_code == 202
+        calculation_id = accepted.json()["calculation_id"]
+
+        from app.services.compute_job_store import compute_job_store
+
+        compute_job_store.mark_failed(UUID(calculation_id), error_message="explode")
+        failed = client.get(f"/performance/twr/results/{calculation_id}")
+        assert failed.status_code == 409
+        assert failed.json()["detail"] == "explode"
+    finally:
+        settings.TWR_EXECUTOR_WINDOW_DAYS = original_window_threshold
+        settings.TWR_EXECUTOR_INPUT_COUNT = original_input_threshold
+
+
+def test_twr_hashes_include_resolved_benchmark_request(client):
+    payload = {
+        "portfolio_id": "TWR_BENCHMARK_HASH",
+        "performance_start_date": "2024-12-31",
+        "metric_basis": "NET",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "include_benchmark": True,
+        "valuation_points": [
+            {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+            {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+        ],
+        "benchmark": {
+            "benchmark_id": "BMK_STATELESS_1",
+            "input_mode": "stateless",
+            "return_source": "calculated",
+            "stateless_input": {
+                "benchmark_currency": "USD",
+                "component_observations": [
+                    {"component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
+                    {"component_id": "IDX_A", "date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.015},
+                ],
+            },
+        },
+    }
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    expected_input_fingerprint, expected_calculation_hash = generate_canonical_hash_from_value(
+        TWRResolvedExecutionRequest(
+            portfolio=PerformanceRequest.model_validate(
+                {
+                    "calculation_id": body["calculation_id"],
+                    "portfolio_id": "TWR_BENCHMARK_HASH",
+                    "performance_start_date": "2024-12-31",
+                    "metric_basis": "NET",
+                    "report_end_date": "2025-01-02",
+                    "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+                    "valuation_points": [
+                        {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+                        {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+                    ],
+                }
+            ),
+            benchmark=BenchmarkPerformanceRequest.model_validate(
+                {
+                    "calculation_id": body["calculation_id"],
+                    "benchmark_id": "BMK_STATELESS_1",
+                    "benchmark_start_date": "2025-01-01",
+                    "report_end_date": "2025-01-02",
+                    "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+                    "return_source": "calculated",
+                    "benchmark_currency": "USD",
+                    "component_observations": [
+                        {"component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
+                        {"component_id": "IDX_A", "date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.015},
+                    ],
+                    "benchmark_return_points": [],
+                }
+            ),
+        ),
+        get_settings().APP_VERSION,
+    )
+    assert body["meta"]["input_fingerprint"] == expected_input_fingerprint
+    assert body["meta"]["calculation_hash"] == expected_calculation_hash
 
 
 def test_twr_stateful_hashes_follow_resolved_inputs(client, monkeypatch):
@@ -343,7 +1046,7 @@ def test_twr_stateful_hashes_follow_resolved_inputs(client, monkeypatch):
         "report_end_date": "2025-01-02",
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     first_payload = {**base_payload, "performance_start_date": "2024-12-31"}
@@ -380,8 +1083,8 @@ def test_twr_stateful_hashes_follow_resolved_inputs(client, monkeypatch):
             ],
         }
     )
-    expected_input_fingerprint, expected_calculation_hash = generate_canonical_hash(
-        expected_request,
+    expected_input_fingerprint, expected_calculation_hash = generate_canonical_hash_from_value(
+        TWRResolvedExecutionRequest(portfolio=expected_request, benchmark=None),
         get_settings().APP_VERSION,
     )
 
@@ -413,8 +1116,8 @@ def test_twr_reset_scenario_has_correct_summary(client):
     data = response.json()
     itd_result = data["results_by_period"]["ITD"]
 
-    assert "portfolio_return" in itd_result
-    assert itd_result["portfolio_return"]["base"] == pytest.approx(21.578947, abs=1e-6)
+    assert "portfolio" in itd_result
+    assert itd_result["portfolio"]["summary"]["period_return"]["base"] == pytest.approx(21.578947, abs=1e-6)
 
 
 @pytest.mark.parametrize(
@@ -423,7 +1126,7 @@ def test_twr_reset_scenario_has_correct_summary(client):
 )
 def test_calculate_twr_endpoint_error_handling(client, mocker, error_class, expected_status):
     """Tests that the TWR endpoint correctly handles engine exceptions."""
-    mocker.patch("app.api.endpoints.performance.run_calculations", side_effect=error_class("Test Error"))
+    mocker.patch("app.services.twr_service.run_calculations", side_effect=error_class("Test Error"))
     payload = {
         "portfolio_id": "ERROR_TEST",
         "performance_start_date": "2023-12-31",
@@ -438,7 +1141,7 @@ def test_calculate_twr_endpoint_error_handling(client, mocker, error_class, expe
 
 
 def test_twr_returns_400_when_no_periods_resolve(client, mocker):
-    mocker.patch("app.api.endpoints.performance.resolve_periods", return_value=[])
+    mocker.patch("app.services.twr_service.resolve_periods", return_value=[])
     payload = {
         "portfolio_id": "NO_PERIODS",
         "performance_start_date": "2024-12-31",
@@ -471,7 +1174,7 @@ def test_twr_returns_empty_results_when_resolved_period_has_no_data(client):
 
 def test_twr_http_exception_passthrough_branch(client, mocker):
     mocker.patch(
-        "app.api.endpoints.performance.resolve_periods",
+        "app.services.twr_service.resolve_periods",
         side_effect=HTTPException(status_code=418, detail="teapot"),
     )
     payload = {

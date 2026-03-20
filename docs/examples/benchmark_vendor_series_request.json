@@ -1,0 +1,29 @@
+{
+  "input_mode": "stateless",
+  "benchmark_id": "BMK_VENDOR_1",
+  "benchmark_start_date": "2026-01-02",
+  "report_end_date": "2026-01-03",
+  "analyses": [
+    {
+      "period": "ITD",
+      "frequencies": ["daily"]
+    }
+  ],
+  "return_source": "vendor_series",
+  "output": {
+    "include_timeseries": true
+  },
+  "stateless_input": {
+    "benchmark_currency": "USD",
+    "benchmark_return_points": [
+      {
+        "date": "2026-01-02",
+        "benchmark_return": 0.01
+      },
+      {
+        "date": "2026-01-03",
+        "benchmark_return": 0.02
+      }
+    ]
+  }
+}

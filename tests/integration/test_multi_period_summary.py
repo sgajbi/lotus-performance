@@ -52,8 +52,8 @@ def test_multi_period_portfolio_return_summary_is_correct(client):
     assert "MTD" in results
     assert "YTD" in results
 
-    mtd_summary = results["MTD"]["portfolio_return"]
-    ytd_summary = results["YTD"]["portfolio_return"]
+    mtd_summary = results["MTD"]["portfolio"]["summary"]["period_return"]
+    ytd_summary = results["YTD"]["portfolio"]["summary"]["period_return"]
 
     # Assert MTD summary is correct for February (~4.04%)
     assert mtd_summary["local"] == pytest.approx(2.0)
