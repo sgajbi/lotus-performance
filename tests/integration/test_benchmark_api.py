@@ -1,6 +1,6 @@
 import os
 import shutil
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -601,3 +601,44 @@ def test_benchmark_endpoint_generates_calculation_id_for_async_stateful_request(
     finally:
         settings.BENCHMARK_EXECUTOR_WINDOW_DAYS = original_window_threshold
         settings.BENCHMARK_EXECUTOR_INPUT_COUNT = original_input_threshold
+
+
+def test_benchmark_async_result_missing_and_failed_contracts(client, monkeypatch):
+    settings = get_settings()
+    original_window_threshold = settings.BENCHMARK_EXECUTOR_WINDOW_DAYS
+    original_attempts = settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS
+    settings.BENCHMARK_EXECUTOR_WINDOW_DAYS = 0
+    settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS = 1
+
+    monkeypatch.setattr(
+        "app.workers.compute_executor_worker.calculate_benchmark_response",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("explode")),
+    )
+
+    payload = {
+        "benchmark_id": "BMK_ASYNC_FAIL",
+        "benchmark_start_date": "2026-01-02",
+        "report_end_date": "2026-01-03",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "return_source": "calculated",
+        "stateful_input": {},
+    }
+
+    try:
+        missing = client.get(f"/performance/benchmark/results/{uuid4()}")
+        assert missing.status_code == 404
+
+        accepted = client.post("/performance/benchmark", json=payload)
+        assert accepted.status_code == 202
+        calculation_id = accepted.json()["calculation_id"]
+
+        from app.services.compute_job_store import compute_job_store
+
+        compute_job_store.mark_failed(UUID(calculation_id), error_message="explode")
+        failed = client.get(f"/performance/benchmark/results/{calculation_id}")
+        assert failed.status_code == 409
+        assert failed.json()["detail"] == "explode"
+    finally:
+        settings.BENCHMARK_EXECUTOR_WINDOW_DAYS = original_window_threshold
+        settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS = original_attempts
