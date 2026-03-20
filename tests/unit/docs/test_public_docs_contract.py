@@ -119,10 +119,17 @@ def test_contribution_guide_uses_current_request_shape():
 
 def test_api_reference_documents_endpoint_level_capabilities_contract():
     api_reference = _read("docs/guides/api_reference.md")
+    readme = _read("README.md")
+    runtime_topology = _read("docs/technical/runtime_topology.md")
 
     assert "analytics_surfaces" in api_reference
     assert "stateful_restrictions" in api_reference
     assert "supports_async" in api_reference
+    assert "/performance/twr/results/{calculation_id}" in readme
+    assert "/performance/benchmark/results/{calculation_id}" in readme
+    assert "/performance/twr/results/{calculation_id}" in runtime_topology
+    assert "/performance/benchmark/results/{calculation_id}" in runtime_topology
+    assert "`result_path` can now point directly to async result routes for `TWR`, `BENCHMARK`, `ReturnsSeries`, `Contribution`, and `Attribution`" in api_reference
 
 
 def test_attribution_guide_uses_current_request_shape():

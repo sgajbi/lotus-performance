@@ -40,6 +40,14 @@ Async-capable endpoints follow one common pattern:
 3. client polls `/performance/executions/{calculation_id}`
 4. client retrieves the endpoint-specific async result from `result_path`
 
+Current endpoint-specific async result routes include:
+
+- `/performance/twr/results/{calculation_id}`
+- `/performance/benchmark/results/{calculation_id}`
+- `/integration/returns/series/results/{calculation_id}`
+- `/performance/contribution/results/{calculation_id}`
+- `/performance/attribution/results/{calculation_id}`
+
 `calculation_id` is the durable execution handle for that workflow:
 
 - caller may omit `calculation_id`; lotus-performance generates one and returns it in the response
