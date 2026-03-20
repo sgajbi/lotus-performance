@@ -29,6 +29,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - the nested `benchmark` object is optional configuration; it can supply `benchmark_id`, `input_mode`, and `return_source`
   - when `include_benchmark=true`, explicit `benchmark.benchmark_id` overrides lotus-core assignment lookup; otherwise stateful mode can source the portfolio-to-benchmark mapping from lotus-core
   - when `include_benchmark=true`, each period result also includes arithmetic `relative_performance` versus the resolved benchmark
+  - when a benchmark is resolved, the response also emits top-level `benchmark_context`
 
 ### `GET /performance/twr/results/{calculation_id}`
 

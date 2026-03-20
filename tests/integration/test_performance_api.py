@@ -388,6 +388,12 @@ def test_twr_supports_stateless_benchmark_request(client):
 
     assert response.status_code == 200
     body = response.json()
+    assert body["benchmark_context"] == {
+        "benchmark_id": "BMK_STATELESS_1",
+        "benchmark_currency": "USD",
+        "input_mode": "stateless",
+        "return_source": "calculated",
+    }
     benchmark_block = body["results_by_period"]["YTD"]["benchmark"]
     relative_block = body["results_by_period"]["YTD"]["relative_performance"]
     assert benchmark_block["benchmark_id"] == "BMK_STATELESS_1"
@@ -466,6 +472,12 @@ def test_twr_supports_stateful_benchmark_assignment(client, monkeypatch):
 
     assert response.status_code == 200
     body = response.json()
+    assert body["benchmark_context"] == {
+        "benchmark_id": "BMK_ASSIGNED",
+        "benchmark_currency": "USD",
+        "input_mode": "stateful",
+        "return_source": "calculated",
+    }
     benchmark_block = body["results_by_period"]["YTD"]["benchmark"]
     assert benchmark_block["benchmark_id"] == "BMK_ASSIGNED"
     assert benchmark_block["input_mode"] == "stateful"
@@ -549,6 +561,12 @@ def test_twr_supports_include_benchmark_without_nested_stateful_benchmark_config
 
     assert response.status_code == 200
     body = response.json()
+    assert body["benchmark_context"] == {
+        "benchmark_id": "BMK_ASSIGNED_DEFAULT",
+        "benchmark_currency": "USD",
+        "input_mode": "stateful",
+        "return_source": "calculated",
+    }
     assert body["results_by_period"]["YTD"]["benchmark"]["benchmark_id"] == "BMK_ASSIGNED_DEFAULT"
     assert body["results_by_period"]["YTD"]["benchmark"]["input_mode"] == "stateful"
 

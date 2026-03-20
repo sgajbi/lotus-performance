@@ -77,6 +77,7 @@ Async-capable endpoints follow one common pattern:
   - explicit `benchmark.benchmark_id` overrides lotus-core assignment lookup
   - stateful mode can source the portfolio-to-benchmark mapping from lotus-core when `include_benchmark=true`
   - per-period responses include arithmetic `relative_performance`
+  - responses also emit top-level `benchmark_context` when a benchmark was resolved
 
 The public request contract is analysis-based. Older examples using `period_type`,
 `frequencies`, or `daily_data` are not current.

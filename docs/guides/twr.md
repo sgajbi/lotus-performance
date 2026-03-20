@@ -138,6 +138,9 @@ When benchmark output is included, each period result uses sibling comparative b
 - `benchmark`
 - `relative_performance`
 
+The response also emits top-level `benchmark_context` when a benchmark was resolved, so callers do
+not need to infer the benchmark identity from an individual period block.
+
 Each block carries:
 
 - `summary.period_return`

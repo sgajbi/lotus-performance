@@ -19,6 +19,7 @@ def test_readme_uses_current_twr_contract_terms():
     assert "valuation_points" in readme
     assert "include_benchmark" in readme
     assert "relative_performance" in readme
+    assert "benchmark_context" in readme
     assert "Older examples using `period_type`" in readme
     assert "`daily_data` are not current" in readme
     assert "google.com/search" not in readme
@@ -43,6 +44,7 @@ def test_twr_guide_uses_current_request_shape():
     assert 'benchmark.return_source="calculated" | "vendor_series"' in guide
     assert "benchmark.stateless_input.component_price_points" in guide
     assert "relative_performance" in guide
+    assert "benchmark_context" in guide
     assert "summary.cumulative_return" in guide
     assert "If `calculation_id` is omitted" in guide
     assert "/performance/twr/results/{calculation_id}" in guide

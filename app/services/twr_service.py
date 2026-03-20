@@ -18,6 +18,7 @@ from app.models.responses import (
     PerformanceResponse,
     PortfolioReturnDecomposition,
     SinglePeriodPerformanceResult,
+    TWRBenchmarkContext,
 )
 from app.models.twr_requests import TWRInputMode
 from app.services.benchmark_calculation_service import calculate_benchmark_artifacts
@@ -504,6 +505,16 @@ def calculate_twr_response(
         calculation_id=performance_request.calculation_id,
         portfolio_id=portfolio_id,
         input_mode=input_mode,
+        benchmark_context=(
+            TWRBenchmarkContext(
+                benchmark_id=resolved_benchmark_id or benchmark_request.benchmark_id,
+                benchmark_currency=benchmark_request.benchmark_currency,
+                input_mode=(benchmark_input_mode or BenchmarkInputMode.STATELESS).value,
+                return_source=normalized_benchmark_return_source.value,
+            )
+            if benchmark_artifacts is not None and benchmark_request is not None
+            else None
+        ),
         results_by_period=results_by_period,
         meta=Meta(
             calculation_id=performance_request.calculation_id,

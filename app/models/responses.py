@@ -82,6 +82,13 @@ class ComparativeAnalyticsBlock(BaseModel):
     return_source: str | None = None
 
 
+class TWRBenchmarkContext(BaseModel):
+    benchmark_id: str
+    benchmark_currency: str | None = None
+    input_mode: str
+    return_source: str
+
+
 class SinglePeriodPerformanceResult(BaseModel):
     """Contains the full set of TWR results for a single, resolved period."""
 
@@ -100,6 +107,7 @@ class PerformanceResponse(BaseModel):
     calculation_id: UUID
     portfolio_id: str
     input_mode: TWRInputMode = TWRInputMode.STATELESS
+    benchmark_context: TWRBenchmarkContext | None = None
 
     results_by_period: Dict[str, SinglePeriodPerformanceResult]
 
