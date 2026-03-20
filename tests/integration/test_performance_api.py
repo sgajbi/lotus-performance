@@ -321,6 +321,43 @@ def test_twr_supports_stateful_input_mode(client, monkeypatch):
     assert body["results_by_period"]["YTD"]["portfolio"]["summary"]["period_return"]["base"] == pytest.approx(2.01)
 
 
+def test_twr_generates_calculation_id_when_omitted_for_benchmark_request(client):
+    payload = {
+        "portfolio_id": "TWR_BENCHMARK_GENERATED_ID",
+        "performance_start_date": "2024-12-31",
+        "metric_basis": "NET",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "include_benchmark": True,
+        "valuation_points": [
+            {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+            {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+        ],
+        "benchmark": {
+            "benchmark_id": "BMK_GENERATED_ID",
+            "input_mode": "stateless",
+            "return_source": "calculated",
+            "stateless_input": {
+                "benchmark_currency": "USD",
+                "component_observations": [
+                    {"component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
+                    {"component_id": "IDX_A", "date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.01},
+                ],
+            },
+        },
+    }
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    generated_calculation_id = body["calculation_id"]
+    assert generated_calculation_id
+    assert body["meta"]["calculation_id"] == generated_calculation_id
+    assert body["results_by_period"]["YTD"]["benchmark"]["benchmark_id"] == "BMK_GENERATED_ID"
+    assert body["results_by_period"]["YTD"]["relative_performance"] is not None
+
+
 def test_twr_supports_stateless_benchmark_request(client):
     payload = {
         "portfolio_id": "TWR_BENCHMARK_STATELESS",

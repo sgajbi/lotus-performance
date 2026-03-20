@@ -19,6 +19,7 @@ Execution mode:
 
 Common top-level fields are:
 
+- optional `calculation_id`
 - `benchmark_id`
 - `benchmark_start_date`
 - `report_end_date`
@@ -44,6 +45,8 @@ observations before running the owned benchmark engine.
 
 The stateful envelope is intentionally lightweight. lotus-performance stamps the
 source consumer identity server-side instead of requiring an explicit consumer field.
+
+If `calculation_id` is omitted, lotus-performance generates one and returns it in the response.
 
 ## Return-source behavior
 

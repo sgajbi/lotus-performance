@@ -42,6 +42,7 @@ Async-capable endpoints follow one common pattern:
 
 `calculation_id` is the durable execution handle for that workflow:
 
+- caller may omit `calculation_id`; lotus-performance generates one and returns it in the response
 - exact async resubmission with the same `calculation_id` is treated as an idempotent replay
 - payload drift with the same `calculation_id` is rejected with `409 Conflict`
 - synchronous submissions should use a fresh `calculation_id` each time

@@ -44,6 +44,7 @@ def test_twr_guide_uses_current_request_shape():
     assert "benchmark.stateless_input.component_price_points" in guide
     assert "relative_performance" in guide
     assert "summary.cumulative_return" in guide
+    assert "If `calculation_id` is omitted" in guide
     assert "/performance/twr/results/{calculation_id}" in guide
     assert "Older examples using `period_type`" in guide
     assert "`daily_data` are not current" in guide
@@ -61,6 +62,7 @@ def test_benchmark_guide_uses_current_request_shape():
     assert 'return_source="vendor_series"' in guide
     assert "stateless_input.component_price_points" in guide
     assert "multi-segment benchmark composition windows internally" in guide
+    assert "If `calculation_id` is omitted" in guide
     assert "stateful_input.consumer_system" not in guide
     assert "app.models.benchmark_analytics_requests.BenchmarkAnalyticsRequest" in api_reference
     assert "POST /performance/benchmark" in readme
@@ -147,9 +149,11 @@ def test_returns_series_docs_reflect_benchmark_return_source_contract():
     assert 'benchmark.return_source="vendor_series"' in readme
     assert "active_returns" in readme
     assert "stateful benchmark sourcing now defaults to lotus-performance benchmark calculation" in readme
+    assert "caller may omit `calculation_id`" in readme
     assert 'benchmark.return_source="vendor_series"' in api_reference
     assert "active_returns" in api_reference
     assert "stateful mode, benchmark sourcing defaults to the shared lotus-performance benchmark calculation path" in api_reference.lower()
+    assert "callers may omit `calculation_id`" in api_reference
     assert "Active Return Series" in master_index
     assert "series.active_returns" in active_methodology
 

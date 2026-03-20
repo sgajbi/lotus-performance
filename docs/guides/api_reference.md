@@ -21,6 +21,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - `stateless`
   - `stateful`
 - contract note:
+  - `calculation_id` is caller-optional; when omitted, lotus-performance generates one and returns it in the response
   - existing stateless callers can continue sending top-level `valuation_points`
   - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
   - stateful mode sources portfolio timeseries from lotus-core query-control-plane and normalizes them into canonical valuation points before engine execution
@@ -67,6 +68,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - synchronous for stateless and smaller stateful requests
   - `202 Accepted` for larger stateful benchmark requests offloaded to the compute executor
 - contract note:
+  - `calculation_id` is caller-optional; when omitted, lotus-performance generates one and returns it in the response
   - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
   - `return_source=calculated` is the default execution path
   - `return_source=vendor_series` is an explicit non-default override
@@ -511,6 +513,7 @@ Executor-backed endpoints use one common pattern:
 
 `calculation_id` is a durable execution handle, not a best-effort correlation field:
 
+- callers may omit `calculation_id`; lotus-performance generates one and returns it on both sync and async submissions
 - async endpoints treat an exact resubmission with the same `calculation_id` as an idempotent replay and return the same accepted handle
 - reusing the same `calculation_id` with a different payload returns `409 Conflict`
 - synchronous endpoints require a fresh `calculation_id` for each new submission

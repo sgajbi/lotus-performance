@@ -19,6 +19,7 @@ Execution mode:
 
 Common top-level fields are:
 
+- optional `calculation_id`
 - `portfolio_id`
 - `performance_start_date` in stateless mode
 - `report_end_date`
@@ -41,6 +42,8 @@ used by stateless requests.
 
 The stateful envelope is intentionally lightweight. lotus-performance stamps the
 source consumer identity server-side instead of requiring an explicit consumer field.
+
+If `calculation_id` is omitted, lotus-performance generates one and returns it in the response.
 
 Optional controls include:
 
