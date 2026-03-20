@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 from app.models.benchmark_analytics_requests import BenchmarkInputMode, BenchmarkReturnSource
+from app.models.responses import ComparativeAnalyticsBlock
 from core.envelope import Audit, Diagnostics, Meta
 
 
@@ -32,7 +33,7 @@ class DailyBenchmarkComponentContribution(BaseModel):
 
 
 class SinglePeriodBenchmarkResult(BaseModel):
-    benchmark_return: float
+    benchmark: ComparativeAnalyticsBlock
     daily_returns: List[DailyBenchmarkReturn] | None = None
     component_contributions: List[DailyBenchmarkComponentContribution] | None = None
 

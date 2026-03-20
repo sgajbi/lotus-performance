@@ -126,7 +126,10 @@ The response contains:
 
 Each period result can include:
 
-- `benchmark_return`
+- `benchmark.summary.period_return`
+- `benchmark.summary.cumulative_return`
+- `benchmark.breakdowns.<requested_frequency>[].period_return`
+- `benchmark.breakdowns.<requested_frequency>[].cumulative_return`
 - `daily_returns`
 - `component_contributions`
 

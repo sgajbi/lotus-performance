@@ -342,6 +342,14 @@ Recommendation:
 - expose both stateful and stateless modes
 - default to `return_source="calculated"`
 - support an explicit override such as `return_source="vendor_series"` only when the caller intentionally opts into it
+- keep benchmark-only output under `results_by_period[*].benchmark`
+- use the same period semantics as benchmark-inclusive TWR:
+  - `benchmark.summary.period_return`
+  - `benchmark.summary.cumulative_return`
+  - `benchmark.breakdowns.<requested_frequency>[].period_return`
+  - `benchmark.breakdowns.<requested_frequency>[].cumulative_return`
+- continue to emit benchmark-specific detailed artifacts such as `daily_returns` and
+  `component_contributions` when `output.include_timeseries=true`
 
 ### 7.4 Helper surface
 

@@ -493,7 +493,7 @@ def test_e2e_shared_stateful_benchmark_engine_stays_consistent_across_surfaces(m
     twr_body = twr_response.json()
     returns_series_body = returns_series_response.json()
 
-    benchmark_return = benchmark_body["results_by_period"]["YTD"]["benchmark_return"]
+    benchmark_return = benchmark_body["results_by_period"]["YTD"]["benchmark"]["summary"]["period_return"]["base"]
     twr_benchmark_return = (
         twr_body["results_by_period"]["YTD"]["benchmark"]["summary"]["period_return"]["base"] / 100
     )

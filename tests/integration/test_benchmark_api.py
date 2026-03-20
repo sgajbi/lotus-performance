@@ -23,7 +23,7 @@ def test_calculate_benchmark_endpoint_supports_stateless_calculated_mode(client)
         "benchmark_id": "BMK_STATELESS_1",
         "benchmark_start_date": "2026-01-02",
         "report_end_date": "2026-01-03",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "ITD", "frequencies": ["daily", "monthly"]}],
         "input_mode": "stateless",
         "return_source": "calculated",
         "output": {"include_timeseries": True},
@@ -73,7 +73,10 @@ def test_calculate_benchmark_endpoint_supports_stateless_calculated_mode(client)
     itd = body["results_by_period"]["ITD"]
     assert body["input_mode"] == "stateless"
     assert body["return_source"] == "calculated"
-    assert itd["benchmark_return"] == pytest.approx(0.024128)
+    assert itd["benchmark"]["summary"]["period_return"]["base"] == pytest.approx(0.024128)
+    assert itd["benchmark"]["summary"]["cumulative_return"]["base"] == pytest.approx(0.024128)
+    assert itd["benchmark"]["breakdowns"]["daily"][1]["cumulative_return"]["base"] == pytest.approx(0.024128)
+    assert itd["benchmark"]["breakdowns"]["monthly"][0]["period_return"]["base"] == pytest.approx(0.024128)
     assert len(itd["daily_returns"]) == 2
     assert len(itd["component_contributions"]) == 4
     assert itd["daily_returns"][0]["benchmark_return_local"] == pytest.approx(0.013)
@@ -122,7 +125,7 @@ def test_calculate_benchmark_endpoint_supports_stateless_component_price_points(
     itd = body["results_by_period"]["ITD"]
     raw_request = BenchmarkAnalyticsRequest.model_validate(payload)
     raw_input_fingerprint, _ = generate_canonical_hash(raw_request, get_settings().APP_VERSION)
-    assert itd["benchmark_return"] == pytest.approx(0.02004)
+    assert itd["benchmark"]["summary"]["period_return"]["base"] == pytest.approx(0.02004)
     assert itd["daily_returns"][0]["benchmark_return_local"] == pytest.approx(0.016)
     assert itd["daily_returns"][0]["benchmark_return_fx"] == pytest.approx(0.004)
     assert len(itd["component_contributions"]) == 2
@@ -224,7 +227,7 @@ def test_calculate_benchmark_endpoint_supports_stateful_calculated_mode(client, 
     itd = body["results_by_period"]["ITD"]
     assert body["input_mode"] == "stateful"
     assert body["benchmark_currency"] == "USD"
-    assert itd["benchmark_return"] == pytest.approx(0.0302506004, abs=1e-10)
+    assert itd["benchmark"]["summary"]["period_return"]["base"] == pytest.approx(0.0302506004, abs=1e-10)
     assert itd["daily_returns"][0]["benchmark_return_local"] == pytest.approx(0.016)
     assert itd["daily_returns"][0]["benchmark_return_fx"] == pytest.approx(0.004)
     assert len(itd["component_contributions"]) == 4
@@ -391,7 +394,7 @@ def test_calculate_benchmark_endpoint_supports_explicit_vendor_series_mode(clien
     body = response.json()
     itd = body["results_by_period"]["ITD"]
     assert body["return_source"] == "vendor_series"
-    assert itd["benchmark_return"] == pytest.approx(0.0302)
+    assert itd["benchmark"]["summary"]["period_return"]["base"] == pytest.approx(0.0302)
     assert "component_contributions" not in itd
 
 

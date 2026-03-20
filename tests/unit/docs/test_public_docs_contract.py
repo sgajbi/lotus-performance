@@ -62,6 +62,8 @@ def test_benchmark_guide_uses_current_request_shape():
     assert 'return_source="vendor_series"' in guide
     assert "stateless_input.component_price_points" in guide
     assert "multi-segment benchmark composition windows internally" in guide
+    assert "benchmark.summary.period_return" in guide
+    assert "benchmark.breakdowns.<requested_frequency>[].cumulative_return" in guide
     assert "If `calculation_id` is omitted" in guide
     assert "stateful_input.consumer_system" not in guide
     assert "app.models.benchmark_analytics_requests.BenchmarkAnalyticsRequest" in api_reference
