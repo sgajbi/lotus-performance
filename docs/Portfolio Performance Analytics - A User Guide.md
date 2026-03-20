@@ -104,6 +104,8 @@ and may offload longer windows to the compute executor.
 Executor-backed requests should be handled using the durable polling surfaces:
 
 - lifecycle polling: `GET /performance/executions/{calculation_id}`
+- TWR result retrieval: `GET /performance/twr/results/{calculation_id}`
+- benchmark result retrieval: `GET /performance/benchmark/results/{calculation_id}`
 - contribution result retrieval: `GET /performance/contribution/results/{calculation_id}`
 - attribution result retrieval: `GET /performance/attribution/results/{calculation_id}`
 - returns-series result retrieval: `GET /integration/returns/series/results/{calculation_id}`

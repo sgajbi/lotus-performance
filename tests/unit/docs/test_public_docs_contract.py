@@ -29,6 +29,8 @@ def test_user_guide_documents_async_execution_surfaces():
     guide = _read("docs/Portfolio Performance Analytics - A User Guide.md")
 
     assert "/performance/executions/{calculation_id}" in guide
+    assert "/performance/twr/results/{calculation_id}" in guide
+    assert "/performance/benchmark/results/{calculation_id}" in guide
     assert "/integration/returns/series/results/{calculation_id}" in guide
     assert "/integration/runtime-status" in guide
     assert "/performance/lineage/{calculation_id}/artifacts/{artifact_name}" in guide
