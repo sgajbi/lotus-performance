@@ -1,18 +1,38 @@
+import os
+import shutil
 from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
-from app.models.benchmark_analytics_requests import BenchmarkAnalyticsRequest
+from app.models.benchmark_analytics_requests import BenchmarkAnalyticsRequest, BenchmarkInputMode
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
+from app.services.async_result_store import async_result_store
 from app.services.benchmark_mode_service import ResolvedBenchmarkRequest
+from app.services.compute_job_store import compute_job_store
+from app.services.execution_registry import execution_registry
+from app.services.lineage_metadata_store import lineage_metadata_store
 from core.repro import generate_canonical_hash
 from main import app
+from tests.conftest import drain_compute_queue
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def client():
+    settings = get_settings()
+    if os.path.exists(settings.LINEAGE_STORAGE_PATH):
+        shutil.rmtree(settings.LINEAGE_STORAGE_PATH)
+    os.makedirs(settings.LINEAGE_STORAGE_PATH, exist_ok=True)
+    execution_registry.create_schema()
+    execution_registry.clear_all_records()
+    compute_job_store.create_schema()
+    compute_job_store.clear_all_records()
+    async_result_store.create_schema()
+    async_result_store.clear_all_records()
+    lineage_metadata_store.create_schema()
+    lineage_metadata_store.clear_all_records()
+
     with TestClient(app) as c:
         yield c
 
@@ -284,6 +304,75 @@ def test_calculate_benchmark_endpoint_rejects_stateless_price_points_with_duplic
 
     assert response.status_code == 422
     assert "strictly increasing unique dates" in response.json()["detail"]
+
+
+def test_benchmark_results_endpoint_returns_async_stateful_result(client, monkeypatch):
+    settings = get_settings()
+    original_window_threshold = settings.BENCHMARK_EXECUTOR_WINDOW_DAYS
+    original_input_threshold = settings.BENCHMARK_EXECUTOR_INPUT_COUNT
+    settings.BENCHMARK_EXECUTOR_WINDOW_DAYS = 365
+    settings.BENCHMARK_EXECUTOR_INPUT_COUNT = 1
+
+    async def _mock_resolve_benchmark_request(request, *, settings):  # noqa: ARG001
+        return ResolvedBenchmarkRequest(
+            benchmark_request=BenchmarkPerformanceRequest.model_validate(
+                {
+                    "calculation_id": str(request.calculation_id),
+                    "benchmark_id": "BMK_ASYNC_1",
+                    "benchmark_start_date": "2026-01-01",
+                    "report_end_date": "2026-01-03",
+                    "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+                    "return_source": "calculated",
+                    "benchmark_currency": "USD",
+                    "component_observations": [
+                        {"component_id": "IDX_A", "date": "2026-01-01", "weight_bop": 1.0, "component_return": 0.01},
+                        {"component_id": "IDX_A", "date": "2026-01-02", "weight_bop": 1.0, "component_return": 0.01},
+                        {"component_id": "IDX_A", "date": "2026-01-03", "weight_bop": 1.0, "component_return": 0.01},
+                    ],
+                }
+            ),
+            input_mode=BenchmarkInputMode.STATEFUL,
+            source_details={"component_observations": 3},
+            input_count=3,
+        )
+
+    monkeypatch.setattr("app.api.endpoints.benchmark.resolve_benchmark_request", _mock_resolve_benchmark_request)
+
+    payload = {
+        "calculation_id": str(uuid4()),
+        "benchmark_id": "BMK_ASYNC_1",
+        "benchmark_start_date": "2026-01-01",
+        "report_end_date": "2026-01-03",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "return_source": "calculated",
+        "stateful_input": {},
+        "output": {"include_timeseries": True},
+    }
+
+    try:
+        response = client.post("/performance/benchmark", json=payload)
+        assert response.status_code == 202
+        calculation_id = response.json()["calculation_id"]
+
+        pending = client.get(f"/performance/benchmark/results/{calculation_id}")
+        assert pending.status_code == 202
+
+        assert drain_compute_queue() == 1
+
+        complete = client.get(f"/performance/benchmark/results/{calculation_id}")
+        assert complete.status_code == 200
+        body = complete.json()
+        assert body["input_mode"] == "stateful"
+        assert body["return_source"] == "calculated"
+        assert body["benchmark_id"] == "BMK_ASYNC_1"
+        assert body["results_by_period"]["YTD"]["benchmark"]["summary"]["period_return"]["base"] == pytest.approx(0.030301)
+        assert body["results_by_period"]["YTD"]["benchmark"]["breakdowns"]["daily"][-1]["cumulative_return"][
+            "base"
+        ] == pytest.approx(0.030301)
+    finally:
+        settings.BENCHMARK_EXECUTOR_WINDOW_DAYS = original_window_threshold
+        settings.BENCHMARK_EXECUTOR_INPUT_COUNT = original_input_threshold
 
 
 def test_calculate_benchmark_endpoint_records_http_failure_detail_in_execution_status(client, monkeypatch):
