@@ -216,9 +216,13 @@ class ReturnsMetadata(BaseModel):
 
 class ReturnsSeriesPayload(BaseModel):
     portfolio_returns: list[ReturnPoint]
+    cumulative_portfolio_returns: list[ReturnPoint] | None = None
     benchmark_returns: list[ReturnPoint] | None = None
+    cumulative_benchmark_returns: list[ReturnPoint] | None = None
     risk_free_returns: list[ReturnPoint] | None = None
+    cumulative_risk_free_returns: list[ReturnPoint] | None = None
     active_returns: list[ReturnPoint] | None = None
+    cumulative_active_returns: list[ReturnPoint] | None = None
 
 
 class ReturnsSeriesResponse(BaseModel):

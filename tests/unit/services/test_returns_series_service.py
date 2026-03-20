@@ -39,6 +39,33 @@ def test_build_active_return_points_uses_aligned_arithmetic_difference():
     assert [str(point.return_value) for point in active_points] == ["0.004000000000", "-0.003000000000"]
 
 
+def test_build_cumulative_active_return_points_uses_cumulative_excess_not_linked_active():
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23", "2026-02-24"]),
+            "return_value": [Decimal("0.1000"), Decimal("0.1000")],
+        }
+    )
+    benchmark_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23", "2026-02-24"]),
+            "return_value": [Decimal("0.0500"), Decimal("0.0500")],
+        }
+    )
+
+    cumulative_active_points = returns_series_service.build_cumulative_active_return_points(
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+    )
+
+    assert cumulative_active_points is not None
+    assert [point.date.isoformat() for point in cumulative_active_points] == ["2026-02-23", "2026-02-24"]
+    assert [str(point.return_value) for point in cumulative_active_points] == [
+        "0.050000000000",
+        "0.107500000000",
+    ]
+
+
 def _build_stateful_request(**overrides):
     payload = {
         "calculation_id": str(uuid4()),

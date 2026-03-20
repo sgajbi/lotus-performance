@@ -1,5 +1,5 @@
 ## Metric
-Canonical Active Return Series (`series.active_returns`)
+Canonical Active Return Series (`series.active_returns`) and Cumulative Active Return Series (`series.cumulative_active_returns`)
 
 ## Endpoint and Mode Coverage
 - Endpoint: `POST /integration/returns/series`
@@ -35,6 +35,9 @@ Canonical Active Return Series (`series.active_returns`)
 - `p_t`: portfolio return for date or bucket `t`
 - `b_t`: benchmark return for date or bucket `t`
 - `a_t`: active return for date or bucket `t`
+- `P_t`: cumulative portfolio return through date or bucket `t`
+- `B_t`: cumulative benchmark return through date or bucket `t`
+- `A_t`: cumulative active return through date or bucket `t`
 - `W`: resolved date window
 
 ## Methodology and Formulas
@@ -44,7 +47,15 @@ Canonical Active Return Series (`series.active_returns`)
 4. Compute arithmetic active return:
 - `a_t = p_t - b_t`
 
-This series is intentionally arithmetic active return, not geometrically linked excess return.
+5. Compute cumulative portfolio and benchmark ladders:
+- `P_t = Π(1 + p_i) - 1` for all emitted rows `i <= t`
+- `B_t = Π(1 + b_i) - 1` for all emitted rows `i <= t`
+
+6. Compute cumulative active return arithmetically:
+- `A_t = P_t - B_t`
+
+The point active series is intentionally arithmetic active return, not geometrically linked excess return.
+The cumulative active series is the arithmetic excess of the cumulative portfolio and cumulative benchmark ladders.
 
 ## Step-by-Step Computation
 1. Validate request contract and resolve the date window.
@@ -55,11 +66,14 @@ This series is intentionally arithmetic active return, not geometrically linked 
 6. Inner-join portfolio and benchmark outputs on final emitted dates.
 7. Subtract benchmark returns from portfolio returns date by date.
 8. Emit the result as `series.active_returns`.
+9. Geometrically link portfolio and benchmark returns independently through each emitted row date.
+10. Subtract cumulative benchmark return from cumulative portfolio return date by date.
+11. Emit the result as `series.cumulative_active_returns`.
 
 ## Validation and Failure Behavior
-- If no benchmark series is requested, `series.active_returns` is omitted.
+- If no benchmark series is requested, both `series.active_returns` and `series.cumulative_active_returns` are omitted.
 - If benchmark series is requested but unavailable, the enclosing request fails with the same benchmark error path used for `series.benchmark_returns`.
-- If post-policy alignment leaves no common portfolio/benchmark dates, `series.active_returns` is omitted rather than synthesized.
+- If post-policy alignment leaves no common portfolio/benchmark dates, both active series are omitted rather than synthesized.
 - Missing-data and fill-policy behavior is inherited from the benchmark and portfolio return series normalization path.
 
 ## Configuration Options
@@ -74,10 +88,13 @@ This series is intentionally arithmetic active return, not geometrically linked 
 ## Outputs
 Primary metric field:
 - `series.active_returns[]` (`date`, `return_value` decimal)
+- `series.cumulative_active_returns[]` (`date`, `return_value` decimal)
 
 Relationship to sibling metrics:
 - `series.portfolio_returns[]`
 - `series.benchmark_returns[]`
+- `series.cumulative_portfolio_returns[]`
+- `series.cumulative_benchmark_returns[]`
 
 ## Worked Example
 Given aligned daily returns:
@@ -91,3 +108,5 @@ Given aligned daily returns:
 Output mapping:
 - `series.active_returns[0].date = 2026-02-23`
 - `series.active_returns[0].return_value = 0.0090`
+- `series.cumulative_active_returns[0].date = 2026-02-23`
+- `series.cumulative_active_returns[0].return_value = 0.0090`

@@ -375,6 +375,13 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - `benchmark.return_source="vendor_series"` is an explicit stateful-only override for lotus-core benchmark return-series retrieval
   - `benchmark.benchmark_id` is only meaningful in stateful mode for explicit benchmark override; otherwise lotus-core benchmark assignment can resolve the benchmark id
   - when both portfolio and benchmark series are present, the response also emits arithmetic `active_returns`
+  - the response also emits cumulative ladders:
+    - `cumulative_portfolio_returns`
+    - `cumulative_benchmark_returns`
+    - `cumulative_risk_free_returns`
+    - `cumulative_active_returns`
+  - cumulative portfolio, benchmark, and risk-free ladders are geometrically linked
+  - `cumulative_active_returns` is arithmetic excess of cumulative portfolio and cumulative benchmark returns
 
 ### `GET /integration/returns/series/results/{calculation_id}`
 

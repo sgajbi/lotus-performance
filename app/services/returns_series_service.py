@@ -174,6 +174,22 @@ def points_from_df(df: pd.DataFrame) -> list[ReturnPoint]:
     return out
 
 
+def build_cumulative_return_points(df: pd.DataFrame | None) -> list[ReturnPoint] | None:
+    if df is None or df.empty:
+        return None
+    running = Decimal("1")
+    cumulative_points: list[ReturnPoint] = []
+    for _, row in df.sort_values("date").iterrows():
+        running *= Decimal("1") + Decimal(str(row["return_value"]))
+        cumulative_points.append(
+            ReturnPoint(
+                date=row["date"].date(),
+                return_value=(running - Decimal("1")).quantize(Decimal("0.000000000001")),
+            )
+        )
+    return cumulative_points
+
+
 def build_active_return_points(
     *,
     portfolio_df: pd.DataFrame,
@@ -203,6 +219,50 @@ def build_active_return_points(
             "return_value": [
                 portfolio_value - benchmark_value
                 for portfolio_value, benchmark_value in zip(portfolio_values, benchmark_values, strict=True)
+            ],
+        }
+    )
+    return points_from_df(active_df)
+
+
+def build_cumulative_active_return_points(
+    *,
+    portfolio_df: pd.DataFrame,
+    benchmark_df: pd.DataFrame | None,
+) -> list[ReturnPoint] | None:
+    if benchmark_df is None:
+        return None
+
+    cumulative_portfolio = build_cumulative_return_points(portfolio_df)
+    cumulative_benchmark = build_cumulative_return_points(benchmark_df)
+    if cumulative_portfolio is None or cumulative_benchmark is None:
+        return None
+
+    portfolio_df_aligned = to_dataframe(cumulative_portfolio, series_type="portfolio_cumulative")
+    benchmark_df_aligned = to_dataframe(cumulative_benchmark, series_type="benchmark_cumulative")
+    aligned_df = (
+        portfolio_df_aligned[["date", "return_value"]]
+        .merge(
+            benchmark_df_aligned[["date", "return_value"]],
+            on="date",
+            how="inner",
+            suffixes=("_portfolio", "_benchmark"),
+        )
+        .sort_values("date")
+    )
+    if aligned_df.empty:
+        return None
+
+    active_df = pd.DataFrame(
+        {
+            "date": aligned_df["date"],
+            "return_value": [
+                Decimal(str(portfolio_value)) - Decimal(str(benchmark_value))
+                for portfolio_value, benchmark_value in zip(
+                    aligned_df["return_value_portfolio"],
+                    aligned_df["return_value_benchmark"],
+                    strict=True,
+                )
             ],
         }
     )
@@ -464,9 +524,16 @@ async def _calculate_returns_series(
                 risk_free_df = risk_free_df.set_index("date").reindex(portfolio_df["date"]).fillna(0.0).reset_index()
 
         portfolio_return_points = points_from_df(portfolio_df)
+        cumulative_portfolio_return_points = build_cumulative_return_points(portfolio_df)
         benchmark_return_points = points_from_df(benchmark_df) if benchmark_df is not None else None
+        cumulative_benchmark_return_points = build_cumulative_return_points(benchmark_df)
         risk_free_return_points = points_from_df(risk_free_df) if risk_free_df is not None else None
+        cumulative_risk_free_return_points = build_cumulative_return_points(risk_free_df)
         active_return_points = build_active_return_points(
+            portfolio_df=portfolio_df,
+            benchmark_df=benchmark_df,
+        )
+        cumulative_active_return_points = build_cumulative_active_return_points(
             portfolio_df=portfolio_df,
             benchmark_df=benchmark_df,
         )
@@ -520,9 +587,13 @@ async def _calculate_returns_series(
             resolved_window=resolved_window,
             series=ReturnsSeriesPayload(
                 portfolio_returns=portfolio_return_points,
+                cumulative_portfolio_returns=cumulative_portfolio_return_points,
                 benchmark_returns=benchmark_return_points,
+                cumulative_benchmark_returns=cumulative_benchmark_return_points,
                 risk_free_returns=risk_free_return_points,
+                cumulative_risk_free_returns=cumulative_risk_free_return_points,
                 active_returns=active_return_points,
+                cumulative_active_returns=cumulative_active_return_points,
             ),
             provenance=ReturnsProvenance(
                 input_mode=effective_input_mode,

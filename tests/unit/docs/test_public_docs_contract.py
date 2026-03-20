@@ -150,14 +150,17 @@ def test_returns_series_docs_reflect_benchmark_return_source_contract():
 
     assert 'benchmark.return_source="vendor_series"' in readme
     assert "active_returns" in readme
+    assert "cumulative_active_returns" in readme
     assert "stateful benchmark sourcing now defaults to lotus-performance benchmark calculation" in readme
     assert "caller may omit `calculation_id`" in readme
     assert 'benchmark.return_source="vendor_series"' in api_reference
     assert "active_returns" in api_reference
+    assert "cumulative_active_returns" in api_reference
     assert "stateful mode, benchmark sourcing defaults to the shared lotus-performance benchmark calculation path" in api_reference.lower()
     assert "callers may omit `calculation_id`" in api_reference
     assert "Active Return Series" in master_index
     assert "series.active_returns" in active_methodology
+    assert "series.cumulative_active_returns" in active_methodology
 
 
 def test_api_examples_recipes_match_current_dual_mode_contract():
