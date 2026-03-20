@@ -73,7 +73,7 @@ async def test_resolve_attribution_request_fails_retrieval_stage(monkeypatch):
             "report_end_date": "2025-01-01",
             "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
             "input_mode": "stateful",
-            "stateful_input": {"consumer_system": "lotus-performance"},
+            "stateful_input": {},
         }
     )
 
@@ -149,7 +149,7 @@ async def test_resolve_attribution_request_fails_normalization_stage(monkeypatch
             "report_end_date": "2025-01-01",
             "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
             "input_mode": "stateful",
-            "stateful_input": {"consumer_system": "lotus-performance"},
+            "stateful_input": {},
         }
     )
 

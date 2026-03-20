@@ -59,7 +59,7 @@ async def test_benchmark_stateful_orchestration_characterization_contract(tmp_pa
             "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
             "input_mode": "stateful",
             "return_source": "calculated",
-            "stateful_input": {"consumer_system": "lotus-performance"},
+            "stateful_input": {},
             "output": {"include_timeseries": True},
         }
     )

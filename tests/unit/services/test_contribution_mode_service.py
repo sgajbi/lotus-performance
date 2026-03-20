@@ -112,7 +112,7 @@ async def test_resolve_contribution_request_sources_stateful_payload(monkeypatch
             "report_end_date": "2025-01-02",
             "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
             "input_mode": "stateful",
-            "stateful_input": {"consumer_system": "lotus-performance"},
+            "stateful_input": {},
         }
     )
     execution_registry.create_execution(
@@ -147,7 +147,7 @@ async def test_resolve_contribution_request_fails_retrieval_stage_on_source_erro
             "report_end_date": "2025-01-02",
             "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
             "input_mode": "stateful",
-            "stateful_input": {"consumer_system": "lotus-performance"},
+            "stateful_input": {},
         }
     )
     execution_registry.create_execution(
@@ -209,7 +209,7 @@ async def test_resolve_contribution_request_allows_currency_mode_both_for_same_c
             "currency_mode": "BOTH",
             "report_ccy": "USD",
             "input_mode": "stateful",
-            "stateful_input": {"consumer_system": "lotus-performance"},
+            "stateful_input": {},
         }
     )
     execution_registry.create_execution(
@@ -274,7 +274,7 @@ async def test_resolve_contribution_request_rejects_currency_mode_both_without_f
             "currency_mode": "BOTH",
             "report_ccy": "USD",
             "input_mode": "stateful",
-            "stateful_input": {"consumer_system": "lotus-performance"},
+            "stateful_input": {},
         }
     )
     execution_registry.create_execution(

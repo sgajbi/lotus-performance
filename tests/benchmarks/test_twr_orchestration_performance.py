@@ -79,7 +79,7 @@ async def test_twr_stateful_benchmark_orchestration_characterization_contract(tm
             "report_end_date": str(STATEFUL_PORTFOLIO_WINDOW_END),
             "analyses": [{"period": "ITD", "frequencies": ["monthly"]}],
             "input_mode": "stateful",
-            "stateful_input": {"consumer_system": "lotus-performance"},
+            "stateful_input": {},
             "include_benchmark": True,
         }
     )

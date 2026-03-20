@@ -74,12 +74,13 @@ These characterize the control-plane query path behind:
 
 - Workload: one stateful returns-series request across `2024-01-01` to `2033-12-31` with:
   - portfolio return series
-  - benchmark return series
+  - calculated benchmark return series
   - risk-free return series
   - daily frequency
+  - composition-window sourcing, component price loading, and FX normalization for benchmark calculation
   - canonical normalization and response shaping
 - Metric: median wall-clock runtime across 5 reads after warm-up
-- Budget: `<= 1200ms`
+- Budget: `<= 3600ms`
 - Test owner: [test_returns_series_orchestration_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_returns_series_orchestration_performance.py)
 
 ## Stateful retrieval budget

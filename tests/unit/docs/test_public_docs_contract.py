@@ -167,6 +167,7 @@ def test_api_examples_recipes_match_current_dual_mode_contract():
     assert '"relative_performance"' in guide
     assert '"component_price_points"' in guide
     assert "window_start_date" in guide
+    assert "consumer_system" not in guide
     assert 'stateful attribution can also emit currency attribution' in guide.lower()
     assert "Older examples using request-level `period_type` or nested `daily_data` are not current." in guide
     assert '"period_type"' not in guide

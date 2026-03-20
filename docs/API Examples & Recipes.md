@@ -67,7 +67,6 @@ POST /performance/twr
 {
   "input_mode": "stateful",
   "portfolio_id": "DEMO_DPM_EUR_001",
-  "performance_start_date": "2024-12-31",
   "report_end_date": "2025-01-31",
   "metric_basis": "NET",
   "analyses": [
@@ -76,9 +75,7 @@ POST /performance/twr
       "frequencies": ["daily", "monthly"]
     }
   ],
-  "stateful_input": {
-    "consumer_system": "lotus-performance"
-  }
+  "stateful_input": {}
 }
 ```
 
@@ -135,20 +132,36 @@ POST /performance/twr
 {
   "results_by_period": {
     "YTD": {
-      "portfolio_return": {
-        "base": 2.01
+      "portfolio": {
+        "summary": {
+          "period_return": {
+            "base": 2.01
+          },
+          "cumulative_return": {
+            "base": 2.01
+          }
+        }
+      },
+      "benchmark": {
+        "summary": {
+          "period_return": {
+            "base": 2.515
+          },
+          "cumulative_return": {
+            "base": 2.515
+          }
+        },
+        "benchmark_id": "BMK_STATELESS_1"
       },
       "relative_performance": {
-        "arithmetic_relative_return": -0.505,
-        "cumulative_arithmetic_relative_return": -0.505
-      }
-    }
-  },
-  "benchmark": {
-    "benchmark_id": "BMK_STATELESS_1",
-    "results_by_period": {
-      "YTD": {
-        "benchmark_return": 0.02515
+        "summary": {
+          "period_return": {
+            "base": -0.505
+          },
+          "cumulative_return": {
+            "base": -0.505
+          }
+        }
       }
     }
   }
@@ -235,7 +248,6 @@ POST /performance/mwr
     "basis": "ACT/ACT"
   },
   "stateful_input": {
-    "consumer_system": "lotus-performance",
     "window_start_date": "2025-01-01"
   }
 }

@@ -306,7 +306,9 @@ def test_compute_executor_worker_processes_resolved_twr_job(tmp_path, monkeypatc
     assert result is not None
     assert result.result_status == AsyncResultStatus.COMPLETE
     assert result.response_payload["input_mode"] == TWRInputMode.STATEFUL.value
-    assert result.response_payload["benchmark"]["benchmark_id"] == "BMK_1"
+    period_result = result.response_payload["results_by_period"]["YTD"]
+    assert period_result["benchmark"]["benchmark_id"] == "BMK_1"
+    assert period_result["relative_performance"] is not None
 
 
 def test_compute_executor_worker_processes_pending_contribution_job(tmp_path, monkeypatch):
@@ -415,7 +417,7 @@ def test_compute_executor_worker_updates_identity_for_stateful_contribution_job(
             "report_end_date": "2025-01-02",
             "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
             "input_mode": "stateful",
-            "stateful_input": {"consumer_system": "lotus-performance"},
+            "stateful_input": {},
         }
     )
     resolved_request = ContributionRequest.model_validate(
