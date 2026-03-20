@@ -211,6 +211,10 @@ Each period result can include:
 {
   "calculation_id": "2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
   "portfolio_id": "ATTRIB_EXAMPLE_01",
+  "benchmark_context": {
+    "benchmark_id": "BMK_TECH_1",
+    "return_source": "calculated"
+  },
   "model": "BF",
   "linking": "none",
   "results_by_period": {

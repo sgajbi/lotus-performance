@@ -429,6 +429,10 @@ def test_e2e_stateful_analytics_workflow(monkeypatch) -> None:
     assert mwr_response.json()["input_mode"] == "stateful"
     assert contribution_response.json()["input_mode"] == "stateful"
     assert attribution_response.json()["input_mode"] == "stateful"
+    assert attribution_response.json()["benchmark_context"] == {
+        "benchmark_id": "BMK_1",
+        "return_source": "calculated",
+    }
 
     for execution in (
         twr_execution,
