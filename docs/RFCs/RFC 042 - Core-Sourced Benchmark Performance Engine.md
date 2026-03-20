@@ -193,6 +193,9 @@ Recommended request direction:
 - require `benchmark` to be absent when `include_benchmark=false`
 - allow `benchmark` to be omitted when `include_benchmark=true` and `input_mode=stateful`, in which case benchmark assignment should be sourced from `lotus-core`
 - allow `benchmark.benchmark_id` to be supplied when `include_benchmark=true` to override the normal portfolio-to-benchmark assignment while still sourcing the benchmark definition and market data from `lotus-core`
+- make `calculation_id` caller-optional and server-generated when omitted
+- keep `stateful_input` as a lightweight envelope and stamp source consumer identity server-side
+- require `performance_start_date` in stateless mode, but not in stateful mode where the authoritative inception date comes from `lotus-core`
 
 This gives TWR the desired flexibility:
 1. simple benchmark-on request: `include_benchmark=true`
@@ -471,6 +474,11 @@ The following design decisions are now set for this RFC:
    - TWR relative performance is arithmetic
    - cumulative relative performance is the arithmetic difference of cumulative portfolio and benchmark returns
    - this is not a geometric active-return linking contract
+
+9. Stateful request ergonomics
+   - `calculation_id` should be optional in public benchmark-aware TWR requests
+   - `stateful_input` should remain present as the mode envelope, but should not require caller-supplied consumer identity
+   - `performance_start_date` should be caller-owned only in stateless TWR mode
 
 Remaining questions before implementation:
 

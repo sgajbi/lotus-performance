@@ -115,6 +115,7 @@ def _should_preemptively_offload_stateful_twr(request: TWRAnalyticsRequest) -> b
     active_settings = get_settings()
     return (
         request.input_mode == TWRInputMode.STATEFUL
+        and request.performance_start_date is not None
         and (request.report_end_date - request.performance_start_date).days >= active_settings.TWR_EXECUTOR_WINDOW_DAYS
     )
 
@@ -140,7 +141,9 @@ def _build_twr_execution_window(
     benchmark_work_units: int | None = None,
 ) -> dict[str, object]:
     requested_window: dict[str, object] = {
-        "performance_start_date": str(request.performance_start_date),
+        "performance_start_date": (
+            str(request.performance_start_date) if request.performance_start_date is not None else None
+        ),
         "report_start_date": str(request.report_start_date) if request.report_start_date else None,
         "report_end_date": str(request.report_end_date),
         "requested_periods": [analysis.period.value for analysis in request.analyses],

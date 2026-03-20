@@ -76,7 +76,7 @@ def test_twr_request_rejects_stateful_payload_in_stateless_mode(base_payload):
             {
                 **base_payload,
                 "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
-                "stateful_input": {"consumer_system": "lotus-performance"},
+                "stateful_input": {},
             }
         )
 
@@ -87,7 +87,7 @@ def test_twr_request_rejects_stateless_payloads_in_stateful_mode(base_payload):
             {
                 **base_payload,
                 "input_mode": "stateful",
-                "stateful_input": {"consumer_system": "lotus-performance"},
+                "stateful_input": {},
                 "stateless_input": {
                     "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
                 },
@@ -99,7 +99,7 @@ def test_twr_request_rejects_stateless_payloads_in_stateful_mode(base_payload):
             {
                 **base_payload,
                 "input_mode": "stateful",
-                "stateful_input": {"consumer_system": "lotus-performance"},
+                "stateful_input": {},
                 "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
             }
         )
@@ -131,7 +131,7 @@ def test_twr_request_to_stateless_fails_without_stateless_payload(base_payload):
         {
             **base_payload,
             "input_mode": "stateful",
-            "stateful_input": {"consumer_system": "lotus-performance"},
+            "stateful_input": {},
         }
     )
 
@@ -200,13 +200,30 @@ def test_twr_request_supports_stateful_include_benchmark_without_nested_config(b
         {
             **base_payload,
             "input_mode": "stateful",
-            "stateful_input": {"consumer_system": "lotus-performance"},
+            "stateful_input": {},
             "include_benchmark": True,
         }
     )
 
     assert request.include_benchmark is True
     assert request.benchmark is None
+
+
+def test_twr_request_allows_missing_start_date_in_stateful_mode(base_payload):
+    payload = {
+        key: value
+        for key, value in base_payload.items()
+        if key != "performance_start_date"
+    }
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            **payload,
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+
+    assert request.performance_start_date is None
 
 
 def test_twr_request_requires_benchmark_config_for_stateless_include_benchmark(base_payload):

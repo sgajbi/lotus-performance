@@ -20,7 +20,7 @@ Execution mode:
 Common top-level fields are:
 
 - `portfolio_id`
-- `performance_start_date`
+- `performance_start_date` in stateless mode
 - `report_end_date`
 - `analyses`
 - optional `include_benchmark`
@@ -33,11 +33,14 @@ Stateless mode accepts either:
 
 Stateful mode uses:
 
-- `stateful_input.consumer_system`
+- `stateful_input`
 
 In stateful mode, lotus-performance retrieves portfolio timeseries from lotus-core,
 normalizes them into canonical valuation points, then runs the same owned TWR engine
 used by stateless requests.
+
+The stateful envelope is intentionally lightweight. lotus-performance stamps the
+source consumer identity server-side instead of requiring an explicit consumer field.
 
 Optional controls include:
 
@@ -119,19 +122,29 @@ The response contains:
 
 Each period result may contain:
 
-- `breakdowns`
-- `portfolio_return`
+- `portfolio`
+- `benchmark`
 - `relative_performance`
 - `reset_events`
 
 If `output.include_timeseries` is enabled, daily breakdown entries can also include `daily_data`.
 
-When benchmark output is included, `relative_performance` exposes:
+When benchmark output is included, each period result uses sibling comparative blocks:
 
-- `arithmetic_relative_return`
-- `cumulative_arithmetic_relative_return`
+- `portfolio`
+- `benchmark`
+- `relative_performance`
 
-Both are currently arithmetic active-return values, not geometric active attribution.
+Each block carries:
+
+- `summary.period_return`
+- `summary.cumulative_return`
+- requested-frequency breakdown rows with `period_return` and `cumulative_return`
+
+Portfolio and benchmark cumulative values are geometrically linked through the row end date.
+Relative-performance cumulative values are arithmetic:
+
+`cumulative_relative_return = cumulative_portfolio_return - cumulative_benchmark_return`
 
 ## Multi-currency behavior
 
@@ -201,7 +214,6 @@ See [multi_currency.md](multi_currency.md) for the detailed multi-currency path.
 {
   "input_mode": "stateful",
   "portfolio_id": "DEMO_DPM_EUR_001",
-  "performance_start_date": "2024-12-31",
   "report_end_date": "2025-01-31",
   "metric_basis": "NET",
   "analyses": [
@@ -210,9 +222,7 @@ See [multi_currency.md](multi_currency.md) for the detailed multi-currency path.
       "frequencies": ["daily", "monthly"]
     }
   ],
-  "stateful_input": {
-    "consumer_system": "lotus-performance"
-  }
+  "stateful_input": {}
 }
 ```
 

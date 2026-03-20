@@ -214,7 +214,7 @@ def test_calculate_benchmark_endpoint_supports_stateful_calculated_mode(client, 
         "input_mode": "stateful",
         "return_source": "calculated",
         "output": {"include_timeseries": True},
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     response = client.post("/performance/benchmark", json=payload)
@@ -316,7 +316,7 @@ def test_calculate_benchmark_endpoint_records_http_failure_detail_in_execution_s
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "return_source": "calculated",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     response = client.post("/performance/benchmark", json=payload)
@@ -382,7 +382,7 @@ def test_calculate_benchmark_endpoint_supports_explicit_vendor_series_mode(clien
         "input_mode": "stateful",
         "return_source": "vendor_series",
         "output": {"include_timeseries": True},
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     response = client.post("/performance/benchmark", json=payload)
@@ -437,7 +437,7 @@ def test_calculate_benchmark_endpoint_promotes_stateful_benchmark_to_async_on_re
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "return_source": "calculated",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     try:

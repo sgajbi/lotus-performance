@@ -84,10 +84,7 @@ class BenchmarkStatelessInput(BaseModel):
 
 
 class BenchmarkStatefulInput(BaseModel):
-    consumer_system: str = Field(
-        default="lotus-performance",
-        description="Consumer system used for lotus-core stateful sourcing policy and lineage.",
-    )
+    model_config = ConfigDict(extra="forbid")
 
 
 class BenchmarkAnalyticsRequest(BaseModel):

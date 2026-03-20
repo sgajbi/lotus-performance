@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -24,11 +25,7 @@ class TWRStatelessInput(BaseModel):
 
 
 class TWRStatefulInput(BaseModel):
-    consumer_system: str = Field(
-        default="lotus-performance",
-        description="Consumer system used for lotus-core stateful sourcing policy and lineage.",
-        examples=["lotus-performance"],
-    )
+    model_config = ConfigDict(extra="forbid")
 
 
 class TWRBenchmarkRequest(BaseModel):
@@ -104,6 +101,13 @@ class TWRResolvedExecutionRequest(BaseModel):
 
 
 class TWRAnalyticsRequest(PerformanceRequestBase):
+    performance_start_date: date | None = Field(
+        default=None,
+        description=(
+            "Portfolio inception or earliest performance date. Required in stateless mode. "
+            "In stateful mode lotus-performance derives the authoritative start date from lotus-core."
+        ),
+    )
     include_benchmark: bool = Field(
         default=False,
         description="Whether benchmark performance should be calculated and returned alongside portfolio TWR.",
@@ -135,6 +139,8 @@ class TWRAnalyticsRequest(PerformanceRequestBase):
         if self.input_mode == TWRInputMode.STATELESS:
             has_nested = self.stateless_input is not None
             has_legacy = len(self.valuation_points) > 0
+            if self.performance_start_date is None:
+                raise ValueError("performance_start_date is required when input_mode=stateless")
             if has_nested and has_legacy:
                 raise ValueError("Provide either stateless_input or valuation_points, not both, for stateless mode")
             if not has_nested and not has_legacy:
@@ -157,6 +163,8 @@ class TWRAnalyticsRequest(PerformanceRequestBase):
     def to_stateless_performance_request(
         self, *, valuation_points: list[DailyInputData] | None = None
     ) -> PerformanceRequest:
+        if self.performance_start_date is None:
+            raise ValueError("performance_start_date is required to build a stateless PerformanceRequest")
         if valuation_points is not None:
             resolved_points = valuation_points
         elif self.stateless_input is not None:

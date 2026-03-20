@@ -86,9 +86,7 @@ async def test_resolve_twr_request_sources_stateful_payload(monkeypatch):
             "report_end_date": "2025-01-02",
             "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
             "input_mode": "stateful",
-            "stateful_input": {
-                "consumer_system": "lotus-performance",
-            },
+            "stateful_input": {},
         }
     )
     execution_registry.create_execution(
@@ -164,7 +162,47 @@ async def test_resolve_twr_request_uses_upstream_open_date_over_request_start(mo
             "report_end_date": "2025-01-02",
             "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
             "input_mode": "stateful",
-            "stateful_input": {"consumer_system": "lotus-performance"},
+            "stateful_input": {},
+        }
+    )
+    execution_registry.create_execution(
+        calculation_id=request.calculation_id,
+        analytics_type="TWR",
+        portfolio_id=request.portfolio_id,
+    )
+
+    resolved = await resolve_twr_request(request, settings=_settings())
+
+    assert str(resolved.performance_request.performance_start_date) == "2024-01-15"
+
+
+@pytest.mark.asyncio
+async def test_resolve_twr_request_allows_missing_stateful_start_date(monkeypatch):
+    async def _mock_fetch_stateful_portfolio_timeseries(**kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2024-01-15",
+                "observations": [
+                    {"valuation_date": "2025-01-01", "beginning_market_value": "1000", "ending_market_value": "1010"},
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.stateful_performance_input_service.fetch_stateful_portfolio_timeseries",
+        _mock_fetch_stateful_portfolio_timeseries,
+    )
+
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
         }
     )
     execution_registry.create_execution(
@@ -203,7 +241,7 @@ async def test_resolve_twr_request_fails_normalization_stage_for_invalid_observa
             "report_end_date": "2025-01-02",
             "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
             "input_mode": "stateful",
-            "stateful_input": {"consumer_system": "lotus-performance"},
+            "stateful_input": {},
         }
     )
     execution_registry.create_execution(
@@ -336,7 +374,7 @@ async def test_resolve_twr_request_sources_stateful_benchmark_assignment(monkeyp
             "benchmark": {
                 "input_mode": "stateful",
                 "return_source": "calculated",
-                "stateful_input": {"consumer_system": "lotus-performance"},
+                "stateful_input": {},
             },
         }
     )
@@ -429,7 +467,7 @@ async def test_resolve_twr_request_sources_default_stateful_benchmark_assignment
             "report_end_date": "2025-01-02",
             "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
             "input_mode": "stateful",
-            "stateful_input": {"consumer_system": "lotus-performance"},
+            "stateful_input": {},
             "include_benchmark": True,
         }
     )

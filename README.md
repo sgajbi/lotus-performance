@@ -45,6 +45,7 @@ Async-capable endpoints follow one common pattern:
 - exact async resubmission with the same `calculation_id` is treated as an idempotent replay
 - payload drift with the same `calculation_id` is rejected with `409 Conflict`
 - synchronous submissions should use a fresh `calculation_id` each time
+- if omitted, lotus-performance generates one and returns it in the response
 
 ## Current request-model shape
 
@@ -54,7 +55,7 @@ Async-capable endpoints follow one common pattern:
 
 - `input_mode: "stateless" | "stateful"`
 - `portfolio_id`
-- `performance_start_date`
+- `performance_start_date` in stateless mode
 - `report_end_date`
 - `analyses`
 - `include_benchmark`
@@ -62,7 +63,8 @@ Async-capable endpoints follow one common pattern:
   - `valuation_points` for legacy callers
   - or `stateless_input.valuation_points` for Lotus-style mode envelopes
 - stateful:
-  - `stateful_input.consumer_system`
+  - `stateful_input` is an empty Lotus envelope today
+  - lotus-performance stamps source consumer identity server-side
   - lotus-core portfolio timeseries are normalized into canonical valuation points inside lotus-performance
 - execution:
   - synchronous for smaller requests
@@ -112,7 +114,8 @@ The public request contract is analysis-based. Older examples using `period_type
     for calculated mode
   - `stateless_input.benchmark_return_points` for vendor-series mode
 - stateful:
-  - `stateful_input.consumer_system`
+  - `stateful_input` is an empty Lotus envelope today
+  - lotus-performance stamps source consumer identity server-side
   - benchmark definition, component price series, and FX inputs sourced from lotus-core
   - calculated mode supports multi-segment rebalance windows through the lotus-core composition-window contract
 

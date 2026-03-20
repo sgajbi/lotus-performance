@@ -306,12 +306,11 @@ def test_twr_supports_stateful_input_mode(client, monkeypatch):
 
     payload = {
         "portfolio_id": "STATEFUL_TWR_TEST",
-        "performance_start_date": "2024-12-31",
         "metric_basis": "NET",
         "report_end_date": "2025-01-02",
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     response = client.post("/performance/twr", json=payload)
@@ -422,7 +421,7 @@ def test_twr_supports_stateful_benchmark_assignment(client, monkeypatch):
         "benchmark": {
             "input_mode": "stateful",
             "return_source": "calculated",
-            "stateful_input": {"consumer_system": "lotus-performance"},
+            "stateful_input": {},
         },
     }
 
@@ -501,12 +500,11 @@ def test_twr_supports_include_benchmark_without_nested_stateful_benchmark_config
 
     payload = {
         "portfolio_id": "TWR_BENCHMARK_STATEFUL_DEFAULT",
-        "performance_start_date": "2024-12-31",
         "metric_basis": "NET",
         "report_end_date": "2025-01-02",
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
         "include_benchmark": True,
     }
 
@@ -575,12 +573,11 @@ def test_twr_records_http_failure_detail_in_execution_status(client, monkeypatch
     payload = {
         "calculation_id": calculation_id,
         "portfolio_id": "TWR_BENCHMARK_STATEFUL_FAILURE",
-        "performance_start_date": "2024-12-31",
         "metric_basis": "NET",
         "report_end_date": "2025-01-02",
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
         "include_benchmark": True,
     }
 
@@ -771,7 +768,7 @@ def test_twr_stateful_hashes_follow_resolved_inputs(client, monkeypatch):
         "report_end_date": "2025-01-02",
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     first_payload = {**base_payload, "performance_start_date": "2024-12-31"}

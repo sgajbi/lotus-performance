@@ -20,6 +20,8 @@ from app.services.stateful_performance_input_service import (
 )
 from app.services.stateless_benchmark_input_service import normalize_stateless_component_observations
 
+DEFAULT_STATEFUL_CONSUMER_SYSTEM = "lotus-performance"
+
 
 @dataclass(frozen=True)
 class ResolvedTWRRequest:
@@ -80,7 +82,7 @@ async def resolve_twr_request(
                 start_date=request.performance_start_date,
                 end_date=request.report_end_date,
                 reporting_currency=request.report_ccy,
-                consumer_system=stateful_input.consumer_system,
+                consumer_system=DEFAULT_STATEFUL_CONSUMER_SYSTEM,
             )
             retrieval_details.update(
                 {
@@ -357,14 +359,14 @@ def _resolve_default_stateful_benchmark_input(request: TWRAnalyticsRequest) -> B
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="stateful_input is required when include_benchmark=true in stateful mode",
         )
-    return BenchmarkStatefulInput(consumer_system=stateful_input.consumer_system)
+    return BenchmarkStatefulInput()
 
 
 def _resolve_benchmark_start_date_from_request(request: TWRAnalyticsRequest):
     performance_request = request.to_stateless_performance_request() if request.input_mode == TWRInputMode.STATELESS else None
     if performance_request is not None and performance_request.valuation_points:
         return min(point.perf_date for point in performance_request.valuation_points)
-    return request.performance_start_date
+    return request.performance_start_date or request.report_end_date
 
 
 def _resolve_benchmark_start_date_from_stateful_source(observations: list[dict]) -> date | None:

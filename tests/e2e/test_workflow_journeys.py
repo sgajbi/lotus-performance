@@ -372,12 +372,11 @@ def test_e2e_stateful_analytics_workflow(monkeypatch) -> None:
     )
     twr_payload = {
         "portfolio_id": "E2E_STATEFUL_001",
-        "performance_start_date": "2024-12-31",
         "report_end_date": "2025-01-02",
         "metric_basis": "NET",
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
     mwr_payload = {
         "portfolio_id": "E2E_STATEFUL_001",
@@ -460,17 +459,16 @@ def test_e2e_shared_stateful_benchmark_engine_stays_consistent_across_surfaces(m
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "return_source": "calculated",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
     twr_payload = {
         "portfolio_id": "E2E_BENCHMARK_SHARED",
-        "performance_start_date": "2026-02-20",
         "report_end_date": "2026-02-25",
         "metric_basis": "NET",
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "include_benchmark": True,
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
     returns_series_payload = {
         "portfolio_id": "E2E_BENCHMARK_SHARED",

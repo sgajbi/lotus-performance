@@ -36,11 +36,14 @@ Stateless mode uses:
 
 Stateful mode uses:
 
-- `stateful_input.consumer_system`
+- `stateful_input`
 
 In stateful mode, lotus-performance sources benchmark definition, component price series, and FX
 rates from lotus-core, then normalizes those upstream inputs into canonical benchmark component
 observations before running the owned benchmark engine.
+
+The stateful envelope is intentionally lightweight. lotus-performance stamps the
+source consumer identity server-side instead of requiring an explicit consumer field.
 
 ## Return-source behavior
 
@@ -180,9 +183,7 @@ are emitted for calculated mode.
     }
   ],
   "return_source": "calculated",
-  "stateful_input": {
-    "consumer_system": "lotus-performance"
-  }
+  "stateful_input": {}
 }
 ```
 
