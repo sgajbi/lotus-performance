@@ -498,10 +498,31 @@ def test_e2e_shared_stateful_benchmark_engine_stays_consistent_across_surfaces(m
         twr_body["results_by_period"]["YTD"]["benchmark"]["summary"]["period_return"]["base"] / 100
     )
     linked_returns_series_benchmark_return = _link_return_points(returns_series_body["series"]["benchmark_returns"])
+    benchmark_cumulative_return = benchmark_body["results_by_period"]["YTD"]["benchmark"]["breakdowns"]["daily"][-1][
+        "cumulative_return"
+    ]["base"]
+    returns_series_cumulative_benchmark_return = Decimal(
+        returns_series_body["series"]["cumulative_benchmark_returns"][-1]["return_value"]
+    )
+    twr_cumulative_relative_return = (
+        Decimal(
+            str(
+                twr_body["results_by_period"]["YTD"]["relative_performance"]["breakdowns"]["daily"][-1][
+                    "cumulative_return"
+                ]["base"]
+            )
+        )
+        / Decimal("100")
+    )
+    returns_series_cumulative_active_return = Decimal(
+        returns_series_body["series"]["cumulative_active_returns"][-1]["return_value"]
+    )
 
     assert benchmark_return == pytest.approx(0.0201)
     assert twr_benchmark_return == pytest.approx(benchmark_return)
     assert linked_returns_series_benchmark_return == pytest.approx(benchmark_return)
+    assert float(returns_series_cumulative_benchmark_return) == pytest.approx(benchmark_cumulative_return)
+    assert float(returns_series_cumulative_active_return) == pytest.approx(float(twr_cumulative_relative_return))
     assert [point["return_value"] for point in returns_series_body["series"]["active_returns"]] == [
         "0.010000000000",
         "0E-12",
