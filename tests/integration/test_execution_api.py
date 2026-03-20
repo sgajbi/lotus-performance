@@ -542,6 +542,8 @@ def test_execution_api_tracks_attribution_stateful_stages(client, monkeypatch):
     assert stages["retrieval"]["details"]["benchmark_page_count"] == 1
     assert stages["retrieval"]["details"]["benchmark_component_observations"] == 2
     assert stages["retrieval"]["details"]["index_request_count"] == 1
+    assert execution_body["requested_window"]["benchmark_id"] == "BMK_1"
+    assert execution_body["requested_window"]["benchmark_return_source"] == "calculated"
     assert stages["normalization"]["details"]["portfolio_points"] == 2
     assert stages["normalization"]["details"]["instruments"] == 1
     assert stages["normalization"]["details"]["benchmark_groups"] == 1

@@ -124,6 +124,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
   - stateful mode sources portfolio and position timeseries from lotus-core and derives benchmark group inputs from benchmark assignment plus the shared benchmark engine sourcing path
   - lotus-performance stamps source consumer identity server-side for the stateful envelope
+  - when a benchmark is resolved, the response also emits top-level `benchmark_context`
   - current stateful fences:
     - `mode=by_instrument` only
     - `group_by` limited to canonical lotus-core attribution dimensions plus `currency`: `asset_class`, `sector`, `country`, `currency`

@@ -72,6 +72,13 @@ class SinglePeriodAttributionResult(BaseModel):
     currency_attribution: Optional[List[CurrencyAttributionResult]] = None
 
 
+class AttributionBenchmarkContext(BaseModel):
+    """Resolved benchmark context for attribution requests that sourced a benchmark."""
+
+    benchmark_id: str
+    return_source: str
+
+
 class AttributionResponse(BaseModel):
     """Response model for the Attribution engine."""
 
@@ -81,6 +88,7 @@ class AttributionResponse(BaseModel):
     model: AttributionModel
     linking: LinkingMethod
     results_by_period: Dict[str, SinglePeriodAttributionResult]
+    benchmark_context: Optional[AttributionBenchmarkContext] = None
 
     meta: Meta
     diagnostics: Optional[Diagnostics] = None  # To be populated

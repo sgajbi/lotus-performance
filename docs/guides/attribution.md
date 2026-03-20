@@ -135,6 +135,7 @@ The response contains:
 - `calculation_id`
 - `portfolio_id`
 - `input_mode`
+- `benchmark_context` when a benchmark was resolved in stateful mode
 - `model`
 - `linking`
 - `results_by_period`

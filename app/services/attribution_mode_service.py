@@ -7,6 +7,7 @@ from fastapi import HTTPException, status
 from app.core.config import Settings
 from app.models.attribution_analytics_requests import AttributionAnalyticsRequest, AttributionInputMode
 from app.models.attribution_requests import AttributionRequest
+from app.models.benchmark_analytics_requests import BenchmarkReturnSource
 from app.services.execution_registry import execution_registry
 from app.services.portfolio_source_service import build_stateful_input_service
 from app.services.stateful_attribution_input_service import (
@@ -22,6 +23,8 @@ class ResolvedAttributionRequest:
     attribution_request: AttributionRequest
     input_mode: AttributionInputMode
     input_count: int
+    resolved_benchmark_id: str | None = None
+    resolved_benchmark_return_source: str | None = None
 
 
 async def resolve_attribution_request(
@@ -119,6 +122,8 @@ async def resolve_attribution_request(
         ),
         input_mode=AttributionInputMode.STATEFUL,
         input_count=(len(normalized_input.instruments_data) + len(normalized_input.benchmark_groups_data)),
+        resolved_benchmark_id=source_input.benchmark_id,
+        resolved_benchmark_return_source=BenchmarkReturnSource.CALCULATED.value,
     )
 
 

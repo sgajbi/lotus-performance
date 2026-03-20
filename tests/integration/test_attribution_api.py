@@ -554,6 +554,10 @@ def test_attribution_supports_stateful_input_mode(client, monkeypatch):
     body = response.json()
     assert body["portfolio_id"] == "ATTRIB_STATEFUL"
     assert body["input_mode"] == "stateful"
+    assert body["benchmark_context"] == {
+        "benchmark_id": "BMK_1",
+        "return_source": "calculated",
+    }
     assert "ITD" in body["results_by_period"]
 
 
@@ -708,16 +712,25 @@ def test_attribution_stateful_offloads_on_resolved_input_count(client, monkeypat
         assert execution is not None
         assert execution.requested_window["input_count"] == 4
         assert execution.requested_window["input_mode"] == "stateful"
+        assert execution.requested_window["benchmark_id"] == "BMK_1"
+        assert execution.requested_window["benchmark_return_source"] == "calculated"
         job = compute_job_store.get_job(calculation_id)
         assert job is not None
-        assert "stateful_input" not in job.request_payload
-        assert "benchmark_groups_data" in job.request_payload
+        assert "stateful_input" not in job.request_payload["resolved_request"]
+        assert "benchmark_groups_data" in job.request_payload["resolved_request"]
+        assert job.request_payload["resolved_benchmark_id"] == "BMK_1"
+        assert job.request_payload["resolved_benchmark_return_source"] == "calculated"
 
         assert drain_compute_queue() == 1
 
         complete = client.get(f"/performance/attribution/results/{calculation_id}")
         assert complete.status_code == 200
-        assert complete.json()["input_mode"] == "stateful"
+        body = complete.json()
+        assert body["input_mode"] == "stateful"
+        assert body["benchmark_context"] == {
+            "benchmark_id": "BMK_1",
+            "return_source": "calculated",
+        }
     finally:
         settings.ATTRIBUTION_EXECUTOR_WINDOW_DAYS = original_window_threshold
         settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = original_input_threshold

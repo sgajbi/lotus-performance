@@ -164,6 +164,7 @@ Large position sets and long-window stateful contribution requests can be execut
   - portfolio and position inputs sourced from lotus-core query-control-plane
   - current fences: `mode="by_instrument"` and `group_by` limited to `asset_class`, `sector`, `country`, `currency`
   - `currency_mode="BOTH"` is supported in stateful mode when `report_ccy` is present and `fx.rates` are supplied for mixed-currency sourced positions
+  - when a benchmark is resolved, the response also emits top-level `benchmark_context`
 
 Large input sets and long-window stateful attribution requests can be executor-offloaded and return `202 Accepted`.
 

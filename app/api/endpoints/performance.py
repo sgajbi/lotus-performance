@@ -547,6 +547,8 @@ async def calculate_attribution_endpoint(request: AttributionAnalyticsRequest) -
                 request,
                 input_count=resolved.input_count,
                 source_request_fingerprint=source_request_fingerprint,
+                benchmark_id=resolved.resolved_benchmark_id,
+                benchmark_return_source=resolved.resolved_benchmark_return_source,
             )
             accepted_response = finalize_resolved_stateful_execution(
                 calculation_id=request.calculation_id,
@@ -554,7 +556,12 @@ async def calculate_attribution_endpoint(request: AttributionAnalyticsRequest) -
                 requested_window=requested_window,
                 input_fingerprint=input_fingerprint,
                 calculation_hash=calculation_hash,
-                resolved_request_payload=resolved.attribution_request.model_dump(mode="json"),
+                resolved_request_payload={
+                    "resolved_request": resolved.attribution_request.model_dump(mode="json"),
+                    "source_input_mode": resolved.input_mode.value,
+                    "resolved_benchmark_id": resolved.resolved_benchmark_id,
+                    "resolved_benchmark_return_source": resolved.resolved_benchmark_return_source,
+                },
                 should_offload=_should_offload_resolved_attribution(resolved.input_count),
                 offload_reason="large_resolved_stateful_attribution",
                 accepted_response_factory=_accepted_attribution_response,
@@ -566,6 +573,8 @@ async def calculate_attribution_endpoint(request: AttributionAnalyticsRequest) -
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
             input_mode=resolved.input_mode,
+            resolved_benchmark_id=resolved.resolved_benchmark_id,
+            resolved_benchmark_return_source=resolved.resolved_benchmark_return_source,
         )
     except HTTPException as exc:
         record_execution_failure(
@@ -622,6 +631,8 @@ def _build_attribution_execution_window(
     *,
     input_count: int,
     source_request_fingerprint: str | None = None,
+    benchmark_id: str | None = None,
+    benchmark_return_source: str | None = None,
 ) -> dict[str, object]:
     requested_window = {
         "report_start_date": str(request.report_start_date),
@@ -634,6 +645,10 @@ def _build_attribution_execution_window(
     }
     if source_request_fingerprint is not None:
         requested_window["source_request_fingerprint"] = source_request_fingerprint
+    if benchmark_id is not None:
+        requested_window["benchmark_id"] = benchmark_id
+    if benchmark_return_source is not None:
+        requested_window["benchmark_return_source"] = benchmark_return_source
     return requested_window
 
 

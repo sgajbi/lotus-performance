@@ -24,6 +24,8 @@ def calculate_attribution(
     input_fingerprint: str,
     calculation_hash: str,
     input_mode: AttributionInputMode = AttributionInputMode.STATELESS,
+    resolved_benchmark_id: str | None = None,
+    resolved_benchmark_return_source: str | None = None,
 ) -> AttributionResponse:
     active_settings = get_settings()
     execution_registry.mark_running(request.calculation_id)
@@ -85,6 +87,14 @@ def calculate_attribution(
             model=request.model,
             linking=request.linking,
             results_by_period=results_by_period,
+            benchmark_context=(
+                {
+                    "benchmark_id": resolved_benchmark_id,
+                    "return_source": resolved_benchmark_return_source,
+                }
+                if resolved_benchmark_id is not None and resolved_benchmark_return_source is not None
+                else None
+            ),
             meta=meta,
         )
 

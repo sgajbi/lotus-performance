@@ -127,6 +127,8 @@ def test_api_reference_documents_endpoint_level_capabilities_contract():
 
 def test_attribution_guide_uses_current_request_shape():
     guide = _read("docs/guides/attribution.md")
+    readme = _read("README.md")
+    api_reference = _read("docs/guides/api_reference.md")
 
     assert 'input_mode: "stateless" | "stateful"' in guide
     assert "source consumer identity server-side" in guide
@@ -142,6 +144,9 @@ def test_attribution_guide_uses_current_request_shape():
     assert "`group_by` includes the `currency` dimension" in guide
     assert "available for both stateless and stateful attribution inputs" in guide
     assert "benchmark engine sourcing path" in guide
+    assert "benchmark_context" in guide
+    assert "benchmark_context" in readme
+    assert "benchmark_context" in api_reference
 
 
 def test_returns_series_docs_reflect_benchmark_return_source_contract():

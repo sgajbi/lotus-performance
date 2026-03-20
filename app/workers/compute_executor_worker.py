@@ -120,7 +120,12 @@ def _process_pending_jobs(
                         )
                     )
             elif job.analytics_type == "Attribution":
-                attribution_request, attribution_input_mode = _resolve_async_attribution_job_request(
+                (
+                    attribution_request,
+                    attribution_input_mode,
+                    resolved_benchmark_id,
+                    resolved_benchmark_return_source,
+                ) = _resolve_async_attribution_job_request(
                     job.request_payload,
                     settings=active_settings,
                 )
@@ -138,6 +143,8 @@ def _process_pending_jobs(
                     input_fingerprint=input_fingerprint,
                     calculation_hash=calculation_hash,
                     input_mode=attribution_input_mode,
+                    resolved_benchmark_id=resolved_benchmark_id,
+                    resolved_benchmark_return_source=resolved_benchmark_return_source,
                 )
             elif job.analytics_type == "Contribution":
                 contribution_request, contribution_input_mode = _resolve_async_contribution_job_request(
@@ -312,14 +319,30 @@ def _resolve_async_attribution_job_request(
     payload: dict[str, Any],
     *,
     settings,
-) -> tuple[AttributionRequest, AttributionInputMode]:
+) -> tuple[AttributionRequest, AttributionInputMode, str | None, str | None]:
+    resolved_request_payload = payload.get("resolved_request")
+    source_input_mode = payload.get("source_input_mode")
+    resolved_benchmark_id = payload.get("resolved_benchmark_id")
+    resolved_benchmark_return_source = payload.get("resolved_benchmark_return_source")
+    if isinstance(resolved_request_payload, dict) and isinstance(source_input_mode, str):
+        return (
+            AttributionRequest.model_validate(resolved_request_payload),
+            AttributionInputMode(source_input_mode),
+            resolved_benchmark_id if isinstance(resolved_benchmark_id, str) else None,
+            resolved_benchmark_return_source if isinstance(resolved_benchmark_return_source, str) else None,
+        )
     try:
         request = AttributionRequest.model_validate(payload)
     except ValidationError:
         analytics_request = AttributionAnalyticsRequest.model_validate(payload)
         resolved_attribution = asyncio.run(resolve_attribution_request(analytics_request, settings=settings))
-        return resolved_attribution.attribution_request, resolved_attribution.input_mode
-    return request, AttributionInputMode.STATEFUL
+        return (
+            resolved_attribution.attribution_request,
+            resolved_attribution.input_mode,
+            resolved_attribution.resolved_benchmark_id,
+            resolved_attribution.resolved_benchmark_return_source,
+        )
+    return request, AttributionInputMode.STATEFUL, None, None
 
 
 def _resolve_async_benchmark_job_request(

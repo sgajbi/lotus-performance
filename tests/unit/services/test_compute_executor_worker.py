@@ -566,6 +566,84 @@ def test_compute_executor_worker_processes_pending_attribution_job(tmp_path, mon
     assert result.result_status == AsyncResultStatus.COMPLETE
 
 
+def test_compute_executor_worker_processes_resolved_stateful_attribution_job(tmp_path, monkeypatch):
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    monkeypatch.setattr(compute_executor_worker, "execution_registry", execution_store)
+    monkeypatch.setattr(attribution_service, "execution_registry", execution_store)
+    monkeypatch.setattr(execution_lifecycle_service, "execution_registry", execution_store)
+    result_store = AsyncResultStore(f"sqlite:///{tmp_path / 'results.db'}")
+    result_store.create_schema()
+    monkeypatch.setattr(compute_executor_worker, "async_result_store", result_store)
+    lineage_store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    lineage_store.create_schema()
+    monkeypatch.setattr(
+        execution_lifecycle_service,
+        "lineage_service",
+        LineageService(storage_path=str(tmp_path / "lineage"), metadata_store=lineage_store),
+    )
+
+    job_store = ComputeJobStore(f"sqlite:///{tmp_path / 'jobs.db'}")
+    job_store.create_schema()
+    monkeypatch.setattr(compute_executor_worker, "compute_job_store", job_store)
+
+    calculation_id = uuid4()
+    resolved_request = AttributionRequest.model_validate(
+        {
+            "calculation_id": str(calculation_id),
+            "portfolio_id": "P1",
+            "mode": "by_group",
+            "group_by": ["sector"],
+            "linking": "none",
+            "frequency": "daily",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-01",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "portfolio_groups_data": [
+                {
+                    "key": {"sector": "Tech"},
+                    "observations": [{"date": "2025-01-01", "return_base": 0.015, "weight_bop": 1.0}],
+                }
+            ],
+            "benchmark_groups_data": [
+                {
+                    "key": {"sector": "Tech"},
+                    "observations": [{"date": "2025-01-01", "return_base": 0.01, "weight_bop": 1.0}],
+                }
+            ],
+        }
+    )
+
+    execution_store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="Attribution",
+        portfolio_id="P1",
+        execution_mode="async",
+        requested_window={},
+    )
+    job_store.enqueue_job(
+        calculation_id=calculation_id,
+        analytics_type="Attribution",
+        request_payload={
+            "resolved_request": resolved_request.model_dump(mode="json"),
+            "source_input_mode": "stateful",
+            "resolved_benchmark_id": "BMK_1",
+            "resolved_benchmark_return_source": "calculated",
+        },
+    )
+
+    assert compute_executor_worker.process_pending_jobs(limit=10) == 1
+
+    result = result_store.get_result(calculation_id)
+    assert result is not None
+    assert result.result_status == AsyncResultStatus.COMPLETE
+    assert result.response_payload["input_mode"] == "stateful"
+    assert result.response_payload["benchmark_context"] == {
+        "benchmark_id": "BMK_1",
+        "return_source": "calculated",
+    }
+
+
 def test_compute_executor_worker_marks_failed_and_handles_missing_execution(tmp_path, monkeypatch):
     job_store = ComputeJobStore(f"sqlite:///{tmp_path / 'jobs.db'}")
     job_store.create_schema()
