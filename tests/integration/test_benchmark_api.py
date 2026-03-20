@@ -603,6 +603,56 @@ def test_benchmark_endpoint_generates_calculation_id_for_async_stateful_request(
         settings.BENCHMARK_EXECUTOR_INPUT_COUNT = original_input_threshold
 
 
+def test_benchmark_endpoint_offloads_large_stateless_benchmark_requests(client):
+    settings = get_settings()
+    original_input_threshold = settings.BENCHMARK_EXECUTOR_INPUT_COUNT
+    settings.BENCHMARK_EXECUTOR_INPUT_COUNT = 4
+
+    payload = {
+        "benchmark_id": "BMK_STATELESS_ASYNC",
+        "benchmark_start_date": "2026-01-02",
+        "report_end_date": "2026-01-03",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateless",
+        "return_source": "calculated",
+        "output": {"include_timeseries": True},
+        "stateless_input": {
+            "benchmark_currency": "USD",
+            "component_observations": [
+                {"component_id": "IDX_A", "date": "2026-01-02", "weight_bop": 0.6, "component_return": 0.02},
+                {"component_id": "IDX_B", "date": "2026-01-02", "weight_bop": 0.4, "component_return": 0.01},
+                {"component_id": "IDX_A", "date": "2026-01-03", "weight_bop": 0.6, "component_return": 0.01},
+                {"component_id": "IDX_B", "date": "2026-01-03", "weight_bop": 0.4, "component_return": 0.005},
+            ],
+        },
+    }
+
+    try:
+        accepted = client.post("/performance/benchmark", json=payload)
+
+        assert accepted.status_code == 202
+        body = accepted.json()
+        calculation_id = body["calculation_id"]
+        assert body["poll_path"].endswith(calculation_id)
+        assert body["result_path"].endswith(calculation_id)
+
+        pending = client.get(body["result_path"])
+        assert pending.status_code == 202
+
+        assert drain_compute_queue() == 1
+
+        complete = client.get(body["result_path"])
+        assert complete.status_code == 200
+        result_body = complete.json()
+        assert result_body["input_mode"] == "stateless"
+        assert result_body["benchmark_id"] == "BMK_STATELESS_ASYNC"
+        assert result_body["results_by_period"]["ITD"]["benchmark"]["summary"]["period_return"]["base"] == pytest.approx(
+            0.024128
+        )
+    finally:
+        settings.BENCHMARK_EXECUTOR_INPUT_COUNT = original_input_threshold
+
+
 def test_benchmark_async_result_missing_and_failed_contracts(client, monkeypatch):
     settings = get_settings()
     original_window_threshold = settings.BENCHMARK_EXECUTOR_WINDOW_DAYS

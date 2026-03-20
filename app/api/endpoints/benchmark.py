@@ -123,11 +123,15 @@ async def calculate_benchmark_endpoint(
             calculation_id=request.calculation_id,
             analytics_type="BENCHMARK",
             portfolio_id=request.benchmark_id,
-        requested_window=_build_execution_window(request),
-        input_fingerprint=source_request_fingerprint,
-        calculation_hash=source_request_hash,
-        request_payload=request.model_dump(mode="json"),
-            offload_reason="long_window_stateful_benchmark",
+            requested_window=_build_execution_window(request),
+            input_fingerprint=source_request_fingerprint,
+            calculation_hash=source_request_hash,
+            request_payload=request.model_dump(mode="json"),
+            offload_reason=(
+                "long_window_stateful_benchmark"
+                if request.input_mode == BenchmarkInputMode.STATEFUL
+                else "large_benchmark_input_set"
+            ),
             accepted_response_factory=_accepted_response,
         )
 
@@ -207,13 +211,26 @@ def _should_preemptively_offload_stateful_benchmark(request: BenchmarkAnalyticsR
     return (request.report_end_date - request.benchmark_start_date).days >= settings.BENCHMARK_EXECUTOR_WINDOW_DAYS
 
 
+def _benchmark_requested_input_count(request: BenchmarkAnalyticsRequest) -> int:
+    if request.stateless_input is None:
+        return 0
+    return (
+        len(request.stateless_input.component_observations)
+        or len(request.stateless_input.component_price_points)
+        or len(request.stateless_input.benchmark_return_points)
+    )
+
+
 def _should_offload_resolved_benchmark(input_count: int) -> bool:
     settings = get_settings()
     return input_count >= settings.BENCHMARK_EXECUTOR_INPUT_COUNT
 
 
 def _should_offload_benchmark(request: BenchmarkAnalyticsRequest) -> bool:
-    return request.input_mode == BenchmarkInputMode.STATEFUL and _should_preemptively_offload_stateful_benchmark(request)
+    settings = get_settings()
+    return _should_preemptively_offload_stateful_benchmark(request) or (
+        _benchmark_requested_input_count(request) >= settings.BENCHMARK_EXECUTOR_INPUT_COUNT
+    )
 
 
 def _build_execution_window(
@@ -228,6 +245,7 @@ def _build_execution_window(
         "requested_periods": [analysis.period.value for analysis in request.analyses],
         "return_source": request.return_source.value,
         "input_mode": request.input_mode.value,
+        "input_count": _benchmark_requested_input_count(request),
     }
     if source_request_fingerprint is not None:
         requested_window["source_request_fingerprint"] = source_request_fingerprint
