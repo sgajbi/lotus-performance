@@ -92,8 +92,8 @@ The public request contract is analysis-based. Older examples using `period_type
   - legacy top-level `begin_mv`, `end_mv`, and `cash_flows`
   - or `stateless_input.begin_mv`, `stateless_input.end_mv`, and `stateless_input.cash_flows`
 - stateful:
-  - `stateful_input.consumer_system`
   - `stateful_input.window_start_date`
+  - lotus-performance stamps source consumer identity server-side
   - lotus-core portfolio timeseries are normalized into canonical MWR inputs inside lotus-performance
 
 ### Benchmark
@@ -132,7 +132,8 @@ The public request contract is analysis-based. Older examples using `period_type
   - legacy top-level `portfolio_data` and `positions_data`
   - or `stateless_input.portfolio_data` and `stateless_input.positions_data`
 - stateful:
-  - `stateful_input.consumer_system`
+  - `stateful_input` is the Lotus stateful envelope
+  - lotus-performance stamps source consumer identity server-side
   - optional `stateful_input.metric_basis`
   - optional `stateful_input.dimensions`
   - optional `stateful_input.include_cash_flows`
@@ -155,7 +156,8 @@ Large position sets and long-window stateful contribution requests can be execut
 - stateless:
   - benchmark and portfolio input blocks
 - stateful:
-  - `stateful_input.consumer_system`
+  - `stateful_input` is the Lotus stateful envelope
+  - lotus-performance stamps source consumer identity server-side
   - optional `stateful_input.benchmark_id`
   - portfolio and position inputs sourced from lotus-core query-control-plane
   - current fences: `mode="by_instrument"` and `group_by` limited to `asset_class`, `sector`, `country`, `currency`
@@ -172,6 +174,7 @@ Large input sets and long-window stateful attribution requests can be executor-o
 - optional benchmark and risk-free series
 - optional arithmetic `active_returns` series when both portfolio and benchmark returns are available
 - stateful benchmark sourcing now defaults to lotus-performance benchmark calculation
+- stateful input uses a lightweight `stateful_input` envelope and stamps source consumer identity server-side
 - `benchmark.return_source="vendor_series"` is an explicit stateful-only override for lotus-core benchmark return-series retrieval
 - sync or async execution depending on workload shape
 

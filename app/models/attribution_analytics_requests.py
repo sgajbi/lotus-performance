@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from enum import Enum
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.attribution_requests import (
     AttributionPortfolioData,
@@ -27,11 +27,7 @@ class AttributionStatelessInput(BaseModel):
 
 
 class AttributionStatefulInput(BaseModel):
-    consumer_system: str = Field(
-        default="lotus-performance",
-        description="Consumer system used for lotus-core stateful sourcing policy and lineage.",
-        examples=["lotus-performance"],
-    )
+    model_config = ConfigDict(extra="forbid")
     metric_basis: str = Field(
         default="NET",
         description="Metric basis applied when building stateful attribution portfolio inputs.",

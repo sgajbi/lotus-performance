@@ -31,7 +31,6 @@ def test_mwr_analytics_request_rejects_stateful_input_in_stateless_mode():
                 "as_of": "2025-12-31",
                 "input_mode": "stateless",
                 "stateful_input": {
-                    "consumer_system": "lotus-performance",
                     "window_start_date": "2025-01-01",
                 },
                 "stateless_input": {
@@ -123,7 +122,6 @@ def test_mwr_analytics_request_rejects_stateful_payload_shape_conflicts():
                 "as_of": "2025-12-31",
                 "input_mode": "stateful",
                 "stateful_input": {
-                    "consumer_system": "lotus-performance",
                     "window_start_date": "2025-01-01",
                 },
                 "stateless_input": {
@@ -145,7 +143,6 @@ def test_mwr_analytics_request_rejects_stateful_payload_shape_conflicts():
                 "as_of": "2025-12-31",
                 "input_mode": "stateful",
                 "stateful_input": {
-                    "consumer_system": "lotus-performance",
                     "window_start_date": "2025-01-01",
                 },
                 "begin_mv": 1000,
@@ -193,7 +190,6 @@ def test_mwr_analytics_request_to_stateless_fails_without_stateless_payload():
             "as_of": "2025-12-31",
             "input_mode": "stateful",
             "stateful_input": {
-                "consumer_system": "lotus-performance",
                 "window_start_date": "2025-01-01",
             },
         }

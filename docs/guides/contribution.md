@@ -18,11 +18,14 @@ The current request shape is:
   - or `stateless_input.portfolio_data`
   - or `stateless_input.positions_data`
 - stateful:
-  - `stateful_input.consumer_system`
+  - `stateful_input`
   - optional `stateful_input.metric_basis`
   - optional `stateful_input.dimensions`
   - optional `stateful_input.include_cash_flows`
   - optional `stateful_input.filters`
+
+The stateful envelope is intentionally lightweight. lotus-performance stamps the
+source consumer identity server-side instead of requiring an explicit consumer field.
 
 Optional controls include:
 

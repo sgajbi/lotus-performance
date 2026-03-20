@@ -23,12 +23,15 @@ Stateless callers provide:
 
 Stateful callers provide:
 
-- `stateful_input.consumer_system`
+- `stateful_input`
 - optional `stateful_input.metric_basis`
 - optional `stateful_input.benchmark_id`
 - optional `stateful_input.dimensions`
 - optional `stateful_input.include_cash_flows`
 - optional `stateful_input.filters`
+
+The stateful envelope is intentionally lightweight. lotus-performance stamps the
+source consumer identity server-side instead of requiring an explicit consumer field.
 
 In stateful mode, lotus-performance sources portfolio and position timeseries from lotus-core,
 resolves benchmark assignment when needed, resolves benchmark component inputs through the shared

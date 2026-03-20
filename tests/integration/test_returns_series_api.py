@@ -224,7 +224,7 @@ def test_returns_series_stateful_fetches_benchmark_and_risk_free(monkeypatch):
         "reporting_currency": "USD",
         "series_selection": {"include_portfolio": True, "include_benchmark": True, "include_risk_free": True},
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     with TestClient(app) as client:
@@ -305,7 +305,7 @@ def test_returns_series_stateful_provenance_uses_resolved_series_identity(monkey
         "metric_basis": "NET",
         "series_selection": {"include_portfolio": True, "include_benchmark": True, "include_risk_free": False},
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
     initial_input_fingerprint, initial_calculation_hash = generate_canonical_hash(payload, "returns-series-v1")
 
@@ -376,7 +376,7 @@ def test_returns_series_stateful_vendor_series_override_uses_core_benchmark_seri
         "series_selection": {"include_portfolio": True, "include_benchmark": True, "include_risk_free": False},
         "benchmark": {"return_source": "vendor_series"},
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     with TestClient(app) as client:
@@ -429,7 +429,7 @@ def test_returns_series_stateful_long_window_uses_chunked_portfolio_retrieval(mo
         "frequency": "DAILY",
         "metric_basis": "NET",
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     try:
@@ -472,7 +472,7 @@ def test_returns_series_stateful_requires_reporting_currency_for_risk_free(monke
         "metric_basis": "NET",
         "series_selection": {"include_portfolio": True, "include_risk_free": True},
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     with TestClient(app) as client:
@@ -515,7 +515,7 @@ def test_returns_series_async_result_retrieval(monkeypatch):
         "frequency": "DAILY",
         "metric_basis": "NET",
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     try:
@@ -571,7 +571,7 @@ def test_returns_series_async_result_retrieval_uses_durable_store(monkeypatch):
         "frequency": "DAILY",
         "metric_basis": "NET",
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     try:
@@ -622,7 +622,7 @@ def test_returns_series_async_result_not_found_and_failed(monkeypatch):
         "frequency": "DAILY",
         "metric_basis": "NET",
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     try:
@@ -673,7 +673,7 @@ def test_returns_series_async_duplicate_submission_replays_same_request(monkeypa
         "frequency": "DAILY",
         "metric_basis": "NET",
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     try:
@@ -719,7 +719,7 @@ def test_returns_series_async_duplicate_submission_conflicts_on_payload_drift(mo
         "frequency": "DAILY",
         "metric_basis": "NET",
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
     second_payload = {
         **first_payload,
@@ -834,7 +834,7 @@ def test_returns_series_stateful_short_window_offloads_on_resolved_workload(monk
         "metric_basis": "NET",
         "series_selection": {"include_portfolio": True, "include_benchmark": True},
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     try:
@@ -870,7 +870,7 @@ def test_returns_series_stateful_source_unavailable(monkeypatch):
         "frequency": "DAILY",
         "metric_basis": "NET",
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
     with TestClient(app) as client:
         response = client.post("/integration/returns/series", json=payload)
@@ -893,7 +893,7 @@ def test_returns_series_stateful_requires_observations(monkeypatch):
         "frequency": "DAILY",
         "metric_basis": "NET",
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
     with TestClient(app) as client:
         response = client.post("/integration/returns/series", json=payload)
@@ -924,7 +924,7 @@ def test_returns_series_stateful_requires_valid_portfolio_open_date(monkeypatch)
         "frequency": "DAILY",
         "metric_basis": "NET",
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
     with TestClient(app) as client:
         response = client.post("/integration/returns/series", json=payload)
@@ -963,7 +963,7 @@ def test_returns_series_stateful_benchmark_assignment_error_mapping(monkeypatch)
         "metric_basis": "NET",
         "series_selection": {"include_portfolio": True, "include_benchmark": True},
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
     with TestClient(app) as client:
         response = client.post("/integration/returns/series", json=payload)

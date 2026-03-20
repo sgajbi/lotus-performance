@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from enum import Enum
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.mwr_requests import CashFlow, MoneyWeightedReturnRequest, MoneyWeightedReturnRequestBase
 
@@ -20,11 +20,7 @@ class MWRStatelessInput(BaseModel):
 
 
 class MWRStatefulInput(BaseModel):
-    consumer_system: str = Field(
-        default="lotus-performance",
-        description="Consumer system used for lotus-core stateful sourcing policy and lineage.",
-        examples=["lotus-performance"],
-    )
+    model_config = ConfigDict(extra="forbid")
     window_start_date: date = Field(
         description="Inclusive start date for the sourced MWR measurement window.",
         examples=["2025-01-01"],

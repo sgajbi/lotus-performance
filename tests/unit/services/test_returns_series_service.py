@@ -49,7 +49,7 @@ def _build_stateful_request(**overrides):
         "metric_basis": "NET",
         "series_selection": {"include_portfolio": True, "include_benchmark": True, "include_risk_free": False},
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
     payload.update(overrides)
     return ReturnsSeriesRequest.model_validate(payload)

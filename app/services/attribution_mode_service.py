@@ -14,6 +14,8 @@ from app.services.stateful_attribution_input_service import (
     retrieve_stateful_attribution_source_input,
 )
 
+DEFAULT_STATEFUL_CONSUMER_SYSTEM = "lotus-performance"
+
 
 @dataclass(frozen=True)
 class ResolvedAttributionRequest:
@@ -54,7 +56,7 @@ async def resolve_attribution_request(
             report_start_date=request.report_start_date,
             report_end_date=request.report_end_date,
             reporting_currency=request.report_ccy,
-            consumer_system=stateful_input.consumer_system,
+            consumer_system=DEFAULT_STATEFUL_CONSUMER_SYSTEM,
             group_by=request.group_by,
             dimensions=list(stateful_input.dimensions),
             include_cash_flows=stateful_input.include_cash_flows,

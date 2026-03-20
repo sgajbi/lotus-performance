@@ -391,7 +391,7 @@ def test_contribution_supports_stateful_input_mode(client, monkeypatch):
         "report_end_date": "2025-01-02",
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     response = client.post("/performance/contribution", json=payload)
@@ -478,7 +478,7 @@ def test_contribution_stateful_offloads_on_resolved_position_count(client, monke
         "report_end_date": "2025-01-02",
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     try:
@@ -573,7 +573,7 @@ def test_contribution_stateful_promoted_async_replays_identical_retry(client, mo
         "report_end_date": "2025-01-02",
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     try:
@@ -641,7 +641,7 @@ def test_contribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch
         "report_end_date": "2025-01-02",
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     response = client.post("/performance/contribution", json=payload)
@@ -753,7 +753,7 @@ def test_contribution_stateful_currency_mode_both_allows_same_currency_positions
         "currency_mode": "BOTH",
         "report_ccy": "USD",
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     response = client.post("/performance/contribution", json=payload)
@@ -809,7 +809,7 @@ def test_contribution_stateful_currency_mode_both_requires_fx_for_mixed_currency
         "currency_mode": "BOTH",
         "report_ccy": "USD",
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     response = client.post("/performance/contribution", json=payload)

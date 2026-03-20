@@ -44,6 +44,8 @@ from engine.benchmarks import benchmark_return_points_to_dataframe, calculate_be
 from engine.compute import run_calculations
 from engine.schema import PortfolioColumns
 
+DEFAULT_STATEFUL_CONSUMER_SYSTEM = "lotus-performance"
+
 
 @dataclass(frozen=True)
 class ResolvedStatefulReturnsSeriesRequest:
@@ -606,7 +608,7 @@ async def resolve_stateful_returns_series_request(
             start_date=resolved_window.start_date,
             end_date=resolved_window.end_date,
             reporting_currency=request.reporting_currency,
-            consumer_system=stateful_input.consumer_system,
+            consumer_system=DEFAULT_STATEFUL_CONSUMER_SYSTEM,
         )
     except HTTPException as exc:
         if exc.status_code == status.HTTP_503_SERVICE_UNAVAILABLE:

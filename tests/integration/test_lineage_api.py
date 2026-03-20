@@ -62,7 +62,7 @@ def test_lineage_end_to_end_flow(client):
     assert "Z" in lineage_data["timestamp_utc"]
     assert "request.json" in lineage_data["artifacts"]
     assert "response.json" in lineage_data["artifacts"]
-    assert "twr_calculation_details.csv" in lineage_data["artifacts"]
+    assert "daily_results.csv" in lineage_data["artifacts"]
     artifact_url = lineage_data["artifacts"]["request.json"]["url"]
     artifact_response = client.get(artifact_url)
     assert artifact_response.status_code == 200
@@ -94,7 +94,7 @@ def test_stateful_twr_lineage_captures_resolved_request(client, monkeypatch):
         "report_end_date": "2025-01-02",
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     response = client.post("/performance/twr", json=payload)

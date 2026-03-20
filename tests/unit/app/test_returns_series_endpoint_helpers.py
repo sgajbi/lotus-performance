@@ -244,7 +244,7 @@ async def test_get_returns_series_guards_stateless_mode_without_input():
         data_policy=DataPolicy(),
         input_mode=InputMode.STATELESS,
         stateless_input=None,
-        stateful_input=StatefulInput.model_construct(consumer_system="lotus-performance"),
+        stateful_input=StatefulInput.model_construct(),
     )
     with pytest.raises(HTTPException) as exc:
         await get_returns_series(request)
@@ -284,7 +284,7 @@ def test_should_offload_returns_series_uses_runtime_settings(mocker):
             "as_of_date": "2026-02-27",
             "window": {"mode": "EXPLICIT", "from_date": "2026-02-24", "to_date": "2026-02-27"},
             "input_mode": "stateful",
-            "stateful_input": {"consumer_system": "lotus-performance"},
+            "stateful_input": {},
         }
     )
     mocker.patch(

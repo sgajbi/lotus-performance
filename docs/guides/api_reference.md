@@ -50,6 +50,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - existing stateless callers can continue sending top-level `begin_mv`, `end_mv`, and `cash_flows`
   - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
   - stateful mode sources portfolio timeseries from lotus-core query-control-plane and normalizes them into canonical `begin_mv`, `end_mv`, `cash_flows`, and authoritative `start_date` before engine execution
+  - lotus-performance stamps source consumer identity server-side for the stateful envelope
 
 ### `POST /performance/benchmark`
 
@@ -95,6 +96,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - existing stateless callers can continue sending top-level `portfolio_data` and `positions_data`
   - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
   - stateful mode sources portfolio and position timeseries from lotus-core query-control-plane and normalizes them into canonical contribution inputs before engine execution
+  - lotus-performance stamps source consumer identity server-side for the stateful envelope
 - execution mode:
   - synchronous for smaller stateless sets and smaller stateful windows
   - `202 Accepted` with `calculation_id`, `poll_path`, and `result_path` when offloaded to the compute executor
@@ -117,7 +119,8 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - `stateless`
   - `stateful`
   - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
-  - stateful mode sources portfolio and position timeseries from lotus-core and derives benchmark group inputs from benchmark assignment plus benchmark market-series metadata
+  - stateful mode sources portfolio and position timeseries from lotus-core and derives benchmark group inputs from benchmark assignment plus the shared benchmark engine sourcing path
+  - lotus-performance stamps source consumer identity server-side for the stateful envelope
   - current stateful fences:
     - `mode=by_instrument` only
     - `group_by` limited to canonical lotus-core attribution dimensions plus `currency`: `asset_class`, `sector`, `country`, `currency`
@@ -366,6 +369,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 - contract note:
   - stateless benchmark series are still caller-supplied via `stateless_input.benchmark_returns`
   - in stateful mode, benchmark sourcing defaults to the shared lotus-performance benchmark calculation path
+  - lotus-performance stamps source consumer identity server-side for the stateful envelope
   - `benchmark.return_source="vendor_series"` is an explicit stateful-only override for lotus-core benchmark return-series retrieval
   - `benchmark.benchmark_id` is only meaningful in stateful mode for explicit benchmark override; otherwise lotus-core benchmark assignment can resolve the benchmark id
   - when both portfolio and benchmark series are present, the response also emits arithmetic `active_returns`

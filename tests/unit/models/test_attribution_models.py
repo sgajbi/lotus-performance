@@ -62,7 +62,7 @@ def test_attribution_analytics_request_rejects_stateful_and_legacy_conflicts(bas
         **base_attribution_payload,
         "analyses": [{"period": "ITD", "frequencies": ["monthly"]}],
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
         "portfolio_groups_data": [],
     }
 
@@ -103,7 +103,7 @@ def test_attribution_analytics_request_rejects_stateful_input_in_stateless_mode(
             {
                 **base_attribution_payload,
                 "analyses": [{"period": "ITD", "frequencies": ["monthly"]}],
-                "stateful_input": {"consumer_system": "lotus-performance"},
+                "stateful_input": {},
             }
         )
 
@@ -206,7 +206,7 @@ def test_attribution_analytics_request_to_stateless_requires_benchmark_groups():
             "group_by": ["assetClass"],
             "analyses": [{"period": "ITD", "frequencies": ["monthly"]}],
             "input_mode": "stateful",
-            "stateful_input": {"consumer_system": "lotus-performance"},
+            "stateful_input": {},
         }
     )
 

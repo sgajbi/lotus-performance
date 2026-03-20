@@ -384,7 +384,6 @@ def test_e2e_stateful_analytics_workflow(monkeypatch) -> None:
         "mwr_method": "DIETZ",
         "input_mode": "stateful",
         "stateful_input": {
-            "consumer_system": "lotus-performance",
             "window_start_date": "2025-01-01",
         },
     }
@@ -394,7 +393,7 @@ def test_e2e_stateful_analytics_workflow(monkeypatch) -> None:
         "report_end_date": "2025-01-02",
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
     attribution_payload = {
         "portfolio_id": "E2E_STATEFUL_001",
@@ -407,7 +406,7 @@ def test_e2e_stateful_analytics_workflow(monkeypatch) -> None:
         "currency_mode": "BASE_ONLY",
         "linking": "none",
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     with TestClient(app) as client:
@@ -478,7 +477,7 @@ def test_e2e_shared_stateful_benchmark_engine_stays_consistent_across_surfaces(m
         "metric_basis": "NET",
         "series_selection": {"include_portfolio": True, "include_benchmark": True, "include_risk_free": False},
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     with TestClient(app) as client:

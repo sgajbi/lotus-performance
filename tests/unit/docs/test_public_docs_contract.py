@@ -98,7 +98,7 @@ def test_contribution_guide_uses_current_request_shape():
     readme = _read("README.md")
 
     assert 'input_mode: "stateless" | "stateful"' in guide
-    assert "stateful_input.consumer_system" in guide
+    assert "source consumer identity server-side" in guide
     assert "analyses" in guide
     assert "valuation_points" in guide
     assert "Older examples using nested `daily_data`" in guide
@@ -123,7 +123,7 @@ def test_attribution_guide_uses_current_request_shape():
     guide = _read("docs/guides/attribution.md")
 
     assert 'input_mode: "stateless" | "stateful"' in guide
-    assert "stateful_input.consumer_system" in guide
+    assert "source consumer identity server-side" in guide
     assert '`mode="by_instrument"`' in guide
     assert '`currency_mode="BOTH"` requires `report_ccy`' in guide
     assert "`asset_class`, `sector`, `country`, or `currency`" in guide

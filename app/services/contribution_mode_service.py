@@ -18,6 +18,8 @@ from app.services.stateful_contribution_input_service import (
 )
 from app.services.stateful_input_service import RetrievalMetadata
 
+DEFAULT_STATEFUL_CONSUMER_SYSTEM = "lotus-performance"
+
 
 @dataclass(frozen=True)
 class ResolvedContributionRequest:
@@ -58,7 +60,7 @@ async def resolve_contribution_request(
             report_start_date=request.report_start_date,
             report_end_date=request.report_end_date,
             reporting_currency=request.report_ccy,
-            consumer_system=stateful_input.consumer_system,
+            consumer_system=DEFAULT_STATEFUL_CONSUMER_SYSTEM,
             dimensions=list(stateful_input.dimensions),
             include_cash_flows=stateful_input.include_cash_flows,
             filters=stateful_input.filters.model_dump(mode="python"),

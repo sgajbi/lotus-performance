@@ -370,8 +370,13 @@ def calculate_twr_response(
     benchmark_request: BenchmarkPerformanceRequest | None = None,
     benchmark_input_mode: BenchmarkInputMode | None = None,
     resolved_benchmark_id: str | None = None,
-    benchmark_return_source: BenchmarkReturnSource = BenchmarkReturnSource.CALCULATED,
+    benchmark_return_source: BenchmarkReturnSource | str = BenchmarkReturnSource.CALCULATED,
 ) -> PerformanceResponse:
+    normalized_benchmark_return_source = (
+        benchmark_return_source
+        if isinstance(benchmark_return_source, BenchmarkReturnSource)
+        else BenchmarkReturnSource(str(benchmark_return_source))
+    )
     execution_registry.start_stage(performance_request.calculation_id, "execution")
 
     daily_results_df: pd.DataFrame | None = None
@@ -466,7 +471,7 @@ def calculate_twr_response(
                     benchmark_id=resolved_benchmark_id or benchmark_request.benchmark_id,
                     benchmark_currency=benchmark_request.benchmark_currency,
                     input_mode=(benchmark_input_mode or BenchmarkInputMode.STATELESS).value,
-                    return_source=benchmark_return_source.value,
+                    return_source=normalized_benchmark_return_source.value,
                 )
                 period_result.relative_performance = ComparativeAnalyticsBlock(
                     summary=ComparativeSummary(

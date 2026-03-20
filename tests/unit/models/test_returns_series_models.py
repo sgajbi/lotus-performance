@@ -74,7 +74,7 @@ def test_returns_series_request_rejects_mixed_input_envelopes():
     from app.models.returns_series import ReturnsSeriesRequest
 
     payload = _base_payload()
-    payload["stateful_input"] = {"consumer_system": "lotus-performance"}
+    payload["stateful_input"] = {}
     with pytest.raises(ValidationError, match="stateful_input must be null when input_mode=stateless"):
         ReturnsSeriesRequest.model_validate(payload)
 
@@ -83,7 +83,7 @@ def test_returns_series_request_rejects_mixed_input_envelopes():
         "as_of_date": "2026-02-27",
         "window": {"mode": "EXPLICIT", "from_date": "2026-02-24", "to_date": "2026-02-27"},
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
         "stateless_input": {
             "portfolio_returns": [
                 {"date": "2026-02-24", "return_value": "0.0010"},

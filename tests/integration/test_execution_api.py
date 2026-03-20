@@ -157,7 +157,7 @@ def test_execution_api_tracks_returns_series_stateful_stages(client, monkeypatch
         "series_selection": {"include_portfolio": True, "include_benchmark": True},
         "benchmark": {"benchmark_id": "BMK_GLOBAL_1"},
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     response = client.post("/integration/returns/series", json=payload)
@@ -214,7 +214,7 @@ def test_execution_api_tracks_twr_stateful_stages(client, monkeypatch):
         "report_end_date": "2025-01-02",
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     twr_response = client.post("/performance/twr", json=payload)
@@ -272,7 +272,6 @@ def test_execution_api_tracks_mwr_stateful_stages(client, monkeypatch):
         "mwr_method": "DIETZ",
         "input_mode": "stateful",
         "stateful_input": {
-            "consumer_system": "lotus-performance",
             "window_start_date": "2025-01-01",
         },
     }
@@ -361,7 +360,7 @@ def test_execution_api_tracks_contribution_stateful_stages(client, monkeypatch):
         "report_end_date": "2025-01-02",
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     response = client.post("/performance/contribution", json=payload)
@@ -516,7 +515,7 @@ def test_execution_api_tracks_attribution_stateful_stages(client, monkeypatch):
         "report_end_date": "2025-01-02",
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     response = client.post("/performance/attribution", json=payload)
@@ -589,7 +588,7 @@ def test_execution_api_tracks_async_returns_series_job_state(client, monkeypatch
         "frequency": "DAILY",
         "metric_basis": "NET",
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     try:
@@ -710,7 +709,7 @@ def test_execution_api_tracks_resolved_async_returns_series_job_state(client, mo
         "metric_basis": "NET",
         "series_selection": {"include_portfolio": True, "include_benchmark": True},
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     try:
@@ -858,7 +857,7 @@ def test_execution_api_tracks_async_benchmark_job_state(client, monkeypatch):
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "return_source": "calculated",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     try:
@@ -942,7 +941,7 @@ def test_execution_api_tracks_async_twr_job_state(client, monkeypatch):
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "include_benchmark": True,
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     try:
@@ -993,7 +992,7 @@ def test_execution_api_exposes_retryable_compute_job_metadata(client, monkeypatc
         "frequency": "DAILY",
         "metric_basis": "NET",
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     try:
@@ -1036,7 +1035,7 @@ def test_execution_api_exposes_terminal_async_result_metadata(client, monkeypatc
         "frequency": "DAILY",
         "metric_basis": "NET",
         "input_mode": "stateful",
-        "stateful_input": {"consumer_system": "lotus-performance"},
+        "stateful_input": {},
     }
 
     try:

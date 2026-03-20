@@ -7,7 +7,7 @@ from enum import Enum
 from typing import Literal
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.benchmark_analytics_requests import BenchmarkReturnSource
 
@@ -128,11 +128,7 @@ class StatelessInput(BaseModel):
 
 
 class StatefulInput(BaseModel):
-    consumer_system: str = Field(
-        default="lotus-performance",
-        description="Consumer system used for stateful upstream retrieval policy and lineage.",
-        examples=["lotus-performance"],
-    )
+    model_config = ConfigDict(extra="forbid")
 
 
 class ReturnsSeriesRequest(BaseModel):

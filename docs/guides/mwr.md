@@ -19,8 +19,10 @@ Stateless callers can use either:
 
 Stateful callers use:
 
-- `stateful_input.consumer_system`
 - `stateful_input.window_start_date`
+
+The stateful envelope is intentionally lightweight. lotus-performance stamps the
+source consumer identity server-side instead of requiring an explicit consumer field.
 
 In stateful mode, lotus-performance sources portfolio timeseries from lotus-core query-control-plane
 and normalizes them into canonical MWR inputs:
