@@ -225,6 +225,11 @@ class ReturnsSeriesPayload(BaseModel):
     cumulative_active_returns: list[ReturnPoint] | None = None
 
 
+class ReturnsSeriesBenchmarkContext(BaseModel):
+    benchmark_id: str
+    return_source: BenchmarkReturnSource
+
+
 class ReturnsSeriesResponse(BaseModel):
     calculation_id: UUID
     source_service: Literal["lotus-performance"] = "lotus-performance"
@@ -234,6 +239,7 @@ class ReturnsSeriesResponse(BaseModel):
     frequency: ReturnsFrequency
     metric_basis: MetricBasis
     resolved_window: ResolvedWindow
+    benchmark_context: ReturnsSeriesBenchmarkContext | None = None
     series: ReturnsSeriesPayload
     provenance: ReturnsProvenance
     diagnostics: ReturnsDiagnostics

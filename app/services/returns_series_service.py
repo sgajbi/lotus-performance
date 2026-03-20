@@ -24,6 +24,7 @@ from app.models.returns_series import (
     ReturnsMetadata,
     ReturnsProvenance,
     ReturnsRelativePeriod,
+    ReturnsSeriesBenchmarkContext,
     ReturnsSeriesPayload,
     ReturnsSeriesRequest,
     ReturnsSeriesResponse,
@@ -429,14 +430,23 @@ async def calculate_returns_series(
     request: ReturnsSeriesRequest,
     *,
     source_input_mode: InputMode | None = None,
+    resolved_benchmark_id_override: str | None = None,
+    resolved_benchmark_return_source_override: str | None = None,
 ) -> ReturnsSeriesResponse:
-    return await _calculate_returns_series(request, source_input_mode=source_input_mode)
+    return await _calculate_returns_series(
+        request,
+        source_input_mode=source_input_mode,
+        resolved_benchmark_id_override=resolved_benchmark_id_override,
+        resolved_benchmark_return_source_override=resolved_benchmark_return_source_override,
+    )
 
 
 async def _calculate_returns_series(
     request: ReturnsSeriesRequest,
     *,
     source_input_mode: InputMode | None = None,
+    resolved_benchmark_id_override: str | None = None,
+    resolved_benchmark_return_source_override: str | None = None,
 ) -> ReturnsSeriesResponse:
     input_fingerprint, calculation_hash = generate_canonical_hash(request, "returns-series-v1")
     effective_input_mode = source_input_mode or request.input_mode
@@ -446,12 +456,24 @@ async def _calculate_returns_series(
         resolved_window = resolve_window(request)
         benchmark_df = None
         risk_free_df = None
-        resolved_benchmark_id: str | None = request.benchmark.benchmark_id if request.benchmark else None
-        resolved_benchmark_return_source = _get_requested_benchmark_return_source(request)
+        resolved_benchmark_id: str | None = resolved_benchmark_id_override or (
+            request.benchmark.benchmark_id if request.benchmark else None
+        )
+        resolved_benchmark_return_source = (
+            BenchmarkReturnSource(resolved_benchmark_return_source_override)
+            if resolved_benchmark_return_source_override is not None
+            else _get_requested_benchmark_return_source(request)
+        )
 
         if request.input_mode == InputMode.STATEFUL:
             resolved_stateful_request = await resolve_stateful_returns_series_request(request)
             request = resolved_stateful_request.request
+            resolved_benchmark_id = resolved_stateful_request.resolved_benchmark_id
+            resolved_benchmark_return_source = (
+                BenchmarkReturnSource(resolved_stateful_request.resolved_benchmark_return_source)
+                if resolved_stateful_request.resolved_benchmark_return_source is not None
+                else None
+            )
             input_fingerprint, calculation_hash = generate_canonical_hash(
                 resolved_stateful_request.identity_payload,
                 "returns-series-v1",
@@ -538,7 +560,7 @@ async def _calculate_returns_series(
             benchmark_df=benchmark_df,
         )
 
-        if request.input_mode == InputMode.STATEFUL:
+        if effective_input_mode == InputMode.STATEFUL:
             resolved_stateful_payload = _build_stateful_resolved_returns_payload(
                 request=request,
                 resolved_window=resolved_window,
@@ -585,6 +607,14 @@ async def _calculate_returns_series(
             frequency=request.frequency,
             metric_basis=request.metric_basis,
             resolved_window=resolved_window,
+            benchmark_context=(
+                ReturnsSeriesBenchmarkContext(
+                    benchmark_id=resolved_benchmark_id,
+                    return_source=resolved_benchmark_return_source,
+                )
+                if resolved_benchmark_id is not None and resolved_benchmark_return_source is not None
+                else None
+            ),
             series=ReturnsSeriesPayload(
                 portfolio_returns=portfolio_return_points,
                 cumulative_portfolio_returns=cumulative_portfolio_return_points,

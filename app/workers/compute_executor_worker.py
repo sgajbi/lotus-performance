@@ -102,7 +102,12 @@ def _process_pending_jobs(
         )
         try:
             if job.analytics_type == "ReturnsSeries":
-                request, source_input_mode = _resolve_async_returns_series_job_request(job.request_payload)
+                (
+                    request,
+                    source_input_mode,
+                    resolved_benchmark_id_override,
+                    resolved_benchmark_return_source_override,
+                ) = _resolve_async_returns_series_job_request(job.request_payload)
                 if source_input_mode == request.input_mode:
                     response = asyncio.run(active_returns_series_calculator(request))
                 else:
@@ -110,6 +115,8 @@ def _process_pending_jobs(
                         active_returns_series_calculator(
                             request,
                             source_input_mode=source_input_mode,
+                            resolved_benchmark_id_override=resolved_benchmark_id_override,
+                            resolved_benchmark_return_source_override=resolved_benchmark_return_source_override,
                         )
                     )
             elif job.analytics_type == "Attribution":
@@ -285,13 +292,20 @@ def _resolve_async_contribution_job_request(
 
 def _resolve_async_returns_series_job_request(
     payload: dict[str, Any],
-) -> tuple[ReturnsSeriesRequest, InputMode]:
+) -> tuple[ReturnsSeriesRequest, InputMode, str | None, str | None]:
     resolved_request_payload = payload.get("resolved_request")
     source_input_mode = payload.get("source_input_mode")
+    resolved_benchmark_id = payload.get("resolved_benchmark_id")
+    resolved_benchmark_return_source = payload.get("resolved_benchmark_return_source")
     if isinstance(resolved_request_payload, dict) and isinstance(source_input_mode, str):
-        return ReturnsSeriesRequest.model_validate(resolved_request_payload), InputMode(source_input_mode)
+        return (
+            ReturnsSeriesRequest.model_validate(resolved_request_payload),
+            InputMode(source_input_mode),
+            resolved_benchmark_id if isinstance(resolved_benchmark_id, str) else None,
+            resolved_benchmark_return_source if isinstance(resolved_benchmark_return_source, str) else None,
+        )
     request = ReturnsSeriesRequest.model_validate(payload)
-    return request, request.input_mode
+    return request, request.input_mode, None, None
 
 
 def _resolve_async_attribution_job_request(

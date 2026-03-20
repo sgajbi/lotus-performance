@@ -384,6 +384,10 @@ async def test_calculate_returns_series_updates_stateful_identity_from_resolved_
 
     response = await returns_series_service.calculate_returns_series(request)
 
+    assert response.benchmark_context is not None
+    assert response.benchmark_context.benchmark_id == "BMK_RESOLVED"
+    assert response.benchmark_context.return_source.value == "calculated"
+
     resolved_payload = returns_series_service._build_stateful_resolved_returns_payload(
         request=request,
         resolved_window=response.resolved_window,

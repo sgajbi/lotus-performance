@@ -77,7 +77,7 @@ def _build_execution_window(
     benchmark_return_source: str | None = None,
     benchmark_work_units: int | None = None,
 ) -> dict[str, object]:
-    requested_window = {
+    requested_window: dict[str, object] = {
         "mode": request.window.mode.value,
         "from_date": str(request.window.from_date) if request.window.from_date else None,
         "to_date": str(request.window.to_date) if request.window.to_date else None,
@@ -169,6 +169,8 @@ async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResp
             return await calculate_returns_series(
                 resolved.request,
                 source_input_mode=InputMode.STATEFUL,
+                resolved_benchmark_id_override=resolved.resolved_benchmark_id,
+                resolved_benchmark_return_source_override=resolved.resolved_benchmark_return_source,
             )
         except Exception as exc:
             message = exc.detail["message"] if hasattr(exc, "detail") and isinstance(exc.detail, dict) and "message" in exc.detail else str(getattr(exc, "detail", exc))

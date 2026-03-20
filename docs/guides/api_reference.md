@@ -382,6 +382,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
     - `cumulative_active_returns`
   - cumulative portfolio, benchmark, and risk-free ladders are geometrically linked
   - `cumulative_active_returns` is arithmetic excess of cumulative portfolio and cumulative benchmark returns
+  - when stateful benchmark resolution is used, the response also emits `benchmark_context` with the resolved `benchmark_id` and `return_source`
 
 ### `GET /integration/returns/series/results/{calculation_id}`
 

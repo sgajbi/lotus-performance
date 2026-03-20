@@ -244,6 +244,10 @@ def test_returns_series_stateful_fetches_benchmark_and_risk_free(monkeypatch):
     assert response.status_code == 200
     body = response.json()
     assert body["provenance"]["input_mode"] == "stateful"
+    assert body["benchmark_context"] == {
+        "benchmark_id": "BMK_GLOBAL_1",
+        "return_source": "calculated",
+    }
     assert len(body["series"]["portfolio_returns"]) == 5
     assert len(body["series"]["cumulative_portfolio_returns"]) == 5
     assert len(body["series"]["benchmark_returns"]) == 5
@@ -400,6 +404,10 @@ def test_returns_series_stateful_vendor_series_override_uses_core_benchmark_seri
 
     assert response.status_code == 200
     body = response.json()
+    assert body["benchmark_context"] == {
+        "benchmark_id": "BMK_VENDOR",
+        "return_source": "vendor_series",
+    }
     assert [point["return_value"] for point in body["series"]["benchmark_returns"]] == [
         "0.001000000000",
         "0.001200000000",

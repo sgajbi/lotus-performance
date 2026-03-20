@@ -6,7 +6,7 @@ Canonical Benchmark Return Series (`series.benchmark_returns`)
 - Inclusion condition: `series_selection.include_benchmark=true`
 - Modes:
   - `stateless`: request supplies `benchmark_returns`
-  - `stateful`: lotus-core benchmark assignment/series are sourced
+  - `stateful`: lotus-core benchmark assignment is resolved and benchmark returns are sourced or calculated through the shared benchmark path
 
 ## Inputs
 - Shared controls: `window`, `frequency`, `data_policy`, `as_of_date`
@@ -19,7 +19,8 @@ Canonical Benchmark Return Series (`series.benchmark_returns`)
 - Stateless: request payload.
 - Stateful:
   - `get_benchmark_assignment` (when benchmark id not provided)
-  - `get_benchmark_return_series` (daily benchmark points)
+  - `build_stateful_benchmark_input` for calculated benchmark mode
+  - `get_benchmark_return_series` only for explicit `benchmark.return_source="vendor_series"`
 
 ## Unit Conventions
 - Benchmark return points are decimal returns (`0.0012 = 12 bps`).
@@ -53,6 +54,7 @@ Canonical Benchmark Return Series (`series.benchmark_returns`)
 4. Resample to requested frequency.
 5. Apply data-policy alignment/fill rules.
 6. Serialize as `series.benchmark_returns`.
+7. When benchmark resolution happened in stateful mode, also emit `benchmark_context` with the resolved benchmark id and return-source mode.
 
 ## Validation and Failure Behavior
 - `include_benchmark=true` with missing stateless benchmark input: validation error.
@@ -70,6 +72,7 @@ Canonical Benchmark Return Series (`series.benchmark_returns`)
 ## Outputs
 Primary metric field:
 - `series.benchmark_returns[]` (`date`, `return_value` decimal)
+- `benchmark_context` (`benchmark_id`, `return_source`) when stateful resolution selected a benchmark
 
 Diagnostics impact:
 - benchmark gaps are included in `diagnostics.gaps[]`
