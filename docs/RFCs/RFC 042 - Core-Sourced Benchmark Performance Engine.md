@@ -1,6 +1,6 @@
 # RFC 042 - Core-Sourced Benchmark Performance Engine
 
-**Status:** In Progress  
+**Status:** Implemented on feature branch  
 **Owner:** lotus-performance  
 **Reviewers:** lotus-core, lotus-performance, lotus-platform  
 **Related:** RFC-023, RFC-018, RFC-020, RFC-039, RFC-040, RFC-041
@@ -315,7 +315,7 @@ This preserves mathematical truth while keeping the structural contract symmetri
 
 #### 7.1.4 Current implementation status
 
-Current branch reality is close, but not complete:
+Current branch reality now satisfies the intended TWR benchmark contract:
 - implemented:
   - top-level `include_benchmark` flag
   - optional nested benchmark request on TWR
@@ -324,9 +324,11 @@ Current branch reality is close, but not complete:
   - shared benchmark engine reuse
   - sibling `portfolio`, `benchmark`, and `relative_performance` blocks per resolved period
   - requested-frequency period-return and cumulative-return rows for all three sibling blocks
-- still to refine:
-  - contract simplification around caller-supplied stateful source metadata
-  - final public sample payloads and guide wording for the new comparative response shape
+  - top-level `benchmark_context`
+  - async accepted/result flow for benchmark-heavy TWR requests
+  - caller-optional `calculation_id`
+  - server-stamped stateful source envelope
+  - stateful TWR inception sourced from `lotus-core` rather than caller-owned `performance_start_date`
 
 ### 7.2 Attribution
 
@@ -446,7 +448,7 @@ Recommendation:
 - keep it as historical context
 - supersede its benchmark-engine direction with this RFC
 
-## 10. Decisions and Remaining Questions
+## 10. Decisions and Resolved Questions
 
 The following design decisions are now set for this RFC:
 
@@ -488,29 +490,34 @@ The following design decisions are now set for this RFC:
    - `stateful_input` should remain present as the mode envelope, but should not require caller-supplied consumer identity
    - `performance_start_date` should be caller-owned only in stateless TWR mode
 
-Remaining questions before implementation:
+Resolved implementation decisions:
 
 1. Stateless payload shape
-   - should the primary stateless benchmark contract take:
-     - component prices
-     - component returns
-     - or a union that supports both with one canonical normalization path?
-   - recommendation: support component prices and component returns, normalize both into one internal engine input model
+   - implemented as a union:
+     - component returns via `component_observations`
+     - component prices via `component_price_points`
+   - both normalize into one internal benchmark engine input model
 
 2. Missing-data behavior
-   - if a required component price or FX rate is missing on a day, should the engine:
-     - fail hard
-     - skip the day
-     - or defer to an explicit robustness policy?
-   - recommendation: fail hard by default for the first implementation
+   - implemented as fail-fast
+   - missing or invalid component price / FX coverage is a contract error, not a silent skip policy
 
 3. Explicit vendor return mode shape
-   - if vendor `benchmark_return` is allowed, what is the exact public configuration field and vocabulary?
-   - recommendation: support it only as an explicit non-default `return_source` mode, with clear lineage showing the source path used
+   - implemented as explicit `return_source="vendor_series"`
+   - default remains `return_source="calculated"`
+   - lineage and response context preserve the chosen source mode
 
 4. Comparative TWR response placement
-   - decision: keep `portfolio`, `benchmark`, and `relative_performance` together inside each `results_by_period[*]`
-   - recommendation: do not keep a separate top-level benchmark result block in TWR, because the comparative analytics belong to each resolved period
+   - implemented with sibling `portfolio`, `benchmark`, and `relative_performance` blocks under each `results_by_period[*]`
+   - no separate top-level benchmark result block is used on TWR
+
+## 10.1 Remaining non-blocking follow-up
+
+The following items remain worthwhile follow-up work, but are not blockers for RFC completion:
+
+1. live seeded end-to-end validation against a running `lotus-core` stack for the full composition-window + FX-normalization path
+2. threshold tuning based on benchmark-heavy production-like workloads now that the benchmark engine is the default path on multiple analytics surfaces
+3. optional future `lotus-core` normalized component-series contract work, which could simplify or accelerate benchmark normalization but is not required for correctness
 
 ## 11. Recommended Implementation Phases
 
@@ -588,8 +595,6 @@ We should require:
 
 ## 13. Acceptance Criteria
 
-This RFC is ready for implementation when approved with answers to the open questions above.
-
 Implementation is complete when:
 1. `lotus-performance` owns a benchmark performance engine with pure calculation logic.
 2. Stateful benchmark sourcing from `lotus-core` is implemented through the shared sourcing architecture.
@@ -598,3 +603,7 @@ Implementation is complete when:
 5. Attribution reuses the benchmark engine path or its normalized outputs instead of duplicating benchmark math.
 6. The behavior is covered with meaningful unit, integration, and end-to-end tests.
 7. Docs and API contracts are updated to reflect the benchmark engine as a first-class capability.
+
+Current branch status:
+- satisfied on `feat/benchmark-engine-rollout`
+- remaining work is convergence, validation, and merge preparation rather than missing benchmark-engine functionality
