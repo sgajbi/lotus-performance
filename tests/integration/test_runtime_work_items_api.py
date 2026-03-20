@@ -212,6 +212,37 @@ def test_runtime_work_items_exposes_result_paths_for_twr_and_benchmark_jobs():
         lineage_metadata_store.clear_all_records()
 
 
+def test_runtime_work_items_exposes_result_path_for_benchmark_lineage_items():
+    compute_job_store.create_schema()
+    lineage_metadata_store.create_schema()
+    compute_job_store.clear_all_records()
+    lineage_metadata_store.clear_all_records()
+
+    benchmark_lineage_id = uuid4()
+
+    lineage_metadata_store.enqueue_lineage_payload(
+        calculation_id=benchmark_lineage_id,
+        calculation_type="BENCHMARK",
+        request_json="{}",
+        response_json="{}",
+        details={"details.json": "{}"},
+    )
+
+    try:
+        with TestClient(app) as client:
+            response = client.get(
+                "/integration/runtime-work-items",
+                params={"queue": "lineage", "status": "active", "lineage_calculation_type": "BENCHMARK", "limit": 5},
+            )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["lineage_items"][0]["result_path"] == f"/performance/benchmark/results/{benchmark_lineage_id}"
+    finally:
+        compute_job_store.clear_all_records()
+        lineage_metadata_store.clear_all_records()
+
+
 def test_runtime_work_items_reports_partial_queue_unavailability(mocker):
     mocker.patch(
         "app.services.runtime_work_item_service.compute_job_store.list_inspection_items",

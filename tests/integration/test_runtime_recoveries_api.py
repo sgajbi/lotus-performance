@@ -151,6 +151,40 @@ def test_runtime_recoveries_exposes_result_paths_for_twr_and_benchmark_jobs():
         lineage_metadata_store.clear_all_records()
 
 
+def test_runtime_recoveries_exposes_result_path_for_benchmark_lineage_events():
+    compute_job_store.create_schema()
+    lineage_metadata_store.create_schema()
+    compute_job_store.clear_all_records()
+    lineage_metadata_store.clear_all_records()
+    benchmark_lineage_id = uuid4()
+
+    lineage_metadata_store.enqueue_lineage_payload(
+        calculation_id=benchmark_lineage_id,
+        calculation_type="BENCHMARK",
+        request_json="{}",
+        response_json="{}",
+        details={"details.json": "{}"},
+    )
+    lineage_metadata_store.increment_attempt_count(benchmark_lineage_id)
+    lineage_metadata_store.mark_pending(benchmark_lineage_id)
+
+    try:
+        with TestClient(app) as client:
+            response = client.get(
+                "/integration/runtime-recoveries",
+                params={"queue": "lineage", "limit": 5, "lineage_calculation_type": "BENCHMARK"},
+            )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["lineage_recoveries"][0]["result_path"] == (
+            f"/performance/benchmark/results/{benchmark_lineage_id}"
+        )
+    finally:
+        compute_job_store.clear_all_records()
+        lineage_metadata_store.clear_all_records()
+
+
 def test_runtime_recoveries_supports_seek_cursor_pagination():
     compute_job_store.create_schema()
     lineage_metadata_store.create_schema()
