@@ -164,9 +164,9 @@ def test_run_attribution_calculations_geometric_linking(by_group_request_data):
 
 def test_prepare_data_from_instruments():
     """Tests the aggregation of instrument data into portfolio groups."""
-    daily_data_p = [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1025}]
-    daily_data_aapl = [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 600, "end_mv": 624}]
-    daily_data_msft = [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 400, "end_mv": 401}]
+    daily_data_p = [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1025}]
+    daily_data_aapl = [{"perf_date": "2025-01-01", "begin_mv": 600, "end_mv": 624}]
+    daily_data_msft = [{"perf_date": "2025-01-01", "begin_mv": 400, "end_mv": 401}]
 
     request_data = {
         "portfolio_id": "TEST",
@@ -227,7 +227,7 @@ def test_prepare_data_from_instruments_returns_empty_when_all_inputs_empty():
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
-            "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1000}],
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1000}],
         },
         "instruments_data": [{"instrument_id": "EMPTY", "meta": {"sector": "Tech"}, "valuation_points": []}],
         "benchmark_groups_data": [],
@@ -248,13 +248,13 @@ def test_prepare_data_from_instruments_zero_portfolio_capital_forces_zero_group_
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
-            "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 0, "bod_cf": 0, "end_mv": 0}],
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 0, "bod_cf": 0, "end_mv": 0}],
         },
         "instruments_data": [
             {
                 "instrument_id": "AAPL",
                 "meta": {"sector": "Tech"},
-                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 50, "end_mv": 51}],
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 50, "end_mv": 51}],
             }
         ],
         "benchmark_groups_data": [],

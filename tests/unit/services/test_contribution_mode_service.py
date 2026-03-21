@@ -41,7 +41,7 @@ async def test_resolve_contribution_request_passthroughs_stateless_mode():
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [
-                    {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                    {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
                 ],
             },
             "positions_data": [],

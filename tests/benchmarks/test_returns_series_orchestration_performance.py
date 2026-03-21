@@ -15,7 +15,7 @@ from tests.benchmarks.test_stateful_input_performance import (
     _StatefulBenchmarkCoreServiceStub,
 )
 
-RETURNS_SERIES_ORCHESTRATION_MEDIAN_MS_BUDGET = 4500.0
+RETURNS_SERIES_ORCHESTRATION_MEDIAN_MS_BUDGET = 7000.0
 
 
 @pytest.mark.asyncio

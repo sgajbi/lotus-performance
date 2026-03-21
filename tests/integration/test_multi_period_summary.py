@@ -31,9 +31,9 @@ def test_multi_period_portfolio_return_summary_is_correct(client):
         "report_ccy": "USD",
         "valuation_points": [
             # Jan Data: Local +1%, FX +1% -> Base +2.01%
-            {"day": 1, "perf_date": "2025-01-15", "begin_mv": 100.0, "end_mv": 101.0},
+            {"perf_date": "2025-01-15", "begin_mv": 100.0, "end_mv": 101.0},
             # Feb Data: Local +2%, FX +2% -> Base +4.04%
-            {"day": 2, "perf_date": "2025-02-15", "begin_mv": 101.0, "end_mv": 103.02},
+            {"perf_date": "2025-02-15", "begin_mv": 101.0, "end_mv": 103.02},
         ],
         "fx": {
             "rates": [

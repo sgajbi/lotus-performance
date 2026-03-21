@@ -102,7 +102,7 @@ async def test_resolve_attribution_request_fails_normalization_stage(monkeypatch
         benchmark_component_observations=[
             BenchmarkComponentObservation(
                 component_id="IDX_1",
-                date=date(2025, 1, 1),
+                perf_date=date(2025, 1, 1),
                 weight_bop=1.0,
                 component_return=0.01,
             )

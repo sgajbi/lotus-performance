@@ -283,4 +283,4 @@ def test_twr_request_rejects_ambiguous_stateless_benchmark_inputs(base_payload):
 
 def test_daily_input_data_rejects_client_supplied_day_sequence():
     with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
-        DailyInputData.model_validate({"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010})
+        DailyInputData.model_validate({"perf_date": "2025-01-01", "day": 1, "begin_mv": 1000, "end_mv": 1010})

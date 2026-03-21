@@ -11,25 +11,25 @@ def test_calculate_benchmark_returns_aggregates_component_contributions():
         [
             BenchmarkComponentObservation(
                 component_id="IDX_A",
-                date=date(2026, 1, 2),
+                perf_date=date(2026, 1, 2),
                 weight_bop=0.6,
                 component_return=0.02,
             ),
             BenchmarkComponentObservation(
                 component_id="IDX_B",
-                date=date(2026, 1, 2),
+                perf_date=date(2026, 1, 2),
                 weight_bop=0.4,
                 component_return=0.01,
             ),
             BenchmarkComponentObservation(
                 component_id="IDX_A",
-                date=date(2026, 1, 3),
+                perf_date=date(2026, 1, 3),
                 weight_bop=0.6,
                 component_return=0.01,
             ),
             BenchmarkComponentObservation(
                 component_id="IDX_B",
-                date=date(2026, 1, 3),
+                perf_date=date(2026, 1, 3),
                 weight_bop=0.4,
                 component_return=0.005,
             ),
@@ -54,7 +54,7 @@ def test_calculate_benchmark_returns_preserves_local_and_fx_components():
             BenchmarkComponentObservation(
                 component_id="IDX_A",
                 component_currency="EUR",
-                date=date(2026, 1, 2),
+                perf_date=date(2026, 1, 2),
                 weight_bop=1.0,
                 component_return=0.0302,
                 component_return_local=0.02,
@@ -76,8 +76,8 @@ def test_calculate_benchmark_returns_preserves_local_and_fx_components():
 def test_benchmark_return_points_to_dataframe_links_vendor_series():
     returns_df = benchmark_return_points_to_dataframe(
         [
-            BenchmarkReturnPoint(date=date(2026, 1, 2), benchmark_return=0.012),
-            BenchmarkReturnPoint(date=date(2026, 1, 3), benchmark_return=-0.002),
+            BenchmarkReturnPoint(perf_date=date(2026, 1, 2), benchmark_return=0.012),
+            BenchmarkReturnPoint(perf_date=date(2026, 1, 3), benchmark_return=-0.002),
         ]
     )
 
@@ -92,13 +92,13 @@ def test_calculate_benchmark_returns_rejects_duplicate_component_rows():
             [
                 BenchmarkComponentObservation(
                     component_id="IDX_A",
-                    date=date(2026, 1, 2),
+                    perf_date=date(2026, 1, 2),
                     weight_bop=1.0,
                     component_return=0.02,
                 ),
                 BenchmarkComponentObservation(
                     component_id="IDX_A",
-                    date=date(2026, 1, 2),
+                    perf_date=date(2026, 1, 2),
                     weight_bop=1.0,
                     component_return=0.02,
                 ),

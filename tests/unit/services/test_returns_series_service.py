@@ -350,21 +350,21 @@ async def test_calculate_returns_series_updates_stateful_identity_from_resolved_
             component_observations=[
                 BenchmarkComponentObservation(
                     component_id="IDX1",
-                    date="2026-02-23",
+                    perf_date="2026-02-23",
                     weight_bop=1.0,
                     component_currency="USD",
                     component_return=0.0010,
                 ),
                 BenchmarkComponentObservation(
                     component_id="IDX1",
-                    date="2026-02-24",
+                    perf_date="2026-02-24",
                     weight_bop=1.0,
                     component_currency="USD",
                     component_return=0.0020,
                 ),
                 BenchmarkComponentObservation(
                     component_id="IDX1",
-                    date="2026-02-25",
+                    perf_date="2026-02-25",
                     weight_bop=1.0,
                     component_currency="USD",
                     component_return=0.0030,

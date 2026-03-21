@@ -15,8 +15,8 @@ def sample_twr_request():
         "metric_basis": "NET",
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
         "valuation_points": [
-            {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.0},
-            {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+            {"perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.0},
+            {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
         ],
     }
     return PerformanceRequest.model_validate(payload)

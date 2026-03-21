@@ -163,7 +163,7 @@ async def test_build_stateful_benchmark_input_calculates_fx_normalized_component
     eur_day_one = next(
         observation
         for observation in result.component_observations
-        if observation.component_id == "IDX_EUR" and observation.date == date(2026, 1, 2)
+        if observation.component_id == "IDX_EUR" and observation.perf_date == date(2026, 1, 2)
     )
     assert eur_day_one.component_return == pytest.approx(0.0201)
     assert eur_day_one.component_currency == "EUR"
@@ -172,7 +172,7 @@ async def test_build_stateful_benchmark_input_calculates_fx_normalized_component
     gbp_day_two = next(
         observation
         for observation in result.component_observations
-        if observation.component_id == "IDX_GBP" and observation.date == date(2026, 1, 3)
+        if observation.component_id == "IDX_GBP" and observation.perf_date == date(2026, 1, 3)
     )
     assert gbp_day_two.weight_bop == pytest.approx(0.2)
     assert result.source_details["benchmark_components"] == 3
@@ -237,12 +237,12 @@ async def test_build_stateful_benchmark_input_supports_multi_segment_composition
     day_one_weights = {
         observation.component_id: observation.weight_bop
         for observation in result.component_observations
-        if observation.date == date(2026, 1, 2)
+        if observation.perf_date == date(2026, 1, 2)
     }
     day_two_weights = {
         observation.component_id: observation.weight_bop
         for observation in result.component_observations
-        if observation.date == date(2026, 1, 3)
+        if observation.perf_date == date(2026, 1, 3)
     }
 
     assert day_one_weights == {"IDX_EUR": pytest.approx(0.4), "IDX_USD": pytest.approx(0.6)}
