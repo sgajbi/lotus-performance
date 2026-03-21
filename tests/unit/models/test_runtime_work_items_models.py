@@ -2,8 +2,8 @@ from datetime import UTC, datetime
 
 from app.models.runtime_work_items import build_runtime_work_items_response
 from app.services.durability_health_service import DurabilityHealthStatus
-from app.services.runtime_work_item_service import RuntimeWorkItemQueueState, RuntimeWorkItemSnapshot
 from app.services.operator_navigation_service import build_operator_navigation_links
+from app.services.runtime_work_item_service import RuntimeWorkItemQueueState, RuntimeWorkItemSnapshot
 
 
 def test_build_runtime_work_items_response_serializes_operator_navigation_links():
