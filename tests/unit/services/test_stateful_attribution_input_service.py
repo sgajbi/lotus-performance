@@ -209,8 +209,8 @@ def test_build_stateful_attribution_input_builds_instruments_and_benchmark_group
             observations=[
                 {
                     "valuation_date": "2025-01-01",
-                    "beginning_market_value": "1000",
-                    "ending_market_value": "1010",
+                    "beginning_market_value": "900",
+                    "ending_market_value": "909",
                 }
             ],
         ),
@@ -316,8 +316,8 @@ def test_build_stateful_attribution_input_supports_currency_mode_both():
             observations=[
                 {
                     "valuation_date": "2025-01-01",
-                    "beginning_market_value": "1000",
-                    "ending_market_value": "1020",
+                    "beginning_market_value": "990",
+                    "ending_market_value": "1009.8",
                 }
             ],
         ),
@@ -328,6 +328,7 @@ def test_build_stateful_attribution_input_supports_currency_mode_both():
                 "position_currency": "EUR",
                 "valuation_date": "2025-01-01",
                 "beginning_market_value_reporting_currency": "990",
+                "ending_market_value_reporting_currency": "1009.8",
                 "beginning_market_value_position_currency": "900",
                 "ending_market_value_position_currency": "918",
                 "cash_flows": [],
@@ -371,6 +372,60 @@ def test_build_stateful_attribution_input_supports_currency_mode_both():
     assert normalized.benchmark_groups_data[0].key["currency"] == "eur"
     assert normalized.benchmark_groups_data[0].observations[0].return_local == pytest.approx(0.02)
     assert normalized.benchmark_groups_data[0].observations[0].return_fx == pytest.approx(0.01)
+
+
+def test_build_stateful_attribution_input_rejects_portfolio_position_alignment_gaps():
+    source_input = StatefulAttributionSourceInput(
+        portfolio_input=StatefulPortfolioInput(
+            performance_start_date=date(2025, 1, 1),
+            observations=[
+                {
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value": "1000",
+                    "ending_market_value": "1010",
+                }
+            ],
+        ),
+        position_rows=[
+            {
+                "position_id": "POS_1",
+                "security_id": "SEC_1",
+                "valuation_date": "2025-01-01",
+                "beginning_market_value_portfolio_currency": "900",
+                "ending_market_value_portfolio_currency": "909",
+                "cash_flows": [],
+                "dimensions": {"sector": "Tech"},
+            }
+        ],
+        position_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+        benchmark_id="BMK_1",
+        benchmark_component_observations=[
+            BenchmarkComponentObservation(
+                component_id="IDX_1",
+                component_currency="USD",
+                perf_date=date(2025, 1, 1),
+                weight_bop=1.0,
+                component_return=0.01,
+                component_return_local=0.01,
+                component_return_fx=0.0,
+            )
+        ],
+        benchmark_source_details={"benchmark_components": 1},
+        benchmark_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+        index_records=[{"index_id": "IDX_1", "classification_labels": {"sector": "Tech"}}],
+        index_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+    )
+
+    with pytest.raises(HTTPException, match="portfolio timeseries does not align with summed position timeseries"):
+        build_stateful_attribution_input(
+            source_input=source_input,
+            mode="by_instrument",
+            group_by=["sector"],
+            metric_basis="NET",
+            currency_mode="BASE_ONLY",
+            fx=None,
+            reporting_currency="USD",
+        )
 
 
 def test_stateful_attribution_group_by_and_benchmark_validation_errors():

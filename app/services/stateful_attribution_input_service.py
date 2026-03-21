@@ -178,6 +178,11 @@ def build_stateful_attribution_input(
         )
 
     _validate_stateful_position_inception_support(rows=source_input.position_rows)
+    _validate_stateful_portfolio_position_alignment(
+        portfolio_observations=source_input.portfolio_input.observations,
+        position_rows=source_input.position_rows,
+        reporting_currency=reporting_currency,
+    )
 
     normalized_currency_mode = currency_mode or "BASE_ONLY"
     if normalized_currency_mode == "BOTH":
@@ -211,6 +216,62 @@ def build_stateful_attribution_input(
         instruments_data=instruments_data,
         benchmark_groups_data=benchmark_groups_data,
     )
+
+
+def _validate_stateful_portfolio_position_alignment(
+    *,
+    portfolio_observations: list[dict[str, object]],
+    position_rows: list[dict[str, object]],
+    reporting_currency: str | None,
+) -> None:
+    portfolio_by_date: dict[str, tuple[Decimal, Decimal]] = {}
+    for observation in portfolio_observations:
+        valuation_date = observation.get("valuation_date")
+        begin_value = observation.get("beginning_market_value")
+        end_value = observation.get("ending_market_value")
+        if not isinstance(valuation_date, str) or begin_value is None or end_value is None:
+            continue
+        portfolio_by_date[valuation_date] = (Decimal(str(begin_value)), Decimal(str(end_value)))
+
+    position_totals_by_date: dict[str, dict[str, Decimal]] = {}
+    for row in position_rows:
+        valuation_date = row.get("valuation_date")
+        if not isinstance(valuation_date, str):
+            continue
+        begin_key = "beginning_market_value_reporting_currency" if reporting_currency is not None else None
+        end_key = "ending_market_value_reporting_currency" if reporting_currency is not None else None
+        begin_value = row.get(begin_key) if begin_key is not None else None
+        end_value = row.get(end_key) if end_key is not None else None
+        if begin_value is None or end_value is None:
+            begin_value = row.get("beginning_market_value_portfolio_currency")
+            end_value = row.get("ending_market_value_portfolio_currency")
+        if begin_value is None or end_value is None:
+            continue
+        totals = position_totals_by_date.setdefault(valuation_date, {"begin": Decimal("0"), "end": Decimal("0")})
+        totals["begin"] += Decimal(str(begin_value))
+        totals["end"] += Decimal(str(end_value))
+
+    tolerance = Decimal("0.01")
+    mismatched_dates: list[str] = []
+    for valuation_date in sorted(set(portfolio_by_date) & set(position_totals_by_date)):
+        portfolio_begin, portfolio_end = portfolio_by_date[valuation_date]
+        position_begin = position_totals_by_date[valuation_date]["begin"]
+        position_end = position_totals_by_date[valuation_date]["end"]
+        if abs(portfolio_begin - position_begin) > tolerance or abs(portfolio_end - position_end) > tolerance:
+            mismatched_dates.append(
+                f"{valuation_date} (portfolio begin/end={portfolio_begin}/{portfolio_end}, "
+                f"positions begin/end={position_begin}/{position_end})"
+            )
+
+    if mismatched_dates:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "Stateful attribution source inputs are inconsistent: lotus-core portfolio timeseries does not align "
+                "with summed position timeseries for one or more dates. "
+                f"Sample mismatches: {'; '.join(mismatched_dates[:3])}."
+            ),
+        )
 
 
 def _validate_stateful_position_inception_support(*, rows: list[dict[str, object]]) -> None:
