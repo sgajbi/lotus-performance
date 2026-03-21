@@ -864,6 +864,407 @@ def test_e2e_performance_contribution_and_attribution_tell_the_same_story() -> N
     assert attribution_itd["levels"][0]["groups"][0]["total_effect"] == pytest.approx(attribution_active)
 
 
+def test_e2e_reset_heavy_contribution_and_daily_series_both_tie_to_twr() -> None:
+    twr_payload = {
+        "portfolio_id": "E2E_RESET_ALIGNMENT_001",
+        "performance_start_date": "2024-12-31",
+        "report_end_date": "2025-01-04",
+        "metric_basis": "GROSS",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "valuation_points": [
+            {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 500.0},
+            {"perf_date": "2025-01-02", "begin_mv": 500.0, "end_mv": -50.0},
+            {"perf_date": "2025-01-03", "begin_mv": -50.0, "bod_cf": 1000.0, "end_mv": 1050.0},
+            {"perf_date": "2025-01-04", "begin_mv": 1050.0, "end_mv": 1155.0},
+        ],
+        "reset_policy": {"emit": True},
+    }
+    contribution_payload = {
+        "portfolio_id": "E2E_RESET_ALIGNMENT_001",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-04",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "portfolio_data": {
+            "metric_basis": "GROSS",
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 500.0},
+                {"perf_date": "2025-01-02", "begin_mv": 500.0, "end_mv": -50.0},
+                {"perf_date": "2025-01-03", "begin_mv": -50.0, "bod_cf": 1000.0, "end_mv": 1050.0},
+                {"perf_date": "2025-01-04", "begin_mv": 1050.0, "end_mv": 1155.0},
+            ],
+        },
+        "positions_data": [
+            {
+                "position_id": "RESET_STORY_POSITION",
+                "valuation_points": [
+                    {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 500.0},
+                    {"perf_date": "2025-01-02", "begin_mv": 500.0, "end_mv": -50.0},
+                    {"perf_date": "2025-01-03", "begin_mv": -50.0, "bod_cf": 1000.0, "end_mv": 1050.0},
+                    {"perf_date": "2025-01-04", "begin_mv": 1050.0, "end_mv": 1155.0},
+                ],
+            }
+        ],
+        "emit": {"timeseries": True, "by_position_timeseries": True},
+    }
+
+    with TestClient(app) as client:
+        twr_response = client.post("/performance/twr", json=twr_payload)
+        contribution_response = client.post("/performance/contribution", json=contribution_payload)
+
+    assert twr_response.status_code == 200
+    assert contribution_response.status_code == 200
+
+    twr_body = twr_response.json()
+    contribution_body = contribution_response.json()
+
+    twr_itd = twr_body["results_by_period"]["ITD"]
+    contribution_itd = contribution_body["results_by_period"]["ITD"]
+
+    twr_portfolio_return = twr_itd["portfolio"]["summary"]["period_return"]["base"]
+    contribution_total = contribution_itd["total_contribution"]
+    contribution_total_portfolio_return = contribution_itd["total_portfolio_return"]
+
+    assert twr_portfolio_return == pytest.approx(21.578947, abs=1e-6)
+    assert contribution_total == pytest.approx(twr_portfolio_return)
+    assert contribution_total_portfolio_return == pytest.approx(twr_portfolio_return)
+
+    reset_reasons_by_date = {event["date"]: event["reason"] for event in twr_itd["reset_events"]}
+    assert "NCTRL_1" in reset_reasons_by_date["2025-01-02"]
+    assert "NCTRL_4" in reset_reasons_by_date["2025-01-03"]
+
+    assert contribution_body["audit"]["counts"]["portfolio_reset_days"] == 2
+    assert contribution_body["audit"]["counts"]["position_reset_days"] == 2
+    assert contribution_body["audit"]["counts"]["portfolio_reset_without_position_reset_days"] == 0
+    assert contribution_body["audit"]["counts"]["position_reset_without_portfolio_reset_days"] == 0
+    assert contribution_body["audit"]["counts"]["average_weight_shadow_delta_positions"] == 0
+    assert contribution_body["audit"]["counts"]["average_weight_shadow_delta_max_bp"] == 0
+    assert contribution_body["audit"]["counts"]["average_weight_shadow_delta_sum_bp"] == 0
+    assert contribution_body["audit"]["counts"]["average_weight_shadow_noise_periods"] == 0
+    assert contribution_body["audit"]["counts"]["average_weight_shadow_warning_periods"] == 0
+    assert contribution_body["audit"]["counts"]["average_weight_shadow_material_periods"] == 0
+    assert contribution_body["audit"]["counts"]["average_weight_shadow_cutover_candidate_periods"] == 0
+    assert contribution_body["audit"]["counts"]["average_weight_sum_residual_bp"] == 0
+    assert contribution_body["audit"]["counts"]["carino_invalid_domain_days"] == 1
+    assert contribution_body["audit"]["counts"]["timeseries_total_delta_periods"] == 0
+    assert any(
+        "Carino smoothing fell back to raw daily contribution arithmetic" in note
+        for note in contribution_body["diagnostics"]["notes"]
+    )
+    assert not any(
+        "do not sum to the residual-adjusted period total" in note
+        for note in contribution_body["diagnostics"]["notes"]
+    )
+    assert not any(
+        "grouped-return alignment remains under characterization" in note
+        for note in contribution_body["diagnostics"]["notes"]
+    )
+    contribution_daily_totals = [point["total_contribution"] for point in contribution_itd["timeseries"]]
+    by_position_daily = [point["contribution"] for point in contribution_itd["by_position_timeseries"][0]["series"]]
+    assert contribution_daily_totals == pytest.approx(by_position_daily)
+    assert sum(contribution_daily_totals) == pytest.approx(contribution_total)
+
+
+def test_e2e_multi_position_reset_heavy_contribution_keeps_tie_out_and_surfaces_weight_shadow_delta() -> None:
+    twr_payload = {
+        "portfolio_id": "E2E_MULTI_RESET_ALIGNMENT_001",
+        "performance_start_date": "2024-12-31",
+        "report_end_date": "2025-01-04",
+        "metric_basis": "GROSS",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "valuation_points": [
+            {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 500.0},
+            {"perf_date": "2025-01-02", "begin_mv": 500.0, "end_mv": -50.0},
+            {"perf_date": "2025-01-03", "begin_mv": -50.0, "bod_cf": 1000.0, "end_mv": 1050.0},
+            {"perf_date": "2025-01-04", "begin_mv": 1050.0, "end_mv": 1155.0},
+        ],
+        "reset_policy": {"emit": True},
+    }
+    contribution_payload = {
+        "portfolio_id": "E2E_MULTI_RESET_ALIGNMENT_001",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-04",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "portfolio_data": {
+            "metric_basis": "GROSS",
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 500.0},
+                {"perf_date": "2025-01-02", "begin_mv": 500.0, "end_mv": -50.0},
+                {"perf_date": "2025-01-03", "begin_mv": -50.0, "bod_cf": 1000.0, "end_mv": 1050.0},
+                {"perf_date": "2025-01-04", "begin_mv": 1050.0, "end_mv": 1155.0},
+            ],
+        },
+        "positions_data": [
+            {
+                "position_id": "RESET_STORY_A",
+                "meta": {"sector": "Technology"},
+                "valuation_points": [
+                    {"perf_date": "2025-01-01", "begin_mv": 600.0, "end_mv": 240.0},
+                    {"perf_date": "2025-01-02", "begin_mv": 240.0, "end_mv": -20.0},
+                    {"perf_date": "2025-01-03", "begin_mv": -20.0, "bod_cf": 800.0, "end_mv": 840.0},
+                    {"perf_date": "2025-01-04", "begin_mv": 840.0, "end_mv": 924.0},
+                ],
+            },
+            {
+                "position_id": "RESET_STORY_B",
+                "meta": {"sector": "Healthcare"},
+                "valuation_points": [
+                    {"perf_date": "2025-01-01", "begin_mv": 400.0, "end_mv": 260.0},
+                    {"perf_date": "2025-01-02", "begin_mv": 260.0, "end_mv": -30.0},
+                    {"perf_date": "2025-01-03", "begin_mv": -30.0, "bod_cf": 200.0, "end_mv": 210.0},
+                    {"perf_date": "2025-01-04", "begin_mv": 210.0, "end_mv": 231.0},
+                ],
+            },
+        ],
+        "emit": {"timeseries": True, "by_position_timeseries": True},
+    }
+
+    with TestClient(app) as client:
+        twr_response = client.post("/performance/twr", json=twr_payload)
+        contribution_response = client.post("/performance/contribution", json=contribution_payload)
+
+    assert twr_response.status_code == 200
+    assert contribution_response.status_code == 200
+
+    twr_itd = twr_response.json()["results_by_period"]["ITD"]
+    contribution_body = contribution_response.json()
+    contribution_itd = contribution_body["results_by_period"]["ITD"]
+
+    twr_portfolio_return = twr_itd["portfolio"]["summary"]["period_return"]["base"]
+    contribution_total = contribution_itd["total_contribution"]
+
+    assert contribution_total == pytest.approx(twr_portfolio_return)
+    assert contribution_itd["total_portfolio_return"] == pytest.approx(twr_portfolio_return)
+    assert len(contribution_itd["position_contributions"]) == 2
+    assert sum(item["total_contribution"] for item in contribution_itd["position_contributions"]) == pytest.approx(
+        contribution_total
+    )
+
+    contribution_daily_totals = [point["total_contribution"] for point in contribution_itd["timeseries"]]
+    flattened_position_daily = [
+        first["contribution"] + second["contribution"]
+        for first, second in zip(
+            contribution_itd["by_position_timeseries"][0]["series"],
+            contribution_itd["by_position_timeseries"][1]["series"],
+            strict=True,
+        )
+    ]
+    assert contribution_daily_totals == pytest.approx(flattened_position_daily)
+    assert sum(contribution_daily_totals) == pytest.approx(contribution_total)
+
+    assert contribution_body["audit"]["counts"]["portfolio_reset_days"] == 2
+    assert contribution_body["audit"]["counts"]["position_reset_days"] == 2
+    assert contribution_body["audit"]["counts"]["timeseries_total_delta_periods"] == 0
+    assert contribution_body["audit"]["counts"]["average_weight_shadow_delta_positions"] == 2
+    assert contribution_body["audit"]["counts"]["average_weight_shadow_delta_max_bp"] > 0
+    assert contribution_body["audit"]["counts"]["average_weight_shadow_delta_sum_bp"] > 0
+    assert contribution_body["audit"]["counts"]["average_weight_shadow_material_periods"] == 1
+    assert contribution_body["audit"]["counts"]["average_weight_shadow_cutover_candidate_periods"] == 0
+    assert contribution_body["audit"]["counts"]["average_weight_sum_residual_bp"] == 0
+    assert contribution_body["audit"]["counts"]["carino_invalid_domain_days"] == 1
+    assert any(
+        "Reset-aware average-weight shadow differs" in note
+        for note in contribution_body["diagnostics"]["notes"]
+    )
+    assert any(
+        "differs materially" in note
+        for note in contribution_body["diagnostics"]["notes"]
+    )
+    assert any(
+        "Carino smoothing fell back to raw daily contribution arithmetic" in note
+        for note in contribution_body["diagnostics"]["notes"]
+    )
+
+
+def test_e2e_asymmetric_reset_heavy_contribution_keeps_tie_out_while_exposing_weight_methodology_pressure() -> None:
+    contribution_payload = {
+        "portfolio_id": "E2E_ASYM_RESET_ALIGNMENT_001",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-04",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "portfolio_data": {
+            "metric_basis": "GROSS",
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 550.0},
+                {"perf_date": "2025-01-02", "begin_mv": 550.0, "end_mv": -25.0},
+                {"perf_date": "2025-01-03", "begin_mv": -25.0, "bod_cf": 1000.0, "end_mv": 1072.5},
+                {"perf_date": "2025-01-04", "begin_mv": 1072.5, "end_mv": 1179.75},
+            ],
+        },
+        "positions_data": [
+            {
+                "position_id": "RESET_DRIVER",
+                "meta": {"role": "driver"},
+                "valuation_points": [
+                    {"perf_date": "2025-01-01", "begin_mv": 850.0, "end_mv": 350.0},
+                    {"perf_date": "2025-01-02", "begin_mv": 350.0, "end_mv": -60.0},
+                    {"perf_date": "2025-01-03", "begin_mv": -60.0, "bod_cf": 950.0, "end_mv": 997.5},
+                    {"perf_date": "2025-01-04", "begin_mv": 997.5, "end_mv": 1097.25},
+                ],
+            },
+            {
+                "position_id": "RESET_RIDER",
+                "meta": {"role": "rider"},
+                "valuation_points": [
+                    {"perf_date": "2025-01-01", "begin_mv": 150.0, "end_mv": 200.0},
+                    {"perf_date": "2025-01-02", "begin_mv": 200.0, "end_mv": 35.0},
+                    {"perf_date": "2025-01-03", "begin_mv": 35.0, "bod_cf": 50.0, "end_mv": 75.0},
+                    {"perf_date": "2025-01-04", "begin_mv": 75.0, "end_mv": 82.5},
+                ],
+            },
+        ],
+        "emit": {"timeseries": True, "by_position_timeseries": True},
+    }
+
+    with TestClient(app) as client:
+        contribution_response = client.post("/performance/contribution", json=contribution_payload)
+
+    assert contribution_response.status_code == 200
+
+    contribution_body = contribution_response.json()
+    contribution_itd = contribution_body["results_by_period"]["ITD"]
+    driver_contribution, rider_contribution = contribution_itd["position_contributions"]
+
+    assert contribution_itd["total_portfolio_return"] == pytest.approx(21.0)
+    assert contribution_itd["total_contribution"] == pytest.approx(21.0)
+    assert driver_contribution["position_id"] == "RESET_DRIVER"
+    assert rider_contribution["position_id"] == "RESET_RIDER"
+    assert driver_contribution["average_weight"] > rider_contribution["average_weight"]
+    assert driver_contribution["total_contribution"] < rider_contribution["total_contribution"]
+
+    contribution_daily_totals = [point["total_contribution"] for point in contribution_itd["timeseries"]]
+    flattened_position_daily = [
+        first["contribution"] + second["contribution"]
+        for first, second in zip(
+            contribution_itd["by_position_timeseries"][0]["series"],
+            contribution_itd["by_position_timeseries"][1]["series"],
+            strict=True,
+        )
+    ]
+    assert contribution_daily_totals == pytest.approx(flattened_position_daily)
+    assert sum(contribution_daily_totals) == pytest.approx(contribution_itd["total_contribution"])
+
+    assert contribution_body["audit"]["counts"]["portfolio_reset_days"] == 2
+    assert contribution_body["audit"]["counts"]["position_reset_days"] == 2
+    assert contribution_body["audit"]["counts"]["timeseries_total_delta_periods"] == 0
+    assert contribution_body["audit"]["counts"]["average_weight_shadow_delta_positions"] == 2
+    assert contribution_body["audit"]["counts"]["average_weight_shadow_delta_max_bp"] >= 500
+    assert contribution_body["audit"]["counts"]["average_weight_shadow_delta_sum_bp"] >= contribution_body["audit"]["counts"]["average_weight_shadow_delta_max_bp"]
+    assert contribution_body["audit"]["counts"]["average_weight_shadow_material_periods"] == 1
+    assert contribution_body["audit"]["counts"]["average_weight_shadow_cutover_candidate_periods"] == 0
+    assert contribution_body["audit"]["counts"]["average_weight_sum_residual_bp"] == 0
+    assert contribution_body["audit"]["counts"]["carino_invalid_domain_days"] == 1
+    assert any(
+        "Reset-aware average-weight shadow differs" in note
+        for note in contribution_body["diagnostics"]["notes"]
+    )
+    assert any(
+        "differs materially" in note
+        for note in contribution_body["diagnostics"]["notes"]
+    )
+
+
+def test_e2e_balanced_internal_position_flows_keep_flow_residual_silent() -> None:
+    contribution_payload = {
+        "portfolio_id": "E2E_BALANCED_INTERNAL_FLOWS_001",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1030.0},
+                {"perf_date": "2025-01-02", "begin_mv": 1030.0, "end_mv": 1050.0},
+            ],
+        },
+        "positions_data": [
+            {
+                "position_id": "REALLOCATED_OUT",
+                "meta": {"role": "funding_leg"},
+                "valuation_points": [
+                    {"perf_date": "2025-01-01", "begin_mv": 600.0, "end_mv": 618.0},
+                    {"perf_date": "2025-01-02", "begin_mv": 618.0, "bod_cf": -100.0, "end_mv": 530.0},
+                ],
+            },
+            {
+                "position_id": "REALLOCATED_IN",
+                "meta": {"role": "receiving_leg"},
+                "valuation_points": [
+                    {"perf_date": "2025-01-01", "begin_mv": 400.0, "end_mv": 412.0},
+                    {"perf_date": "2025-01-02", "begin_mv": 412.0, "bod_cf": 100.0, "end_mv": 520.0},
+                ],
+            },
+        ],
+        "emit": {"timeseries": True, "by_position_timeseries": True},
+    }
+
+    with TestClient(app) as client:
+        contribution_response = client.post("/performance/contribution", json=contribution_payload)
+
+    assert contribution_response.status_code == 200
+
+    contribution_body = contribution_response.json()
+    contribution_itd = contribution_body["results_by_period"]["ITD"]
+
+    assert contribution_body["audit"]["counts"]["position_flow_residual_days"] == 0
+    assert contribution_body["audit"]["counts"]["position_flow_residual_max_bp"] == 0
+    assert contribution_body["audit"]["counts"]["position_flow_residual_sum_bp"] == 0
+    assert contribution_body["audit"]["counts"]["average_weight_sum_residual_bp"] == 0
+    assert contribution_body["audit"]["counts"]["timeseries_total_delta_periods"] == 0
+    assert sum(item["average_weight"] for item in contribution_itd["position_contributions"]) == pytest.approx(100.0)
+    assert not any(
+        "Summed position-level cash flows did not net to zero" in note
+        for note in contribution_body["diagnostics"]["notes"]
+    )
+
+
+def test_e2e_material_position_flow_mismatch_emits_cancellation_break_note() -> None:
+    contribution_payload = {
+        "portfolio_id": "E2E_MATERIAL_FLOW_MISMATCH_001",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1030.0},
+                {"perf_date": "2025-01-02", "begin_mv": 1030.0, "end_mv": 1050.0},
+            ],
+        },
+        "positions_data": [
+            {
+                "position_id": "FLOW_OUT",
+                "meta": {"role": "funding_leg"},
+                "valuation_points": [
+                    {"perf_date": "2025-01-01", "begin_mv": 600.0, "end_mv": 618.0},
+                    {"perf_date": "2025-01-02", "begin_mv": 618.0, "bod_cf": -100.0, "end_mv": 530.0},
+                ],
+            },
+            {
+                "position_id": "FLOW_IN_INCOMPLETE",
+                "meta": {"role": "receiving_leg"},
+                "valuation_points": [
+                    {"perf_date": "2025-01-01", "begin_mv": 400.0, "end_mv": 412.0},
+                    {"perf_date": "2025-01-02", "begin_mv": 412.0, "bod_cf": 80.0, "end_mv": 500.0},
+                ],
+            },
+        ],
+    }
+
+    with TestClient(app) as client:
+        contribution_response = client.post("/performance/contribution", json=contribution_payload)
+
+    assert contribution_response.status_code == 200
+
+    contribution_body = contribution_response.json()
+    assert contribution_body["audit"]["counts"]["position_flow_residual_days"] == 1
+    assert contribution_body["audit"]["counts"]["position_flow_residual_max_bp"] > 10
+    assert contribution_body["audit"]["counts"]["position_flow_residual_sum_bp"] >= contribution_body["audit"]["counts"]["position_flow_residual_max_bp"]
+    assert any(
+        "materially non-flow-neutral scoped slice" in note
+        for note in contribution_body["diagnostics"]["notes"]
+    )
+
+
 def test_e2e_health_endpoints_contract() -> None:
     with TestClient(app) as client:
         live = client.get("/health/live")

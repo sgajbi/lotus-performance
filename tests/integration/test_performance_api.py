@@ -50,11 +50,11 @@ def test_twr_reports_reset_events_when_requested(client):
 
     assert "reset_events" in itd_results
     assert itd_results["reset_events"] is not None
-    assert len(itd_results["reset_events"]) == 1
+    assert len(itd_results["reset_events"]) == 2
 
-    reset_event = itd_results["reset_events"][0]
-    assert reset_event["date"] == "2025-01-02"
-    assert "NCTRL_1" in reset_event["reason"]
+    reset_reasons_by_date = {event["date"]: event["reason"] for event in itd_results["reset_events"]}
+    assert "NCTRL_1" in reset_reasons_by_date["2025-01-02"]
+    assert "NCTRL_4" in reset_reasons_by_date["2025-01-03"]
 
 
 def test_calculate_twr_endpoint_with_annualization(client):
@@ -116,6 +116,17 @@ def test_calculate_twr_endpoint_legacy_path_and_diagnostics(client):
     assert response_data["meta"]["engine_version"] is not None
     assert "diagnostics" in response_data
     assert response_data["diagnostics"]["nip_days"] == 0
+    assert "nip_rule_delta_days" in response_data["diagnostics"]
+    assert "nctrl4_reset_days" in response_data["diagnostics"]
+    assert "nctrl4_exclusive_reset_days" in response_data["diagnostics"]
+    assert "account_reset_shadow_days" in response_data["diagnostics"]
+    assert "sod_reset_shadow_days" in response_data["diagnostics"]
+    assert "shadow_reset_overlap_days" in response_data["diagnostics"]
+    assert "shadow_only_candidate_reset_days" in response_data["diagnostics"]
+    assert "active_reset_with_shadow_days" in response_data["diagnostics"]
+    assert "nip_days_since_last_reset" in response_data["diagnostics"]
+    assert "valid_days_since_last_reset" in response_data["diagnostics"]
+    assert "methodology_shadows" in response_data["diagnostics"]["samples"]
     assert "audit" in response_data
     assert response_data["audit"]["counts"]["input_rows"] == 5
 

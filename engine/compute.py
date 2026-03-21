@@ -7,12 +7,12 @@ import numpy as np
 import pandas as pd
 
 from engine.config import EngineConfig, PrecisionMode
-from engine.diagnostics import EngineDiagnostics, EngineResetEvent
+from engine.diagnostics import EngineDiagnostics, EngineResetEvent, MethodologyShadowSample
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
 from engine.periods import get_effective_period_start_dates
 from engine.policies import _flag_outliers, apply_robustness_policies
 from engine.ror import calculate_cumulative_ror, calculate_daily_ror
-from engine.rules import calculate_nip, calculate_sign
+from engine.rules import calculate_initial_sign, calculate_nip, calculate_nip_variants, calculate_sign
 from engine.schema import PortfolioColumns
 
 logger = logging.getLogger(__name__)
@@ -51,6 +51,10 @@ def run_calculations(df: pd.DataFrame, config: EngineConfig) -> Tuple[pd.DataFra
             _flag_outliers(working_df, config.data_policy, policy_diagnostics, ignored_dates=ignored_dates)
 
         working_df[PortfolioColumns.SIGN.value] = calculate_sign(working_df)
+        nip_v1, nip_v2 = calculate_nip_variants(working_df)
+        working_df["nip_rule_v1_shadow"] = nip_v1
+        working_df["nip_rule_v2_shadow"] = nip_v2
+        working_df["initial_sign_shadow"] = calculate_initial_sign(working_df)
         working_df[PortfolioColumns.NIP.value] = calculate_nip(working_df, config)
 
         calculate_cumulative_ror(working_df, config)
@@ -65,15 +69,7 @@ def run_calculations(df: pd.DataFrame, config: EngineConfig) -> Tuple[pd.DataFra
         working_df[PortfolioColumns.PERF_RESET.value] = working_df[PortfolioColumns.PERF_RESET.value].astype(int)
         reset_rows = working_df[working_df[PortfolioColumns.PERF_RESET.value] == 1]
         for _, row in reset_rows.iterrows():
-            reason_codes = []
-            if row[PortfolioColumns.NCTRL_1.value]:
-                reason_codes.append("NCTRL_1")
-            if row[PortfolioColumns.NCTRL_2.value]:
-                reason_codes.append("NCTRL_2")
-            if row[PortfolioColumns.NCTRL_3.value]:
-                reason_codes.append("NCTRL_3")
-            if row[PortfolioColumns.NCTRL_4.value]:
-                reason_codes.append("NCTRL_4")
+            reason_codes = _reset_reason_codes(row)
             reset_events.append(
                 EngineResetEvent(
                     date=row[PortfolioColumns.PERF_DATE.value].date(),
@@ -84,18 +80,45 @@ def run_calculations(df: pd.DataFrame, config: EngineConfig) -> Tuple[pd.DataFra
 
         final_df = _filter_results_to_reporting_period(working_df, config)
 
+        nip_rule_delta_days = _calculate_nip_rule_delta_days(final_df)
+        nip_days_since_last_reset, valid_days_since_last_reset = _calculate_reset_relative_day_counts(final_df)
+        (
+            nctrl4_reset_days,
+            nctrl4_exclusive_reset_days,
+            account_reset_shadow_days,
+            sod_reset_shadow_days,
+            shadow_reset_overlap_days,
+            shadow_only_candidate_reset_days,
+            active_reset_with_shadow_days,
+        ) = _calculate_reset_reason_characterization_counts(final_df)
+        candidate_canonical_reset_days, reset_delta_days = _calculate_reset_delta_counts(final_df)
+        methodology_samples = _build_methodology_shadow_samples(final_df)
+
         if config.precision_mode != PrecisionMode.DECIMAL_STRICT:
             _round_float_columns(final_df, config.rounding_precision)
 
         diagnostics = EngineDiagnostics(
             nip_days=int(final_df[PortfolioColumns.NIP.value].sum()),
+            nip_rule_delta_days=nip_rule_delta_days,
             reset_days=int(final_df[PortfolioColumns.PERF_RESET.value].sum()),
+            nctrl4_reset_days=nctrl4_reset_days,
+            nctrl4_exclusive_reset_days=nctrl4_exclusive_reset_days,
+            account_reset_shadow_days=account_reset_shadow_days,
+            sod_reset_shadow_days=sod_reset_shadow_days,
+            shadow_reset_overlap_days=shadow_reset_overlap_days,
+            shadow_only_candidate_reset_days=shadow_only_candidate_reset_days,
+            active_reset_with_shadow_days=active_reset_with_shadow_days,
+            candidate_canonical_reset_days=candidate_canonical_reset_days,
+            reset_delta_days=reset_delta_days,
+            nip_days_since_last_reset=nip_days_since_last_reset,
+            valid_days_since_last_reset=valid_days_since_last_reset,
             effective_period_start=working_df[PortfolioColumns.EFFECTIVE_PERIOD_START_DATE.value].min().date(),
             notes=list(policy_diagnostics.notes),
             resets=reset_events,
             policy=policy_diagnostics.policy,
             samples=policy_diagnostics.samples,
         )
+        diagnostics.samples.methodology_shadows.extend(methodology_samples)
 
     except InvalidEngineInputError:
         raise
@@ -116,6 +139,7 @@ def _prepare_dataframe(df: pd.DataFrame, config: EngineConfig):
         PortfolioColumns.EOD_CF.value,
         PortfolioColumns.MGMT_FEES.value,
         PortfolioColumns.END_MV.value,
+        PortfolioColumns.ACCOUNT_PERFORMANCE_RESET.value,
     ]
 
     if config.precision_mode == PrecisionMode.DECIMAL_STRICT:
@@ -139,6 +163,154 @@ def _prepare_dataframe(df: pd.DataFrame, config: EngineConfig):
             df[col.value] = Decimal(0) if config.precision_mode == PrecisionMode.DECIMAL_STRICT else 0.0
     df[PortfolioColumns.PERF_RESET.value] = 0
     df[PortfolioColumns.LONG_SHORT.value] = ""
+
+
+def _reset_reason_codes(row: pd.Series) -> list[str]:
+    """Returns the active reset reasons that currently drive engine compounding."""
+    reason_codes: list[str] = []
+    if row.get(PortfolioColumns.NCTRL_1.value, 0):
+        reason_codes.append("NCTRL_1")
+    if row.get(PortfolioColumns.NCTRL_2.value, 0):
+        reason_codes.append("NCTRL_2")
+    if row.get(PortfolioColumns.NCTRL_3.value, 0):
+        reason_codes.append("NCTRL_3")
+    if row.get(PortfolioColumns.NCTRL_4.value, 0):
+        reason_codes.append("NCTRL_4")
+    return reason_codes
+
+
+def _candidate_canonical_reset_reason_codes(row: pd.Series) -> list[str]:
+    """Returns the reset reasons that would participate in the candidate canonical reset model."""
+    reason_codes = _reset_reason_codes(row)
+    if row.get(PortfolioColumns.ACCOUNT_RESET.value, 0):
+        reason_codes.append("ACCOUNT_RESET")
+    if row.get(PortfolioColumns.SOD_RESET.value, 0):
+        reason_codes.append("SOD_RESET")
+    return reason_codes
+
+
+def _calculate_reset_relative_day_counts(final_df: pd.DataFrame) -> tuple[int, int]:
+    """Counts NIP and valid days from the last reset boundary within the reporting slice."""
+    if final_df.empty:
+        return 0, 0
+
+    reset_mask = final_df[PortfolioColumns.PERF_RESET.value] == 1
+    if reset_mask.any():
+        last_reset_index = final_df[reset_mask].index[-1]
+        relevant_df = final_df.loc[last_reset_index:]
+    else:
+        relevant_df = final_df
+
+    nip_days_since_last_reset = int(relevant_df[PortfolioColumns.NIP.value].sum())
+    valid_days_since_last_reset = int(len(relevant_df) - nip_days_since_last_reset)
+    return nip_days_since_last_reset, valid_days_since_last_reset
+
+
+def _calculate_nip_rule_delta_days(final_df: pd.DataFrame) -> int:
+    """Counts reporting-slice days where the two supported NIP rules disagree."""
+    if final_df.empty:
+        return 0
+
+    return int((final_df["nip_rule_v1_shadow"] != final_df["nip_rule_v2_shadow"]).sum())
+
+
+def _calculate_reset_delta_counts(final_df: pd.DataFrame) -> tuple[int, int]:
+    """Counts reset days under the candidate canonical model and its delta from active resets."""
+    if final_df.empty:
+        return 0, 0
+
+    active_reset_mask = final_df[PortfolioColumns.PERF_RESET.value] == 1
+    candidate_canonical_reset_mask = (
+        active_reset_mask
+        | (final_df[PortfolioColumns.SOD_RESET.value] == 1)
+        | (final_df[PortfolioColumns.ACCOUNT_RESET.value] == 1)
+    )
+    reset_delta_mask = candidate_canonical_reset_mask != active_reset_mask
+
+    return int(candidate_canonical_reset_mask.sum()), int(reset_delta_mask.sum())
+
+
+def _calculate_reset_reason_characterization_counts(final_df: pd.DataFrame) -> tuple[int, int, int, int, int, int, int]:
+    """Summarizes how active and shadow reset reasons appear within the reporting slice."""
+    if final_df.empty:
+        return 0, 0, 0, 0, 0, 0, 0
+
+    active_reset_mask = final_df[PortfolioColumns.PERF_RESET.value] == 1
+    nctrl4_mask = final_df[PortfolioColumns.NCTRL_4.value] == 1
+    account_reset_mask = final_df[PortfolioColumns.ACCOUNT_RESET.value] == 1
+    sod_reset_mask = final_df[PortfolioColumns.SOD_RESET.value] == 1
+    shadow_overlap_mask = account_reset_mask & sod_reset_mask
+    any_shadow_mask = account_reset_mask | sod_reset_mask
+    nctrl4_exclusive_mask = nctrl4_mask & ~any_shadow_mask
+    shadow_only_candidate_reset_mask = any_shadow_mask & ~active_reset_mask
+    active_reset_with_shadow_mask = active_reset_mask & any_shadow_mask
+
+    return (
+        int(nctrl4_mask.sum()),
+        int(nctrl4_exclusive_mask.sum()),
+        int(account_reset_mask.sum()),
+        int(sod_reset_mask.sum()),
+        int(shadow_overlap_mask.sum()),
+        int(shadow_only_candidate_reset_mask.sum()),
+        int(active_reset_with_shadow_mask.sum()),
+    )
+
+
+def _build_methodology_shadow_samples(final_df: pd.DataFrame) -> list[MethodologyShadowSample]:
+    """Builds compact characterization samples for reset, NIP, and sign semantics."""
+    if final_df.empty:
+        return []
+
+    samples: list[MethodologyShadowSample] = []
+    previous_sign = final_df[PortfolioColumns.SIGN.value].shift(1, fill_value=0)
+
+    reset_mask = final_df[PortfolioColumns.PERF_RESET.value] == 1
+    if reset_mask.any():
+        reset_dates = final_df.loc[reset_mask, PortfolioColumns.PERF_DATE.value].tolist()
+        last_reset_date = max(reset_dates)
+        reset_relative_mask = final_df[PortfolioColumns.PERF_DATE.value] >= last_reset_date
+    else:
+        reset_relative_mask = pd.Series([True] * len(final_df), index=final_df.index)
+
+    interesting_mask = (
+        (final_df["nip_rule_v1_shadow"] != final_df["nip_rule_v2_shadow"])
+        | (final_df[PortfolioColumns.PERF_RESET.value] == 1)
+        | (final_df[PortfolioColumns.SOD_RESET.value] == 1)
+        | (final_df[PortfolioColumns.ACCOUNT_RESET.value] == 1)
+        | (
+            (
+                (final_df[PortfolioColumns.PERF_RESET.value] == 1)
+                | (final_df[PortfolioColumns.SOD_RESET.value] == 1)
+                | (final_df[PortfolioColumns.ACCOUNT_RESET.value] == 1)
+            )
+            != (final_df[PortfolioColumns.PERF_RESET.value] == 1)
+        )
+        | (previous_sign == 0)
+        | (~reset_relative_mask)
+    )
+
+    for idx, row in final_df[interesting_mask].iterrows():
+        active_reset_reason_codes = _reset_reason_codes(row)
+        candidate_canonical_reset_reason_codes = _candidate_canonical_reset_reason_codes(row)
+        samples.append(
+            MethodologyShadowSample(
+                date=row[PortfolioColumns.PERF_DATE.value].isoformat(),
+                active_nip=int(row[PortfolioColumns.NIP.value]),
+                nip_rule_v1=int(row["nip_rule_v1_shadow"]),
+                nip_rule_v2=int(row["nip_rule_v2_shadow"]),
+                active_perf_reset=int(row[PortfolioColumns.PERF_RESET.value]),
+                candidate_canonical_perf_reset=int(bool(candidate_canonical_reset_reason_codes)),
+                sod_reset_shadow=int(row[PortfolioColumns.SOD_RESET.value]),
+                account_reset_shadow=int(row.get(PortfolioColumns.ACCOUNT_RESET.value, 0)),
+                previous_sign_zero=int(previous_sign.loc[idx] == 0),
+                initial_sign=int(row["initial_sign_shadow"]),
+                final_sign=int(row[PortfolioColumns.SIGN.value]),
+                active_reset_reason_codes=active_reset_reason_codes,
+                candidate_canonical_reset_reason_codes=candidate_canonical_reset_reason_codes,
+            )
+        )
+
+    return samples
 
 
 def _filter_results_to_reporting_period(df: pd.DataFrame, config: EngineConfig) -> pd.DataFrame:

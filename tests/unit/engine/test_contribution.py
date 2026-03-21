@@ -6,8 +6,10 @@ from app.models.contribution_requests import ContributionRequest, Smoothing
 from common.enums import WeightingScheme
 from engine.config import EngineConfig, PeriodType, PrecisionMode
 from engine.contribution import (
+    _calculate_carino_factor_for_return,
     _calculate_carino_factors,
     _calculate_daily_instrument_contributions,
+    _carino_smoothing_domain_is_valid,
     _prepare_hierarchical_data,
     build_hierarchical_contribution_result,
     calculate_hierarchical_contribution,
@@ -90,6 +92,19 @@ def test_calculate_carino_factors():
     assert k_zero.iloc[0] == 1.0
 
 
+def test_calculate_carino_factor_uses_neutral_fallback_when_log_domain_breaks():
+    """Carino should stop smoothing once the linked gross return factor is non-positive."""
+    assert _calculate_carino_factor_for_return(-1.0) == 1.0
+    assert _calculate_carino_factor_for_return(-1.5) == 1.0
+
+
+def test_carino_smoothing_domain_is_invalid_for_broken_capital_paths():
+    """A daily return of -100% or worse invalidates Carino's logarithmic smoothing domain."""
+    assert _carino_smoothing_domain_is_valid(pd.Series([0.10, -0.25])) is True
+    assert _carino_smoothing_domain_is_valid(pd.Series([0.10, -1.0])) is False
+    assert _carino_smoothing_domain_is_valid(pd.Series([-1.5])) is False
+
+
 def test_calculate_daily_contributions_returns_empty_for_empty_instruments(prepared_data_fixture):
     _, portfolio_df = prepared_data_fixture
     empty_instruments = pd.DataFrame()
@@ -135,6 +150,43 @@ def test_calculate_daily_contributions_zero_portfolio_capital_forces_zero_weight
     assert row["raw_contribution"] == 0.0
     assert row["raw_local_contribution"] == 0.0
     assert row["raw_fx_contribution"] == 0.0
+
+
+def test_calculate_daily_contributions_uses_raw_fallback_when_carino_domain_breaks():
+    """Reset-heavy broken-capital episodes should not emit invalid Carino adjustments."""
+    instruments_df = pd.DataFrame(
+        [
+            {
+                "perf_date": pd.Timestamp("2025-01-01"),
+                "position_id": "P1",
+                "begin_mv": 100.0,
+                "bod_cf": 0.0,
+                "daily_ror": -150.0,
+                "local_ror": -150.0,
+                "fx_ror": 0.0,
+            }
+        ]
+    )
+    portfolio_df = pd.DataFrame(
+        [
+            {
+                "perf_date": pd.Timestamp("2025-01-01"),
+                "begin_mv": 100.0,
+                "bod_cf": 0.0,
+                "daily_ror": -150.0,
+                "nip": 0,
+                "perf_reset": 0,
+            }
+        ]
+    )
+
+    result_df = _calculate_daily_instrument_contributions(
+        instruments_df, portfolio_df, WeightingScheme.BOD, Smoothing(method="CARINO")
+    )
+
+    row = result_df.iloc[0]
+    assert row["raw_contribution"] == pytest.approx(-1.5)
+    assert row["smoothed_contribution"] == pytest.approx(row["raw_contribution"])
 
 
 def test_prepare_hierarchical_data_returns_empty_instruments_when_positions_missing(happy_path_payload):

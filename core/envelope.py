@@ -153,7 +153,19 @@ class PolicyDiagnostics(BaseModel):
 
 class Diagnostics(BaseModel):
     nip_days: int
+    nip_rule_delta_days: int | None = None
     reset_days: int
+    nctrl4_reset_days: int | None = None
+    nctrl4_exclusive_reset_days: int | None = None
+    account_reset_shadow_days: int | None = None
+    sod_reset_shadow_days: int | None = None
+    shadow_reset_overlap_days: int | None = None
+    shadow_only_candidate_reset_days: int | None = None
+    active_reset_with_shadow_days: int | None = None
+    candidate_canonical_reset_days: int | None = None
+    reset_delta_days: int | None = None
+    nip_days_since_last_reset: int | None = None
+    valid_days_since_last_reset: int | None = None
     effective_period_start: date
     notes: List[str] = Field(default_factory=list)
     policy: Optional[PolicyDiagnostics] = None

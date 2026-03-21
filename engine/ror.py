@@ -6,7 +6,12 @@ import numpy as np
 import pandas as pd
 
 from engine.config import EngineConfig
-from engine.rules import calculate_initial_resets, calculate_nctrl4_reset
+from engine.rules import (
+    calculate_account_reset_reason,
+    calculate_initial_resets,
+    calculate_nctrl4_reset,
+    calculate_sod_reset_reason,
+)
 from engine.schema import PortfolioColumns
 
 
@@ -94,7 +99,13 @@ def calculate_daily_ror(df: pd.DataFrame, metric_basis: str, config: EngineConfi
 
 
 def calculate_cumulative_ror(df: pd.DataFrame, config):
-    """Orchestrates all cumulative return calculations, supporting both float and Decimal."""
+    """Calculates cumulative return state and reset-reason shadows.
+
+    The active compounding reset behavior intentionally remains on the existing engine path.
+    Explicit account and start-of-day reset reasons are computed as shadow signals so the
+    methodology can be characterized safely before those reasons are promoted into the
+    active reset state.
+    """
     is_decimal_mode = df[PortfolioColumns.DAILY_ROR.value].dtype == "object"
     one = Decimal(1) if is_decimal_mode else 1.0
     hundred = Decimal(100) if is_decimal_mode else 100.0
@@ -114,11 +125,6 @@ def calculate_cumulative_ror(df: pd.DataFrame, config):
     df[PortfolioColumns.PERF_RESET.value] = initial_resets.astype(int)
 
     _calculate_component_cumulative_returns(df, component_names, temp=False, use_resets=True)
-    _zero_component_cumulative_returns(
-        df,
-        component_names,
-        reset_mask=df[PortfolioColumns.PERF_RESET.value] == 1,
-    )
 
     nctrl4_resets = calculate_nctrl4_reset(
         df,
@@ -127,6 +133,12 @@ def calculate_cumulative_ror(df: pd.DataFrame, config):
     )
     df[PortfolioColumns.NCTRL_4.value] = nctrl4_resets.astype(int)
     df.loc[nctrl4_resets, PortfolioColumns.PERF_RESET.value] = 1
+    df[PortfolioColumns.ACCOUNT_RESET.value] = calculate_account_reset_reason(df)
+    df[PortfolioColumns.SOD_RESET.value] = calculate_sod_reset_reason(
+        df,
+        (df[PortfolioColumns.PERF_RESET.value] == 1) | (df[PortfolioColumns.ACCOUNT_RESET.value] == 1),
+    )
+
     _zero_component_cumulative_returns(
         df,
         component_names,

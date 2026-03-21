@@ -8,12 +8,19 @@ import pytest
 from engine.config import EngineConfig, FeatureFlags, PeriodType
 from engine.rules import (
     _get_decimal_sign,
+    calculate_account_reset_reason,
     calculate_initial_resets,
     calculate_nctrl4_reset,
     calculate_nip,
     calculate_sign,
+    calculate_sod_reset_reason,
 )
 from engine.schema import PortfolioColumns
+
+
+def _build_rule_frame(**columns: list[object]) -> pd.DataFrame:
+    """Builds a small rule-test frame with explicit column names for scenario tests."""
+    return pd.DataFrame(columns)
 
 
 @pytest.fixture
@@ -210,6 +217,101 @@ def test_calculate_nctrl4_reset_triggered(reset_test_df):
         short_cum_col=PortfolioColumns.SHORT_CUM_ROR.value,
     )
     assert resets.iloc[2]
+
+
+def test_calculate_account_reset_reason_uses_input_flag():
+    df = pd.DataFrame({PortfolioColumns.ACCOUNT_PERFORMANCE_RESET: [0, 1, 0]})
+
+    result = calculate_account_reset_reason(df)
+
+    assert result.tolist() == [0, 1, 0]
+
+
+def test_calculate_account_reset_reason_defaults_to_zero_when_flag_is_absent():
+    """Missing upstream reset flags should not manufacture account-level reset reasons."""
+    df = _build_rule_frame(begin_mv=[100.0, 100.0])
+
+    result = calculate_account_reset_reason(df)
+
+    assert result.tolist() == [0, 0]
+
+
+def test_calculate_sod_reset_reason_marks_day_before_next_open_reset(reset_test_df):
+    df = reset_test_df.copy()
+    df[PortfolioColumns.BOD_CF] = [0, 50, 0, 0]
+    base_reset_mask = pd.Series([False, True, False, False], index=df.index)
+
+    result = calculate_sod_reset_reason(df, base_reset_mask)
+
+    assert result.tolist() == [1, 0, 0, 0]
+
+
+def test_calculate_sod_reset_reason_requires_next_day_cash_flow_and_reset():
+    """A start-of-day carry reset only makes sense when the next day has both conditions."""
+    df = _build_rule_frame(
+        **{
+            PortfolioColumns.BOD_CF: [0, 0, 50, 0],
+        }
+    )
+    base_reset_mask = pd.Series([False, False, True, False], index=df.index)
+
+    result = calculate_sod_reset_reason(df, base_reset_mask)
+
+    assert result.tolist() == [0, 1, 0, 0]
+
+
+def test_calculate_sod_reset_reason_does_not_mark_day_when_next_open_has_no_cash_flow():
+    """The prior day should stay continuous when the next reset day opens without new capital."""
+    df = _build_rule_frame(
+        **{
+            PortfolioColumns.BOD_CF: [0, 0, 0],
+        }
+    )
+    base_reset_mask = pd.Series([False, True, False], index=df.index)
+
+    result = calculate_sod_reset_reason(df, base_reset_mask)
+
+    assert result.tolist() == [0, 0, 0]
+
+
+def test_calculate_nctrl4_reset_requires_broken_prior_state_and_cash_flow_boundary():
+    """NCTRL_4 should only be reachable after a broken state and a cash-flow transition."""
+    df = _build_rule_frame(
+        **{
+            PortfolioColumns.BOD_CF: [0, 0, 1000, 0],
+            PortfolioColumns.EOD_CF: [0, 0, 0, 0],
+            PortfolioColumns.LONG_CUM_ROR: [-50, -105, 0, 0],
+            PortfolioColumns.SHORT_CUM_ROR: [0, 0, 0, 0],
+        }
+    )
+
+    result = calculate_nctrl4_reset(
+        df,
+        long_cum_col=PortfolioColumns.LONG_CUM_ROR.value,
+        short_cum_col=PortfolioColumns.SHORT_CUM_ROR.value,
+    )
+
+    assert result.tolist() == [False, False, True, False]
+
+
+def test_calculate_nctrl4_reset_does_not_fire_without_cash_flow_boundary():
+    """A broken prior state alone is not enough to justify a recapitalization boundary reset."""
+    df = _build_rule_frame(
+        **{
+            PortfolioColumns.BOD_CF: [0, 0, 0, 0],
+            PortfolioColumns.EOD_CF: [0, 0, 0, 0],
+            PortfolioColumns.LONG_CUM_ROR: [-50, -105, 0, 0],
+            PortfolioColumns.SHORT_CUM_ROR: [0, 0, 0, 0],
+        }
+    )
+
+    result = calculate_nctrl4_reset(
+        df,
+        long_cum_col=PortfolioColumns.LONG_CUM_ROR.value,
+        short_cum_col=PortfolioColumns.SHORT_CUM_ROR.value,
+    )
+
+    assert result.tolist() == [False, False, False, False]
 
 
 def test_get_decimal_sign_negative_value():

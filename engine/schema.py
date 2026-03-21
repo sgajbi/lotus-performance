@@ -25,6 +25,8 @@ class PortfolioColumns(str, Enum):
     LONG_SHORT = "long_short"
 
     # --- Control Flags ---
+    ACCOUNT_RESET = "account_reset"
+    SOD_RESET = "sod_reset"
     NCTRL_1 = "nctrl_1"
     NCTRL_2 = "nctrl_2"
     NCTRL_3 = "nctrl_3"
@@ -39,3 +41,4 @@ class PortfolioColumns(str, Enum):
 
     # --- Helper/Temporary Fields ---
     EFFECTIVE_PERIOD_START_DATE = "effective_period_start_date"
+    ACCOUNT_PERFORMANCE_RESET = "account_performance_reset"

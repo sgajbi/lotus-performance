@@ -18,8 +18,8 @@ class PositionContribution(BaseModel):
         examples=[1.24],
     )
     average_weight: float = Field(
-        description="Average portfolio weight for the position as a decimal ratio. Example: 0.25 means 25%.",
-        examples=[0.25],
+        description="Average portfolio weight for the position in percentage units. Example: 25.0 means 25%.",
+        examples=[25.0],
     )
     total_return: float = Field(description="Position return in percentage-point output units.", examples=[4.96])
     local_contribution: Optional[float] = Field(
@@ -134,6 +134,41 @@ class ContributionLevel(BaseModel):
     rows: List[ContributionRow] = Field(description="Contribution rows for the level.")
 
 
+class AverageWeightMethodologyStatus(BaseModel):
+    """Summarizes the per-period rollout state for reset-aware average-weight methodology."""
+
+    status: str = Field(
+        description=(
+            "Per-period rollout classification for reset-aware average-weight methodology. "
+            "Examples: NO_MATERIAL_SHADOW, PROMOTION_READY, PROMOTED, BLOCKED, UNDER_REVIEW."
+        ),
+        examples=["PROMOTION_READY"],
+    )
+    max_shadow_delta_bp: int = Field(
+        description="Largest single-position shadow delta for the period, expressed in basis points.",
+        examples=[1353],
+    )
+    is_material_shadow: bool = Field(
+        description="Whether the period contains material reset-aware denominator pressure.",
+        examples=[True],
+    )
+    is_cutover_candidate: bool = Field(
+        description="Whether the period is analytically clean enough for controlled promotion.",
+        examples=[True],
+    )
+    is_promoted: bool = Field(
+        description="Whether the controlled rollout actually promoted reset-aware average-weight output for the period.",
+        examples=[False],
+    )
+    blocker_reason_codes: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Named rollout guardrails that blocked promotion for the period. "
+            "Examples: weight_residual, flow_balance, reset_alignment, timeseries_reconciliation."
+        ),
+    )
+
+
 class SinglePeriodContributionResult(BaseModel):
     """Contains the full set of contribution results for a single, resolved period."""
 
@@ -158,6 +193,10 @@ class SinglePeriodContributionResult(BaseModel):
     by_position_timeseries: Optional[List[PositionContributionSeries]] = Field(
         default=None,
         description="Per-position daily contribution ladders in percentage-point output units.",
+    )
+    average_weight_methodology_status: Optional[AverageWeightMethodologyStatus] = Field(
+        default=None,
+        description="Per-period rollout status for reset-aware average-weight methodology.",
     )
     summary: Optional[ContributionSummary] = Field(
         default=None, description="Summary contribution totals for the period."
