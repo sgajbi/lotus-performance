@@ -24,7 +24,7 @@ from app.services.execution_lifecycle_service import (
 from app.services.execution_registry import execution_registry
 from core.envelope import Audit, Diagnostics, Meta
 from core.periods import resolve_periods
-from engine.config import EngineConfig
+from engine.config import EngineConfig, PrecisionMode
 from engine.contribution import (
     _calculate_daily_instrument_contributions,
     _prepare_hierarchical_data,
@@ -137,7 +137,7 @@ def _calculate_reset_aware_period_portfolio_return(
         report_end_date=period_end_date,
         metric_basis=request.portfolio_data.metric_basis,
         period_type=period_type,
-        precision_mode=request.precision_mode,
+        precision_mode=PrecisionMode(request.precision_mode),
         rounding_precision=request.rounding_precision,
         currency_mode=request.currency_mode,
         report_ccy=request.report_ccy,

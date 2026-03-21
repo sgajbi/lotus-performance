@@ -243,7 +243,7 @@ def _build_execution_window(
     source_request_fingerprint: str | None = None,
     input_count: int | None = None,
 ) -> dict[str, object]:
-    requested_window = {
+    requested_window: dict[str, object] = {
         "benchmark_start_date": str(request.benchmark_start_date),
         "report_end_date": str(request.report_end_date),
         "requested_periods": [analysis.period.value for analysis in request.analyses],

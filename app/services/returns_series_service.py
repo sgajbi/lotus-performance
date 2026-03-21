@@ -478,11 +478,10 @@ async def _calculate_returns_series(
             resolved_stateful_request = await resolve_stateful_returns_series_request(request)
             request = resolved_stateful_request.request
             resolved_benchmark_id = resolved_stateful_request.resolved_benchmark_id
-            resolved_benchmark_return_source = (
-                BenchmarkReturnSource(resolved_stateful_request.resolved_benchmark_return_source)
-                if resolved_stateful_request.resolved_benchmark_return_source is not None
-                else None
-            )
+            if resolved_stateful_request.resolved_benchmark_return_source is not None:
+                resolved_benchmark_return_source = BenchmarkReturnSource(
+                    resolved_stateful_request.resolved_benchmark_return_source
+                )
             input_fingerprint, calculation_hash = generate_canonical_hash(
                 resolved_stateful_request.identity_payload,
                 "returns-series-v1",
