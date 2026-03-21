@@ -70,9 +70,34 @@ All API responses include a shared footer for context, diagnostics, and auditabi
       - `periods`: The resolved period type, start, and end dates for the calculation.
   - **`diagnostics`**: Provides insights into the engine's behavior and any rules that were triggered.
       - `nip_days`: The total number of "No Investment Period" days identified.
+      - `nip_rule_delta_days`: Number of reporting-slice days where the legacy and stricter NIP
+        rules disagree.
       - `reset_days`: The total number of performance reset days applied.
+      - `nctrl4_reset_days`: Number of active reset days specifically attributed to the legacy
+        recapitalization boundary rule.
+      - `nctrl4_exclusive_reset_days`: Number of active reset days where `NCTRL_4` appears without
+        accompanying shadow reset pressure.
+      - `account_reset_shadow_days`: Number of reporting-slice days flagged by the upstream
+        account-reset shadow reason.
+      - `sod_reset_shadow_days`: Number of reporting-slice days flagged by the start-of-day
+        shadow reset reason.
+      - `shadow_reset_overlap_days`: Number of days where both shadow reset reasons appear
+        together.
+      - `shadow_only_candidate_reset_days`: Number of candidate reset days explained only by shadow
+        reasons and not by today's active reset model.
+      - `active_reset_with_shadow_days`: Number of active reset days that also carry shadow reset
+        pressure, signaling possible redundancy or useful future promotion.
+      - `candidate_canonical_reset_days`: Shadow count of reset days under the candidate canonical
+        reset model, used for methodology characterization.
+      - `reset_delta_days`: Number of dates where the candidate canonical reset model differs from
+        the active production reset model.
+      - `nip_days_since_last_reset`: NIP days from the most recent active reset boundary onward.
+      - `valid_days_since_last_reset`: Non-NIP days from the most recent active reset boundary
+        onward.
       - `effective_period_start`: The actual start date used for the calculation after resolving the `period_type`.
       - `notes`: A list of informational messages from the engine (e.g., fallbacks used, assumptions made).
+      - **`samples.methodology_shadows`**: Compact characterization samples that show active versus
+        shadow methodology signals such as NIP variants, reset variants, and sign transitions.
       - **`policy`**: An object detailing actions taken by the Robustness Policies Framework (e.g., number of overrides applied, outliers flagged).
   - **`audit`**: Contains data for reconciliation and validation.
       - `sum_of_parts_vs_total_bp`: For contribution/attribution, the residual between the sum of components and the total, in basis points.

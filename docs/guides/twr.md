@@ -106,6 +106,14 @@ The engine applies:
 - performance reset logic
 - optional data-policy overrides, ignored days, and outlier flagging
 
+Performance resets exist because geometric linking is only meaningful while the portfolio remains a
+coherent invested path. When capital is effectively broken, liquidated, recapitalized, or pushed
+through a collapse boundary, the engine prefers a reset to linking mathematically valid but
+economically misleading returns.
+
+See [performance-reset-scenarios.md](../technical/performance-reset-scenarios.md) for business
+examples that explain when resets should and should not happen.
+
 ### 5. Multi-period slicing
 
 The API resolves each requested analysis in `analyses`, computes the master daily series once, then

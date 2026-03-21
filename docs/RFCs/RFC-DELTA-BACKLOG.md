@@ -239,6 +239,80 @@ Status values:
   - Vocabulary tooling present; migration drift remains in current docs/contracts.
 - Proposed action: Execute phased replacement with compatibility window and strict removal milestone.
 
+### RFC-043-D01
+- Status: `done`
+- Priority: P0
+- Source RFC: `RFC-043`
+- Delta: Add reset-reason characterization and shadow diagnostics for `NCTRL_1..4`, `sod_reset`, `account_performance_reset`, and reset-relative `NIP` day accounting.
+- Why done: Reset/NIP characterization and reset-relative day diagnostics are now implemented and exposed through both performance and contribution surfaces.
+- Evidence:
+  - `engine/rules.py` implements `NCTRL_1..4` and `NIP`, but `PERF_RESET` currently aggregates only `NCTRL_1..4`.
+  - `engine/compute.py` now records `candidate_canonical_reset_days`, `reset_delta_days`, `nip_days_since_last_reset`, and `valid_days_since_last_reset`.
+  - `engine/diagnostics.py`, `core/envelope.py`, `app/models/performance_diagnostics.py`
+  - `tests/unit/engine/test_compute.py`, `tests/unit/models/test_performance_diagnostics_models.py`, `tests/integration/test_performance_api.py`
+- Proposed action: Keep the characterization signals stable and use them as rollout evidence.
+
+### RFC-043-D02
+- Status: `deferred`
+- Priority: P0
+- Source RFC: `RFC-043`
+- Delta: Implement canonical reset aggregation including explicit reset reasons and decide the retained role of `NCTRL_4`.
+- Why deferred: The engine now has explicit reset-reason characterization and overlap diagnostics, but active canonical reset promotion was intentionally not switched on because it materially changed TWR behavior before enough evidence existed.
+- Evidence:
+  - `engine/rules.py` still keeps the production reset path centered on active `NCTRL_*` behavior.
+  - `engine/compute.py` and `app/services/contribution_service.py` now expose `candidate_canonical_reset_days`, `reset_delta_days`, `nctrl4_exclusive_reset_days`, `account_reset_shadow_days`, and `sod_reset_shadow_days`.
+  - `tests/unit/engine/test_compute.py` characterizes candidate-vs-active reset deltas.
+- Proposed action: Revisit only after broader non-prod evidence shows the candidate canonical reset model is economically better and stable across cross-surface tie-out.
+
+### RFC-043-D03
+- Status: `deferred`
+- Priority: P0
+- Source RFC: `RFC-043`
+- Delta: Replace legacy `NIP` behavior with a canonical stricter rule and add reset-relative `valid_days` accounting.
+- Why deferred: Reset-relative `valid_days` accounting is implemented, but the stricter canonical `NIP` rule remains shadow-only pending more evidence before a hard behavioral cutover.
+- Evidence:
+  - `engine/rules.py` still supports the active/shadow `NIP` comparison path.
+  - `engine/compute.py` now emits `nip_rule_delta_days`, `nip_days_since_last_reset`, and `valid_days_since_last_reset`.
+  - `tests/unit/engine/test_compute.py` and `tests/integration/test_performance_api.py` cover those diagnostics.
+- Proposed action: Keep the stricter `NIP` rule shadowed until canonical reset semantics are finalized.
+
+### RFC-043-D04
+- Status: `done`
+- Priority: P1
+- Source RFC: `RFC-043`
+- Delta: Align contribution average-weight methodology with reset-aware and `NIP`-adjusted valid-day semantics.
+- Why done: The reset-aware denominator, promotion telemetry, guarded rollout mode, per-period methodology status, readiness artifact, and decision checker are all implemented.
+- Evidence:
+  - `app/services/contribution_service.py` implements reset-aware shadow denominator logic, blocker classification, and `CONTRIBUTION_RESET_AWARE_AVERAGE_WEIGHT_MODE`.
+  - `app/models/contribution_responses.py` exposes `average_weight_methodology_status`.
+  - `scripts/contribution_rollout_readiness_report.py`, `scripts/generate_seeded_contribution_rollout_artifacts.py`, `scripts/contribution_rollout_decision_check.py`
+  - `tests/unit/app/test_request_path_runtime_settings.py`, `tests/integration/test_contribution_api.py`, `tests/e2e/test_workflow_journeys.py`
+- Proposed action: Continue operational validation and use the readiness artifacts for rollout decisions.
+
+### RFC-043-D05
+- Status: `done`
+- Priority: P1
+- Source RFC: `RFC-043`
+- Delta: Strengthen grouped-return and cross-surface tie-out so contribution, TWR, returns-series, and attribution reconcile through reset boundaries.
+- Why done: The implementation now characterizes grouped-return reset alignment, fixes reset-aware contribution top-line and daily-series tie-out for reset-heavy cases, and adds end-to-end reconciliation coverage for those paths.
+- Evidence:
+  - `app/services/contribution_service.py` now uses reset-aware period portfolio return, residual-adjusted daily series, reset-alignment counters, and timeseries tie-out diagnostics.
+  - `tests/e2e/test_workflow_journeys.py` includes reset-heavy and multi-position reconciliation scenarios.
+  - `tests/integration/test_contribution_api.py` covers API-surface methodology status and promotion behavior.
+- Proposed action: Keep the cross-surface scenarios green and extend them only when new methodology changes are proposed.
+
+### RFC-043-D06
+- Status: `deferred`
+- Priority: P2
+- Source RFC: `RFC-043`
+- Delta: Decide whether to retain current Carino smoothing as an intentional deviation or implement a richer long/short smoothing framework.
+- Why deferred: Carino is now domain-safe and explicitly governed, but the richer long/short smoothing framework has not been adopted and is not required for the current rollout posture.
+- Evidence:
+  - `engine/contribution.py` keeps Carino smoothing with invalid-domain fallback.
+  - `app/services/contribution_service.py` reports `carino_invalid_domain_days`.
+  - `tests/unit/engine/test_contribution.py` and `tests/e2e/test_workflow_journeys.py` cover the fallback behavior.
+- Proposed action: Revisit only if business acceptance requires richer smoothing parity.
+
 ### RFC-040-D01
 - Status: `open`
 - Priority: P2

@@ -96,6 +96,340 @@ Residual handling and event treatment are aligned with the underlying portfolio 
 - reset behavior remains consistent with portfolio-level return logic
 - small residuals are tracked and distributed so the final result reconciles
 
+### 6. Average-weight methodology characterization
+
+The current public `average_weight` output still uses the simple arithmetic mean of `daily_weight`
+across the period slice.
+
+At the same time, the service now computes a reset-aware shadow denominator for characterization:
+
+- pre-final-active-reset history is excluded
+- post-reset no-investment days do not count as valid invested days
+- missing position rows on valid portfolio days are treated as zero weight rather than shrinking the
+  denominator
+
+This shadow method does not change the public response yet. Instead, the response can surface:
+
+- diagnostic notes when the reset-aware shadow differs from the active `average_weight`
+- audit counts for how many position-period rows would change under the reset-aware denominator
+- audit counts for whether position-level reset days and portfolio-level reset days diverge
+
+This keeps contribution behavior stable while we verify the methodology against TWR and the RFC-043
+acceptance criteria.
+
+Current working decision:
+
+- keep the simple mean active for now
+- keep the reset-aware denominator as a shadow methodology
+- use the shadow delta note and audit count to identify where a future cutover would actually
+  change the contribution story
+
+Grouped-return alignment is also still under characterization:
+
+- contribution now records when portfolio reset days and position reset days do not line up
+- that does not change contribution output yet, but it gives us evidence for the later
+  grouped-return alignment slice
+
+### 7. Carino validity guardrail
+
+The current contribution engine still offers `CARINO` smoothing, but it now applies a domain
+guardrail before using the logarithmic adjustment.
+
+Business meaning:
+
+- Carino relies on `log(1 + r)`
+- that is only defined while each linked portfolio gross return factor remains positive
+- once a reset-heavy day reaches `-100%` return or worse, Carino is no longer a valid smoothing
+  model for that episode
+
+Current behavior:
+
+- healthy paths continue to use Carino smoothing
+- broken-capital paths fall back to raw daily contribution arithmetic for the affected slice
+- the response surfaces this through:
+  - `audit.counts.carino_invalid_domain_days`
+  - a diagnostics note explaining that logarithmic smoothing was not valid on those days
+
+The reset-heavy contribution path now has three aligned layers:
+
+- reset-day alignment between portfolio and position engines
+- reset-aware top-line period return taken from the portfolio engine
+- residual-adjusted emitted daily series that sum to the same period total
+
+The response keeps `audit.counts.timeseries_total_delta_periods` so we can detect any future slice
+where emitted daily series drift away from the residual-adjusted period result again.
+
+In richer multi-position reset-heavy stories, the current characterized behavior is:
+
+- top-line contribution still ties to TWR
+- emitted daily series still tie to the residual-adjusted period total
+- reset alignment stays visible through the existing reset-day counters
+- the most important remaining methodology signal tends to move to
+  `average_weight_shadow_delta_positions`, which tells us where the simple active average-weight
+  method and the reset-aware shadow denominator still disagree across positions
+
+The audit block now also quantifies the size of that disagreement:
+
+- `average_weight_shadow_delta_max_bp`: largest single-position shadow delta in basis points
+- `average_weight_shadow_delta_sum_bp`: sum of absolute shadow deltas across impacted positions
+- `average_weight_shadow_noise_periods`: reporting periods where shadow drift exists but stays at
+  `<= 100 bp`
+- `average_weight_shadow_warning_periods`: reporting periods where shadow drift is between `101`
+  and `499 bp`
+- `average_weight_shadow_material_periods`: reporting periods where shadow drift reaches `>= 500 bp`
+- `average_weight_shadow_cutover_candidate_periods`: material-shadow periods where the surrounding
+  bookkeeping signals are otherwise clean enough that future denominator promotion is plausible
+- `average_weight_shadow_promotion_ready_rate_bp`: share of material-shadow periods that are
+  currently promotion-ready, expressed in basis points of the material-shadow population
+- `average_weight_shadow_promoted_periods`: periods where the controlled rollout actually promoted
+  the reset-aware denominator into the emitted `average_weight` output
+- `average_weight_shadow_blocked_periods`: material-shadow periods that stayed shadow-only because
+  one or more rollout guardrails were not yet clean
+- `average_weight_shadow_blocked_by_weight_residual_periods`: material-shadow periods that stayed
+  shadow-only because emitted position weights did not sum cleanly to 100%
+- `average_weight_shadow_blocked_by_flow_balance_periods`: material-shadow periods that stayed
+  shadow-only because the scoped position set was not flow-neutral
+- `average_weight_shadow_blocked_by_reset_alignment_periods`: material-shadow periods that stayed
+  shadow-only because portfolio and position reset boundaries were not aligned
+- `average_weight_shadow_blocked_by_timeseries_delta_periods`: material-shadow periods that stayed
+  shadow-only because emitted daily series still drifted from the residual-adjusted period total
+- `average_weight_sum_residual_bp`: residual basis-point gap between the emitted position average
+  weights and a full 100% total
+- `position_flow_residual_days`: count of dates where summed position-level cash flows fail to net
+  to zero
+- `position_flow_residual_max_bp`: largest single-day position-flow residual measured against the
+  portfolio capital base for that date
+- `position_flow_residual_sum_bp`: sum of those daily flow-residual magnitudes across the reporting
+  slice
+
+Each resolved period now also includes a compact response block at:
+
+- `results_by_period.<period>.average_weight_methodology_status`
+
+This per-period block summarizes:
+
+- `status`: `NO_MATERIAL_SHADOW`, `PROMOTION_READY`, `PROMOTED`, `BLOCKED`, or `UNDER_REVIEW`
+- `max_shadow_delta_bp`
+- `is_material_shadow`
+- `is_cutover_candidate`
+- `is_promoted`
+- `blocker_reason_codes`
+
+This is the fastest way to understand the rollout state for one specific period without rebuilding
+it from aggregate audit counters.
+
+That helps separate:
+
+- small methodology noise
+- from cases where the active average-weight output is materially understating the economics of the
+  reset-heavy episode
+
+Suggested interpretation for average-weight shadow pressure:
+
+- `average_weight_shadow_delta_max_bp <= 100`: keep as characterization noise unless it repeats in
+  an important workflow
+- `average_weight_shadow_delta_max_bp` between `101` and `499`: treat as meaningful methodology
+  pressure that still needs more scenario evidence before cutover
+- `average_weight_shadow_delta_max_bp >= 500`: treat as material evidence that the active
+  `average_weight` output may be under-describing the economic story after resets or NIP days
+- large `average_weight_shadow_delta_sum_bp` with a smaller single-position max usually means the
+  active methodology is drifting across several positions, not just one obvious outlier
+- when `average_weight_shadow_cutover_candidate_periods > 0`, the response now also emits a plain
+  diagnostics note calling those periods out as strong candidates for a future denominator cutover
+  study
+- when one of the `average_weight_shadow_blocked_by_*_periods` counters is non-zero, the service is
+  saying the shadow delta may be real but the slice is still not clean enough for rollout because
+  another bookkeeping invariant is failing
+- `average_weight_shadow_blocked_periods` is the union count for those blocked slices; the
+  per-reason `average_weight_shadow_blocked_by_*_periods` counters explain which guardrails failed
+- `average_weight_shadow_promotion_ready_rate_bp` is the compact rollout summary: `10000` means
+  every observed material-shadow period is currently promotion-ready, while `0` means none of them
+  are
+- a controlled runtime rollout mode now exists for future adoption work:
+  `CONTRIBUTION_RESET_AWARE_AVERAGE_WEIGHT_MODE=CANDIDATE_PERIODS`
+- the default remains `OFF`, so current clients keep the existing active mean-weight output unless
+  that rollout mode is deliberately enabled
+
+Current rollout reading:
+
+- `average_weight_shadow_cutover_candidate_periods > 0` and `average_weight_shadow_blocked_periods = 0`
+  means the slice is analytically clean enough for controlled promotion
+- `average_weight_shadow_blocked_periods > 0` means keep the slice shadow-only even if the shadow
+  delta is material
+- `average_weight_shadow_promoted_periods > 0` means the runtime rollout mode actually changed the
+  emitted `average_weight` output for those clean candidate periods
+- blocker reasons should be read as rollout stop-signs, not as optional warnings:
+  weight residual and flow-balance blockers are strongest because they undermine the integrity of
+  the economic story for the current scoped slice, while reset-alignment and timeseries-delta
+  blockers mean the bookkeeping still is not clean enough to treat the denominator change as
+  isolated
+
+Rollout-status examples:
+
+- Fully ready material traffic:
+  - `average_weight_shadow_material_periods = 3`
+  - `average_weight_shadow_cutover_candidate_periods = 3`
+  - `average_weight_shadow_blocked_periods = 0`
+  - `average_weight_shadow_promotion_ready_rate_bp = 10000`
+  - reading: every observed material-shadow period is analytically clean enough for controlled
+    promotion
+
+- Fully blocked material traffic:
+  - `average_weight_shadow_material_periods = 2`
+  - `average_weight_shadow_cutover_candidate_periods = 0`
+  - `average_weight_shadow_blocked_periods = 2`
+  - `average_weight_shadow_blocked_by_flow_balance_periods = 2`
+  - `average_weight_shadow_promotion_ready_rate_bp = 0`
+  - reading: denominator pressure may be real, but none of the material slices are safe to promote
+    until we understand or fence the non-flow-neutral scoped slices
+
+- Mixed traffic:
+  - `average_weight_shadow_material_periods = 5`
+  - `average_weight_shadow_cutover_candidate_periods = 2`
+  - `average_weight_shadow_blocked_periods = 3`
+  - `average_weight_shadow_blocked_by_reset_alignment_periods = 2`
+  - `average_weight_shadow_blocked_by_timeseries_delta_periods = 1`
+  - `average_weight_shadow_promotion_ready_rate_bp = 4000`
+  - reading: some material slices are rollout-ready, but the blocker mix is still too large to
+    justify a broader default cutover
+
+Rollout-readiness report artifact:
+
+- `python scripts/contribution_rollout_readiness_report.py <response-a.json> <response-b.json>`
+- default output:
+  - `artifacts/contribution-rollout-readiness/latest.json`
+
+The report aggregates per-period `average_weight_methodology_status` blocks across saved
+contribution response payloads and emits:
+
+- total material periods
+- promotion-ready periods
+- promoted periods
+- blocked periods
+- blocked economic-integrity periods
+- blocked methodology-guardrail periods
+- blocker-reason counts
+- blocker-category counts
+- `promotion_ready_rate_bp`
+- a top-level recommendation such as:
+  - `READY_FOR_CONTROLLED_ROLLOUT`
+  - `HOLD_BLOCKERS_PRESENT`
+  - `MIXED_READYNESS_KEEP_CANDIDATE_ONLY`
+- `KEEP_SHADOW_ONLY_GATHER_MORE_EVIDENCE`
+
+Seeded artifact generator:
+
+- `python scripts/generate_seeded_contribution_rollout_artifacts.py`
+- default output:
+  - `artifacts/contribution-rollout-readiness/seeded/`
+
+This seeded bundle currently writes:
+
+- `no_material_shadow.json`
+- `ready_candidate_shadow_only.json`
+- `promoted_candidate.json`
+- `blocked_flow_balance.json`
+- `blocked_reset_alignment.json`
+- `latest.json`
+
+It is meant as a deterministic local validation pack for rollout review, not as production traffic
+evidence.
+
+Rollout decision checker:
+
+- `python scripts/contribution_rollout_decision_check.py --report artifacts/contribution-rollout-readiness/seeded/latest.json`
+
+Current decision policy:
+
+- return `READY` only when:
+  - material periods exist
+  - no `weight_residual` or `flow_balance` blockers are present
+  - no blocked material periods remain
+  - `promotion_ready_rate_bp` meets the configured threshold
+- otherwise return `HOLD`
+
+The decision checker now also classifies the hold reason:
+
+- `insufficient_evidence`
+- `economic_integrity`
+- `methodology_guardrail`
+- `blocked_periods`
+- `below_threshold`
+
+When more than one blocker family is present, the checker now also emits
+`secondary_hold_categories` so rollout review can see the full stack without losing the primary
+decision reason.
+
+The checker also emits `recommended_next_action` so the decision artifact can be used directly in
+rollout review without translating categories into follow-up steps by hand.
+
+The checker is a governance tool. It does not change engine behavior; it only turns the readiness
+artifact into an explicit rollout decision.
+
+Current practical rollout posture:
+
+- reset-aware `average_weight` infrastructure is implemented
+- controlled promotion for clean candidate periods is implemented
+- seeded rollout governance currently still returns `HOLD`
+- broader rollout therefore remains a policy decision pending more non-prod evidence, not a missing
+  code-path problem
+
+Useful reading shortcut:
+
+- `blocked_economic_periods` tells us how many blocked slices are stopped by weight/flow integrity
+  problems
+- `blocked_methodology_periods` tells us how many blocked slices are stopped by reset-alignment or
+  timeseries-reconciliation guardrails
+- that split makes it easier to see whether rollout is mostly waiting on economic integrity or on
+  methodology cleanup
+
+Current expectation:
+
+- emitted position average weights should sum to 100%
+- a non-zero `average_weight_sum_residual_bp` should be very small and treated as residual drift to
+  explain, not as a normal state
+- position-level internal cash flows should net to zero across the set of positions for a period;
+  the stock leg and the cash leg of an internal rebalance should cancel each other across positions.
+  If they do not, the current scoped slice is carrying net flow pressure rather than a fully
+  self-cancelling internal reallocation story, and it increases the risk that summed position
+  contribution will stop telling the same story as portfolio return
+
+Example:
+
+- if one position has `bod_cf = -100` and another has `bod_cf = +100` on the same date, that is a
+  balanced internal reallocation: the stock leg and cash leg cancel inside the visible scope, so
+  `position_flow_residual_days` should stay at `0`
+- if the same book reports `-100` on one position and only `+90` on the offsetting leg, the
+  residual `10` means the visible scope is not fully flow-neutral on that date, so it should be
+  surfaced rather than silently treated as normal
+
+Suggested interpretation:
+
+- `position_flow_residual_max_bp <= 1`: treat as rounding dust unless it persists across many dates
+- `position_flow_residual_max_bp` between `2` and `10`: interpret as a mildly non-flow-neutral
+  scoped slice and review whether the offsetting leg sits outside the requested grouping
+- `position_flow_residual_max_bp > 10`: treat as a materially non-flow-neutral scoped slice
+- large `position_flow_residual_sum_bp` with small single-day maxima usually means repeated small
+  net-flow pressure rather than one-off noise
+
+Business reading:
+
+- when the residual is tiny, the stock leg and cash leg are still effectively cancelling and
+  contribution tie-out risk is low
+- when the residual is persistent or material, the cancellation has broken down and the position set
+  is no longer behaving like a clean internal reallocation story within the visible scope
+- once that happens, summed position contribution can still look numerically plausible while drifting
+  away from the portfolio-return story we want the engine to preserve
+
+An especially useful asymmetry case is when one position causes most of the break and recapitalized
+recovery while another position mostly rides through the episode:
+
+- the current engine still keeps period and daily tie-out
+- but the active `average_weight` can under-describe which position really carried the broken-capital
+  episode economics
+- that is why `average_weight_shadow_delta_positions` remains a first-class methodology signal even
+  after the reset-heavy tie-out slices are green
+
 ## Current response shape
 
 The response contains:

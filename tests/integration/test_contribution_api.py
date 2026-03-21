@@ -58,6 +58,48 @@ def test_contribution_endpoint_happy_path_and_envelope(client, happy_path_payloa
     assert "ITD" in response_data["results_by_period"]
 
 
+def test_contribution_endpoint_reports_zero_grouped_return_alignment_drift_for_simple_aligned_case(client):
+    payload = {
+        "portfolio_id": "CONTRIB_ALIGNED_RESETS",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1030.2},
+            ],
+        },
+        "positions_data": [
+            {
+                "position_id": "Stock_A",
+                "valuation_points": [
+                    {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                    {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1030.2},
+                ],
+            }
+        ],
+    }
+
+    response = client.post("/performance/contribution", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    period_status = body["results_by_period"]["ITD"]["average_weight_methodology_status"]
+    assert period_status["status"] == "NO_MATERIAL_SHADOW"
+    assert period_status["is_material_shadow"] is False
+    assert period_status["blocker_reason_codes"] == []
+    assert body["audit"]["counts"]["portfolio_reset_days"] == 0
+    assert body["audit"]["counts"]["position_reset_days"] == 0
+    assert body["audit"]["counts"]["portfolio_reset_without_position_reset_days"] == 0
+    assert body["audit"]["counts"]["position_reset_without_portfolio_reset_days"] == 0
+    assert not any(
+        "grouped-return alignment remains under characterization" in note
+        for note in body["diagnostics"]["notes"]
+    )
+
+
 def test_contribution_endpoint_multi_period(client):
     """Tests a multi-period request for MTD and YTD contribution."""
     payload = {
@@ -319,6 +361,221 @@ def test_contribution_endpoint_skips_empty_period_slice(client):
 
     assert response.status_code == 200
     assert response.json()["results_by_period"] == {}
+
+
+def test_contribution_endpoint_emits_grouped_return_alignment_note_for_misaligned_reset_days(client):
+    payload = {
+        "portfolio_id": "MISALIGNED_GROUPED_RETURNS",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-03",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1020},
+                {"perf_date": "2025-01-03", "begin_mv": 1020, "end_mv": 1030},
+            ],
+        },
+        "positions_data": [
+            {
+                "position_id": "Stock_A",
+                "valuation_points": [
+                    {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                    {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1020},
+                    {"perf_date": "2025-01-03", "begin_mv": 1020, "end_mv": 1030},
+                ],
+            }
+        ],
+    }
+    from app.services import contribution_service
+
+    original_prepare = contribution_service._prepare_hierarchical_data
+    original_daily = contribution_service._calculate_daily_instrument_contributions
+
+    def _mock_prepare(_request):
+        instruments_df = pd.DataFrame(
+            {
+                "position_id": ["Stock_A", "Stock_A", "Stock_A"],
+                "perf_date": [
+                    pd.Timestamp("2025-01-01").date(),
+                    pd.Timestamp("2025-01-02").date(),
+                    pd.Timestamp("2025-01-03").date(),
+                ],
+                "perf_reset": [0, 0, 1],
+            }
+        )
+        portfolio_df = pd.DataFrame(
+            {
+                "perf_date": [
+                    pd.Timestamp("2025-01-01").date(),
+                    pd.Timestamp("2025-01-02").date(),
+                    pd.Timestamp("2025-01-03").date(),
+                ],
+                "daily_ror": [1.0, 1.0, 1.0],
+                "perf_reset": [0, 1, 0],
+                "nip": [0, 0, 0],
+                "nctrl_4": [0, 0, 0],
+                "account_reset": [0, 0, 0],
+                "sod_reset": [0, 0, 0],
+                "nip_rule_v1_shadow": [0, 0, 0],
+                "nip_rule_v2_shadow": [0, 0, 0],
+            }
+        )
+        return instruments_df, portfolio_df
+
+    def _mock_daily(_instruments_df, _portfolio_df, _weighting_scheme, _smoothing):
+        return pd.DataFrame(
+            {
+                "perf_date": [
+                    pd.Timestamp("2025-01-01").date(),
+                    pd.Timestamp("2025-01-02").date(),
+                    pd.Timestamp("2025-01-03").date(),
+                ],
+                "position_id": ["Stock_A", "Stock_A", "Stock_A"],
+                "smoothed_contribution": [0.01, 0.01, 0.01],
+                "smoothed_local_contribution": [0.01, 0.01, 0.01],
+                "daily_weight": [0.5, 0.5, 0.5],
+                "perf_reset": [0, 0, 1],
+            }
+        )
+
+    contribution_service._prepare_hierarchical_data = _mock_prepare  # type: ignore[assignment]
+    contribution_service._calculate_daily_instrument_contributions = _mock_daily  # type: ignore[assignment]
+    try:
+        response = client.post("/performance/contribution", json=payload)
+    finally:
+        contribution_service._prepare_hierarchical_data = original_prepare  # type: ignore[assignment]
+        contribution_service._calculate_daily_instrument_contributions = original_daily  # type: ignore[assignment]
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["audit"]["counts"]["portfolio_reset_days"] == 1
+    assert body["audit"]["counts"]["position_reset_days"] == 1
+    assert body["audit"]["counts"]["portfolio_reset_without_position_reset_days"] == 1
+    assert body["audit"]["counts"]["position_reset_without_portfolio_reset_days"] == 1
+    assert any(
+        "grouped-return alignment remains under characterization" in note
+        for note in body["diagnostics"]["notes"]
+    )
+
+
+def test_contribution_endpoint_promotes_reset_aware_average_weight_for_clean_candidate_periods(
+    client,
+):
+    """Proves the runtime rollout mode changes emitted average weights at the API surface."""
+    payload = {
+        "portfolio_id": "RESET_AWARE_WEIGHT_PROMOTION",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-03",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1020},
+                {"perf_date": "2025-01-03", "begin_mv": 1020, "end_mv": 1030},
+            ],
+        },
+        "positions_data": [
+            {"position_id": "A", "valuation_points": []},
+            {"position_id": "B", "valuation_points": []},
+        ],
+    }
+    from app.services import contribution_service
+
+    original_prepare = contribution_service._prepare_hierarchical_data
+    original_daily = contribution_service._calculate_daily_instrument_contributions
+
+    def _mock_prepare(_request):
+        instruments_df = pd.DataFrame(
+            {
+                "position_id": ["A", "A", "A", "B", "B", "B"],
+                "perf_date": [
+                    pd.Timestamp("2025-01-01").date(),
+                    pd.Timestamp("2025-01-02").date(),
+                    pd.Timestamp("2025-01-03").date(),
+                    pd.Timestamp("2025-01-01").date(),
+                    pd.Timestamp("2025-01-02").date(),
+                    pd.Timestamp("2025-01-03").date(),
+                ],
+                "perf_reset": [0, 1, 0, 0, 1, 0],
+                "bod_cf": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                "eod_cf": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            }
+        )
+        portfolio_df = pd.DataFrame(
+            {
+                "perf_date": [
+                    pd.Timestamp("2025-01-01").date(),
+                    pd.Timestamp("2025-01-02").date(),
+                    pd.Timestamp("2025-01-03").date(),
+                ],
+                "begin_mv": [1000.0, 1005.0, 1010.0],
+                "bod_cf": [0.0, 0.0, 0.0],
+                "daily_ror": [1.0, 1.0, 1.0],
+                "perf_reset": [0, 1, 0],
+                "nip": [0, 0, 0],
+                "nctrl_4": [0, 0, 0],
+                "account_reset": [0, 0, 0],
+                "sod_reset": [0, 0, 0],
+                "nip_rule_v1_shadow": [0, 0, 0],
+                "nip_rule_v2_shadow": [0, 0, 0],
+            }
+        )
+        return instruments_df, portfolio_df
+
+    def _mock_daily(_instruments_df, _portfolio_df, _weighting_scheme, _smoothing):
+        return pd.DataFrame(
+            {
+                "perf_date": [
+                    pd.Timestamp("2025-01-01").date(),
+                    pd.Timestamp("2025-01-02").date(),
+                    pd.Timestamp("2025-01-03").date(),
+                    pd.Timestamp("2025-01-01").date(),
+                    pd.Timestamp("2025-01-02").date(),
+                    pd.Timestamp("2025-01-03").date(),
+                ],
+                "position_id": ["A", "A", "A", "B", "B", "B"],
+                "smoothed_contribution": [0.01, 0.01, 0.01, 0.02, 0.02, 0.02],
+                "smoothed_local_contribution": [0.01, 0.01, 0.01, 0.02, 0.02, 0.02],
+                "daily_weight": [0.10, 0.95, 0.95, 0.90, 0.05, 0.05],
+                "perf_reset": [0, 1, 0, 0, 1, 0],
+            }
+        )
+
+    original_mode = settings.CONTRIBUTION_RESET_AWARE_AVERAGE_WEIGHT_MODE
+    settings.CONTRIBUTION_RESET_AWARE_AVERAGE_WEIGHT_MODE = "CANDIDATE_PERIODS"
+    contribution_service._prepare_hierarchical_data = _mock_prepare  # type: ignore[assignment]
+    contribution_service._calculate_daily_instrument_contributions = _mock_daily  # type: ignore[assignment]
+    try:
+        response = client.post("/performance/contribution", json=payload)
+    finally:
+        contribution_service._prepare_hierarchical_data = original_prepare  # type: ignore[assignment]
+        contribution_service._calculate_daily_instrument_contributions = original_daily  # type: ignore[assignment]
+        settings.CONTRIBUTION_RESET_AWARE_AVERAGE_WEIGHT_MODE = original_mode
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["audit"]["counts"]["average_weight_shadow_cutover_candidate_periods"] == 1
+    assert body["audit"]["counts"]["average_weight_shadow_promoted_periods"] == 1
+    period_status = body["results_by_period"]["ITD"]["average_weight_methodology_status"]
+    assert period_status["status"] == "PROMOTED"
+    assert period_status["is_material_shadow"] is True
+    assert period_status["is_cutover_candidate"] is True
+    assert period_status["is_promoted"] is True
+    assert period_status["blocker_reason_codes"] == []
+    position_contributions = body["results_by_period"]["ITD"]["position_contributions"]
+    assert position_contributions[0]["average_weight"] == pytest.approx(95.0)
+    assert position_contributions[1]["average_weight"] == pytest.approx(5.0)
+    assert any(
+        "promotion was applied" in note
+        for note in body["diagnostics"]["notes"]
+    )
+    assert any(
+        "strong candidates for a future denominator cutover study" in note
+        for note in body["diagnostics"]["notes"]
+    )
 
 
 def test_contribution_async_result_retrieval(client, happy_path_payload):

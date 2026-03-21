@@ -12,6 +12,11 @@ from engine.exceptions import EngineCalculationError, InvalidEngineInputError
 from engine.schema import PortfolioColumns
 
 
+def _build_engine_input(*rows: dict[str, object]) -> pd.DataFrame:
+    """Builds a compact engine input frame for portfolio-story characterization tests."""
+    return pd.DataFrame(rows)
+
+
 def test_run_calculations_decimal_strict_mode():
     """
     Tests that when PrecisionMode.DECIMAL_STRICT is used, the calculations
@@ -181,6 +186,8 @@ def test_run_calculations_emits_all_reset_reason_codes(mocker):
 
     def _mock_cumulative(df_input, _config):  # noqa: ARG001
         df_input[PortfolioColumns.PERF_RESET.value] = 1
+        df_input[PortfolioColumns.ACCOUNT_RESET.value] = 1
+        df_input[PortfolioColumns.SOD_RESET.value] = 1
         df_input[PortfolioColumns.NCTRL_1.value] = 0
         df_input[PortfolioColumns.NCTRL_2.value] = 1
         df_input[PortfolioColumns.NCTRL_3.value] = 1
@@ -195,3 +202,392 @@ def test_run_calculations_emits_all_reset_reason_codes(mocker):
     assert "NCTRL_2" in diagnostics.resets[0].reason
     assert "NCTRL_3" in diagnostics.resets[0].reason
     assert "NCTRL_4" in diagnostics.resets[0].reason
+
+
+def test_run_calculations_emits_methodology_shadow_diagnostics():
+    config = EngineConfig(
+        performance_start_date=date(2025, 1, 1),
+        report_end_date=date(2025, 1, 3),
+        metric_basis="NET",
+        period_type=PeriodType.YTD,
+    )
+    df = pd.DataFrame(
+        {
+            PortfolioColumns.PERF_DATE.value: [date(2025, 1, 1), date(2025, 1, 2), date(2025, 1, 3)],
+            PortfolioColumns.BEGIN_MV.value: [0.0, 100.0, 0.0],
+            PortfolioColumns.BOD_CF.value: [0.0, 0.0, 1.0],
+            PortfolioColumns.EOD_CF.value: [0.0, 0.0, -1.0],
+            PortfolioColumns.MGMT_FEES.value: [0.0, 0.0, 0.0],
+            PortfolioColumns.END_MV.value: [0.0, 110.0, 0.0],
+            PortfolioColumns.ACCOUNT_PERFORMANCE_RESET.value: [0.0, 1.0, 0.0],
+        }
+    )
+
+    _, diagnostics = run_calculations(df, config)
+
+    assert diagnostics.nip_rule_delta_days == 1
+    assert diagnostics.nip_days_since_last_reset >= 0
+    assert diagnostics.valid_days_since_last_reset >= 0
+    assert diagnostics.samples.methodology_shadows
+    assert any(sample.account_reset_shadow == 1 for sample in diagnostics.samples.methodology_shadows)
+    assert any(sample.nip_rule_v1 != sample.nip_rule_v2 for sample in diagnostics.samples.methodology_shadows)
+
+
+def test_run_calculations_emits_account_and_sod_reset_shadows_without_changing_active_perf_reset():
+    config = EngineConfig(
+        performance_start_date=date(2025, 1, 1),
+        report_end_date=date(2025, 1, 3),
+        metric_basis="NET",
+        period_type=PeriodType.YTD,
+    )
+    df = pd.DataFrame(
+        {
+            PortfolioColumns.PERF_DATE.value: [date(2025, 1, 1), date(2025, 1, 2), date(2025, 1, 3)],
+            PortfolioColumns.BEGIN_MV.value: [100.0, 100.0, 100.0],
+            PortfolioColumns.BOD_CF.value: [0.0, 10.0, 25.0],
+            PortfolioColumns.EOD_CF.value: [0.0, 0.0, 0.0],
+            PortfolioColumns.MGMT_FEES.value: [0.0, 0.0, 0.0],
+            PortfolioColumns.END_MV.value: [100.0, 100.0, 100.0],
+            PortfolioColumns.ACCOUNT_PERFORMANCE_RESET.value: [0.0, 0.0, 1.0],
+        }
+    )
+
+    result_df, diagnostics = run_calculations(df, config)
+
+    assert result_df[PortfolioColumns.PERF_RESET.value].iloc[2] == 0
+    assert result_df[PortfolioColumns.ACCOUNT_RESET.value].iloc[2] == 1
+    assert result_df[PortfolioColumns.SOD_RESET.value].iloc[1] == 1
+    assert diagnostics.nctrl4_reset_days == 0
+    assert diagnostics.nctrl4_exclusive_reset_days == 0
+    assert diagnostics.account_reset_shadow_days == 1
+    assert diagnostics.sod_reset_shadow_days == 2
+    assert diagnostics.shadow_reset_overlap_days == 0
+    assert diagnostics.shadow_only_candidate_reset_days == 3
+    assert diagnostics.active_reset_with_shadow_days == 0
+    assert diagnostics.candidate_canonical_reset_days == 3
+    assert diagnostics.reset_delta_days == 3
+    assert any(sample.account_reset_shadow == 1 for sample in diagnostics.samples.methodology_shadows)
+    assert any(sample.sod_reset_shadow == 1 for sample in diagnostics.samples.methodology_shadows)
+    assert any(
+        sample.candidate_canonical_perf_reset == 1 and sample.active_perf_reset == 0
+        for sample in diagnostics.samples.methodology_shadows
+    )
+
+
+def test_run_calculations_treats_ordinary_subscription_as_continuous_compounding():
+    """Ordinary subscriptions into a healthy portfolio should not break geometric linking."""
+    config = EngineConfig(
+        performance_start_date=date(2025, 1, 1),
+        report_end_date=date(2025, 1, 3),
+        metric_basis="NET",
+        period_type=PeriodType.YTD,
+    )
+    df = _build_engine_input(
+        {
+            PortfolioColumns.PERF_DATE.value: date(2025, 1, 1),
+            PortfolioColumns.BEGIN_MV.value: 100.0,
+            PortfolioColumns.BOD_CF.value: 0.0,
+            PortfolioColumns.EOD_CF.value: 0.0,
+            PortfolioColumns.MGMT_FEES.value: 0.0,
+            PortfolioColumns.END_MV.value: 101.0,
+        },
+        {
+            PortfolioColumns.PERF_DATE.value: date(2025, 1, 2),
+            PortfolioColumns.BEGIN_MV.value: 101.0,
+            PortfolioColumns.BOD_CF.value: 25.0,
+            PortfolioColumns.EOD_CF.value: 0.0,
+            PortfolioColumns.MGMT_FEES.value: 0.0,
+            PortfolioColumns.END_MV.value: 127.26,
+        },
+        {
+            PortfolioColumns.PERF_DATE.value: date(2025, 1, 3),
+            PortfolioColumns.BEGIN_MV.value: 127.26,
+            PortfolioColumns.BOD_CF.value: 0.0,
+            PortfolioColumns.EOD_CF.value: 0.0,
+            PortfolioColumns.MGMT_FEES.value: 0.0,
+            PortfolioColumns.END_MV.value: 128.5326,
+        },
+    )
+
+    result_df, diagnostics = run_calculations(df, config)
+
+    assert int(result_df[PortfolioColumns.PERF_RESET.value].sum()) == 0
+    assert diagnostics.reset_days == 0
+    assert diagnostics.candidate_canonical_reset_days == 0
+    assert diagnostics.reset_delta_days == 0
+    assert all(sample.active_perf_reset == 0 for sample in diagnostics.samples.methodology_shadows)
+    assert all(sample.candidate_canonical_perf_reset == 0 for sample in diagnostics.samples.methodology_shadows)
+
+
+def test_run_calculations_treats_fee_only_day_as_continuous_compounding():
+    """Management fees reduce return but should not create a new performance episode by themselves."""
+    config = EngineConfig(
+        performance_start_date=date(2025, 1, 1),
+        report_end_date=date(2025, 1, 3),
+        metric_basis="NET",
+        period_type=PeriodType.YTD,
+    )
+    df = _build_engine_input(
+        {
+            PortfolioColumns.PERF_DATE.value: date(2025, 1, 1),
+            PortfolioColumns.BEGIN_MV.value: 1000.0,
+            PortfolioColumns.BOD_CF.value: 0.0,
+            PortfolioColumns.EOD_CF.value: 0.0,
+            PortfolioColumns.MGMT_FEES.value: 0.0,
+            PortfolioColumns.END_MV.value: 1010.0,
+        },
+        {
+            PortfolioColumns.PERF_DATE.value: date(2025, 1, 2),
+            PortfolioColumns.BEGIN_MV.value: 1010.0,
+            PortfolioColumns.BOD_CF.value: 0.0,
+            PortfolioColumns.EOD_CF.value: 0.0,
+            PortfolioColumns.MGMT_FEES.value: -5.0,
+            PortfolioColumns.END_MV.value: 1015.0,
+        },
+        {
+            PortfolioColumns.PERF_DATE.value: date(2025, 1, 3),
+            PortfolioColumns.BEGIN_MV.value: 1015.0,
+            PortfolioColumns.BOD_CF.value: 0.0,
+            PortfolioColumns.EOD_CF.value: 0.0,
+            PortfolioColumns.MGMT_FEES.value: 0.0,
+            PortfolioColumns.END_MV.value: 1020.0,
+        },
+    )
+
+    result_df, diagnostics = run_calculations(df, config)
+
+    assert int(result_df[PortfolioColumns.PERF_RESET.value].sum()) == 0
+    assert diagnostics.reset_days == 0
+    assert diagnostics.candidate_canonical_reset_days == 0
+    assert diagnostics.reset_delta_days == 0
+
+
+def test_run_calculations_counts_legacy_offsetting_cashflow_days_as_nip_rule_deltas_only():
+    """Legacy offsetting-flow NIP cases should stay visible while the canonical NIP rule is undecided."""
+    config = EngineConfig(
+        performance_start_date=date(2025, 1, 1),
+        report_end_date=date(2025, 1, 2),
+        metric_basis="NET",
+        period_type=PeriodType.YTD,
+    )
+    df = _build_engine_input(
+        {
+            PortfolioColumns.PERF_DATE.value: date(2025, 1, 1),
+            PortfolioColumns.BEGIN_MV.value: 0.0,
+            PortfolioColumns.BOD_CF.value: 1.0,
+            PortfolioColumns.EOD_CF.value: -1.0,
+            PortfolioColumns.MGMT_FEES.value: 0.0,
+            PortfolioColumns.END_MV.value: 0.0,
+        },
+        {
+            PortfolioColumns.PERF_DATE.value: date(2025, 1, 2),
+            PortfolioColumns.BEGIN_MV.value: 100.0,
+            PortfolioColumns.BOD_CF.value: 0.0,
+            PortfolioColumns.EOD_CF.value: 0.0,
+            PortfolioColumns.MGMT_FEES.value: 0.0,
+            PortfolioColumns.END_MV.value: 101.0,
+        },
+    )
+
+    result_df, diagnostics = run_calculations(df, config)
+
+    assert diagnostics.nip_rule_delta_days == 1
+    assert result_df[PortfolioColumns.NIP.value].tolist() == [1, 0]
+    assert diagnostics.samples.methodology_shadows[0].nip_rule_v1 == 1
+    assert diagnostics.samples.methodology_shadows[0].nip_rule_v2 == 0
+
+
+def test_run_calculations_counts_reset_relative_valid_days_from_last_active_reset_only():
+    """Reset-relative day counts should ignore pre-reset history when a new performance episode begins."""
+    config = EngineConfig(
+        performance_start_date=date(2025, 1, 1),
+        report_end_date=date(2025, 1, 4),
+        metric_basis="GROSS",
+        period_type=PeriodType.ITD,
+    )
+    df = _build_engine_input(
+        {
+            PortfolioColumns.PERF_DATE.value: date(2025, 1, 1),
+            PortfolioColumns.BEGIN_MV.value: 1000.0,
+            PortfolioColumns.BOD_CF.value: 0.0,
+            PortfolioColumns.EOD_CF.value: 0.0,
+            PortfolioColumns.MGMT_FEES.value: 0.0,
+            PortfolioColumns.END_MV.value: 500.0,
+        },
+        {
+            PortfolioColumns.PERF_DATE.value: date(2025, 1, 2),
+            PortfolioColumns.BEGIN_MV.value: 500.0,
+            PortfolioColumns.BOD_CF.value: 0.0,
+            PortfolioColumns.EOD_CF.value: 0.0,
+            PortfolioColumns.MGMT_FEES.value: 0.0,
+            PortfolioColumns.END_MV.value: -50.0,
+        },
+        {
+            PortfolioColumns.PERF_DATE.value: date(2025, 1, 3),
+            PortfolioColumns.BEGIN_MV.value: -50.0,
+            PortfolioColumns.BOD_CF.value: 1000.0,
+            PortfolioColumns.EOD_CF.value: 0.0,
+            PortfolioColumns.MGMT_FEES.value: 0.0,
+            PortfolioColumns.END_MV.value: 1050.0,
+        },
+        {
+            PortfolioColumns.PERF_DATE.value: date(2025, 1, 4),
+            PortfolioColumns.BEGIN_MV.value: 1050.0,
+            PortfolioColumns.BOD_CF.value: 0.0,
+            PortfolioColumns.EOD_CF.value: 0.0,
+            PortfolioColumns.MGMT_FEES.value: 0.0,
+            PortfolioColumns.END_MV.value: 1155.0,
+        },
+    )
+
+    _, diagnostics = run_calculations(df, config)
+
+    assert diagnostics.nip_days_since_last_reset == 0
+    assert diagnostics.valid_days_since_last_reset == 2
+
+
+def test_run_calculations_keeps_shadow_account_reset_out_of_active_reset_relative_valid_day_count():
+    """Active reset-relative day counts should not jump to a shadow-only account reset boundary yet."""
+    config = EngineConfig(
+        performance_start_date=date(2025, 1, 1),
+        report_end_date=date(2025, 1, 4),
+        metric_basis="NET",
+        period_type=PeriodType.YTD,
+    )
+    df = _build_engine_input(
+        {
+            PortfolioColumns.PERF_DATE.value: date(2025, 1, 1),
+            PortfolioColumns.BEGIN_MV.value: 100.0,
+            PortfolioColumns.BOD_CF.value: 0.0,
+            PortfolioColumns.EOD_CF.value: 0.0,
+            PortfolioColumns.MGMT_FEES.value: 0.0,
+            PortfolioColumns.END_MV.value: 100.0,
+        },
+        {
+            PortfolioColumns.PERF_DATE.value: date(2025, 1, 2),
+            PortfolioColumns.BEGIN_MV.value: 100.0,
+            PortfolioColumns.BOD_CF.value: 10.0,
+            PortfolioColumns.EOD_CF.value: 0.0,
+            PortfolioColumns.MGMT_FEES.value: 0.0,
+            PortfolioColumns.END_MV.value: 100.0,
+            PortfolioColumns.ACCOUNT_PERFORMANCE_RESET.value: 1.0,
+        },
+        {
+            PortfolioColumns.PERF_DATE.value: date(2025, 1, 3),
+            PortfolioColumns.BEGIN_MV.value: 0.0,
+            PortfolioColumns.BOD_CF.value: 0.0,
+            PortfolioColumns.EOD_CF.value: 0.0,
+            PortfolioColumns.MGMT_FEES.value: 0.0,
+            PortfolioColumns.END_MV.value: 0.0,
+        },
+        {
+            PortfolioColumns.PERF_DATE.value: date(2025, 1, 4),
+            PortfolioColumns.BEGIN_MV.value: 100.0,
+            PortfolioColumns.BOD_CF.value: 0.0,
+            PortfolioColumns.EOD_CF.value: 0.0,
+            PortfolioColumns.MGMT_FEES.value: 0.0,
+            PortfolioColumns.END_MV.value: 101.0,
+        },
+    )
+
+    _, diagnostics = run_calculations(df, config)
+
+    assert diagnostics.nip_days_since_last_reset == 1
+    assert diagnostics.valid_days_since_last_reset == 3
+
+
+def test_run_calculations_characterizes_liquidation_and_recapitalization_as_a_new_episode():
+    """A wipeout followed by recapitalization is the clearest case for a reset boundary."""
+    config = EngineConfig(
+        performance_start_date=date(2025, 1, 1),
+        report_end_date=date(2025, 1, 4),
+        metric_basis="GROSS",
+        period_type=PeriodType.ITD,
+    )
+    df = _build_engine_input(
+        {
+            PortfolioColumns.PERF_DATE.value: date(2025, 1, 1),
+            PortfolioColumns.BEGIN_MV.value: 1000.0,
+            PortfolioColumns.BOD_CF.value: 0.0,
+            PortfolioColumns.EOD_CF.value: 0.0,
+            PortfolioColumns.MGMT_FEES.value: 0.0,
+            PortfolioColumns.END_MV.value: 500.0,
+        },
+        {
+            PortfolioColumns.PERF_DATE.value: date(2025, 1, 2),
+            PortfolioColumns.BEGIN_MV.value: 500.0,
+            PortfolioColumns.BOD_CF.value: 0.0,
+            PortfolioColumns.EOD_CF.value: 0.0,
+            PortfolioColumns.MGMT_FEES.value: 0.0,
+            PortfolioColumns.END_MV.value: -50.0,
+        },
+        {
+            PortfolioColumns.PERF_DATE.value: date(2025, 1, 3),
+            PortfolioColumns.BEGIN_MV.value: -50.0,
+            PortfolioColumns.BOD_CF.value: 1000.0,
+            PortfolioColumns.EOD_CF.value: 0.0,
+            PortfolioColumns.MGMT_FEES.value: 0.0,
+            PortfolioColumns.END_MV.value: 1050.0,
+        },
+        {
+            PortfolioColumns.PERF_DATE.value: date(2025, 1, 4),
+            PortfolioColumns.BEGIN_MV.value: 1050.0,
+            PortfolioColumns.BOD_CF.value: 0.0,
+            PortfolioColumns.EOD_CF.value: 0.0,
+            PortfolioColumns.MGMT_FEES.value: 0.0,
+            PortfolioColumns.END_MV.value: 1155.0,
+        },
+    )
+
+    _, diagnostics = run_calculations(df, config)
+
+    reset_reasons_by_date = {event.date.isoformat(): event.reason for event in diagnostics.resets}
+
+    assert diagnostics.reset_days == 2
+    assert diagnostics.nctrl4_reset_days == 1
+    assert diagnostics.nctrl4_exclusive_reset_days == 1
+    assert diagnostics.account_reset_shadow_days == 0
+    assert diagnostics.sod_reset_shadow_days == 1
+    assert diagnostics.shadow_reset_overlap_days == 0
+    assert diagnostics.shadow_only_candidate_reset_days == 0
+    assert diagnostics.active_reset_with_shadow_days == 1
+    assert "NCTRL_1" in reset_reasons_by_date["2025-01-02"]
+    assert "NCTRL_4" in reset_reasons_by_date["2025-01-03"]
+    assert any(sample.active_perf_reset == 1 for sample in diagnostics.samples.methodology_shadows)
+
+
+def test_run_calculations_characterizes_when_active_and_shadow_reset_reasons_describe_the_same_boundary():
+    """The collapse day can reset actively while also carrying shadow pressure from the recapitalizing next open."""
+    config = EngineConfig(
+        performance_start_date=date(2025, 1, 1),
+        report_end_date=date(2025, 1, 2),
+        metric_basis="GROSS",
+        period_type=PeriodType.ITD,
+    )
+    df = _build_engine_input(
+        {
+            PortfolioColumns.PERF_DATE.value: date(2025, 1, 1),
+            PortfolioColumns.BEGIN_MV.value: 1000.0,
+            PortfolioColumns.BOD_CF.value: 0.0,
+            PortfolioColumns.EOD_CF.value: 0.0,
+            PortfolioColumns.MGMT_FEES.value: 0.0,
+            PortfolioColumns.END_MV.value: -50.0,
+        },
+        {
+            PortfolioColumns.PERF_DATE.value: date(2025, 1, 2),
+            PortfolioColumns.BEGIN_MV.value: -50.0,
+            PortfolioColumns.BOD_CF.value: 1000.0,
+            PortfolioColumns.EOD_CF.value: 0.0,
+            PortfolioColumns.MGMT_FEES.value: 0.0,
+            PortfolioColumns.END_MV.value: 1050.0,
+        },
+    )
+
+    _, diagnostics = run_calculations(df, config)
+
+    assert diagnostics.reset_days == 2
+    assert diagnostics.nctrl4_reset_days == 1
+    assert diagnostics.nctrl4_exclusive_reset_days == 1
+    assert diagnostics.sod_reset_shadow_days == 1
+    assert diagnostics.shadow_only_candidate_reset_days == 0
+    assert diagnostics.active_reset_with_shadow_days == 1
