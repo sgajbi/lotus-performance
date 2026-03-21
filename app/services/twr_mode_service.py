@@ -74,12 +74,23 @@ async def resolve_twr_request(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="stateful_input is required when input_mode=stateful",
                 )
+            derived_start_date = None
+            if request.performance_start_date is None:
+                derived_start_date = await _resolve_stateful_portfolio_start_date(
+                    request=request,
+                    stateful_input_service=stateful_input_service,
+                )
             portfolio_input = await retrieve_stateful_portfolio_input(
                 settings=settings,
+                stateful_input_service=(
+                    stateful_input_service
+                    if derived_start_date is not None
+                    else None
+                ),
                 calculation_id=request.calculation_id,
                 portfolio_id=request.portfolio_id,
                 as_of_date=request.report_end_date,
-                start_date=request.performance_start_date,
+                start_date=derived_start_date or request.performance_start_date,
                 end_date=request.report_end_date,
                 reporting_currency=request.report_ccy,
                 consumer_system=DEFAULT_STATEFUL_CONSUMER_SYSTEM,
@@ -235,6 +246,36 @@ def _resolve_stateless_twr_benchmark_request(
             "output": request.output.model_dump(mode="python"),
         }
     )
+
+
+async def _resolve_stateful_portfolio_start_date(
+    *,
+    request: TWRAnalyticsRequest,
+    stateful_input_service: StatefulInputService,
+) -> date:
+    upstream_status, upstream_payload = await stateful_input_service.get_portfolio_reference(
+        calculation_id=request.calculation_id,
+        portfolio_id=request.portfolio_id,
+        as_of_date=request.report_end_date,
+    )
+    if upstream_status >= status.HTTP_400_BAD_REQUEST:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"stateful portfolio reference source unavailable ({upstream_status}).",
+        )
+    portfolio_open_date = upstream_payload.get("portfolio_open_date")
+    if not isinstance(portfolio_open_date, str):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Stateful source missing portfolio_open_date.",
+        )
+    try:
+        return date.fromisoformat(portfolio_open_date)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Invalid portfolio_open_date from stateful source.",
+        ) from exc
 
 
 @dataclass(frozen=True)

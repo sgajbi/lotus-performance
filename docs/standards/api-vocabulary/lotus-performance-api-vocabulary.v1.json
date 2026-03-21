@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-03-20T00:15:30.287560+00:00",
+  "generatedAt": "2026-03-21T00:41:36.013032+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.acquired_at_utc",
@@ -112,7 +112,7 @@
       "semanticId": "lotus.analyses",
       "canonicalTerm": "analyses",
       "preferredName": "analyses",
-      "description": "twranalytics request field: analyses.",
+      "description": "Requested period analyses and breakdown frequencies.",
       "example": [
         {
           "period": "MTD",
@@ -383,7 +383,7 @@
           "component_observations": [
             {
               "component_id": "COMPONENT_001",
-              "date": "2026-02-27",
+              "perf_date": "2026-02-27",
               "weight_bop": 0.1234,
               "component_currency": "USD",
               "component_return": 0.1234,
@@ -394,7 +394,7 @@
           "component_price_points": [
             {
               "component_id": "COMPONENT_001",
-              "date": "2026-02-27",
+              "perf_date": "2026-02-27",
               "weight_bop": 0.1234,
               "index_price": 0.1234,
               "component_currency": "USD",
@@ -403,7 +403,7 @@
           ],
           "benchmark_return_points": [
             {
-              "date": "2026-02-27",
+              "perf_date": "2026-02-27",
               "benchmark_return": 0.1234
             }
           ]
@@ -1230,20 +1230,6 @@
       ]
     },
     {
-      "semanticId": "lotus.day",
-      "canonicalTerm": "day",
-      "preferredName": "day",
-      "description": "A sequential day number for the record within the request payload.",
-      "example": 1,
-      "type": "integer",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "integer"
-      ]
-    },
-    {
       "semanticId": "lotus.degradation_details",
       "canonicalTerm": "degradation_details",
       "preferredName": "degradation_details",
@@ -1704,7 +1690,7 @@
       "semanticId": "lotus.frequencies",
       "canonicalTerm": "frequencies",
       "preferredName": "frequencies",
-      "description": "analysis field: frequencies.",
+      "description": "Breakdown frequencies to emit for the resolved period. Supported values: daily, weekly, monthly, quarterly, yearly.",
       "example": [
         "DAILY"
       ],
@@ -2058,7 +2044,6 @@
           },
           "valuation_points": [
             {
-              "day": 1,
               "perf_date": "2026-02-27",
               "begin_mv": 0.1234,
               "bod_cf": 0.1234,
@@ -3316,7 +3301,6 @@
         "metric_basis": "NET",
         "valuation_points": [
           {
-            "day": 1,
             "perf_date": "2026-02-27",
             "begin_mv": 0.1234,
             "bod_cf": 0.1234,
@@ -3387,7 +3371,6 @@
           },
           "valuation_points": [
             {
-              "day": 1,
               "perf_date": "2026-02-27",
               "begin_mv": 0.1234,
               "end_mv": 0.1234,
@@ -4567,7 +4550,6 @@
       "example": {
         "valuation_points": [
           {
-            "day": 1,
             "perf_date": "2026-02-27",
             "begin_mv": 0.1234,
             "bod_cf": 0.1234,
@@ -5032,10 +5014,9 @@
       "semanticId": "lotus.valuation_points",
       "canonicalTerm": "valuation_points",
       "preferredName": "valuation_points",
-      "description": "Legacy stateless valuation input payload. Prefer stateless_input for new integrations.",
+      "description": "Legacy stateless valuation input payload using the same canonical valuation-point shape. Prefer stateless_input for new integrations.",
       "example": [
         {
-          "day": 1,
           "perf_date": "2026-02-27",
           "begin_mv": 0.1234,
           "bod_cf": 0.1234,
@@ -5823,14 +5804,6 @@
             "type": "array",
             "semanticId": "lotus.valuation_points",
             "attributeRef": "#/attributeCatalog/lotus.valuation_points"
-          },
-          {
-            "name": "valuation_points[].day",
-            "location": "body",
-            "required": true,
-            "type": "integer",
-            "semanticId": "lotus.day",
-            "attributeRef": "#/attributeCatalog/lotus.day"
           },
           {
             "name": "valuation_points[].perf_date",

@@ -91,18 +91,18 @@ def test_attribution_endpoint_by_instrument_happy_path(client):
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
-            "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1018.5}],
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1018.5}],
         },
         "instruments_data": [
             {
                 "instrument_id": "AAPL",
                 "meta": {"sector": "Tech"},
-                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 600, "end_mv": 612}],
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 600, "end_mv": 612}],
             },
             {
                 "instrument_id": "JNJ",
                 "meta": {"sector": "Health"},
-                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 400, "end_mv": 406.5}],
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 400, "end_mv": 406.5}],
             },
         ],
         "benchmark_groups_data": [
@@ -177,23 +177,23 @@ def test_attribution_endpoint_hierarchical(client):
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
-            "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1020}],
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1020}],
         },
         "instruments_data": [
             {
                 "instrument_id": "AAPL",
                 "meta": {"assetClass": "Equity", "sector": "Tech"},
-                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 400, "end_mv": 408}],
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 400, "end_mv": 408}],
             },
             {
                 "instrument_id": "JNJ",
                 "meta": {"assetClass": "Equity", "sector": "Health"},
-                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 300, "end_mv": 303}],
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 300, "end_mv": 303}],
             },
             {
                 "instrument_id": "UST",
                 "meta": {"assetClass": "Bond", "sector": "Government"},
-                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 300, "end_mv": 309}],
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 300, "end_mv": 309}],
             },
         ],
         "benchmark_groups_data": [
@@ -243,14 +243,14 @@ def test_attribution_endpoint_currency_attribution(client):
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "GROSS",
-            "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": 103.02}],
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": 103.02}],
         },
         "instruments_data": [
             {
                 "instrument_id": "EUR_ASSET",
                 "meta": {"currency": "EUR"},
                 "valuation_points": [
-                    {"day": 1, "perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": 102.0}
+                    {"perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": 102.0}
                 ],  # 2% local return
             }
         ],
@@ -449,12 +449,12 @@ def test_attribution_supports_stateful_input_mode(client, monkeypatch):
                     {
                         "valuation_date": "2025-01-01",
                         "beginning_market_value": "1000",
-                        "ending_market_value": "1010",
+                        "ending_market_value": "1018.5",
                     },
                     {
                         "valuation_date": "2025-01-02",
-                        "beginning_market_value": "1010",
-                        "ending_market_value": "1020.1",
+                        "beginning_market_value": "1018.5",
+                        "ending_market_value": "1028.67",
                     },
                 ],
             },
@@ -469,20 +469,164 @@ def test_attribution_supports_stateful_input_mode(client, monkeypatch):
                         "position_id": "POS_1",
                         "security_id": "SEC_1",
                         "valuation_date": "2025-01-01",
-                        "beginning_market_value_portfolio_currency": "1000",
-                        "ending_market_value_portfolio_currency": "1010",
+                        "beginning_market_value_portfolio_currency": "600",
+                        "ending_market_value_portfolio_currency": "612",
                         "cash_flows": [],
                         "dimensions": {"sector": "Technology"},
+                    },
+                    {
+                        "position_id": "POS_2",
+                        "security_id": "SEC_2",
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value_portfolio_currency": "400",
+                        "ending_market_value_portfolio_currency": "406.5",
+                        "cash_flows": [],
+                        "dimensions": {"sector": "Healthcare"},
                     },
                     {
                         "position_id": "POS_1",
                         "security_id": "SEC_1",
                         "valuation_date": "2025-01-02",
-                        "beginning_market_value_portfolio_currency": "1010",
-                        "ending_market_value_portfolio_currency": "1020.1",
+                        "beginning_market_value_portfolio_currency": "612",
+                        "ending_market_value_portfolio_currency": "618.12",
                         "cash_flows": [],
                         "dimensions": {"sector": "Technology"},
                     },
+                    {
+                        "position_id": "POS_2",
+                        "security_id": "SEC_2",
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value_portfolio_currency": "406.5",
+                        "ending_market_value_portfolio_currency": "410.55",
+                        "cash_flows": [],
+                        "dimensions": {"sector": "Healthcare"},
+                    },
+                ]
+            },
+        )
+
+    async def _mock_get_benchmark_assignment(self, **kwargs):  # noqa: ARG001
+        return 200, {"benchmark_id": "BMK_1"}
+
+    async def _mock_get_index_catalog(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "records": [
+                    {
+                        "index_id": "IDX_1",
+                        "classification_labels": {"sector": "Technology"},
+                    },
+                    {
+                        "index_id": "IDX_2",
+                        "classification_labels": {"sector": "Healthcare"},
+                    }
+                ]
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_portfolio_timeseries",
+        _mock_get_portfolio_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_position_timeseries",
+        _mock_get_position_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_benchmark_assignment",
+        _mock_get_benchmark_assignment,
+    )
+    _patch_stateful_attribution_benchmark_input(
+        monkeypatch,
+        BenchmarkComponentObservation(
+            component_id="IDX_1",
+            perf_date=date(2025, 1, 1),
+            weight_bop=0.5,
+            component_return=0.015,
+        ),
+        BenchmarkComponentObservation(
+            component_id="IDX_2",
+            perf_date=date(2025, 1, 1),
+            weight_bop=0.5,
+            component_return=0.02,
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_index_catalog",
+        _mock_get_index_catalog,
+    )
+
+    payload = {
+        "portfolio_id": "ATTRIB_STATEFUL",
+        "mode": "by_instrument",
+        "group_by": ["sector"],
+        "linking": "none",
+        "frequency": "daily",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {},
+    }
+
+    response = client.post("/performance/attribution", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["portfolio_id"] == "ATTRIB_STATEFUL"
+    assert body["input_mode"] == "stateful"
+    assert body["benchmark_context"] == {
+        "benchmark_id": "BMK_1",
+        "return_source": "calculated",
+    }
+    itd = body["results_by_period"]["ITD"]
+    assert itd["reconciliation"]["total_active_return"] == pytest.approx(1.0985232695139984)
+    assert itd["reconciliation"]["sum_of_effects"] == pytest.approx(1.0985232695139984)
+    level = itd["levels"][0]
+    tech_group = next(group for group in level["groups"] if group["key"]["sector"] == "technology")
+    assert tech_group["selection"] == pytest.approx(0.25)
+
+
+def test_attribution_stateful_converts_non_base_cash_flows_using_explicit_fx_metadata(client, monkeypatch):
+    async def _mock_get_portfolio_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2025-01-01",
+                "observations": [
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "132",
+                        "ending_market_value": "145.2",
+                        "cash_flows": [{"amount": "13.2", "timing": "bod", "cash_flow_type": "external_flow"}],
+                    }
+                ],
+            },
+        )
+
+    async def _mock_get_position_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "rows": [
+                    {
+                        "position_id": "POS_EUR_1",
+                        "security_id": "SEC_EUR_1",
+                        "valuation_date": "2025-01-01",
+                        "position_currency": "EUR",
+                        "cash_flow_currency": "EUR",
+                        "position_to_portfolio_fx_rate": "1.20",
+                        "portfolio_to_reporting_fx_rate": "1.10",
+                        "beginning_market_value_reporting_currency": "132",
+                        "ending_market_value_reporting_currency": "145.2",
+                        "beginning_market_value_portfolio_currency": "120",
+                        "ending_market_value_portfolio_currency": "132",
+                        "beginning_market_value_position_currency": "100",
+                        "ending_market_value_position_currency": "110",
+                        "cash_flows": [{"amount": "10", "timing": "bod", "cash_flow_type": "external_flow"}],
+                        "dimensions": {"sector": "Technology"},
+                    }
                 ]
             },
         )
@@ -519,13 +663,117 @@ def test_attribution_supports_stateful_input_mode(client, monkeypatch):
         monkeypatch,
         BenchmarkComponentObservation(
             component_id="IDX_1",
-            date=date(2025, 1, 1),
+            perf_date=date(2025, 1, 1),
+            weight_bop=1.0,
+            component_return=0.0,
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_index_catalog",
+        _mock_get_index_catalog,
+    )
+
+    payload = {
+        "portfolio_id": "ATTRIB_STATEFUL_FX_CF",
+        "mode": "by_instrument",
+        "group_by": ["sector"],
+        "linking": "none",
+        "frequency": "daily",
+        "report_ccy": "USD",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {},
+    }
+
+    response = client.post("/performance/attribution", json=payload)
+
+    assert response.status_code == 200
+    itd = response.json()["results_by_period"]["ITD"]
+    assert itd["reconciliation"]["total_active_return"] == pytest.approx(0.0)
+    assert itd["reconciliation"]["sum_of_effects"] == pytest.approx(0.0)
+
+
+def test_attribution_stateful_rejects_acquisition_day_rows_without_cash_flow_semantics(client, monkeypatch):
+    async def _mock_get_portfolio_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2025-01-01",
+                "observations": [
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1018.5",
+                    },
+                ],
+            },
+        )
+
+    async def _mock_get_position_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "rows": [
+                    {
+                        "position_id": "POS_1",
+                        "security_id": "SEC_1",
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value_portfolio_currency": "0",
+                        "ending_market_value_portfolio_currency": "600",
+                        "cash_flows": [],
+                        "dimensions": {"asset_class": "Equity"},
+                    },
+                    {
+                        "position_id": "POS_1",
+                        "security_id": "SEC_1",
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value_portfolio_currency": "600",
+                        "ending_market_value_portfolio_currency": "606",
+                        "cash_flows": [],
+                        "dimensions": {"asset_class": "Equity"},
+                    },
+                ]
+            },
+        )
+
+    async def _mock_get_benchmark_assignment(self, **kwargs):  # noqa: ARG001
+        return 200, {"benchmark_id": "BMK_1"}
+
+    async def _mock_get_index_catalog(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "records": [
+                    {"index_id": "IDX_1", "classification_labels": {"asset_class": "Equity"}},
+                ]
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_portfolio_timeseries",
+        _mock_get_portfolio_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_position_timeseries",
+        _mock_get_position_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_benchmark_assignment",
+        _mock_get_benchmark_assignment,
+    )
+    _patch_stateful_attribution_benchmark_input(
+        monkeypatch,
+        BenchmarkComponentObservation(
+            component_id="IDX_1",
+            perf_date=date(2025, 1, 1),
             weight_bop=1.0,
             component_return=0.01,
         ),
         BenchmarkComponentObservation(
             component_id="IDX_1",
-            date=date(2025, 1, 2),
+            perf_date=date(2025, 1, 2),
             weight_bop=1.0,
             component_return=0.01,
         ),
@@ -536,13 +784,13 @@ def test_attribution_supports_stateful_input_mode(client, monkeypatch):
     )
 
     payload = {
-        "portfolio_id": "ATTRIB_STATEFUL",
+        "portfolio_id": "ATTRIB_STATEFUL_GAP",
         "mode": "by_instrument",
-        "group_by": ["sector"],
+        "group_by": ["asset_class"],
         "linking": "none",
         "frequency": "daily",
         "report_start_date": "2025-01-01",
-        "report_end_date": "2025-01-02",
+        "report_end_date": "2025-01-01",
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "stateful_input": {},
@@ -550,15 +798,93 @@ def test_attribution_supports_stateful_input_mode(client, monkeypatch):
 
     response = client.post("/performance/attribution", json=payload)
 
-    assert response.status_code == 200
-    body = response.json()
-    assert body["portfolio_id"] == "ATTRIB_STATEFUL"
-    assert body["input_mode"] == "stateful"
-    assert body["benchmark_context"] == {
-        "benchmark_id": "BMK_1",
-        "return_source": "calculated",
+    assert response.status_code == 422
+    assert "cannot safely compute acquisition-day position returns" in response.json()["detail"]
+
+
+def test_attribution_stateful_rejects_portfolio_position_alignment_mismatch(client, monkeypatch):
+    async def _mock_get_portfolio_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2025-01-01",
+                "observations": [
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1010",
+                    },
+                ],
+            },
+        )
+
+    async def _mock_get_position_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "rows": [
+                    {
+                        "position_id": "POS_1",
+                        "security_id": "SEC_1",
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value_portfolio_currency": "900",
+                        "ending_market_value_portfolio_currency": "909",
+                        "cash_flows": [],
+                        "dimensions": {"asset_class": "Equity"},
+                    },
+                ]
+            },
+        )
+
+    async def _mock_get_benchmark_assignment(self, **kwargs):  # noqa: ARG001
+        return 200, {"benchmark_id": "BMK_1"}
+
+    async def _mock_get_index_catalog(self, **kwargs):  # noqa: ARG001
+        return (200, {"records": [{"index_id": "IDX_1", "classification_labels": {"asset_class": "Equity"}}]})
+
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_portfolio_timeseries",
+        _mock_get_portfolio_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_position_timeseries",
+        _mock_get_position_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_benchmark_assignment",
+        _mock_get_benchmark_assignment,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_index_catalog",
+        _mock_get_index_catalog,
+    )
+    _patch_stateful_attribution_benchmark_input(
+        monkeypatch,
+        BenchmarkComponentObservation(
+            component_id="IDX_1",
+            perf_date=date(2025, 1, 1),
+            weight_bop=1.0,
+            component_return=0.01,
+        ),
+    )
+
+    payload = {
+        "portfolio_id": "ATTRIB_STATEFUL_MISMATCH",
+        "mode": "by_instrument",
+        "group_by": ["asset_class"],
+        "linking": "none",
+        "frequency": "daily",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {},
     }
-    assert "ITD" in body["results_by_period"]
+
+    response = client.post("/performance/attribution", json=payload)
+
+    assert response.status_code == 503
+    assert "portfolio timeseries does not align with summed position timeseries" in response.json()["detail"]
 
 
 def test_attribution_stateful_offloads_on_resolved_input_count(client, monkeypatch):
@@ -662,25 +988,25 @@ def test_attribution_stateful_offloads_on_resolved_input_count(client, monkeypat
         monkeypatch,
         BenchmarkComponentObservation(
             component_id="IDX_1",
-            date=date(2025, 1, 1),
+            perf_date=date(2025, 1, 1),
             weight_bop=0.5,
             component_return=0.01,
         ),
         BenchmarkComponentObservation(
             component_id="IDX_1",
-            date=date(2025, 1, 2),
+            perf_date=date(2025, 1, 2),
             weight_bop=0.5,
             component_return=0.01,
         ),
         BenchmarkComponentObservation(
             component_id="IDX_2",
-            date=date(2025, 1, 1),
+            perf_date=date(2025, 1, 1),
             weight_bop=0.5,
             component_return=0.015,
         ),
         BenchmarkComponentObservation(
             component_id="IDX_2",
-            date=date(2025, 1, 2),
+            perf_date=date(2025, 1, 2),
             weight_bop=0.5,
             component_return=0.015,
         ),
@@ -826,31 +1152,31 @@ def test_attribution_stateful_promoted_async_replays_identical_retry(client, mon
         _mock_get_benchmark_assignment,
     )
     _patch_stateful_attribution_benchmark_input(
-        monkeypatch,
-        BenchmarkComponentObservation(
-            component_id="IDX_1",
-            date=date(2025, 1, 1),
-            weight_bop=0.5,
-            component_return=0.01,
-        ),
-        BenchmarkComponentObservation(
-            component_id="IDX_1",
-            date=date(2025, 1, 2),
-            weight_bop=0.5,
-            component_return=0.01,
-        ),
-        BenchmarkComponentObservation(
-            component_id="IDX_2",
-            date=date(2025, 1, 1),
-            weight_bop=0.5,
-            component_return=0.015,
-        ),
-        BenchmarkComponentObservation(
-            component_id="IDX_2",
-            date=date(2025, 1, 2),
-            weight_bop=0.5,
-            component_return=0.015,
-        ),
+            monkeypatch,
+            BenchmarkComponentObservation(
+                component_id="IDX_1",
+                perf_date=date(2025, 1, 1),
+                weight_bop=0.5,
+                component_return=0.01,
+            ),
+            BenchmarkComponentObservation(
+                component_id="IDX_1",
+                perf_date=date(2025, 1, 2),
+                weight_bop=0.5,
+                component_return=0.01,
+            ),
+            BenchmarkComponentObservation(
+                component_id="IDX_2",
+                perf_date=date(2025, 1, 1),
+                weight_bop=0.5,
+                component_return=0.015,
+            ),
+            BenchmarkComponentObservation(
+                component_id="IDX_2",
+                perf_date=date(2025, 1, 2),
+                weight_bop=0.5,
+                component_return=0.015,
+            ),
     )
     monkeypatch.setattr(
         "app.services.stateful_input_service.StatefulInputService.get_index_catalog",
@@ -970,7 +1296,7 @@ def test_attribution_stateful_currency_mode_both_supports_mixed_currency_decompo
         BenchmarkComponentObservation(
             component_id="IDX_1",
             component_currency="EUR",
-            date=date(2025, 1, 1),
+            perf_date=date(2025, 1, 1),
             weight_bop=0.5,
             component_return=0.0302,
             component_return_local=0.02,
@@ -979,7 +1305,7 @@ def test_attribution_stateful_currency_mode_both_supports_mixed_currency_decompo
         BenchmarkComponentObservation(
             component_id="IDX_2",
             component_currency="USD",
-            date=date(2025, 1, 1),
+            perf_date=date(2025, 1, 1),
             weight_bop=0.5,
             component_return=0.02,
             component_return_local=0.02,
@@ -1020,8 +1346,8 @@ def test_attribution_stateful_currency_mode_both_supports_mixed_currency_decompo
     currency_results = body["results_by_period"]["ITD"]["currency_attribution"]
     assert currency_results is not None
     by_currency = {entry["currency"]: entry for entry in currency_results}
-    assert by_currency["EUR"]["weight_portfolio_avg"] == pytest.approx(55.0)
-    assert by_currency["USD"]["weight_portfolio_avg"] == pytest.approx(45.0)
+    assert by_currency["eur"]["weight_portfolio_avg"] == pytest.approx(55.0)
+    assert by_currency["usd"]["weight_portfolio_avg"] == pytest.approx(45.0)
 
 
 def test_attribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch):
@@ -1104,13 +1430,13 @@ def test_attribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch)
         monkeypatch,
         BenchmarkComponentObservation(
             component_id="IDX_1",
-            date=date(2025, 1, 1),
+            perf_date=date(2025, 1, 1),
             weight_bop=1.0,
             component_return=0.01,
         ),
         BenchmarkComponentObservation(
             component_id="IDX_1",
-            date=date(2025, 1, 2),
+            perf_date=date(2025, 1, 2),
             weight_bop=1.0,
             component_return=0.01,
         ),

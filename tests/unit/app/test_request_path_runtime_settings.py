@@ -24,7 +24,7 @@ def test_should_offload_contribution_uses_runtime_settings(mocker):
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [
-                    {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                    {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
                 ],
             },
             "positions_data": [{"position_id": "A", "valuation_points": []}],
@@ -164,8 +164,8 @@ def test_contribution_service_uses_runtime_app_version(mocker):
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [
-                    {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
-                    {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1030},
+                    {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                    {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1030},
                 ],
             },
             "positions_data": [{"position_id": "A", "valuation_points": []}],

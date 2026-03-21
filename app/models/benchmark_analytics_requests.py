@@ -24,7 +24,10 @@ class BenchmarkReturnSource(str, Enum):
 
 class BenchmarkComponentObservationInput(BaseModel):
     component_id: str = Field(..., description="Benchmark component identifier.")
-    date: dt_date = Field(..., description="Benchmark observation date.")
+    perf_date: dt_date = Field(
+        ...,
+        description="Benchmark observation date in YYYY-MM-DD format.",
+    )
     weight_bop: float = Field(..., description="Beginning-of-day component benchmark weight.")
     component_currency: str | None = Field(
         default=None,
@@ -48,7 +51,10 @@ class BenchmarkComponentObservationInput(BaseModel):
 
 class BenchmarkComponentPricePointInput(BaseModel):
     component_id: str = Field(..., description="Benchmark component identifier.")
-    date: dt_date = Field(..., description="Benchmark price observation date.")
+    perf_date: dt_date = Field(
+        ...,
+        description="Benchmark price observation date in YYYY-MM-DD format.",
+    )
     weight_bop: float = Field(..., description="Beginning-of-day component benchmark weight.")
     index_price: float = Field(
         ...,
@@ -67,7 +73,10 @@ class BenchmarkComponentPricePointInput(BaseModel):
 
 
 class BenchmarkReturnPointInput(BaseModel):
-    date: dt_date = Field(..., description="Benchmark return observation date.")
+    perf_date: dt_date = Field(
+        ...,
+        description="Benchmark return observation date in YYYY-MM-DD format.",
+    )
     benchmark_return: float = Field(
         ...,
         description="Benchmark daily return expressed as a decimal fraction (0.01 = 1%).",
@@ -77,10 +86,21 @@ class BenchmarkReturnPointInput(BaseModel):
 
 
 class BenchmarkStatelessInput(BaseModel):
-    benchmark_currency: str = Field(..., description="Benchmark currency.")
-    component_observations: list[BenchmarkComponentObservationInput] = Field(default_factory=list)
-    component_price_points: list[BenchmarkComponentPricePointInput] = Field(default_factory=list)
-    benchmark_return_points: list[BenchmarkReturnPointInput] = Field(default_factory=list)
+    model_config = ConfigDict(extra="forbid")
+
+    benchmark_currency: str = Field(..., description="Benchmark currency as a three-letter ISO code, for example USD.")
+    component_observations: list[BenchmarkComponentObservationInput] = Field(
+        default_factory=list,
+        description="Daily benchmark component return observations used when return_source=calculated.",
+    )
+    component_price_points: list[BenchmarkComponentPricePointInput] = Field(
+        default_factory=list,
+        description="Daily benchmark component price observations used to derive returns when return_source=calculated.",
+    )
+    benchmark_return_points: list[BenchmarkReturnPointInput] = Field(
+        default_factory=list,
+        description="Daily benchmark return observations used only when return_source=vendor_series.",
+    )
 
 
 class BenchmarkStatefulInput(BaseModel):
@@ -90,7 +110,10 @@ class BenchmarkStatefulInput(BaseModel):
 class BenchmarkAnalyticsRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    calculation_id: UUID = Field(default_factory=uuid4)
+    calculation_id: UUID = Field(
+        default_factory=uuid4,
+        description="Durable benchmark calculation handle. If omitted, lotus-performance generates one.",
+    )
     benchmark_id: str = Field(..., description="Benchmark identifier.")
     benchmark_start_date: dt_date = Field(
         ...,
@@ -122,9 +145,12 @@ class BenchmarkAnalyticsRequest(BaseModel):
         description="Numerical precision mode for benchmark calculations.",
     )
     rounding_precision: int = Field(6, description="Number of decimal places to round float outputs to.")
-    calendar: Calendar = Field(default_factory=Calendar)
-    annualization: Annualization = Field(default_factory=Annualization)
-    output: Output = Field(default_factory=Output)
+    calendar: Calendar = Field(default_factory=Calendar, description="Calendar settings applied during benchmark analytics.")
+    annualization: Annualization = Field(
+        default_factory=Annualization,
+        description="Annualization settings applied to benchmark analytics outputs.",
+    )
+    output: Output = Field(default_factory=Output, description="Output toggles controlling optional benchmark payload sections.")
 
     @model_validator(mode="after")
     def validate_mode_payloads(self) -> "BenchmarkAnalyticsRequest":

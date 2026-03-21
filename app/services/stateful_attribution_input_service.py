@@ -18,6 +18,10 @@ from app.services.stateful_performance_input_service import (
     StatefulPortfolioInput,
     retrieve_stateful_portfolio_input,
 )
+from app.services.stateful_position_row_service import (
+    PositionValueBasis,
+    split_position_cash_flows_in_value_basis,
+)
 from app.services.valuation_points_service import portfolio_timeseries_to_valuation_points
 from engine.benchmarks import calculate_benchmark_returns
 
@@ -177,6 +181,13 @@ def build_stateful_attribution_input(
             detail="Stateful attribution currently supports mode=by_instrument only.",
         )
 
+    _validate_stateful_position_inception_support(rows=source_input.position_rows)
+    _validate_stateful_portfolio_position_alignment(
+        portfolio_observations=source_input.portfolio_input.observations,
+        position_rows=source_input.position_rows,
+        reporting_currency=reporting_currency,
+    )
+
     normalized_currency_mode = currency_mode or "BASE_ONLY"
     if normalized_currency_mode == "BOTH":
         _validate_stateful_both_currency_support(
@@ -209,6 +220,93 @@ def build_stateful_attribution_input(
         instruments_data=instruments_data,
         benchmark_groups_data=benchmark_groups_data,
     )
+
+
+def _validate_stateful_portfolio_position_alignment(
+    *,
+    portfolio_observations: list[dict[str, object]],
+    position_rows: list[dict[str, object]],
+    reporting_currency: str | None,
+) -> None:
+    portfolio_by_date: dict[str, tuple[Decimal, Decimal]] = {}
+    for observation in portfolio_observations:
+        valuation_date = observation.get("valuation_date")
+        begin_value = observation.get("beginning_market_value")
+        end_value = observation.get("ending_market_value")
+        if not isinstance(valuation_date, str) or begin_value is None or end_value is None:
+            continue
+        portfolio_by_date[valuation_date] = (Decimal(str(begin_value)), Decimal(str(end_value)))
+
+    position_totals_by_date: dict[str, dict[str, Decimal]] = {}
+    for row in position_rows:
+        valuation_date = row.get("valuation_date")
+        if not isinstance(valuation_date, str):
+            continue
+        begin_key = "beginning_market_value_reporting_currency" if reporting_currency is not None else None
+        end_key = "ending_market_value_reporting_currency" if reporting_currency is not None else None
+        begin_value = row.get(begin_key) if begin_key is not None else None
+        end_value = row.get(end_key) if end_key is not None else None
+        if begin_value is None or end_value is None:
+            begin_value = row.get("beginning_market_value_portfolio_currency")
+            end_value = row.get("ending_market_value_portfolio_currency")
+        if begin_value is None or end_value is None:
+            continue
+        totals = position_totals_by_date.setdefault(valuation_date, {"begin": Decimal("0"), "end": Decimal("0")})
+        totals["begin"] += Decimal(str(begin_value))
+        totals["end"] += Decimal(str(end_value))
+
+    tolerance = Decimal("0.01")
+    mismatched_dates: list[str] = []
+    for valuation_date in sorted(set(portfolio_by_date) & set(position_totals_by_date)):
+        portfolio_begin, portfolio_end = portfolio_by_date[valuation_date]
+        position_begin = position_totals_by_date[valuation_date]["begin"]
+        position_end = position_totals_by_date[valuation_date]["end"]
+        if abs(portfolio_begin - position_begin) > tolerance or abs(portfolio_end - position_end) > tolerance:
+            mismatched_dates.append(
+                f"{valuation_date} (portfolio begin/end={portfolio_begin}/{portfolio_end}, "
+                f"positions begin/end={position_begin}/{position_end})"
+            )
+
+    if mismatched_dates:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "Stateful attribution source inputs are inconsistent: lotus-core portfolio timeseries does not align "
+                "with summed position timeseries for one or more dates. "
+                f"Sample mismatches: {'; '.join(mismatched_dates[:3])}."
+            ),
+        )
+
+
+def _validate_stateful_position_inception_support(*, rows: list[dict[str, object]]) -> None:
+    first_rows_by_position: dict[str, dict[str, object]] = {}
+    for row in sorted(rows, key=lambda item: (str(item.get("position_id", "")), str(item.get("valuation_date", "")))):
+        position_id = row.get("position_id")
+        if not isinstance(position_id, str) or position_id in first_rows_by_position:
+            continue
+        first_rows_by_position[position_id] = row
+
+    unsupported_positions: list[str] = []
+    for position_id, row in first_rows_by_position.items():
+        begin_value_raw = row.get("beginning_market_value_portfolio_currency")
+        end_value_raw = row.get("ending_market_value_portfolio_currency")
+        begin_value = Decimal(str(begin_value_raw)) if begin_value_raw is not None else Decimal("0")
+        end_value = Decimal(str(end_value_raw)) if end_value_raw is not None else Decimal("0")
+        bod_cf, _ = _split_position_cash_flows(row.get("cash_flows"))
+        if begin_value == 0 and end_value > 0 and (begin_value + bod_cf) <= 0:
+            unsupported_positions.append(position_id)
+
+    if unsupported_positions:
+        sample_positions = ", ".join(unsupported_positions[:5])
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "Stateful attribution cannot safely compute acquisition-day position returns when the requested window "
+                "starts a sourced position with zero beginning market value, positive ending market value, and no usable "
+                "beginning-of-day cash-flow semantics. "
+                f"Affected positions: {sample_positions}."
+            ),
+        )
 
 
 def _validate_stateful_group_by(group_by: list[str]) -> None:
@@ -369,7 +467,7 @@ def _build_group_key(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"Benchmark component {index_id} missing classification label for {dimension}.",
             )
-        key_parts.append((dimension, raw_value))
+        key_parts.append((dimension, _normalize_group_value(raw_value)))
     return tuple(key_parts)
 
 
@@ -382,23 +480,33 @@ def _position_row_to_daily_point(
     valuation_date = row.get("valuation_date")
     if not isinstance(valuation_date, str):
         return None
+    value_basis: PositionValueBasis
 
     if currency_mode in {"LOCAL_ONLY", "BOTH"}:
         begin_value = row.get("beginning_market_value_position_currency")
         end_value = row.get("ending_market_value_position_currency")
+        value_basis = "position"
     elif reporting_currency is not None:
         begin_value = row.get("beginning_market_value_reporting_currency")
         end_value = row.get("ending_market_value_reporting_currency")
+        if begin_value is None or end_value is None:
+            begin_value = row.get("beginning_market_value_portfolio_currency")
+            end_value = row.get("ending_market_value_portfolio_currency")
+        value_basis = "reporting"
     else:
         begin_value = row.get("beginning_market_value_portfolio_currency")
         end_value = row.get("ending_market_value_portfolio_currency")
+        value_basis = "portfolio"
 
     if begin_value is None or end_value is None:
         return None
 
-    bod_cf, eod_cf = _split_position_cash_flows(row.get("cash_flows"))
+    bod_cf, eod_cf, _ = split_position_cash_flows_in_value_basis(
+        cash_flows_raw=row.get("cash_flows"),
+        row=row,
+        value_basis=value_basis,
+    )
     return {
-        "day": 0,
         "perf_date": valuation_date,
         "begin_mv": Decimal(str(begin_value)),
         "end_mv": Decimal(str(end_value)),
@@ -415,6 +523,7 @@ def _position_row_to_base_weight_point(
     valuation_date = row.get("valuation_date")
     if not isinstance(valuation_date, str):
         return None
+    value_basis: PositionValueBasis
 
     if reporting_currency is not None:
         begin_value = row.get("beginning_market_value_reporting_currency")
@@ -425,7 +534,15 @@ def _position_row_to_base_weight_point(
     if begin_value is None:
         return None
 
-    bod_cf, _ = _split_position_cash_flows(row.get("cash_flows"))
+    if reporting_currency is not None:
+        value_basis = "reporting"
+    else:
+        value_basis = "portfolio"
+    bod_cf, _, _ = split_position_cash_flows_in_value_basis(
+        cash_flows_raw=row.get("cash_flows"),
+        row=row,
+        value_basis=value_basis,
+    )
     return {
         "perf_date": valuation_date,
         "begin_mv": Decimal(str(begin_value)),
@@ -461,14 +578,29 @@ def _position_meta_from_row(row: dict[str, object]) -> dict[str, object]:
         meta["security_id"] = security_id
     position_currency = row.get("position_currency")
     if isinstance(position_currency, str) and position_currency:
-        meta["currency"] = position_currency
+        meta["currency"] = _normalize_group_value(position_currency)
+    cash_flow_currency = row.get("cash_flow_currency")
+    if isinstance(cash_flow_currency, str) and cash_flow_currency:
+        meta["cash_flow_currency"] = _normalize_group_value(cash_flow_currency)
+    position_to_portfolio_fx_rate = row.get("position_to_portfolio_fx_rate")
+    if position_to_portfolio_fx_rate is not None:
+        meta["position_to_portfolio_fx_rate"] = Decimal(str(position_to_portfolio_fx_rate))
+    portfolio_to_reporting_fx_rate = row.get("portfolio_to_reporting_fx_rate")
+    if portfolio_to_reporting_fx_rate is not None:
+        meta["portfolio_to_reporting_fx_rate"] = Decimal(str(portfolio_to_reporting_fx_rate))
 
     dimensions_raw = row.get("dimensions")
     if isinstance(dimensions_raw, dict):
         for key, value in dimensions_raw.items():
-            if isinstance(key, str) and value is not None:
+            if isinstance(key, str) and isinstance(value, str) and value:
+                meta[key] = _normalize_group_value(value)
+            elif isinstance(key, str) and value is not None:
                 meta[key] = value
     return meta
+
+
+def _normalize_group_value(value: str) -> str:
+    return value.strip().replace(" ", "_").lower()
 
 
 def _parse_position_rows(payload: dict[str, object]) -> list[dict[str, object]]:

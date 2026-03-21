@@ -21,7 +21,7 @@ def test_twr_endpoint_respects_rounding_precision(client):
         "analyses": [{"period": "MTD", "frequencies": ["monthly"]}],
         "rounding_precision": 2,  # Request 2 decimal places
         "valuation_points": [
-            {"day": 1, "perf_date": "2025-01-15", "begin_mv": 1000.0, "end_mv": 1011.23456},
+            {"perf_date": "2025-01-15", "begin_mv": 1000.0, "end_mv": 1011.23456},
         ],
     }
     response = client.post("/performance/twr", json=payload)

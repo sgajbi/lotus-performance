@@ -169,7 +169,7 @@ Each period result can include:
   "portfolio_data": {
     "metric_basis": "NET",
     "valuation_points": [
-      { "day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1018.5 }
+      { "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1018.5 }
     ]
   },
   "instruments_data": [
@@ -177,14 +177,14 @@ Each period result can include:
       "instrument_id": "AAPL",
       "meta": { "sector": "Tech" },
       "valuation_points": [
-        { "day": 1, "perf_date": "2025-01-01", "begin_mv": 600, "end_mv": 612 }
+        { "perf_date": "2025-01-01", "begin_mv": 600, "end_mv": 612 }
       ]
     },
     {
       "instrument_id": "JNJ",
       "meta": { "sector": "Health" },
       "valuation_points": [
-        { "day": 1, "perf_date": "2025-01-01", "begin_mv": 400, "end_mv": 406.5 }
+        { "perf_date": "2025-01-01", "begin_mv": 400, "end_mv": 406.5 }
       ]
     }
   ],

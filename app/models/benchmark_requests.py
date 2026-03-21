@@ -12,7 +12,7 @@ from core.envelope import Annualization, Calendar, Output
 
 class BenchmarkComponentObservation(BaseModel):
     component_id: str = Field(..., description="Benchmark component identifier.")
-    date: dt_date = Field(..., description="Benchmark observation date.")
+    perf_date: dt_date = Field(..., description="Benchmark observation date.")
     weight_bop: float = Field(..., description="Beginning-of-day component benchmark weight.")
     component_currency: str | None = Field(
         default=None,
@@ -35,7 +35,7 @@ class BenchmarkComponentObservation(BaseModel):
 
 
 class BenchmarkReturnPoint(BaseModel):
-    date: dt_date = Field(..., description="Benchmark return observation date.")
+    perf_date: dt_date = Field(..., description="Benchmark return observation date.")
     benchmark_return: float = Field(
         ...,
         description="Benchmark daily return expressed as a decimal fraction (0.01 = 1%).",

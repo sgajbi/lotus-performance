@@ -12,7 +12,6 @@ This is the standard structure for providing a single day of performance data. I
 
 ```json
 {
-  "day": 1,
   "perf_date": "2025-01-01",
   "begin_mv": 100000.0,
   "bod_cf": 0.0,
@@ -22,13 +21,13 @@ This is the standard structure for providing a single day of performance data. I
 }
 ````
 
-  - **`day`**: A sequential day number within the request payload.
   - **`perf_date`**: The specific date of the observation in `YYYY-MM-DD` format.
   - **`begin_mv`**: The market value at the beginning of the day.
   - **`end_mv`**: The market value at the end of the day.
   - **`bod_cf`**: Any cash flow occurring at the beginning of the day (before trading).
   - **`eod_cf`**: Any cash flow occurring at the end of the day (after trading).
   - **`mgmt_fees`**: Management fees charged for the day, which reduce the portfolio's value.
+  - Observation order is derived server-side from sorted `perf_date`; callers do not send a separate `day` field.
 
 ### DataPolicy (Optional)
 
@@ -50,7 +49,7 @@ An optional object that allows for on-the-fly data correction and flagging. See 
 ### Enums
 
   - **`Frequency`**: Defines the aggregation periods for TWR breakdowns: `daily`, `weekly`, `monthly`, `quarterly`, `yearly`.
-  - **`PeriodType`**: Defines how the reporting window is resolved: `MTD`, `QTD`, `YTD`, `ITD`, `Y1`, `Y3`, `Y5`, `ROLLING`, `EXPLICIT`.
+  - **`PeriodType`**: Defines how the reporting window is resolved: `MTD`, `QTD`, `YTD`, `ITD`, `1Y`, `3Y`, `5Y`, `EXPLICIT`.
   - **`MetricBasis`**: Defines whether returns are calculated before or after fees: `NET`, `GROSS`.
   - **`PrecisionMode`**: Defines the numerical precision used by the engine: `FLOAT64` (fast, default) or `DECIMAL_STRICT` (auditable).
 

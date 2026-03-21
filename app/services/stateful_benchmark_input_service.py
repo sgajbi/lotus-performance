@@ -179,7 +179,7 @@ async def _build_stateful_vendor_series_input(
         )
     benchmark_return_points = [
         BenchmarkReturnPoint(
-            date=date.fromisoformat(point["series_date"]),
+            perf_date=date.fromisoformat(point["series_date"]),
             benchmark_return=float(point["benchmark_return"]),
         )
         for point in points_raw
@@ -495,7 +495,7 @@ def _build_component_observations(
             observations.append(
                 BenchmarkComponentObservation(
                     component_id=segment.index_id,
-                    date=point_date,
+                    perf_date=point_date,
                     component_currency=component_currency,
                     weight_bop=float(segment.composition_weight),
                     component_return=float(component_return),
@@ -509,7 +509,7 @@ def _build_component_observations(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"No normalized benchmark observations available for benchmark_id={benchmark_id}.",
         )
-    return sorted(observations, key=lambda item: (item.date, item.component_id))
+    return sorted(observations, key=lambda item: (item.perf_date, item.component_id))
 
 
 def _build_normalized_component_series(

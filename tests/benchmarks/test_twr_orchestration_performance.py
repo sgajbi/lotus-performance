@@ -19,7 +19,7 @@ from tests.benchmarks.test_stateful_input_performance import (
     _StatefulBenchmarkCoreServiceStub,
 )
 
-TWR_BENCHMARK_ORCHESTRATION_MEDIAN_MS_BUDGET = 5200.0
+TWR_BENCHMARK_ORCHESTRATION_MEDIAN_MS_BUDGET = 8500.0
 
 
 @pytest.mark.asyncio

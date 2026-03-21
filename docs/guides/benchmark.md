@@ -159,13 +159,13 @@ are emitted for calculated mode.
     "component_observations": [
       {
         "component_id": "IDX_A",
-        "date": "2026-01-02",
+        "perf_date": "2026-01-02",
         "weight_bop": 0.6,
         "component_return": 0.02
       },
       {
         "component_id": "IDX_B",
-        "date": "2026-01-02",
+        "perf_date": "2026-01-02",
         "weight_bop": 0.4,
         "component_return": 0.01
       }
@@ -192,5 +192,7 @@ are emitted for calculated mode.
   "stateful_input": {}
 }
 ```
+
+Public stateless benchmark observation payloads use `perf_date` consistently.
 
 Use Swagger at `/docs` for exact field-level descriptions and current examples.

@@ -7,7 +7,7 @@ from fastapi import HTTPException, status
 
 def portfolio_timeseries_to_valuation_points(*, observations: list[dict[str, object]]) -> list[dict[str, object]]:
     valuation_points: list[dict[str, object]] = []
-    for index, point in enumerate(observations, start=1):
+    for point in observations:
         valuation_date = point.get("valuation_date")
         begin_mv = point.get("beginning_market_value")
         end_mv = point.get("ending_market_value")
@@ -31,7 +31,6 @@ def portfolio_timeseries_to_valuation_points(*, observations: list[dict[str, obj
                     eod_cf += decimal_amount
         valuation_points.append(
             {
-                "day": index,
                 "perf_date": valuation_date,
                 "begin_mv": Decimal(str(begin_mv)),
                 "end_mv": Decimal(str(end_mv)),

@@ -22,7 +22,6 @@
       "metric_basis": "NET",
       "valuation_points": [
         {
-          "day": 1,
           "perf_date": "2025-01-01",
           "begin_mv": 1000.0,
           "end_mv": 1018.5
@@ -37,7 +36,6 @@
         },
         "valuation_points": [
           {
-            "day": 1,
             "perf_date": "2025-01-01",
             "begin_mv": 600.0,
             "end_mv": 612.0
@@ -51,7 +49,6 @@
         },
         "valuation_points": [
           {
-            "day": 1,
             "perf_date": "2025-01-01",
             "begin_mv": 400.0,
             "end_mv": 406.5

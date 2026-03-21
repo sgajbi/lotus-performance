@@ -193,6 +193,7 @@ def test_api_examples_recipes_match_current_dual_mode_contract():
     assert '"include_benchmark": true' in guide
     assert '"relative_performance"' in guide
     assert '"component_price_points"' in guide
+    assert '"day"' not in guide
     assert "window_start_date" in guide
     assert "consumer_system" not in guide
     assert 'stateful attribution can also emit currency attribution' in guide.lower()
@@ -224,19 +225,23 @@ def test_json_examples_match_current_dual_mode_contract():
         assert payload["input_mode"] == "stateless"
         assert "period_type" not in payload_text
         assert "daily_data" not in payload_text
+        assert '"day"' not in payload_text
 
     benchmark_request = json.loads(_read("docs/examples/benchmark_request.json"))
     assert "stateless_input" in benchmark_request
     assert benchmark_request["return_source"] == "calculated"
+    assert benchmark_request["stateless_input"]["component_observations"][0]["perf_date"] == "2026-01-02"
 
     benchmark_price_request = json.loads(_read("docs/examples/benchmark_request_price_points.json"))
     assert "stateless_input" in benchmark_price_request
     assert "component_price_points" in benchmark_price_request["stateless_input"]
     assert benchmark_price_request["return_source"] == "calculated"
+    assert benchmark_price_request["stateless_input"]["component_price_points"][0]["perf_date"] == "2026-01-01"
 
     benchmark_vendor_request = json.loads(_read("docs/examples/benchmark_vendor_series_request.json"))
     assert "stateless_input" in benchmark_vendor_request
     assert benchmark_vendor_request["return_source"] == "vendor_series"
+    assert benchmark_vendor_request["stateless_input"]["benchmark_return_points"][0]["perf_date"] == "2026-01-02"
 
     assert "stateless_input" in json.loads(_read("docs/examples/twr_request.json"))
     benchmark_twr_request = json.loads(_read("docs/examples/twr_request_with_benchmark.json"))

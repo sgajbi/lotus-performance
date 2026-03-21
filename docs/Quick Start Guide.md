@@ -50,13 +50,11 @@ curl -X POST "http://127.0.0.1:8000/performance/twr" \
   "frequencies": ["daily"],
   "daily_data": [
     {
-      "day": 1,
       "perf_date": "2025-01-01",
       "begin_mv": 100000.0,
       "end_mv": 101000.0
     },
     {
-      "day": 2,
       "perf_date": "2025-01-02",
       "begin_mv": 101000.0,
       "end_mv": 102010.0

@@ -138,8 +138,8 @@ When `hierarchy` is present:
   "portfolio_data": {
     "metric_basis": "NET",
     "valuation_points": [
-      { "day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1020 },
-      { "day": 2, "perf_date": "2025-01-02", "begin_mv": 1020, "bod_cf": 50, "end_mv": 1080 }
+      { "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1020 },
+      { "perf_date": "2025-01-02", "begin_mv": 1020, "bod_cf": 50, "end_mv": 1080 }
     ]
   },
   "positions_data": [
@@ -147,16 +147,16 @@ When `hierarchy` is present:
       "position_id": "Stock_A",
       "meta": { "sector": "Technology" },
       "valuation_points": [
-        { "day": 1, "perf_date": "2025-01-01", "begin_mv": 600, "end_mv": 612 },
-        { "day": 2, "perf_date": "2025-01-02", "begin_mv": 612, "bod_cf": 50, "end_mv": 670 }
+        { "perf_date": "2025-01-01", "begin_mv": 600, "end_mv": 612 },
+        { "perf_date": "2025-01-02", "begin_mv": 612, "bod_cf": 50, "end_mv": 670 }
       ]
     },
     {
       "position_id": "Stock_B",
       "meta": { "sector": "Healthcare" },
       "valuation_points": [
-        { "day": 1, "perf_date": "2025-01-01", "begin_mv": 400, "end_mv": 408 },
-        { "day": 2, "perf_date": "2025-01-02", "begin_mv": 408, "end_mv": 410 }
+        { "perf_date": "2025-01-01", "begin_mv": 400, "end_mv": 408 },
+        { "perf_date": "2025-01-02", "begin_mv": 408, "end_mv": 410 }
       ]
     }
   ]

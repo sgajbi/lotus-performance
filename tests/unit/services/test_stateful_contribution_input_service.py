@@ -239,6 +239,33 @@ def test_position_row_to_daily_point_uses_local_currency_values():
     assert point["bod_cf"] == Decimal("2")
 
 
+def test_position_row_to_daily_point_converts_cash_flows_to_reporting_currency():
+    point = _position_row_to_daily_point(
+        row={
+            "valuation_date": "2025-01-01",
+            "position_currency": "EUR",
+            "cash_flow_currency": "EUR",
+            "position_to_portfolio_fx_rate": "1.20",
+            "portfolio_to_reporting_fx_rate": "1.10",
+            "beginning_market_value_reporting_currency": "132",
+            "ending_market_value_reporting_currency": "145.2",
+            "cash_flows": [
+                {"amount": "5", "timing": "bod"},
+                {"amount": "-2", "timing": "eod"},
+                {"amount": "-1", "timing": "eod", "cash_flow_type": "fee"},
+            ],
+        },
+        currency_mode="BASE_ONLY",
+        reporting_currency="USD",
+    )
+
+    assert point is not None
+    assert point["begin_mv"] == Decimal("132")
+    assert point["bod_cf"] == Decimal("6.60")
+    assert point["eod_cf"] == Decimal("-3.96")
+    assert point["mgmt_fees"] == Decimal("-1.32")
+
+
 def test_split_position_cash_flows_ignores_invalid_rows():
     bod_cf, eod_cf, fees = _split_position_cash_flows(["bad", {"amount": None, "timing": "bod"}])
 
@@ -246,8 +273,19 @@ def test_split_position_cash_flows_ignores_invalid_rows():
 
 
 def test_position_meta_and_retrieval_metadata_defaults():
-    assert _position_meta_from_row({"security_id": "SEC_1", "dimensions": {"sector": "Tech", "country": "US"}}) == {
+    assert _position_meta_from_row(
+        {
+            "security_id": "SEC_1",
+            "cash_flow_currency": "EUR",
+            "position_to_portfolio_fx_rate": "1.2",
+            "portfolio_to_reporting_fx_rate": "1.1",
+            "dimensions": {"sector": "Tech", "country": "US"},
+        }
+    ) == {
         "security_id": "SEC_1",
+        "cash_flow_currency": "EUR",
+        "position_to_portfolio_fx_rate": Decimal("1.2"),
+        "portfolio_to_reporting_fx_rate": Decimal("1.1"),
         "sector": "Tech",
         "country": "US",
     }

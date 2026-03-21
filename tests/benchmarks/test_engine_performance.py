@@ -45,7 +45,6 @@ def _build_characterization_payload() -> dict:
         perf_date = start_date + timedelta(days=day_offset)
         valuation_points.append(
             {
-                "day": day_offset + 1,
                 "perf_date": perf_date.isoformat(),
                 **template,
             }

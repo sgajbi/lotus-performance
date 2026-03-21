@@ -53,6 +53,11 @@ def create_engine_dataframe(valuation_points: List[Dict[str, Any]]) -> pd.DataFr
         df = pd.DataFrame(valuation_points)
         if "perf_date" in df.columns:
             df.drop_duplicates(subset=["perf_date"], keep="last", inplace=True)
+            df["perf_date"] = pd.to_datetime(df["perf_date"]).dt.date
+            df.sort_values("perf_date", inplace=True)
+            df.reset_index(drop=True, inplace=True)
+        if "day" not in df.columns:
+            df["day"] = range(1, len(df) + 1)
         return df
     except Exception as e:
         logger.exception("Failed to create DataFrame from daily data.")

@@ -20,7 +20,7 @@ def test_twr_request_accepts_legacy_stateless_payload(base_payload):
     request = TWRAnalyticsRequest.model_validate(
         {
             **base_payload,
-            "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
         }
     )
 
@@ -32,13 +32,13 @@ def test_twr_request_accepts_legacy_stateless_payload(base_payload):
 def test_twr_request_accepts_nested_stateless_payload(base_payload):
     request = TWRAnalyticsRequest.model_validate(
         {
-            **base_payload,
-            "input_mode": "stateless",
-            "stateless_input": {
-                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
-            },
-        }
-    )
+                **base_payload,
+                "input_mode": "stateless",
+                "stateless_input": {
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+                },
+            }
+        )
 
     assert request.input_mode == TWRInputMode.STATELESS
     assert request.stateless_input is not None
@@ -62,9 +62,9 @@ def test_twr_request_rejects_ambiguous_stateless_payload(base_payload):
         TWRAnalyticsRequest.model_validate(
             {
                 **base_payload,
-                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
                 "stateless_input": {
-                    "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+                    "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
                 },
             }
         )
@@ -75,7 +75,7 @@ def test_twr_request_rejects_stateful_payload_in_stateless_mode(base_payload):
         TWRAnalyticsRequest.model_validate(
             {
                 **base_payload,
-                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
                 "stateful_input": {},
             }
         )
@@ -85,14 +85,14 @@ def test_twr_request_rejects_stateless_payloads_in_stateful_mode(base_payload):
     with pytest.raises(ValidationError, match="stateless_input must be null when input_mode=stateful"):
         TWRAnalyticsRequest.model_validate(
             {
-                **base_payload,
-                "input_mode": "stateful",
-                "stateful_input": {},
-                "stateless_input": {
-                    "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
-                },
-            }
-        )
+                    **base_payload,
+                    "input_mode": "stateful",
+                    "stateful_input": {},
+                    "stateless_input": {
+                    "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+                    },
+                }
+            )
 
     with pytest.raises(ValidationError, match="valuation_points must be null when input_mode=stateful"):
         TWRAnalyticsRequest.model_validate(
@@ -100,7 +100,7 @@ def test_twr_request_rejects_stateless_payloads_in_stateful_mode(base_payload):
                 **base_payload,
                 "input_mode": "stateful",
                 "stateful_input": {},
-                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
             }
         )
 
@@ -108,22 +108,22 @@ def test_twr_request_rejects_stateless_payloads_in_stateful_mode(base_payload):
 def test_twr_request_to_stateless_prefers_explicit_override(base_payload):
     request = TWRAnalyticsRequest.model_validate(
         {
-            **base_payload,
-            "input_mode": "stateless",
-            "stateless_input": {
-                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
-            },
-        }
-    )
+                **base_payload,
+                "input_mode": "stateless",
+                "stateless_input": {
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+                },
+            }
+        )
 
     stateless = request.to_stateless_performance_request(
         valuation_points=[
-            DailyInputData.model_validate({"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1020.1})
+            DailyInputData.model_validate({"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1020.1})
         ]
     )
 
     assert len(stateless.valuation_points) == 1
-    assert stateless.valuation_points[0].day == 2
+    assert stateless.valuation_points[0].perf_date.isoformat() == "2025-01-02"
 
 
 def test_twr_request_to_stateless_fails_without_stateless_payload(base_payload):
@@ -144,7 +144,7 @@ def test_twr_request_accepts_nested_stateless_benchmark_request(base_payload):
         {
             **base_payload,
             "include_benchmark": True,
-            "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
             "benchmark": {
                 "benchmark_id": "BMK_1",
                 "input_mode": "stateless",
@@ -154,7 +154,7 @@ def test_twr_request_accepts_nested_stateless_benchmark_request(base_payload):
                     "component_observations": [
                         {
                             "component_id": "IDX_A",
-                            "date": "2025-01-01",
+                            "perf_date": "2025-01-01",
                             "weight_bop": 1.0,
                             "component_return": 0.01,
                         }
@@ -175,7 +175,7 @@ def test_twr_request_accepts_stateless_benchmark_price_points(base_payload):
         {
             **base_payload,
             "include_benchmark": True,
-            "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
             "benchmark": {
                 "benchmark_id": "BMK_1",
                 "input_mode": "stateless",
@@ -183,8 +183,8 @@ def test_twr_request_accepts_stateless_benchmark_price_points(base_payload):
                 "stateless_input": {
                     "benchmark_currency": "USD",
                     "component_price_points": [
-                        {"component_id": "IDX_A", "date": "2024-12-31", "weight_bop": 1.0, "index_price": 100.0},
-                        {"component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "index_price": 101.0},
+                        {"component_id": "IDX_A", "perf_date": "2024-12-31", "weight_bop": 1.0, "index_price": 100.0},
+                        {"component_id": "IDX_A", "perf_date": "2025-01-01", "weight_bop": 1.0, "index_price": 101.0},
                     ],
                 },
             },
@@ -232,7 +232,7 @@ def test_twr_request_requires_benchmark_config_for_stateless_include_benchmark(b
             {
                 **base_payload,
                 "include_benchmark": True,
-                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
             }
         )
 
@@ -242,7 +242,7 @@ def test_twr_request_requires_stateful_benchmark_payload_when_requested(base_pay
         TWRAnalyticsRequest.model_validate(
             {
                 **base_payload,
-                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
                 "benchmark": {
                     "input_mode": "stateful",
                 },
@@ -256,7 +256,7 @@ def test_twr_request_rejects_ambiguous_stateless_benchmark_inputs(base_payload):
             {
                 **base_payload,
                 "include_benchmark": True,
-                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
                 "benchmark": {
                     "benchmark_id": "BMK_1",
                     "input_mode": "stateless",
@@ -266,16 +266,21 @@ def test_twr_request_rejects_ambiguous_stateless_benchmark_inputs(base_payload):
                         "component_observations": [
                             {
                                 "component_id": "IDX_A",
-                                "date": "2025-01-01",
+                                "perf_date": "2025-01-01",
                                 "weight_bop": 1.0,
                                 "component_return": 0.01,
                             }
                         ],
                         "component_price_points": [
-                            {"component_id": "IDX_A", "date": "2024-12-31", "weight_bop": 1.0, "index_price": 100.0},
-                            {"component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "index_price": 101.0},
+                            {"component_id": "IDX_A", "perf_date": "2024-12-31", "weight_bop": 1.0, "index_price": 100.0},
+                            {"component_id": "IDX_A", "perf_date": "2025-01-01", "weight_bop": 1.0, "index_price": 101.0},
                         ],
                     },
                 },
             }
         )
+
+
+def test_daily_input_data_rejects_client_supplied_day_sequence():
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        DailyInputData.model_validate({"perf_date": "2025-01-01", "day": 1, "begin_mv": 1000, "end_mv": 1010})

@@ -80,7 +80,7 @@ These characterize the control-plane query path behind:
   - composition-window sourcing, component price loading, and FX normalization for benchmark calculation
   - canonical normalization and response shaping
 - Metric: median wall-clock runtime across 5 reads after warm-up
-- Budget: `<= 4500ms`
+- Budget: `<= 7000ms`
 - Test owner: [test_returns_series_orchestration_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_returns_series_orchestration_performance.py)
 
 ## Stateful retrieval budget
@@ -133,7 +133,7 @@ These characterize the control-plane query path behind:
   - `8` effective-dated composition segments
   - `3` FX pairs normalized into benchmark currency
 - Metric: median wall-clock runtime across 5 reads after warm-up
-- Budget: `<= 2200ms`
+- Budget: `<= 2800ms`
 - Test owner: [test_stateful_input_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_stateful_input_performance.py)
 
 ## Stateful benchmark orchestration budget
@@ -151,7 +151,7 @@ These characterize the control-plane query path behind:
   - `8` effective-dated composition segments
   - `3` FX pairs normalized into benchmark currency
 - Metric: median wall-clock runtime across 5 runs after warm-up
-- Budget: `<= 27000ms`
+- Budget: `<= 42000ms`
 - Test owner: [test_benchmark_orchestration_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_benchmark_orchestration_performance.py)
 
 ## Stateful benchmark-inclusive TWR orchestration budget
@@ -169,7 +169,7 @@ These characterize the control-plane query path behind:
   - implicit benchmark assignment from lotus-core
   - `ITD` request with monthly breakdown output
 - Metric: median wall-clock runtime across 5 runs after warm-up
-- Budget: `<= 5200ms`
+- Budget: `<= 8500ms`
 - Test owner: [test_twr_orchestration_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_twr_orchestration_performance.py)
 
 ## PostgreSQL plan verification

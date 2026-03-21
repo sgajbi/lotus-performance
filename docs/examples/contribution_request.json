@@ -20,13 +20,11 @@
       "metric_basis": "NET",
       "valuation_points": [
         {
-          "day": 1,
           "perf_date": "2025-01-01",
           "begin_mv": 1000.0,
           "end_mv": 1020.0
         },
         {
-          "day": 2,
           "perf_date": "2025-01-02",
           "begin_mv": 1020.0,
           "bod_cf": 50.0,
@@ -42,13 +40,11 @@
         },
         "valuation_points": [
           {
-            "day": 1,
             "perf_date": "2025-01-01",
             "begin_mv": 600.0,
             "end_mv": 612.0
           },
           {
-            "day": 2,
             "perf_date": "2025-01-02",
             "begin_mv": 612.0,
             "bod_cf": 50.0,
@@ -63,13 +59,11 @@
         },
         "valuation_points": [
           {
-            "day": 1,
             "perf_date": "2025-01-01",
             "begin_mv": 400.0,
             "end_mv": 408.0
           },
           {
-            "day": 2,
             "perf_date": "2025-01-02",
             "begin_mv": 408.0,
             "end_mv": 410.0

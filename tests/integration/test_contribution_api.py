@@ -68,16 +68,16 @@ def test_contribution_endpoint_multi_period(client):
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [
-                {"day": 1, "perf_date": "2025-01-10", "begin_mv": 1000, "end_mv": 1010},
-                {"day": 2, "perf_date": "2025-02-10", "begin_mv": 1010, "end_mv": 1030.2},
+                {"perf_date": "2025-01-10", "begin_mv": 1000, "end_mv": 1010},
+                {"perf_date": "2025-02-10", "begin_mv": 1010, "end_mv": 1030.2},
             ],
         },
         "positions_data": [
             {
                 "position_id": "Stock_A",
                 "valuation_points": [
-                    {"day": 1, "perf_date": "2025-01-10", "begin_mv": 1000, "end_mv": 1010},
-                    {"day": 2, "perf_date": "2025-02-10", "begin_mv": 1010, "end_mv": 1030.2},
+                    {"perf_date": "2025-01-10", "begin_mv": 1000, "end_mv": 1010},
+                    {"perf_date": "2025-02-10", "begin_mv": 1010, "end_mv": 1030.2},
                 ],
             }
         ],
@@ -100,13 +100,13 @@ def test_contribution_endpoint_multi_currency(client):
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "GROSS",
-            "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 105.0, "end_mv": 110.16}],
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 105.0, "end_mv": 110.16}],
         },
         "positions_data": [
             {
                 "position_id": "EUR_STOCK",
                 "meta": {"currency": "EUR"},
-                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": 102.0}],
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": 102.0}],
             }
         ],
         "currency_mode": "BOTH",
@@ -152,6 +152,11 @@ def test_contribution_endpoint_with_timeseries(client, happy_path_payload):
     payload["emit"] = {"timeseries": True, "by_position_timeseries": True}
     response = client.post("/performance/contribution", json=payload)
     assert response.status_code == 200
+    body = response.json()["results_by_period"]["ITD"]
+    assert len(body["timeseries"]) == 2
+    assert len(body["by_position_timeseries"]) == 1
+    assert body["by_position_timeseries"][0]["position_id"] == "Stock_A"
+    assert len(body["by_position_timeseries"][0]["series"]) == 2
 
 
 def test_contribution_endpoint_hierarchy_happy_path(client, happy_path_payload):
@@ -163,8 +168,8 @@ def test_contribution_endpoint_hierarchy_happy_path(client, happy_path_payload):
             "position_id": "Stock_B",
             "meta": {"sector": "Technology"},
             "valuation_points": [
-                {"day": 1, "perf_date": "2025-01-01", "begin_mv": 400, "end_mv": 408},
-                {"day": 2, "perf_date": "2025-01-02", "begin_mv": 408, "end_mv": 410},
+                {"perf_date": "2025-01-01", "begin_mv": 400, "end_mv": 408},
+                {"perf_date": "2025-01-02", "begin_mv": 408, "end_mv": 410},
             ],
         }
     )
@@ -185,8 +190,8 @@ def test_contribution_endpoint_hierarchy_respects_multiple_resolved_periods(clie
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [
-                {"day": 1, "perf_date": "2025-01-31", "begin_mv": 1000, "end_mv": 1010},
-                {"day": 2, "perf_date": "2025-02-15", "begin_mv": 1010, "end_mv": 1030.2},
+                {"perf_date": "2025-01-31", "begin_mv": 1000, "end_mv": 1010},
+                {"perf_date": "2025-02-15", "begin_mv": 1010, "end_mv": 1030.2},
             ],
         },
         "positions_data": [
@@ -194,16 +199,16 @@ def test_contribution_endpoint_hierarchy_respects_multiple_resolved_periods(clie
                 "position_id": "Stock_A",
                 "meta": {"sector": "Technology"},
                 "valuation_points": [
-                    {"day": 1, "perf_date": "2025-01-31", "begin_mv": 600, "end_mv": 606},
-                    {"day": 2, "perf_date": "2025-02-15", "begin_mv": 606, "end_mv": 618.12},
+                    {"perf_date": "2025-01-31", "begin_mv": 600, "end_mv": 606},
+                    {"perf_date": "2025-02-15", "begin_mv": 606, "end_mv": 618.12},
                 ],
             },
             {
                 "position_id": "Stock_B",
                 "meta": {"sector": "Healthcare"},
                 "valuation_points": [
-                    {"day": 1, "perf_date": "2025-01-31", "begin_mv": 400, "end_mv": 404},
-                    {"day": 2, "perf_date": "2025-02-15", "begin_mv": 404, "end_mv": 412.08},
+                    {"perf_date": "2025-01-31", "begin_mv": 400, "end_mv": 404},
+                    {"perf_date": "2025-02-15", "begin_mv": 404, "end_mv": 412.08},
                 ],
             },
         ],
@@ -230,7 +235,7 @@ def test_contribution_endpoint_error_handling(client, mocker):
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
-            "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1025}],
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1025}],
         },
         "positions_data": [],
     }
@@ -246,7 +251,7 @@ def test_contribution_endpoint_no_resolved_periods_returns_400(client):
         "analyses": [{"period": "MTD", "frequencies": ["monthly"]}],
         "portfolio_data": {
             "metric_basis": "NET",
-            "valuation_points": [{"day": 1, "perf_date": "2025-01-10", "begin_mv": 1000, "end_mv": 1010}],
+            "valuation_points": [{"perf_date": "2025-01-10", "begin_mv": 1000, "end_mv": 1010}],
         },
         "positions_data": [],
     }
@@ -271,12 +276,12 @@ def test_contribution_endpoint_skips_empty_period_slice(client):
         "analyses": [{"period": "YTD", "frequencies": ["monthly"]}],
         "portfolio_data": {
             "metric_basis": "NET",
-            "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
         },
         "positions_data": [
             {
                 "position_id": "Stock_A",
-                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
             }
         ],
     }
@@ -401,6 +406,128 @@ def test_contribution_supports_stateful_input_mode(client, monkeypatch):
     assert body["portfolio_id"] == "CONTRIB_STATEFUL"
     assert body["input_mode"] == "stateful"
     assert "ITD" in body["results_by_period"]
+
+
+def test_contribution_stateful_converts_non_base_cash_flows_using_explicit_fx_metadata(client, monkeypatch):
+    async def _mock_retrieve_stateful_contribution_source_input(**kwargs):  # noqa: ARG001
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            portfolio_input=SimpleNamespace(
+                observations=[
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "132",
+                        "ending_market_value": "145.2",
+                        "cash_flows": [{"amount": "13.2", "timing": "bod", "cash_flow_type": "external_flow"}],
+                    }
+                ],
+            ),
+            position_rows=[
+                {
+                    "position_id": "SEC_EUR_1",
+                    "security_id": "SEC_EUR_1",
+                    "position_currency": "EUR",
+                    "cash_flow_currency": "EUR",
+                    "position_to_portfolio_fx_rate": "1.20",
+                    "portfolio_to_reporting_fx_rate": "1.10",
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value_reporting_currency": "132",
+                    "ending_market_value_reporting_currency": "145.2",
+                    "cash_flows": [{"amount": "10", "timing": "bod", "cash_flow_type": "external_flow"}],
+                    "dimensions": {"sector": "Technology"},
+                },
+            ],
+        )
+
+    monkeypatch.setattr(
+        "app.services.contribution_mode_service.retrieve_stateful_contribution_source_input",
+        _mock_retrieve_stateful_contribution_source_input,
+    )
+
+    payload = {
+        "portfolio_id": "CONTRIB_STATEFUL_FX_CF",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "report_ccy": "USD",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "emit": {"timeseries": True, "by_position_timeseries": True},
+        "input_mode": "stateful",
+        "stateful_input": {},
+    }
+
+    response = client.post("/performance/contribution", json=payload)
+
+    assert response.status_code == 200
+    itd = response.json()["results_by_period"]["ITD"]
+    assert itd["total_contribution"] == pytest.approx(0.0)
+    assert itd["by_position_timeseries"][0]["series"][0]["contribution"] == pytest.approx(0.0)
+
+
+def test_contribution_stateful_emit_timeseries_returns_series(client, monkeypatch):
+    async def _mock_retrieve_stateful_contribution_source_input(**kwargs):  # noqa: ARG001
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            portfolio_input=SimpleNamespace(
+                observations=[
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1010",
+                    },
+                    {
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value": "1010",
+                        "ending_market_value": "1030.2",
+                    },
+                ],
+            ),
+            position_rows=[
+                {
+                    "position_id": "SEC_1",
+                    "security_id": "SEC_1",
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value_portfolio_currency": "1000",
+                    "ending_market_value_portfolio_currency": "1010",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Technology"},
+                },
+                {
+                    "position_id": "SEC_1",
+                    "security_id": "SEC_1",
+                    "valuation_date": "2025-01-02",
+                    "beginning_market_value_portfolio_currency": "1010",
+                    "ending_market_value_portfolio_currency": "1030.2",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Technology"},
+                },
+            ],
+        )
+
+    monkeypatch.setattr(
+        "app.services.contribution_mode_service.retrieve_stateful_contribution_source_input",
+        _mock_retrieve_stateful_contribution_source_input,
+    )
+
+    payload = {
+        "portfolio_id": "CONTRIB_STATEFUL_SERIES",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "emit": {"timeseries": True, "by_position_timeseries": True},
+        "input_mode": "stateful",
+        "stateful_input": {},
+    }
+
+    response = client.post("/performance/contribution", json=payload)
+
+    assert response.status_code == 200
+    result = response.json()["results_by_period"]["ITD"]
+    assert len(result["timeseries"]) == 2
+    assert len(result["by_position_timeseries"]) == 1
+    assert result["by_position_timeseries"][0]["position_id"] == "SEC_1"
+    assert len(result["by_position_timeseries"][0]["series"]) == 2
 
 
 def test_contribution_stateful_offloads_on_resolved_position_count(client, monkeypatch):
@@ -659,7 +786,6 @@ def test_contribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch
                 "metric_basis": "NET",
                 "valuation_points": [
                     {
-                        "day": 1,
                         "perf_date": "2025-01-01",
                         "begin_mv": "1000",
                         "end_mv": "1010",
@@ -667,7 +793,6 @@ def test_contribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch
                         "eod_cf": "0",
                     },
                     {
-                        "day": 2,
                         "perf_date": "2025-01-02",
                         "begin_mv": "1010",
                         "end_mv": "1020.1",
@@ -682,7 +807,6 @@ def test_contribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch
                     "meta": {"security_id": "SEC_1", "sector": "Technology"},
                     "valuation_points": [
                         {
-                            "day": 0,
                             "perf_date": "2025-01-01",
                             "begin_mv": "1000",
                             "end_mv": "1010",
@@ -690,7 +814,6 @@ def test_contribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch
                             "eod_cf": "0",
                         },
                         {
-                            "day": 0,
                             "perf_date": "2025-01-02",
                             "begin_mv": "1010",
                             "end_mv": "1020.1",

@@ -41,8 +41,8 @@ async def test_resolve_twr_request_passthroughs_stateless_mode():
             "report_end_date": "2025-01-02",
             "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
             "valuation_points": [
-                {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
-                {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1020.1},
+                {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1020.1},
             ],
         }
     )
@@ -98,7 +98,10 @@ async def test_resolve_twr_request_sources_stateful_payload(monkeypatch):
     resolved = await resolve_twr_request(request, settings=_settings())
 
     assert resolved.input_mode.value == "stateful"
-    assert [point.day for point in resolved.performance_request.valuation_points] == [1, 2]
+    assert [point.perf_date.isoformat() for point in resolved.performance_request.valuation_points] == [
+        "2025-01-01",
+        "2025-01-02",
+    ]
     assert resolved.performance_request.valuation_points[1].end_mv == 1020.1
     assert str(resolved.performance_request.performance_start_date) == "2024-12-31"
 
@@ -178,20 +181,28 @@ async def test_resolve_twr_request_uses_upstream_open_date_over_request_start(mo
 
 @pytest.mark.asyncio
 async def test_resolve_twr_request_allows_missing_stateful_start_date(monkeypatch):
-    async def _mock_fetch_stateful_portfolio_timeseries(**kwargs):  # noqa: ARG001
-        return (
-            200,
-            {
-                "portfolio_open_date": "2024-01-15",
-                "observations": [
-                    {"valuation_date": "2025-01-01", "beginning_market_value": "1000", "ending_market_value": "1010"},
-                ],
-            },
-        )
+    class _StatefulPortfolioStub:
+        async def get_portfolio_reference(self, **kwargs):  # noqa: ARG002
+            return 200, {"portfolio_open_date": "2024-01-15"}
+
+        async def get_portfolio_timeseries(self, **kwargs):  # noqa: ARG002
+            return (
+                200,
+                {
+                    "portfolio_open_date": "2024-01-15",
+                    "observations": [
+                        {
+                            "valuation_date": "2025-01-01",
+                            "beginning_market_value": "1000",
+                            "ending_market_value": "1010",
+                        },
+                    ],
+                },
+            )
 
     monkeypatch.setattr(
-        "app.services.stateful_performance_input_service.fetch_stateful_portfolio_timeseries",
-        _mock_fetch_stateful_portfolio_timeseries,
+        "app.services.twr_mode_service.build_stateful_input_service",
+        lambda settings: _StatefulPortfolioStub(),  # noqa: ARG005
     )
 
     request = TWRAnalyticsRequest.model_validate(
@@ -270,8 +281,8 @@ async def test_resolve_twr_request_builds_stateless_benchmark_request():
             "report_end_date": "2025-01-02",
             "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
             "valuation_points": [
-                {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
-                {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1020.1},
+                {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1020.1},
             ],
             "benchmark": {
                 "benchmark_id": "BMK_1",
@@ -282,13 +293,13 @@ async def test_resolve_twr_request_builds_stateless_benchmark_request():
                     "component_observations": [
                         {
                             "component_id": "IDX_A",
-                            "date": "2025-01-01",
+                            "perf_date": "2025-01-01",
                             "weight_bop": 1.0,
                             "component_return": 0.01,
                         },
                         {
                             "component_id": "IDX_A",
-                            "date": "2025-01-02",
+                            "perf_date": "2025-01-02",
                             "weight_bop": 1.0,
                             "component_return": 0.02,
                         },
@@ -368,8 +379,8 @@ async def test_resolve_twr_request_sources_stateful_benchmark_assignment(monkeyp
             "report_end_date": "2025-01-02",
             "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
             "valuation_points": [
-                {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
-                {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1020.1},
+                {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1020.1},
             ],
             "benchmark": {
                 "input_mode": "stateful",
