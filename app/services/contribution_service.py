@@ -66,11 +66,9 @@ def _build_daily_contribution_series(period_slice_df: pd.DataFrame) -> list[Dail
 def _build_position_contribution_series(period_slice_df: pd.DataFrame) -> list[PositionContributionSeries]:
     position_id_column = "position_id"
     series_by_position: list[PositionContributionSeries] = []
-    for position_id, position_slice in (
-        period_slice_df.sort_values([position_id_column, PortfolioColumns.PERF_DATE.value]).groupby(
-            position_id_column, sort=True
-        )
-    ):
+    for position_id, position_slice in period_slice_df.sort_values(
+        [position_id_column, PortfolioColumns.PERF_DATE.value]
+    ).groupby(position_id_column, sort=True):
         series_by_position.append(
             PositionContributionSeries(
                 position_id=str(position_id),
@@ -204,11 +202,7 @@ def calculate_contribution(
                     for _, row in totals.iterrows()
                 ]
 
-                daily_series = (
-                    _build_daily_contribution_series(period_slice_df)
-                    if request.emit.timeseries
-                    else None
-                )
+                daily_series = _build_daily_contribution_series(period_slice_df) if request.emit.timeseries else None
                 position_series = (
                     _build_position_contribution_series(period_slice_df)
                     if request.emit.by_position_timeseries

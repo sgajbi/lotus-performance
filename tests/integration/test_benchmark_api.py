@@ -269,9 +269,9 @@ def test_calculate_benchmark_endpoint_rejects_stateless_price_points_with_misali
                 {"component_id": "IDX_A", "perf_date": "2026-01-01", "weight_bop": 0.6, "index_price": 100.0},
                 {"component_id": "IDX_A", "perf_date": "2026-01-02", "weight_bop": 0.6, "index_price": 102.0},
                 {"component_id": "IDX_B", "perf_date": "2026-01-01", "weight_bop": 0.4, "index_price": 100.0},
-                {"component_id": "IDX_B", "perf_date": "2026-01-03", "weight_bop": 0.4, "index_price": 101.0}
-            ]
-        }
+                {"component_id": "IDX_B", "perf_date": "2026-01-03", "weight_bop": 0.4, "index_price": 101.0},
+            ],
+        },
     }
 
     response = client.post("/performance/benchmark", json=payload)
@@ -296,7 +296,7 @@ def test_calculate_benchmark_endpoint_rejects_stateless_price_points_with_duplic
                 {"component_id": "IDX_A", "perf_date": "2026-01-01", "weight_bop": 0.6, "index_price": 101.0},
                 {"component_id": "IDX_B", "perf_date": "2026-01-01", "weight_bop": 0.4, "index_price": 100.0},
                 {"component_id": "IDX_B", "perf_date": "2026-01-02", "weight_bop": 0.4, "index_price": 101.0},
-            ]
+            ],
         },
     }
 
@@ -325,9 +325,24 @@ def test_benchmark_results_endpoint_returns_async_stateful_result(client, monkey
                     "return_source": "calculated",
                     "benchmark_currency": "USD",
                     "component_observations": [
-                        {"component_id": "IDX_A", "perf_date": "2026-01-01", "weight_bop": 1.0, "component_return": 0.01},
-                        {"component_id": "IDX_A", "perf_date": "2026-01-02", "weight_bop": 1.0, "component_return": 0.01},
-                        {"component_id": "IDX_A", "perf_date": "2026-01-03", "weight_bop": 1.0, "component_return": 0.01},
+                        {
+                            "component_id": "IDX_A",
+                            "perf_date": "2026-01-01",
+                            "weight_bop": 1.0,
+                            "component_return": 0.01,
+                        },
+                        {
+                            "component_id": "IDX_A",
+                            "perf_date": "2026-01-02",
+                            "weight_bop": 1.0,
+                            "component_return": 0.01,
+                        },
+                        {
+                            "component_id": "IDX_A",
+                            "perf_date": "2026-01-03",
+                            "weight_bop": 1.0,
+                            "component_return": 0.01,
+                        },
                     ],
                 }
             ),
@@ -366,7 +381,9 @@ def test_benchmark_results_endpoint_returns_async_stateful_result(client, monkey
         assert body["input_mode"] == "stateful"
         assert body["return_source"] == "calculated"
         assert body["benchmark_id"] == "BMK_ASYNC_1"
-        assert body["results_by_period"]["YTD"]["benchmark"]["summary"]["period_return"]["base"] == pytest.approx(3.0301)
+        assert body["results_by_period"]["YTD"]["benchmark"]["summary"]["period_return"]["base"] == pytest.approx(
+            3.0301
+        )
         assert body["results_by_period"]["YTD"]["benchmark"]["breakdowns"]["daily"][-1]["cumulative_return"][
             "base"
         ] == pytest.approx(3.0301)
@@ -646,9 +663,9 @@ def test_benchmark_endpoint_offloads_large_stateless_benchmark_requests(client):
         result_body = complete.json()
         assert result_body["input_mode"] == "stateless"
         assert result_body["benchmark_id"] == "BMK_STATELESS_ASYNC"
-        assert result_body["results_by_period"]["ITD"]["benchmark"]["summary"]["period_return"]["base"] == pytest.approx(
-            2.4128
-        )
+        assert result_body["results_by_period"]["ITD"]["benchmark"]["summary"]["period_return"][
+            "base"
+        ] == pytest.approx(2.4128)
     finally:
         settings.BENCHMARK_EXECUTOR_INPUT_COUNT = original_input_threshold
 

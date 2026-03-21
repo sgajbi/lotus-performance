@@ -47,9 +47,7 @@ def calculate_benchmark_returns(
                 else None
             ),
             "component_return_fx": (
-                Decimal(str(observation.component_return_fx))
-                if observation.component_return_fx is not None
-                else None
+                Decimal(str(observation.component_return_fx)) if observation.component_return_fx is not None else None
             ),
         }
         for observation in component_observations
@@ -64,9 +62,7 @@ def calculate_benchmark_returns(
         contributions_df["local_contribution"] = (
             contributions_df["weight_bop"] * contributions_df["component_return_local"]
         )
-        contributions_df["fx_contribution"] = (
-            contributions_df["weight_bop"] * contributions_df["component_return_fx"]
-        )
+        contributions_df["fx_contribution"] = contributions_df["weight_bop"] * contributions_df["component_return_fx"]
 
     grouped = contributions_df.groupby("date", sort=True).agg(
         benchmark_return=("contribution", "sum"),
@@ -80,18 +76,12 @@ def calculate_benchmark_returns(
     if has_any_local:
         grouped["benchmark_return_local"] = grouped.apply(
             lambda row: (
-                Decimal("0")
-                if row["weight_sum"] == 0
-                else row["weighted_local_return_sum"] / row["weight_sum"]
+                Decimal("0") if row["weight_sum"] == 0 else row["weighted_local_return_sum"] / row["weight_sum"]
             ),
             axis=1,
         )
         grouped["benchmark_return_fx"] = grouped.apply(
-            lambda row: (
-                Decimal("0")
-                if row["weight_sum"] == 0
-                else row["weighted_fx_return_sum"] / row["weight_sum"]
-            ),
+            lambda row: (Decimal("0") if row["weight_sum"] == 0 else row["weighted_fx_return_sum"] / row["weight_sum"]),
             axis=1,
         )
 

@@ -62,7 +62,9 @@ async def test_returns_series_stateful_orchestration_characterization_contract(t
         "get_fx_rates",
         core_service_stub.get_fx_rates,
     )
-    monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_risk_free_series", core_service_stub.get_risk_free_series)
+    monkeypatch.setattr(
+        portfolio_source_service.CoreIntegrationService, "get_risk_free_series", core_service_stub.get_risk_free_series
+    )
 
     request = ReturnsSeriesRequest.model_validate(
         {

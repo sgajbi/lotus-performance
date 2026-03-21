@@ -18,10 +18,7 @@ def normalize_stateless_component_observations(
     stateless_input: BenchmarkStatelessInput,
 ) -> list[dict[str, object]]:
     if stateless_input.component_observations:
-        return [
-            observation.model_dump(mode="python")
-            for observation in stateless_input.component_observations
-        ]
+        return [observation.model_dump(mode="python") for observation in stateless_input.component_observations]
     if stateless_input.component_price_points:
         return [
             observation.model_dump(mode="python")
@@ -33,8 +30,7 @@ def normalize_stateless_component_observations(
     raise HTTPException(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         detail=(
-            "stateless benchmark calculated mode requires either component_observations "
-            "or component_price_points."
+            "stateless benchmark calculated mode requires either component_observations " "or component_price_points."
         ),
     )
 

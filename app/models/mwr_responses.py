@@ -11,7 +11,9 @@ from core.envelope import Audit, Diagnostics, Meta
 
 
 class Convergence(BaseModel):
-    iterations: Optional[int] = Field(default=None, description="Number of solver iterations used when an iterative method ran.", examples=[8])
+    iterations: Optional[int] = Field(
+        default=None, description="Number of solver iterations used when an iterative method ran.", examples=[8]
+    )
     residual: Optional[float] = Field(
         default=None,
         description="Final solver residual in decimal form for the numerical algorithm.",
@@ -33,7 +35,9 @@ class MWRResult(BaseModel):
     start_date: date = Field(description="Inclusive start date for the evaluated window.", examples=["2026-01-01"])
     end_date: date = Field(description="Inclusive end date for the evaluated window.", examples=["2026-03-31"])
     notes: List[str] = Field(description="Method or validation notes returned by the engine.")
-    convergence: Optional[Convergence] = Field(default=None, description="Numerical convergence diagnostics when applicable.")
+    convergence: Optional[Convergence] = Field(
+        default=None, description="Numerical convergence diagnostics when applicable."
+    )
 
 
 class MoneyWeightedReturnResponse(BaseModel):
@@ -53,7 +57,9 @@ class MoneyWeightedReturnResponse(BaseModel):
         examples=[18.42],
     )
     method: Literal["XIRR", "MODIFIED_DIETZ", "DIETZ"] = Field(description="Computation method used for the result.")
-    convergence: Optional[Convergence] = Field(default=None, description="Numerical convergence diagnostics when applicable.")
+    convergence: Optional[Convergence] = Field(
+        default=None, description="Numerical convergence diagnostics when applicable."
+    )
     cashflows_used: Optional[List[CashFlow]] = Field(
         default=None,
         description="Cash flows used by the MWR calculation in reporting currency units.",

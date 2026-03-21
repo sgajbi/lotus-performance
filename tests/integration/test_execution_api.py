@@ -118,7 +118,7 @@ def test_execution_api_tracks_returns_series_stateful_stages(client, monkeypatch
                         "composition_effective_from": "2026-02-01",
                         "composition_effective_to": "2026-02-28",
                     }
-                ]
+                ],
             },
         )
 
@@ -838,10 +838,30 @@ def test_execution_api_tracks_async_benchmark_job_state(client, monkeypatch):
                     "return_source": "calculated",
                     "benchmark_currency": "USD",
                     "component_observations": [
-                        {"component_id": "IDX_A", "perf_date": "2026-01-02", "weight_bop": 0.6, "component_return": 0.01},
-                        {"component_id": "IDX_B", "perf_date": "2026-01-02", "weight_bop": 0.4, "component_return": 0.02},
-                        {"component_id": "IDX_A", "perf_date": "2026-01-03", "weight_bop": 0.6, "component_return": 0.01},
-                        {"component_id": "IDX_B", "perf_date": "2026-01-03", "weight_bop": 0.4, "component_return": 0.02},
+                        {
+                            "component_id": "IDX_A",
+                            "perf_date": "2026-01-02",
+                            "weight_bop": 0.6,
+                            "component_return": 0.01,
+                        },
+                        {
+                            "component_id": "IDX_B",
+                            "perf_date": "2026-01-02",
+                            "weight_bop": 0.4,
+                            "component_return": 0.02,
+                        },
+                        {
+                            "component_id": "IDX_A",
+                            "perf_date": "2026-01-03",
+                            "weight_bop": 0.6,
+                            "component_return": 0.01,
+                        },
+                        {
+                            "component_id": "IDX_B",
+                            "perf_date": "2026-01-03",
+                            "weight_bop": 0.4,
+                            "component_return": 0.02,
+                        },
                     ],
                 }
             ),
@@ -924,8 +944,18 @@ def test_execution_api_tracks_async_twr_job_state(client, monkeypatch):
                     "return_source": "calculated",
                     "benchmark_currency": "USD",
                     "component_observations": [
-                        {"component_id": "IDX_A", "perf_date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
-                        {"component_id": "IDX_A", "perf_date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.01},
+                        {
+                            "component_id": "IDX_A",
+                            "perf_date": "2025-01-01",
+                            "weight_bop": 1.0,
+                            "component_return": 0.01,
+                        },
+                        {
+                            "component_id": "IDX_A",
+                            "perf_date": "2025-01-02",
+                            "weight_bop": 1.0,
+                            "component_return": 0.01,
+                        },
                     ],
                 }
             ),
@@ -1069,4 +1099,3 @@ def test_execution_api_exposes_terminal_async_result_metadata(client, monkeypatc
     finally:
         settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = original_threshold
         settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS = original_attempts
-

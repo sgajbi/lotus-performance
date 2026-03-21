@@ -68,7 +68,9 @@ async def calculate_benchmark_endpoint(
         try:
             resolved_request = await resolve_benchmark_request(request, settings=settings)
             benchmark_request = resolved_request.benchmark_request
-            request_model_for_lineage = benchmark_request if _should_persist_resolved_benchmark_request(request) else request
+            request_model_for_lineage = (
+                benchmark_request if _should_persist_resolved_benchmark_request(request) else request
+            )
             if _should_persist_resolved_benchmark_request(request):
                 input_fingerprint, calculation_hash = generate_canonical_hash(
                     benchmark_request,
@@ -146,7 +148,9 @@ async def calculate_benchmark_endpoint(
     try:
         resolved_request = await resolve_benchmark_request(request, settings=settings)
         benchmark_request = resolved_request.benchmark_request
-        request_model_for_lineage = benchmark_request if _should_persist_resolved_benchmark_request(request) else request
+        request_model_for_lineage = (
+            benchmark_request if _should_persist_resolved_benchmark_request(request) else request
+        )
         if _should_persist_resolved_benchmark_request(request):
             input_fingerprint, calculation_hash = generate_canonical_hash(
                 benchmark_request,

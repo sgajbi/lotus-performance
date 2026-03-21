@@ -74,7 +74,9 @@ class ContributionSummary(BaseModel):
         description="Covered market value as a percentage of total market value. Example: 98.5 means 98.5%.",
         examples=[98.5],
     )
-    weighting_scheme: str = Field(description="Weighting scheme used for the contribution rollup.", examples=["average_weight"])
+    weighting_scheme: str = Field(
+        description="Weighting scheme used for the contribution rollup.", examples=["average_weight"]
+    )
     local_contribution: Optional[float] = Field(
         default=None,
         description="Portfolio local contribution total in percentage-point output units.",
@@ -100,7 +102,9 @@ class ContributionRow(BaseModel):
         description="Average row weight as a decimal ratio. Example: 0.18 means 18%.",
         examples=[0.18],
     )
-    children_count: Optional[int] = Field(default=None, description="Number of child rows rolled into this row.", examples=[5])
+    children_count: Optional[int] = Field(
+        default=None, description="Number of child rows rolled into this row.", examples=[5]
+    )
     is_other: bool = Field(default=False, description="Whether the row represents an 'other' rollup bucket.")
     residual_bp: Optional[float] = Field(
         default=None,
@@ -124,7 +128,9 @@ class ContributionLevel(BaseModel):
 
     level: int = Field(description="Hierarchy depth for this contribution level.", examples=[1])
     name: str = Field(description="Display name for the grouping dimension at this level.", examples=["sector"])
-    parent: Optional[str] = Field(default=None, description="Parent level name when this level is nested.", examples=["region"])
+    parent: Optional[str] = Field(
+        default=None, description="Parent level name when this level is nested.", examples=["region"]
+    )
     rows: List[ContributionRow] = Field(description="Contribution rows for the level.")
 
 
@@ -153,8 +159,12 @@ class SinglePeriodContributionResult(BaseModel):
         default=None,
         description="Per-position daily contribution ladders in percentage-point output units.",
     )
-    summary: Optional[ContributionSummary] = Field(default=None, description="Summary contribution totals for the period.")
-    levels: Optional[List[ContributionLevel]] = Field(default=None, description="Hierarchical contribution breakdown for the period.")
+    summary: Optional[ContributionSummary] = Field(
+        default=None, description="Summary contribution totals for the period."
+    )
+    levels: Optional[List[ContributionLevel]] = Field(
+        default=None, description="Hierarchical contribution breakdown for the period."
+    )
 
 
 class ContributionResponse(BaseModel):
@@ -164,7 +174,9 @@ class ContributionResponse(BaseModel):
 
     calculation_id: UUID = Field(description="Stable calculation handle for this contribution request.")
     portfolio_id: str = Field(description="Portfolio identifier.", examples=["PORTFOLIO_001"])
-    input_mode: ContributionInputMode = Field(default=ContributionInputMode.STATELESS, description="Resolved contribution input mode.")
+    input_mode: ContributionInputMode = Field(
+        default=ContributionInputMode.STATELESS, description="Resolved contribution input mode."
+    )
 
     results_by_period: Dict[str, SinglePeriodContributionResult] = Field(
         description="Per-period contribution outputs. Contribution and return figures are emitted in percentage-point output units unless explicitly labeled otherwise."

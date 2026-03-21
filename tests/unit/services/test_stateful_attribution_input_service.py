@@ -65,6 +65,7 @@ async def test_retrieve_stateful_attribution_source_input_uses_override_benchmar
         "app.services.stateful_attribution_input_service.retrieve_stateful_portfolio_input",
         _mock_retrieve_stateful_portfolio_input,
     )
+
     async def _mock_build_benchmark_input(**kwargs):  # noqa: ARG001
         return StatefulBenchmarkNormalizedInput(
             benchmark_currency="USD",
@@ -82,6 +83,7 @@ async def test_retrieve_stateful_attribution_source_input_uses_override_benchmar
             benchmark_return_points=[],
             source_details={"benchmark_components": 1, "benchmark_chunk_count": 4, "benchmark_page_count": 5},
         )
+
     monkeypatch.setattr(
         "app.services.stateful_attribution_input_service.build_stateful_benchmark_input",
         _mock_build_benchmark_input,
@@ -141,6 +143,7 @@ async def test_retrieve_stateful_attribution_source_input_raises_for_upstream_fa
         "app.services.stateful_attribution_input_service.retrieve_stateful_portfolio_input",
         _mock_retrieve_stateful_portfolio_input,
     )
+
     async def _mock_build_benchmark_input(**kwargs):  # noqa: ARG001
         return StatefulBenchmarkNormalizedInput(
             benchmark_currency="USD",
@@ -158,6 +161,7 @@ async def test_retrieve_stateful_attribution_source_input_raises_for_upstream_fa
             benchmark_return_points=[],
             source_details={"benchmark_components": 1, "benchmark_chunk_count": 1, "benchmark_page_count": 1},
         )
+
     monkeypatch.setattr(
         "app.services.stateful_attribution_input_service.build_stateful_benchmark_input",
         _mock_build_benchmark_input,
@@ -494,12 +498,18 @@ def test_stateful_attribution_normalizes_group_values():
 
 
 def test_stateful_attribution_position_row_to_daily_point_requires_market_values():
-    assert _position_row_to_daily_point(row={"valuation_date": None}, currency_mode="BASE_ONLY", reporting_currency=None) is None
-    assert _position_row_to_daily_point(
-        row={"valuation_date": "2025-01-01"},
-        currency_mode="BASE_ONLY",
-        reporting_currency="USD",
-    ) is None
+    assert (
+        _position_row_to_daily_point(row={"valuation_date": None}, currency_mode="BASE_ONLY", reporting_currency=None)
+        is None
+    )
+    assert (
+        _position_row_to_daily_point(
+            row={"valuation_date": "2025-01-01"},
+            currency_mode="BASE_ONLY",
+            reporting_currency="USD",
+        )
+        is None
+    )
 
 
 def test_stateful_attribution_position_row_to_daily_point_falls_back_from_null_reporting_currency_values():

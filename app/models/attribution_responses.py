@@ -12,11 +12,15 @@ from core.envelope import Audit, Diagnostics, Meta
 class AttributionGroupResult(BaseModel):
     """The calculated attribution effects for a single group."""
 
-    key: Dict[str, Any] = Field(description="Resolved grouping key for the attribution row.", examples=[{"asset_class": "equity"}])
+    key: Dict[str, Any] = Field(
+        description="Resolved grouping key for the attribution row.", examples=[{"asset_class": "equity"}]
+    )
     allocation: float = Field(description="Allocation effect in percentage-point output units.", examples=[0.24])
     selection: float = Field(description="Selection effect in percentage-point output units.", examples=[0.15])
     interaction: float = Field(description="Interaction effect in percentage-point output units.", examples=[0.03])
-    total_effect: float = Field(description="Total attribution effect in percentage-point output units.", examples=[0.42])
+    total_effect: float = Field(
+        description="Total attribution effect in percentage-point output units.", examples=[0.42]
+    )
 
 
 class AttributionLevelTotals(BaseModel):
@@ -60,14 +64,22 @@ class Reconciliation(BaseModel):
 class CurrencyAttributionEffects(BaseModel):
     """The four decomposed effects from the Karnosky-Singer model."""
 
-    local_allocation: float = Field(description="Local allocation effect in percentage-point output units.", examples=[0.08])
-    local_selection: float = Field(description="Local selection effect in percentage-point output units.", examples=[0.11])
-    currency_allocation: float = Field(description="Currency allocation effect in percentage-point output units.", examples=[0.03])
+    local_allocation: float = Field(
+        description="Local allocation effect in percentage-point output units.", examples=[0.08]
+    )
+    local_selection: float = Field(
+        description="Local selection effect in percentage-point output units.", examples=[0.11]
+    )
+    currency_allocation: float = Field(
+        description="Currency allocation effect in percentage-point output units.", examples=[0.03]
+    )
     currency_selection: float = Field(
         description="Currency selection effect in percentage-point output units. This captures the interaction-style currency term.",
         examples=[0.02],
     )
-    total_effect: float = Field(description="Total currency attribution effect in percentage-point output units.", examples=[0.24])
+    total_effect: float = Field(
+        description="Total currency attribution effect in percentage-point output units.", examples=[0.24]
+    )
 
 
 class CurrencyAttributionResult(BaseModel):
@@ -89,7 +101,9 @@ class SinglePeriodAttributionResult(BaseModel):
     """Contains the full set of attribution results for a single, resolved period."""
 
     levels: List[AttributionLevelResult] = Field(description="Hierarchical attribution levels for the period.")
-    reconciliation: Reconciliation = Field(description="Reconciliation between active return and summed attribution effects.")
+    reconciliation: Reconciliation = Field(
+        description="Reconciliation between active return and summed attribution effects."
+    )
     currency_attribution: Optional[List[CurrencyAttributionResult]] = Field(
         default=None,
         description="Optional currency attribution breakdown in percentage-point output units.",
@@ -108,9 +122,15 @@ class AttributionResponse(BaseModel):
 
     calculation_id: UUID = Field(description="Stable calculation handle for this attribution request.")
     portfolio_id: str = Field(description="Portfolio identifier.", examples=["PORTFOLIO_001"])
-    input_mode: AttributionInputMode = Field(default=AttributionInputMode.STATELESS, description="Resolved attribution input mode.")
-    model: AttributionModel = Field(description="Attribution model used for the response.", examples=["brinson_fachler"])
-    linking: LinkingMethod = Field(description="Linking method used to aggregate attribution effects.", examples=["carino"])
+    input_mode: AttributionInputMode = Field(
+        default=AttributionInputMode.STATELESS, description="Resolved attribution input mode."
+    )
+    model: AttributionModel = Field(
+        description="Attribution model used for the response.", examples=["brinson_fachler"]
+    )
+    linking: LinkingMethod = Field(
+        description="Linking method used to aggregate attribution effects.", examples=["carino"]
+    )
     results_by_period: Dict[str, SinglePeriodAttributionResult] = Field(
         description="Per-period attribution outputs. Attribution effects and reconciliation values are emitted in percentage-point output units."
     )

@@ -397,7 +397,7 @@ def _build_stateful_resolved_returns_payload(
             "benchmark_returns": benchmark_records,
             "risk_free_returns": risk_free_records,
         },
-}
+    }
 
 
 def _records_from_points(points: list[ReturnPoint] | None) -> list[dict[str, str]] | None:
@@ -833,9 +833,7 @@ async def resolve_stateful_returns_series_request(
             benchmark_df = resample_returns(
                 filter_window(
                     _benchmark_daily_returns_to_dataframe(
-                        calculate_benchmark_returns(
-                            normalized_benchmark_input.component_observations
-                        ).daily_returns_df
+                        calculate_benchmark_returns(normalized_benchmark_input.component_observations).daily_returns_df
                         if resolved_benchmark_return_source == BenchmarkReturnSource.CALCULATED
                         else benchmark_return_points_to_dataframe(normalized_benchmark_input.benchmark_return_points)
                     ),
@@ -975,9 +973,7 @@ async def resolve_stateful_returns_series_request(
         benchmark_records=_records_from_points(benchmark_return_points),
         risk_free_records=_records_from_points(risk_free_return_points),
         resolved_benchmark_id=resolved_benchmark_id,
-        resolved_benchmark_return_source=(
-            resolved_benchmark_return_source.value if resolved_benchmark_id else None
-        ),
+        resolved_benchmark_return_source=(resolved_benchmark_return_source.value if resolved_benchmark_id else None),
     )
     resolved_request = ReturnsSeriesRequest.model_validate(
         {
@@ -1005,8 +1001,6 @@ async def resolve_stateful_returns_series_request(
         identity_payload=identity_payload,
         input_count=input_count,
         resolved_benchmark_id=resolved_benchmark_id,
-        resolved_benchmark_return_source=(
-            resolved_benchmark_return_source.value if resolved_benchmark_id else None
-        ),
+        resolved_benchmark_return_source=(resolved_benchmark_return_source.value if resolved_benchmark_id else None),
         benchmark_work_units=benchmark_work_units,
     )

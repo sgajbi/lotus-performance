@@ -58,15 +58,11 @@ def calculate_benchmark_artifacts(
         effective_period_start = engine_result.effective_period_start
         max_weight_sum_deviation = engine_result.max_weight_sum_deviation
     else:
-        daily_returns_df = benchmark_return_points_to_dataframe(
-            benchmark_request.benchmark_return_points
-        ).copy()
+        daily_returns_df = benchmark_return_points_to_dataframe(benchmark_request.benchmark_return_points).copy()
         component_contributions_df = pd.DataFrame(
             columns=["date", "component_id", "weight_bop", "component_return", "contribution"]
         )
-        notes = [
-            "Benchmark returns were sourced from vendor series because return_source=vendor_series was requested."
-        ]
+        notes = ["Benchmark returns were sourced from vendor series because return_source=vendor_series was requested."]
         effective_period_start = benchmark_request.benchmark_start_date
         max_weight_sum_deviation = 0.0
 
@@ -77,8 +73,7 @@ def calculate_benchmark_artifacts(
     results_by_period: dict[str, SinglePeriodBenchmarkResult] = {}
     for period in resolved_periods:
         period_daily_df = daily_returns_df[
-            (daily_returns_df["date"] >= period.start_date)
-            & (daily_returns_df["date"] <= period.end_date)
+            (daily_returns_df["date"] >= period.start_date) & (daily_returns_df["date"] <= period.end_date)
         ].copy()
         if period_daily_df.empty:
             continue

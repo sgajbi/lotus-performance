@@ -520,7 +520,7 @@ def test_attribution_supports_stateful_input_mode(client, monkeypatch):
                     {
                         "index_id": "IDX_2",
                         "classification_labels": {"sector": "Healthcare"},
-                    }
+                    },
                 ]
             },
         )
@@ -1152,31 +1152,31 @@ def test_attribution_stateful_promoted_async_replays_identical_retry(client, mon
         _mock_get_benchmark_assignment,
     )
     _patch_stateful_attribution_benchmark_input(
-            monkeypatch,
-            BenchmarkComponentObservation(
-                component_id="IDX_1",
-                perf_date=date(2025, 1, 1),
-                weight_bop=0.5,
-                component_return=0.01,
-            ),
-            BenchmarkComponentObservation(
-                component_id="IDX_1",
-                perf_date=date(2025, 1, 2),
-                weight_bop=0.5,
-                component_return=0.01,
-            ),
-            BenchmarkComponentObservation(
-                component_id="IDX_2",
-                perf_date=date(2025, 1, 1),
-                weight_bop=0.5,
-                component_return=0.015,
-            ),
-            BenchmarkComponentObservation(
-                component_id="IDX_2",
-                perf_date=date(2025, 1, 2),
-                weight_bop=0.5,
-                component_return=0.015,
-            ),
+        monkeypatch,
+        BenchmarkComponentObservation(
+            component_id="IDX_1",
+            perf_date=date(2025, 1, 1),
+            weight_bop=0.5,
+            component_return=0.01,
+        ),
+        BenchmarkComponentObservation(
+            component_id="IDX_1",
+            perf_date=date(2025, 1, 2),
+            weight_bop=0.5,
+            component_return=0.01,
+        ),
+        BenchmarkComponentObservation(
+            component_id="IDX_2",
+            perf_date=date(2025, 1, 1),
+            weight_bop=0.5,
+            component_return=0.015,
+        ),
+        BenchmarkComponentObservation(
+            component_id="IDX_2",
+            perf_date=date(2025, 1, 2),
+            weight_bop=0.5,
+            component_return=0.015,
+        ),
     )
     monkeypatch.setattr(
         "app.services.stateful_input_service.StatefulInputService.get_index_catalog",
