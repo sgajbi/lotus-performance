@@ -10,7 +10,10 @@ from app.models.contribution_analytics_requests import ContributionInputMode
 from app.models.contribution_requests import ContributionRequest
 from app.models.contribution_responses import (
     ContributionResponse,
+    DailyContribution,
     PositionContribution,
+    PositionContributionSeries,
+    PositionDailyContribution,
     SinglePeriodContributionResult,
 )
 from app.services.execution_lifecycle_service import (
@@ -42,6 +45,45 @@ def _calculate_total_portfolio_return_from_slice(portfolio_period_slice_df: pd.D
     )
     total_portfolio_return_product: Any = (1 + daily_returns / 100).prod()
     return _as_numeric(total_portfolio_return_product - 1)
+
+
+def _build_daily_contribution_series(period_slice_df: pd.DataFrame) -> list[DailyContribution]:
+    totals_by_day = (
+        period_slice_df.groupby(PortfolioColumns.PERF_DATE.value, dropna=False)
+        .agg(total_contribution=("smoothed_contribution", "sum"))
+        .reset_index()
+        .sort_values(PortfolioColumns.PERF_DATE.value)
+    )
+    return [
+        DailyContribution(
+            date=row[PortfolioColumns.PERF_DATE.value],
+            total_contribution=_as_numeric(row["total_contribution"]) * 100,
+        )
+        for _, row in totals_by_day.iterrows()
+    ]
+
+
+def _build_position_contribution_series(period_slice_df: pd.DataFrame) -> list[PositionContributionSeries]:
+    position_id_column = "position_id"
+    series_by_position: list[PositionContributionSeries] = []
+    for position_id, position_slice in (
+        period_slice_df.sort_values([position_id_column, PortfolioColumns.PERF_DATE.value]).groupby(
+            position_id_column, sort=True
+        )
+    ):
+        series_by_position.append(
+            PositionContributionSeries(
+                position_id=str(position_id),
+                series=[
+                    PositionDailyContribution(
+                        date=row[PortfolioColumns.PERF_DATE.value],
+                        contribution=_as_numeric(row["smoothed_contribution"]) * 100,
+                    )
+                    for _, row in position_slice.iterrows()
+                ],
+            )
+        )
+    return series_by_position
 
 
 def calculate_contribution(
@@ -162,10 +204,23 @@ def calculate_contribution(
                     for _, row in totals.iterrows()
                 ]
 
+                daily_series = (
+                    _build_daily_contribution_series(period_slice_df)
+                    if request.emit.timeseries
+                    else None
+                )
+                position_series = (
+                    _build_position_contribution_series(period_slice_df)
+                    if request.emit.by_position_timeseries
+                    else None
+                )
+
                 results_by_period[period.name] = SinglePeriodContributionResult(
                     total_portfolio_return=total_portfolio_return * 100,
                     total_contribution=sum(pc.total_contribution for pc in position_contributions),
                     position_contributions=position_contributions,
+                    timeseries=daily_series,
+                    by_position_timeseries=position_series,
                 )
     except HTTPException as exc:
         record_execution_failure(

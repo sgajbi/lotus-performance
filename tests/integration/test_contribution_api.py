@@ -152,6 +152,11 @@ def test_contribution_endpoint_with_timeseries(client, happy_path_payload):
     payload["emit"] = {"timeseries": True, "by_position_timeseries": True}
     response = client.post("/performance/contribution", json=payload)
     assert response.status_code == 200
+    body = response.json()["results_by_period"]["ITD"]
+    assert len(body["timeseries"]) == 2
+    assert len(body["by_position_timeseries"]) == 1
+    assert body["by_position_timeseries"][0]["position_id"] == "Stock_A"
+    assert len(body["by_position_timeseries"][0]["series"]) == 2
 
 
 def test_contribution_endpoint_hierarchy_happy_path(client, happy_path_payload):
@@ -401,6 +406,72 @@ def test_contribution_supports_stateful_input_mode(client, monkeypatch):
     assert body["portfolio_id"] == "CONTRIB_STATEFUL"
     assert body["input_mode"] == "stateful"
     assert "ITD" in body["results_by_period"]
+
+
+def test_contribution_stateful_emit_timeseries_returns_series(client, monkeypatch):
+    async def _mock_retrieve_stateful_contribution_source_input(**kwargs):  # noqa: ARG001
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            portfolio_input=SimpleNamespace(
+                observations=[
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1010",
+                    },
+                    {
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value": "1010",
+                        "ending_market_value": "1030.2",
+                    },
+                ],
+            ),
+            position_rows=[
+                {
+                    "position_id": "SEC_1",
+                    "security_id": "SEC_1",
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value_portfolio_currency": "1000",
+                    "ending_market_value_portfolio_currency": "1010",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Technology"},
+                },
+                {
+                    "position_id": "SEC_1",
+                    "security_id": "SEC_1",
+                    "valuation_date": "2025-01-02",
+                    "beginning_market_value_portfolio_currency": "1010",
+                    "ending_market_value_portfolio_currency": "1030.2",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Technology"},
+                },
+            ],
+        )
+
+    monkeypatch.setattr(
+        "app.services.contribution_mode_service.retrieve_stateful_contribution_source_input",
+        _mock_retrieve_stateful_contribution_source_input,
+    )
+
+    payload = {
+        "portfolio_id": "CONTRIB_STATEFUL_SERIES",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "emit": {"timeseries": True, "by_position_timeseries": True},
+        "input_mode": "stateful",
+        "stateful_input": {},
+    }
+
+    response = client.post("/performance/contribution", json=payload)
+
+    assert response.status_code == 200
+    result = response.json()["results_by_period"]["ITD"]
+    assert len(result["timeseries"]) == 2
+    assert len(result["by_position_timeseries"]) == 1
+    assert result["by_position_timeseries"][0]["position_id"] == "SEC_1"
+    assert len(result["by_position_timeseries"][0]["series"]) == 2
 
 
 def test_contribution_stateful_offloads_on_resolved_position_count(client, monkeypatch):

@@ -177,6 +177,8 @@ def build_stateful_attribution_input(
             detail="Stateful attribution currently supports mode=by_instrument only.",
         )
 
+    _validate_stateful_position_inception_support(rows=source_input.position_rows)
+
     normalized_currency_mode = currency_mode or "BASE_ONLY"
     if normalized_currency_mode == "BOTH":
         _validate_stateful_both_currency_support(
@@ -209,6 +211,35 @@ def build_stateful_attribution_input(
         instruments_data=instruments_data,
         benchmark_groups_data=benchmark_groups_data,
     )
+
+
+def _validate_stateful_position_inception_support(*, rows: list[dict[str, object]]) -> None:
+    first_rows_by_position: dict[str, dict[str, object]] = {}
+    for row in sorted(rows, key=lambda item: (str(item.get("position_id", "")), str(item.get("valuation_date", "")))):
+        position_id = row.get("position_id")
+        if not isinstance(position_id, str) or position_id in first_rows_by_position:
+            continue
+        first_rows_by_position[position_id] = row
+
+    unsupported_positions: list[str] = []
+    for position_id, row in first_rows_by_position.items():
+        begin_value_raw = row.get("beginning_market_value_portfolio_currency")
+        end_value_raw = row.get("ending_market_value_portfolio_currency")
+        begin_value = Decimal(str(begin_value_raw)) if begin_value_raw is not None else Decimal("0")
+        end_value = Decimal(str(end_value_raw)) if end_value_raw is not None else Decimal("0")
+        if begin_value == 0 and end_value > 0:
+            unsupported_positions.append(position_id)
+
+    if unsupported_positions:
+        sample_positions = ", ".join(unsupported_positions[:5])
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "Stateful attribution cannot safely compute acquisition-day position returns when the requested window "
+                "starts a sourced position with zero beginning market value and positive ending market value. "
+                f"Affected positions: {sample_positions}."
+            ),
+        )
 
 
 def _validate_stateful_group_by(group_by: list[str]) -> None:

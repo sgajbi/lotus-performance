@@ -561,6 +561,118 @@ def test_attribution_supports_stateful_input_mode(client, monkeypatch):
     assert "ITD" in body["results_by_period"]
 
 
+def test_attribution_stateful_rejects_acquisition_day_rows_without_cash_flow_semantics(client, monkeypatch):
+    async def _mock_get_portfolio_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2025-01-01",
+                "observations": [
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1010",
+                    },
+                    {
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value": "1010",
+                        "ending_market_value": "1020.1",
+                    },
+                ],
+            },
+        )
+
+    async def _mock_get_position_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "rows": [
+                    {
+                        "position_id": "POS_1",
+                        "security_id": "SEC_1",
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value_portfolio_currency": "0",
+                        "ending_market_value_portfolio_currency": "600",
+                        "cash_flows": [],
+                        "dimensions": {"asset_class": "Equity"},
+                    },
+                    {
+                        "position_id": "POS_1",
+                        "security_id": "SEC_1",
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value_portfolio_currency": "600",
+                        "ending_market_value_portfolio_currency": "606",
+                        "cash_flows": [],
+                        "dimensions": {"asset_class": "Equity"},
+                    },
+                ]
+            },
+        )
+
+    async def _mock_get_benchmark_assignment(self, **kwargs):  # noqa: ARG001
+        return 200, {"benchmark_id": "BMK_1"}
+
+    async def _mock_get_index_catalog(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "records": [
+                    {"index_id": "IDX_1", "classification_labels": {"asset_class": "Equity"}},
+                ]
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_portfolio_timeseries",
+        _mock_get_portfolio_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_position_timeseries",
+        _mock_get_position_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_benchmark_assignment",
+        _mock_get_benchmark_assignment,
+    )
+    _patch_stateful_attribution_benchmark_input(
+        monkeypatch,
+        BenchmarkComponentObservation(
+            component_id="IDX_1",
+            perf_date=date(2025, 1, 1),
+            weight_bop=1.0,
+            component_return=0.01,
+        ),
+        BenchmarkComponentObservation(
+            component_id="IDX_1",
+            perf_date=date(2025, 1, 2),
+            weight_bop=1.0,
+            component_return=0.01,
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_index_catalog",
+        _mock_get_index_catalog,
+    )
+
+    payload = {
+        "portfolio_id": "ATTRIB_STATEFUL_GAP",
+        "mode": "by_instrument",
+        "group_by": ["asset_class"],
+        "linking": "none",
+        "frequency": "daily",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {},
+    }
+
+    response = client.post("/performance/attribution", json=payload)
+
+    assert response.status_code == 422
+    assert "cannot safely compute acquisition-day position returns" in response.json()["detail"]
+
+
 def test_attribution_stateful_offloads_on_resolved_input_count(client, monkeypatch):
     original_window_threshold = settings.ATTRIBUTION_EXECUTOR_WINDOW_DAYS
     original_input_threshold = settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT
