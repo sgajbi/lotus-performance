@@ -39,6 +39,9 @@ def _patch_stateful_attribution_benchmark_input(monkeypatch, *observations: Benc
 
 
 def _patch_shared_stateful_benchmark_sources(monkeypatch) -> None:
+    async def _mock_get_portfolio_reference(self, **kwargs):  # noqa: ARG001
+        return 200, {"portfolio_open_date": "2026-02-20"}
+
     async def _mock_fetch_stateful_portfolio_timeseries(**kwargs):  # noqa: ARG001
         return (
             200,
@@ -109,6 +112,10 @@ def _patch_shared_stateful_benchmark_sources(monkeypatch) -> None:
     monkeypatch.setattr(
         "app.services.portfolio_source_service.CoreIntegrationService.get_portfolio_analytics_timeseries",
         _mock_get_portfolio_analytics_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_portfolio_reference",
+        _mock_get_portfolio_reference,
     )
     monkeypatch.setattr(
         "app.api.endpoints.returns_series.CoreIntegrationService.get_benchmark_assignment",
@@ -214,6 +221,9 @@ def test_e2e_performance_twr_and_mwr_workflow() -> None:
 
 
 def test_e2e_stateful_analytics_workflow(monkeypatch) -> None:
+    async def _mock_get_portfolio_reference(self, **kwargs):  # noqa: ARG001
+        return 200, {"portfolio_open_date": "2024-12-31"}
+
     async def _mock_fetch_stateful_portfolio_timeseries(**kwargs):  # noqa: ARG001
         return (
             200,
@@ -234,14 +244,14 @@ def test_e2e_stateful_analytics_workflow(monkeypatch) -> None:
                 "observations": [
                     {
                         "valuation_date": "2025-01-01",
-                        "beginning_market_value": "100000",
-                        "ending_market_value": "110000",
-                        "cash_flows": [{"amount": "10000", "timing": "bod"}],
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1010",
+                        "cash_flows": [],
                     },
                     {
-                        "valuation_date": "2025-01-03",
-                        "beginning_market_value": "110000",
-                        "ending_market_value": "111000",
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value": "1010",
+                        "ending_market_value": "1020.1",
                         "cash_flows": [],
                     },
                 ],
@@ -334,6 +344,10 @@ def test_e2e_stateful_analytics_workflow(monkeypatch) -> None:
     monkeypatch.setattr(
         "app.services.stateful_performance_input_service.fetch_stateful_portfolio_timeseries",
         _mock_fetch_stateful_portfolio_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_portfolio_reference",
+        _mock_get_portfolio_reference,
     )
     monkeypatch.setattr(
         "app.services.stateful_input_service.StatefulInputService.get_portfolio_timeseries",
@@ -498,9 +512,7 @@ def test_e2e_shared_stateful_benchmark_engine_stays_consistent_across_surfaces(m
     returns_series_body = returns_series_response.json()
 
     benchmark_return = benchmark_body["results_by_period"]["YTD"]["benchmark"]["summary"]["period_return"]["base"]
-    twr_benchmark_return = (
-        twr_body["results_by_period"]["YTD"]["benchmark"]["summary"]["period_return"]["base"] / 100
-    )
+    twr_benchmark_return = twr_body["results_by_period"]["YTD"]["benchmark"]["summary"]["period_return"]["base"]
     linked_returns_series_benchmark_return = _link_return_points(returns_series_body["series"]["benchmark_returns"])
     benchmark_cumulative_return = benchmark_body["results_by_period"]["YTD"]["benchmark"]["breakdowns"]["daily"][-1][
         "cumulative_return"
@@ -522,10 +534,10 @@ def test_e2e_shared_stateful_benchmark_engine_stays_consistent_across_surfaces(m
         returns_series_body["series"]["cumulative_active_returns"][-1]["return_value"]
     )
 
-    assert benchmark_return == pytest.approx(0.0201)
+    assert benchmark_return == pytest.approx(2.01)
     assert twr_benchmark_return == pytest.approx(benchmark_return)
-    assert linked_returns_series_benchmark_return == pytest.approx(benchmark_return)
-    assert float(returns_series_cumulative_benchmark_return) == pytest.approx(benchmark_cumulative_return)
+    assert linked_returns_series_benchmark_return == pytest.approx(benchmark_return / 100)
+    assert float(returns_series_cumulative_benchmark_return) == pytest.approx(benchmark_cumulative_return / 100)
     assert float(returns_series_cumulative_active_return) == pytest.approx(float(twr_cumulative_relative_return))
     assert [point["return_value"] for point in returns_series_body["series"]["active_returns"]] == [
         "0.010000000000",
@@ -587,6 +599,114 @@ def test_e2e_contribution_attribution_and_lineage() -> None:
     assert attribution_response.status_code == 200
     assert contribution_lineage.status_code == 200
     assert attribution_lineage.status_code == 200
+
+
+def test_e2e_performance_contribution_and_attribution_tell_the_same_story() -> None:
+    twr_payload = {
+        "portfolio_id": "E2E_STORY_001",
+        "performance_start_date": "2024-12-31",
+        "report_end_date": "2025-01-01",
+        "metric_basis": "NET",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1020.0}],
+        "include_benchmark": True,
+        "benchmark": {
+            "benchmark_id": "BMK_STORY_001",
+            "input_mode": "stateless",
+            "return_source": "calculated",
+            "stateless_input": {
+                "benchmark_currency": "USD",
+                "component_observations": [
+                    {
+                        "component_id": "IDX_TECH",
+                        "perf_date": "2025-01-01",
+                        "weight_bop": 1.0,
+                        "component_return": 0.015,
+                    }
+                ],
+            },
+        },
+    }
+    contribution_payload = {
+        "portfolio_id": "E2E_STORY_001",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1020.0}],
+        },
+        "positions_data": [
+            {
+                "position_id": "AAPL",
+                "meta": {"sector": "technology"},
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1020.0}],
+            }
+        ],
+        "emit": {"timeseries": True},
+    }
+    attribution_payload = {
+        "portfolio_id": "E2E_STORY_001",
+        "mode": "by_group",
+        "group_by": ["sector"],
+        "linking": "none",
+        "frequency": "daily",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "portfolio_groups_data": [
+            {
+                "key": {"sector": "technology"},
+                "observations": [{"date": "2025-01-01", "return_base": 0.02, "weight_bop": 1.0}],
+            }
+        ],
+        "benchmark_groups_data": [
+            {
+                "key": {"sector": "technology"},
+                "observations": [{"date": "2025-01-01", "return_base": 0.015, "weight_bop": 1.0}],
+            }
+        ],
+    }
+
+    with TestClient(app) as client:
+        twr_response = client.post("/performance/twr", json=twr_payload)
+        contribution_response = client.post("/performance/contribution", json=contribution_payload)
+        attribution_response = client.post("/performance/attribution", json=attribution_payload)
+
+    assert twr_response.status_code == 200
+    assert contribution_response.status_code == 200
+    assert attribution_response.status_code == 200
+
+    twr_body = twr_response.json()
+    contribution_body = contribution_response.json()
+    attribution_body = attribution_response.json()
+
+    twr_itd = twr_body["results_by_period"]["YTD"]
+    contribution_itd = contribution_body["results_by_period"]["ITD"]
+    attribution_itd = attribution_body["results_by_period"]["ITD"]
+
+    portfolio_return = twr_itd["portfolio"]["summary"]["period_return"]["base"]
+    benchmark_return = twr_itd["benchmark"]["summary"]["period_return"]["base"]
+    relative_return = twr_itd["relative_performance"]["summary"]["period_return"]["base"]
+    contribution_total = contribution_itd["total_contribution"]
+    attribution_active = attribution_itd["reconciliation"]["total_active_return"]
+    attribution_effects = attribution_itd["reconciliation"]["sum_of_effects"]
+
+    assert portfolio_return == pytest.approx(2.0)
+    assert benchmark_return == pytest.approx(1.5)
+    assert relative_return == pytest.approx(0.5)
+    assert contribution_total == pytest.approx(portfolio_return)
+    assert attribution_active == pytest.approx(relative_return)
+    assert attribution_effects == pytest.approx(attribution_active)
+
+    assert twr_itd["portfolio"]["breakdowns"]["daily"][0]["period_return"]["base"] == pytest.approx(portfolio_return)
+    assert twr_itd["benchmark"]["breakdowns"]["daily"][0]["period_return"]["base"] == pytest.approx(benchmark_return)
+    assert twr_itd["relative_performance"]["breakdowns"]["daily"][0]["period_return"]["base"] == pytest.approx(
+        relative_return
+    )
+    assert contribution_itd["timeseries"][0]["total_contribution"] == pytest.approx(contribution_total)
+    assert contribution_itd["position_contributions"][0]["total_contribution"] == pytest.approx(contribution_total)
+    assert attribution_itd["levels"][0]["groups"][0]["total_effect"] == pytest.approx(attribution_active)
 
 
 def test_e2e_health_endpoints_contract() -> None:
