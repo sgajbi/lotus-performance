@@ -65,17 +65,17 @@ def long_flip_scenario():
             PortfolioColumns.SIGN: [1, 1, 1, 1],
             PortfolioColumns.DAILY_ROR: [-50.0, -110.0, 10.5263, 10.0],
             PortfolioColumns.NIP: [0, 0, 0, 0],
-            PortfolioColumns.PERF_RESET: [0, 1, 0, 0],
+            PortfolioColumns.PERF_RESET: [0, 1, 1, 0],
             PortfolioColumns.LONG_SHORT: ["L", "L", "L", "L"],
             PortfolioColumns.NCTRL_1: [0, 1, 0, 0],
             PortfolioColumns.NCTRL_2: [0, 0, 0, 0],
             PortfolioColumns.NCTRL_3: [0, 0, 0, 0],
-            PortfolioColumns.NCTRL_4: [0, 0, 0, 0],
+            PortfolioColumns.NCTRL_4: [0, 0, 1, 0],
             PortfolioColumns.TEMP_LONG_CUM_ROR: [-50.0, -105.0, -105.5263, -106.0789],
             PortfolioColumns.TEMP_SHORT_CUM_ROR: [0.0, 0.0, 0.0, 0.0],
-            PortfolioColumns.LONG_CUM_ROR: [-50.0, 0.0, 10.5263, 21.5789],
+            PortfolioColumns.LONG_CUM_ROR: [-50.0, 0.0, 0.0, 21.5789],
             PortfolioColumns.SHORT_CUM_ROR: [0.0, 0.0, 0.0, 0.0],
-            PortfolioColumns.FINAL_CUM_ROR: [-50.0, 0.0, 10.5263, 21.5789],
+            PortfolioColumns.FINAL_CUM_ROR: [-50.0, 0.0, 0.0, 21.5789],
         }
     )
     return engine_config, input_df, expected_df
