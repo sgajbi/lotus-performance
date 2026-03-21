@@ -39,11 +39,11 @@ POST /performance/twr
   ],
   "stateless_input": {
     "valuation_points": [
-      { "day": 1, "perf_date": "2025-01-01", "begin_mv": 100000.0, "end_mv": 101000.0 },
-      { "day": 2, "perf_date": "2025-01-02", "begin_mv": 101000.0, "end_mv": 102010.0 },
-      { "day": 3, "perf_date": "2025-01-03", "begin_mv": 102010.0, "end_mv": 100989.9 },
-      { "day": 4, "perf_date": "2025-01-04", "begin_mv": 100989.9, "bod_cf": 25000.0, "end_mv": 127249.29 },
-      { "day": 5, "perf_date": "2025-01-05", "begin_mv": 127249.29, "end_mv": 125976.7971 }
+      { "perf_date": "2025-01-01", "begin_mv": 100000.0, "end_mv": 101000.0 },
+      { "perf_date": "2025-01-02", "begin_mv": 101000.0, "end_mv": 102010.0 },
+      { "perf_date": "2025-01-03", "begin_mv": 102010.0, "end_mv": 100989.9 },
+      { "perf_date": "2025-01-04", "begin_mv": 100989.9, "bod_cf": 25000.0, "end_mv": 127249.29 },
+      { "perf_date": "2025-01-05", "begin_mv": 127249.29, "end_mv": 125976.7971 }
     ]
   }
 }
@@ -107,8 +107,8 @@ POST /performance/twr
   ],
   "stateless_input": {
     "valuation_points": [
-      { "day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0 },
-      { "day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1 }
+      { "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0 },
+      { "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1 }
     ]
   },
   "benchmark": {
@@ -118,8 +118,8 @@ POST /performance/twr
     "stateless_input": {
       "benchmark_currency": "USD",
       "component_observations": [
-        { "component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01 },
-        { "component_id": "IDX_A", "date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.015 }
+        { "component_id": "IDX_A", "perf_date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01 },
+        { "component_id": "IDX_A", "perf_date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.015 }
       ]
     }
   }
@@ -201,11 +201,11 @@ POST /performance/benchmark
   "stateless_input": {
     "benchmark_currency": "USD",
     "component_price_points": [
-      { "component_id": "IDX_A", "date": "2026-01-01", "weight_bop": 0.6, "index_price": 100.0 },
-      { "component_id": "IDX_A", "date": "2026-01-02", "weight_bop": 0.6, "index_price": 102.0 },
+      { "component_id": "IDX_A", "perf_date": "2026-01-01", "weight_bop": 0.6, "index_price": 100.0 },
+      { "component_id": "IDX_A", "perf_date": "2026-01-02", "weight_bop": 0.6, "index_price": 102.0 },
       {
         "component_id": "IDX_B",
-        "date": "2026-01-01",
+        "perf_date": "2026-01-01",
         "weight_bop": 0.4,
         "index_price": 100.0,
         "component_currency": "EUR",
@@ -213,7 +213,7 @@ POST /performance/benchmark
       },
       {
         "component_id": "IDX_B",
-        "date": "2026-01-02",
+        "perf_date": "2026-01-02",
         "weight_bop": 0.4,
         "index_price": 101.0,
         "component_currency": "EUR",
@@ -286,13 +286,13 @@ POST /performance/benchmark
     "component_observations": [
       {
         "component_id": "IDX_A",
-        "date": "2026-01-02",
+        "perf_date": "2026-01-02",
         "weight_bop": 0.6,
         "component_return": 0.02
       },
       {
         "component_id": "IDX_B",
-        "date": "2026-01-02",
+        "perf_date": "2026-01-02",
         "weight_bop": 0.4,
         "component_return": 0.01
       }
@@ -332,7 +332,7 @@ POST /performance/contribution
     "portfolio_data": {
       "metric_basis": "GROSS",
       "valuation_points": [
-        { "day": 1, "perf_date": "2025-01-01", "begin_mv": 10305.0, "end_mv": 10563.66 }
+        { "perf_date": "2025-01-01", "begin_mv": 10305.0, "end_mv": 10563.66 }
       ]
     },
     "positions_data": [
@@ -340,14 +340,14 @@ POST /performance/contribution
         "position_id": "EUR_STOCK",
         "meta": { "currency": "EUR", "sector": "Industrials" },
         "valuation_points": [
-          { "day": 1, "perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": 102.0 }
+          { "perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": 102.0 }
         ]
       },
       {
         "position_id": "JPY_STOCK",
         "meta": { "currency": "JPY", "sector": "Technology" },
         "valuation_points": [
-          { "day": 1, "perf_date": "2025-01-01", "begin_mv": 1500000.0, "end_mv": 1515000.0 }
+          { "perf_date": "2025-01-01", "begin_mv": 1500000.0, "end_mv": 1515000.0 }
         ]
       }
     ]
@@ -407,7 +407,7 @@ POST /performance/attribution
     "portfolio_data": {
       "metric_basis": "GROSS",
       "valuation_points": [
-        { "day": 1, "perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": 103.02 }
+        { "perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": 103.02 }
       ]
     },
     "instruments_data": [
@@ -415,7 +415,7 @@ POST /performance/attribution
         "instrument_id": "EUR_ASSET",
         "meta": { "currency": "EUR" },
         "valuation_points": [
-          { "day": 1, "perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": 102.0 }
+          { "perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": 102.0 }
         ]
       }
     ],

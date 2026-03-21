@@ -21,7 +21,10 @@ class TWRInputMode(str, Enum):
 
 
 class TWRStatelessInput(BaseModel):
-    valuation_points: list[DailyInputData]
+    valuation_points: list[DailyInputData] = Field(
+        ...,
+        description="Canonical stateless portfolio valuation observations ordered by perf_date. day sequence is derived server-side.",
+    )
 
 
 class TWRStatefulInput(BaseModel):
@@ -96,8 +99,11 @@ class TWRBenchmarkRequest(BaseModel):
 class TWRResolvedExecutionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    portfolio: PerformanceRequest
-    benchmark: BenchmarkPerformanceRequest | None = None
+    portfolio: PerformanceRequest = Field(..., description="Resolved stateless portfolio request executed by the TWR engine.")
+    benchmark: BenchmarkPerformanceRequest | None = Field(
+        default=None,
+        description="Resolved benchmark request executed alongside portfolio TWR when benchmark inclusion is enabled.",
+    )
 
 
 class TWRAnalyticsRequest(PerformanceRequestBase):
@@ -131,7 +137,7 @@ class TWRAnalyticsRequest(PerformanceRequestBase):
     )
     valuation_points: list[DailyInputData] = Field(
         default_factory=list,
-        description="Legacy stateless valuation input payload. Prefer stateless_input for new integrations.",
+        description="Legacy stateless valuation input payload using the same canonical valuation-point shape. Prefer stateless_input for new integrations.",
     )
 
     @model_validator(mode="after")

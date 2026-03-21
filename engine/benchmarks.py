@@ -36,7 +36,7 @@ def calculate_benchmark_returns(
 
     records = [
         {
-            "date": observation.date,
+            "date": observation.perf_date,
             "component_id": observation.component_id,
             "component_currency": observation.component_currency,
             "weight_bop": Decimal(str(observation.weight_bop)),
@@ -113,7 +113,7 @@ def calculate_benchmark_returns(
     return BenchmarkEngineResult(
         daily_returns_df=grouped,
         component_contributions_df=contributions_df,
-        effective_period_start=min(observation.date for observation in component_observations),
+        effective_period_start=min(observation.perf_date for observation in component_observations),
         max_weight_sum_deviation=float(max_weight_sum_deviation_decimal),
         notes=notes,
     )
@@ -126,7 +126,7 @@ def benchmark_return_points_to_dataframe(
         raise ValueError("benchmark_return_points must not be empty")
     records = [
         {
-            "date": point.date,
+            "date": point.perf_date,
             "benchmark_return": Decimal(str(point.benchmark_return)),
             "benchmark_return_local": None,
             "benchmark_return_fx": None,

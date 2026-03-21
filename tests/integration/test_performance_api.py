@@ -1,4 +1,4 @@
-# tests/integration/test_performance_api.py
+﻿# tests/integration/test_performance_api.py
 from uuid import UUID, uuid4
 
 import pytest
@@ -36,10 +36,10 @@ def test_twr_reports_reset_events_when_requested(client):
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "metric_basis": "GROSS",
         "valuation_points": [
-            {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 500.0},
-            {"day": 2, "perf_date": "2025-01-02", "begin_mv": 500.0, "end_mv": -50.0},
-            {"day": 3, "perf_date": "2025-01-03", "begin_mv": -50.0, "bod_cf": 1000.0, "end_mv": 1050.0},
-            {"day": 4, "perf_date": "2025-01-04", "begin_mv": 1050.0, "end_mv": 1155.0},
+            {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 500.0},
+            {"perf_date": "2025-01-02", "begin_mv": 500.0, "end_mv": -50.0},
+            {"perf_date": "2025-01-03", "begin_mv": -50.0, "bod_cf": 1000.0, "end_mv": 1050.0},
+            {"perf_date": "2025-01-04", "begin_mv": 1050.0, "end_mv": 1155.0},
         ],
         "reset_policy": {"emit": True},
     }
@@ -66,8 +66,8 @@ def test_calculate_twr_endpoint_with_annualization(client):
         "report_end_date": "2025-03-31",
         "analyses": [{"period": "QTD", "frequencies": ["quarterly"]}],
         "valuation_points": [
-            {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
-            {"day": 60, "perf_date": "2025-03-31", "begin_mv": 1010.0, "end_mv": 1020.1},
+            {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+            {"perf_date": "2025-03-31", "begin_mv": 1010.0, "end_mv": 1020.1},
         ],
         "annualization": {"enabled": True, "basis": "ACT/365"},
     }
@@ -93,11 +93,11 @@ def test_calculate_twr_endpoint_legacy_path_and_diagnostics(client):
         "calculation_id": str(uuid4()),
         "rounding_precision": 6,
         "valuation_points": [
-            {"day": 1, "perf_date": "2025-01-01", "begin_mv": 100000.0, "end_mv": 101000.0},
-            {"day": 2, "perf_date": "2025-01-02", "begin_mv": 101000.0, "end_mv": 102010.0},
-            {"day": 3, "perf_date": "2025-01-03", "begin_mv": 102010.0, "end_mv": 100989.9},
-            {"day": 4, "perf_date": "2025-01-04", "begin_mv": 100989.9, "bod_cf": 25000.0, "end_mv": 127249.29},
-            {"day": 5, "perf_date": "2025-01-05", "begin_mv": 127249.29, "end_mv": 125976.7971},
+            {"perf_date": "2025-01-01", "begin_mv": 100000.0, "end_mv": 101000.0},
+            {"perf_date": "2025-01-02", "begin_mv": 101000.0, "end_mv": 102010.0},
+            {"perf_date": "2025-01-03", "begin_mv": 102010.0, "end_mv": 100989.9},
+            {"perf_date": "2025-01-04", "begin_mv": 100989.9, "bod_cf": 25000.0, "end_mv": 127249.29},
+            {"perf_date": "2025-01-05", "begin_mv": 127249.29, "end_mv": 125976.7971},
         ],
     }
 
@@ -132,8 +132,8 @@ def test_calculate_twr_endpoint_multi_period(client):
             {"period": "YTD", "frequencies": ["monthly"]},
         ],
         "valuation_points": [
-            {"day": 1, "perf_date": "2025-01-15", "begin_mv": 1000.0, "end_mv": 1010.0},  # +1.0%
-            {"day": 2, "perf_date": "2025-02-10", "begin_mv": 1010.0, "end_mv": 1030.2},  # +2.0%
+            {"perf_date": "2025-01-15", "begin_mv": 1000.0, "end_mv": 1010.0},  # +1.0%
+            {"perf_date": "2025-02-10", "begin_mv": 1010.0, "end_mv": 1030.2},  # +2.0%
         ],
     }
     response = client.post("/performance/twr", json=payload)
@@ -171,8 +171,8 @@ def test_calculate_twr_endpoint_multi_currency(client):
         "report_end_date": "2025-01-02",
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "valuation_points": [
-            {"day": 1, "perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": 102.0},
-            {"day": 2, "perf_date": "2025-01-02", "begin_mv": 102.0, "end_mv": 103.02},
+            {"perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": 102.0},
+            {"perf_date": "2025-01-02", "begin_mv": 102.0, "end_mv": 103.02},
         ],
         "currency_mode": "BOTH",
         "report_ccy": "USD",
@@ -205,13 +205,13 @@ def test_calculate_twr_endpoint_with_data_policy(client):
         "report_end_date": "2025-01-03",
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "valuation_points": [
-            {"day": 1, "perf_date": "2024-12-28", "begin_mv": 1000.0, "end_mv": 1001.0},
-            {"day": 2, "perf_date": "2024-12-29", "begin_mv": 1001.0, "end_mv": 1002.0},
-            {"day": 3, "perf_date": "2024-12-30", "begin_mv": 1002.0, "end_mv": 1003.0},
-            {"day": 4, "perf_date": "2024-12-31", "begin_mv": 1003.0, "end_mv": 1004.0},
-            {"day": 5, "perf_date": "2025-01-01", "begin_mv": 1004.0, "end_mv": 1010.0},
-            {"day": 6, "perf_date": "2025-01-02", "begin_mv": 1005.0, "end_mv": 2000.0},
-            {"day": 7, "perf_date": "2025-01-03", "begin_mv": 2000.0, "end_mv": 2020.0},
+            {"perf_date": "2024-12-28", "begin_mv": 1000.0, "end_mv": 1001.0},
+            {"perf_date": "2024-12-29", "begin_mv": 1001.0, "end_mv": 1002.0},
+            {"perf_date": "2024-12-30", "begin_mv": 1002.0, "end_mv": 1003.0},
+            {"perf_date": "2024-12-31", "begin_mv": 1003.0, "end_mv": 1004.0},
+            {"perf_date": "2025-01-01", "begin_mv": 1004.0, "end_mv": 1010.0},
+            {"perf_date": "2025-01-02", "begin_mv": 1005.0, "end_mv": 2000.0},
+            {"perf_date": "2025-01-03", "begin_mv": 2000.0, "end_mv": 2020.0},
         ],
         "data_policy": {
             "overrides": {"market_values": [{"perf_date": "2025-01-01", "end_mv": 1005.0}]},
@@ -242,7 +242,7 @@ def test_twr_respects_include_timeseries_flag(client):
         "metric_basis": "NET",
         "report_end_date": "2025-01-01",
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
-        "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0}],
+        "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0}],
     }
 
     # Case 1: Flag is true
@@ -274,8 +274,8 @@ def test_twr_response_includes_portfolio_summary_block(client):
         "report_end_date": "2025-01-02",
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
         "valuation_points": [
-            {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
-            {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+            {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+            {"perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
         ],
     }
     response = client.post("/performance/twr", json=payload)
@@ -332,8 +332,8 @@ def test_twr_generates_calculation_id_when_omitted_for_benchmark_request(client)
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
         "include_benchmark": True,
         "valuation_points": [
-            {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
-            {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+            {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+            {"perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
         ],
         "benchmark": {
             "benchmark_id": "BMK_GENERATED_ID",
@@ -342,8 +342,8 @@ def test_twr_generates_calculation_id_when_omitted_for_benchmark_request(client)
             "stateless_input": {
                 "benchmark_currency": "USD",
                 "component_observations": [
-                    {"component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
-                    {"component_id": "IDX_A", "date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.01},
+                    {"component_id": "IDX_A", "perf_date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
+                    {"component_id": "IDX_A", "perf_date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.01},
                 ],
             },
         },
@@ -369,8 +369,8 @@ def test_twr_supports_stateless_benchmark_request(client):
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
         "include_benchmark": True,
         "valuation_points": [
-            {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
-            {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+            {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+            {"perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
         ],
         "benchmark": {
             "benchmark_id": "BMK_STATELESS_1",
@@ -379,8 +379,8 @@ def test_twr_supports_stateless_benchmark_request(client):
             "stateless_input": {
                 "benchmark_currency": "USD",
                 "component_observations": [
-                    {"component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
-                    {"component_id": "IDX_A", "date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.015},
+                    {"component_id": "IDX_A", "perf_date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
+                    {"component_id": "IDX_A", "perf_date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.015},
                 ],
             },
         },
@@ -460,8 +460,8 @@ def test_twr_supports_stateful_benchmark_assignment(client, monkeypatch):
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
         "include_benchmark": True,
         "valuation_points": [
-            {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
-            {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+            {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+            {"perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
         ],
         "benchmark": {
             "input_mode": "stateful",
@@ -662,8 +662,8 @@ def test_twr_supports_stateless_benchmark_price_points(client):
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
         "include_benchmark": True,
         "valuation_points": [
-            {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
-            {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+            {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+            {"perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
         ],
         "benchmark": {
             "benchmark_id": "BMK_PRICE_1",
@@ -672,9 +672,9 @@ def test_twr_supports_stateless_benchmark_price_points(client):
             "stateless_input": {
                 "benchmark_currency": "USD",
                 "component_price_points": [
-                    {"component_id": "IDX_A", "date": "2024-12-31", "weight_bop": 1.0, "index_price": 100.0},
-                    {"component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "index_price": 101.0},
-                    {"component_id": "IDX_A", "date": "2025-01-02", "weight_bop": 1.0, "index_price": 102.01},
+                    {"component_id": "IDX_A", "perf_date": "2024-12-31", "weight_bop": 1.0, "index_price": 100.0},
+                    {"component_id": "IDX_A", "perf_date": "2025-01-01", "weight_bop": 1.0, "index_price": 101.0},
+                    {"component_id": "IDX_A", "perf_date": "2025-01-02", "weight_bop": 1.0, "index_price": 102.01},
                 ],
             },
         },
@@ -701,8 +701,8 @@ def test_twr_relative_performance_uses_cumulative_to_date_for_non_itd_periods(cl
         ],
         "include_benchmark": True,
         "valuation_points": [
-            {"day": 1, "perf_date": "2025-01-15", "begin_mv": 1000.0, "end_mv": 1010.0},
-            {"day": 2, "perf_date": "2025-02-10", "begin_mv": 1010.0, "end_mv": 1030.2},
+            {"perf_date": "2025-01-15", "begin_mv": 1000.0, "end_mv": 1010.0},
+            {"perf_date": "2025-02-10", "begin_mv": 1010.0, "end_mv": 1030.2},
         ],
         "benchmark": {
             "benchmark_id": "BMK_RELATIVE_1",
@@ -711,8 +711,8 @@ def test_twr_relative_performance_uses_cumulative_to_date_for_non_itd_periods(cl
             "stateless_input": {
                 "benchmark_currency": "USD",
                 "component_observations": [
-                    {"component_id": "IDX_A", "date": "2025-01-15", "weight_bop": 1.0, "component_return": 0.005},
-                    {"component_id": "IDX_A", "date": "2025-02-10", "weight_bop": 1.0, "component_return": 0.015},
+                    {"component_id": "IDX_A", "perf_date": "2025-01-15", "weight_bop": 1.0, "component_return": 0.005},
+                    {"component_id": "IDX_A", "perf_date": "2025-02-10", "weight_bop": 1.0, "component_return": 0.015},
                 ],
             },
         },
@@ -749,10 +749,10 @@ def test_twr_endpoint_returns_async_paths_for_stateful_benchmark_request(client,
                     "metric_basis": "NET",
                     "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
                     "valuation_points": [
-                        {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
-                        {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
-                        {"day": 3, "perf_date": "2025-01-03", "begin_mv": 1020.1, "end_mv": 1030.301},
-                        {"day": 4, "perf_date": "2025-01-04", "begin_mv": 1030.301, "end_mv": 1040.60401},
+                        {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+                        {"perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+                        {"perf_date": "2025-01-03", "begin_mv": 1020.1, "end_mv": 1030.301},
+                        {"perf_date": "2025-01-04", "begin_mv": 1030.301, "end_mv": 1040.60401},
                     ],
                 }
             ),
@@ -767,8 +767,8 @@ def test_twr_endpoint_returns_async_paths_for_stateful_benchmark_request(client,
                     "return_source": "calculated",
                     "benchmark_currency": "USD",
                     "component_observations": [
-                        {"component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
-                        {"component_id": "IDX_A", "date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.01},
+                        {"component_id": "IDX_A", "perf_date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
+                        {"component_id": "IDX_A", "perf_date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.01},
                     ],
                 }
             ),
@@ -821,10 +821,10 @@ def test_twr_endpoint_generates_calculation_id_for_async_stateful_benchmark_requ
                     "metric_basis": "NET",
                     "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
                     "valuation_points": [
-                        {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
-                        {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
-                        {"day": 3, "perf_date": "2025-01-03", "begin_mv": 1020.1, "end_mv": 1030.301},
-                        {"day": 4, "perf_date": "2025-01-04", "begin_mv": 1030.301, "end_mv": 1040.60401},
+                        {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+                        {"perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+                        {"perf_date": "2025-01-03", "begin_mv": 1020.1, "end_mv": 1030.301},
+                        {"perf_date": "2025-01-04", "begin_mv": 1030.301, "end_mv": 1040.60401},
                     ],
                 }
             ),
@@ -839,8 +839,8 @@ def test_twr_endpoint_generates_calculation_id_for_async_stateful_benchmark_requ
                     "return_source": "calculated",
                     "benchmark_currency": "USD",
                     "component_observations": [
-                        {"component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
-                        {"component_id": "IDX_A", "date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.01},
+                        {"component_id": "IDX_A", "perf_date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
+                        {"component_id": "IDX_A", "perf_date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.01},
                     ],
                 }
             ),
@@ -893,10 +893,10 @@ def test_twr_async_result_missing_and_failed_contracts(client, monkeypatch):
                     "metric_basis": "NET",
                     "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
                     "valuation_points": [
-                        {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
-                        {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
-                        {"day": 3, "perf_date": "2025-01-03", "begin_mv": 1020.1, "end_mv": 1030.301},
-                        {"day": 4, "perf_date": "2025-01-04", "begin_mv": 1030.301, "end_mv": 1040.60401},
+                        {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+                        {"perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+                        {"perf_date": "2025-01-03", "begin_mv": 1020.1, "end_mv": 1030.301},
+                        {"perf_date": "2025-01-04", "begin_mv": 1030.301, "end_mv": 1040.60401},
                     ],
                 }
             ),
@@ -911,8 +911,8 @@ def test_twr_async_result_missing_and_failed_contracts(client, monkeypatch):
                     "return_source": "calculated",
                     "benchmark_currency": "USD",
                     "component_observations": [
-                        {"component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
-                        {"component_id": "IDX_A", "date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.01},
+                        {"component_id": "IDX_A", "perf_date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
+                        {"component_id": "IDX_A", "perf_date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.01},
                     ],
                 }
             ),
@@ -961,8 +961,8 @@ def test_twr_hashes_include_resolved_benchmark_request(client):
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
         "include_benchmark": True,
         "valuation_points": [
-            {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
-            {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+            {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+            {"perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
         ],
         "benchmark": {
             "benchmark_id": "BMK_STATELESS_1",
@@ -971,8 +971,8 @@ def test_twr_hashes_include_resolved_benchmark_request(client):
             "stateless_input": {
                 "benchmark_currency": "USD",
                 "component_observations": [
-                    {"component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
-                    {"component_id": "IDX_A", "date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.015},
+                    {"component_id": "IDX_A", "perf_date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
+                    {"component_id": "IDX_A", "perf_date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.015},
                 ],
             },
         },
@@ -993,8 +993,8 @@ def test_twr_hashes_include_resolved_benchmark_request(client):
                     "report_end_date": "2025-01-02",
                     "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
                     "valuation_points": [
-                        {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
-                        {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+                        {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+                        {"perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
                     ],
                 }
             ),
@@ -1008,8 +1008,8 @@ def test_twr_hashes_include_resolved_benchmark_request(client):
                     "return_source": "calculated",
                     "benchmark_currency": "USD",
                     "component_observations": [
-                        {"component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
-                        {"component_id": "IDX_A", "date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.015},
+                        {"component_id": "IDX_A", "perf_date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
+                        {"component_id": "IDX_A", "perf_date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.015},
                     ],
                     "benchmark_return_points": [],
                 }
@@ -1078,8 +1078,8 @@ def test_twr_stateful_hashes_follow_resolved_inputs(client, monkeypatch):
             "report_end_date": "2025-01-02",
             "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
             "valuation_points": [
-                {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
-                {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1020.1},
+                {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1020.1},
             ],
         }
     )
@@ -1104,10 +1104,10 @@ def test_twr_reset_scenario_has_correct_summary(client):
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "metric_basis": "GROSS",
         "valuation_points": [
-            {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 500.0},
-            {"day": 2, "perf_date": "2025-01-02", "begin_mv": 500.0, "end_mv": -50.0},
-            {"day": 3, "perf_date": "2025-01-03", "begin_mv": -50.0, "bod_cf": 1000.0, "end_mv": 1050.0},
-            {"day": 4, "perf_date": "2025-01-04", "begin_mv": 1050.0, "end_mv": 1155.0},
+            {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 500.0},
+            {"perf_date": "2025-01-02", "begin_mv": 500.0, "end_mv": -50.0},
+            {"perf_date": "2025-01-03", "begin_mv": -50.0, "bod_cf": 1000.0, "end_mv": 1050.0},
+            {"perf_date": "2025-01-04", "begin_mv": 1050.0, "end_mv": 1155.0},
         ],
         "reset_policy": {"emit": True},
     }
@@ -1133,7 +1133,7 @@ def test_calculate_twr_endpoint_error_handling(client, mocker, error_class, expe
         "metric_basis": "NET",
         "report_end_date": "2024-01-05",
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
-        "valuation_points": [{"day": 1, "perf_date": "2024-01-01", "begin_mv": 1000.0, "end_mv": 1010.0}],
+        "valuation_points": [{"perf_date": "2024-01-01", "begin_mv": 1000.0, "end_mv": 1010.0}],
     }
     response = client.post("/performance/twr", json=payload)
     assert response.status_code == expected_status
@@ -1148,7 +1148,7 @@ def test_twr_returns_400_when_no_periods_resolve(client, mocker):
         "metric_basis": "NET",
         "report_end_date": "2025-01-05",
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
-        "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0}],
+        "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0}],
     }
     response = client.post("/performance/twr", json=payload)
     assert response.status_code == 400
@@ -1163,8 +1163,8 @@ def test_twr_returns_empty_results_when_resolved_period_has_no_data(client):
         "report_end_date": "2025-01-05",
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
         "valuation_points": [
-            {"day": 1, "perf_date": "2024-12-30", "begin_mv": 1000.0, "end_mv": 1005.0},
-            {"day": 2, "perf_date": "2024-12-31", "begin_mv": 1005.0, "end_mv": 1010.0},
+            {"perf_date": "2024-12-30", "begin_mv": 1000.0, "end_mv": 1005.0},
+            {"perf_date": "2024-12-31", "begin_mv": 1005.0, "end_mv": 1010.0},
         ],
     }
     response = client.post("/performance/twr", json=payload)
@@ -1183,7 +1183,7 @@ def test_twr_http_exception_passthrough_branch(client, mocker):
         "metric_basis": "NET",
         "report_end_date": "2025-01-05",
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
-        "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0}],
+        "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0}],
     }
     response = client.post("/performance/twr", json=payload)
     assert response.status_code == 418
@@ -1205,3 +1205,4 @@ def test_mwr_http_exception_passthrough_branch(client, mocker):
     response = client.post("/performance/mwr", json=payload)
     assert response.status_code == 409
     assert response.json()["detail"] == "conflict"
+

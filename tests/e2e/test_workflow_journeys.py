@@ -185,9 +185,9 @@ def test_e2e_performance_twr_and_mwr_workflow() -> None:
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "metric_basis": "NET",
         "valuation_points": [
-            {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
-            {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
-            {"day": 3, "perf_date": "2025-01-03", "begin_mv": 1020.1, "end_mv": 1030.301},
+            {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+            {"perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+            {"perf_date": "2025-01-03", "begin_mv": 1020.1, "end_mv": 1030.301},
         ],
     }
     mwr_payload = {
@@ -355,13 +355,13 @@ def test_e2e_stateful_analytics_workflow(monkeypatch) -> None:
         monkeypatch,
         BenchmarkComponentObservation(
             component_id="IDX_1",
-            date=date(2025, 1, 1),
+            perf_date=date(2025, 1, 1),
             weight_bop=1.0,
             component_return=0.01,
         ),
         BenchmarkComponentObservation(
             component_id="IDX_1",
-            date=date(2025, 1, 2),
+            perf_date=date(2025, 1, 2),
             weight_bop=1.0,
             component_return=0.01,
         ),
@@ -542,12 +542,12 @@ def test_e2e_contribution_attribution_and_lineage() -> None:
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
-            "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1015}],
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1015}],
         },
         "positions_data": [
             {
                 "position_id": "AAPL",
-                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1015}],
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1015}],
             }
         ],
         "emit": {"timeseries": True},
@@ -608,12 +608,12 @@ def test_e2e_contribution_lineage_roundtrip() -> None:
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
-            "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1015}],
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1015}],
         },
         "positions_data": [
             {
                 "position_id": "AAPL",
-                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1015}],
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1015}],
             }
         ],
         "emit": {"timeseries": True},
@@ -710,12 +710,12 @@ def test_e2e_contribution_rejects_empty_analyses_contract() -> None:
         "analyses": [],
         "portfolio_data": {
             "metric_basis": "NET",
-            "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
         },
         "positions_data": [
             {
                 "position_id": "AAPL",
-                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
             }
         ],
     }
@@ -734,7 +734,7 @@ def test_e2e_enterprise_authz_blocks_write_without_identity_headers(monkeypatch)
         "metric_basis": "NET",
         "report_end_date": "2025-01-01",
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
-        "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0}],
+        "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0}],
     }
 
     with TestClient(app) as client:
@@ -766,12 +766,12 @@ def test_e2e_async_replay_uses_single_execution_handle() -> None:
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
-            "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1015}],
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1015}],
         },
         "positions_data": [
             {
                 "position_id": "AAPL",
-                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1015}],
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1015}],
             }
         ],
     }

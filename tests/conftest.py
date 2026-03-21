@@ -22,7 +22,6 @@ def happy_path_payload():
             "metric_basis": "NET",
             "valuation_points": [
                 {
-                    "day": 1,
                     "perf_date": "2025-01-01",
                     "begin_mv": 1000,
                     "end_mv": 1020,
@@ -31,7 +30,6 @@ def happy_path_payload():
                     "mgmt_fees": 0,
                 },
                 {
-                    "day": 2,
                     "perf_date": "2025-01-02",
                     "begin_mv": 1020,
                     "end_mv": 1080,
@@ -47,7 +45,6 @@ def happy_path_payload():
                 "meta": {"sector": "Technology"},
                 "valuation_points": [
                     {
-                        "day": 1,
                         "perf_date": "2025-01-01",
                         "begin_mv": 600,
                         "end_mv": 612,
@@ -56,7 +53,6 @@ def happy_path_payload():
                         "mgmt_fees": 0,
                     },
                     {
-                        "day": 2,
                         "perf_date": "2025-01-02",
                         "begin_mv": 612,
                         "end_mv": 670,

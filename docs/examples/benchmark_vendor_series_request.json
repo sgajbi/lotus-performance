@@ -17,11 +17,11 @@
     "benchmark_currency": "USD",
     "benchmark_return_points": [
       {
-        "date": "2026-01-02",
+        "perf_date": "2026-01-02",
         "benchmark_return": 0.01
       },
       {
-        "date": "2026-01-03",
+        "perf_date": "2026-01-03",
         "benchmark_return": 0.02
       }
     ]

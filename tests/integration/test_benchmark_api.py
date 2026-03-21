@@ -52,7 +52,7 @@ def test_calculate_benchmark_endpoint_supports_stateless_calculated_mode(client)
             "component_observations": [
                 {
                     "component_id": "IDX_A",
-                    "date": "2026-01-02",
+                    "perf_date": "2026-01-02",
                     "weight_bop": 0.6,
                     "component_return": 0.02,
                     "component_return_local": 0.015,
@@ -60,7 +60,7 @@ def test_calculate_benchmark_endpoint_supports_stateless_calculated_mode(client)
                 },
                 {
                     "component_id": "IDX_B",
-                    "date": "2026-01-02",
+                    "perf_date": "2026-01-02",
                     "weight_bop": 0.4,
                     "component_return": 0.01,
                     "component_return_local": 0.01,
@@ -68,7 +68,7 @@ def test_calculate_benchmark_endpoint_supports_stateless_calculated_mode(client)
                 },
                 {
                     "component_id": "IDX_A",
-                    "date": "2026-01-03",
+                    "perf_date": "2026-01-03",
                     "weight_bop": 0.6,
                     "component_return": 0.01,
                     "component_return_local": 0.008,
@@ -76,7 +76,7 @@ def test_calculate_benchmark_endpoint_supports_stateless_calculated_mode(client)
                 },
                 {
                     "component_id": "IDX_B",
-                    "date": "2026-01-03",
+                    "perf_date": "2026-01-03",
                     "weight_bop": 0.4,
                     "component_return": 0.005,
                     "component_return_local": 0.005,
@@ -116,11 +116,11 @@ def test_calculate_benchmark_endpoint_supports_stateless_component_price_points(
         "stateless_input": {
             "benchmark_currency": "USD",
             "component_price_points": [
-                {"component_id": "IDX_A", "date": "2026-01-01", "weight_bop": 0.6, "index_price": 100.0},
-                {"component_id": "IDX_A", "date": "2026-01-02", "weight_bop": 0.6, "index_price": 102.0},
+                {"component_id": "IDX_A", "perf_date": "2026-01-01", "weight_bop": 0.6, "index_price": 100.0},
+                {"component_id": "IDX_A", "perf_date": "2026-01-02", "weight_bop": 0.6, "index_price": 102.0},
                 {
                     "component_id": "IDX_B",
-                    "date": "2026-01-01",
+                    "perf_date": "2026-01-01",
                     "weight_bop": 0.4,
                     "index_price": 100.0,
                     "component_currency": "EUR",
@@ -128,7 +128,7 @@ def test_calculate_benchmark_endpoint_supports_stateless_component_price_points(
                 },
                 {
                     "component_id": "IDX_B",
-                    "date": "2026-01-02",
+                    "perf_date": "2026-01-02",
                     "weight_bop": 0.4,
                     "index_price": 101.0,
                     "component_currency": "EUR",
@@ -266,10 +266,10 @@ def test_calculate_benchmark_endpoint_rejects_stateless_price_points_with_misali
         "stateless_input": {
             "benchmark_currency": "USD",
             "component_price_points": [
-                {"component_id": "IDX_A", "date": "2026-01-01", "weight_bop": 0.6, "index_price": 100.0},
-                {"component_id": "IDX_A", "date": "2026-01-02", "weight_bop": 0.6, "index_price": 102.0},
-                {"component_id": "IDX_B", "date": "2026-01-01", "weight_bop": 0.4, "index_price": 100.0},
-                {"component_id": "IDX_B", "date": "2026-01-03", "weight_bop": 0.4, "index_price": 101.0}
+                {"component_id": "IDX_A", "perf_date": "2026-01-01", "weight_bop": 0.6, "index_price": 100.0},
+                {"component_id": "IDX_A", "perf_date": "2026-01-02", "weight_bop": 0.6, "index_price": 102.0},
+                {"component_id": "IDX_B", "perf_date": "2026-01-01", "weight_bop": 0.4, "index_price": 100.0},
+                {"component_id": "IDX_B", "perf_date": "2026-01-03", "weight_bop": 0.4, "index_price": 101.0}
             ]
         }
     }
@@ -292,10 +292,10 @@ def test_calculate_benchmark_endpoint_rejects_stateless_price_points_with_duplic
         "stateless_input": {
             "benchmark_currency": "USD",
             "component_price_points": [
-                {"component_id": "IDX_A", "date": "2026-01-01", "weight_bop": 0.6, "index_price": 100.0},
-                {"component_id": "IDX_A", "date": "2026-01-01", "weight_bop": 0.6, "index_price": 101.0},
-                {"component_id": "IDX_B", "date": "2026-01-01", "weight_bop": 0.4, "index_price": 100.0},
-                {"component_id": "IDX_B", "date": "2026-01-02", "weight_bop": 0.4, "index_price": 101.0},
+                {"component_id": "IDX_A", "perf_date": "2026-01-01", "weight_bop": 0.6, "index_price": 100.0},
+                {"component_id": "IDX_A", "perf_date": "2026-01-01", "weight_bop": 0.6, "index_price": 101.0},
+                {"component_id": "IDX_B", "perf_date": "2026-01-01", "weight_bop": 0.4, "index_price": 100.0},
+                {"component_id": "IDX_B", "perf_date": "2026-01-02", "weight_bop": 0.4, "index_price": 101.0},
             ]
         },
     }
@@ -325,9 +325,9 @@ def test_benchmark_results_endpoint_returns_async_stateful_result(client, monkey
                     "return_source": "calculated",
                     "benchmark_currency": "USD",
                     "component_observations": [
-                        {"component_id": "IDX_A", "date": "2026-01-01", "weight_bop": 1.0, "component_return": 0.01},
-                        {"component_id": "IDX_A", "date": "2026-01-02", "weight_bop": 1.0, "component_return": 0.01},
-                        {"component_id": "IDX_A", "date": "2026-01-03", "weight_bop": 1.0, "component_return": 0.01},
+                        {"component_id": "IDX_A", "perf_date": "2026-01-01", "weight_bop": 1.0, "component_return": 0.01},
+                        {"component_id": "IDX_A", "perf_date": "2026-01-02", "weight_bop": 1.0, "component_return": 0.01},
+                        {"component_id": "IDX_A", "perf_date": "2026-01-03", "weight_bop": 1.0, "component_return": 0.01},
                     ],
                 }
             ),
@@ -505,10 +505,10 @@ def test_calculate_benchmark_endpoint_promotes_stateful_benchmark_to_async_on_re
                 "return_source": "calculated",
                 "benchmark_currency": "USD",
                 "component_observations": [
-                    {"component_id": "IDX_A", "date": "2026-01-02", "weight_bop": 0.6, "component_return": 0.01},
-                    {"component_id": "IDX_B", "date": "2026-01-02", "weight_bop": 0.4, "component_return": 0.02},
-                    {"component_id": "IDX_A", "date": "2026-01-03", "weight_bop": 0.6, "component_return": 0.01},
-                    {"component_id": "IDX_B", "date": "2026-01-03", "weight_bop": 0.4, "component_return": 0.02},
+                    {"component_id": "IDX_A", "perf_date": "2026-01-02", "weight_bop": 0.6, "component_return": 0.01},
+                    {"component_id": "IDX_B", "perf_date": "2026-01-02", "weight_bop": 0.4, "component_return": 0.02},
+                    {"component_id": "IDX_A", "perf_date": "2026-01-03", "weight_bop": 0.6, "component_return": 0.01},
+                    {"component_id": "IDX_B", "perf_date": "2026-01-03", "weight_bop": 0.4, "component_return": 0.02},
                 ],
             }
         )
@@ -563,10 +563,10 @@ def test_benchmark_endpoint_generates_calculation_id_for_async_stateful_request(
                 "return_source": "calculated",
                 "benchmark_currency": "USD",
                 "component_observations": [
-                    {"component_id": "IDX_A", "date": "2026-01-02", "weight_bop": 0.6, "component_return": 0.01},
-                    {"component_id": "IDX_B", "date": "2026-01-02", "weight_bop": 0.4, "component_return": 0.02},
-                    {"component_id": "IDX_A", "date": "2026-01-03", "weight_bop": 0.6, "component_return": 0.01},
-                    {"component_id": "IDX_B", "date": "2026-01-03", "weight_bop": 0.4, "component_return": 0.02},
+                    {"component_id": "IDX_A", "perf_date": "2026-01-02", "weight_bop": 0.6, "component_return": 0.01},
+                    {"component_id": "IDX_B", "perf_date": "2026-01-02", "weight_bop": 0.4, "component_return": 0.02},
+                    {"component_id": "IDX_A", "perf_date": "2026-01-03", "weight_bop": 0.6, "component_return": 0.01},
+                    {"component_id": "IDX_B", "perf_date": "2026-01-03", "weight_bop": 0.4, "component_return": 0.02},
                 ],
             }
         )
@@ -619,10 +619,10 @@ def test_benchmark_endpoint_offloads_large_stateless_benchmark_requests(client):
         "stateless_input": {
             "benchmark_currency": "USD",
             "component_observations": [
-                {"component_id": "IDX_A", "date": "2026-01-02", "weight_bop": 0.6, "component_return": 0.02},
-                {"component_id": "IDX_B", "date": "2026-01-02", "weight_bop": 0.4, "component_return": 0.01},
-                {"component_id": "IDX_A", "date": "2026-01-03", "weight_bop": 0.6, "component_return": 0.01},
-                {"component_id": "IDX_B", "date": "2026-01-03", "weight_bop": 0.4, "component_return": 0.005},
+                {"component_id": "IDX_A", "perf_date": "2026-01-02", "weight_bop": 0.6, "component_return": 0.02},
+                {"component_id": "IDX_B", "perf_date": "2026-01-02", "weight_bop": 0.4, "component_return": 0.01},
+                {"component_id": "IDX_A", "perf_date": "2026-01-03", "weight_bop": 0.6, "component_return": 0.01},
+                {"component_id": "IDX_B", "perf_date": "2026-01-03", "weight_bop": 0.4, "component_return": 0.005},
             ],
         },
     }

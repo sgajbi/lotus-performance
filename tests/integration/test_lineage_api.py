@@ -41,7 +41,7 @@ def test_lineage_end_to_end_flow(client):
         "metric_basis": "NET",
         "report_end_date": "2025-01-01",
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
-        "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0}],
+        "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0}],
     }
 
     # 1. Run a calculation
@@ -122,8 +122,8 @@ def test_twr_benchmark_lineage_captures_resolved_portfolio_and_benchmark_request
         "report_end_date": "2025-01-02",
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
         "valuation_points": [
-            {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
-            {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+            {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+            {"perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
         ],
         "benchmark": {
             "benchmark_id": "BMK_LINEAGE_1",
@@ -132,8 +132,8 @@ def test_twr_benchmark_lineage_captures_resolved_portfolio_and_benchmark_request
             "stateless_input": {
                 "benchmark_currency": "USD",
                 "component_observations": [
-                    {"component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
-                    {"component_id": "IDX_A", "date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.015},
+                    {"component_id": "IDX_A", "perf_date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
+                    {"component_id": "IDX_A", "perf_date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.015},
                 ],
             },
         },
@@ -168,8 +168,8 @@ def test_benchmark_price_point_lineage_captures_resolved_request(client):
         "stateless_input": {
             "benchmark_currency": "USD",
             "component_price_points": [
-                {"component_id": "IDX_A", "date": "2026-01-01", "weight_bop": 1.0, "index_price": 100.0},
-                {"component_id": "IDX_A", "date": "2026-01-02", "weight_bop": 1.0, "index_price": 101.0},
+                {"component_id": "IDX_A", "perf_date": "2026-01-01", "weight_bop": 1.0, "index_price": 100.0},
+                {"component_id": "IDX_A", "perf_date": "2026-01-02", "weight_bop": 1.0, "index_price": 101.0},
             ],
         },
     }
@@ -393,3 +393,5 @@ def test_get_lineage_artifact_returns_503_when_file_missing_from_storage(client)
 
     assert response.status_code == 503
     assert response.json()["detail"] == "Lineage artifact is missing from storage."
+
+

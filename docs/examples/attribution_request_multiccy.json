@@ -24,7 +24,6 @@
       "metric_basis": "GROSS",
       "valuation_points": [
         {
-          "day": 1,
           "perf_date": "2025-01-01",
           "begin_mv": 100.0,
           "end_mv": 103.02
@@ -39,7 +38,6 @@
         },
         "valuation_points": [
           {
-            "day": 1,
             "perf_date": "2025-01-01",
             "begin_mv": 100.0,
             "end_mv": 102.0

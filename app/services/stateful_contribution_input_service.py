@@ -170,7 +170,6 @@ def _position_row_to_daily_point(
 
     bod_cf, eod_cf, mgmt_fees = _split_position_cash_flows(row.get("cash_flows"))
     return {
-        "day": 0,
         "perf_date": valuation_date,
         "begin_mv": Decimal(str(begin_value)),
         "end_mv": Decimal(str(end_value)),

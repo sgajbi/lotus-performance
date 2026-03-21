@@ -179,14 +179,16 @@ See [multi_currency.md](multi_currency.md) for the detailed multi-currency path.
     }
   ],
   "valuation_points": [
-    { "day": 1, "perf_date": "2025-01-01", "begin_mv": 100000.0, "end_mv": 101000.0 },
-    { "day": 2, "perf_date": "2025-01-02", "begin_mv": 101000.0, "end_mv": 102010.0 },
-    { "day": 3, "perf_date": "2025-01-03", "begin_mv": 102010.0, "end_mv": 100989.9 },
-    { "day": 4, "perf_date": "2025-01-04", "begin_mv": 100989.9, "bod_cf": 25000.0, "end_mv": 127249.29 },
-    { "day": 5, "perf_date": "2025-01-05", "begin_mv": 127249.29, "end_mv": 125976.7971 }
+    { "perf_date": "2025-01-01", "begin_mv": 100000.0, "end_mv": 101000.0 },
+    { "perf_date": "2025-01-02", "begin_mv": 101000.0, "end_mv": 102010.0 },
+    { "perf_date": "2025-01-03", "begin_mv": 102010.0, "end_mv": 100989.9 },
+    { "perf_date": "2025-01-04", "begin_mv": 100989.9, "bod_cf": 25000.0, "end_mv": 127249.29 },
+    { "perf_date": "2025-01-05", "begin_mv": 127249.29, "end_mv": 125976.7971 }
   ]
 }
 ```
+
+Observation order is derived from sorted `perf_date`; callers do not send a separate `day` field.
 
 ## Example response excerpt
 

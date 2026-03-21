@@ -18,19 +18,19 @@
     "component_price_points": [
       {
         "component_id": "IDX_A",
-        "date": "2026-01-01",
+        "perf_date": "2026-01-01",
         "weight_bop": 0.6,
         "index_price": 100.0
       },
       {
         "component_id": "IDX_A",
-        "date": "2026-01-02",
+        "perf_date": "2026-01-02",
         "weight_bop": 0.6,
         "index_price": 102.0
       },
       {
         "component_id": "IDX_B",
-        "date": "2026-01-01",
+        "perf_date": "2026-01-01",
         "weight_bop": 0.4,
         "index_price": 100.0,
         "component_currency": "EUR",
@@ -38,7 +38,7 @@
       },
       {
         "component_id": "IDX_B",
-        "date": "2026-01-02",
+        "perf_date": "2026-01-02",
         "weight_bop": 0.4,
         "index_price": 101.0,
         "component_currency": "EUR",

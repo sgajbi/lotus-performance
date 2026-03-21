@@ -193,10 +193,10 @@ def test_compute_executor_worker_processes_resolved_benchmark_job(tmp_path, monk
             "return_source": "calculated",
             "benchmark_currency": "USD",
             "component_observations": [
-                {"component_id": "IDX_A", "date": "2026-01-02", "weight_bop": 0.6, "component_return": 0.01},
-                {"component_id": "IDX_B", "date": "2026-01-02", "weight_bop": 0.4, "component_return": 0.02},
-                {"component_id": "IDX_A", "date": "2026-01-03", "weight_bop": 0.6, "component_return": 0.01},
-                {"component_id": "IDX_B", "date": "2026-01-03", "weight_bop": 0.4, "component_return": 0.02},
+                {"component_id": "IDX_A", "perf_date": "2026-01-02", "weight_bop": 0.6, "component_return": 0.01},
+                {"component_id": "IDX_B", "perf_date": "2026-01-02", "weight_bop": 0.4, "component_return": 0.02},
+                {"component_id": "IDX_A", "perf_date": "2026-01-03", "weight_bop": 0.6, "component_return": 0.01},
+                {"component_id": "IDX_B", "perf_date": "2026-01-03", "weight_bop": 0.4, "component_return": 0.02},
             ],
         }
     )
@@ -258,8 +258,8 @@ def test_compute_executor_worker_processes_resolved_twr_job(tmp_path, monkeypatc
                 "metric_basis": "NET",
                 "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
                 "valuation_points": [
-                    {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
-                    {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+                    {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+                    {"perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
                 ],
             }
         ),
@@ -273,8 +273,8 @@ def test_compute_executor_worker_processes_resolved_twr_job(tmp_path, monkeypatc
                 "return_source": "calculated",
                 "benchmark_currency": "USD",
                 "component_observations": [
-                    {"component_id": "IDX_A", "date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
-                    {"component_id": "IDX_A", "date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.01},
+                    {"component_id": "IDX_A", "perf_date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
+                    {"component_id": "IDX_A", "perf_date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.01},
                 ],
             }
         ),
@@ -349,16 +349,16 @@ def test_compute_executor_worker_processes_pending_contribution_job(tmp_path, mo
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [
-                    {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
-                    {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1030},
+                    {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                    {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1030},
                 ],
             },
             "positions_data": [
                 {
                     "position_id": "Stock_A",
                     "valuation_points": [
-                        {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
-                        {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1030},
+                        {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                        {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1030},
                     ],
                 }
             ],
@@ -436,16 +436,16 @@ def test_compute_executor_worker_updates_identity_for_stateful_contribution_job(
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [
-                    {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
-                    {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1030},
+                    {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                    {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1030},
                 ],
             },
             "positions_data": [
                 {
                     "position_id": "Stock_A",
                     "valuation_points": [
-                        {"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
-                        {"day": 2, "perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1030},
+                        {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                        {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1030},
                     ],
                 }
             ],
@@ -1053,3 +1053,4 @@ def test_compute_executor_worker_rejects_unsupported_analytics_type(tmp_path, mo
     assert job is not None
     assert job.job_status == ComputeJobStatus.FAILED
     assert "Unsupported compute job analytics_type" in (job.error_message or "")
+

@@ -21,28 +21,35 @@ from core.envelope import (
 class PositionDailyData(BaseModel):
     """Time series data for a single position on a single day."""
 
-    day: int
-    perf_date: date
-    begin_mv: float
-    end_mv: float
-    bod_cf: float = 0.0
-    eod_cf: float = 0.0
-    mgmt_fees: float = 0.0
+    model_config = ConfigDict(extra="forbid")
+
+    perf_date: date = Field(..., description="Observation date for the valuation point.")
+    begin_mv: float = Field(..., description="Beginning market value before any cash flows.")
+    end_mv: float = Field(..., description="Ending market value after market movement and fees.")
+    bod_cf: float = Field(0.0, description="Beginning-of-day cash flow applied before performance.")
+    eod_cf: float = Field(0.0, description="End-of-day cash flow applied after performance.")
+    mgmt_fees: float = Field(0.0, description="Management fees booked for the day.")
 
 
 class PositionData(BaseModel):
     """Contains the full time series and metadata for a single position."""
 
-    position_id: str
-    meta: Dict[str, Any] = Field(default_factory=dict)
-    valuation_points: List[PositionDailyData]
+    position_id: str = Field(..., description="Position identifier.")
+    meta: Dict[str, Any] = Field(default_factory=dict, description="Position metadata used for grouping and labels.")
+    valuation_points: List[PositionDailyData] = Field(
+        ...,
+        description="Canonical position valuation observations ordered by perf_date. Sequence is derived server-side.",
+    )
 
 
 class PortfolioData(BaseModel):
     """Contains the full time series and config for the total portfolio."""
 
-    metric_basis: Literal["NET", "GROSS"]
-    valuation_points: List[PositionDailyData]
+    metric_basis: Literal["NET", "GROSS"] = Field(..., description="Whether portfolio inputs are net or gross of fees.")
+    valuation_points: List[PositionDailyData] = Field(
+        ...,
+        description="Canonical portfolio valuation observations ordered by perf_date. Sequence is derived server-side.",
+    )
 
 
 class Smoothing(BaseModel):

@@ -68,16 +68,16 @@ def test_contribution_endpoint_multi_period(client):
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [
-                {"day": 1, "perf_date": "2025-01-10", "begin_mv": 1000, "end_mv": 1010},
-                {"day": 2, "perf_date": "2025-02-10", "begin_mv": 1010, "end_mv": 1030.2},
+                {"perf_date": "2025-01-10", "begin_mv": 1000, "end_mv": 1010},
+                {"perf_date": "2025-02-10", "begin_mv": 1010, "end_mv": 1030.2},
             ],
         },
         "positions_data": [
             {
                 "position_id": "Stock_A",
                 "valuation_points": [
-                    {"day": 1, "perf_date": "2025-01-10", "begin_mv": 1000, "end_mv": 1010},
-                    {"day": 2, "perf_date": "2025-02-10", "begin_mv": 1010, "end_mv": 1030.2},
+                    {"perf_date": "2025-01-10", "begin_mv": 1000, "end_mv": 1010},
+                    {"perf_date": "2025-02-10", "begin_mv": 1010, "end_mv": 1030.2},
                 ],
             }
         ],
@@ -100,13 +100,13 @@ def test_contribution_endpoint_multi_currency(client):
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "GROSS",
-            "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 105.0, "end_mv": 110.16}],
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 105.0, "end_mv": 110.16}],
         },
         "positions_data": [
             {
                 "position_id": "EUR_STOCK",
                 "meta": {"currency": "EUR"},
-                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": 102.0}],
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": 102.0}],
             }
         ],
         "currency_mode": "BOTH",
@@ -163,8 +163,8 @@ def test_contribution_endpoint_hierarchy_happy_path(client, happy_path_payload):
             "position_id": "Stock_B",
             "meta": {"sector": "Technology"},
             "valuation_points": [
-                {"day": 1, "perf_date": "2025-01-01", "begin_mv": 400, "end_mv": 408},
-                {"day": 2, "perf_date": "2025-01-02", "begin_mv": 408, "end_mv": 410},
+                {"perf_date": "2025-01-01", "begin_mv": 400, "end_mv": 408},
+                {"perf_date": "2025-01-02", "begin_mv": 408, "end_mv": 410},
             ],
         }
     )
@@ -185,8 +185,8 @@ def test_contribution_endpoint_hierarchy_respects_multiple_resolved_periods(clie
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [
-                {"day": 1, "perf_date": "2025-01-31", "begin_mv": 1000, "end_mv": 1010},
-                {"day": 2, "perf_date": "2025-02-15", "begin_mv": 1010, "end_mv": 1030.2},
+                {"perf_date": "2025-01-31", "begin_mv": 1000, "end_mv": 1010},
+                {"perf_date": "2025-02-15", "begin_mv": 1010, "end_mv": 1030.2},
             ],
         },
         "positions_data": [
@@ -194,16 +194,16 @@ def test_contribution_endpoint_hierarchy_respects_multiple_resolved_periods(clie
                 "position_id": "Stock_A",
                 "meta": {"sector": "Technology"},
                 "valuation_points": [
-                    {"day": 1, "perf_date": "2025-01-31", "begin_mv": 600, "end_mv": 606},
-                    {"day": 2, "perf_date": "2025-02-15", "begin_mv": 606, "end_mv": 618.12},
+                    {"perf_date": "2025-01-31", "begin_mv": 600, "end_mv": 606},
+                    {"perf_date": "2025-02-15", "begin_mv": 606, "end_mv": 618.12},
                 ],
             },
             {
                 "position_id": "Stock_B",
                 "meta": {"sector": "Healthcare"},
                 "valuation_points": [
-                    {"day": 1, "perf_date": "2025-01-31", "begin_mv": 400, "end_mv": 404},
-                    {"day": 2, "perf_date": "2025-02-15", "begin_mv": 404, "end_mv": 412.08},
+                    {"perf_date": "2025-01-31", "begin_mv": 400, "end_mv": 404},
+                    {"perf_date": "2025-02-15", "begin_mv": 404, "end_mv": 412.08},
                 ],
             },
         ],
@@ -230,7 +230,7 @@ def test_contribution_endpoint_error_handling(client, mocker):
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
-            "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1025}],
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1025}],
         },
         "positions_data": [],
     }
@@ -246,7 +246,7 @@ def test_contribution_endpoint_no_resolved_periods_returns_400(client):
         "analyses": [{"period": "MTD", "frequencies": ["monthly"]}],
         "portfolio_data": {
             "metric_basis": "NET",
-            "valuation_points": [{"day": 1, "perf_date": "2025-01-10", "begin_mv": 1000, "end_mv": 1010}],
+            "valuation_points": [{"perf_date": "2025-01-10", "begin_mv": 1000, "end_mv": 1010}],
         },
         "positions_data": [],
     }
@@ -271,12 +271,12 @@ def test_contribution_endpoint_skips_empty_period_slice(client):
         "analyses": [{"period": "YTD", "frequencies": ["monthly"]}],
         "portfolio_data": {
             "metric_basis": "NET",
-            "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
         },
         "positions_data": [
             {
                 "position_id": "Stock_A",
-                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
             }
         ],
     }
@@ -659,7 +659,6 @@ def test_contribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch
                 "metric_basis": "NET",
                 "valuation_points": [
                     {
-                        "day": 1,
                         "perf_date": "2025-01-01",
                         "begin_mv": "1000",
                         "end_mv": "1010",
@@ -667,7 +666,6 @@ def test_contribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch
                         "eod_cf": "0",
                     },
                     {
-                        "day": 2,
                         "perf_date": "2025-01-02",
                         "begin_mv": "1010",
                         "end_mv": "1020.1",
@@ -682,7 +680,6 @@ def test_contribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch
                     "meta": {"security_id": "SEC_1", "sector": "Technology"},
                     "valuation_points": [
                         {
-                            "day": 0,
                             "perf_date": "2025-01-01",
                             "begin_mv": "1000",
                             "end_mv": "1010",
@@ -690,7 +687,6 @@ def test_contribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch
                             "eod_cf": "0",
                         },
                         {
-                            "day": 0,
                             "perf_date": "2025-01-02",
                             "begin_mv": "1010",
                             "end_mv": "1020.1",

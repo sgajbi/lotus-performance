@@ -91,18 +91,18 @@ def test_attribution_endpoint_by_instrument_happy_path(client):
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
-            "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1018.5}],
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1018.5}],
         },
         "instruments_data": [
             {
                 "instrument_id": "AAPL",
                 "meta": {"sector": "Tech"},
-                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 600, "end_mv": 612}],
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 600, "end_mv": 612}],
             },
             {
                 "instrument_id": "JNJ",
                 "meta": {"sector": "Health"},
-                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 400, "end_mv": 406.5}],
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 400, "end_mv": 406.5}],
             },
         ],
         "benchmark_groups_data": [
@@ -177,23 +177,23 @@ def test_attribution_endpoint_hierarchical(client):
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
-            "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1020}],
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1020}],
         },
         "instruments_data": [
             {
                 "instrument_id": "AAPL",
                 "meta": {"assetClass": "Equity", "sector": "Tech"},
-                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 400, "end_mv": 408}],
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 400, "end_mv": 408}],
             },
             {
                 "instrument_id": "JNJ",
                 "meta": {"assetClass": "Equity", "sector": "Health"},
-                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 300, "end_mv": 303}],
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 300, "end_mv": 303}],
             },
             {
                 "instrument_id": "UST",
                 "meta": {"assetClass": "Bond", "sector": "Government"},
-                "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 300, "end_mv": 309}],
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 300, "end_mv": 309}],
             },
         ],
         "benchmark_groups_data": [
@@ -243,14 +243,14 @@ def test_attribution_endpoint_currency_attribution(client):
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "GROSS",
-            "valuation_points": [{"day": 1, "perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": 103.02}],
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": 103.02}],
         },
         "instruments_data": [
             {
                 "instrument_id": "EUR_ASSET",
                 "meta": {"currency": "EUR"},
                 "valuation_points": [
-                    {"day": 1, "perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": 102.0}
+                    {"perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": 102.0}
                 ],  # 2% local return
             }
         ],
@@ -519,13 +519,13 @@ def test_attribution_supports_stateful_input_mode(client, monkeypatch):
         monkeypatch,
         BenchmarkComponentObservation(
             component_id="IDX_1",
-            date=date(2025, 1, 1),
+            perf_date=date(2025, 1, 1),
             weight_bop=1.0,
             component_return=0.01,
         ),
         BenchmarkComponentObservation(
             component_id="IDX_1",
-            date=date(2025, 1, 2),
+            perf_date=date(2025, 1, 2),
             weight_bop=1.0,
             component_return=0.01,
         ),
@@ -662,25 +662,25 @@ def test_attribution_stateful_offloads_on_resolved_input_count(client, monkeypat
         monkeypatch,
         BenchmarkComponentObservation(
             component_id="IDX_1",
-            date=date(2025, 1, 1),
+            perf_date=date(2025, 1, 1),
             weight_bop=0.5,
             component_return=0.01,
         ),
         BenchmarkComponentObservation(
             component_id="IDX_1",
-            date=date(2025, 1, 2),
+            perf_date=date(2025, 1, 2),
             weight_bop=0.5,
             component_return=0.01,
         ),
         BenchmarkComponentObservation(
             component_id="IDX_2",
-            date=date(2025, 1, 1),
+            perf_date=date(2025, 1, 1),
             weight_bop=0.5,
             component_return=0.015,
         ),
         BenchmarkComponentObservation(
             component_id="IDX_2",
-            date=date(2025, 1, 2),
+            perf_date=date(2025, 1, 2),
             weight_bop=0.5,
             component_return=0.015,
         ),
@@ -826,31 +826,31 @@ def test_attribution_stateful_promoted_async_replays_identical_retry(client, mon
         _mock_get_benchmark_assignment,
     )
     _patch_stateful_attribution_benchmark_input(
-        monkeypatch,
-        BenchmarkComponentObservation(
-            component_id="IDX_1",
-            date=date(2025, 1, 1),
-            weight_bop=0.5,
-            component_return=0.01,
-        ),
-        BenchmarkComponentObservation(
-            component_id="IDX_1",
-            date=date(2025, 1, 2),
-            weight_bop=0.5,
-            component_return=0.01,
-        ),
-        BenchmarkComponentObservation(
-            component_id="IDX_2",
-            date=date(2025, 1, 1),
-            weight_bop=0.5,
-            component_return=0.015,
-        ),
-        BenchmarkComponentObservation(
-            component_id="IDX_2",
-            date=date(2025, 1, 2),
-            weight_bop=0.5,
-            component_return=0.015,
-        ),
+            monkeypatch,
+            BenchmarkComponentObservation(
+                component_id="IDX_1",
+                perf_date=date(2025, 1, 1),
+                weight_bop=0.5,
+                component_return=0.01,
+            ),
+            BenchmarkComponentObservation(
+                component_id="IDX_1",
+                perf_date=date(2025, 1, 2),
+                weight_bop=0.5,
+                component_return=0.01,
+            ),
+            BenchmarkComponentObservation(
+                component_id="IDX_2",
+                perf_date=date(2025, 1, 1),
+                weight_bop=0.5,
+                component_return=0.015,
+            ),
+            BenchmarkComponentObservation(
+                component_id="IDX_2",
+                perf_date=date(2025, 1, 2),
+                weight_bop=0.5,
+                component_return=0.015,
+            ),
     )
     monkeypatch.setattr(
         "app.services.stateful_input_service.StatefulInputService.get_index_catalog",
@@ -970,7 +970,7 @@ def test_attribution_stateful_currency_mode_both_supports_mixed_currency_decompo
         BenchmarkComponentObservation(
             component_id="IDX_1",
             component_currency="EUR",
-            date=date(2025, 1, 1),
+            perf_date=date(2025, 1, 1),
             weight_bop=0.5,
             component_return=0.0302,
             component_return_local=0.02,
@@ -979,7 +979,7 @@ def test_attribution_stateful_currency_mode_both_supports_mixed_currency_decompo
         BenchmarkComponentObservation(
             component_id="IDX_2",
             component_currency="USD",
-            date=date(2025, 1, 1),
+            perf_date=date(2025, 1, 1),
             weight_bop=0.5,
             component_return=0.02,
             component_return_local=0.02,
@@ -1104,13 +1104,13 @@ def test_attribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch)
         monkeypatch,
         BenchmarkComponentObservation(
             component_id="IDX_1",
-            date=date(2025, 1, 1),
+            perf_date=date(2025, 1, 1),
             weight_bop=1.0,
             component_return=0.01,
         ),
         BenchmarkComponentObservation(
             component_id="IDX_1",
-            date=date(2025, 1, 2),
+            perf_date=date(2025, 1, 2),
             weight_bop=1.0,
             component_return=0.01,
         ),

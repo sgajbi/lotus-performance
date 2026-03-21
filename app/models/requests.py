@@ -18,7 +18,8 @@ from core.envelope import (
 
 
 class DailyInputData(BaseModel):
-    day: int = Field(..., description="A sequential day number for the record within the request payload.")
+    model_config = ConfigDict(extra="forbid")
+
     perf_date: date = Field(..., description="The specific date of the observation in YYYY-MM-DD format.")
     begin_mv: float = Field(
         ..., description="The market value of the portfolio at the beginning of the day, before any cash flows."
@@ -51,8 +52,14 @@ class ResetPolicy(BaseModel):
 class Analysis(BaseModel):
     """Defines a single analysis with its period and desired frequencies."""
 
-    period: PeriodType
-    frequencies: List[Frequency]
+    period: PeriodType = Field(
+        ...,
+        description="Reporting period to resolve. Supported values: MTD, QTD, YTD, ITD, 1Y, 3Y, 5Y, EXPLICIT.",
+    )
+    frequencies: List[Frequency] = Field(
+        ...,
+        description="Breakdown frequencies to emit for the resolved period. Supported values: daily, weekly, monthly, quarterly, yearly.",
+    )
 
     @field_validator("frequencies")
     @classmethod
@@ -85,9 +92,12 @@ class PerformanceRequestBase(BaseModel):
         ...,
         description="The final date of the analysis period. Also used as the anchor date for resolving relative periods like YTD.",
     )
-    analyses: List[Analysis]
+    analyses: List[Analysis] = Field(..., description="Requested period analyses and breakdown frequencies.")
 
-    valuation_points: List[DailyInputData]
+    valuation_points: List[DailyInputData] = Field(
+        ...,
+        description="Canonical portfolio valuation observations ordered by perf_date. Sequence is derived server-side.",
+    )
     currency: str = Field("USD", description="The three-letter ISO currency code for the request (e.g., 'USD').")
     precision_mode: Literal["FLOAT64", "DECIMAL_STRICT"] = Field(
         "FLOAT64", description="The numerical precision mode for the calculation engine."

@@ -51,13 +51,13 @@ def _build_component_observations_from_price_points(
     observations: list[BenchmarkComponentObservation] = []
     expected_component_dates: set[date] | None = None
     for component_id in sorted(by_component):
-        component_points = sorted(by_component[component_id], key=lambda item: item.date)
+        component_points = sorted(by_component[component_id], key=lambda item: item.perf_date)
         component_dates: set[date] = set()
         for index in range(1, len(component_points)):
             previous_point = component_points[index - 1]
             current_point = component_points[index]
-            previous_date = previous_point.date
-            current_date = current_point.date
+            previous_date = previous_point.perf_date
+            current_date = current_point.perf_date
             if current_date <= previous_date:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -107,7 +107,7 @@ def _build_component_observations_from_price_points(
             observations.append(
                 BenchmarkComponentObservation(
                     component_id=component_id,
-                    date=current_date,
+                    perf_date=current_date,
                     weight_bop=float(current_point.weight_bop),
                     component_currency=resolved_currency,
                     component_return=component_return,
