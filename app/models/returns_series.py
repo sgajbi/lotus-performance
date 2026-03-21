@@ -71,7 +71,7 @@ class DayCountBasis(str, Enum):
 class ReturnPoint(BaseModel):
     date: dt_date = Field(description="Business date for this return observation.", examples=["2026-02-26"])
     return_value: Decimal = Field(
-        description="Simple period return value in decimal form (for example 0.0012 = 12 bps).",
+        description="Simple period return as a decimal ratio. Example: 0.0012 means 0.12% (12 bps), not 1.2%.",
         examples=["0.0012"],
     )
 
@@ -181,69 +181,103 @@ class ResolvedWindow(BaseModel):
 
 
 class SeriesCoverage(BaseModel):
-    requested_points: int
-    returned_points: int
-    missing_points: int
-    coverage_ratio: Decimal
+    requested_points: int = Field(description="Number of points requested for the series.", examples=[252])
+    returned_points: int = Field(description="Number of points returned for the series.", examples=[250])
+    missing_points: int = Field(description="Number of missing points after applying policy.", examples=[2])
+    coverage_ratio: Decimal = Field(
+        description="Returned-to-requested coverage as a decimal ratio. Example: 0.992 means 99.2%.",
+        examples=["0.992"],
+    )
 
 
 class SeriesGap(BaseModel):
-    series_type: Literal["portfolio", "benchmark", "risk_free"]
-    from_date: dt_date
-    to_date: dt_date
-    gap_days: int
+    series_type: Literal["portfolio", "benchmark", "risk_free"] = Field(description="Series affected by the coverage gap.")
+    from_date: dt_date = Field(description="Inclusive start date of the gap.", examples=["2026-02-10"])
+    to_date: dt_date = Field(description="Inclusive end date of the gap.", examples=["2026-02-12"])
+    gap_days: int = Field(description="Gap length in business dates after policy application.", examples=[3])
 
 
 class ReturnsDiagnostics(BaseModel):
-    coverage: SeriesCoverage
-    gaps: list[SeriesGap] = Field(default_factory=list)
-    policy_applied: DataPolicy
-    warnings: list[str] = Field(default_factory=list)
+    coverage: SeriesCoverage = Field(description="Coverage summary for the response series.")
+    gaps: list[SeriesGap] = Field(default_factory=list, description="Explicit coverage gaps retained in diagnostics.")
+    policy_applied: DataPolicy = Field(description="Resolved data-policy settings used for the request.")
+    warnings: list[str] = Field(default_factory=list, description="Non-fatal diagnostic warnings for the response.")
 
 
 class ReturnsProvenance(BaseModel):
-    input_mode: InputMode
-    input_fingerprint: str
-    calculation_hash: str
+    input_mode: InputMode = Field(description="Resolved returns-series input mode.", examples=["stateful"])
+    input_fingerprint: str = Field(description="Canonical fingerprint of the executed inputs.")
+    calculation_hash: str = Field(description="Canonical calculation hash for the executed payload.")
 
 
 class ReturnsMetadata(BaseModel):
-    generated_at: dt_datetime
-    correlation_id: str | None = None
-    request_id: str | None = None
-    trace_id: str | None = None
+    generated_at: dt_datetime = Field(description="UTC timestamp at which the response was generated.")
+    correlation_id: str | None = Field(default=None, description="Optional correlation identifier propagated through the request.")
+    request_id: str | None = Field(default=None, description="Optional request identifier propagated through the request.")
+    trace_id: str | None = Field(default=None, description="Optional distributed trace identifier.")
 
 
 class ReturnsSeriesPayload(BaseModel):
-    portfolio_returns: list[ReturnPoint]
-    cumulative_portfolio_returns: list[ReturnPoint] | None = None
-    benchmark_returns: list[ReturnPoint] | None = None
-    cumulative_benchmark_returns: list[ReturnPoint] | None = None
-    risk_free_returns: list[ReturnPoint] | None = None
-    cumulative_risk_free_returns: list[ReturnPoint] | None = None
-    active_returns: list[ReturnPoint] | None = None
-    cumulative_active_returns: list[ReturnPoint] | None = None
+    portfolio_returns: list[ReturnPoint] = Field(
+        description="Portfolio point returns as decimal ratios."
+    )
+    cumulative_portfolio_returns: list[ReturnPoint] | None = Field(
+        default=None,
+        description="Cumulative linked portfolio returns as decimal ratios.",
+    )
+    benchmark_returns: list[ReturnPoint] | None = Field(
+        default=None,
+        description="Benchmark point returns as decimal ratios.",
+    )
+    cumulative_benchmark_returns: list[ReturnPoint] | None = Field(
+        default=None,
+        description="Cumulative linked benchmark returns as decimal ratios.",
+    )
+    risk_free_returns: list[ReturnPoint] | None = Field(
+        default=None,
+        description="Risk-free point returns as decimal ratios.",
+    )
+    cumulative_risk_free_returns: list[ReturnPoint] | None = Field(
+        default=None,
+        description="Cumulative linked risk-free returns as decimal ratios.",
+    )
+    active_returns: list[ReturnPoint] | None = Field(
+        default=None,
+        description="Arithmetic active return points as decimal ratios.",
+    )
+    cumulative_active_returns: list[ReturnPoint] | None = Field(
+        default=None,
+        description="Cumulative arithmetic active returns as decimal ratios, equal to cumulative portfolio minus cumulative benchmark.",
+    )
 
 
 class ReturnsSeriesBenchmarkContext(BaseModel):
-    benchmark_id: str
-    return_source: BenchmarkReturnSource
+    benchmark_id: str = Field(description="Resolved benchmark identifier.", examples=["BMK_GLOBAL_60_40"])
+    return_source: BenchmarkReturnSource = Field(description="Resolved benchmark return source.", examples=["calculated"])
 
 
 class ReturnsSeriesResponse(BaseModel):
-    calculation_id: UUID
-    source_service: Literal["lotus-performance"] = "lotus-performance"
-    contract_version: str = "v1"
-    portfolio_id: str
-    as_of_date: dt_date
-    frequency: ReturnsFrequency
-    metric_basis: MetricBasis
-    resolved_window: ResolvedWindow
-    benchmark_context: ReturnsSeriesBenchmarkContext | None = None
-    series: ReturnsSeriesPayload
-    provenance: ReturnsProvenance
-    diagnostics: ReturnsDiagnostics
-    metadata: ReturnsMetadata
+    calculation_id: UUID = Field(description="Stable calculation handle for this returns-series request.")
+    source_service: Literal["lotus-performance"] = Field(
+        default="lotus-performance",
+        description="Service that generated the response.",
+    )
+    contract_version: str = Field(default="v1", description="Public response contract version.")
+    portfolio_id: str = Field(description="Portfolio identifier.", examples=["PORTFOLIO_001"])
+    as_of_date: dt_date = Field(description="As-of date used to resolve the request window.", examples=["2026-02-27"])
+    frequency: ReturnsFrequency = Field(description="Output sampling frequency for the series.")
+    metric_basis: MetricBasis = Field(description="Metric basis used for the returns series.")
+    resolved_window: ResolvedWindow = Field(description="Resolved start/end dates for the response window.")
+    benchmark_context: ReturnsSeriesBenchmarkContext | None = Field(
+        default=None,
+        description="Resolved benchmark context when benchmark returns were included.",
+    )
+    series: ReturnsSeriesPayload = Field(
+        description="Returns-series payload. All return points in this payload are decimal ratios, not percentage-point values."
+    )
+    provenance: ReturnsProvenance = Field(description="Canonical provenance for the executed request.")
+    diagnostics: ReturnsDiagnostics = Field(description="Coverage and policy diagnostics for the response.")
+    metadata: ReturnsMetadata = Field(description="Operational metadata for the response.")
 
 
 class ReturnsSeriesAcceptedResponse(BaseModel):

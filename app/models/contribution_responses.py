@@ -1,9 +1,9 @@
 # app/models/contribution_responses.py
-from datetime import date
+from datetime import date as dt_date
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.contribution_analytics_requests import ContributionInputMode
 from core.envelope import Audit, Diagnostics, Meta
@@ -12,77 +12,149 @@ from core.envelope import Audit, Diagnostics, Meta
 class PositionContribution(BaseModel):
     """Details the contribution of a single position."""
 
-    position_id: str
-    total_contribution: float
-    average_weight: float
-    total_return: float
-    local_contribution: Optional[float] = None  # ADDED
-    fx_contribution: Optional[float] = None  # ADDED
+    position_id: str = Field(description="Portfolio position identifier.", examples=["SEC_AAPL_001"])
+    total_contribution: float = Field(
+        description="Total position contribution to portfolio return in percentage-point output units.",
+        examples=[1.24],
+    )
+    average_weight: float = Field(
+        description="Average portfolio weight for the position as a decimal ratio. Example: 0.25 means 25%.",
+        examples=[0.25],
+    )
+    total_return: float = Field(description="Position return in percentage-point output units.", examples=[4.96])
+    local_contribution: Optional[float] = Field(
+        default=None,
+        description="Local-market contribution in percentage-point output units.",
+        examples=[1.1],
+    )
+    fx_contribution: Optional[float] = Field(
+        default=None,
+        description="FX contribution in percentage-point output units.",
+        examples=[0.14],
+    )
 
 
 class DailyContribution(BaseModel):
     """Represents the total contribution for a single day."""
 
-    date: date
-    total_contribution: float
+    date: dt_date = Field(description="Business date for this daily contribution.", examples=["2026-03-20"])
+    total_contribution: float = Field(
+        description="Daily contribution in percentage-point output units.",
+        examples=[0.18],
+    )
 
 
 class PositionDailyContribution(BaseModel):
     """Represents a single day's contribution for a position."""
 
-    date: date
-    contribution: float
+    date: dt_date = Field(description="Business date for this position contribution point.", examples=["2026-03-20"])
+    contribution: float = Field(
+        description="Position contribution for the date in percentage-point output units.",
+        examples=[0.06],
+    )
 
 
 class PositionContributionSeries(BaseModel):
     """Contains the full contribution time series for a single position."""
 
-    position_id: str
-    series: List[PositionDailyContribution]
+    position_id: str = Field(description="Portfolio position identifier.", examples=["SEC_AAPL_001"])
+    series: List[PositionDailyContribution] = Field(
+        description="Daily contribution series for the position in percentage-point output units."
+    )
 
 
 class ContributionSummary(BaseModel):
     """High-level summary for a multi-level contribution calculation."""
 
-    portfolio_contribution: float
-    coverage_mv_pct: float
-    weighting_scheme: str
-    local_contribution: Optional[float] = None  # ADDED
-    fx_contribution: Optional[float] = None  # ADDED
+    portfolio_contribution: float = Field(
+        description="Portfolio-level contribution total in percentage-point output units.",
+        examples=[3.48],
+    )
+    coverage_mv_pct: float = Field(
+        description="Covered market value as a percentage of total market value. Example: 98.5 means 98.5%.",
+        examples=[98.5],
+    )
+    weighting_scheme: str = Field(description="Weighting scheme used for the contribution rollup.", examples=["average_weight"])
+    local_contribution: Optional[float] = Field(
+        default=None,
+        description="Portfolio local contribution total in percentage-point output units.",
+        examples=[3.1],
+    )
+    fx_contribution: Optional[float] = Field(
+        default=None,
+        description="Portfolio FX contribution total in percentage-point output units.",
+        examples=[0.38],
+    )
 
 
 class ContributionRow(BaseModel):
     """Represents a single row within a hierarchical level (e.g., a sector or security)."""
 
-    key: Dict[str, Any]
-    contribution: float
-    weight_avg: Optional[float] = None
-    children_count: Optional[int] = None
-    is_other: bool = False
-    residual_bp: Optional[float] = None
-    local_contribution: Optional[float] = None  # ADDED
-    fx_contribution: Optional[float] = None  # ADDED
+    key: Dict[str, Any] = Field(description="Resolved grouping key for this row.", examples=[{"sector": "technology"}])
+    contribution: float = Field(
+        description="Row contribution in percentage-point output units.",
+        examples=[1.42],
+    )
+    weight_avg: Optional[float] = Field(
+        default=None,
+        description="Average row weight as a decimal ratio. Example: 0.18 means 18%.",
+        examples=[0.18],
+    )
+    children_count: Optional[int] = Field(default=None, description="Number of child rows rolled into this row.", examples=[5])
+    is_other: bool = Field(default=False, description="Whether the row represents an 'other' rollup bucket.")
+    residual_bp: Optional[float] = Field(
+        default=None,
+        description="Residual not allocated to explicit rows, expressed in basis points.",
+        examples=[1.5],
+    )
+    local_contribution: Optional[float] = Field(
+        default=None,
+        description="Local-market row contribution in percentage-point output units.",
+        examples=[1.21],
+    )
+    fx_contribution: Optional[float] = Field(
+        default=None,
+        description="FX row contribution in percentage-point output units.",
+        examples=[0.21],
+    )
 
 
 class ContributionLevel(BaseModel):
     """Contains the full set of results for a single level of the hierarchy."""
 
-    level: int
-    name: str
-    parent: Optional[str] = None
-    rows: List[ContributionRow]
+    level: int = Field(description="Hierarchy depth for this contribution level.", examples=[1])
+    name: str = Field(description="Display name for the grouping dimension at this level.", examples=["sector"])
+    parent: Optional[str] = Field(default=None, description="Parent level name when this level is nested.", examples=["region"])
+    rows: List[ContributionRow] = Field(description="Contribution rows for the level.")
 
 
 class SinglePeriodContributionResult(BaseModel):
     """Contains the full set of contribution results for a single, resolved period."""
 
-    total_portfolio_return: Optional[float] = None
-    total_contribution: Optional[float] = None
-    position_contributions: Optional[List[PositionContribution]] = None
-    timeseries: Optional[List[DailyContribution]] = None
-    by_position_timeseries: Optional[List[PositionContributionSeries]] = None
-    summary: Optional[ContributionSummary] = None
-    levels: Optional[List[ContributionLevel]] = None
+    total_portfolio_return: Optional[float] = Field(
+        default=None,
+        description="Total portfolio return for the period in percentage-point output units.",
+        examples=[3.48],
+    )
+    total_contribution: Optional[float] = Field(
+        default=None,
+        description="Total summed contribution for the period in percentage-point output units.",
+        examples=[3.48],
+    )
+    position_contributions: Optional[List[PositionContribution]] = Field(
+        default=None,
+        description="Position-level contribution rows in percentage-point output units.",
+    )
+    timeseries: Optional[List[DailyContribution]] = Field(
+        default=None,
+        description="Daily contribution ladder in percentage-point output units.",
+    )
+    by_position_timeseries: Optional[List[PositionContributionSeries]] = Field(
+        default=None,
+        description="Per-position daily contribution ladders in percentage-point output units.",
+    )
+    summary: Optional[ContributionSummary] = Field(default=None, description="Summary contribution totals for the period.")
+    levels: Optional[List[ContributionLevel]] = Field(default=None, description="Hierarchical contribution breakdown for the period.")
 
 
 class ContributionResponse(BaseModel):
@@ -90,16 +162,18 @@ class ContributionResponse(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    calculation_id: UUID
-    portfolio_id: str
-    input_mode: ContributionInputMode = ContributionInputMode.STATELESS
+    calculation_id: UUID = Field(description="Stable calculation handle for this contribution request.")
+    portfolio_id: str = Field(description="Portfolio identifier.", examples=["PORTFOLIO_001"])
+    input_mode: ContributionInputMode = Field(default=ContributionInputMode.STATELESS, description="Resolved contribution input mode.")
 
-    results_by_period: Dict[str, SinglePeriodContributionResult]
+    results_by_period: Dict[str, SinglePeriodContributionResult] = Field(
+        description="Per-period contribution outputs. Contribution and return figures are emitted in percentage-point output units unless explicitly labeled otherwise."
+    )
 
     # Shared footer
-    meta: Meta
-    diagnostics: Diagnostics
-    audit: Audit
+    meta: Meta = Field(description="Shared metadata envelope for the calculation.")
+    diagnostics: Diagnostics = Field(description="Diagnostic details for the calculation.")
+    audit: Audit = Field(description="Audit details for the calculation.")
 
 
 class ContributionAcceptedResponse(BaseModel):
