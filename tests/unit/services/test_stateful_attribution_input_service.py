@@ -11,6 +11,7 @@ from app.services.stateful_attribution_input_service import (
     StatefulAttributionSourceInput,
     _build_benchmark_groups,
     _build_group_key,
+    _normalize_group_value,
     _parse_index_catalog,
     _parse_position_rows,
     _parse_retrieval_metadata,
@@ -69,7 +70,7 @@ async def test_retrieve_stateful_attribution_source_input_uses_override_benchmar
                 BenchmarkComponentObservation(
                     component_id="IDX_1",
                     component_currency="USD",
-                    date=date(2025, 1, 1),
+                    perf_date=date(2025, 1, 1),
                     weight_bop=1.0,
                     component_return=0.01,
                     component_return_local=0.01,
@@ -145,7 +146,7 @@ async def test_retrieve_stateful_attribution_source_input_raises_for_upstream_fa
                 BenchmarkComponentObservation(
                     component_id="IDX_1",
                     component_currency="USD",
-                    date=date(2025, 1, 1),
+                    perf_date=date(2025, 1, 1),
                     weight_bop=1.0,
                     component_return=0.01,
                     component_return_local=0.01,
@@ -230,7 +231,7 @@ def test_build_stateful_attribution_input_builds_instruments_and_benchmark_group
             BenchmarkComponentObservation(
                 component_id="IDX_1",
                 component_currency="USD",
-                date=date(2025, 1, 1),
+                perf_date=date(2025, 1, 1),
                 weight_bop=0.5,
                 component_return=0.01,
                 component_return_local=0.01,
@@ -239,7 +240,7 @@ def test_build_stateful_attribution_input_builds_instruments_and_benchmark_group
             BenchmarkComponentObservation(
                 component_id="IDX_2",
                 component_currency="USD",
-                date=date(2025, 1, 1),
+                perf_date=date(2025, 1, 1),
                 weight_bop=0.5,
                 component_return=0.03,
                 component_return_local=0.03,
@@ -266,9 +267,9 @@ def test_build_stateful_attribution_input_builds_instruments_and_benchmark_group
     )
 
     assert normalized.portfolio_data.metric_basis == "NET"
-    assert normalized.instruments_data[0].meta["sector"] == "Tech"
+    assert normalized.instruments_data[0].meta["sector"] == "tech"
     assert normalized.instruments_data[0].valuation_points[0].bod_cf == 5
-    assert normalized.benchmark_groups_data[0].key["sector"] == "Tech"
+    assert normalized.benchmark_groups_data[0].key["sector"] == "tech"
     assert normalized.benchmark_groups_data[0].observations[0].return_base == pytest.approx(0.02)
     assert normalized.benchmark_groups_data[0].observations[0].return_local == pytest.approx(0.02)
     assert normalized.benchmark_groups_data[0].observations[0].return_fx == pytest.approx(0.0)
@@ -339,7 +340,7 @@ def test_build_stateful_attribution_input_supports_currency_mode_both():
             BenchmarkComponentObservation(
                 component_id="IDX_1",
                 component_currency="EUR",
-                date=date(2025, 1, 1),
+                perf_date=date(2025, 1, 1),
                 weight_bop=1.0,
                 component_return=0.0302,
                 component_return_local=0.02,
@@ -362,12 +363,12 @@ def test_build_stateful_attribution_input_supports_currency_mode_both():
         reporting_currency="USD",
     )
 
-    assert normalized.instruments_data[0].meta["currency"] == "EUR"
+    assert normalized.instruments_data[0].meta["currency"] == "eur"
     assert normalized.instruments_data[0].valuation_points[0].begin_mv == 900
     assert normalized.instruments_data[0].meta["base_weight_points"] == [
         {"perf_date": "2025-01-01", "begin_mv": 990, "bod_cf": 0}
     ]
-    assert normalized.benchmark_groups_data[0].key["currency"] == "EUR"
+    assert normalized.benchmark_groups_data[0].key["currency"] == "eur"
     assert normalized.benchmark_groups_data[0].observations[0].return_local == pytest.approx(0.02)
     assert normalized.benchmark_groups_data[0].observations[0].return_fx == pytest.approx(0.01)
 
@@ -386,7 +387,7 @@ def test_stateful_attribution_group_by_and_benchmark_validation_errors():
                 BenchmarkComponentObservation(
                     component_id="IDX_1",
                     component_currency="USD",
-                    date=date(2025, 1, 1),
+                    perf_date=date(2025, 1, 1),
                     weight_bop=1.0,
                     component_return=0.01,
                     component_return_local=0.01,
@@ -408,11 +409,20 @@ def test_stateful_attribution_parsers_filter_invalid_rows():
     assert _split_position_cash_flows(["bad", {"amount": None, "timing": "bod"}]) == (0, 0)
     assert _position_meta_from_row({"security_id": "SEC_1", "dimensions": {"sector": "Tech"}}) == {
         "security_id": "SEC_1",
-        "sector": "Tech",
+        "sector": "tech",
     }
     assert _parse_position_rows({"rows": [{"position_id": "POS_1"}, "bad"]}) == [{"position_id": "POS_1"}]
     assert _parse_index_catalog({"records": [{"index_id": "IDX_1"}, "bad"]}) == [{"index_id": "IDX_1"}]
     assert _parse_retrieval_metadata({}) == RetrievalMetadata(chunk_count=1, page_count=1)
+
+
+def test_stateful_attribution_normalizes_group_values():
+    assert _normalize_group_value("Fixed Income") == "fixed_income"
+    assert _build_group_key(
+        labels={"asset_class": "Equity"},
+        group_by=["asset_class"],
+        index_id="IDX_1",
+    ) == (("asset_class", "equity"),)
 
 
 def test_stateful_attribution_position_row_to_daily_point_requires_market_values():
@@ -422,3 +432,26 @@ def test_stateful_attribution_position_row_to_daily_point_requires_market_values
         currency_mode="BASE_ONLY",
         reporting_currency="USD",
     ) is None
+
+
+def test_stateful_attribution_position_row_to_daily_point_falls_back_from_null_reporting_currency_values():
+    point = _position_row_to_daily_point(
+        row={
+            "valuation_date": "2025-01-01",
+            "beginning_market_value_reporting_currency": None,
+            "ending_market_value_reporting_currency": None,
+            "beginning_market_value_portfolio_currency": "100",
+            "ending_market_value_portfolio_currency": "101",
+            "cash_flows": [],
+        },
+        currency_mode="BASE_ONLY",
+        reporting_currency="USD",
+    )
+
+    assert point == {
+        "perf_date": "2025-01-01",
+        "begin_mv": 100,
+        "end_mv": 101,
+        "bod_cf": 0,
+        "eod_cf": 0,
+    }

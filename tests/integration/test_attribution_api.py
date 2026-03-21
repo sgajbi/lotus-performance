@@ -469,19 +469,19 @@ def test_attribution_supports_stateful_input_mode(client, monkeypatch):
                         "position_id": "POS_1",
                         "security_id": "SEC_1",
                         "valuation_date": "2025-01-01",
-                        "beginning_market_value_portfolio_currency": "1000",
-                        "ending_market_value_portfolio_currency": "1010",
+                        "beginning_market_value_portfolio_currency": "600",
+                        "ending_market_value_portfolio_currency": "612",
                         "cash_flows": [],
                         "dimensions": {"sector": "Technology"},
                     },
                     {
-                        "position_id": "POS_1",
-                        "security_id": "SEC_1",
-                        "valuation_date": "2025-01-02",
-                        "beginning_market_value_portfolio_currency": "1010",
-                        "ending_market_value_portfolio_currency": "1020.1",
+                        "position_id": "POS_2",
+                        "security_id": "SEC_2",
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value_portfolio_currency": "400",
+                        "ending_market_value_portfolio_currency": "406.5",
                         "cash_flows": [],
-                        "dimensions": {"sector": "Technology"},
+                        "dimensions": {"sector": "Healthcare"},
                     },
                 ]
             },
@@ -498,6 +498,10 @@ def test_attribution_supports_stateful_input_mode(client, monkeypatch):
                     {
                         "index_id": "IDX_1",
                         "classification_labels": {"sector": "Technology"},
+                    },
+                    {
+                        "index_id": "IDX_2",
+                        "classification_labels": {"sector": "Healthcare"},
                     }
                 ]
             },
@@ -520,14 +524,14 @@ def test_attribution_supports_stateful_input_mode(client, monkeypatch):
         BenchmarkComponentObservation(
             component_id="IDX_1",
             perf_date=date(2025, 1, 1),
-            weight_bop=1.0,
-            component_return=0.01,
+            weight_bop=0.5,
+            component_return=0.015,
         ),
         BenchmarkComponentObservation(
-            component_id="IDX_1",
-            perf_date=date(2025, 1, 2),
-            weight_bop=1.0,
-            component_return=0.01,
+            component_id="IDX_2",
+            perf_date=date(2025, 1, 1),
+            weight_bop=0.5,
+            component_return=0.02,
         ),
     )
     monkeypatch.setattr(
@@ -558,7 +562,12 @@ def test_attribution_supports_stateful_input_mode(client, monkeypatch):
         "benchmark_id": "BMK_1",
         "return_source": "calculated",
     }
-    assert "ITD" in body["results_by_period"]
+    itd = body["results_by_period"]["ITD"]
+    assert itd["reconciliation"]["total_active_return"] == pytest.approx(0.1)
+    assert itd["reconciliation"]["sum_of_effects"] == pytest.approx(0.1)
+    level = itd["levels"][0]
+    tech_group = next(group for group in level["groups"] if group["key"]["sector"] == "technology")
+    assert tech_group["selection"] == pytest.approx(0.25)
 
 
 def test_attribution_stateful_rejects_acquisition_day_rows_without_cash_flow_semantics(client, monkeypatch):
@@ -571,12 +580,7 @@ def test_attribution_stateful_rejects_acquisition_day_rows_without_cash_flow_sem
                     {
                         "valuation_date": "2025-01-01",
                         "beginning_market_value": "1000",
-                        "ending_market_value": "1010",
-                    },
-                    {
-                        "valuation_date": "2025-01-02",
-                        "beginning_market_value": "1010",
-                        "ending_market_value": "1020.1",
+                        "ending_market_value": "1018.5",
                     },
                 ],
             },
@@ -661,7 +665,7 @@ def test_attribution_stateful_rejects_acquisition_day_rows_without_cash_flow_sem
         "linking": "none",
         "frequency": "daily",
         "report_start_date": "2025-01-01",
-        "report_end_date": "2025-01-02",
+        "report_end_date": "2025-01-01",
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "stateful_input": {},
@@ -1132,8 +1136,8 @@ def test_attribution_stateful_currency_mode_both_supports_mixed_currency_decompo
     currency_results = body["results_by_period"]["ITD"]["currency_attribution"]
     assert currency_results is not None
     by_currency = {entry["currency"]: entry for entry in currency_results}
-    assert by_currency["EUR"]["weight_portfolio_avg"] == pytest.approx(55.0)
-    assert by_currency["USD"]["weight_portfolio_avg"] == pytest.approx(45.0)
+    assert by_currency["eur"]["weight_portfolio_avg"] == pytest.approx(55.0)
+    assert by_currency["usd"]["weight_portfolio_avg"] == pytest.approx(45.0)
 
 
 def test_attribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch):

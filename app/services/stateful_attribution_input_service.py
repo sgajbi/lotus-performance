@@ -227,7 +227,8 @@ def _validate_stateful_position_inception_support(*, rows: list[dict[str, object
         end_value_raw = row.get("ending_market_value_portfolio_currency")
         begin_value = Decimal(str(begin_value_raw)) if begin_value_raw is not None else Decimal("0")
         end_value = Decimal(str(end_value_raw)) if end_value_raw is not None else Decimal("0")
-        if begin_value == 0 and end_value > 0:
+        bod_cf, _ = _split_position_cash_flows(row.get("cash_flows"))
+        if begin_value == 0 and end_value > 0 and (begin_value + bod_cf) <= 0:
             unsupported_positions.append(position_id)
 
     if unsupported_positions:
@@ -236,7 +237,8 @@ def _validate_stateful_position_inception_support(*, rows: list[dict[str, object
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 "Stateful attribution cannot safely compute acquisition-day position returns when the requested window "
-                "starts a sourced position with zero beginning market value and positive ending market value. "
+                "starts a sourced position with zero beginning market value, positive ending market value, and no usable "
+                "beginning-of-day cash-flow semantics. "
                 f"Affected positions: {sample_positions}."
             ),
         )
@@ -400,7 +402,7 @@ def _build_group_key(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"Benchmark component {index_id} missing classification label for {dimension}.",
             )
-        key_parts.append((dimension, raw_value))
+        key_parts.append((dimension, _normalize_group_value(raw_value)))
     return tuple(key_parts)
 
 
@@ -420,6 +422,9 @@ def _position_row_to_daily_point(
     elif reporting_currency is not None:
         begin_value = row.get("beginning_market_value_reporting_currency")
         end_value = row.get("ending_market_value_reporting_currency")
+        if begin_value is None or end_value is None:
+            begin_value = row.get("beginning_market_value_portfolio_currency")
+            end_value = row.get("ending_market_value_portfolio_currency")
     else:
         begin_value = row.get("beginning_market_value_portfolio_currency")
         end_value = row.get("ending_market_value_portfolio_currency")
@@ -491,14 +496,20 @@ def _position_meta_from_row(row: dict[str, object]) -> dict[str, object]:
         meta["security_id"] = security_id
     position_currency = row.get("position_currency")
     if isinstance(position_currency, str) and position_currency:
-        meta["currency"] = position_currency
+        meta["currency"] = _normalize_group_value(position_currency)
 
     dimensions_raw = row.get("dimensions")
     if isinstance(dimensions_raw, dict):
         for key, value in dimensions_raw.items():
-            if isinstance(key, str) and value is not None:
+            if isinstance(key, str) and isinstance(value, str) and value:
+                meta[key] = _normalize_group_value(value)
+            elif isinstance(key, str) and value is not None:
                 meta[key] = value
     return meta
+
+
+def _normalize_group_value(value: str) -> str:
+    return value.strip().replace(" ", "_").lower()
 
 
 def _parse_position_rows(payload: dict[str, object]) -> list[dict[str, object]]:
