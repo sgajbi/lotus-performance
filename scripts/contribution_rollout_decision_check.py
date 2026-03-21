@@ -24,13 +24,23 @@ class ContributionRolloutDecision:
     blocker_reason_counts: dict[str, int]
 
 
-def _collect_hold_categories(blocker_reason_counts: dict[str, int], *, blocked_periods: int, material_periods: int, promotion_ready_rate_bp: int, minimum_ready_rate_bp: int) -> list[str]:
+def _collect_hold_categories(
+    blocker_reason_counts: dict[str, int],
+    *,
+    blocked_periods: int,
+    material_periods: int,
+    promotion_ready_rate_bp: int,
+    minimum_ready_rate_bp: int,
+) -> list[str]:
     categories: list[str] = []
     if material_periods <= 0:
         return ["insufficient_evidence"]
     if blocker_reason_counts.get("weight_residual", 0) > 0 or blocker_reason_counts.get("flow_balance", 0) > 0:
         categories.append("economic_integrity")
-    if blocker_reason_counts.get("reset_alignment", 0) > 0 or blocker_reason_counts.get("timeseries_reconciliation", 0) > 0:
+    if (
+        blocker_reason_counts.get("reset_alignment", 0) > 0
+        or blocker_reason_counts.get("timeseries_reconciliation", 0) > 0
+    ):
         categories.append("methodology_guardrail")
     if blocked_periods > 0 and not categories:
         categories.append("blocked_periods")
@@ -118,7 +128,10 @@ def evaluate_contribution_rollout_decision(
             blocker_reason_counts=blocker_reason_counts,
         )
 
-    if blocker_reason_counts.get("reset_alignment", 0) > 0 or blocker_reason_counts.get("timeseries_reconciliation", 0) > 0:
+    if (
+        blocker_reason_counts.get("reset_alignment", 0) > 0
+        or blocker_reason_counts.get("timeseries_reconciliation", 0) > 0
+    ):
         return ContributionRolloutDecision(
             outcome="HOLD",
             approved=False,

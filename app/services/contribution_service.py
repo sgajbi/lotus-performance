@@ -264,9 +264,7 @@ def _calculate_reset_aware_average_weight_shadow(
     - treat missing position rows on valid days as zero weight rather than shrinking the denominator
     """
     current_average_weights = (
-        period_slice_df.groupby("position_id")
-        .agg(average_weight=("daily_weight", "mean"))
-        .reset_index()
+        period_slice_df.groupby("position_id").agg(average_weight=("daily_weight", "mean")).reset_index()
     )
     if current_average_weights.empty:
         current_average_weights["reset_aware_average_weight_shadow"] = pd.Series(dtype=float)
@@ -278,11 +276,13 @@ def _calculate_reset_aware_average_weight_shadow(
         return current_average_weights, 0, 0, 0
 
     portfolio_window = portfolio_period_slice_df.sort_values(PortfolioColumns.PERF_DATE.value).copy()
-    portfolio_window[PortfolioColumns.PERF_DATE.value] = pd.to_datetime(portfolio_window[PortfolioColumns.PERF_DATE.value]).dt.date
+    portfolio_window[PortfolioColumns.PERF_DATE.value] = pd.to_datetime(
+        portfolio_window[PortfolioColumns.PERF_DATE.value]
+    ).dt.date
 
-    active_reset_mask = pd.to_numeric(
-        portfolio_window[PortfolioColumns.PERF_RESET.value], errors="coerce"
-    ).fillna(0) == 1
+    active_reset_mask = (
+        pd.to_numeric(portfolio_window[PortfolioColumns.PERF_RESET.value], errors="coerce").fillna(0) == 1
+    )
     if active_reset_mask.any():
         last_reset_index = portfolio_window[active_reset_mask].index[-1]
         portfolio_window = portfolio_window.loc[last_reset_index:]
@@ -297,7 +297,9 @@ def _calculate_reset_aware_average_weight_shadow(
     else:
         shadow_totals = (
             period_slice_df[
-                pd.to_datetime(period_slice_df[PortfolioColumns.PERF_DATE.value]).dt.date.isin(set(valid_portfolio_days))
+                pd.to_datetime(period_slice_df[PortfolioColumns.PERF_DATE.value]).dt.date.isin(
+                    set(valid_portfolio_days)
+                )
             ]
             .groupby("position_id")
             .agg(weight_sum=("daily_weight", "sum"))
@@ -422,15 +424,19 @@ def _calculate_position_flow_balance_counts(
             "position_flow_residual_sum_bp": 0,
         }
 
-    portfolio_capital_by_day = pd.DataFrame(
-        {
-            PortfolioColumns.PERF_DATE.value: pd.to_datetime(
-                portfolio_results_df[PortfolioColumns.PERF_DATE.value]
-            ).dt.date,
-            "capital_base": _numeric_series_or_default(portfolio_results_df, PortfolioColumns.BEGIN_MV.value).abs()
-            + _numeric_series_or_default(portfolio_results_df, PortfolioColumns.BOD_CF.value).abs(),
-        }
-    ).groupby(PortfolioColumns.PERF_DATE.value, dropna=False)["capital_base"].max()
+    portfolio_capital_by_day = (
+        pd.DataFrame(
+            {
+                PortfolioColumns.PERF_DATE.value: pd.to_datetime(
+                    portfolio_results_df[PortfolioColumns.PERF_DATE.value]
+                ).dt.date,
+                "capital_base": _numeric_series_or_default(portfolio_results_df, PortfolioColumns.BEGIN_MV.value).abs()
+                + _numeric_series_or_default(portfolio_results_df, PortfolioColumns.BOD_CF.value).abs(),
+            }
+        )
+        .groupby(PortfolioColumns.PERF_DATE.value, dropna=False)["capital_base"]
+        .max()
+    )
     portfolio_capital_by_day = portfolio_capital_by_day.replace(0, pd.NA).fillna(1.0)
 
     residual_ratio_by_day = (
@@ -439,8 +445,12 @@ def _calculate_position_flow_balance_counts(
 
     return {
         "position_flow_residual_days": int(position_flow_by_day.abs().gt(1e-9).sum()),
-        "position_flow_residual_max_bp": _to_basis_points(residual_ratio_by_day.max()) if not residual_ratio_by_day.empty else 0,
-        "position_flow_residual_sum_bp": _to_basis_points(residual_ratio_by_day.sum()) if not residual_ratio_by_day.empty else 0,
+        "position_flow_residual_max_bp": _to_basis_points(residual_ratio_by_day.max())
+        if not residual_ratio_by_day.empty
+        else 0,
+        "position_flow_residual_sum_bp": _to_basis_points(residual_ratio_by_day.sum())
+        if not residual_ratio_by_day.empty
+        else 0,
     }
 
 
@@ -504,9 +514,9 @@ def _build_residual_adjusted_position_timeseries(
         return []
 
     adjusted_rows: list[dict[str, Any]] = []
-    for position_id, position_slice in (
-        period_slice_df.sort_values(["position_id", PortfolioColumns.PERF_DATE.value]).groupby("position_id", sort=True)
-    ):
+    for position_id, position_slice in period_slice_df.sort_values(
+        ["position_id", PortfolioColumns.PERF_DATE.value]
+    ).groupby("position_id", sort=True):
         target_total = target_total_by_position.get(str(position_id), 0.0)
         raw_total = _as_numeric(position_slice["smoothed_contribution"].sum())
         residual_delta = target_total - raw_total
@@ -581,7 +591,9 @@ def _calculate_average_weight_sum_residual_bp(position_contributions: list[Posit
     if not position_contributions:
         return 0
 
-    total_average_weight = sum(_as_numeric(position_contribution.average_weight) for position_contribution in position_contributions)
+    total_average_weight = sum(
+        _as_numeric(position_contribution.average_weight) for position_contribution in position_contributions
+    )
     return _to_percentage_point_basis_points(abs(total_average_weight - 100.0))
 
 
@@ -611,7 +623,9 @@ def _calculate_average_weight_sum_residual_bp_from_ratio_series(average_weight_s
     """Measures how far a ratio-based weight series drifts from a full 100% portfolio weight."""
     if average_weight_series.empty:
         return 0
-    total_average_weight_percentage = float(pd.to_numeric(average_weight_series, errors="coerce").fillna(0.0).sum()) * 100
+    total_average_weight_percentage = (
+        float(pd.to_numeric(average_weight_series, errors="coerce").fillna(0.0).sum()) * 100
+    )
     return _to_percentage_point_basis_points(abs(total_average_weight_percentage - 100.0))
 
 
@@ -697,10 +711,7 @@ def _classify_average_weight_shadow_cutover_blockers(
         blockers.add("weight_residual")
     if position_flow_residual_days > 0:
         blockers.add("flow_balance")
-    if (
-        portfolio_reset_without_position_reset_days > 0
-        or position_reset_without_portfolio_reset_days > 0
-    ):
+    if portfolio_reset_without_position_reset_days > 0 or position_reset_without_portfolio_reset_days > 0:
         blockers.add("reset_alignment")
     if timeseries_total_delta_periods > 0:
         blockers.add("timeseries_reconciliation")
@@ -864,7 +875,8 @@ def calculate_contribution(
                 period_portfolio_reset_dates = set(
                     pd.to_datetime(
                         portfolio_period_slice_df.loc[
-                            _numeric_series_or_default(portfolio_period_slice_df, PortfolioColumns.PERF_RESET.value) == 1,
+                            _numeric_series_or_default(portfolio_period_slice_df, PortfolioColumns.PERF_RESET.value)
+                            == 1,
                             PortfolioColumns.PERF_DATE.value,
                         ]
                     ).dt.date
@@ -882,8 +894,12 @@ def calculate_contribution(
                         max_shadow_delta_bp=period_max_shadow_delta_bp,
                         average_weight_sum_residual_bp=active_average_weight_sum_residual_bp,
                         position_flow_residual_days=period_position_flow_balance_counts["position_flow_residual_days"],
-                        portfolio_reset_without_position_reset_days=len(period_portfolio_reset_dates - period_position_reset_dates),
-                        position_reset_without_portfolio_reset_days=len(period_position_reset_dates - period_portfolio_reset_dates),
+                        portfolio_reset_without_position_reset_days=len(
+                            period_portfolio_reset_dates - period_position_reset_dates
+                        ),
+                        position_reset_without_portfolio_reset_days=len(
+                            period_position_reset_dates - period_portfolio_reset_dates
+                        ),
                         timeseries_total_delta_periods=0,
                     )
                 )
@@ -901,9 +917,7 @@ def calculate_contribution(
                     )
                     .reset_index()
                 ).merge(
-                    average_weight_shadow_df[
-                        ["position_id", "average_weight", "reset_aware_average_weight_shadow"]
-                    ],
+                    average_weight_shadow_df[["position_id", "average_weight", "reset_aware_average_weight_shadow"]],
                     on="position_id",
                     how="left",
                 )
@@ -951,7 +965,9 @@ def calculate_contribution(
                     else None
                 )
                 emitted_position_series = position_series if request.emit.by_position_timeseries else None
-                period_average_weight_sum_residual_bp = _calculate_average_weight_sum_residual_bp(position_contributions)
+                period_average_weight_sum_residual_bp = _calculate_average_weight_sum_residual_bp(
+                    position_contributions
+                )
                 period_timeseries_total_delta_periods = 0
                 period_total_contribution = sum(pc.total_contribution for pc in position_contributions)
                 if daily_series is not None:
@@ -964,8 +980,12 @@ def calculate_contribution(
                     max_shadow_delta_bp=period_max_shadow_delta_bp,
                     average_weight_sum_residual_bp=period_average_weight_sum_residual_bp,
                     position_flow_residual_days=period_position_flow_balance_counts["position_flow_residual_days"],
-                    portfolio_reset_without_position_reset_days=len(period_portfolio_reset_dates - period_position_reset_dates),
-                    position_reset_without_portfolio_reset_days=len(period_position_reset_dates - period_portfolio_reset_dates),
+                    portfolio_reset_without_position_reset_days=len(
+                        period_portfolio_reset_dates - period_position_reset_dates
+                    ),
+                    position_reset_without_portfolio_reset_days=len(
+                        period_position_reset_dates - period_portfolio_reset_dates
+                    ),
                     timeseries_total_delta_periods=period_timeseries_total_delta_periods,
                 ):
                     average_weight_shadow_cutover_candidate_periods += 1
@@ -976,8 +996,12 @@ def calculate_contribution(
                         max_shadow_delta_bp=period_max_shadow_delta_bp,
                         average_weight_sum_residual_bp=period_average_weight_sum_residual_bp,
                         position_flow_residual_days=period_position_flow_balance_counts["position_flow_residual_days"],
-                        portfolio_reset_without_position_reset_days=len(period_portfolio_reset_dates - period_position_reset_dates),
-                        position_reset_without_portfolio_reset_days=len(period_position_reset_dates - period_portfolio_reset_dates),
+                        portfolio_reset_without_position_reset_days=len(
+                            period_portfolio_reset_dates - period_position_reset_dates
+                        ),
+                        position_reset_without_portfolio_reset_days=len(
+                            period_position_reset_dates - period_portfolio_reset_dates
+                        ),
                         timeseries_total_delta_periods=period_timeseries_total_delta_periods,
                     )
                     if period_cutover_blockers:
@@ -1046,9 +1070,7 @@ def calculate_contribution(
     )
     diagnostics = _build_portfolio_engine_diagnostics(portfolio_results_df, master_start_date)
     carino_invalid_domain_days = (
-        _count_carino_invalid_domain_days(portfolio_results_df)
-        if request.smoothing.method == "CARINO"
-        else 0
+        _count_carino_invalid_domain_days(portfolio_results_df) if request.smoothing.method == "CARINO" else 0
     )
     reset_alignment_counts = _calculate_grouped_return_reset_alignment_counts(instruments_df, portfolio_results_df)
     position_flow_balance_counts = _calculate_position_flow_balance_counts(instruments_df, portfolio_results_df)
