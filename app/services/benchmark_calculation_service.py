@@ -24,6 +24,8 @@ from common.enums import Frequency
 from core.periods import resolve_periods
 from engine.benchmarks import benchmark_return_points_to_dataframe, calculate_benchmark_returns
 
+PERCENT_SCALE = 100.0
+
 
 @dataclass(frozen=True)
 class BenchmarkCalculationArtifacts:
@@ -204,21 +206,26 @@ def _series_return(return_series: pd.Series) -> float:
     running = Decimal("1")
     for value in return_series:
         running *= Decimal("1") + Decimal(str(value))
-    return float(running - Decimal("1"))
+    return float((running - Decimal("1")) * Decimal(str(PERCENT_SCALE)))
+
+
+def _scale_percent(value: object) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(str(value)) * PERCENT_SCALE
+    except (TypeError, ValueError):
+        return None
 
 
 def _daily_return_records(df: pd.DataFrame) -> list[DailyBenchmarkReturn]:
     return [
         DailyBenchmarkReturn(
             date=row["date"],
-            benchmark_return=float(row["benchmark_return"]),
-            cumulative_return=float(row["cumulative_return"]),
-            benchmark_return_local=(
-                float(row["benchmark_return_local"]) if pd.notna(row.get("benchmark_return_local")) else None
-            ),
-            benchmark_return_fx=(
-                float(row["benchmark_return_fx"]) if pd.notna(row.get("benchmark_return_fx")) else None
-            ),
+            benchmark_return=float(row["benchmark_return"]) * PERCENT_SCALE,
+            cumulative_return=float(row["cumulative_return"]) * PERCENT_SCALE,
+            benchmark_return_local=_scale_percent(row.get("benchmark_return_local")),
+            benchmark_return_fx=_scale_percent(row.get("benchmark_return_fx")),
         )
         for _, row in df.iterrows()
     ]
@@ -231,20 +238,12 @@ def _component_contribution_records(df: pd.DataFrame) -> list[DailyBenchmarkComp
             component_id=row["component_id"],
             component_currency=row.get("component_currency"),
             weight_bop=float(row["weight_bop"]),
-            component_return=float(row["component_return"]),
-            component_return_local=(
-                float(row["component_return_local"]) if pd.notna(row.get("component_return_local")) else None
-            ),
-            component_return_fx=(
-                float(row["component_return_fx"]) if pd.notna(row.get("component_return_fx")) else None
-            ),
-            contribution=float(row["contribution"]),
-            local_contribution=(
-                float(row["local_contribution"]) if pd.notna(row.get("local_contribution")) else None
-            ),
-            fx_contribution=(
-                float(row["fx_contribution"]) if pd.notna(row.get("fx_contribution")) else None
-            ),
+            component_return=float(row["component_return"]) * PERCENT_SCALE,
+            component_return_local=_scale_percent(row.get("component_return_local")),
+            component_return_fx=_scale_percent(row.get("component_return_fx")),
+            contribution=float(row["contribution"]) * PERCENT_SCALE,
+            local_contribution=_scale_percent(row.get("local_contribution")),
+            fx_contribution=_scale_percent(row.get("fx_contribution")),
         )
         for _, row in df.iterrows()
     ]

@@ -181,20 +181,28 @@ async def test_resolve_twr_request_uses_upstream_open_date_over_request_start(mo
 
 @pytest.mark.asyncio
 async def test_resolve_twr_request_allows_missing_stateful_start_date(monkeypatch):
-    async def _mock_fetch_stateful_portfolio_timeseries(**kwargs):  # noqa: ARG001
-        return (
-            200,
-            {
-                "portfolio_open_date": "2024-01-15",
-                "observations": [
-                    {"valuation_date": "2025-01-01", "beginning_market_value": "1000", "ending_market_value": "1010"},
-                ],
-            },
-        )
+    class _StatefulPortfolioStub:
+        async def get_portfolio_reference(self, **kwargs):  # noqa: ARG002
+            return 200, {"portfolio_open_date": "2024-01-15"}
+
+        async def get_portfolio_timeseries(self, **kwargs):  # noqa: ARG002
+            return (
+                200,
+                {
+                    "portfolio_open_date": "2024-01-15",
+                    "observations": [
+                        {
+                            "valuation_date": "2025-01-01",
+                            "beginning_market_value": "1000",
+                            "ending_market_value": "1010",
+                        },
+                    ],
+                },
+            )
 
     monkeypatch.setattr(
-        "app.services.stateful_performance_input_service.fetch_stateful_portfolio_timeseries",
-        _mock_fetch_stateful_portfolio_timeseries,
+        "app.services.twr_mode_service.build_stateful_input_service",
+        lambda settings: _StatefulPortfolioStub(),  # noqa: ARG005
     )
 
     request = TWRAnalyticsRequest.model_validate(

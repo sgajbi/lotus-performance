@@ -308,6 +308,7 @@ def test_twr_supports_stateful_input_mode(client, monkeypatch):
 
     payload = {
         "portfolio_id": "STATEFUL_TWR_TEST",
+        "performance_start_date": "2024-12-31",
         "metric_basis": "NET",
         "report_end_date": "2025-01-02",
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
@@ -489,6 +490,29 @@ def test_twr_supports_stateful_benchmark_assignment(client, monkeypatch):
 
 def test_twr_supports_include_benchmark_without_nested_stateful_benchmark_config(client, monkeypatch):
     class _StatefulBenchmarkStub:
+        async def get_portfolio_reference(self, **kwargs):  # noqa: ARG002
+            return 200, {"portfolio_open_date": "2024-12-31"}
+
+        async def get_portfolio_timeseries(self, **kwargs):  # noqa: ARG002
+            return (
+                200,
+                {
+                    "portfolio_open_date": "2024-12-31",
+                    "observations": [
+                        {
+                            "valuation_date": "2025-01-01",
+                            "beginning_market_value": "1000",
+                            "ending_market_value": "1010",
+                        },
+                        {
+                            "valuation_date": "2025-01-02",
+                            "beginning_market_value": "1010",
+                            "ending_market_value": "1020.1",
+                        },
+                    ],
+                },
+            )
+
         async def get_benchmark_assignment(self, **kwargs):  # noqa: ARG002
             return 200, {"benchmark_id": "BMK_ASSIGNED_DEFAULT"}
 
@@ -528,25 +552,9 @@ def test_twr_supports_include_benchmark_without_nested_stateful_benchmark_config
         async def get_benchmark_return_series(self, **kwargs):  # noqa: ARG002
             return 404, {"detail": "unused"}
 
-    async def _mock_fetch_stateful_portfolio_timeseries(**kwargs):  # noqa: ARG001
-        return (
-            200,
-            {
-                "portfolio_open_date": "2024-12-31",
-                "observations": [
-                    {"valuation_date": "2025-01-01", "beginning_market_value": "1000", "ending_market_value": "1010"},
-                    {"valuation_date": "2025-01-02", "beginning_market_value": "1010", "ending_market_value": "1020.1"},
-                ],
-            },
-        )
-
     monkeypatch.setattr(
         "app.services.twr_mode_service.build_stateful_input_service",
         lambda settings: _StatefulBenchmarkStub(),  # noqa: ARG005
-    )
-    monkeypatch.setattr(
-        "app.services.stateful_performance_input_service.fetch_stateful_portfolio_timeseries",
-        _mock_fetch_stateful_portfolio_timeseries,
     )
 
     payload = {
@@ -630,6 +638,7 @@ def test_twr_records_http_failure_detail_in_execution_status(client, monkeypatch
     payload = {
         "calculation_id": calculation_id,
         "portfolio_id": "TWR_BENCHMARK_STATEFUL_FAILURE",
+        "performance_start_date": "2024-12-31",
         "metric_basis": "NET",
         "report_end_date": "2025-01-02",
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],

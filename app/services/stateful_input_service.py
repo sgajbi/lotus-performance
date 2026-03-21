@@ -213,6 +213,48 @@ class StatefulInputService:
                 existing_snapshot_ids.add(snapshot_id)
         return response
 
+    async def get_portfolio_reference(
+        self,
+        *,
+        portfolio_id: str,
+        as_of_date: date,
+        calculation_id: UUID | None = None,
+    ) -> tuple[int, dict[str, Any]]:
+        response = await self._core_service.get_portfolio_analytics_reference(
+            portfolio_id=portfolio_id,
+            as_of_date=as_of_date,
+        )
+        if calculation_id is not None:
+            request_payload = {
+                "portfolio_id": portfolio_id,
+                "as_of_date": str(as_of_date),
+            }
+            snapshot_id, request_fingerprint = self._build_snapshot_identity(
+                calculation_id=calculation_id,
+                upstream_endpoint="portfolio_reference",
+                source_identifier=portfolio_id,
+                request_payload=request_payload,
+            )
+            existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
+            if snapshot_id not in existing_snapshot_ids:
+                self._execution_store.record_upstream_snapshots(
+                    calculation_id=calculation_id,
+                    snapshots=[
+                        self._build_snapshot(
+                            calculation_id=calculation_id,
+                            upstream_endpoint="portfolio_reference",
+                            source_identifier=portfolio_id,
+                            as_of_date=as_of_date,
+                            request_payload=request_payload,
+                            response=response,
+                            snapshot_id=snapshot_id,
+                            request_fingerprint=request_fingerprint,
+                        )
+                    ],
+                )
+                existing_snapshot_ids.add(snapshot_id)
+        return response
+
     async def get_benchmark_return_series(
         self,
         *,
