@@ -195,7 +195,7 @@ def _process_pending_jobs(
                     request_artifact_model,
                     portfolio_id,
                     resolved_benchmark_id,
-                    benchmark_input_mode,
+                    twr_benchmark_input_mode,
                     benchmark_return_source,
                     should_update_identity,
                 ) = _resolve_async_twr_job_request(job.request_payload, settings=active_settings)
@@ -223,7 +223,7 @@ def _process_pending_jobs(
                     engine_version=active_settings.APP_VERSION,
                     request_artifact_model=request_artifact_model,
                     benchmark_request=twr_request.benchmark,
-                    benchmark_input_mode=benchmark_input_mode,
+                    benchmark_input_mode=twr_benchmark_input_mode,
                     resolved_benchmark_id=resolved_benchmark_id,
                     benchmark_return_source=benchmark_return_source,
                 )

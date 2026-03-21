@@ -77,9 +77,12 @@ class PerformanceRequestBase(BaseModel):
         description="A unique identifier for the calculation request. If not provided, one will be generated.",
     )
     portfolio_id: str = Field(..., description="A unique identifier for the portfolio being analyzed.")
-    performance_start_date: date = Field(
-        ...,
-        description="The inception date of the portfolio or the earliest date for which performance data is available.",
+    performance_start_date: Optional[date] = Field(
+        None,
+        description=(
+            "The inception date of the portfolio or the earliest date for which performance data is available. "
+            "Some stateful request flows allow lotus-performance to derive this value upstream."
+        ),
     )
     metric_basis: Literal["NET", "GROSS"] = Field(
         ..., description="Specifies whether to calculate returns 'NET' (after fees) or 'GROSS' (before fees)."
@@ -125,4 +128,8 @@ class PerformanceRequestBase(BaseModel):
 
 
 class PerformanceRequest(PerformanceRequestBase):
+    performance_start_date: date = Field(
+        ...,
+        description="The inception date of the portfolio or the earliest date for which performance data is available.",
+    )
     valuation_points: List[DailyInputData]
