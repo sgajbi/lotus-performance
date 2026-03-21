@@ -1,4 +1,4 @@
-﻿# tests/integration/test_performance_api.py
+# tests/integration/test_performance_api.py
 from uuid import UUID, uuid4
 
 import pytest
@@ -259,9 +259,7 @@ def test_twr_respects_include_timeseries_flag(client):
     payload_without["output"] = {"include_timeseries": False}
     response_without = client.post("/performance/twr", json=payload_without)
     assert response_without.status_code == 200
-    daily_breakdown_without = (
-        response_without.json()["results_by_period"]["YTD"]["portfolio"]["breakdowns"]["daily"][0]
-    )
+    daily_breakdown_without = response_without.json()["results_by_period"]["YTD"]["portfolio"]["breakdowns"]["daily"][0]
     assert daily_breakdown_without.get("daily_data") is None
 
 
@@ -485,7 +483,9 @@ def test_twr_supports_stateful_benchmark_assignment(client, monkeypatch):
     assert benchmark_block["benchmark_id"] == "BMK_ASSIGNED"
     assert benchmark_block["input_mode"] == "stateful"
     assert benchmark_block["summary"]["period_return"]["base"] == pytest.approx(2.01)
-    assert body["results_by_period"]["YTD"]["relative_performance"]["summary"]["period_return"]["base"] == pytest.approx(0.0)
+    assert body["results_by_period"]["YTD"]["relative_performance"]["summary"]["period_return"][
+        "base"
+    ] == pytest.approx(0.0)
 
 
 def test_twr_supports_include_benchmark_without_nested_stateful_benchmark_config(client, monkeypatch):
@@ -695,7 +695,9 @@ def test_twr_supports_stateless_benchmark_price_points(client):
     body = response.json()
     assert body["results_by_period"]["YTD"]["benchmark"]["benchmark_id"] == "BMK_PRICE_1"
     assert body["results_by_period"]["YTD"]["benchmark"]["summary"]["period_return"]["base"] == pytest.approx(2.01)
-    assert body["results_by_period"]["YTD"]["relative_performance"]["summary"]["period_return"]["base"] == pytest.approx(0.0)
+    assert body["results_by_period"]["YTD"]["relative_performance"]["summary"]["period_return"][
+        "base"
+    ] == pytest.approx(0.0)
 
 
 def test_twr_relative_performance_uses_cumulative_to_date_for_non_itd_periods(client):
@@ -776,8 +778,18 @@ def test_twr_endpoint_returns_async_paths_for_stateful_benchmark_request(client,
                     "return_source": "calculated",
                     "benchmark_currency": "USD",
                     "component_observations": [
-                        {"component_id": "IDX_A", "perf_date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
-                        {"component_id": "IDX_A", "perf_date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.01},
+                        {
+                            "component_id": "IDX_A",
+                            "perf_date": "2025-01-01",
+                            "weight_bop": 1.0,
+                            "component_return": 0.01,
+                        },
+                        {
+                            "component_id": "IDX_A",
+                            "perf_date": "2025-01-02",
+                            "weight_bop": 1.0,
+                            "component_return": 0.01,
+                        },
                     ],
                 }
             ),
@@ -848,8 +860,18 @@ def test_twr_endpoint_generates_calculation_id_for_async_stateful_benchmark_requ
                     "return_source": "calculated",
                     "benchmark_currency": "USD",
                     "component_observations": [
-                        {"component_id": "IDX_A", "perf_date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
-                        {"component_id": "IDX_A", "perf_date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.01},
+                        {
+                            "component_id": "IDX_A",
+                            "perf_date": "2025-01-01",
+                            "weight_bop": 1.0,
+                            "component_return": 0.01,
+                        },
+                        {
+                            "component_id": "IDX_A",
+                            "perf_date": "2025-01-02",
+                            "weight_bop": 1.0,
+                            "component_return": 0.01,
+                        },
                     ],
                 }
             ),
@@ -920,8 +942,18 @@ def test_twr_async_result_missing_and_failed_contracts(client, monkeypatch):
                     "return_source": "calculated",
                     "benchmark_currency": "USD",
                     "component_observations": [
-                        {"component_id": "IDX_A", "perf_date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
-                        {"component_id": "IDX_A", "perf_date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.01},
+                        {
+                            "component_id": "IDX_A",
+                            "perf_date": "2025-01-01",
+                            "weight_bop": 1.0,
+                            "component_return": 0.01,
+                        },
+                        {
+                            "component_id": "IDX_A",
+                            "perf_date": "2025-01-02",
+                            "weight_bop": 1.0,
+                            "component_return": 0.01,
+                        },
                     ],
                 }
             ),
@@ -1017,8 +1049,18 @@ def test_twr_hashes_include_resolved_benchmark_request(client):
                     "return_source": "calculated",
                     "benchmark_currency": "USD",
                     "component_observations": [
-                        {"component_id": "IDX_A", "perf_date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
-                        {"component_id": "IDX_A", "perf_date": "2025-01-02", "weight_bop": 1.0, "component_return": 0.015},
+                        {
+                            "component_id": "IDX_A",
+                            "perf_date": "2025-01-01",
+                            "weight_bop": 1.0,
+                            "component_return": 0.01,
+                        },
+                        {
+                            "component_id": "IDX_A",
+                            "perf_date": "2025-01-02",
+                            "weight_bop": 1.0,
+                            "component_return": 0.015,
+                        },
                     ],
                     "benchmark_return_points": [],
                 }
@@ -1214,4 +1256,3 @@ def test_mwr_http_exception_passthrough_branch(client, mocker):
     response = client.post("/performance/mwr", json=payload)
     assert response.status_code == 409
     assert response.json()["detail"] == "conflict"
-

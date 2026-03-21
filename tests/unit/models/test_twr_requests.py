@@ -32,13 +32,13 @@ def test_twr_request_accepts_legacy_stateless_payload(base_payload):
 def test_twr_request_accepts_nested_stateless_payload(base_payload):
     request = TWRAnalyticsRequest.model_validate(
         {
-                **base_payload,
-                "input_mode": "stateless",
-                "stateless_input": {
+            **base_payload,
+            "input_mode": "stateless",
+            "stateless_input": {
                 "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
-                },
-            }
-        )
+            },
+        }
+    )
 
     assert request.input_mode == TWRInputMode.STATELESS
     assert request.stateless_input is not None
@@ -85,14 +85,14 @@ def test_twr_request_rejects_stateless_payloads_in_stateful_mode(base_payload):
     with pytest.raises(ValidationError, match="stateless_input must be null when input_mode=stateful"):
         TWRAnalyticsRequest.model_validate(
             {
-                    **base_payload,
-                    "input_mode": "stateful",
-                    "stateful_input": {},
-                    "stateless_input": {
+                **base_payload,
+                "input_mode": "stateful",
+                "stateful_input": {},
+                "stateless_input": {
                     "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
-                    },
-                }
-            )
+                },
+            }
+        )
 
     with pytest.raises(ValidationError, match="valuation_points must be null when input_mode=stateful"):
         TWRAnalyticsRequest.model_validate(
@@ -108,13 +108,13 @@ def test_twr_request_rejects_stateless_payloads_in_stateful_mode(base_payload):
 def test_twr_request_to_stateless_prefers_explicit_override(base_payload):
     request = TWRAnalyticsRequest.model_validate(
         {
-                **base_payload,
-                "input_mode": "stateless",
-                "stateless_input": {
+            **base_payload,
+            "input_mode": "stateless",
+            "stateless_input": {
                 "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
-                },
-            }
-        )
+            },
+        }
+    )
 
     stateless = request.to_stateless_performance_request(
         valuation_points=[
@@ -210,11 +210,7 @@ def test_twr_request_supports_stateful_include_benchmark_without_nested_config(b
 
 
 def test_twr_request_allows_missing_start_date_in_stateful_mode(base_payload):
-    payload = {
-        key: value
-        for key, value in base_payload.items()
-        if key != "performance_start_date"
-    }
+    payload = {key: value for key, value in base_payload.items() if key != "performance_start_date"}
     request = TWRAnalyticsRequest.model_validate(
         {
             **payload,
@@ -272,8 +268,18 @@ def test_twr_request_rejects_ambiguous_stateless_benchmark_inputs(base_payload):
                             }
                         ],
                         "component_price_points": [
-                            {"component_id": "IDX_A", "perf_date": "2024-12-31", "weight_bop": 1.0, "index_price": 100.0},
-                            {"component_id": "IDX_A", "perf_date": "2025-01-01", "weight_bop": 1.0, "index_price": 101.0},
+                            {
+                                "component_id": "IDX_A",
+                                "perf_date": "2024-12-31",
+                                "weight_bop": 1.0,
+                                "index_price": 100.0,
+                            },
+                            {
+                                "component_id": "IDX_A",
+                                "perf_date": "2025-01-01",
+                                "weight_bop": 1.0,
+                                "index_price": 101.0,
+                            },
                         ],
                     },
                 },

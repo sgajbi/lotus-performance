@@ -93,8 +93,7 @@ async def resolve_benchmark_request(
         benchmark_request = request.to_benchmark_performance_request(
             benchmark_currency=normalized_input.benchmark_currency,
             component_observations=[
-                observation.model_dump(mode="python")
-                for observation in normalized_input.component_observations
+                observation.model_dump(mode="python") for observation in normalized_input.component_observations
             ],
             benchmark_return_points=[
                 point.model_dump(mode="python") for point in normalized_input.benchmark_return_points

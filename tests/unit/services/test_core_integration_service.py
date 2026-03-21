@@ -162,9 +162,7 @@ async def test_get_benchmark_composition_window_posts_contract_payload():
     assert status_code == 200
     assert payload["segments"] == []
     assert _FakeAsyncClient.calls[0]["url"] == "http://core/integration/benchmarks/BMK_2/composition-window"
-    assert _FakeAsyncClient.calls[0]["json"] == {
-        "window": {"start_date": "2026-01-01", "end_date": "2026-02-24"}
-    }
+    assert _FakeAsyncClient.calls[0]["json"] == {"window": {"start_date": "2026-01-01", "end_date": "2026-02-24"}}
 
 
 @pytest.mark.asyncio

@@ -145,12 +145,16 @@ class BenchmarkAnalyticsRequest(BaseModel):
         description="Numerical precision mode for benchmark calculations.",
     )
     rounding_precision: int = Field(6, description="Number of decimal places to round float outputs to.")
-    calendar: Calendar = Field(default_factory=Calendar, description="Calendar settings applied during benchmark analytics.")
+    calendar: Calendar = Field(
+        default_factory=Calendar, description="Calendar settings applied during benchmark analytics."
+    )
     annualization: Annualization = Field(
         default_factory=Annualization,
         description="Annualization settings applied to benchmark analytics outputs.",
     )
-    output: Output = Field(default_factory=Output, description="Output toggles controlling optional benchmark payload sections.")
+    output: Output = Field(
+        default_factory=Output, description="Output toggles controlling optional benchmark payload sections."
+    )
 
     @model_validator(mode="after")
     def validate_mode_payloads(self) -> "BenchmarkAnalyticsRequest":

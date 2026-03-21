@@ -61,6 +61,7 @@ def _build_resolved_twr_identity_payload(
         benchmark=benchmark_request,
     )
 
+
 def _twr_benchmark_requested(request: TWRAnalyticsRequest) -> bool:
     return request.include_benchmark or request.benchmark is not None
 
@@ -198,9 +199,7 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest) -> PerformanceRes
             calculation_hash=calculation_hash,
             request_payload=request.model_dump(mode="json"),
             offload_reason=(
-                "long_window_stateful_twr"
-                if request.input_mode == TWRInputMode.STATEFUL
-                else "large_twr_input_set"
+                "long_window_stateful_twr" if request.input_mode == TWRInputMode.STATEFUL else "large_twr_input_set"
             ),
             accepted_response_factory=_accepted_twr_response,
         )

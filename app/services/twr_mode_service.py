@@ -42,8 +42,7 @@ async def resolve_twr_request(
     settings: Settings,
 ) -> ResolvedTWRRequest:
     needs_retrieval = request.input_mode == TWRInputMode.STATEFUL or (
-        _benchmark_requested(request)
-        and _get_requested_benchmark_mode(request) == BenchmarkInputMode.STATEFUL
+        _benchmark_requested(request) and _get_requested_benchmark_mode(request) == BenchmarkInputMode.STATEFUL
     )
 
     if not needs_retrieval:
@@ -82,11 +81,7 @@ async def resolve_twr_request(
                 )
             portfolio_input = await retrieve_stateful_portfolio_input(
                 settings=settings,
-                stateful_input_service=(
-                    stateful_input_service
-                    if derived_start_date is not None
-                    else None
-                ),
+                stateful_input_service=(stateful_input_service if derived_start_date is not None else None),
                 calculation_id=request.calculation_id,
                 portfolio_id=request.portfolio_id,
                 as_of_date=request.report_end_date,
@@ -127,9 +122,7 @@ async def resolve_twr_request(
     execution_registry.start_stage(request.calculation_id, "normalization")
     try:
         resolved_input = (
-            build_stateful_portfolio_valuation_input(portfolio_input)
-            if portfolio_input is not None
-            else None
+            build_stateful_portfolio_valuation_input(portfolio_input) if portfolio_input is not None else None
         )
         benchmark_start_date = benchmark_start_date or _resolve_benchmark_start_date_from_request(request)
         benchmark_request = (
@@ -145,9 +138,7 @@ async def resolve_twr_request(
         if resolved_input is not None:
             normalization_details["valuation_points"] = len(resolved_input.valuation_points)
         if benchmark_request is not None:
-            normalization_details["benchmark_component_observations"] = len(
-                benchmark_request.component_observations
-            )
+            normalization_details["benchmark_component_observations"] = len(benchmark_request.component_observations)
             normalization_details["benchmark_return_points"] = len(benchmark_request.benchmark_return_points)
         execution_registry.complete_stage(
             request.calculation_id,
@@ -167,8 +158,8 @@ async def resolve_twr_request(
         input_mode = TWRInputMode.STATELESS
     else:
         performance_request = PerformanceRequest.model_validate(
-                {
-                    **request.model_dump(
+            {
+                **request.model_dump(
                     exclude={
                         "input_mode",
                         "stateless_input",
@@ -177,10 +168,10 @@ async def resolve_twr_request(
                         "benchmark",
                         "include_benchmark",
                     },
-                        mode="python",
-                    ),
-                    "performance_start_date": resolved_input.performance_start_date,
-                    "valuation_points": resolved_input.valuation_points,
+                    mode="python",
+                ),
+                "performance_start_date": resolved_input.performance_start_date,
+                "valuation_points": resolved_input.valuation_points,
             }
         )
         input_mode = TWRInputMode.STATEFUL
@@ -337,16 +328,16 @@ async def _resolve_twr_benchmark_source_input(
     source_details.update(normalized_input.source_details)
     benchmark_request = BenchmarkPerformanceRequest.model_validate(
         {
-                "calculation_id": request.calculation_id,
-                "benchmark_id": benchmark_id,
-                "benchmark_start_date": benchmark_start_date,
-                "report_end_date": request.report_end_date,
-                "analyses": [analysis.model_dump(mode="python") for analysis in request.analyses],
-                "return_source": _get_requested_benchmark_return_source(request).value,
-                "benchmark_currency": normalized_input.benchmark_currency,
-                "component_observations": [
-                    item.model_dump(mode="python") for item in normalized_input.component_observations
-                ],
+            "calculation_id": request.calculation_id,
+            "benchmark_id": benchmark_id,
+            "benchmark_start_date": benchmark_start_date,
+            "report_end_date": request.report_end_date,
+            "analyses": [analysis.model_dump(mode="python") for analysis in request.analyses],
+            "return_source": _get_requested_benchmark_return_source(request).value,
+            "benchmark_currency": normalized_input.benchmark_currency,
+            "component_observations": [
+                item.model_dump(mode="python") for item in normalized_input.component_observations
+            ],
             "benchmark_return_points": [
                 item.model_dump(mode="python") for item in normalized_input.benchmark_return_points
             ],
@@ -404,7 +395,9 @@ def _resolve_default_stateful_benchmark_input(request: TWRAnalyticsRequest) -> B
 
 
 def _resolve_benchmark_start_date_from_request(request: TWRAnalyticsRequest):
-    performance_request = request.to_stateless_performance_request() if request.input_mode == TWRInputMode.STATELESS else None
+    performance_request = (
+        request.to_stateless_performance_request() if request.input_mode == TWRInputMode.STATELESS else None
+    )
     if performance_request is not None and performance_request.valuation_points:
         return min(point.perf_date for point in performance_request.valuation_points)
     return request.performance_start_date or request.report_end_date

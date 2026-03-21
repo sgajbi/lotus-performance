@@ -81,20 +81,12 @@ class BenchmarkPerformanceRequest(BaseModel):
 
         if self.return_source == "calculated":
             if not self.component_observations:
-                raise ValueError(
-                    "component_observations are required when return_source=calculated"
-                )
+                raise ValueError("component_observations are required when return_source=calculated")
             if self.benchmark_return_points:
-                raise ValueError(
-                    "benchmark_return_points must be empty when return_source=calculated"
-                )
+                raise ValueError("benchmark_return_points must be empty when return_source=calculated")
         else:
             if not self.benchmark_return_points:
-                raise ValueError(
-                    "benchmark_return_points are required when return_source=vendor_series"
-                )
+                raise ValueError("benchmark_return_points are required when return_source=vendor_series")
             if self.component_observations:
-                raise ValueError(
-                    "component_observations must be empty when return_source=vendor_series"
-                )
+                raise ValueError("component_observations must be empty when return_source=vendor_series")
         return self

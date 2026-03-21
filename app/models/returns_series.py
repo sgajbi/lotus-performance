@@ -191,7 +191,9 @@ class SeriesCoverage(BaseModel):
 
 
 class SeriesGap(BaseModel):
-    series_type: Literal["portfolio", "benchmark", "risk_free"] = Field(description="Series affected by the coverage gap.")
+    series_type: Literal["portfolio", "benchmark", "risk_free"] = Field(
+        description="Series affected by the coverage gap."
+    )
     from_date: dt_date = Field(description="Inclusive start date of the gap.", examples=["2026-02-10"])
     to_date: dt_date = Field(description="Inclusive end date of the gap.", examples=["2026-02-12"])
     gap_days: int = Field(description="Gap length in business dates after policy application.", examples=[3])
@@ -212,15 +214,17 @@ class ReturnsProvenance(BaseModel):
 
 class ReturnsMetadata(BaseModel):
     generated_at: dt_datetime = Field(description="UTC timestamp at which the response was generated.")
-    correlation_id: str | None = Field(default=None, description="Optional correlation identifier propagated through the request.")
-    request_id: str | None = Field(default=None, description="Optional request identifier propagated through the request.")
+    correlation_id: str | None = Field(
+        default=None, description="Optional correlation identifier propagated through the request."
+    )
+    request_id: str | None = Field(
+        default=None, description="Optional request identifier propagated through the request."
+    )
     trace_id: str | None = Field(default=None, description="Optional distributed trace identifier.")
 
 
 class ReturnsSeriesPayload(BaseModel):
-    portfolio_returns: list[ReturnPoint] = Field(
-        description="Portfolio point returns as decimal ratios."
-    )
+    portfolio_returns: list[ReturnPoint] = Field(description="Portfolio point returns as decimal ratios.")
     cumulative_portfolio_returns: list[ReturnPoint] | None = Field(
         default=None,
         description="Cumulative linked portfolio returns as decimal ratios.",
@@ -253,7 +257,9 @@ class ReturnsSeriesPayload(BaseModel):
 
 class ReturnsSeriesBenchmarkContext(BaseModel):
     benchmark_id: str = Field(description="Resolved benchmark identifier.", examples=["BMK_GLOBAL_60_40"])
-    return_source: BenchmarkReturnSource = Field(description="Resolved benchmark return source.", examples=["calculated"])
+    return_source: BenchmarkReturnSource = Field(
+        description="Resolved benchmark return source.", examples=["calculated"]
+    )
 
 
 class ReturnsSeriesResponse(BaseModel):
