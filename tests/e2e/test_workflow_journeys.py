@@ -546,6 +546,154 @@ def test_e2e_shared_stateful_benchmark_engine_stays_consistent_across_surfaces(m
     ]
 
 
+def test_e2e_stateful_twr_returns_series_and_contribution_stay_consistent(monkeypatch) -> None:
+    from types import SimpleNamespace
+
+    _patch_shared_stateful_benchmark_sources(monkeypatch)
+
+    async def _mock_retrieve_stateful_contribution_source_input(**kwargs):  # noqa: ARG001
+        return SimpleNamespace(
+            portfolio_input=SimpleNamespace(
+                observations=[
+                    {
+                        "valuation_date": "2026-02-23",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1010",
+                    },
+                    {
+                        "valuation_date": "2026-02-24",
+                        "beginning_market_value": "1010",
+                        "ending_market_value": "1020.1",
+                    },
+                    {
+                        "valuation_date": "2026-02-25",
+                        "beginning_market_value": "1020.1",
+                        "ending_market_value": "1030.301",
+                    },
+                ],
+            ),
+            position_rows=[
+                {
+                    "position_id": "SEC_SHARED_1",
+                    "security_id": "SEC_SHARED_1",
+                    "valuation_date": "2026-02-23",
+                    "position_currency": "USD",
+                    "beginning_market_value_portfolio_currency": "1000",
+                    "ending_market_value_portfolio_currency": "1010",
+                    "beginning_market_value_position_currency": "1000",
+                    "ending_market_value_position_currency": "1010",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Technology"},
+                },
+                {
+                    "position_id": "SEC_SHARED_1",
+                    "security_id": "SEC_SHARED_1",
+                    "valuation_date": "2026-02-24",
+                    "position_currency": "USD",
+                    "beginning_market_value_portfolio_currency": "1010",
+                    "ending_market_value_portfolio_currency": "1020.1",
+                    "beginning_market_value_position_currency": "1010",
+                    "ending_market_value_position_currency": "1020.1",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Technology"},
+                },
+                {
+                    "position_id": "SEC_SHARED_1",
+                    "security_id": "SEC_SHARED_1",
+                    "valuation_date": "2026-02-25",
+                    "position_currency": "USD",
+                    "beginning_market_value_portfolio_currency": "1020.1",
+                    "ending_market_value_portfolio_currency": "1030.301",
+                    "beginning_market_value_position_currency": "1020.1",
+                    "ending_market_value_position_currency": "1030.301",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Technology"},
+                },
+            ],
+        )
+
+    monkeypatch.setattr(
+        "app.services.contribution_mode_service.retrieve_stateful_contribution_source_input",
+        _mock_retrieve_stateful_contribution_source_input,
+    )
+
+    twr_payload = {
+        "portfolio_id": "E2E_SHARED_STORY",
+        "report_end_date": "2026-02-25",
+        "metric_basis": "NET",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "include_benchmark": True,
+        "stateful_input": {},
+    }
+    returns_series_payload = {
+        "portfolio_id": "E2E_SHARED_STORY",
+        "as_of_date": "2026-02-25",
+        "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-25"},
+        "frequency": "DAILY",
+        "metric_basis": "NET",
+        "series_selection": {"include_portfolio": True, "include_benchmark": True, "include_risk_free": False},
+        "input_mode": "stateful",
+        "stateful_input": {},
+    }
+    contribution_payload = {
+        "portfolio_id": "E2E_SHARED_STORY",
+        "report_start_date": "2026-02-23",
+        "report_end_date": "2026-02-25",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "emit": {"timeseries": True, "by_position_timeseries": True},
+        "input_mode": "stateful",
+        "stateful_input": {},
+    }
+
+    with TestClient(app) as client:
+        twr_response = client.post("/performance/twr", json=twr_payload)
+        returns_series_response = client.post("/integration/returns/series", json=returns_series_payload)
+        contribution_response = client.post("/performance/contribution", json=contribution_payload)
+
+    assert twr_response.status_code == 200
+    assert returns_series_response.status_code == 200
+    assert contribution_response.status_code == 200
+
+    twr_body = twr_response.json()
+    returns_series_body = returns_series_response.json()
+    contribution_body = contribution_response.json()
+
+    twr_ytd = twr_body["results_by_period"]["YTD"]
+    contribution_itd = contribution_body["results_by_period"]["ITD"]
+    twr_portfolio_return = Decimal(str(twr_ytd["portfolio"]["summary"]["period_return"]["base"]))
+    twr_benchmark_return = Decimal(str(twr_ytd["benchmark"]["summary"]["period_return"]["base"]))
+    twr_relative_return = Decimal(str(twr_ytd["relative_performance"]["summary"]["period_return"]["base"]))
+    contribution_total = Decimal(str(contribution_itd["total_contribution"]))
+    contribution_total_portfolio_return = Decimal(str(contribution_itd["total_portfolio_return"]))
+    returns_series_cumulative_portfolio = (
+        Decimal(str(returns_series_body["series"]["cumulative_portfolio_returns"][-1]["return_value"])) * Decimal("100")
+    )
+    returns_series_cumulative_benchmark = (
+        Decimal(str(returns_series_body["series"]["cumulative_benchmark_returns"][-1]["return_value"])) * Decimal("100")
+    )
+    returns_series_cumulative_active = (
+        Decimal(str(returns_series_body["series"]["cumulative_active_returns"][-1]["return_value"])) * Decimal("100")
+    )
+
+    assert contribution_body["input_mode"] == "stateful"
+    assert returns_series_body["benchmark_context"] == {
+        "benchmark_id": "BMK_SHARED_1",
+        "return_source": "calculated",
+    }
+
+    assert float(contribution_total) == pytest.approx(float(twr_portfolio_return))
+    assert float(contribution_total_portfolio_return) == pytest.approx(float(twr_portfolio_return))
+    assert float(returns_series_cumulative_portfolio) == pytest.approx(float(twr_portfolio_return))
+    assert float(returns_series_cumulative_benchmark) == pytest.approx(float(twr_benchmark_return))
+    assert float(returns_series_cumulative_active) == pytest.approx(float(twr_relative_return))
+
+    assert contribution_itd["position_contributions"][0]["total_contribution"] == pytest.approx(float(contribution_total))
+    contribution_daily_totals = [point["total_contribution"] for point in contribution_itd["timeseries"]]
+    by_position_daily = [point["contribution"] for point in contribution_itd["by_position_timeseries"][0]["series"]]
+    assert contribution_daily_totals == pytest.approx(by_position_daily)
+
+
 def test_e2e_contribution_attribution_and_lineage() -> None:
     contribution_payload = {
         "portfolio_id": "E2E_CONTRIB_001",
