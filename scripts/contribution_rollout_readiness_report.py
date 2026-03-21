@@ -100,9 +100,7 @@ def _blocked_period_has_any_reason(record: PeriodMethodologyRecord, reasons: set
 def build_contribution_rollout_readiness_report(paths: list[Path]) -> ContributionRolloutReadinessReport:
     records = [record for path in paths for record in _extract_period_records(path)]
     status_counts = Counter(record.status for record in records)
-    blocker_reason_counts = Counter(
-        code for record in records for code in record.blocker_reason_codes
-    )
+    blocker_reason_counts = Counter(code for record in records for code in record.blocker_reason_codes)
     economic_reason_codes = {"weight_residual", "flow_balance"}
     methodology_reason_codes = {"reset_alignment", "timeseries_reconciliation"}
     material_periods = sum(1 for record in records if record.is_material_shadow)
@@ -110,10 +108,14 @@ def build_contribution_rollout_readiness_report(paths: list[Path]) -> Contributi
     promoted_periods = sum(1 for record in records if record.is_promoted)
     blocked_periods = sum(1 for record in records if record.status == "BLOCKED")
     blocked_economic_periods = sum(
-        1 for record in records if record.status == "BLOCKED" and _blocked_period_has_any_reason(record, economic_reason_codes)
+        1
+        for record in records
+        if record.status == "BLOCKED" and _blocked_period_has_any_reason(record, economic_reason_codes)
     )
     blocked_methodology_periods = sum(
-        1 for record in records if record.status == "BLOCKED" and _blocked_period_has_any_reason(record, methodology_reason_codes)
+        1
+        for record in records
+        if record.status == "BLOCKED" and _blocked_period_has_any_reason(record, methodology_reason_codes)
     )
     promotion_ready_rate_bp = _calculate_promotion_ready_rate_bp(
         ready_periods=promotion_ready_periods,

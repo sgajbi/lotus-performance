@@ -95,8 +95,7 @@ def test_contribution_endpoint_reports_zero_grouped_return_alignment_drift_for_s
     assert body["audit"]["counts"]["portfolio_reset_without_position_reset_days"] == 0
     assert body["audit"]["counts"]["position_reset_without_portfolio_reset_days"] == 0
     assert not any(
-        "grouped-return alignment remains under characterization" in note
-        for note in body["diagnostics"]["notes"]
+        "grouped-return alignment remains under characterization" in note for note in body["diagnostics"]["notes"]
     )
 
 
@@ -455,8 +454,7 @@ def test_contribution_endpoint_emits_grouped_return_alignment_note_for_misaligne
     assert body["audit"]["counts"]["portfolio_reset_without_position_reset_days"] == 1
     assert body["audit"]["counts"]["position_reset_without_portfolio_reset_days"] == 1
     assert any(
-        "grouped-return alignment remains under characterization" in note
-        for note in body["diagnostics"]["notes"]
+        "grouped-return alignment remains under characterization" in note for note in body["diagnostics"]["notes"]
     )
 
 
@@ -568,13 +566,9 @@ def test_contribution_endpoint_promotes_reset_aware_average_weight_for_clean_can
     position_contributions = body["results_by_period"]["ITD"]["position_contributions"]
     assert position_contributions[0]["average_weight"] == pytest.approx(95.0)
     assert position_contributions[1]["average_weight"] == pytest.approx(5.0)
+    assert any("promotion was applied" in note for note in body["diagnostics"]["notes"])
     assert any(
-        "promotion was applied" in note
-        for note in body["diagnostics"]["notes"]
-    )
-    assert any(
-        "strong candidates for a future denominator cutover study" in note
-        for note in body["diagnostics"]["notes"]
+        "strong candidates for a future denominator cutover study" in note for note in body["diagnostics"]["notes"]
     )
 
 

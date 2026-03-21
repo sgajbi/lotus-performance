@@ -951,8 +951,7 @@ def test_e2e_reset_heavy_contribution_and_daily_series_both_tie_to_twr() -> None
         for note in contribution_body["diagnostics"]["notes"]
     )
     assert not any(
-        "do not sum to the residual-adjusted period total" in note
-        for note in contribution_body["diagnostics"]["notes"]
+        "do not sum to the residual-adjusted period total" in note for note in contribution_body["diagnostics"]["notes"]
     )
     assert not any(
         "grouped-return alignment remains under characterization" in note
@@ -1062,13 +1061,9 @@ def test_e2e_multi_position_reset_heavy_contribution_keeps_tie_out_and_surfaces_
     assert contribution_body["audit"]["counts"]["average_weight_sum_residual_bp"] == 0
     assert contribution_body["audit"]["counts"]["carino_invalid_domain_days"] == 1
     assert any(
-        "Reset-aware average-weight shadow differs" in note
-        for note in contribution_body["diagnostics"]["notes"]
+        "Reset-aware average-weight shadow differs" in note for note in contribution_body["diagnostics"]["notes"]
     )
-    assert any(
-        "differs materially" in note
-        for note in contribution_body["diagnostics"]["notes"]
-    )
+    assert any("differs materially" in note for note in contribution_body["diagnostics"]["notes"])
     assert any(
         "Carino smoothing fell back to raw daily contribution arithmetic" in note
         for note in contribution_body["diagnostics"]["notes"]
@@ -1148,19 +1143,18 @@ def test_e2e_asymmetric_reset_heavy_contribution_keeps_tie_out_while_exposing_we
     assert contribution_body["audit"]["counts"]["timeseries_total_delta_periods"] == 0
     assert contribution_body["audit"]["counts"]["average_weight_shadow_delta_positions"] == 2
     assert contribution_body["audit"]["counts"]["average_weight_shadow_delta_max_bp"] >= 500
-    assert contribution_body["audit"]["counts"]["average_weight_shadow_delta_sum_bp"] >= contribution_body["audit"]["counts"]["average_weight_shadow_delta_max_bp"]
+    assert (
+        contribution_body["audit"]["counts"]["average_weight_shadow_delta_sum_bp"]
+        >= contribution_body["audit"]["counts"]["average_weight_shadow_delta_max_bp"]
+    )
     assert contribution_body["audit"]["counts"]["average_weight_shadow_material_periods"] == 1
     assert contribution_body["audit"]["counts"]["average_weight_shadow_cutover_candidate_periods"] == 0
     assert contribution_body["audit"]["counts"]["average_weight_sum_residual_bp"] == 0
     assert contribution_body["audit"]["counts"]["carino_invalid_domain_days"] == 1
     assert any(
-        "Reset-aware average-weight shadow differs" in note
-        for note in contribution_body["diagnostics"]["notes"]
+        "Reset-aware average-weight shadow differs" in note for note in contribution_body["diagnostics"]["notes"]
     )
-    assert any(
-        "differs materially" in note
-        for note in contribution_body["diagnostics"]["notes"]
-    )
+    assert any("differs materially" in note for note in contribution_body["diagnostics"]["notes"])
 
 
 def test_e2e_balanced_internal_position_flows_keep_flow_residual_silent() -> None:
@@ -1258,11 +1252,11 @@ def test_e2e_material_position_flow_mismatch_emits_cancellation_break_note() -> 
     contribution_body = contribution_response.json()
     assert contribution_body["audit"]["counts"]["position_flow_residual_days"] == 1
     assert contribution_body["audit"]["counts"]["position_flow_residual_max_bp"] > 10
-    assert contribution_body["audit"]["counts"]["position_flow_residual_sum_bp"] >= contribution_body["audit"]["counts"]["position_flow_residual_max_bp"]
-    assert any(
-        "materially non-flow-neutral scoped slice" in note
-        for note in contribution_body["diagnostics"]["notes"]
+    assert (
+        contribution_body["audit"]["counts"]["position_flow_residual_sum_bp"]
+        >= contribution_body["audit"]["counts"]["position_flow_residual_max_bp"]
     )
+    assert any("materially non-flow-neutral scoped slice" in note for note in contribution_body["diagnostics"]["notes"])
 
 
 def test_e2e_health_endpoints_contract() -> None:

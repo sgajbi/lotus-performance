@@ -38,9 +38,11 @@ def test_calculate_reset_aware_average_weight_shadow_ignores_pre_reset_history_a
         }
     )
 
-    shadow_df, delta_position_count, max_shadow_delta_bp, sum_shadow_delta_bp = _calculate_reset_aware_average_weight_shadow(
-        period_slice_df,
-        portfolio_period_slice_df,
+    shadow_df, delta_position_count, max_shadow_delta_bp, sum_shadow_delta_bp = (
+        _calculate_reset_aware_average_weight_shadow(
+            period_slice_df,
+            portfolio_period_slice_df,
+        )
     )
 
     assert delta_position_count == 1
@@ -72,9 +74,11 @@ def test_calculate_reset_aware_average_weight_shadow_matches_simple_mean_when_no
         }
     )
 
-    shadow_df, delta_position_count, max_shadow_delta_bp, sum_shadow_delta_bp = _calculate_reset_aware_average_weight_shadow(
-        period_slice_df,
-        portfolio_period_slice_df,
+    shadow_df, delta_position_count, max_shadow_delta_bp, sum_shadow_delta_bp = (
+        _calculate_reset_aware_average_weight_shadow(
+            period_slice_df,
+            portfolio_period_slice_df,
+        )
     )
 
     assert delta_position_count == 0

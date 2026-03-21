@@ -510,9 +510,7 @@ def test_contribution_service_soft_flags_non_material_average_weight_shadow_delt
     assert response.audit.counts["average_weight_shadow_material_periods"] == 0
     assert response.audit.counts["average_weight_shadow_cutover_candidate_periods"] == 0
     assert response.audit.counts["average_weight_shadow_promotion_ready_rate_bp"] == 0
-    assert any(
-        "still under characterization" in note for note in response.diagnostics.notes
-    )
+    assert any("still under characterization" in note for note in response.diagnostics.notes)
     assert not any("differs materially" in note for note in response.diagnostics.notes)
 
 
@@ -596,15 +594,15 @@ def test_contribution_service_counts_clean_material_shadow_period_as_cutover_can
                     pd.Timestamp("2025-01-01").date(),
                     pd.Timestamp("2025-01-02").date(),
                     pd.Timestamp("2025-01-03").date(),
-                    ],
-                    "position_id": ["A", "A", "A", "B", "B", "B"],
-                    "smoothed_contribution": [0.01, 0.01, 0.01, 0.02, 0.02, 0.02],
-                    "smoothed_local_contribution": [0.01, 0.01, 0.01, 0.02, 0.02, 0.02],
-                    "daily_weight": [0.10, 0.95, 0.95, 0.90, 0.05, 0.05],
-                    "perf_reset": [0, 1, 0, 0, 1, 0],
-                }
-            ),
-        )
+                ],
+                "position_id": ["A", "A", "A", "B", "B", "B"],
+                "smoothed_contribution": [0.01, 0.01, 0.01, 0.02, 0.02, 0.02],
+                "smoothed_local_contribution": [0.01, 0.01, 0.01, 0.02, 0.02, 0.02],
+                "daily_weight": [0.10, 0.95, 0.95, 0.90, 0.05, 0.05],
+                "perf_reset": [0, 1, 0, 0, 1, 0],
+            }
+        ),
+    )
     mocker.patch(
         "app.services.contribution_service.complete_execution_with_lineage",
         side_effect=lambda **kwargs: None,
@@ -656,13 +654,14 @@ def test_contribution_service_counts_clean_material_shadow_period_as_cutover_can
     assert response.audit.counts["average_weight_shadow_blocked_by_reset_alignment_periods"] == 0
     assert response.audit.counts["average_weight_shadow_blocked_by_timeseries_delta_periods"] == 0
     assert any(
-        "strong candidates for a future denominator cutover study" in note
-        for note in response.diagnostics.notes
+        "strong candidates for a future denominator cutover study" in note for note in response.diagnostics.notes
     )
     assert any("rollout readiness is currently 10000 basis points" in note for note in response.diagnostics.notes)
 
 
-def test_contribution_service_promotes_reset_aware_average_weight_for_candidate_periods_when_runtime_mode_enabled(mocker):
+def test_contribution_service_promotes_reset_aware_average_weight_for_candidate_periods_when_runtime_mode_enabled(
+    mocker,
+):
     mocker.patch(
         "app.services.contribution_service.get_settings",
         return_value=type(
@@ -803,12 +802,9 @@ def test_contribution_service_promotes_reset_aware_average_weight_for_candidate_
     assert position_contributions is not None
     assert position_contributions[0].average_weight == pytest.approx(95.0)
     assert position_contributions[1].average_weight == pytest.approx(5.0)
+    assert any("promotion was applied" in note for note in response.diagnostics.notes)
     assert any(
-        "promotion was applied" in note for note in response.diagnostics.notes
-    )
-    assert any(
-        "strong candidates for a future denominator cutover study" in note
-        for note in response.diagnostics.notes
+        "strong candidates for a future denominator cutover study" in note for note in response.diagnostics.notes
     )
 
 
@@ -951,10 +947,7 @@ def test_contribution_service_classifies_flow_balance_as_cutover_blocker_for_mat
     assert response.audit.counts["average_weight_shadow_blocked_by_flow_balance_periods"] == 1
     assert response.audit.counts["average_weight_shadow_blocked_by_reset_alignment_periods"] == 0
     assert response.audit.counts["average_weight_shadow_blocked_by_timeseries_delta_periods"] == 0
-    assert any(
-        "stock and cash legs did not cancel cleanly" in note
-        for note in response.diagnostics.notes
-    )
+    assert any("stock and cash legs did not cancel cleanly" in note for note in response.diagnostics.notes)
     assert any(
         "remained shadow-only because one or more rollout guardrails were not yet clean" in note
         for note in response.diagnostics.notes
@@ -1156,7 +1149,9 @@ def test_contribution_service_emits_carino_invalid_domain_note_for_broken_capita
     )
 
     assert response.audit.counts["carino_invalid_domain_days"] == 1
-    assert any("Carino smoothing fell back to raw daily contribution arithmetic" in note for note in response.diagnostics.notes)
+    assert any(
+        "Carino smoothing fell back to raw daily contribution arithmetic" in note for note in response.diagnostics.notes
+    )
 
 
 def test_contribution_service_reconciles_daily_series_to_residual_adjusted_period_total(mocker):
@@ -1247,9 +1242,7 @@ def test_contribution_service_reconciles_daily_series_to_residual_adjusted_perio
     )
 
     assert response.audit.counts["timeseries_total_delta_periods"] == 0
-    assert not any(
-        "do not sum to the residual-adjusted period total" in note for note in response.diagnostics.notes
-    )
+    assert not any("do not sum to the residual-adjusted period total" in note for note in response.diagnostics.notes)
     assert response.results_by_period["ITD"].timeseries is not None
     daily_total = sum(point.total_contribution for point in response.results_by_period["ITD"].timeseries)
     assert daily_total == pytest.approx(response.results_by_period["ITD"].total_contribution)
@@ -1351,9 +1344,7 @@ def test_contribution_service_surfaces_position_flow_balance_residuals(mocker):
     assert response.audit.counts["position_flow_residual_days"] == 1
     assert response.audit.counts["position_flow_residual_max_bp"] == 100
     assert response.audit.counts["position_flow_residual_sum_bp"] == 100
-    assert any(
-        "materially non-flow-neutral scoped slice" in note for note in response.diagnostics.notes
-    )
+    assert any("materially non-flow-neutral scoped slice" in note for note in response.diagnostics.notes)
     assert any("maximum residual was 100 basis points" in note for note in response.diagnostics.notes)
 
 
@@ -1453,12 +1444,8 @@ def test_contribution_service_soft_flags_small_position_flow_residuals(mocker):
     assert response.audit.counts["position_flow_residual_days"] == 1
     assert response.audit.counts["position_flow_residual_max_bp"] == 10
     assert response.audit.counts["position_flow_residual_sum_bp"] == 10
-    assert any(
-        "looks like a small non-flow-neutral scoped slice" in note for note in response.diagnostics.notes
-    )
-    assert not any(
-        "materially non-flow-neutral scoped slice" in note for note in response.diagnostics.notes
-    )
+    assert any("looks like a small non-flow-neutral scoped slice" in note for note in response.diagnostics.notes)
+    assert not any("materially non-flow-neutral scoped slice" in note for note in response.diagnostics.notes)
 
 
 def test_attribution_service_uses_runtime_app_version(mocker):
