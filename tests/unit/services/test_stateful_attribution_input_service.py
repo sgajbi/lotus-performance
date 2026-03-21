@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal
 from uuid import uuid4
 
 import pytest
@@ -16,6 +17,7 @@ from app.services.stateful_attribution_input_service import (
     _parse_position_rows,
     _parse_retrieval_metadata,
     _position_meta_from_row,
+    _position_row_to_base_weight_point,
     _position_row_to_daily_point,
     _split_position_cash_flows,
     _validate_stateful_group_by,
@@ -462,8 +464,19 @@ def test_stateful_attribution_group_by_and_benchmark_validation_errors():
 
 def test_stateful_attribution_parsers_filter_invalid_rows():
     assert _split_position_cash_flows(["bad", {"amount": None, "timing": "bod"}]) == (0, 0)
-    assert _position_meta_from_row({"security_id": "SEC_1", "dimensions": {"sector": "Tech"}}) == {
+    assert _position_meta_from_row(
+        {
+            "security_id": "SEC_1",
+            "cash_flow_currency": "EUR",
+            "position_to_portfolio_fx_rate": "1.2",
+            "portfolio_to_reporting_fx_rate": "1.1",
+            "dimensions": {"sector": "Tech"},
+        }
+    ) == {
         "security_id": "SEC_1",
+        "cash_flow_currency": "eur",
+        "position_to_portfolio_fx_rate": Decimal("1.2"),
+        "portfolio_to_reporting_fx_rate": Decimal("1.1"),
         "sector": "tech",
     }
     assert _parse_position_rows({"rows": [{"position_id": "POS_1"}, "bad"]}) == [{"position_id": "POS_1"}]
@@ -509,4 +522,53 @@ def test_stateful_attribution_position_row_to_daily_point_falls_back_from_null_r
         "end_mv": 101,
         "bod_cf": 0,
         "eod_cf": 0,
+    }
+
+
+def test_stateful_attribution_position_row_to_daily_point_converts_cash_flows_to_reporting_currency():
+    point = _position_row_to_daily_point(
+        row={
+            "valuation_date": "2025-01-01",
+            "position_currency": "EUR",
+            "cash_flow_currency": "EUR",
+            "position_to_portfolio_fx_rate": "1.20",
+            "portfolio_to_reporting_fx_rate": "1.10",
+            "beginning_market_value_reporting_currency": "132",
+            "ending_market_value_reporting_currency": "145.2",
+            "cash_flows": [
+                {"amount": "5", "timing": "bod"},
+                {"amount": "-2", "timing": "eod"},
+            ],
+        },
+        currency_mode="BASE_ONLY",
+        reporting_currency="USD",
+    )
+
+    assert point == {
+        "perf_date": "2025-01-01",
+        "begin_mv": Decimal("132"),
+        "end_mv": Decimal("145.2"),
+        "bod_cf": Decimal("6.60"),
+        "eod_cf": Decimal("-2.64"),
+    }
+
+
+def test_stateful_attribution_base_weight_point_converts_bod_cash_flow_to_reporting_currency():
+    point = _position_row_to_base_weight_point(
+        row={
+            "valuation_date": "2025-01-01",
+            "position_currency": "EUR",
+            "cash_flow_currency": "EUR",
+            "position_to_portfolio_fx_rate": "1.20",
+            "portfolio_to_reporting_fx_rate": "1.10",
+            "beginning_market_value_reporting_currency": "132",
+            "cash_flows": [{"amount": "5", "timing": "bod"}],
+        },
+        reporting_currency="USD",
+    )
+
+    assert point == {
+        "perf_date": "2025-01-01",
+        "begin_mv": Decimal("132"),
+        "bod_cf": Decimal("6.60"),
     }

@@ -588,6 +588,113 @@ def test_attribution_supports_stateful_input_mode(client, monkeypatch):
     assert tech_group["selection"] == pytest.approx(0.25)
 
 
+def test_attribution_stateful_converts_non_base_cash_flows_using_explicit_fx_metadata(client, monkeypatch):
+    async def _mock_get_portfolio_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2025-01-01",
+                "observations": [
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "132",
+                        "ending_market_value": "145.2",
+                        "cash_flows": [{"amount": "13.2", "timing": "bod", "cash_flow_type": "external_flow"}],
+                    }
+                ],
+            },
+        )
+
+    async def _mock_get_position_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "rows": [
+                    {
+                        "position_id": "POS_EUR_1",
+                        "security_id": "SEC_EUR_1",
+                        "valuation_date": "2025-01-01",
+                        "position_currency": "EUR",
+                        "cash_flow_currency": "EUR",
+                        "position_to_portfolio_fx_rate": "1.20",
+                        "portfolio_to_reporting_fx_rate": "1.10",
+                        "beginning_market_value_reporting_currency": "132",
+                        "ending_market_value_reporting_currency": "145.2",
+                        "beginning_market_value_portfolio_currency": "120",
+                        "ending_market_value_portfolio_currency": "132",
+                        "beginning_market_value_position_currency": "100",
+                        "ending_market_value_position_currency": "110",
+                        "cash_flows": [{"amount": "10", "timing": "bod", "cash_flow_type": "external_flow"}],
+                        "dimensions": {"sector": "Technology"},
+                    }
+                ]
+            },
+        )
+
+    async def _mock_get_benchmark_assignment(self, **kwargs):  # noqa: ARG001
+        return 200, {"benchmark_id": "BMK_1"}
+
+    async def _mock_get_index_catalog(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "records": [
+                    {
+                        "index_id": "IDX_1",
+                        "classification_labels": {"sector": "Technology"},
+                    }
+                ]
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_portfolio_timeseries",
+        _mock_get_portfolio_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_position_timeseries",
+        _mock_get_position_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_benchmark_assignment",
+        _mock_get_benchmark_assignment,
+    )
+    _patch_stateful_attribution_benchmark_input(
+        monkeypatch,
+        BenchmarkComponentObservation(
+            component_id="IDX_1",
+            perf_date=date(2025, 1, 1),
+            weight_bop=1.0,
+            component_return=0.0,
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_index_catalog",
+        _mock_get_index_catalog,
+    )
+
+    payload = {
+        "portfolio_id": "ATTRIB_STATEFUL_FX_CF",
+        "mode": "by_instrument",
+        "group_by": ["sector"],
+        "linking": "none",
+        "frequency": "daily",
+        "report_ccy": "USD",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {},
+    }
+
+    response = client.post("/performance/attribution", json=payload)
+
+    assert response.status_code == 200
+    itd = response.json()["results_by_period"]["ITD"]
+    assert itd["reconciliation"]["total_active_return"] == pytest.approx(0.0)
+    assert itd["reconciliation"]["sum_of_effects"] == pytest.approx(0.0)
+
+
 def test_attribution_stateful_rejects_acquisition_day_rows_without_cash_flow_semantics(client, monkeypatch):
     async def _mock_get_portfolio_timeseries(self, **kwargs):  # noqa: ARG001
         return (

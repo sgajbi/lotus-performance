@@ -408,6 +408,62 @@ def test_contribution_supports_stateful_input_mode(client, monkeypatch):
     assert "ITD" in body["results_by_period"]
 
 
+def test_contribution_stateful_converts_non_base_cash_flows_using_explicit_fx_metadata(client, monkeypatch):
+    async def _mock_retrieve_stateful_contribution_source_input(**kwargs):  # noqa: ARG001
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            portfolio_input=SimpleNamespace(
+                observations=[
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "132",
+                        "ending_market_value": "145.2",
+                        "cash_flows": [{"amount": "13.2", "timing": "bod", "cash_flow_type": "external_flow"}],
+                    }
+                ],
+            ),
+            position_rows=[
+                {
+                    "position_id": "SEC_EUR_1",
+                    "security_id": "SEC_EUR_1",
+                    "position_currency": "EUR",
+                    "cash_flow_currency": "EUR",
+                    "position_to_portfolio_fx_rate": "1.20",
+                    "portfolio_to_reporting_fx_rate": "1.10",
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value_reporting_currency": "132",
+                    "ending_market_value_reporting_currency": "145.2",
+                    "cash_flows": [{"amount": "10", "timing": "bod", "cash_flow_type": "external_flow"}],
+                    "dimensions": {"sector": "Technology"},
+                },
+            ],
+        )
+
+    monkeypatch.setattr(
+        "app.services.contribution_mode_service.retrieve_stateful_contribution_source_input",
+        _mock_retrieve_stateful_contribution_source_input,
+    )
+
+    payload = {
+        "portfolio_id": "CONTRIB_STATEFUL_FX_CF",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "report_ccy": "USD",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "emit": {"timeseries": True, "by_position_timeseries": True},
+        "input_mode": "stateful",
+        "stateful_input": {},
+    }
+
+    response = client.post("/performance/contribution", json=payload)
+
+    assert response.status_code == 200
+    itd = response.json()["results_by_period"]["ITD"]
+    assert itd["total_contribution"] == pytest.approx(0.0)
+    assert itd["by_position_timeseries"][0]["series"][0]["contribution"] == pytest.approx(0.0)
+
+
 def test_contribution_stateful_emit_timeseries_returns_series(client, monkeypatch):
     async def _mock_retrieve_stateful_contribution_source_input(**kwargs):  # noqa: ARG001
         from types import SimpleNamespace

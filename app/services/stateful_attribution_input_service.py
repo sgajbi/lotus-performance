@@ -18,6 +18,10 @@ from app.services.stateful_performance_input_service import (
     StatefulPortfolioInput,
     retrieve_stateful_portfolio_input,
 )
+from app.services.stateful_position_row_service import (
+    PositionValueBasis,
+    split_position_cash_flows_in_value_basis,
+)
 from app.services.valuation_points_service import portfolio_timeseries_to_valuation_points
 from engine.benchmarks import calculate_benchmark_returns
 
@@ -476,24 +480,32 @@ def _position_row_to_daily_point(
     valuation_date = row.get("valuation_date")
     if not isinstance(valuation_date, str):
         return None
+    value_basis: PositionValueBasis
 
     if currency_mode in {"LOCAL_ONLY", "BOTH"}:
         begin_value = row.get("beginning_market_value_position_currency")
         end_value = row.get("ending_market_value_position_currency")
+        value_basis = "position"
     elif reporting_currency is not None:
         begin_value = row.get("beginning_market_value_reporting_currency")
         end_value = row.get("ending_market_value_reporting_currency")
         if begin_value is None or end_value is None:
             begin_value = row.get("beginning_market_value_portfolio_currency")
             end_value = row.get("ending_market_value_portfolio_currency")
+        value_basis = "reporting"
     else:
         begin_value = row.get("beginning_market_value_portfolio_currency")
         end_value = row.get("ending_market_value_portfolio_currency")
+        value_basis = "portfolio"
 
     if begin_value is None or end_value is None:
         return None
 
-    bod_cf, eod_cf = _split_position_cash_flows(row.get("cash_flows"))
+    bod_cf, eod_cf, _ = split_position_cash_flows_in_value_basis(
+        cash_flows_raw=row.get("cash_flows"),
+        row=row,
+        value_basis=value_basis,
+    )
     return {
         "perf_date": valuation_date,
         "begin_mv": Decimal(str(begin_value)),
@@ -511,6 +523,7 @@ def _position_row_to_base_weight_point(
     valuation_date = row.get("valuation_date")
     if not isinstance(valuation_date, str):
         return None
+    value_basis: PositionValueBasis
 
     if reporting_currency is not None:
         begin_value = row.get("beginning_market_value_reporting_currency")
@@ -521,7 +534,15 @@ def _position_row_to_base_weight_point(
     if begin_value is None:
         return None
 
-    bod_cf, _ = _split_position_cash_flows(row.get("cash_flows"))
+    if reporting_currency is not None:
+        value_basis = "reporting"
+    else:
+        value_basis = "portfolio"
+    bod_cf, _, _ = split_position_cash_flows_in_value_basis(
+        cash_flows_raw=row.get("cash_flows"),
+        row=row,
+        value_basis=value_basis,
+    )
     return {
         "perf_date": valuation_date,
         "begin_mv": Decimal(str(begin_value)),
@@ -558,6 +579,15 @@ def _position_meta_from_row(row: dict[str, object]) -> dict[str, object]:
     position_currency = row.get("position_currency")
     if isinstance(position_currency, str) and position_currency:
         meta["currency"] = _normalize_group_value(position_currency)
+    cash_flow_currency = row.get("cash_flow_currency")
+    if isinstance(cash_flow_currency, str) and cash_flow_currency:
+        meta["cash_flow_currency"] = _normalize_group_value(cash_flow_currency)
+    position_to_portfolio_fx_rate = row.get("position_to_portfolio_fx_rate")
+    if position_to_portfolio_fx_rate is not None:
+        meta["position_to_portfolio_fx_rate"] = Decimal(str(position_to_portfolio_fx_rate))
+    portfolio_to_reporting_fx_rate = row.get("portfolio_to_reporting_fx_rate")
+    if portfolio_to_reporting_fx_rate is not None:
+        meta["portfolio_to_reporting_fx_rate"] = Decimal(str(portfolio_to_reporting_fx_rate))
 
     dimensions_raw = row.get("dimensions")
     if isinstance(dimensions_raw, dict):
