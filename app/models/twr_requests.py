@@ -99,7 +99,9 @@ class TWRBenchmarkRequest(BaseModel):
 class TWRResolvedExecutionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    portfolio: PerformanceRequest = Field(..., description="Resolved stateless portfolio request executed by the TWR engine.")
+    portfolio: PerformanceRequest = Field(
+        ..., description="Resolved stateless portfolio request executed by the TWR engine."
+    )
     benchmark: BenchmarkPerformanceRequest | None = Field(
         default=None,
         description="Resolved benchmark request executed alongside portfolio TWR when benchmark inclusion is enabled.",

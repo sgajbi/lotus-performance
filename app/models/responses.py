@@ -13,7 +13,9 @@ from core.envelope import Audit, Diagnostics, Meta
 class PerformanceSummary(BaseModel):
     """A summary of performance for a given period (day, month, etc.)."""
 
-    begin_mv: float = Field(description="Beginning market value for the bucket in reporting currency.", examples=[1000000.0])
+    begin_mv: float = Field(
+        description="Beginning market value for the bucket in reporting currency.", examples=[1000000.0]
+    )
     end_mv: float = Field(description="Ending market value for the bucket in reporting currency.", examples=[1012500.0])
     net_cash_flow: float = Field(
         description="Net external cash flow for the bucket in reporting currency.",
@@ -100,9 +102,7 @@ class ComparativeBreakdownItem(BaseModel):
     period: str = Field(description="Resolved bucket label for this breakdown row.", examples=["2026-03"])
     period_start: dt_date = Field(description="Inclusive bucket start date.", examples=["2026-03-01"])
     period_end: dt_date = Field(description="Inclusive bucket end date.", examples=["2026-03-31"])
-    period_return: ComparativeReturnValue = Field(
-        description="Bucket return in percentage-point output units."
-    )
+    period_return: ComparativeReturnValue = Field(description="Bucket return in percentage-point output units.")
     cumulative_return: ComparativeReturnValue | None = Field(
         default=None,
         description="Cumulative linked return through the end of this bucket in percentage-point output units.",
@@ -121,19 +121,21 @@ ComparativeBreakdown = Dict[Frequency, List[ComparativeBreakdownItem]]
 
 
 class ComparativeAnalyticsBlock(BaseModel):
-    summary: ComparativeSummary = Field(
-        description="Summary returns for this block in percentage-point output units."
-    )
+    summary: ComparativeSummary = Field(description="Summary returns for this block in percentage-point output units.")
     breakdowns: ComparativeBreakdown = Field(
         description="Frequency-aligned breakdowns for this block, using the same percentage-point convention as the summary."
     )
-    benchmark_id: str | None = Field(default=None, description="Resolved benchmark identifier when this block represents benchmark data.")
+    benchmark_id: str | None = Field(
+        default=None, description="Resolved benchmark identifier when this block represents benchmark data."
+    )
     benchmark_currency: str | None = Field(
         default=None,
         description="Benchmark base currency when this block represents benchmark data.",
         examples=["USD"],
     )
-    input_mode: str | None = Field(default=None, description="Resolved input mode used to produce this block.", examples=["stateful"])
+    input_mode: str | None = Field(
+        default=None, description="Resolved input mode used to produce this block.", examples=["stateful"]
+    )
     return_source: str | None = Field(
         default=None,
         description="Resolved benchmark return source when this block represents benchmark data.",
@@ -142,7 +144,9 @@ class ComparativeAnalyticsBlock(BaseModel):
 
 
 class TWRBenchmarkContext(BaseModel):
-    benchmark_id: str = Field(description="Resolved benchmark identifier used for this TWR response.", examples=["BMK_GLOBAL_60_40"])
+    benchmark_id: str = Field(
+        description="Resolved benchmark identifier used for this TWR response.", examples=["BMK_GLOBAL_60_40"]
+    )
     benchmark_currency: str | None = Field(
         default=None,
         description="Benchmark base currency.",

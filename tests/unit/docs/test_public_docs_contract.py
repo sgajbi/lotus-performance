@@ -131,7 +131,10 @@ def test_api_reference_documents_endpoint_level_capabilities_contract():
     assert "/performance/benchmark/results/{calculation_id}" in readme
     assert "/performance/twr/results/{calculation_id}" in runtime_topology
     assert "/performance/benchmark/results/{calculation_id}" in runtime_topology
-    assert "`result_path` can now point directly to async result routes for `TWR`, `BENCHMARK`, `ReturnsSeries`, `Contribution`, and `Attribution`" in api_reference
+    assert (
+        "`result_path` can now point directly to async result routes for `TWR`, `BENCHMARK`, `ReturnsSeries`, `Contribution`, and `Attribution`"
+        in api_reference
+    )
 
 
 def test_attribution_guide_uses_current_request_shape():
@@ -174,7 +177,10 @@ def test_returns_series_docs_reflect_benchmark_return_source_contract():
     assert "active_returns" in api_reference
     assert "cumulative_active_returns" in api_reference
     assert "benchmark_context" in api_reference
-    assert "stateful mode, benchmark sourcing defaults to the shared lotus-performance benchmark calculation path" in api_reference.lower()
+    assert (
+        "stateful mode, benchmark sourcing defaults to the shared lotus-performance benchmark calculation path"
+        in api_reference.lower()
+    )
     assert "callers may omit `calculation_id`" in api_reference
     assert "Active Return Series" in master_index
     assert "series.active_returns" in active_methodology
@@ -196,7 +202,7 @@ def test_api_examples_recipes_match_current_dual_mode_contract():
     assert '"day"' not in guide
     assert "window_start_date" in guide
     assert "consumer_system" not in guide
-    assert 'stateful attribution can also emit currency attribution' in guide.lower()
+    assert "stateful attribution can also emit currency attribution" in guide.lower()
     assert "Older examples using request-level `period_type` or nested `daily_data` are not current." in guide
     assert '"period_type"' not in guide
     assert '"daily_data"' not in guide

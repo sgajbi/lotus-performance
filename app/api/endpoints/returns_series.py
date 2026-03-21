@@ -175,7 +175,11 @@ async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResp
                 resolved_benchmark_return_source_override=resolved.resolved_benchmark_return_source,
             )
         except Exception as exc:
-            message = exc.detail["message"] if hasattr(exc, "detail") and isinstance(exc.detail, dict) and "message" in exc.detail else str(getattr(exc, "detail", exc))
+            message = (
+                exc.detail["message"]
+                if hasattr(exc, "detail") and isinstance(exc.detail, dict) and "message" in exc.detail
+                else str(getattr(exc, "detail", exc))
+            )
             execution_registry.fail_in_progress_stages(request.calculation_id, message)
             execution_registry.mark_failed(request.calculation_id, message)
             raise

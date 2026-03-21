@@ -68,9 +68,9 @@ class _StatefulCoreServiceStub:
 
 class _StatefulBenchmarkCoreServiceStub(_StatefulCoreServiceStub):
     async def get_benchmark_composition_window(self, **kwargs):  # noqa: ARG002
-        midpoint = STATEFUL_PORTFOLIO_WINDOW_START + (
-            STATEFUL_PORTFOLIO_WINDOW_END - STATEFUL_PORTFOLIO_WINDOW_START
-        ) / 2
+        midpoint = (
+            STATEFUL_PORTFOLIO_WINDOW_START + (STATEFUL_PORTFOLIO_WINDOW_END - STATEFUL_PORTFOLIO_WINDOW_START) / 2
+        )
         segments: list[dict[str, str]] = []
         segment_definitions = [
             ("IDX_USD", "0.40", "0.35"),

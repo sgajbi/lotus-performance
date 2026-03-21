@@ -220,7 +220,9 @@ def test_returns_series_stateful_fetches_benchmark_and_risk_free(monkeypatch):
         "app.api.endpoints.returns_series.CoreIntegrationService.get_benchmark_assignment",
         _mock_get_benchmark_assignment,
     )
-    monkeypatch.setattr("app.services.returns_series_service.build_stateful_benchmark_input", _mock_build_stateful_benchmark_input)
+    monkeypatch.setattr(
+        "app.services.returns_series_service.build_stateful_benchmark_input", _mock_build_stateful_benchmark_input
+    )
     monkeypatch.setattr(
         "app.api.endpoints.returns_series.CoreIntegrationService.get_risk_free_series",
         _mock_get_risk_free_series,
@@ -315,7 +317,9 @@ def test_returns_series_stateful_provenance_uses_resolved_series_identity(monkey
         "app.api.endpoints.returns_series.CoreIntegrationService.get_benchmark_assignment",
         _mock_get_benchmark_assignment,
     )
-    monkeypatch.setattr("app.services.returns_series_service.build_stateful_benchmark_input", _mock_build_stateful_benchmark_input)
+    monkeypatch.setattr(
+        "app.services.returns_series_service.build_stateful_benchmark_input", _mock_build_stateful_benchmark_input
+    )
 
     payload = {
         "portfolio_id": "DEMO_DPM_EUR_001",

@@ -393,5 +393,3 @@ def test_get_lineage_artifact_returns_503_when_file_missing_from_storage(client)
 
     assert response.status_code == 503
     assert response.json()["detail"] == "Lineage artifact is missing from storage."
-
-

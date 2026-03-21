@@ -246,9 +246,7 @@ def _build_portfolio_breakdowns(
         )
         summary_items = breakdowns_data.get(frequency, [])
         for index, (label, start_date, end_date, frequency_df) in enumerate(window_items):
-            cumulative_df = period_slice_df[
-                period_slice_df[PortfolioColumns.PERF_DATE.value] <= end_date
-            ].copy()
+            cumulative_df = period_slice_df[period_slice_df[PortfolioColumns.PERF_DATE.value] <= end_date].copy()
             summary_data = summary_items[index]["summary"] if index < len(summary_items) else {}
             items.append(
                 ComparativeBreakdownItem(
@@ -342,12 +340,8 @@ def _get_portfolio_cumulative_return_to_date(
     period_end_date,
     daily_results_df: pd.DataFrame,
 ) -> ComparativeReturnValue:
-    cumulative_rows = daily_results_df[
-        daily_results_df[PortfolioColumns.PERF_DATE.value] <= period_end_date
-    ].copy()
-    return _build_return_value_from_decomposition(
-        _calculate_total_return_from_slice(cumulative_rows, daily_results_df)
-    )
+    cumulative_rows = daily_results_df[daily_results_df[PortfolioColumns.PERF_DATE.value] <= period_end_date].copy()
+    return _build_return_value_from_decomposition(_calculate_total_return_from_slice(cumulative_rows, daily_results_df))
 
 
 def _get_benchmark_cumulative_return_to_date(
@@ -398,9 +392,7 @@ def calculate_twr_response(
         engine_df = create_engine_dataframe([item.model_dump() for item in performance_request.valuation_points])
         daily_results_df, engine_diagnostics = run_calculations(engine_df, engine_config)
         benchmark_artifacts = (
-            calculate_benchmark_artifacts(benchmark_request)
-            if benchmark_request is not None
-            else None
+            calculate_benchmark_artifacts(benchmark_request) if benchmark_request is not None else None
         )
     except Exception as exc:
         execution_registry.fail_stage(performance_request.calculation_id, "execution", str(exc))
@@ -549,13 +541,9 @@ def calculate_twr_response(
     }
     if benchmark_artifacts is not None:
         execution_details["benchmark_daily_returns"] = len(benchmark_artifacts.daily_returns_df)
-        execution_details["benchmark_component_contributions"] = len(
-            benchmark_artifacts.component_contributions_df
-        )
+        execution_details["benchmark_component_contributions"] = len(benchmark_artifacts.component_contributions_df)
         calculation_details["benchmark_daily_returns.csv"] = benchmark_artifacts.daily_returns_df
-        calculation_details["benchmark_component_contributions.csv"] = (
-            benchmark_artifacts.component_contributions_df
-        )
+        calculation_details["benchmark_component_contributions.csv"] = benchmark_artifacts.component_contributions_df
 
     complete_execution_with_lineage(
         calculation_id=performance_request.calculation_id,

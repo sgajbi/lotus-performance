@@ -204,9 +204,7 @@ async def test_build_stateful_benchmark_input_rejects_uncovered_composition_date
         async def get_benchmark_composition_window(self, **kwargs):  # noqa: ARG002
             status_code, payload = await super().get_benchmark_composition_window(**kwargs)
             payload["segments"] = [
-                segment
-                for segment in payload["segments"]
-                if segment["composition_effective_from"] != "2026-01-03"
+                segment for segment in payload["segments"] if segment["composition_effective_from"] != "2026-01-03"
             ]
             return status_code, payload
 

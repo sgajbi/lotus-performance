@@ -353,7 +353,9 @@ def _resolve_async_benchmark_job_request(
     resolved_request_payload = payload.get("resolved_request")
     source_input_mode = payload.get("source_input_mode")
     if isinstance(resolved_request_payload, dict) and isinstance(source_input_mode, str):
-        return BenchmarkPerformanceRequest.model_validate(resolved_request_payload), BenchmarkInputMode(source_input_mode)
+        return BenchmarkPerformanceRequest.model_validate(resolved_request_payload), BenchmarkInputMode(
+            source_input_mode
+        )
     try:
         request = BenchmarkPerformanceRequest.model_validate(payload)
     except ValidationError:

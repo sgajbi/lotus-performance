@@ -434,10 +434,14 @@ def _build_benchmark_groups(
                     "weight_bop": weight_sum,
                     "return_base": group_return,
                     "return_local": (
-                        Decimal("0") if weight_sum == 0 else grouped[key_tuple][series_date]["weighted_local_return_sum"] / weight_sum
+                        Decimal("0")
+                        if weight_sum == 0
+                        else grouped[key_tuple][series_date]["weighted_local_return_sum"] / weight_sum
                     ),
                     "return_fx": (
-                        Decimal("0") if weight_sum == 0 else grouped[key_tuple][series_date]["weighted_fx_return_sum"] / weight_sum
+                        Decimal("0")
+                        if weight_sum == 0
+                        else grouped[key_tuple][series_date]["weighted_fx_return_sum"] / weight_sum
                     ),
                 }
             )

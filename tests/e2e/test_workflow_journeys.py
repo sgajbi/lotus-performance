@@ -50,7 +50,11 @@ def _patch_shared_stateful_benchmark_sources(monkeypatch) -> None:
                 "observations": [
                     {"valuation_date": "2026-02-23", "beginning_market_value": "1000", "ending_market_value": "1010"},
                     {"valuation_date": "2026-02-24", "beginning_market_value": "1010", "ending_market_value": "1020.1"},
-                    {"valuation_date": "2026-02-25", "beginning_market_value": "1020.1", "ending_market_value": "1030.301"},
+                    {
+                        "valuation_date": "2026-02-25",
+                        "beginning_market_value": "1020.1",
+                        "ending_market_value": "1030.301",
+                    },
                 ],
             },
         )
@@ -63,7 +67,11 @@ def _patch_shared_stateful_benchmark_sources(monkeypatch) -> None:
                 "observations": [
                     {"valuation_date": "2026-02-23", "beginning_market_value": "1000", "ending_market_value": "1010"},
                     {"valuation_date": "2026-02-24", "beginning_market_value": "1010", "ending_market_value": "1020.1"},
-                    {"valuation_date": "2026-02-25", "beginning_market_value": "1020.1", "ending_market_value": "1030.301"},
+                    {
+                        "valuation_date": "2026-02-25",
+                        "beginning_market_value": "1020.1",
+                        "ending_market_value": "1030.301",
+                    },
                 ],
             },
         )
@@ -520,16 +528,13 @@ def test_e2e_shared_stateful_benchmark_engine_stays_consistent_across_surfaces(m
     returns_series_cumulative_benchmark_return = Decimal(
         returns_series_body["series"]["cumulative_benchmark_returns"][-1]["return_value"]
     )
-    twr_cumulative_relative_return = (
-        Decimal(
-            str(
-                twr_body["results_by_period"]["YTD"]["relative_performance"]["breakdowns"]["daily"][-1][
-                    "cumulative_return"
-                ]["base"]
-            )
+    twr_cumulative_relative_return = Decimal(
+        str(
+            twr_body["results_by_period"]["YTD"]["relative_performance"]["breakdowns"]["daily"][-1][
+                "cumulative_return"
+            ]["base"]
         )
-        / Decimal("100")
-    )
+    ) / Decimal("100")
     returns_series_cumulative_active_return = Decimal(
         returns_series_body["series"]["cumulative_active_returns"][-1]["return_value"]
     )
@@ -666,15 +671,15 @@ def test_e2e_stateful_twr_returns_series_and_contribution_stay_consistent(monkey
     twr_relative_return = Decimal(str(twr_ytd["relative_performance"]["summary"]["period_return"]["base"]))
     contribution_total = Decimal(str(contribution_itd["total_contribution"]))
     contribution_total_portfolio_return = Decimal(str(contribution_itd["total_portfolio_return"]))
-    returns_series_cumulative_portfolio = (
-        Decimal(str(returns_series_body["series"]["cumulative_portfolio_returns"][-1]["return_value"])) * Decimal("100")
-    )
-    returns_series_cumulative_benchmark = (
-        Decimal(str(returns_series_body["series"]["cumulative_benchmark_returns"][-1]["return_value"])) * Decimal("100")
-    )
-    returns_series_cumulative_active = (
-        Decimal(str(returns_series_body["series"]["cumulative_active_returns"][-1]["return_value"])) * Decimal("100")
-    )
+    returns_series_cumulative_portfolio = Decimal(
+        str(returns_series_body["series"]["cumulative_portfolio_returns"][-1]["return_value"])
+    ) * Decimal("100")
+    returns_series_cumulative_benchmark = Decimal(
+        str(returns_series_body["series"]["cumulative_benchmark_returns"][-1]["return_value"])
+    ) * Decimal("100")
+    returns_series_cumulative_active = Decimal(
+        str(returns_series_body["series"]["cumulative_active_returns"][-1]["return_value"])
+    ) * Decimal("100")
 
     assert contribution_body["input_mode"] == "stateful"
     assert returns_series_body["benchmark_context"] == {
@@ -688,7 +693,9 @@ def test_e2e_stateful_twr_returns_series_and_contribution_stay_consistent(monkey
     assert float(returns_series_cumulative_benchmark) == pytest.approx(float(twr_benchmark_return))
     assert float(returns_series_cumulative_active) == pytest.approx(float(twr_relative_return))
 
-    assert contribution_itd["position_contributions"][0]["total_contribution"] == pytest.approx(float(contribution_total))
+    assert contribution_itd["position_contributions"][0]["total_contribution"] == pytest.approx(
+        float(contribution_total)
+    )
     contribution_daily_totals = [point["total_contribution"] for point in contribution_itd["timeseries"]]
     by_position_daily = [point["contribution"] for point in contribution_itd["by_position_timeseries"][0]["series"]]
     assert contribution_daily_totals == pytest.approx(by_position_daily)
