@@ -611,9 +611,10 @@ def test_stateful_attribution_group_by_and_benchmark_validation_errors():
 def test_stateful_attribution_parsers_filter_invalid_rows():
     assert _split_position_cash_flows(None) == (0, 0)
     assert _split_position_cash_flows(["bad", {"amount": None, "timing": "bod"}]) == (0, 0)
-    assert _split_position_cash_flows(
-        [{"amount": "4", "timing": "bod"}, {"amount": "-1", "timing": "eod"}]
-    ) == (Decimal("4"), Decimal("-1"))
+    assert _split_position_cash_flows([{"amount": "4", "timing": "bod"}, {"amount": "-1", "timing": "eod"}]) == (
+        Decimal("4"),
+        Decimal("-1"),
+    )
     assert _position_meta_from_row(
         {
             "security_id": "SEC_1",

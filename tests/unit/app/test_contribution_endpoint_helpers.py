@@ -342,30 +342,42 @@ def test_average_weight_shadow_helper_classifies_materiality_and_cutover_readine
         position_reset_without_portfolio_reset_days=0,
         timeseries_total_delta_periods=1,
     ) == {"weight_residual", "flow_balance", "reset_alignment", "timeseries_reconciliation"}
-    assert _classify_average_weight_methodology_status(
-        max_shadow_delta_bp=600,
-        is_cutover_candidate=False,
-        is_promoted=False,
-        blocker_reason_codes={"flow_balance"},
-    ) == "BLOCKED"
-    assert _classify_average_weight_methodology_status(
-        max_shadow_delta_bp=600,
-        is_cutover_candidate=True,
-        is_promoted=True,
-        blocker_reason_codes=set(),
-    ) == "PROMOTED"
-    assert _classify_average_weight_methodology_status(
-        max_shadow_delta_bp=600,
-        is_cutover_candidate=False,
-        is_promoted=False,
-        blocker_reason_codes=set(),
-    ) == "UNDER_REVIEW"
-    assert _classify_average_weight_methodology_status(
-        max_shadow_delta_bp=0,
-        is_cutover_candidate=False,
-        is_promoted=False,
-        blocker_reason_codes=set(),
-    ) == "NO_MATERIAL_SHADOW"
+    assert (
+        _classify_average_weight_methodology_status(
+            max_shadow_delta_bp=600,
+            is_cutover_candidate=False,
+            is_promoted=False,
+            blocker_reason_codes={"flow_balance"},
+        )
+        == "BLOCKED"
+    )
+    assert (
+        _classify_average_weight_methodology_status(
+            max_shadow_delta_bp=600,
+            is_cutover_candidate=True,
+            is_promoted=True,
+            blocker_reason_codes=set(),
+        )
+        == "PROMOTED"
+    )
+    assert (
+        _classify_average_weight_methodology_status(
+            max_shadow_delta_bp=600,
+            is_cutover_candidate=False,
+            is_promoted=False,
+            blocker_reason_codes=set(),
+        )
+        == "UNDER_REVIEW"
+    )
+    assert (
+        _classify_average_weight_methodology_status(
+            max_shadow_delta_bp=0,
+            is_cutover_candidate=False,
+            is_promoted=False,
+            blocker_reason_codes=set(),
+        )
+        == "NO_MATERIAL_SHADOW"
+    )
 
 
 def test_contribution_endpoint_helpers_build_execution_windows_and_offload_flags(mocker):
@@ -427,12 +439,17 @@ def test_contribution_endpoint_helpers_build_execution_windows_and_offload_flags
     assert _build_execution_window(stateless_request)["position_count"] == 2
     assert _build_execution_window(nested_stateless_request)["position_count"] == 1
     assert _build_execution_window(stateful_request)["position_count"] == 0
-    assert _build_execution_window(stateful_request, source_request_fingerprint="fp")["source_request_fingerprint"] == "fp"
-    assert _build_resolved_contribution_execution_window(
-        stateful_request,
-        position_count=5,
-        source_request_fingerprint="fp",
-    )["position_count"] == 5
+    assert (
+        _build_execution_window(stateful_request, source_request_fingerprint="fp")["source_request_fingerprint"] == "fp"
+    )
+    assert (
+        _build_resolved_contribution_execution_window(
+            stateful_request,
+            position_count=5,
+            source_request_fingerprint="fp",
+        )["position_count"]
+        == 5
+    )
 
 
 def test_contribution_endpoint_helpers_build_accepted_response():

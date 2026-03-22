@@ -467,6 +467,9 @@ def test_benchmark_endpoint_helpers_cover_missing_stateless_input_and_sync_async
 
     assert benchmark_endpoint._should_preemptively_offload_stateful_benchmark(request) is True
     assert benchmark_endpoint._should_offload_benchmark(request) is True
-    assert benchmark_endpoint._should_persist_resolved_benchmark_request(
-        SimpleNamespace(input_mode=BenchmarkInputMode.STATELESS, stateless_input=None)
-    ) is False
+    assert (
+        benchmark_endpoint._should_persist_resolved_benchmark_request(
+            SimpleNamespace(input_mode=BenchmarkInputMode.STATELESS, stateless_input=None)
+        )
+        is False
+    )
