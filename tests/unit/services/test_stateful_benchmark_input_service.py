@@ -316,9 +316,7 @@ async def test_build_stateful_benchmark_input_requires_fx_for_non_benchmark_curr
     class _MissingFxPointStub(_StatefulInputServiceStub):
         async def get_fx_rates(self, **kwargs):  # noqa: ARG002
             status_code, payload = await super().get_fx_rates(**kwargs)
-            payload["points"] = [
-                point for point in payload["points"] if point["series_date"] != "2026-01-03"
-            ]
+            payload["points"] = [point for point in payload["points"] if point["series_date"] != "2026-01-03"]
             return status_code, payload
 
     with pytest.raises(HTTPException, match="Missing FX rate for EUR/USD on 2026-01-03"):
@@ -797,13 +795,16 @@ def test_build_normalized_component_series_skips_invalid_points_and_rejects_miss
 
 
 def test_normalization_and_metadata_helpers_cover_direct_contracts():
-    assert _normalize_price_to_benchmark_currency(
-        component_currency="USD",
-        benchmark_currency="USD",
-        price=10,
-        price_date=date(2026, 1, 2),
-        fx_map_by_pair={},
-    ) == 10
+    assert (
+        _normalize_price_to_benchmark_currency(
+            component_currency="USD",
+            benchmark_currency="USD",
+            price=10,
+            price_date=date(2026, 1, 2),
+            fx_map_by_pair={},
+        )
+        == 10
+    )
 
     with pytest.raises(HTTPException, match="Missing FX rate for EUR/USD"):
         _normalize_price_to_benchmark_currency(

@@ -1864,13 +1864,10 @@ def test_contribution_service_classifies_timeseries_reconciliation_as_cutover_bl
     assert response.audit.counts["average_weight_shadow_blocked_periods"] == 1
     assert response.audit.counts["average_weight_shadow_blocked_by_timeseries_delta_periods"] == 1
     assert any(
-        "daily contribution series still drifted from the residual-adjusted period total"
-        in note
+        "daily contribution series still drifted from the residual-adjusted period total" in note
         for note in response.diagnostics.notes
     )
-    assert any(
-        "do not sum to the residual-adjusted period total" in note for note in response.diagnostics.notes
-    )
+    assert any("do not sum to the residual-adjusted period total" in note for note in response.diagnostics.notes)
 
 
 def test_attribution_service_uses_runtime_app_version(mocker):
