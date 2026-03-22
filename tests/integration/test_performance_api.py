@@ -333,6 +333,52 @@ def test_twr_supports_stateful_input_mode(client, monkeypatch):
     assert body["results_by_period"]["YTD"]["portfolio"]["summary"]["period_return"]["base"] == pytest.approx(2.01)
 
 
+def test_twr_supports_explicit_period_for_stateful_requests(client, monkeypatch):
+    async def _mock_fetch_stateful_portfolio_timeseries(**kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2024-12-31",
+                "observations": [
+                    {"valuation_date": "2025-01-01", "beginning_market_value": "1000", "ending_market_value": "1100"},
+                    {"valuation_date": "2025-01-02", "beginning_market_value": "1100", "ending_market_value": "1111"},
+                    {
+                        "valuation_date": "2025-01-03",
+                        "beginning_market_value": "1111",
+                        "ending_market_value": "1122.11",
+                    },
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.stateful_performance_input_service.fetch_stateful_portfolio_timeseries",
+        _mock_fetch_stateful_portfolio_timeseries,
+    )
+
+    payload = {
+        "portfolio_id": "STATEFUL_TWR_EXPLICIT",
+        "performance_start_date": "2024-12-31",
+        "report_start_date": "2025-01-02",
+        "report_end_date": "2025-01-03",
+        "metric_basis": "NET",
+        "analyses": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {},
+    }
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    explicit_result = body["results_by_period"]["EXPLICIT"]["portfolio"]
+    assert explicit_result["summary"]["period_return"]["base"] == pytest.approx(2.01)
+    assert [row["period"] for row in explicit_result["breakdowns"]["daily"]] == [
+        "2025-01-02",
+        "2025-01-03",
+    ]
+
+
 def test_twr_generates_calculation_id_when_omitted_for_benchmark_request(client):
     payload = {
         "portfolio_id": "TWR_BENCHMARK_GENERATED_ID",
@@ -590,6 +636,78 @@ def test_twr_supports_include_benchmark_without_nested_stateful_benchmark_config
     }
     assert body["results_by_period"]["YTD"]["benchmark"]["benchmark_id"] == "BMK_ASSIGNED_DEFAULT"
     assert body["results_by_period"]["YTD"]["benchmark"]["input_mode"] == "stateful"
+
+
+def test_twr_supports_explicit_window_with_stateless_benchmark_in_stateful_mode(client, monkeypatch):
+    async def _mock_fetch_stateful_portfolio_timeseries(**kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2026-03-16",
+                "observations": [
+                    {
+                        "valuation_date": "2026-03-16",
+                        "beginning_market_value": "0",
+                        "ending_market_value": "20000",
+                        "external_flow": "20000",
+                    },
+                    {
+                        "valuation_date": "2026-03-17",
+                        "beginning_market_value": "20000",
+                        "ending_market_value": "20100",
+                        "external_flow": "0",
+                    },
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.stateful_performance_input_service.fetch_stateful_portfolio_timeseries",
+        _mock_fetch_stateful_portfolio_timeseries,
+    )
+
+    payload = {
+        "portfolio_id": "STATEFUL_TWR_EXPLICIT_BENCHMARK",
+        "performance_start_date": "2026-03-16",
+        "report_start_date": "2026-03-17",
+        "report_end_date": "2026-03-17",
+        "metric_basis": "NET",
+        "include_benchmark": True,
+        "analyses": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {},
+        "benchmark": {
+            "benchmark_id": "BMK_EXPLICIT_TWR",
+            "input_mode": "stateless",
+            "return_source": "calculated",
+            "stateless_input": {
+                "benchmark_currency": "USD",
+                "component_observations": [
+                    {
+                        "component_id": "IDX_A",
+                        "perf_date": "2026-03-16",
+                        "weight_bop": 1.0,
+                        "component_return": 0.0,
+                    },
+                    {
+                        "component_id": "IDX_A",
+                        "perf_date": "2026-03-17",
+                        "weight_bop": 1.0,
+                        "component_return": 0.004,
+                    },
+                ],
+            },
+        },
+    }
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    explicit = body["results_by_period"]["EXPLICIT"]
+    assert explicit["portfolio"]["summary"]["period_return"]["base"] == pytest.approx(0.5)
+    assert explicit["benchmark"]["summary"]["period_return"]["base"] == pytest.approx(0.4)
+    assert explicit["relative_performance"]["summary"]["period_return"]["base"] == pytest.approx(0.1)
 
 
 def test_twr_records_http_failure_detail_in_execution_status(client, monkeypatch):

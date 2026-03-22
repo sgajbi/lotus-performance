@@ -115,3 +115,30 @@ def test_benchmark_performance_request_accepts_valid_calculated_and_vendor_paylo
     assert calculated.component_observations[0].component_return_fx == 0.002
     assert vendor.return_source == "vendor_series"
     assert vendor.benchmark_return_points[0].benchmark_return == 0.01
+
+
+def test_benchmark_performance_request_requires_report_start_date_for_explicit_period(base_payload):
+    explicit_payload = {
+        **base_payload,
+        "analyses": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
+        "component_observations": [
+            {
+                "component_id": "IDX_1",
+                "perf_date": "2025-01-02",
+                "weight_bop": 1.0,
+                "component_return": 0.01,
+            }
+        ],
+    }
+
+    with pytest.raises(ValidationError, match="report_start_date is required when analyses include EXPLICIT"):
+        BenchmarkPerformanceRequest.model_validate(explicit_payload)
+
+    request = BenchmarkPerformanceRequest.model_validate(
+        {
+            **explicit_payload,
+            "report_start_date": "2025-01-02",
+        }
+    )
+
+    assert request.report_start_date == date(2025, 1, 2)

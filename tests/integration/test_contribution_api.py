@@ -132,6 +132,50 @@ def test_contribution_endpoint_multi_period(client):
     assert "YTD" in results
 
 
+def test_contribution_endpoint_supports_explicit_period_windows(client):
+    payload = {
+        "portfolio_id": "CONTRIB_EXPLICIT_WINDOW",
+        "report_start_date": "2025-01-02",
+        "report_end_date": "2025-01-03",
+        "analyses": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1100},
+                {"perf_date": "2025-01-02", "begin_mv": 1100, "end_mv": 1111},
+                {"perf_date": "2025-01-03", "begin_mv": 1111, "end_mv": 1122.11},
+            ],
+        },
+        "positions_data": [
+            {
+                "position_id": "Stock_A",
+                "valuation_points": [
+                    {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1100},
+                    {"perf_date": "2025-01-02", "begin_mv": 1100, "end_mv": 1111},
+                    {"perf_date": "2025-01-03", "begin_mv": 1111, "end_mv": 1122.11},
+                ],
+            }
+        ],
+        "emit": {"timeseries": True, "by_position_timeseries": True},
+    }
+
+    response = client.post("/performance/contribution", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    explicit_result = body["results_by_period"]["EXPLICIT"]
+    assert explicit_result["total_portfolio_return"] == pytest.approx(2.01)
+    assert explicit_result["total_contribution"] == pytest.approx(2.01)
+    assert [point["date"] for point in explicit_result["timeseries"]] == [
+        "2025-01-02",
+        "2025-01-03",
+    ]
+    assert [point["date"] for point in explicit_result["by_position_timeseries"][0]["series"]] == [
+        "2025-01-02",
+        "2025-01-03",
+    ]
+
+
 def test_contribution_endpoint_multi_currency(client):
     """Tests an end-to-end multi-currency contribution request."""
     payload = {
@@ -299,7 +343,9 @@ def test_contribution_endpoint_no_resolved_periods_returns_400(client):
     from app.services import contribution_service
 
     original_resolve_periods = contribution_service.resolve_periods
-    contribution_service.resolve_periods = lambda periods, end_date, inception_date: []  # type: ignore[assignment]
+    contribution_service.resolve_periods = (  # type: ignore[assignment]
+        lambda periods, end_date, inception_date, **kwargs: []
+    )
     try:
         response = client.post("/performance/contribution", json=payload)
     finally:
@@ -657,6 +703,107 @@ def test_contribution_supports_stateful_input_mode(client, monkeypatch):
     assert body["portfolio_id"] == "CONTRIB_STATEFUL"
     assert body["input_mode"] == "stateful"
     assert "ITD" in body["results_by_period"]
+
+
+def test_contribution_stateful_cash_only_external_flows_do_not_create_position_flow_residuals(client, monkeypatch):
+    async def _mock_retrieve_stateful_contribution_source_input(**kwargs):  # noqa: ARG001
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            portfolio_input=SimpleNamespace(
+                observations=[
+                    {
+                        "valuation_date": "2025-01-17",
+                        "beginning_market_value": "10000",
+                        "ending_market_value": "10000",
+                        "cash_flows": [],
+                    },
+                    {
+                        "valuation_date": "2025-01-18",
+                        "beginning_market_value": "10000",
+                        "ending_market_value": "15000",
+                        "cash_flows": [{"amount": "5000", "timing": "bod", "cash_flow_type": "external_flow"}],
+                    },
+                    {
+                        "valuation_date": "2025-01-19",
+                        "beginning_market_value": "15000",
+                        "ending_market_value": "13000",
+                        "cash_flows": [{"amount": "-2000", "timing": "eod", "cash_flow_type": "external_flow"}],
+                    },
+                    {
+                        "valuation_date": "2025-01-20",
+                        "beginning_market_value": "13000",
+                        "ending_market_value": "13000",
+                        "cash_flows": [],
+                    },
+                ],
+            ),
+            position_rows=[
+                {
+                    "position_id": "CASH_USD_1",
+                    "security_id": "CASH_USD_1",
+                    "valuation_date": "2025-01-17",
+                    "beginning_market_value_portfolio_currency": "10000",
+                    "ending_market_value_portfolio_currency": "10000",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Cash"},
+                },
+                {
+                    "position_id": "CASH_USD_1",
+                    "security_id": "CASH_USD_1",
+                    "valuation_date": "2025-01-18",
+                    "beginning_market_value_portfolio_currency": "10000",
+                    "ending_market_value_portfolio_currency": "15000",
+                    "cash_flows": [{"amount": "5000", "timing": "bod", "cash_flow_type": "external_flow"}],
+                    "dimensions": {"sector": "Cash"},
+                },
+                {
+                    "position_id": "CASH_USD_1",
+                    "security_id": "CASH_USD_1",
+                    "valuation_date": "2025-01-19",
+                    "beginning_market_value_portfolio_currency": "15000",
+                    "ending_market_value_portfolio_currency": "13000",
+                    "cash_flows": [{"amount": "-2000", "timing": "eod", "cash_flow_type": "external_flow"}],
+                    "dimensions": {"sector": "Cash"},
+                },
+                {
+                    "position_id": "CASH_USD_1",
+                    "security_id": "CASH_USD_1",
+                    "valuation_date": "2025-01-20",
+                    "beginning_market_value_portfolio_currency": "13000",
+                    "ending_market_value_portfolio_currency": "13000",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Cash"},
+                },
+            ],
+        )
+
+    monkeypatch.setattr(
+        "app.services.contribution_mode_service.retrieve_stateful_contribution_source_input",
+        _mock_retrieve_stateful_contribution_source_input,
+    )
+
+    payload = {
+        "portfolio_id": "CONTRIB_STATEFUL_CASH_ONLY",
+        "report_start_date": "2025-01-17",
+        "report_end_date": "2025-01-20",
+        "analyses": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
+        "emit": {"timeseries": True},
+        "input_mode": "stateful",
+        "stateful_input": {"metric_basis": "NET"},
+    }
+
+    response = client.post("/performance/contribution", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    explicit = body["results_by_period"]["EXPLICIT"]
+    assert explicit["total_portfolio_return"] == pytest.approx(0.0)
+    assert explicit["total_contribution"] == pytest.approx(0.0)
+    assert body["audit"]["counts"]["position_flow_residual_days"] == 0
+    assert body["audit"]["counts"]["position_flow_residual_max_bp"] == 0
+    assert body["audit"]["counts"]["position_flow_residual_sum_bp"] == 0
+    assert not any("non-flow-neutral scoped slice" in note for note in body["diagnostics"]["notes"])
 
 
 def test_contribution_stateful_converts_non_base_cash_flows_using_explicit_fx_metadata(client, monkeypatch):

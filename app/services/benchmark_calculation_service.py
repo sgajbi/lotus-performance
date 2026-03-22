@@ -48,6 +48,7 @@ def calculate_benchmark_artifacts(
         periods_to_resolve,
         benchmark_request.report_end_date,
         benchmark_request.benchmark_start_date,
+        explicit_start_date=benchmark_request.report_start_date,
     )
 
     if benchmark_request.return_source == "calculated":

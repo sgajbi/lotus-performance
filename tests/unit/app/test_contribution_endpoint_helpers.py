@@ -199,6 +199,7 @@ def test_calculate_position_flow_balance_counts_sizes_non_flow_neutral_days():
             "perf_date": [pd.Timestamp("2025-01-01").date(), pd.Timestamp("2025-01-02").date()],
             "begin_mv": [1000, 1000],
             "bod_cf": [0, 0],
+            "eod_cf": [0, 0],
         }
     )
 

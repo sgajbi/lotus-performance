@@ -381,7 +381,12 @@ def calculate_twr_response(
         freqs_by_period = {analysis.period.value: analysis.frequencies for analysis in performance_request.analyses}
 
         as_of_date = performance_request.report_end_date
-        resolved_periods = resolve_periods(periods_to_resolve, as_of_date, performance_request.performance_start_date)
+        resolved_periods = resolve_periods(
+            periods_to_resolve,
+            as_of_date,
+            performance_request.performance_start_date,
+            explicit_start_date=performance_request.report_start_date,
+        )
         if not resolved_periods:
             raise HTTPException(status_code=400, detail="No valid periods could be resolved.")
 

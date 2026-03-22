@@ -30,7 +30,7 @@ def normalize_stateless_component_observations(
     raise HTTPException(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         detail=(
-            "stateless benchmark calculated mode requires either component_observations " "or component_price_points."
+            "stateless benchmark calculated mode requires either component_observations or component_price_points."
         ),
     )
 

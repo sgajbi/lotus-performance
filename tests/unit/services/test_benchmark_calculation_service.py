@@ -114,7 +114,7 @@ def test_calculate_benchmark_artifacts_skips_empty_period_slices(monkeypatch):
     monkeypatch.setattr(
         benchmark_calculation_service,
         "resolve_periods",
-        lambda periods, report_end_date, benchmark_start_date: [
+        lambda periods, report_end_date, benchmark_start_date, explicit_start_date=None: [
             type("Period", (), {"name": "EMPTY", "start_date": date(2024, 1, 1), "end_date": date(2024, 1, 2)})(),
             type("Period", (), {"name": "ITD", "start_date": date(2025, 1, 1), "end_date": date(2025, 1, 2)})(),
         ],
@@ -171,3 +171,39 @@ def test_benchmark_breakdowns_label_weekly_quarterly_and_yearly_periods():
     assert breakdowns[Frequency.WEEKLY][0].period == "2025-01-03"
     assert breakdowns[Frequency.QUARTERLY][0].period == "2025-Q1"
     assert breakdowns[Frequency.YEARLY][0].period == "2025"
+
+
+def test_calculate_benchmark_artifacts_supports_explicit_period_window():
+    request = BenchmarkPerformanceRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "benchmark_id": "BMK_EXPLICIT",
+            "benchmark_start_date": "2025-01-01",
+            "report_start_date": "2025-01-02",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
+            "return_source": "calculated",
+            "benchmark_currency": "USD",
+            "output": {"include_timeseries": True},
+            "component_observations": [
+                {
+                    "component_id": "IDX_1",
+                    "perf_date": "2025-01-01",
+                    "weight_bop": 1.0,
+                    "component_return": 0.01,
+                },
+                {
+                    "component_id": "IDX_1",
+                    "perf_date": "2025-01-02",
+                    "weight_bop": 1.0,
+                    "component_return": 0.02,
+                },
+            ],
+        }
+    )
+
+    artifacts = benchmark_calculation_service.calculate_benchmark_artifacts(request)
+
+    explicit = artifacts.results_by_period["EXPLICIT"]
+    assert explicit.benchmark.summary.period_return.base == pytest.approx(2.0)
+    assert len(explicit.daily_returns or []) == 1

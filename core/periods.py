@@ -63,12 +63,32 @@ def resolve_period(period_model: Periods, as_of: date) -> Tuple[date, date]:
     return start_date, end_date
 
 
-def resolve_periods(periods: List[PeriodType], as_of: date, performance_start_date: date) -> List[ResolvedPeriod]:
+def resolve_periods(
+    periods: List[PeriodType],
+    as_of: date,
+    performance_start_date: date,
+    *,
+    explicit_start_date: date | None = None,
+) -> List[ResolvedPeriod]:
     """
     Resolves a list of PeriodType enums into a list of concrete period objects.
     """
     resolved_list = []
     for period_enum in periods:
+        if period_enum == PeriodType.EXPLICIT:
+            if explicit_start_date is None:
+                raise APIBadRequestError(
+                    "EXPLICIT period requests require report_start_date so the window can be resolved."
+                )
+            resolved_list.append(
+                ResolvedPeriod(
+                    name=period_enum.value,
+                    start_date=explicit_start_date,
+                    end_date=as_of,
+                )
+            )
+            continue
+
         # We wrap the enum in the legacy Periods model to reuse the existing logic.
         # This can be refactored later if the Periods model is fully removed.
         period_model = Periods(type=period_enum.value)

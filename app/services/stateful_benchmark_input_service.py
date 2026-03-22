@@ -478,9 +478,7 @@ def _build_component_observations(
             if previous_price == 0:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail=(
-                        f"Normalized benchmark price is zero for component {segment.index_id} " f"on {previous_date}."
-                    ),
+                    detail=(f"Normalized benchmark price is zero for component {segment.index_id} on {previous_date}."),
                 )
             local_previous_price = local_prices[previous_date]
             local_current_price = local_prices[point_date]

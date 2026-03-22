@@ -1057,13 +1057,17 @@ def test_e2e_multi_position_reset_heavy_contribution_keeps_tie_out_and_surfaces_
     assert contribution_body["audit"]["counts"]["average_weight_shadow_delta_max_bp"] > 0
     assert contribution_body["audit"]["counts"]["average_weight_shadow_delta_sum_bp"] > 0
     assert contribution_body["audit"]["counts"]["average_weight_shadow_material_periods"] == 1
-    assert contribution_body["audit"]["counts"]["average_weight_shadow_cutover_candidate_periods"] == 0
+    assert contribution_body["audit"]["counts"]["average_weight_shadow_cutover_candidate_periods"] == 1
     assert contribution_body["audit"]["counts"]["average_weight_sum_residual_bp"] == 0
     assert contribution_body["audit"]["counts"]["carino_invalid_domain_days"] == 1
     assert any(
         "Reset-aware average-weight shadow differs" in note for note in contribution_body["diagnostics"]["notes"]
     )
     assert any("differs materially" in note for note in contribution_body["diagnostics"]["notes"])
+    assert any(
+        "strong candidates for a future denominator cutover study" in note
+        for note in contribution_body["diagnostics"]["notes"]
+    )
     assert any(
         "Carino smoothing fell back to raw daily contribution arithmetic" in note
         for note in contribution_body["diagnostics"]["notes"]
@@ -1148,13 +1152,17 @@ def test_e2e_asymmetric_reset_heavy_contribution_keeps_tie_out_while_exposing_we
         >= contribution_body["audit"]["counts"]["average_weight_shadow_delta_max_bp"]
     )
     assert contribution_body["audit"]["counts"]["average_weight_shadow_material_periods"] == 1
-    assert contribution_body["audit"]["counts"]["average_weight_shadow_cutover_candidate_periods"] == 0
+    assert contribution_body["audit"]["counts"]["average_weight_shadow_cutover_candidate_periods"] == 1
     assert contribution_body["audit"]["counts"]["average_weight_sum_residual_bp"] == 0
     assert contribution_body["audit"]["counts"]["carino_invalid_domain_days"] == 1
     assert any(
         "Reset-aware average-weight shadow differs" in note for note in contribution_body["diagnostics"]["notes"]
     )
     assert any("differs materially" in note for note in contribution_body["diagnostics"]["notes"])
+    assert any(
+        "strong candidates for a future denominator cutover study" in note
+        for note in contribution_body["diagnostics"]["notes"]
+    )
 
 
 def test_e2e_balanced_internal_position_flows_keep_flow_residual_silent() -> None:

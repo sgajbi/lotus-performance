@@ -36,7 +36,12 @@ def calculate_attribution(
         execution_registry.start_stage(request.calculation_id, "execution")
         execution_stage_started = True
         periods_to_resolve = [analysis.period for analysis in request.analyses]
-        resolved_periods = resolve_periods(periods_to_resolve, request.report_end_date, request.report_start_date)
+        resolved_periods = resolve_periods(
+            periods_to_resolve,
+            request.report_end_date,
+            request.report_start_date,
+            explicit_start_date=request.report_start_date,
+        )
 
         if not resolved_periods:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No valid periods could be resolved.")

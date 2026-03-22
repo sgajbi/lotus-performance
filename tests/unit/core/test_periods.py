@@ -76,10 +76,40 @@ def test_resolve_periods_multi():
     assert y1.end_date == date(2025, 8, 15)
 
 
+def test_resolve_periods_supports_explicit_request_windows():
+    """Explicit periods should resolve to the caller's requested report window."""
+    as_of = date(2025, 8, 15)
+    explicit_start = date(2025, 8, 5)
+
+    resolved = resolve_periods(
+        [PeriodType.EXPLICIT],
+        as_of,
+        performance_start_date=date(2020, 1, 1),
+        explicit_start_date=explicit_start,
+    )
+
+    assert len(resolved) == 1
+    assert resolved[0].name == PeriodType.EXPLICIT.value
+    assert resolved[0].start_date == explicit_start
+    assert resolved[0].end_date == as_of
+
+
 def test_resolve_periods_handles_empty_list():
     """Tests that the resolver returns an empty list if no periods are requested."""
     resolved = resolve_periods([], date(2025, 1, 1), date(2024, 1, 1))
     assert resolved == []
+
+
+def test_resolve_periods_requires_explicit_start_for_explicit_requests():
+    with pytest.raises(
+        APIBadRequestError,
+        match="EXPLICIT period requests require report_start_date",
+    ):
+        resolve_periods(
+            [PeriodType.EXPLICIT],
+            date(2025, 8, 15),
+            performance_start_date=date(2020, 1, 1),
+        )
 
 
 def test_resolve_period_explicit_requires_explicit_block():
