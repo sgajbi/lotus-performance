@@ -1,10 +1,36 @@
-import pandas as pd
+from uuid import uuid4
 
-from app.api.endpoints.contribution import _as_numeric
+import pandas as pd
+import pytest
+
+from app.api.endpoints.contribution import (
+    _accepted_response,
+    _as_numeric,
+    _build_execution_window,
+    _build_resolved_contribution_execution_window,
+    _should_offload_contribution,
+    _should_offload_resolved_contribution,
+    _should_preemptively_offload_stateful_contribution,
+)
+from app.models.contribution_analytics_requests import ContributionAnalyticsRequest
+from app.models.contribution_requests import ContributionRequest
 from app.services.contribution_service import (
+    _build_daily_contribution_series,
     _build_portfolio_engine_diagnostics,
+    _build_position_contribution_series,
+    _build_residual_adjusted_daily_contribution_series,
+    _build_residual_adjusted_position_timeseries,
+    _calculate_average_weight_sum_residual_bp,
+    _calculate_average_weight_sum_residual_bp_from_ratio_series,
     _calculate_grouped_return_reset_alignment_counts,
+    _calculate_position_flow_balance_counts,
+    _calculate_promotion_ready_rate_bp,
     _calculate_reset_aware_average_weight_shadow,
+    _classify_average_weight_methodology_status,
+    _classify_average_weight_shadow_cutover_blockers,
+    _classify_average_weight_shadow_period,
+    _is_average_weight_shadow_cutover_candidate,
+    _normalize_reset_aware_average_weight_mode,
 )
 
 
@@ -154,3 +180,265 @@ def test_calculate_grouped_return_reset_alignment_counts_detects_misaligned_rese
         "portfolio_reset_without_position_reset_days": 1,
         "position_reset_without_portfolio_reset_days": 1,
     }
+
+
+def test_calculate_position_flow_balance_counts_sizes_non_flow_neutral_days():
+    instruments_df = pd.DataFrame(
+        {
+            "perf_date": [
+                pd.Timestamp("2025-01-01").date(),
+                pd.Timestamp("2025-01-01").date(),
+                pd.Timestamp("2025-01-02").date(),
+            ],
+            "bod_cf": [100, -90, 0],
+            "eod_cf": [0, 0, 10],
+        }
+    )
+    portfolio_results_df = pd.DataFrame(
+        {
+            "perf_date": [pd.Timestamp("2025-01-01").date(), pd.Timestamp("2025-01-02").date()],
+            "begin_mv": [1000, 1000],
+            "bod_cf": [0, 0],
+        }
+    )
+
+    counts = _calculate_position_flow_balance_counts(instruments_df, portfolio_results_df)
+
+    assert counts == {
+        "position_flow_residual_days": 2,
+        "position_flow_residual_max_bp": 100,
+        "position_flow_residual_sum_bp": 200,
+    }
+
+
+def test_contribution_series_helpers_build_and_reconcile_daily_outputs():
+    period_slice_df = pd.DataFrame(
+        {
+            "position_id": ["A", "A", "B", "B"],
+            "perf_date": [
+                pd.Timestamp("2025-01-01").date(),
+                pd.Timestamp("2025-01-02").date(),
+                pd.Timestamp("2025-01-01").date(),
+                pd.Timestamp("2025-01-02").date(),
+            ],
+            "smoothed_contribution": [0.01, 0.01, 0.02, 0.00],
+            "daily_weight": [0.2, 0.8, 0.0, 0.0],
+        }
+    )
+    raw_daily = _build_daily_contribution_series(period_slice_df)
+    by_position = _build_position_contribution_series(period_slice_df)
+    adjusted_position_series = _build_residual_adjusted_position_timeseries(
+        period_slice_df,
+        [
+            type(
+                "PositionContributionLike",
+                (),
+                {"position_id": "A", "total_contribution": 3.0},
+            )(),
+            type(
+                "PositionContributionLike",
+                (),
+                {"position_id": "B", "total_contribution": 1.0},
+            )(),
+        ],
+    )
+    adjusted_daily = _build_residual_adjusted_daily_contribution_series(adjusted_position_series)
+
+    assert [point.total_contribution for point in raw_daily] == [3.0, 1.0]
+    assert by_position[0].position_id == "A"
+    assert [point.contribution for point in by_position[0].series] == [1.0, 1.0]
+    assert adjusted_position_series[0].position_id == "A"
+    assert [point.contribution for point in adjusted_position_series[0].series] == pytest.approx([1.2, 1.8])
+    assert [point.contribution for point in adjusted_position_series[1].series] == pytest.approx([1.5, -0.5])
+    assert [point.total_contribution for point in adjusted_daily] == pytest.approx([2.7, 1.3])
+
+
+def test_contribution_series_helpers_sort_and_handle_empty_shapes():
+    period_slice_df = pd.DataFrame(
+        {
+            "position_id": ["B", "A", "A"],
+            "perf_date": [
+                pd.Timestamp("2025-01-02").date(),
+                pd.Timestamp("2025-01-02").date(),
+                pd.Timestamp("2025-01-01").date(),
+            ],
+            "smoothed_contribution": [0.03, 0.02, 0.01],
+        }
+    )
+
+    daily_series = _build_daily_contribution_series(period_slice_df)
+    position_series = _build_position_contribution_series(period_slice_df)
+
+    assert [point.date for point in daily_series] == [
+        pd.Timestamp("2025-01-01").date(),
+        pd.Timestamp("2025-01-02").date(),
+    ]
+    assert [point.total_contribution for point in daily_series] == [1.0, 5.0]
+    assert [series.position_id for series in position_series] == ["A", "B"]
+    assert [point.date for point in position_series[0].series] == [
+        pd.Timestamp("2025-01-01").date(),
+        pd.Timestamp("2025-01-02").date(),
+    ]
+    assert _build_position_contribution_series(pd.DataFrame(columns=["position_id", "perf_date"])) == []
+
+
+def test_residual_adjusted_position_timeseries_handles_missing_targets_and_missing_weight_signal():
+    period_slice_df = pd.DataFrame(
+        {
+            "position_id": ["A", "A", "B"],
+            "perf_date": [
+                pd.Timestamp("2025-01-01").date(),
+                pd.Timestamp("2025-01-02").date(),
+                pd.Timestamp("2025-01-01").date(),
+            ],
+            "smoothed_contribution": [0.01, 0.02, 0.03],
+        }
+    )
+
+    adjusted_position_series = _build_residual_adjusted_position_timeseries(
+        period_slice_df,
+        [
+            type("PositionContributionLike", (), {"position_id": "A", "total_contribution": 6.0})(),
+        ],
+    )
+
+    assert [series.position_id for series in adjusted_position_series] == ["A", "B"]
+    assert [point.contribution for point in adjusted_position_series[0].series] == pytest.approx([2.5, 3.5])
+    assert [point.contribution for point in adjusted_position_series[1].series] == pytest.approx([0.0])
+    assert _build_residual_adjusted_position_timeseries(period_slice_df, []) == []
+
+
+def test_residual_adjusted_series_helpers_handle_empty_inputs():
+    assert _build_residual_adjusted_position_timeseries(pd.DataFrame(), []) == []
+    assert _build_residual_adjusted_daily_contribution_series([]) == []
+
+
+def test_average_weight_shadow_helper_classifies_materiality_and_cutover_readiness():
+    assert _classify_average_weight_shadow_period(50) == "noise"
+    assert _classify_average_weight_shadow_period(250) == "warning"
+    assert _classify_average_weight_shadow_period(600) == "material"
+    assert _normalize_reset_aware_average_weight_mode("candidate_periods") == "CANDIDATE_PERIODS"
+    assert _normalize_reset_aware_average_weight_mode("unknown") == "OFF"
+    assert _calculate_promotion_ready_rate_bp(ready_periods=2, material_periods=4) == 5000
+    assert _calculate_promotion_ready_rate_bp(ready_periods=0, material_periods=0) == 0
+    assert _calculate_average_weight_sum_residual_bp_from_ratio_series(pd.Series([0.95, 0.05])) == 0
+    assert _calculate_average_weight_sum_residual_bp_from_ratio_series(pd.Series([0.50, 0.40])) == 1000
+    assert _calculate_average_weight_sum_residual_bp_from_ratio_series(pd.Series(dtype=float)) == 0
+    assert _calculate_average_weight_sum_residual_bp([]) == 0
+
+    assert _is_average_weight_shadow_cutover_candidate(
+        max_shadow_delta_bp=600,
+        average_weight_sum_residual_bp=0,
+        position_flow_residual_days=0,
+        portfolio_reset_without_position_reset_days=0,
+        position_reset_without_portfolio_reset_days=0,
+        timeseries_total_delta_periods=0,
+    )
+    assert _classify_average_weight_shadow_cutover_blockers(
+        max_shadow_delta_bp=600,
+        average_weight_sum_residual_bp=50,
+        position_flow_residual_days=1,
+        portfolio_reset_without_position_reset_days=1,
+        position_reset_without_portfolio_reset_days=0,
+        timeseries_total_delta_periods=1,
+    ) == {"weight_residual", "flow_balance", "reset_alignment", "timeseries_reconciliation"}
+    assert _classify_average_weight_methodology_status(
+        max_shadow_delta_bp=600,
+        is_cutover_candidate=False,
+        is_promoted=False,
+        blocker_reason_codes={"flow_balance"},
+    ) == "BLOCKED"
+    assert _classify_average_weight_methodology_status(
+        max_shadow_delta_bp=600,
+        is_cutover_candidate=True,
+        is_promoted=True,
+        blocker_reason_codes=set(),
+    ) == "PROMOTED"
+    assert _classify_average_weight_methodology_status(
+        max_shadow_delta_bp=600,
+        is_cutover_candidate=False,
+        is_promoted=False,
+        blocker_reason_codes=set(),
+    ) == "UNDER_REVIEW"
+    assert _classify_average_weight_methodology_status(
+        max_shadow_delta_bp=0,
+        is_cutover_candidate=False,
+        is_promoted=False,
+        blocker_reason_codes=set(),
+    ) == "NO_MATERIAL_SHADOW"
+
+
+def test_contribution_endpoint_helpers_build_execution_windows_and_offload_flags(mocker):
+    stateless_request = ContributionRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+            },
+            "positions_data": [
+                {"position_id": "A", "valuation_points": []},
+                {"position_id": "B", "valuation_points": []},
+            ],
+        }
+    )
+    stateful_request = ContributionAnalyticsRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-02-15",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+    nested_stateless_request = ContributionAnalyticsRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_data": {
+                    "metric_basis": "NET",
+                    "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+                },
+                "positions_data": [{"position_id": "A", "valuation_points": []}],
+            },
+        }
+    )
+    mocker.patch(
+        "app.api.endpoints.contribution.get_settings",
+        return_value=type(
+            "Settings",
+            (),
+            {"CONTRIBUTION_EXECUTOR_POSITION_COUNT": 2, "CONTRIBUTION_EXECUTOR_WINDOW_DAYS": 30},
+        )(),
+    )
+
+    assert _should_offload_contribution(stateless_request) is True
+    assert _should_offload_contribution(nested_stateless_request) is False
+    assert _should_preemptively_offload_stateful_contribution(stateful_request) is True
+    assert _should_offload_resolved_contribution(2) is True
+    assert _build_execution_window(stateless_request)["position_count"] == 2
+    assert _build_execution_window(nested_stateless_request)["position_count"] == 1
+    assert _build_execution_window(stateful_request)["position_count"] == 0
+    assert _build_execution_window(stateful_request, source_request_fingerprint="fp")["source_request_fingerprint"] == "fp"
+    assert _build_resolved_contribution_execution_window(
+        stateful_request,
+        position_count=5,
+        source_request_fingerprint="fp",
+    )["position_count"] == 5
+
+
+def test_contribution_endpoint_helpers_build_accepted_response():
+    calculation_id = uuid4()
+    response = _accepted_response(calculation_id)
+
+    assert response.calculation_id == calculation_id
+    assert response.poll_path == f"/performance/executions/{calculation_id}"
+    assert response.result_path == f"/performance/contribution/results/{calculation_id}"

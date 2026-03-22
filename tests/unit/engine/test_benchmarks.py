@@ -104,3 +104,85 @@ def test_calculate_benchmark_returns_rejects_duplicate_component_rows():
                 ),
             ]
         )
+
+
+def test_calculate_benchmark_returns_rejects_empty_inputs_and_incomplete_local_fx_pairs():
+    with pytest.raises(ValueError, match="must not be empty"):
+        calculate_benchmark_returns([])
+
+    with pytest.raises(ValueError, match="must be supplied together"):
+        calculate_benchmark_returns(
+            [
+                BenchmarkComponentObservation(
+                    component_id="IDX_A",
+                    perf_date=date(2026, 1, 2),
+                    weight_bop=1.0,
+                    component_return=0.02,
+                    component_return_local=0.015,
+                )
+            ]
+        )
+
+    with pytest.raises(ValueError, match="must be populated for every observation"):
+        calculate_benchmark_returns(
+            [
+                BenchmarkComponentObservation(
+                    component_id="IDX_A",
+                    perf_date=date(2026, 1, 2),
+                    weight_bop=0.5,
+                    component_return=0.02,
+                    component_return_local=0.015,
+                    component_return_fx=0.005,
+                ),
+                BenchmarkComponentObservation(
+                    component_id="IDX_B",
+                    perf_date=date(2026, 1, 2),
+                    weight_bop=0.5,
+                    component_return=0.01,
+                ),
+            ]
+        )
+
+
+def test_calculate_benchmark_returns_notes_weight_sum_deviation_and_zero_weight_local_fx_rows():
+    result = calculate_benchmark_returns(
+        [
+            BenchmarkComponentObservation(
+                component_id="IDX_A",
+                perf_date=date(2026, 1, 2),
+                weight_bop=0.0,
+                component_return=0.0,
+                component_return_local=0.01,
+                component_return_fx=-0.01,
+            ),
+            BenchmarkComponentObservation(
+                component_id="IDX_B",
+                perf_date=date(2026, 1, 2),
+                weight_bop=0.8,
+                component_return=0.016,
+                component_return_local=0.02,
+                component_return_fx=0.0,
+            ),
+        ]
+    )
+
+    daily_row = result.daily_returns_df.to_dict(orient="records")[0]
+    assert float(daily_row["weight_sum"]) == pytest.approx(0.8)
+    assert float(daily_row["benchmark_return"]) == pytest.approx(0.0128)
+    assert float(daily_row["benchmark_return_local"]) == pytest.approx(0.02)
+    assert float(daily_row["benchmark_return_fx"]) == pytest.approx(0.0)
+    assert result.max_weight_sum_deviation == pytest.approx(0.2)
+    assert result.notes == ["Benchmark component weights do not sum exactly to 1.0 on every date."]
+
+
+def test_benchmark_return_points_to_dataframe_rejects_empty_and_duplicate_vendor_dates():
+    with pytest.raises(ValueError, match="must not be empty"):
+        benchmark_return_points_to_dataframe([])
+
+    with pytest.raises(ValueError, match="Duplicate benchmark_return_points"):
+        benchmark_return_points_to_dataframe(
+            [
+                BenchmarkReturnPoint(perf_date=date(2026, 1, 2), benchmark_return=0.012),
+                BenchmarkReturnPoint(perf_date=date(2026, 1, 2), benchmark_return=-0.004),
+            ]
+        )

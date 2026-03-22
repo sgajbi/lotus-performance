@@ -3,11 +3,16 @@ from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException
+from pydantic import ValidationError
 
 from app.models.benchmark_analytics_requests import BenchmarkInputMode
 from app.models.twr_requests import TWRAnalyticsRequest
 from app.services.execution_registry import execution_registry
-from app.services.twr_mode_service import resolve_twr_request
+from app.services.twr_mode_service import (
+    _build_resolved_twr_benchmark_request,
+    _resolve_default_stateful_benchmark_input,
+    resolve_twr_request,
+)
 
 
 def _settings():
@@ -494,3 +499,224 @@ async def test_resolve_twr_request_sources_default_stateful_benchmark_assignment
     assert resolved.resolved_benchmark_id == "BMK_ASSIGNED"
     assert resolved.benchmark_request is not None
     assert resolved.benchmark_input_mode == BenchmarkInputMode.STATEFUL
+
+
+@pytest.mark.asyncio
+async def test_resolve_twr_request_fails_when_stateful_portfolio_reference_is_unavailable(monkeypatch):
+    class _UnavailablePortfolioStub:
+        async def get_portfolio_reference(self, **kwargs):  # noqa: ARG002
+            return 503, {"detail": "unavailable"}
+
+    monkeypatch.setattr(
+        "app.services.twr_mode_service.build_stateful_input_service",
+        lambda settings: _UnavailablePortfolioStub(),  # noqa: ARG005
+    )
+
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+    execution_registry.create_execution(
+        calculation_id=request.calculation_id,
+        analytics_type="TWR",
+        portfolio_id=request.portfolio_id,
+    )
+
+    with pytest.raises(HTTPException, match="portfolio reference source unavailable"):
+        await resolve_twr_request(request, settings=_settings())
+
+
+@pytest.mark.asyncio
+async def test_resolve_twr_request_fails_when_stateful_portfolio_reference_date_is_invalid(monkeypatch):
+    class _InvalidPortfolioReferenceStub:
+        async def get_portfolio_reference(self, **kwargs):  # noqa: ARG002
+            return 200, {"portfolio_open_date": "not-a-date"}
+
+    monkeypatch.setattr(
+        "app.services.twr_mode_service.build_stateful_input_service",
+        lambda settings: _InvalidPortfolioReferenceStub(),  # noqa: ARG005
+    )
+
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+    execution_registry.create_execution(
+        calculation_id=request.calculation_id,
+        analytics_type="TWR",
+        portfolio_id=request.portfolio_id,
+    )
+
+    with pytest.raises(HTTPException, match="Invalid portfolio_open_date"):
+        await resolve_twr_request(request, settings=_settings())
+
+
+@pytest.mark.asyncio
+async def test_resolve_twr_request_fails_when_assignment_lookup_cannot_resolve_benchmark_id(monkeypatch):
+    class _MissingBenchmarkAssignmentStub:
+        async def get_benchmark_assignment(self, **kwargs):  # noqa: ARG002
+            return 200, {}
+
+    monkeypatch.setattr(
+        "app.services.twr_mode_service.build_stateful_input_service",
+        lambda settings: _MissingBenchmarkAssignmentStub(),  # noqa: ARG005
+    )
+
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "performance_start_date": "2024-12-31",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+            ],
+            "benchmark": {
+                "input_mode": "stateful",
+                "return_source": "calculated",
+                "stateful_input": {},
+            },
+        }
+    )
+    execution_registry.create_execution(
+        calculation_id=request.calculation_id,
+        analytics_type="TWR",
+        portfolio_id=request.portfolio_id,
+    )
+
+    with pytest.raises(HTTPException, match="benchmark assignment payload missing benchmark_id"):
+        await resolve_twr_request(request, settings=_settings())
+
+
+@pytest.mark.asyncio
+async def test_resolve_twr_request_fails_when_assignment_lookup_is_missing(monkeypatch):
+    class _NotFoundBenchmarkAssignmentStub:
+        async def get_benchmark_assignment(self, **kwargs):  # noqa: ARG002
+            return 404, {"detail": "missing"}
+
+    monkeypatch.setattr(
+        "app.services.twr_mode_service.build_stateful_input_service",
+        lambda settings: _NotFoundBenchmarkAssignmentStub(),  # noqa: ARG005
+    )
+
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "performance_start_date": "2024-12-31",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+            ],
+            "benchmark": {
+                "input_mode": "stateful",
+                "return_source": "calculated",
+                "stateful_input": {},
+            },
+        }
+    )
+    execution_registry.create_execution(
+        calculation_id=request.calculation_id,
+        analytics_type="TWR",
+        portfolio_id=request.portfolio_id,
+    )
+
+    with pytest.raises(HTTPException, match="No benchmark assignment found"):
+        await resolve_twr_request(request, settings=_settings())
+
+
+def test_twr_benchmark_helpers_reject_missing_stateless_and_stateful_benchmark_inputs():
+    with pytest.raises(ValidationError, match="benchmark configuration is required when include_benchmark=true"):
+        TWRAnalyticsRequest.model_validate(
+            {
+                "calculation_id": str(uuid4()),
+                "portfolio_id": "PORT_1",
+                "performance_start_date": "2024-12-31",
+                "metric_basis": "NET",
+                "report_end_date": "2025-01-02",
+                "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+                "valuation_points": [
+                    {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                ],
+                "include_benchmark": True,
+            }
+        )
+
+    request = TWRAnalyticsRequest.model_construct(
+        calculation_id=uuid4(),
+        portfolio_id="PORT_1",
+        metric_basis="NET",
+        report_end_date="2025-01-02",
+        analyses=[],
+        include_benchmark=True,
+        stateful_input=None,
+    )
+    with pytest.raises(HTTPException, match="stateful_input is required when include_benchmark=true in stateful mode"):
+        _resolve_default_stateful_benchmark_input(request)
+
+
+def test_twr_benchmark_helpers_reject_stateless_benchmark_without_required_payload():
+    with pytest.raises(ValidationError, match="benchmark.stateless_input is required"):
+        TWRAnalyticsRequest.model_validate(
+            {
+                "calculation_id": str(uuid4()),
+                "portfolio_id": "PORT_1",
+                "performance_start_date": "2024-12-31",
+                "metric_basis": "NET",
+                "report_end_date": "2025-01-02",
+                "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+                "valuation_points": [
+                    {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                ],
+                "benchmark": {
+                    "benchmark_id": "BMK_1",
+                    "input_mode": "stateless",
+                    "return_source": "calculated",
+                },
+            }
+        )
+
+
+def test_build_resolved_twr_benchmark_request_passthroughs_resolution():
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "performance_start_date": "2024-12-31",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+            ],
+        }
+    )
+    resolved_request = request.to_stateless_performance_request()
+    benchmark_request = None
+
+    assert (
+        _build_resolved_twr_benchmark_request(
+            request=request,
+            benchmark_resolution=benchmark_request,
+            benchmark_start_date=resolved_request.performance_start_date,
+        )
+        is None
+    )

@@ -1,0 +1,173 @@
+from __future__ import annotations
+
+from datetime import date
+from uuid import uuid4
+
+import pandas as pd
+import pytest
+
+from app.models.benchmark_requests import BenchmarkPerformanceRequest
+from app.services import benchmark_calculation_service
+from common.enums import Frequency
+
+
+def _calculated_request(*, include_timeseries: bool = True) -> BenchmarkPerformanceRequest:
+    return BenchmarkPerformanceRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "benchmark_id": "BMK_1",
+            "benchmark_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily", "monthly"]}],
+            "return_source": "calculated",
+            "benchmark_currency": "USD",
+            "output": {"include_timeseries": include_timeseries},
+            "component_observations": [
+                {
+                    "component_id": "IDX_1",
+                    "perf_date": "2025-01-01",
+                    "weight_bop": 0.6,
+                    "component_return": 0.01,
+                    "component_return_local": 0.008,
+                    "component_return_fx": 0.002,
+                },
+                {
+                    "component_id": "IDX_2",
+                    "perf_date": "2025-01-01",
+                    "weight_bop": 0.4,
+                    "component_return": 0.02,
+                    "component_return_local": 0.015,
+                    "component_return_fx": 0.005,
+                },
+            ],
+        }
+    )
+
+
+def _vendor_request() -> BenchmarkPerformanceRequest:
+    return BenchmarkPerformanceRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "benchmark_id": "BMK_VENDOR",
+            "benchmark_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily", "monthly"]}],
+            "return_source": "vendor_series",
+            "benchmark_currency": "USD",
+            "output": {"include_timeseries": True},
+            "benchmark_return_points": [
+                {"perf_date": "2025-01-01", "benchmark_return": 0.01},
+                {"perf_date": "2025-01-02", "benchmark_return": 0.02},
+            ],
+        }
+    )
+
+
+def test_calculate_benchmark_artifacts_builds_calculated_period_results_with_optional_timeseries():
+    request = _calculated_request(include_timeseries=True)
+
+    artifacts = benchmark_calculation_service.calculate_benchmark_artifacts(request)
+
+    assert artifacts.effective_period_start == date(2025, 1, 1)
+    assert artifacts.max_weight_sum_deviation == 0.0
+    assert artifacts.notes == []
+    period_result = artifacts.results_by_period["ITD"]
+    assert period_result.daily_returns is not None
+    assert len(period_result.daily_returns) == 1
+    assert period_result.component_contributions is not None
+    assert len(period_result.component_contributions) == 2
+    assert Frequency.DAILY in period_result.benchmark.breakdowns
+    assert Frequency.MONTHLY in period_result.benchmark.breakdowns
+    assert period_result.benchmark.summary.period_return.base == pytest.approx(1.4)
+    assert period_result.benchmark.summary.period_return.local == pytest.approx(1.08)
+    assert period_result.benchmark.summary.period_return.fx == pytest.approx(0.32)
+
+
+def test_calculate_benchmark_artifacts_omits_timeseries_when_not_requested():
+    request = _calculated_request(include_timeseries=False)
+
+    artifacts = benchmark_calculation_service.calculate_benchmark_artifacts(request)
+
+    period_result = artifacts.results_by_period["ITD"]
+    assert period_result.daily_returns is None
+    assert period_result.component_contributions is None
+
+
+def test_calculate_benchmark_artifacts_builds_vendor_series_results_and_skips_component_rows():
+    request = _vendor_request()
+
+    artifacts = benchmark_calculation_service.calculate_benchmark_artifacts(request)
+
+    assert artifacts.effective_period_start == date(2025, 1, 1)
+    assert artifacts.max_weight_sum_deviation == 0.0
+    assert "vendor series" in artifacts.notes[0]
+    assert artifacts.component_contributions_df.empty
+    period_result = artifacts.results_by_period["ITD"]
+    assert period_result.component_contributions is None
+    assert period_result.daily_returns is not None
+    assert len(period_result.daily_returns) == 2
+
+
+def test_calculate_benchmark_artifacts_skips_empty_period_slices(monkeypatch):
+    request = _vendor_request()
+
+    monkeypatch.setattr(
+        benchmark_calculation_service,
+        "resolve_periods",
+        lambda periods, report_end_date, benchmark_start_date: [
+            type("Period", (), {"name": "EMPTY", "start_date": date(2024, 1, 1), "end_date": date(2024, 1, 2)})(),
+            type("Period", (), {"name": "ITD", "start_date": date(2025, 1, 1), "end_date": date(2025, 1, 2)})(),
+        ],
+    )
+
+    artifacts = benchmark_calculation_service.calculate_benchmark_artifacts(request)
+
+    assert set(artifacts.results_by_period) == {"ITD"}
+
+
+def test_benchmark_calculation_helpers_cover_breakdown_and_scaling_edges():
+    df = pd.DataFrame(
+        {
+            "date": [date(2025, 1, 1), date(2025, 1, 2)],
+            "benchmark_return": [0.01, 0.02],
+            "benchmark_return_local": [0.008, 0.009],
+            "benchmark_return_fx": [0.002, 0.011],
+            "cumulative_return": [0.01, 0.0302],
+        }
+    )
+
+    comparative_value = benchmark_calculation_service._calculate_benchmark_return_from_slice(df)
+    breakdowns = benchmark_calculation_service._build_benchmark_breakdowns(
+        period_daily_df=df,
+        frequencies=[Frequency.DAILY, Frequency.MONTHLY],
+    )
+
+    assert comparative_value.base == pytest.approx(3.02)
+    assert comparative_value.local == pytest.approx(1.7072)
+    assert comparative_value.fx == pytest.approx(1.3022)
+    assert len(breakdowns[Frequency.DAILY]) == 2
+    assert breakdowns[Frequency.MONTHLY][0].period == "2025-01"
+    assert benchmark_calculation_service._scale_percent(None) is None
+    assert benchmark_calculation_service._scale_percent("bad") is None
+    assert benchmark_calculation_service._series_return(pd.Series([0.01, 0.02])) == pytest.approx(3.02)
+
+
+def test_benchmark_breakdowns_label_weekly_quarterly_and_yearly_periods():
+    df = pd.DataFrame(
+        {
+            "date": [date(2025, 1, 3), date(2025, 3, 31), date(2025, 12, 31)],
+            "benchmark_return": [0.01, 0.02, 0.03],
+            "benchmark_return_local": [0.01, 0.02, 0.03],
+            "benchmark_return_fx": [0.0, 0.0, 0.0],
+            "cumulative_return": [0.01, 0.0302, 0.061106],
+        }
+    )
+
+    breakdowns = benchmark_calculation_service._build_benchmark_breakdowns(
+        period_daily_df=df,
+        frequencies=[Frequency.WEEKLY, Frequency.QUARTERLY, Frequency.YEARLY],
+    )
+
+    assert breakdowns[Frequency.WEEKLY][0].period == "2025-01-03"
+    assert breakdowns[Frequency.QUARTERLY][0].period == "2025-Q1"
+    assert breakdowns[Frequency.YEARLY][0].period == "2025"

@@ -1,11 +1,23 @@
 from datetime import date
+from decimal import Decimal
 from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException
 
 from app.models.benchmark_analytics_requests import BenchmarkReturnSource
-from app.services.stateful_benchmark_input_service import build_stateful_benchmark_input
+from app.services.stateful_benchmark_input_service import (
+    BenchmarkCompositionSegment,
+    _build_component_observations,
+    _build_normalized_component_series,
+    _load_component_price_series,
+    _load_fx_maps_for_components,
+    _normalize_price_to_benchmark_currency,
+    _parse_composition_window,
+    _parse_retrieval_metadata,
+    build_stateful_benchmark_input,
+)
+from app.services.stateful_input_service import RetrievalMetadata
 
 
 class _StatefulInputServiceStub:
@@ -249,3 +261,560 @@ async def test_build_stateful_benchmark_input_supports_multi_segment_composition
         "IDX_GBP": pytest.approx(0.2),
         "IDX_USD": pytest.approx(0.5),
     }
+
+
+@pytest.mark.asyncio
+async def test_build_stateful_benchmark_input_requires_benchmark_currency_for_vendor_series():
+    class _MissingCurrencyDefinitionStub(_StatefulInputServiceStub):
+        async def get_benchmark_definition(self, **kwargs):  # noqa: ARG002
+            return 200, {"benchmark_id": "BMK_1", "benchmark_currency": ""}
+
+    with pytest.raises(HTTPException, match="missing benchmark_currency"):
+        await build_stateful_benchmark_input(
+            stateful_input_service=_MissingCurrencyDefinitionStub(),
+            calculation_id=uuid4(),
+            benchmark_id="BMK_1",
+            as_of_date=date(2026, 1, 3),
+            start_date=date(2026, 1, 2),
+            end_date=date(2026, 1, 3),
+            return_source=BenchmarkReturnSource.VENDOR_SERIES,
+        )
+
+
+@pytest.mark.asyncio
+async def test_build_stateful_benchmark_input_requires_consistent_component_currency_series():
+    class _MixedCurrencyIndexStub(_StatefulInputServiceStub):
+        async def get_index_price_series(self, **kwargs):  # noqa: ARG002
+            if kwargs["index_id"] != "IDX_EUR":
+                return await super().get_index_price_series(**kwargs)
+            return (
+                200,
+                {
+                    "points": [
+                        {"series_date": "2026-01-01", "index_price": "100", "series_currency": "EUR"},
+                        {"series_date": "2026-01-02", "index_price": "101", "series_currency": "USD"},
+                        {"series_date": "2026-01-03", "index_price": "101.505", "series_currency": "EUR"},
+                    ],
+                    "retrieval_metadata": {"chunk_count": 1, "page_count": 1},
+                },
+            )
+
+    with pytest.raises(HTTPException, match="exactly one series_currency"):
+        await build_stateful_benchmark_input(
+            stateful_input_service=_MixedCurrencyIndexStub(),
+            calculation_id=uuid4(),
+            benchmark_id="BMK_1",
+            as_of_date=date(2026, 1, 3),
+            start_date=date(2026, 1, 2),
+            end_date=date(2026, 1, 3),
+            return_source=BenchmarkReturnSource.CALCULATED,
+        )
+
+
+@pytest.mark.asyncio
+async def test_build_stateful_benchmark_input_requires_fx_for_non_benchmark_currency_components():
+    class _MissingFxPointStub(_StatefulInputServiceStub):
+        async def get_fx_rates(self, **kwargs):  # noqa: ARG002
+            status_code, payload = await super().get_fx_rates(**kwargs)
+            payload["points"] = [
+                point for point in payload["points"] if point["series_date"] != "2026-01-03"
+            ]
+            return status_code, payload
+
+    with pytest.raises(HTTPException, match="Missing FX rate for EUR/USD on 2026-01-03"):
+        await build_stateful_benchmark_input(
+            stateful_input_service=_MissingFxPointStub(),
+            calculation_id=uuid4(),
+            benchmark_id="BMK_1",
+            as_of_date=date(2026, 1, 3),
+            start_date=date(2026, 1, 2),
+            end_date=date(2026, 1, 3),
+            return_source=BenchmarkReturnSource.CALCULATED,
+        )
+
+
+@pytest.mark.asyncio
+async def test_build_stateful_benchmark_input_requires_non_zero_previous_normalized_price():
+    class _ZeroPreviousPriceStub(_StatefulInputServiceStub):
+        async def get_index_price_series(self, **kwargs):  # noqa: ARG002
+            if kwargs["index_id"] != "IDX_USD":
+                return await super().get_index_price_series(**kwargs)
+            return (
+                200,
+                {
+                    "points": [
+                        {"series_date": "2026-01-01", "index_price": "0", "series_currency": "USD"},
+                        {"series_date": "2026-01-02", "index_price": "102", "series_currency": "USD"},
+                        {"series_date": "2026-01-03", "index_price": "103.02", "series_currency": "USD"},
+                    ],
+                    "retrieval_metadata": {"chunk_count": 1, "page_count": 1},
+                },
+            )
+
+    with pytest.raises(HTTPException, match="Normalized benchmark price is zero for component IDX_USD"):
+        await build_stateful_benchmark_input(
+            stateful_input_service=_ZeroPreviousPriceStub(),
+            calculation_id=uuid4(),
+            benchmark_id="BMK_1",
+            as_of_date=date(2026, 1, 3),
+            start_date=date(2026, 1, 2),
+            end_date=date(2026, 1, 3),
+            return_source=BenchmarkReturnSource.CALCULATED,
+        )
+
+
+@pytest.mark.asyncio
+async def test_build_stateful_benchmark_input_surfaces_missing_vendor_definition_and_series_payloads():
+    class _MissingVendorDefinitionStub(_StatefulInputServiceStub):
+        async def get_benchmark_definition(self, **kwargs):  # noqa: ARG002
+            return 404, {"detail": "missing"}
+
+    class _UnavailableVendorDefinitionStub(_StatefulInputServiceStub):
+        async def get_benchmark_definition(self, **kwargs):  # noqa: ARG002
+            return 503, {"detail": "unavailable"}
+
+    class _MissingVendorSeriesStub(_StatefulInputServiceStub):
+        async def get_benchmark_return_series(self, **kwargs):  # noqa: ARG002
+            return 404, {"detail": "missing"}
+
+    class _UnavailableVendorSeriesStub(_StatefulInputServiceStub):
+        async def get_benchmark_return_series(self, **kwargs):  # noqa: ARG002
+            return 503, {"detail": "unavailable"}
+
+    class _MissingVendorPointsStub(_StatefulInputServiceStub):
+        async def get_benchmark_return_series(self, **kwargs):  # noqa: ARG002
+            return 200, {"retrieval_metadata": {"chunk_count": 1, "page_count": 1}}
+
+    with pytest.raises(HTTPException, match="No benchmark definition found"):
+        await build_stateful_benchmark_input(
+            stateful_input_service=_MissingVendorDefinitionStub(),
+            calculation_id=uuid4(),
+            benchmark_id="BMK_1",
+            as_of_date=date(2026, 1, 3),
+            start_date=date(2026, 1, 2),
+            end_date=date(2026, 1, 3),
+            return_source=BenchmarkReturnSource.VENDOR_SERIES,
+        )
+
+    with pytest.raises(HTTPException, match="definition source unavailable"):
+        await build_stateful_benchmark_input(
+            stateful_input_service=_UnavailableVendorDefinitionStub(),
+            calculation_id=uuid4(),
+            benchmark_id="BMK_1",
+            as_of_date=date(2026, 1, 3),
+            start_date=date(2026, 1, 2),
+            end_date=date(2026, 1, 3),
+            return_source=BenchmarkReturnSource.VENDOR_SERIES,
+        )
+
+    with pytest.raises(HTTPException, match="No benchmark return series found"):
+        await build_stateful_benchmark_input(
+            stateful_input_service=_MissingVendorSeriesStub(),
+            calculation_id=uuid4(),
+            benchmark_id="BMK_1",
+            as_of_date=date(2026, 1, 3),
+            start_date=date(2026, 1, 2),
+            end_date=date(2026, 1, 3),
+            return_source=BenchmarkReturnSource.VENDOR_SERIES,
+        )
+
+    with pytest.raises(HTTPException, match="return-series source unavailable"):
+        await build_stateful_benchmark_input(
+            stateful_input_service=_UnavailableVendorSeriesStub(),
+            calculation_id=uuid4(),
+            benchmark_id="BMK_1",
+            as_of_date=date(2026, 1, 3),
+            start_date=date(2026, 1, 2),
+            end_date=date(2026, 1, 3),
+            return_source=BenchmarkReturnSource.VENDOR_SERIES,
+        )
+
+    with pytest.raises(HTTPException, match="missing points list"):
+        await build_stateful_benchmark_input(
+            stateful_input_service=_MissingVendorPointsStub(),
+            calculation_id=uuid4(),
+            benchmark_id="BMK_1",
+            as_of_date=date(2026, 1, 3),
+            start_date=date(2026, 1, 2),
+            end_date=date(2026, 1, 3),
+            return_source=BenchmarkReturnSource.VENDOR_SERIES,
+        )
+
+
+@pytest.mark.asyncio
+async def test_build_stateful_benchmark_input_surfaces_missing_composition_and_index_series_payloads():
+    class _MissingCompositionStub(_StatefulInputServiceStub):
+        async def get_benchmark_composition_window(self, **kwargs):  # noqa: ARG002
+            return 404, {"detail": "missing"}
+
+    class _UnavailableCompositionStub(_StatefulInputServiceStub):
+        async def get_benchmark_composition_window(self, **kwargs):  # noqa: ARG002
+            return 503, {"detail": "unavailable"}
+
+    class _MissingIndexPayloadStub(_StatefulInputServiceStub):
+        async def get_index_price_series(self, **kwargs):  # noqa: ARG002
+            return 200, {"retrieval_metadata": {"chunk_count": 1, "page_count": 1}}
+
+    with pytest.raises(HTTPException, match="No benchmark composition window found"):
+        await build_stateful_benchmark_input(
+            stateful_input_service=_MissingCompositionStub(),
+            calculation_id=uuid4(),
+            benchmark_id="BMK_1",
+            as_of_date=date(2026, 1, 3),
+            start_date=date(2026, 1, 2),
+            end_date=date(2026, 1, 3),
+            return_source=BenchmarkReturnSource.CALCULATED,
+        )
+
+    with pytest.raises(HTTPException, match="composition-window source unavailable"):
+        await build_stateful_benchmark_input(
+            stateful_input_service=_UnavailableCompositionStub(),
+            calculation_id=uuid4(),
+            benchmark_id="BMK_1",
+            as_of_date=date(2026, 1, 3),
+            start_date=date(2026, 1, 2),
+            end_date=date(2026, 1, 3),
+            return_source=BenchmarkReturnSource.CALCULATED,
+        )
+
+    with pytest.raises(HTTPException, match="payload missing points for benchmark component IDX_EUR"):
+        await build_stateful_benchmark_input(
+            stateful_input_service=_MissingIndexPayloadStub(),
+            calculation_id=uuid4(),
+            benchmark_id="BMK_1",
+            as_of_date=date(2026, 1, 3),
+            start_date=date(2026, 1, 2),
+            end_date=date(2026, 1, 3),
+            return_source=BenchmarkReturnSource.CALCULATED,
+        )
+
+
+@pytest.mark.asyncio
+async def test_build_stateful_benchmark_input_rejects_component_series_without_prior_or_matching_dates():
+    class _MissingPriorDateStub(_StatefulInputServiceStub):
+        async def get_index_price_series(self, **kwargs):  # noqa: ARG002
+            status_code, payload = await super().get_index_price_series(**kwargs)
+            payload["points"] = [point for point in payload["points"] if point["series_date"] != "2026-01-01"]
+            return status_code, payload
+
+    class _MismatchedCoverageStub(_StatefulInputServiceStub):
+        async def get_index_price_series(self, **kwargs):  # noqa: ARG002
+            status_code, payload = await super().get_index_price_series(**kwargs)
+            if kwargs["index_id"] == "IDX_GBP":
+                payload["points"] = [point for point in payload["points"] if point["series_date"] != "2026-01-03"]
+            return status_code, payload
+
+    with pytest.raises(HTTPException, match="requires a prior normalized price before 2026-01-02"):
+        await build_stateful_benchmark_input(
+            stateful_input_service=_MissingPriorDateStub(),
+            calculation_id=uuid4(),
+            benchmark_id="BMK_1",
+            as_of_date=date(2026, 1, 3),
+            start_date=date(2026, 1, 2),
+            end_date=date(2026, 1, 3),
+            return_source=BenchmarkReturnSource.CALCULATED,
+        )
+
+    with pytest.raises(HTTPException, match="does not cover the same date set as peer components"):
+        await build_stateful_benchmark_input(
+            stateful_input_service=_MismatchedCoverageStub(),
+            calculation_id=uuid4(),
+            benchmark_id="BMK_1",
+            as_of_date=date(2026, 1, 3),
+            start_date=date(2026, 1, 2),
+            end_date=date(2026, 1, 3),
+            return_source=BenchmarkReturnSource.CALCULATED,
+        )
+
+
+def test_parse_composition_window_requires_currency_and_usable_segments():
+    with pytest.raises(HTTPException, match="missing benchmark_currency"):
+        _parse_composition_window(
+            benchmark_id="BMK_1",
+            composition_window={"benchmark_currency": "", "segments": []},
+            start_date=date(2026, 1, 2),
+            end_date=date(2026, 1, 3),
+        )
+
+    with pytest.raises(HTTPException, match="missing segments"):
+        _parse_composition_window(
+            benchmark_id="BMK_1",
+            composition_window={"benchmark_currency": "USD", "segments": []},
+            start_date=date(2026, 1, 2),
+            end_date=date(2026, 1, 3),
+        )
+
+    with pytest.raises(HTTPException, match="missing index_id, composition_weight, or composition_effective_from"):
+        _parse_composition_window(
+            benchmark_id="BMK_1",
+            composition_window={
+                "benchmark_currency": "USD",
+                "segments": [
+                    {
+                        "index_id": "IDX_BAD",
+                        "composition_effective_from": "2026-01-01",
+                    }
+                ],
+            },
+            start_date=date(2026, 1, 2),
+            end_date=date(2026, 1, 3),
+        )
+
+    with pytest.raises(HTTPException, match="missing usable segments"):
+        _parse_composition_window(
+            benchmark_id="BMK_1",
+            composition_window={
+                "benchmark_currency": "USD",
+                "segments": [
+                    "skip-me",
+                    {
+                        "index_id": "IDX_OLD",
+                        "composition_weight": "1.0",
+                        "composition_effective_from": "2025-01-01",
+                        "composition_effective_to": "2025-01-31",
+                    },
+                ],
+            },
+            start_date=date(2026, 1, 2),
+            end_date=date(2026, 1, 3),
+        )
+
+
+@pytest.mark.asyncio
+async def test_load_component_price_series_surfaces_404_503_and_empty_payloads():
+    class _MissingSeriesStub(_StatefulInputServiceStub):
+        async def get_index_price_series(self, **kwargs):  # noqa: ARG002
+            return 404, {"detail": "missing"}
+
+    class _UnavailableSeriesStub(_StatefulInputServiceStub):
+        async def get_index_price_series(self, **kwargs):  # noqa: ARG002
+            return 503, {"detail": "down"}
+
+    class _EmptySeriesStub(_StatefulInputServiceStub):
+        async def get_index_price_series(self, **kwargs):  # noqa: ARG002
+            return 200, {"points": [], "retrieval_metadata": {"chunk_count": 1, "page_count": 1}}
+
+    with pytest.raises(HTTPException, match="No index price series found"):
+        await _load_component_price_series(
+            stateful_input_service=_MissingSeriesStub(),
+            calculation_id=uuid4(),
+            benchmark_id="BMK_1",
+            component_ids=["IDX_USD"],
+            as_of_date=date(2026, 1, 3),
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 3),
+        )
+
+    with pytest.raises(HTTPException, match="source unavailable"):
+        await _load_component_price_series(
+            stateful_input_service=_UnavailableSeriesStub(),
+            calculation_id=uuid4(),
+            benchmark_id="BMK_1",
+            component_ids=["IDX_USD"],
+            as_of_date=date(2026, 1, 3),
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 3),
+        )
+
+    with pytest.raises(HTTPException, match="payload empty"):
+        await _load_component_price_series(
+            stateful_input_service=_EmptySeriesStub(),
+            calculation_id=uuid4(),
+            benchmark_id="BMK_1",
+            component_ids=["IDX_USD"],
+            as_of_date=date(2026, 1, 3),
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 3),
+        )
+
+
+@pytest.mark.asyncio
+async def test_load_fx_maps_for_components_handles_empty_pairs_and_payload_errors():
+    component_price_series = {
+        "IDX_USD": {
+            "points": [{"series_date": "2026-01-01", "index_price": "100", "series_currency": "USD"}],
+            "series_currency": "USD",
+        }
+    }
+
+    fx_maps, retrieval_metadata = await _load_fx_maps_for_components(
+        stateful_input_service=_StatefulInputServiceStub(),
+        calculation_id=uuid4(),
+        component_price_series=component_price_series,
+        benchmark_currency="USD",
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 3),
+    )
+
+    assert fx_maps == {}
+    assert retrieval_metadata == RetrievalMetadata(chunk_count=0, page_count=0)
+
+    class _UnavailableFxStub(_StatefulInputServiceStub):
+        async def get_fx_rates(self, **kwargs):  # noqa: ARG002
+            return 503, {"detail": "down"}
+
+    class _MissingFxPointsStub(_StatefulInputServiceStub):
+        async def get_fx_rates(self, **kwargs):  # noqa: ARG002
+            return 200, {"retrieval_metadata": {"chunk_count": 1, "page_count": 1}}
+
+    non_benchmark_component_series = {
+        "IDX_EUR": {
+            "points": [{"series_date": "2026-01-01", "index_price": "100", "series_currency": "EUR"}],
+            "series_currency": "EUR",
+        }
+    }
+
+    with pytest.raises(HTTPException, match="fx rate source unavailable"):
+        await _load_fx_maps_for_components(
+            stateful_input_service=_UnavailableFxStub(),
+            calculation_id=uuid4(),
+            component_price_series=non_benchmark_component_series,
+            benchmark_currency="USD",
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 3),
+        )
+
+    with pytest.raises(HTTPException, match="fx rate payload missing points"):
+        await _load_fx_maps_for_components(
+            stateful_input_service=_MissingFxPointsStub(),
+            calculation_id=uuid4(),
+            component_price_series=non_benchmark_component_series,
+            benchmark_currency="USD",
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 3),
+        )
+
+
+def test_build_component_observations_surfaces_missing_active_segments_and_payloads():
+    normalized_component_series = {
+        "IDX_USD": {
+            "points": [
+                {"series_date": "2026-01-01", "index_price": "100", "series_currency": "USD"},
+                {"series_date": "2026-01-02", "index_price": "101", "series_currency": "USD"},
+            ],
+            "series_currency": "USD",
+        }
+    }
+
+    with pytest.raises(HTTPException, match="missing active segments"):
+        _build_component_observations(
+            benchmark_id="BMK_1",
+            component_price_series=normalized_component_series,
+            component_segments=[],
+            benchmark_currency="USD",
+            fx_map_by_pair={},
+            requested_start_date=date(2026, 1, 2),
+            requested_end_date=date(2026, 1, 2),
+        )
+
+    with pytest.raises(HTTPException, match="Missing index price-series payload"):
+        _build_component_observations(
+            benchmark_id="BMK_1",
+            component_price_series=normalized_component_series,
+            component_segments=[
+                BenchmarkCompositionSegment(
+                    index_id="IDX_EUR",
+                    composition_weight=1,
+                    composition_effective_from=date(2026, 1, 1),
+                    composition_effective_to=None,
+                )
+            ],
+            benchmark_currency="USD",
+            fx_map_by_pair={},
+            requested_start_date=date(2026, 1, 2),
+            requested_end_date=date(2026, 1, 2),
+        )
+
+
+def test_build_component_observations_detects_incomplete_market_coverage_and_empty_requested_window():
+    component_price_series = {
+        "IDX_USD": {
+            "points": [
+                {"series_date": "2026-01-01", "index_price": "100", "series_currency": "USD"},
+                {"series_date": "2026-01-02", "index_price": "101", "series_currency": "USD"},
+            ],
+            "series_currency": "USD",
+        }
+    }
+
+    with pytest.raises(HTTPException, match="missing 2026-01-03"):
+        _build_component_observations(
+            benchmark_id="BMK_1",
+            component_price_series=component_price_series,
+            component_segments=[
+                BenchmarkCompositionSegment(
+                    index_id="IDX_USD",
+                    composition_weight=Decimal("1"),
+                    composition_effective_from=date(2026, 1, 1),
+                    composition_effective_to=None,
+                )
+            ],
+            benchmark_currency="USD",
+            fx_map_by_pair={},
+            requested_start_date=date(2026, 1, 3),
+            requested_end_date=date(2026, 1, 3),
+        )
+
+    with pytest.raises(HTTPException, match="No normalized benchmark observations available"):
+        _build_component_observations(
+            benchmark_id="BMK_1",
+            component_price_series=component_price_series,
+            component_segments=[
+                BenchmarkCompositionSegment(
+                    index_id="IDX_USD",
+                    composition_weight=Decimal("1"),
+                    composition_effective_from=date(2026, 1, 1),
+                    composition_effective_to=None,
+                )
+            ],
+            benchmark_currency="USD",
+            fx_map_by_pair={},
+            requested_start_date=date(2026, 1, 4),
+            requested_end_date=date(2026, 1, 3),
+        )
+
+
+def test_build_normalized_component_series_skips_invalid_points_and_rejects_missing_prices():
+    with pytest.raises(HTTPException, match="missing index_price"):
+        _build_normalized_component_series(
+            benchmark_id="BMK_1",
+            component_price_series={
+                "IDX_USD": {
+                    "points": [
+                        "skip-me",
+                        {"series_date": 123, "index_price": "100", "series_currency": "USD"},
+                        {"series_date": "2025-12-31", "index_price": "99", "series_currency": "USD"},
+                        {"series_date": "2026-01-02", "index_price": None, "series_currency": "USD"},
+                    ],
+                    "series_currency": "USD",
+                }
+            },
+            benchmark_currency="USD",
+            fx_map_by_pair={},
+            requested_start_date=date(2026, 1, 2),
+            requested_end_date=date(2026, 1, 3),
+        )
+
+
+def test_normalization_and_metadata_helpers_cover_direct_contracts():
+    assert _normalize_price_to_benchmark_currency(
+        component_currency="USD",
+        benchmark_currency="USD",
+        price=10,
+        price_date=date(2026, 1, 2),
+        fx_map_by_pair={},
+    ) == 10
+
+    with pytest.raises(HTTPException, match="Missing FX rate for EUR/USD"):
+        _normalize_price_to_benchmark_currency(
+            component_currency="EUR",
+            benchmark_currency="USD",
+            price=10,
+            price_date=date(2026, 1, 2),
+            fx_map_by_pair={},
+        )
+
+    assert _parse_retrieval_metadata({}) == RetrievalMetadata(chunk_count=0, page_count=0)
+    assert _parse_retrieval_metadata(
+        {"retrieval_metadata": {"chunk_count": "2", "page_count": 3.0}}
+    ) == RetrievalMetadata(chunk_count=2, page_count=3)
