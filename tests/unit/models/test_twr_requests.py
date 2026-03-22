@@ -1,8 +1,10 @@
+from datetime import date
+
 import pytest
 from pydantic import ValidationError
 
 from app.models.requests import DailyInputData
-from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode
+from app.models.twr_requests import TWRAnalyticsRequest, TWRBenchmarkRequest, TWRInputMode
 
 
 @pytest.fixture
@@ -285,6 +287,166 @@ def test_twr_request_rejects_ambiguous_stateless_benchmark_inputs(base_payload):
                 },
             }
         )
+
+
+def test_twr_benchmark_request_requires_benchmark_id_for_stateless_mode():
+    with pytest.raises(ValidationError, match="benchmark.stateless_input is required"):
+        TWRBenchmarkRequest.model_validate(
+            {
+                "benchmark_id": "BMK_1",
+                "input_mode": "stateless",
+            }
+        )
+
+    with pytest.raises(ValidationError, match="benchmark.stateful_input must be null"):
+        TWRBenchmarkRequest.model_validate(
+            {
+                "benchmark_id": "BMK_1",
+                "input_mode": "stateless",
+                "stateful_input": {},
+                "stateless_input": {
+                    "benchmark_currency": "USD",
+                    "component_observations": [
+                        {
+                            "component_id": "IDX_A",
+                            "perf_date": "2025-01-01",
+                            "weight_bop": 1.0,
+                            "component_return": 0.01,
+                        }
+                    ],
+                },
+            }
+        )
+
+    with pytest.raises(ValidationError, match="benchmark.benchmark_id is required"):
+        TWRBenchmarkRequest.model_validate(
+            {
+                "input_mode": "stateless",
+                "return_source": "calculated",
+                "stateless_input": {
+                    "benchmark_currency": "USD",
+                    "component_observations": [
+                        {
+                            "component_id": "IDX_A",
+                            "perf_date": "2025-01-01",
+                            "weight_bop": 1.0,
+                            "component_return": 0.01,
+                        }
+                    ],
+                },
+            }
+        )
+
+
+def test_twr_benchmark_request_enforces_vendor_series_payload_shape():
+    with pytest.raises(ValidationError, match="benchmark_return_points must be empty"):
+        TWRBenchmarkRequest.model_validate(
+            {
+                "benchmark_id": "BMK_1",
+                "input_mode": "stateless",
+                "return_source": "calculated",
+                "stateless_input": {
+                    "benchmark_currency": "USD",
+                    "component_observations": [
+                        {
+                            "component_id": "IDX_A",
+                            "perf_date": "2025-01-01",
+                            "weight_bop": 1.0,
+                            "component_return": 0.01,
+                        }
+                    ],
+                    "benchmark_return_points": [
+                        {"perf_date": "2025-01-01", "benchmark_return": 0.01},
+                    ],
+                },
+            }
+        )
+
+    with pytest.raises(ValidationError, match="benchmark_return_points are required"):
+        TWRBenchmarkRequest.model_validate(
+            {
+                "benchmark_id": "BMK_1",
+                "input_mode": "stateless",
+                "return_source": "vendor_series",
+                "stateless_input": {"benchmark_currency": "USD"},
+            }
+        )
+
+    with pytest.raises(ValidationError, match="component_price_points must be empty"):
+        TWRBenchmarkRequest.model_validate(
+            {
+                "benchmark_id": "BMK_1",
+                "input_mode": "stateless",
+                "return_source": "vendor_series",
+                "stateless_input": {
+                    "benchmark_currency": "USD",
+                    "benchmark_return_points": [
+                        {"perf_date": "2025-01-01", "benchmark_return": 0.01},
+                    ],
+                    "component_price_points": [
+                        {
+                            "component_id": "IDX_A",
+                            "perf_date": "2025-01-01",
+                            "weight_bop": 1.0,
+                            "index_price": 101.0,
+                        }
+                    ],
+                },
+            }
+        )
+
+
+def test_twr_request_auto_enables_benchmark_when_config_present(base_payload):
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            **base_payload,
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+            "benchmark": {
+                "benchmark_id": "BMK_1",
+                "input_mode": "stateless",
+                "return_source": "vendor_series",
+                "stateless_input": {
+                    "benchmark_currency": "USD",
+                    "benchmark_return_points": [
+                        {"perf_date": "2025-01-01", "benchmark_return": 0.01},
+                    ],
+                },
+            },
+        }
+    )
+
+    assert request.include_benchmark is True
+
+
+def test_twr_request_requires_stateless_start_date(base_payload):
+    payload = {key: value for key, value in base_payload.items() if key != "performance_start_date"}
+
+    with pytest.raises(ValidationError, match="performance_start_date is required when input_mode=stateless"):
+        TWRAnalyticsRequest.model_validate(
+            {
+                **payload,
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+            }
+        )
+
+
+def test_twr_request_to_stateless_requires_performance_start_date():
+    request = TWRAnalyticsRequest.model_construct(
+        portfolio_id="TWR_MODE_TEST",
+        performance_start_date=None,
+        metric_basis="NET",
+        report_end_date=date(2025, 1, 31),
+        analyses=[],
+        input_mode=TWRInputMode.STATELESS,
+        stateless_input=None,
+        stateful_input=None,
+        benchmark=None,
+        include_benchmark=False,
+        valuation_points=[],
+    )
+
+    with pytest.raises(ValueError, match="performance_start_date is required"):
+        request.to_stateless_performance_request()
 
 
 def test_daily_input_data_rejects_client_supplied_day_sequence():

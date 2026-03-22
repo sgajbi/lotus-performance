@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -14,6 +14,9 @@ class _CoreServiceStub:
         self.portfolio_calls: list[dict] = []
         self.position_calls: list[dict] = []
         self.benchmark_calls: list[dict] = []
+        self.benchmark_market_calls: list[dict] = []
+        self.fx_calls: list[dict] = []
+        self.index_price_calls: list[dict] = []
         self.risk_free_calls: list[dict] = []
 
     async def get_portfolio_analytics_timeseries(self, **kwargs):
@@ -139,6 +142,95 @@ class _CoreServiceStub:
     async def get_benchmark_definition(self, **kwargs):
         return 200, {"benchmark_id": kwargs["benchmark_id"]}
 
+    async def get_benchmark_composition_window(self, **kwargs):
+        return (
+            200,
+            {
+                "benchmark_id": kwargs["benchmark_id"],
+                "benchmark_currency": "USD",
+                "segments": [
+                    {
+                        "index_id": "IDX_1",
+                        "composition_weight": "1.0",
+                        "composition_effective_from": str(kwargs["start_date"]),
+                        "composition_effective_to": str(kwargs["end_date"]),
+                    }
+                ],
+            },
+        )
+
+    async def get_benchmark_market_series(self, **kwargs):
+        self.benchmark_market_calls.append(kwargs)
+        start_date = kwargs["start_date"]
+        end_date = kwargs["end_date"]
+        return (
+            200,
+            {
+                "component_series": [
+                    {
+                        "index_id": "IDX_1",
+                        "points": [
+                            {"series_date": str(start_date), "index_return": "0.0010"},
+                            {"series_date": str(end_date), "index_return": "0.0020"},
+                        ],
+                    },
+                    {
+                        "index_id": "IDX_2",
+                        "points": [
+                            {"series_date": str(start_date), "index_return": "0.0030"},
+                            {"series_date": str(end_date), "index_return": "0.0040"},
+                        ],
+                    },
+                ]
+            },
+        )
+
+    async def get_fx_rates(self, **kwargs):
+        self.fx_calls.append(kwargs)
+        return (
+            200,
+            {
+                "rates": [
+                    {"rate_date": str(kwargs["start_date"]), "rate": "1.1000"},
+                    {"rate_date": str(kwargs["end_date"]), "rate": "1.2000"},
+                ]
+            },
+        )
+
+    async def get_portfolio_analytics_reference(self, **kwargs):
+        return (
+            200,
+            {
+                "portfolio_id": kwargs["portfolio_id"],
+                "portfolio_open_date": "2025-12-31",
+                "base_currency": "USD",
+            },
+        )
+
+    async def get_index_catalog(self, **kwargs):
+        return (
+            200,
+            {
+                "indices": [
+                    {"index_id": "IDX_1", "currency": "USD"},
+                    {"index_id": "IDX_2", "currency": "EUR"},
+                ],
+                "as_of_date": str(kwargs["as_of_date"]),
+            },
+        )
+
+    async def get_index_price_series(self, **kwargs):
+        self.index_price_calls.append(kwargs)
+        return (
+            200,
+            {
+                "points": [
+                    {"series_date": str(kwargs["start_date"]), "index_price": "100", "series_currency": "USD"},
+                    {"series_date": str(kwargs["end_date"]), "index_price": "101", "series_currency": "USD"},
+                ]
+            },
+        )
+
     async def get_risk_free_series(self, **kwargs):
         self.risk_free_calls.append(kwargs)
         return (
@@ -235,6 +327,274 @@ async def test_reference_series_merge_chunked_points():
         "2026-01-04",
     ]
     assert risk_free_payload["retrieval_metadata"] == {"chunk_count": 2, "page_count": 2}
+
+
+@pytest.mark.asyncio
+async def test_stateful_input_service_fetches_reference_payloads_and_records_snapshots(tmp_path):
+    core_service = _CoreServiceStub()
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    calculation_id = uuid4()
+    execution_store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="BenchmarkAnalytics",
+        portfolio_id="PORT_1",
+    )
+    service = StatefulInputService(
+        core_service=core_service,
+        execution_store=execution_store,
+        portfolio_chunk_days=10,
+        reference_chunk_days=10,
+    )
+
+    portfolio_status, portfolio_payload = await service.get_portfolio_reference(
+        portfolio_id="PORT_1",
+        as_of_date=date(2026, 1, 3),
+        calculation_id=calculation_id,
+    )
+    definition_status, definition_payload = await service.get_benchmark_definition(
+        benchmark_id="BMK_1",
+        as_of_date=date(2026, 1, 3),
+        calculation_id=calculation_id,
+    )
+    composition_status, composition_payload = await service.get_benchmark_composition_window(
+        benchmark_id="BMK_1",
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 3),
+        calculation_id=calculation_id,
+    )
+    catalog_status, catalog_payload = await service.get_index_catalog(
+        as_of_date=date(2026, 1, 3),
+        calculation_id=calculation_id,
+    )
+
+    assert portfolio_status == 200
+    assert definition_status == 200
+    assert composition_status == 200
+    assert catalog_status == 200
+    assert portfolio_payload["base_currency"] == "USD"
+    assert definition_payload["benchmark_id"] == "BMK_1"
+    assert composition_payload["benchmark_currency"] == "USD"
+    assert catalog_payload["indices"][1]["index_id"] == "IDX_2"
+
+    snapshots = execution_store.list_upstream_snapshots(calculation_id)
+    assert {snapshot.upstream_endpoint for snapshot in snapshots} >= {
+        "portfolio_reference",
+        "benchmark_definition",
+        "benchmark_composition_window",
+        "index_catalog",
+    }
+
+
+@pytest.mark.asyncio
+async def test_stateful_input_service_merges_chunked_market_series_and_fx_rates():
+    core_service = _CoreServiceStub()
+    service = StatefulInputService(
+        core_service=core_service,
+        portfolio_chunk_days=10,
+        reference_chunk_days=2,
+        max_concurrent_chunks=2,
+    )
+
+    market_status, market_payload = await service.get_benchmark_market_series(
+        benchmark_id="BMK_1",
+        as_of_date=date(2026, 1, 4),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 4),
+        target_currency="USD",
+        series_fields=["index_return"],
+    )
+    fx_status, fx_payload = await service.get_fx_rates(
+        from_currency="EUR",
+        to_currency="USD",
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 4),
+    )
+
+    assert market_status == 200
+    assert fx_status == 200
+    assert market_payload["retrieval_metadata"] == {"chunk_count": 2, "page_count": 2}
+    assert fx_payload["retrieval_metadata"] == {"chunk_count": 2, "page_count": 2}
+    assert market_payload["component_series"] == [
+        {
+            "index_id": "IDX_1",
+            "points": [
+                {"series_date": "2026-01-01", "index_return": "0.0010"},
+                {"series_date": "2026-01-02", "index_return": "0.0020"},
+                {"series_date": "2026-01-03", "index_return": "0.0010"},
+                {"series_date": "2026-01-04", "index_return": "0.0020"},
+            ],
+        },
+        {
+            "index_id": "IDX_2",
+            "points": [
+                {"series_date": "2026-01-01", "index_return": "0.0030"},
+                {"series_date": "2026-01-02", "index_return": "0.0040"},
+                {"series_date": "2026-01-03", "index_return": "0.0030"},
+                {"series_date": "2026-01-04", "index_return": "0.0040"},
+            ],
+        },
+    ]
+    assert fx_payload["points"] == [
+        {"series_date": "2026-01-01", "fx_rate": "1.1000"},
+        {"series_date": "2026-01-02", "fx_rate": "1.2000"},
+        {"series_date": "2026-01-03", "fx_rate": "1.1000"},
+        {"series_date": "2026-01-04", "fx_rate": "1.2000"},
+    ]
+    assert len(core_service.benchmark_market_calls) == 2
+    assert len(core_service.fx_calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_stateful_input_service_merges_chunked_index_price_series_and_skips_duplicate_snapshots(tmp_path):
+    core_service = _CoreServiceStub()
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    calculation_id = uuid4()
+    execution_store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="BenchmarkAnalytics",
+        portfolio_id="PORT_1",
+    )
+    service = StatefulInputService(
+        core_service=core_service,
+        execution_store=execution_store,
+        reference_chunk_days=2,
+    )
+
+    status_code, payload = await service.get_index_price_series(
+        index_id="IDX_1",
+        as_of_date=date(2026, 1, 4),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 4),
+        calculation_id=calculation_id,
+    )
+    await service.get_index_price_series(
+        index_id="IDX_1",
+        as_of_date=date(2026, 1, 4),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 4),
+        calculation_id=calculation_id,
+    )
+
+    assert status_code == 200
+    assert payload["retrieval_metadata"] == {"chunk_count": 2, "page_count": 2}
+    assert payload["points"] == [
+        {"series_date": "2026-01-01", "index_price": "100", "series_currency": "USD"},
+        {"series_date": "2026-01-02", "index_price": "101", "series_currency": "USD"},
+        {"series_date": "2026-01-03", "index_price": "100", "series_currency": "USD"},
+        {"series_date": "2026-01-04", "index_price": "101", "series_currency": "USD"},
+    ]
+    snapshots = execution_store.list_upstream_snapshots(calculation_id)
+    assert len([snapshot for snapshot in snapshots if snapshot.upstream_endpoint == "index_price_series"]) == 2
+    assert len(core_service.index_price_calls) == 4
+
+
+@pytest.mark.asyncio
+async def test_stateful_input_service_returns_first_failure_for_reference_chunks():
+    class _FailingReferenceCoreService(_CoreServiceStub):
+        async def get_benchmark_market_series(self, **kwargs):
+            if kwargs["start_date"] == date(2026, 1, 3):
+                return 503, {"detail": "reference unavailable"}
+            return await super().get_benchmark_market_series(**kwargs)
+
+        async def get_index_price_series(self, **kwargs):
+            return 404, {"detail": "missing index"}
+
+    service = StatefulInputService(
+        core_service=_FailingReferenceCoreService(),
+        reference_chunk_days=2,
+    )
+
+    market_status, market_payload = await service.get_benchmark_market_series(
+        benchmark_id="BMK_1",
+        as_of_date=date(2026, 1, 4),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 4),
+    )
+    index_status, index_payload = await service.get_index_price_series(
+        index_id="IDX_1",
+        as_of_date=date(2026, 1, 4),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 4),
+    )
+
+    assert market_status == 503
+    assert market_payload == {"detail": "reference unavailable"}
+    assert index_status == 404
+    assert index_payload == {"detail": "missing index"}
+
+
+@pytest.mark.asyncio
+async def test_stateful_input_service_records_reference_snapshots_even_when_chunked_request_fails(tmp_path):
+    class _FailingReferenceCoreService(_CoreServiceStub):
+        async def get_benchmark_market_series(self, **kwargs):
+            if kwargs["start_date"] == date(2026, 1, 3):
+                return 503, {"detail": "reference unavailable"}
+            return await super().get_benchmark_market_series(**kwargs)
+
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    calculation_id = uuid4()
+    execution_store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="BenchmarkAnalytics",
+        portfolio_id="BMK_1",
+    )
+    service = StatefulInputService(
+        core_service=_FailingReferenceCoreService(),
+        execution_store=execution_store,
+        reference_chunk_days=2,
+    )
+
+    status_code, payload = await service.get_benchmark_market_series(
+        benchmark_id="BMK_1",
+        as_of_date=date(2026, 1, 4),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 4),
+        calculation_id=calculation_id,
+    )
+
+    assert status_code == 503
+    assert payload == {"detail": "reference unavailable"}
+    snapshots = execution_store.list_upstream_snapshots(calculation_id)
+    assert len([snapshot for snapshot in snapshots if snapshot.upstream_endpoint == "benchmark_market_series"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_stateful_input_service_records_fx_snapshots_even_when_chunked_request_fails(tmp_path):
+    class _FailingFxCoreService(_CoreServiceStub):
+        async def get_fx_rates(self, **kwargs):
+            if kwargs["start_date"] == date(2026, 1, 3):
+                return 503, {"detail": "fx unavailable"}
+            return await super().get_fx_rates(**kwargs)
+
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    calculation_id = uuid4()
+    execution_store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="BenchmarkAnalytics",
+        portfolio_id="BMK_1",
+    )
+    service = StatefulInputService(
+        core_service=_FailingFxCoreService(),
+        execution_store=execution_store,
+        reference_chunk_days=2,
+    )
+
+    status_code, payload = await service.get_fx_rates(
+        from_currency="EUR",
+        to_currency="USD",
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 4),
+        calculation_id=calculation_id,
+    )
+
+    assert status_code == 503
+    assert payload == {"detail": "fx unavailable"}
+    snapshots = execution_store.list_upstream_snapshots(calculation_id)
+    assert len([snapshot for snapshot in snapshots if snapshot.upstream_endpoint == "fx_rates"]) == 2
 
 
 @pytest.mark.asyncio
@@ -391,6 +751,98 @@ async def test_stateful_input_service_skips_duplicate_snapshot_builds_for_existi
 
 
 @pytest.mark.asyncio
+async def test_stateful_input_service_skips_duplicate_reference_snapshot_builds_for_market_and_fx(tmp_path, mocker):
+    core_service = _CoreServiceStub()
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    calculation_id = uuid4()
+    execution_store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="BenchmarkAnalytics",
+        portfolio_id="BMK_1",
+    )
+    service = StatefulInputService(
+        core_service=core_service,
+        execution_store=execution_store,
+        reference_chunk_days=2,
+        max_concurrent_chunks=2,
+    )
+
+    await service.get_benchmark_market_series(
+        benchmark_id="BMK_1",
+        as_of_date=date(2026, 1, 4),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 4),
+        calculation_id=calculation_id,
+    )
+    await service.get_fx_rates(
+        from_currency="EUR",
+        to_currency="USD",
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 4),
+        calculation_id=calculation_id,
+    )
+    service._snapshot_id_cache[calculation_id] = execution_store.list_upstream_snapshot_ids(calculation_id)
+
+    snapshot_builder = mocker.patch.object(service, "_build_snapshot", wraps=service._build_snapshot)
+
+    await service.get_benchmark_market_series(
+        benchmark_id="BMK_1",
+        as_of_date=date(2026, 1, 4),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 4),
+        calculation_id=calculation_id,
+    )
+    await service.get_fx_rates(
+        from_currency="EUR",
+        to_currency="USD",
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 4),
+        calculation_id=calculation_id,
+    )
+
+    assert snapshot_builder.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_stateful_input_service_records_position_snapshots_before_chunk_failure(tmp_path):
+    class _FailingPositionCoreService(_CoreServiceStub):
+        async def get_position_analytics_timeseries(self, **kwargs):
+            if kwargs["start_date"] == date(2026, 1, 3):
+                return 503, {"detail": "position unavailable"}
+            return await super().get_position_analytics_timeseries(**kwargs)
+
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    calculation_id = uuid4()
+    execution_store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="Contribution",
+        portfolio_id="PORT_1",
+    )
+    service = StatefulInputService(
+        core_service=_FailingPositionCoreService(),
+        execution_store=execution_store,
+        portfolio_chunk_days=2,
+    )
+
+    status_code, payload = await service.get_position_timeseries(
+        portfolio_id="PORT_1",
+        as_of_date=date(2026, 1, 3),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 3),
+        reporting_currency="USD",
+        consumer_system="lotus-performance",
+        calculation_id=calculation_id,
+    )
+
+    assert status_code == 503
+    assert payload == {"detail": "position unavailable"}
+    snapshots = execution_store.list_upstream_snapshots(calculation_id)
+    assert len([snapshot for snapshot in snapshots if snapshot.upstream_endpoint == "position_timeseries"]) == 3
+
+
+@pytest.mark.asyncio
 async def test_stateful_input_service_returns_first_failure_for_position_chunks():
     class _FailingCoreService(_CoreServiceStub):
         async def get_position_analytics_timeseries(self, **kwargs):
@@ -431,3 +883,57 @@ def test_stateful_input_service_deduplicates_records_and_component_series():
 
     assert deduped == [{"valuation_date": "2026-01-01", "position_id": "POS_1", "value": 2}]
     assert merged_series == [{"index_id": "IDX_1", "points": [{"series_date": "2026-01-01"}]}]
+
+
+def test_stateful_input_service_helper_contracts_cover_page_tokens_failures_and_snapshot_identity():
+    service = StatefulInputService(core_service=_CoreServiceStub())
+    calculation_id = UUID("00000000-0000-0000-0000-000000000001")
+
+    assert service._first_failure([(200, {}), (201, {"ok": True})]) is None
+    assert service._next_page_token({"next_page_token": "top-level-token"}) == "top-level-token"
+    assert service._next_page_token({"page": {"next_page_token": "nested-token"}}) == "nested-token"
+    assert service._next_page_token({"next_page_token": ""}) is None
+    assert service._merge_dedup_records(
+        records=[
+            {"series_date": "2026-01-02", "value": 2},
+            {"series_date": "2026-01-01", "value": 1},
+            {"series_date": 3, "value": 3},
+        ],
+        date_key="series_date",
+    ) == [
+        {"series_date": "2026-01-01", "value": 1},
+        {"series_date": "2026-01-02", "value": 2},
+    ]
+
+    snapshot_id, request_fingerprint = service._build_snapshot_identity(
+        calculation_id=calculation_id,
+        upstream_endpoint="fx_rates",
+        source_identifier="EUR/USD",
+        request_payload={"from_currency": "EUR", "to_currency": "USD"},
+    )
+    snapshot = service._build_snapshot(
+        calculation_id=calculation_id,
+        upstream_endpoint="fx_rates",
+        source_identifier="EUR/USD",
+        as_of_date=date(2026, 1, 3),
+        request_payload={"from_currency": "EUR", "to_currency": "USD"},
+        response=(200, {"rates": [{"rate": "1.2"}]}),
+        snapshot_id=snapshot_id,
+        request_fingerprint=request_fingerprint,
+    )
+
+    assert snapshot["snapshot_id"] == snapshot_id
+    assert snapshot["request_fingerprint"] == request_fingerprint
+    assert snapshot["retrieval_status"] == "200"
+    assert snapshot["paging_metadata"] == {"from_currency": "EUR", "to_currency": "USD"}
+
+    auto_snapshot = service._build_snapshot(
+        calculation_id=calculation_id,
+        upstream_endpoint="benchmark_market_series",
+        source_identifier="BMK_1",
+        as_of_date=date(2026, 1, 3),
+        request_payload={"benchmark_id": "BMK_1"},
+        response=(200, {"component_series": []}),
+    )
+    assert auto_snapshot["snapshot_id"]
+    assert auto_snapshot["request_fingerprint"]

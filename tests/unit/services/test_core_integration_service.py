@@ -88,6 +88,22 @@ async def test_get_benchmark_assignment_posts_contract_payload():
 
 
 @pytest.mark.asyncio
+async def test_get_portfolio_analytics_reference_posts_contract_payload():
+    service = CoreIntegrationService(base_url="http://core", timeout_seconds=2.0)
+    _FakeAsyncClient.queue_json(200, {"portfolio_open_date": "2024-01-01"})
+
+    status_code, payload = await service.get_portfolio_analytics_reference(
+        portfolio_id="PORT-REF",
+        as_of_date=date(2026, 2, 24),
+    )
+
+    assert status_code == 200
+    assert payload["portfolio_open_date"] == "2024-01-01"
+    assert _FakeAsyncClient.calls[0]["url"] == "http://core/integration/portfolios/PORT-REF/analytics/reference"
+    assert _FakeAsyncClient.calls[0]["json"] == {"as_of_date": "2026-02-24"}
+
+
+@pytest.mark.asyncio
 async def test_get_benchmark_return_series_posts_contract_payload():
     service = CoreIntegrationService(base_url="http://core", timeout_seconds=2.0)
     _FakeAsyncClient.queue_json(200, {"points": []})
@@ -187,6 +203,24 @@ async def test_get_benchmark_market_series_posts_contract_payload():
 
 
 @pytest.mark.asyncio
+async def test_get_benchmark_market_series_uses_default_series_fields_when_not_overridden():
+    service = CoreIntegrationService(base_url="http://core", timeout_seconds=2.0)
+    _FakeAsyncClient.queue_json(200, {"component_series": []})
+
+    status_code, payload = await service.get_benchmark_market_series(
+        benchmark_id="BMK_4",
+        as_of_date=date(2026, 2, 24),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 2, 24),
+    )
+
+    assert status_code == 200
+    assert payload["component_series"] == []
+    assert _FakeAsyncClient.calls[0]["json"]["series_fields"] == ["index_return", "component_weight"]
+    assert "target_currency" not in _FakeAsyncClient.calls[0]["json"]
+
+
+@pytest.mark.asyncio
 async def test_get_index_catalog_posts_contract_payload():
     service = CoreIntegrationService(base_url="http://core", timeout_seconds=2.0)
     _FakeAsyncClient.queue_json(200, {"records": []})
@@ -210,6 +244,54 @@ async def test_get_index_catalog_posts_contract_payload():
 
 
 @pytest.mark.asyncio
+async def test_get_fx_rates_uses_query_params_contract(monkeypatch):
+    captured: dict[str, object] = {}
+
+    async def _fake_get_with_retry(**kwargs):
+        captured.update(kwargs)
+        return 200, {"points": []}
+
+    monkeypatch.setattr("app.services.core_integration_service.get_with_retry", _fake_get_with_retry)
+    service = CoreIntegrationService(base_url="http://core", timeout_seconds=2.0)
+
+    status_code, payload = await service.get_fx_rates(
+        from_currency="EUR",
+        to_currency="USD",
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 31),
+    )
+
+    assert status_code == 200
+    assert payload["points"] == []
+    assert captured["url"] == "http://core/fx-rates/"
+    assert captured["query_params"] == {
+        "from_currency": "EUR",
+        "to_currency": "USD",
+        "start_date": "2026-01-01",
+        "end_date": "2026-01-31",
+    }
+
+
+@pytest.mark.asyncio
+async def test_get_index_price_series_posts_contract_payload():
+    service = CoreIntegrationService(base_url="http://core", timeout_seconds=2.0)
+    _FakeAsyncClient.queue_json(200, {"points": []})
+
+    status_code, payload = await service.get_index_price_series(
+        index_id="IDX_1",
+        as_of_date=date(2026, 2, 24),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 2, 24),
+        target_currency="USD",
+    )
+
+    assert status_code == 200
+    assert payload["points"] == []
+    assert _FakeAsyncClient.calls[0]["url"] == "http://core/integration/indices/IDX_1/price-series"
+    assert _FakeAsyncClient.calls[0]["json"]["target_currency"] == "USD"
+
+
+@pytest.mark.asyncio
 async def test_get_risk_free_series_posts_contract_payload():
     service = CoreIntegrationService(base_url="http://core", timeout_seconds=2.0)
     _FakeAsyncClient.queue_json(200, {"points": []})
@@ -224,3 +306,19 @@ async def test_get_risk_free_series_posts_contract_payload():
     assert status_code == 200
     assert payload["points"] == []
     assert _FakeAsyncClient.calls[0]["url"] == "http://core/integration/reference/risk-free-series"
+
+
+@pytest.mark.asyncio
+async def test_get_risk_free_series_supports_series_mode_override():
+    service = CoreIntegrationService(base_url="http://core", timeout_seconds=2.0)
+    _FakeAsyncClient.queue_json(200, {"points": []})
+
+    await service.get_risk_free_series(
+        currency="USD",
+        as_of_date=date(2026, 2, 24),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 2, 24),
+        series_mode="yield_series",
+    )
+
+    assert _FakeAsyncClient.calls[0]["json"]["series_mode"] == "yield_series"

@@ -5,12 +5,14 @@ from uuid import uuid4
 
 import pandas as pd
 import pytest
+from fastapi import HTTPException
 
 from app.api.endpoints.contribution import _should_offload_contribution
 from app.api.endpoints.performance import _should_offload_attribution
 from app.models.attribution_analytics_requests import AttributionAnalyticsRequest
 from app.models.attribution_requests import AttributionRequest
 from app.models.contribution_requests import ContributionRequest
+from app.models.contribution_responses import PositionContributionSeries, PositionDailyContribution
 from app.services import attribution_service, contribution_service
 from common.enums import AttributionModel, LinkingMethod, PeriodType
 
@@ -181,6 +183,158 @@ def test_contribution_service_uses_runtime_app_version(mocker):
 
     assert response.meta.engine_version == "runtime-version"
     assert captured["response_model"].meta.engine_version == "runtime-version"
+
+
+def test_contribution_service_raises_when_no_periods_resolve(mocker):
+    mocker.patch(
+        "app.services.contribution_service.get_settings",
+        return_value=type("Settings", (), {"APP_VERSION": "runtime-version"})(),
+    )
+    mocker.patch.object(contribution_service.execution_registry, "mark_running", lambda calculation_id: None)
+    mocker.patch.object(
+        contribution_service.execution_registry,
+        "start_stage",
+        lambda calculation_id, stage_name: None,
+    )
+    mocker.patch("app.services.contribution_service.resolve_periods", return_value=[])
+    failure_capture: dict[str, object] = {}
+    mocker.patch(
+        "app.services.contribution_service.record_execution_failure",
+        side_effect=lambda **kwargs: failure_capture.update(kwargs),
+    )
+
+    request = ContributionRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "P1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+            },
+            "positions_data": [{"position_id": "A", "valuation_points": []}],
+        }
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        contribution_service.calculate_contribution(
+            request,
+            input_fingerprint="fingerprint",
+            calculation_hash="hash",
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "No valid periods could be resolved." in str(exc_info.value.detail)
+    assert "No valid periods could be resolved." in str(failure_capture["message"])
+
+
+def test_contribution_service_hierarchy_path_skips_empty_period_slices_and_returns_hierarchy_results(mocker):
+    mocker.patch(
+        "app.services.contribution_service.get_settings",
+        return_value=type("Settings", (), {"APP_VERSION": "runtime-version"})(),
+    )
+    mocker.patch.object(contribution_service.execution_registry, "mark_running", lambda calculation_id: None)
+    mocker.patch.object(
+        contribution_service.execution_registry,
+        "start_stage",
+        lambda calculation_id, stage_name: None,
+    )
+    mocker.patch(
+        "app.services.contribution_service.resolve_periods",
+        return_value=[
+            SimpleNamespace(
+                name="EMPTY",
+                start_date=pd.Timestamp("2024-12-01").date(),
+                end_date=pd.Timestamp("2024-12-31").date(),
+                value=PeriodType.ITD,
+            ),
+            SimpleNamespace(
+                name="ITD",
+                start_date=pd.Timestamp("2025-01-01").date(),
+                end_date=pd.Timestamp("2025-01-02").date(),
+                value=PeriodType.ITD,
+            ),
+        ],
+    )
+    mocker.patch(
+        "app.services.contribution_service._prepare_hierarchical_data",
+        return_value=(
+            pd.DataFrame({"position_id": ["A", "A"]}),
+            pd.DataFrame(
+                {
+                    "perf_date": [pd.Timestamp("2025-01-01").date(), pd.Timestamp("2025-01-02").date()],
+                    "daily_ror": [1.0, 1.0],
+                }
+            ),
+        ),
+    )
+    mocker.patch(
+        "app.services.contribution_service._calculate_daily_instrument_contributions",
+        return_value=pd.DataFrame(
+            {
+                "perf_date": [pd.Timestamp("2025-01-01").date(), pd.Timestamp("2025-01-02").date()],
+                "position_id": ["A", "A"],
+                "smoothed_contribution": [0.01, 0.02],
+                "smoothed_local_contribution": [0.01, 0.02],
+                "daily_weight": [0.5, 0.5],
+            }
+        ),
+    )
+    mocker.patch(
+        "app.services.contribution_service._calculate_reset_aware_period_portfolio_return",
+        return_value=0.03,
+    )
+    mocker.patch(
+        "app.services.contribution_service.build_hierarchical_contribution_result",
+        return_value={
+            "summary": {
+                "portfolio_contribution": 3.0,
+                "coverage_mv_pct": 100.0,
+                "weighting_scheme": "average_weight",
+            },
+            "levels": [{"level": 1, "name": "sector", "rows": []}],
+        },
+    )
+    mocker.patch(
+        "app.services.contribution_service.complete_execution_with_lineage",
+        side_effect=lambda **kwargs: None,
+    )
+
+    request = ContributionRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "P1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "hierarchy": ["sector"],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [
+                    {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                    {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1030},
+                ],
+            },
+            "positions_data": [{"position_id": "A", "valuation_points": [], "meta": {"sector": "Tech"}}],
+        }
+    )
+
+    response = contribution_service.calculate_contribution(
+        request,
+        input_fingerprint="fingerprint",
+        calculation_hash="hash",
+    )
+
+    assert set(response.results_by_period) == {"ITD"}
+    assert response.results_by_period["ITD"].summary is not None
+    assert response.results_by_period["ITD"].summary.portfolio_contribution == 3.0
+    assert response.results_by_period["ITD"].summary.coverage_mv_pct == 100.0
+    assert response.results_by_period["ITD"].summary.weighting_scheme == "average_weight"
+    assert response.results_by_period["ITD"].levels is not None
+    assert response.results_by_period["ITD"].levels[0].level == 1
+    assert response.results_by_period["ITD"].levels[0].name == "sector"
 
 
 def test_contribution_service_emits_average_weight_shadow_note_and_audit_count(mocker):
@@ -1064,6 +1218,133 @@ def test_contribution_service_emits_grouped_return_alignment_note_when_position_
     assert any("grouped-return alignment remains under characterization" in note for note in response.diagnostics.notes)
 
 
+def test_contribution_service_classifies_reset_alignment_as_cutover_blocker_for_material_shadow_period(mocker):
+    mocker.patch(
+        "app.services.contribution_service.get_settings",
+        return_value=type("Settings", (), {"APP_VERSION": "runtime-version"})(),
+    )
+    mocker.patch.object(contribution_service.execution_registry, "mark_running", lambda calculation_id: None)
+    mocker.patch.object(
+        contribution_service.execution_registry,
+        "start_stage",
+        lambda calculation_id, stage_name: None,
+    )
+    mocker.patch(
+        "app.services.contribution_service.resolve_periods",
+        return_value=[
+            SimpleNamespace(
+                name="ITD",
+                start_date=pd.Timestamp("2025-01-01").date(),
+                end_date=pd.Timestamp("2025-01-03").date(),
+                value=PeriodType.ITD,
+            )
+        ],
+    )
+    mocker.patch(
+        "app.services.contribution_service._prepare_hierarchical_data",
+        return_value=(
+            pd.DataFrame(
+                {
+                    "position_id": ["A", "A", "A", "B", "B", "B"],
+                    "perf_date": [
+                        pd.Timestamp("2025-01-01").date(),
+                        pd.Timestamp("2025-01-02").date(),
+                        pd.Timestamp("2025-01-03").date(),
+                        pd.Timestamp("2025-01-01").date(),
+                        pd.Timestamp("2025-01-02").date(),
+                        pd.Timestamp("2025-01-03").date(),
+                    ],
+                    "perf_reset": [0, 0, 1, 0, 0, 1],
+                    "bod_cf": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                    "eod_cf": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                }
+            ),
+            pd.DataFrame(
+                {
+                    "perf_date": [
+                        pd.Timestamp("2025-01-01").date(),
+                        pd.Timestamp("2025-01-02").date(),
+                        pd.Timestamp("2025-01-03").date(),
+                    ],
+                    "begin_mv": [1000.0, 1005.0, 1010.0],
+                    "bod_cf": [0.0, 0.0, 0.0],
+                    "daily_ror": [1.0, 1.0, 1.0],
+                    "perf_reset": [0, 1, 0],
+                    "nip": [0, 0, 0],
+                    "nctrl_4": [0, 0, 0],
+                    "account_reset": [0, 0, 0],
+                    "sod_reset": [0, 0, 0],
+                    "nip_rule_v1_shadow": [0, 0, 0],
+                    "nip_rule_v2_shadow": [0, 0, 0],
+                }
+            ),
+        ),
+    )
+    mocker.patch(
+        "app.services.contribution_service._calculate_daily_instrument_contributions",
+        return_value=pd.DataFrame(
+            {
+                "perf_date": [
+                    pd.Timestamp("2025-01-01").date(),
+                    pd.Timestamp("2025-01-02").date(),
+                    pd.Timestamp("2025-01-03").date(),
+                    pd.Timestamp("2025-01-01").date(),
+                    pd.Timestamp("2025-01-02").date(),
+                    pd.Timestamp("2025-01-03").date(),
+                ],
+                "position_id": ["A", "A", "A", "B", "B", "B"],
+                "smoothed_contribution": [0.01, 0.01, 0.01, 0.02, 0.02, 0.02],
+                "smoothed_local_contribution": [0.01, 0.01, 0.01, 0.02, 0.02, 0.02],
+                "daily_weight": [0.10, 0.95, 0.95, 0.90, 0.05, 0.05],
+                "perf_reset": [0, 0, 1, 0, 0, 1],
+            }
+        ),
+    )
+    mocker.patch(
+        "app.services.contribution_service.complete_execution_with_lineage",
+        side_effect=lambda **kwargs: None,
+    )
+
+    request = ContributionRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "P1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-03",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [
+                    {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                    {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1020},
+                    {"perf_date": "2025-01-03", "begin_mv": 1020, "end_mv": 1030},
+                ],
+            },
+            "positions_data": [
+                {"position_id": "A", "valuation_points": []},
+                {"position_id": "B", "valuation_points": []},
+            ],
+        }
+    )
+
+    response = contribution_service.calculate_contribution(
+        request,
+        input_fingerprint="fingerprint",
+        calculation_hash="hash",
+    )
+
+    period_status = response.results_by_period["ITD"].average_weight_methodology_status
+    assert period_status is not None
+    assert period_status.status == "BLOCKED"
+    assert period_status.blocker_reason_codes == ["reset_alignment"]
+    assert response.audit.counts["average_weight_shadow_blocked_periods"] == 1
+    assert response.audit.counts["average_weight_shadow_blocked_by_reset_alignment_periods"] == 1
+    assert response.audit.counts["average_weight_shadow_blocked_by_timeseries_delta_periods"] == 0
+    assert any(
+        "portfolio and position reset boundaries were not aligned" in note for note in response.diagnostics.notes
+    )
+
+
 def test_contribution_service_emits_carino_invalid_domain_note_for_broken_capital_path(mocker):
     mocker.patch(
         "app.services.contribution_service.get_settings",
@@ -1446,6 +1727,150 @@ def test_contribution_service_soft_flags_small_position_flow_residuals(mocker):
     assert response.audit.counts["position_flow_residual_sum_bp"] == 10
     assert any("looks like a small non-flow-neutral scoped slice" in note for note in response.diagnostics.notes)
     assert not any("materially non-flow-neutral scoped slice" in note for note in response.diagnostics.notes)
+
+
+def test_contribution_service_classifies_timeseries_reconciliation_as_cutover_blocker(mocker):
+    mocker.patch(
+        "app.services.contribution_service.get_settings",
+        return_value=type("Settings", (), {"APP_VERSION": "runtime-version"})(),
+    )
+    mocker.patch.object(contribution_service.execution_registry, "mark_running", lambda calculation_id: None)
+    mocker.patch.object(
+        contribution_service.execution_registry,
+        "start_stage",
+        lambda calculation_id, stage_name: None,
+    )
+    mocker.patch(
+        "app.services.contribution_service.resolve_periods",
+        return_value=[
+            SimpleNamespace(
+                name="ITD",
+                start_date=pd.Timestamp("2025-01-01").date(),
+                end_date=pd.Timestamp("2025-01-03").date(),
+                value=PeriodType.ITD,
+            )
+        ],
+    )
+    mocker.patch(
+        "app.services.contribution_service._prepare_hierarchical_data",
+        return_value=(
+            pd.DataFrame(
+                {
+                    "position_id": ["A", "A", "A", "B", "B", "B"],
+                    "perf_date": [
+                        pd.Timestamp("2025-01-01").date(),
+                        pd.Timestamp("2025-01-02").date(),
+                        pd.Timestamp("2025-01-03").date(),
+                        pd.Timestamp("2025-01-01").date(),
+                        pd.Timestamp("2025-01-02").date(),
+                        pd.Timestamp("2025-01-03").date(),
+                    ],
+                    "perf_reset": [0, 1, 0, 0, 1, 0],
+                    "bod_cf": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                    "eod_cf": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                }
+            ),
+            pd.DataFrame(
+                {
+                    "perf_date": [
+                        pd.Timestamp("2025-01-01").date(),
+                        pd.Timestamp("2025-01-02").date(),
+                        pd.Timestamp("2025-01-03").date(),
+                    ],
+                    "begin_mv": [1000.0, 1005.0, 1010.0],
+                    "bod_cf": [0.0, 0.0, 0.0],
+                    "daily_ror": [1.0, 1.0, 1.0],
+                    "perf_reset": [0, 1, 0],
+                    "nip": [0, 0, 0],
+                    "nctrl_4": [0, 0, 0],
+                    "account_reset": [0, 0, 0],
+                    "sod_reset": [0, 0, 0],
+                    "nip_rule_v1_shadow": [0, 0, 0],
+                    "nip_rule_v2_shadow": [0, 0, 0],
+                }
+            ),
+        ),
+    )
+    mocker.patch(
+        "app.services.contribution_service._calculate_daily_instrument_contributions",
+        return_value=pd.DataFrame(
+            {
+                "perf_date": [
+                    pd.Timestamp("2025-01-01").date(),
+                    pd.Timestamp("2025-01-02").date(),
+                    pd.Timestamp("2025-01-03").date(),
+                    pd.Timestamp("2025-01-01").date(),
+                    pd.Timestamp("2025-01-02").date(),
+                    pd.Timestamp("2025-01-03").date(),
+                ],
+                "position_id": ["A", "A", "A", "B", "B", "B"],
+                "smoothed_contribution": [0.01, 0.01, 0.01, 0.02, 0.02, 0.02],
+                "smoothed_local_contribution": [0.01, 0.01, 0.01, 0.02, 0.02, 0.02],
+                "daily_weight": [0.10, 0.95, 0.95, 0.90, 0.05, 0.05],
+                "perf_reset": [0, 1, 0, 0, 1, 0],
+            }
+        ),
+    )
+    mocker.patch(
+        "app.services.contribution_service._build_residual_adjusted_position_timeseries",
+        return_value=[
+            PositionContributionSeries(
+                position_id="A",
+                series=[
+                    PositionDailyContribution(date=pd.Timestamp("2025-01-01").date(), contribution=100.0),
+                ],
+            )
+        ],
+    )
+    mocker.patch(
+        "app.services.contribution_service.complete_execution_with_lineage",
+        side_effect=lambda **kwargs: None,
+    )
+
+    request = ContributionRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "P1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-03",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [
+                    {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                    {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1020},
+                    {"perf_date": "2025-01-03", "begin_mv": 1020, "end_mv": 1030},
+                ],
+            },
+            "positions_data": [
+                {"position_id": "A", "valuation_points": []},
+                {"position_id": "B", "valuation_points": []},
+            ],
+            "emit": {"timeseries": True},
+        }
+    )
+
+    response = contribution_service.calculate_contribution(
+        request,
+        input_fingerprint="fingerprint",
+        calculation_hash="hash",
+    )
+
+    period_status = response.results_by_period["ITD"].average_weight_methodology_status
+    assert period_status is not None
+    assert period_status.status == "BLOCKED"
+    assert period_status.blocker_reason_codes == ["timeseries_reconciliation"]
+    assert response.audit.counts["timeseries_total_delta_periods"] == 1
+    assert response.audit.counts["average_weight_shadow_blocked_periods"] == 1
+    assert response.audit.counts["average_weight_shadow_blocked_by_timeseries_delta_periods"] == 1
+    assert any(
+        "daily contribution series still drifted from the residual-adjusted period total"
+        in note
+        for note in response.diagnostics.notes
+    )
+    assert any(
+        "do not sum to the residual-adjusted period total" in note for note in response.diagnostics.notes
+    )
 
 
 def test_attribution_service_uses_runtime_app_version(mocker):

@@ -12,6 +12,7 @@ from app.services.stateful_attribution_input_service import (
     StatefulAttributionSourceInput,
     _build_benchmark_groups,
     _build_group_key,
+    _build_instruments_data,
     _normalize_group_value,
     _parse_index_catalog,
     _parse_position_rows,
@@ -20,6 +21,7 @@ from app.services.stateful_attribution_input_service import (
     _position_row_to_base_weight_point,
     _position_row_to_daily_point,
     _split_position_cash_flows,
+    _validate_stateful_both_currency_support,
     _validate_stateful_group_by,
     build_stateful_attribution_input,
     retrieve_stateful_attribution_source_input,
@@ -208,6 +210,112 @@ async def test_retrieve_stateful_attribution_source_input_raises_for_upstream_fa
         )
 
 
+@pytest.mark.asyncio
+async def test_retrieve_stateful_attribution_source_input_raises_for_assignment_payload_and_index_catalog_failures(
+    monkeypatch,
+):
+    portfolio_input = StatefulPortfolioInput(
+        performance_start_date=date(2025, 1, 1),
+        observations=[
+            {
+                "valuation_date": "2025-01-01",
+                "beginning_market_value": "1000",
+                "ending_market_value": "1010",
+            }
+        ],
+    )
+
+    async def _mock_retrieve_stateful_portfolio_input(**kwargs):  # noqa: ARG001
+        return portfolio_input
+
+    async def _mock_build_benchmark_input(**kwargs):  # noqa: ARG001
+        return StatefulBenchmarkNormalizedInput(
+            benchmark_currency="USD",
+            component_observations=[
+                BenchmarkComponentObservation(
+                    component_id="IDX_1",
+                    component_currency="USD",
+                    perf_date=date(2025, 1, 1),
+                    weight_bop=1.0,
+                    component_return=0.01,
+                    component_return_local=0.01,
+                    component_return_fx=0.0,
+                )
+            ],
+            benchmark_return_points=[],
+            source_details={"benchmark_components": 1, "benchmark_chunk_count": 1, "benchmark_page_count": 1},
+        )
+
+    monkeypatch.setattr(
+        "app.services.stateful_attribution_input_service.retrieve_stateful_portfolio_input",
+        _mock_retrieve_stateful_portfolio_input,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_attribution_input_service.build_stateful_benchmark_input",
+        _mock_build_benchmark_input,
+    )
+
+    service = _AttributionInputServiceStub()
+    service.assignment_response = (200, {})
+    with pytest.raises(HTTPException, match="payload missing benchmark_id"):
+        await retrieve_stateful_attribution_source_input(
+            settings=object(),
+            stateful_input_service=service,
+            calculation_id=uuid4(),
+            portfolio_id="P1",
+            as_of_date=date(2025, 1, 1),
+            report_start_date=date(2025, 1, 1),
+            report_end_date=date(2025, 1, 1),
+            reporting_currency="USD",
+            consumer_system="lotus-performance",
+            group_by=["sector"],
+            dimensions=[],
+            include_cash_flows=True,
+            filters={},
+            benchmark_id_override=None,
+        )
+
+    service = _AttributionInputServiceStub()
+    service.assignment_response = (503, {})
+    with pytest.raises(HTTPException, match="benchmark assignment source unavailable"):
+        await retrieve_stateful_attribution_source_input(
+            settings=object(),
+            stateful_input_service=service,
+            calculation_id=uuid4(),
+            portfolio_id="P1",
+            as_of_date=date(2025, 1, 1),
+            report_start_date=date(2025, 1, 1),
+            report_end_date=date(2025, 1, 1),
+            reporting_currency="USD",
+            consumer_system="lotus-performance",
+            group_by=["sector"],
+            dimensions=[],
+            include_cash_flows=True,
+            filters={},
+            benchmark_id_override=None,
+        )
+
+    service = _AttributionInputServiceStub()
+    service.index_response = (503, {})
+    with pytest.raises(HTTPException, match="index catalog source unavailable"):
+        await retrieve_stateful_attribution_source_input(
+            settings=object(),
+            stateful_input_service=service,
+            calculation_id=uuid4(),
+            portfolio_id="P1",
+            as_of_date=date(2025, 1, 1),
+            report_start_date=date(2025, 1, 1),
+            report_end_date=date(2025, 1, 1),
+            reporting_currency="USD",
+            consumer_system="lotus-performance",
+            group_by=["sector"],
+            dimensions=[],
+            include_cash_flows=True,
+            filters={},
+            benchmark_id_override=None,
+        )
+
+
 def test_build_stateful_attribution_input_builds_instruments_and_benchmark_groups():
     source_input = StatefulAttributionSourceInput(
         portfolio_input=StatefulPortfolioInput(
@@ -279,6 +387,40 @@ def test_build_stateful_attribution_input_builds_instruments_and_benchmark_group
     assert normalized.benchmark_groups_data[0].observations[0].return_base == pytest.approx(0.02)
     assert normalized.benchmark_groups_data[0].observations[0].return_local == pytest.approx(0.02)
     assert normalized.benchmark_groups_data[0].observations[0].return_fx == pytest.approx(0.0)
+
+
+def test_build_stateful_attribution_input_rejects_missing_benchmark_observations():
+    source_input = StatefulAttributionSourceInput(
+        portfolio_input=StatefulPortfolioInput(
+            performance_start_date=date(2025, 1, 1),
+            observations=[
+                {
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value": "1000",
+                    "ending_market_value": "1010",
+                }
+            ],
+        ),
+        position_rows=[],
+        position_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+        benchmark_id="BMK_1",
+        benchmark_component_observations=[],
+        benchmark_source_details={},
+        benchmark_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+        index_records=[],
+        index_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+    )
+
+    with pytest.raises(HTTPException, match="No normalized benchmark component observations"):
+        build_stateful_attribution_input(
+            source_input=source_input,
+            mode="by_instrument",
+            group_by=["sector"],
+            metric_basis="NET",
+            currency_mode="BASE_ONLY",
+            fx=None,
+            reporting_currency="USD",
+        )
 
 
 def test_build_stateful_attribution_input_rejects_mode_fence():
@@ -467,14 +609,18 @@ def test_stateful_attribution_group_by_and_benchmark_validation_errors():
 
 
 def test_stateful_attribution_parsers_filter_invalid_rows():
+    assert _split_position_cash_flows(None) == (0, 0)
     assert _split_position_cash_flows(["bad", {"amount": None, "timing": "bod"}]) == (0, 0)
+    assert _split_position_cash_flows(
+        [{"amount": "4", "timing": "bod"}, {"amount": "-1", "timing": "eod"}]
+    ) == (Decimal("4"), Decimal("-1"))
     assert _position_meta_from_row(
         {
             "security_id": "SEC_1",
             "cash_flow_currency": "EUR",
             "position_to_portfolio_fx_rate": "1.2",
             "portfolio_to_reporting_fx_rate": "1.1",
-            "dimensions": {"sector": "Tech"},
+            "dimensions": {"sector": "Tech", "rank": 3},
         }
     ) == {
         "security_id": "SEC_1",
@@ -482,6 +628,7 @@ def test_stateful_attribution_parsers_filter_invalid_rows():
         "position_to_portfolio_fx_rate": Decimal("1.2"),
         "portfolio_to_reporting_fx_rate": Decimal("1.1"),
         "sector": "tech",
+        "rank": 3,
     }
     assert _parse_position_rows({"rows": [{"position_id": "POS_1"}, "bad"]}) == [{"position_id": "POS_1"}]
     assert _parse_index_catalog({"records": [{"index_id": "IDX_1"}, "bad"]}) == [{"index_id": "IDX_1"}]
@@ -582,3 +729,72 @@ def test_stateful_attribution_base_weight_point_converts_bod_cash_flow_to_report
         "begin_mv": Decimal("132"),
         "bod_cf": Decimal("6.60"),
     }
+
+
+def test_stateful_attribution_base_weight_point_handles_missing_dates_and_fallback_values():
+    assert _position_row_to_base_weight_point(row={"valuation_date": None}, reporting_currency="USD") is None
+    assert (
+        _position_row_to_base_weight_point(
+            row={"valuation_date": "2025-01-01"},
+            reporting_currency=None,
+        )
+        is None
+    )
+    assert _position_row_to_base_weight_point(
+        row={
+            "valuation_date": "2025-01-01",
+            "beginning_market_value_reporting_currency": None,
+            "beginning_market_value_portfolio_currency": "100",
+            "cash_flows": [],
+        },
+        reporting_currency="USD",
+    ) == {
+        "perf_date": "2025-01-01",
+        "begin_mv": Decimal("100"),
+        "bod_cf": Decimal("0"),
+    }
+
+
+def test_stateful_attribution_build_instruments_data_skips_invalid_rows_and_none_points():
+    instruments = _build_instruments_data(
+        rows=[
+            {"position_id": "POS_BAD", "valuation_date": None},
+            {
+                "position_id": "POS_MISSING_VALUES",
+                "valuation_date": "2025-01-01",
+            },
+            {
+                "position_id": "POS_OK",
+                "valuation_date": "2025-01-01",
+                "security_id": "SEC_1",
+                "beginning_market_value_portfolio_currency": "100",
+                "ending_market_value_portfolio_currency": "102",
+                "cash_flows": [],
+            },
+        ],
+        currency_mode="BASE_ONLY",
+        reporting_currency=None,
+    )
+
+    assert len(instruments) == 1
+    assert instruments[0].instrument_id == "POS_OK"
+    assert instruments[0].valuation_points[0].begin_mv == Decimal("100")
+
+
+def test_stateful_attribution_both_currency_validation_errors_are_explicit():
+    with pytest.raises(HTTPException, match="requires report_ccy when currency_mode=BOTH"):
+        _validate_stateful_both_currency_support(rows=[], reporting_currency=None, fx=None)
+
+    with pytest.raises(HTTPException, match="requires position_currency"):
+        _validate_stateful_both_currency_support(
+            rows=[{"position_id": "POS_1"}],
+            reporting_currency="USD",
+            fx=None,
+        )
+
+    with pytest.raises(HTTPException, match="requires fx.rates"):
+        _validate_stateful_both_currency_support(
+            rows=[{"position_id": "POS_1", "position_currency": "EUR"}],
+            reporting_currency="USD",
+            fx=None,
+        )

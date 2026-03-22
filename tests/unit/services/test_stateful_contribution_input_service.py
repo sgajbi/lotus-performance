@@ -222,6 +222,89 @@ def test_build_stateful_contribution_input_allows_currency_mode_both_for_same_cu
     assert normalized.positions_data[0].meta["currency"] == "USD"
 
 
+def test_build_stateful_contribution_input_rejects_invalid_both_currency_requests():
+    base_source_input = StatefulContributionSourceInput(
+        portfolio_input=StatefulPortfolioInput(
+            performance_start_date=date(2025, 1, 1),
+            observations=[
+                {
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value": "1000",
+                    "ending_market_value": "1010",
+                }
+            ],
+        ),
+        position_rows=[
+            {
+                "position_id": "POS_1",
+                "position_currency": "EUR",
+                "valuation_date": "2025-01-01",
+                "beginning_market_value_position_currency": "900",
+                "ending_market_value_position_currency": "909",
+                "cash_flows": [],
+            }
+        ],
+        position_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+    )
+
+    with pytest.raises(HTTPException, match="requires report_ccy when currency_mode=BOTH"):
+        build_stateful_contribution_input(
+            source_input=base_source_input,
+            metric_basis="NET",
+            currency_mode="BOTH",
+            reporting_currency=None,
+            fx=None,
+        )
+
+    no_currency_rows = StatefulContributionSourceInput(
+        portfolio_input=base_source_input.portfolio_input,
+        position_rows=[
+            {
+                "position_id": "POS_1",
+                "valuation_date": "2025-01-01",
+                "beginning_market_value_position_currency": "900",
+                "ending_market_value_position_currency": "909",
+                "cash_flows": [],
+            }
+        ],
+        position_retrieval_metadata=base_source_input.position_retrieval_metadata,
+    )
+    with pytest.raises(HTTPException, match="requires position_currency"):
+        build_stateful_contribution_input(
+            source_input=no_currency_rows,
+            metric_basis="NET",
+            currency_mode="BOTH",
+            reporting_currency="USD",
+            fx=None,
+        )
+
+    with pytest.raises(HTTPException, match="requires fx.rates"):
+        build_stateful_contribution_input(
+            source_input=base_source_input,
+            metric_basis="NET",
+            currency_mode="BOTH",
+            reporting_currency="USD",
+            fx=None,
+        )
+
+
+def test_position_row_to_daily_point_falls_back_to_portfolio_values_when_reporting_values_are_missing():
+    point = _position_row_to_daily_point(
+        row={
+            "valuation_date": "2025-01-01",
+            "beginning_market_value_portfolio_currency": "100",
+            "ending_market_value_portfolio_currency": "110",
+            "cash_flows": [],
+        },
+        currency_mode="BASE_ONLY",
+        reporting_currency="USD",
+    )
+
+    assert point is not None
+    assert point["begin_mv"] == Decimal("100")
+    assert point["end_mv"] == Decimal("110")
+
+
 def test_position_row_to_daily_point_uses_local_currency_values():
     point = _position_row_to_daily_point(
         row={
@@ -272,6 +355,22 @@ def test_split_position_cash_flows_ignores_invalid_rows():
     assert (bod_cf, eod_cf, fees) == (Decimal("0"), Decimal("0"), Decimal("0"))
 
 
+def test_split_position_cash_flows_handles_non_list_and_fee_accumulation():
+    assert _split_position_cash_flows(None) == (Decimal("0"), Decimal("0"), Decimal("0"))
+
+    bod_cf, eod_cf, fees = _split_position_cash_flows(
+        [
+            {"amount": "4.5", "timing": "bod"},
+            {"amount": "-2.0", "timing": "eod"},
+            {"amount": "-0.5", "timing": "eod", "cash_flow_type": "fee"},
+        ]
+    )
+
+    assert bod_cf == Decimal("4.5")
+    assert eod_cf == Decimal("-2.5")
+    assert fees == Decimal("-0.5")
+
+
 def test_position_meta_and_retrieval_metadata_defaults():
     assert _position_meta_from_row(
         {
@@ -290,3 +389,76 @@ def test_position_meta_and_retrieval_metadata_defaults():
         "country": "US",
     }
     assert _parse_retrieval_metadata({}) == RetrievalMetadata(chunk_count=1, page_count=1)
+
+
+def test_build_stateful_contribution_input_skips_rows_without_usable_values():
+    source_input = StatefulContributionSourceInput(
+        portfolio_input=StatefulPortfolioInput(
+            performance_start_date=date(2025, 1, 1),
+            observations=[
+                {
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value": "1000",
+                    "ending_market_value": "1010",
+                }
+            ],
+        ),
+        position_rows=[
+            {
+                "position_id": "POS_1",
+                "valuation_date": "2025-01-01",
+                "beginning_market_value_portfolio_currency": None,
+                "ending_market_value_portfolio_currency": "10",
+            },
+            {
+                "position_id": "POS_2",
+                "valuation_date": "2025-01-01",
+                "beginning_market_value_portfolio_currency": "20",
+                "ending_market_value_portfolio_currency": None,
+            },
+        ],
+        position_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+    )
+
+    normalized = build_stateful_contribution_input(
+        source_input=source_input,
+        metric_basis="NET",
+        currency_mode=None,
+        reporting_currency=None,
+        fx=None,
+    )
+
+    assert normalized.positions_data == []
+
+
+def test_position_row_to_daily_point_returns_none_when_date_or_values_are_missing():
+    assert (
+        _position_row_to_daily_point(
+            row={
+                "valuation_date": None,
+                "beginning_market_value_portfolio_currency": "100",
+                "ending_market_value_portfolio_currency": "110",
+            },
+            currency_mode="BASE_ONLY",
+            reporting_currency=None,
+        )
+        is None
+    )
+    assert (
+        _position_row_to_daily_point(
+            row={
+                "valuation_date": "2025-01-01",
+                "beginning_market_value_portfolio_currency": None,
+                "ending_market_value_portfolio_currency": None,
+            },
+            currency_mode="BASE_ONLY",
+            reporting_currency=None,
+        )
+        is None
+    )
+
+
+def test_parse_retrieval_metadata_defaults_invalid_counts_to_one():
+    assert _parse_retrieval_metadata(
+        {"retrieval_metadata": {"chunk_count": 0, "page_count": "3"}}
+    ) == RetrievalMetadata(chunk_count=1, page_count=1)
