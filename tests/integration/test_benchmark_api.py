@@ -152,6 +152,45 @@ def test_calculate_benchmark_endpoint_supports_stateless_component_price_points(
     assert body["meta"]["input_fingerprint"] != raw_input_fingerprint
 
 
+def test_calculate_benchmark_endpoint_supports_explicit_stateless_window(client):
+    payload = {
+        "calculation_id": str(uuid4()),
+        "benchmark_id": "BMK_EXPLICIT_STATELESS_1",
+        "benchmark_start_date": "2026-01-01",
+        "report_start_date": "2026-01-02",
+        "report_end_date": "2026-01-02",
+        "analyses": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
+        "input_mode": "stateless",
+        "return_source": "calculated",
+        "output": {"include_timeseries": True},
+        "stateless_input": {
+            "benchmark_currency": "USD",
+            "component_observations": [
+                {
+                    "component_id": "IDX_A",
+                    "perf_date": "2026-01-01",
+                    "weight_bop": 1.0,
+                    "component_return": 0.01,
+                },
+                {
+                    "component_id": "IDX_A",
+                    "perf_date": "2026-01-02",
+                    "weight_bop": 1.0,
+                    "component_return": 0.004,
+                },
+            ],
+        },
+    }
+
+    response = client.post("/performance/benchmark", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    explicit = body["results_by_period"]["EXPLICIT"]
+    assert explicit["benchmark"]["summary"]["period_return"]["base"] == pytest.approx(0.4)
+    assert [row["period"] for row in explicit["benchmark"]["breakdowns"]["daily"]] == ["2026-01-02"]
+
+
 def test_calculate_benchmark_endpoint_supports_stateful_calculated_mode(client, monkeypatch):
     async def _mock_get_benchmark_composition_window(self, **kwargs):  # noqa: ARG001
         return (

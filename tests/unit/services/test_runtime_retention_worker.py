@@ -69,8 +69,10 @@ def test_runtime_retention_worker_run_forever_bootstraps_and_sleeps(monkeypatch)
     monkeypatch.setattr(
         runtime_retention_worker,
         "run_cleanup_cycle",
-        lambda **kwargs: calls.append("cleanup")
-        or type("Evidence", (), {"cleanup_mode": "dry_run", "status": "planned", "prunable_execution_count": 0})(),
+        lambda **kwargs: (
+            calls.append("cleanup")
+            or type("Evidence", (), {"cleanup_mode": "dry_run", "status": "planned", "prunable_execution_count": 0})()
+        ),
     )
 
     def _sleep(seconds: float):

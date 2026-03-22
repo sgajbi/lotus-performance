@@ -1567,6 +1567,7 @@ def test_contribution_service_surfaces_position_flow_balance_residuals(mocker):
                     "perf_date": [pd.Timestamp("2025-01-01").date()],
                     "begin_mv": [1000.0],
                     "bod_cf": [0.0],
+                    "eod_cf": [0.0],
                     "daily_ror": [1.0],
                     "perf_reset": [0],
                     "nip": [0],
@@ -1667,6 +1668,7 @@ def test_contribution_service_soft_flags_small_position_flow_residuals(mocker):
                     "perf_date": [pd.Timestamp("2025-01-01").date()],
                     "begin_mv": [1000.0],
                     "bod_cf": [0.0],
+                    "eod_cf": [0.0],
                     "daily_ror": [1.0],
                     "perf_reset": [0],
                     "nip": [0],
@@ -1727,6 +1729,158 @@ def test_contribution_service_soft_flags_small_position_flow_residuals(mocker):
     assert response.audit.counts["position_flow_residual_sum_bp"] == 10
     assert any("looks like a small non-flow-neutral scoped slice" in note for note in response.diagnostics.notes)
     assert not any("materially non-flow-neutral scoped slice" in note for note in response.diagnostics.notes)
+
+
+def test_position_flow_balance_counts_reconcile_single_position_external_cash_story():
+    instruments_df = pd.DataFrame(
+        {
+            "perf_date": [
+                pd.Timestamp("2025-01-17").date(),
+                pd.Timestamp("2025-01-18").date(),
+                pd.Timestamp("2025-01-19").date(),
+            ],
+            "bod_cf": [0.0, 5000.0, 0.0],
+            "eod_cf": [0.0, 0.0, -2000.0],
+        }
+    )
+    portfolio_results_df = pd.DataFrame(
+        {
+            "perf_date": [
+                pd.Timestamp("2025-01-17").date(),
+                pd.Timestamp("2025-01-18").date(),
+                pd.Timestamp("2025-01-19").date(),
+            ],
+            "begin_mv": [10000.0, 10000.0, 15000.0],
+            "bod_cf": [0.0, 5000.0, 0.0],
+            "eod_cf": [0.0, 0.0, -2000.0],
+        }
+    )
+
+    counts = contribution_service._calculate_position_flow_balance_counts(
+        instruments_df,
+        portfolio_results_df,
+    )
+
+    assert counts["position_flow_residual_days"] == 0
+    assert counts["position_flow_residual_max_bp"] == 0
+    assert counts["position_flow_residual_sum_bp"] == 0
+
+
+def test_contribution_service_does_not_flag_external_cash_flows_as_position_residuals(mocker):
+    mocker.patch(
+        "app.services.contribution_service.get_settings",
+        return_value=type("Settings", (), {"APP_VERSION": "runtime-version"})(),
+    )
+    mocker.patch.object(contribution_service.execution_registry, "mark_running", lambda calculation_id: None)
+    mocker.patch.object(
+        contribution_service.execution_registry,
+        "start_stage",
+        lambda calculation_id, stage_name: None,
+    )
+    mocker.patch(
+        "app.services.contribution_service.resolve_periods",
+        return_value=[
+            SimpleNamespace(
+                name="EXPLICIT",
+                start_date=pd.Timestamp("2025-01-17").date(),
+                end_date=pd.Timestamp("2025-01-20").date(),
+                value=PeriodType.EXPLICIT,
+            )
+        ],
+    )
+    mocker.patch(
+        "app.services.contribution_service._prepare_hierarchical_data",
+        return_value=(
+            pd.DataFrame(
+                {
+                    "position_id": ["CASH", "CASH", "CASH", "CASH"],
+                    "perf_date": [
+                        pd.Timestamp("2025-01-17").date(),
+                        pd.Timestamp("2025-01-18").date(),
+                        pd.Timestamp("2025-01-19").date(),
+                        pd.Timestamp("2025-01-20").date(),
+                    ],
+                    "bod_cf": [0.0, 5000.0, 0.0, 0.0],
+                    "eod_cf": [0.0, 0.0, -2000.0, 0.0],
+                    "daily_weight": [1.0, 1.0, 1.0, 1.0],
+                }
+            ),
+            pd.DataFrame(
+                {
+                    "perf_date": [
+                        pd.Timestamp("2025-01-17").date(),
+                        pd.Timestamp("2025-01-18").date(),
+                        pd.Timestamp("2025-01-19").date(),
+                        pd.Timestamp("2025-01-20").date(),
+                    ],
+                    "begin_mv": [10000.0, 10000.0, 15000.0, 13000.0],
+                    "bod_cf": [0.0, 5000.0, 0.0, 0.0],
+                    "eod_cf": [0.0, 0.0, -2000.0, 0.0],
+                    "daily_ror": [0.0, 0.0, 0.0, 0.0],
+                    "perf_reset": [0, 0, 0, 0],
+                    "nip": [0, 0, 0, 0],
+                    "nctrl_4": [0, 0, 0, 0],
+                    "account_reset": [0, 0, 0, 0],
+                    "sod_reset": [0, 0, 0, 0],
+                    "nip_rule_v1_shadow": [0, 0, 0, 0],
+                    "nip_rule_v2_shadow": [0, 0, 0, 0],
+                    "final_cum_ror": [0.0, 0.0, 0.0, 0.0],
+                }
+            ),
+        ),
+    )
+    mocker.patch(
+        "app.services.contribution_service._calculate_daily_instrument_contributions",
+        return_value=pd.DataFrame(
+            {
+                "perf_date": [
+                    pd.Timestamp("2025-01-17").date(),
+                    pd.Timestamp("2025-01-18").date(),
+                    pd.Timestamp("2025-01-19").date(),
+                    pd.Timestamp("2025-01-20").date(),
+                ],
+                "position_id": ["CASH", "CASH", "CASH", "CASH"],
+                "smoothed_contribution": [0.0, 0.0, 0.0, 0.0],
+                "smoothed_local_contribution": [0.0, 0.0, 0.0, 0.0],
+                "daily_weight": [1.0, 1.0, 1.0, 1.0],
+            }
+        ),
+    )
+    mocker.patch(
+        "app.services.contribution_service.complete_execution_with_lineage",
+        side_effect=lambda **kwargs: None,
+    )
+
+    request = ContributionRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "CASH_ONLY",
+            "report_start_date": "2025-01-17",
+            "report_end_date": "2025-01-20",
+            "analyses": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [
+                    {"perf_date": "2025-01-17", "begin_mv": 10000, "end_mv": 10000},
+                    {"perf_date": "2025-01-18", "begin_mv": 10000, "bod_cf": 5000, "end_mv": 15000},
+                    {"perf_date": "2025-01-19", "begin_mv": 15000, "eod_cf": -2000, "end_mv": 13000},
+                    {"perf_date": "2025-01-20", "begin_mv": 13000, "end_mv": 13000},
+                ],
+            },
+            "positions_data": [{"position_id": "CASH", "valuation_points": []}],
+        }
+    )
+
+    response = contribution_service.calculate_contribution(
+        request,
+        input_fingerprint="fingerprint",
+        calculation_hash="hash",
+    )
+
+    assert response.audit.counts["position_flow_residual_days"] == 0
+    assert response.audit.counts["position_flow_residual_max_bp"] == 0
+    assert response.audit.counts["position_flow_residual_sum_bp"] == 0
+    assert not any("non-flow-neutral scoped slice" in note for note in response.diagnostics.notes)
 
 
 def test_contribution_service_classifies_timeseries_reconciliation_as_cutover_blocker(mocker):

@@ -379,16 +379,23 @@ def _calculate_position_flow_balance_counts(
     instruments_df: pd.DataFrame,
     portfolio_results_df: pd.DataFrame,
 ) -> dict[str, int]:
-    """Counts and sizes dates where summed position-level flows fail to net to zero.
+    """Counts and sizes dates where summed position-level flows fail to reconcile to portfolio flow.
 
     Domain meaning:
     contribution should still calculate for real-world scoped books even when the visible position
     set is not flow-neutral on every date. When the stock leg and cash leg both sit inside the
     scoped position set, summed position flow on a date will normally net to zero. A non-zero
     residual therefore does not invalidate the engine; it characterizes that the current scoped
-    slice includes net flow pressure that sits outside the visible offsetting legs. We track both
-    the number of affected dates and the materiality of the largest/summed residual relative to the
-    portfolio capital base for the date.
+    slice includes net flow pressure that sits outside the visible offsetting legs.
+
+    The important nuance is that position flow should reconcile to the portfolio-level net flow for
+    the date, not always to literal zero. In a one-position cash portfolio carrying pure external
+    funding, the visible position flow is expected to equal the portfolio external flow exactly. We
+    therefore measure residual flow as:
+
+    ``summed position flow - portfolio net flow``
+
+    and size that residual relative to the portfolio capital base for the date.
     """
     required_columns = {
         PortfolioColumns.PERF_DATE.value,
@@ -416,13 +423,28 @@ def _calculate_position_flow_balance_counts(
         .sum()
     )
 
-    if portfolio_results_df.empty or PortfolioColumns.PERF_DATE.value not in portfolio_results_df.columns:
+    if portfolio_results_df.empty or not required_columns.issubset(portfolio_results_df.columns):
         residual_days = int(position_flow_by_day.abs().gt(1e-9).sum())
         return {
             "position_flow_residual_days": residual_days,
             "position_flow_residual_max_bp": 0,
             "position_flow_residual_sum_bp": 0,
         }
+
+    portfolio_flow_by_day = (
+        pd.DataFrame(
+            {
+                PortfolioColumns.PERF_DATE.value: pd.to_datetime(
+                    portfolio_results_df[PortfolioColumns.PERF_DATE.value]
+                ).dt.date,
+                "portfolio_flow": _numeric_series_or_default(portfolio_results_df, PortfolioColumns.BOD_CF.value)
+                + _numeric_series_or_default(portfolio_results_df, PortfolioColumns.EOD_CF.value),
+            }
+        )
+        .groupby(PortfolioColumns.PERF_DATE.value, dropna=False)["portfolio_flow"]
+        .sum()
+    )
+    residual_flow_by_day = position_flow_by_day.subtract(portfolio_flow_by_day, fill_value=0.0)
 
     portfolio_capital_by_day = (
         pd.DataFrame(
@@ -440,11 +462,11 @@ def _calculate_position_flow_balance_counts(
     portfolio_capital_by_day = portfolio_capital_by_day.replace(0, pd.NA).fillna(1.0)
 
     residual_ratio_by_day = (
-        position_flow_by_day.abs().reindex(portfolio_capital_by_day.index, fill_value=0.0) / portfolio_capital_by_day
+        residual_flow_by_day.abs().reindex(portfolio_capital_by_day.index, fill_value=0.0) / portfolio_capital_by_day
     )
 
     return {
-        "position_flow_residual_days": int(position_flow_by_day.abs().gt(1e-9).sum()),
+        "position_flow_residual_days": int(residual_flow_by_day.abs().gt(1e-9).sum()),
         "position_flow_residual_max_bp": _to_basis_points(residual_ratio_by_day.max())
         if not residual_ratio_by_day.empty
         else 0,
@@ -738,7 +760,12 @@ def calculate_contribution(
         if request.portfolio_data.valuation_points
         else request.report_end_date
     )
-    resolved_periods = resolve_periods(periods_to_resolve, request.report_end_date, inception_date)
+    resolved_periods = resolve_periods(
+        periods_to_resolve,
+        request.report_end_date,
+        inception_date,
+        explicit_start_date=request.report_start_date,
+    )
 
     try:
         if not resolved_periods:

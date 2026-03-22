@@ -81,7 +81,7 @@ def calculate_benchmark_returns(
             axis=1,
         )
         grouped["benchmark_return_fx"] = grouped.apply(
-            lambda row: (Decimal("0") if row["weight_sum"] == 0 else row["weighted_fx_return_sum"] / row["weight_sum"]),
+            lambda row: Decimal("0") if row["weight_sum"] == 0 else row["weighted_fx_return_sum"] / row["weight_sum"],
             axis=1,
         )
 

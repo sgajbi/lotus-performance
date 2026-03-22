@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.requests import Analysis
 from core.envelope import Annualization, Calendar, Output
+from core.periods import PeriodType
 
 
 class BenchmarkComponentObservation(BaseModel):
@@ -53,6 +54,10 @@ class BenchmarkPerformanceRequest(BaseModel):
         ...,
         description="Earliest date for which benchmark data is available for the request.",
     )
+    report_start_date: dt_date | None = Field(
+        default=None,
+        description="Explicit start date used only when analyses include the EXPLICIT period.",
+    )
     report_end_date: dt_date = Field(
         ...,
         description="Anchor end date for relative-period resolution.",
@@ -78,6 +83,8 @@ class BenchmarkPerformanceRequest(BaseModel):
     def validate_source_payloads(self) -> "BenchmarkPerformanceRequest":
         if not self.analyses:
             raise ValueError("analyses list cannot be empty")
+        if any(analysis.period == PeriodType.EXPLICIT for analysis in self.analyses) and self.report_start_date is None:
+            raise ValueError("report_start_date is required when analyses include EXPLICIT")
 
         if self.return_source == "calculated":
             if not self.component_observations:

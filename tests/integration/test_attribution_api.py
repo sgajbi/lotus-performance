@@ -228,6 +228,44 @@ def test_attribution_endpoint_hierarchical(client):
     )
 
 
+def test_attribution_endpoint_supports_explicit_period_windows(client):
+    payload = {
+        "portfolio_id": "ATTRIB_EXPLICIT_01",
+        "mode": "by_group",
+        "group_by": ["sector"],
+        "linking": "none",
+        "frequency": "daily",
+        "report_start_date": "2025-01-02",
+        "report_end_date": "2025-01-03",
+        "analyses": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
+        "portfolio_groups_data": [
+            {
+                "key": {"sector": "Tech"},
+                "observations": [
+                    {"date": "2025-01-01", "return_base": 0.10, "weight_bop": 1.0},
+                    {"date": "2025-01-02", "return_base": 0.01, "weight_bop": 1.0},
+                    {"date": "2025-01-03", "return_base": 0.01, "weight_bop": 1.0},
+                ],
+            }
+        ],
+        "benchmark_groups_data": [
+            {
+                "key": {"sector": "Tech"},
+                "observations": [
+                    {"date": "2025-01-01", "return_base": 0.10, "weight_bop": 1.0},
+                    {"date": "2025-01-02", "return_base": 0.01, "weight_bop": 1.0},
+                    {"date": "2025-01-03", "return_base": 0.01, "weight_bop": 1.0},
+                ],
+            }
+        ],
+    }
+
+    response = client.post("/performance/attribution", json=payload)
+
+    assert response.status_code == 200
+    assert set(response.json()["results_by_period"]) == {"EXPLICIT"}
+
+
 def test_attribution_endpoint_currency_attribution(client):
     """Tests the Karnosky-Singer currency attribution model end-to-end."""
     payload = {
