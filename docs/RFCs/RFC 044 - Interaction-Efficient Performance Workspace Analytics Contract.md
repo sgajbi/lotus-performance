@@ -85,6 +85,10 @@ complexity into `lotus-gateway`.
 7. Return enough economic context per period that summary and breakdown rows are self-explanatory.
 8. Keep contribution and attribution on one consistent segmentation model when both are included.
 9. Keep benchmark support explicit and consistent across user-input and lotus-core-linked modes.
+10. Use the same canonical vocabulary as the rest of `lotus-performance`, with no workspace-specific
+    naming dialect.
+11. Stay aligned with the broader Lotus cross-application vocabulary direction rather than
+    introducing new local terms casually.
 
 ## Non-Goals
 
@@ -94,6 +98,8 @@ complexity into `lotus-gateway`.
 4. Bundling heavy detailed surfaces by default without clear interaction evidence.
 5. Allowing contribution and attribution to diverge into different segmentation contracts inside the
    same workspace surface.
+6. Inventing workspace-local terms that drift from the rest of `lotus-performance` or from the
+   broader Lotus vocabulary standard.
 
 ## Current State
 
@@ -110,6 +116,13 @@ The repository already has strong building blocks:
 
 This means the problem is no longer missing analytics logic. The problem is contract composition for
 interactive workspace use.
+
+This RFC should therefore be read together with the repository’s broader vocabulary-governance
+direction, especially:
+
+1. [RFC 038 - PA Domain Vocabulary Alignment with Platform Glossary](C:/Users/Sandeep/projects/lotus-performance/docs/RFCs/RFC%20038%20-%20PA%20Domain%20Vocabulary%20Alignment%20with%20Platform%20Glossary.md)
+2. the API vocabulary inventory under
+   [docs/standards/api-vocabulary](C:/Users/Sandeep/projects/lotus-performance/docs/standards/api-vocabulary)
 
 ## Decision Direction
 
@@ -169,6 +182,14 @@ Illustrative direction:
 
 The important rule is that each block must preserve the unit and methodology semantics of its
 source engine rather than inventing a flattened pseudo-metric.
+
+The same rule applies to naming:
+
+1. the workspace contract should reuse existing canonical Lotus vocabulary wherever those terms
+   already exist,
+2. new terms should be introduced only when they are genuinely new concepts,
+3. any new public term should be suitable for reuse across Lotus apps rather than being a local UI
+   convenience label.
 
 Each returned period block should carry:
 
@@ -328,7 +349,33 @@ That also means:
    workspace contract,
 2. benchmark mode behavior cannot differ unpredictably across the returned analytical blocks.
 
-### 7. Return Economic Context, Not Just Performance Percentages
+### 7. Keep Vocabulary Canonical Across Surfaces
+
+All API surfaces in `lotus-performance` should use the same vocabulary.
+
+This workspace contract should therefore:
+
+1. reuse the same canonical terms already used elsewhere in `lotus-performance`,
+2. avoid introducing endpoint-local aliases for concepts that already exist,
+3. align with the cross-Lotus vocabulary goal rather than creating a new workspace dialect.
+
+That means the contract should be reviewed not only for response richness, but also for naming
+discipline across:
+
+1. request fields,
+2. response fields,
+3. diagnostics,
+4. audit blocks,
+5. OpenAPI descriptions,
+6. examples,
+7. downstream documentation.
+
+Where this RFC proposes a new field, the default expectation should be:
+
+1. use an existing canonical Lotus term if one already exists,
+2. otherwise introduce a term that can be promoted across apps later rather than a local-only label.
+
+### 8. Return Economic Context, Not Just Performance Percentages
 
 This surface should not return “performance only.”
 
@@ -354,7 +401,7 @@ Definitions should be explicit:
 If one block cannot support one of these fields honestly, that omission should be explicitly modeled
 and documented rather than silently skipped.
 
-### 8. Keep Segmentation Consistent Across Contribution and Attribution
+### 9. Keep Segmentation Consistent Across Contribution and Attribution
 
 When the workspace contract carries contribution and attribution, both should support the same
 segmentation model.
@@ -378,7 +425,7 @@ If the underlying stateful attribution path remains temporarily narrower than co
 dimensions, that should be called out explicitly as a phased implementation constraint rather than
 buried inside the workspace contract.
 
-### 9. Position Contribution Must Remain First-Class
+### 10. Position Contribution Must Remain First-Class
 
 Position-level contribution should remain available whenever contribution is included.
 
@@ -389,7 +436,7 @@ That is important because:
 3. the workspace should not force downstream consumers to reconstruct position ranking from grouped
    rollups.
 
-### 10. Benchmark Support Must Be Consistent in Two Modes
+### 11. Benchmark Support Must Be Consistent in Two Modes
 
 The workspace contract should support benchmark context in two explicit modes:
 
@@ -447,6 +494,7 @@ Acceptance gate:
 3. no hidden heavy-path regressions,
 4. chunked sourcing behavior is observable enough to support troubleshooting,
 5. longest-window optimization is regression-tested.
+6. vocabulary choices are reviewed against existing canonical Lotus terms before they are exposed.
 
 ### Slice 3: Optional Lightweight Contribution/Attribution Summaries
 
@@ -466,6 +514,8 @@ Acceptance gate:
 3. detailed surfaces are still the canonical drill-down path,
 4. contribution and attribution segmentation remains aligned,
 5. benchmark mode behavior is explicit and testable.
+6. vocabulary remains consistent with the rest of `lotus-performance` and suitable for broader
+   Lotus reuse.
 
 ## Risks
 
@@ -483,6 +533,8 @@ Acceptance gate:
    pushing hidden mapping complexity downstream.
 8. If benchmark mode behavior is not explicit, user-input and lotus-core-linked benchmark paths
    could diverge in confusing ways.
+9. If workspace-specific labels drift from the rest of the service, downstream systems may need
+   special-case mapping logic even though the analytics are source-owned.
 
 ## Alternatives Considered
 
@@ -530,6 +582,8 @@ This RFC is ready for approval when the team agrees that:
 9. position-level contribution should remain available,
 10. benchmark support should be explicit and consistent across user-input and lotus-core-linked
     modes.
+11. the workspace contract should use canonical Lotus vocabulary and avoid endpoint-local naming
+    drift.
 
 This RFC is complete in implementation terms when:
 
@@ -547,7 +601,9 @@ This RFC is complete in implementation terms when:
    same requested period family,
 10. position-level contribution is present when contribution is requested,
 11. benchmark mode is explicit and consistent for user-input and lotus-core-linked paths,
-12. it measurably reduces interaction call count for the workspace use case.
+12. vocabulary in models, OpenAPI, examples, and tests remains aligned with the rest of
+    `lotus-performance` and compatible with cross-Lotus standardization,
+13. it measurably reduces interaction call count for the workspace use case.
 
 ## Approval Requested
 
@@ -563,4 +619,6 @@ Approve this RFC if the team agrees that:
 7. contribution and attribution should converge on a shared segmentation model inside the workspace
    contract,
 8. benchmark support should remain explicit and consistent across user-input and lotus-core-linked
-   modes.
+   modes,
+9. the workspace contract should use canonical Lotus vocabulary and avoid introducing a new local
+   naming dialect.
