@@ -9,10 +9,12 @@ from app.models.workspace_summary_requests import (
     WorkspaceAttributionSummaryRequest,
     WorkspaceContributionSummaryRequest,
     WorkspaceSegmentationRequest,
+    WorkspaceSummaryRequest,
 )
 from app.services.workspace_summary_detail_service import (
     WorkspaceAttributionArtifacts,
     WorkspaceContributionArtifacts,
+    _build_workspace_attribution_analytics_request,
     build_workspace_attribution_block,
     build_workspace_contribution_block,
 )
@@ -168,3 +170,154 @@ def test_workspace_attribution_block_reuses_canonical_attribution_result_shape()
     assert block.benchmark_context is not None
     assert block.benchmark_context.benchmark_id == "BMK_1"
     assert block.result.levels[0].dimension == "sector"
+
+
+def test_workspace_contribution_block_returns_none_for_empty_period_slice(mocker):
+    mocker.patch(
+        "app.services.workspace_summary_detail_service._calculate_reset_aware_period_portfolio_return",
+        return_value=0.025,
+    )
+    request = ContributionRequest.model_validate(
+        {
+            "portfolio_id": "PORT-1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
+            "hierarchy": ["sector"],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1025}],
+            },
+            "positions_data": [
+                {
+                    "position_id": "TECH_1",
+                    "meta": {"sector": "technology"},
+                    "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1025}],
+                }
+            ],
+        }
+    )
+    artifacts = WorkspaceContributionArtifacts(
+        request=request,
+        daily_contributions_df=pd.DataFrame(
+            {
+                "perf_date": [date(2025, 1, 1)],
+                "position_id": ["TECH_1"],
+                "sector": ["technology"],
+                "smoothed_contribution": [0.012],
+                "smoothed_local_contribution": [0.01],
+                "smoothed_fx_contribution": [0.002],
+                "daily_weight": [1.0],
+                "average_weight": [1.0],
+            }
+        ),
+        portfolio_results_df=pd.DataFrame(),
+        source_details={"position_count": 1},
+    )
+
+    block = build_workspace_contribution_block(
+        artifacts=artifacts,
+        contribution_options=WorkspaceContributionSummaryRequest(metric_basis="NET", top_positions=1),
+        segmentation=WorkspaceSegmentationRequest(group_by=["sector"]),
+        period_start_date=date(2025, 1, 2),
+        period_end_date=date(2025, 1, 2),
+    )
+
+    assert block is None
+
+
+def test_workspace_attribution_block_returns_none_when_effects_are_empty():
+    request = AttributionRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT-1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
+            "mode": "by_group",
+            "frequency": "daily",
+            "group_by": ["sector"],
+            "portfolio_groups_data": [],
+            "benchmark_groups_data": [],
+        }
+    )
+    artifacts = WorkspaceAttributionArtifacts(
+        request=request,
+        effects_df=pd.DataFrame(),
+        resolved_benchmark_id="BMK_1",
+        resolved_benchmark_return_source="calculated",
+        source_details={},
+    )
+
+    block = build_workspace_attribution_block(
+        artifacts=artifacts,
+        attribution_options=WorkspaceAttributionSummaryRequest(metric_basis="NET"),
+        segmentation=WorkspaceSegmentationRequest(group_by=["sector"]),
+        period_start_date=date(2025, 1, 1),
+        period_end_date=date(2025, 1, 2),
+    )
+
+    assert block is None
+
+
+def test_workspace_attribution_block_returns_none_for_empty_period_slice():
+    request = AttributionRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT-1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
+            "mode": "by_group",
+            "frequency": "daily",
+            "group_by": ["sector"],
+            "portfolio_groups_data": [],
+            "benchmark_groups_data": [],
+        }
+    )
+    effects_df = pd.DataFrame(
+        {"sector": ["technology"], "allocation": [0.0], "selection": [0.1], "interaction": [0.0]},
+        index=pd.MultiIndex.from_arrays([pd.to_datetime(["2025-01-01"])], names=["date"]),
+    )
+    artifacts = WorkspaceAttributionArtifacts(
+        request=request,
+        effects_df=effects_df,
+        resolved_benchmark_id="BMK_1",
+        resolved_benchmark_return_source="calculated",
+        source_details={},
+    )
+
+    block = build_workspace_attribution_block(
+        artifacts=artifacts,
+        attribution_options=WorkspaceAttributionSummaryRequest(metric_basis="NET"),
+        segmentation=WorkspaceSegmentationRequest(group_by=["sector"]),
+        period_start_date=date(2025, 1, 2),
+        period_end_date=date(2025, 1, 2),
+    )
+
+    assert block is None
+
+
+def test_workspace_attribution_request_carries_stateful_benchmark_override():
+    workspace_request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT-1",
+            "report_end_date": "2025-01-02",
+            "input_mode": "stateful",
+            "stateful_input": {},
+            "periods": [{"period": "1D", "frequencies": ["daily"]}],
+            "segmentation": {"group_by": ["sector"]},
+            "attribution": {"metric_basis": "NET"},
+            "benchmark": {"input_mode": "stateful", "benchmark_id": "BMK_LINKED", "stateful_input": {}},
+        }
+    )
+
+    analytics_request = _build_workspace_attribution_analytics_request(
+        workspace_request=workspace_request,
+        attribution_options=WorkspaceAttributionSummaryRequest(metric_basis="NET"),
+        segmentation=WorkspaceSegmentationRequest(group_by=["sector"]),
+        master_start_date=date(2025, 1, 1),
+    )
+
+    assert analytics_request.stateful_input.benchmark_id == "BMK_LINKED"
