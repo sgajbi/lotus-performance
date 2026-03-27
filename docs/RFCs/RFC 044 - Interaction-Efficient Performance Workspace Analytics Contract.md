@@ -16,6 +16,9 @@ refreshes where users change horizon, basis, frequency, and benchmark and expect
 coherent analytical response.
 
 This RFC proposes a new workspace-summary contract first, not a vague “everything bundle” endpoint.
+It also fixes the economic-response bar for that surface: each requested period summary and
+breakdown should return enough market-value and cash-flow context that the UI can render a serious
+front-office performance workspace without reverse-engineering basic economics.
 
 ## Why This Is Needed
 
@@ -51,6 +54,23 @@ For premium front-office workflows, users expect:
 3. responsive benchmark changes,
 4. dense analytical context without waiting on multiple stitched calls.
 
+They also expect the standard workspace horizon family to be available directly from the source
+contract, not inferred by the UI:
+
+1. `1D`
+2. `2D`
+3. `5D`
+4. `10D`
+5. `1M`
+6. `3M`
+7. `6M`
+8. `YTD`
+9. `1Y`
+10. `2Y`
+11. `5Y`
+12. `10Y`
+13. `SI`
+
 The source contract should help that user experience instead of forcing permanent orchestration
 complexity into `lotus-gateway`.
 
@@ -61,6 +81,8 @@ complexity into `lotus-gateway`.
 3. Reduce repeated upstream calls for standard workspace interactions.
 4. Preserve the existing deep analytics endpoints as the canonical detailed surfaces.
 5. Make the new contract testable, documented, and OpenAPI-visible.
+6. Support all standard attached period types plus `SI` in one request.
+7. Return enough economic context per period that summary and breakdown rows are self-explanatory.
 
 ## Non-Goals
 
@@ -102,6 +124,13 @@ Contribution and attribution should remain separate detailed surfaces initially 
 workspace evidence shows they must refresh on every interaction and can do so without making the
 summary contract too heavy.
 
+The surface should still support all requested attached period types plus `SI`, and it should be
+smart about data sourcing:
+
+1. fetch only the longest underlying date window required by the requested periods,
+2. derive shorter requested periods from that same underlying data,
+3. chunk downstream retrieval so upstream/core calls stay efficient and bounded.
+
 ## Proposed Contract Shape
 
 Illustrative direction:
@@ -113,7 +142,7 @@ Illustrative direction:
   - one portfolio context
   - one benchmark context
   - one resolved report anchor
-  - multiple requested horizons
+  - multiple requested horizons selected from the standard workspace family plus `SI`
   - frequency controls
   - basis controls
   - optional inclusion toggles for heavier blocks
@@ -131,6 +160,49 @@ Illustrative direction:
 The important rule is that each block must preserve the unit and methodology semantics of its
 source engine rather than inventing a flattened pseudo-metric.
 
+Each returned period block should carry:
+
+1. cumulative return,
+2. annualized return,
+3. beginning market value,
+4. ending market value,
+5. beginning-of-day cash flow,
+6. end-of-day cash flow,
+7. fees,
+8. net cash flow,
+9. flow-adjusted value.
+
+Each requested breakdown inside that period should carry the same economic fields where they are
+meaningful for the surface.
+
+## Period Support and Annualization Semantics
+
+The workspace-summary contract should directly support:
+
+1. `1D`
+2. `2D`
+3. `5D`
+4. `10D`
+5. `1M`
+6. `3M`
+7. `6M`
+8. `YTD`
+9. `1Y`
+10. `2Y`
+11. `5Y`
+12. `10Y`
+13. `SI`
+
+Annualization rule:
+
+1. for periods longer than one year, the response must include an annualized return derived from
+   the corresponding cumulative return over that period,
+2. for periods at or below one year, `annualized_return` should still be present to keep the API
+   surface consistent,
+3. for those sub-one-year periods, `annualized_return` should equal `cumulative_return`.
+
+This keeps the response model uniform and removes downstream conditional field handling.
+
 ## Architectural Direction
 
 ### 1. Reuse Existing Engines
@@ -144,6 +216,8 @@ That means:
 2. shared benchmark resolution,
 3. shared execution governance,
 4. shared diagnostics/audit envelope discipline.
+
+The summary surface should orchestrate those engines, not fork them.
 
 ### 2. Keep Summary and Deep Surfaces Separate
 
@@ -170,7 +244,44 @@ That prevents repeated round-trips for:
 4. ITD
 5. explicit windows where applicable
 
-### 4. Avoid Implicit Methodology Mixing
+For the performance workspace specifically, the standard attached-period family should be first-class
+and source-owned, not left to UI emulation.
+
+### 4. Source Data Once for the Longest Requested Period
+
+The service should resolve the longest requested effective period first, then fetch only the data
+needed for that longest window.
+
+After that:
+
+1. shorter requested periods should be derived from the same underlying retrieved data,
+2. the service should not trigger a fresh downstream retrieval per requested horizon,
+3. benchmark and portfolio sourcing should follow the same longest-window discipline where the
+   underlying source contracts permit it.
+
+This is one of the main performance wins of the RFC and should be treated as a core implementation
+constraint, not an optional optimization.
+
+### 5. Chunk Downstream Retrieval Explicitly
+
+When the longest requested period implies a large window or large underlying series set, downstream
+requests should be chunked rather than sent as one large unbounded pull.
+
+That applies particularly to:
+
+1. stateful portfolio timeseries retrieval,
+2. stateful position timeseries retrieval,
+3. benchmark component sourcing,
+4. FX and related supplemental series.
+
+Chunking must remain:
+
+1. deterministic,
+2. bounded,
+3. observable through diagnostics/audit when needed,
+4. invisible to the economic meaning of the final response.
+
+### 6. Avoid Implicit Methodology Mixing
 
 The summary contract must not hide:
 
@@ -181,6 +292,32 @@ The summary contract must not hide:
 
 Each block should stay explicitly named and documented.
 
+### 7. Return Economic Context, Not Just Performance Percentages
+
+This surface should not return “performance only.”
+
+For each period summary and each requested breakdown, the response should provide the economic
+context needed for front-office interpretation:
+
+1. beginning market value,
+2. ending market value,
+3. beginning-of-day cash flow,
+4. end-of-day cash flow,
+5. fees,
+6. net cash flow,
+7. flow-adjusted value,
+8. cumulative return,
+9. annualized return.
+
+Definitions should be explicit:
+
+1. `net_cash_flow = bod_cash_flow + eod_cash_flow`
+2. `flow_adjusted_value` should be documented per surface so downstream consumers do not guess how
+   the denominator or adjusted capital base was formed
+
+If one block cannot support one of these fields honestly, that omission should be explicitly modeled
+and documented rather than silently skipped.
+
 ## Delivery Slices
 
 ### Slice 1: Workspace Summary Contract
@@ -189,14 +326,20 @@ Outcome:
 
 1. one request returns TWR `NET`, TWR `GROSS`, benchmark summary, active summary, and MWR summary,
 2. multiple horizons supported in one response,
-3. no contribution or attribution bundling yet.
+3. all standard attached period types plus `SI` are supported,
+4. annualized return is present for every returned period,
+5. economic context fields are present for each summary and breakdown,
+6. no contribution or attribution bundling yet.
 
 Acceptance gate:
 
 1. clear request/response models,
 2. OpenAPI examples,
 3. meaningful integration coverage,
-4. no methodology ambiguity in units or naming.
+4. no methodology ambiguity in units or naming,
+5. longest-window sourcing is verified,
+6. shorter periods are proven to reuse the same underlying sourced data,
+7. downstream retrieval chunking is implemented and tested.
 
 ### Slice 2: Interaction Telemetry and Runtime Policy
 
@@ -210,7 +353,9 @@ Acceptance gate:
 
 1. execution policy documented,
 2. diagnostics/audit remain bounded and useful,
-3. no hidden heavy-path regressions.
+3. no hidden heavy-path regressions,
+4. chunked sourcing behavior is observable enough to support troubleshooting,
+5. longest-window optimization is regression-tested.
 
 ### Slice 3: Optional Lightweight Contribution/Attribution Summaries
 
@@ -234,6 +379,10 @@ Acceptance gate:
    the cost of downstream confusion.
 4. Async behavior could become harder to reason about if the summary contract silently embeds too
    many heavy paths.
+5. If longest-window reuse is not enforced, the endpoint could become merely a server-side fan-out
+   wrapper instead of a real interaction-efficiency improvement.
+6. If market value, cash flow, fee, and flow-adjusted fields are not defined carefully, the
+   contract could look rich while still leaving downstream consumers to guess economics.
 
 ## Alternatives Considered
 
@@ -270,8 +419,12 @@ This RFC is ready for approval when the team agrees that:
 
 1. `lotus-performance` should own an interaction-efficient workspace summary contract,
 2. the first slice should focus on multi-horizon summary analytics rather than a full mega-bundle,
-3. methodology clarity must remain explicit at the response-model level,
-4. contribution and attribution should stay separate detailed surfaces unless later evidence justifies
+3. all standard attached period types plus `SI` should be supported directly by the contract,
+4. annualized return should be returned for every period, with sub-one-year periods using the same
+   value as cumulative return for surface consistency,
+5. longest-window retrieval and chunked downstream sourcing should be required behavior,
+6. methodology clarity must remain explicit at the response-model level,
+7. contribution and attribution should stay separate detailed surfaces unless later evidence justifies
    lightweight opt-in summary blocks.
 
 This RFC is complete in implementation terms when:
@@ -280,7 +433,13 @@ This RFC is complete in implementation terms when:
 2. it is fully modeled and documented,
 3. it has meaningful unit/integration coverage,
 4. it preserves explicit units and methodology semantics,
-5. it measurably reduces interaction call count for the workspace use case.
+5. it supports all standard attached periods plus `SI`,
+6. it returns cumulative and annualized return consistently for every period,
+7. it returns market values, both cash flows, fees, net cash flow, and flow-adjusted value for
+   each summary and requested breakdown,
+8. it proves longest-window retrieval reuse and chunked downstream sourcing through meaningful
+   tests,
+9. it measurably reduces interaction call count for the workspace use case.
 
 ## Approval Requested
 
@@ -289,4 +448,7 @@ Approve this RFC if the team agrees that:
 1. the current granular contract is correct but too chatty for premium workspace interactions,
 2. the solution should be a source-owned workspace-summary contract,
 3. the first slice should be summary-first and explicitly modeled,
-4. deeper bundled analytics should remain a later, evidence-driven decision rather than a default.
+4. the contract should directly support the standard attached period family plus `SI`,
+5. the service should source only the longest required window and derive the shorter periods from the
+   same data,
+6. deeper bundled analytics should remain a later, evidence-driven decision rather than a default.
