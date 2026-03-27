@@ -1,7 +1,7 @@
 {
   "description": "Approved baseline monetary-float findings. New findings fail CI.",
   "policy_version": "1.1.0",
-  "generated_at": "2026-03-27T03:06:41Z",
+  "generated_at": "2026-03-27T03:29:20Z",
   "allowlist": [
     {
       "finding": "app/models/attribution_requests.py:44:weight_bop: float",
@@ -538,43 +538,43 @@
       "review_by": "2026-09-17"
     },
     {
-      "finding": "app/services/workspace_summary_service.py:1007:return float((((1 + value_pct / 100.0) ** (periods_per_year / elapsed_measure)) - 1) * 100.0)",
+      "finding": "app/services/workspace_summary_service.py:1011:return float((((1 + value_pct / 100.0) ** (periods_per_year / elapsed_measure)) - 1) * 100.0)",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
       "review_by": "2026-09-23"
     },
     {
-      "finding": "app/services/workspace_summary_service.py:1048:base=float(value.base),",
+      "finding": "app/services/workspace_summary_service.py:1060:base=float(value.base),",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
       "review_by": "2026-09-23"
     },
     {
-      "finding": "app/services/workspace_summary_service.py:1049:local=None if value.local is None else float(value.local),",
+      "finding": "app/services/workspace_summary_service.py:1061:local=None if value.local is None else float(value.local),",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
       "review_by": "2026-09-23"
     },
     {
-      "finding": "app/services/workspace_summary_service.py:1050:fx=None if value.fx is None else float(value.fx),",
+      "finding": "app/services/workspace_summary_service.py:1062:fx=None if value.fx is None else float(value.fx),",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
       "review_by": "2026-09-23"
     },
     {
-      "finding": "app/services/workspace_summary_service.py:939:end_market_value = float(last_row[\"end_mv\"])",
+      "finding": "app/services/workspace_summary_service.py:943:end_market_value = float(last_row[\"end_mv\"])",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
       "review_by": "2026-09-23"
     },
     {
-      "finding": "app/services/workspace_summary_service.py:941:begin_market_value=float(first_row[\"begin_mv\"]),",
+      "finding": "app/services/workspace_summary_service.py:945:begin_market_value=float(first_row[\"begin_mv\"]),",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
       "review_by": "2026-09-23"
     },
     {
-      "finding": "app/services/workspace_summary_service.py:993:value_pct: float,",
+      "finding": "app/services/workspace_summary_service.py:997:value_pct: float,",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
       "review_by": "2026-09-23"
