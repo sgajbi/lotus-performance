@@ -123,6 +123,10 @@ def test_attribution_endpoint_by_instrument_happy_path(client):
     assert response_data["reconciliation"]["total_active_return"] == pytest.approx(0.1)
     level = response_data["levels"][0]
     tech_group = next(g for g in level["groups"] if g["key"]["sector"] == "Tech")
+    assert tech_group["portfolio_weight_avg"] == pytest.approx(60.0)
+    assert tech_group["benchmark_weight_avg"] == pytest.approx(50.0)
+    assert tech_group["portfolio_return"] == pytest.approx(2.0)
+    assert tech_group["benchmark_return"] == pytest.approx(1.5)
     assert tech_group["selection"] == pytest.approx(0.25)
 
 

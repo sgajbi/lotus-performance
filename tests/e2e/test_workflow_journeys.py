@@ -861,7 +861,12 @@ def test_e2e_performance_contribution_and_attribution_tell_the_same_story() -> N
     )
     assert contribution_itd["timeseries"][0]["total_contribution"] == pytest.approx(contribution_total)
     assert contribution_itd["position_contributions"][0]["total_contribution"] == pytest.approx(contribution_total)
-    assert attribution_itd["levels"][0]["groups"][0]["total_effect"] == pytest.approx(attribution_active)
+    attribution_group = attribution_itd["levels"][0]["groups"][0]
+    assert attribution_group["portfolio_weight_avg"] == pytest.approx(100.0)
+    assert attribution_group["benchmark_weight_avg"] == pytest.approx(100.0)
+    assert attribution_group["portfolio_return"] == pytest.approx(portfolio_return)
+    assert attribution_group["benchmark_return"] == pytest.approx(benchmark_return)
+    assert attribution_group["total_effect"] == pytest.approx(attribution_active)
 
 
 def test_e2e_reset_heavy_contribution_and_daily_series_both_tie_to_twr() -> None:

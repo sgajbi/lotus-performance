@@ -100,6 +100,8 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
   - stateful mode sources portfolio and position timeseries from lotus-core query-control-plane and normalizes them into canonical contribution inputs before engine execution
   - lotus-performance stamps source consumer identity server-side for the stateful envelope
+  - position-level `average_weight` and grouped `weight_avg` are both emitted in percentage units
+  - `position_contributions` remains the primary ranking surface for top/bottom contributor views
 - execution mode:
   - synchronous for smaller stateless sets and smaller stateful windows
   - `202 Accepted` with `calculation_id`, `poll_path`, and `result_path` when offloaded to the compute executor
@@ -125,6 +127,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - stateful mode sources portfolio and position timeseries from lotus-core and derives benchmark group inputs from benchmark assignment plus the shared benchmark engine sourcing path
   - lotus-performance stamps source consumer identity server-side for the stateful envelope
   - when a benchmark is resolved, the response also emits top-level `benchmark_context`
+  - each attribution group row now includes average portfolio weight, average benchmark weight, portfolio return, and benchmark return alongside allocation, selection, interaction, and total effect
   - current stateful fences:
     - `mode=by_instrument` only
     - `group_by` limited to canonical lotus-core attribution dimensions plus `currency`: `asset_class`, `sector`, `country`, `currency`

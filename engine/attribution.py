@@ -26,6 +26,92 @@ from engine.runtime import run_engine_for_valuation_points
 from engine.schema import PortfolioColumns
 
 
+def _calculate_linked_return(return_series: pd.Series) -> float:
+    """Calculates a linked period return from per-date group returns expressed as decimal ratios."""
+    numeric_returns = pd.to_numeric(return_series, errors="coerce").dropna()
+    if numeric_returns.empty:
+        return 0.0
+    return float((1 + numeric_returns).prod() - 1)
+
+
+def _calculate_weighted_average_return(weights: pd.Series, returns: pd.Series) -> float:
+    """Calculates a one-date weighted average group return from aligned weight and return series."""
+    numeric_weights = pd.to_numeric(weights, errors="coerce").fillna(0.0)
+    numeric_returns = pd.to_numeric(returns, errors="coerce").fillna(0.0)
+    total_weight = float(numeric_weights.sum())
+    if total_weight == 0.0:
+        return 0.0
+    return float((numeric_weights * numeric_returns).sum() / total_weight)
+
+
+def _calculate_group_context_metrics(effects_df: pd.DataFrame, group_by: list[str]) -> pd.DataFrame:
+    """Builds side-by-side portfolio/benchmark context for attribution rows.
+
+    The front-office attribution view needs more than effect totals. It also needs the average
+    portfolio and benchmark weights plus the linked portfolio and benchmark returns for the same
+    grouped slice so that allocation, selection, and interaction can be read in economic context.
+    """
+    if effects_df.empty:
+        return pd.DataFrame(
+            columns=[
+                "portfolio_weight_avg",
+                "benchmark_weight_avg",
+                "portfolio_return",
+                "benchmark_return",
+            ]
+        )
+
+    dated_grouped = effects_df.groupby(["date"] + group_by, dropna=False).apply(
+        lambda group: pd.Series(
+            {
+                "portfolio_weight": float(pd.to_numeric(group["w_p"], errors="coerce").fillna(0.0).sum()),
+                "benchmark_weight": float(pd.to_numeric(group["w_b"], errors="coerce").fillna(0.0).sum()),
+                "portfolio_return": _calculate_weighted_average_return(group["w_p"], group["r_base_p"]),
+                "benchmark_return": _calculate_weighted_average_return(group["w_b"], group["r_base_b"]),
+            }
+        ),
+        include_groups=False,
+    )
+
+    grouped = dated_grouped.groupby(level=group_by, dropna=False)
+    return grouped.apply(
+        lambda group: pd.Series(
+            {
+                "portfolio_weight_avg": float(pd.to_numeric(group["portfolio_weight"], errors="coerce").mean()),
+                "benchmark_weight_avg": float(pd.to_numeric(group["benchmark_weight"], errors="coerce").mean()),
+                "portfolio_return": _calculate_linked_return(group["portfolio_return"]),
+                "benchmark_return": _calculate_linked_return(group["benchmark_return"]),
+            }
+        )
+    )
+
+
+def _build_group_key_dict(group_key: object, level_group_by: list[str]) -> dict[str, object]:
+    """Normalizes a grouped index key into the response key dictionary."""
+    if isinstance(group_key, tuple):
+        return {key_name: group_key[index] for index, key_name in enumerate(level_group_by)}
+    return {level_group_by[0]: group_key}
+
+
+def _build_attribution_group_result(
+    group_key: object,
+    level_group_by: list[str],
+    row: pd.Series,
+) -> AttributionGroupResult:
+    """Builds a single attribution group row with side-by-side portfolio and benchmark context."""
+    return AttributionGroupResult(
+        key=_build_group_key_dict(group_key, level_group_by),
+        portfolio_weight_avg=float(row["portfolio_weight_avg"]) * 100,
+        benchmark_weight_avg=float(row["benchmark_weight_avg"]) * 100,
+        portfolio_return=float(row["portfolio_return"]) * 100,
+        benchmark_return=float(row["benchmark_return"]) * 100,
+        allocation=float(row["allocation"]) * 100,
+        selection=float(row["selection"]) * 100,
+        interaction=float(row["interaction"]) * 100,
+        total_effect=float(row["total_effect"]) * 100,
+    )
+
+
 def _prepare_data_from_instruments(request: AttributionRequest) -> List[PortfolioGroup]:
     """
     Runs TWR engine on instrument data and aggregates returns and weights
@@ -290,25 +376,23 @@ def aggregate_attribution_results(
         granular_totals = effects_df.groupby(request.group_by)[["allocation", "selection", "interaction"]].sum()
         active_return = per_period_active_return.sum()
 
+    effects_reset = effects_df.reset_index()
     levels = []
     granular_totals_df = granular_totals.reset_index()
 
     for i in range(len(request.group_by), 0, -1):
         level_group_by = request.group_by[:i]
         level_totals = granular_totals_df.groupby(level_group_by).sum(numeric_only=True)
-        level_totals["total_effect"] = level_totals.sum(axis=1)
+        level_context = _calculate_group_context_metrics(effects_reset, level_group_by)
+        level_totals = level_totals.join(level_context, how="left").fillna(0.0)
+        effect_columns = ["allocation", "selection", "interaction"]
+        level_totals["total_effect"] = level_totals[effect_columns].sum(axis=1)
 
         group_results = []
         for group_key, row in level_totals.iterrows():
-            key_dict = {}
-            if isinstance(group_key, tuple):
-                for j, key_name in enumerate(level_group_by):
-                    key_dict[key_name] = group_key[j]
-            else:
-                key_dict[level_group_by[0]] = group_key
-            group_results.append(AttributionGroupResult(key=key_dict, **(row * 100).to_dict()))
+            group_results.append(_build_attribution_group_result(group_key, level_group_by, row))
 
-        overall_level_totals = level_totals.sum()
+        overall_level_totals = level_totals[effect_columns + ["total_effect"]].sum()
         levels.append(
             AttributionLevelResult(
                 dimension=" -> ".join(level_group_by),

@@ -99,8 +99,8 @@ class ContributionRow(BaseModel):
     )
     weight_avg: Optional[float] = Field(
         default=None,
-        description="Average row weight as a decimal ratio. Example: 0.18 means 18%.",
-        examples=[0.18],
+        description="Average row weight in percentage units. Example: 18.0 means 18%.",
+        examples=[18.0],
     )
     children_count: Optional[int] = Field(
         default=None, description="Number of child rows rolled into this row.", examples=[5]

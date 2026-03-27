@@ -15,6 +15,22 @@ class AttributionGroupResult(BaseModel):
     key: Dict[str, Any] = Field(
         description="Resolved grouping key for the attribution row.", examples=[{"asset_class": "equity"}]
     )
+    portfolio_weight_avg: float = Field(
+        description="Average portfolio weight for the group in percentage units. Example: 65.0 means 65%.",
+        examples=[65.0],
+    )
+    benchmark_weight_avg: float = Field(
+        description="Average benchmark weight for the group in percentage units. Example: 60.0 means 60%.",
+        examples=[60.0],
+    )
+    portfolio_return: float = Field(
+        description="Linked portfolio return for the group in percentage-point output units.",
+        examples=[4.25],
+    )
+    benchmark_return: float = Field(
+        description="Linked benchmark return for the group in percentage-point output units.",
+        examples=[3.8],
+    )
     allocation: float = Field(description="Allocation effect in percentage-point output units.", examples=[0.24])
     selection: float = Field(description="Selection effect in percentage-point output units.", examples=[0.15])
     interaction: float = Field(description="Interaction effect in percentage-point output units.", examples=[0.03])
@@ -87,12 +103,12 @@ class CurrencyAttributionResult(BaseModel):
 
     currency: str = Field(description="Currency bucket identifier.", examples=["USD"])
     weight_portfolio_avg: float = Field(
-        description="Average portfolio currency weight as a decimal ratio. Example: 0.65 means 65%.",
-        examples=[0.65],
+        description="Average portfolio currency weight in percentage units. Example: 65.0 means 65%.",
+        examples=[65.0],
     )
     weight_benchmark_avg: float = Field(
-        description="Average benchmark currency weight as a decimal ratio. Example: 0.6 means 60%.",
-        examples=[0.6],
+        description="Average benchmark currency weight in percentage units. Example: 60.0 means 60%.",
+        examples=[60.0],
     )
     effects: CurrencyAttributionEffects = Field(description="Currency attribution effect breakdown.")
 

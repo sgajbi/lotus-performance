@@ -111,10 +111,14 @@ def test_contribution_guide_uses_current_request_shape():
     assert "valuation_points" in guide
     assert "Older examples using nested `daily_data`" in guide
     assert "one hierarchy result under each `results_by_period.<period>` key" in guide
+    assert "position_contributions[].average_weight" in guide
+    assert "levels[].rows[].weight_avg" in guide
+    assert "position_contributions` remains the first-class output" in guide
     assert "app.models.contribution_analytics_requests.ContributionAnalyticsRequest" in api_reference
     assert (
         "stateful mode sources portfolio and position timeseries from lotus-core query-control-plane" in api_reference
     )
+    assert "position-level `average_weight` and grouped `weight_avg` are both emitted in percentage units" in api_reference
     assert 'input_mode: "stateless" | "stateful"' in readme
     assert "lotus-performance stamps source consumer identity server-side" in readme
 
@@ -157,8 +161,13 @@ def test_attribution_guide_uses_current_request_shape():
     assert "available for both stateless and stateful attribution inputs" in guide
     assert "benchmark engine sourcing path" in guide
     assert "benchmark_context" in guide
+    assert "portfolio_weight_avg" in guide
+    assert "benchmark_weight_avg" in guide
+    assert "portfolio_return" in guide
+    assert "benchmark_return" in guide
     assert "benchmark_context" in readme
     assert "benchmark_context" in api_reference
+    assert "each attribution group row now includes average portfolio weight" in api_reference
 
 
 def test_returns_series_docs_reflect_benchmark_return_source_contract():

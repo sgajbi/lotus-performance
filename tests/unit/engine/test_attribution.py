@@ -152,6 +152,22 @@ def test_run_attribution_calculations_and_aggregation(by_group_request_data):
     assert abs(final_result.reconciliation.residual) < 1e-9
 
 
+def test_aggregate_attribution_results_emits_side_by_side_group_context(by_group_request_data):
+    request_payload = by_group_request_data.copy()
+    request_payload["linking"] = "none"
+    request = AttributionRequest.model_validate(request_payload)
+
+    effects_df, _ = run_attribution_calculations(request)
+    final_result, _ = aggregate_attribution_results(effects_df, request)
+
+    tech_group = next(group for group in final_result.levels[0].groups if group.key["sector"] == "Tech")
+
+    assert tech_group.portfolio_weight_avg == pytest.approx(55.0)
+    assert tech_group.benchmark_weight_avg == pytest.approx(42.5)
+    assert tech_group.portfolio_return == pytest.approx(3.02)
+    assert tech_group.benchmark_return == pytest.approx(-0.01)
+
+
 def test_run_attribution_calculations_geometric_linking(by_group_request_data):
     """Tests the main orchestrator with top-down geometric linking enabled."""
     request = AttributionRequest.model_validate(by_group_request_data)
