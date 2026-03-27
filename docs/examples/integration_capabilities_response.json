@@ -1,0 +1,75 @@
+{
+  "contract_version": "v1",
+  "source_service": "lotus-performance",
+  "consumer_system": "lotus-gateway",
+  "tenant_id": "default",
+  "generated_at": "2026-03-27T12:00:00Z",
+  "as_of_date": "2026-03-27",
+  "policy_version": "tenant-default-v1",
+  "supported_input_modes": ["stateful", "stateless"],
+  "analytics_surfaces": [
+    {
+      "key": "workspace_summary",
+      "path": "/performance/workspace-summary",
+      "enabled": true,
+      "supported_input_modes": ["stateful", "stateless"],
+      "supports_async": true,
+      "poll_path_template": "/performance/executions/{calculation_id}",
+      "result_path_template": "/performance/workspace-summary/results/{calculation_id}",
+      "stateful_restrictions": [
+        "workspace contribution and attribution summary blocks require input_mode=stateful",
+        "segmentation.group_by is required when workspace contribution or attribution blocks are requested",
+        "workspace attribution summary currently supports only lotus-core-linked stateful benchmark sourcing"
+      ],
+      "contract_notes": [
+        "supports multi-horizon workspace periods including 1D, 2D, 5D, 10D, 1M, 3M, 6M, YTD, 1Y, 2Y, 5Y, 10Y, SI, and EXPLICIT",
+        "summary and breakdown rows emit period_return, cumulative_return, and annualized_return; for periods up to one year annualized_return equals cumulative_return",
+        "resolves the longest requested window once and derives shorter requested periods from the same sourced data",
+        "optional workspace contribution and attribution blocks share one segmentation.group_by contract"
+      ],
+      "options": [
+        {
+          "key": "benchmark_mode",
+          "supported_values": ["user_input_stateless", "linked_stateful"],
+          "required_when": "benchmark or benchmark-aware blocks are requested",
+          "notes": [
+            "stateless workspace summary requires an explicit benchmark payload when include_benchmark=true",
+            "stateful workspace summary can resolve the linked benchmark from lotus-core assignment"
+          ]
+        },
+        {
+          "key": "detail_blocks",
+          "supported_values": ["contribution", "attribution"],
+          "required_when": "contribution or attribution workspace summaries are requested",
+          "notes": [
+            "workspace contribution and attribution summary blocks currently require input_mode=stateful",
+            "attribution detail currently supports only lotus-core-linked stateful benchmark sourcing"
+          ]
+        },
+        {
+          "key": "segmentation.group_by",
+          "supported_values": ["asset_class", "sector", "country", "currency"],
+          "required_when": "contribution or attribution workspace summaries are requested",
+          "notes": [
+            "contribution and attribution share one segmentation.group_by contract when both are requested"
+          ]
+        }
+      ]
+    }
+  ],
+  "features": [
+    {
+      "key": "pa.analytics.workspace_summary",
+      "enabled": true,
+      "owner_service": "lotus-performance",
+      "description": "Interaction-efficient workspace summary analytics API."
+    }
+  ],
+  "workflows": [
+    {
+      "workflow_key": "performance_workspace",
+      "enabled": true,
+      "required_features": ["pa.analytics.workspace_summary", "pa.analytics.twr", "pa.analytics.mwr"]
+    }
+  ]
+}

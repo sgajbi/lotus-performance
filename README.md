@@ -255,6 +255,7 @@ make test-all
 - [guides/mwr.md](docs/guides/mwr.md)
 - [guides/contribution.md](docs/guides/contribution.md)
 - [guides/attribution.md](docs/guides/attribution.md)
+- [guides/workspace_summary.md](docs/guides/workspace_summary.md)
 - [guides/multi_currency.md](docs/guides/multi_currency.md)
 - [technical/methodology_index.md](docs/technical/methodology_index.md)
 - [methodologies/metrics/master-index.md](docs/methodologies/metrics/master-index.md)

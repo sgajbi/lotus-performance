@@ -265,6 +265,55 @@ def test_contribution_endpoint_hierarchy_happy_path(client, happy_path_payload):
     assert data["summary"]["portfolio_contribution"] == pytest.approx(2.95327, abs=1e-5)
 
 
+def test_contribution_endpoint_weight_fields_use_percentage_units_for_position_and_hierarchy_outputs(client):
+    base_payload = {
+        "portfolio_id": "CONTRIB_WEIGHT_UNITS",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1020}],
+        },
+        "positions_data": [
+            {
+                "position_id": "Stock_A",
+                "meta": {"sector": "Technology"},
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 600, "end_mv": 612}],
+            },
+            {
+                "position_id": "Stock_B",
+                "meta": {"sector": "Healthcare"},
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 400, "end_mv": 408}],
+            },
+        ],
+    }
+
+    position_response = client.post("/performance/contribution", json=base_payload)
+    hierarchy_response = client.post(
+        "/performance/contribution",
+        json={**base_payload, "hierarchy": ["sector"]},
+    )
+
+    assert position_response.status_code == 200
+    assert hierarchy_response.status_code == 200
+
+    position_rows = {
+        row["position_id"]: row
+        for row in position_response.json()["results_by_period"]["ITD"]["position_contributions"]
+    }
+    hierarchy_rows = {
+        row["key"]["sector"]: row for row in hierarchy_response.json()["results_by_period"]["ITD"]["levels"][0]["rows"]
+    }
+
+    assert position_rows["Stock_A"]["average_weight"] == pytest.approx(60.0)
+    assert position_rows["Stock_B"]["average_weight"] == pytest.approx(40.0)
+    assert sum(row["average_weight"] for row in position_rows.values()) == pytest.approx(100.0)
+    assert hierarchy_rows["Technology"]["weight_avg"] == pytest.approx(60.0)
+    assert hierarchy_rows["Healthcare"]["weight_avg"] == pytest.approx(40.0)
+    assert sum(row["weight_avg"] for row in hierarchy_rows.values()) == pytest.approx(100.0)
+
+
 def test_contribution_endpoint_hierarchy_respects_multiple_resolved_periods(client):
     payload = {
         "portfolio_id": "HIER_MULTI_PERIOD",

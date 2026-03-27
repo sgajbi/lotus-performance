@@ -1,4 +1,6 @@
 # tests/integration/test_performance_api.py
+from datetime import date
+from types import SimpleNamespace
 from uuid import UUID, uuid4
 
 import pytest
@@ -8,7 +10,7 @@ from fastapi.testclient import TestClient
 from app.api.endpoints.performance import _generate_twr_request_hashes
 from app.core.config import get_settings
 from app.models.benchmark_analytics_requests import BenchmarkInputMode
-from app.models.benchmark_requests import BenchmarkPerformanceRequest
+from app.models.benchmark_requests import BenchmarkComponentObservation, BenchmarkPerformanceRequest
 from app.models.requests import PerformanceRequest
 from app.models.twr_requests import TWRAnalyticsRequest, TWRResolvedExecutionRequest
 from app.services.twr_mode_service import ResolvedTWRRequest
@@ -55,6 +57,345 @@ def test_twr_reports_reset_events_when_requested(client):
     reset_reasons_by_date = {event["date"]: event["reason"] for event in itd_results["reset_events"]}
     assert "NCTRL_1" in reset_reasons_by_date["2025-01-02"]
     assert "NCTRL_4" in reset_reasons_by_date["2025-01-03"]
+
+
+def test_workspace_summary_endpoint_returns_multi_horizon_summary_blocks(client):
+    payload = {
+        "portfolio_id": "WORKSPACE_SUMMARY_TEST",
+        "report_end_date": "2025-01-10",
+        "performance_start_date": "2025-01-01",
+        "input_mode": "stateless",
+        "stateless_input": {
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+                {"perf_date": "2025-01-10", "begin_mv": 1010.0, "end_mv": 1030.2},
+            ]
+        },
+        "periods": [
+            {"period": "1D", "frequencies": ["daily"]},
+            {"period": "YTD", "frequencies": ["daily"]},
+        ],
+        "include_benchmark": True,
+        "benchmark": {
+            "benchmark_id": "BMK-1",
+            "input_mode": "stateless",
+            "return_source": "vendor_series",
+            "stateless_input": {
+                "benchmark_currency": "USD",
+                "benchmark_return_points": [
+                    {"perf_date": "2025-01-01", "benchmark_return": 0.008},
+                    {"perf_date": "2025-01-10", "benchmark_return": 0.012},
+                ],
+            },
+        },
+    }
+
+    response = client.post("/performance/workspace-summary", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+
+    assert set(data["results_by_period"]) == {"1D", "YTD"}
+    one_day = data["results_by_period"]["1D"]
+    assert one_day["portfolio_twr"]["net"]["summary"]["economics"]["begin_market_value"] == pytest.approx(1010.0)
+    assert one_day["portfolio_twr"]["net"]["summary"]["period_return"]["base"] == pytest.approx(
+        one_day["portfolio_twr"]["net"]["summary"]["cumulative_return"]["base"]
+    )
+    assert one_day["portfolio_twr"]["net"]["summary"]["annualized_return"]["base"] == pytest.approx(
+        one_day["portfolio_twr"]["net"]["summary"]["cumulative_return"]["base"]
+    )
+    assert one_day["portfolio_twr"]["gross"]["summary"]["cumulative_return"]["base"] == pytest.approx(
+        one_day["portfolio_twr"]["net"]["summary"]["cumulative_return"]["base"]
+    )
+    assert one_day["benchmark"]["benchmark_id"] == "BMK-1"
+    assert one_day["benchmark"]["summary"]["period_return"]["base"] == pytest.approx(
+        one_day["benchmark"]["summary"]["cumulative_return"]["base"]
+    )
+    assert one_day["active"]["net"]["period_return"]["base"] == pytest.approx(
+        one_day["portfolio_twr"]["net"]["summary"]["period_return"]["base"]
+        - one_day["benchmark"]["summary"]["period_return"]["base"]
+    )
+    assert one_day["active"]["net"]["cumulative_return"]["base"] == pytest.approx(
+        one_day["portfolio_twr"]["net"]["summary"]["cumulative_return"]["base"]
+        - one_day["benchmark"]["summary"]["cumulative_return"]["base"]
+    )
+    assert "period_return" in one_day["portfolio_twr"]["net"]["breakdowns"]["daily"][0]
+    assert one_day["money_weighted_return"]["annualized_return"] == pytest.approx(
+        one_day["money_weighted_return"]["cumulative_return"]
+    )
+    assert one_day["money_weighted_return"]["period_return"] == pytest.approx(
+        one_day["money_weighted_return"]["cumulative_return"]
+    )
+
+    ytd = data["results_by_period"]["YTD"]
+    assert ytd["portfolio_twr"]["net"]["breakdowns"]["daily"][0]["economics"]["begin_market_value"] == pytest.approx(
+        1000.0
+    )
+    assert "period_return" in ytd["benchmark"]["breakdowns"]["daily"][0]
+    assert data["audit"]["counts"]["input_rows"] == 2
+
+
+def test_workspace_summary_endpoint_annualizes_periods_longer_than_one_year(client):
+    payload = {
+        "portfolio_id": "WORKSPACE_SUMMARY_2Y_TEST",
+        "report_end_date": "2026-12-31",
+        "performance_start_date": "2024-12-31",
+        "input_mode": "stateless",
+        "stateless_input": {
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1000.0},
+                {"perf_date": "2026-12-31", "begin_mv": 1000.0, "end_mv": 1210.0},
+            ]
+        },
+        "periods": [{"period": "2Y", "frequencies": ["yearly"]}],
+    }
+
+    response = client.post("/performance/workspace-summary", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+
+    summary = data["results_by_period"]["2Y"]["portfolio_twr"]["net"]["summary"]
+    assert summary["period_return"]["base"] == pytest.approx(21.0)
+    cumulative = summary["cumulative_return"]["base"]
+    annualized = summary["annualized_return"]["base"]
+
+    assert cumulative == pytest.approx(21.0)
+    expected_annualized = ((1 + 0.21) ** (365 / 730) - 1) * 100
+    assert annualized == pytest.approx(expected_annualized, rel=1e-3)
+
+
+def test_workspace_summary_endpoint_returns_async_accepted_when_threshold_exceeded(client):
+    settings = get_settings()
+    original_threshold = settings.WORKSPACE_SUMMARY_EXECUTOR_INPUT_COUNT
+    settings.WORKSPACE_SUMMARY_EXECUTOR_INPUT_COUNT = 1
+
+    payload = {
+        "calculation_id": str(uuid4()),
+        "portfolio_id": "WORKSPACE_SUMMARY_ASYNC",
+        "report_end_date": "2025-01-10",
+        "performance_start_date": "2025-01-01",
+        "input_mode": "stateless",
+        "stateless_input": {
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+                {"perf_date": "2025-01-10", "begin_mv": 1010.0, "end_mv": 1030.2},
+            ]
+        },
+        "periods": [{"period": "YTD", "frequencies": ["daily"]}],
+    }
+
+    try:
+        response = client.post("/performance/workspace-summary", json=payload)
+        assert response.status_code == 202
+        body = response.json()
+        assert body["poll_path"].endswith(payload["calculation_id"])
+        pending = client.get(body["result_path"])
+        assert pending.status_code == 202
+    finally:
+        settings.WORKSPACE_SUMMARY_EXECUTOR_INPUT_COUNT = original_threshold
+
+
+def test_workspace_summary_rejects_detail_blocks_for_stateless_requests(client):
+    payload = {
+        "portfolio_id": "WORKSPACE_SUMMARY_STATELESS_REJECT",
+        "report_end_date": "2025-01-10",
+        "performance_start_date": "2025-01-01",
+        "input_mode": "stateless",
+        "stateless_input": {
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+                {"perf_date": "2025-01-10", "begin_mv": 1010.0, "end_mv": 1030.2},
+            ]
+        },
+        "periods": [{"period": "YTD", "frequencies": ["daily"]}],
+        "segmentation": {"group_by": ["sector"]},
+        "contribution": {"metric_basis": "NET"},
+    }
+
+    response = client.post("/performance/workspace-summary", json=payload)
+
+    assert response.status_code == 422
+    assert (
+        response.json()["detail"][0]["msg"]
+        == "Value error, workspace contribution and attribution summary blocks currently require input_mode=stateful"
+    )
+
+
+def test_workspace_summary_endpoint_supports_shared_contribution_and_attribution_segmentation(client, monkeypatch):
+    async def _mock_fetch_stateful_portfolio_timeseries(**kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2025-01-01",
+                "observations": [
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1018.5",
+                    },
+                    {
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value": "1018.5",
+                        "ending_market_value": "1028.67",
+                    },
+                ],
+            },
+        )
+
+    async def _mock_get_portfolio_timeseries(self, **kwargs):  # noqa: ARG001
+        return await _mock_fetch_stateful_portfolio_timeseries(**kwargs)
+
+    async def _mock_get_position_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "rows": [
+                    {
+                        "position_id": "POS_1",
+                        "security_id": "SEC_1",
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value_portfolio_currency": "600",
+                        "ending_market_value_portfolio_currency": "612",
+                        "cash_flows": [],
+                        "dimensions": {"sector": "Technology"},
+                    },
+                    {
+                        "position_id": "POS_2",
+                        "security_id": "SEC_2",
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value_portfolio_currency": "400",
+                        "ending_market_value_portfolio_currency": "406.5",
+                        "cash_flows": [],
+                        "dimensions": {"sector": "Healthcare"},
+                    },
+                    {
+                        "position_id": "POS_1",
+                        "security_id": "SEC_1",
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value_portfolio_currency": "612",
+                        "ending_market_value_portfolio_currency": "618.12",
+                        "cash_flows": [],
+                        "dimensions": {"sector": "Technology"},
+                    },
+                    {
+                        "position_id": "POS_2",
+                        "security_id": "SEC_2",
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value_portfolio_currency": "406.5",
+                        "ending_market_value_portfolio_currency": "410.55",
+                        "cash_flows": [],
+                        "dimensions": {"sector": "Healthcare"},
+                    },
+                ]
+            },
+        )
+
+    async def _mock_get_benchmark_assignment(self, **kwargs):  # noqa: ARG001
+        return 200, {"benchmark_id": "BMK_1"}
+
+    async def _mock_get_index_catalog(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "records": [
+                    {"index_id": "IDX_1", "classification_labels": {"sector": "Technology"}},
+                    {"index_id": "IDX_2", "classification_labels": {"sector": "Healthcare"}},
+                ]
+            },
+        )
+
+    async def _mock_build_stateful_benchmark_input(**kwargs):  # noqa: ARG001
+        return SimpleNamespace(
+            benchmark_currency="USD",
+            component_observations=[
+                BenchmarkComponentObservation(
+                    component_id="IDX_1",
+                    perf_date=date(2025, 1, 1),
+                    weight_bop=0.5,
+                    component_return=0.015,
+                ),
+                BenchmarkComponentObservation(
+                    component_id="IDX_2",
+                    perf_date=date(2025, 1, 1),
+                    weight_bop=0.5,
+                    component_return=0.02,
+                ),
+            ],
+            benchmark_return_points=[],
+            source_details={"chunk_count": 1, "benchmark_chunk_count": 1, "benchmark_page_count": 1},
+        )
+
+    monkeypatch.setattr(
+        "app.services.stateful_performance_input_service.fetch_stateful_portfolio_timeseries",
+        _mock_fetch_stateful_portfolio_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_portfolio_timeseries",
+        _mock_get_portfolio_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_position_timeseries",
+        _mock_get_position_timeseries,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_benchmark_assignment",
+        _mock_get_benchmark_assignment,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_index_catalog",
+        _mock_get_index_catalog,
+    )
+    monkeypatch.setattr(
+        "app.services.workspace_summary_service.build_stateful_benchmark_input",
+        _mock_build_stateful_benchmark_input,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_attribution_input_service.build_stateful_benchmark_input",
+        _mock_build_stateful_benchmark_input,
+    )
+
+    payload = {
+        "portfolio_id": "WORKSPACE_SUMMARY_STATEFUL_DETAILS",
+        "report_end_date": "2025-01-02",
+        "performance_start_date": "2025-01-01",
+        "input_mode": "stateful",
+        "stateful_input": {},
+        "periods": [{"period": "YTD", "frequencies": ["daily"]}],
+        "segmentation": {"group_by": ["sector"]},
+        "contribution": {"metric_basis": "NET", "top_positions": 2},
+        "attribution": {"metric_basis": "NET"},
+    }
+
+    response = client.post("/performance/workspace-summary", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    ytd = body["results_by_period"]["YTD"]
+    assert ytd["contribution"]["segmentation"] == ["sector"]
+    assert ytd["contribution"]["levels"][0]["name"] == "sector"
+    assert len(ytd["contribution"]["position_contributions"]) == 2
+    assert ytd["attribution"]["segmentation"] == ["sector"]
+    assert ytd["attribution"]["benchmark_context"] == {
+        "benchmark_id": "BMK_1",
+        "return_source": "calculated",
+    }
+    assert ytd["attribution"]["result"]["levels"][0]["dimension"] == "sector"
+    assert ytd["attribution"]["result"]["reconciliation"]["sum_of_effects"] == pytest.approx(
+        ytd["attribution"]["result"]["reconciliation"]["total_active_return"]
+    )
+    assert body["audit"]["counts"]["workspace_detail_block_count"] == 2
+    assert body["audit"]["counts"]["workspace_contribution_periods_emitted"] == 1
+    assert body["audit"]["counts"]["workspace_attribution_periods_emitted"] == 1
+    assert body["audit"]["counts"]["workspace_contribution_position_count"] == 2
+    assert body["audit"]["counts"]["workspace_attribution_instrument_count"] == 2
+    assert body["audit"]["counts"]["workspace_attribution_benchmark_chunk_count"] == 1
+    assert any(
+        "Workspace contribution summary enabled with shared segmentation: sector." == note
+        for note in body["diagnostics"]["notes"]
+    )
+    assert any(
+        "Workspace attribution summary enabled with shared segmentation: sector using benchmark BMK_1." == note
+        for note in body["diagnostics"]["notes"]
+    )
 
 
 def test_calculate_twr_endpoint_with_annualization(client):

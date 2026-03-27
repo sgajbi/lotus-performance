@@ -449,6 +449,16 @@ Depending on the request, each period result can include:
 - `timeseries`
 - `total_contribution`
 
+Weight-unit contract:
+
+- `position_contributions[].average_weight` is emitted in percentage units
+- `levels[].rows[].weight_avg` is also emitted in percentage units
+- both surfaces therefore use the same public unit convention: `25.0` means `25%`, not `0.25`
+
+For front-office ranking surfaces, `position_contributions` remains the first-class output because
+it provides direct position-level contribution and average-weight rows without requiring consumers to
+reconstruct them from grouped hierarchy output.
+
 When `hierarchy` is present:
 
 - `summary.portfolio_contribution` is the hierarchy-mode top-line contribution for that resolved period

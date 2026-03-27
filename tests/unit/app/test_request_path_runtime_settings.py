@@ -8,11 +8,12 @@ import pytest
 from fastapi import HTTPException
 
 from app.api.endpoints.contribution import _should_offload_contribution
-from app.api.endpoints.performance import _should_offload_attribution
+from app.api.endpoints.performance import _should_offload_attribution, _should_offload_workspace_summary
 from app.models.attribution_analytics_requests import AttributionAnalyticsRequest
 from app.models.attribution_requests import AttributionRequest
 from app.models.contribution_requests import ContributionRequest
 from app.models.contribution_responses import PositionContributionSeries, PositionDailyContribution
+from app.models.workspace_summary_requests import WorkspaceSummaryRequest
 from app.services import attribution_service, contribution_service
 from common.enums import AttributionModel, LinkingMethod, PeriodType
 
@@ -103,6 +104,66 @@ def test_should_offload_stateful_attribution_uses_window_runtime_settings(mocker
     )
 
     assert _should_offload_attribution(request) is True
+
+
+def test_should_offload_workspace_summary_uses_runtime_window_settings(mocker):
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "report_end_date": "2026-06-30",
+            "performance_start_date": "2026-01-01",
+            "input_mode": "stateful",
+            "stateful_input": {},
+            "periods": [
+                {"period": "1D", "frequencies": ["daily"]},
+                {"period": "1M", "frequencies": ["monthly"]},
+            ],
+        }
+    )
+    mocker.patch(
+        "app.api.endpoints.performance.get_settings",
+        return_value=type(
+            "Settings",
+            (),
+            {
+                "WORKSPACE_SUMMARY_EXECUTOR_WINDOW_DAYS": 20,
+                "WORKSPACE_SUMMARY_EXECUTOR_INPUT_COUNT": 999,
+            },
+        )(),
+    )
+
+    assert _should_offload_workspace_summary(request) is True
+
+
+def test_should_offload_workspace_summary_uses_runtime_input_count_settings(mocker):
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "report_end_date": "2025-01-02",
+            "performance_start_date": "2025-01-01",
+            "input_mode": "stateless",
+            "stateless_input": {
+                "valuation_points": [
+                    {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                    {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1020},
+                ]
+            },
+            "periods": [{"period": "1D", "frequencies": ["daily"]}],
+        }
+    )
+    mocker.patch(
+        "app.api.endpoints.performance.get_settings",
+        return_value=type(
+            "Settings",
+            (),
+            {
+                "WORKSPACE_SUMMARY_EXECUTOR_WINDOW_DAYS": 999,
+                "WORKSPACE_SUMMARY_EXECUTOR_INPUT_COUNT": 1,
+            },
+        )(),
+    )
+
+    assert _should_offload_workspace_summary(request) is True
 
 
 def test_contribution_service_uses_runtime_app_version(mocker):
@@ -2070,6 +2131,10 @@ def test_attribution_service_uses_runtime_app_version(mocker):
                         "groups": [
                             {
                                 "key": {"sector": "Tech"},
+                                "portfolio_weight_avg": 100.0,
+                                "benchmark_weight_avg": 100.0,
+                                "portfolio_return": 1.5,
+                                "benchmark_return": 1.0,
                                 "allocation": 0.1,
                                 "selection": 0.2,
                                 "interaction": 0.3,

@@ -9,6 +9,84 @@ router = APIRouter(tags=["Integration"])
 
 ConsumerSystem = Literal["lotus-gateway", "lotus-performance", "lotus-manage", "UI", "UNKNOWN"]
 
+INTEGRATION_CAPABILITIES_RESPONSE_EXAMPLES = [
+    {
+        "contract_version": "v1",
+        "source_service": "lotus-performance",
+        "consumer_system": "lotus-gateway",
+        "tenant_id": "default",
+        "generated_at": "2026-03-27T12:00:00Z",
+        "as_of_date": "2026-03-27",
+        "policy_version": "tenant-default-v1",
+        "supported_input_modes": ["stateful", "stateless"],
+        "analytics_surfaces": [
+            {
+                "key": "workspace_summary",
+                "path": "/performance/workspace-summary",
+                "enabled": True,
+                "supported_input_modes": ["stateful", "stateless"],
+                "supports_async": True,
+                "poll_path_template": "/performance/executions/{calculation_id}",
+                "result_path_template": "/performance/workspace-summary/results/{calculation_id}",
+                "stateful_restrictions": [
+                    "workspace contribution and attribution summary blocks require input_mode=stateful",
+                    "segmentation.group_by is required when workspace contribution or attribution blocks are requested",
+                    "workspace attribution summary currently supports only lotus-core-linked stateful benchmark sourcing",
+                ],
+                "contract_notes": [
+                    "supports multi-horizon workspace periods including 1D, 2D, 5D, 10D, 1M, 3M, 6M, YTD, 1Y, 2Y, 5Y, 10Y, SI, and EXPLICIT",
+                    "summary and breakdown rows emit period_return, cumulative_return, and annualized_return; for periods up to one year annualized_return equals cumulative_return",
+                    "resolves the longest requested window once and derives shorter requested periods from the same sourced data",
+                    "optional workspace contribution and attribution blocks share one segmentation.group_by contract",
+                ],
+                "options": [
+                    {
+                        "key": "benchmark_mode",
+                        "supported_values": ["user_input_stateless", "linked_stateful"],
+                        "required_when": "benchmark or benchmark-aware blocks are requested",
+                        "notes": [
+                            "stateless workspace summary requires an explicit benchmark payload when include_benchmark=true",
+                            "stateful workspace summary can resolve the linked benchmark from lotus-core assignment",
+                        ],
+                    },
+                    {
+                        "key": "detail_blocks",
+                        "supported_values": ["contribution", "attribution"],
+                        "required_when": "contribution or attribution workspace summaries are requested",
+                        "notes": [
+                            "workspace contribution and attribution summary blocks currently require input_mode=stateful",
+                            "attribution detail currently supports only lotus-core-linked stateful benchmark sourcing",
+                        ],
+                    },
+                    {
+                        "key": "segmentation.group_by",
+                        "supported_values": ["asset_class", "sector", "country", "currency"],
+                        "required_when": "contribution or attribution workspace summaries are requested",
+                        "notes": [
+                            "contribution and attribution share one segmentation.group_by contract when both are requested",
+                        ],
+                    },
+                ],
+            }
+        ],
+        "features": [
+            {
+                "key": "pa.analytics.workspace_summary",
+                "enabled": True,
+                "owner_service": "lotus-performance",
+                "description": "Interaction-efficient workspace summary analytics API.",
+            }
+        ],
+        "workflows": [
+            {
+                "workflow_key": "performance_workspace",
+                "enabled": True,
+                "required_features": ["pa.analytics.workspace_summary", "pa.analytics.twr", "pa.analytics.mwr"],
+            }
+        ],
+    }
+]
+
 
 class FeatureCapability(BaseModel):
     key: str = Field(description="Canonical feature key.")
@@ -26,6 +104,22 @@ class WorkflowCapability(BaseModel):
     )
 
 
+class AnalyticsSurfaceOptionCapability(BaseModel):
+    key: str = Field(description="Canonical request-option key for this analytics surface.")
+    supported_values: list[str] = Field(
+        default_factory=list,
+        description="Supported values or named options for this request capability.",
+    )
+    required_when: str | None = Field(
+        default=None,
+        description="Condition under which this option or companion input becomes required.",
+    )
+    notes: list[str] = Field(
+        default_factory=list,
+        description="Additional contract notes for this request option.",
+    )
+
+
 class AnalyticsSurfaceCapability(BaseModel):
     key: str = Field(description="Canonical analytics surface key.")
     path: str = Field(description="HTTP path for this analytics surface.")
@@ -35,9 +129,25 @@ class AnalyticsSurfaceCapability(BaseModel):
         description="Supported execution input modes for this specific analytics surface.",
     )
     supports_async: bool = Field(description="Whether this analytics surface can return 202 async accepted responses.")
+    poll_path_template: str | None = Field(
+        default=None,
+        description="Execution polling path template for async-capable surfaces.",
+    )
+    result_path_template: str | None = Field(
+        default=None,
+        description="Endpoint-specific async result path template for async-capable surfaces.",
+    )
     stateful_restrictions: list[str] = Field(
         default_factory=list,
         description="Current stateful-mode fences or restrictions for this analytics surface.",
+    )
+    contract_notes: list[str] = Field(
+        default_factory=list,
+        description="Surface-specific contract notes that downstream consumers should treat as part of the supported behavior.",
+    )
+    options: list[AnalyticsSurfaceOptionCapability] = Field(
+        default_factory=list,
+        description="Machine-readable request-option capabilities for this analytics surface.",
     )
 
 
@@ -58,6 +168,10 @@ class IntegrationCapabilitiesResponse(BaseModel):
     )
     features: list[FeatureCapability]
     workflows: list[WorkflowCapability]
+
+    model_config = {
+        "json_schema_extra": {"examples": INTEGRATION_CAPABILITIES_RESPONSE_EXAMPLES},
+    }
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -86,6 +200,7 @@ async def get_integration_capabilities(
     contribution_enabled = _env_bool("PA_CAP_CONTRIBUTION_ENABLED", True)
     attribution_enabled = _env_bool("PA_CAP_ATTRIBUTION_ENABLED", True)
     benchmark_enabled = _env_bool("PA_CAP_BENCHMARK_ENABLED", True)
+    workspace_summary_enabled = _env_bool("PA_CAP_WORKSPACE_SUMMARY_ENABLED", True)
     stateful_mode_enabled = _env_bool("PLATFORM_INPUT_MODE_STATEFUL_ENABLED", True)
     stateless_mode_enabled = _env_bool("PLATFORM_INPUT_MODE_STATELESS_ENABLED", True)
 
@@ -121,6 +236,12 @@ async def get_integration_capabilities(
             description="Benchmark performance analytics APIs.",
         ),
         FeatureCapability(
+            key="pa.analytics.workspace_summary",
+            enabled=workspace_summary_enabled,
+            owner_service="lotus-performance",
+            description="Interaction-efficient workspace summary analytics API.",
+        ),
+        FeatureCapability(
             key="pa.execution.stateful",
             enabled=stateful_mode_enabled,
             owner_service="lotus-performance",
@@ -144,6 +265,11 @@ async def get_integration_capabilities(
             workflow_key="performance_explainability",
             enabled=contribution_enabled and attribution_enabled,
             required_features=["pa.analytics.contribution", "pa.analytics.attribution"],
+        ),
+        WorkflowCapability(
+            workflow_key="performance_workspace",
+            enabled=workspace_summary_enabled and twr_enabled and mwr_enabled,
+            required_features=["pa.analytics.workspace_summary", "pa.analytics.twr", "pa.analytics.mwr"],
         ),
         WorkflowCapability(
             workflow_key="execution_stateful",
@@ -170,6 +296,8 @@ async def get_integration_capabilities(
             enabled=twr_enabled,
             supported_input_modes=supported_input_modes,
             supports_async=True,
+            poll_path_template="/performance/executions/{calculation_id}",
+            result_path_template="/performance/twr/results/{calculation_id}",
         ),
         AnalyticsSurfaceCapability(
             key="mwr",
@@ -184,6 +312,68 @@ async def get_integration_capabilities(
             enabled=benchmark_enabled,
             supported_input_modes=supported_input_modes,
             supports_async=True,
+            poll_path_template="/performance/executions/{calculation_id}",
+            result_path_template="/performance/benchmark/results/{calculation_id}",
+        ),
+        AnalyticsSurfaceCapability(
+            key="workspace_summary",
+            path="/performance/workspace-summary",
+            enabled=workspace_summary_enabled,
+            supported_input_modes=supported_input_modes,
+            supports_async=True,
+            poll_path_template="/performance/executions/{calculation_id}",
+            result_path_template="/performance/workspace-summary/results/{calculation_id}",
+            stateful_restrictions=(
+                [
+                    "workspace contribution and attribution summary blocks require input_mode=stateful",
+                    "segmentation.group_by is required when workspace contribution or attribution blocks are requested",
+                    "workspace attribution summary currently supports only lotus-core-linked stateful benchmark sourcing",
+                ]
+                if stateful_mode_enabled and workspace_summary_enabled
+                else []
+            ),
+            contract_notes=(
+                [
+                    "supports multi-horizon workspace periods including 1D, 2D, 5D, 10D, 1M, 3M, 6M, YTD, 1Y, 2Y, 5Y, 10Y, SI, and EXPLICIT",
+                    "summary and breakdown rows emit period_return, cumulative_return, and annualized_return; for periods up to one year annualized_return equals cumulative_return",
+                    "resolves the longest requested window once and derives shorter requested periods from the same sourced data",
+                    "optional workspace contribution and attribution blocks share one segmentation.group_by contract",
+                ]
+                if workspace_summary_enabled
+                else []
+            ),
+            options=(
+                [
+                    AnalyticsSurfaceOptionCapability(
+                        key="benchmark_mode",
+                        supported_values=["user_input_stateless", "linked_stateful"],
+                        required_when="benchmark or benchmark-aware blocks are requested",
+                        notes=[
+                            "stateless workspace summary requires an explicit benchmark payload when include_benchmark=true",
+                            "stateful workspace summary can resolve the linked benchmark from lotus-core assignment",
+                        ],
+                    ),
+                    AnalyticsSurfaceOptionCapability(
+                        key="detail_blocks",
+                        supported_values=["contribution", "attribution"],
+                        required_when="contribution or attribution workspace summaries are requested",
+                        notes=[
+                            "workspace contribution and attribution summary blocks currently require input_mode=stateful",
+                            "attribution detail currently supports only lotus-core-linked stateful benchmark sourcing",
+                        ],
+                    ),
+                    AnalyticsSurfaceOptionCapability(
+                        key="segmentation.group_by",
+                        supported_values=["asset_class", "sector", "country", "currency"],
+                        required_when="contribution or attribution workspace summaries are requested",
+                        notes=[
+                            "contribution and attribution share one segmentation.group_by contract when both are requested",
+                        ],
+                    ),
+                ]
+                if workspace_summary_enabled
+                else []
+            ),
         ),
         AnalyticsSurfaceCapability(
             key="contribution",
@@ -191,6 +381,8 @@ async def get_integration_capabilities(
             enabled=contribution_enabled,
             supported_input_modes=supported_input_modes,
             supports_async=True,
+            poll_path_template="/performance/executions/{calculation_id}",
+            result_path_template="/performance/contribution/results/{calculation_id}",
         ),
         AnalyticsSurfaceCapability(
             key="attribution",
@@ -198,6 +390,8 @@ async def get_integration_capabilities(
             enabled=attribution_enabled,
             supported_input_modes=supported_input_modes,
             supports_async=True,
+            poll_path_template="/performance/executions/{calculation_id}",
+            result_path_template="/performance/attribution/results/{calculation_id}",
             stateful_restrictions=(
                 [
                     "mode=by_instrument only",
@@ -214,6 +408,8 @@ async def get_integration_capabilities(
             enabled=stateful_mode_enabled or stateless_mode_enabled,
             supported_input_modes=supported_input_modes,
             supports_async=True,
+            poll_path_template="/performance/executions/{calculation_id}",
+            result_path_template="/integration/returns/series/results/{calculation_id}",
         ),
     ]
 

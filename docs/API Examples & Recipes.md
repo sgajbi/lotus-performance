@@ -444,3 +444,151 @@ POST /performance/attribution
 ```
 
 Use `/docs` for exact field-level schemas, enums, and the latest generated examples.
+
+## 8. Workspace Summary with Multi-Horizon Portfolio, Benchmark, and MWR Context
+
+Returns one interaction-efficient summary response spanning multiple workspace horizons from one
+source-owned request.
+
+**Endpoint**
+
+```text
+POST /performance/workspace-summary
+```
+
+**Payload**
+
+```json
+{
+  "input_mode": "stateless",
+  "portfolio_id": "WORKSPACE_SUMMARY_01",
+  "report_end_date": "2026-03-31",
+  "performance_start_date": "2025-12-31",
+  "periods": [
+    { "period": "1M", "frequencies": ["daily", "monthly"] },
+    { "period": "YTD", "frequencies": ["monthly"] },
+    { "period": "1Y", "frequencies": ["monthly", "yearly"] }
+  ],
+  "include_benchmark": true,
+  "stateless_input": {
+    "valuation_points": [
+      { "perf_date": "2026-01-02", "begin_mv": 1000000.0, "end_mv": 1008500.0 },
+      { "perf_date": "2026-02-27", "begin_mv": 1008500.0, "bod_cf": 25000.0, "end_mv": 1039500.0 },
+      { "perf_date": "2026-03-31", "begin_mv": 1039500.0, "eod_cf": -5000.0, "mgmt_fees": -350.0, "end_mv": 1054100.0 }
+    ]
+  },
+  "benchmark": {
+    "benchmark_id": "BMK_GLOBAL_60_40",
+    "input_mode": "stateless",
+    "return_source": "vendor_series",
+    "stateless_input": {
+      "benchmark_currency": "USD",
+      "benchmark_return_points": [
+        { "perf_date": "2026-01-02", "benchmark_return": 0.0065 },
+        { "perf_date": "2026-02-27", "benchmark_return": 0.011 },
+        { "perf_date": "2026-03-31", "benchmark_return": 0.009 }
+      ]
+    }
+  }
+}
+```
+
+**Response excerpt**
+
+```json
+{
+  "results_by_period": {
+    "YTD": {
+      "portfolio_twr": {
+        "net": {
+          "summary": {
+            "economics": {
+              "begin_market_value": 1000000.0,
+              "end_market_value": 1054100.0,
+              "beginning_cash_flow": 25000.0,
+              "ending_cash_flow": -5000.0,
+              "fees": -350.0,
+              "net_cash_flow": 20000.0,
+              "flow_adjusted_end_market_value": 1034100.0
+            },
+            "period_return": { "base": 3.41 },
+            "cumulative_return": { "base": 3.41 },
+            "annualized_return": { "base": 3.41 }
+          }
+        }
+      },
+      "benchmark": {
+        "benchmark_id": "BMK_GLOBAL_60_40",
+        "summary": {
+          "period_return": { "base": 2.98 },
+          "cumulative_return": { "base": 2.98 },
+          "annualized_return": { "base": 2.98 }
+        },
+        "breakdowns": {}
+      },
+      "active": {
+        "net": {
+          "period_return": { "base": 0.43 },
+          "cumulative_return": { "base": 0.43 },
+          "annualized_return": { "base": 0.43 }
+        }
+      },
+      "money_weighted_return": {
+        "method": "XIRR",
+        "period_return": 3.27,
+        "cumulative_return": 3.27,
+        "annualized_return": 3.27
+      }
+    }
+  }
+}
+```
+
+## 9. Stateful Workspace Summary with Shared Contribution and Attribution Segmentation
+
+Returns the same multi-horizon workspace summary, but adds lightweight contribution and attribution
+blocks using one shared segmentation contract.
+
+**Endpoint**
+
+```text
+POST /performance/workspace-summary
+```
+
+**Payload**
+
+```json
+{
+  "input_mode": "stateful",
+  "portfolio_id": "WORKSPACE_SUMMARY_STATEFUL_01",
+  "report_end_date": "2026-03-31",
+  "periods": [
+    { "period": "1M", "frequencies": ["daily", "monthly"] },
+    { "period": "YTD", "frequencies": ["monthly"] },
+    { "period": "SI", "frequencies": ["monthly", "yearly"] }
+  ],
+  "stateful_input": {},
+  "include_benchmark": true,
+  "benchmark": {
+    "input_mode": "stateful",
+    "stateful_input": {}
+  },
+  "segmentation": {
+    "group_by": ["sector", "country"]
+  },
+  "contribution": {
+    "metric_basis": "NET",
+    "top_positions": 5
+  },
+  "attribution": {
+    "metric_basis": "NET"
+  },
+  "report_ccy": "USD",
+  "currency_mode": "BASE_ONLY"
+}
+```
+
+This request shape is also preserved as:
+
+- `docs/examples/workspace_summary_request.json`
+- `docs/examples/workspace_summary_stateful_detail_request.json`

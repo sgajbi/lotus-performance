@@ -149,6 +149,21 @@ Each period result can include:
 - `reconciliation`
 - `currency_attribution` when the multi-currency attribution path is active
 
+Each `levels[].groups[]` row now carries side-by-side front-office context in addition to the
+effect terms:
+
+- `portfolio_weight_avg`: average portfolio weight in percentage units
+- `benchmark_weight_avg`: average benchmark weight in percentage units
+- `portfolio_return`: linked group portfolio return in percentage-point output units
+- `benchmark_return`: linked group benchmark return in percentage-point output units
+- `allocation`
+- `selection`
+- `interaction`
+- `total_effect`
+
+This lets downstream analytical surfaces show the standard portfolio-versus-benchmark view without
+reverse-engineering group economics from the effect totals alone.
+
 ## Example request
 
 ```json

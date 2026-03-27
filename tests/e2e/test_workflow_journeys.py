@@ -184,6 +184,26 @@ def test_e2e_platform_readiness_and_capabilities_contract() -> None:
     assert "stateful" in body["supported_input_modes"]
     assert "stateless" in body["supported_input_modes"]
     surfaces = {item["key"]: item for item in body["analytics_surfaces"]}
+    assert surfaces["workspace_summary"]["path"] == "/performance/workspace-summary"
+    assert surfaces["workspace_summary"]["poll_path_template"] == "/performance/executions/{calculation_id}"
+    assert (
+        surfaces["workspace_summary"]["result_path_template"]
+        == "/performance/workspace-summary/results/{calculation_id}"
+    )
+    assert surfaces["workspace_summary"]["stateful_restrictions"] == [
+        "workspace contribution and attribution summary blocks require input_mode=stateful",
+        "segmentation.group_by is required when workspace contribution or attribution blocks are requested",
+        "workspace attribution summary currently supports only lotus-core-linked stateful benchmark sourcing",
+    ]
+    workspace_options = {item["key"]: item for item in surfaces["workspace_summary"]["options"]}
+    assert workspace_options["benchmark_mode"]["supported_values"] == ["user_input_stateless", "linked_stateful"]
+    assert workspace_options["detail_blocks"]["supported_values"] == ["contribution", "attribution"]
+    assert workspace_options["segmentation.group_by"]["supported_values"] == [
+        "asset_class",
+        "sector",
+        "country",
+        "currency",
+    ]
     assert surfaces["contribution"]["supports_async"] is True
     assert surfaces["attribution"]["stateful_restrictions"] == [
         "mode=by_instrument only",
@@ -861,7 +881,12 @@ def test_e2e_performance_contribution_and_attribution_tell_the_same_story() -> N
     )
     assert contribution_itd["timeseries"][0]["total_contribution"] == pytest.approx(contribution_total)
     assert contribution_itd["position_contributions"][0]["total_contribution"] == pytest.approx(contribution_total)
-    assert attribution_itd["levels"][0]["groups"][0]["total_effect"] == pytest.approx(attribution_active)
+    attribution_group = attribution_itd["levels"][0]["groups"][0]
+    assert attribution_group["portfolio_weight_avg"] == pytest.approx(100.0)
+    assert attribution_group["benchmark_weight_avg"] == pytest.approx(100.0)
+    assert attribution_group["portfolio_return"] == pytest.approx(portfolio_return)
+    assert attribution_group["benchmark_return"] == pytest.approx(benchmark_return)
+    assert attribution_group["total_effect"] == pytest.approx(attribution_active)
 
 
 def test_e2e_reset_heavy_contribution_and_daily_series_both_tie_to_twr() -> None:

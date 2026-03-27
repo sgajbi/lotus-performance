@@ -393,6 +393,88 @@ def test_compute_executor_worker_processes_pending_contribution_job(tmp_path, mo
     assert result.result_status == AsyncResultStatus.COMPLETE
 
 
+def test_compute_executor_worker_processes_pending_workspace_summary_job(tmp_path, monkeypatch):
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    monkeypatch.setattr(compute_executor_worker, "execution_registry", execution_store)
+    result_store = AsyncResultStore(f"sqlite:///{tmp_path / 'results.db'}")
+    result_store.create_schema()
+    monkeypatch.setattr(compute_executor_worker, "async_result_store", result_store)
+
+    job_store = ComputeJobStore(f"sqlite:///{tmp_path / 'jobs.db'}")
+    job_store.create_schema()
+    monkeypatch.setattr(compute_executor_worker, "compute_job_store", job_store)
+
+    calculation_id = uuid4()
+    request_payload = {
+        "calculation_id": str(calculation_id),
+        "portfolio_id": "P1",
+        "report_end_date": "2026-03-31",
+        "performance_start_date": "2025-12-31",
+        "input_mode": "stateless",
+        "periods": [{"period": "1M", "frequencies": ["daily"]}],
+        "stateless_input": {
+            "valuation_points": [
+                {"perf_date": "2026-03-31", "begin_mv": 1000.0, "end_mv": 1010.0},
+            ]
+        },
+    }
+
+    execution_store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="WORKSPACE_SUMMARY",
+        portfolio_id="P1",
+        execution_mode="async",
+        requested_window={},
+    )
+    job_store.enqueue_job(
+        calculation_id=calculation_id,
+        analytics_type="WORKSPACE_SUMMARY",
+        request_payload=request_payload,
+    )
+
+    captured: dict[str, str] = {}
+
+    def _workspace_summary_calculator(workspace_request, *, settings):
+        captured["input_mode"] = workspace_request.input_mode.value
+        return type(
+            "WorkspaceSummaryResponseStub",
+            (),
+            {
+                "model_dump": lambda self, mode="json": {
+                    "calculation_id": str(workspace_request.calculation_id),
+                    "portfolio_id": workspace_request.portfolio_id,
+                    "input_mode": workspace_request.input_mode.value,
+                    "meta": {"engine_version": settings.APP_VERSION},
+                }
+            },
+        )()
+
+    assert (
+        compute_executor_worker._process_pending_jobs(
+            limit=10,
+            workspace_summary_calculator=_workspace_summary_calculator,
+            settings=_worker_settings(APP_VERSION="test-version"),
+        )
+        == 1
+    )
+
+    job = job_store.get_job(calculation_id)
+    assert job is not None
+    assert job.job_status == ComputeJobStatus.COMPLETE
+    assert captured["input_mode"] == "stateless"
+
+    execution = execution_store.get_execution(calculation_id)
+    assert execution is not None
+    assert execution.input_fingerprint is not None
+    assert execution.calculation_hash is not None
+
+    result = result_store.get_result(calculation_id)
+    assert result is not None
+    assert result.result_status == AsyncResultStatus.COMPLETE
+    assert result.response_payload["portfolio_id"] == "P1"
+
+
 def test_compute_executor_worker_updates_identity_for_stateful_contribution_job(tmp_path, monkeypatch):
     execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
     execution_store.create_schema()

@@ -57,6 +57,17 @@ def test_single_period_attribution_result_schema_excludes_dead_currency_totals_f
     assert "currency_attribution_totals" not in schema.get("properties", {})
 
 
+def test_attribution_group_result_schema_includes_side_by_side_context_fields():
+    schema = SinglePeriodAttributionResult.model_json_schema()
+    attribution_group_schema = schema["$defs"]["AttributionGroupResult"]
+    properties = attribution_group_schema["properties"]
+
+    assert "portfolio_weight_avg" in properties
+    assert "benchmark_weight_avg" in properties
+    assert "portfolio_return" in properties
+    assert "benchmark_return" in properties
+
+
 def test_attribution_analytics_request_rejects_stateful_and_legacy_conflicts(base_attribution_payload):
     payload = {
         **base_attribution_payload,
