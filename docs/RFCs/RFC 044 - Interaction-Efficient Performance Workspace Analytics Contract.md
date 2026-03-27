@@ -83,6 +83,8 @@ complexity into `lotus-gateway`.
 5. Make the new contract testable, documented, and OpenAPI-visible.
 6. Support all standard attached period types plus `SI` in one request.
 7. Return enough economic context per period that summary and breakdown rows are self-explanatory.
+8. Keep contribution and attribution on one consistent segmentation model when both are included.
+9. Keep benchmark support explicit and consistent across user-input and lotus-core-linked modes.
 
 ## Non-Goals
 
@@ -90,6 +92,8 @@ complexity into `lotus-gateway`.
 2. Creating an unbounded “workspace mega-endpoint” with unclear semantics.
 3. Hiding methodology differences behind a flattened convenience response.
 4. Bundling heavy detailed surfaces by default without clear interaction evidence.
+5. Allowing contribution and attribution to diverge into different segmentation contracts inside the
+   same workspace surface.
 
 ## Current State
 
@@ -131,6 +135,10 @@ smart about data sourcing:
 2. derive shorter requested periods from that same underlying data,
 3. chunk downstream retrieval so upstream/core calls stay efficient and bounded.
 
+If contribution and attribution are brought into the workspace surface in later slices, they should
+use one shared segmentation model and the same requested period family. The workspace contract
+should not force downstream consumers to normalize one grouping logic into another.
+
 ## Proposed Contract Shape
 
 Illustrative direction:
@@ -145,6 +153,7 @@ Illustrative direction:
   - multiple requested horizons selected from the standard workspace family plus `SI`
   - frequency controls
   - basis controls
+  - one shared segmentation definition for contribution and attribution when those blocks are requested
   - optional inclusion toggles for heavier blocks
 
 - response shape:
@@ -155,7 +164,8 @@ Illustrative direction:
   - `benchmark_by_period`
   - `active_by_period`
   - `mwr_by_period`
-  - optional lightweight contribution/attribution summary blocks only if explicitly requested
+  - optional contribution and attribution blocks only if explicitly requested, both using the same
+    segmentation contract when present
 
 The important rule is that each block must preserve the unit and methodology semantics of its
 source engine rather than inventing a flattened pseudo-metric.
@@ -174,6 +184,14 @@ Each returned period block should carry:
 
 Each requested breakdown inside that period should carry the same economic fields where they are
 meaningful for the surface.
+
+If contribution is included, the response should support both:
+
+1. segmented contribution,
+2. position-level contribution as a first-class output.
+
+If attribution is included, the response should use the same segmentation definition as
+contribution and support the same requested period family.
 
 ## Period Support and Annualization Semantics
 
@@ -203,6 +221,15 @@ Annualization rule:
 
 This keeps the response model uniform and removes downstream conditional field handling.
 
+The same period family rule should apply consistently to:
+
+1. TWR summary,
+2. benchmark summary,
+3. active summary,
+4. MWR summary,
+5. contribution when included,
+6. attribution when included.
+
 ## Architectural Direction
 
 ### 1. Reuse Existing Engines
@@ -230,6 +257,9 @@ Deep analysis should still use:
 3. existing detailed TWR and benchmark surfaces
 
 This keeps the workspace-summary surface interaction-friendly without weakening domain ownership.
+
+If contribution and attribution are later added to the workspace contract, the new summary surface
+must still preserve the current deep endpoints as the canonical drill-down surfaces.
 
 ### 3. Support Multiple Horizons Explicitly
 
@@ -292,6 +322,12 @@ The summary contract must not hide:
 
 Each block should stay explicitly named and documented.
 
+That also means:
+
+1. contribution and attribution cannot silently use different segmentation semantics in the same
+   workspace contract,
+2. benchmark mode behavior cannot differ unpredictably across the returned analytical blocks.
+
 ### 7. Return Economic Context, Not Just Performance Percentages
 
 This surface should not return “performance only.”
@@ -317,6 +353,61 @@ Definitions should be explicit:
 
 If one block cannot support one of these fields honestly, that omission should be explicitly modeled
 and documented rather than silently skipped.
+
+### 8. Keep Segmentation Consistent Across Contribution and Attribution
+
+When the workspace contract carries contribution and attribution, both should support the same
+segmentation model.
+
+That means:
+
+1. the same grouping vocabulary,
+2. the same requested period family,
+3. the same multi-level segmentation rules where multi-level output is supported,
+4. no hidden downstream mapping requirement to reconcile one block with another.
+
+Illustrative segmentation dimensions:
+
+1. `asset_class`
+2. `sector`
+3. `country`
+4. `currency`
+5. approved multi-level combinations of those same dimensions
+
+If the underlying stateful attribution path remains temporarily narrower than contribution for some
+dimensions, that should be called out explicitly as a phased implementation constraint rather than
+buried inside the workspace contract.
+
+### 9. Position Contribution Must Remain First-Class
+
+Position-level contribution should remain available whenever contribution is included.
+
+That is important because:
+
+1. top and bottom contributor views are fundamentally position-oriented,
+2. grouped contribution alone is not sufficient for front-office ranking workflows,
+3. the workspace should not force downstream consumers to reconstruct position ranking from grouped
+   rollups.
+
+### 10. Benchmark Support Must Be Consistent in Two Modes
+
+The workspace contract should support benchmark context in two explicit modes:
+
+1. user-input benchmark
+2. linked benchmark sourced from lotus-core
+
+This benchmark mode must be handled consistently across:
+
+1. benchmark summary,
+2. active summary,
+3. attribution when included,
+4. any later benchmark-aware contribution extension.
+
+The response should preserve explicit benchmark context so consumers know whether they are looking
+at:
+
+1. a caller-supplied benchmark payload,
+2. or a benchmark linked and resolved from lotus-core.
 
 ## Delivery Slices
 
@@ -363,13 +454,18 @@ Outcome:
 
 1. only if justified by measured workspace usage,
 2. add explicit opt-in lightweight summary blocks,
-3. keep detailed contribution and attribution as separate first-class endpoints.
+3. contribution and attribution use a shared segmentation model,
+4. both support the same requested period family,
+5. position-level contribution is present when contribution is included,
+6. keep detailed contribution and attribution as separate first-class endpoints.
 
 Acceptance gate:
 
 1. the summary contract remains readable,
 2. no hidden large payload drift,
-3. detailed surfaces are still the canonical drill-down path.
+3. detailed surfaces are still the canonical drill-down path,
+4. contribution and attribution segmentation remains aligned,
+5. benchmark mode behavior is explicit and testable.
 
 ## Risks
 
@@ -383,6 +479,10 @@ Acceptance gate:
    wrapper instead of a real interaction-efficiency improvement.
 6. If market value, cash flow, fee, and flow-adjusted fields are not defined carefully, the
    contract could look rich while still leaving downstream consumers to guess economics.
+7. If contribution and attribution segmentation drift, the workspace may look unified while still
+   pushing hidden mapping complexity downstream.
+8. If benchmark mode behavior is not explicit, user-input and lotus-core-linked benchmark paths
+   could diverge in confusing ways.
 
 ## Alternatives Considered
 
@@ -425,7 +525,11 @@ This RFC is ready for approval when the team agrees that:
 5. longest-window retrieval and chunked downstream sourcing should be required behavior,
 6. methodology clarity must remain explicit at the response-model level,
 7. contribution and attribution should stay separate detailed surfaces unless later evidence justifies
-   lightweight opt-in summary blocks.
+   lightweight opt-in summary blocks,
+8. when contribution and attribution are included, they should use one shared segmentation model,
+9. position-level contribution should remain available,
+10. benchmark support should be explicit and consistent across user-input and lotus-core-linked
+    modes.
 
 This RFC is complete in implementation terms when:
 
@@ -439,7 +543,11 @@ This RFC is complete in implementation terms when:
    each summary and requested breakdown,
 8. it proves longest-window retrieval reuse and chunked downstream sourcing through meaningful
    tests,
-9. it measurably reduces interaction call count for the workspace use case.
+9. when contribution and attribution are included, they use the same segmentation contract and the
+   same requested period family,
+10. position-level contribution is present when contribution is requested,
+11. benchmark mode is explicit and consistent for user-input and lotus-core-linked paths,
+12. it measurably reduces interaction call count for the workspace use case.
 
 ## Approval Requested
 
@@ -451,4 +559,8 @@ Approve this RFC if the team agrees that:
 4. the contract should directly support the standard attached period family plus `SI`,
 5. the service should source only the longest required window and derive the shorter periods from the
    same data,
-6. deeper bundled analytics should remain a later, evidence-driven decision rather than a default.
+6. deeper bundled analytics should remain a later, evidence-driven decision rather than a default,
+7. contribution and attribution should converge on a shared segmentation model inside the workspace
+   contract,
+8. benchmark support should remain explicit and consistent across user-input and lotus-core-linked
+   modes.
