@@ -118,7 +118,9 @@ def test_contribution_guide_uses_current_request_shape():
     assert (
         "stateful mode sources portfolio and position timeseries from lotus-core query-control-plane" in api_reference
     )
-    assert "position-level `average_weight` and grouped `weight_avg` are both emitted in percentage units" in api_reference
+    assert (
+        "position-level `average_weight` and grouped `weight_avg` are both emitted in percentage units" in api_reference
+    )
     assert 'input_mode: "stateless" | "stateful"' in readme
     assert "lotus-performance stamps source consumer identity server-side" in readme
 
@@ -131,6 +133,11 @@ def test_api_reference_documents_endpoint_level_capabilities_contract():
     assert "analytics_surfaces" in api_reference
     assert "stateful_restrictions" in api_reference
     assert "supports_async" in api_reference
+    assert "contract_notes" in api_reference
+    assert "poll_path_template" in api_reference
+    assert "result_path_template" in api_reference
+    assert "options" in api_reference
+    assert "docs/examples/integration_capabilities_response.json" in api_reference
     assert "/performance/twr/results/{calculation_id}" in readme
     assert "/performance/benchmark/results/{calculation_id}" in readme
     assert "/performance/twr/results/{calculation_id}" in runtime_topology
@@ -139,6 +146,28 @@ def test_api_reference_documents_endpoint_level_capabilities_contract():
         "`result_path` can now point directly to async result routes for `TWR`, `BENCHMARK`, `ReturnsSeries`, `Contribution`, and `Attribution`"
         in api_reference
     )
+    assert "POST /performance/workspace-summary" in api_reference
+    assert "GET /performance/workspace-summary/results/{calculation_id}" in api_reference
+    assert "app.models.workspace_summary_requests.WorkspaceSummaryRequest" in api_reference
+    assert "annualized return is always present" in api_reference
+    assert "summary blocks emit `period_return`, `cumulative_return`, and `annualized_return`" in api_reference
+    assert "benchmark blocks do not fabricate market-value economics" in api_reference
+    assert "retrieves only the longest required portfolio window" in api_reference
+    assert (
+        "optional `contribution` and `attribution` workspace blocks now reuse one shared `segmentation.group_by` contract"
+        in api_reference
+    )
+    assert (
+        "lightweight contribution and attribution workspace blocks currently require `input_mode=stateful`"
+        in api_reference
+    )
+    assert "audit now surfaces detail-block sourcing counts" in api_reference
+    assert "diagnostics now note when workspace contribution or attribution summaries were enabled" in api_reference
+    assert "docs/guides/workspace_summary.md" in readme
+    assert "`workspace_summary` is now advertised as a first-class analytics surface" in api_reference
+    assert "async-capable surfaces now also advertise their canonical execution polling" in api_reference
+    assert "workspace_summary` now also advertises machine-readable request options" in api_reference
+    assert "Canonical capabilities response excerpt" in api_reference
 
 
 def test_attribution_guide_uses_current_request_shape():
@@ -213,6 +242,15 @@ def test_api_examples_recipes_match_current_dual_mode_contract():
     assert "consumer_system" not in guide
     assert "stateful attribution can also emit currency attribution" in guide.lower()
     assert "Older examples using request-level `period_type` or nested `daily_data` are not current." in guide
+    assert "POST /performance/workspace-summary" in guide
+    assert '"segmentation"' in guide
+    assert '"contribution"' in guide
+    assert '"attribution"' in guide
+    assert '"period_return"' in guide
+    assert '"annualized_return"' in guide
+    assert '"flow_adjusted_end_market_value"' in guide
+    assert "docs/examples/workspace_summary_request.json" in guide
+    assert "docs/examples/workspace_summary_stateful_detail_request.json" in guide
     assert '"period_type"' not in guide
     assert '"daily_data"' not in guide
 
@@ -231,16 +269,28 @@ def test_json_examples_match_current_dual_mode_contract():
         "docs/examples/contribution_request_multiccy.json",
         "docs/examples/attribution_request.json",
         "docs/examples/attribution_request_multiccy.json",
+        "docs/examples/workspace_summary_request.json",
+        "docs/examples/workspace_summary_stateful_detail_request.json",
+        "docs/examples/integration_capabilities_response.json",
     ]
 
     for relative_path in example_paths:
         payload = json.loads(_read(relative_path))
         payload_text = json.dumps(payload)
 
-        assert payload["input_mode"] == "stateless"
         assert "period_type" not in payload_text
         assert "daily_data" not in payload_text
         assert '"day"' not in payload_text
+
+        if relative_path == "docs/examples/integration_capabilities_response.json":
+            continue
+
+        expected_input_mode = (
+            "stateful"
+            if relative_path == "docs/examples/workspace_summary_stateful_detail_request.json"
+            else "stateless"
+        )
+        assert payload["input_mode"] == expected_input_mode
 
     benchmark_request = json.loads(_read("docs/examples/benchmark_request.json"))
     assert "stateless_input" in benchmark_request
@@ -272,6 +322,73 @@ def test_json_examples_match_current_dual_mode_contract():
     multiccy_attribution = json.loads(_read("docs/examples/attribution_request_multiccy.json"))
     assert multiccy_attribution["currency_mode"] == "BOTH"
     assert multiccy_attribution["input_mode"] == "stateless"
+
+    workspace_summary = json.loads(_read("docs/examples/workspace_summary_request.json"))
+    assert workspace_summary["input_mode"] == "stateless"
+    assert workspace_summary["include_benchmark"] is True
+    assert workspace_summary["benchmark"]["input_mode"] == "stateless"
+    assert workspace_summary["periods"][0]["period"] == "1M"
+
+    workspace_stateful = json.loads(_read("docs/examples/workspace_summary_stateful_detail_request.json"))
+    assert workspace_stateful["input_mode"] == "stateful"
+    assert workspace_stateful["segmentation"]["group_by"] == ["sector", "country"]
+    assert workspace_stateful["contribution"]["top_positions"] == 5
+    assert workspace_stateful["attribution"]["metric_basis"] == "NET"
+
+    capabilities = json.loads(_read("docs/examples/integration_capabilities_response.json"))
+    assert capabilities["contract_version"] == "v1"
+    assert capabilities["analytics_surfaces"][0]["key"] == "workspace_summary"
+    assert capabilities["analytics_surfaces"][0]["options"][0]["key"] == "benchmark_mode"
+
+
+def test_workspace_summary_guide_documents_explicit_return_vocabulary():
+    guide = _read("docs/guides/workspace_summary.md")
+    rfc = _read("docs/RFCs/RFC 044 - Interaction-Efficient Performance Workspace Analytics Contract.md")
+
+    assert (
+        "`period_return` is the return earned inside the current resolved summary window or breakdown bucket" in guide
+    )
+    assert "portfolio_twr.<basis>.breakdowns.<frequency>[].period_return" in guide
+    assert "benchmark.summary.period_return" in guide
+    assert "money_weighted_return.period_return" in guide
+    assert "active.net.period_return" in guide
+    assert "summary blocks should emit `period_return`, `cumulative_return`, and `annualized_return`" in rfc
+    assert "breakdown rows should emit `period_return`, `cumulative_return`, and `annualized_return`" in rfc
+    assert "it should not fabricate pseudo market values or pseudo cash flows" in rfc
+
+
+def test_workspace_summary_docs_publish_canonical_examples():
+    api_reference = _read("docs/guides/api_reference.md")
+    rfc = _read("docs/RFCs/RFC 044 - Interaction-Efficient Performance Workspace Analytics Contract.md")
+    guide = _read("docs/guides/workspace_summary.md")
+    methodology_index = _read("docs/technical/methodology_index.md")
+
+    assert "Canonical example: stateless workspace summary" in api_reference
+    assert "Canonical example: stateful workspace summary with shared segmentation" in api_reference
+    assert "Canonical response excerpt" in api_reference
+    assert "docs/examples/workspace_summary_request.json" in api_reference
+    assert "docs/examples/workspace_summary_stateful_detail_request.json" in api_reference
+    assert "Illustrative Canonical Request Example" in rfc
+    assert "Illustrative Canonical Response Excerpt" in rfc
+    assert '"group_by": ["sector", "country"]' in rfc
+    assert '"workspace_detail_block_count": 2' in rfc
+    assert "interaction-efficient" in guide
+    assert "front-office performance workspaces" in guide
+    assert "../examples/workspace_summary_request.json" in guide
+    assert "../examples/workspace_summary_stateful_detail_request.json" in guide
+    assert "../examples/workspace_summary_accepted_response.json" in guide
+    assert "`POST /performance/workspace-summary`" in guide
+    assert "`GET /performance/workspace-summary/results/{calculation_id}`" in guide
+    assert "`GET /integration/capabilities` now advertises `workspace_summary`" in guide
+    assert "`contract_notes`" in guide
+    assert "`poll_path_template=/performance/executions/{calculation_id}`" in guide
+    assert "`result_path_template=/performance/workspace-summary/results/{calculation_id}`" in guide
+    assert "`benchmark_mode`" in guide
+    assert "`detail_blocks`" in guide
+    assert "`segmentation.group_by`" in guide
+    assert "`linked_stateful`" in guide
+    assert "../examples/integration_capabilities_response.json" in guide
+    assert "workspace_summary.md" in methodology_index
 
 
 def test_runtime_alert_runbook_covers_breach_gauges():

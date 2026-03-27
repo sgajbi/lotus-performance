@@ -1,6 +1,6 @@
 # RFC 044 - Interaction-Efficient Performance Workspace Analytics Contract
 
-- Status: Proposed
+- Status: Implemented
 - Date: 2026-03-27
 - Owners: Performance Analytics Service
 - Requires Approval From: lotus-performance maintainers
@@ -19,6 +19,29 @@ This RFC proposes a new workspace-summary contract first, not a vague “everyth
 It also fixes the economic-response bar for that surface: each requested period summary and
 breakdown should return enough market-value and cash-flow context that the UI can render a serious
 front-office performance workspace without reverse-engineering basic economics.
+
+## Implementation Status
+
+This RFC is now implemented in the repository.
+
+Implemented scope:
+
+1. `POST /performance/workspace-summary` and `GET /performance/workspace-summary/results/{calculation_id}`
+2. multi-horizon support for the standard workspace period family plus `SI` and `EXPLICIT`
+3. longest-window sourcing and bounded chunked stateful retrieval
+4. synchronous and asynchronous execution behavior with durable result retrieval
+5. explicit return vocabulary across workspace summary and breakdown blocks:
+   - `period_return`
+   - `cumulative_return`
+   - `annualized_return`
+6. explicit economic context on portfolio-owned summary and breakdown blocks
+7. truthful benchmark handling without fabricated benchmark market-value economics
+8. shared segmentation for optional contribution and attribution workspace blocks
+9. first-class position contribution output in the workspace contribution block
+10. machine-readable capability advertisement for workspace-summary, async polling, request options, and restrictions
+11. OpenAPI examples, guide documentation, API reference coverage, and meaningful unit/integration/e2e regression tests
+
+Remaining work is optional enhancement, not required RFC completion work.
 
 ## Why This Is Needed
 
@@ -193,15 +216,16 @@ The same rule applies to naming:
 
 Each returned period block should carry:
 
-1. cumulative return,
-2. annualized return,
-3. beginning market value,
-4. ending market value,
-5. beginning-of-day cash flow,
-6. end-of-day cash flow,
-7. fees,
-8. net cash flow,
-9. flow-adjusted value.
+1. period return,
+2. cumulative return,
+3. annualized return,
+4. beginning market value,
+5. ending market value,
+6. beginning-of-day cash flow,
+7. end-of-day cash flow,
+8. fees,
+9. net cash flow,
+10. flow-adjusted value.
 
 Each requested breakdown inside that period should carry the same economic fields where they are
 meaningful for the surface.
@@ -213,6 +237,136 @@ If contribution is included, the response should support both:
 
 If attribution is included, the response should use the same segmentation definition as
 contribution and support the same requested period family.
+
+### Illustrative Canonical Request Example
+
+```json
+{
+  "input_mode": "stateful",
+  "portfolio_id": "WORKSPACE_SUMMARY_STATEFUL_01",
+  "report_end_date": "2026-03-31",
+  "periods": [
+    { "period": "1M", "frequencies": ["daily", "monthly"] },
+    { "period": "YTD", "frequencies": ["monthly"] },
+    { "period": "SI", "frequencies": ["monthly", "yearly"] }
+  ],
+  "stateful_input": {},
+  "include_benchmark": true,
+  "benchmark": {
+    "input_mode": "stateful",
+    "stateful_input": {}
+  },
+  "segmentation": {
+    "group_by": ["sector", "country"]
+  },
+  "contribution": {
+    "metric_basis": "NET",
+    "top_positions": 5
+  },
+  "attribution": {
+    "metric_basis": "NET"
+  },
+  "report_ccy": "USD",
+  "currency_mode": "BASE_ONLY"
+}
+```
+
+This example is intentionally not a toy payload. It shows the intended gold-standard contract
+shape:
+
+1. one canonical multi-horizon request,
+2. one explicit benchmark contract,
+3. one shared segmentation contract,
+4. one vocabulary shared across TWR, contribution, attribution, and benchmark-aware blocks.
+
+### Illustrative Canonical Response Excerpt
+
+```json
+{
+  "results_by_period": {
+    "YTD": {
+      "portfolio_twr": {
+        "net": {
+          "summary": {
+            "economics": {
+              "begin_market_value": 1000000.0,
+              "end_market_value": 1054100.0,
+              "beginning_cash_flow": 25000.0,
+              "ending_cash_flow": -5000.0,
+              "fees": -350.0,
+              "net_cash_flow": 20000.0,
+            "flow_adjusted_end_market_value": 1034100.0
+          },
+          "period_return": { "base": 3.41, "local": 3.18, "fx": 0.23 },
+          "cumulative_return": { "base": 3.41, "local": 3.18, "fx": 0.23 },
+          "annualized_return": { "base": 3.41, "local": 3.18, "fx": 0.23 }
+        }
+      }
+    },
+    "benchmark": {
+      "benchmark_id": "BMK_GLOBAL_60_40",
+      "summary": {
+        "period_return": { "base": 2.98 },
+        "cumulative_return": { "base": 2.98 },
+        "annualized_return": { "base": 2.98 }
+      }
+    },
+    "active": {
+      "net": {
+        "period_return": { "base": 0.43 },
+        "cumulative_return": { "base": 0.43 },
+        "annualized_return": { "base": 0.43 }
+      },
+      "gross": {
+        "period_return": { "base": 0.46 },
+        "cumulative_return": { "base": 0.46 },
+        "annualized_return": { "base": 0.46 }
+      }
+    },
+    "money_weighted_return": {
+      "method": "XIRR",
+      "period_return": 3.27,
+      "cumulative_return": 3.27,
+      "annualized_return": 3.27
+    },
+      "contribution": {
+        "segmentation": ["sector", "country"],
+        "position_contributions": [
+          {
+            "position_id": "AAPL_US",
+            "contribution": 1.42,
+            "average_weight": 24.0,
+            "total_return": 5.92
+          }
+        ]
+      },
+      "attribution": {
+        "segmentation": ["sector", "country"],
+        "benchmark_context": {
+          "benchmark_id": "BMK_GLOBAL_60_40",
+          "return_source": "calculated"
+        }
+      }
+    }
+  },
+  "audit": {
+    "counts": {
+      "workspace_detail_block_count": 2,
+      "workspace_contribution_periods_emitted": 1,
+      "workspace_attribution_periods_emitted": 1
+    }
+  }
+}
+```
+
+This is the core “same story, different levels of detail” contract:
+
+1. TWR owns the portfolio performance headline,
+2. benchmark owns the comparison baseline,
+3. active owns the arithmetic difference,
+4. MWR owns the capital-timing lens,
+5. contribution owns grouped and position-level explanation,
+6. attribution owns active-effect explanation against the same benchmark context.
 
 ## Period Support and Annualization Semantics
 
@@ -250,6 +404,14 @@ The same period family rule should apply consistently to:
 4. MWR summary,
 5. contribution when included,
 6. attribution when included.
+
+Return semantics should also be explicit and consistent:
+
+1. summary blocks should emit `period_return`, `cumulative_return`, and `annualized_return`,
+2. breakdown rows should emit `period_return`, `cumulative_return`, and `annualized_return`,
+3. active blocks should use the same vocabulary instead of a shorter alternate naming dialect,
+4. benchmark and MWR surfaces inside the workspace contract should follow the same explicit return
+   vocabulary as closely as their methodology honestly permits.
 
 ## Architectural Direction
 
@@ -397,9 +559,19 @@ Definitions should be explicit:
 1. `net_cash_flow = bod_cash_flow + eod_cash_flow`
 2. `flow_adjusted_value` should be documented per surface so downstream consumers do not guess how
    the denominator or adjusted capital base was formed
+3. `period_return` should always mean return earned inside the resolved summary window or
+   breakdown bucket
+4. `cumulative_return` should always mean return accumulated through the end of the resolved window
+   or bucket
 
 If one block cannot support one of these fields honestly, that omission should be explicitly modeled
 and documented rather than silently skipped.
+
+Benchmark-return blocks are the clearest example:
+
+1. when the benchmark path owns benchmark return history but not benchmark market-value history,
+2. the workspace contract should emit truthful return summaries and breakdowns,
+3. it should not fabricate pseudo market values or pseudo cash flows just to make the shape look richer.
 
 ### 9. Keep Segmentation Consistent Across Contribution and Attribution
 
@@ -495,6 +667,8 @@ Acceptance gate:
 4. chunked sourcing behavior is observable enough to support troubleshooting,
 5. longest-window optimization is regression-tested.
 6. vocabulary choices are reviewed against existing canonical Lotus terms before they are exposed.
+7. optional workspace detail blocks emit truthful audit counts for sourced positions, instruments, and benchmark retrieval work.
+8. diagnostics make it explicit when contribution or attribution workspace summaries were enabled and which shared segmentation contract they used.
 
 ### Slice 3: Optional Lightweight Contribution/Attribution Summaries
 

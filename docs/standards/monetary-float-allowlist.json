@@ -1,7 +1,7 @@
 {
   "description": "Approved baseline monetary-float findings. New findings fail CI.",
   "policy_version": "1.1.0",
-  "generated_at": "2026-03-22T14:30:06Z",
+  "generated_at": "2026-03-27T03:06:41Z",
   "allowlist": [
     {
       "finding": "app/models/attribution_requests.py:44:weight_bop: float",
@@ -28,22 +28,46 @@
       "review_by": "2026-08-24"
     },
     {
-      "finding": "app/models/attribution_responses.py:50:total_active_return: float = Field(",
+      "finding": "app/models/attribution_responses.py:105:weight_portfolio_avg: float = Field(",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
-      "review_by": "2026-09-17"
+      "review_by": "2026-09-23"
     },
     {
-      "finding": "app/models/attribution_responses.py:89:weight_portfolio_avg: float = Field(",
+      "finding": "app/models/attribution_responses.py:109:weight_benchmark_avg: float = Field(",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
-      "review_by": "2026-09-17"
+      "review_by": "2026-09-23"
     },
     {
-      "finding": "app/models/attribution_responses.py:93:weight_benchmark_avg: float = Field(",
+      "finding": "app/models/attribution_responses.py:18:portfolio_weight_avg: float = Field(",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
-      "review_by": "2026-09-17"
+      "review_by": "2026-09-23"
+    },
+    {
+      "finding": "app/models/attribution_responses.py:22:benchmark_weight_avg: float = Field(",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-23"
+    },
+    {
+      "finding": "app/models/attribution_responses.py:26:portfolio_return: float = Field(",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-23"
+    },
+    {
+      "finding": "app/models/attribution_responses.py:30:benchmark_return: float = Field(",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-23"
+    },
+    {
+      "finding": "app/models/attribution_responses.py:66:total_active_return: float = Field(",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-23"
     },
     {
       "finding": "app/models/benchmark_analytics_requests.py:32:weight_bop: float = Field(..., description=\"Beginning-of-day component benchmark weight.\")",
@@ -298,6 +322,48 @@
       "review_by": "2026-09-17"
     },
     {
+      "finding": "app/models/workspace_summary_responses.py:280:begin_market_value: float = Field(",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-23"
+    },
+    {
+      "finding": "app/models/workspace_summary_responses.py:284:end_market_value: float = Field(",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-23"
+    },
+    {
+      "finding": "app/models/workspace_summary_responses.py:304:flow_adjusted_end_market_value: float = Field(",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-23"
+    },
+    {
+      "finding": "app/models/workspace_summary_responses.py:311:base: float = Field(description=\"Return in percentage-point output units.\", examples=[1.25])",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-23"
+    },
+    {
+      "finding": "app/models/workspace_summary_responses.py:391:period_return: float = Field(",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-23"
+    },
+    {
+      "finding": "app/models/workspace_summary_responses.py:395:cumulative_return: float = Field(",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-23"
+    },
+    {
+      "finding": "app/models/workspace_summary_responses.py:399:annualized_return: float = Field(",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-23"
+    },
+    {
       "finding": "app/services/benchmark_calculation_service.py:201:def _series_return(return_series: pd.Series) -> float:",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
@@ -472,6 +538,48 @@
       "review_by": "2026-09-17"
     },
     {
+      "finding": "app/services/workspace_summary_service.py:1007:return float((((1 + value_pct / 100.0) ** (periods_per_year / elapsed_measure)) - 1) * 100.0)",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-23"
+    },
+    {
+      "finding": "app/services/workspace_summary_service.py:1048:base=float(value.base),",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-23"
+    },
+    {
+      "finding": "app/services/workspace_summary_service.py:1049:local=None if value.local is None else float(value.local),",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-23"
+    },
+    {
+      "finding": "app/services/workspace_summary_service.py:1050:fx=None if value.fx is None else float(value.fx),",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-23"
+    },
+    {
+      "finding": "app/services/workspace_summary_service.py:939:end_market_value = float(last_row[\"end_mv\"])",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-23"
+    },
+    {
+      "finding": "app/services/workspace_summary_service.py:941:begin_market_value=float(first_row[\"begin_mv\"]),",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-23"
+    },
+    {
+      "finding": "app/services/workspace_summary_service.py:993:value_pct: float,",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-23"
+    },
+    {
       "finding": "core/annualize.py:9:def annualize_return(period_return: float, num_periods: int, periods_per_year: float, basis: BasisType) -> float:",
       "justification": "Temporary approved monetary float usage; migrate to Decimal.",
       "owner": "platform-governance",
@@ -482,6 +590,84 @@
       "justification": "Temporary approved monetary float usage; migrate to Decimal.",
       "owner": "platform-governance",
       "review_by": "2026-08-24"
+    },
+    {
+      "finding": "engine/attribution.py:104:portfolio_weight_avg=float(row[\"portfolio_weight_avg\"]) * 100,",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-23"
+    },
+    {
+      "finding": "engine/attribution.py:105:benchmark_weight_avg=float(row[\"benchmark_weight_avg\"]) * 100,",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-23"
+    },
+    {
+      "finding": "engine/attribution.py:106:portfolio_return=float(row[\"portfolio_return\"]) * 100,",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-23"
+    },
+    {
+      "finding": "engine/attribution.py:107:benchmark_return=float(row[\"benchmark_return\"]) * 100,",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-23"
+    },
+    {
+      "finding": "engine/attribution.py:29:def _calculate_linked_return(return_series: pd.Series) -> float:",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-23"
+    },
+    {
+      "finding": "engine/attribution.py:34:return float((1 + numeric_returns).prod() - 1)",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-23"
+    },
+    {
+      "finding": "engine/attribution.py:37:def _calculate_weighted_average_return(weights: pd.Series, returns: pd.Series) -> float:",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-23"
+    },
+    {
+      "finding": "engine/attribution.py:41:total_weight = float(numeric_weights.sum())",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-23"
+    },
+    {
+      "finding": "engine/attribution.py:44:return float((numeric_weights * numeric_returns).sum() / total_weight)",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-23"
+    },
+    {
+      "finding": "engine/attribution.py:67:\"portfolio_weight\": float(pd.to_numeric(group[\"w_p\"], errors=\"coerce\").fillna(0.0).sum()),",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-23"
+    },
+    {
+      "finding": "engine/attribution.py:68:\"benchmark_weight\": float(pd.to_numeric(group[\"w_b\"], errors=\"coerce\").fillna(0.0).sum()),",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-23"
+    },
+    {
+      "finding": "engine/attribution.py:80:\"portfolio_weight_avg\": float(pd.to_numeric(group[\"portfolio_weight\"], errors=\"coerce\").mean()),",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-23"
+    },
+    {
+      "finding": "engine/attribution.py:81:\"benchmark_weight_avg\": float(pd.to_numeric(group[\"benchmark_weight\"], errors=\"coerce\").mean()),",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-09-23"
     },
     {
       "finding": "engine/benchmarks.py:107:max_weight_sum_deviation=float(max_weight_sum_deviation_decimal),",

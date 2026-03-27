@@ -303,8 +303,7 @@ def test_contribution_endpoint_weight_fields_use_percentage_units_for_position_a
         for row in position_response.json()["results_by_period"]["ITD"]["position_contributions"]
     }
     hierarchy_rows = {
-        row["key"]["sector"]: row
-        for row in hierarchy_response.json()["results_by_period"]["ITD"]["levels"][0]["rows"]
+        row["key"]["sector"]: row for row in hierarchy_response.json()["results_by_period"]["ITD"]["levels"][0]["rows"]
     }
 
     assert position_rows["Stock_A"]["average_weight"] == pytest.approx(60.0)

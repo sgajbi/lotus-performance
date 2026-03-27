@@ -1,0 +1,38 @@
+{
+  "calculation_id": "0d000002-1111-4222-8333-abcdefabcdef",
+  "input_mode": "stateful",
+  "portfolio_id": "WORKSPACE_SUMMARY_STATEFUL_01",
+  "report_end_date": "2026-03-31",
+  "periods": [
+    {
+      "period": "1M",
+      "frequencies": ["daily", "monthly"]
+    },
+    {
+      "period": "YTD",
+      "frequencies": ["monthly"]
+    },
+    {
+      "period": "SI",
+      "frequencies": ["monthly", "yearly"]
+    }
+  ],
+  "stateful_input": {},
+  "include_benchmark": true,
+  "benchmark": {
+    "input_mode": "stateful",
+    "stateful_input": {}
+  },
+  "segmentation": {
+    "group_by": ["sector", "country"]
+  },
+  "contribution": {
+    "metric_basis": "NET",
+    "top_positions": 5
+  },
+  "attribution": {
+    "metric_basis": "NET"
+  },
+  "report_ccy": "USD",
+  "currency_mode": "BASE_ONLY"
+}

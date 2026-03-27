@@ -14,6 +14,8 @@ from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsReques
 from app.models.mwr_responses import MoneyWeightedReturnResponse
 from app.models.responses import PerformanceResponse, TWRAcceptedResponse
 from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode, TWRResolvedExecutionRequest
+from app.models.workspace_summary_requests import WorkspaceSummaryRequest
+from app.models.workspace_summary_responses import WorkspaceSummaryAcceptedResponse, WorkspaceSummaryResponse
 from app.services.async_result_service import resolve_async_result
 from app.services.attribution_mode_service import resolve_attribution_request
 from app.services.attribution_service import calculate_attribution
@@ -33,6 +35,7 @@ from app.services.submission_fencing_service import (
 )
 from app.services.twr_mode_service import resolve_twr_request
 from app.services.twr_service import calculate_twr_response
+from app.services.workspace_summary_service import calculate_workspace_summary
 from core.envelope import Audit, Diagnostics, Meta
 from core.repro import generate_canonical_hash, generate_canonical_hash_from_value
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
@@ -173,6 +176,132 @@ def _accepted_twr_response(calculation_id) -> TWRAcceptedResponse:
         calculation_id=calculation_id,
         poll_path=f"/performance/executions/{calculation_id}",
         result_path=f"/performance/twr/results/{calculation_id}",
+    )
+
+
+def _accepted_workspace_summary_response(calculation_id) -> WorkspaceSummaryAcceptedResponse:
+    return WorkspaceSummaryAcceptedResponse(
+        calculation_id=calculation_id,
+        poll_path=f"/performance/executions/{calculation_id}",
+        result_path=f"/performance/workspace-summary/results/{calculation_id}",
+    )
+
+
+def _workspace_requested_benchmark_work_units(request: WorkspaceSummaryRequest) -> int:
+    benchmark = request.benchmark
+    if benchmark is None or benchmark.input_mode != BenchmarkInputMode.STATELESS or benchmark.stateless_input is None:
+        return 0
+    if benchmark.return_source == BenchmarkReturnSource.CALCULATED:
+        return len(benchmark.stateless_input.component_observations) or len(
+            benchmark.stateless_input.component_price_points
+        )
+    return len(benchmark.stateless_input.benchmark_return_points)
+
+
+def _workspace_requested_input_count(request: WorkspaceSummaryRequest) -> int:
+    valuation_points = (
+        len(request.resolved_stateless_valuation_points()) if request.input_mode == TWRInputMode.STATELESS else 0
+    )
+    return valuation_points + _workspace_requested_benchmark_work_units(request)
+
+
+def _workspace_longest_requested_window_days(request: WorkspaceSummaryRequest) -> int:
+    if request.input_mode != TWRInputMode.STATEFUL:
+        return 0
+    if any(period.period.value == "SI" for period in request.periods) and request.performance_start_date is None:
+        return 10_000
+    from core.workspace_periods import resolve_workspace_periods
+
+    assumed_start = request.performance_start_date or request.report_start_date or request.report_end_date
+    resolved_periods = resolve_workspace_periods(
+        [item.period for item in request.periods],
+        as_of=request.report_end_date,
+        performance_start_date=assumed_start,
+        explicit_start_date=request.report_start_date,
+    )
+    return max((period.end_date - period.start_date).days for period in resolved_periods) if resolved_periods else 0
+
+
+def _should_offload_workspace_summary(request: WorkspaceSummaryRequest) -> bool:
+    settings = get_settings()
+    return (
+        request.input_mode == TWRInputMode.STATEFUL
+        and _workspace_longest_requested_window_days(request) >= settings.WORKSPACE_SUMMARY_EXECUTOR_WINDOW_DAYS
+    ) or (_workspace_requested_input_count(request) >= settings.WORKSPACE_SUMMARY_EXECUTOR_INPUT_COUNT)
+
+
+@router.post(
+    "/workspace-summary",
+    response_model=WorkspaceSummaryResponse | WorkspaceSummaryAcceptedResponse,
+    summary="Calculate interaction-efficient workspace summary analytics",
+)
+def calculate_workspace_summary_endpoint(
+    request: WorkspaceSummaryRequest,
+) -> WorkspaceSummaryResponse | JSONResponse:
+    """Calculates multi-horizon workspace summary analytics in one source-owned response."""
+    settings = get_settings()
+    input_fingerprint, calculation_hash = generate_canonical_hash(request, settings.APP_VERSION)
+    requested_window = {
+        "report_end_date": str(request.report_end_date),
+        "requested_periods": [item.period.value for item in request.periods],
+        "input_mode": request.input_mode.value,
+        "include_benchmark": request.include_benchmark,
+        "input_count": _workspace_requested_input_count(request),
+        "longest_window_days": _workspace_longest_requested_window_days(request),
+    }
+    if _should_offload_workspace_summary(request):
+        return register_async_submission_or_raise(
+            calculation_id=request.calculation_id,
+            analytics_type="WORKSPACE_SUMMARY",
+            portfolio_id=request.portfolio_id,
+            requested_window=requested_window,
+            input_fingerprint=input_fingerprint,
+            calculation_hash=calculation_hash,
+            request_payload=request.model_dump(mode="json"),
+            offload_reason=(
+                "long_window_stateful_workspace_summary"
+                if request.input_mode == TWRInputMode.STATEFUL
+                else "large_workspace_summary_input_set"
+            ),
+            accepted_response_factory=_accepted_workspace_summary_response,
+        )
+    register_sync_execution_or_raise(
+        calculation_id=request.calculation_id,
+        analytics_type="WORKSPACE_SUMMARY",
+        portfolio_id=request.portfolio_id,
+        requested_window=requested_window,
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+    )
+    execution_registry.mark_running(request.calculation_id)
+    try:
+        return calculate_workspace_summary(request, settings=settings)
+    except HTTPException as exc:
+        record_execution_failure(calculation_id=request.calculation_id, message=str(exc.detail))
+        raise
+    except Exception as exc:
+        record_execution_failure(
+            calculation_id=request.calculation_id,
+            message=f"An unexpected server error occurred while calculating workspace summary: {exc}",
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An unexpected server error occurred while calculating workspace summary: {exc}",
+        ) from exc
+
+
+@router.get(
+    "/workspace-summary/results/{calculation_id}",
+    response_model=WorkspaceSummaryResponse | WorkspaceSummaryAcceptedResponse,
+    summary="Retrieve async workspace summary result",
+)
+async def get_workspace_summary_result(calculation_id: UUID) -> WorkspaceSummaryResponse | JSONResponse:
+    return resolve_async_result(
+        calculation_id=calculation_id,
+        response_model=WorkspaceSummaryResponse,
+        accepted_response_factory=_accepted_workspace_summary_response,
+        not_found_detail="Async workspace summary result not found for the given calculation_id.",
+        failed_detail="Async workspace summary execution failed.",
     )
 
 

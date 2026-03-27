@@ -9,6 +9,7 @@ analytics and integration surfaces.
 - [guides/mwr.md](../guides/mwr.md)
 - [guides/contribution.md](../guides/contribution.md)
 - [guides/attribution.md](../guides/attribution.md)
+- [guides/workspace_summary.md](../guides/workspace_summary.md)
 - [guides/multi_currency.md](../guides/multi_currency.md)
 - [guides/robustness_policies.md](../guides/robustness_policies.md)
 - [guides/reproducibility.md](../guides/reproducibility.md)

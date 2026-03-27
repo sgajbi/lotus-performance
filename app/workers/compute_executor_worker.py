@@ -19,6 +19,7 @@ from app.models.contribution_analytics_requests import ContributionAnalyticsRequ
 from app.models.contribution_requests import ContributionRequest
 from app.models.returns_series import InputMode, ReturnsSeriesRequest
 from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode, TWRResolvedExecutionRequest
+from app.models.workspace_summary_requests import WorkspaceSummaryRequest
 from app.services.async_result_store import AsyncResultStore, async_result_store
 from app.services.attribution_mode_service import resolve_attribution_request
 from app.services.attribution_service import calculate_attribution
@@ -33,6 +34,7 @@ from app.services.execution_registry import ExecutionRegistry, execution_registr
 from app.services.returns_series_service import calculate_returns_series
 from app.services.twr_mode_service import resolve_twr_request
 from app.services.twr_service import calculate_twr_response
+from app.services.workspace_summary_service import calculate_workspace_summary
 from core.repro import generate_canonical_hash, generate_canonical_hash_from_value
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
 
@@ -56,6 +58,7 @@ def _process_pending_jobs(
     attribution_calculator: Callable[..., Any] | None = None,
     benchmark_calculator: Callable[..., Any] | None = None,
     twr_calculator: Callable[..., Any] | None = None,
+    workspace_summary_calculator: Callable[..., Any] | None = None,
     settings=None,
 ) -> int:
     active_settings = settings or get_settings()
@@ -70,6 +73,7 @@ def _process_pending_jobs(
     active_attribution_calculator = attribution_calculator or calculate_attribution
     active_benchmark_calculator = benchmark_calculator or calculate_benchmark_response
     active_twr_calculator = twr_calculator or calculate_twr_response
+    active_workspace_summary_calculator = workspace_summary_calculator or calculate_workspace_summary
     reconciled = active_job_store.reconcile_stale_jobs()
     for reconciled_job in reconciled:
         if reconciled_job.reconciled_status.value == "failed":
@@ -227,6 +231,18 @@ def _process_pending_jobs(
                     resolved_benchmark_id=resolved_benchmark_id,
                     benchmark_return_source=benchmark_return_source,
                 )
+            elif job.analytics_type == "WORKSPACE_SUMMARY":
+                workspace_request = WorkspaceSummaryRequest.model_validate(job.request_payload)
+                input_fingerprint, calculation_hash = generate_canonical_hash(
+                    workspace_request,
+                    active_settings.APP_VERSION,
+                )
+                active_execution_store.update_execution_identity(
+                    job.calculation_id,
+                    input_fingerprint=input_fingerprint,
+                    calculation_hash=calculation_hash,
+                )
+                response = active_workspace_summary_calculator(workspace_request, settings=active_settings)
             else:
                 raise ValueError(f"Unsupported compute job analytics_type: {job.analytics_type}")
             active_result_store.record_success(

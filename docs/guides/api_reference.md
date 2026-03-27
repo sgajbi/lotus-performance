@@ -54,6 +54,205 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - stateful mode sources portfolio timeseries from lotus-core query-control-plane and normalizes them into canonical `begin_mv`, `end_mv`, `cash_flows`, and authoritative `start_date` before engine execution
   - lotus-performance stamps source consumer identity server-side for the stateful envelope
 
+### `POST /performance/workspace-summary`
+
+- purpose: calculate an interaction-efficient workspace summary in one source-owned response
+- request model: `app.models.workspace_summary_requests.WorkspaceSummaryRequest`
+- response model: `app.models.workspace_summary_responses.WorkspaceSummaryResponse | app.models.workspace_summary_responses.WorkspaceSummaryAcceptedResponse`
+- execution mode: synchronous for lighter requests, `202 Accepted` for heavier requests offloaded to the compute executor
+- lineage: durable lineage metadata is written and artifacts are materialized asynchronously
+- supported input modes:
+  - `stateless`
+  - `stateful`
+- contract note:
+  - one request returns multi-horizon `portfolio_twr.net`, `portfolio_twr.gross`, benchmark summary, active summary, and money-weighted return summary
+  - the workspace period family currently supports `1D`, `2D`, `5D`, `10D`, `1M`, `3M`, `6M`, `YTD`, `1Y`, `2Y`, `5Y`, `10Y`, `SI`, and `EXPLICIT`
+  - annualized return is always present; for periods up to one year it intentionally equals cumulative return to keep the response shape consistent
+  - the service resolves the longest requested window once and derives shorter periods from the same sourced data
+  - stateful mode retrieves only the longest required portfolio window from lotus-core and preserves retrieval chunk counts in audit output
+  - benchmark context remains explicit across stateless user-input and stateful lotus-core-linked modes
+  - summary and breakdown blocks include beginning market value, ending market value, beginning-of-day cash flow, end-of-day cash flow, fees, net cash flow, and flow-adjusted end market value where those economics belong to the surface
+  - optional `contribution` and `attribution` workspace blocks now reuse one shared `segmentation.group_by` contract so both surfaces speak the same grouping vocabulary
+  - the optional contribution block preserves grouped contribution rows plus first-class `position_contributions`
+  - the optional attribution block reuses the canonical attribution result shape and preserves explicit `benchmark_context`
+  - lightweight contribution and attribution workspace blocks currently require `input_mode=stateful`
+  - audit now surfaces detail-block sourcing counts, including emitted detail-block periods, sourced position/instrument counts, and benchmark/index retrieval chunk counts for workspace attribution
+  - diagnostics now note when workspace contribution or attribution summaries were enabled and which shared segmentation contract was used
+  - async accepted responses return:
+    - `poll_path=/performance/executions/{calculation_id}`
+    - `result_path=/performance/workspace-summary/results/{calculation_id}`
+  - canonical example payloads live in:
+    - `docs/examples/workspace_summary_request.json`
+    - `docs/examples/workspace_summary_stateful_detail_request.json`
+
+**Canonical example: stateless workspace summary**
+
+```json
+{
+  "input_mode": "stateless",
+  "portfolio_id": "WORKSPACE_SUMMARY_01",
+  "report_end_date": "2026-03-31",
+  "performance_start_date": "2025-12-31",
+  "periods": [
+    { "period": "1M", "frequencies": ["daily", "monthly"] },
+    { "period": "YTD", "frequencies": ["monthly"] },
+    { "period": "1Y", "frequencies": ["monthly", "yearly"] }
+  ],
+  "include_benchmark": true,
+  "stateless_input": {
+    "valuation_points": [
+      { "perf_date": "2026-01-02", "begin_mv": 1000000.0, "end_mv": 1008500.0 },
+      { "perf_date": "2026-02-27", "begin_mv": 1008500.0, "bod_cf": 25000.0, "end_mv": 1039500.0 },
+      { "perf_date": "2026-03-31", "begin_mv": 1039500.0, "eod_cf": -5000.0, "mgmt_fees": -350.0, "end_mv": 1054100.0 }
+    ]
+  },
+  "benchmark": {
+    "benchmark_id": "BMK_GLOBAL_60_40",
+    "input_mode": "stateless",
+    "return_source": "vendor_series",
+    "stateless_input": {
+      "benchmark_currency": "USD",
+      "benchmark_return_points": [
+        { "perf_date": "2026-01-02", "benchmark_return": 0.0065 },
+        { "perf_date": "2026-02-27", "benchmark_return": 0.011 },
+        { "perf_date": "2026-03-31", "benchmark_return": 0.009 }
+      ]
+    }
+  }
+}
+```
+
+**Canonical example: stateful workspace summary with shared segmentation**
+
+```json
+{
+  "input_mode": "stateful",
+  "portfolio_id": "WORKSPACE_SUMMARY_STATEFUL_01",
+  "report_end_date": "2026-03-31",
+  "periods": [
+    { "period": "1M", "frequencies": ["daily", "monthly"] },
+    { "period": "YTD", "frequencies": ["monthly"] },
+    { "period": "SI", "frequencies": ["monthly", "yearly"] }
+  ],
+  "stateful_input": {},
+  "include_benchmark": true,
+  "benchmark": {
+    "input_mode": "stateful",
+    "stateful_input": {}
+  },
+  "segmentation": {
+    "group_by": ["sector", "country"]
+  },
+  "contribution": {
+    "metric_basis": "NET",
+    "top_positions": 5
+  },
+  "attribution": {
+    "metric_basis": "NET"
+  },
+  "report_ccy": "USD",
+  "currency_mode": "BASE_ONLY"
+}
+```
+
+**Canonical response excerpt**
+
+```json
+{
+  "results_by_period": {
+    "YTD": {
+      "portfolio_twr": {
+        "net": {
+          "summary": {
+            "economics": {
+              "begin_market_value": 1000000.0,
+              "end_market_value": 1054100.0,
+              "beginning_cash_flow": 25000.0,
+              "ending_cash_flow": -5000.0,
+              "fees": -350.0,
+              "net_cash_flow": 20000.0,
+            "flow_adjusted_end_market_value": 1034100.0
+          },
+          "period_return": { "base": 3.41, "local": 3.18, "fx": 0.23 },
+          "cumulative_return": { "base": 3.41, "local": 3.18, "fx": 0.23 },
+          "annualized_return": { "base": 3.41, "local": 3.18, "fx": 0.23 }
+        }
+      }
+    },
+    "benchmark": {
+      "benchmark_id": "BMK_GLOBAL_60_40",
+      "summary": {
+        "period_return": { "base": 2.98 },
+        "cumulative_return": { "base": 2.98 },
+        "annualized_return": { "base": 2.98 }
+      },
+      "breakdowns": {}
+    },
+    "active": {
+      "net": {
+        "period_return": { "base": 0.43 },
+        "cumulative_return": { "base": 0.43 },
+        "annualized_return": { "base": 0.43 }
+      },
+      "gross": {
+        "period_return": { "base": 0.46 },
+        "cumulative_return": { "base": 0.46 },
+        "annualized_return": { "base": 0.46 }
+      }
+    },
+    "money_weighted_return": {
+      "method": "XIRR",
+      "period_return": 3.27,
+      "cumulative_return": 3.27,
+      "annualized_return": 3.27
+    },
+      "contribution": {
+        "segmentation": ["sector", "country"],
+        "position_contributions": [
+          {
+            "position_id": "AAPL_US",
+            "contribution": 1.42,
+            "average_weight": 24.0,
+            "total_return": 5.92
+          }
+        ]
+      },
+      "attribution": {
+        "segmentation": ["sector", "country"],
+        "benchmark_context": {
+          "benchmark_id": "BMK_GLOBAL_60_40",
+          "return_source": "calculated"
+        }
+      }
+    }
+  },
+  "audit": {
+    "counts": {
+      "workspace_detail_block_count": 2,
+      "workspace_contribution_periods_emitted": 1,
+      "workspace_attribution_periods_emitted": 1
+    }
+  }
+}
+```
+
+Return semantics for the workspace surface are now explicit rather than inferred:
+
+- summary blocks emit `period_return`, `cumulative_return`, and `annualized_return`
+- breakdown rows emit `period_return`, `cumulative_return`, and `annualized_return`
+- for periods up to one year, `annualized_return` intentionally equals `cumulative_return`
+- benchmark and active blocks follow the same vocabulary so downstream apps do not need a
+  surface-specific mapping layer
+- benchmark blocks do not fabricate market-value economics when the benchmark source only owns
+  return history
+
+### `GET /performance/workspace-summary/results/{calculation_id}`
+
+- purpose: retrieve the durable async workspace summary result
+- response model:
+  - completed: `WorkspaceSummaryResponse`
+  - still running: `WorkspaceSummaryAcceptedResponse`
+
 ### `POST /performance/benchmark`
 
 - purpose: calculate benchmark performance
@@ -185,8 +384,75 @@ descriptions and examples are maintained in the generated OpenAPI contract.
     - `path`
     - `supported_input_modes`
     - `supports_async`
+    - `poll_path_template`
+    - `result_path_template`
     - `stateful_restrictions`
+    - `contract_notes`
+    - `options`
 - use `analytics_surfaces` when a downstream Lotus app needs the actual contract for a specific endpoint rather than only the coarse service-wide mode list
+- `workspace_summary` is now advertised as a first-class analytics surface in this contract, including:
+  - current stateful fences for optional contribution and attribution workspace blocks
+  - multi-horizon period-family support
+  - longest-window sourcing behavior
+  - annualization surface semantics
+- async-capable surfaces now also advertise their canonical execution polling and endpoint-specific result path templates so downstream apps can discover the accepted-to-completed flow without reconstructing it from separate docs
+- `workspace_summary` now also advertises machine-readable request options for:
+  - benchmark mode support
+  - optional detail-block support
+  - supported shared segmentation dimensions
+- canonical capability example payload:
+  - `docs/examples/integration_capabilities_response.json`
+
+**Canonical capabilities response excerpt**
+
+```json
+{
+  "contract_version": "v1",
+  "source_service": "lotus-performance",
+  "consumer_system": "lotus-gateway",
+  "supported_input_modes": ["stateful", "stateless"],
+  "analytics_surfaces": [
+    {
+      "key": "workspace_summary",
+      "path": "/performance/workspace-summary",
+      "supports_async": true,
+      "poll_path_template": "/performance/executions/{calculation_id}",
+      "result_path_template": "/performance/workspace-summary/results/{calculation_id}",
+      "stateful_restrictions": [
+        "workspace contribution and attribution summary blocks require input_mode=stateful",
+        "segmentation.group_by is required when workspace contribution or attribution blocks are requested",
+        "workspace attribution summary currently supports only lotus-core-linked stateful benchmark sourcing"
+      ],
+      "options": [
+        {
+          "key": "benchmark_mode",
+          "supported_values": ["user_input_stateless", "linked_stateful"]
+        },
+        {
+          "key": "detail_blocks",
+          "supported_values": ["contribution", "attribution"]
+        },
+        {
+          "key": "segmentation.group_by",
+          "supported_values": ["asset_class", "sector", "country", "currency"]
+        }
+      ]
+    }
+  ],
+  "features": [
+    {
+      "key": "pa.analytics.workspace_summary",
+      "enabled": true
+    }
+  ],
+  "workflows": [
+    {
+      "workflow_key": "performance_workspace",
+      "enabled": true
+    }
+  ]
+}
+```
 
 ### `GET /integration/runtime-status`
 

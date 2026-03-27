@@ -1061,6 +1061,57 @@ def test_execution_api_exposes_retryable_compute_job_metadata(client, monkeypatc
         settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS = original_attempts
 
 
+def test_execution_api_tracks_async_workspace_summary_job_to_completion(client):
+    original_threshold = settings.WORKSPACE_SUMMARY_EXECUTOR_INPUT_COUNT
+    settings.WORKSPACE_SUMMARY_EXECUTOR_INPUT_COUNT = 1
+
+    payload = {
+        "calculation_id": str(uuid4()),
+        "portfolio_id": "WORKSPACE_SUMMARY_ASYNC_EXEC",
+        "report_end_date": "2025-01-10",
+        "performance_start_date": "2025-01-01",
+        "input_mode": "stateless",
+        "stateless_input": {
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+                {"perf_date": "2025-01-10", "begin_mv": 1010.0, "end_mv": 1030.2},
+            ]
+        },
+        "periods": [{"period": "YTD", "frequencies": ["daily"]}],
+    }
+
+    try:
+        response = client.post("/performance/workspace-summary", json=payload)
+        assert response.status_code == 202
+        calculation_id = response.json()["calculation_id"]
+
+        execution_response = client.get(f"/performance/executions/{calculation_id}")
+        assert execution_response.status_code == 200
+        body = execution_response.json()
+        assert body["analytics_type"] == "WORKSPACE_SUMMARY"
+        assert body["execution_mode"] == "async"
+        assert body["requested_window"]["input_count"] == 2
+        assert body["compute_job"]["job_status"] == "pending"
+
+        assert drain_compute_queue() == 1
+
+        execution_after_worker = client.get(f"/performance/executions/{calculation_id}")
+        assert execution_after_worker.status_code == 200
+        body_after_worker = execution_after_worker.json()
+        assert body_after_worker["status"] == "complete"
+        assert body_after_worker["compute_job"]["job_status"] == "complete"
+        assert body_after_worker["async_result"]["result_status"] == "complete"
+
+        result_response = client.get(f"/performance/workspace-summary/results/{calculation_id}")
+        assert result_response.status_code == 200
+        result_body = result_response.json()
+        assert result_body["results_by_period"]["YTD"]["portfolio_twr"]["net"]["summary"]["cumulative_return"][
+            "base"
+        ] == pytest.approx(3.02)
+    finally:
+        settings.WORKSPACE_SUMMARY_EXECUTOR_INPUT_COUNT = original_threshold
+
+
 def test_execution_api_exposes_terminal_async_result_metadata(client, monkeypatch):
     original_threshold = settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS
     original_attempts = settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS
