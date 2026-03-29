@@ -31,6 +31,7 @@ Source-of-truth runtime docs:
 - Swagger UI: `/docs`
 - OpenAPI JSON: `/openapi.json`
 - Human API map: [guides/api_reference.md](docs/guides/api_reference.md)
+- Complete service reference: [guides/complete_service_reference.md](docs/guides/complete_service_reference.md)
 - Reproducibility and lineage: [guides/reproducibility.md](docs/guides/reproducibility.md)
 
 Async-capable endpoints follow one common pattern:
@@ -255,6 +256,7 @@ make test-all
 - [guides/mwr.md](docs/guides/mwr.md)
 - [guides/contribution.md](docs/guides/contribution.md)
 - [guides/attribution.md](docs/guides/attribution.md)
+- [guides/complete_service_reference.md](docs/guides/complete_service_reference.md)
 - [guides/workspace_summary.md](docs/guides/workspace_summary.md)
 - [guides/multi_currency.md](docs/guides/multi_currency.md)
 - [technical/methodology_index.md](docs/technical/methodology_index.md)
