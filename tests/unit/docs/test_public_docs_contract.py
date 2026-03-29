@@ -391,6 +391,27 @@ def test_workspace_summary_docs_publish_canonical_examples():
     assert "workspace_summary.md" in methodology_index
 
 
+def test_complete_service_reference_covers_endpoint_surface_and_config_inventory():
+    guide = _read("docs/guides/complete_service_reference.md")
+    readme = _read("README.md")
+
+    assert "single consolidated reference for `lotus-performance`" in guide
+    assert "POST /performance/twr" in guide
+    assert "POST /performance/workspace-summary" in guide
+    assert "GET /integration/capabilities" in guide
+    assert "GET /integration/runtime-status" in guide
+    assert "POST /integration/recovery-drills/run" in guide
+    assert "POST /integration/runtime-retention-cleanups/run" in guide
+    assert "GET /metrics" in guide
+    assert "CONTRIBUTION_RESET_AWARE_AVERAGE_WEIGHT_MODE" in guide
+    assert "WORKSPACE_SUMMARY_EXECUTOR_WINDOW_DAYS" in guide
+    assert "LINEAGE_STORAGE_PATH" in guide
+    assert "CORE_QUERY_BASE_URL" in guide
+    assert "docs/examples/workspace_summary_request.json" in guide
+    assert "docs/examples/integration_capabilities_response.json" in guide
+    assert "guides/complete_service_reference.md" in readme
+
+
 def test_runtime_alert_runbook_covers_breach_gauges():
     runbook = _read("docs/runbooks/runtime-alerts.md")
     api_reference = _read("docs/guides/api_reference.md")
