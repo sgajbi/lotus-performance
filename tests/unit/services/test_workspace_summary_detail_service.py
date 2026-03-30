@@ -98,6 +98,71 @@ def test_workspace_contribution_block_keeps_grouped_and_position_views(mocker):
     assert block.position_contributions[0].total_return == pytest.approx(4.0)
 
 
+def test_workspace_contribution_block_derives_position_return_from_position_inputs(mocker):
+    mocker.patch(
+        "app.services.workspace_summary_detail_service._calculate_reset_aware_period_portfolio_return",
+        return_value=0.025,
+    )
+    request = ContributionRequest.model_validate(
+        {
+            "portfolio_id": "PORT-1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
+            "hierarchy": ["sector"],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [
+                    {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                    {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1025},
+                ],
+            },
+            "positions_data": [
+                {
+                    "position_id": "TECH_1",
+                    "meta": {"sector": "technology"},
+                    "valuation_points": [
+                        {"perf_date": "2025-01-01", "begin_mv": 600, "end_mv": 612},
+                        {"perf_date": "2025-01-02", "begin_mv": 612, "end_mv": 624},
+                    ],
+                }
+            ],
+        }
+    )
+    artifacts = WorkspaceContributionArtifacts(
+        request=request,
+        daily_contributions_df=pd.DataFrame(
+            {
+                "perf_date": [date(2025, 1, 1), date(2025, 1, 2)],
+                "position_id": ["TECH_1", "TECH_1"],
+                "sector": ["technology", "technology"],
+                "smoothed_contribution": [0.012, 0.011],
+                "smoothed_local_contribution": [0.01, 0.009],
+                "smoothed_fx_contribution": [0.002, 0.002],
+                "daily_weight": [0.60, 0.61],
+                "average_weight": [0.605, 0.605],
+                "daily_ror": [0.0, 0.0],
+                "perf_reset": [0, 0],
+            }
+        ),
+        portfolio_results_df=pd.DataFrame(),
+        source_details={"position_count": 1, "position_chunk_count": 1, "position_page_count": 1},
+    )
+
+    block = build_workspace_contribution_block(
+        artifacts=artifacts,
+        contribution_options=WorkspaceContributionSummaryRequest(metric_basis="NET", top_positions=1),
+        segmentation=WorkspaceSegmentationRequest(group_by=["sector"]),
+        period_start_date=date(2025, 1, 1),
+        period_end_date=date(2025, 1, 2),
+    )
+
+    assert block is not None
+    assert len(block.position_contributions) == 1
+    assert block.position_contributions[0].position_id == "TECH_1"
+    assert block.position_contributions[0].total_return == pytest.approx(4.0)
+
+
 def test_workspace_attribution_block_reuses_canonical_attribution_result_shape():
     request = AttributionRequest.model_validate(
         {
