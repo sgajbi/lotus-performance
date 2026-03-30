@@ -43,6 +43,7 @@ from app.services.stateful_contribution_input_service import (
     build_stateful_contribution_input,
     retrieve_stateful_contribution_source_input,
 )
+from app.services.twr_service import _calculate_total_return_from_slice
 from common.enums import AttributionMode, Frequency, PeriodType
 from engine.attribution import aggregate_attribution_results, run_attribution_calculations
 from engine.schema import PortfolioColumns
@@ -63,6 +64,24 @@ class WorkspaceAttributionArtifacts:
     resolved_benchmark_id: str | None
     resolved_benchmark_return_source: str | None
     source_details: dict[str, int]
+
+
+def _calculate_position_total_return_pct(
+    *,
+    full_position_df: pd.DataFrame,
+    period_position_df: pd.DataFrame,
+) -> float:
+    if period_position_df.empty or PortfolioColumns.DAILY_ROR.value not in period_position_df.columns:
+        return 0.0
+
+    full_frame = full_position_df.copy()
+    period_frame = period_position_df.copy()
+    if PortfolioColumns.PERF_RESET.value not in full_frame.columns:
+        full_frame[PortfolioColumns.PERF_RESET.value] = 0
+    if PortfolioColumns.PERF_RESET.value not in period_frame.columns:
+        period_frame[PortfolioColumns.PERF_RESET.value] = 0
+
+    return _as_numeric(_calculate_total_return_from_slice(period_frame, full_frame).base, 0.0)
 
 
 def build_workspace_contribution_artifacts(
@@ -171,6 +190,16 @@ def build_workspace_contribution_block(
         .reset_index()
     )
     grouped_totals["fx_contribution"] = grouped_totals["total_contribution"] - grouped_totals["local_contribution"]
+    position_total_returns = {
+        position_id: _calculate_position_total_return_pct(
+            full_position_df=full_position_df,
+            period_position_df=full_position_df[
+                (full_position_df[PortfolioColumns.PERF_DATE.value] >= period_start_date)
+                & (full_position_df[PortfolioColumns.PERF_DATE.value] <= period_end_date)
+            ].copy(),
+        )
+        for position_id, full_position_df in artifacts.daily_contributions_df.groupby("position_id")
+    }
 
     position_contributions = sorted(
         [
@@ -178,7 +207,7 @@ def build_workspace_contribution_block(
                 "position_id": row["position_id"],
                 "total_contribution": _as_numeric(row["total_contribution"]) * 100,
                 "average_weight": _as_numeric(row["average_weight"]) * 100,
-                "total_return": 0.0,
+                "total_return": _as_numeric(position_total_returns.get(row["position_id"]), 0.0),
                 "local_contribution": _as_numeric(row["local_contribution"]) * 100,
                 "fx_contribution": _as_numeric(row["fx_contribution"]) * 100,
             }

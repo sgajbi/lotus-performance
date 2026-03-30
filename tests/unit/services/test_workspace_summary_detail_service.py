@@ -2,6 +2,7 @@ from datetime import date
 from uuid import uuid4
 
 import pandas as pd
+import pytest
 
 from app.models.attribution_requests import AttributionRequest
 from app.models.contribution_requests import ContributionRequest
@@ -71,6 +72,8 @@ def test_workspace_contribution_block_keeps_grouped_and_position_views(mocker):
                 "smoothed_fx_contribution": [0.002, 0.0, 0.002, 0.001],
                 "daily_weight": [0.60, 0.40, 0.61, 0.39],
                 "average_weight": [0.605, 0.395, 0.605, 0.395],
+                "daily_ror": [2.0, -0.5, 1.9607843137, 0.7537688442],
+                "perf_reset": [0, 0, 0, 0],
             }
         ),
         portfolio_results_df=pd.DataFrame(),
@@ -92,6 +95,7 @@ def test_workspace_contribution_block_keeps_grouped_and_position_views(mocker):
     assert block.levels[0].name == "sector"
     assert len(block.position_contributions) == 1
     assert block.position_contributions[0].position_id == "TECH_1"
+    assert block.position_contributions[0].total_return == pytest.approx(4.0)
 
 
 def test_workspace_attribution_block_reuses_canonical_attribution_result_shape():
