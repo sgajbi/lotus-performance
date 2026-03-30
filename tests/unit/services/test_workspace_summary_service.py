@@ -1,3 +1,4 @@
+from threading import Barrier
 from datetime import date
 from types import SimpleNamespace
 from uuid import uuid4
@@ -11,6 +12,7 @@ from app.models.workspace_summary_requests import WorkspaceSummaryRequest
 from app.services.workspace_summary_service import (
     WorkspaceTWRArtifacts,
     _annualize_percentage,
+    _build_workspace_detail_artifacts,
     _build_mwr_cash_flows,
     _date_from_boundary,
     _resolve_stateful_portfolio_start_date,
@@ -19,6 +21,51 @@ from app.services.workspace_summary_service import (
     calculate_workspace_summary,
 )
 from core.envelope import Diagnostics
+
+
+def test_workspace_detail_artifacts_build_concurrently_when_both_enabled(mocker):
+    barrier = Barrier(2, timeout=1.0)
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT-1",
+            "report_end_date": "2026-06-30",
+            "input_mode": "stateful",
+            "stateful_input": {},
+            "periods": [{"period": "1M", "frequencies": ["monthly"]}],
+            "segmentation": {"group_by": ["asset_class"]},
+            "contribution": {"metric_basis": "NET", "top_positions": 5},
+            "attribution": {"metric_basis": "NET"},
+        }
+    )
+
+    def _build_contribution(**_kwargs):
+        barrier.wait()
+        return "contribution-artifacts"
+
+    def _build_attribution(**_kwargs):
+        barrier.wait()
+        return "attribution-artifacts"
+
+    contribution_mock = mocker.patch(
+        "app.services.workspace_summary_service.build_workspace_contribution_artifacts",
+        side_effect=_build_contribution,
+    )
+    attribution_mock = mocker.patch(
+        "app.services.workspace_summary_service.build_workspace_attribution_artifacts",
+        side_effect=_build_attribution,
+    )
+
+    contribution_artifacts, attribution_artifacts = _build_workspace_detail_artifacts(
+        request=request,
+        settings=SimpleNamespace(),
+        master_start_date=pd.Timestamp("2026-06-01").date(),
+    )
+
+    assert contribution_artifacts == "contribution-artifacts"
+    assert attribution_artifacts == "attribution-artifacts"
+    assert contribution_mock.call_count == 1
+    assert attribution_mock.call_count == 1
 
 
 def test_workspace_summary_stateful_retrieval_uses_longest_requested_window(mocker):

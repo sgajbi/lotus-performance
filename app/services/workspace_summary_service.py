@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import date
 
@@ -48,6 +49,8 @@ from app.services.twr_service import (
     _iter_frequency_windows,
 )
 from app.services.workspace_summary_detail_service import (
+    WorkspaceAttributionArtifacts,
+    WorkspaceContributionArtifacts,
     build_workspace_attribution_artifacts,
     build_workspace_attribution_block,
     build_workspace_contribution_artifacts,
@@ -487,13 +490,8 @@ def _build_workspace_summary_response(
     ).dt.date
     benchmark_daily_df = _build_workspace_benchmark_daily_df(benchmark_input)
     master_start_date = min(period.start_date for period in resolved_periods)
-    contribution_artifacts = build_workspace_contribution_artifacts(
-        workspace_request=request,
-        settings=settings,
-        master_start_date=master_start_date,
-    )
-    attribution_artifacts = build_workspace_attribution_artifacts(
-        workspace_request=request,
+    contribution_artifacts, attribution_artifacts = _build_workspace_detail_artifacts(
+        request=request,
         settings=settings,
         master_start_date=master_start_date,
     )
@@ -723,6 +721,52 @@ def _build_workspace_summary_response(
             }
         ),
     )
+
+
+def _build_workspace_detail_artifacts(
+    *,
+    request: WorkspaceSummaryRequest,
+    settings: Settings,
+    master_start_date: date,
+) -> tuple[WorkspaceContributionArtifacts | None, WorkspaceAttributionArtifacts | None]:
+    contribution_enabled = request.contribution is not None and request.segmentation is not None
+    attribution_enabled = request.attribution is not None and request.segmentation is not None
+
+    if contribution_enabled and attribution_enabled:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            contribution_future = executor.submit(
+                build_workspace_contribution_artifacts,
+                workspace_request=request,
+                settings=settings,
+                master_start_date=master_start_date,
+            )
+            attribution_future = executor.submit(
+                build_workspace_attribution_artifacts,
+                workspace_request=request,
+                settings=settings,
+                master_start_date=master_start_date,
+            )
+            return contribution_future.result(), attribution_future.result()
+
+    contribution_artifacts = (
+        build_workspace_contribution_artifacts(
+            workspace_request=request,
+            settings=settings,
+            master_start_date=master_start_date,
+        )
+        if contribution_enabled
+        else None
+    )
+    attribution_artifacts = (
+        build_workspace_attribution_artifacts(
+            workspace_request=request,
+            settings=settings,
+            master_start_date=master_start_date,
+        )
+        if attribution_enabled
+        else None
+    )
+    return contribution_artifacts, attribution_artifacts
 
 
 def _build_workspace_performance_block(
