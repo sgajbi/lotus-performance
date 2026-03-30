@@ -184,17 +184,10 @@ def _resolve_workspace_inputs(
         settings=settings,
         master_start_date=master_start_date,
     )
-    net_artifacts = _calculate_workspace_twr_artifacts(
+    net_artifacts, gross_artifacts = _calculate_workspace_basis_artifacts(
         request=request,
         valuation_points=portfolio_input.valuation_points,
         performance_start_date=portfolio_input.performance_start_date,
-        metric_basis="NET",
-    )
-    gross_artifacts = _calculate_workspace_twr_artifacts(
-        request=request,
-        valuation_points=portfolio_input.valuation_points,
-        performance_start_date=portfolio_input.performance_start_date,
-        metric_basis="GROSS",
     )
     return resolved_periods, portfolio_input, benchmark_input, net_artifacts, gross_artifacts
 
@@ -253,6 +246,30 @@ def _resolve_workspace_portfolio_input(
             "portfolio_page_count": source_input.retrieval_metadata.page_count,
         },
     )
+
+
+def _calculate_workspace_basis_artifacts(
+    *,
+    request: WorkspaceSummaryRequest,
+    valuation_points: list[DailyInputData],
+    performance_start_date: date,
+) -> tuple[WorkspaceTWRArtifacts, WorkspaceTWRArtifacts]:
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        net_future = executor.submit(
+            _calculate_workspace_twr_artifacts,
+            request=request,
+            valuation_points=valuation_points,
+            performance_start_date=performance_start_date,
+            metric_basis="NET",
+        )
+        gross_future = executor.submit(
+            _calculate_workspace_twr_artifacts,
+            request=request,
+            valuation_points=valuation_points,
+            performance_start_date=performance_start_date,
+            metric_basis="GROSS",
+        )
+        return net_future.result(), gross_future.result()
 
 
 def _trim_portfolio_input_to_master_window(

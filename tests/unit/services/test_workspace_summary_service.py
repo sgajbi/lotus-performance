@@ -12,6 +12,7 @@ from app.models.workspace_summary_requests import WorkspaceSummaryRequest
 from app.services.workspace_summary_service import (
     WorkspaceTWRArtifacts,
     _annualize_percentage,
+    _calculate_workspace_basis_artifacts,
     _build_workspace_detail_artifacts,
     _build_mwr_cash_flows,
     _date_from_boundary,
@@ -66,6 +67,29 @@ def test_workspace_detail_artifacts_build_concurrently_when_both_enabled(mocker)
     assert attribution_artifacts == "attribution-artifacts"
     assert contribution_mock.call_count == 1
     assert attribution_mock.call_count == 1
+
+
+def test_workspace_basis_artifacts_build_concurrently(mocker):
+    barrier = Barrier(2, timeout=1.0)
+
+    def _calculate_artifacts(*, metric_basis, **_kwargs):
+        barrier.wait()
+        return metric_basis
+
+    calculate_mock = mocker.patch(
+        "app.services.workspace_summary_service._calculate_workspace_twr_artifacts",
+        side_effect=_calculate_artifacts,
+    )
+
+    net_artifacts, gross_artifacts = _calculate_workspace_basis_artifacts(
+        request=SimpleNamespace(),
+        valuation_points=[],
+        performance_start_date=pd.Timestamp("2026-01-01").date(),
+    )
+
+    assert net_artifacts == "NET"
+    assert gross_artifacts == "GROSS"
+    assert calculate_mock.call_count == 2
 
 
 def test_workspace_summary_stateful_retrieval_uses_longest_requested_window(mocker):
