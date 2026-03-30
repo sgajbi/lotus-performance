@@ -114,6 +114,50 @@ def test_execution_registry_records_upstream_snapshots(tmp_path):
     assert snapshot.paging_metadata == {"page_token": "n1"}
 
 
+def test_execution_registry_ignores_duplicate_upstream_snapshots(tmp_path):
+    registry = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    registry.create_schema()
+    calculation_id = uuid4()
+    registry.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        portfolio_id="PORT-DUP",
+    )
+
+    snapshots = [
+        {
+            "snapshot_id": "snap-dup",
+            "upstream_endpoint": "position_timeseries",
+            "source_identifier": "PORT-DUP",
+            "as_of_date": "2026-03-30",
+            "request_fingerprint": "req-dup",
+            "response_fingerprint": "resp-dup",
+            "retrieval_status": "200",
+            "paging_metadata": {"page_token": None},
+        }
+    ]
+
+    registry.record_upstream_snapshots(calculation_id=calculation_id, snapshots=snapshots)
+    registry.record_upstream_snapshots(calculation_id=calculation_id, snapshots=snapshots)
+    registry.record_upstream_snapshot(
+        calculation_id=calculation_id,
+        snapshot_id="snap-dup",
+        upstream_endpoint="position_timeseries",
+        source_identifier="PORT-DUP",
+        as_of_date="2026-03-30",
+        request_fingerprint="req-dup",
+        response_fingerprint="resp-dup",
+        retrieval_status="200",
+        paging_metadata={"page_token": None},
+    )
+
+    record = registry.get_execution(calculation_id)
+
+    assert record is not None
+    assert len(record.upstream_snapshots) == 1
+    assert record.upstream_snapshots[0].snapshot_id == "snap-dup"
+
+
 def test_execution_registry_clear_all_records_removes_upstream_snapshots(tmp_path):
     registry = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
     registry.create_schema()
