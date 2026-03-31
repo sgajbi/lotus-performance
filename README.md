@@ -205,9 +205,11 @@ make install
 make run
 ```
 
-Swagger with local `make run` defaults:
+Canonical local service identity:
 
-- `http://127.0.0.1:8000/docs`
+- `http://performance.dev.lotus/docs`
+
+Direct process bind details are implementation-only and should only matter when debugging the service in isolation.
 
 ### Docker compose
 
@@ -215,20 +217,22 @@ Swagger with local `make run` defaults:
 docker compose up
 ```
 
-Default host port in compose:
+Canonical local compose access:
 
-- `http://127.0.0.1:${PA_HOST_PORT:-8002}/docs`
+- `http://performance.dev.lotus/docs`
 
 Important compose defaults:
 
-- API container listens on `8000`
-- host port defaults to `8002`
+- API container listens on `8000` internally
+- local platform access should still use the canonical ingress identity above
 - stateful integration resolves lotus-core query-control-plane through `CORE_QUERY_BASE_URL`
-- local compose default for `CORE_QUERY_BASE_URL` is `http://host.docker.internal:8202`
+- RFC-0071 local ingress default for `CORE_QUERY_BASE_URL` is `http://core-query.dev.lotus`
 - runtime threshold profile overrides can be layered with:
   - `docker compose -f docker-compose.yml -f docs/examples/docker-compose.runtime-thresholds.production.yml up`
 - optional scheduled runtime-retention automation can be enabled with the ops profile:
   - `docker compose --profile ops up performance-runtime-retention-worker`
+
+When running under the shared Lotus platform stack, prefer the platform-owned ingress and hostname mapping workflow documented in `lotus-platform/platform-stack/README.md` and `lotus-platform/Local Development Runbook.md`.
 
 ## Validation
 
