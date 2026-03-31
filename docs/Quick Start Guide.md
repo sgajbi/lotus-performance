@@ -36,10 +36,11 @@ The minimum required fields are:
 ## 3. Example curl Command
 
 Copy and paste the following command into your terminal.  
-It sends a request with a minimal, valid payload to a locally running instance of the service.
+It sends a request with a minimal, valid payload to a locally running instance of the service
+through the canonical RFC-0071 dev ingress identity.
 
 ```bash
-curl -X POST "http://127.0.0.1:8000/performance/twr" \
+curl -X POST "http://performance.dev.lotus/performance/twr" \
 -H "Content-Type: application/json" \
 -d '{
   "portfolio_id": "QUICK_START_01",
