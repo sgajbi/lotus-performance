@@ -1025,7 +1025,7 @@ def _annualize_return_value(
 ) -> WorkspaceReturnValue:
     return WorkspaceReturnValue(
         base=_annualize_percentage(
-            value.base,
+            to_decimal(value.base),
             start_date=start_date,
             end_date=end_date,
             annualization=annualization,
@@ -1035,7 +1035,7 @@ def _annualize_return_value(
             None
             if value.local is None
             else _annualize_percentage(
-                value.local,
+                to_decimal(value.local),
                 start_date=start_date,
                 end_date=end_date,
                 annualization=annualization,
@@ -1046,7 +1046,7 @@ def _annualize_return_value(
             None
             if value.fx is None
             else _annualize_percentage(
-                value.fx,
+                to_decimal(value.fx),
                 start_date=start_date,
                 end_date=end_date,
                 annualization=annualization,
@@ -1132,8 +1132,13 @@ def _to_workspace_return_value(value) -> WorkspaceReturnValue:
 
 
 def _decimal_or_zero(value: object) -> Decimal:
-    if value is None or pd.isna(value):
+    if value is None:
         return Decimal("0")
+    try:
+        if value != value:
+            return Decimal("0")
+    except TypeError:
+        pass
     return to_decimal(value)
 
 
