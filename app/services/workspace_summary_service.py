@@ -4,6 +4,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal, localcontext
 
 import pandas as pd
 from fastapi import HTTPException, status
@@ -32,6 +33,7 @@ from app.models.workspace_summary_responses import (
     WorkspaceReturnValue,
     WorkspaceSummaryResponse,
 )
+from app.precision_policy import to_decimal
 from app.services.execution_lifecycle_service import complete_execution_with_lineage
 from app.services.execution_registry import execution_registry
 from app.services.portfolio_source_service import build_stateful_input_service
@@ -960,8 +962,8 @@ def _build_workspace_mwr_summary(
     request: WorkspaceSummaryRequest,
 ) -> WorkspaceMoneyWeightedReturnSummary:
     mwr_result = calculate_money_weighted_return(
-        begin_mv=float(period_slice.iloc[0]["begin_mv"]),
-        end_mv=float(period_slice.iloc[-1]["end_mv"]),
+        begin_mv=period_slice.iloc[0]["begin_mv"],
+        end_mv=period_slice.iloc[-1]["end_mv"],
         cash_flows=_build_mwr_cash_flows(period_slice),
         calculation_method=request.mwr_method,
         annualization=request.annualization,
@@ -985,11 +987,11 @@ def _build_mwr_cash_flows(period_slice: pd.DataFrame) -> list[CashFlow]:
     cash_flows: list[CashFlow] = []
     for _, row in period_slice.iterrows():
         perf_date = row[PortfolioColumns.PERF_DATE.value]
-        bod_cf = float(row.get("bod_cf", 0.0) or 0.0)
-        eod_cf = float(row.get("eod_cf", 0.0) or 0.0)
-        if bod_cf != 0.0:
+        bod_cf = _decimal_or_zero(row.get("bod_cf"))
+        eod_cf = _decimal_or_zero(row.get("eod_cf"))
+        if bod_cf != Decimal("0"):
             cash_flows.append(CashFlow(amount=bod_cf, date=perf_date))
-        if eod_cf != 0.0:
+        if eod_cf != Decimal("0"):
             cash_flows.append(CashFlow(amount=eod_cf, date=perf_date))
     return cash_flows
 
@@ -997,13 +999,13 @@ def _build_mwr_cash_flows(period_slice: pd.DataFrame) -> list[CashFlow]:
 def _build_economic_context(period_slice: pd.DataFrame) -> WorkspaceEconomicContext:
     first_row = period_slice.iloc[0]
     last_row = period_slice.iloc[-1]
-    beginning_cash_flow = float(period_slice.get("bod_cf", pd.Series(dtype=float)).fillna(0.0).sum())
-    ending_cash_flow = float(period_slice.get("eod_cf", pd.Series(dtype=float)).fillna(0.0).sum())
-    fees = float(period_slice.get("mgmt_fees", pd.Series(dtype=float)).fillna(0.0).sum())
+    beginning_cash_flow = _sum_decimal_column(period_slice, "bod_cf")
+    ending_cash_flow = _sum_decimal_column(period_slice, "eod_cf")
+    fees = _sum_decimal_column(period_slice, "mgmt_fees")
     net_cash_flow = beginning_cash_flow + ending_cash_flow
-    end_market_value = float(last_row["end_mv"])
+    end_market_value = _decimal_or_zero(last_row["end_mv"])
     return WorkspaceEconomicContext(
-        begin_market_value=float(first_row["begin_mv"]),
+        begin_market_value=_decimal_or_zero(first_row["begin_mv"]),
         end_market_value=end_market_value,
         beginning_cash_flow=beginning_cash_flow,
         ending_cash_flow=ending_cash_flow,
@@ -1055,13 +1057,13 @@ def _annualize_return_value(
 
 
 def _annualize_percentage(
-    value_pct: float,
+    value_pct: Decimal,
     *,
     start_date: date,
     end_date: date,
     annualization,
     business_day_count: int,
-) -> float:
+) -> Decimal:
     elapsed_days = max((end_date - start_date).days + 1, 1)
     if elapsed_days <= 365:
         return value_pct
@@ -1069,7 +1071,12 @@ def _annualize_percentage(
     elapsed_measure = business_day_count if annualization.basis == "BUS/252" else elapsed_days
     if elapsed_measure <= 0:
         return value_pct
-    return float((((1 + value_pct / 100.0) ** (periods_per_year / elapsed_measure)) - 1) * 100.0)
+    growth_factor = Decimal("1") + (value_pct / Decimal("100"))
+    exponent = Decimal(periods_per_year) / Decimal(elapsed_measure)
+    with localcontext() as ctx:
+        ctx.prec = max(ctx.prec, 28)
+        annualized_growth = (growth_factor.ln() * exponent).exp()
+    return (annualized_growth - Decimal("1")) * Decimal("100")
 
 
 def _build_workspace_benchmark_daily_df(
@@ -1118,7 +1125,22 @@ def _date_from_boundary(value: object) -> date:
 
 def _to_workspace_return_value(value) -> WorkspaceReturnValue:
     return WorkspaceReturnValue(
-        base=float(value.base),
-        local=None if value.local is None else float(value.local),
-        fx=None if value.fx is None else float(value.fx),
+        base=to_decimal(value.base),
+        local=None if value.local is None else to_decimal(value.local),
+        fx=None if value.fx is None else to_decimal(value.fx),
     )
+
+
+def _decimal_or_zero(value: object) -> Decimal:
+    if value is None or pd.isna(value):
+        return Decimal("0")
+    return to_decimal(value)
+
+
+def _sum_decimal_column(frame: pd.DataFrame, column_name: str) -> Decimal:
+    if column_name not in frame:
+        return Decimal("0")
+    total = Decimal("0")
+    for value in frame[column_name]:
+        total += _decimal_or_zero(value)
+    return total
