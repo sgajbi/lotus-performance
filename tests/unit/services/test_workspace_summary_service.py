@@ -1,5 +1,5 @@
-from threading import Barrier
 from datetime import date
+from threading import Barrier
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -12,9 +12,9 @@ from app.models.workspace_summary_requests import WorkspaceSummaryRequest
 from app.services.workspace_summary_service import (
     WorkspaceTWRArtifacts,
     _annualize_percentage,
-    _calculate_workspace_basis_artifacts,
-    _build_workspace_detail_artifacts,
     _build_mwr_cash_flows,
+    _build_workspace_detail_artifacts,
+    _calculate_workspace_basis_artifacts,
     _date_from_boundary,
     _resolve_stateful_portfolio_start_date,
     _resolve_workspace_benchmark_input,

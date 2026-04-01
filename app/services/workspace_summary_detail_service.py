@@ -45,8 +45,8 @@ from app.services.stateful_contribution_input_service import (
 )
 from app.services.twr_service import _calculate_total_return_from_slice
 from common.enums import AttributionMode, Frequency, PeriodType
-from engine.config import EngineConfig, PrecisionMode
 from engine.attribution import aggregate_attribution_results, run_attribution_calculations
+from engine.config import EngineConfig, PrecisionMode
 from engine.runtime import run_engine_for_valuation_points
 from engine.schema import PortfolioColumns
 
