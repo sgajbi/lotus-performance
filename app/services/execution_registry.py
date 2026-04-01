@@ -503,7 +503,9 @@ class ExecutionRegistry:
                             request_fingerprint=request_fingerprint,
                             response_fingerprint=response_fingerprint,
                             retrieval_status=retrieval_status,
-                            paging_metadata_json=json.dumps(paging_metadata, sort_keys=True) if paging_metadata else None,
+                            paging_metadata_json=json.dumps(paging_metadata, sort_keys=True)
+                            if paging_metadata
+                            else None,
                             created_at_utc=datetime.now(timezone.utc),
                         )
                     )
