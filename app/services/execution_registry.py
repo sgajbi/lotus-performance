@@ -491,20 +491,27 @@ class ExecutionRegistry:
     ) -> None:
         with self._session() as session:
             self._get_execution_model(session, calculation_id)
-            session.merge(
-                AnalyticsUpstreamSnapshotModel(
-                    snapshot_id=snapshot_id,
-                    calculation_id=str(calculation_id),
-                    upstream_endpoint=upstream_endpoint,
-                    source_identifier=source_identifier,
-                    as_of_date=as_of_date,
-                    request_fingerprint=request_fingerprint,
-                    response_fingerprint=response_fingerprint,
-                    retrieval_status=retrieval_status,
-                    paging_metadata_json=json.dumps(paging_metadata, sort_keys=True) if paging_metadata else None,
-                    created_at_utc=datetime.now(timezone.utc),
-                )
-            )
+            try:
+                with session.begin_nested():
+                    session.add(
+                        AnalyticsUpstreamSnapshotModel(
+                            snapshot_id=snapshot_id,
+                            calculation_id=str(calculation_id),
+                            upstream_endpoint=upstream_endpoint,
+                            source_identifier=source_identifier,
+                            as_of_date=as_of_date,
+                            request_fingerprint=request_fingerprint,
+                            response_fingerprint=response_fingerprint,
+                            retrieval_status=retrieval_status,
+                            paging_metadata_json=json.dumps(paging_metadata, sort_keys=True)
+                            if paging_metadata
+                            else None,
+                            created_at_utc=datetime.now(timezone.utc),
+                        )
+                    )
+                    session.flush()
+            except IntegrityError:
+                pass
 
     def record_upstream_snapshots(
         self,
@@ -529,24 +536,31 @@ class ExecutionRegistry:
             for snapshot in snapshots:
                 if snapshot["snapshot_id"] in existing_snapshot_ids:
                     continue
-                session.merge(
-                    AnalyticsUpstreamSnapshotModel(
-                        snapshot_id=snapshot["snapshot_id"],
-                        calculation_id=str(calculation_id),
-                        upstream_endpoint=snapshot["upstream_endpoint"],
-                        source_identifier=snapshot["source_identifier"],
-                        as_of_date=snapshot["as_of_date"],
-                        request_fingerprint=snapshot["request_fingerprint"],
-                        response_fingerprint=snapshot["response_fingerprint"],
-                        retrieval_status=snapshot["retrieval_status"],
-                        paging_metadata_json=(
-                            json.dumps(snapshot["paging_metadata"], sort_keys=True)
-                            if snapshot.get("paging_metadata") is not None
-                            else None
-                        ),
-                        created_at_utc=created_at,
-                    )
-                )
+                try:
+                    with session.begin_nested():
+                        session.add(
+                            AnalyticsUpstreamSnapshotModel(
+                                snapshot_id=snapshot["snapshot_id"],
+                                calculation_id=str(calculation_id),
+                                upstream_endpoint=snapshot["upstream_endpoint"],
+                                source_identifier=snapshot["source_identifier"],
+                                as_of_date=snapshot["as_of_date"],
+                                request_fingerprint=snapshot["request_fingerprint"],
+                                response_fingerprint=snapshot["response_fingerprint"],
+                                retrieval_status=snapshot["retrieval_status"],
+                                paging_metadata_json=(
+                                    json.dumps(snapshot["paging_metadata"], sort_keys=True)
+                                    if snapshot.get("paging_metadata") is not None
+                                    else None
+                                ),
+                                created_at_utc=created_at,
+                            )
+                        )
+                        session.flush()
+                        existing_snapshot_ids.add(snapshot["snapshot_id"])
+                except IntegrityError:
+                    existing_snapshot_ids.add(snapshot["snapshot_id"])
+                    continue
 
     def list_upstream_snapshots(self, calculation_id: UUID) -> list[UpstreamSnapshotRecord]:
         with self._session() as session:

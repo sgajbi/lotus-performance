@@ -1,4 +1,5 @@
 from datetime import date
+from threading import Barrier
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -12,6 +13,8 @@ from app.services.workspace_summary_service import (
     WorkspaceTWRArtifacts,
     _annualize_percentage,
     _build_mwr_cash_flows,
+    _build_workspace_detail_artifacts,
+    _calculate_workspace_basis_artifacts,
     _date_from_boundary,
     _resolve_stateful_portfolio_start_date,
     _resolve_workspace_benchmark_input,
@@ -19,6 +22,74 @@ from app.services.workspace_summary_service import (
     calculate_workspace_summary,
 )
 from core.envelope import Diagnostics
+
+
+def test_workspace_detail_artifacts_build_concurrently_when_both_enabled(mocker):
+    barrier = Barrier(2, timeout=1.0)
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT-1",
+            "report_end_date": "2026-06-30",
+            "input_mode": "stateful",
+            "stateful_input": {},
+            "periods": [{"period": "1M", "frequencies": ["monthly"]}],
+            "segmentation": {"group_by": ["asset_class"]},
+            "contribution": {"metric_basis": "NET", "top_positions": 5},
+            "attribution": {"metric_basis": "NET"},
+        }
+    )
+
+    def _build_contribution(**_kwargs):
+        barrier.wait()
+        return "contribution-artifacts"
+
+    def _build_attribution(**_kwargs):
+        barrier.wait()
+        return "attribution-artifacts"
+
+    contribution_mock = mocker.patch(
+        "app.services.workspace_summary_service.build_workspace_contribution_artifacts",
+        side_effect=_build_contribution,
+    )
+    attribution_mock = mocker.patch(
+        "app.services.workspace_summary_service.build_workspace_attribution_artifacts",
+        side_effect=_build_attribution,
+    )
+
+    contribution_artifacts, attribution_artifacts = _build_workspace_detail_artifacts(
+        request=request,
+        settings=SimpleNamespace(),
+        master_start_date=pd.Timestamp("2026-06-01").date(),
+    )
+
+    assert contribution_artifacts == "contribution-artifacts"
+    assert attribution_artifacts == "attribution-artifacts"
+    assert contribution_mock.call_count == 1
+    assert attribution_mock.call_count == 1
+
+
+def test_workspace_basis_artifacts_build_concurrently(mocker):
+    barrier = Barrier(2, timeout=1.0)
+
+    def _calculate_artifacts(*, metric_basis, **_kwargs):
+        barrier.wait()
+        return metric_basis
+
+    calculate_mock = mocker.patch(
+        "app.services.workspace_summary_service._calculate_workspace_twr_artifacts",
+        side_effect=_calculate_artifacts,
+    )
+
+    net_artifacts, gross_artifacts = _calculate_workspace_basis_artifacts(
+        request=SimpleNamespace(),
+        valuation_points=[],
+        performance_start_date=pd.Timestamp("2026-01-01").date(),
+    )
+
+    assert net_artifacts == "NET"
+    assert gross_artifacts == "GROSS"
+    assert calculate_mock.call_count == 2
 
 
 def test_workspace_summary_stateful_retrieval_uses_longest_requested_window(mocker):

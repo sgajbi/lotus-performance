@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal, localcontext
 
 import pandas as pd
 from fastapi import HTTPException, status
@@ -31,6 +33,7 @@ from app.models.workspace_summary_responses import (
     WorkspaceReturnValue,
     WorkspaceSummaryResponse,
 )
+from app.precision_policy import to_decimal
 from app.services.execution_lifecycle_service import complete_execution_with_lineage
 from app.services.execution_registry import execution_registry
 from app.services.portfolio_source_service import build_stateful_input_service
@@ -48,6 +51,8 @@ from app.services.twr_service import (
     _iter_frequency_windows,
 )
 from app.services.workspace_summary_detail_service import (
+    WorkspaceAttributionArtifacts,
+    WorkspaceContributionArtifacts,
     build_workspace_attribution_artifacts,
     build_workspace_attribution_block,
     build_workspace_contribution_artifacts,
@@ -181,17 +186,10 @@ def _resolve_workspace_inputs(
         settings=settings,
         master_start_date=master_start_date,
     )
-    net_artifacts = _calculate_workspace_twr_artifacts(
+    net_artifacts, gross_artifacts = _calculate_workspace_basis_artifacts(
         request=request,
         valuation_points=portfolio_input.valuation_points,
         performance_start_date=portfolio_input.performance_start_date,
-        metric_basis="NET",
-    )
-    gross_artifacts = _calculate_workspace_twr_artifacts(
-        request=request,
-        valuation_points=portfolio_input.valuation_points,
-        performance_start_date=portfolio_input.performance_start_date,
-        metric_basis="GROSS",
     )
     return resolved_periods, portfolio_input, benchmark_input, net_artifacts, gross_artifacts
 
@@ -250,6 +248,30 @@ def _resolve_workspace_portfolio_input(
             "portfolio_page_count": source_input.retrieval_metadata.page_count,
         },
     )
+
+
+def _calculate_workspace_basis_artifacts(
+    *,
+    request: WorkspaceSummaryRequest,
+    valuation_points: list[DailyInputData],
+    performance_start_date: date,
+) -> tuple[WorkspaceTWRArtifacts, WorkspaceTWRArtifacts]:
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        net_future = executor.submit(
+            _calculate_workspace_twr_artifacts,
+            request=request,
+            valuation_points=valuation_points,
+            performance_start_date=performance_start_date,
+            metric_basis="NET",
+        )
+        gross_future = executor.submit(
+            _calculate_workspace_twr_artifacts,
+            request=request,
+            valuation_points=valuation_points,
+            performance_start_date=performance_start_date,
+            metric_basis="GROSS",
+        )
+        return net_future.result(), gross_future.result()
 
 
 def _trim_portfolio_input_to_master_window(
@@ -487,13 +509,8 @@ def _build_workspace_summary_response(
     ).dt.date
     benchmark_daily_df = _build_workspace_benchmark_daily_df(benchmark_input)
     master_start_date = min(period.start_date for period in resolved_periods)
-    contribution_artifacts = build_workspace_contribution_artifacts(
-        workspace_request=request,
-        settings=settings,
-        master_start_date=master_start_date,
-    )
-    attribution_artifacts = build_workspace_attribution_artifacts(
-        workspace_request=request,
+    contribution_artifacts, attribution_artifacts = _build_workspace_detail_artifacts(
+        request=request,
         settings=settings,
         master_start_date=master_start_date,
     )
@@ -725,6 +742,52 @@ def _build_workspace_summary_response(
     )
 
 
+def _build_workspace_detail_artifacts(
+    *,
+    request: WorkspaceSummaryRequest,
+    settings: Settings,
+    master_start_date: date,
+) -> tuple[WorkspaceContributionArtifacts | None, WorkspaceAttributionArtifacts | None]:
+    contribution_enabled = request.contribution is not None and request.segmentation is not None
+    attribution_enabled = request.attribution is not None and request.segmentation is not None
+
+    if contribution_enabled and attribution_enabled:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            contribution_future = executor.submit(
+                build_workspace_contribution_artifacts,
+                workspace_request=request,
+                settings=settings,
+                master_start_date=master_start_date,
+            )
+            attribution_future = executor.submit(
+                build_workspace_attribution_artifacts,
+                workspace_request=request,
+                settings=settings,
+                master_start_date=master_start_date,
+            )
+            return contribution_future.result(), attribution_future.result()
+
+    contribution_artifacts = (
+        build_workspace_contribution_artifacts(
+            workspace_request=request,
+            settings=settings,
+            master_start_date=master_start_date,
+        )
+        if contribution_enabled
+        else None
+    )
+    attribution_artifacts = (
+        build_workspace_attribution_artifacts(
+            workspace_request=request,
+            settings=settings,
+            master_start_date=master_start_date,
+        )
+        if attribution_enabled
+        else None
+    )
+    return contribution_artifacts, attribution_artifacts
+
+
 def _build_workspace_performance_block(
     *,
     portfolio_slice: pd.DataFrame,
@@ -899,8 +962,8 @@ def _build_workspace_mwr_summary(
     request: WorkspaceSummaryRequest,
 ) -> WorkspaceMoneyWeightedReturnSummary:
     mwr_result = calculate_money_weighted_return(
-        begin_mv=float(period_slice.iloc[0]["begin_mv"]),
-        end_mv=float(period_slice.iloc[-1]["end_mv"]),
+        begin_mv=period_slice.iloc[0]["begin_mv"],
+        end_mv=period_slice.iloc[-1]["end_mv"],
         cash_flows=_build_mwr_cash_flows(period_slice),
         calculation_method=request.mwr_method,
         annualization=request.annualization,
@@ -924,11 +987,11 @@ def _build_mwr_cash_flows(period_slice: pd.DataFrame) -> list[CashFlow]:
     cash_flows: list[CashFlow] = []
     for _, row in period_slice.iterrows():
         perf_date = row[PortfolioColumns.PERF_DATE.value]
-        bod_cf = float(row.get("bod_cf", 0.0) or 0.0)
-        eod_cf = float(row.get("eod_cf", 0.0) or 0.0)
-        if bod_cf != 0.0:
+        bod_cf = _decimal_or_zero(row.get("bod_cf"))
+        eod_cf = _decimal_or_zero(row.get("eod_cf"))
+        if bod_cf != Decimal("0"):
             cash_flows.append(CashFlow(amount=bod_cf, date=perf_date))
-        if eod_cf != 0.0:
+        if eod_cf != Decimal("0"):
             cash_flows.append(CashFlow(amount=eod_cf, date=perf_date))
     return cash_flows
 
@@ -936,13 +999,13 @@ def _build_mwr_cash_flows(period_slice: pd.DataFrame) -> list[CashFlow]:
 def _build_economic_context(period_slice: pd.DataFrame) -> WorkspaceEconomicContext:
     first_row = period_slice.iloc[0]
     last_row = period_slice.iloc[-1]
-    beginning_cash_flow = float(period_slice.get("bod_cf", pd.Series(dtype=float)).fillna(0.0).sum())
-    ending_cash_flow = float(period_slice.get("eod_cf", pd.Series(dtype=float)).fillna(0.0).sum())
-    fees = float(period_slice.get("mgmt_fees", pd.Series(dtype=float)).fillna(0.0).sum())
+    beginning_cash_flow = _sum_decimal_column(period_slice, "bod_cf")
+    ending_cash_flow = _sum_decimal_column(period_slice, "eod_cf")
+    fees = _sum_decimal_column(period_slice, "mgmt_fees")
     net_cash_flow = beginning_cash_flow + ending_cash_flow
-    end_market_value = float(last_row["end_mv"])
+    end_market_value = _decimal_or_zero(last_row["end_mv"])
     return WorkspaceEconomicContext(
-        begin_market_value=float(first_row["begin_mv"]),
+        begin_market_value=_decimal_or_zero(first_row["begin_mv"]),
         end_market_value=end_market_value,
         beginning_cash_flow=beginning_cash_flow,
         ending_cash_flow=ending_cash_flow,
@@ -962,7 +1025,7 @@ def _annualize_return_value(
 ) -> WorkspaceReturnValue:
     return WorkspaceReturnValue(
         base=_annualize_percentage(
-            value.base,
+            to_decimal(value.base),
             start_date=start_date,
             end_date=end_date,
             annualization=annualization,
@@ -972,7 +1035,7 @@ def _annualize_return_value(
             None
             if value.local is None
             else _annualize_percentage(
-                value.local,
+                to_decimal(value.local),
                 start_date=start_date,
                 end_date=end_date,
                 annualization=annualization,
@@ -983,7 +1046,7 @@ def _annualize_return_value(
             None
             if value.fx is None
             else _annualize_percentage(
-                value.fx,
+                to_decimal(value.fx),
                 start_date=start_date,
                 end_date=end_date,
                 annualization=annualization,
@@ -994,13 +1057,13 @@ def _annualize_return_value(
 
 
 def _annualize_percentage(
-    value_pct: float,
+    value_pct: Decimal,
     *,
     start_date: date,
     end_date: date,
     annualization,
     business_day_count: int,
-) -> float:
+) -> Decimal:
     elapsed_days = max((end_date - start_date).days + 1, 1)
     if elapsed_days <= 365:
         return value_pct
@@ -1008,7 +1071,12 @@ def _annualize_percentage(
     elapsed_measure = business_day_count if annualization.basis == "BUS/252" else elapsed_days
     if elapsed_measure <= 0:
         return value_pct
-    return float((((1 + value_pct / 100.0) ** (periods_per_year / elapsed_measure)) - 1) * 100.0)
+    growth_factor = Decimal("1") + (value_pct / Decimal("100"))
+    exponent = Decimal(periods_per_year) / Decimal(elapsed_measure)
+    with localcontext() as ctx:
+        ctx.prec = max(ctx.prec, 28)
+        annualized_growth = (growth_factor.ln() * exponent).exp()
+    return (annualized_growth - Decimal("1")) * Decimal("100")
 
 
 def _build_workspace_benchmark_daily_df(
@@ -1057,7 +1125,27 @@ def _date_from_boundary(value: object) -> date:
 
 def _to_workspace_return_value(value) -> WorkspaceReturnValue:
     return WorkspaceReturnValue(
-        base=float(value.base),
-        local=None if value.local is None else float(value.local),
-        fx=None if value.fx is None else float(value.fx),
+        base=to_decimal(value.base),
+        local=None if value.local is None else to_decimal(value.local),
+        fx=None if value.fx is None else to_decimal(value.fx),
     )
+
+
+def _decimal_or_zero(value: object) -> Decimal:
+    if value is None:
+        return Decimal("0")
+    try:
+        if value != value:
+            return Decimal("0")
+    except TypeError:
+        pass
+    return to_decimal(value)
+
+
+def _sum_decimal_column(frame: pd.DataFrame, column_name: str) -> Decimal:
+    if column_name not in frame:
+        return Decimal("0")
+    total = Decimal("0")
+    for value in frame[column_name]:
+        total += _decimal_or_zero(value)
+    return total

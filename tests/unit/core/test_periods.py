@@ -76,6 +76,25 @@ def test_resolve_periods_multi():
     assert y1.end_date == date(2025, 8, 15)
 
 
+def test_resolve_periods_keeps_ytd_distinct_from_trailing_one_year():
+    """YTD is calendar-year-to-date; 1Y is a trailing one-year window."""
+    as_of = date(2025, 8, 15)
+
+    resolved = resolve_periods(
+        [PeriodType.YTD, PeriodType.ONE_YEAR],
+        as_of,
+        performance_start_date=date(2020, 1, 1),
+    )
+
+    ytd = next(p for p in resolved if p.name == PeriodType.YTD.value)
+    y1 = next(p for p in resolved if p.name == PeriodType.ONE_YEAR.value)
+
+    assert ytd.start_date == date(2025, 1, 1)
+    assert y1.start_date == date(2024, 8, 16)
+    assert ytd.start_date != y1.start_date
+    assert ytd.end_date == y1.end_date == as_of
+
+
 def test_resolve_periods_supports_explicit_request_windows():
     """Explicit periods should resolve to the caller's requested report window."""
     as_of = date(2025, 8, 15)

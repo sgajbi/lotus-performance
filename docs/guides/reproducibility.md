@@ -67,9 +67,9 @@ You can retrieve the download URLs for all captured artifacts using a `GET` requ
   "calculation_type": "TWR",
   "timestamp_utc": "2025-09-08T12:45:00Z",
   "artifacts": {
-    "request_payload.json": "[http://127.0.0.1:8000/performance/lineage/a4b7.../artifacts/request.json](http://127.0.0.1:8000/performance/lineage/a4b7.../artifacts/request.json)",
-    "response_payload.json": "[http://127.0.0.1:8000/performance/lineage/a4b7.../artifacts/response.json](http://127.0.0.1:8000/performance/lineage/a4b7.../artifacts/response.json)",
-    "twr_calculation_details.csv": "[http://127.0.0.1:8000/performance/lineage/a4b7.../artifacts/twr_calculation_details.csv](http://127.0.0.1:8000/performance/lineage/a4b7.../artifacts/twr_calculation_details.csv)"
+    "request_payload.json": "[http://performance.dev.lotus/performance/lineage/a4b7.../artifacts/request.json](http://performance.dev.lotus/performance/lineage/a4b7.../artifacts/request.json)",
+    "response_payload.json": "[http://performance.dev.lotus/performance/lineage/a4b7.../artifacts/response.json](http://performance.dev.lotus/performance/lineage/a4b7.../artifacts/response.json)",
+    "twr_calculation_details.csv": "[http://performance.dev.lotus/performance/lineage/a4b7.../artifacts/twr_calculation_details.csv](http://performance.dev.lotus/performance/lineage/a4b7.../artifacts/twr_calculation_details.csv)"
   }
 }
 ```
