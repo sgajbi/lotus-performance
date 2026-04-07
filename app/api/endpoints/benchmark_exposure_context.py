@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, status
 
 from app.core.config import get_settings
 from app.models.benchmark_exposure_context import BenchmarkExposureContextRequest, BenchmarkExposureContextResponse
 from app.services.benchmark_exposure_context_service import build_benchmark_exposure_context
+from app.services.execution_lifecycle_service import record_execution_failure
+from app.services.execution_registry import execution_registry
 from app.services.portfolio_source_service import build_stateful_input_service
+from app.services.submission_fencing_service import register_sync_execution_or_raise
 
 router = APIRouter(tags=["Integration"])
 
@@ -24,7 +27,52 @@ async def get_benchmark_exposure_context(
     request: BenchmarkExposureContextRequest,
 ) -> BenchmarkExposureContextResponse:
     stateful_input_service = build_stateful_input_service(settings=get_settings())
-    return await build_benchmark_exposure_context(
-        request=request,
-        stateful_input_service=stateful_input_service,
+    register_sync_execution_or_raise(
+        calculation_id=request.calculation_id,
+        analytics_type="BENCHMARK_EXPOSURE_CONTEXT",
+        portfolio_id=request.portfolio_id,
+        requested_window={
+            "as_of_date": str(request.as_of_date),
+            "window_start_date": str(request.window.start_date),
+            "window_end_date": str(request.window.end_date),
+            "frequency": request.frequency.value,
+            "grouping_dimensions": [dimension.value for dimension in request.grouping_dimensions],
+            "benchmark_id": request.benchmark_id,
+            "reporting_currency": request.reporting_currency,
+        },
+        input_fingerprint=None,
+        calculation_hash=None,
     )
+    execution_registry.mark_running(request.calculation_id)
+    execution_stage_started = False
+    try:
+        execution_registry.start_stage(request.calculation_id, "execution")
+        execution_stage_started = True
+        response = await build_benchmark_exposure_context(
+            request=request,
+            stateful_input_service=stateful_input_service,
+        )
+        execution_registry.complete_stage(
+            request.calculation_id,
+            "execution",
+            details={"row_count": len(response.rows)},
+        )
+        execution_registry.mark_complete(request.calculation_id)
+        return response
+    except HTTPException as exc:
+        record_execution_failure(
+            calculation_id=request.calculation_id,
+            message=str(exc.detail),
+            execution_stage_started=execution_stage_started,
+        )
+        raise
+    except Exception as exc:
+        record_execution_failure(
+            calculation_id=request.calculation_id,
+            message=f"An unexpected server error occurred while building benchmark exposure context: {exc}",
+            execution_stage_started=execution_stage_started,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An unexpected server error occurred while building benchmark exposure context: {exc}",
+        ) from exc
