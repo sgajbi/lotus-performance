@@ -109,7 +109,10 @@ async def test_build_benchmark_exposure_context_groups_and_aligns_weights() -> N
         "benchmark_market_series_page_count": 2,
         "index_catalog_page_count": 1,
     }
-    weights = {(row.valuation_date.isoformat(), row.grouping_dimension.value, row.group_key): row.weight for row in response.rows}
+    weights = {
+        (row.valuation_date.isoformat(), row.grouping_dimension.value, row.group_key): row.weight
+        for row in response.rows
+    }
     assert weights[("2026-01-02", "SECTOR", "SECTOR_Technology")] == Decimal("0.60")
     assert weights[("2026-01-02", "ASSET_CLASS", "ASSET_CLASS_Equity")] == Decimal("0.60")
     assert weights[("2026-01-02", "POSITION", "IDX_TECH_A")] == Decimal("0.35")
