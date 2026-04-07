@@ -27,7 +27,7 @@ async def test_fetch_stateful_position_timeseries_forwards_request_shape(monkeyp
     stub = _PositionTimeseriesServiceStub()
 
     def _build_stateful_input_service(*, settings: Settings):
-        assert settings.CORE_QUERY_BASE_URL == "http://localhost:8202"
+        assert settings.CORE_QUERY_BASE_URL == "http://core-query.dev.lotus"
         return stub
 
     monkeypatch.setattr(
