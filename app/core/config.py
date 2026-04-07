@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     LINEAGE_WORKER_MAX_ATTEMPTS: int = 3
     LINEAGE_WORKER_LEASE_SECONDS: int = 60
     LINEAGE_WORKER_ID: str = "lineage-worker-1"
-    CORE_QUERY_BASE_URL: str = "http://localhost:8202"
+    CORE_QUERY_BASE_URL: str = "http://core-query.dev.lotus"
     CORE_TIMEOUT_SECONDS: float = 10.0
     CORE_MAX_RETRIES: int = 2
     CORE_RETRY_BACKOFF_SECONDS: float = 0.2
