@@ -803,7 +803,7 @@ def _resolve_optional_workspace_attribution_artifacts(
         return resolver(), []
     except HTTPException as exc:
         if (
-            exc.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+            exc.status_code == 422
             and isinstance(exc.detail, str)
             and "cannot safely compute acquisition-day position returns" in exc.detail
         ):
