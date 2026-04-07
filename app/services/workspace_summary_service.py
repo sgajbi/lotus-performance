@@ -509,7 +509,7 @@ def _build_workspace_summary_response(
     ).dt.date
     benchmark_daily_df = _build_workspace_benchmark_daily_df(benchmark_input)
     master_start_date = min(period.start_date for period in resolved_periods)
-    contribution_artifacts, attribution_artifacts = _build_workspace_detail_artifacts(
+    contribution_artifacts, attribution_artifacts, detail_notes = _build_workspace_detail_artifacts(
         request=request,
         settings=settings,
         master_start_date=master_start_date,
@@ -649,6 +649,7 @@ def _build_workspace_summary_response(
         )
 
     diagnostics_notes = list(net_artifacts.diagnostics.notes)
+    diagnostics_notes.extend(detail_notes)
     if benchmark_input is not None:
         diagnostics_notes.append(
             f"Benchmark summary uses {benchmark_input.input_mode.value} benchmark input with {benchmark_input.benchmark_request.return_source} returns."
@@ -747,9 +748,10 @@ def _build_workspace_detail_artifacts(
     request: WorkspaceSummaryRequest,
     settings: Settings,
     master_start_date: date,
-) -> tuple[WorkspaceContributionArtifacts | None, WorkspaceAttributionArtifacts | None]:
+) -> tuple[WorkspaceContributionArtifacts | None, WorkspaceAttributionArtifacts | None, list[str]]:
     contribution_enabled = request.contribution is not None and request.segmentation is not None
     attribution_enabled = request.attribution is not None and request.segmentation is not None
+    detail_notes: list[str] = []
 
     if contribution_enabled and attribution_enabled:
         with ThreadPoolExecutor(max_workers=2) as executor:
@@ -765,7 +767,12 @@ def _build_workspace_detail_artifacts(
                 settings=settings,
                 master_start_date=master_start_date,
             )
-            return contribution_future.result(), attribution_future.result()
+            contribution_artifacts = contribution_future.result()
+            attribution_artifacts, attribution_notes = _resolve_optional_workspace_attribution_artifacts(
+                attribution_future.result
+            )
+            detail_notes.extend(attribution_notes)
+            return contribution_artifacts, attribution_artifacts, detail_notes
 
     contribution_artifacts = (
         build_workspace_contribution_artifacts(
@@ -776,16 +783,37 @@ def _build_workspace_detail_artifacts(
         if contribution_enabled
         else None
     )
-    attribution_artifacts = (
-        build_workspace_attribution_artifacts(
-            workspace_request=request,
-            settings=settings,
-            master_start_date=master_start_date,
+    attribution_artifacts = None
+    if attribution_enabled:
+        attribution_artifacts, attribution_notes = _resolve_optional_workspace_attribution_artifacts(
+            lambda: build_workspace_attribution_artifacts(
+                workspace_request=request,
+                settings=settings,
+                master_start_date=master_start_date,
+            )
         )
-        if attribution_enabled
-        else None
-    )
-    return contribution_artifacts, attribution_artifacts
+        detail_notes.extend(attribution_notes)
+    return contribution_artifacts, attribution_artifacts, detail_notes
+
+
+def _resolve_optional_workspace_attribution_artifacts(
+    resolver,
+) -> tuple[WorkspaceAttributionArtifacts | None, list[str]]:
+    try:
+        return resolver(), []
+    except HTTPException as exc:
+        if (
+            exc.status_code == 422
+            and isinstance(exc.detail, str)
+            and "cannot safely compute acquisition-day position returns" in exc.detail
+        ):
+            return (
+                None,
+                [
+                    "Workspace attribution summary is unavailable for this portfolio window because one or more sourced positions begin inside the requested range without usable acquisition-day cash-flow semantics."
+                ],
+            )
+        raise
 
 
 def _build_workspace_performance_block(

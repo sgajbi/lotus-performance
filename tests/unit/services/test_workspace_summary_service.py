@@ -57,7 +57,7 @@ def test_workspace_detail_artifacts_build_concurrently_when_both_enabled(mocker)
         side_effect=_build_attribution,
     )
 
-    contribution_artifacts, attribution_artifacts = _build_workspace_detail_artifacts(
+    contribution_artifacts, attribution_artifacts, detail_notes = _build_workspace_detail_artifacts(
         request=request,
         settings=SimpleNamespace(),
         master_start_date=pd.Timestamp("2026-06-01").date(),
@@ -65,8 +65,51 @@ def test_workspace_detail_artifacts_build_concurrently_when_both_enabled(mocker)
 
     assert contribution_artifacts == "contribution-artifacts"
     assert attribution_artifacts == "attribution-artifacts"
+    assert detail_notes == []
     assert contribution_mock.call_count == 1
     assert attribution_mock.call_count == 1
+
+
+def test_workspace_detail_artifacts_degrades_known_acquisition_day_attribution_gap(mocker):
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT-1",
+            "report_end_date": "2026-06-30",
+            "input_mode": "stateful",
+            "stateful_input": {},
+            "periods": [{"period": "1M", "frequencies": ["monthly"]}],
+            "segmentation": {"group_by": ["asset_class"]},
+            "contribution": {"metric_basis": "NET", "top_positions": 5},
+            "attribution": {"metric_basis": "NET"},
+        }
+    )
+    mocker.patch(
+        "app.services.workspace_summary_service.build_workspace_contribution_artifacts",
+        return_value="contribution-artifacts",
+    )
+    mocker.patch(
+        "app.services.workspace_summary_service.build_workspace_attribution_artifacts",
+        side_effect=HTTPException(
+            status_code=422,
+            detail=(
+                "Stateful attribution cannot safely compute acquisition-day position returns when the requested "
+                "window starts a sourced position with zero beginning market value."
+            ),
+        ),
+    )
+
+    contribution_artifacts, attribution_artifacts, detail_notes = _build_workspace_detail_artifacts(
+        request=request,
+        settings=SimpleNamespace(),
+        master_start_date=pd.Timestamp("2026-06-01").date(),
+    )
+
+    assert contribution_artifacts == "contribution-artifacts"
+    assert attribution_artifacts is None
+    assert detail_notes == [
+        "Workspace attribution summary is unavailable for this portfolio window because one or more sourced positions begin inside the requested range without usable acquisition-day cash-flow semantics."
+    ]
 
 
 def test_workspace_basis_artifacts_build_concurrently(mocker):
