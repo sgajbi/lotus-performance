@@ -10,6 +10,7 @@ from starlette.responses import JSONResponse
 
 from app.api.endpoints import (
     benchmark,
+    benchmark_exposure_context,
     contribution,
     executions,
     health,
@@ -153,6 +154,7 @@ app.include_router(executions.router, prefix="/performance")
 app.include_router(lineage.router, prefix="/performance")
 app.include_router(integration_capabilities.router, prefix="/integration")
 app.include_router(returns_series.router, prefix="/integration")
+app.include_router(benchmark_exposure_context.router, prefix="/integration")
 app.include_router(runtime_status.router, prefix="/integration")
 app.include_router(runtime_work_items.router, prefix="/integration")
 app.include_router(runtime_recoveries.router, prefix="/integration")

@@ -664,6 +664,28 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - completed: `ReturnsSeriesResponse`
   - still running: `ReturnsSeriesAcceptedResponse`
 
+### `POST /integration/benchmarks/exposure-context`
+
+- purpose: return benchmark exposure history aligned to benchmark performance context for downstream active-risk attribution
+- request model: `app.models.benchmark_exposure_context.BenchmarkExposureContextRequest`
+- response model: `app.models.benchmark_exposure_context.BenchmarkExposureContextResponse`
+- execution mode:
+  - synchronous v1 integration endpoint
+- ownership:
+  - lotus-core remains the benchmark composition and classification system of record
+  - lotus-performance exposes the derived, lineage-backed view used with benchmark returns
+- supported grouping dimensions:
+  - `POSITION`
+  - `SECTOR`
+  - `ASSET_CLASS`
+- gated grouping dimensions:
+  - `ISSUER` remains unsupported until benchmark issuer exposure semantics are defined
+- contract notes:
+  - if `benchmark_id` is omitted, lotus-performance resolves benchmark assignment through lotus-core
+  - benchmark market-series is requested with `series_fields=["component_weight"]`
+  - response rows use decimal weights, not percentages
+  - lineage metadata includes `source_system="lotus-core"` and `served_by="lotus-performance"`
+
 ## Health and observability
 
 ### `GET /health`

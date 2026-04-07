@@ -236,6 +236,12 @@ async def get_integration_capabilities(
             description="Benchmark performance analytics APIs.",
         ),
         FeatureCapability(
+            key="pa.integration.benchmark_exposure_context",
+            enabled=benchmark_enabled and stateful_mode_enabled,
+            owner_service="lotus-performance",
+            description="Performance-aligned benchmark exposure context derived from lotus-core benchmark lineage.",
+        ),
+        FeatureCapability(
             key="pa.analytics.workspace_summary",
             enabled=workspace_summary_enabled,
             owner_service="lotus-performance",
@@ -410,6 +416,30 @@ async def get_integration_capabilities(
             supports_async=True,
             poll_path_template="/performance/executions/{calculation_id}",
             result_path_template="/integration/returns/series/results/{calculation_id}",
+        ),
+        AnalyticsSurfaceCapability(
+            key="benchmark_exposure_context",
+            path="/integration/benchmarks/exposure-context",
+            enabled=benchmark_enabled and stateful_mode_enabled,
+            supported_input_modes=["stateful"] if stateful_mode_enabled else [],
+            supports_async=False,
+            stateful_restrictions=(
+                [
+                    "lotus-core remains the benchmark composition system of record",
+                    "POSITION, SECTOR, and ASSET_CLASS grouping dimensions are supported",
+                    "ISSUER remains gated until benchmark issuer exposure semantics are approved",
+                ]
+                if benchmark_enabled and stateful_mode_enabled
+                else []
+            ),
+            contract_notes=(
+                [
+                    "returns a lineage-backed benchmark exposure view aligned to benchmark performance context",
+                    "intended for lotus-risk stateful ACTIVE_RISK attribution integration",
+                ]
+                if benchmark_enabled and stateful_mode_enabled
+                else []
+            ),
         ),
     ]
 
