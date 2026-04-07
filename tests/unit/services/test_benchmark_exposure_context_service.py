@@ -8,9 +8,16 @@ from fastapi import HTTPException
 from app.models.benchmark_exposure_context import (
     BenchmarkExposureContextRequest,
     BenchmarkExposureGroupingDimension,
+    BenchmarkExposureRow,
     BenchmarkExposureWindow,
 )
-from app.services.benchmark_exposure_context_service import build_benchmark_exposure_context
+from app.services.benchmark_exposure_context_service import (
+    _build_exposure_rows,
+    _group_identity,
+    _page_rows,
+    _parse_retrieval_metadata,
+    build_benchmark_exposure_context,
+)
 
 
 class _StatefulInputServiceStub:
@@ -168,3 +175,185 @@ async def test_build_benchmark_exposure_context_rejects_bad_upstream_shapes() ->
 def test_benchmark_exposure_context_rejects_issuer_until_semantics_exist() -> None:
     with pytest.raises(ValueError, match="does not yet support"):
         _request(grouping_dimensions=[BenchmarkExposureGroupingDimension.ISSUER])
+
+
+@pytest.mark.asyncio
+async def test_build_benchmark_exposure_context_rejects_missing_assignment() -> None:
+    class _NoAssignmentService(_StatefulInputServiceStub):
+        async def get_benchmark_assignment(self, **kwargs):  # noqa: ARG002
+            return 404, {}
+
+    with pytest.raises(HTTPException, match="requires a benchmark assignment"):
+        await build_benchmark_exposure_context(
+            request=_request(grouping_dimensions=[BenchmarkExposureGroupingDimension.POSITION]),
+            stateful_input_service=_NoAssignmentService(),
+        )
+
+
+@pytest.mark.asyncio
+async def test_build_benchmark_exposure_context_rejects_assignment_source_failure() -> None:
+    class _AssignmentSourceFailureService(_StatefulInputServiceStub):
+        async def get_benchmark_assignment(self, **kwargs):  # noqa: ARG002
+            return 503, {}
+
+    with pytest.raises(HTTPException, match="assignment source unavailable"):
+        await build_benchmark_exposure_context(
+            request=_request(grouping_dimensions=[BenchmarkExposureGroupingDimension.POSITION]),
+            stateful_input_service=_AssignmentSourceFailureService(),
+        )
+
+
+@pytest.mark.asyncio
+async def test_build_benchmark_exposure_context_rejects_assignment_payload_without_benchmark_id() -> None:
+    class _MissingAssignmentBenchmarkService(_StatefulInputServiceStub):
+        async def get_benchmark_assignment(self, **kwargs):  # noqa: ARG002
+            return 200, {"benchmark_id": ""}
+
+    with pytest.raises(HTTPException, match="payload missing benchmark_id"):
+        await build_benchmark_exposure_context(
+            request=_request(grouping_dimensions=[BenchmarkExposureGroupingDimension.POSITION]),
+            stateful_input_service=_MissingAssignmentBenchmarkService(),
+        )
+
+
+@pytest.mark.asyncio
+async def test_build_benchmark_exposure_context_rejects_catalog_source_failure() -> None:
+    class _CatalogSourceFailureService(_StatefulInputServiceStub):
+        async def get_index_catalog(self, **kwargs):  # noqa: ARG002
+            return 503, {}
+
+    with pytest.raises(HTTPException, match="index catalog source unavailable"):
+        await build_benchmark_exposure_context(request=_request(), stateful_input_service=_CatalogSourceFailureService())
+
+
+@pytest.mark.asyncio
+async def test_build_benchmark_exposure_context_rejects_catalog_without_records_list() -> None:
+    class _CatalogShapeFailureService(_StatefulInputServiceStub):
+        async def get_index_catalog(self, **kwargs):  # noqa: ARG002
+            return 200, {"records": "bad"}
+
+    with pytest.raises(HTTPException, match="records list"):
+        await build_benchmark_exposure_context(request=_request(), stateful_input_service=_CatalogShapeFailureService())
+
+
+@pytest.mark.asyncio
+async def test_build_benchmark_exposure_context_maps_market_series_404_to_not_found() -> None:
+    class _MissingMarketSeriesService(_StatefulInputServiceStub):
+        async def get_benchmark_market_series(self, **kwargs):  # noqa: ARG002
+            return 404, {}
+
+    with pytest.raises(HTTPException, match="No benchmark market-series found"):
+        await build_benchmark_exposure_context(
+            request=_request(grouping_dimensions=[BenchmarkExposureGroupingDimension.POSITION]),
+            stateful_input_service=_MissingMarketSeriesService(),
+        )
+
+
+@pytest.mark.asyncio
+async def test_build_benchmark_exposure_context_maps_market_series_source_failure() -> None:
+    class _MarketSeriesSourceFailureService(_StatefulInputServiceStub):
+        async def get_benchmark_market_series(self, **kwargs):  # noqa: ARG002
+            return 503, {}
+
+    with pytest.raises(HTTPException, match="market-series source unavailable"):
+        await build_benchmark_exposure_context(
+            request=_request(grouping_dimensions=[BenchmarkExposureGroupingDimension.POSITION]),
+            stateful_input_service=_MarketSeriesSourceFailureService(),
+        )
+
+
+@pytest.mark.asyncio
+async def test_build_benchmark_exposure_context_rejects_empty_usable_rows() -> None:
+    class _NoUsableRowsService(_StatefulInputServiceStub):
+        async def get_benchmark_market_series(self, **kwargs):  # noqa: ARG002
+            return 200, {"component_series": [{"index_id": "", "points": "bad"}]}
+
+    with pytest.raises(HTTPException, match="No usable benchmark exposure rows returned"):
+        await build_benchmark_exposure_context(
+            request=_request(grouping_dimensions=[BenchmarkExposureGroupingDimension.POSITION]),
+            stateful_input_service=_NoUsableRowsService(),
+        )
+
+
+def test_build_exposure_rows_skips_invalid_component_shapes_and_rejects_invalid_weights() -> None:
+    rows = _build_exposure_rows(
+        component_series=[
+            {"index_id": "", "points": [{"series_date": "2026-01-02", "component_weight": "0.10"}]},
+            {"index_id": "IDX", "points": "bad"},
+            {"index_id": "IDX", "points": [None, {"series_date": None, "component_weight": "0.10"}, {"series_date": "2026-01-02"}]},
+            {"index_id": "IDX", "points": [{"series_date": "2026-01-02", "component_weight": "0.10"}]},
+        ],
+        grouping_dimensions=[BenchmarkExposureGroupingDimension.POSITION],
+        classification_map={},
+    )
+
+    assert len(rows) == 1
+    assert rows[0].group_key == "IDX"
+    assert rows[0].weight == Decimal("0.10")
+
+    with pytest.raises(HTTPException, match="invalid component_weight"):
+        _build_exposure_rows(
+            component_series=[
+                {"index_id": "IDX", "points": [{"series_date": "2026-01-02", "component_weight": "not-a-number"}]}
+            ],
+            grouping_dimensions=[BenchmarkExposureGroupingDimension.POSITION],
+            classification_map={},
+        )
+
+
+def test_group_identity_uses_unknown_defaults_and_rejects_unsupported_dimension() -> None:
+    assert _group_identity(
+        index_id="IDX",
+        grouping_dimension=BenchmarkExposureGroupingDimension.SECTOR,
+        classification_map={},
+    ) == ("SECTOR_UNKNOWN", "UNKNOWN", None)
+    assert _group_identity(
+        index_id="IDX",
+        grouping_dimension=BenchmarkExposureGroupingDimension.ASSET_CLASS,
+        classification_map={},
+    ) == ("ASSET_CLASS_UNKNOWN", "UNKNOWN", None)
+
+    with pytest.raises(HTTPException, match="does not yet support grouping_dimension=ISSUER"):
+        _group_identity(
+            index_id="IDX",
+            grouping_dimension=BenchmarkExposureGroupingDimension.ISSUER,
+            classification_map={},
+        )
+
+
+def test_page_rows_rejects_invalid_page_token_inputs() -> None:
+    rows = [
+        BenchmarkExposureRow(
+            valuation_date=date(2026, 1, 2),
+            component_id="IDX_A",
+            grouping_dimension=BenchmarkExposureGroupingDimension.POSITION,
+            group_key="IDX_A",
+            group_label="IDX_A",
+            weight=Decimal("0.10"),
+        )
+    ]
+
+    with pytest.raises(HTTPException, match="numeric offset token"):
+        _page_rows(rows=rows, page_size=10, page_token="bad")
+
+    with pytest.raises(HTTPException, match="must be non-negative"):
+        _page_rows(rows=rows, page_size=10, page_token="-1")
+
+
+def test_parse_retrieval_metadata_defaults_when_missing() -> None:
+    assert _parse_retrieval_metadata({}) == {"chunk_count": 0, "page_count": 0}
+    assert _parse_retrieval_metadata({"retrieval_metadata": None}) == {"chunk_count": 0, "page_count": 0}
+
+
+@pytest.mark.asyncio
+async def test_build_benchmark_exposure_context_ignores_non_dict_catalog_records() -> None:
+    class _NoisyCatalogService(_StatefulInputServiceStub):
+        async def get_index_catalog(self, **kwargs):  # noqa: ARG002
+            return 200, {"records": [None, {"index_id": "IDX_TECH_A", "classification_labels": {"sector": "Technology"}}]}
+
+    response = await build_benchmark_exposure_context(
+        request=_request(grouping_dimensions=[BenchmarkExposureGroupingDimension.SECTOR]),
+        stateful_input_service=_NoisyCatalogService(),
+    )
+
+    assert any(row.group_key == "SECTOR_Technology" for row in response.rows)

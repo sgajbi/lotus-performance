@@ -99,3 +99,33 @@ async def test_benchmark_exposure_context_endpoint_records_http_failures(mocker)
         message="benchmark market-series source unavailable (503).",
         execution_stage_started=True,
     )
+
+
+@pytest.mark.asyncio
+async def test_benchmark_exposure_context_endpoint_wraps_unexpected_failures(mocker) -> None:
+    request = _request()
+
+    mocker.patch("app.api.endpoints.benchmark_exposure_context.get_settings", return_value=object())
+    mocker.patch(
+        "app.api.endpoints.benchmark_exposure_context.build_stateful_input_service",
+        return_value=object(),
+    )
+    mocker.patch("app.api.endpoints.benchmark_exposure_context.register_sync_execution_or_raise")
+    mocker.patch.object(benchmark_exposure_context_endpoint.execution_registry, "mark_running")
+    mocker.patch.object(benchmark_exposure_context_endpoint.execution_registry, "start_stage")
+    record_failure = mocker.patch("app.api.endpoints.benchmark_exposure_context.record_execution_failure")
+    mocker.patch(
+        "app.api.endpoints.benchmark_exposure_context.build_benchmark_exposure_context",
+        side_effect=RuntimeError("boom"),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await benchmark_exposure_context_endpoint.get_benchmark_exposure_context(request)
+
+    assert exc_info.value.status_code == 500
+    assert "unexpected server error occurred while building benchmark exposure context: boom" in exc_info.value.detail
+    record_failure.assert_called_once_with(
+        calculation_id=request.calculation_id,
+        message="An unexpected server error occurred while building benchmark exposure context: boom",
+        execution_stage_started=True,
+    )
