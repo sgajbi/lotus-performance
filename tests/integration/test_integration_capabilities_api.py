@@ -100,8 +100,17 @@ def test_integration_capabilities_default_contract():
     assert surfaces["returns_series"]["poll_path_template"] == "/performance/executions/{calculation_id}"
     assert surfaces["returns_series"]["result_path_template"] == "/integration/returns/series/results/{calculation_id}"
     assert surfaces["returns_series"]["path"] == "/integration/returns/series"
+    assert surfaces["benchmark_exposure_context"]["path"] == "/integration/benchmarks/exposure-context"
+    assert surfaces["benchmark_exposure_context"]["supported_input_modes"] == ["stateful"]
+    assert surfaces["benchmark_exposure_context"]["supports_async"] is False
+    assert surfaces["benchmark_exposure_context"]["stateful_restrictions"] == [
+        "lotus-core remains the benchmark composition system of record",
+        "POSITION, SECTOR, and ASSET_CLASS grouping dimensions are supported",
+        "ISSUER remains gated until benchmark issuer exposure semantics are approved",
+    ]
     features = {item["key"] for item in body["features"]}
     assert "pa.analytics.benchmark" in features
+    assert "pa.integration.benchmark_exposure_context" in features
     assert "pa.analytics.workspace_summary" in features
     assert "pa.execution.stateful" in features
     assert "pa.execution.stateless" in features
