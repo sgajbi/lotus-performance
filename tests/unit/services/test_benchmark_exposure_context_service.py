@@ -223,7 +223,9 @@ async def test_build_benchmark_exposure_context_rejects_catalog_source_failure()
             return 503, {}
 
     with pytest.raises(HTTPException, match="index catalog source unavailable"):
-        await build_benchmark_exposure_context(request=_request(), stateful_input_service=_CatalogSourceFailureService())
+        await build_benchmark_exposure_context(
+            request=_request(), stateful_input_service=_CatalogSourceFailureService()
+        )
 
 
 @pytest.mark.asyncio
@@ -280,7 +282,10 @@ def test_build_exposure_rows_skips_invalid_component_shapes_and_rejects_invalid_
         component_series=[
             {"index_id": "", "points": [{"series_date": "2026-01-02", "component_weight": "0.10"}]},
             {"index_id": "IDX", "points": "bad"},
-            {"index_id": "IDX", "points": [None, {"series_date": None, "component_weight": "0.10"}, {"series_date": "2026-01-02"}]},
+            {
+                "index_id": "IDX",
+                "points": [None, {"series_date": None, "component_weight": "0.10"}, {"series_date": "2026-01-02"}],
+            },
             {"index_id": "IDX", "points": [{"series_date": "2026-01-02", "component_weight": "0.10"}]},
         ],
         grouping_dimensions=[BenchmarkExposureGroupingDimension.POSITION],
@@ -349,7 +354,9 @@ def test_parse_retrieval_metadata_defaults_when_missing() -> None:
 async def test_build_benchmark_exposure_context_ignores_non_dict_catalog_records() -> None:
     class _NoisyCatalogService(_StatefulInputServiceStub):
         async def get_index_catalog(self, **kwargs):  # noqa: ARG002
-            return 200, {"records": [None, {"index_id": "IDX_TECH_A", "classification_labels": {"sector": "Technology"}}]}
+            return 200, {
+                "records": [None, {"index_id": "IDX_TECH_A", "classification_labels": {"sector": "Technology"}}]
+            }
 
     response = await build_benchmark_exposure_context(
         request=_request(grouping_dimensions=[BenchmarkExposureGroupingDimension.SECTOR]),
