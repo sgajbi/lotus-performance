@@ -1,4 +1,4 @@
-.PHONY: install check check-all test test-unit test-integration test-e2e test-all ci ci-local ci-local-docker ci-local-docker-down typecheck lint monetary-float-guard format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build
+.PHONY: install install-ci verify-dependencies check check-all test test-unit test-integration test-e2e test-all test-coverage coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint monetary-float-guard format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build
 
 install:
 	pip install -r requirements.txt
@@ -6,12 +6,28 @@ install:
 	pip install pre-commit
 	pre-commit install
 
+install-ci:
+	pip install -r requirements.txt
+	pip install -r requirements-dev.txt
+
+verify-dependencies:
+	python scripts/dependency_health_check.py --skip-audit --skip-outdated --requirement requirements.txt --requirement requirements-dev.txt
+
 pre-commit:
 	pre-commit run --all-files
 
 check: lint no-alias-gate typecheck openapi-gate api-vocabulary-gate test
 
-ci: lint no-alias-gate typecheck openapi-gate api-vocabulary-gate migration-smoke test-all security-audit
+test-coverage:
+	COVERAGE_FILE=.coverage.unit python -m pytest tests/unit --cov=app --cov=engine --cov=core --cov=adapters --cov-report=
+	COVERAGE_FILE=.coverage.integration python -m pytest tests/integration --cov=app --cov=engine --cov=core --cov=adapters --cov-report=
+	COVERAGE_FILE=.coverage.e2e python -m pytest tests/e2e --cov=app --cov=engine --cov=core --cov=adapters --cov-report=
+	python -m coverage combine .coverage.unit .coverage.integration .coverage.e2e
+	python -m coverage report --fail-under=99
+
+coverage-gate: test-coverage
+
+ci: lint no-alias-gate typecheck openapi-gate api-vocabulary-gate migration-smoke security-audit test-unit test-integration test-e2e coverage-gate docker-build
 
 test:
 	$(MAKE) test-unit
@@ -97,10 +113,10 @@ run:
 	uvicorn main:app --reload --port 8000
 
 check-deps:
-	python scripts/dependency_health_check.py --requirements requirements.txt
+	python scripts/dependency_health_check.py --skip-audit --skip-outdated --requirement requirements.txt --requirement requirements-dev.txt
 
 security-audit:
-	python scripts/dependency_health_check.py --requirements requirements.txt
+	python scripts/dependency_health_check.py --skip-outdated --requirement requirements.txt --requirement requirements-dev.txt
 
 docker-up:
 	docker compose up -d --build

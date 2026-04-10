@@ -242,13 +242,19 @@ Fast local gate:
 make check
 ```
 
-CI-shaped local gate:
+PR-merge local gate:
+
+```bash
+make ci
+```
+
+Docker-parity local gate:
 
 ```bash
 make ci-local
 ```
 
-Full test and coverage gate:
+Full test, benchmark, and characterization gate:
 
 ```bash
 make test-all
