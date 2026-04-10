@@ -2,6 +2,8 @@
 
 `lotus-performance` is the analytics service in the Lotus platform. It owns:
 
+- repository-local engineering context: `REPOSITORY-ENGINEERING-CONTEXT.md`
+
 - time-weighted return (`POST /performance/twr`)
 - benchmark performance (`POST /performance/benchmark`)
 - money-weighted return (`POST /performance/mwr`)
