@@ -394,7 +394,7 @@ Status values:
 - Delta: Enforce 99% coverage gate in local and CI paths.
 - Why done: Fail-under gates are set to 99.
 - Evidence:
-  - `Makefile`, `.github/workflows/ci.yml`
+  - `Makefile`, `.github/workflows/pr-merge-gate.yml`
 - Closure action: Keep gate strict as test suite evolves.
 
 ### RFC-037-D01

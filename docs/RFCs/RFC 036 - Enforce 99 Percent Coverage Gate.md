@@ -9,7 +9,7 @@ Coverage thresholds in `Makefile` and GitHub Actions pipeline were not updated a
 ## Proposed Solution
 Raise lotus-performance coverage fail-under from 95% to 99% in:
 1. `Makefile` (`test-all` and `ci-local` coverage report step)
-2. `.github/workflows/ci.yml` (`coverage-gate` job)
+2. `.github/workflows/pr-merge-gate.yml` (`coverage-gate` job)
 
 ## Architectural Impact
 No runtime or API contract change. This is a quality-policy hardening change.

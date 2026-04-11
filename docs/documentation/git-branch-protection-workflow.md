@@ -49,5 +49,5 @@ gh pr create --fill --base main
 
 ```bash
 gh pr checks <PR_NUMBER> --watch
-gh pr merge <PR_NUMBER> --squash --delete-branch
+gh pr merge <PR_NUMBER> --merge --delete-branch
 ```

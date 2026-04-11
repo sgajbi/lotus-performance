@@ -2,6 +2,8 @@
 
 `lotus-performance` is the analytics service in the Lotus platform. It owns:
 
+- repository-local engineering context: `REPOSITORY-ENGINEERING-CONTEXT.md`
+
 - time-weighted return (`POST /performance/twr`)
 - benchmark performance (`POST /performance/benchmark`)
 - money-weighted return (`POST /performance/mwr`)
@@ -242,13 +244,19 @@ Fast local gate:
 make check
 ```
 
-CI-shaped local gate:
+PR-merge local gate:
+
+```bash
+make ci
+```
+
+Docker-parity local gate:
 
 ```bash
 make ci-local
 ```
 
-Full test and coverage gate:
+Full test, benchmark, and characterization gate:
 
 ```bash
 make test-all

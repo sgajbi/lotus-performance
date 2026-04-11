@@ -1,9 +1,7 @@
-name: Backend Service Pipeline
+name: Main Releasability Gate
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
     branches: [ "main" ]
   workflow_dispatch:
 
@@ -18,21 +16,22 @@ env:
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
   PYTHONUNBUFFERED: "1"
   PYTHON_VERSION: "3.11"
+  COVERAGE_FAIL_UNDER: "99"
 
 jobs:
   workflow-lint:
-    name: Workflow Lint
+    name: Main Releasability / Workflow Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: reviewdog/action-actionlint@v1
 
   lint-typecheck-security:
-    name: Lint Typecheck Security
+    name: Main Releasability / Lint Typecheck Security
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: "pip"
@@ -42,17 +41,21 @@ jobs:
         run: python -m pip check
       - name: Lint
         run: make lint
+      - name: No-Alias Contract Guard
+        run: make no-alias-gate
       - name: Typecheck
         run: make typecheck
       - name: OpenAPI Gate
         run: make openapi-gate
+      - name: API Vocabulary Gate
+        run: make api-vocabulary-gate
       - name: Migration Contract Smoke
         run: make migration-smoke
       - name: Security Audit
         run: make security-audit
 
   test-suites:
-    name: Tests (${{ matrix.suite }})
+    name: Main Releasability / Tests (${{ matrix.suite }})
     needs: [lint-typecheck-security]
     runs-on: ubuntu-latest
     strategy:
@@ -66,8 +69,8 @@ jobs:
           - suite: e2e
             path: tests/e2e
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: "pip"
@@ -86,12 +89,12 @@ jobs:
           if-no-files-found: error
 
   coverage-gate:
-    name: Coverage Gate (Combined)
+    name: Main Releasability / Coverage Gate (Combined)
     needs: [test-suites]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: "pip"
@@ -103,16 +106,25 @@ jobs:
           pattern: coverage-data-*
           merge-multiple: true
           path: coverage-data
-      - name: Enforce 99% coverage
+      - name: Enforce coverage floor
         run: |
           python -m coverage combine coverage-data
-          python -m coverage report --fail-under=99
+          python -m coverage report --fail-under=${{ env.COVERAGE_FAIL_UNDER }}
+      - name: Upload coverage summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: main-releasability-coverage-data
+          path: |
+            .coverage
+            coverage-data
+          include-hidden-files: true
+          if-no-files-found: error
 
   docker-build:
-    name: Validate Docker Build
+    name: Main Releasability / Validate Docker Build
     needs: [coverage-gate]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Build Docker image
         run: make docker-build

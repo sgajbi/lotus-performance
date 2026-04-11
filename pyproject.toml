@@ -15,13 +15,13 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.11,<3.14"
-fastapi = ">=0.100.0"
+fastapi = ">=0.135.3"
 uvicorn = ">=0.20.0"
 pandas = ">=1.0.0"
 pydantic = ">=2.0.0"
 pydantic-settings = "^2.10.1"
 scipy = "^1.11.0"
-orjson = "^3.10.6"
+orjson = "^3.11.6"
 prometheus-fastapi-instrumentator = "^7.1.0"
 SQLAlchemy = "^2.0.39"
 psycopg = {version = "^3.2.6", extras = ["binary"]}
