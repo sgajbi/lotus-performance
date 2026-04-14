@@ -220,6 +220,7 @@ def emit_audit_event(
 def build_enterprise_audit_middleware() -> Callable[
     [Request, Callable[[Request], Awaitable[Response]]], Awaitable[Response]
 ]:
+    # Enforce enterprise audit and authorization policy on governed surfaces.
     async def middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         max_write_payload_bytes = _env_int("ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES", 1_048_576)
         try:
