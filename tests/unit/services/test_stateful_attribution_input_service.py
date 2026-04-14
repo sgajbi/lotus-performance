@@ -580,8 +580,9 @@ def test_stateful_attribution_group_by_and_benchmark_validation_errors():
     with pytest.raises(HTTPException, match="Unsupported: issuer"):
         _validate_stateful_group_by(["issuer"])
 
-    with pytest.raises(HTTPException, match="missing classification label"):
-        _build_group_key(labels={"sector": ""}, group_by=["sector"], index_id="IDX_1")
+    assert _build_group_key(labels={"sector": ""}, group_by=["sector"], index_id="IDX_1") == (
+        ("sector", "unknown"),
+    )
 
     with pytest.raises(HTTPException, match="missing classification labels"):
         _build_benchmark_groups(
@@ -606,6 +607,26 @@ def test_stateful_attribution_group_by_and_benchmark_validation_errors():
             component_observations=[],
             index_records=[{"index_id": "IDX_1", "classification_labels": {"sector": "Tech"}}],
         )
+
+
+def test_stateful_attribution_builds_unknown_bucket_for_missing_benchmark_labels():
+    groups = _build_benchmark_groups(
+        group_by=["sector"],
+        component_observations=[
+            BenchmarkComponentObservation(
+                component_id="IDX_1",
+                component_currency="USD",
+                perf_date=date(2025, 1, 1),
+                weight_bop=1.0,
+                component_return=0.01,
+                component_return_local=0.01,
+                component_return_fx=0.0,
+            )
+        ],
+        index_records=[{"index_id": "IDX_1", "classification_labels": {}}],
+    )
+
+    assert groups[0].key == {"sector": "unknown"}
 
 
 def test_stateful_attribution_parsers_filter_invalid_rows():

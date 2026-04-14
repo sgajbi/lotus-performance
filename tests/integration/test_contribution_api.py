@@ -314,6 +314,48 @@ def test_contribution_endpoint_weight_fields_use_percentage_units_for_position_a
     assert sum(row["weight_avg"] for row in hierarchy_rows.values()) == pytest.approx(100.0)
 
 
+def test_contribution_endpoint_hierarchy_keeps_position_contribution_detail(client):
+    payload = {
+        "portfolio_id": "CONTRIB_HIER_POSITION_DETAIL",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "hierarchy": ["sector"],
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1020}],
+        },
+        "positions_data": [
+            {
+                "position_id": "Stock_A",
+                "meta": {"sector": "Technology"},
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 600, "end_mv": 612}],
+            },
+            {
+                "position_id": "Stock_B",
+                "meta": {"sector": "Healthcare"},
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 400, "end_mv": 408}],
+            },
+        ],
+    }
+
+    response = client.post("/performance/contribution", json=payload)
+
+    assert response.status_code == 200
+    result = response.json()["results_by_period"]["ITD"]
+    position_rows = {row["position_id"]: row for row in result["position_contributions"]}
+
+    assert result["total_portfolio_return"] == pytest.approx(2.0)
+    assert result["total_contribution"] == pytest.approx(2.0)
+    assert position_rows["Stock_A"]["average_weight"] == pytest.approx(60.0)
+    assert position_rows["Stock_A"]["total_return"] == pytest.approx(2.0)
+    assert (
+        position_rows["Stock_A"]["local_contribution"] + position_rows["Stock_A"]["fx_contribution"]
+    ) == pytest.approx(position_rows["Stock_A"]["total_contribution"])
+    assert position_rows["Stock_B"]["average_weight"] == pytest.approx(40.0)
+    assert position_rows["Stock_B"]["total_return"] == pytest.approx(2.0)
+
+
 def test_contribution_endpoint_hierarchy_respects_multiple_resolved_periods(client):
     payload = {
         "portfolio_id": "HIER_MULTI_PERIOD",

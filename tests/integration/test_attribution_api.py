@@ -629,7 +629,6 @@ def test_attribution_supports_stateful_input_mode(client, monkeypatch):
     tech_group = next(group for group in level["groups"] if group["key"]["sector"] == "technology")
     assert tech_group["selection"] == pytest.approx(0.25)
 
-
 def test_attribution_stateful_converts_non_base_cash_flows_using_explicit_fx_metadata(client, monkeypatch):
     async def _mock_get_portfolio_timeseries(self, **kwargs):  # noqa: ARG001
         return (

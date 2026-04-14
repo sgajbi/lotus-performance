@@ -16,7 +16,7 @@ from app.models.contribution_analytics_requests import (
     ContributionAnalyticsRequest,
     ContributionStatefulInput,
 )
-from app.models.contribution_requests import ContributionRequest, PositionData
+from app.models.contribution_requests import ContributionRequest
 from app.models.workspace_summary_requests import (
     WorkspaceAttributionSummaryRequest,
     WorkspaceContributionSummaryRequest,
@@ -32,6 +32,7 @@ from app.services.contribution_service import (
     _calculate_daily_instrument_contributions,
     _calculate_reset_aware_period_portfolio_return,
     _prepare_hierarchical_data,
+    build_position_contributions,
     build_hierarchical_contribution_result,
 )
 from app.services.portfolio_source_service import build_stateful_input_service
@@ -43,11 +44,8 @@ from app.services.stateful_contribution_input_service import (
     build_stateful_contribution_input,
     retrieve_stateful_contribution_source_input,
 )
-from app.services.twr_service import _calculate_total_return_from_slice
 from common.enums import AttributionMode, Frequency, PeriodType
 from engine.attribution import aggregate_attribution_results, run_attribution_calculations
-from engine.config import EngineConfig, PrecisionMode
-from engine.runtime import run_engine_for_valuation_points
 from engine.schema import PortfolioColumns
 
 
@@ -66,48 +64,6 @@ class WorkspaceAttributionArtifacts:
     resolved_benchmark_id: str | None
     resolved_benchmark_return_source: str | None
     source_details: dict[str, int]
-
-
-def _calculate_position_total_return_pct(
-    *,
-    request: ContributionRequest,
-    position_data: PositionData | None,
-    period_start_date: date,
-    period_end_date: date,
-) -> float:
-    if position_data is None:
-        return 0.0
-
-    period_valuation_points = [
-        valuation_point.model_dump(mode="python")
-        for valuation_point in position_data.valuation_points
-        if period_start_date <= valuation_point.perf_date <= period_end_date
-    ]
-    if not period_valuation_points:
-        return 0.0
-
-    period_engine_config = EngineConfig(
-        performance_start_date=period_valuation_points[0]["perf_date"],
-        report_start_date=period_start_date,
-        report_end_date=period_end_date,
-        metric_basis=request.portfolio_data.metric_basis,
-        period_type=PeriodType.EXPLICIT,
-        precision_mode=PrecisionMode(request.precision_mode),
-        rounding_precision=request.rounding_precision,
-        currency_mode=request.currency_mode,
-        report_ccy=request.report_ccy,
-        fx=request.fx,
-        hedging=request.hedging,
-    )
-    period_results_df = run_engine_for_valuation_points(
-        period_valuation_points,
-        period_engine_config,
-        force_base_only=period_engine_config.currency_mode == "BOTH",
-    )
-    if period_results_df.empty:
-        return 0.0
-
-    return _as_numeric(_calculate_total_return_from_slice(period_results_df, period_results_df).base, 0.0)
 
 
 def build_workspace_contribution_artifacts(
@@ -216,28 +172,17 @@ def build_workspace_contribution_block(
         .reset_index()
     )
     grouped_totals["fx_contribution"] = grouped_totals["total_contribution"] - grouped_totals["local_contribution"]
-    positions_by_id = {position.position_id: position for position in artifacts.request.positions_data}
-
-    position_contributions = sorted(
-        [
-            {
-                "position_id": row["position_id"],
-                "total_contribution": _as_numeric(row["total_contribution"]) * 100,
-                "average_weight": _as_numeric(row["average_weight"]) * 100,
-                "total_return": _calculate_position_total_return_pct(
-                    request=artifacts.request,
-                    position_data=positions_by_id.get(str(row["position_id"])),
-                    period_start_date=period_start_date,
-                    period_end_date=period_end_date,
-                ),
-                "local_contribution": _as_numeric(row["local_contribution"]) * 100,
-                "fx_contribution": _as_numeric(row["fx_contribution"]) * 100,
-            }
-            for _, row in grouped_totals.iterrows()
-        ],
-        key=lambda row: abs(row["total_contribution"]),
-        reverse=True,
-    )[: contribution_options.top_positions]
+    position_contributions = [
+        position_contribution.model_dump(mode="python")
+        for position_contribution in build_position_contributions(
+            totals_df=grouped_totals,
+            request=artifacts.request,
+            period_start_date=period_start_date,
+            period_end_date=period_end_date,
+            average_weight_column="average_weight",
+            top_n=contribution_options.top_positions,
+        )
+    ]
 
     return WorkspaceContributionSummaryBlock(
         metric_basis=contribution_options.metric_basis,
