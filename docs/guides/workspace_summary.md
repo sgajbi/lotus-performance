@@ -11,7 +11,6 @@ economic window:
 - benchmark return
 - active return
 - money-weighted return
-- optional lightweight contribution and attribution summaries
 
 The purpose of this endpoint is not to replace the dedicated deep-analysis surfaces. The purpose is
 to let one request return one coherent multi-horizon workspace story with canonical vocabulary and
@@ -28,9 +27,6 @@ The current request shape is:
 - optional `report_start_date` when periods include `EXPLICIT`
 - optional `include_benchmark`
 - optional `benchmark`
-- optional `segmentation`
-- optional `contribution`
-- optional `attribution`
 
 Stateless callers provide:
 
@@ -43,20 +39,6 @@ Stateful callers provide:
 - optional `report_ccy`
 - optional `currency_mode`
 - optional `fx`
-
-When optional workspace contribution or attribution blocks are requested:
-
-- `input_mode` must currently be `stateful`
-- `segmentation.group_by` is required
-- contribution and attribution share the same segmentation contract
-- attribution currently supports only lotus-core-linked stateful benchmark sourcing
-
-The shared segmentation vocabulary is intentionally narrow and canonical:
-
-- `asset_class`
-- `sector`
-- `country`
-- `currency`
 
 ## Supported period family
 
@@ -143,26 +125,6 @@ The response keeps this explicit through:
 - `benchmark.benchmark_id`
 - `benchmark.input_mode`
 - `benchmark.return_source`
-- attribution `benchmark_context` when attribution is included
-
-## Optional contribution and attribution workspace blocks
-
-The workspace surface can also return lightweight contribution and attribution summaries.
-
-Those blocks are intentionally bounded:
-
-- they are opt-in
-- they currently require `input_mode=stateful`
-- they use one shared segmentation model
-- contribution keeps first-class `position_contributions`
-- attribution keeps canonical `benchmark_context` and the canonical attribution result shape
-
-This is meant to support workspace refreshes, not to replace:
-
-- `POST /performance/contribution`
-- `POST /performance/attribution`
-
-Those dedicated endpoints remain the canonical drill-down surfaces.
 
 ## Sync and async behavior
 
@@ -205,16 +167,15 @@ Key characteristics:
 - explicit user-input benchmark
 - no contribution or attribution detail blocks
 
-### Stateful example with shared segmentation
+### Stateful example
 
 This shape is used when lotus-performance should source the underlying portfolio and benchmark
-state, and the workspace also wants lightweight contribution and attribution context.
+state.
 
 Key characteristics:
 
-- one shared segmentation contract for contribution and attribution
 - explicit benchmark inclusion with stateful resolution
-- one coherent request for TWR, benchmark, active, MWR, contribution, and attribution views
+- one coherent request for TWR, benchmark, active, and MWR views
 
 ### Async accepted example
 
@@ -236,8 +197,6 @@ A healthy workspace response should tell one coherent economic story at differen
 - `benchmark` is the comparison baseline
 - `active` is the arithmetic difference between portfolio and benchmark
 - `money_weighted_return` is the capital-timing lens for the same window
-- `contribution` explains which positions or segments drove the portfolio result
-- `attribution` explains why the portfolio differed from the benchmark
 
 At the field level, read the return blocks as:
 
@@ -255,8 +214,8 @@ At the field level, read the return blocks as:
 - `money_weighted_return.period_return` and `money_weighted_return.cumulative_return`: both are
   emitted for surface consistency on the resolved MWR window
 
-That is why shared vocabulary and shared segmentation matter. These are not separate truths; they
-are different lenses on the same underlying economic path.
+That is why shared vocabulary matters. These are not separate truths; they are different lenses on
+the same underlying economic path.
 
 ## Useful audit and diagnostics fields
 
@@ -265,18 +224,10 @@ The workspace surface keeps runtime and sourcing behavior visible:
 - `audit.counts.portfolio_chunk_count`
 - `audit.counts.portfolio_page_count`
 - `audit.counts.benchmark_chunk_count`
-- `audit.counts.workspace_detail_block_count`
-- `audit.counts.workspace_contribution_periods_emitted`
-- `audit.counts.workspace_attribution_periods_emitted`
-- `audit.counts.workspace_contribution_position_count`
-- `audit.counts.workspace_attribution_instrument_count`
-- `audit.counts.workspace_attribution_benchmark_chunk_count`
 
-Diagnostics notes make the optional detail posture explicit, including:
+Diagnostics notes make sourcing posture explicit, including:
 
 - benchmark summary enabled
-- workspace contribution summary enabled with shared segmentation
-- workspace attribution summary enabled with shared segmentation and benchmark context
 
 Use `/docs` for the generated field-level schema and examples. Use the dedicated deep endpoints when
 the workspace needs full analytical drill-down rather than bounded summary context.
@@ -292,16 +243,12 @@ surface with:
 - `supports_async=true`
 - `poll_path_template=/performance/executions/{calculation_id}`
 - `result_path_template=/performance/workspace-summary/results/{calculation_id}`
-- current `stateful_restrictions` for optional detail blocks
 - `contract_notes` for:
   - multi-horizon workspace period support
   - annualized-return semantics
   - longest-window sourcing behavior
-  - shared segmentation behavior for optional contribution and attribution blocks
 - machine-readable `options` for:
   - `benchmark_mode`
-  - `detail_blocks`
-  - `segmentation.group_by`
 
 That capability contract is the machine-readable source for downstream surface discovery. The guide
 explains the behavior; the capabilities surface advertises what is currently supported.
@@ -311,20 +258,10 @@ The current workspace-summary option map should be read as:
 - `benchmark_mode`
   - `user_input_stateless`
   - `linked_stateful`
-- `detail_blocks`
-  - `contribution`
-  - `attribution`
-- `segmentation.group_by`
-  - `asset_class`
-  - `sector`
-  - `country`
-  - `currency`
 
 This lets a downstream client validate the broad request shape before sending the request:
 
 - whether the desired benchmark mode is supported
-- whether contribution and attribution blocks are supported
-- whether the selected segmentation dimensions are canonical and accepted
 
 For one concrete machine-readable example, see:
 

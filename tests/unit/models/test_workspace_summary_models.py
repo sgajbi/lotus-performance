@@ -19,12 +19,12 @@ def test_workspace_summary_request_schema_includes_stateless_and_stateful_exampl
     assert examples[0]["include_benchmark"] is True
     assert examples[0]["benchmark"]["input_mode"] == "stateless"
     assert examples[1]["input_mode"] == "stateful"
-    assert examples[1]["segmentation"]["group_by"] == ["sector", "country"]
-    assert examples[1]["contribution"]["top_positions"] == 5
-    assert examples[1]["attribution"]["metric_basis"] == "NET"
+    assert "segmentation" not in examples[1]
+    assert "contribution" not in examples[1]
+    assert "attribution" not in examples[1]
 
 
-def test_workspace_summary_response_schema_includes_workspace_detail_example():
+def test_workspace_summary_response_schema_includes_workspace_summary_example():
     schema = WorkspaceSummaryResponse.model_json_schema()
     example = schema["examples"][0]
 
@@ -33,9 +33,9 @@ def test_workspace_summary_response_schema_includes_workspace_detail_example():
     assert example["results_by_period"]["YTD"]["benchmark"]["summary"]["cumulative_return"]["base"] == 2.98
     assert example["results_by_period"]["YTD"]["active"]["net"]["cumulative_return"]["base"] == 0.43
     assert example["results_by_period"]["YTD"]["money_weighted_return"]["period_return"] == 3.27
-    assert example["results_by_period"]["YTD"]["contribution"]["segmentation"] == ["sector", "country"]
-    assert example["results_by_period"]["YTD"]["attribution"]["benchmark_context"]["benchmark_id"] == "BMK_GLOBAL_60_40"
-    assert example["audit"]["counts"]["workspace_detail_block_count"] == 2
+    assert "contribution" not in example["results_by_period"]["YTD"]
+    assert "attribution" not in example["results_by_period"]["YTD"]
+    assert "workspace_detail_block_count" not in example["audit"]["counts"]
 
 
 def test_workspace_summary_accepted_response_schema_includes_polling_example():
@@ -50,13 +50,13 @@ def test_workspace_summary_json_examples_match_schema_examples():
     stateless_example = json.loads(
         (REPO_ROOT / "docs/examples/workspace_summary_request.json").read_text(encoding="utf-8")
     )
-    stateful_detail_example = json.loads(
+    stateful_summary_example = json.loads(
         (REPO_ROOT / "docs/examples/workspace_summary_stateful_detail_request.json").read_text(encoding="utf-8")
     )
     schema_examples = WorkspaceSummaryRequest.model_json_schema()["examples"]
 
     assert schema_examples[0] == stateless_example
-    assert schema_examples[1] == stateful_detail_example
+    assert schema_examples[1] == stateful_summary_example
 
 
 def test_workspace_summary_accepted_response_json_example_matches_schema_example():
@@ -183,50 +183,9 @@ def test_workspace_summary_request_requires_benchmark_when_stateless_include_ben
         WorkspaceSummaryRequest.model_validate(payload)
 
 
-def test_workspace_summary_request_requires_shared_segmentation_for_detail_blocks():
-    payload = _base_stateful_payload()
-    payload["contribution"] = {"metric_basis": "NET"}
-
-    with pytest.raises(ValueError, match="segmentation is required when contribution or attribution"):
-        WorkspaceSummaryRequest.model_validate(payload)
-
-
-def test_workspace_summary_request_rejects_detail_blocks_in_stateless_mode():
-    payload = _base_stateless_payload()
-    payload["segmentation"] = {"group_by": ["sector"]}
-    payload["contribution"] = {"metric_basis": "NET"}
-
-    with pytest.raises(ValueError, match="workspace contribution and attribution summary blocks currently require"):
-        WorkspaceSummaryRequest.model_validate(payload)
-
-
-def test_workspace_summary_request_rejects_non_stateful_benchmark_for_attribution():
-    payload = _base_stateful_payload()
-    payload["segmentation"] = {"group_by": ["sector"]}
-    payload["attribution"] = {"metric_basis": "NET"}
-    payload["benchmark"] = {
-        "input_mode": "stateless",
-        "benchmark_id": "BMK_1",
-        "stateless_input": {
-            "benchmark_currency": "USD",
-            "benchmark_return_points": [{"perf_date": "2026-03-31", "benchmark_return": 0.01}],
-        },
-    }
-
-    with pytest.raises(ValueError, match="workspace attribution summary currently supports only"):
-        WorkspaceSummaryRequest.model_validate(payload)
-
-
 def test_workspace_summary_request_forces_include_benchmark_when_benchmark_or_attribution_present():
     payload = _base_stateful_payload()
     payload["benchmark"] = {"input_mode": "stateful", "stateful_input": {}}
-    request = WorkspaceSummaryRequest.model_validate(payload)
-
-    assert request.include_benchmark is True
-
-    payload = _base_stateful_payload()
-    payload["segmentation"] = {"group_by": ["sector"]}
-    payload["attribution"] = {"metric_basis": "NET"}
     request = WorkspaceSummaryRequest.model_validate(payload)
 
     assert request.include_benchmark is True
@@ -241,24 +200,6 @@ def test_workspace_summary_request_resolves_legacy_stateless_valuation_points():
     request = WorkspaceSummaryRequest.model_validate(payload)
 
     assert request.resolved_stateless_valuation_points()[0].perf_date.isoformat() == "2026-03-31"
-
-
-def test_workspace_summary_request_rejects_duplicate_segmentation_dimensions():
-    payload = _base_stateful_payload()
-    payload["segmentation"] = {"group_by": ["sector", "sector"]}
-    payload["contribution"] = {"metric_basis": "NET"}
-
-    with pytest.raises(ValueError, match="segmentation.group_by cannot contain duplicates"):
-        WorkspaceSummaryRequest.model_validate(payload)
-
-
-def test_workspace_summary_request_rejects_empty_segmentation_dimensions():
-    payload = _base_stateful_payload()
-    payload["segmentation"] = {"group_by": []}
-    payload["contribution"] = {"metric_basis": "NET"}
-
-    with pytest.raises(ValueError, match="segmentation.group_by cannot be empty"):
-        WorkspaceSummaryRequest.model_validate(payload)
 
 
 def test_workspace_benchmark_request_validates_mode_specific_requirements():

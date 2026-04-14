@@ -1015,8 +1015,9 @@ def test_contribution_service_promotes_reset_aware_average_weight_for_candidate_
     assert response.audit.counts["average_weight_shadow_blocked_by_timeseries_delta_periods"] == 0
     position_contributions = response.results_by_period["ITD"].position_contributions
     assert position_contributions is not None
-    assert position_contributions[0].average_weight == pytest.approx(95.0)
-    assert position_contributions[1].average_weight == pytest.approx(5.0)
+    position_contributions_by_id = {contribution.position_id: contribution for contribution in position_contributions}
+    assert position_contributions_by_id["A"].average_weight == pytest.approx(95.0)
+    assert position_contributions_by_id["B"].average_weight == pytest.approx(5.0)
     assert any("promotion was applied" in note for note in response.diagnostics.notes)
     assert any(
         "strong candidates for a future denominator cutover study" in note for note in response.diagnostics.notes

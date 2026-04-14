@@ -207,14 +207,23 @@ Observation order is derived from sorted `perf_date`; callers do not send a sepa
   "input_mode": "stateless",
   "results_by_period": {
     "YTD": {
-      "breakdowns": {
-        "daily": [],
-        "monthly": []
-      },
-      "portfolio_return": {
-        "local": 0.0,
-        "fx": 0.0,
-        "base": 3.0201
+      "portfolio": {
+        "summary": {
+          "period_return": {
+            "local": 3.0201,
+            "fx": 0.0,
+            "base": 3.0201
+          },
+          "cumulative_return": {
+            "local": 3.0201,
+            "fx": 0.0,
+            "base": 3.0201
+          }
+        },
+        "breakdowns": {
+          "daily": [],
+          "monthly": []
+        }
       }
     }
   },

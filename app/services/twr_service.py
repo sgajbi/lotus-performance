@@ -346,10 +346,14 @@ def _get_portfolio_cumulative_return_to_date(
 
 def _get_benchmark_cumulative_return_to_date(
     *,
+    master_start_date,
     period_end_date,
     benchmark_daily_returns_df: pd.DataFrame,
 ) -> ComparativeReturnValue:
-    cumulative_rows = benchmark_daily_returns_df[benchmark_daily_returns_df["date"] <= period_end_date].copy()
+    cumulative_rows = benchmark_daily_returns_df[
+        (benchmark_daily_returns_df["date"] >= master_start_date)
+        & (benchmark_daily_returns_df["date"] <= period_end_date)
+    ].copy()
     return _calculate_benchmark_return_from_slice(cumulative_rows)
 
 
@@ -461,6 +465,7 @@ def calculate_twr_response(
                     summary=ComparativeSummary(
                         period_return=benchmark_period_return,
                         cumulative_return=_get_benchmark_cumulative_return_to_date(
+                            master_start_date=master_start_date,
                             period_end_date=period.end_date,
                             benchmark_daily_returns_df=benchmark_artifacts.daily_returns_df,
                         ),

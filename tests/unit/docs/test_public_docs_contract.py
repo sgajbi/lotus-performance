@@ -48,6 +48,8 @@ def test_twr_guide_uses_current_request_shape():
     assert "relative_performance" in guide
     assert "benchmark_context" in guide
     assert "summary.cumulative_return" in guide
+    assert '"portfolio": {' in guide
+    assert '"portfolio_return"' not in guide.split("## Example stateful request")[0]
     assert "If `calculation_id` is omitted" in guide
     assert "/performance/twr/results/{calculation_id}" in guide
     assert "Older examples using `period_type`" in guide
@@ -153,16 +155,6 @@ def test_api_reference_documents_endpoint_level_capabilities_contract():
     assert "summary blocks emit `period_return`, `cumulative_return`, and `annualized_return`" in api_reference
     assert "benchmark blocks do not fabricate market-value economics" in api_reference
     assert "retrieves only the longest required portfolio window" in api_reference
-    assert (
-        "optional `contribution` and `attribution` workspace blocks now reuse one shared `segmentation.group_by` contract"
-        in api_reference
-    )
-    assert (
-        "lightweight contribution and attribution workspace blocks currently require `input_mode=stateful`"
-        in api_reference
-    )
-    assert "audit now surfaces detail-block sourcing counts" in api_reference
-    assert "diagnostics now note when workspace contribution or attribution summaries were enabled" in api_reference
     assert "docs/guides/workspace_summary.md" in readme
     assert "`workspace_summary` is now advertised as a first-class analytics surface" in api_reference
     assert "async-capable surfaces now also advertise their canonical execution polling" in api_reference
@@ -243,9 +235,6 @@ def test_api_examples_recipes_match_current_dual_mode_contract():
     assert "stateful attribution can also emit currency attribution" in guide.lower()
     assert "Older examples using request-level `period_type` or nested `daily_data` are not current." in guide
     assert "POST /performance/workspace-summary" in guide
-    assert '"segmentation"' in guide
-    assert '"contribution"' in guide
-    assert '"attribution"' in guide
     assert '"period_return"' in guide
     assert '"annualized_return"' in guide
     assert '"flow_adjusted_end_market_value"' in guide
@@ -331,14 +320,17 @@ def test_json_examples_match_current_dual_mode_contract():
 
     workspace_stateful = json.loads(_read("docs/examples/workspace_summary_stateful_detail_request.json"))
     assert workspace_stateful["input_mode"] == "stateful"
-    assert workspace_stateful["segmentation"]["group_by"] == ["sector", "country"]
-    assert workspace_stateful["contribution"]["top_positions"] == 5
-    assert workspace_stateful["attribution"]["metric_basis"] == "NET"
+    assert workspace_stateful["benchmark"]["input_mode"] == "stateful"
+    assert "segmentation" not in workspace_stateful
+    assert "contribution" not in workspace_stateful
+    assert "attribution" not in workspace_stateful
 
     capabilities = json.loads(_read("docs/examples/integration_capabilities_response.json"))
     assert capabilities["contract_version"] == "v1"
     assert capabilities["analytics_surfaces"][0]["key"] == "workspace_summary"
     assert capabilities["analytics_surfaces"][0]["options"][0]["key"] == "benchmark_mode"
+    assert capabilities["analytics_surfaces"][0]["stateful_restrictions"] == []
+    assert len(capabilities["analytics_surfaces"][0]["options"]) == 1
 
 
 def test_workspace_summary_guide_documents_explicit_return_vocabulary():
@@ -364,14 +356,13 @@ def test_workspace_summary_docs_publish_canonical_examples():
     methodology_index = _read("docs/technical/methodology_index.md")
 
     assert "Canonical example: stateless workspace summary" in api_reference
-    assert "Canonical example: stateful workspace summary with shared segmentation" in api_reference
+    assert "Canonical example: stateful workspace summary" in api_reference
     assert "Canonical response excerpt" in api_reference
     assert "docs/examples/workspace_summary_request.json" in api_reference
     assert "docs/examples/workspace_summary_stateful_detail_request.json" in api_reference
     assert "Illustrative Canonical Request Example" in rfc
     assert "Illustrative Canonical Response Excerpt" in rfc
-    assert '"group_by": ["sector", "country"]' in rfc
-    assert '"workspace_detail_block_count": 2' in rfc
+    assert '"workspace_detail_block_count": 2' not in rfc
     assert "interaction-efficient" in guide
     assert "front-office performance workspaces" in guide
     assert "../examples/workspace_summary_request.json" in guide
@@ -384,8 +375,6 @@ def test_workspace_summary_docs_publish_canonical_examples():
     assert "`poll_path_template=/performance/executions/{calculation_id}`" in guide
     assert "`result_path_template=/performance/workspace-summary/results/{calculation_id}`" in guide
     assert "`benchmark_mode`" in guide
-    assert "`detail_blocks`" in guide
-    assert "`segmentation.group_by`" in guide
     assert "`linked_stateful`" in guide
     assert "../examples/integration_capabilities_response.json" in guide
     assert "workspace_summary.md" in methodology_index

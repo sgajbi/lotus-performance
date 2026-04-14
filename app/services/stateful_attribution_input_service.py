@@ -466,12 +466,18 @@ def _build_group_key(
     key_parts: list[tuple[str, str]] = []
     for dimension in group_by:
         raw_value = component_currency if dimension == "currency" else labels.get(dimension)
-        if not isinstance(raw_value, str) or not raw_value:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Benchmark component {index_id} missing classification label for {dimension}.",
+        if dimension == "currency":
+            if not isinstance(raw_value, str) or not raw_value:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Benchmark component {index_id} missing classification label for {dimension}.",
+                )
+            normalized_value = _normalize_group_value(raw_value)
+        else:
+            normalized_value = (
+                _normalize_group_value(raw_value) if isinstance(raw_value, str) and raw_value else "unknown"
             )
-        key_parts.append((dimension, _normalize_group_value(raw_value)))
+        key_parts.append((dimension, normalized_value))
     return tuple(key_parts)
 
 

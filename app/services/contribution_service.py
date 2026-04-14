@@ -7,7 +7,7 @@ from fastapi import HTTPException, status
 
 from app.core.config import get_settings
 from app.models.contribution_analytics_requests import ContributionInputMode
-from app.models.contribution_requests import ContributionRequest
+from app.models.contribution_requests import ContributionRequest, PositionData
 from app.models.contribution_responses import (
     AverageWeightMethodologyStatus,
     ContributionResponse,
@@ -153,6 +153,80 @@ def _calculate_reset_aware_period_portfolio_return(
         return 0.0
 
     return _as_numeric(period_results_df[PortfolioColumns.FINAL_CUM_ROR.value].iloc[-1] / 100)
+
+
+def _calculate_position_total_return_pct(
+    *,
+    request: ContributionRequest,
+    position_data: PositionData | None,
+    period_start_date,
+    period_end_date,
+) -> float:
+    if position_data is None:
+        return 0.0
+
+    period_valuation_points = [
+        valuation_point.model_dump(mode="python")
+        for valuation_point in position_data.valuation_points
+        if period_start_date <= valuation_point.perf_date <= period_end_date
+    ]
+    if not period_valuation_points:
+        return 0.0
+
+    period_engine_config = EngineConfig(
+        performance_start_date=period_valuation_points[0]["perf_date"],
+        report_start_date=period_start_date,
+        report_end_date=period_end_date,
+        metric_basis=request.portfolio_data.metric_basis,
+        period_type="EXPLICIT",
+        precision_mode=PrecisionMode(request.precision_mode),
+        rounding_precision=request.rounding_precision,
+        currency_mode=request.currency_mode,
+        report_ccy=request.report_ccy,
+        fx=request.fx,
+        hedging=request.hedging,
+    )
+    period_results_df = run_engine_for_valuation_points(
+        period_valuation_points,
+        period_engine_config,
+        force_base_only=period_engine_config.currency_mode == "BOTH",
+    )
+    if period_results_df.empty:
+        return 0.0
+
+    return _as_numeric(period_results_df[PortfolioColumns.FINAL_CUM_ROR.value].iloc[-1])
+
+
+def build_position_contributions(
+    *,
+    totals_df: pd.DataFrame,
+    request: ContributionRequest,
+    period_start_date,
+    period_end_date,
+    average_weight_column: str,
+    top_n: int | None = None,
+) -> list[PositionContribution]:
+    positions_by_id = {position.position_id: position for position in request.positions_data}
+    position_contributions = [
+        PositionContribution(
+            position_id=row["position_id"],
+            total_contribution=_as_numeric(row["total_contribution"]) * 100,
+            average_weight=_as_numeric(row.get(average_weight_column)) * 100,
+            total_return=_calculate_position_total_return_pct(
+                request=request,
+                position_data=positions_by_id.get(str(row["position_id"])),
+                period_start_date=period_start_date,
+                period_end_date=period_end_date,
+            ),
+            local_contribution=_as_numeric(row.get("local_contribution", 0)) * 100,
+            fx_contribution=_as_numeric(row.get("fx_contribution", 0)) * 100,
+        )
+        for _, row in totals_df.iterrows()
+    ]
+    position_contributions.sort(key=lambda item: abs(item.total_contribution), reverse=True)
+    if top_n is not None:
+        return position_contributions[:top_n]
+    return position_contributions
 
 
 def _count_carino_invalid_domain_days(portfolio_period_slice_df: pd.DataFrame) -> int:
@@ -828,7 +902,31 @@ def calculate_contribution(
                     request,
                     total_portfolio_return=total_portfolio_return,
                 )
+                position_totals = (
+                    period_slice_df.groupby("position_id")
+                    .agg(
+                        total_contribution=("smoothed_contribution", "sum"),
+                        local_contribution=("smoothed_local_contribution", "sum"),
+                        average_weight=("daily_weight", "mean"),
+                    )
+                    .reset_index()
+                )
+                position_totals["fx_contribution"] = (
+                    position_totals["total_contribution"] - position_totals["local_contribution"]
+                )
+                position_contributions = build_position_contributions(
+                    totals_df=position_totals,
+                    request=request,
+                    period_start_date=period.start_date,
+                    period_end_date=period.end_date,
+                    average_weight_column="average_weight",
+                )
                 results_by_period[period.name] = SinglePeriodContributionResult(
+                    total_portfolio_return=total_portfolio_return * 100,
+                    total_contribution=sum(
+                        position_contribution.total_contribution for position_contribution in position_contributions
+                    ),
+                    position_contributions=position_contributions,
                     summary=period_results.get("summary"),
                     levels=period_results.get("levels"),
                 )
@@ -965,17 +1063,13 @@ def calculate_contribution(
 
                 totals["fx_contribution"] = totals["total_contribution"] - totals["local_contribution"]
 
-                position_contributions = [
-                    PositionContribution(
-                        position_id=row["position_id"],
-                        total_contribution=_as_numeric(row["total_contribution"]) * 100,
-                        average_weight=_as_numeric(row["selected_average_weight"]) * 100,
-                        total_return=0,
-                        local_contribution=_as_numeric(row.get("local_contribution", 0)) * 100,
-                        fx_contribution=_as_numeric(row.get("fx_contribution", 0)) * 100,
-                    )
-                    for _, row in totals.iterrows()
-                ]
+                position_contributions = build_position_contributions(
+                    totals_df=totals,
+                    request=request,
+                    period_start_date=period.start_date,
+                    period_end_date=period.end_date,
+                    average_weight_column="selected_average_weight",
+                )
                 average_weight_sum_residual_bp = max(
                     average_weight_sum_residual_bp,
                     _calculate_average_weight_sum_residual_bp(position_contributions),

@@ -190,20 +190,9 @@ def test_e2e_platform_readiness_and_capabilities_contract() -> None:
         surfaces["workspace_summary"]["result_path_template"]
         == "/performance/workspace-summary/results/{calculation_id}"
     )
-    assert surfaces["workspace_summary"]["stateful_restrictions"] == [
-        "workspace contribution and attribution summary blocks require input_mode=stateful",
-        "segmentation.group_by is required when workspace contribution or attribution blocks are requested",
-        "workspace attribution summary currently supports only lotus-core-linked stateful benchmark sourcing",
-    ]
+    assert surfaces["workspace_summary"]["stateful_restrictions"] == []
     workspace_options = {item["key"]: item for item in surfaces["workspace_summary"]["options"]}
     assert workspace_options["benchmark_mode"]["supported_values"] == ["user_input_stateless", "linked_stateful"]
-    assert workspace_options["detail_blocks"]["supported_values"] == ["contribution", "attribution"]
-    assert workspace_options["segmentation.group_by"]["supported_values"] == [
-        "asset_class",
-        "sector",
-        "country",
-        "currency",
-    ]
     assert surfaces["contribution"]["supports_async"] is True
     assert surfaces["attribution"]["stateful_restrictions"] == [
         "mode=by_instrument only",
@@ -1146,21 +1135,27 @@ def test_e2e_asymmetric_reset_heavy_contribution_keeps_tie_out_while_exposing_we
 
     contribution_body = contribution_response.json()
     contribution_itd = contribution_body["results_by_period"]["ITD"]
-    driver_contribution, rider_contribution = contribution_itd["position_contributions"]
+    position_contributions_by_id = {
+        contribution["position_id"]: contribution for contribution in contribution_itd["position_contributions"]
+    }
+    driver_contribution = position_contributions_by_id["RESET_DRIVER"]
+    rider_contribution = position_contributions_by_id["RESET_RIDER"]
 
     assert contribution_itd["total_portfolio_return"] == pytest.approx(21.0)
     assert contribution_itd["total_contribution"] == pytest.approx(21.0)
-    assert driver_contribution["position_id"] == "RESET_DRIVER"
-    assert rider_contribution["position_id"] == "RESET_RIDER"
     assert driver_contribution["average_weight"] > rider_contribution["average_weight"]
     assert driver_contribution["total_contribution"] < rider_contribution["total_contribution"]
 
     contribution_daily_totals = [point["total_contribution"] for point in contribution_itd["timeseries"]]
+    position_series_by_id = {
+        position_series["position_id"]: position_series
+        for position_series in contribution_itd["by_position_timeseries"]
+    }
     flattened_position_daily = [
         first["contribution"] + second["contribution"]
         for first, second in zip(
-            contribution_itd["by_position_timeseries"][0]["series"],
-            contribution_itd["by_position_timeseries"][1]["series"],
+            position_series_by_id["RESET_DRIVER"]["series"],
+            position_series_by_id["RESET_RIDER"]["series"],
             strict=True,
         )
     ]

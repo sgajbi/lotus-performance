@@ -23,16 +23,6 @@
     "input_mode": "stateful",
     "stateful_input": {}
   },
-  "segmentation": {
-    "group_by": ["sector", "country"]
-  },
-  "contribution": {
-    "metric_basis": "NET",
-    "top_positions": 5
-  },
-  "attribution": {
-    "metric_basis": "NET"
-  },
   "report_ccy": "USD",
   "currency_mode": "BASE_ONLY"
 }

@@ -329,44 +329,23 @@ shape:
       "cumulative_return": 3.27,
       "annualized_return": 3.27
     },
-      "contribution": {
-        "segmentation": ["sector", "country"],
-        "position_contributions": [
-          {
-            "position_id": "AAPL_US",
-            "contribution": 1.42,
-            "average_weight": 24.0,
-            "total_return": 5.92
-          }
-        ]
-      },
-      "attribution": {
-        "segmentation": ["sector", "country"],
-        "benchmark_context": {
-          "benchmark_id": "BMK_GLOBAL_60_40",
-          "return_source": "calculated"
-        }
-      }
     }
   },
   "audit": {
     "counts": {
-      "workspace_detail_block_count": 2,
-      "workspace_contribution_periods_emitted": 1,
-      "workspace_attribution_periods_emitted": 1
+      "portfolio_chunk_count": 3,
+      "benchmark_chunk_count": 2
     }
   }
 }
 ```
 
-This is the core “same story, different levels of detail” contract:
+This is the core workspace contract:
 
 1. TWR owns the portfolio performance headline,
 2. benchmark owns the comparison baseline,
 3. active owns the arithmetic difference,
-4. MWR owns the capital-timing lens,
-5. contribution owns grouped and position-level explanation,
-6. attribution owns active-effect explanation against the same benchmark context.
+4. MWR owns the capital-timing lens.
 
 ## Period Support and Annualization Semantics
 

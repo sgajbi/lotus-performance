@@ -320,26 +320,12 @@ Sample response:
         "cumulative_return": 3.27,
         "annualized_return": 3.27
       },
-      "contribution": {
-        "segmentation": ["sector", "country"],
-        "position_contributions": [
-          { "position_id": "AAPL_US", "total_contribution": 1.42, "average_weight": 24.0 }
-        ]
-      },
-      "attribution": {
-        "segmentation": ["sector", "country"],
-        "benchmark_context": {
-          "benchmark_id": "BMK_GLOBAL_60_40",
-          "return_source": "calculated"
-        }
-      }
     }
   },
   "audit": {
     "counts": {
-      "workspace_detail_block_count": 2,
-      "workspace_contribution_periods_emitted": 1,
-      "workspace_attribution_periods_emitted": 1
+      "portfolio_chunk_count": 3,
+      "benchmark_chunk_count": 2
     }
   }
 }
@@ -725,17 +711,11 @@ Sample response:
       "supports_async": true,
       "poll_path_template": "/performance/executions/{calculation_id}",
       "result_path_template": "/performance/workspace-summary/results/{calculation_id}",
-      "stateful_restrictions": [
-        "workspace contribution and attribution summary blocks require input_mode=stateful"
-      ],
+      "stateful_restrictions": [],
       "options": [
         {
           "key": "benchmark_mode",
           "values": ["user_input_stateless", "linked_stateful"]
-        },
-        {
-          "key": "detail_blocks",
-          "values": ["contribution", "attribution"]
         }
       ]
     }

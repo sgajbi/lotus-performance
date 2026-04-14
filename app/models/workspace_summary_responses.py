@@ -6,19 +6,10 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.attribution_responses import (
-    AttributionBenchmarkContext,
-    SinglePeriodAttributionResult,
-)
 from app.models.benchmark_analytics_requests import BenchmarkInputMode, BenchmarkReturnSource
-from app.models.contribution_responses import (
-    ContributionLevel,
-    ContributionSummary,
-    PositionContribution,
-)
 from app.models.mwr_analytics_requests import MWRInputMode
 from app.models.twr_requests import TWRInputMode
-from common.enums import AttributionModel, Frequency, LinkingMethod
+from common.enums import Frequency
 from core.envelope import Audit, Diagnostics, Meta
 
 WORKSPACE_SUMMARY_RESPONSE_EXAMPLES = [
@@ -158,75 +149,6 @@ WORKSPACE_SUMMARY_RESPONSE_EXAMPLES = [
                     "end_date": "2026-03-31",
                     "notes": ["Stateful workspace MWR summary resolved from the longest requested window."],
                 },
-                "contribution": {
-                    "metric_basis": "NET",
-                    "segmentation": ["sector", "country"],
-                    "summary": {"total_contribution": 3.41, "portfolio_return": 3.41},
-                    "levels": [
-                        {
-                            "level": 1,
-                            "name": "sector",
-                            "rows": [
-                                {
-                                    "key": {"sector": "technology"},
-                                    "contribution": 2.11,
-                                    "weight_avg": 58.0,
-                                    "return": 3.64,
-                                    "child_count": 2,
-                                }
-                            ],
-                        }
-                    ],
-                    "position_contributions": [
-                        {
-                            "position_id": "AAPL_US",
-                            "contribution": 1.42,
-                            "average_weight": 24.0,
-                            "total_return": 5.92,
-                        }
-                    ],
-                },
-                "attribution": {
-                    "metric_basis": "NET",
-                    "segmentation": ["sector", "country"],
-                    "model": "brinson_fachler",
-                    "linking": "carino",
-                    "benchmark_context": {
-                        "benchmark_id": "BMK_GLOBAL_60_40",
-                        "return_source": "calculated",
-                    },
-                    "result": {
-                        "levels": [
-                            {
-                                "dimension": "sector",
-                                "rows": [
-                                    {
-                                        "key": {"sector": "technology"},
-                                        "portfolio_weight_avg": 58.0,
-                                        "benchmark_weight_avg": 52.0,
-                                        "portfolio_return": 3.64,
-                                        "benchmark_return": 3.2,
-                                        "allocation": 0.12,
-                                        "selection": 0.24,
-                                        "interaction": 0.02,
-                                        "total_effect": 0.38,
-                                    }
-                                ],
-                                "totals": {
-                                    "allocation": 0.12,
-                                    "selection": 0.24,
-                                    "interaction": 0.02,
-                                    "total_effect": 0.38,
-                                },
-                            }
-                        ],
-                        "reconciliation": {
-                            "total_active_return": 0.43,
-                            "sum_of_effects": 0.43,
-                            "residual": 0.0,
-                        },
-                    },
-                },
             }
         },
         "meta": {
@@ -240,8 +162,6 @@ WORKSPACE_SUMMARY_RESPONSE_EXAMPLES = [
             "effective_period_start": "2026-01-02",
             "notes": [
                 "Workspace benchmark summary enabled for all requested periods.",
-                "Workspace contribution summary enabled with shared segmentation: sector, country.",
-                "Workspace attribution summary enabled with shared segmentation: sector, country using benchmark BMK_GLOBAL_60_40.",
             ],
         },
         "audit": {
@@ -250,18 +170,6 @@ WORKSPACE_SUMMARY_RESPONSE_EXAMPLES = [
                 "portfolio_chunk_count": 3,
                 "portfolio_page_count": 6,
                 "benchmark_chunk_count": 2,
-                "workspace_detail_block_count": 2,
-                "workspace_contribution_periods_emitted": 1,
-                "workspace_attribution_periods_emitted": 1,
-                "workspace_contribution_position_count": 5,
-                "workspace_contribution_position_chunk_count": 2,
-                "workspace_contribution_position_page_count": 3,
-                "workspace_attribution_instrument_count": 12,
-                "workspace_attribution_position_chunk_count": 2,
-                "workspace_attribution_position_page_count": 3,
-                "workspace_attribution_benchmark_chunk_count": 1,
-                "workspace_attribution_benchmark_page_count": 1,
-                "workspace_attribution_index_page_count": 1,
             }
         },
     }
@@ -406,49 +314,11 @@ class WorkspaceMoneyWeightedReturnSummary(BaseModel):
     notes: list[str] = Field(description="Method or validation notes returned by the engine.")
 
 
-class WorkspaceContributionSummaryBlock(BaseModel):
-    metric_basis: str = Field(description="Metric basis used for the contribution summary block.", examples=["NET"])
-    segmentation: list[str] = Field(
-        description="Shared segmentation dimensions used for grouped contribution rows.",
-        examples=[["sector"]],
-    )
-    summary: ContributionSummary | None = Field(
-        default=None,
-        description="Contribution summary totals for the resolved workspace period.",
-    )
-    levels: list[ContributionLevel] | None = Field(
-        default=None,
-        description="Grouped contribution rows using the shared workspace segmentation model.",
-    )
-    position_contributions: list[PositionContribution] = Field(
-        description="Position-level contribution rows kept first-class for top and bottom contributor workflows.",
-    )
-
-
-class WorkspaceAttributionSummaryBlock(BaseModel):
-    metric_basis: str = Field(description="Metric basis used for the attribution summary block.", examples=["NET"])
-    segmentation: list[str] = Field(
-        description="Shared segmentation dimensions used for grouped attribution rows.",
-        examples=[["sector"]],
-    )
-    model: AttributionModel = Field(description="Attribution model used for the lightweight summary block.")
-    linking: LinkingMethod = Field(description="Linking method used for the lightweight summary block.")
-    benchmark_context: AttributionBenchmarkContext | None = Field(
-        default=None,
-        description="Resolved benchmark context used for attribution.",
-    )
-    result: SinglePeriodAttributionResult = Field(
-        description="Per-period attribution result using the same canonical structure as the dedicated attribution endpoint."
-    )
-
-
 class WorkspacePeriodSummaryResult(BaseModel):
     portfolio_twr: WorkspaceBasisPair
     benchmark: WorkspaceBenchmarkBlock | None = None
     active: WorkspaceActiveBlock | None = None
     money_weighted_return: WorkspaceMoneyWeightedReturnSummary
-    contribution: WorkspaceContributionSummaryBlock | None = None
-    attribution: WorkspaceAttributionSummaryBlock | None = None
 
 
 class WorkspaceSummaryResponse(BaseModel):

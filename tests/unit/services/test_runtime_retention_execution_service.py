@@ -1,4 +1,5 @@
 import json
+from datetime import UTC, datetime
 
 import pytest
 
@@ -59,9 +60,16 @@ def test_execute_runtime_retention_cleanup_persists_scheduled_evidence(tmp_path,
     assert latest["job_id"] == "retention-nightly"
 
 
-def test_runtime_retention_execution_prunes_stale_history_by_limit_and_age(tmp_path):
+def test_runtime_retention_execution_prunes_stale_history_by_limit_and_age(tmp_path, monkeypatch):
     output_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
     output_dir.mkdir(parents=True)
+
+    class _FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 3, 16, tzinfo=UTC if tz is not None else None)
+
+    monkeypatch.setattr("app.services.runtime_retention_execution_service.datetime", _FrozenDateTime)
     stale_payload = {"generated_at_utc": "2026-01-01T00:00:00Z"}
     for name in ("2026-03-15t00-00-00z.json", "2026-03-14t00-00-00z.json", "2026-03-13t00-00-00z.json"):
         (output_dir / name).write_text(

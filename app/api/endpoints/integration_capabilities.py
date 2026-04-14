@@ -28,16 +28,11 @@ INTEGRATION_CAPABILITIES_RESPONSE_EXAMPLES = [
                 "supports_async": True,
                 "poll_path_template": "/performance/executions/{calculation_id}",
                 "result_path_template": "/performance/workspace-summary/results/{calculation_id}",
-                "stateful_restrictions": [
-                    "workspace contribution and attribution summary blocks require input_mode=stateful",
-                    "segmentation.group_by is required when workspace contribution or attribution blocks are requested",
-                    "workspace attribution summary currently supports only lotus-core-linked stateful benchmark sourcing",
-                ],
+                "stateful_restrictions": [],
                 "contract_notes": [
                     "supports multi-horizon workspace periods including 1D, 2D, 5D, 10D, 1M, 3M, 6M, YTD, 1Y, 2Y, 5Y, 10Y, SI, and EXPLICIT",
                     "summary and breakdown rows emit period_return, cumulative_return, and annualized_return; for periods up to one year annualized_return equals cumulative_return",
                     "resolves the longest requested window once and derives shorter requested periods from the same sourced data",
-                    "optional workspace contribution and attribution blocks share one segmentation.group_by contract",
                 ],
                 "options": [
                     {
@@ -47,23 +42,6 @@ INTEGRATION_CAPABILITIES_RESPONSE_EXAMPLES = [
                         "notes": [
                             "stateless workspace summary requires an explicit benchmark payload when include_benchmark=true",
                             "stateful workspace summary can resolve the linked benchmark from lotus-core assignment",
-                        ],
-                    },
-                    {
-                        "key": "detail_blocks",
-                        "supported_values": ["contribution", "attribution"],
-                        "required_when": "contribution or attribution workspace summaries are requested",
-                        "notes": [
-                            "workspace contribution and attribution summary blocks currently require input_mode=stateful",
-                            "attribution detail currently supports only lotus-core-linked stateful benchmark sourcing",
-                        ],
-                    },
-                    {
-                        "key": "segmentation.group_by",
-                        "supported_values": ["asset_class", "sector", "country", "currency"],
-                        "required_when": "contribution or attribution workspace summaries are requested",
-                        "notes": [
-                            "contribution and attribution share one segmentation.group_by contract when both are requested",
                         ],
                     },
                 ],
@@ -329,21 +307,12 @@ async def get_integration_capabilities(
             supports_async=True,
             poll_path_template="/performance/executions/{calculation_id}",
             result_path_template="/performance/workspace-summary/results/{calculation_id}",
-            stateful_restrictions=(
-                [
-                    "workspace contribution and attribution summary blocks require input_mode=stateful",
-                    "segmentation.group_by is required when workspace contribution or attribution blocks are requested",
-                    "workspace attribution summary currently supports only lotus-core-linked stateful benchmark sourcing",
-                ]
-                if stateful_mode_enabled and workspace_summary_enabled
-                else []
-            ),
+            stateful_restrictions=[],
             contract_notes=(
                 [
                     "supports multi-horizon workspace periods including 1D, 2D, 5D, 10D, 1M, 3M, 6M, YTD, 1Y, 2Y, 5Y, 10Y, SI, and EXPLICIT",
                     "summary and breakdown rows emit period_return, cumulative_return, and annualized_return; for periods up to one year annualized_return equals cumulative_return",
                     "resolves the longest requested window once and derives shorter requested periods from the same sourced data",
-                    "optional workspace contribution and attribution blocks share one segmentation.group_by contract",
                 ]
                 if workspace_summary_enabled
                 else []
@@ -357,23 +326,6 @@ async def get_integration_capabilities(
                         notes=[
                             "stateless workspace summary requires an explicit benchmark payload when include_benchmark=true",
                             "stateful workspace summary can resolve the linked benchmark from lotus-core assignment",
-                        ],
-                    ),
-                    AnalyticsSurfaceOptionCapability(
-                        key="detail_blocks",
-                        supported_values=["contribution", "attribution"],
-                        required_when="contribution or attribution workspace summaries are requested",
-                        notes=[
-                            "workspace contribution and attribution summary blocks currently require input_mode=stateful",
-                            "attribution detail currently supports only lotus-core-linked stateful benchmark sourcing",
-                        ],
-                    ),
-                    AnalyticsSurfaceOptionCapability(
-                        key="segmentation.group_by",
-                        supported_values=["asset_class", "sector", "country", "currency"],
-                        required_when="contribution or attribution workspace summaries are requested",
-                        notes=[
-                            "contribution and attribution share one segmentation.group_by contract when both are requested",
                         ],
                     ),
                 ]
