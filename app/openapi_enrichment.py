@@ -41,6 +41,40 @@ EXAMPLE_BY_KEY = {
     "portfolio_returns": [{"date": "2026-02-27", "return_value": "0.0012"}],
 }
 
+OPERATION_JSON_EXAMPLES: dict[tuple[str, str], dict[str, Any]] = {
+    (
+        "/performance/twr",
+        "request",
+    ): {
+        "input_mode": "stateless",
+        "portfolio_id": "DEMO_DPM_EUR_001",
+        "performance_start_date": "2024-12-31",
+        "metric_basis": "NET",
+        "report_end_date": "2026-01-31",
+        "analyses": [{"period": "MTD", "frequencies": ["daily"]}],
+        "stateless_input": {
+            "valuation_points": [
+                {
+                    "perf_date": "2026-01-29",
+                    "begin_mv": 1000000.0,
+                    "end_mv": 1008500.0,
+                },
+                {
+                    "perf_date": "2026-01-30",
+                    "begin_mv": 1008500.0,
+                    "end_mv": 1011200.0,
+                },
+                {
+                    "perf_date": "2026-01-31",
+                    "begin_mv": 1011200.0,
+                    "eod_cf": -5000.0,
+                    "end_mv": 1015400.0,
+                },
+            ]
+        },
+    },
+}
+
 
 def _to_snake_case(value: str) -> str:
     transformed = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", value)
@@ -236,7 +270,10 @@ def _ensure_operation_documentation(schema: dict[str, Any]) -> None:
                     json_content = content.get("application/json")
                     if isinstance(json_content, dict):
                         request_schema = json_content.get("schema", {})
-                        if (
+                        operation_example = OPERATION_JSON_EXAMPLES.get((path, "request"))
+                        if operation_example is not None:
+                            json_content["example"] = copy.deepcopy(operation_example)
+                        elif (
                             isinstance(request_schema, dict)
                             and "example" not in json_content
                             and "examples" not in json_content

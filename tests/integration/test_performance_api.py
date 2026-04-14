@@ -1336,6 +1336,49 @@ def test_twr_hashes_include_resolved_benchmark_request(client):
     assert body["meta"]["calculation_hash"] == expected_calculation_hash
 
 
+def test_twr_benchmark_cumulative_return_tracks_reporting_horizon(client):
+    payload = {
+        "portfolio_id": "TWR_BENCHMARK_CUMULATIVE",
+        "performance_start_date": "2024-12-31",
+        "metric_basis": "NET",
+        "report_end_date": "2025-02-28",
+        "analyses": [{"period": "YTD", "frequencies": ["monthly"]}],
+        "valuation_points": [
+            {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+            {"perf_date": "2025-01-31", "begin_mv": 1010.0, "end_mv": 1020.1},
+            {"perf_date": "2025-02-01", "begin_mv": 1020.1, "end_mv": 1030.301},
+            {"perf_date": "2025-02-28", "begin_mv": 1030.301, "end_mv": 1040.60401},
+        ],
+        "include_benchmark": True,
+        "benchmark": {
+            "benchmark_id": "BMK_STATELESS_CUMULATIVE",
+            "input_mode": "stateless",
+            "return_source": "calculated",
+            "stateless_input": {
+                "benchmark_currency": "USD",
+                "component_observations": [
+                    {"component_id": "IDX_A", "perf_date": "2025-01-01", "weight_bop": 1.0, "component_return": 0.01},
+                    {"component_id": "IDX_A", "perf_date": "2025-01-31", "weight_bop": 1.0, "component_return": 0.01},
+                    {"component_id": "IDX_A", "perf_date": "2025-02-01", "weight_bop": 1.0, "component_return": 0.01},
+                    {"component_id": "IDX_A", "perf_date": "2025-02-28", "weight_bop": 1.0, "component_return": 0.01},
+                ],
+            },
+        },
+    }
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 200
+    result = response.json()["results_by_period"]["YTD"]
+
+    assert result["benchmark"]["summary"]["period_return"]["base"] == pytest.approx(
+        result["benchmark"]["summary"]["cumulative_return"]["base"]
+    )
+    assert result["relative_performance"]["summary"]["cumulative_return"]["base"] == pytest.approx(
+        result["relative_performance"]["summary"]["period_return"]["base"]
+    )
+
+
 def test_twr_stateful_hashes_follow_resolved_inputs(client, monkeypatch):
     async def _mock_fetch_stateful_portfolio_timeseries(**kwargs):  # noqa: ARG001
         return (

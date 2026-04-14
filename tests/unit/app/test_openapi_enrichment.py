@@ -178,6 +178,45 @@ def test_enrich_openapi_schema_fills_operation_schema_and_examples():
     assert nested_ref_prop["x-lotus-semantic-id"] == "lotus.nested_ref"
 
 
+def test_enrich_openapi_schema_uses_contract_valid_twr_request_example():
+    schema = {
+        "paths": {
+            "/performance/twr": {
+                "post": {
+                    "requestBody": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "input_mode": {"type": "string"},
+                                        "portfolio_id": {"type": "string"},
+                                        "performance_start_date": {"type": "string", "format": "date"},
+                                        "analyses": {"type": "array", "items": {"type": "object"}},
+                                        "stateless_input": {"type": "object"},
+                                        "stateful_input": {"type": "object"},
+                                        "valuation_points": {"type": "array", "items": {"type": "object"}},
+                                    },
+                                }
+                            }
+                        }
+                    },
+                    "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {"type": "object"}}}}},
+                }
+            }
+        },
+        "components": {"schemas": {}},
+    }
+
+    enriched = enrich_openapi_schema(schema)
+    example = enriched["paths"]["/performance/twr"]["post"]["requestBody"]["content"]["application/json"]["example"]
+
+    assert example["input_mode"] == "stateless"
+    assert "stateless_input" in example
+    assert "stateful_input" not in example
+    assert "valuation_points" not in example
+
+
 def test_infer_example_and_description_cover_fallback_branches():
     assert _infer_example("items", {"type": "array", "items": "not-a-dict"}) == ["VALUE"]
     assert _infer_example("settlement_date", {"type": "string", "format": "date"}) == "2026-02-27"
