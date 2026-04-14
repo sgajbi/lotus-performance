@@ -63,30 +63,16 @@ def test_integration_capabilities_default_contract():
         surfaces["workspace_summary"]["result_path_template"]
         == "/performance/workspace-summary/results/{calculation_id}"
     )
-    assert surfaces["workspace_summary"]["stateful_restrictions"] == [
-        "workspace contribution and attribution summary blocks require input_mode=stateful",
-        "segmentation.group_by is required when workspace contribution or attribution blocks are requested",
-        "workspace attribution summary currently supports only lotus-core-linked stateful benchmark sourcing",
-    ]
+    assert surfaces["workspace_summary"]["stateful_restrictions"] == []
     assert surfaces["workspace_summary"]["contract_notes"] == [
         "supports multi-horizon workspace periods including 1D, 2D, 5D, 10D, 1M, 3M, 6M, YTD, 1Y, 2Y, 5Y, 10Y, SI, and EXPLICIT",
         "summary and breakdown rows emit period_return, cumulative_return, and annualized_return; for periods up to one year annualized_return equals cumulative_return",
         "resolves the longest requested window once and derives shorter requested periods from the same sourced data",
-        "optional workspace contribution and attribution blocks share one segmentation.group_by contract",
     ]
     workspace_options = {item["key"]: item for item in surfaces["workspace_summary"]["options"]}
     assert workspace_options["benchmark_mode"]["supported_values"] == ["user_input_stateless", "linked_stateful"]
     assert workspace_options["benchmark_mode"]["required_when"] == "benchmark or benchmark-aware blocks are requested"
-    assert workspace_options["detail_blocks"]["supported_values"] == ["contribution", "attribution"]
-    assert workspace_options["detail_blocks"]["required_when"] == (
-        "contribution or attribution workspace summaries are requested"
-    )
-    assert workspace_options["segmentation.group_by"]["supported_values"] == [
-        "asset_class",
-        "sector",
-        "country",
-        "currency",
-    ]
+    assert set(workspace_options) == {"benchmark_mode"}
     assert surfaces["contribution"]["supports_async"] is True
     assert surfaces["contribution"]["poll_path_template"] == "/performance/executions/{calculation_id}"
     assert surfaces["contribution"]["result_path_template"] == "/performance/contribution/results/{calculation_id}"
@@ -145,11 +131,7 @@ def test_integration_capabilities_env_override(monkeypatch):
         surfaces["workspace_summary"]["result_path_template"]
         == "/performance/workspace-summary/results/{calculation_id}"
     )
-    assert {item["key"] for item in surfaces["workspace_summary"]["options"]} == {
-        "benchmark_mode",
-        "detail_blocks",
-        "segmentation.group_by",
-    }
+    assert {item["key"] for item in surfaces["workspace_summary"]["options"]} == {"benchmark_mode"}
 
 
 def test_integration_capabilities_limit_guardrails():

@@ -77,9 +77,6 @@ WORKSPACE_SUMMARY_REQUEST_EXAMPLES = [
         "stateful_input": {},
         "include_benchmark": True,
         "benchmark": {"input_mode": "stateful", "stateful_input": {}},
-        "segmentation": {"group_by": ["sector", "country"]},
-        "contribution": {"metric_basis": "NET", "top_positions": 5},
-        "attribution": {"metric_basis": "NET"},
         "report_ccy": "USD",
         "currency_mode": "BASE_ONLY",
     },
@@ -139,51 +136,6 @@ class WorkspaceBenchmarkRequest(BaseModel):
                 raise ValueError("benchmark.stateless_input must be null when benchmark.input_mode=stateful")
         return self
 
-
-CanonicalWorkspaceSegmentationDimension = Literal["asset_class", "sector", "country", "currency"]
-
-
-class WorkspaceSegmentationRequest(BaseModel):
-    group_by: list[CanonicalWorkspaceSegmentationDimension] = Field(
-        ...,
-        description=(
-            "Shared segmentation dimensions for optional workspace contribution and attribution summaries. "
-            "This vocabulary is canonical and must be reused across both blocks."
-        ),
-    )
-
-    @field_validator("group_by")
-    @classmethod
-    def group_by_must_not_be_empty_or_duplicated(
-        cls, value: list[CanonicalWorkspaceSegmentationDimension]
-    ) -> list[CanonicalWorkspaceSegmentationDimension]:
-        if not value:
-            raise ValueError("segmentation.group_by cannot be empty")
-        if len(set(value)) != len(value):
-            raise ValueError("segmentation.group_by cannot contain duplicates")
-        return value
-
-
-class WorkspaceContributionSummaryRequest(BaseModel):
-    metric_basis: Literal["NET", "GROSS"] = Field(
-        default="NET",
-        description="Metric basis used when building the optional workspace contribution summary.",
-    )
-    top_positions: int = Field(
-        default=10,
-        ge=1,
-        le=50,
-        description="Maximum number of position contribution rows to emit in the lightweight workspace block.",
-    )
-
-
-class WorkspaceAttributionSummaryRequest(BaseModel):
-    metric_basis: Literal["NET", "GROSS"] = Field(
-        default="NET",
-        description="Metric basis used when building the optional workspace attribution summary.",
-    )
-
-
 class WorkspaceSummaryRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", json_schema_extra={"examples": WORKSPACE_SUMMARY_REQUEST_EXAMPLES})
 
@@ -231,18 +183,6 @@ class WorkspaceSummaryRequest(BaseModel):
     benchmark: WorkspaceBenchmarkRequest | None = Field(
         default=None,
         description="Optional benchmark request resolved and calculated alongside the workspace summary.",
-    )
-    segmentation: WorkspaceSegmentationRequest | None = Field(
-        default=None,
-        description="Shared segmentation contract used when optional contribution or attribution workspace blocks are requested.",
-    )
-    contribution: WorkspaceContributionSummaryRequest | None = Field(
-        default=None,
-        description="Optional lightweight contribution summary block configuration.",
-    )
-    attribution: WorkspaceAttributionSummaryRequest | None = Field(
-        default=None,
-        description="Optional lightweight attribution summary block configuration.",
     )
     mwr_method: Literal["XIRR", "MODIFIED_DIETZ", "DIETZ"] = Field(
         default="XIRR",
@@ -313,22 +253,6 @@ class WorkspaceSummaryRequest(BaseModel):
         if self.include_benchmark and self.input_mode == TWRInputMode.STATELESS and self.benchmark is None:
             raise ValueError("benchmark configuration is required when include_benchmark=true in stateless mode")
 
-        if self.contribution is not None or self.attribution is not None:
-            if self.segmentation is None:
-                raise ValueError(
-                    "segmentation is required when contribution or attribution workspace blocks are requested"
-                )
-            if self.input_mode != TWRInputMode.STATEFUL:
-                raise ValueError(
-                    "workspace contribution and attribution summary blocks currently require input_mode=stateful"
-                )
-
-        if self.attribution is not None:
-            self.include_benchmark = True
-            if self.benchmark is not None and self.benchmark.input_mode != BenchmarkInputMode.STATEFUL:
-                raise ValueError(
-                    "workspace attribution summary currently supports only lotus-core-linked stateful benchmark sourcing"
-                )
         return self
 
     def resolved_stateless_valuation_points(self) -> list[DailyInputData]:

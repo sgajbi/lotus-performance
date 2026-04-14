@@ -544,10 +544,9 @@ POST /performance/workspace-summary
 }
 ```
 
-## 9. Stateful Workspace Summary with Shared Contribution and Attribution Segmentation
+## 9. Stateful Workspace Summary
 
-Returns the same multi-horizon workspace summary, but adds lightweight contribution and attribution
-blocks using one shared segmentation contract.
+Returns the same multi-horizon workspace summary using lotus-performance stateful sourcing.
 
 **Endpoint**
 
@@ -572,16 +571,6 @@ POST /performance/workspace-summary
   "benchmark": {
     "input_mode": "stateful",
     "stateful_input": {}
-  },
-  "segmentation": {
-    "group_by": ["sector", "country"]
-  },
-  "contribution": {
-    "metric_basis": "NET",
-    "top_positions": 5
-  },
-  "attribution": {
-    "metric_basis": "NET"
   },
   "report_ccy": "USD",
   "currency_mode": "BASE_ONLY"

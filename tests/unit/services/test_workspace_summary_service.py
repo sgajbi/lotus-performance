@@ -1,5 +1,4 @@
 from datetime import date
-from threading import Barrier
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -13,8 +12,6 @@ from app.services.workspace_summary_service import (
     WorkspaceTWRArtifacts,
     _annualize_percentage,
     _build_mwr_cash_flows,
-    _build_workspace_detail_artifacts,
-    _calculate_workspace_basis_artifacts,
     _date_from_boundary,
     _resolve_stateful_portfolio_start_date,
     _resolve_workspace_benchmark_input,
@@ -22,117 +19,6 @@ from app.services.workspace_summary_service import (
     calculate_workspace_summary,
 )
 from core.envelope import Diagnostics
-
-
-def test_workspace_detail_artifacts_build_concurrently_when_both_enabled(mocker):
-    barrier = Barrier(2, timeout=1.0)
-    request = WorkspaceSummaryRequest.model_validate(
-        {
-            "calculation_id": str(uuid4()),
-            "portfolio_id": "PORT-1",
-            "report_end_date": "2026-06-30",
-            "input_mode": "stateful",
-            "stateful_input": {},
-            "periods": [{"period": "1M", "frequencies": ["monthly"]}],
-            "segmentation": {"group_by": ["asset_class"]},
-            "contribution": {"metric_basis": "NET", "top_positions": 5},
-            "attribution": {"metric_basis": "NET"},
-        }
-    )
-
-    def _build_contribution(**_kwargs):
-        barrier.wait()
-        return "contribution-artifacts"
-
-    def _build_attribution(**_kwargs):
-        barrier.wait()
-        return "attribution-artifacts"
-
-    contribution_mock = mocker.patch(
-        "app.services.workspace_summary_service.build_workspace_contribution_artifacts",
-        side_effect=_build_contribution,
-    )
-    attribution_mock = mocker.patch(
-        "app.services.workspace_summary_service.build_workspace_attribution_artifacts",
-        side_effect=_build_attribution,
-    )
-
-    contribution_artifacts, attribution_artifacts, detail_notes = _build_workspace_detail_artifacts(
-        request=request,
-        settings=SimpleNamespace(),
-        master_start_date=pd.Timestamp("2026-06-01").date(),
-    )
-
-    assert contribution_artifacts == "contribution-artifacts"
-    assert attribution_artifacts == "attribution-artifacts"
-    assert detail_notes == []
-    assert contribution_mock.call_count == 1
-    assert attribution_mock.call_count == 1
-
-
-def test_workspace_detail_artifacts_degrades_known_acquisition_day_attribution_gap(mocker):
-    request = WorkspaceSummaryRequest.model_validate(
-        {
-            "calculation_id": str(uuid4()),
-            "portfolio_id": "PORT-1",
-            "report_end_date": "2026-06-30",
-            "input_mode": "stateful",
-            "stateful_input": {},
-            "periods": [{"period": "1M", "frequencies": ["monthly"]}],
-            "segmentation": {"group_by": ["asset_class"]},
-            "contribution": {"metric_basis": "NET", "top_positions": 5},
-            "attribution": {"metric_basis": "NET"},
-        }
-    )
-    mocker.patch(
-        "app.services.workspace_summary_service.build_workspace_contribution_artifacts",
-        return_value="contribution-artifacts",
-    )
-    mocker.patch(
-        "app.services.workspace_summary_service.build_workspace_attribution_artifacts",
-        side_effect=HTTPException(
-            status_code=422,
-            detail=(
-                "Stateful attribution cannot safely compute acquisition-day position returns when the requested "
-                "window starts a sourced position with zero beginning market value."
-            ),
-        ),
-    )
-
-    contribution_artifacts, attribution_artifacts, detail_notes = _build_workspace_detail_artifacts(
-        request=request,
-        settings=SimpleNamespace(),
-        master_start_date=pd.Timestamp("2026-06-01").date(),
-    )
-
-    assert contribution_artifacts == "contribution-artifacts"
-    assert attribution_artifacts is None
-    assert detail_notes == [
-        "Workspace attribution summary is unavailable for this portfolio window because one or more sourced positions begin inside the requested range without usable acquisition-day cash-flow semantics."
-    ]
-
-
-def test_workspace_basis_artifacts_build_concurrently(mocker):
-    barrier = Barrier(2, timeout=1.0)
-
-    def _calculate_artifacts(*, metric_basis, **_kwargs):
-        barrier.wait()
-        return metric_basis
-
-    calculate_mock = mocker.patch(
-        "app.services.workspace_summary_service._calculate_workspace_twr_artifacts",
-        side_effect=_calculate_artifacts,
-    )
-
-    net_artifacts, gross_artifacts = _calculate_workspace_basis_artifacts(
-        request=SimpleNamespace(),
-        valuation_points=[],
-        performance_start_date=pd.Timestamp("2026-01-01").date(),
-    )
-
-    assert net_artifacts == "NET"
-    assert gross_artifacts == "GROSS"
-    assert calculate_mock.call_count == 2
 
 
 def test_workspace_summary_stateful_retrieval_uses_longest_requested_window(mocker):
@@ -149,8 +35,6 @@ def test_workspace_summary_stateful_retrieval_uses_longest_requested_window(mock
     mocker.patch("app.services.workspace_summary_service.execution_registry.start_stage")
     mocker.patch("app.services.workspace_summary_service.execution_registry.complete_stage")
     mocker.patch("app.services.workspace_summary_service.complete_execution_with_lineage")
-    mocker.patch("app.services.workspace_summary_service.build_workspace_contribution_artifacts", return_value=None)
-    mocker.patch("app.services.workspace_summary_service.build_workspace_attribution_artifacts", return_value=None)
     mocker.patch(
         "app.services.workspace_summary_service.retrieve_stateful_portfolio_input",
         side_effect=lambda **kwargs: (
@@ -244,8 +128,6 @@ def test_workspace_summary_stateful_linked_benchmark_resolves_assignment_once(mo
     mocker.patch("app.services.workspace_summary_service.execution_registry.start_stage")
     mocker.patch("app.services.workspace_summary_service.execution_registry.complete_stage")
     mocker.patch("app.services.workspace_summary_service.complete_execution_with_lineage")
-    mocker.patch("app.services.workspace_summary_service.build_workspace_contribution_artifacts", return_value=None)
-    mocker.patch("app.services.workspace_summary_service.build_workspace_attribution_artifacts", return_value=None)
     mocker.patch(
         "app.services.workspace_summary_service._resolve_workspace_portfolio_input",
         return_value=SimpleNamespace(

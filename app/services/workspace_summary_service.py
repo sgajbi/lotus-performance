@@ -50,14 +50,6 @@ from app.services.twr_service import (
     _calculate_total_return_from_slice,
     _iter_frequency_windows,
 )
-from app.services.workspace_summary_detail_service import (
-    WorkspaceAttributionArtifacts,
-    WorkspaceContributionArtifacts,
-    build_workspace_attribution_artifacts,
-    build_workspace_attribution_block,
-    build_workspace_contribution_artifacts,
-    build_workspace_contribution_block,
-)
 from common.enums import Frequency
 from core.envelope import Audit, Diagnostics, Meta
 from core.repro import generate_canonical_hash
@@ -126,13 +118,6 @@ def calculate_workspace_summary(
             "portfolio_valuation_points": len(portfolio_input.valuation_points),
             "portfolio_chunk_count": portfolio_input.source_details.get("portfolio_chunk_count", 0),
             "benchmark_chunk_count": benchmark_input.source_details.get("chunk_count", 0) if benchmark_input else 0,
-            "workspace_detail_block_count": response.audit.counts.get("workspace_detail_block_count", 0),
-            "workspace_contribution_periods_emitted": response.audit.counts.get(
-                "workspace_contribution_periods_emitted", 0
-            ),
-            "workspace_attribution_periods_emitted": response.audit.counts.get(
-                "workspace_attribution_periods_emitted", 0
-            ),
         },
         calculation_details={
             "workspace_summary_portfolio_daily_results_net.csv": net_artifacts.daily_results_df,
@@ -508,14 +493,6 @@ def _build_workspace_summary_response(
         valuation_df[PortfolioColumns.PERF_DATE.value]
     ).dt.date
     benchmark_daily_df = _build_workspace_benchmark_daily_df(benchmark_input)
-    master_start_date = min(period.start_date for period in resolved_periods)
-    contribution_artifacts, attribution_artifacts, detail_notes = _build_workspace_detail_artifacts(
-        request=request,
-        settings=settings,
-        master_start_date=master_start_date,
-    )
-    contribution_periods_emitted = 0
-    attribution_periods_emitted = 0
     results_by_period: dict[str, WorkspacePeriodSummaryResult] = {}
 
     for resolved_period in resolved_periods:
@@ -615,25 +592,6 @@ def _build_workspace_summary_response(
                     ),
                 )
 
-        contribution_block = build_workspace_contribution_block(
-            artifacts=contribution_artifacts,
-            contribution_options=request.contribution,
-            segmentation=request.segmentation,
-            period_start_date=resolved_period.start_date,
-            period_end_date=resolved_period.end_date,
-        )
-        attribution_block = build_workspace_attribution_block(
-            artifacts=attribution_artifacts,
-            attribution_options=request.attribution,
-            segmentation=request.segmentation,
-            period_start_date=resolved_period.start_date,
-            period_end_date=resolved_period.end_date,
-        )
-        if contribution_block is not None:
-            contribution_periods_emitted += 1
-        if attribution_block is not None:
-            attribution_periods_emitted += 1
-
         results_by_period[resolved_period.name] = WorkspacePeriodSummaryResult(
             portfolio_twr=WorkspaceBasisPair(net=net_summary, gross=gross_summary),
             benchmark=benchmark_block,
@@ -644,33 +602,12 @@ def _build_workspace_summary_response(
                 input_mode=portfolio_input.input_mode,
                 request=request,
             ),
-            contribution=contribution_block,
-            attribution=attribution_block,
         )
 
     diagnostics_notes = list(net_artifacts.diagnostics.notes)
-    diagnostics_notes.extend(detail_notes)
     if benchmark_input is not None:
         diagnostics_notes.append(
             f"Benchmark summary uses {benchmark_input.input_mode.value} benchmark input with {benchmark_input.benchmark_request.return_source} returns."
-        )
-    if contribution_artifacts is not None and request.segmentation is not None:
-        diagnostics_notes.append(
-            "Workspace contribution summary enabled with shared segmentation: "
-            + ", ".join(request.segmentation.group_by)
-            + "."
-        )
-    if attribution_artifacts is not None and request.segmentation is not None:
-        benchmark_context = (
-            f" using benchmark {attribution_artifacts.resolved_benchmark_id}"
-            if attribution_artifacts.resolved_benchmark_id is not None
-            else ""
-        )
-        diagnostics_notes.append(
-            "Workspace attribution summary enabled with shared segmentation: "
-            + ", ".join(request.segmentation.group_by)
-            + benchmark_context
-            + "."
         )
 
     diagnostics = Diagnostics(
@@ -705,115 +642,9 @@ def _build_workspace_summary_response(
                 "portfolio_chunk_count": portfolio_input.source_details.get("portfolio_chunk_count", 0),
                 "portfolio_page_count": portfolio_input.source_details.get("portfolio_page_count", 0),
                 "benchmark_chunk_count": benchmark_input.source_details.get("chunk_count", 0) if benchmark_input else 0,
-                "workspace_detail_block_count": int(contribution_periods_emitted > 0)
-                + int(attribution_periods_emitted > 0),
-                "workspace_contribution_periods_emitted": contribution_periods_emitted,
-                "workspace_attribution_periods_emitted": attribution_periods_emitted,
-                "workspace_contribution_position_count": (
-                    contribution_artifacts.source_details.get("position_count", 0) if contribution_artifacts else 0
-                ),
-                "workspace_contribution_position_chunk_count": (
-                    contribution_artifacts.source_details.get("position_chunk_count", 0)
-                    if contribution_artifacts
-                    else 0
-                ),
-                "workspace_contribution_position_page_count": (
-                    contribution_artifacts.source_details.get("position_page_count", 0) if contribution_artifacts else 0
-                ),
-                "workspace_attribution_instrument_count": (
-                    attribution_artifacts.source_details.get("instrument_count", 0) if attribution_artifacts else 0
-                ),
-                "workspace_attribution_position_chunk_count": (
-                    attribution_artifacts.source_details.get("position_chunk_count", 0) if attribution_artifacts else 0
-                ),
-                "workspace_attribution_position_page_count": (
-                    attribution_artifacts.source_details.get("position_page_count", 0) if attribution_artifacts else 0
-                ),
-                "workspace_attribution_benchmark_chunk_count": (
-                    attribution_artifacts.source_details.get("benchmark_chunk_count", 0) if attribution_artifacts else 0
-                ),
-                "workspace_attribution_benchmark_page_count": (
-                    attribution_artifacts.source_details.get("benchmark_page_count", 0) if attribution_artifacts else 0
-                ),
-                "workspace_attribution_index_page_count": (
-                    attribution_artifacts.source_details.get("index_page_count", 0) if attribution_artifacts else 0
-                ),
             }
         ),
     )
-
-
-def _build_workspace_detail_artifacts(
-    *,
-    request: WorkspaceSummaryRequest,
-    settings: Settings,
-    master_start_date: date,
-) -> tuple[WorkspaceContributionArtifacts | None, WorkspaceAttributionArtifacts | None, list[str]]:
-    contribution_enabled = request.contribution is not None and request.segmentation is not None
-    attribution_enabled = request.attribution is not None and request.segmentation is not None
-    detail_notes: list[str] = []
-
-    if contribution_enabled and attribution_enabled:
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            contribution_future = executor.submit(
-                build_workspace_contribution_artifacts,
-                workspace_request=request,
-                settings=settings,
-                master_start_date=master_start_date,
-            )
-            attribution_future = executor.submit(
-                build_workspace_attribution_artifacts,
-                workspace_request=request,
-                settings=settings,
-                master_start_date=master_start_date,
-            )
-            contribution_artifacts = contribution_future.result()
-            attribution_artifacts, attribution_notes = _resolve_optional_workspace_attribution_artifacts(
-                attribution_future.result
-            )
-            detail_notes.extend(attribution_notes)
-            return contribution_artifacts, attribution_artifacts, detail_notes
-
-    contribution_artifacts = (
-        build_workspace_contribution_artifacts(
-            workspace_request=request,
-            settings=settings,
-            master_start_date=master_start_date,
-        )
-        if contribution_enabled
-        else None
-    )
-    attribution_artifacts = None
-    if attribution_enabled:
-        attribution_artifacts, attribution_notes = _resolve_optional_workspace_attribution_artifacts(
-            lambda: build_workspace_attribution_artifacts(
-                workspace_request=request,
-                settings=settings,
-                master_start_date=master_start_date,
-            )
-        )
-        detail_notes.extend(attribution_notes)
-    return contribution_artifacts, attribution_artifacts, detail_notes
-
-
-def _resolve_optional_workspace_attribution_artifacts(
-    resolver,
-) -> tuple[WorkspaceAttributionArtifacts | None, list[str]]:
-    try:
-        return resolver(), []
-    except HTTPException as exc:
-        if (
-            exc.status_code == 422
-            and isinstance(exc.detail, str)
-            and "cannot safely compute acquisition-day position returns" in exc.detail
-        ):
-            return (
-                None,
-                [
-                    "Workspace attribution summary is unavailable for this portfolio window because one or more sourced positions begin inside the requested range without usable acquisition-day cash-flow semantics."
-                ],
-            )
-        raise
 
 
 def _build_workspace_performance_block(

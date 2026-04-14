@@ -72,12 +72,6 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - stateful mode retrieves only the longest required portfolio window from lotus-core and preserves retrieval chunk counts in audit output
   - benchmark context remains explicit across stateless user-input and stateful lotus-core-linked modes
   - summary and breakdown blocks include beginning market value, ending market value, beginning-of-day cash flow, end-of-day cash flow, fees, net cash flow, and flow-adjusted end market value where those economics belong to the surface
-  - optional `contribution` and `attribution` workspace blocks now reuse one shared `segmentation.group_by` contract so both surfaces speak the same grouping vocabulary
-  - the optional contribution block preserves grouped contribution rows plus first-class `position_contributions`
-  - the optional attribution block reuses the canonical attribution result shape and preserves explicit `benchmark_context`
-  - lightweight contribution and attribution workspace blocks currently require `input_mode=stateful`
-  - audit now surfaces detail-block sourcing counts, including emitted detail-block periods, sourced position/instrument counts, and benchmark/index retrieval chunk counts for workspace attribution
-  - diagnostics now note when workspace contribution or attribution summaries were enabled and which shared segmentation contract was used
   - async accepted responses return:
     - `poll_path=/performance/executions/{calculation_id}`
     - `result_path=/performance/workspace-summary/results/{calculation_id}`
@@ -122,7 +116,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 }
 ```
 
-**Canonical example: stateful workspace summary with shared segmentation**
+**Canonical example: stateful workspace summary**
 
 ```json
 {
@@ -139,16 +133,6 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   "benchmark": {
     "input_mode": "stateful",
     "stateful_input": {}
-  },
-  "segmentation": {
-    "group_by": ["sector", "country"]
-  },
-  "contribution": {
-    "metric_basis": "NET",
-    "top_positions": 5
-  },
-  "attribution": {
-    "metric_basis": "NET"
   },
   "report_ccy": "USD",
   "currency_mode": "BASE_ONLY"
@@ -206,31 +190,12 @@ descriptions and examples are maintained in the generated OpenAPI contract.
       "cumulative_return": 3.27,
       "annualized_return": 3.27
     },
-      "contribution": {
-        "segmentation": ["sector", "country"],
-        "position_contributions": [
-          {
-            "position_id": "AAPL_US",
-            "contribution": 1.42,
-            "average_weight": 24.0,
-            "total_return": 5.92
-          }
-        ]
-      },
-      "attribution": {
-        "segmentation": ["sector", "country"],
-        "benchmark_context": {
-          "benchmark_id": "BMK_GLOBAL_60_40",
-          "return_source": "calculated"
-        }
-      }
     }
   },
   "audit": {
     "counts": {
-      "workspace_detail_block_count": 2,
-      "workspace_contribution_periods_emitted": 1,
-      "workspace_attribution_periods_emitted": 1
+      "portfolio_chunk_count": 3,
+      "benchmark_chunk_count": 2
     }
   }
 }
@@ -391,15 +356,11 @@ Return semantics for the workspace surface are now explicit rather than inferred
     - `options`
 - use `analytics_surfaces` when a downstream Lotus app needs the actual contract for a specific endpoint rather than only the coarse service-wide mode list
 - `workspace_summary` is now advertised as a first-class analytics surface in this contract, including:
-  - current stateful fences for optional contribution and attribution workspace blocks
   - multi-horizon period-family support
   - longest-window sourcing behavior
   - annualization surface semantics
 - async-capable surfaces now also advertise their canonical execution polling and endpoint-specific result path templates so downstream apps can discover the accepted-to-completed flow without reconstructing it from separate docs
-- `workspace_summary` now also advertises machine-readable request options for:
-  - benchmark mode support
-  - optional detail-block support
-  - supported shared segmentation dimensions
+- `workspace_summary` now also advertises machine-readable request options for benchmark mode support
 - canonical capability example payload:
   - `docs/examples/integration_capabilities_response.json`
 
@@ -418,23 +379,11 @@ Return semantics for the workspace surface are now explicit rather than inferred
       "supports_async": true,
       "poll_path_template": "/performance/executions/{calculation_id}",
       "result_path_template": "/performance/workspace-summary/results/{calculation_id}",
-      "stateful_restrictions": [
-        "workspace contribution and attribution summary blocks require input_mode=stateful",
-        "segmentation.group_by is required when workspace contribution or attribution blocks are requested",
-        "workspace attribution summary currently supports only lotus-core-linked stateful benchmark sourcing"
-      ],
+      "stateful_restrictions": [],
       "options": [
         {
           "key": "benchmark_mode",
           "supported_values": ["user_input_stateless", "linked_stateful"]
-        },
-        {
-          "key": "detail_blocks",
-          "supported_values": ["contribution", "attribution"]
-        },
-        {
-          "key": "segmentation.group_by",
-          "supported_values": ["asset_class", "sector", "country", "currency"]
         }
       ]
     }
