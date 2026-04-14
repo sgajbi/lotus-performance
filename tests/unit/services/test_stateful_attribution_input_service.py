@@ -580,9 +580,7 @@ def test_stateful_attribution_group_by_and_benchmark_validation_errors():
     with pytest.raises(HTTPException, match="Unsupported: issuer"):
         _validate_stateful_group_by(["issuer"])
 
-    assert _build_group_key(labels={"sector": ""}, group_by=["sector"], index_id="IDX_1") == (
-        ("sector", "unknown"),
-    )
+    assert _build_group_key(labels={"sector": ""}, group_by=["sector"], index_id="IDX_1") == (("sector", "unknown"),)
 
     with pytest.raises(HTTPException, match="missing classification labels"):
         _build_benchmark_groups(

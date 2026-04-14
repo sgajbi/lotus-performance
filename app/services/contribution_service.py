@@ -924,8 +924,7 @@ def calculate_contribution(
                 results_by_period[period.name] = SinglePeriodContributionResult(
                     total_portfolio_return=total_portfolio_return * 100,
                     total_contribution=sum(
-                        position_contribution.total_contribution
-                        for position_contribution in position_contributions
+                        position_contribution.total_contribution for position_contribution in position_contributions
                     ),
                     position_contributions=position_contributions,
                     summary=period_results.get("summary"),

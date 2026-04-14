@@ -474,7 +474,9 @@ def _build_group_key(
                 )
             normalized_value = _normalize_group_value(raw_value)
         else:
-            normalized_value = _normalize_group_value(raw_value) if isinstance(raw_value, str) and raw_value else "unknown"
+            normalized_value = (
+                _normalize_group_value(raw_value) if isinstance(raw_value, str) and raw_value else "unknown"
+            )
         key_parts.append((dimension, normalized_value))
     return tuple(key_parts)
 

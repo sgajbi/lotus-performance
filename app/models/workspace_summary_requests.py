@@ -136,6 +136,7 @@ class WorkspaceBenchmarkRequest(BaseModel):
                 raise ValueError("benchmark.stateless_input must be null when benchmark.input_mode=stateful")
         return self
 
+
 class WorkspaceSummaryRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", json_schema_extra={"examples": WORKSPACE_SUMMARY_REQUEST_EXAMPLES})
 

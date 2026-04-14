@@ -201,7 +201,9 @@ def test_enrich_openapi_schema_uses_contract_valid_twr_request_example():
                             }
                         }
                     },
-                    "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {"type": "object"}}}}},
+                    "responses": {
+                        "200": {"description": "ok", "content": {"application/json": {"schema": {"type": "object"}}}}
+                    },
                 }
             }
         },
