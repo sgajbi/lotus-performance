@@ -11,6 +11,9 @@ the runtime control plane and Prometheus collector, plus the public async execut
 read path, plus the stateful portfolio-retrieval orchestration path, plus calculated stateful
 benchmark normalization, plus PostgreSQL query-plan verification for the durable hot-path reads.
 
+For RFC-0082 retrieval-performance posture and the current transport decision, see
+[RFC-0082-retrieval-performance-hardening.md](RFC-0082-retrieval-performance-hardening.md).
+
 ## Governed workload
 
 - Workload type: single-portfolio daily TWR calculation
