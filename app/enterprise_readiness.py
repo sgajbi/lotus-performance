@@ -1,4 +1,3 @@
-# fmt: off
 import json
 import logging
 import os
@@ -281,4 +280,3 @@ def build_enterprise_audit_middleware() -> Callable[
         return response
 
     return middleware
-# fmt: on

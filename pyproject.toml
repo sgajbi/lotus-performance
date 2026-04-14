@@ -52,6 +52,9 @@ testpaths = ["tests"]
 line-length = 120
 target-version = "py311"
 
+[tool.ruff.format]
+exclude = ["app/enterprise_readiness.py"]
+
 [tool.ruff.lint]
 select = ["E", "F", "I"]
 ignore = ["E501"]
