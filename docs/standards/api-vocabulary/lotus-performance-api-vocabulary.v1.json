@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-04-07T09:14:52.705320+00:00",
+  "generatedAt": "2026-04-14T12:56:11.502138+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.account_reset_shadow_days",
@@ -351,22 +351,6 @@
       ],
       "observedTypes": [
         "integer"
-      ]
-    },
-    {
-      "semanticId": "lotus.attribution",
-      "canonicalTerm": "attribution",
-      "preferredName": "attribution",
-      "description": "Optional lightweight attribution summary block configuration.",
-      "example": {
-        "metric_basis": "NET"
-      },
-      "type": "object",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "object"
       ]
     },
     {
@@ -1053,23 +1037,6 @@
       ],
       "observedTypes": [
         "string"
-      ]
-    },
-    {
-      "semanticId": "lotus.contribution",
-      "canonicalTerm": "contribution",
-      "preferredName": "contribution",
-      "description": "Optional lightweight contribution summary block configuration.",
-      "example": {
-        "metric_basis": "NET",
-        "top_positions": 1
-      },
-      "type": "object",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "object"
       ]
     },
     {
@@ -4814,24 +4781,6 @@
       ]
     },
     {
-      "semanticId": "lotus.segmentation",
-      "canonicalTerm": "segmentation",
-      "preferredName": "segmentation",
-      "description": "Shared segmentation contract used when optional contribution or attribution workspace blocks are requested.",
-      "example": {
-        "group_by": [
-          "asset_class"
-        ]
-      },
-      "type": "object",
-      "locations": [
-        "body"
-      ],
-      "observedTypes": [
-        "object"
-      ]
-    },
-    {
       "semanticId": "lotus.series_selection",
       "canonicalTerm": "series_selection",
       "preferredName": "series_selection",
@@ -6504,30 +6453,6 @@
             "type": "object",
             "semanticId": "lotus.benchmark",
             "attributeRef": "#/attributeCatalog/lotus.benchmark"
-          },
-          {
-            "name": "segmentation",
-            "location": "body",
-            "required": false,
-            "type": "object",
-            "semanticId": "lotus.segmentation",
-            "attributeRef": "#/attributeCatalog/lotus.segmentation"
-          },
-          {
-            "name": "contribution",
-            "location": "body",
-            "required": false,
-            "type": "object",
-            "semanticId": "lotus.contribution",
-            "attributeRef": "#/attributeCatalog/lotus.contribution"
-          },
-          {
-            "name": "attribution",
-            "location": "body",
-            "required": false,
-            "type": "object",
-            "semanticId": "lotus.attribution",
-            "attributeRef": "#/attributeCatalog/lotus.attribution"
           },
           {
             "name": "mwr_method",
