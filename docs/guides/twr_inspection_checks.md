@@ -33,6 +33,7 @@ Primary artifacts:
 
 - `inspection_summary.json`
 - `findings.json`
+- `source_quality_summary.json` when source-quality checks run
 - `reconciliation_summary.json` when stateful reconciliation runs
 - `source_economics_summary.json` when stateful source-economics checks run
 
@@ -86,6 +87,7 @@ These findings are currently owned by `lotus-performance` because they evaluate 
 
 Primary evidence surfaces:
 
+- `source_quality_summary.json`
 - `inspection_summary.json`
 - `findings.json`
 
@@ -187,6 +189,15 @@ Bounded stale-series rule:
 - the current stale-series finding triggers only when at least three observations repeat the same `begin_mv`, `end_mv`, `bod_cf`, `eod_cf`, and `mgmt_fees`
 - the repeated run must also have zero cash-flow and fee activity
 - this is intentionally a stale-source signal, not a claim that flat economics are impossible
+
+### `source_quality_summary.json`
+
+Use for:
+
+- weekend date lists and counts
+- missing business-date lists and counts
+- stale-series run counts, run details, and observation counts
+- extreme daily move threshold and sampled dates
 
 ## Operator Notes
 

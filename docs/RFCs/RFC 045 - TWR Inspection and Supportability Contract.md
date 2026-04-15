@@ -657,7 +657,10 @@ Implementation status on 2026-04-15:
 2. the stale-series rule is intentionally narrow: it only triggers when at least three observations
    repeat the same begin or end valuation state with zero cash-flow and fee activity,
 3. source-quality evidence summaries now carry stale-run and stale-observation counts so support
-   can distinguish single-point oddities from repeated source stagnation.
+   can distinguish single-point oddities from repeated source stagnation,
+4. the inspection artifact contract now exposes `source_quality_summary.json` so operators and
+   automation can retrieve source-quality evidence directly instead of reconstructing it from the
+   top-level inspection summary.
 
 ### Slice 4: Reconciliation Checks
 

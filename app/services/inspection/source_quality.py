@@ -20,6 +20,7 @@ _STALE_SAMPLE_LIMIT = 10
 class SourceQualityCheckResult:
     findings: list[TWRInspectionFinding]
     evidence_summary: dict[str, object]
+    artifact_payload: dict[str, object]
 
 
 @dataclass(frozen=True)
@@ -58,6 +59,29 @@ def run_source_quality_checks(
     ]
 
     stale_observation_count = sum(run.observation_count for run in stale_runs)
+    artifact_payload = {
+        "valuation_point_count": len(valuation_points),
+        "weekend_observation_count": len(weekend_dates),
+        "weekend_dates": weekend_dates[:_STALE_SAMPLE_LIMIT],
+        "missing_business_date_count": len(missing_business_dates),
+        "missing_business_dates": missing_business_dates[:_STALE_SAMPLE_LIMIT],
+        "stale_series_run_count": len(stale_runs),
+        "stale_series_observation_count": stale_observation_count,
+        "stale_series_min_observations": _STALE_SERIES_MIN_OBSERVATIONS,
+        "stale_series_runs": [
+            {
+                "start_date": run.start_date,
+                "end_date": run.end_date,
+                "observation_count": run.observation_count,
+                "begin_mv": run.begin_mv,
+                "end_mv": run.end_mv,
+            }
+            for run in stale_runs[:_STALE_SAMPLE_LIMIT]
+        ],
+        "largest_abs_daily_move_pct": largest_abs_daily_move_pct,
+        "extreme_daily_move_threshold_pct": threshold,
+        "extreme_daily_moves": extreme_moves[:_STALE_SAMPLE_LIMIT],
+    }
     return SourceQualityCheckResult(
         findings=findings,
         evidence_summary={
@@ -68,6 +92,7 @@ def run_source_quality_checks(
             "stale_series_observation_count": stale_observation_count,
             "largest_abs_daily_move_pct": largest_abs_daily_move_pct,
         },
+        artifact_payload=artifact_payload,
     )
 
 

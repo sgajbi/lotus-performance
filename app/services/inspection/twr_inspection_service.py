@@ -105,6 +105,10 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
         source_quality_findings = source_quality_result.findings
         completed_check_families.extend(["source_quality", "economic_plausibility"])
         evidence_summary.update(source_quality_result.evidence_summary)
+        artifact_payloads["source_quality_summary.json"] = json.dumps(
+            source_quality_result.artifact_payload,
+            indent=2,
+        )
 
     reconciliation_findings = []
     if resolved_execution_request is not None and subject.portfolio_id is not None:
@@ -218,6 +222,15 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
                 f"/performance/inspections/{request.inspection_id}/artifacts/inspection_summary.json"
             ),
             "findings.json": f"/performance/inspections/{request.inspection_id}/artifacts/findings.json",
+            **(
+                {
+                    "source_quality_summary.json": (
+                        f"/performance/inspections/{request.inspection_id}/artifacts/source_quality_summary.json"
+                    )
+                }
+                if "source_quality_summary.json" in artifact_payloads
+                else {}
+            ),
             **(
                 {
                     "reconciliation_summary.json": (

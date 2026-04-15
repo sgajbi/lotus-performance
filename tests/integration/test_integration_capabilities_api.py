@@ -63,6 +63,7 @@ def test_integration_capabilities_default_contract():
         "deep_reconciliation",
     ]
     inspection_notes = " ".join(surfaces["twr_inspection"]["contract_notes"])
+    assert "source_quality_summary.json" in inspection_notes
     assert "reconciliation_summary.json" in inspection_notes
     assert "source_economics_summary.json" in inspection_notes
     assert "external cash-flow classification" in inspection_notes

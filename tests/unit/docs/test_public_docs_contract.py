@@ -408,6 +408,7 @@ def test_twr_inspection_checks_guide_lists_current_check_inventory():
     assert "POST /performance/inspections/twr" in guide
     assert "inspection_summary.json" in guide
     assert "findings.json" in guide
+    assert "source_quality_summary.json" in guide
     assert "reconciliation_summary.json" in guide
     assert "source_economics_summary.json" in guide
     assert "RELATIVE_PERFORMANCE_SUMMARY_MISMATCH" in guide

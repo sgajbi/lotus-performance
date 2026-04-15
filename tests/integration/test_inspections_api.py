@@ -95,6 +95,7 @@ def test_twr_inspection_request_subject_runs_through_async_runtime_and_artifacts
     assert "calculation_consistency" in body["check_coverage"]["pending_check_families"]
     assert body["evidence_summary"]["valuation_point_count"] == 1
     assert body["artifacts"]["inspection_summary.json"].endswith("/inspection_summary.json")
+    assert body["artifacts"]["source_quality_summary.json"].endswith("/source_quality_summary.json")
 
     assert drain_lineage_queue() >= 1
 
@@ -109,6 +110,12 @@ def test_twr_inspection_request_subject_runs_through_async_runtime_and_artifacts
     assert artifact.status_code == 200
     assert artifact.json()["inspection_id"] == inspection_id
     artifact.close()
+
+    source_quality_artifact = client.get(
+        f"/performance/inspections/{inspection_id}/artifacts/source_quality_summary.json"
+    )
+    assert source_quality_artifact.status_code == 200
+    assert source_quality_artifact.json()["valuation_point_count"] == 1
 
 
 def test_twr_inspection_existing_calculation_subject_links_back_to_twr_lineage(client):
@@ -620,6 +627,31 @@ def test_twr_inspection_flags_extreme_daily_move_for_request_subject(client):
     assert body["evidence_summary"]["stale_series_run_count"] == 1
     assert body["evidence_summary"]["stale_series_observation_count"] == 3
     assert body["evidence_summary"]["largest_abs_daily_move_pct"] >= 20.0
+    assert body["artifacts"]["source_quality_summary.json"].endswith("/source_quality_summary.json")
+
+    assert drain_lineage_queue() >= 1
+
+    source_quality_artifact = client.get(
+        f"/performance/inspections/{inspection_id}/artifacts/source_quality_summary.json"
+    )
+    assert source_quality_artifact.status_code == 200
+    source_quality_body = source_quality_artifact.json()
+    assert source_quality_body["weekend_dates"] == ["2026-01-03", "2026-01-04"]
+    assert source_quality_body["missing_business_dates"] == ["2026-01-05"]
+    assert source_quality_body["stale_series_run_count"] == 1
+    assert source_quality_body["stale_series_runs"] == [
+        {
+            "start_date": "2026-01-02",
+            "end_date": "2026-01-04",
+            "observation_count": 3,
+            "begin_mv": 1000.0,
+            "end_mv": 1000.0,
+        }
+    ]
+    assert source_quality_body["extreme_daily_move_threshold_pct"] == 10.0
+    assert len(source_quality_body["extreme_daily_moves"]) == 1
+    assert source_quality_body["extreme_daily_moves"][0]["perf_date"] == "2026-01-06"
+    assert source_quality_body["extreme_daily_moves"][0]["return_pct"] == pytest.approx(30.0)
 
 
 def test_twr_inspection_reports_failure_for_missing_twr_subject(client):
