@@ -175,6 +175,9 @@ is manager or strategy performance independent of deposits and withdrawals.
   - lotus-core portfolio and position timeseries are normalized into canonical contribution inputs inside lotus-performance
 
 Large position sets and long-window stateful contribution requests can be executor-offloaded and return `202 Accepted`.
+Contribution output is certified to keep period totals, position rows, optional daily series, optional
+by-position series, and optional hierarchy levels reconciled to the same period contribution figure.
+See [Contribution Endpoint Certification](docs/technical/contribution-endpoint-certification.md).
 
 ### Attribution
 

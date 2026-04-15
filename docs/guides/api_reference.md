@@ -270,9 +270,13 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - lotus-performance stamps source consumer identity server-side for the stateful envelope
   - position-level `average_weight` and grouped `weight_avg` are both emitted in percentage units
   - `position_contributions` remains the primary ranking surface for top/bottom contributor views
+  - optional `hierarchy` rows reconcile to the same residual-adjusted `total_contribution` as the position rows
+  - `emit.timeseries` and `emit.by_position_timeseries` return daily ladders that reconcile to `total_contribution`
+  - `emit.top_n_per_level`, `emit.threshold_weight`, `emit.include_other`, and `emit.include_unclassified` control hierarchy row shaping
 - execution mode:
   - synchronous for smaller stateless sets and smaller stateful windows
   - `202 Accepted` with `calculation_id`, `poll_path`, and `result_path` when offloaded to the compute executor
+- certification: `docs/technical/contribution-endpoint-certification.md`
 
 ### `GET /performance/contribution/results/{calculation_id}`
 

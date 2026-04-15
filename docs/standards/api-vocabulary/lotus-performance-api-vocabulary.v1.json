@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-04-15T08:28:35.316923+00:00",
+  "generatedAt": "2026-04-15T10:21:25.014286+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.account_reset_shadow_days",
@@ -555,10 +555,8 @@
       "semanticId": "lotus.bucketing",
       "canonicalTerm": "bucketing",
       "preferredName": "bucketing",
-      "description": "contribution analytics request field: bucketing.",
-      "example": {
-        "key": "value"
-      },
+      "description": "Optional future bucketing rules for hierarchy rows.",
+      "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [
         "body"
@@ -571,7 +569,7 @@
       "semanticId": "lotus.by_level",
       "canonicalTerm": "by_level",
       "preferredName": "by_level",
-      "description": "emit field: by level.",
+      "description": "Requests hierarchy-level output when hierarchy dimensions are supplied. For backward compatibility, hierarchy dimensions also imply level output.",
       "example": true,
       "type": "boolean",
       "locations": [
@@ -585,7 +583,7 @@
       "semanticId": "lotus.by_position_timeseries",
       "canonicalTerm": "by_position_timeseries",
       "preferredName": "by_position_timeseries",
-      "description": "emit field: by position timeseries.",
+      "description": "When true, emit residual-adjusted daily contribution series for each position. The summed position daily series reconciles to the period total contribution.",
       "example": true,
       "type": "boolean",
       "locations": [
@@ -1713,7 +1711,7 @@
       "semanticId": "lotus.fallback_policy",
       "canonicalTerm": "fallback_policy",
       "preferredName": "fallback_policy",
-      "description": "lookthrough field: fallback policy.",
+      "description": "Reserved fallback policy for future look-through decomposition gaps.",
       "example": "error",
       "type": "string",
       "locations": [
@@ -2046,10 +2044,8 @@
       "semanticId": "lotus.hierarchy",
       "canonicalTerm": "hierarchy",
       "preferredName": "hierarchy",
-      "description": "contribution analytics request field: hierarchy.",
-      "example": [
-        "example_hierarchy_item"
-      ],
+      "description": "Optional hierarchy dimensions such as asset_class, sector, country, currency, or position_id. When supplied, the response includes summary and level rows that reconcile to period contribution.",
+      "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [
         "body"
@@ -2090,7 +2086,7 @@
       "semanticId": "lotus.include_other",
       "canonicalTerm": "include_other",
       "preferredName": "include_other",
-      "description": "emit field: include other.",
+      "description": "Whether rows excluded by top_n_per_level or threshold_weight are rolled into an Other bucket.",
       "example": true,
       "type": "boolean",
       "locations": [
@@ -2146,7 +2142,7 @@
       "semanticId": "lotus.include_unclassified",
       "canonicalTerm": "include_unclassified",
       "preferredName": "include_unclassified",
-      "description": "emit field: include unclassified.",
+      "description": "Whether positions missing a requested hierarchy dimension are retained under an Unclassified bucket. When false, those rows are excluded from hierarchy rows.",
       "example": true,
       "type": "boolean",
       "locations": [
@@ -4539,7 +4535,7 @@
       "semanticId": "lotus.residual_per_position",
       "canonicalTerm": "residual_per_position",
       "preferredName": "residual_per_position",
-      "description": "emit field: residual per position.",
+      "description": "Reserved compatibility flag for older clients. Current contribution output always keeps position, daily, and hierarchy totals reconciled through the service's residual allocation policy.",
       "example": true,
       "type": "boolean",
       "locations": [
@@ -5565,8 +5561,8 @@
       "semanticId": "lotus.threshold_weight",
       "canonicalTerm": "threshold_weight",
       "preferredName": "threshold_weight",
-      "description": "emit field: threshold weight.",
-      "example": 0.1234,
+      "description": "Minimum average weight ratio for an explicit hierarchy row. Example: 0.005 means 0.5% average portfolio weight.",
+      "example": 0.1,
       "type": "number",
       "locations": [
         "body"
@@ -5579,7 +5575,7 @@
       "semanticId": "lotus.timeseries",
       "canonicalTerm": "timeseries",
       "preferredName": "timeseries",
-      "description": "emit field: timeseries.",
+      "description": "When true, emit the residual-adjusted daily total contribution series for each resolved period.",
       "example": true,
       "type": "boolean",
       "locations": [
@@ -5649,7 +5645,7 @@
       "semanticId": "lotus.top_n_per_level",
       "canonicalTerm": "top_n_per_level",
       "preferredName": "top_n_per_level",
-      "description": "emit field: top n per level.",
+      "description": "Maximum explicit rows to emit for each hierarchy level before excluded rows are rolled into an Other bucket when include_other is true.",
       "example": 1,
       "type": "integer",
       "locations": [

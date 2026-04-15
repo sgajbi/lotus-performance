@@ -44,6 +44,20 @@ Inside the current contract:
 
 Older examples using nested `daily_data` or request-level `period_type` are not current.
 
+Key `emit` controls:
+
+- `timeseries=true` returns the residual-adjusted daily total contribution ladder
+- `by_position_timeseries=true` returns residual-adjusted daily contribution ladders for each
+  position
+- `top_n_per_level` limits explicit hierarchy rows per level
+- `threshold_weight` rolls small hierarchy rows into `Other` when `include_other=true`
+- `include_unclassified=true` keeps rows with missing hierarchy metadata under `Unclassified`
+
+When `hierarchy` is supplied, hierarchy level output remains enabled for existing clients even if
+`emit.by_level` is omitted. The hierarchy rows are built from the same residual-adjusted daily
+position contribution series used for position output, so position rows, daily series, and hierarchy
+rows tell the same contribution story.
+
 ## Async execution
 
 Contribution can run synchronously or asynchronously.
@@ -464,6 +478,20 @@ When `hierarchy` is present:
 - `summary.portfolio_contribution` is the hierarchy-mode top-line contribution for that resolved period
 - `levels[]` contains the bottom-up rollup for that same resolved period
 - multi-period requests return separate hierarchy summaries for `MTD`, `YTD`, `ITD`, and so on, when those periods resolve
+
+Required reconciliation:
+
+- summed `position_contributions[].total_contribution` equals `total_contribution`
+- summed `timeseries[].total_contribution` equals `total_contribution` when daily totals are emitted
+- summed `by_position_timeseries[].series[].contribution` equals `total_contribution` when
+  by-position series are emitted
+- `summary.portfolio_contribution` equals `total_contribution` when hierarchy is requested
+- summed first-level `levels[].rows[].contribution` equals `total_contribution`
+- summed first-level `levels[].rows[].weight_avg` equals 100% when the requested visible scope covers
+  the full portfolio
+
+Endpoint certification details are maintained in
+[`docs/technical/contribution-endpoint-certification.md`](../technical/contribution-endpoint-certification.md).
 
 ## Example request
 

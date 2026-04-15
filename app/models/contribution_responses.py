@@ -230,6 +230,12 @@ class ContributionResponse(BaseModel):
 class ContributionAcceptedResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    calculation_id: UUID
-    poll_path: str
-    result_path: str
+    calculation_id: UUID = Field(description="Stable calculation handle for the asynchronous contribution request.")
+    poll_path: str = Field(
+        description="Execution status path to poll until the contribution calculation is complete.",
+        examples=["/performance/executions/2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e"],
+    )
+    result_path: str = Field(
+        description="Contribution result path to retrieve after the asynchronous calculation completes.",
+        examples=["/performance/contribution/results/2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e"],
+    )
