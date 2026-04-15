@@ -12,6 +12,9 @@ _EXTREME_MOVE_THRESHOLD_PCT = {
     TWRInspectionProfile.CANONICAL_VALIDATION: 10.0,
     TWRInspectionProfile.DEEP_RECONCILIATION: 12.5,
 }
+_CANONICAL_BALANCED_PORTFOLIO_IDS = frozenset({"PB_SG_GLOBAL_BAL_001"})
+_CANONICAL_BALANCED_DAILY_MOVE_THRESHOLD_PCT = 2.0
+_CANONICAL_BALANCED_MANDATE_PROFILE = "canonical_balanced_private_banking"
 _STALE_SERIES_MIN_OBSERVATIONS = 3
 _STALE_SAMPLE_LIMIT = 10
 
@@ -38,6 +41,12 @@ class DailyMoveInputsAssessment:
     invalid_capital_bases: list[dict[str, float | str]]
 
 
+@dataclass(frozen=True)
+class MandateDailyMoveProfile:
+    name: str
+    threshold_pct: float
+
+
 def run_source_quality_checks(
     *,
     performance_request: PerformanceRequest,
@@ -51,15 +60,25 @@ def run_source_quality_checks(
     daily_move_assessment = _assess_daily_move_inputs(valuation_points)
     daily_moves = daily_move_assessment.daily_moves
     invalid_capital_bases = daily_move_assessment.invalid_capital_bases
-    largest_abs_daily_move_pct = max((abs(move["return_pct"]) for move in daily_moves), default=0.0)
+    largest_abs_daily_move_pct = max((abs(float(move["return_pct"])) for move in daily_moves), default=0.0)
     threshold = _EXTREME_MOVE_THRESHOLD_PCT[inspection_profile]
-    extreme_moves = [move for move in daily_moves if abs(move["return_pct"]) >= threshold]
+    extreme_moves = [move for move in daily_moves if abs(float(move["return_pct"])) >= threshold]
+    mandate_profile = _resolve_mandate_daily_move_profile(performance_request.portfolio_id)
+    mandate_outliers = _find_mandate_daily_move_outliers(
+        daily_moves=daily_moves,
+        mandate_profile=mandate_profile,
+        extreme_threshold_pct=threshold,
+    )
 
     findings = [
         *_build_weekend_findings(weekend_dates),
         *_build_business_gap_findings(missing_business_dates),
         *_build_stale_series_findings(stale_runs),
         *_build_nonpositive_capital_base_findings(invalid_capital_bases),
+        *_build_mandate_daily_move_findings(
+            mandate_profile=mandate_profile,
+            mandate_outliers=mandate_outliers,
+        ),
         *_build_extreme_move_findings(
             inspection_profile=inspection_profile,
             threshold=threshold,
@@ -92,6 +111,10 @@ def run_source_quality_checks(
         "largest_abs_daily_move_pct": largest_abs_daily_move_pct,
         "extreme_daily_move_threshold_pct": threshold,
         "extreme_daily_moves": extreme_moves[:_STALE_SAMPLE_LIMIT],
+        "mandate_daily_move_profile": mandate_profile.name if mandate_profile else None,
+        "mandate_daily_move_threshold_pct": mandate_profile.threshold_pct if mandate_profile else None,
+        "mandate_daily_move_outlier_count": len(mandate_outliers),
+        "mandate_daily_move_outliers": mandate_outliers[:_STALE_SAMPLE_LIMIT],
     }
     return SourceQualityCheckResult(
         findings=findings,
@@ -103,6 +126,7 @@ def run_source_quality_checks(
             "stale_series_observation_count": stale_observation_count,
             "nonpositive_capital_base_count": len(invalid_capital_bases),
             "largest_abs_daily_move_pct": largest_abs_daily_move_pct,
+            "mandate_daily_move_outlier_count": len(mandate_outliers),
         },
         artifact_payload=artifact_payload,
     )
@@ -245,6 +269,59 @@ def _build_nonpositive_capital_base_findings(
             evidence={
                 "nonpositive_capital_base_count": len(invalid_capital_bases),
                 "invalid_capital_base_samples": invalid_capital_bases[:_STALE_SAMPLE_LIMIT],
+            },
+        )
+    ]
+
+
+def _resolve_mandate_daily_move_profile(portfolio_id: str) -> MandateDailyMoveProfile | None:
+    if portfolio_id not in _CANONICAL_BALANCED_PORTFOLIO_IDS:
+        return None
+    return MandateDailyMoveProfile(
+        name=_CANONICAL_BALANCED_MANDATE_PROFILE,
+        threshold_pct=_CANONICAL_BALANCED_DAILY_MOVE_THRESHOLD_PCT,
+    )
+
+
+def _find_mandate_daily_move_outliers(
+    *,
+    daily_moves: list[dict[str, float | str]],
+    mandate_profile: MandateDailyMoveProfile | None,
+    extreme_threshold_pct: float,
+) -> list[dict[str, float | str]]:
+    if mandate_profile is None:
+        return []
+    threshold_pct = mandate_profile.threshold_pct
+    return [move for move in daily_moves if threshold_pct <= abs(float(move["return_pct"])) < extreme_threshold_pct]
+
+
+def _build_mandate_daily_move_findings(
+    *,
+    mandate_profile: MandateDailyMoveProfile | None,
+    mandate_outliers: list[dict[str, float | str]],
+) -> list[TWRInspectionFinding]:
+    if mandate_profile is None or not mandate_outliers:
+        return []
+    return [
+        TWRInspectionFinding(
+            code="MANDATE_DAILY_MOVE_OUTLIER_DETECTED",
+            severity="warning",
+            category="economic_plausibility",
+            owner_repo="lotus-performance",
+            summary="Resolved source inputs imply daily moves outside the bounded mandate plausibility band.",
+            explanation=(
+                f"One or more daily moves exceed the {mandate_profile.threshold_pct:.2f}% warning threshold for "
+                f"{mandate_profile.name}, while remaining below the generic extreme-move threshold."
+            ),
+            recommended_action=(
+                "Review the valuation, fee, and external cash-flow story for the sampled dates before "
+                "using the result as canonical support evidence."
+            ),
+            evidence={
+                "mandate_profile": mandate_profile.name,
+                "threshold_pct": mandate_profile.threshold_pct,
+                "outlier_count": len(mandate_outliers),
+                "outliers": mandate_outliers[:_STALE_SAMPLE_LIMIT],
             },
         )
     ]

@@ -84,6 +84,7 @@ These findings are currently owned by `lotus-performance` because they evaluate 
 | `BUSINESS_DATE_GAPS_PRESENT` | business-day sequence has gaps between first and last observation | missing business dates and count |
 | `STALE_VALUATION_SERIES_DETECTED` | unchanged valuation state repeats across multiple observations with zero cash-flow and fee activity | stale run start/end dates, run length, repeated begin/end market values |
 | `NONPOSITIVE_DAILY_CAPITAL_BASE_DETECTED` | one or more observations have `begin_mv + bod_cf <= 0`, so daily move plausibility cannot be interpreted normally | affected dates, `begin_mv`, `bod_cf`, effective capital base |
+| `MANDATE_DAILY_MOVE_OUTLIER_DETECTED` | canonical balanced private-banking portfolio inputs have daily moves above the mandate warning band but below the generic extreme-move threshold | mandate profile, threshold percent, sampled outlier dates |
 | `EXTREME_DAILY_MOVE_DETECTED` | one or more daily moves exceed the profile threshold | threshold percent and sampled extreme dates |
 
 Primary evidence surfaces:
@@ -222,6 +223,13 @@ Bounded stale-series rule:
 - the repeated run must also have zero cash-flow and fee activity
 - this is intentionally a stale-source signal, not a claim that flat economics are impossible
 
+Bounded mandate move rule:
+
+- the current mandate-aware daily move rule is intentionally scoped to the governed canonical balanced portfolio `PB_SG_GLOBAL_BAL_001`
+- it warns when an inspected daily move is at least `2.00%` but below the active generic extreme-move threshold
+- moves at or above the generic threshold are handled by `EXTREME_DAILY_MOVE_DETECTED`, so support gets one clear severity signal instead of duplicate findings for the same date
+- the rule is a plausibility warning for canonical validation and support triage, not a statement that a balanced portfolio can never move by that amount
+
 ### `source_quality_summary.json`
 
 Use for:
@@ -230,6 +238,7 @@ Use for:
 - missing business-date lists and counts
 - stale-series run counts, run details, and observation counts
 - nonpositive daily capital-base counts and sampled dates
+- mandate daily move profile, warning threshold, and sampled mandate outlier dates
 - extreme daily move threshold and sampled dates
 
 ## Operator Notes

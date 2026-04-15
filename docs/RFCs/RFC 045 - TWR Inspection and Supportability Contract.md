@@ -663,7 +663,11 @@ Implementation status on 2026-04-15:
    top-level inspection summary,
 5. source-quality inspection now also emits a high-severity finding when resolved observations have
    a nonpositive daily capital base (`begin_mv + bod_cf <= 0`), because daily-move plausibility
-   can no longer be interpreted truthfully for those dates.
+   can no longer be interpreted truthfully for those dates,
+6. source-quality inspection now adds a bounded canonical balanced-mandate warning for
+   `PB_SG_GLOBAL_BAL_001` when a daily move is at least `2.00%` but still below the active generic
+   extreme-move threshold, keeping the mandate-aware rule scoped until broader mandate profiles are
+   governed.
 
 ### Slice 4: Reconciliation Checks
 

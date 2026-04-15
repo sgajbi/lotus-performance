@@ -416,6 +416,7 @@ def test_twr_inspection_checks_guide_lists_current_check_inventory():
     assert "WEEKEND_OBSERVATIONS_PRESENT" in guide
     assert "STALE_VALUATION_SERIES_DETECTED" in guide
     assert "NONPOSITIVE_DAILY_CAPITAL_BASE_DETECTED" in guide
+    assert "MANDATE_DAILY_MOVE_OUTLIER_DETECTED" in guide
     assert "EXTREME_DAILY_MOVE_DETECTED" in guide
     assert "MIXED_POSITION_EPOCH_SNAPSHOT" in guide
     assert "DUPLICATE_POSITION_SNAPSHOT_ROW_PRESENT" in guide
