@@ -636,6 +636,14 @@ Acceptance gate:
 2. verdict rules are deterministic,
 3. engine-local defects are not misrouted to `lotus-core`.
 
+Implementation status on 2026-04-15:
+
+1. relative summary and cumulative arithmetic checks compare portfolio minus benchmark against the served
+   relative-performance block,
+2. relative breakdown rows now require aligned period labels and start/end date windows across the
+   relative, portfolio, and benchmark blocks before row-level arithmetic is interpreted,
+3. portfolio and benchmark breakdown rows must geometrically link to the served summary return.
+
 ### Slice 3: Source Quality and Plausibility Checks
 
 Outcome:

@@ -65,6 +65,7 @@ These findings are owned by `lotus-performance` and point to served-response ari
 | `RELATIVE_PERFORMANCE_SUMMARY_MISMATCH` | relative summary return does not equal portfolio minus benchmark | expected vs actual return components |
 | `RELATIVE_PERFORMANCE_CUMULATIVE_MISMATCH` | cumulative relative return does not equal cumulative portfolio minus benchmark | expected vs actual cumulative components |
 | `RELATIVE_BREAKDOWN_CARDINALITY_MISMATCH` | relative breakdown rows do not line up with portfolio and benchmark rows | row counts by block |
+| `RELATIVE_BREAKDOWN_BUCKET_ALIGNMENT_MISMATCH` | relative, portfolio, and benchmark breakdown rows have the same count but different period labels or date windows | relative, portfolio, and benchmark bucket identities |
 | `RELATIVE_BREAKDOWN_PERIOD_MISMATCH` | relative breakdown period return does not equal portfolio minus benchmark for the same bucket | expected vs actual bucket values |
 | `RELATIVE_BREAKDOWN_CUMULATIVE_MISMATCH` | relative breakdown cumulative return does not equal portfolio minus benchmark for the same bucket | expected vs actual bucket values |
 | `PORTFOLIO_BREAKDOWN_LINK_MISMATCH` | portfolio breakdown buckets do not geometrically link to the served summary | linked return vs served summary |

@@ -5,7 +5,12 @@ from math import isclose
 from typing import Iterable
 
 from app.models.inspection_responses import TWRInspectionFinding
-from app.models.responses import ComparativeAnalyticsBlock, ComparativeBreakdownItem, ComparativeReturnValue, PerformanceResponse
+from app.models.responses import (
+    ComparativeAnalyticsBlock,
+    ComparativeBreakdownItem,
+    ComparativeReturnValue,
+    PerformanceResponse,
+)
 
 _ABS_TOLERANCE = 1e-6
 
@@ -129,6 +134,22 @@ def _check_relative_block(
             continue
         for relative_item, portfolio_item, benchmark_item in zip(relative_items, portfolio_items, benchmark_items):
             row_scope = f"breakdowns.{frequency.value}.{relative_item.period}"
+            alignment_mismatch = _find_breakdown_alignment_mismatch(
+                relative_item=relative_item,
+                portfolio_item=portfolio_item,
+                benchmark_item=benchmark_item,
+            )
+            if alignment_mismatch is not None:
+                findings.append(
+                    _build_finding(
+                        code="RELATIVE_BREAKDOWN_BUCKET_ALIGNMENT_MISMATCH",
+                        period_name=period_name,
+                        scope=row_scope,
+                        summary="Relative-performance breakdown rows do not align to portfolio and benchmark buckets.",
+                        evidence=alignment_mismatch,
+                    )
+                )
+                continue
             findings.extend(
                 _compare_return_values(
                     code="RELATIVE_BREAKDOWN_PERIOD_MISMATCH",
@@ -156,6 +177,32 @@ def _check_relative_block(
                     )
                 )
     return findings
+
+
+def _find_breakdown_alignment_mismatch(
+    *,
+    relative_item: ComparativeBreakdownItem,
+    portfolio_item: ComparativeBreakdownItem,
+    benchmark_item: ComparativeBreakdownItem,
+) -> dict[str, object] | None:
+    relative_bucket = _breakdown_bucket_identity(relative_item)
+    portfolio_bucket = _breakdown_bucket_identity(portfolio_item)
+    benchmark_bucket = _breakdown_bucket_identity(benchmark_item)
+    if relative_bucket == portfolio_bucket == benchmark_bucket:
+        return None
+    return {
+        "relative_bucket": relative_bucket,
+        "portfolio_bucket": portfolio_bucket,
+        "benchmark_bucket": benchmark_bucket,
+    }
+
+
+def _breakdown_bucket_identity(item: ComparativeBreakdownItem) -> dict[str, str]:
+    return {
+        "period": item.period,
+        "period_start": item.period_start.isoformat(),
+        "period_end": item.period_end.isoformat(),
+    }
 
 
 def _check_block_linking(
@@ -210,10 +257,14 @@ def _compare_return_values(
         actual_value = getattr(actual, component)
         if expected_value is None and actual_value is None:
             continue
-        if expected_value is None or actual_value is None or not isclose(
-            expected_value,
-            actual_value,
-            abs_tol=_ABS_TOLERANCE,
+        if (
+            expected_value is None
+            or actual_value is None
+            or not isclose(
+                expected_value,
+                actual_value,
+                abs_tol=_ABS_TOLERANCE,
+            )
         ):
             mismatches[component] = (expected_value, actual_value)
     if not mismatches:
@@ -226,8 +277,7 @@ def _compare_return_values(
             summary="Relative-performance arithmetic does not match portfolio minus benchmark.",
             evidence={
                 "mismatches": {
-                    component: {"expected": values[0], "actual": values[1]}
-                    for component, values in mismatches.items()
+                    component: {"expected": values[0], "actual": values[1]} for component, values in mismatches.items()
                 }
             },
         )
