@@ -94,6 +94,26 @@ def test_runtime_work_items_docs_reflect_certified_operator_contract():
     assert "No duplicate lotus-performance work-item endpoint" in certification
 
 
+def test_runtime_recoveries_docs_reflect_certified_operator_contract():
+    readme = _read("README.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    complete_reference = _read("docs/guides/complete_service_reference.md")
+    certification = _read("docs/technical/runtime-recoveries-endpoint-certification.md")
+
+    assert "technical/runtime-recoveries-endpoint-certification.md" in readme
+    assert "app.models.runtime_recoveries.RuntimeRecoveriesResponse" in api_reference
+    assert "certification evidence: `docs/technical/runtime-recoveries-endpoint-certification.md`" in api_reference
+    assert '"queue_filter": "both"' in complete_reference
+    assert '"recovered_after": "2026-03-29T02:00:00Z"' in complete_reference
+    assert '"compute_queue": {' in complete_reference
+    assert '"lineage_queue": {' in complete_reference
+    assert '"compute_recoveries": [' in complete_reference
+    assert '"lineage_recoveries": [' in complete_reference
+    assert "Downstream Consumers" in certification
+    assert "Test Pyramid Assessment" in certification
+    assert "No duplicate lotus-performance recovery-event endpoint" in certification
+
+
 def test_execution_polling_docs_reflect_certified_contract():
     readme = _read("README.md")
     api_reference = _read("docs/guides/api_reference.md")

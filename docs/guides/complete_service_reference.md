@@ -1168,32 +1168,70 @@ Certification evidence:
 
 Purpose:
 
-- inspect recent compute and lineage recovery events
+- inspect durable compute and lineage recovery events after runtime recovery activity
 
 Sample request:
 
 ```text
-GET /integration/runtime-recoveries?queue=both&limit=10
+GET /integration/runtime-recoveries?queue=both&limit=10&recovered_after=2026-03-29T02:00:00Z
 ```
 
 Sample response:
 
 ```json
 {
-  "queue": "both",
-  "compute": {
+  "contract_version": "v1",
+  "source_service": "lotus-performance",
+  "generated_at": "2026-03-29T02:05:30Z",
+  "queue_filter": "both",
+  "limit": 10,
+  "offset": 0,
+  "recovered_after": "2026-03-29T02:00:00Z",
+  "durable_metadata_store": {
+    "status": "ready"
+  },
+  "compute_queue": {
+    "status": "available",
+    "total_count": 1,
     "returned_count": 1,
-    "items": [
-      {
-        "calculation_id": "0d000003-1111-4222-8333-abcdefabcdef",
-        "analytics_type": "WORKSPACE_SUMMARY",
-        "recovery_kind": "lease_reclaimed",
-        "recovered_at": "2026-03-29T02:05:00Z"
-      }
-    ]
-  }
+    "next_cursor_recovered_before": "2026-03-29T02:05:00Z",
+    "next_cursor_calculation_id_before": "0d000003-1111-4222-8333-abcdefabcdef"
+  },
+  "lineage_queue": {
+    "status": "available",
+    "total_count": 1,
+    "returned_count": 1
+  },
+  "compute_recoveries": [
+    {
+      "calculation_id": "0d000003-1111-4222-8333-abcdefabcdef",
+      "execution_path": "/performance/executions/0d000003-1111-4222-8333-abcdefabcdef",
+      "lineage_path": "/performance/lineage/0d000003-1111-4222-8333-abcdefabcdef",
+      "result_path": "/performance/workspace-summary/results/0d000003-1111-4222-8333-abcdefabcdef",
+      "analytics_type": "WORKSPACE_SUMMARY",
+      "recovery_kind": "lease_reclaimed",
+      "recovered_at_utc": "2026-03-29T02:05:00Z",
+      "attempt_count": 1
+    }
+  ],
+  "lineage_recoveries": [
+    {
+      "calculation_id": "0d000004-1111-4222-8333-abcdefabcdef",
+      "execution_path": "/performance/executions/0d000004-1111-4222-8333-abcdefabcdef",
+      "lineage_path": "/performance/lineage/0d000004-1111-4222-8333-abcdefabcdef",
+      "result_path": "/performance/twr/results/0d000004-1111-4222-8333-abcdefabcdef",
+      "calculation_type": "TWR",
+      "recovery_kind": "retryable_materialization_failure",
+      "recovered_at_utc": "2026-03-29T02:04:00Z",
+      "attempt_count": 1
+    }
+  ]
 }
 ```
+
+Certification evidence:
+
+- `docs/technical/runtime-recoveries-endpoint-certification.md`
 
 ### `GET /integration/recovery-drills`
 

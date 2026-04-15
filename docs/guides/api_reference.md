@@ -637,6 +637,8 @@ Return semantics for the workspace surface are now explicit rather than inferred
 - use this when runtime-status shows recent recovery activity and you need the concrete event stream behind the bounded status snapshot without querying the database directly
 - `next_offset` is queue-local and only appears when additional filtered events remain for that queue
 - the cursor fields give deterministic seek pagination for hot recovery streams where offset paging may drift as new recoveries arrive
+- response model: `app.models.runtime_recoveries.RuntimeRecoveriesResponse`
+- certification evidence: `docs/technical/runtime-recoveries-endpoint-certification.md`
 
 ### `GET /integration/recovery-drills`
 
