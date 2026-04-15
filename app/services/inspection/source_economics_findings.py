@@ -14,6 +14,7 @@ def build_source_economics_findings(
     duplicate_external_signal_samples: list[dict[str, object]],
     external_source_mismatch_samples: list[dict[str, object]],
     external_timing_contradiction_samples: list[dict[str, object]],
+    conflicting_explicit_amount_samples: list[dict[str, object]],
     invalid_explicit_amount_samples: list[dict[str, object]],
     invalid_amount_samples: list[dict[str, object]],
     invalid_timing_samples: list[dict[str, object]],
@@ -179,6 +180,27 @@ def build_source_economics_findings(
                     "and detailed external cash-flow rows classify the movement in the same timing bucket."
                 ),
                 evidence=_sample_evidence(portfolio_id=portfolio_id, samples=external_timing_contradiction_samples),
+            )
+        )
+
+    if conflicting_explicit_amount_samples:
+        findings.append(
+            TWRInspectionFinding(
+                code="CONFLICTING_EXPLICIT_SOURCE_TOTAL_PRESENT",
+                severity="warning",
+                category="documentation_drift",
+                owner_repo="lotus-core",
+                summary="The stateful portfolio source serves conflicting explicit fee or cash-flow totals.",
+                explanation=(
+                    "The raw portfolio observation includes multiple explicit alias fields for the same source-total "
+                    "semantic, but those numeric values disagree. The inspector resolves one value for downstream "
+                    "comparison while preserving the contradiction as support evidence."
+                ),
+                recommended_action=(
+                    "Review lotus-core portfolio-timeseries alias fields and ensure equivalent explicit fee, bod "
+                    "cash-flow, and eod cash-flow totals reconcile when multiple fields are served."
+                ),
+                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=conflicting_explicit_amount_samples),
             )
         )
 

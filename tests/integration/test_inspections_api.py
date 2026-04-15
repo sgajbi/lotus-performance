@@ -232,6 +232,7 @@ def test_twr_inspection_runs_reconciliation_for_resolved_stateful_subject(client
                             "beginning_market_value": "1010.0",
                             "ending_market_value": "1020.1",
                             "bod_cashflow": "5000.0",
+                            "beginning_cash_flow": "4900.0",
                             "fees": "12.0",
                             "management_fees": "oops",
                             "ending_cash_flow": "bad",
@@ -332,6 +333,7 @@ def test_twr_inspection_runs_reconciliation_for_resolved_stateful_subject(client
         "POSITIVE_FEE_SOURCE_SIGNAL",
         "EXTERNAL_CASHFLOW_NORMALIZATION_MISMATCH",
         "DUPLICATE_EXTERNAL_CASHFLOW_SOURCE_SIGNAL",
+        "CONFLICTING_EXPLICIT_SOURCE_TOTAL_PRESENT",
         "INVALID_EXPLICIT_SOURCE_AMOUNT_PRESENT",
         "INVALID_CASHFLOW_AMOUNT_PRESENT",
         "INVALID_CASHFLOW_TIMING_PRESENT",
@@ -387,11 +389,27 @@ def test_twr_inspection_runs_reconciliation_for_resolved_stateful_subject(client
     assert source_economics_body["positive_fee_signal_count"] == 1
     assert source_economics_body["external_cashflow_date_count"] == 1
     assert source_economics_body["duplicate_external_cashflow_signal_count"] == 1
+    assert source_economics_body["conflicting_explicit_source_amount_date_count"] == 1
     assert source_economics_body["invalid_explicit_source_amount_date_count"] == 1
     assert source_economics_body["invalid_cashflow_amount_date_count"] == 1
     assert source_economics_body["invalid_cashflow_timing_date_count"] == 1
     assert source_economics_body["missing_cashflow_type_date_count"] == 1
     assert source_economics_body["noncanonical_cashflow_type_date_count"] == 1
+    assert source_economics_body["conflicting_explicit_source_amount_samples"] == [
+        {
+            "valuation_date": "2026-01-02",
+            "rows": [
+                {
+                    "field": "beginning_cash_flow",
+                    "semantic": "bod_cashflow_total",
+                    "raw_value": "4900.0",
+                    "resolved_field": "bod_cashflow",
+                    "resolved_value": 5000.0,
+                    "conflicting_value": 4900.0,
+                }
+            ],
+        }
+    ]
     assert source_economics_body["invalid_explicit_source_amount_samples"] == [
         {
             "valuation_date": "2026-01-02",

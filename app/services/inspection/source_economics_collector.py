@@ -20,6 +20,7 @@ class SourceEconomicsSamples:
     duplicate_external_signal_samples: list[dict[str, object]]
     external_source_mismatch_samples: list[dict[str, object]]
     external_timing_contradiction_samples: list[dict[str, object]]
+    conflicting_explicit_amount_samples: list[dict[str, object]]
     invalid_explicit_amount_samples: list[dict[str, object]]
     invalid_amount_samples: list[dict[str, object]]
     invalid_timing_samples: list[dict[str, object]]
@@ -39,6 +40,7 @@ class _SourceEconomicsSampleCollector:
     duplicate_external_signal_samples: list[dict[str, object]] = field(default_factory=list)
     external_source_mismatch_samples: list[dict[str, object]] = field(default_factory=list)
     external_timing_contradiction_samples: list[dict[str, object]] = field(default_factory=list)
+    conflicting_explicit_amount_samples: list[dict[str, object]] = field(default_factory=list)
     invalid_explicit_amount_samples: list[dict[str, object]] = field(default_factory=list)
     invalid_amount_samples: list[dict[str, object]] = field(default_factory=list)
     invalid_timing_samples: list[dict[str, object]] = field(default_factory=list)
@@ -62,6 +64,7 @@ class _SourceEconomicsSampleCollector:
             duplicate_external_signal_samples=self.duplicate_external_signal_samples,
             external_source_mismatch_samples=self.external_source_mismatch_samples,
             external_timing_contradiction_samples=self.external_timing_contradiction_samples,
+            conflicting_explicit_amount_samples=self.conflicting_explicit_amount_samples,
             invalid_explicit_amount_samples=self.invalid_explicit_amount_samples,
             invalid_amount_samples=self.invalid_amount_samples,
             invalid_timing_samples=self.invalid_timing_samples,
@@ -74,6 +77,13 @@ class _SourceEconomicsSampleCollector:
             self.fee_flow_dates.append(source_point.valuation_date)
         if source_point.detailed_external_bod != 0 or source_point.detailed_external_eod != 0:
             self.external_flow_dates.append(source_point.valuation_date)
+        if source_point.conflicting_explicit_amount_fields:
+            self.conflicting_explicit_amount_samples.append(
+                {
+                    "valuation_date": source_point.valuation_date,
+                    "rows": list(source_point.conflicting_explicit_amount_fields),
+                }
+            )
         if source_point.invalid_explicit_amount_fields:
             self.invalid_explicit_amount_samples.append(
                 {

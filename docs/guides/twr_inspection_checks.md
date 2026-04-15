@@ -129,6 +129,7 @@ These findings evaluate whether raw source cash and fee economics tie to the ser
 | `DUPLICATE_EXTERNAL_CASHFLOW_SOURCE_SIGNAL` | `lotus-core` | detailed external rows and explicit bod/eod aggregate repeat the same economics | explicit amount, detailed amount, timing |
 | `EXTERNAL_CASHFLOW_SOURCE_TOTAL_MISMATCH` | `lotus-core` | detailed external rows and explicit bod/eod aggregate disagree | explicit amount, detailed amount, timing |
 | `EXTERNAL_CASHFLOW_TIMING_BUCKET_CONTRADICTION` | `lotus-core` | explicit external cash-flow total is served in one timing bucket while detailed rows exist only in the opposite timing bucket | explicit timing, opposite detailed timing, sampled amounts |
+| `CONFLICTING_EXPLICIT_SOURCE_TOTAL_PRESENT` | `lotus-core` | raw source serves conflicting numeric alias fields for the same explicit fee or bod/eod total | valuation dates, alias field names, resolved and conflicting values |
 | `INVALID_EXPLICIT_SOURCE_AMOUNT_PRESENT` | `lotus-core` | raw source serves malformed explicit fee or bod/eod cash-flow totals | valuation dates, explicit field names, raw field values |
 | `INVALID_CASHFLOW_AMOUNT_PRESENT` | `lotus-core` | raw source serves one or more detailed cash-flow rows with unusable amount values | valuation dates, raw row amounts, row timings, row cash-flow types |
 | `INVALID_CASHFLOW_TIMING_PRESENT` | `lotus-core` | raw source serves one or more detailed cash-flow rows with unusable timing labels | valuation dates, row timings, row amounts, row cash-flow types |
@@ -181,6 +182,7 @@ Use for:
 - duplicate source-signal counts
 - source-total mismatch counts
 - timing-bucket contradiction counts
+- conflicting explicit-source amount date counts
 - invalid explicit-source amount date counts
 - invalid cash-flow amount date counts
 - invalid cash-flow timing date counts

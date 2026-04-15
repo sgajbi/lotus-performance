@@ -36,6 +36,7 @@ class ObservationSourceEconomics:
     explicit_bod_total: Decimal | None
     explicit_eod_total: Decimal | None
     explicit_fee_total: Decimal | None
+    conflicting_explicit_amount_fields: tuple[dict[str, object], ...]
     invalid_explicit_amount_fields: tuple[dict[str, object], ...]
     invalid_amount_rows: tuple[dict[str, object], ...]
     invalid_timing_rows: tuple[dict[str, object], ...]
@@ -114,6 +115,7 @@ def analyze_source_economics(
         duplicate_external_signal_samples=samples.duplicate_external_signal_samples,
         external_source_mismatch_samples=samples.external_source_mismatch_samples,
         external_timing_contradiction_samples=samples.external_timing_contradiction_samples,
+        conflicting_explicit_amount_samples=samples.conflicting_explicit_amount_samples,
         invalid_explicit_amount_samples=samples.invalid_explicit_amount_samples,
         invalid_amount_samples=samples.invalid_amount_samples,
         invalid_timing_samples=samples.invalid_timing_samples,
@@ -135,6 +137,7 @@ def analyze_source_economics(
             duplicate_external_signal_samples=samples.duplicate_external_signal_samples,
             external_source_mismatch_samples=samples.external_source_mismatch_samples,
             external_timing_contradiction_samples=samples.external_timing_contradiction_samples,
+            conflicting_explicit_amount_samples=samples.conflicting_explicit_amount_samples,
             invalid_explicit_amount_samples=samples.invalid_explicit_amount_samples,
             invalid_amount_samples=samples.invalid_amount_samples,
             invalid_timing_samples=samples.invalid_timing_samples,
@@ -154,6 +157,7 @@ def analyze_source_economics(
             duplicate_external_signal_samples=samples.duplicate_external_signal_samples,
             external_source_mismatch_samples=samples.external_source_mismatch_samples,
             external_timing_contradiction_samples=samples.external_timing_contradiction_samples,
+            conflicting_explicit_amount_samples=samples.conflicting_explicit_amount_samples,
             invalid_explicit_amount_samples=samples.invalid_explicit_amount_samples,
             invalid_amount_samples=samples.invalid_amount_samples,
             invalid_timing_samples=samples.invalid_timing_samples,
@@ -176,6 +180,7 @@ def _build_evidence_summary(
     duplicate_external_signal_samples: list[dict[str, object]],
     external_source_mismatch_samples: list[dict[str, object]],
     external_timing_contradiction_samples: list[dict[str, object]],
+    conflicting_explicit_amount_samples: list[dict[str, object]],
     invalid_explicit_amount_samples: list[dict[str, object]],
     invalid_amount_samples: list[dict[str, object]],
     invalid_timing_samples: list[dict[str, object]],
@@ -194,6 +199,7 @@ def _build_evidence_summary(
         "duplicate_external_cashflow_signal_count": len(duplicate_external_signal_samples),
         "external_cashflow_source_mismatch_count": len(external_source_mismatch_samples),
         "external_cashflow_timing_contradiction_count": len(external_timing_contradiction_samples),
+        "conflicting_explicit_source_amount_date_count": len(conflicting_explicit_amount_samples),
         "invalid_explicit_source_amount_date_count": len(invalid_explicit_amount_samples),
         "invalid_cashflow_amount_date_count": len(invalid_amount_samples),
         "invalid_cashflow_timing_date_count": len(invalid_timing_samples),
@@ -216,6 +222,7 @@ def _build_artifact_payload(
     duplicate_external_signal_samples: list[dict[str, object]],
     external_source_mismatch_samples: list[dict[str, object]],
     external_timing_contradiction_samples: list[dict[str, object]],
+    conflicting_explicit_amount_samples: list[dict[str, object]],
     invalid_explicit_amount_samples: list[dict[str, object]],
     invalid_amount_samples: list[dict[str, object]],
     invalid_timing_samples: list[dict[str, object]],
@@ -245,6 +252,8 @@ def _build_artifact_payload(
         "external_cashflow_source_mismatch_samples": external_source_mismatch_samples[:_SAMPLE_LIMIT],
         "external_cashflow_timing_contradiction_count": len(external_timing_contradiction_samples),
         "external_cashflow_timing_contradiction_samples": external_timing_contradiction_samples[:_SAMPLE_LIMIT],
+        "conflicting_explicit_source_amount_date_count": len(conflicting_explicit_amount_samples),
+        "conflicting_explicit_source_amount_samples": conflicting_explicit_amount_samples[:_SAMPLE_LIMIT],
         "invalid_explicit_source_amount_date_count": len(invalid_explicit_amount_samples),
         "invalid_explicit_source_amount_samples": invalid_explicit_amount_samples[:_SAMPLE_LIMIT],
         "invalid_cashflow_amount_date_count": len(invalid_amount_samples),
@@ -293,6 +302,7 @@ def _build_observation_source_economics(
             explicit_bod_total,
             explicit_eod_total,
             explicit_fee_total,
+            conflicting_explicit_amount_fields,
             invalid_explicit_amount_fields,
             invalid_amount_rows,
             invalid_timing_rows,
@@ -312,6 +322,7 @@ def _build_observation_source_economics(
                 explicit_bod_total=explicit_bod_total,
                 explicit_eod_total=explicit_eod_total,
                 explicit_fee_total=explicit_fee_total,
+                conflicting_explicit_amount_fields=conflicting_explicit_amount_fields,
                 invalid_explicit_amount_fields=invalid_explicit_amount_fields,
                 invalid_amount_rows=invalid_amount_rows,
                 invalid_timing_rows=invalid_timing_rows,
@@ -336,6 +347,7 @@ def _collect_observation_economics(
     tuple[dict[str, object], ...],
     tuple[dict[str, object], ...],
     tuple[dict[str, object], ...],
+    tuple[dict[str, object], ...],
     tuple[str, ...],
 ]:
     (
@@ -348,17 +360,17 @@ def _collect_observation_economics(
         missing_cashflow_type_rows,
         noncanonical_cashflow_types,
     ) = _sum_detailed_cash_flows(observation.get("cash_flows"))
-    explicit_bod_total, invalid_bod_fields = _read_explicit_decimal_fields(
+    explicit_bod_total, conflicting_bod_fields, invalid_bod_fields = _read_explicit_decimal_fields(
         observation,
         semantic="bod_cashflow_total",
         keys=("bod_cashflow", "beginning_cash_flow"),
     )
-    explicit_eod_total, invalid_eod_fields = _read_explicit_decimal_fields(
+    explicit_eod_total, conflicting_eod_fields, invalid_eod_fields = _read_explicit_decimal_fields(
         observation,
         semantic="eod_cashflow_total",
         keys=("eod_cashflow", "ending_cash_flow"),
     )
-    explicit_fee_total, invalid_fee_fields = _read_explicit_decimal_fields(
+    explicit_fee_total, conflicting_fee_fields, invalid_fee_fields = _read_explicit_decimal_fields(
         observation,
         semantic="fee_total",
         keys=("fees", "management_fees"),
@@ -371,6 +383,7 @@ def _collect_observation_economics(
         explicit_bod_total,
         explicit_eod_total,
         explicit_fee_total,
+        conflicting_bod_fields + conflicting_eod_fields + conflicting_fee_fields,
         invalid_bod_fields + invalid_eod_fields + invalid_fee_fields,
         invalid_amount_rows,
         invalid_timing_rows,
@@ -464,8 +477,10 @@ def _read_explicit_decimal_fields(
     *,
     semantic: str,
     keys: tuple[str, ...],
-) -> tuple[Decimal | None, tuple[dict[str, object], ...]]:
+) -> tuple[Decimal | None, tuple[dict[str, object], ...], tuple[dict[str, object], ...]]:
     decimal_value: Decimal | None = None
+    decimal_field: str | None = None
+    conflicting_fields: list[dict[str, object]] = []
     invalid_fields: list[dict[str, object]] = []
     for key in keys:
         raw_value = observation.get(key)
@@ -475,9 +490,25 @@ def _read_explicit_decimal_fields(
         if parsed_value is not None:
             if decimal_value is None:
                 decimal_value = parsed_value
+                decimal_field = key
+            elif not _decimals_match(decimal_value, parsed_value):
+                conflicting_fields.append(
+                    {
+                        "field": key,
+                        "semantic": semantic,
+                        "raw_value": raw_value,
+                        "resolved_field": decimal_field,
+                        "resolved_value": float(decimal_value),
+                        "conflicting_value": float(parsed_value),
+                    }
+                )
             continue
         invalid_fields.append({"field": key, "semantic": semantic, "raw_value": raw_value})
-    return decimal_value, tuple(invalid_fields)
+    return decimal_value, tuple(conflicting_fields), tuple(invalid_fields)
+
+
+def _decimals_match(left: Decimal, right: Decimal) -> bool:
+    return abs(left - right) <= Decimal("0.01")
 
 
 def _parse_decimal(raw_value: object) -> Decimal | None:
