@@ -654,6 +654,59 @@ def test_twr_inspection_flags_extreme_daily_move_for_request_subject(client):
     assert source_quality_body["extreme_daily_moves"][0]["return_pct"] == pytest.approx(30.0)
 
 
+def test_twr_inspection_flags_nonpositive_daily_capital_base_for_request_subject(client):
+    inspection_id = str(uuid4())
+    submit = client.post(
+        "/performance/inspections/twr",
+        json={
+            "inspection_id": inspection_id,
+            "subject_type": "twr_request",
+            "inspection_profile": "canonical_validation",
+            "request": {
+                "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+                "performance_start_date": "2026-01-08",
+                "metric_basis": "NET",
+                "report_end_date": "2026-01-09",
+                "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+                "valuation_points": [
+                    {"perf_date": "2026-01-08", "begin_mv": 1000.0, "end_mv": 1010.0},
+                    {"perf_date": "2026-01-09", "begin_mv": 100.0, "end_mv": 105.0, "bod_cf": -100.0},
+                ],
+            },
+        },
+    )
+    assert submit.status_code == 202
+
+    assert drain_compute_queue() >= 1
+
+    result = client.get(f"/performance/inspections/{inspection_id}")
+    assert result.status_code == 200
+    body = result.json()
+    assert body["verdict"] == "not_supportable"
+    assert {finding["code"] for finding in body["findings"]} == {
+        "NONPOSITIVE_DAILY_CAPITAL_BASE_DETECTED"
+    }
+    assert body["evidence_summary"]["nonpositive_capital_base_count"] == 1
+    assert body["evidence_summary"]["largest_abs_daily_move_pct"] == pytest.approx(1.0)
+
+    assert drain_lineage_queue() >= 1
+
+    source_quality_artifact = client.get(
+        f"/performance/inspections/{inspection_id}/artifacts/source_quality_summary.json"
+    )
+    assert source_quality_artifact.status_code == 200
+    source_quality_body = source_quality_artifact.json()
+    assert source_quality_body["nonpositive_capital_base_count"] == 1
+    assert source_quality_body["nonpositive_capital_base_samples"] == [
+        {
+            "perf_date": "2026-01-09",
+            "begin_mv": 100.0,
+            "bod_cf": -100.0,
+            "effective_capital_base": 0.0,
+        }
+    ]
+
+
 def test_twr_inspection_reports_failure_for_missing_twr_subject(client):
     inspection_id = str(uuid4())
     submit = client.post(

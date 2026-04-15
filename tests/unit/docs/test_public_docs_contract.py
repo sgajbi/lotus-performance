@@ -414,6 +414,7 @@ def test_twr_inspection_checks_guide_lists_current_check_inventory():
     assert "RELATIVE_PERFORMANCE_SUMMARY_MISMATCH" in guide
     assert "WEEKEND_OBSERVATIONS_PRESENT" in guide
     assert "STALE_VALUATION_SERIES_DETECTED" in guide
+    assert "NONPOSITIVE_DAILY_CAPITAL_BASE_DETECTED" in guide
     assert "EXTREME_DAILY_MOVE_DETECTED" in guide
     assert "MIXED_POSITION_EPOCH_SNAPSHOT" in guide
     assert "PORTFOLIO_POSITION_RECONCILIATION_GAP" in guide

@@ -32,6 +32,12 @@ class StaleSeriesRun:
     end_mv: float
 
 
+@dataclass(frozen=True)
+class DailyMoveInputsAssessment:
+    daily_moves: list[dict[str, float | str]]
+    invalid_capital_bases: list[dict[str, float | str]]
+
+
 def run_source_quality_checks(
     *,
     performance_request: PerformanceRequest,
@@ -42,7 +48,9 @@ def run_source_quality_checks(
     weekend_dates = _find_weekend_dates(valuation_points)
     missing_business_dates = _find_missing_business_dates(valuation_points)
     stale_runs = _find_stale_series_runs(valuation_points)
-    daily_moves = _calculate_daily_moves(valuation_points)
+    daily_move_assessment = _assess_daily_move_inputs(valuation_points)
+    daily_moves = daily_move_assessment.daily_moves
+    invalid_capital_bases = daily_move_assessment.invalid_capital_bases
     largest_abs_daily_move_pct = max((abs(move["return_pct"]) for move in daily_moves), default=0.0)
     threshold = _EXTREME_MOVE_THRESHOLD_PCT[inspection_profile]
     extreme_moves = [move for move in daily_moves if abs(move["return_pct"]) >= threshold]
@@ -51,6 +59,7 @@ def run_source_quality_checks(
         *_build_weekend_findings(weekend_dates),
         *_build_business_gap_findings(missing_business_dates),
         *_build_stale_series_findings(stale_runs),
+        *_build_nonpositive_capital_base_findings(invalid_capital_bases),
         *_build_extreme_move_findings(
             inspection_profile=inspection_profile,
             threshold=threshold,
@@ -78,6 +87,8 @@ def run_source_quality_checks(
             }
             for run in stale_runs[:_STALE_SAMPLE_LIMIT]
         ],
+        "nonpositive_capital_base_count": len(invalid_capital_bases),
+        "nonpositive_capital_base_samples": invalid_capital_bases[:_STALE_SAMPLE_LIMIT],
         "largest_abs_daily_move_pct": largest_abs_daily_move_pct,
         "extreme_daily_move_threshold_pct": threshold,
         "extreme_daily_moves": extreme_moves[:_STALE_SAMPLE_LIMIT],
@@ -90,6 +101,7 @@ def run_source_quality_checks(
             "missing_business_date_count": len(missing_business_dates),
             "stale_series_run_count": len(stale_runs),
             "stale_series_observation_count": stale_observation_count,
+            "nonpositive_capital_base_count": len(invalid_capital_bases),
             "largest_abs_daily_move_pct": largest_abs_daily_move_pct,
         },
         artifact_payload=artifact_payload,
@@ -210,6 +222,34 @@ def _build_stale_series_findings(stale_runs: list[StaleSeriesRun]) -> list[TWRIn
     ]
 
 
+def _build_nonpositive_capital_base_findings(
+    invalid_capital_bases: list[dict[str, float | str]],
+) -> list[TWRInspectionFinding]:
+    if not invalid_capital_bases:
+        return []
+    return [
+        TWRInspectionFinding(
+            code="NONPOSITIVE_DAILY_CAPITAL_BASE_DETECTED",
+            severity="high",
+            category="economic_plausibility",
+            owner_repo="lotus-performance",
+            summary="Resolved source inputs contain one or more observations with a nonpositive daily capital base.",
+            explanation=(
+                "For one or more observations, `begin_mv + bod_cf` is zero or negative. That makes the daily "
+                "capital base nonpositive, so the inspector cannot interpret daily move plausibility normally."
+            ),
+            recommended_action=(
+                "Review the resolved beginning market value and beginning cash-flow classification before "
+                "treating the TWR result as supportable."
+            ),
+            evidence={
+                "nonpositive_capital_base_count": len(invalid_capital_bases),
+                "invalid_capital_base_samples": invalid_capital_bases[:_STALE_SAMPLE_LIMIT],
+            },
+        )
+    ]
+
+
 def _build_extreme_move_findings(
     *,
     inspection_profile: TWRInspectionProfile,
@@ -241,16 +281,25 @@ def _build_extreme_move_findings(
     ]
 
 
-def _calculate_daily_moves(valuation_points: list[DailyInputData]) -> list[dict[str, float | str]]:
+def _assess_daily_move_inputs(valuation_points: list[DailyInputData]) -> DailyMoveInputsAssessment:
     moves: list[dict[str, float | str]] = []
+    invalid_capital_bases: list[dict[str, float | str]] = []
     for point in valuation_points:
         denominator = point.begin_mv + point.bod_cf
-        if denominator == 0:
+        if denominator <= 0:
+            invalid_capital_bases.append(
+                {
+                    "perf_date": point.perf_date.isoformat(),
+                    "begin_mv": point.begin_mv,
+                    "bod_cf": point.bod_cf,
+                    "effective_capital_base": denominator,
+                }
+            )
             continue
         numerator = point.end_mv - point.eod_cf - point.mgmt_fees
         return_pct = ((numerator / denominator) - 1.0) * 100.0
         moves.append({"perf_date": point.perf_date.isoformat(), "return_pct": return_pct})
-    return moves
+    return DailyMoveInputsAssessment(daily_moves=moves, invalid_capital_bases=invalid_capital_bases)
 
 
 def _find_missing_business_dates(valuation_points: list[DailyInputData]) -> list[str]:

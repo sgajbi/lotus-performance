@@ -660,7 +660,10 @@ Implementation status on 2026-04-15:
    can distinguish single-point oddities from repeated source stagnation,
 4. the inspection artifact contract now exposes `source_quality_summary.json` so operators and
    automation can retrieve source-quality evidence directly instead of reconstructing it from the
-   top-level inspection summary.
+   top-level inspection summary,
+5. source-quality inspection now also emits a high-severity finding when resolved observations have
+   a nonpositive daily capital base (`begin_mv + bod_cf <= 0`), because daily-move plausibility
+   can no longer be interpreted truthfully for those dates.
 
 ### Slice 4: Reconciliation Checks
 

@@ -1,5 +1,7 @@
 from datetime import date
 
+import pytest
+
 from app.models.inspection_requests import TWRInspectionProfile
 from app.models.requests import Analysis, DailyInputData, PerformanceRequest
 from app.services.inspection.source_quality import run_source_quality_checks
@@ -104,5 +106,37 @@ def test_run_source_quality_checks_combines_source_quality_signals_coherently():
         {
             "perf_date": "2026-04-07",
             "return_pct": 25.0,
+        }
+    ]
+
+
+def test_run_source_quality_checks_flags_nonpositive_daily_capital_base():
+    performance_request = PerformanceRequest(
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        performance_start_date=date(2026, 4, 9),
+        metric_basis="NET",
+        report_end_date=date(2026, 4, 10),
+        analyses=[Analysis(period="YTD", frequencies=["daily"])],
+        valuation_points=[
+            DailyInputData(perf_date=date(2026, 4, 9), begin_mv=1000.0, end_mv=1010.0),
+            DailyInputData(perf_date=date(2026, 4, 10), begin_mv=100.0, end_mv=105.0, bod_cf=-100.0),
+        ],
+    )
+
+    result = run_source_quality_checks(
+        performance_request=performance_request,
+        inspection_profile=TWRInspectionProfile.CANONICAL_VALIDATION,
+    )
+
+    assert {finding.code for finding in result.findings} == {"NONPOSITIVE_DAILY_CAPITAL_BASE_DETECTED"}
+    assert result.evidence_summary["nonpositive_capital_base_count"] == 1
+    assert result.evidence_summary["largest_abs_daily_move_pct"] == pytest.approx(1.0)
+    assert result.artifact_payload["nonpositive_capital_base_count"] == 1
+    assert result.artifact_payload["nonpositive_capital_base_samples"] == [
+        {
+            "perf_date": "2026-04-10",
+            "begin_mv": 100.0,
+            "bod_cf": -100.0,
+            "effective_capital_base": 0.0,
         }
     ]

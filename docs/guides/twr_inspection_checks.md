@@ -83,6 +83,7 @@ These findings are currently owned by `lotus-performance` because they evaluate 
 | `WEEKEND_OBSERVATIONS_PRESENT` | resolved valuation inputs include weekend dates | weekend date list and count |
 | `BUSINESS_DATE_GAPS_PRESENT` | business-day sequence has gaps between first and last observation | missing business dates and count |
 | `STALE_VALUATION_SERIES_DETECTED` | unchanged valuation state repeats across multiple observations with zero cash-flow and fee activity | stale run start/end dates, run length, repeated begin/end market values |
+| `NONPOSITIVE_DAILY_CAPITAL_BASE_DETECTED` | one or more observations have `begin_mv + bod_cf <= 0`, so daily move plausibility cannot be interpreted normally | affected dates, `begin_mv`, `bod_cf`, effective capital base |
 | `EXTREME_DAILY_MOVE_DETECTED` | one or more daily moves exceed the profile threshold | threshold percent and sampled extreme dates |
 
 Primary evidence surfaces:
@@ -197,6 +198,7 @@ Use for:
 - weekend date lists and counts
 - missing business-date lists and counts
 - stale-series run counts, run details, and observation counts
+- nonpositive daily capital-base counts and sampled dates
 - extreme daily move threshold and sampled dates
 
 ## Operator Notes
