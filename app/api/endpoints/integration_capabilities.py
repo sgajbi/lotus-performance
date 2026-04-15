@@ -306,7 +306,7 @@ async def get_integration_capabilities(
                 [
                     "supports inspection of an existing TWR calculation or a proposed TWR request payload",
                     "inspection profiles expose bounded support_triage, canonical_validation, and deep_reconciliation behavior",
-                    "artifact retrieval includes inspection_summary.json and findings.json, and reconciliation_summary.json when stateful reconciliation runs",
+                    "artifact retrieval includes inspection_summary.json and findings.json, plus reconciliation_summary.json and source_economics_summary.json when stateful source-economics checks run",
                 ]
                 if twr_enabled
                 else []

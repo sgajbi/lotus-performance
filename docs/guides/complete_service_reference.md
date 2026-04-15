@@ -207,6 +207,7 @@ Artifact route:
 - `GET /performance/inspections/{inspection_id}/artifacts/{artifact_name}`
 - base artifact set always includes `inspection_summary.json` and `findings.json`
 - `reconciliation_summary.json` is also emitted when stateful reconciliation runs
+- `source_economics_summary.json` is also emitted when raw stateful portfolio source-economics checks run
 
 ### `GET /performance/twr/results/{calculation_id}`
 

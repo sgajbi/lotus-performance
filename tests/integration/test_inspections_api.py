@@ -208,6 +208,31 @@ def test_twr_inspection_runs_reconciliation_for_resolved_stateful_subject(client
     )
 
     class _StatefulInputServiceStub:
+        async def get_portfolio_timeseries(self, **kwargs):  # noqa: ARG002
+            return (
+                200,
+                {
+                    "portfolio_open_date": "2025-12-31",
+                    "observations": [
+                        {
+                            "valuation_date": "2026-01-01",
+                            "beginning_market_value": "1000.0",
+                            "ending_market_value": "1010.0",
+                            "cash_flows": [],
+                        },
+                        {
+                            "valuation_date": "2026-01-02",
+                            "beginning_market_value": "1010.0",
+                            "ending_market_value": "1020.1",
+                            "fees": "-10.0",
+                            "cash_flows": [
+                                {"amount": "-10.0", "timing": "eod", "cash_flow_type": "fee"},
+                            ],
+                        },
+                    ],
+                },
+            )
+
         async def get_position_timeseries(self, **kwargs):  # noqa: ARG002
             return (
                 200,
@@ -251,6 +276,10 @@ def test_twr_inspection_runs_reconciliation_for_resolved_stateful_subject(client
         "app.services.inspection.reconciliation.build_stateful_input_service",
         lambda *, settings: _StatefulInputServiceStub(),
     )
+    monkeypatch.setattr(
+        "app.services.inspection.source_economics.build_stateful_input_service",
+        lambda *, settings: _StatefulInputServiceStub(),
+    )
 
     inspection_id = str(uuid4())
     submit = client.post(
@@ -276,14 +305,19 @@ def test_twr_inspection_runs_reconciliation_for_resolved_stateful_subject(client
         "source_quality",
         "economic_plausibility",
         "reconciliation",
+        "cashflow_classification",
     ]
     assert {finding["code"] for finding in body["findings"]} >= {
         "MIXED_POSITION_EPOCH_SNAPSHOT",
         "PORTFOLIO_POSITION_RECONCILIATION_GAP",
+        "FEE_CASHFLOW_CLASSIFICATION_NOT_PRESERVED",
+        "DUPLICATE_FEE_SOURCE_SIGNAL",
     }
     assert body["evidence_summary"]["mixed_epoch_date_count"] == 1
     assert body["evidence_summary"]["reconciliation_gap_date_count"] == 2
+    assert body["evidence_summary"]["fee_cashflow_date_count"] == 1
     assert body["artifacts"]["reconciliation_summary.json"].endswith("/reconciliation_summary.json")
+    assert body["artifacts"]["source_economics_summary.json"].endswith("/source_economics_summary.json")
 
     assert drain_lineage_queue() >= 1
 
@@ -294,6 +328,14 @@ def test_twr_inspection_runs_reconciliation_for_resolved_stateful_subject(client
     reconciliation_body = reconciliation_artifact.json()
     assert reconciliation_body["mixed_epoch_date_count"] == 1
     assert reconciliation_body["reconciliation_gap_date_count"] == 2
+
+    source_economics_artifact = client.get(
+        f"/performance/inspections/{inspection_id}/artifacts/source_economics_summary.json"
+    )
+    assert source_economics_artifact.status_code == 200
+    source_economics_body = source_economics_artifact.json()
+    assert source_economics_body["fee_cashflow_date_count"] == 1
+    assert source_economics_body["duplicate_fee_signal_count"] == 1
 
 
 def test_twr_inspection_flags_relative_arithmetic_mismatch_for_existing_calculation(client):

@@ -16,6 +16,7 @@ from app.services.execution_registry import execution_registry
 from app.services.inspection.artifact_service import enqueue_twr_inspection_artifacts
 from app.services.inspection.calculation_consistency import run_twr_calculation_consistency_checks
 from app.services.inspection.reconciliation import run_reconciliation_checks
+from app.services.inspection.source_economics import run_source_economics_checks
 from app.services.inspection.source_quality import run_source_quality_checks
 from app.services.inspection.subject_materialization import (
     extract_performance_request_from_payload,
@@ -29,6 +30,7 @@ _ALL_CHECK_FAMILIES = [
     "source_quality",
     "economic_plausibility",
     "reconciliation",
+    "cashflow_classification",
 ]
 
 
@@ -129,8 +131,37 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
             indent=2,
         )
 
+    source_economics_findings = []
+    if resolved_execution_request is not None and subject.portfolio_id is not None:
+        execution_registry.start_stage(request.inspection_id, "source_economics_assessment")
+        try:
+            source_economics_result = run_source_economics_checks(
+                performance_request=resolved_execution_request.portfolio,
+                portfolio_id=subject.portfolio_id,
+            )
+        except Exception as exc:
+            execution_registry.fail_stage(request.inspection_id, "source_economics_assessment", str(exc))
+            raise
+        execution_registry.complete_stage(
+            request.inspection_id,
+            "source_economics_assessment",
+            details=source_economics_result.evidence_summary,
+        )
+        source_economics_findings = source_economics_result.findings
+        completed_check_families.append("cashflow_classification")
+        evidence_summary.update(source_economics_result.evidence_summary)
+        artifact_payloads["source_economics_summary.json"] = json.dumps(
+            source_economics_result.artifact_payload,
+            indent=2,
+        )
+
     execution_registry.start_stage(request.inspection_id, "finding_synthesis")
-    findings = [*consistency_findings, *source_quality_findings, *reconciliation_findings]
+    findings = [
+        *consistency_findings,
+        *source_quality_findings,
+        *reconciliation_findings,
+        *source_economics_findings,
+    ]
     if not completed_check_families:
         findings.append(
             TWRInspectionFinding(
@@ -194,6 +225,15 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
                     )
                 }
                 if "reconciliation_summary.json" in artifact_payloads
+                else {}
+            ),
+            **(
+                {
+                    "source_economics_summary.json": (
+                        f"/performance/inspections/{request.inspection_id}/artifacts/source_economics_summary.json"
+                    )
+                }
+                if "source_economics_summary.json" in artifact_payloads
                 else {}
             ),
         },
