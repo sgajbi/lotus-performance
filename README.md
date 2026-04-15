@@ -284,6 +284,7 @@ make test-all
 ## Documentation map
 
 - [guides/twr.md](docs/guides/twr.md)
+- [technical/twr-endpoint-certification.md](docs/technical/twr-endpoint-certification.md)
 - [guides/mwr.md](docs/guides/mwr.md)
 - [guides/contribution.md](docs/guides/contribution.md)
 - [guides/attribution.md](docs/guides/attribution.md)

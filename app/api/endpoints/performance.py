@@ -305,7 +305,28 @@ async def get_workspace_summary_result(calculation_id: UUID) -> WorkspaceSummary
     )
 
 
-@router.post("/twr", response_model=PerformanceResponse | TWRAcceptedResponse, summary="Calculate Time-Weighted Return")
+@router.post(
+    "/twr",
+    response_model=PerformanceResponse | TWRAcceptedResponse,
+    summary="Calculate Time-Weighted Return",
+    description=(
+        "Calculates portfolio time-weighted return for stateless caller-supplied valuation "
+        "points or stateful lotus-core-sourced portfolio analytics inputs. Use this endpoint "
+        "for performance measurement where external cash flows must be neutralized and "
+        "investment performance must be geometrically linked across one or more requested "
+        "analysis periods. Smaller requests return the completed TWR response immediately; "
+        "large or long-window stateful requests can return 202 with poll_path and result_path."
+    ),
+    responses={
+        202: {
+            "model": TWRAcceptedResponse,
+            "description": (
+                "Accepted for asynchronous TWR execution. Poll poll_path for execution status "
+                "or result_path for the completed TWR response."
+            ),
+        }
+    },
+)
 async def calculate_twr_endpoint(request: TWRAnalyticsRequest) -> PerformanceResponse | JSONResponse:
     """
     Calculates time-weighted return (TWR) for one or more requested periods
@@ -468,6 +489,20 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest) -> PerformanceRes
     "/twr/results/{calculation_id}",
     response_model=PerformanceResponse | TWRAcceptedResponse,
     summary="Retrieve async TWR result",
+    description=(
+        "Retrieves the result for a TWR request that previously returned 202 Accepted. "
+        "Returns the completed PerformanceResponse when execution is complete, or the "
+        "accepted envelope while the durable calculation is still pending."
+    ),
+    responses={
+        202: {
+            "model": TWRAcceptedResponse,
+            "description": "The async TWR calculation is still pending.",
+        },
+        404: {
+            "description": "No async TWR result exists for the supplied calculation_id.",
+        },
+    },
 )
 async def get_twr_result(calculation_id: UUID) -> PerformanceResponse | JSONResponse:
     return resolve_async_result(

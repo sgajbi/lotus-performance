@@ -37,6 +37,13 @@ def _inspection_storage_path(*, inspection_id: UUID, artifact_name: str | None =
     "/inspections/twr",
     response_model=TWRInspectionAcceptedResponse,
     summary="Submit a durable TWR supportability inspection",
+    description=(
+        "Submits a durable supportability inspection for an existing TWR calculation or a "
+        "proposed TWR request. Use this triage endpoint when TWR numbers are not "
+        "explainable from the headline result alone and support teams need source-quality, "
+        "source-economics, reconciliation, and calculation-consistency findings without "
+        "changing the normal TWR calculation contract."
+    ),
     status_code=status.HTTP_202_ACCEPTED,
 )
 def submit_twr_inspection(request: TWRInspectionRequest):
@@ -69,6 +76,19 @@ def submit_twr_inspection(request: TWRInspectionRequest):
     "/inspections/{inspection_id}",
     response_model=TWRInspectionResponse | TWRInspectionAcceptedResponse,
     summary="Retrieve durable TWR inspection status or result",
+    description=(
+        "Retrieves the durable TWR inspection result when complete, or the accepted envelope "
+        "while the supportability inspection is still queued or running."
+    ),
+    responses={
+        202: {
+            "model": TWRInspectionAcceptedResponse,
+            "description": "The TWR supportability inspection is still pending.",
+        },
+        404: {
+            "description": "No durable TWR inspection result exists for the supplied inspection_id.",
+        },
+    },
 )
 def get_twr_inspection(inspection_id: UUID):
     return resolve_async_result(

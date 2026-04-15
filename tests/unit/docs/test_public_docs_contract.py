@@ -38,6 +38,7 @@ def test_user_guide_documents_async_execution_surfaces():
 
 def test_twr_guide_uses_current_request_shape():
     guide = _read("docs/guides/twr.md")
+    certification = _read("docs/technical/twr-endpoint-certification.md")
 
     assert "analyses" in guide
     assert "valuation_points" in guide
@@ -55,6 +56,11 @@ def test_twr_guide_uses_current_request_shape():
     assert "Older examples using `period_type`" in guide
     assert "`daily_data` are not current" in guide
     assert "stateful_input.consumer_system" not in guide
+    assert "Downstream Consumers" in certification
+    assert "`lotus-gateway`" in certification
+    assert "`lotus-risk`" in certification
+    assert "Test Pyramid Assessment" in certification
+    assert "long-window results are not front-office safe" in certification
 
 
 def test_benchmark_guide_uses_current_request_shape():
@@ -401,6 +407,7 @@ def test_complete_service_reference_covers_endpoint_surface_and_config_inventory
     assert "docs/examples/integration_capabilities_response.json" in guide
     assert "twr_inspection_checks.md" in guide
     assert "guides/complete_service_reference.md" in readme
+    assert "docs/technical/twr-endpoint-certification.md" in readme
 
 
 def test_twr_inspection_checks_guide_lists_current_check_inventory():
