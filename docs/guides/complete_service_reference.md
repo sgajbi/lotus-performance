@@ -208,6 +208,7 @@ Artifact route:
 - base artifact set always includes `inspection_summary.json` and `findings.json`
 - `reconciliation_summary.json` is also emitted when stateful reconciliation runs
 - `source_economics_summary.json` is also emitted when raw stateful portfolio source-economics checks run
+- current source-economics checks cover fee and external cash-flow classification loss, duplicate raw source signals, and explicit source-total mismatches
 
 ### `GET /performance/twr/results/{calculation_id}`
 

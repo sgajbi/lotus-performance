@@ -65,6 +65,7 @@ def test_integration_capabilities_default_contract():
     inspection_notes = " ".join(surfaces["twr_inspection"]["contract_notes"])
     assert "reconciliation_summary.json" in inspection_notes
     assert "source_economics_summary.json" in inspection_notes
+    assert "external cash-flow classification" in inspection_notes
     assert surfaces["benchmark"]["path"] == "/performance/benchmark"
     assert surfaces["benchmark"]["supported_input_modes"] == ["stateful", "stateless"]
     assert surfaces["benchmark"]["supports_async"] is True

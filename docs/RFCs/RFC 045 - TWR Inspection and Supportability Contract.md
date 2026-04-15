@@ -698,8 +698,10 @@ Implementation status on 2026-04-15:
    reconciliation runs, so automation can consume structured reconciliation evidence directly,
 3. the inspection artifact contract now also exposes `source_economics_summary.json` when raw
    stateful portfolio-source economics checks run,
-4. the public service reference now documents the bounded inspection controls and artifact set,
-5. a deeper platform-owned canonical validator can now consume the same contract instead of relying
+4. raw source-economics inspection now covers both fee and external cash-flow classification,
+   duplicate source signals, and explicit source-total mismatches,
+5. the public service reference now documents the bounded inspection controls and artifact set,
+6. a deeper platform-owned canonical validator can now consume the same contract instead of relying
    on ad hoc parsing or a bespoke parallel script.
 
 ## Validation and Evidence Strategy
