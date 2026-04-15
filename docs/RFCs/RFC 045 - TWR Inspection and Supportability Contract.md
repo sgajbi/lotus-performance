@@ -1,6 +1,6 @@
 # RFC 045 - TWR Inspection and Supportability Contract
 
-- Status: Proposed
+- Status: Implemented
 - Date: 2026-04-15
 - Owners: Performance Analytics Service
 - Requires Approval From:
@@ -37,6 +37,27 @@ The new contract should introduce:
 This RFC does not widen the mathematical scope of the TWR engine. It defines how
 `lotus-performance` should inspect, explain, and operationally qualify TWR results without
 overloading `POST /performance/twr`.
+
+## Implementation Status
+
+Implemented in `lotus-performance` on 2026-04-15.
+
+Current implementation includes:
+
+1. `POST /performance/inspections/twr`,
+2. `GET /performance/inspections/{inspection_id}`,
+3. `GET /performance/inspections/{inspection_id}/artifacts/{artifact_name}`,
+4. durable async execution through the RFC-041 runtime family `TWR_INSPECTION`,
+5. calculation-consistency, source-quality, economic-plausibility, reconciliation, and
+   cash-flow classification check families,
+6. typed findings with owner routing,
+7. `inspection_summary.json`, `findings.json`, `source_quality_summary.json`,
+   `reconciliation_summary.json`, and `source_economics_summary.json` artifacts,
+8. canonical live validation through `scripts/validate_canonical_twr_inspection.py`.
+
+The current canonical live validator permits `WEEKEND_OBSERVATIONS_PRESENT` because the governed
+source currently serves weekend observations for `PB_SG_GLOBAL_BAL_001`. That is retained as a
+source-quality policy signal, not treated as an RFC implementation gap.
 
 ## Why This Is Next
 
