@@ -7,12 +7,12 @@ from decimal import Decimal, InvalidOperation
 from app.core.config import Settings, get_settings
 from app.models.inspection_responses import TWRInspectionFinding
 from app.models.requests import PerformanceRequest
+from app.services.inspection.source_cashflow_taxonomy import classify_cashflow_type
 from app.services.inspection.source_economics_collector import collect_source_economics_samples
 from app.services.inspection.source_economics_findings import build_source_economics_findings
 from app.services.portfolio_source_service import build_stateful_input_service
 
 _INSPECTOR_CONSUMER_SYSTEM = "lotus-performance-inspector"
-_CANONICAL_CASHFLOW_TYPES = {"fee", "external_flow"}
 _SAMPLE_LIMIT = 25
 
 
@@ -42,6 +42,8 @@ class ObservationSourceEconomics:
     invalid_timing_rows: tuple[dict[str, object], ...]
     missing_cashflow_type_rows: tuple[dict[str, object], ...]
     noncanonical_cashflow_types: tuple[str, ...]
+    unsupported_cashflow_type_rows: tuple[dict[str, object], ...]
+    governed_alias_cashflow_type_rows: tuple[dict[str, object], ...]
 
 
 def run_source_economics_checks(
@@ -60,7 +62,7 @@ def run_source_economics_checks(
     return analyze_source_economics(
         performance_request=performance_request,
         portfolio_id=portfolio_id,
-        observations=portfolio_payload.get("observations", []),
+        observations=_observations_from_payload(portfolio_payload),
     )
 
 
@@ -121,6 +123,8 @@ def analyze_source_economics(
         invalid_timing_samples=samples.invalid_timing_samples,
         missing_cashflow_type_samples=samples.missing_cashflow_type_samples,
         noncanonical_cashflow_type_samples=samples.noncanonical_cashflow_type_samples,
+        unsupported_cashflow_type_samples=samples.unsupported_cashflow_type_samples,
+        governed_alias_cashflow_type_samples=samples.governed_alias_cashflow_type_samples,
     )
 
     return SourceEconomicsCheckResult(
@@ -143,6 +147,8 @@ def analyze_source_economics(
             invalid_timing_samples=samples.invalid_timing_samples,
             missing_cashflow_type_samples=samples.missing_cashflow_type_samples,
             noncanonical_cashflow_type_samples=samples.noncanonical_cashflow_type_samples,
+            unsupported_cashflow_type_samples=samples.unsupported_cashflow_type_samples,
+            governed_alias_cashflow_type_samples=samples.governed_alias_cashflow_type_samples,
         ),
         artifact_payload=_build_artifact_payload(
             portfolio_id=portfolio_id,
@@ -163,6 +169,8 @@ def analyze_source_economics(
             invalid_timing_samples=samples.invalid_timing_samples,
             missing_cashflow_type_samples=samples.missing_cashflow_type_samples,
             noncanonical_cashflow_type_samples=samples.noncanonical_cashflow_type_samples,
+            unsupported_cashflow_type_samples=samples.unsupported_cashflow_type_samples,
+            governed_alias_cashflow_type_samples=samples.governed_alias_cashflow_type_samples,
         ),
     )
 
@@ -186,6 +194,8 @@ def _build_evidence_summary(
     invalid_timing_samples: list[dict[str, object]],
     missing_cashflow_type_samples: list[dict[str, object]],
     noncanonical_cashflow_type_samples: list[dict[str, object]],
+    unsupported_cashflow_type_samples: list[dict[str, object]],
+    governed_alias_cashflow_type_samples: list[dict[str, object]],
 ) -> dict[str, object]:
     return {
         "portfolio_observation_count": len(observations),
@@ -205,6 +215,8 @@ def _build_evidence_summary(
         "invalid_cashflow_timing_date_count": len(invalid_timing_samples),
         "missing_cashflow_type_date_count": len(missing_cashflow_type_samples),
         "noncanonical_cashflow_type_date_count": len(noncanonical_cashflow_type_samples),
+        "unsupported_cashflow_type_date_count": len(unsupported_cashflow_type_samples),
+        "governed_alias_cashflow_type_date_count": len(governed_alias_cashflow_type_samples),
     }
 
 
@@ -228,6 +240,8 @@ def _build_artifact_payload(
     invalid_timing_samples: list[dict[str, object]],
     missing_cashflow_type_samples: list[dict[str, object]],
     noncanonical_cashflow_type_samples: list[dict[str, object]],
+    unsupported_cashflow_type_samples: list[dict[str, object]],
+    governed_alias_cashflow_type_samples: list[dict[str, object]],
 ) -> dict[str, object]:
     return {
         "portfolio_id": portfolio_id,
@@ -265,19 +279,34 @@ def _build_artifact_payload(
         "noncanonical_cashflow_type_date_count": len(noncanonical_cashflow_type_samples),
         "noncanonical_cashflow_type_samples": noncanonical_cashflow_type_samples[:_SAMPLE_LIMIT],
         "noncanonical_cashflow_types": _collect_noncanonical_cashflow_types(noncanonical_cashflow_type_samples),
+        "unsupported_cashflow_type_date_count": len(unsupported_cashflow_type_samples),
+        "unsupported_cashflow_type_samples": unsupported_cashflow_type_samples[:_SAMPLE_LIMIT],
+        "unsupported_cashflow_types": _collect_noncanonical_cashflow_types(unsupported_cashflow_type_samples),
+        "governed_alias_cashflow_type_date_count": len(governed_alias_cashflow_type_samples),
+        "governed_alias_cashflow_type_samples": governed_alias_cashflow_type_samples[:_SAMPLE_LIMIT],
+        "governed_alias_cashflow_types": _collect_noncanonical_cashflow_types(governed_alias_cashflow_type_samples),
     }
 
 
 def _collect_noncanonical_cashflow_types(
     noncanonical_cashflow_type_samples: list[dict[str, object]],
 ) -> list[str]:
-    return sorted(
-        {
-            cash_flow_type
-            for sample in noncanonical_cashflow_type_samples
-            for cash_flow_type in sample["cash_flow_types"]
-        }
-    )
+    cashflow_types: set[str] = set()
+    for sample in noncanonical_cashflow_type_samples:
+        sample_cashflow_types = sample.get("cash_flow_types")
+        if not isinstance(sample_cashflow_types, list):
+            continue
+        cashflow_types.update(
+            cash_flow_type for cash_flow_type in sample_cashflow_types if isinstance(cash_flow_type, str)
+        )
+    return sorted(cashflow_types)
+
+
+def _observations_from_payload(portfolio_payload: dict[str, object]) -> list[dict[str, object]]:
+    observations = portfolio_payload.get("observations", [])
+    if not isinstance(observations, list):
+        return []
+    return [observation for observation in observations if isinstance(observation, dict)]
 
 
 def _build_observation_source_economics(
@@ -308,6 +337,8 @@ def _build_observation_source_economics(
             invalid_timing_rows,
             missing_cashflow_type_rows,
             noncanonical_cashflow_types,
+            unsupported_cashflow_type_rows,
+            governed_alias_cashflow_type_rows,
         ) = _collect_observation_economics(observation)
         source_points.append(
             ObservationSourceEconomics(
@@ -328,6 +359,8 @@ def _build_observation_source_economics(
                 invalid_timing_rows=invalid_timing_rows,
                 missing_cashflow_type_rows=missing_cashflow_type_rows,
                 noncanonical_cashflow_types=noncanonical_cashflow_types,
+                unsupported_cashflow_type_rows=unsupported_cashflow_type_rows,
+                governed_alias_cashflow_type_rows=governed_alias_cashflow_type_rows,
             )
         )
     return source_points
@@ -349,6 +382,8 @@ def _collect_observation_economics(
     tuple[dict[str, object], ...],
     tuple[dict[str, object], ...],
     tuple[str, ...],
+    tuple[dict[str, object], ...],
+    tuple[dict[str, object], ...],
 ]:
     (
         detailed_external_bod,
@@ -359,6 +394,8 @@ def _collect_observation_economics(
         invalid_timing_rows,
         missing_cashflow_type_rows,
         noncanonical_cashflow_types,
+        unsupported_cashflow_type_rows,
+        governed_alias_cashflow_type_rows,
     ) = _sum_detailed_cash_flows(observation.get("cash_flows"))
     explicit_bod_total, conflicting_bod_fields, invalid_bod_fields = _read_explicit_decimal_fields(
         observation,
@@ -389,6 +426,8 @@ def _collect_observation_economics(
         invalid_timing_rows,
         missing_cashflow_type_rows,
         noncanonical_cashflow_types,
+        unsupported_cashflow_type_rows,
+        governed_alias_cashflow_type_rows,
     )
 
 
@@ -403,6 +442,8 @@ def _sum_detailed_cash_flows(
     tuple[dict[str, object], ...],
     tuple[dict[str, object], ...],
     tuple[str, ...],
+    tuple[dict[str, object], ...],
+    tuple[dict[str, object], ...],
 ]:
     external_bod = Decimal("0")
     external_eod = Decimal("0")
@@ -412,8 +453,10 @@ def _sum_detailed_cash_flows(
     invalid_timing_rows: list[dict[str, object]] = []
     missing_cashflow_type_rows: list[dict[str, object]] = []
     noncanonical_cashflow_types: set[str] = set()
+    unsupported_cashflow_type_rows: list[dict[str, object]] = []
+    governed_alias_cashflow_type_rows: list[dict[str, object]] = []
     if not isinstance(cash_flows_raw, list):
-        return external_bod, external_eod, fee_bod, fee_eod, (), (), (), ()
+        return external_bod, external_eod, fee_bod, fee_eod, (), (), (), (), (), ()
 
     for flow in cash_flows_raw:
         if not isinstance(flow, dict):
@@ -441,20 +484,30 @@ def _sum_detailed_cash_flows(
                 }
             )
             continue
-        normalized_cash_flow_type = cash_flow_type.strip() if isinstance(cash_flow_type, str) else cash_flow_type
-        if normalized_cash_flow_type is None or normalized_cash_flow_type == "":
+        cashflow_type_classification = classify_cashflow_type(cash_flow_type)
+        normalized_cash_flow_type = cashflow_type_classification.normalized_value
+        if cashflow_type_classification.economics_role == "missing":
             missing_cashflow_type_rows.append({"timing": normalized_timing, "amount": float(amount)})
-        if (
-            isinstance(normalized_cash_flow_type, str)
-            and normalized_cash_flow_type
-            and normalized_cash_flow_type not in _CANONICAL_CASHFLOW_TYPES
-        ):
+        elif not cashflow_type_classification.canonical:
+            if normalized_cash_flow_type is None:
+                continue
             noncanonical_cashflow_types.add(normalized_cash_flow_type)
-        if normalized_cash_flow_type == "fee":
+            sample_row = {
+                "timing": normalized_timing,
+                "amount": float(amount),
+                "cash_flow_type": normalized_cash_flow_type,
+            }
+            if cashflow_type_classification.governed_alias:
+                governed_alias_cashflow_type_rows.append(sample_row)
+            else:
+                unsupported_cashflow_type_rows.append(sample_row)
+        if cashflow_type_classification.economics_role == "fee":
             if normalized_timing == "bod":
                 fee_bod += amount
             else:
                 fee_eod += amount
+            continue
+        if cashflow_type_classification.economics_role == "unsupported":
             continue
         if normalized_timing == "bod":
             external_bod += amount
@@ -469,6 +522,8 @@ def _sum_detailed_cash_flows(
         tuple(invalid_timing_rows),
         tuple(missing_cashflow_type_rows),
         tuple(sorted(noncanonical_cashflow_types)),
+        tuple(unsupported_cashflow_type_rows),
+        tuple(governed_alias_cashflow_type_rows),
     )
 
 

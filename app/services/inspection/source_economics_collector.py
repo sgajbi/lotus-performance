@@ -26,6 +26,8 @@ class SourceEconomicsSamples:
     invalid_timing_samples: list[dict[str, object]]
     missing_cashflow_type_samples: list[dict[str, object]]
     noncanonical_cashflow_type_samples: list[dict[str, object]]
+    unsupported_cashflow_type_samples: list[dict[str, object]]
+    governed_alias_cashflow_type_samples: list[dict[str, object]]
 
 
 @dataclass
@@ -46,6 +48,8 @@ class _SourceEconomicsSampleCollector:
     invalid_timing_samples: list[dict[str, object]] = field(default_factory=list)
     missing_cashflow_type_samples: list[dict[str, object]] = field(default_factory=list)
     noncanonical_cashflow_type_samples: list[dict[str, object]] = field(default_factory=list)
+    unsupported_cashflow_type_samples: list[dict[str, object]] = field(default_factory=list)
+    governed_alias_cashflow_type_samples: list[dict[str, object]] = field(default_factory=list)
 
     def observe(self, source_point: ObservationSourceEconomics) -> None:
         self._record_taxonomy_samples(source_point)
@@ -70,6 +74,8 @@ class _SourceEconomicsSampleCollector:
             invalid_timing_samples=self.invalid_timing_samples,
             missing_cashflow_type_samples=self.missing_cashflow_type_samples,
             noncanonical_cashflow_type_samples=self.noncanonical_cashflow_type_samples,
+            unsupported_cashflow_type_samples=self.unsupported_cashflow_type_samples,
+            governed_alias_cashflow_type_samples=self.governed_alias_cashflow_type_samples,
         )
 
     def _record_taxonomy_samples(self, source_point: ObservationSourceEconomics) -> None:
@@ -117,6 +123,22 @@ class _SourceEconomicsSampleCollector:
                 {
                     "valuation_date": source_point.valuation_date,
                     "cash_flow_types": list(source_point.noncanonical_cashflow_types),
+                }
+            )
+        if source_point.unsupported_cashflow_type_rows:
+            self.unsupported_cashflow_type_samples.append(
+                {
+                    "valuation_date": source_point.valuation_date,
+                    "cash_flow_types": _cashflow_types_from_rows(source_point.unsupported_cashflow_type_rows),
+                    "rows": list(source_point.unsupported_cashflow_type_rows),
+                }
+            )
+        if source_point.governed_alias_cashflow_type_rows:
+            self.governed_alias_cashflow_type_samples.append(
+                {
+                    "valuation_date": source_point.valuation_date,
+                    "cash_flow_types": _cashflow_types_from_rows(source_point.governed_alias_cashflow_type_rows),
+                    "rows": list(source_point.governed_alias_cashflow_type_rows),
                 }
             )
 
@@ -221,6 +243,17 @@ def collect_source_economics_samples(source_points: list[ObservationSourceEconom
     for source_point in source_points:
         collector.observe(source_point)
     return collector.freeze()
+
+
+def _cashflow_types_from_rows(rows: tuple[dict[str, object], ...]) -> list[str]:
+    return sorted(
+        {
+            cash_flow_type
+            for row in rows
+            for cash_flow_type in [row.get("cash_flow_type")]
+            if isinstance(cash_flow_type, str)
+        }
+    )
 
 
 def _expected_fee_total(source_point: ObservationSourceEconomics) -> tuple[Decimal | None, str | None]:

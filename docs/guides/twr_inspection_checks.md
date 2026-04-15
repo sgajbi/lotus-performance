@@ -137,6 +137,8 @@ These findings evaluate whether raw source cash and fee economics tie to the ser
 | `INVALID_CASHFLOW_TIMING_PRESENT` | `lotus-core` | raw source serves one or more detailed cash-flow rows with unusable timing labels | valuation dates, row timings, row amounts, row cash-flow types |
 | `MISSING_CASHFLOW_TYPE_PRESENT` | `lotus-core` | raw source serves one or more detailed cash-flow rows without a usable `cash_flow_type` label | valuation dates, row timings, row amounts |
 | `NONCANONICAL_CASHFLOW_TYPE_PRESENT` | `lotus-core` | raw source serves a `cash_flow_type` outside the current governed inspection vocabulary | valuation dates and unsupported cash-flow type labels |
+| `GOVERNED_ALIAS_CASHFLOW_TYPE_PRESENT` | `lotus-core` | raw source serves a mappable cash-flow alias such as `expense`, `deposit`, or `withdrawal` instead of the canonical analytics-input labels | valuation dates, alias labels, mapped rows |
+| `UNSUPPORTED_CASHFLOW_TYPE_PRESENT` | `lotus-core` | raw source serves labels such as `dividend`, `coupon`, `interest`, `tax`, or another value whose TWR source-economics role is not yet governed | valuation dates, unsupported labels, preserved rows |
 
 Primary evidence surfaces:
 
@@ -192,6 +194,8 @@ Use for:
 - invalid cash-flow timing date counts
 - missing cash-flow type date counts
 - non-canonical cash-flow type date counts
+- governed alias cash-flow type date counts
+- unsupported cash-flow type date counts
 - sampled fee and external source-economics anomalies
 
 Key support-facing sample fields:
@@ -202,6 +206,15 @@ Key support-facing sample fields:
 - `external_cashflow_timing_contradiction_samples[*].opposite_detailed_cashflow_amount`
 - `noncanonical_cashflow_type_samples[*].cash_flow_types`
 - `noncanonical_cashflow_types`
+- `governed_alias_cashflow_type_samples[*].cash_flow_types`
+- `unsupported_cashflow_type_samples[*].cash_flow_types`
+
+Taxonomy handling:
+
+- canonical source labels remain `fee` and `external_flow`
+- governed aliases such as `expense`, `management_fee`, `deposit`, `withdrawal`, and `subscription` are mapped to fee-like or external-flow economics for inspection, but still produce alias-governance evidence
+- unsupported labels such as `dividend`, `coupon`, `interest`, `tax`, and `distribution` are preserved as source-taxonomy evidence and excluded from fee or external normalization until their TWR economics are explicitly governed
+- `expense` is currently treated as fee-like for inspection because operational expenses reduce performance like fees; support should still ask `lotus-core` to emit or document a canonical analytics-input label
 
 Bounded stale-series rule:
 

@@ -20,6 +20,8 @@ def build_source_economics_findings(
     invalid_timing_samples: list[dict[str, object]],
     missing_cashflow_type_samples: list[dict[str, object]],
     noncanonical_cashflow_type_samples: list[dict[str, object]],
+    unsupported_cashflow_type_samples: list[dict[str, object]],
+    governed_alias_cashflow_type_samples: list[dict[str, object]],
 ) -> list[TWRInspectionFinding]:
     findings: list[TWRInspectionFinding] = []
 
@@ -306,6 +308,49 @@ def build_source_economics_findings(
                     "or agree and document an explicit mapping for additional labels."
                 ),
                 evidence=_sample_evidence(portfolio_id=portfolio_id, samples=noncanonical_cashflow_type_samples),
+            )
+        )
+
+    if governed_alias_cashflow_type_samples:
+        findings.append(
+            TWRInspectionFinding(
+                code="GOVERNED_ALIAS_CASHFLOW_TYPE_PRESENT",
+                severity="warning",
+                category="documentation_drift",
+                owner_repo="lotus-core",
+                summary="The stateful portfolio source uses cash_flow_type aliases that need explicit governance.",
+                explanation=(
+                    "The raw portfolio observation includes cash_flow_type labels that the inspector can map to "
+                    "fee-like or external-flow economics, but those labels are not the canonical analytics-input "
+                    "vocabulary. The inspector uses the mapped economic role for supportability checks while still "
+                    "preserving the alias as contract evidence."
+                ),
+                recommended_action=(
+                    "Review lotus-core cash_flow_type vocabulary and either emit canonical labels or publish the "
+                    "alias mapping as a governed analytics-input contract."
+                ),
+                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=governed_alias_cashflow_type_samples),
+            )
+        )
+
+    if unsupported_cashflow_type_samples:
+        findings.append(
+            TWRInspectionFinding(
+                code="UNSUPPORTED_CASHFLOW_TYPE_PRESENT",
+                severity="warning",
+                category="documentation_drift",
+                owner_repo="lotus-core",
+                summary="The stateful portfolio source uses cash_flow_type labels without supported TWR economics.",
+                explanation=(
+                    "The raw portfolio observation includes cash_flow_type labels that are not currently mapped to "
+                    "fee or external-flow economics. The inspector preserves those rows as source-taxonomy evidence "
+                    "and excludes them from fee/external normalization checks until the semantics are governed."
+                ),
+                recommended_action=(
+                    "Review lotus-core cash_flow_type vocabulary and define whether each label should be modeled as "
+                    "a fee, external flow, income/accrual item, tax item, or another explicit analytics-input role."
+                ),
+                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=unsupported_cashflow_type_samples),
             )
         )
 
