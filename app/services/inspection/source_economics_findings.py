@@ -14,6 +14,7 @@ def build_source_economics_findings(
     duplicate_external_signal_samples: list[dict[str, object]],
     external_source_mismatch_samples: list[dict[str, object]],
     external_timing_contradiction_samples: list[dict[str, object]],
+    missing_cashflow_type_samples: list[dict[str, object]],
     noncanonical_cashflow_type_samples: list[dict[str, object]],
 ) -> list[TWRInspectionFinding]:
     findings: list[TWRInspectionFinding] = []
@@ -175,6 +176,27 @@ def build_source_economics_findings(
                     "and detailed external cash-flow rows classify the movement in the same timing bucket."
                 ),
                 evidence=_sample_evidence(portfolio_id=portfolio_id, samples=external_timing_contradiction_samples),
+            )
+        )
+
+    if missing_cashflow_type_samples:
+        findings.append(
+            TWRInspectionFinding(
+                code="MISSING_CASHFLOW_TYPE_PRESENT",
+                severity="warning",
+                category="documentation_drift",
+                owner_repo="lotus-core",
+                summary="The stateful portfolio source serves detailed cash-flow rows without a cash_flow_type label.",
+                explanation=(
+                    "The raw portfolio observation includes detailed cash-flow rows with no cash_flow_type label. "
+                    "The inspector currently treats non-fee detailed rows as external economics, so unlabeled rows "
+                    "need explicit upstream semantics or a governed mapping."
+                ),
+                recommended_action=(
+                    "Review lotus-core detailed cash-flow serialization and emit canonical fee/external_flow "
+                    "labels for every nonzero detailed cash-flow row."
+                ),
+                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=missing_cashflow_type_samples),
             )
         )
 
