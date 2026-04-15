@@ -21,6 +21,7 @@ class SourceEconomicsSamples:
     duplicate_external_signal_samples: list[dict[str, object]]
     external_source_mismatch_samples: list[dict[str, object]]
     external_timing_contradiction_samples: list[dict[str, object]]
+    external_mixed_timing_samples: list[dict[str, object]]
     conflicting_explicit_amount_samples: list[dict[str, object]]
     invalid_explicit_amount_samples: list[dict[str, object]]
     invalid_amount_samples: list[dict[str, object]]
@@ -44,6 +45,7 @@ class _SourceEconomicsSampleCollector:
     duplicate_external_signal_samples: list[dict[str, object]] = field(default_factory=list)
     external_source_mismatch_samples: list[dict[str, object]] = field(default_factory=list)
     external_timing_contradiction_samples: list[dict[str, object]] = field(default_factory=list)
+    external_mixed_timing_samples: list[dict[str, object]] = field(default_factory=list)
     conflicting_explicit_amount_samples: list[dict[str, object]] = field(default_factory=list)
     invalid_explicit_amount_samples: list[dict[str, object]] = field(default_factory=list)
     invalid_amount_samples: list[dict[str, object]] = field(default_factory=list)
@@ -71,6 +73,7 @@ class _SourceEconomicsSampleCollector:
             duplicate_external_signal_samples=self.duplicate_external_signal_samples,
             external_source_mismatch_samples=self.external_source_mismatch_samples,
             external_timing_contradiction_samples=self.external_timing_contradiction_samples,
+            external_mixed_timing_samples=self.external_mixed_timing_samples,
             conflicting_explicit_amount_samples=self.conflicting_explicit_amount_samples,
             invalid_explicit_amount_samples=self.invalid_explicit_amount_samples,
             invalid_amount_samples=self.invalid_amount_samples,
@@ -246,6 +249,14 @@ class _SourceEconomicsSampleCollector:
             source_point=source_point,
             sample_target=self.external_timing_contradiction_samples,
         )
+        if source_point.detailed_external_bod != 0 and source_point.detailed_external_eod != 0:
+            self.external_mixed_timing_samples.append(
+                {
+                    "valuation_date": source_point.valuation_date,
+                    "detailed_external_bod": float(source_point.detailed_external_bod),
+                    "detailed_external_eod": float(source_point.detailed_external_eod),
+                }
+            )
 
 
 def collect_source_economics_samples(source_points: list[ObservationSourceEconomics]) -> SourceEconomicsSamples:

@@ -15,6 +15,7 @@ def build_source_economics_findings(
     duplicate_external_signal_samples: list[dict[str, object]],
     external_source_mismatch_samples: list[dict[str, object]],
     external_timing_contradiction_samples: list[dict[str, object]],
+    external_mixed_timing_samples: list[dict[str, object]],
     conflicting_explicit_amount_samples: list[dict[str, object]],
     invalid_explicit_amount_samples: list[dict[str, object]],
     invalid_amount_samples: list[dict[str, object]],
@@ -204,6 +205,27 @@ def build_source_economics_findings(
                     "and detailed external cash-flow rows classify the movement in the same timing bucket."
                 ),
                 evidence=_sample_evidence(portfolio_id=portfolio_id, samples=external_timing_contradiction_samples),
+            )
+        )
+
+    if external_mixed_timing_samples:
+        findings.append(
+            TWRInspectionFinding(
+                code="EXTERNAL_CASHFLOW_MIXED_TIMING_BUCKETS",
+                severity="warning",
+                category="cashflow_classification",
+                owner_repo="lotus-core",
+                summary="The stateful portfolio source serves detailed external cash flows in both timing buckets for the same valuation date.",
+                explanation=(
+                    "The raw portfolio observation includes detailed external-flow rows in both beginning-of-day and "
+                    "end-of-day buckets on the same valuation date. That can be legitimate, but it is timing-sensitive "
+                    "for TWR support and should be visible as source-economics evidence."
+                ),
+                recommended_action=(
+                    "Review the lotus-core transaction story for the sampled dates and confirm both external timing "
+                    "buckets are intentional and reconcile to the normalized TWR valuation points."
+                ),
+                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=external_mixed_timing_samples),
             )
         )
 
