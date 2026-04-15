@@ -40,8 +40,17 @@ class StaleSeriesRun:
 
 @dataclass(frozen=True)
 class DailyMoveInputsAssessment:
-    daily_moves: list[dict[str, float | str]]
+    daily_moves: list["DailyMove"]
     invalid_capital_bases: list[dict[str, float | str]]
+
+
+@dataclass(frozen=True)
+class DailyMove:
+    perf_date: str
+    return_pct: float
+
+    def to_artifact(self) -> dict[str, float | str]:
+        return {"perf_date": self.perf_date, "return_pct": self.return_pct}
 
 
 @dataclass(frozen=True)
@@ -54,7 +63,7 @@ class MandateDailyMoveProfile:
 class ReturnConcentrationAssessment:
     observation_count: int
     concentration_ratio: float
-    top_moves: list[dict[str, float | str]]
+    top_moves: list[DailyMove]
     triggered: bool
 
 
@@ -71,9 +80,9 @@ def run_source_quality_checks(
     daily_move_assessment = _assess_daily_move_inputs(valuation_points)
     daily_moves = daily_move_assessment.daily_moves
     invalid_capital_bases = daily_move_assessment.invalid_capital_bases
-    largest_abs_daily_move_pct = max((abs(float(move["return_pct"])) for move in daily_moves), default=0.0)
+    largest_abs_daily_move_pct = max((abs(move.return_pct) for move in daily_moves), default=0.0)
     threshold = _EXTREME_MOVE_THRESHOLD_PCT[inspection_profile]
-    extreme_moves = [move for move in daily_moves if abs(float(move["return_pct"])) >= threshold]
+    extreme_moves = [move for move in daily_moves if abs(move.return_pct) >= threshold]
     mandate_profile = _resolve_mandate_daily_move_profile(performance_request.portfolio_id)
     mandate_outliers = _find_mandate_daily_move_outliers(
         daily_moves=daily_moves,
@@ -123,17 +132,17 @@ def run_source_quality_checks(
         "nonpositive_capital_base_samples": invalid_capital_bases[:_STALE_SAMPLE_LIMIT],
         "largest_abs_daily_move_pct": largest_abs_daily_move_pct,
         "extreme_daily_move_threshold_pct": threshold,
-        "extreme_daily_moves": extreme_moves[:_STALE_SAMPLE_LIMIT],
+        "extreme_daily_moves": _daily_moves_to_artifacts(extreme_moves),
         "mandate_daily_move_profile": mandate_profile.name if mandate_profile else None,
         "mandate_daily_move_threshold_pct": mandate_profile.threshold_pct if mandate_profile else None,
         "mandate_daily_move_outlier_count": len(mandate_outliers),
-        "mandate_daily_move_outliers": mandate_outliers[:_STALE_SAMPLE_LIMIT],
+        "mandate_daily_move_outliers": _daily_moves_to_artifacts(mandate_outliers),
         "return_concentration_min_observations": _RETURN_CONCENTRATION_MIN_OBSERVATIONS,
         "return_concentration_top_n": _RETURN_CONCENTRATION_TOP_N,
         "return_concentration_threshold": _RETURN_CONCENTRATION_THRESHOLD,
         "return_concentration_ratio": return_concentration.concentration_ratio,
         "return_concentration_observation_count": return_concentration.observation_count,
-        "return_concentration_top_moves": return_concentration.top_moves,
+        "return_concentration_top_moves": _daily_moves_to_artifacts(return_concentration.top_moves),
     }
     return SourceQualityCheckResult(
         findings=findings,
@@ -305,20 +314,20 @@ def _resolve_mandate_daily_move_profile(portfolio_id: str) -> MandateDailyMovePr
 
 def _find_mandate_daily_move_outliers(
     *,
-    daily_moves: list[dict[str, float | str]],
+    daily_moves: list[DailyMove],
     mandate_profile: MandateDailyMoveProfile | None,
     extreme_threshold_pct: float,
-) -> list[dict[str, float | str]]:
+) -> list[DailyMove]:
     if mandate_profile is None:
         return []
     threshold_pct = mandate_profile.threshold_pct
-    return [move for move in daily_moves if threshold_pct <= abs(float(move["return_pct"])) < extreme_threshold_pct]
+    return [move for move in daily_moves if threshold_pct <= abs(move.return_pct) < extreme_threshold_pct]
 
 
 def _build_mandate_daily_move_findings(
     *,
     mandate_profile: MandateDailyMoveProfile | None,
-    mandate_outliers: list[dict[str, float | str]],
+    mandate_outliers: list[DailyMove],
 ) -> list[TWRInspectionFinding]:
     if mandate_profile is None or not mandate_outliers:
         return []
@@ -341,13 +350,13 @@ def _build_mandate_daily_move_findings(
                 "mandate_profile": mandate_profile.name,
                 "threshold_pct": mandate_profile.threshold_pct,
                 "outlier_count": len(mandate_outliers),
-                "outliers": mandate_outliers[:_STALE_SAMPLE_LIMIT],
+                "outliers": _daily_moves_to_artifacts(mandate_outliers),
             },
         )
     ]
 
 
-def _assess_return_concentration(daily_moves: list[dict[str, float | str]]) -> ReturnConcentrationAssessment:
+def _assess_return_concentration(daily_moves: list[DailyMove]) -> ReturnConcentrationAssessment:
     if len(daily_moves) < _RETURN_CONCENTRATION_MIN_OBSERVATIONS:
         return ReturnConcentrationAssessment(
             observation_count=len(daily_moves),
@@ -355,10 +364,10 @@ def _assess_return_concentration(daily_moves: list[dict[str, float | str]]) -> R
             top_moves=[],
             triggered=False,
         )
-    moves_by_abs_return = sorted(daily_moves, key=lambda move: abs(float(move["return_pct"])), reverse=True)
-    total_abs_return = sum(abs(float(move["return_pct"])) for move in daily_moves)
+    moves_by_abs_return = sorted(daily_moves, key=lambda move: abs(move.return_pct), reverse=True)
+    total_abs_return = sum(abs(move.return_pct) for move in daily_moves)
     top_moves = moves_by_abs_return[:_RETURN_CONCENTRATION_TOP_N]
-    top_abs_return = sum(abs(float(move["return_pct"])) for move in top_moves)
+    top_abs_return = sum(abs(move.return_pct) for move in top_moves)
     concentration_ratio = top_abs_return / total_abs_return if total_abs_return > 0 else 0.0
     return ReturnConcentrationAssessment(
         observation_count=len(daily_moves),
@@ -393,7 +402,7 @@ def _build_return_concentration_findings(
                 "threshold": _RETURN_CONCENTRATION_THRESHOLD,
                 "observation_count": return_concentration.observation_count,
                 "concentration_ratio": return_concentration.concentration_ratio,
-                "top_moves": return_concentration.top_moves,
+                "top_moves": _daily_moves_to_artifacts(return_concentration.top_moves),
             },
         )
     ]
@@ -403,7 +412,7 @@ def _build_extreme_move_findings(
     *,
     inspection_profile: TWRInspectionProfile,
     threshold: float,
-    extreme_moves: list[dict[str, float | str]],
+    extreme_moves: list[DailyMove],
 ) -> list[TWRInspectionFinding]:
     if not extreme_moves:
         return []
@@ -424,14 +433,14 @@ def _build_extreme_move_findings(
             ),
             evidence={
                 "threshold_pct": threshold,
-                "extreme_moves": extreme_moves[:_STALE_SAMPLE_LIMIT],
+                "extreme_moves": _daily_moves_to_artifacts(extreme_moves),
             },
         )
     ]
 
 
 def _assess_daily_move_inputs(valuation_points: list[DailyInputData]) -> DailyMoveInputsAssessment:
-    moves: list[dict[str, float | str]] = []
+    moves: list[DailyMove] = []
     invalid_capital_bases: list[dict[str, float | str]] = []
     for point in valuation_points:
         denominator = point.begin_mv + point.bod_cf
@@ -447,8 +456,12 @@ def _assess_daily_move_inputs(valuation_points: list[DailyInputData]) -> DailyMo
             continue
         numerator = point.end_mv - point.eod_cf - point.mgmt_fees
         return_pct = ((numerator / denominator) - 1.0) * 100.0
-        moves.append({"perf_date": point.perf_date.isoformat(), "return_pct": return_pct})
+        moves.append(DailyMove(perf_date=point.perf_date.isoformat(), return_pct=return_pct))
     return DailyMoveInputsAssessment(daily_moves=moves, invalid_capital_bases=invalid_capital_bases)
+
+
+def _daily_moves_to_artifacts(daily_moves: list[DailyMove]) -> list[dict[str, float | str]]:
+    return [move.to_artifact() for move in daily_moves[:_STALE_SAMPLE_LIMIT]]
 
 
 def _find_missing_business_dates(valuation_points: list[DailyInputData]) -> list[str]:
