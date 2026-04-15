@@ -19,6 +19,12 @@ from app.services.lineage_metadata_store import LineageMetadataStore, lineage_me
 logger = logging.getLogger(__name__)
 
 
+def resolve_artifact_stage_name(*, calculation_type: str) -> str:
+    if calculation_type == "TWR_INSPECTION":
+        return "artifact_materialization"
+    return "lineage_materialization"
+
+
 class LineageService:
     def __init__(
         self,
@@ -110,7 +116,7 @@ class LineageService:
             try:
                 self._execution_store.complete_stage(
                     calculation_id,
-                    "lineage_materialization",
+                    resolve_artifact_stage_name(calculation_type=calculation_type),
                     details={"artifact_names": sorted(artifact_names)},
                 )
             except Exception:

@@ -72,6 +72,9 @@ def test_build_runtime_work_items_response_serializes_operator_navigation_links(
 def test_operator_navigation_links_support_twr_and_benchmark_async_results():
     twr_links = build_operator_navigation_links("calc-twr", workflow_type="TWR")
     benchmark_links = build_operator_navigation_links("calc-bmk", workflow_type="BENCHMARK")
+    inspection_links = build_operator_navigation_links("inspect-1", workflow_type="TWR_INSPECTION")
 
     assert twr_links.result_path == "/performance/twr/results/calc-twr"
     assert benchmark_links.result_path == "/performance/benchmark/results/calc-bmk"
+    assert inspection_links.lineage_path == "/performance/inspections/inspect-1"
+    assert inspection_links.result_path == "/performance/inspections/inspect-1"

@@ -50,6 +50,11 @@ def test_integration_capabilities_default_contract():
     assert surfaces["twr"]["supports_async"] is True
     assert surfaces["twr"]["poll_path_template"] == "/performance/executions/{calculation_id}"
     assert surfaces["twr"]["result_path_template"] == "/performance/twr/results/{calculation_id}"
+    assert surfaces["twr_inspection"]["path"] == "/performance/inspections/twr"
+    assert surfaces["twr_inspection"]["supported_input_modes"] == []
+    assert surfaces["twr_inspection"]["supports_async"] is True
+    assert surfaces["twr_inspection"]["poll_path_template"] == "/performance/executions/{calculation_id}"
+    assert surfaces["twr_inspection"]["result_path_template"] == "/performance/inspections/{inspection_id}"
     assert surfaces["benchmark"]["path"] == "/performance/benchmark"
     assert surfaces["benchmark"]["supported_input_modes"] == ["stateful", "stateless"]
     assert surfaces["benchmark"]["supports_async"] is True
@@ -98,6 +103,7 @@ def test_integration_capabilities_default_contract():
     assert "pa.analytics.benchmark" in features
     assert "pa.integration.benchmark_exposure_context" in features
     assert "pa.analytics.workspace_summary" in features
+    assert "pa.support.twr_inspection" in features
     assert "pa.execution.stateful" in features
     assert "pa.execution.stateless" in features
     assert response.headers.get("X-Correlation-Id")
@@ -122,6 +128,7 @@ def test_integration_capabilities_env_override(monkeypatch):
     assert features["pa.analytics.attribution"] is False
     assert body["supported_input_modes"] == ["stateful"]
     assert surfaces["twr"]["supported_input_modes"] == ["stateful"]
+    assert surfaces["twr_inspection"]["supported_input_modes"] == []
     assert surfaces["attribution"]["enabled"] is False
     assert surfaces["attribution"]["stateful_restrictions"] == []
     assert surfaces["workspace_summary"]["enabled"] is True

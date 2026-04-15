@@ -14,6 +14,7 @@ from app.api.endpoints import (
     contribution,
     executions,
     health,
+    inspections,
     integration_capabilities,
     lineage,
     performance,
@@ -151,6 +152,7 @@ app.include_router(performance.router, prefix="/performance")
 app.include_router(benchmark.router, prefix="/performance")
 app.include_router(contribution.router, prefix="/performance")
 app.include_router(executions.router, prefix="/performance")
+app.include_router(inspections.router, prefix="/performance")
 app.include_router(lineage.router, prefix="/performance")
 app.include_router(integration_capabilities.router, prefix="/integration")
 app.include_router(returns_series.router, prefix="/integration")

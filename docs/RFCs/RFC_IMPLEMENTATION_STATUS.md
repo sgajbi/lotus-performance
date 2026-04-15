@@ -45,6 +45,10 @@ The following RFCs are not yet implemented. This roadmap presents a logical orde
 1.  **RFC 038 — lotus-performance Domain Vocabulary Alignment with Platform Glossary**
     * **Reasoning:** **Eliminate cross-platform semantic drift first.** Aligns lotus-performance to canonical platform language (`portfolio_id`, `pas-input`) before further contract expansion.
 
+2.  **RFC 045 — TWR Inspection and Supportability Contract**
+    * **Reasoning:** **Separate analytics calculation from supportability triage before hardening stateful validation further.** Establishes an inspector architecture for source-quality diagnostics, reconciliation, and production support findings without overloading the core TWR endpoint.
+    * **Current state:** **Slice 1 delivered.** The durable inspection contract, async runtime path, artifact plumbing, and operator/capability wiring now exist. The substantive inspection check families remain for later slices.
+
 ### Phase 1: Foundational Enhancements
 
 1.  **RFC 032 — Real-Time Analytics Surfaces for Iterative Advisory and lotus-manage Simulation**

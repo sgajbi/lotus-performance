@@ -10,7 +10,7 @@ from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_s
 from app.services.durable_store_runtime import RuntimeStoreProxy
 from app.services.execution_registry import ExecutionRegistry, execution_registry
 from app.services.lineage_metadata_store import LineageMetadataStore, lineage_metadata_store
-from app.services.lineage_service import LineageService, lineage_service
+from app.services.lineage_service import LineageService, lineage_service, resolve_artifact_stage_name
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +58,7 @@ def process_pending_jobs(
         if current_payload.attempt_count >= current_max_attempts:
             _mark_lineage_materialization_failed(
                 calculation_id=payload.calculation_id,
+                calculation_type=payload.calculation_type,
                 lineage_store=active_lineage_store,
                 execution_store=active_execution_store,
                 error_message="Lineage materialization failed after exhausting retry budget.",
@@ -95,6 +96,7 @@ def _wait_for_next_poll(stop_event: Event | None, poll_seconds: float) -> bool:
 def _mark_lineage_materialization_failed(
     *,
     calculation_id: UUID,
+    calculation_type: str,
     lineage_store: LineageMetadataStore | RuntimeStoreProxy[LineageMetadataStore],
     execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry],
     error_message: str,
@@ -106,7 +108,7 @@ def _mark_lineage_materialization_failed(
     try:
         execution_store.fail_stage(
             calculation_id,
-            "lineage_materialization",
+            resolve_artifact_stage_name(calculation_type=calculation_type),
             error_message,
         )
     except Exception:

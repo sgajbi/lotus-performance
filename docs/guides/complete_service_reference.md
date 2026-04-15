@@ -33,6 +33,7 @@ Companion documents:
 - canonical returns-series integration
 - async execution offload for heavier workloads
 - execution polling and durable result retrieval
+- TWR inspection and supportability triage
 - lineage status and artifact retrieval
 - integration capability discovery
 - runtime status, work-item inspection, and recovery inspection
@@ -65,6 +66,9 @@ Default deployment topology:
 | `GET /performance/contribution/results/{calculation_id}` | retrieve async contribution result | async retrieval |
 | `POST /performance/attribution` | calculate attribution | both |
 | `GET /performance/attribution/results/{calculation_id}` | retrieve async attribution result | async retrieval |
+| `POST /performance/inspections/twr` | submit durable TWR supportability inspection | async |
+| `GET /performance/inspections/{inspection_id}` | retrieve durable TWR inspection status or result | async retrieval |
+| `GET /performance/inspections/{inspection_id}/artifacts/{artifact_name}` | download one TWR inspection artifact | async retrieval |
 | `GET /performance/executions/{calculation_id}` | poll durable execution state | sync |
 | `GET /performance/lineage/{calculation_id}` | inspect lineage status and artifact inventory | sync |
 | `GET /performance/lineage/{calculation_id}/artifacts/{artifact_name}` | download one lineage artifact | sync |
@@ -169,6 +173,33 @@ Sample response:
 Async result route:
 
 - `GET /performance/twr/results/{calculation_id}`
+
+### `POST /performance/inspections/twr`
+
+Purpose:
+
+- submit a durable TWR supportability inspection
+- keep supportability and source-quality triage separate from the core TWR calculation path
+- inspect either an existing TWR calculation or a proposed TWR request
+
+Sample request:
+
+```json
+{
+  "inspection_id": "2b2f1c24-b241-420d-a3ad-54c6d254fa56",
+  "subject_type": "twr_calculation",
+  "subject_calculation_id": "6af3a15f-8b95-4b4f-9c4c-6bb9f4d86a91",
+  "inspection_profile": "support_triage"
+}
+```
+
+Async result route:
+
+- `GET /performance/inspections/{inspection_id}`
+
+Artifact route:
+
+- `GET /performance/inspections/{inspection_id}/artifacts/{artifact_name}`
 
 ### `GET /performance/twr/results/{calculation_id}`
 

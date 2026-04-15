@@ -12,7 +12,7 @@
 - canonical returns-series integration (`POST /integration/returns/series`)
 
 It also owns durable execution lifecycle tracking, async compute offload for heavier workloads,
-lineage artifact capture, and execution/result polling surfaces.
+lineage artifact capture, TWR inspection/supportability triage, and execution/result polling surfaces.
 
 ## Runtime model
 
@@ -48,6 +48,7 @@ Async-capable endpoints follow one common pattern:
 Current endpoint-specific async result routes include:
 
 - `/performance/twr/results/{calculation_id}`
+- `/performance/inspections/{inspection_id}`
 - `/performance/benchmark/results/{calculation_id}`
 - `/integration/returns/series/results/{calculation_id}`
 - `/performance/contribution/results/{calculation_id}`

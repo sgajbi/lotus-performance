@@ -226,6 +226,12 @@ async def get_integration_capabilities(
             description="Interaction-efficient workspace summary analytics API.",
         ),
         FeatureCapability(
+            key="pa.support.twr_inspection",
+            enabled=twr_enabled,
+            owner_service="lotus-performance",
+            description="Durable TWR supportability inspection and artifact-backed triage API.",
+        ),
+        FeatureCapability(
             key="pa.execution.stateful",
             enabled=stateful_mode_enabled,
             owner_service="lotus-performance",
@@ -256,6 +262,11 @@ async def get_integration_capabilities(
             required_features=["pa.analytics.workspace_summary", "pa.analytics.twr", "pa.analytics.mwr"],
         ),
         WorkflowCapability(
+            workflow_key="performance_support_triage",
+            enabled=twr_enabled,
+            required_features=["pa.analytics.twr", "pa.support.twr_inspection"],
+        ),
+        WorkflowCapability(
             workflow_key="execution_stateful",
             enabled=stateful_mode_enabled,
             required_features=["pa.execution.stateful"],
@@ -282,6 +293,23 @@ async def get_integration_capabilities(
             supports_async=True,
             poll_path_template="/performance/executions/{calculation_id}",
             result_path_template="/performance/twr/results/{calculation_id}",
+        ),
+        AnalyticsSurfaceCapability(
+            key="twr_inspection",
+            path="/performance/inspections/twr",
+            enabled=twr_enabled,
+            supported_input_modes=[],
+            supports_async=True,
+            poll_path_template="/performance/executions/{calculation_id}",
+            result_path_template="/performance/inspections/{inspection_id}",
+            contract_notes=(
+                [
+                    "supports inspection of an existing TWR calculation or a proposed TWR request payload",
+                    "slice 1 establishes the durable contract, async runtime path, and artifact plumbing",
+                ]
+                if twr_enabled
+                else []
+            ),
         ),
         AnalyticsSurfaceCapability(
             key="mwr",
