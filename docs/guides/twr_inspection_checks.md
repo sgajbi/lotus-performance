@@ -103,6 +103,7 @@ These findings are currently routed to `lotus-core` because they compare portfol
 | `INVALID_POSITION_EPOCH_PRESENT` | one or more position rows use missing or non-numeric snapshot epoch labels | affected dates, positions, epoch field, raw epoch value |
 | `INVALID_POSITION_END_VALUE_PRESENT` | latest selected position rows include missing, blank, or non-numeric ending market values | affected dates, positions, raw values, epochs |
 | `PORTFOLIO_POSITION_RECONCILIATION_GAP` | served portfolio end value does not tie to the latest coherent position-state total | gap dates, samples, max gap amount |
+| `POSITION_BEGIN_VALUE_CARRY_FORWARD_BREAK` | a position's current beginning market value does not carry forward from its prior selected ending market value and no source activity explains the transition | position id, prior date, current date, prior end value, current begin value, gap amount |
 
 Primary evidence surfaces:
 
@@ -174,6 +175,7 @@ Use for:
 - portfolio-versus-position gap counts
 - max gap amounts
 - sampled gap rows
+- position begin-value carry-forward break counts and sampled rows
 
 ### `source_economics_summary.json`
 
@@ -222,6 +224,10 @@ Use for:
 - A mathematically coherent TWR result can still be `not_supportable`.
 - `lotus-performance` findings usually point to response construction or normalization defects inside this repository.
 - `lotus-core` findings usually point to raw stateful source semantics, aggregation, timing, or reconciliation defects upstream.
+- `POSITION_BEGIN_VALUE_CARRY_FORWARD_BREAK` is the main check for the defect pattern where a position's prior
+  ending market value disappears from the next beginning market value without a cash-flow, trade, or quantity
+  transition explaining the move. This pattern can create implausible TWR even when end-of-day portfolio and
+  position totals still reconcile.
 - The absence of a finding is not the same thing as a universal clean bill of health. Check `completed_check_families` and `pending_check_families` in `inspection_summary.json`.
 
 ## Current Scope Boundary

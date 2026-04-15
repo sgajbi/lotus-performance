@@ -13,6 +13,7 @@ from app.services.portfolio_source_service import build_stateful_input_service
 _ABSOLUTE_GAP_TOLERANCE = Decimal("0.01")
 _RELATIVE_GAP_TOLERANCE = Decimal("0.0001")
 _INSPECTOR_CONSUMER_SYSTEM = "lotus-performance-inspector"
+_RECONCILIATION_SAMPLE_LIMIT = 25
 
 
 @dataclass(frozen=True)
@@ -40,7 +41,7 @@ def run_reconciliation_checks(
         performance_request=performance_request,
         portfolio_id=portfolio_id,
         inspection_profile=inspection_profile,
-        position_rows=position_payload.get("rows", []),
+        position_rows=_position_rows_from_payload(position_payload),
     )
 
 
@@ -75,13 +76,13 @@ def analyze_portfolio_position_reconciliation(
     del inspection_profile
 
     portfolio_end_by_date = {
-        point.perf_date.isoformat(): Decimal(str(point.end_mv))
-        for point in performance_request.valuation_points
+        point.perf_date.isoformat(): Decimal(str(point.end_mv)) for point in performance_request.valuation_points
     }
     duplicate_snapshot_samples = _collect_duplicate_snapshot_samples(position_rows)
     invalid_epoch_samples = _collect_invalid_epoch_samples(position_rows)
     selected_position_rows = _select_latest_position_rows(position_rows)
     position_end_by_date, invalid_position_value_samples = _sum_position_end_values_by_date(selected_position_rows)
+    position_continuity_gap_samples = _collect_position_continuity_gap_samples(selected_position_rows)
 
     mixed_epoch_dates = sorted(_find_mixed_epoch_dates(position_rows))
     findings: list[TWRInspectionFinding] = []
@@ -129,7 +130,9 @@ def analyze_portfolio_position_reconciliation(
                 ),
                 evidence={
                     "portfolio_id": portfolio_id,
-                    "duplicate_snapshot_dates": [sample["valuation_date"] for sample in duplicate_snapshot_samples[:10]],
+                    "duplicate_snapshot_dates": [
+                        sample["valuation_date"] for sample in duplicate_snapshot_samples[:10]
+                    ],
                     "duplicate_snapshot_row_count": len(duplicate_snapshot_samples),
                     "duplicate_snapshot_samples": duplicate_snapshot_samples[:10],
                 },
@@ -239,6 +242,36 @@ def analyze_portfolio_position_reconciliation(
             )
         )
 
+    if position_continuity_gap_samples:
+        findings.append(
+            TWRInspectionFinding(
+                code="POSITION_BEGIN_VALUE_CARRY_FORWARD_BREAK",
+                severity="high",
+                category="portfolio_position_reconciliation",
+                owner_repo="lotus-core",
+                summary="Position timeseries has unexplained begin-value carry-forward breaks.",
+                explanation=(
+                    "For one or more positions, the current beginning market value does not carry forward from the "
+                    "prior selected ending market value, and the current source row does not include explanatory "
+                    "cash-flow or trade activity. This is the source-state pattern that can produce implausible "
+                    "daily TWR moves even when portfolio and position end totals reconcile."
+                ),
+                recommended_action=(
+                    "Review lotus-core position-timeseries assembly for the sampled positions and ensure beginning "
+                    "market values are derived from the prior promoted ending state unless a governed activity row "
+                    "explains the transition."
+                ),
+                evidence={
+                    "portfolio_id": portfolio_id,
+                    "continuity_gap_dates": [
+                        sample["valuation_date"] for sample in position_continuity_gap_samples[:10]
+                    ],
+                    "position_continuity_gap_count": len(position_continuity_gap_samples),
+                    "position_continuity_gap_samples": position_continuity_gap_samples[:10],
+                },
+            )
+        )
+
     return ReconciliationCheckResult(
         findings=findings,
         evidence_summary={
@@ -250,10 +283,13 @@ def analyze_portfolio_position_reconciliation(
             "duplicate_snapshot_row_count": len(duplicate_snapshot_samples),
             "invalid_position_epoch_date_count": len({sample["valuation_date"] for sample in invalid_epoch_samples}),
             "invalid_position_epoch_row_count": len(invalid_epoch_samples),
-            "invalid_position_value_date_count": len({sample["valuation_date"] for sample in invalid_position_value_samples}),
+            "invalid_position_value_date_count": len(
+                {sample["valuation_date"] for sample in invalid_position_value_samples}
+            ),
             "invalid_position_value_row_count": len(invalid_position_value_samples),
             "reconciliation_gap_date_count": len(gap_details),
             "reconciliation_max_gap_amount": float(max_abs_gap_amount),
+            "position_continuity_gap_count": len(position_continuity_gap_samples),
         },
         artifact_payload={
             "portfolio_id": portfolio_id,
@@ -268,12 +304,16 @@ def analyze_portfolio_position_reconciliation(
             "invalid_position_epoch_date_count": len({sample["valuation_date"] for sample in invalid_epoch_samples}),
             "invalid_position_epoch_row_count": len(invalid_epoch_samples),
             "invalid_position_epoch_samples": invalid_epoch_samples[:25],
-            "invalid_position_value_date_count": len({sample["valuation_date"] for sample in invalid_position_value_samples}),
+            "invalid_position_value_date_count": len(
+                {sample["valuation_date"] for sample in invalid_position_value_samples}
+            ),
             "invalid_position_value_row_count": len(invalid_position_value_samples),
             "invalid_position_value_samples": invalid_position_value_samples[:25],
             "reconciliation_gap_date_count": len(gap_details),
             "max_gap_amount": float(max_abs_gap_amount),
-            "gap_samples": gap_details[:25],
+            "gap_samples": gap_details[:_RECONCILIATION_SAMPLE_LIMIT],
+            "position_continuity_gap_count": len(position_continuity_gap_samples),
+            "position_continuity_gap_samples": position_continuity_gap_samples[:_RECONCILIATION_SAMPLE_LIMIT],
         },
     )
 
@@ -291,6 +331,13 @@ def _select_latest_position_rows(position_rows: list[dict[str, object]]) -> list
         if current is None or epoch >= current[0]:
             selected[key] = (epoch, row)
     return [row for _, row in selected.values()]
+
+
+def _position_rows_from_payload(position_payload: dict[str, object]) -> list[dict[str, object]]:
+    rows = position_payload.get("rows", [])
+    if not isinstance(rows, list):
+        return []
+    return [row for row in rows if isinstance(row, dict)]
 
 
 def _find_mixed_epoch_dates(position_rows: list[dict[str, object]]) -> set[str]:
@@ -333,6 +380,114 @@ def _select_position_end_value_field(row: dict[str, object]) -> tuple[str, objec
     if row.get("ending_market_value_reporting_currency") is not None:
         return "ending_market_value_reporting_currency", row.get("ending_market_value_reporting_currency")
     return "ending_market_value_portfolio_currency", row.get("ending_market_value_portfolio_currency")
+
+
+def _select_position_begin_value_field(row: dict[str, object]) -> tuple[str, object]:
+    if row.get("beginning_market_value_reporting_currency") is not None:
+        return "beginning_market_value_reporting_currency", row.get("beginning_market_value_reporting_currency")
+    return "beginning_market_value_portfolio_currency", row.get("beginning_market_value_portfolio_currency")
+
+
+def _collect_position_continuity_gap_samples(position_rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    rows_by_position: dict[str, list[dict[str, object]]] = {}
+    for row in position_rows:
+        position_id = row.get("position_id")
+        valuation_date = row.get("valuation_date")
+        if not isinstance(position_id, str) or not isinstance(valuation_date, str):
+            continue
+        rows_by_position.setdefault(position_id, []).append(row)
+
+    samples: list[dict[str, object]] = []
+    for position_id, rows in rows_by_position.items():
+        sorted_rows = sorted(rows, key=lambda row: str(row.get("valuation_date")))
+        previous_row: dict[str, object] | None = None
+        for row in sorted_rows:
+            if previous_row is None:
+                previous_row = row
+                continue
+            sample = _build_position_continuity_gap_sample(
+                position_id=position_id,
+                previous_row=previous_row,
+                current_row=row,
+            )
+            if sample is not None:
+                samples.append(sample)
+            previous_row = row
+    return samples
+
+
+def _build_position_continuity_gap_sample(
+    *,
+    position_id: str,
+    previous_row: dict[str, object],
+    current_row: dict[str, object],
+) -> dict[str, object] | None:
+    previous_end_field, raw_previous_end = _select_position_continuity_end_value_field(previous_row)
+    current_begin_field, raw_current_begin = _select_position_continuity_begin_value_field(current_row)
+    previous_end = _parse_decimal(raw_previous_end)
+    current_begin = _parse_decimal(raw_current_begin)
+    if previous_end is None or current_begin is None:
+        return None
+    gap_amount = current_begin - previous_end
+    tolerance = max(_ABSOLUTE_GAP_TOLERANCE, abs(previous_end) * _RELATIVE_GAP_TOLERANCE)
+    if abs(gap_amount) <= tolerance:
+        return None
+    if _row_has_transition_activity(current_row):
+        return None
+
+    gap_pct = None
+    if previous_end != 0:
+        gap_pct = float((gap_amount / previous_end) * Decimal("100"))
+    return {
+        "position_id": position_id,
+        "previous_valuation_date": previous_row.get("valuation_date"),
+        "valuation_date": current_row.get("valuation_date"),
+        "previous_end_value_field": previous_end_field,
+        "current_begin_value_field": current_begin_field,
+        "previous_end_value": float(previous_end),
+        "current_begin_value": float(current_begin),
+        "gap_amount": float(gap_amount),
+        "gap_pct_of_previous_end": gap_pct,
+    }
+
+
+def _row_has_transition_activity(row: dict[str, object]) -> bool:
+    if _cash_flows_have_nonzero_amount(row.get("cash_flows")):
+        return True
+    for key, value in row.items():
+        normalized_key = key.lower()
+        if not any(token in normalized_key for token in ("cashflow", "cash_flow", "trade", "quantity_delta")):
+            continue
+        if normalized_key == "cash_flows":
+            continue
+        decimal_value = _parse_decimal(value)
+        if decimal_value is not None and decimal_value != 0:
+            return True
+    return False
+
+
+def _select_position_continuity_end_value_field(row: dict[str, object]) -> tuple[str, object]:
+    if row.get("ending_market_value_position_currency") is not None:
+        return "ending_market_value_position_currency", row.get("ending_market_value_position_currency")
+    return _select_position_end_value_field(row)
+
+
+def _select_position_continuity_begin_value_field(row: dict[str, object]) -> tuple[str, object]:
+    if row.get("beginning_market_value_position_currency") is not None:
+        return "beginning_market_value_position_currency", row.get("beginning_market_value_position_currency")
+    return _select_position_begin_value_field(row)
+
+
+def _cash_flows_have_nonzero_amount(cash_flows: object) -> bool:
+    if not isinstance(cash_flows, list):
+        return False
+    for flow in cash_flows:
+        if not isinstance(flow, dict):
+            continue
+        amount = _parse_decimal(flow.get("amount"))
+        if amount is not None and amount != 0:
+            return True
+    return False
 
 
 def _collect_duplicate_snapshot_samples(position_rows: list[dict[str, object]]) -> list[dict[str, object]]:
@@ -393,7 +548,7 @@ def _parse_epoch_details(row: dict[str, object]) -> tuple[int, bool, str | None,
         if raw_value is None:
             continue
         try:
-            return int(raw_value), False, key, raw_value
+            return int(str(raw_value)), False, key, raw_value
         except (TypeError, ValueError):
             return 0, True, key, raw_value
     return 0, False, None, None

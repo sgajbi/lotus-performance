@@ -688,7 +688,10 @@ Implementation status on 2026-04-15:
 3. rows with unusable snapshot epoch labels and latest selected position rows with unusable ending
    market values are now emitted as explicit `lotus-core` reconciliation evidence instead of being
    dropped silently from selection or tie-out totals,
-4. owner-summary synthesis now reflects the actual finding owners instead of defaulting every clean
+4. unexplained position begin-value carry-forward breaks are now emitted as explicit `lotus-core`
+   reconciliation findings with prior end value, current begin value, position id, valuation dates,
+   and gap evidence,
+5. owner-summary synthesis now reflects the actual finding owners instead of defaulting every clean
    or dirty inspection to `lotus-performance`.
 
 ### Slice 5: Canonical and Platform Integration
