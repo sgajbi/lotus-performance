@@ -31,6 +31,7 @@ Source-of-truth runtime docs:
 - [technical/runtime_topology.md](docs/technical/runtime_topology.md)
 - [technical/RFC-0082-upstream-contract-family-map.md](docs/technical/RFC-0082-upstream-contract-family-map.md)
 - [technical/RFC-0082-retrieval-performance-hardening.md](docs/technical/RFC-0082-retrieval-performance-hardening.md)
+- [technical/twr-inspection-endpoint-certification.md](docs/technical/twr-inspection-endpoint-certification.md)
 
 Canonical stateful TWR inspection can be validated locally with:
 

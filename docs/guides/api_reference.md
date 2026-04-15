@@ -38,6 +38,61 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - completed: `app.models.responses.PerformanceResponse`
   - still running: `app.models.responses.TWRAcceptedResponse`
 
+### `POST /performance/inspections/twr`
+
+- purpose: submit a durable supportability inspection for a TWR result or proposed TWR request
+- request model: `app.models.inspection_requests.TWRInspectionRequest`
+- response model: `app.models.inspection_responses.TWRInspectionAcceptedResponse`
+- execution mode: async only
+- use this endpoint when:
+  - a TWR number is mathematically available but source quality, source economics, reconciliation, or response arithmetic needs to be explained
+  - support or front office needs owner-routed findings and downloadable evidence artifacts
+  - canonical portfolio validation needs to prove no nonpositive capital-base days, reconciliation gaps, cash-flow timing contradictions, unsupported cash-flow labels, or extreme source-driven daily moves remain
+- do not use this endpoint to calculate TWR; use `POST /performance/twr` for the return result
+- supported subject modes:
+  - `subject_type=twr_calculation` inspects an existing durable TWR calculation and can run calculation-consistency, source-quality, reconciliation, and source-economics checks when lineage is available
+  - `subject_type=twr_request` inspects a proposed request payload and runs request-local source-quality and plausibility checks without mutating the normal TWR contract
+- supported inspection profiles:
+  - `support_triage`: default support workflow for explainability and owner routing
+  - `canonical_validation`: governed validation profile for canonical seeded portfolios such as `PB_SG_GLOBAL_BAL_001`
+  - `deep_reconciliation`: heavier profile for upstream state and economics escalation
+- async accepted responses return:
+  - `poll_path=/performance/executions/{inspection_id}`
+  - `result_path=/performance/inspections/{inspection_id}`
+
+### `GET /performance/inspections/{inspection_id}`
+
+- purpose: retrieve a durable TWR inspection result when complete, or the accepted envelope while queued or running
+- response model:
+  - completed: `app.models.inspection_responses.TWRInspectionResponse`
+  - still running: `app.models.inspection_responses.TWRInspectionAcceptedResponse`
+- response includes:
+  - `verdict`: `supportable`, `supportable_with_warnings`, `not_supportable`, or `inspection_failed`
+  - `findings[]`: stable finding code, severity, category, owning repository, explanation, recommendation, and structured evidence
+  - `owner_summary`: primary and secondary owning repositories inferred from findings
+  - `evidence_summary`: count and tie-out metrics from completed check families
+  - `check_coverage`: completed and pending check families, so absence of findings is not misread as universal coverage
+  - `related_lineage`: source TWR lineage pointer for existing-calculation inspections
+  - `artifacts`: downloadable evidence artifact paths
+
+### `GET /performance/inspections/{inspection_id}/artifacts/{artifact_name}`
+
+- purpose: download one completed TWR inspection evidence artifact
+- Swagger status: documented in `/docs` because the route is part of the supportability contract
+- supported artifact names:
+  - `inspection_summary.json`
+  - `findings.json`
+  - `source_quality_summary.json` when source-quality checks run
+  - `reconciliation_summary.json` when stateful reconciliation runs
+  - `source_economics_summary.json` when stateful source-economics checks run
+- error behavior:
+  - `404` when the inspection record is missing, incomplete, not a TWR inspection, or the artifact name is not recorded for that inspection
+  - `503` when durable metadata declares the artifact but the artifact content is missing from storage
+- support-facing check inventory lives in:
+  - `docs/guides/twr_inspection_checks.md`
+- certification evidence lives in:
+  - `docs/technical/twr-inspection-endpoint-certification.md`
+
 ### `POST /performance/mwr`
 
 - purpose: calculate money-weighted return

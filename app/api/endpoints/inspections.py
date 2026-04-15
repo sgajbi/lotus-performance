@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Path, status
 from fastapi.responses import FileResponse, Response
 
 from app.core.config import get_settings
@@ -102,9 +102,52 @@ def get_twr_inspection(inspection_id: UUID):
 
 @router.get(
     "/inspections/{inspection_id}/artifacts/{artifact_name}",
-    include_in_schema=False,
+    summary="Download a TWR inspection evidence artifact",
+    description=(
+        "Downloads one durable evidence artifact for a completed TWR supportability inspection. "
+        "Use this route after `GET /performance/inspections/{inspection_id}` returns artifact links. "
+        "Only artifact names recorded on the completed inspection are downloadable; missing records "
+        "or unknown artifact names return 404, and artifacts declared in durable metadata but missing "
+        "from storage return 503."
+    ),
+    responses={
+        200: {
+            "description": (
+                "Inspection artifact content. JSON artifacts are returned as application/json; "
+                "file-backed artifacts may use a file response content type."
+            ),
+            "content": {
+                "application/json": {
+                    "example": {
+                        "inspection_id": "9d000001-1111-4222-8333-abcdefabcdef",
+                        "verdict": "supportable_with_warnings",
+                    }
+                },
+                "application/octet-stream": {"example": '{"inspection_id":"9d000001-1111-4222-8333-abcdefabcdef"}'},
+            },
+        },
+        404: {
+            "description": "Inspection record or artifact name was not found for the supplied inspection_id.",
+        },
+        503: {
+            "description": "The artifact is declared in durable metadata but is missing from storage.",
+        },
+    },
 )
-def get_twr_inspection_artifact(inspection_id: UUID, artifact_name: str):
+def get_twr_inspection_artifact(
+    inspection_id: UUID = Path(
+        description="Completed TWR inspection identifier returned by POST /performance/inspections/twr.",
+        examples=["9d000001-1111-4222-8333-abcdefabcdef"],
+    ),
+    artifact_name: str = Path(
+        description=(
+            "Inspection artifact file name. Supported names include inspection_summary.json, findings.json, "
+            "source_quality_summary.json, reconciliation_summary.json, and source_economics_summary.json when "
+            "the corresponding check family ran."
+        ),
+        examples=["source_economics_summary.json"],
+    ),
+):
     record = lineage_metadata_store.get_record(inspection_id)
     if record is None or record.calculation_type != "TWR_INSPECTION" or record.status != LineageStatus.COMPLETE:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inspection artifact not found.")

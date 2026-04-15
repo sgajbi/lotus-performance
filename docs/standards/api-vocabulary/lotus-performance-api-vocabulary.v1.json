@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-04-15T11:35:03.714866+00:00",
+  "generatedAt": "2026-04-15T12:05:21.782525+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.account_reset_shadow_days",
@@ -270,6 +270,20 @@
       "type": "string",
       "locations": [
         "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.artifact_name",
+      "canonicalTerm": "artifact_name",
+      "preferredName": "artifact_name",
+      "description": "Canonical artifact name used by lotus-performance APIs.",
+      "example": null,
+      "type": "string",
+      "locations": [
+        "path"
       ],
       "observedTypes": [
         "string"
@@ -2211,7 +2225,7 @@
       "canonicalTerm": "inspection_id",
       "preferredName": "inspection_id",
       "description": "Client-supplied or service-generated durable inspection identifier.",
-      "example": "INSPECTION_001",
+      "example": "ENTITY_001",
       "type": "string",
       "locations": [
         "body",
@@ -3658,8 +3672,8 @@
       "semanticId": "lotus.poll_path",
       "canonicalTerm": "poll_path",
       "preferredName": "poll_path",
-      "description": "twrinspection accepted response field: poll path.",
-      "example": "/performance/executions/2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
+      "description": "Execution polling route for queue, running, stage, and terminal status.",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -4244,7 +4258,7 @@
       "semanticId": "lotus.request",
       "canonicalTerm": "request",
       "preferredName": "request",
-      "description": "Fresh TWR request to inspect when subject_type is twr_request.",
+      "description": "Fresh TWR request to inspect when subject_type is twr_request. This does not replace the normal TWR calculation endpoint; it runs supportability checks against the supplied request shape.",
       "example": {
         "calculation_id": "2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
         "portfolio_id": "DEMO_DPM_EUR_001",
@@ -4581,8 +4595,8 @@
       "semanticId": "lotus.result_path",
       "canonicalTerm": "result_path",
       "preferredName": "result_path",
-      "description": "twrinspection accepted response field: result path.",
-      "example": "/integration/returns/series/results/2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
+      "description": "Endpoint-specific route that returns the completed TWR inspection result.",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -5406,7 +5420,7 @@
       "canonicalTerm": "subject_calculation_id",
       "preferredName": "subject_calculation_id",
       "description": "Existing TWR calculation to inspect when subject_type is twr_calculation.",
-      "example": "SUBJECT_CALCULATION_001",
+      "example": "ENTITY_001",
       "type": "object",
       "locations": [
         "body"
@@ -6032,6 +6046,30 @@
       "allowedValues": [],
       "semanticId": "lotus.inspection_id",
       "attributeRef": "#/attributeCatalog/lotus.inspection_id"
+    },
+    {
+      "name": "inspection_id",
+      "kind": "request_option",
+      "location": "path",
+      "required": true,
+      "type": "string",
+      "description": "Completed TWR inspection identifier returned by POST /performance/inspections/twr.",
+      "example": "ENTITY_001",
+      "allowedValues": [],
+      "semanticId": "lotus.inspection_id",
+      "attributeRef": "#/attributeCatalog/lotus.inspection_id"
+    },
+    {
+      "name": "artifact_name",
+      "kind": "request_option",
+      "location": "path",
+      "required": true,
+      "type": "string",
+      "description": "Inspection artifact file name. Supported names include inspection_summary.json, findings.json, source_quality_summary.json, reconciliation_summary.json, and source_economics_summary.json when the corresponding check family ran.",
+      "example": "STANDARD_VALUE",
+      "allowedValues": [],
+      "semanticId": "lotus.artifact_name",
+      "attributeRef": "#/attributeCatalog/lotus.artifact_name"
     },
     {
       "name": "calculation_id",
@@ -9443,6 +9481,36 @@
             "type": "string",
             "semanticId": "lotus.inspection_id",
             "attributeRef": "#/attributeCatalog/lotus.inspection_id"
+          }
+        ]
+      },
+      "response": {
+        "fields": []
+      }
+    },
+    {
+      "domain": "performance",
+      "method": "GET",
+      "path": "/performance/inspections/{inspection_id}/artifacts/{artifact_name}",
+      "operationId": "get_twr_inspection_artifact_performance_inspections__inspection_id__artifacts__artifact_name__get",
+      "summary": "Download a TWR inspection evidence artifact",
+      "request": {
+        "fields": [
+          {
+            "name": "inspection_id",
+            "location": "path",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.inspection_id",
+            "attributeRef": "#/attributeCatalog/lotus.inspection_id"
+          },
+          {
+            "name": "artifact_name",
+            "location": "path",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.artifact_name",
+            "attributeRef": "#/attributeCatalog/lotus.artifact_name"
           }
         ]
       },

@@ -489,10 +489,17 @@ def test_complete_service_reference_covers_endpoint_surface_and_config_inventory
 def test_twr_inspection_checks_guide_lists_current_check_inventory():
     guide = _read("docs/guides/twr_inspection_checks.md")
     readme = _read("README.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    complete_reference = _read("docs/guides/complete_service_reference.md")
+    certification = _read("docs/technical/twr-inspection-endpoint-certification.md")
 
     assert "POST /performance/inspections/twr" in guide
+    assert "POST /performance/inspections/twr" in api_reference
+    assert "GET /performance/inspections/{inspection_id}/artifacts/{artifact_name}" in api_reference
     assert "scripts/validate_canonical_twr_inspection.py" in guide
     assert "scripts/validate_canonical_twr_inspection.py" in readme
+    assert "technical/twr-inspection-endpoint-certification.md" in readme
+    assert "docs/technical/twr-inspection-endpoint-certification.md" in complete_reference
     assert "inspection_summary.json" in guide
     assert "findings.json" in guide
     assert "source_quality_summary.json" in guide
@@ -538,6 +545,11 @@ def test_twr_inspection_checks_guide_lists_current_check_inventory():
     assert "UNSUPPORTED_CASHFLOW_TYPE_PRESENT" in guide
     assert 'cash_flow_type="expense"` is not a governed analytics-input label' in guide
     assert "stateful valuation normalization" in guide
+    assert "Downstream Consumers" in certification
+    assert "`lotus-gateway`" in certification
+    assert "`lotus-risk`" in certification
+    assert "Swagger Readiness" in certification
+    assert "Test Pyramid Assessment" in certification
 
 
 def test_runtime_alert_runbook_covers_breach_gauges():

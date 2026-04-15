@@ -215,6 +215,7 @@ Artifact route:
 - current source-economics checks cover fee and external cash-flow classification loss, conflicting or malformed explicit fee or bod/eod source totals, fee and external normalization mismatches, duplicate raw source signals, positive fee sign anomalies, fee or external explicit source-total mismatches, external timing-bucket contradictions, invalid detailed cash-flow amounts, invalid timing labels, missing `cash_flow_type` labels, non-canonical `cash_flow_type` labels, governed alias labels, and unsupported labels whose TWR economics are not yet governed
 - stateful portfolio and position valuation normalization use the same source cash-flow taxonomy as the inspector, so canonical `fee` cash flows, including operational expenses identified by `source_classification="EXPENSE"`, are normalized into `mgmt_fees`; stale `cash_flow_type="expense"` labels are treated as unsupported analytics input
 - the full support-facing finding inventory lives in `docs/guides/twr_inspection_checks.md`
+- endpoint certification evidence lives in `docs/technical/twr-inspection-endpoint-certification.md`
 
 ### `GET /performance/twr/results/{calculation_id}`
 
