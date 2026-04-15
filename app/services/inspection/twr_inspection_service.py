@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from app.models.inspection_requests import TWRInspectionRequest
 from app.models.inspection_responses import (
@@ -12,6 +12,9 @@ from app.models.inspection_responses import (
     TWRInspectionResponse,
     TWRInspectionVerdict,
 )
+from app.models.requests import PerformanceRequest
+from app.models.responses import PerformanceResponse
+from app.models.twr_requests import TWRResolvedExecutionRequest
 from app.services.execution_registry import execution_registry
 from app.services.inspection.artifact_service import enqueue_twr_inspection_artifacts
 from app.services.inspection.calculation_consistency import run_twr_calculation_consistency_checks
@@ -72,6 +75,14 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
             )
             performance_request = extract_performance_request_from_payload(existing_artifacts.request_payload)
             consistency_result = run_twr_calculation_consistency_checks(existing_artifacts.response_model)
+            performance_request = _scope_request_to_response_master_window(
+                performance_request,
+                existing_artifacts.response_model,
+            )
+            resolved_execution_request = _scope_resolved_request_to_response_master_window(
+                resolved_execution_request,
+                existing_artifacts.response_model,
+            )
         except Exception as exc:
             execution_registry.fail_stage(request.inspection_id, "math_reconciliation", str(exc))
             raise
@@ -286,6 +297,53 @@ def _synthesize_verdict(
     if findings or pending_check_families:
         return TWRInspectionVerdict.SUPPORTABLE_WITH_WARNINGS
     return TWRInspectionVerdict.SUPPORTABLE
+
+
+def _scope_resolved_request_to_response_master_window(
+    resolved_request: TWRResolvedExecutionRequest | None,
+    response_model: PerformanceResponse,
+) -> TWRResolvedExecutionRequest | None:
+    if resolved_request is None:
+        return None
+    scoped_portfolio = _scope_request_to_response_master_window(resolved_request.portfolio, response_model)
+    if scoped_portfolio is None:
+        return resolved_request
+    return resolved_request.model_copy(update={"portfolio": scoped_portfolio})
+
+
+def _scope_request_to_response_master_window(
+    performance_request: PerformanceRequest | None,
+    response_model: PerformanceResponse,
+) -> PerformanceRequest | None:
+    if performance_request is None:
+        return None
+    master_start, master_end = _response_master_window(response_model)
+    if master_start is None or master_end is None:
+        return performance_request
+    scoped_points = [
+        point for point in performance_request.valuation_points if master_start <= point.perf_date <= master_end
+    ]
+    if not scoped_points:
+        return performance_request
+    return performance_request.model_copy(
+        update={
+            "performance_start_date": master_start,
+            "report_end_date": master_end,
+            "valuation_points": scoped_points,
+        }
+    )
+
+
+def _response_master_window(response_model: PerformanceResponse) -> tuple[date | None, date | None]:
+    periods = response_model.meta.periods
+    master_start_raw = periods.get("master_start") if isinstance(periods, dict) else None
+    master_end_raw = periods.get("master_end") if isinstance(periods, dict) else None
+    if not isinstance(master_start_raw, str) or not isinstance(master_end_raw, str):
+        return None, None
+    try:
+        return date.fromisoformat(master_start_raw), date.fromisoformat(master_end_raw)
+    except ValueError:
+        return None, None
 
 
 def _build_owner_summary(findings: list[TWRInspectionFinding]) -> TWRInspectionOwnerSummary:
