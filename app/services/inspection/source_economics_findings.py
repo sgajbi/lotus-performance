@@ -1,36 +1,17 @@
 from __future__ import annotations
 
 from app.models.inspection_responses import TWRInspectionFinding
+from app.services.inspection.source_economics_collector import SourceEconomicsSamples
 
 
 def build_source_economics_findings(
     *,
     portfolio_id: str,
-    fee_normalization_samples: list[dict[str, object]],
-    duplicate_fee_signal_samples: list[dict[str, object]],
-    fee_source_mismatch_samples: list[dict[str, object]],
-    positive_fee_signal_samples: list[dict[str, object]],
-    fee_timing_bucket_samples: list[dict[str, object]],
-    fee_mixed_timing_samples: list[dict[str, object]],
-    external_normalization_samples: list[dict[str, object]],
-    duplicate_external_signal_samples: list[dict[str, object]],
-    external_source_mismatch_samples: list[dict[str, object]],
-    external_timing_contradiction_samples: list[dict[str, object]],
-    external_mixed_timing_samples: list[dict[str, object]],
-    conflicting_explicit_amount_samples: list[dict[str, object]],
-    invalid_explicit_amount_samples: list[dict[str, object]],
-    invalid_cashflow_collection_samples: list[dict[str, object]],
-    invalid_cashflow_row_samples: list[dict[str, object]],
-    invalid_amount_samples: list[dict[str, object]],
-    invalid_timing_samples: list[dict[str, object]],
-    missing_cashflow_type_samples: list[dict[str, object]],
-    noncanonical_cashflow_type_samples: list[dict[str, object]],
-    unsupported_cashflow_type_samples: list[dict[str, object]],
-    governed_alias_cashflow_type_samples: list[dict[str, object]],
+    samples: SourceEconomicsSamples,
 ) -> list[TWRInspectionFinding]:
     findings: list[TWRInspectionFinding] = []
 
-    if fee_normalization_samples:
+    if samples.fee_normalization_samples:
         findings.append(
             TWRInspectionFinding(
                 code="FEE_CASHFLOW_CLASSIFICATION_NOT_PRESERVED",
@@ -46,11 +27,11 @@ def build_source_economics_findings(
                     "Preserve fee source economics during stateful portfolio normalization so served mgmt_fees tie "
                     "to the authoritative upstream fee signal."
                 ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=fee_normalization_samples),
+                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=samples.fee_normalization_samples),
             )
         )
 
-    if duplicate_fee_signal_samples:
+    if samples.duplicate_fee_signal_samples:
         findings.append(
             TWRInspectionFinding(
                 code="DUPLICATE_FEE_SOURCE_SIGNAL",
@@ -66,11 +47,11 @@ def build_source_economics_findings(
                     "Review lotus-core portfolio-timeseries fee semantics and emit one authoritative fee signal per "
                     "valuation date."
                 ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=duplicate_fee_signal_samples),
+                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=samples.duplicate_fee_signal_samples),
             )
         )
 
-    if fee_source_mismatch_samples:
+    if samples.fee_source_mismatch_samples:
         findings.append(
             TWRInspectionFinding(
                 code="FEE_SOURCE_TOTAL_MISMATCH",
@@ -86,11 +67,11 @@ def build_source_economics_findings(
                     "Review lotus-core portfolio-timeseries fee aggregation so explicit fee totals and detailed "
                     "fee-classified cash flows reconcile."
                 ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=fee_source_mismatch_samples),
+                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=samples.fee_source_mismatch_samples),
             )
         )
 
-    if positive_fee_signal_samples:
+    if samples.positive_fee_signal_samples:
         findings.append(
             TWRInspectionFinding(
                 code="POSITIVE_FEE_SOURCE_SIGNAL",
@@ -106,11 +87,11 @@ def build_source_economics_findings(
                     "Review lotus-core fee sign semantics and ensure fee-classified source amounts are emitted as "
                     "negative economics."
                 ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=positive_fee_signal_samples),
+                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=samples.positive_fee_signal_samples),
             )
         )
 
-    if fee_timing_bucket_samples:
+    if samples.fee_timing_bucket_samples:
         findings.append(
             TWRInspectionFinding(
                 code="FEE_CASHFLOW_TIMING_BUCKET_UNSUPPORTED",
@@ -127,11 +108,11 @@ def build_source_economics_findings(
                     "Review lotus-core portfolio-timeseries fee timing semantics and emit operational fee rows in "
                     "the canonical end-of-day timing bucket unless a separate governed fee timing model is approved."
                 ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=fee_timing_bucket_samples),
+                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=samples.fee_timing_bucket_samples),
             )
         )
 
-    if fee_mixed_timing_samples:
+    if samples.fee_mixed_timing_samples:
         findings.append(
             TWRInspectionFinding(
                 code="FEE_CASHFLOW_MIXED_TIMING_BUCKETS",
@@ -148,11 +129,11 @@ def build_source_economics_findings(
                     "Review the lotus-core fee transaction story for the sampled dates and emit one governed fee "
                     "timing model before relying on the result for production support triage."
                 ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=fee_mixed_timing_samples),
+                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=samples.fee_mixed_timing_samples),
             )
         )
 
-    if external_normalization_samples:
+    if samples.external_normalization_samples:
         findings.append(
             TWRInspectionFinding(
                 code="EXTERNAL_CASHFLOW_NORMALIZATION_MISMATCH",
@@ -168,11 +149,11 @@ def build_source_economics_findings(
                     "Review stateful portfolio normalization in lotus-performance so external cash flows tie exactly "
                     "from the raw portfolio source into the served valuation points."
                 ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=external_normalization_samples),
+                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=samples.external_normalization_samples),
             )
         )
 
-    if duplicate_external_signal_samples:
+    if samples.duplicate_external_signal_samples:
         findings.append(
             TWRInspectionFinding(
                 code="DUPLICATE_EXTERNAL_CASHFLOW_SOURCE_SIGNAL",
@@ -188,11 +169,14 @@ def build_source_economics_findings(
                     "Review lotus-core portfolio-timeseries cash-flow semantics and emit one authoritative external "
                     "cash-flow signal per timing bucket."
                 ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=duplicate_external_signal_samples),
+                evidence=_sample_evidence(
+                    portfolio_id=portfolio_id,
+                    samples=samples.duplicate_external_signal_samples,
+                ),
             )
         )
 
-    if external_source_mismatch_samples:
+    if samples.external_source_mismatch_samples:
         findings.append(
             TWRInspectionFinding(
                 code="EXTERNAL_CASHFLOW_SOURCE_TOTAL_MISMATCH",
@@ -208,11 +192,11 @@ def build_source_economics_findings(
                     "Review lotus-core portfolio-timeseries cash-flow aggregation so explicit bod/eod totals and "
                     "detailed external cash-flow rows reconcile."
                 ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=external_source_mismatch_samples),
+                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=samples.external_source_mismatch_samples),
             )
         )
 
-    if external_timing_contradiction_samples:
+    if samples.external_timing_contradiction_samples:
         findings.append(
             TWRInspectionFinding(
                 code="EXTERNAL_CASHFLOW_TIMING_BUCKET_CONTRADICTION",
@@ -228,11 +212,14 @@ def build_source_economics_findings(
                     "Review lotus-core portfolio-timeseries cash-flow timing semantics so explicit bod/eod totals "
                     "and detailed external cash-flow rows classify the movement in the same timing bucket."
                 ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=external_timing_contradiction_samples),
+                evidence=_sample_evidence(
+                    portfolio_id=portfolio_id,
+                    samples=samples.external_timing_contradiction_samples,
+                ),
             )
         )
 
-    if external_mixed_timing_samples:
+    if samples.external_mixed_timing_samples:
         findings.append(
             TWRInspectionFinding(
                 code="EXTERNAL_CASHFLOW_MIXED_TIMING_BUCKETS",
@@ -249,11 +236,11 @@ def build_source_economics_findings(
                     "Review the lotus-core transaction story for the sampled dates and confirm both external timing "
                     "buckets are intentional and reconcile to the normalized TWR valuation points."
                 ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=external_mixed_timing_samples),
+                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=samples.external_mixed_timing_samples),
             )
         )
 
-    if conflicting_explicit_amount_samples:
+    if samples.conflicting_explicit_amount_samples:
         findings.append(
             TWRInspectionFinding(
                 code="CONFLICTING_EXPLICIT_SOURCE_TOTAL_PRESENT",
@@ -270,11 +257,14 @@ def build_source_economics_findings(
                     "Review lotus-core portfolio-timeseries alias fields and ensure equivalent explicit fee, bod "
                     "cash-flow, and eod cash-flow totals reconcile when multiple fields are served."
                 ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=conflicting_explicit_amount_samples),
+                evidence=_sample_evidence(
+                    portfolio_id=portfolio_id,
+                    samples=samples.conflicting_explicit_amount_samples,
+                ),
             )
         )
 
-    if invalid_explicit_amount_samples:
+    if samples.invalid_explicit_amount_samples:
         findings.append(
             TWRInspectionFinding(
                 code="INVALID_EXPLICIT_SOURCE_AMOUNT_PRESENT",
@@ -291,11 +281,11 @@ def build_source_economics_findings(
                     "Review lotus-core portfolio-timeseries serialization and emit numeric values for explicit fee, "
                     "bod cash-flow, and eod cash-flow source fields when those fields are present."
                 ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=invalid_explicit_amount_samples),
+                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=samples.invalid_explicit_amount_samples),
             )
         )
 
-    if invalid_cashflow_collection_samples:
+    if samples.invalid_cashflow_collection_samples:
         findings.append(
             TWRInspectionFinding(
                 code="INVALID_CASHFLOW_COLLECTION_PRESENT",
@@ -312,11 +302,14 @@ def build_source_economics_findings(
                     "Review lotus-core portfolio-timeseries serialization and emit cash_flows as a list of "
                     "detailed cash-flow row objects when detailed cash-flow lineage is present."
                 ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=invalid_cashflow_collection_samples),
+                evidence=_sample_evidence(
+                    portfolio_id=portfolio_id,
+                    samples=samples.invalid_cashflow_collection_samples,
+                ),
             )
         )
 
-    if invalid_cashflow_row_samples:
+    if samples.invalid_cashflow_row_samples:
         findings.append(
             TWRInspectionFinding(
                 code="INVALID_CASHFLOW_ROW_PRESENT",
@@ -333,11 +326,11 @@ def build_source_economics_findings(
                     "Review lotus-core portfolio-timeseries serialization and emit each cash_flows entry as a row "
                     "object with amount, timing, and cash_flow_type fields."
                 ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=invalid_cashflow_row_samples),
+                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=samples.invalid_cashflow_row_samples),
             )
         )
 
-    if invalid_amount_samples:
+    if samples.invalid_amount_samples:
         findings.append(
             TWRInspectionFinding(
                 code="INVALID_CASHFLOW_AMOUNT_PRESENT",
@@ -354,11 +347,11 @@ def build_source_economics_findings(
                     "Review lotus-core detailed cash-flow serialization and emit a numeric amount for every "
                     "nonzero detailed cash-flow row."
                 ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=invalid_amount_samples),
+                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=samples.invalid_amount_samples),
             )
         )
 
-    if invalid_timing_samples:
+    if samples.invalid_timing_samples:
         findings.append(
             TWRInspectionFinding(
                 code="INVALID_CASHFLOW_TIMING_PRESENT",
@@ -375,11 +368,11 @@ def build_source_economics_findings(
                     "Review lotus-core detailed cash-flow serialization and emit canonical `bod` or `eod` timing "
                     "labels for every nonzero detailed cash-flow row."
                 ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=invalid_timing_samples),
+                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=samples.invalid_timing_samples),
             )
         )
 
-    if missing_cashflow_type_samples:
+    if samples.missing_cashflow_type_samples:
         findings.append(
             TWRInspectionFinding(
                 code="MISSING_CASHFLOW_TYPE_PRESENT",
@@ -396,11 +389,11 @@ def build_source_economics_findings(
                     "Review lotus-core detailed cash-flow serialization and emit canonical fee/external_flow "
                     "labels for every nonzero detailed cash-flow row."
                 ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=missing_cashflow_type_samples),
+                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=samples.missing_cashflow_type_samples),
             )
         )
 
-    if noncanonical_cashflow_type_samples:
+    if samples.noncanonical_cashflow_type_samples:
         findings.append(
             TWRInspectionFinding(
                 code="NONCANONICAL_CASHFLOW_TYPE_PRESENT",
@@ -417,11 +410,14 @@ def build_source_economics_findings(
                     "Review lotus-core cash_flow_type vocabulary and either emit canonical fee/external_flow labels "
                     "or agree and document an explicit mapping for additional labels."
                 ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=noncanonical_cashflow_type_samples),
+                evidence=_sample_evidence(
+                    portfolio_id=portfolio_id,
+                    samples=samples.noncanonical_cashflow_type_samples,
+                ),
             )
         )
 
-    if governed_alias_cashflow_type_samples:
+    if samples.governed_alias_cashflow_type_samples:
         findings.append(
             TWRInspectionFinding(
                 code="GOVERNED_ALIAS_CASHFLOW_TYPE_PRESENT",
@@ -439,11 +435,14 @@ def build_source_economics_findings(
                     "Review lotus-core cash_flow_type vocabulary and either emit canonical labels or publish the "
                     "alias mapping as a governed analytics-input contract."
                 ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=governed_alias_cashflow_type_samples),
+                evidence=_sample_evidence(
+                    portfolio_id=portfolio_id,
+                    samples=samples.governed_alias_cashflow_type_samples,
+                ),
             )
         )
 
-    if unsupported_cashflow_type_samples:
+    if samples.unsupported_cashflow_type_samples:
         findings.append(
             TWRInspectionFinding(
                 code="UNSUPPORTED_CASHFLOW_TYPE_PRESENT",
@@ -460,7 +459,7 @@ def build_source_economics_findings(
                     "Review lotus-core cash_flow_type vocabulary and define whether each label should be modeled as "
                     "a fee, external flow, income/accrual item, tax item, or another explicit analytics-input role."
                 ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=unsupported_cashflow_type_samples),
+                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=samples.unsupported_cashflow_type_samples),
             )
         )
 
