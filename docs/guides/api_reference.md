@@ -530,6 +530,7 @@ Return semantics for the workspace surface are now explicit rather than inferred
 ### `GET /integration/runtime-status`
 
 - purpose: expose an operational snapshot of runtime state for support and platform operators
+- response model: `app.models.runtime_status.RuntimeStatusResponse`
 - privileged-read auth:
   - when `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`, this route requires enterprise identity headers plus capability `operations.runtime.read`
   - allowed access is enterprise-audited with governed surface and required-capability metadata
@@ -578,6 +579,7 @@ Return semantics for the workspace surface are now explicit rather than inferred
 - use the inspection anchors to jump directly to:
   - `/performance/executions/{calculation_id}`
   - `/performance/lineage/{calculation_id}`
+- certification evidence: `docs/technical/runtime-status-endpoint-certification.md`
 
 ### `GET /integration/runtime-work-items`
 

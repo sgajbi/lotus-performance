@@ -56,6 +56,24 @@ def test_lineage_docs_reflect_certified_artifact_contract():
     assert "Test Pyramid Assessment" in certification
 
 
+def test_runtime_status_docs_reflect_certified_operator_contract():
+    readme = _read("README.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    complete_reference = _read("docs/guides/complete_service_reference.md")
+    certification = _read("docs/technical/runtime-status-endpoint-certification.md")
+
+    assert "technical/runtime-status-endpoint-certification.md" in readme
+    assert "app.models.runtime_status.RuntimeStatusResponse" in api_reference
+    assert "certification evidence: `docs/technical/runtime-status-endpoint-certification.md`" in api_reference
+    assert '"runtime_status": "ready"' in complete_reference
+    assert '"compute_queue": {' in complete_reference
+    assert '"lineage_queue": {' in complete_reference
+    assert '"runtime_retention": {' in complete_reference
+    assert "Downstream Consumers" in certification
+    assert "Test Pyramid Assessment" in certification
+    assert "No duplicate lotus-performance runtime-status endpoint" in certification
+
+
 def test_execution_polling_docs_reflect_certified_contract():
     readme = _read("README.md")
     api_reference = _read("docs/guides/api_reference.md")

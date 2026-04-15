@@ -1038,23 +1038,60 @@ Sample response:
 
 ```json
 {
-  "durable_store_available": true,
-  "lineage_storage_available": true,
-  "compute": {
-    "availability": "available",
-    "pending_count": 0,
-    "running_count": 0
+  "contract_version": "v1",
+  "source_service": "lotus-performance",
+  "generated_at": "2026-04-10T12:00:00Z",
+  "runtime_status": "ready",
+  "runtime_degradation_reasons": [],
+  "runtime_degradation_details": [],
+  "draining": false,
+  "durable_metadata_store": {
+    "status": "ready",
+    "reason": null,
+    "remediation_hint": null
   },
-  "lineage": {
-    "availability": "available",
-    "pending_count": 0
+  "compute_queue": {
+    "status": "available",
+    "pending_jobs": 0,
+    "running_jobs": 0,
+    "retry_backlog_jobs": 0,
+    "terminal_failure_jobs": 0,
+    "inspection_anchors": {
+      "oldest_pending_calculation_id": null,
+      "latest_terminal_failure_calculation_id": null
+    },
+    "recent_recoveries": []
   },
-  "inspection_anchors": {
-    "work_items_path": "/integration/runtime-work-items",
-    "recoveries_path": "/integration/runtime-recoveries"
+  "lineage_queue": {
+    "status": "available",
+    "pending_payloads": 0,
+    "retry_backlog_payloads": 0,
+    "terminal_failure_payloads": 0,
+    "storage_free_ratio": 0.72,
+    "inspection_anchors": {
+      "oldest_pending_calculation_id": null,
+      "latest_terminal_failure_calculation_id": null
+    },
+    "recent_recoveries": []
+  },
+  "recovery_drill": {
+    "status": "available",
+    "latest_status": "passed",
+    "active_run_count": 0
+  },
+  "runtime_retention": {
+    "status": "available",
+    "latest_status": "applied",
+    "active_run_count": 0,
+    "current_prunable_execution_count": 0,
+    "current_prunable_lineage_artifact_count": 0
   }
 }
 ```
+
+Certification evidence:
+
+- `docs/technical/runtime-status-endpoint-certification.md`
 
 ### `GET /integration/runtime-work-items`
 

@@ -13,8 +13,11 @@ router = APIRouter(tags=["Integration"])
     response_model=RuntimeStatusResponse,
     summary="Get lotus-performance runtime status",
     description=(
-        "Returns an operational snapshot of lotus-performance durable runtime state, including draining status, "
-        "durable metadata store availability, and current compute and lineage queue backlog details."
+        "Returns the bounded lotus-performance operator control-plane snapshot for durable runtime health. "
+        "Use this endpoint to inspect aggregate readiness, draining state, durable metadata availability, "
+        "compute and lineage queue pressure, lineage storage capacity, recovery-drill assurance, "
+        "runtime-retention assurance, degradation reasons, policy thresholds, and drilldown anchors before "
+        "opening execution, lineage, runtime-work-item, or runtime-recovery detail views."
     ),
 )
 async def get_runtime_status(request: Request) -> RuntimeStatusResponse:
