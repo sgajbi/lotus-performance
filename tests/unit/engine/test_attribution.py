@@ -6,7 +6,9 @@ from app.models.attribution_requests import AttributionRequest
 from common.enums import AttributionModel
 from engine.attribution import (
     _align_and_prepare_data,
+    _build_group_key_dict,
     _calculate_currency_attribution_effects,
+    _calculate_group_context_metrics,
     _calculate_single_period_effects,
     _link_effects_top_down,
     _prepare_data_from_instruments,
@@ -329,6 +331,54 @@ def test_prepare_panel_from_groups_handles_empty_cases():
         observations = []
 
     assert _prepare_panel_from_groups([_EmptyGroup()], ["sector"]).empty
+
+
+def test_attribution_group_context_helpers_cover_empty_and_scalar_group_keys():
+    assert _build_group_key_dict("Tech", ["sector"]) == {"sector": "Tech"}
+    empty_context = _calculate_group_context_metrics(pd.DataFrame(), ["sector"])
+    assert list(empty_context.columns) == [
+        "portfolio_weight_avg",
+        "benchmark_weight_avg",
+        "portfolio_return",
+        "benchmark_return",
+    ]
+
+
+def test_prepare_data_from_instruments_populates_same_currency_local_and_fx_columns():
+    request = AttributionRequest.model_validate(
+        {
+            "portfolio_id": "ATTR_SAME_CCY",
+            "mode": "by_instrument",
+            "group_by": ["sector"],
+            "linking": "none",
+            "frequency": "daily",
+            "currency_mode": "BOTH",
+            "report_ccy": "USD",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-01",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+            },
+            "instruments_data": [
+                {
+                    "instrument_id": "AAPL",
+                    "meta": {"sector": "", "currency": "USD"},
+                    "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+                }
+            ],
+            "benchmark_groups_data": [],
+        }
+    )
+
+    result_groups = _prepare_data_from_instruments(request)
+
+    assert len(result_groups) == 1
+    observation = result_groups[0].observations[0]
+    assert result_groups[0].key == {"sector": "unknown"}
+    assert observation["return_local"] == pytest.approx(observation["return_base"])
+    assert observation["return_fx"] == pytest.approx(0.0)
 
 
 def test_align_and_prepare_data_returns_empty_when_benchmark_missing(by_group_request_data):

@@ -7,7 +7,11 @@ from fastapi import HTTPException
 
 from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest, MWRInputMode
 from app.services.mwr_mode_service import resolve_mwr_request
-from app.services.stateful_mwr_input_service import build_stateful_mwr_input, build_stateful_mwr_input_for_window
+from app.services.stateful_mwr_input_service import (
+    _parse_decimal,
+    build_stateful_mwr_input,
+    build_stateful_mwr_input_for_window,
+)
 from app.services.stateful_performance_input_service import StatefulPortfolioInput
 
 
@@ -159,6 +163,11 @@ def test_build_stateful_mwr_input_skips_invalid_cash_flow_rows():
     normalized = build_stateful_mwr_input(source_input=source_input)
 
     assert normalized.cash_flows == []
+
+
+def test_parse_decimal_handles_none_and_invalid_values():
+    assert _parse_decimal(None) is None
+    assert _parse_decimal("not-a-decimal") is None
 
 
 @pytest.mark.asyncio
