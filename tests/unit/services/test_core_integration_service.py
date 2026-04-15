@@ -231,6 +231,7 @@ async def test_get_index_catalog_posts_contract_payload():
 
     status_code, payload = await service.get_index_catalog(
         as_of_date=date(2026, 2, 24),
+        index_ids=["IDX_GLOBAL_EQUITY_TR", "IDX_GLOBAL_BOND_TR"],
         index_currency="USD",
         index_type="BENCHMARK",
         index_status="ACTIVE",
@@ -241,6 +242,7 @@ async def test_get_index_catalog_posts_contract_payload():
     assert _FakeAsyncClient.calls[0]["url"] == "http://core/integration/indices/catalog"
     assert _FakeAsyncClient.calls[0]["json"] == {
         "as_of_date": "2026-02-24",
+        "index_ids": ["IDX_GLOBAL_EQUITY_TR", "IDX_GLOBAL_BOND_TR"],
         "index_currency": "USD",
         "index_type": "BENCHMARK",
         "index_status": "ACTIVE",

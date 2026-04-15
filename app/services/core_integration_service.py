@@ -241,12 +241,15 @@ class CoreIntegrationService:
         self,
         *,
         as_of_date: date,
+        index_ids: list[str] | None = None,
         index_currency: str | None = None,
         index_type: str | None = None,
         index_status: str | None = None,
     ) -> tuple[int, dict[str, Any]]:
         url = f"{self._base_url}/integration/indices/catalog"
         payload: dict[str, Any] = {"as_of_date": str(as_of_date)}
+        if index_ids:
+            payload["index_ids"] = index_ids
         if index_currency:
             payload["index_currency"] = index_currency
         if index_type:

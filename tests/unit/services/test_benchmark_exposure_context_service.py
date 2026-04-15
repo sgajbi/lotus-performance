@@ -116,6 +116,13 @@ async def test_build_benchmark_exposure_context_groups_and_aligns_weights() -> N
         "benchmark_market_series_page_count": 2,
         "index_catalog_page_count": 1,
     }
+    assert service.index_catalog_calls == [
+        {
+            "calculation_id": response.calculation_id,
+            "as_of_date": date(2026, 1, 3),
+            "index_ids": ["IDX_BOND", "IDX_TECH_A", "IDX_TECH_B"],
+        }
+    ]
     weights = {
         (row.valuation_date.isoformat(), row.grouping_dimension.value, row.group_key): row.weight
         for row in response.rows
@@ -364,3 +371,16 @@ async def test_build_benchmark_exposure_context_ignores_non_dict_catalog_records
     )
 
     assert any(row.group_key == "SECTOR_Technology" for row in response.rows)
+
+
+@pytest.mark.asyncio
+async def test_build_benchmark_exposure_context_skips_catalog_for_position_only_grouping() -> None:
+    service = _StatefulInputServiceStub()
+
+    response = await build_benchmark_exposure_context(
+        request=_request(grouping_dimensions=[BenchmarkExposureGroupingDimension.POSITION]),
+        stateful_input_service=service,
+    )
+
+    assert response.rows
+    assert service.index_catalog_calls == []

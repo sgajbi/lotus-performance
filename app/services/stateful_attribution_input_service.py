@@ -141,9 +141,13 @@ async def retrieve_stateful_attribution_source_input(
         end_date=report_end_date,
         return_source=BenchmarkReturnSource.CALCULATED,
     )
+    benchmark_component_index_ids = sorted(
+        {observation.component_id for observation in benchmark_input.component_observations if observation.component_id}
+    )
 
     index_status, index_payload = await stateful_input_service.get_index_catalog(
         as_of_date=as_of_date,
+        index_ids=benchmark_component_index_ids,
         calculation_id=calculation_id,
     )
     if index_status >= status.HTTP_400_BAD_REQUEST:

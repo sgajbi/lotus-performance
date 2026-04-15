@@ -365,6 +365,7 @@ async def test_stateful_input_service_fetches_reference_payloads_and_records_sna
     )
     catalog_status, catalog_payload = await service.get_index_catalog(
         as_of_date=date(2026, 1, 3),
+        index_ids=["IDX_2", "IDX_1"],
         calculation_id=calculation_id,
     )
 
@@ -384,6 +385,10 @@ async def test_stateful_input_service_fetches_reference_payloads_and_records_sna
         "benchmark_composition_window",
         "index_catalog",
     }
+    index_catalog_snapshots = [snapshot for snapshot in snapshots if snapshot.upstream_endpoint == "index_catalog"]
+    assert len(index_catalog_snapshots) == 1
+    assert index_catalog_snapshots[0].source_identifier == "IDX_1|IDX_2"
+    assert index_catalog_snapshots[0].paging_metadata["index_ids"] == ["IDX_1", "IDX_2"]
 
 
 @pytest.mark.asyncio
