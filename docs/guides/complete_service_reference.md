@@ -235,8 +235,12 @@ Sample response:
 
 Purpose:
 
-- calculate money-weighted return
+- calculate money-weighted return for the investor capital-timing lens
 - supports `stateless` and `stateful` input modes
+- stateful mode uses lotus-core query-control-plane portfolio timeseries and normalizes explicit
+  external cash flows plus cross-observation capital carry-forward adjustments into the MWR cash-flow
+  schedule
+- operational fees remain performance drag and are not treated as investor deposits or withdrawals
 
 Sample request:
 
@@ -265,8 +269,12 @@ Sample response:
   "portfolio_id": "PORT_001",
   "method": "XIRR",
   "money_weighted_return": 3.27,
-  "annualized_return": 3.27,
+  "mwr_annualized": 3.27,
   "input_mode": "stateless",
+  "cashflows_used": [
+    { "amount": 25000.0, "date": "2026-02-27" },
+    { "amount": -5000.0, "date": "2026-03-31" }
+  ],
   "notes": []
 }
 ```

@@ -85,11 +85,23 @@ def test_benchmark_guide_uses_current_request_shape():
 
 def test_mwr_guide_matches_current_method_reality():
     guide = _read("docs/guides/mwr.md")
+    certification = _read("docs/technical/mwr-endpoint-certification.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    readme = _read("README.md")
 
     assert 'input_mode: "stateless" | "stateful"' in guide
     assert "stateful_input.window_start_date" in guide
     assert 'mwr_method="MODIFIED_DIETZ"' in guide
     assert "maps to the same implemented Dietz computation path" in guide
+    assert "carry-forward adjustments" in guide
+    assert "emit_cashflows_used=true" in guide
+    assert "cashflows_used" in guide
+    assert "investor capital-timing lens" in certification
+    assert "CORE_CONTROL_PLANE_BASE_URL" in certification
+    assert "lotus-gateway" in certification
+    assert "`lotus-risk` does not call `/performance/mwr`" in certification
+    assert "cross-observation capital carry-forward adjustments" in api_reference
+    assert "technical/mwr-endpoint-certification.md" in readme
     assert "[cite_start]" not in guide
 
 

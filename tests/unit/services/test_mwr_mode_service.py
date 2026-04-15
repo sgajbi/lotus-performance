@@ -68,6 +68,69 @@ def test_build_stateful_mwr_input_for_window_uses_requested_window_start():
     assert normalized.start_date == date(2025, 1, 10)
 
 
+def test_build_stateful_mwr_input_captures_carry_forward_capital_breaks():
+    source_input = StatefulPortfolioInput(
+        performance_start_date=date(2025, 1, 1),
+        observations=[
+            {
+                "valuation_date": "2025-01-01",
+                "beginning_market_value": "1000",
+                "ending_market_value": "1010",
+                "cash_flows": [],
+            },
+            {
+                "valuation_date": "2025-01-02",
+                "beginning_market_value": "1250",
+                "ending_market_value": "1260",
+                "cash_flows": [{"amount": "-25", "timing": "eod"}],
+            },
+            {
+                "valuation_date": "2025-01-03",
+                "beginning_market_value": "1260",
+                "ending_market_value": "1270",
+                "cash_flows": [],
+            },
+        ],
+    )
+
+    normalized = build_stateful_mwr_input(source_input=source_input)
+
+    assert [(cash_flow.date.isoformat(), cash_flow.amount) for cash_flow in normalized.cash_flows] == [
+        ("2025-01-02", 215.0),
+    ]
+
+
+def test_build_stateful_mwr_input_excludes_operational_fees_from_capital_flows():
+    source_input = StatefulPortfolioInput(
+        performance_start_date=date(2025, 1, 1),
+        observations=[
+            {
+                "valuation_date": "2025-01-01",
+                "beginning_market_value": "1000",
+                "ending_market_value": "1010",
+                "cash_flows": [
+                    {"amount": "100", "timing": "bod", "cash_flow_type": "external_flow"},
+                    {"amount": "-3", "timing": "eod", "cash_flow_type": "fee"},
+                    {"amount": "2", "timing": "eod", "cash_flow_type": "dividend"},
+                ],
+            },
+            {
+                "valuation_date": "2025-01-02",
+                "beginning_market_value": "1025",
+                "ending_market_value": "1030",
+                "cash_flows": [],
+            },
+        ],
+    )
+
+    normalized = build_stateful_mwr_input(source_input=source_input)
+
+    assert [(cash_flow.date.isoformat(), cash_flow.amount) for cash_flow in normalized.cash_flows] == [
+        ("2025-01-01", 100.0),
+        ("2025-01-02", 15.0),
+    ]
+
+
 def test_build_stateful_mwr_input_skips_invalid_cash_flow_rows():
     source_input = StatefulPortfolioInput(
         performance_start_date=date(2025, 1, 1),

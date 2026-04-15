@@ -122,7 +122,13 @@ The public request contract is analysis-based. Older examples using `period_type
 - stateful:
   - `stateful_input.window_start_date`
   - lotus-performance stamps source consumer identity server-side
-  - lotus-core portfolio timeseries are normalized into canonical MWR inputs inside lotus-performance
+  - lotus-core query-control-plane portfolio timeseries are normalized into canonical MWR inputs inside lotus-performance
+  - explicit external cash flows and cross-observation capital carry-forward adjustments are included
+    in the MWR cash-flow schedule
+  - operational fees remain performance drag and are not treated as investor deposits or withdrawals
+
+Use MWR when the business question is the client's capital-timing return. Use TWR when the question
+is manager or strategy performance independent of deposits and withdrawals.
 
 ### Benchmark
 
@@ -286,6 +292,7 @@ make test-all
 - [guides/twr.md](docs/guides/twr.md)
 - [technical/twr-endpoint-certification.md](docs/technical/twr-endpoint-certification.md)
 - [guides/mwr.md](docs/guides/mwr.md)
+- [technical/mwr-endpoint-certification.md](docs/technical/mwr-endpoint-certification.md)
 - [guides/contribution.md](docs/guides/contribution.md)
 - [guides/attribution.md](docs/guides/attribution.md)
 - [guides/complete_service_reference.md](docs/guides/complete_service_reference.md)

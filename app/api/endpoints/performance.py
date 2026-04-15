@@ -514,7 +514,23 @@ async def get_twr_result(calculation_id: UUID) -> PerformanceResponse | JSONResp
     )
 
 
-@router.post("/mwr", response_model=MoneyWeightedReturnResponse, summary="Calculate Money-Weighted Return")
+@router.post(
+    "/mwr",
+    response_model=MoneyWeightedReturnResponse,
+    summary="Calculate Money-Weighted Return",
+    description=(
+        "Calculates money-weighted return for the investor capital-timing lens. Use this endpoint when "
+        "the question is how the portfolio performed for the client after the size and timing of external "
+        "cash flows, deposits, withdrawals, and sourced capital-base adjustments are considered. Use "
+        '`input_mode="stateless"` when the caller already owns beginning value, ending value, and the signed '
+        'cash-flow schedule. Use `input_mode="stateful"` for lotus-core-sourced portfolio analytics input; '
+        "lotus-performance reads the query-control-plane portfolio timeseries, normalizes explicit external "
+        "cash flows and cross-observation carry-forward capital breaks into canonical MWR inputs, keeps "
+        "operational fees as performance drag rather than investor cash movement, and then runs the requested "
+        "`mwr_method`. `XIRR` returns the annual IRR solved from irregular cash-flow dates; `DIETZ` returns "
+        "the period Dietz return; `MODIFIED_DIETZ` currently follows the implemented Dietz path."
+    ),
+)
 async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
     """Calculates the money-weighted return (MWR) for a portfolio over a given period."""
     active_settings = get_settings()
@@ -613,6 +629,7 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
         "end_date": mwr_result.end_date,
         "notes": mwr_result.notes,
         "convergence": mwr_result.convergence,
+        "cashflows_used": mwr_request.cash_flows if mwr_request.emit_cashflows_used else None,
         "meta": meta,
         "diagnostics": diagnostics,
         "audit": audit,

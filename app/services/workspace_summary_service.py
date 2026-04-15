@@ -848,10 +848,14 @@ def _build_workspace_mwr_summary(
 
 def _build_mwr_cash_flows(period_slice: pd.DataFrame) -> list[CashFlow]:
     cash_flows: list[CashFlow] = []
+    carry_forward_adjustments = dict(_iter_carry_forward_adjustments(period_slice))
     for _, row in period_slice.iterrows():
         perf_date = row[PortfolioColumns.PERF_DATE.value]
         bod_cf = _decimal_or_zero(row.get("bod_cf"))
         eod_cf = _decimal_or_zero(row.get("eod_cf"))
+        carry_forward_adjustment = carry_forward_adjustments.get(perf_date, Decimal("0"))
+        if carry_forward_adjustment != Decimal("0"):
+            bod_cf += carry_forward_adjustment
         if bod_cf != Decimal("0"):
             cash_flows.append(CashFlow(amount=bod_cf, date=perf_date))
         if eod_cf != Decimal("0"):
@@ -862,7 +866,11 @@ def _build_mwr_cash_flows(period_slice: pd.DataFrame) -> list[CashFlow]:
 def _build_economic_context(period_slice: pd.DataFrame) -> WorkspaceEconomicContext:
     first_row = period_slice.iloc[0]
     last_row = period_slice.iloc[-1]
-    beginning_cash_flow = _sum_decimal_column(period_slice, "bod_cf")
+    carry_forward_adjustment = sum(
+        (amount for _, amount in _iter_carry_forward_adjustments(period_slice)),
+        Decimal("0"),
+    )
+    beginning_cash_flow = _sum_decimal_column(period_slice, "bod_cf") + carry_forward_adjustment
     ending_cash_flow = _sum_decimal_column(period_slice, "eod_cf")
     fees = _sum_decimal_column(period_slice, "mgmt_fees")
     net_cash_flow = beginning_cash_flow + ending_cash_flow
@@ -876,6 +884,20 @@ def _build_economic_context(period_slice: pd.DataFrame) -> WorkspaceEconomicCont
         net_cash_flow=net_cash_flow,
         flow_adjusted_end_market_value=end_market_value - net_cash_flow,
     )
+
+
+def _iter_carry_forward_adjustments(period_slice: pd.DataFrame) -> list[tuple[date, Decimal]]:
+    adjustments: list[tuple[date, Decimal]] = []
+    previous_ending_market_value: Decimal | None = None
+    for _, row in period_slice.iterrows():
+        perf_date = row[PortfolioColumns.PERF_DATE.value]
+        begin_mv = _decimal_or_zero(row.get("begin_mv"))
+        if previous_ending_market_value is not None:
+            adjustment = begin_mv - previous_ending_market_value
+            if adjustment != Decimal("0"):
+                adjustments.append((perf_date, adjustment))
+        previous_ending_market_value = _decimal_or_zero(row.get("end_mv"))
+    return adjustments
 
 
 def _annualize_return_value(
