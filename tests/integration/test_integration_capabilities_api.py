@@ -66,6 +66,7 @@ def test_integration_capabilities_default_contract():
     assert "reconciliation_summary.json" in inspection_notes
     assert "source_economics_summary.json" in inspection_notes
     assert "external cash-flow classification" in inspection_notes
+    assert "normalization mismatches" in inspection_notes
     assert "positive fee sign anomalies" in inspection_notes
     assert "fee or external source-total mismatches" in inspection_notes
     assert surfaces["benchmark"]["path"] == "/performance/benchmark"

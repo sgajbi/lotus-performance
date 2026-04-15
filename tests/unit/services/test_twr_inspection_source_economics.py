@@ -190,3 +190,77 @@ def test_analyze_source_economics_flags_fee_source_total_mismatch():
 
     assert {finding.code for finding in result.findings} == {"FEE_SOURCE_TOTAL_MISMATCH"}
     assert result.evidence_summary["fee_source_mismatch_count"] == 1
+
+
+def test_analyze_source_economics_flags_explicit_fee_normalization_mismatch_without_detailed_fee_rows():
+    performance_request = PerformanceRequest(
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        performance_start_date=date(2026, 3, 17),
+        metric_basis="NET",
+        report_end_date=date(2026, 3, 17),
+        analyses=[Analysis(period="YTD", frequencies=["daily"])],
+        valuation_points=[
+            DailyInputData(
+                perf_date=date(2026, 3, 17),
+                begin_mv=1200.0,
+                end_mv=1188.0,
+                bod_cf=0.0,
+                eod_cf=0.0,
+                mgmt_fees=-8.0,
+            ),
+        ],
+    )
+
+    result = analyze_source_economics(
+        performance_request=performance_request,
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        observations=[
+            {
+                "valuation_date": "2026-03-17",
+                "beginning_market_value": "1200.0",
+                "ending_market_value": "1188.0",
+                "fees": "-10.0",
+                "cash_flows": [],
+            }
+        ],
+    )
+
+    assert {finding.code for finding in result.findings} == {"FEE_CASHFLOW_CLASSIFICATION_NOT_PRESERVED"}
+    assert result.evidence_summary["fee_normalization_gap_count"] == 1
+
+
+def test_analyze_source_economics_flags_explicit_external_normalization_mismatch_without_detailed_rows():
+    performance_request = PerformanceRequest(
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        performance_start_date=date(2026, 3, 18),
+        metric_basis="NET",
+        report_end_date=date(2026, 3, 18),
+        analyses=[Analysis(period="YTD", frequencies=["daily"])],
+        valuation_points=[
+            DailyInputData(
+                perf_date=date(2026, 3, 18),
+                begin_mv=1200.0,
+                end_mv=5188.0,
+                bod_cf=3000.0,
+                eod_cf=0.0,
+                mgmt_fees=0.0,
+            ),
+        ],
+    )
+
+    result = analyze_source_economics(
+        performance_request=performance_request,
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        observations=[
+            {
+                "valuation_date": "2026-03-18",
+                "beginning_market_value": "1200.0",
+                "ending_market_value": "5188.0",
+                "bod_cashflow": "4000.0",
+                "cash_flows": [],
+            }
+        ],
+    )
+
+    assert {finding.code for finding in result.findings} == {"EXTERNAL_CASHFLOW_NORMALIZATION_MISMATCH"}
+    assert result.evidence_summary["external_cashflow_normalization_gap_count"] == 1
