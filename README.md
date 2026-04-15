@@ -30,6 +30,18 @@ Source-of-truth runtime docs:
 - [technical/RFC-0082-upstream-contract-family-map.md](docs/technical/RFC-0082-upstream-contract-family-map.md)
 - [technical/RFC-0082-retrieval-performance-hardening.md](docs/technical/RFC-0082-retrieval-performance-hardening.md)
 
+Canonical stateful TWR inspection can be validated locally with:
+
+```bash
+python scripts/validate_canonical_twr_inspection.py \
+  --performance-base-url http://127.0.0.1:8002 \
+  --core-control-plane-base-url http://127.0.0.1:8202
+```
+
+This probes the lotus-core query-control-plane analytics-input POST routes, runs stateful TWR for
+`PB_SG_GLOBAL_BAL_001` as of `2026-04-10`, and verifies the RFC-045 inspection evidence has no
+source-economics or reconciliation regressions.
+
 ## Key contracts
 
 - Swagger UI: `/docs`

@@ -405,8 +405,11 @@ def test_complete_service_reference_covers_endpoint_surface_and_config_inventory
 
 def test_twr_inspection_checks_guide_lists_current_check_inventory():
     guide = _read("docs/guides/twr_inspection_checks.md")
+    readme = _read("README.md")
 
     assert "POST /performance/inspections/twr" in guide
+    assert "scripts/validate_canonical_twr_inspection.py" in guide
+    assert "scripts/validate_canonical_twr_inspection.py" in readme
     assert "inspection_summary.json" in guide
     assert "findings.json" in guide
     assert "source_quality_summary.json" in guide

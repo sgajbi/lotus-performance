@@ -37,6 +37,21 @@ Primary artifacts:
 - `reconciliation_summary.json` when stateful reconciliation runs
 - `source_economics_summary.json` when stateful source-economics checks run
 
+Canonical local validation:
+
+```bash
+python scripts/validate_canonical_twr_inspection.py \
+  --performance-base-url http://127.0.0.1:8002 \
+  --core-control-plane-base-url http://127.0.0.1:8202
+```
+
+The script validates `PB_SG_GLOBAL_BAL_001` as of `2026-04-10` through the live
+lotus-core query-control-plane analytics-input POST routes, runs stateful TWR, runs RFC-045
+inspection against the completed calculation, and fails if source-economics or reconciliation
+counts regress. `WEEKEND_OBSERVATIONS_PRESENT` is allowed by default because the current canonical
+source serves weekend observations; other finding codes fail the validation unless explicitly
+allowed.
+
 ## Verdicts
 
 - `supportable`: no active finding undermines operational trust
