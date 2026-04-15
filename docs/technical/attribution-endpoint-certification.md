@@ -80,6 +80,15 @@ Known consumers:
 - `lotus-risk` does not consume this endpoint for risk attribution; it owns separate risk
   attribution terminology and contracts.
 
+Downstream certification status:
+
+- `lotus-gateway` passes authoritative attribution totals through to the Workbench performance
+  detail contract.
+- `lotus-gateway` issue `#106` tracks the remaining row-coverage concern: the gateway currently
+  limits attribution groups to 10 rows without an explicit truncation or coverage signal.
+- `lotus-gateway` issue `#105` tracks removal of the historical dependency on UI-side attribution
+  total reconstruction once the lotus-performance totals contract is merged.
+
 ## Canonical Live Findings
 
 For `PB_SG_GLOBAL_BAL_001` as of `2026-04-10`, the stateful attribution endpoint now reconciles
