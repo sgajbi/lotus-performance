@@ -49,6 +49,7 @@ def process_pending_jobs(
             calculation_details=payload.details,
         )
         if success:
+            active_lineage_store.delete_payload(payload.calculation_id)
             processed += 1
             continue
 
