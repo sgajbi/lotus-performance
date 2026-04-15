@@ -1237,32 +1237,51 @@ Certification evidence:
 
 Purpose:
 
-- inspect retained recovery-drill evidence and history
+- inspect retained durable recovery-drill evidence, filters, paging, and assurance status
 
 Sample response:
 
 ```json
 {
-  "latest": {
-    "status": "passed",
-    "backup_identifier": "backup-2026-03-29",
-    "generated_at": "2026-03-29T01:30:00Z"
+  "contract_version": "v1",
+  "source_service": "lotus-performance",
+  "status": "available",
+  "artifact_directory": "artifacts/recovery-drills",
+  "latest_file_name": "recovery-drill-20260329T013000Z.json",
+  "retained_file_names": [
+    "recovery-drill-20260329T013000Z.json"
+  ],
+  "retention_limit": 30,
+  "retention_max_age_days": 90,
+  "total_entries": 1,
+  "matched_entries": 1,
+  "returned_entries": 1,
+  "applied_filters": {
+    "status": "passed"
   },
-  "items": [
+  "entries": [
     {
+      "evidence_file_name": "recovery-drill-20260329T013000Z.json",
+      "generated_at_utc": "2026-03-29T01:30:00Z",
       "status": "passed",
       "operator_id": "ops-user",
+      "tenant_id": "tenant-private-bank",
+      "correlation_id": "runtime-alert-123",
       "backup_identifier": "backup-2026-03-29"
     }
   ]
 }
 ```
 
+Certification evidence:
+
+- `docs/technical/recovery-drills-endpoint-certification.md`
+
 ### `POST /integration/recovery-drills/run`
 
 Purpose:
 
-- execute a governed recovery drill
+- execute a governed durable recovery drill and retain compute, lineage, schema, and artifact proof
 
 Sample request:
 
@@ -1276,12 +1295,34 @@ Sample response:
 
 ```json
 {
-  "status": "passed",
-  "backup_identifier": "backup-2026-03-29",
+  "contract_version": "v1",
+  "source_service": "lotus-performance",
+  "drill_name": "durable_metadata_recovery",
+  "generated_at_utc": "2026-03-29T01:30:00Z",
+  "evidence_file_name": "recovery-drill-20260329T013000Z.json",
   "operator_id": "ops-user",
-  "artifact_path": "artifacts/durable-recovery-drill/latest.json"
+  "tenant_id": "tenant-private-bank",
+  "correlation_id": "runtime-alert-123",
+  "backup_identifier": "backup-2026-03-29",
+  "status": "passed",
+  "database_path": "artifacts/recovery-drills/recovery-drill.sqlite",
+  "restored_schema_mode": "upgraded",
+  "owned_tables_present": [
+    "compute_jobs",
+    "lineage_payloads"
+  ],
+  "compute_job_processed_count": 1,
+  "compute_async_result_status": "completed",
+  "compute_execution_status": "completed",
+  "processed_payload_count": 1,
+  "materialized_artifact_path": "artifacts/recovery-drills/lineage.json",
+  "materialized_artifact_exists": true
 }
 ```
+
+Certification evidence:
+
+- `docs/technical/recovery-drills-endpoint-certification.md`
 
 ### `GET /integration/runtime-retention-cleanups`
 

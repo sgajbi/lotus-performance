@@ -52,9 +52,10 @@ def _resolve_correlation_id(request: Request) -> str | None:
     response_model=RecoveryDrillHistoryResponse,
     summary="Get retained durable recovery-drill history",
     description=(
-        "Returns the retained durable recovery-drill history manifest for lotus-performance, including the latest "
-        "artifact, configured retention policy, and summarized retained drill entries. Optional query filters allow "
-        "operators to narrow the history by operator, backup identifier, status, and bounded result count."
+        "Returns the retained durable recovery-drill history manifest for lotus-performance. Use this operator "
+        "control-plane endpoint to inspect latest recovery assurance, retained evidence artifacts, retention "
+        "policy, applied filters, deterministic paging, and time-windowed drill outcomes without shell access "
+        "to the artifact directory."
     ),
 )
 async def get_recovery_drill_history(
@@ -103,8 +104,10 @@ async def get_recovery_drill_history(
     response_model=RecoveryDrillRunResponse,
     summary="Run a governed durable recovery drill",
     description=(
-        "Runs the service-owned durable recovery drill, retains the resulting evidence in the recovery-drill "
-        "artifact history, and returns the immediate drill summary to the caller."
+        "Runs the governed service-owned durable recovery drill for a backup or restore-set identifier. The "
+        "endpoint requires an operator identity, applies idempotent replay, cooldown, and stale-lease guards, "
+        "retains the resulting evidence in recovery-drill history, and returns the immediate compute, lineage, "
+        "schema, and artifact proof summary."
     ),
 )
 async def run_recovery_drill(

@@ -114,6 +114,26 @@ def test_runtime_recoveries_docs_reflect_certified_operator_contract():
     assert "No duplicate lotus-performance recovery-event endpoint" in certification
 
 
+def test_recovery_drills_docs_reflect_certified_operator_contract():
+    readme = _read("README.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    complete_reference = _read("docs/guides/complete_service_reference.md")
+    certification = _read("docs/technical/recovery-drills-endpoint-certification.md")
+
+    assert "technical/recovery-drills-endpoint-certification.md" in readme
+    assert "app.models.recovery_drill_history.RecoveryDrillHistoryResponse" in api_reference
+    assert "app.models.recovery_drill_history.RecoveryDrillRunRequest" in api_reference
+    assert "app.models.recovery_drill_history.RecoveryDrillRunResponse" in api_reference
+    assert "certification evidence: `docs/technical/recovery-drills-endpoint-certification.md`" in api_reference
+    assert '"latest_file_name": "recovery-drill-20260329T013000Z.json"' in complete_reference
+    assert '"entries": [' in complete_reference
+    assert '"compute_job_processed_count": 1' in complete_reference
+    assert '"materialized_artifact_exists": true' in complete_reference
+    assert "Downstream Consumers" in certification
+    assert "Test Pyramid Assessment" in certification
+    assert "No duplicate lotus-performance recovery-drill endpoint" in certification
+
+
 def test_execution_polling_docs_reflect_certified_contract():
     readme = _read("README.md")
     api_reference = _read("docs/guides/api_reference.md")

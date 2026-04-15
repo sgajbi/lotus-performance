@@ -653,6 +653,8 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - retained enterprise request context when available:
     - `tenant_id`
     - `correlation_id`
+- response model: `app.models.recovery_drill_history.RecoveryDrillHistoryResponse`
+- certification evidence: `docs/technical/recovery-drills-endpoint-certification.md`
 
 ### `POST /integration/recovery-drills/run`
 
@@ -672,6 +674,9 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - `409` when the same governed drill is already running in-flight for the same operator, tenant, and backup identifier
   - stale in-flight drill leases are reclaimed automatically after the configured stale threshold instead of blocking forever after a crash
 - use this when an operator needs an audited recovery drill without shell access
+- request model: `app.models.recovery_drill_history.RecoveryDrillRunRequest`
+- response model: `app.models.recovery_drill_history.RecoveryDrillRunResponse`
+- certification evidence: `docs/technical/recovery-drills-endpoint-certification.md`
 
 ### `GET /integration/runtime-retention-cleanups`
 
