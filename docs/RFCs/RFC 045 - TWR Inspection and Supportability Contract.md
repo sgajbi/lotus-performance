@@ -685,11 +685,10 @@ Implementation status on 2026-04-15:
    the same `StatefulInputService` seam already trusted by the analytics runtime,
 2. mixed-epoch position snapshots and latest-position-versus-portfolio end-value gaps are emitted as
    first-class `lotus-core` findings,
-3. owner-summary synthesis now reflects the actual finding owners instead of defaulting every clean
-   or dirty inspection to `lotus-performance`,
-4. remaining slice-4 follow-up is narrower than the base reconciliation architecture: richer
-   cash-flow classification and fee-duplication evidence should be layered onto this inspector rather
-   than creating a second triage path.
+3. latest selected position rows with unusable ending market values are now emitted as explicit
+   `lotus-core` reconciliation evidence instead of being dropped silently from tie-out totals,
+4. owner-summary synthesis now reflects the actual finding owners instead of defaulting every clean
+   or dirty inspection to `lotus-performance`.
 
 ### Slice 5: Canonical and Platform Integration
 

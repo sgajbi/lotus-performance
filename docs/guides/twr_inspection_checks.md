@@ -99,6 +99,7 @@ These findings are currently routed to `lotus-core` because they compare portfol
 | Code | Meaning | Typical Evidence |
 | --- | --- | --- |
 | `MIXED_POSITION_EPOCH_SNAPSHOT` | multiple position snapshot epochs are served for the same valuation date | affected dates and count |
+| `INVALID_POSITION_END_VALUE_PRESENT` | latest selected position rows include missing, blank, or non-numeric ending market values | affected dates, positions, raw values, epochs |
 | `PORTFOLIO_POSITION_RECONCILIATION_GAP` | served portfolio end value does not tie to the latest coherent position-state total | gap dates, samples, max gap amount |
 
 Primary evidence surfaces:
@@ -163,6 +164,7 @@ Use for:
 Use for:
 
 - mixed-epoch date counts
+- invalid selected-position value counts and sampled rows
 - portfolio-versus-position gap counts
 - max gap amounts
 - sampled gap rows

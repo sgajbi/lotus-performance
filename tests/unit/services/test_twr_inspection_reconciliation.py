@@ -113,3 +113,49 @@ def test_analyze_portfolio_position_reconciliation_accepts_coherent_rows():
     assert result.findings == []
     assert result.evidence_summary["mixed_epoch_date_count"] == 0
     assert result.evidence_summary["reconciliation_gap_date_count"] == 0
+
+
+def test_analyze_portfolio_position_reconciliation_flags_invalid_selected_position_values():
+    performance_request = PerformanceRequest(
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        performance_start_date=date(2026, 1, 2),
+        metric_basis="NET",
+        report_end_date=date(2026, 1, 2),
+        analyses=[Analysis(period="YTD", frequencies=["daily"])],
+        valuation_points=[
+            DailyInputData(perf_date=date(2026, 1, 2), begin_mv=1000.0, end_mv=612.06),
+        ],
+    )
+
+    result = analyze_portfolio_position_reconciliation(
+        performance_request=performance_request,
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        inspection_profile=TWRInspectionProfile.DEEP_RECONCILIATION,
+        position_rows=[
+            {
+                "valuation_date": "2026-01-02",
+                "position_id": "SEC_1",
+                "valuation_epoch": 5,
+                "ending_market_value_portfolio_currency": "612.06",
+            },
+            {
+                "valuation_date": "2026-01-02",
+                "position_id": "SEC_2",
+                "valuation_epoch": 5,
+                "ending_market_value_portfolio_currency": "n/a",
+            },
+        ],
+    )
+
+    assert {finding.code for finding in result.findings} == {"INVALID_POSITION_END_VALUE_PRESENT"}
+    assert result.evidence_summary["invalid_position_value_date_count"] == 1
+    assert result.evidence_summary["invalid_position_value_row_count"] == 1
+    assert result.artifact_payload["invalid_position_value_samples"] == [
+        {
+            "valuation_date": "2026-01-02",
+            "position_id": "SEC_2",
+            "valuation_epoch": 5,
+            "end_value_field": "ending_market_value_portfolio_currency",
+            "raw_end_value": "n/a",
+        }
+    ]

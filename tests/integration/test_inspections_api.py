@@ -279,7 +279,7 @@ def test_twr_inspection_runs_reconciliation_for_resolved_stateful_subject(client
                             "valuation_date": "2026-01-02",
                             "position_id": "SEC_2",
                             "valuation_epoch": 5,
-                            "ending_market_value_portfolio_currency": "400.0",
+                            "ending_market_value_portfolio_currency": "n/a",
                         },
                     ]
                 },
@@ -322,6 +322,7 @@ def test_twr_inspection_runs_reconciliation_for_resolved_stateful_subject(client
     ]
     assert {finding["code"] for finding in body["findings"]} >= {
         "MIXED_POSITION_EPOCH_SNAPSHOT",
+        "INVALID_POSITION_END_VALUE_PRESENT",
         "PORTFOLIO_POSITION_RECONCILIATION_GAP",
         "FEE_CASHFLOW_CLASSIFICATION_NOT_PRESERVED",
         "FEE_SOURCE_TOTAL_MISMATCH",
@@ -348,7 +349,18 @@ def test_twr_inspection_runs_reconciliation_for_resolved_stateful_subject(client
     assert reconciliation_artifact.status_code == 200
     reconciliation_body = reconciliation_artifact.json()
     assert reconciliation_body["mixed_epoch_date_count"] == 1
+    assert reconciliation_body["invalid_position_value_date_count"] == 1
+    assert reconciliation_body["invalid_position_value_row_count"] == 1
     assert reconciliation_body["reconciliation_gap_date_count"] == 2
+    assert reconciliation_body["invalid_position_value_samples"] == [
+        {
+            "valuation_date": "2026-01-02",
+            "position_id": "SEC_2",
+            "valuation_epoch": 5,
+            "end_value_field": "ending_market_value_portfolio_currency",
+            "raw_end_value": "n/a",
+        }
+    ]
 
     source_economics_artifact = client.get(
         f"/performance/inspections/{inspection_id}/artifacts/source_economics_summary.json"
