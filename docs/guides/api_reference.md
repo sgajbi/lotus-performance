@@ -607,6 +607,8 @@ Return semantics for the workspace surface are now explicit rather than inferred
 - `result_path` can now point directly to async result routes for `TWR`, `BENCHMARK`, `ReturnsSeries`, `Contribution`, and `Attribution` when that workflow exposes a stable endpoint-specific result surface
 - use this when runtime-status tells you there is pressure, and you need the actual work items behind it without querying the database directly
 - `next_offset` is queue-local and only appears when additional filtered work items remain for that queue
+- response model: `app.models.runtime_work_items.RuntimeWorkItemsResponse`
+- certification evidence: `docs/technical/runtime-work-items-endpoint-certification.md`
 
 ### `GET /integration/runtime-recoveries`
 

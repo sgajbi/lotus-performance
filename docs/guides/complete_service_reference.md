@@ -1097,35 +1097,72 @@ Certification evidence:
 
 Purpose:
 
-- inspect active, failed, or reclaimable compute and lineage work items
+- inspect the concrete compute and lineage work items behind runtime queue pressure
 
 Sample request:
 
 ```text
-GET /integration/runtime-work-items?queue=both&status=active&limit=25
+GET /integration/runtime-work-items?queue=both&status=reclaimable&limit=25&min_age_seconds=60
 ```
 
 Sample response:
 
 ```json
 {
-  "queue": "both",
-  "status_filter": "active",
-  "compute": {
+  "contract_version": "v1",
+  "source_service": "lotus-performance",
+  "generated_at": "2026-03-29T02:05:00Z",
+  "queue_filter": "both",
+  "status_filter": "reclaimable",
+  "limit": 25,
+  "offset": 0,
+  "min_age_seconds": 60.0,
+  "durable_metadata_store": {
+    "status": "ready"
+  },
+  "compute_queue": {
+    "status": "available",
     "total_count": 1,
-    "returned_count": 1,
-    "items": [
-      {
-        "calculation_id": "0d000003-1111-4222-8333-abcdefabcdef",
-        "analytics_type": "WORKSPACE_SUMMARY",
-        "status": "running",
-        "execution_path": "/performance/executions/0d000003-1111-4222-8333-abcdefabcdef",
-        "result_path": "/performance/workspace-summary/results/0d000003-1111-4222-8333-abcdefabcdef"
-      }
-    ]
-  }
+    "returned_count": 1
+  },
+  "lineage_queue": {
+    "status": "available",
+    "total_count": 1,
+    "returned_count": 1
+  },
+  "compute_items": [
+    {
+      "calculation_id": "0d000003-1111-4222-8333-abcdefabcdef",
+      "execution_path": "/performance/executions/0d000003-1111-4222-8333-abcdefabcdef",
+      "lineage_path": "/performance/lineage/0d000003-1111-4222-8333-abcdefabcdef",
+      "result_path": "/performance/workspace-summary/results/0d000003-1111-4222-8333-abcdefabcdef",
+      "analytics_type": "WORKSPACE_SUMMARY",
+      "status": "running",
+      "active_since_utc": "2026-03-29T02:00:00Z",
+      "age_seconds": 300.0,
+      "attempt_count": 1,
+      "max_attempts": 3
+    }
+  ],
+  "lineage_items": [
+    {
+      "calculation_id": "0d000004-1111-4222-8333-abcdefabcdef",
+      "execution_path": "/performance/executions/0d000004-1111-4222-8333-abcdefabcdef",
+      "lineage_path": "/performance/lineage/0d000004-1111-4222-8333-abcdefabcdef",
+      "result_path": "/performance/twr/results/0d000004-1111-4222-8333-abcdefabcdef",
+      "calculation_type": "TWR",
+      "status": "pending",
+      "active_since_utc": "2026-03-29T02:01:00Z",
+      "age_seconds": 240.0,
+      "attempt_count": 0
+    }
+  ]
 }
 ```
+
+Certification evidence:
+
+- `docs/technical/runtime-work-items-endpoint-certification.md`
 
 ### `GET /integration/runtime-recoveries`
 
