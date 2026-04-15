@@ -236,6 +236,7 @@ def test_twr_inspection_runs_reconciliation_for_resolved_stateful_subject(client
                             "cash_flows": [
                                 {"amount": "5000.0", "timing": "bod", "cash_flow_type": "external_flow"},
                                 {"amount": "10.0", "timing": "eod", "cash_flow_type": "fee"},
+                                {"amount": "3.0", "timing": "intraday", "cash_flow_type": "external_flow"},
                                 {"amount": "1.0", "timing": "eod"},
                                 {"amount": "2.0", "timing": "eod", "cash_flow_type": "dividend"},
                             ],
@@ -326,6 +327,7 @@ def test_twr_inspection_runs_reconciliation_for_resolved_stateful_subject(client
         "POSITIVE_FEE_SOURCE_SIGNAL",
         "EXTERNAL_CASHFLOW_NORMALIZATION_MISMATCH",
         "DUPLICATE_EXTERNAL_CASHFLOW_SOURCE_SIGNAL",
+        "INVALID_CASHFLOW_TIMING_PRESENT",
         "MISSING_CASHFLOW_TYPE_PRESENT",
         "NONCANONICAL_CASHFLOW_TYPE_PRESENT",
     }
@@ -357,8 +359,15 @@ def test_twr_inspection_runs_reconciliation_for_resolved_stateful_subject(client
     assert source_economics_body["positive_fee_signal_count"] == 1
     assert source_economics_body["external_cashflow_date_count"] == 1
     assert source_economics_body["duplicate_external_cashflow_signal_count"] == 1
+    assert source_economics_body["invalid_cashflow_timing_date_count"] == 1
     assert source_economics_body["missing_cashflow_type_date_count"] == 1
     assert source_economics_body["noncanonical_cashflow_type_date_count"] == 1
+    assert source_economics_body["invalid_cashflow_timing_samples"] == [
+        {
+            "valuation_date": "2026-01-02",
+            "rows": [{"timing": "intraday", "amount": 3.0, "cash_flow_type": "external_flow"}],
+        }
+    ]
     assert source_economics_body["missing_cashflow_type_samples"] == [
         {
             "valuation_date": "2026-01-02",
