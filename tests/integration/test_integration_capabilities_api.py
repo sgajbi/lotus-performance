@@ -67,6 +67,7 @@ def test_integration_capabilities_default_contract():
     assert "source_economics_summary.json" in inspection_notes
     assert "external cash-flow classification" in inspection_notes
     assert "positive fee sign anomalies" in inspection_notes
+    assert "fee or external source-total mismatches" in inspection_notes
     assert surfaces["benchmark"]["path"] == "/performance/benchmark"
     assert surfaces["benchmark"]["supported_input_modes"] == ["stateful", "stateless"]
     assert surfaces["benchmark"]["supports_async"] is True

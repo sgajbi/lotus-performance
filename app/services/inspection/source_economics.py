@@ -97,6 +97,7 @@ def analyze_source_economics(
 
     fee_normalization_samples: list[dict[str, object]] = []
     duplicate_fee_signal_samples: list[dict[str, object]] = []
+    fee_source_mismatch_samples: list[dict[str, object]] = []
     positive_fee_signal_samples: list[dict[str, object]] = []
     external_normalization_samples: list[dict[str, object]] = []
     duplicate_external_signal_samples: list[dict[str, object]] = []
@@ -127,6 +128,14 @@ def analyze_source_economics(
         fee_total = source_point.detailed_fee_bod + source_point.detailed_fee_eod
         if source_point.explicit_fee_total is not None and _amounts_match(source_point.explicit_fee_total, fee_total):
             duplicate_fee_signal_samples.append(
+                {
+                    "valuation_date": source_point.valuation_date,
+                    "explicit_fee_amount": float(source_point.explicit_fee_total),
+                    "fee_cashflow_amount": float(fee_total),
+                }
+            )
+        elif source_point.explicit_fee_total is not None and fee_total != 0:
+            fee_source_mismatch_samples.append(
                 {
                     "valuation_date": source_point.valuation_date,
                     "explicit_fee_amount": float(source_point.explicit_fee_total),
@@ -182,6 +191,7 @@ def analyze_source_economics(
         portfolio_id=portfolio_id,
         fee_normalization_samples=fee_normalization_samples,
         duplicate_fee_signal_samples=duplicate_fee_signal_samples,
+        fee_source_mismatch_samples=fee_source_mismatch_samples,
         positive_fee_signal_samples=positive_fee_signal_samples,
         external_normalization_samples=external_normalization_samples,
         duplicate_external_signal_samples=duplicate_external_signal_samples,
@@ -196,6 +206,7 @@ def analyze_source_economics(
             "external_cashflow_date_count": len(external_flow_dates),
             "fee_normalization_gap_count": len(fee_normalization_samples),
             "duplicate_fee_signal_count": len(duplicate_fee_signal_samples),
+            "fee_source_mismatch_count": len(fee_source_mismatch_samples),
             "positive_fee_signal_count": len(positive_fee_signal_samples),
             "external_cashflow_normalization_gap_count": len(external_normalization_samples),
             "duplicate_external_cashflow_signal_count": len(duplicate_external_signal_samples),
@@ -212,6 +223,8 @@ def analyze_source_economics(
             "fee_normalization_gap_samples": fee_normalization_samples[:25],
             "duplicate_fee_signal_count": len(duplicate_fee_signal_samples),
             "duplicate_fee_signal_samples": duplicate_fee_signal_samples[:25],
+            "fee_source_mismatch_count": len(fee_source_mismatch_samples),
+            "fee_source_mismatch_samples": fee_source_mismatch_samples[:25],
             "positive_fee_signal_count": len(positive_fee_signal_samples),
             "positive_fee_signal_samples": positive_fee_signal_samples[:25],
             "external_cashflow_normalization_gap_count": len(external_normalization_samples),
@@ -313,6 +326,7 @@ def _build_findings(
     portfolio_id: str,
     fee_normalization_samples: list[dict[str, object]],
     duplicate_fee_signal_samples: list[dict[str, object]],
+    fee_source_mismatch_samples: list[dict[str, object]],
     positive_fee_signal_samples: list[dict[str, object]],
     external_normalization_samples: list[dict[str, object]],
     duplicate_external_signal_samples: list[dict[str, object]],
@@ -364,6 +378,30 @@ def _build_findings(
                     "portfolio_id": portfolio_id,
                     "sample_dates": [sample["valuation_date"] for sample in duplicate_fee_signal_samples[:10]],
                     "samples": duplicate_fee_signal_samples[:10],
+                },
+            )
+        )
+
+    if fee_source_mismatch_samples:
+        findings.append(
+            TWRInspectionFinding(
+                code="FEE_SOURCE_TOTAL_MISMATCH",
+                severity="high",
+                category="cashflow_classification",
+                owner_repo="lotus-core",
+                summary="The stateful portfolio source serves conflicting fee totals for the same valuation date.",
+                explanation=(
+                    "The raw portfolio observation includes both fee-classified cash flows and an explicit fee total, "
+                    "but those two source signals do not tie for the same valuation date."
+                ),
+                recommended_action=(
+                    "Review lotus-core portfolio-timeseries fee aggregation so explicit fee totals and detailed "
+                    "fee-classified cash flows reconcile."
+                ),
+                evidence={
+                    "portfolio_id": portfolio_id,
+                    "sample_dates": [sample["valuation_date"] for sample in fee_source_mismatch_samples[:10]],
+                    "samples": fee_source_mismatch_samples[:10],
                 },
             )
         )

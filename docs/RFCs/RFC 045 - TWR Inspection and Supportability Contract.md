@@ -699,7 +699,8 @@ Implementation status on 2026-04-15:
 3. the inspection artifact contract now also exposes `source_economics_summary.json` when raw
    stateful portfolio-source economics checks run,
 4. raw source-economics inspection now covers both fee and external cash-flow classification,
-   duplicate source signals, positive fee sign anomalies, and explicit source-total mismatches,
+   duplicate source signals, positive fee sign anomalies, and explicit fee or external
+   source-total mismatches,
 5. the public service reference now documents the bounded inspection controls and artifact set,
 6. a deeper platform-owned canonical validator can now consume the same contract instead of relying
    on ad hoc parsing or a bespoke parallel script.

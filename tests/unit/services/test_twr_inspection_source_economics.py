@@ -151,3 +151,42 @@ def test_analyze_source_economics_flags_positive_fee_source_signal():
         "POSITIVE_FEE_SOURCE_SIGNAL",
     }
     assert result.evidence_summary["positive_fee_signal_count"] == 1
+
+
+def test_analyze_source_economics_flags_fee_source_total_mismatch():
+    performance_request = PerformanceRequest(
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        performance_start_date=date(2026, 3, 14),
+        metric_basis="NET",
+        report_end_date=date(2026, 3, 14),
+        analyses=[Analysis(period="YTD", frequencies=["daily"])],
+        valuation_points=[
+            DailyInputData(
+                perf_date=date(2026, 3, 14),
+                begin_mv=1210.0,
+                end_mv=1198.0,
+                bod_cf=0.0,
+                eod_cf=-8.0,
+                mgmt_fees=-8.0,
+            ),
+        ],
+    )
+
+    result = analyze_source_economics(
+        performance_request=performance_request,
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        observations=[
+            {
+                "valuation_date": "2026-03-14",
+                "beginning_market_value": "1210.0",
+                "ending_market_value": "1198.0",
+                "fees": "-10.0",
+                "cash_flows": [
+                    {"amount": "-8.0", "timing": "eod", "cash_flow_type": "fee"},
+                ],
+            }
+        ],
+    )
+
+    assert {finding.code for finding in result.findings} == {"FEE_SOURCE_TOTAL_MISMATCH"}
+    assert result.evidence_summary["fee_source_mismatch_count"] == 1
