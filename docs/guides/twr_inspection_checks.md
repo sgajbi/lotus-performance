@@ -81,6 +81,7 @@ These findings are currently owned by `lotus-performance` because they evaluate 
 | --- | --- | --- |
 | `WEEKEND_OBSERVATIONS_PRESENT` | resolved valuation inputs include weekend dates | weekend date list and count |
 | `BUSINESS_DATE_GAPS_PRESENT` | business-day sequence has gaps between first and last observation | missing business dates and count |
+| `STALE_VALUATION_SERIES_DETECTED` | unchanged valuation state repeats across multiple observations with zero cash-flow and fee activity | stale run start/end dates, run length, repeated begin/end market values |
 | `EXTREME_DAILY_MOVE_DETECTED` | one or more daily moves exceed the profile threshold | threshold percent and sampled extreme dates |
 
 Primary evidence surfaces:
@@ -180,6 +181,12 @@ Key support-facing sample fields:
 - `external_cashflow_timing_contradiction_samples[*].opposite_detailed_cashflow_amount`
 - `noncanonical_cashflow_type_samples[*].cash_flow_types`
 - `noncanonical_cashflow_types`
+
+Bounded stale-series rule:
+
+- the current stale-series finding triggers only when at least three observations repeat the same `begin_mv`, `end_mv`, `bod_cf`, `eod_cf`, and `mgmt_fees`
+- the repeated run must also have zero cash-flow and fee activity
+- this is intentionally a stale-source signal, not a claim that flat economics are impossible
 
 ## Operator Notes
 

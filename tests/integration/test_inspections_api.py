@@ -593,9 +593,10 @@ def test_twr_inspection_flags_extreme_daily_move_for_request_subject(client):
                     "report_end_date": "2026-01-06",
                     "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
                     "valuation_points": [
-                        {"perf_date": "2026-01-02", "begin_mv": 1000.0, "end_mv": 1010.0},
-                        {"perf_date": "2026-01-03", "begin_mv": 1010.0, "end_mv": 1300.0},
-                        {"perf_date": "2026-01-06", "begin_mv": 1300.0, "end_mv": 1295.0},
+                        {"perf_date": "2026-01-02", "begin_mv": 1000.0, "end_mv": 1000.0},
+                        {"perf_date": "2026-01-03", "begin_mv": 1000.0, "end_mv": 1000.0},
+                        {"perf_date": "2026-01-04", "begin_mv": 1000.0, "end_mv": 1000.0},
+                        {"perf_date": "2026-01-06", "begin_mv": 1000.0, "end_mv": 1300.0},
                     ],
                 },
             },
@@ -612,9 +613,12 @@ def test_twr_inspection_flags_extreme_daily_move_for_request_subject(client):
         "EXTREME_DAILY_MOVE_DETECTED",
         "WEEKEND_OBSERVATIONS_PRESENT",
         "BUSINESS_DATE_GAPS_PRESENT",
+        "STALE_VALUATION_SERIES_DETECTED",
     }
-    assert body["evidence_summary"]["weekend_observation_count"] == 1
+    assert body["evidence_summary"]["weekend_observation_count"] == 2
     assert body["evidence_summary"]["missing_business_date_count"] == 1
+    assert body["evidence_summary"]["stale_series_run_count"] == 1
+    assert body["evidence_summary"]["stale_series_observation_count"] == 3
     assert body["evidence_summary"]["largest_abs_daily_move_pct"] >= 20.0
 
 

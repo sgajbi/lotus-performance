@@ -650,6 +650,15 @@ Acceptance gate:
 2. mandate-aware plausibility rules remain bounded and documented,
 3. findings distinguish warnings from non-supportable defects coherently.
 
+Implementation status on 2026-04-15:
+
+1. source-quality inspection now covers weekend observations, missing business dates, bounded stale
+   valuation-series detection, and extreme daily moves,
+2. the stale-series rule is intentionally narrow: it only triggers when at least three observations
+   repeat the same begin or end valuation state with zero cash-flow and fee activity,
+3. source-quality evidence summaries now carry stale-run and stale-observation counts so support
+   can distinguish single-point oddities from repeated source stagnation.
+
 ### Slice 4: Reconciliation Checks
 
 Outcome:
