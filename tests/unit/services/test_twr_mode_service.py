@@ -568,6 +568,7 @@ async def test_resolve_twr_request_404_reference_error_mentions_control_plane(mo
 
     assert "CORE_CONTROL_PLANE_BASE_URL" in str(exc_info.value.detail)
     assert "query-control-plane" in str(exc_info.value.detail)
+    assert "stale container env" in str(exc_info.value.detail)
 
 
 @pytest.mark.asyncio

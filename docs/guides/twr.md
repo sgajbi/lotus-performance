@@ -44,7 +44,8 @@ used by stateless requests.
 Preferred local defaults for `CORE_CONTROL_PLANE_BASE_URL` are:
 
 - app/runtime: `http://core-control.dev.lotus`
-- Docker host-port: `http://host.docker.internal:8202`
+- local host-port: `http://127.0.0.1:8202`
+- Docker-to-host: `http://host.docker.internal:8202`
 - platform-stack internal: `http://lotus-core-control:8002`
 
 `CORE_QUERY_BASE_URL` remains a deprecated compatibility fallback only when

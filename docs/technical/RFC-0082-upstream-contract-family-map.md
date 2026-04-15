@@ -26,8 +26,9 @@ analytics-input contracts. `CORE_QUERY_BASE_URL` is a deprecated compatibility f
 Governed base-URL examples for the control-plane contract family are:
 
 1. local ingress: `http://core-control.dev.lotus`
-2. local Docker host-port: `http://host.docker.internal:8202`
-3. platform-stack internal: `http://lotus-core-control:8002`
+2. local host-port: `http://127.0.0.1:8202`
+3. local Docker-to-host: `http://host.docker.internal:8202`
+4. platform-stack internal: `http://lotus-core-control:8002`
 
 ## Upstream Client Surfaces
 

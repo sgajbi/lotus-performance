@@ -232,7 +232,8 @@ Important compose defaults:
 - local platform access should still use the canonical ingress identity above
 - stateful integration resolves lotus-core query-control-plane through `CORE_CONTROL_PLANE_BASE_URL`
 - current local ingress default for `CORE_CONTROL_PLANE_BASE_URL` is `http://core-control.dev.lotus`
-- local Docker host-port default for `CORE_CONTROL_PLANE_BASE_URL` is `http://host.docker.internal:8202`
+- local host-port base URL for `CORE_CONTROL_PLANE_BASE_URL` is `http://127.0.0.1:8202`
+- Docker-to-host base URL for `CORE_CONTROL_PLANE_BASE_URL` is `http://host.docker.internal:8202`
 - platform-stack internal default for `CORE_CONTROL_PLANE_BASE_URL` is `http://lotus-core-control:8002`
 - `CORE_QUERY_BASE_URL` remains a deprecated compatibility fallback when `CORE_CONTROL_PLANE_BASE_URL` is unset
 - runtime threshold profile overrides can be layered with:
