@@ -134,6 +134,25 @@ def test_recovery_drills_docs_reflect_certified_operator_contract():
     assert "No duplicate lotus-performance recovery-drill endpoint" in certification
 
 
+def test_runtime_retention_docs_reflect_certified_operator_contract():
+    readme = _read("README.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    complete_reference = _read("docs/guides/complete_service_reference.md")
+    certification = _read("docs/technical/runtime-retention-endpoint-certification.md")
+
+    assert "technical/runtime-retention-endpoint-certification.md" in readme
+    assert "app.models.runtime_retention_history.RuntimeRetentionHistoryResponse" in api_reference
+    assert "app.models.runtime_retention_history.RuntimeRetentionCleanupRunRequest" in api_reference
+    assert "app.models.runtime_retention_history.RuntimeRetentionCleanupRunResponse" in api_reference
+    assert "certification evidence: `docs/technical/runtime-retention-endpoint-certification.md`" in api_reference
+    assert '"latest_file_name": "runtime-retention-20260329T014500Z.json"' in complete_reference
+    assert '"prunable_execution_count": 3' in complete_reference
+    assert '"prunable_lineage_artifact_count": 1' in complete_reference
+    assert "Downstream Consumers" in certification
+    assert "Test Pyramid Assessment" in certification
+    assert "No duplicate lotus-performance runtime-retention endpoint" in certification
+
+
 def test_execution_polling_docs_reflect_certified_contract():
     readme = _read("README.md")
     api_reference = _read("docs/guides/api_reference.md")

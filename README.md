@@ -36,6 +36,7 @@ Source-of-truth runtime docs:
 - [technical/lineage-endpoint-certification.md](docs/technical/lineage-endpoint-certification.md)
 - [technical/recovery-drills-endpoint-certification.md](docs/technical/recovery-drills-endpoint-certification.md)
 - [technical/runtime-recoveries-endpoint-certification.md](docs/technical/runtime-recoveries-endpoint-certification.md)
+- [technical/runtime-retention-endpoint-certification.md](docs/technical/runtime-retention-endpoint-certification.md)
 - [technical/runtime-status-endpoint-certification.md](docs/technical/runtime-status-endpoint-certification.md)
 - [technical/runtime-work-items-endpoint-certification.md](docs/technical/runtime-work-items-endpoint-certification.md)
 - [technical/twr-inspection-endpoint-certification.md](docs/technical/twr-inspection-endpoint-certification.md)

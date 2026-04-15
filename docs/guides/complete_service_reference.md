@@ -1328,27 +1328,53 @@ Certification evidence:
 
 Purpose:
 
-- inspect retained runtime-retention cleanup evidence and history
+- inspect retained runtime-retention cleanup evidence, filters, paging, and prunable counts
 
 Sample response:
 
 ```json
 {
-  "latest": {
-    "cleanup_mode": "dry_run",
-    "status": "ok",
-    "generated_at": "2026-03-29T01:45:00Z"
+  "contract_version": "v1",
+  "source_service": "lotus-performance",
+  "status": "available",
+  "artifact_directory": "artifacts/runtime-retention",
+  "latest_file_name": "runtime-retention-20260329T014500Z.json",
+  "retained_file_names": [
+    "runtime-retention-20260329T014500Z.json"
+  ],
+  "retention_limit": 30,
+  "retention_max_age_days": 90,
+  "total_entries": 1,
+  "matched_entries": 1,
+  "returned_entries": 1,
+  "applied_filters": {
+    "cleanup_mode": "dry_run"
   },
-  "items": [
+  "entries": [
     {
+      "evidence_file_name": "runtime-retention-20260329T014500Z.json",
+      "generated_at_utc": "2026-03-29T01:45:00Z",
+      "operator_id": "ops-user",
+      "tenant_id": "tenant-private-bank",
+      "correlation_id": "runtime-alert-456",
       "cleanup_mode": "dry_run",
       "trigger_mode": "manual",
+      "job_id": "ops-ticket-123",
       "status": "ok",
-      "retention_days": 30
+      "retention_days": 30,
+      "prunable_execution_count": 3,
+      "prunable_compute_job_count": 2,
+      "prunable_async_result_count": 2,
+      "prunable_lineage_record_count": 1,
+      "prunable_lineage_artifact_count": 1
     }
   ]
 }
 ```
+
+Certification evidence:
+
+- `docs/technical/runtime-retention-endpoint-certification.md`
 
 ### `POST /integration/runtime-retention-cleanups/run`
 
@@ -1361,7 +1387,8 @@ Sample request:
 ```json
 {
   "apply": false,
-  "retention_days": 30
+  "retention_days": 30,
+  "job_id": "ops-ticket-123"
 }
 ```
 
@@ -1369,13 +1396,31 @@ Sample response:
 
 ```json
 {
+  "contract_version": "v1",
+  "source_service": "lotus-performance",
+  "cleanup_name": "runtime_retention_cleanup",
+  "generated_at_utc": "2026-03-29T01:45:00Z",
+  "evidence_file_name": "runtime-retention-20260329T014500Z.json",
+  "operator_id": "ops-user",
+  "tenant_id": "tenant-private-bank",
+  "correlation_id": "runtime-alert-456",
+  "trigger_mode": "manual",
+  "job_id": "ops-ticket-123",
   "cleanup_mode": "dry_run",
   "status": "ok",
-  "operator_id": "ops-user",
   "retention_days": 30,
-  "artifact_path": "artifacts/runtime-retention-cleanup/latest.json"
+  "cutoff_utc": "2026-02-28T01:45:00Z",
+  "prunable_execution_count": 3,
+  "prunable_compute_job_count": 2,
+  "prunable_async_result_count": 2,
+  "prunable_lineage_record_count": 1,
+  "prunable_lineage_artifact_count": 1
 }
 ```
+
+Certification evidence:
+
+- `docs/technical/runtime-retention-endpoint-certification.md`
 
 ### `GET /health`
 

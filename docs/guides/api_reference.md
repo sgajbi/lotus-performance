@@ -691,6 +691,8 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - retained enterprise request context when available:
     - `tenant_id`
     - `correlation_id`
+- response model: `app.models.runtime_retention_history.RuntimeRetentionHistoryResponse`
+- certification evidence: `docs/technical/runtime-retention-endpoint-certification.md`
 
 ### `POST /integration/runtime-retention-cleanups/run`
 
@@ -714,6 +716,9 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - `409` when the same governed cleanup action is already running in-flight for the same operator, tenant, action mode, retention window, and job identity
   - stale in-flight cleanup leases are reclaimed automatically after the configured stale threshold instead of blocking forever after a crash
 - use this when an operator needs an audited cleanup preview or a deliberate apply action without shell access
+- request model: `app.models.runtime_retention_history.RuntimeRetentionCleanupRunRequest`
+- response model: `app.models.runtime_retention_history.RuntimeRetentionCleanupRunResponse`
+- certification evidence: `docs/technical/runtime-retention-endpoint-certification.md`
 
 ### `POST /integration/returns/series`
 
