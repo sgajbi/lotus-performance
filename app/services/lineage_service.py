@@ -112,7 +112,6 @@ class LineageService:
                 artifact_names=artifact_names,
                 timestamp_utc=completion_timestamp,
             )
-            self._metadata_store.delete_payload(calculation_id)
             try:
                 self._execution_store.complete_stage(
                     calculation_id,
