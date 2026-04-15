@@ -1,11 +1,14 @@
+import json
 import os
 import shutil
+from datetime import date
 from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
+from app.models.requests import Analysis, PerformanceRequest
 from app.services.async_result_store import async_result_store
 from app.services.compute_job_store import compute_job_store
 from app.services.execution_registry import execution_registry
@@ -151,6 +154,135 @@ def test_twr_inspection_existing_calculation_subject_links_back_to_twr_lineage(c
     assert body["related_lineage"]["calculation_id"] == twr_calculation_id
     assert body["related_lineage"]["lineage_path"] == f"/performance/lineage/{twr_calculation_id}"
     assert body["evidence_summary"]["related_execution_found"] is True
+
+
+def test_twr_inspection_runs_reconciliation_for_resolved_stateful_subject(client, monkeypatch):
+    twr_payload = {
+        "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+        "performance_start_date": "2026-01-01",
+        "metric_basis": "NET",
+        "report_end_date": "2026-01-02",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "valuation_points": [
+            {"perf_date": "2026-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+            {"perf_date": "2026-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+        ],
+    }
+    twr_response = client.post("/performance/twr", json=twr_payload)
+    assert twr_response.status_code == 200
+    response_body = twr_response.json()
+
+    calculation_id = uuid4()
+    execution_registry.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="TWR",
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        execution_mode="async",
+        requested_window={"requested_periods": ["YTD"]},
+        input_fingerprint="resolved-stateful",
+        calculation_hash="resolved-stateful",
+    )
+    response_body["calculation_id"] = str(calculation_id)
+    async_result_store.record_success(
+        calculation_id=calculation_id,
+        analytics_type="TWR",
+        response_payload=response_body,
+    )
+    resolved_request = {
+        "portfolio": PerformanceRequest(
+            portfolio_id="PB_SG_GLOBAL_BAL_001",
+            performance_start_date=date(2026, 1, 1),
+            metric_basis="NET",
+            report_end_date=date(2026, 1, 2),
+            analyses=[Analysis(period="YTD", frequencies=["daily"])],
+            valuation_points=twr_payload["valuation_points"],
+        ).model_dump(mode="json"),
+        "benchmark": None,
+    }
+    lineage_metadata_store.enqueue_lineage_payload(
+        calculation_id=calculation_id,
+        calculation_type="TWR",
+        request_json=json.dumps(resolved_request),
+        response_json=json.dumps(response_body),
+        details={},
+    )
+
+    class _StatefulInputServiceStub:
+        async def get_position_timeseries(self, **kwargs):  # noqa: ARG002
+            return (
+                200,
+                {
+                    "rows": [
+                        {
+                            "valuation_date": "2026-01-01",
+                            "position_id": "SEC_1",
+                            "valuation_epoch": 1,
+                            "ending_market_value_portfolio_currency": "600.0",
+                        },
+                        {
+                            "valuation_date": "2026-01-01",
+                            "position_id": "SEC_1",
+                            "valuation_epoch": 5,
+                            "ending_market_value_portfolio_currency": "610.0",
+                        },
+                        {
+                            "valuation_date": "2026-01-01",
+                            "position_id": "SEC_2",
+                            "valuation_epoch": 4,
+                            "ending_market_value_portfolio_currency": "399.0",
+                        },
+                        {
+                            "valuation_date": "2026-01-02",
+                            "position_id": "SEC_1",
+                            "valuation_epoch": 5,
+                            "ending_market_value_portfolio_currency": "612.06",
+                        },
+                        {
+                            "valuation_date": "2026-01-02",
+                            "position_id": "SEC_2",
+                            "valuation_epoch": 5,
+                            "ending_market_value_portfolio_currency": "400.0",
+                        },
+                    ]
+                },
+            )
+
+    monkeypatch.setattr(
+        "app.services.inspection.reconciliation.build_stateful_input_service",
+        lambda *, settings: _StatefulInputServiceStub(),
+    )
+
+    inspection_id = str(uuid4())
+    submit = client.post(
+        "/performance/inspections/twr",
+        json={
+            "inspection_id": inspection_id,
+            "subject_type": "twr_calculation",
+            "subject_calculation_id": str(calculation_id),
+            "inspection_profile": "deep_reconciliation",
+        },
+    )
+    assert submit.status_code == 202
+
+    assert drain_compute_queue() >= 1
+
+    result = client.get(f"/performance/inspections/{inspection_id}")
+    assert result.status_code == 200
+    body = result.json()
+    assert body["verdict"] == "not_supportable"
+    assert body["owner_summary"]["primary_owner_repo"] == "lotus-core"
+    assert body["check_coverage"]["completed_check_families"] == [
+        "calculation_consistency",
+        "source_quality",
+        "economic_plausibility",
+        "reconciliation",
+    ]
+    assert {finding["code"] for finding in body["findings"]} >= {
+        "MIXED_POSITION_EPOCH_SNAPSHOT",
+        "PORTFOLIO_POSITION_RECONCILIATION_GAP",
+    }
+    assert body["evidence_summary"]["mixed_epoch_date_count"] == 1
+    assert body["evidence_summary"]["reconciliation_gap_date_count"] == 2
 
 
 def test_twr_inspection_flags_relative_arithmetic_mismatch_for_existing_calculation(client):

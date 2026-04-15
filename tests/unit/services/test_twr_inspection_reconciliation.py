@@ -1,0 +1,115 @@
+from datetime import date
+
+from app.models.inspection_requests import TWRInspectionProfile
+from app.models.requests import Analysis, DailyInputData, PerformanceRequest
+from app.services.inspection.reconciliation import analyze_portfolio_position_reconciliation
+
+
+def test_analyze_portfolio_position_reconciliation_flags_mixed_epochs_and_gap():
+    performance_request = PerformanceRequest(
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        performance_start_date=date(2026, 2, 28),
+        metric_basis="NET",
+        report_end_date=date(2026, 3, 26),
+        analyses=[Analysis(period="YTD", frequencies=["daily"])],
+        valuation_points=[
+            DailyInputData(perf_date=date(2026, 2, 28), begin_mv=1200.0, end_mv=1301.904397290752),
+            DailyInputData(perf_date=date(2026, 3, 26), begin_mv=1280.0, end_mv=1323.10366113306),
+        ],
+    )
+
+    result = analyze_portfolio_position_reconciliation(
+        performance_request=performance_request,
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        inspection_profile=TWRInspectionProfile.DEEP_RECONCILIATION,
+        position_rows=[
+            {
+                "valuation_date": "2026-02-28",
+                "position_id": "SEC_1",
+                "valuation_epoch": 1,
+                "ending_market_value_portfolio_currency": "600.0",
+            },
+            {
+                "valuation_date": "2026-02-28",
+                "position_id": "SEC_1",
+                "valuation_epoch": 14,
+                "ending_market_value_portfolio_currency": "630.0",
+            },
+            {
+                "valuation_date": "2026-02-28",
+                "position_id": "SEC_2",
+                "valuation_epoch": 4,
+                "ending_market_value_portfolio_currency": "636.641804",
+            },
+            {
+                "valuation_date": "2026-03-26",
+                "position_id": "SEC_1",
+                "valuation_epoch": 8,
+                "ending_market_value_portfolio_currency": "640.0",
+            },
+            {
+                "valuation_date": "2026-03-26",
+                "position_id": "SEC_2",
+                "valuation_epoch": 8,
+                "ending_market_value_portfolio_currency": "646.91398",
+            },
+        ],
+    )
+
+    assert {finding.code for finding in result.findings} == {
+        "MIXED_POSITION_EPOCH_SNAPSHOT",
+        "PORTFOLIO_POSITION_RECONCILIATION_GAP",
+    }
+    assert result.evidence_summary["mixed_epoch_date_count"] == 1
+    assert result.evidence_summary["reconciliation_gap_date_count"] == 2
+    assert result.evidence_summary["reconciliation_max_gap_amount"] > 30
+
+
+def test_analyze_portfolio_position_reconciliation_accepts_coherent_rows():
+    performance_request = PerformanceRequest(
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        performance_start_date=date(2026, 1, 1),
+        metric_basis="NET",
+        report_end_date=date(2026, 1, 2),
+        analyses=[Analysis(period="YTD", frequencies=["daily"])],
+        valuation_points=[
+            DailyInputData(perf_date=date(2026, 1, 1), begin_mv=1000.0, end_mv=1010.0),
+            DailyInputData(perf_date=date(2026, 1, 2), begin_mv=1010.0, end_mv=1020.1),
+        ],
+    )
+
+    result = analyze_portfolio_position_reconciliation(
+        performance_request=performance_request,
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        inspection_profile=TWRInspectionProfile.CANONICAL_VALIDATION,
+        position_rows=[
+            {
+                "valuation_date": "2026-01-01",
+                "position_id": "SEC_1",
+                "valuation_epoch": 5,
+                "ending_market_value_portfolio_currency": "606.0",
+            },
+            {
+                "valuation_date": "2026-01-01",
+                "position_id": "SEC_2",
+                "valuation_epoch": 5,
+                "ending_market_value_portfolio_currency": "404.0",
+            },
+            {
+                "valuation_date": "2026-01-02",
+                "position_id": "SEC_1",
+                "valuation_epoch": 5,
+                "ending_market_value_portfolio_currency": "612.06",
+            },
+            {
+                "valuation_date": "2026-01-02",
+                "position_id": "SEC_2",
+                "valuation_epoch": 5,
+                "ending_market_value_portfolio_currency": "408.04",
+            },
+        ],
+    )
+
+    assert result.findings == []
+    assert result.evidence_summary["mixed_epoch_date_count"] == 0
+    assert result.evidence_summary["reconciliation_gap_date_count"] == 0

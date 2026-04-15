@@ -5,10 +5,10 @@ import os
 from dataclasses import dataclass
 from uuid import UUID
 
-from app.models.requests import PerformanceRequest
-from app.models.twr_requests import TWRAnalyticsRequest, TWRResolvedExecutionRequest
 from app.core.config import get_settings
+from app.models.requests import PerformanceRequest
 from app.models.responses import PerformanceResponse
+from app.models.twr_requests import TWRAnalyticsRequest, TWRResolvedExecutionRequest
 from app.services.async_result_store import async_result_store
 from app.services.lineage_metadata_store import lineage_metadata_store
 
@@ -65,6 +65,17 @@ def extract_performance_request_from_payload(request_payload: dict | None) -> Pe
         if analytics_request.input_mode.value != "stateless":
             return None
         return analytics_request.to_stateless_performance_request()
+    except Exception:
+        return None
+
+
+def extract_resolved_execution_request_from_payload(
+    request_payload: dict | None,
+) -> TWRResolvedExecutionRequest | None:
+    if request_payload is None:
+        return None
+    try:
+        return TWRResolvedExecutionRequest.model_validate(request_payload)
     except Exception:
         return None
 

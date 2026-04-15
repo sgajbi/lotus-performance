@@ -664,6 +664,18 @@ Acceptance gate:
 2. cash-flow and fee duplication defects can be surfaced clearly,
 3. ownership routing to `lotus-core` is backed by explicit evidence artifacts.
 
+Implementation status on 2026-04-15:
+
+1. stateful existing-calculation inspection now performs portfolio-versus-position reconciliation using
+   the same `StatefulInputService` seam already trusted by the analytics runtime,
+2. mixed-epoch position snapshots and latest-position-versus-portfolio end-value gaps are emitted as
+   first-class `lotus-core` findings,
+3. owner-summary synthesis now reflects the actual finding owners instead of defaulting every clean
+   or dirty inspection to `lotus-performance`,
+4. remaining slice-4 follow-up is narrower than the base reconciliation architecture: richer
+   cash-flow classification and fee-duplication evidence should be layered onto this inspector rather
+   than creating a second triage path.
+
 ### Slice 5: Canonical and Platform Integration
 
 Outcome:

@@ -12,11 +12,13 @@ from app.models.inspection_responses import (
     TWRInspectionVerdict,
 )
 from app.services.execution_registry import execution_registry
-from app.services.inspection.calculation_consistency import run_twr_calculation_consistency_checks
 from app.services.inspection.artifact_service import enqueue_twr_inspection_artifacts
+from app.services.inspection.calculation_consistency import run_twr_calculation_consistency_checks
+from app.services.inspection.reconciliation import run_reconciliation_checks
 from app.services.inspection.source_quality import run_source_quality_checks
 from app.services.inspection.subject_materialization import (
     extract_performance_request_from_payload,
+    extract_resolved_execution_request_from_payload,
     load_existing_twr_calculation_artifacts,
 )
 from app.services.inspection.subject_resolution import resolve_twr_inspection_subject
@@ -55,12 +57,15 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
         "artifact_queue_enabled": True,
         "related_execution_found": subject.related_execution is not None,
     }
-    verdict = TWRInspectionVerdict.INSPECTION_FAILED
     performance_request = None
+    resolved_execution_request = None
     if subject.subject_calculation_id is not None:
         execution_registry.start_stage(request.inspection_id, "math_reconciliation")
         try:
             existing_artifacts = load_existing_twr_calculation_artifacts(subject.subject_calculation_id)
+            resolved_execution_request = extract_resolved_execution_request_from_payload(
+                existing_artifacts.request_payload
+            )
             performance_request = extract_performance_request_from_payload(existing_artifacts.request_payload)
             consistency_result = run_twr_calculation_consistency_checks(existing_artifacts.response_model)
         except Exception as exc:
@@ -74,11 +79,6 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
         consistency_findings = consistency_result.findings
         completed_check_families.append("calculation_consistency")
         evidence_summary.update(consistency_result.evidence_summary)
-        verdict = (
-            TWRInspectionVerdict.NOT_SUPPORTABLE
-            if consistency_findings
-            else TWRInspectionVerdict.SUPPORTABLE_WITH_WARNINGS
-        )
     else:
         performance_request = extract_performance_request_from_payload(subject.request_payload)
 
@@ -101,13 +101,30 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
         source_quality_findings = source_quality_result.findings
         completed_check_families.extend(["source_quality", "economic_plausibility"])
         evidence_summary.update(source_quality_result.evidence_summary)
-        if any(finding.severity in {"high", "critical"} for finding in source_quality_findings):
-            verdict = TWRInspectionVerdict.NOT_SUPPORTABLE
-        elif verdict == TWRInspectionVerdict.INSPECTION_FAILED:
-            verdict = TWRInspectionVerdict.SUPPORTABLE_WITH_WARNINGS
+
+    reconciliation_findings = []
+    if resolved_execution_request is not None and subject.portfolio_id is not None:
+        execution_registry.start_stage(request.inspection_id, "source_state_reconciliation")
+        try:
+            reconciliation_result = run_reconciliation_checks(
+                performance_request=resolved_execution_request.portfolio,
+                portfolio_id=subject.portfolio_id,
+                inspection_profile=request.inspection_profile,
+            )
+        except Exception as exc:
+            execution_registry.fail_stage(request.inspection_id, "source_state_reconciliation", str(exc))
+            raise
+        execution_registry.complete_stage(
+            request.inspection_id,
+            "source_state_reconciliation",
+            details=reconciliation_result.evidence_summary,
+        )
+        reconciliation_findings = reconciliation_result.findings
+        completed_check_families.append("reconciliation")
+        evidence_summary.update(reconciliation_result.evidence_summary)
 
     execution_registry.start_stage(request.inspection_id, "finding_synthesis")
-    findings = [*consistency_findings, *source_quality_findings]
+    findings = [*consistency_findings, *source_quality_findings, *reconciliation_findings]
     if not completed_check_families:
         findings.append(
             TWRInspectionFinding(
@@ -132,6 +149,8 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
                 },
             )
         )
+    pending_check_families = [family for family in _ALL_CHECK_FAMILIES if family not in completed_check_families]
+    verdict = _synthesize_verdict(findings=findings, pending_check_families=pending_check_families)
     response = TWRInspectionResponse(
         inspection_id=request.inspection_id,
         subject_type=request.subject_type,
@@ -141,14 +160,11 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
         status="complete",
         verdict=verdict,
         findings=findings,
-        owner_summary=TWRInspectionOwnerSummary(
-            primary_owner_repo="lotus-performance",
-            secondary_owner_repos=[],
-        ),
+        owner_summary=_build_owner_summary(findings),
         evidence_summary=evidence_summary,
         check_coverage=TWRInspectionCheckCoverage(
             completed_check_families=completed_check_families,
-            pending_check_families=[family for family in _ALL_CHECK_FAMILIES if family not in completed_check_families],
+            pending_check_families=pending_check_families,
         ),
         related_lineage=(
             TWRInspectionRelatedLineage(
@@ -189,3 +205,33 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
         raise
     execution_registry.mark_complete(request.inspection_id)
     return response
+
+
+def _synthesize_verdict(
+    *,
+    findings: list[TWRInspectionFinding],
+    pending_check_families: list[str],
+) -> TWRInspectionVerdict:
+    if any(finding.severity in {"high", "critical"} for finding in findings):
+        return TWRInspectionVerdict.NOT_SUPPORTABLE
+    if findings or pending_check_families:
+        return TWRInspectionVerdict.SUPPORTABLE_WITH_WARNINGS
+    return TWRInspectionVerdict.SUPPORTABLE
+
+
+def _build_owner_summary(findings: list[TWRInspectionFinding]) -> TWRInspectionOwnerSummary:
+    if not findings:
+        return TWRInspectionOwnerSummary(primary_owner_repo="lotus-performance", secondary_owner_repos=[])
+
+    severity_weights = {"info": 1, "warning": 2, "high": 3, "critical": 4}
+    owner_scores: dict[str, int] = {}
+    for finding in findings:
+        owner_scores[finding.owner_repo] = owner_scores.get(finding.owner_repo, 0) + severity_weights.get(
+            finding.severity,
+            0,
+        )
+    ordered_owners = sorted(owner_scores, key=lambda owner: (-owner_scores[owner], owner))
+    return TWRInspectionOwnerSummary(
+        primary_owner_repo=ordered_owners[0],
+        secondary_owner_repos=ordered_owners[1:],
+    )
