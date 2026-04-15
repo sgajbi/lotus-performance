@@ -13,13 +13,22 @@ def test_classify_cashflow_type_maps_canonical_fee_and_external_flow():
     assert external.governed_alias is False
 
 
-def test_classify_cashflow_type_maps_expense_as_fee_like_alias():
-    classification = classify_cashflow_type(" EXPENSE ")
+def test_classify_cashflow_type_maps_governed_fee_alias():
+    classification = classify_cashflow_type(" MANAGEMENT_FEE ")
 
-    assert classification.normalized_value == "expense"
+    assert classification.normalized_value == "management_fee"
     assert classification.economics_role == "fee"
     assert classification.canonical is False
     assert classification.governed_alias is True
+
+
+def test_classify_cashflow_type_does_not_whitelist_expense_as_analytics_input_label():
+    classification = classify_cashflow_type(" EXPENSE ")
+
+    assert classification.normalized_value == "expense"
+    assert classification.economics_role == "unsupported"
+    assert classification.canonical is False
+    assert classification.governed_alias is False
 
 
 def test_classify_cashflow_type_preserves_unsupported_income_taxonomy():

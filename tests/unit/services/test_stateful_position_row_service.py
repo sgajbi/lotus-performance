@@ -21,7 +21,7 @@ def test_split_position_cash_flows_in_value_basis_converts_to_portfolio_and_repo
         {"amount": "5", "timing": "bod"},
         {"amount": "-2", "timing": "eod"},
         {"amount": "-1", "timing": "eod", "cash_flow_type": "fee"},
-        {"amount": "-0.5", "timing": "eod", "cash_flow_type": "expense"},
+        {"amount": "-0.5", "timing": "eod", "cash_flow_type": "management_fee"},
     ]
 
     assert split_position_cash_flows_in_value_basis(

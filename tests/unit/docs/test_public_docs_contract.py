@@ -435,7 +435,7 @@ def test_twr_inspection_checks_guide_lists_current_check_inventory():
     assert "NONCANONICAL_CASHFLOW_TYPE_PRESENT" in guide
     assert "GOVERNED_ALIAS_CASHFLOW_TYPE_PRESENT" in guide
     assert "UNSUPPORTED_CASHFLOW_TYPE_PRESENT" in guide
-    assert "`expense` is currently treated as fee-like" in guide
+    assert 'cash_flow_type="expense"` is not a governed analytics-input label' in guide
     assert "stateful valuation normalization" in guide
 
 

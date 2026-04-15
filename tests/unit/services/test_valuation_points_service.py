@@ -6,7 +6,7 @@ from fastapi import HTTPException
 from app.services.valuation_points_service import portfolio_timeseries_to_valuation_points
 
 
-def test_portfolio_timeseries_to_valuation_points_preserves_fee_like_cashflows_as_mgmt_fees():
+def test_portfolio_timeseries_to_valuation_points_preserves_fee_cashflows_as_mgmt_fees():
     points = portfolio_timeseries_to_valuation_points(
         observations=[
             {
@@ -15,7 +15,13 @@ def test_portfolio_timeseries_to_valuation_points_preserves_fee_like_cashflows_a
                 "ending_market_value": "925",
                 "cash_flows": [
                     {"amount": "-10", "timing": "eod", "cash_flow_type": "fee"},
-                    {"amount": "-275", "timing": "eod", "cash_flow_type": "expense"},
+                    {
+                        "amount": "-275",
+                        "timing": "eod",
+                        "cash_flow_type": "fee",
+                        "flow_scope": "operational",
+                        "source_classification": "EXPENSE",
+                    },
                     {"amount": "100", "timing": "bod", "cash_flow_type": "external_flow"},
                     {"amount": "-25", "timing": "eod", "cash_flow_type": "withdrawal"},
                     {"amount": "3", "timing": "eod", "cash_flow_type": "dividend"},
@@ -34,6 +40,25 @@ def test_portfolio_timeseries_to_valuation_points_preserves_fee_like_cashflows_a
             "mgmt_fees": Decimal("-285"),
         }
     ]
+
+
+def test_portfolio_timeseries_to_valuation_points_does_not_whitelist_expense_cashflow_type():
+    points = portfolio_timeseries_to_valuation_points(
+        observations=[
+            {
+                "valuation_date": "2026-03-12",
+                "beginning_market_value": "1200",
+                "ending_market_value": "925",
+                "cash_flows": [
+                    {"amount": "-275", "timing": "eod", "cash_flow_type": "expense"},
+                ],
+            }
+        ]
+    )
+
+    assert points[0]["mgmt_fees"] == Decimal("0")
+    assert points[0]["bod_cf"] == Decimal("0")
+    assert points[0]["eod_cf"] == Decimal("0")
 
 
 def test_portfolio_timeseries_to_valuation_points_keeps_unlabeled_cashflows_as_external_for_compatibility():

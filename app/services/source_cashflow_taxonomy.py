@@ -10,9 +10,7 @@ _CANONICAL_EXTERNAL_TYPES = {"external_flow"}
 _FEE_LIKE_ALIASES = {
     "advisory_fee",
     "custody_fee",
-    "expense",
     "management_fee",
-    "operating_expense",
     "platform_fee",
 }
 _EXTERNAL_LIKE_ALIASES = {

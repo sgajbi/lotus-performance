@@ -494,7 +494,7 @@ def test_analyze_source_economics_flags_noncanonical_cashflow_type_labels():
     assert result.evidence_summary["unsupported_cashflow_type_date_count"] == 1
 
 
-def test_analyze_source_economics_maps_expense_as_fee_like_alias():
+def test_analyze_source_economics_accepts_operational_expense_emitted_as_canonical_fee():
     performance_request = PerformanceRequest(
         portfolio_id="PB_SG_GLOBAL_BAL_001",
         performance_start_date=date(2026, 3, 12),
@@ -525,6 +525,56 @@ def test_analyze_source_economics_maps_expense_as_fee_like_alias():
                     {
                         "amount": "-275.0",
                         "timing": "eod",
+                        "cash_flow_type": "fee",
+                        "flow_scope": "operational",
+                        "source_classification": "EXPENSE",
+                    },
+                ],
+            }
+        ],
+    )
+
+    assert result.findings == []
+    assert result.evidence_summary["fee_cashflow_date_count"] == 1
+    assert result.evidence_summary["external_cashflow_date_count"] == 0
+    assert result.evidence_summary["fee_normalization_gap_count"] == 0
+    assert result.evidence_summary["noncanonical_cashflow_type_date_count"] == 0
+    assert result.evidence_summary["governed_alias_cashflow_type_date_count"] == 0
+    assert result.evidence_summary["unsupported_cashflow_type_date_count"] == 0
+    assert result.artifact_payload["fee_cashflow_dates"] == ["2026-03-12"]
+
+
+def test_analyze_source_economics_does_not_whitelist_expense_cashflow_type():
+    performance_request = PerformanceRequest(
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        performance_start_date=date(2026, 3, 12),
+        metric_basis="NET",
+        report_end_date=date(2026, 3, 12),
+        analyses=[Analysis(period="YTD", frequencies=["daily"])],
+        valuation_points=[
+            DailyInputData(
+                perf_date=date(2026, 3, 12),
+                begin_mv=1200.0,
+                end_mv=925.0,
+                bod_cf=0.0,
+                eod_cf=0.0,
+                mgmt_fees=0.0,
+            ),
+        ],
+    )
+
+    result = analyze_source_economics(
+        performance_request=performance_request,
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        observations=[
+            {
+                "valuation_date": "2026-03-12",
+                "beginning_market_value": "1200.0",
+                "ending_market_value": "925.0",
+                "cash_flows": [
+                    {
+                        "amount": "-275.0",
+                        "timing": "eod",
                         "cash_flow_type": "expense",
                         "flow_scope": "operational",
                         "source_classification": "EXPENSE",
@@ -535,15 +585,12 @@ def test_analyze_source_economics_maps_expense_as_fee_like_alias():
     )
 
     assert {finding.code for finding in result.findings} == {
-        "GOVERNED_ALIAS_CASHFLOW_TYPE_PRESENT",
         "NONCANONICAL_CASHFLOW_TYPE_PRESENT",
+        "UNSUPPORTED_CASHFLOW_TYPE_PRESENT",
     }
-    assert result.evidence_summary["fee_cashflow_date_count"] == 1
-    assert result.evidence_summary["external_cashflow_date_count"] == 0
-    assert result.evidence_summary["fee_normalization_gap_count"] == 0
-    assert result.evidence_summary["governed_alias_cashflow_type_date_count"] == 1
-    assert result.evidence_summary["unsupported_cashflow_type_date_count"] == 0
-    assert result.artifact_payload["governed_alias_cashflow_types"] == ["expense"]
+    assert result.evidence_summary["fee_cashflow_date_count"] == 0
+    assert result.evidence_summary["governed_alias_cashflow_type_date_count"] == 0
+    assert result.evidence_summary["unsupported_cashflow_type_date_count"] == 1
 
 
 def test_analyze_source_economics_flags_missing_cashflow_type_labels():

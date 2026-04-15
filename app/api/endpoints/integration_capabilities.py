@@ -308,7 +308,7 @@ async def get_integration_capabilities(
                     "inspection profiles expose bounded support_triage, canonical_validation, and deep_reconciliation behavior",
                     "artifact retrieval includes inspection_summary.json, findings.json, and source_quality_summary.json, plus reconciliation_summary.json and source_economics_summary.json when stateful source-economics checks run",
                     "stateful reconciliation inspection covers portfolio-position tie-out and unexplained position begin-value carry-forward breaks",
-                    "stateful portfolio and position valuation normalization share the source cash-flow taxonomy used by inspection, including fee-like aliases such as expense",
+                    'stateful portfolio and position valuation normalization share the source cash-flow taxonomy used by inspection; operational expenses must arrive as canonical cash_flow_type="fee" with source_classification="EXPENSE"',
                     "source-economics inspection now covers fee and external cash-flow classification and normalization mismatches, duplicate source signals, positive fee sign anomalies, fee or external source-total mismatches, external timing-bucket contradictions, governed alias cash_flow_type labels, unsupported cash_flow_type labels, and non-canonical cash_flow_type labels",
                 ]
                 if twr_enabled

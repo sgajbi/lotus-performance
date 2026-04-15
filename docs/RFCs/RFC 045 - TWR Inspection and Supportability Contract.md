@@ -721,9 +721,10 @@ Implementation status on 2026-04-15:
    mismatches, duplicate source signals, positive fee sign anomalies, explicit fee or external
    source-total mismatches, external timing-bucket contradictions, invalid amount values, invalid
    timing labels, missing `cash_flow_type` labels, non-canonical `cash_flow_type` labels, governed
-   aliases such as `expense`, and unsupported labels such as `dividend`,
+   aliases such as `management_fee`, and unsupported labels such as `dividend`,
 5. stateful portfolio and position valuation normalization now use the same source cash-flow taxonomy so
-   fee-like aliases are preserved in `mgmt_fees` rather than in generic cash-flow buckets,
+   canonical fee economics, including operational expenses emitted as `cash_flow_type="fee"` with
+   `source_classification="EXPENSE"`, are preserved in `mgmt_fees` rather than in generic cash-flow buckets,
 6. the public service reference and support-facing check guide now document the bounded inspection
    controls, active finding inventory, and artifact set,
 7. a deeper platform-owned canonical validator can now consume the same contract instead of relying
