@@ -14,6 +14,7 @@ def build_source_economics_findings(
     duplicate_external_signal_samples: list[dict[str, object]],
     external_source_mismatch_samples: list[dict[str, object]],
     external_timing_contradiction_samples: list[dict[str, object]],
+    invalid_amount_samples: list[dict[str, object]],
     invalid_timing_samples: list[dict[str, object]],
     missing_cashflow_type_samples: list[dict[str, object]],
     noncanonical_cashflow_type_samples: list[dict[str, object]],
@@ -177,6 +178,27 @@ def build_source_economics_findings(
                     "and detailed external cash-flow rows classify the movement in the same timing bucket."
                 ),
                 evidence=_sample_evidence(portfolio_id=portfolio_id, samples=external_timing_contradiction_samples),
+            )
+        )
+
+    if invalid_amount_samples:
+        findings.append(
+            TWRInspectionFinding(
+                code="INVALID_CASHFLOW_AMOUNT_PRESENT",
+                severity="warning",
+                category="documentation_drift",
+                owner_repo="lotus-core",
+                summary="The stateful portfolio source serves detailed cash-flow rows with unusable amounts.",
+                explanation=(
+                    "The raw portfolio observation includes detailed cash-flow rows whose amount cannot be parsed as "
+                    "a numeric value. The inspector cannot classify or reconcile those rows, so they represent lost "
+                    "economic lineage until upstream serialization is corrected."
+                ),
+                recommended_action=(
+                    "Review lotus-core detailed cash-flow serialization and emit a numeric amount for every "
+                    "nonzero detailed cash-flow row."
+                ),
+                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=invalid_amount_samples),
             )
         )
 

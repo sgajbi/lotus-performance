@@ -20,6 +20,7 @@ class SourceEconomicsSamples:
     duplicate_external_signal_samples: list[dict[str, object]]
     external_source_mismatch_samples: list[dict[str, object]]
     external_timing_contradiction_samples: list[dict[str, object]]
+    invalid_amount_samples: list[dict[str, object]]
     invalid_timing_samples: list[dict[str, object]]
     missing_cashflow_type_samples: list[dict[str, object]]
     noncanonical_cashflow_type_samples: list[dict[str, object]]
@@ -37,6 +38,7 @@ class _SourceEconomicsSampleCollector:
     duplicate_external_signal_samples: list[dict[str, object]] = field(default_factory=list)
     external_source_mismatch_samples: list[dict[str, object]] = field(default_factory=list)
     external_timing_contradiction_samples: list[dict[str, object]] = field(default_factory=list)
+    invalid_amount_samples: list[dict[str, object]] = field(default_factory=list)
     invalid_timing_samples: list[dict[str, object]] = field(default_factory=list)
     missing_cashflow_type_samples: list[dict[str, object]] = field(default_factory=list)
     noncanonical_cashflow_type_samples: list[dict[str, object]] = field(default_factory=list)
@@ -58,6 +60,7 @@ class _SourceEconomicsSampleCollector:
             duplicate_external_signal_samples=self.duplicate_external_signal_samples,
             external_source_mismatch_samples=self.external_source_mismatch_samples,
             external_timing_contradiction_samples=self.external_timing_contradiction_samples,
+            invalid_amount_samples=self.invalid_amount_samples,
             invalid_timing_samples=self.invalid_timing_samples,
             missing_cashflow_type_samples=self.missing_cashflow_type_samples,
             noncanonical_cashflow_type_samples=self.noncanonical_cashflow_type_samples,
@@ -68,6 +71,13 @@ class _SourceEconomicsSampleCollector:
             self.fee_flow_dates.append(source_point.valuation_date)
         if source_point.detailed_external_bod != 0 or source_point.detailed_external_eod != 0:
             self.external_flow_dates.append(source_point.valuation_date)
+        if source_point.invalid_amount_rows:
+            self.invalid_amount_samples.append(
+                {
+                    "valuation_date": source_point.valuation_date,
+                    "rows": list(source_point.invalid_amount_rows),
+                }
+            )
         if source_point.invalid_timing_rows:
             self.invalid_timing_samples.append(
                 {
