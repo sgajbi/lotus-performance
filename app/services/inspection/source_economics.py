@@ -7,10 +7,10 @@ from decimal import Decimal, InvalidOperation
 from app.core.config import Settings, get_settings
 from app.models.inspection_responses import TWRInspectionFinding
 from app.models.requests import PerformanceRequest
-from app.services.inspection.source_cashflow_taxonomy import classify_cashflow_type
 from app.services.inspection.source_economics_collector import collect_source_economics_samples
 from app.services.inspection.source_economics_findings import build_source_economics_findings
 from app.services.portfolio_source_service import build_stateful_input_service
+from app.services.source_cashflow_taxonomy import classify_cashflow_type
 
 _INSPECTOR_CONSUMER_SYSTEM = "lotus-performance-inspector"
 _SAMPLE_LIMIT = 25

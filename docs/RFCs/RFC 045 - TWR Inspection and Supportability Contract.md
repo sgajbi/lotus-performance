@@ -722,9 +722,11 @@ Implementation status on 2026-04-15:
    source-total mismatches, external timing-bucket contradictions, invalid amount values, invalid
    timing labels, missing `cash_flow_type` labels, non-canonical `cash_flow_type` labels, governed
    aliases such as `expense`, and unsupported labels such as `dividend`,
-5. the public service reference and support-facing check guide now document the bounded inspection
+5. stateful portfolio valuation normalization now uses the same source cash-flow taxonomy so
+   fee-like aliases are preserved in `mgmt_fees` rather than in generic cash-flow buckets,
+6. the public service reference and support-facing check guide now document the bounded inspection
    controls, active finding inventory, and artifact set,
-6. a deeper platform-owned canonical validator can now consume the same contract instead of relying
+7. a deeper platform-owned canonical validator can now consume the same contract instead of relying
    on ad hoc parsing or a bespoke parallel script.
 
 ## Validation and Evidence Strategy

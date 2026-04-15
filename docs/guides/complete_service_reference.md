@@ -212,6 +212,7 @@ Artifact route:
 - `source_economics_summary.json` is also emitted when raw stateful portfolio source-economics checks run
 - current reconciliation checks cover mixed position epochs, duplicate position snapshot rows, invalid epoch labels, invalid selected position end values, portfolio-versus-position tie-out gaps, and unexplained position begin-value carry-forward breaks
 - current source-economics checks cover fee and external cash-flow classification loss, conflicting or malformed explicit fee or bod/eod source totals, fee and external normalization mismatches, duplicate raw source signals, positive fee sign anomalies, fee or external explicit source-total mismatches, external timing-bucket contradictions, invalid detailed cash-flow amounts, invalid timing labels, missing `cash_flow_type` labels, non-canonical `cash_flow_type` labels, governed alias labels, and unsupported labels whose TWR economics are not yet governed
+- stateful portfolio valuation normalization uses the same source cash-flow taxonomy as the inspector, so fee-like aliases such as `expense` are normalized into `mgmt_fees` while still producing governance evidence
 - the full support-facing finding inventory lives in `docs/guides/twr_inspection_checks.md`
 
 ### `GET /performance/twr/results/{calculation_id}`

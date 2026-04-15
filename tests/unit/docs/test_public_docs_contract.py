@@ -436,6 +436,7 @@ def test_twr_inspection_checks_guide_lists_current_check_inventory():
     assert "GOVERNED_ALIAS_CASHFLOW_TYPE_PRESENT" in guide
     assert "UNSUPPORTED_CASHFLOW_TYPE_PRESENT" in guide
     assert "`expense` is currently treated as fee-like" in guide
+    assert "stateful valuation normalization" in guide
 
 
 def test_runtime_alert_runbook_covers_breach_gauges():

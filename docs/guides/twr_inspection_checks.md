@@ -212,9 +212,9 @@ Key support-facing sample fields:
 Taxonomy handling:
 
 - canonical source labels remain `fee` and `external_flow`
-- governed aliases such as `expense`, `management_fee`, `deposit`, `withdrawal`, and `subscription` are mapped to fee-like or external-flow economics for inspection, but still produce alias-governance evidence
+- governed aliases such as `expense`, `management_fee`, `deposit`, `withdrawal`, and `subscription` are mapped to fee-like or external-flow economics by stateful valuation normalization and by inspection, but still produce alias-governance evidence
 - unsupported labels such as `dividend`, `coupon`, `interest`, `tax`, and `distribution` are preserved as source-taxonomy evidence and excluded from fee or external normalization until their TWR economics are explicitly governed
-- `expense` is currently treated as fee-like for inspection because operational expenses reduce performance like fees; support should still ask `lotus-core` to emit or document a canonical analytics-input label
+- `expense` is currently treated as fee-like because operational expenses reduce performance like fees; support should still ask `lotus-core` to emit or document a canonical analytics-input label
 
 Bounded stale-series rule:
 

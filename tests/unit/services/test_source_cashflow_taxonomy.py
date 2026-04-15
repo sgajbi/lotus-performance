@@ -1,4 +1,4 @@
-from app.services.inspection.source_cashflow_taxonomy import classify_cashflow_type
+from app.services.source_cashflow_taxonomy import classify_cashflow_type
 
 
 def test_classify_cashflow_type_maps_canonical_fee_and_external_flow():

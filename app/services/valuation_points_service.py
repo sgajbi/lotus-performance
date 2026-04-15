@@ -4,6 +4,8 @@ from decimal import Decimal
 
 from fastapi import HTTPException, status
 
+from app.services.source_cashflow_taxonomy import classify_cashflow_type
+
 
 def portfolio_timeseries_to_valuation_points(*, observations: list[dict[str, object]]) -> list[dict[str, object]]:
     valuation_points: list[dict[str, object]] = []
@@ -16,6 +18,7 @@ def portfolio_timeseries_to_valuation_points(*, observations: list[dict[str, obj
             continue
         bod_cf = Decimal("0")
         eod_cf = Decimal("0")
+        mgmt_fees = Decimal("0")
         if isinstance(cash_flows_raw, list):
             for flow in cash_flows_raw:
                 if not isinstance(flow, dict):
@@ -25,6 +28,12 @@ def portfolio_timeseries_to_valuation_points(*, observations: list[dict[str, obj
                 if amount is None or timing not in {"bod", "eod"}:
                     continue
                 decimal_amount = Decimal(str(amount))
+                cashflow_type = classify_cashflow_type(flow.get("cash_flow_type"))
+                if cashflow_type.economics_role == "fee":
+                    mgmt_fees += decimal_amount
+                    continue
+                if cashflow_type.economics_role == "unsupported":
+                    continue
                 if timing == "bod":
                     bod_cf += decimal_amount
                 else:
@@ -36,6 +45,7 @@ def portfolio_timeseries_to_valuation_points(*, observations: list[dict[str, obj
                 "end_mv": Decimal(str(end_mv)),
                 "bod_cf": bod_cf,
                 "eod_cf": eod_cf,
+                "mgmt_fees": mgmt_fees,
             }
         )
     if not valuation_points:

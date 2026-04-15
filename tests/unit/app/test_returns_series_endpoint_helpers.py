@@ -153,6 +153,7 @@ def test_portfolio_timeseries_to_valuation_points_handles_cashflow_variants():
                 "cash_flows": [
                     {"amount": "1.2", "timing": "bod"},
                     {"amount": "0.3", "timing": "eod"},
+                    {"amount": "-0.1", "timing": "eod", "cash_flow_type": "fee"},
                     {"amount": "999", "timing": "invalid"},
                     "not-a-dict",
                 ],
@@ -162,6 +163,7 @@ def test_portfolio_timeseries_to_valuation_points_handles_cashflow_variants():
     assert len(points) == 2
     assert points[1]["bod_cf"] == Decimal("1.2")
     assert points[1]["eod_cf"] == Decimal("0.3")
+    assert points[1]["mgmt_fees"] == Decimal("-0.1")
 
     with pytest.raises(HTTPException):
         _portfolio_timeseries_to_valuation_points(observations=[{"valuation_date": None}])
