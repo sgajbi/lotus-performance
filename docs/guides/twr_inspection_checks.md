@@ -87,6 +87,7 @@ These findings are currently owned by `lotus-performance` because they evaluate 
 | `MANDATE_DAILY_MOVE_OUTLIER_DETECTED` | canonical balanced private-banking portfolio inputs have daily moves above the mandate warning band but below the generic extreme-move threshold | mandate profile, threshold percent, sampled outlier dates |
 | `RETURN_CONCENTRATION_DETECTED` | a small number of daily moves explain most absolute movement across a sufficiently long inspected window | top-N setting, concentration threshold, concentration ratio, sampled top dates |
 | `REPEATED_DAILY_MOVE_PATTERN_DETECTED` | consecutive same-direction daily moves exceed the repeated-move threshold | run direction, start/end dates, run length, sampled moves |
+| `MONTHLY_RETURN_DAY_DOMINANCE_DETECTED` | one day explains most absolute movement in a sufficiently populated month | month, monthly observation count, dominance ratio, dominant move |
 | `EXTREME_DAILY_MOVE_DETECTED` | one or more daily moves exceed the profile threshold | threshold percent and sampled extreme dates |
 
 Primary evidence surfaces:
@@ -251,6 +252,12 @@ Bounded repeated-move rule:
 - alternating large moves and short runs do not trigger this finding
 - this is a source-quality pattern signal for support triage; it does not rewrite the return
 
+Bounded monthly day-dominance rule:
+
+- the current rule only runs for months with at least `10` interpretable daily moves
+- it warns when one day explains at least `75%` of total absolute daily movement for that month
+- this is a monthly path supportability signal, not a standalone assertion that the dominant day is wrong
+
 ### `source_quality_summary.json`
 
 Use for:
@@ -262,6 +269,7 @@ Use for:
 - mandate daily move profile, warning threshold, and sampled mandate outlier dates
 - return concentration ratio, top-N setting, threshold, and sampled top daily moves
 - repeated daily move run count, minimum run length, threshold, and sampled runs
+- monthly day-dominance count, threshold, and sampled dominant dates
 - extreme daily move threshold and sampled dates
 
 ## Operator Notes

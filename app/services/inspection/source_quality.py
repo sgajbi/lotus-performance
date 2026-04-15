@@ -22,6 +22,8 @@ _RETURN_CONCENTRATION_TOP_N = 3
 _RETURN_CONCENTRATION_THRESHOLD = 0.80
 _REPEATED_MOVE_MIN_ABS_PCT = 1.0
 _REPEATED_MOVE_MIN_RUN_LENGTH = 3
+_MONTHLY_DAY_DOMINANCE_MIN_OBSERVATIONS = 10
+_MONTHLY_DAY_DOMINANCE_THRESHOLD = 0.75
 
 
 @dataclass(frozen=True)
@@ -78,6 +80,14 @@ class RepeatedMoveRun:
     moves: list[DailyMove]
 
 
+@dataclass(frozen=True)
+class MonthlyDayDominance:
+    month: str
+    observation_count: int
+    dominance_ratio: float
+    dominant_move: DailyMove
+
+
 def run_source_quality_checks(
     *,
     performance_request: PerformanceRequest,
@@ -102,6 +112,7 @@ def run_source_quality_checks(
     )
     return_concentration = _assess_return_concentration(daily_moves)
     repeated_move_runs = _find_repeated_move_runs(daily_moves)
+    monthly_day_dominance = _find_monthly_day_dominance(daily_moves)
 
     findings = [
         *_build_weekend_findings(weekend_dates),
@@ -114,6 +125,7 @@ def run_source_quality_checks(
         ),
         *_build_return_concentration_findings(return_concentration),
         *_build_repeated_move_pattern_findings(repeated_move_runs),
+        *_build_monthly_day_dominance_findings(monthly_day_dominance),
         *_build_extreme_move_findings(
             inspection_profile=inspection_profile,
             threshold=threshold,
@@ -160,6 +172,10 @@ def run_source_quality_checks(
         "repeated_move_min_run_length": _REPEATED_MOVE_MIN_RUN_LENGTH,
         "repeated_move_run_count": len(repeated_move_runs),
         "repeated_move_runs": _repeated_move_runs_to_artifacts(repeated_move_runs),
+        "monthly_day_dominance_min_observations": _MONTHLY_DAY_DOMINANCE_MIN_OBSERVATIONS,
+        "monthly_day_dominance_threshold": _MONTHLY_DAY_DOMINANCE_THRESHOLD,
+        "monthly_day_dominance_count": len(monthly_day_dominance),
+        "monthly_day_dominance_samples": _monthly_day_dominance_to_artifacts(monthly_day_dominance),
     }
     return SourceQualityCheckResult(
         findings=findings,
@@ -174,6 +190,7 @@ def run_source_quality_checks(
             "mandate_daily_move_outlier_count": len(mandate_outliers),
             "return_concentration_ratio": return_concentration.concentration_ratio,
             "repeated_move_run_count": len(repeated_move_runs),
+            "monthly_day_dominance_count": len(monthly_day_dominance),
         },
         artifact_payload=artifact_payload,
     )
@@ -514,6 +531,62 @@ def _build_repeated_move_pattern_findings(repeated_move_runs: list[RepeatedMoveR
     ]
 
 
+def _find_monthly_day_dominance(daily_moves: list[DailyMove]) -> list[MonthlyDayDominance]:
+    moves_by_month: dict[str, list[DailyMove]] = {}
+    for move in daily_moves:
+        moves_by_month.setdefault(move.perf_date[:7], []).append(move)
+
+    dominance_samples: list[MonthlyDayDominance] = []
+    for month, month_moves in sorted(moves_by_month.items()):
+        if len(month_moves) < _MONTHLY_DAY_DOMINANCE_MIN_OBSERVATIONS:
+            continue
+        total_abs_return = sum(abs(move.return_pct) for move in month_moves)
+        if total_abs_return <= 0:
+            continue
+        dominant_move = max(month_moves, key=lambda move: abs(move.return_pct))
+        dominance_ratio = abs(dominant_move.return_pct) / total_abs_return
+        if dominance_ratio >= _MONTHLY_DAY_DOMINANCE_THRESHOLD:
+            dominance_samples.append(
+                MonthlyDayDominance(
+                    month=month,
+                    observation_count=len(month_moves),
+                    dominance_ratio=dominance_ratio,
+                    dominant_move=dominant_move,
+                )
+            )
+    return dominance_samples
+
+
+def _build_monthly_day_dominance_findings(
+    monthly_day_dominance: list[MonthlyDayDominance],
+) -> list[TWRInspectionFinding]:
+    if not monthly_day_dominance:
+        return []
+    return [
+        TWRInspectionFinding(
+            code="MONTHLY_RETURN_DAY_DOMINANCE_DETECTED",
+            severity="warning",
+            category="economic_plausibility",
+            owner_repo="lotus-performance",
+            summary="Resolved source inputs have a month where one day dominates absolute movement.",
+            explanation=(
+                f"For at least one month with {_MONTHLY_DAY_DOMINANCE_MIN_OBSERVATIONS} or more daily moves, "
+                f"one day explains at least {_MONTHLY_DAY_DOMINANCE_THRESHOLD:.0%} of total absolute movement."
+            ),
+            recommended_action=(
+                "Review the dominant day for valuation restatement, cash-flow timing, fee, or source-state events "
+                "before treating the monthly TWR path as operationally robust."
+            ),
+            evidence={
+                "min_observations": _MONTHLY_DAY_DOMINANCE_MIN_OBSERVATIONS,
+                "threshold": _MONTHLY_DAY_DOMINANCE_THRESHOLD,
+                "dominance_count": len(monthly_day_dominance),
+                "samples": _monthly_day_dominance_to_artifacts(monthly_day_dominance),
+            },
+        )
+    ]
+
+
 def _build_extreme_move_findings(
     *,
     inspection_profile: TWRInspectionProfile,
@@ -580,6 +653,20 @@ def _repeated_move_runs_to_artifacts(repeated_move_runs: list[RepeatedMoveRun]) 
             "moves": _daily_moves_to_artifacts(run.moves),
         }
         for run in repeated_move_runs[:_STALE_SAMPLE_LIMIT]
+    ]
+
+
+def _monthly_day_dominance_to_artifacts(
+    monthly_day_dominance: list[MonthlyDayDominance],
+) -> list[dict[str, object]]:
+    return [
+        {
+            "month": dominance.month,
+            "observation_count": dominance.observation_count,
+            "dominance_ratio": dominance.dominance_ratio,
+            "dominant_move": dominance.dominant_move.to_artifact(),
+        }
+        for dominance in monthly_day_dominance[:_STALE_SAMPLE_LIMIT]
     ]
 
 

@@ -419,6 +419,7 @@ def test_twr_inspection_checks_guide_lists_current_check_inventory():
     assert "MANDATE_DAILY_MOVE_OUTLIER_DETECTED" in guide
     assert "RETURN_CONCENTRATION_DETECTED" in guide
     assert "REPEATED_DAILY_MOVE_PATTERN_DETECTED" in guide
+    assert "MONTHLY_RETURN_DAY_DOMINANCE_DETECTED" in guide
     assert "EXTREME_DAILY_MOVE_DETECTED" in guide
     assert "MIXED_POSITION_EPOCH_SNAPSHOT" in guide
     assert "DUPLICATE_POSITION_SNAPSHOT_ROW_PRESENT" in guide

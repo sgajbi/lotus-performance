@@ -336,3 +336,70 @@ def test_run_source_quality_checks_ignores_alternating_large_daily_moves_for_rep
     assert result.findings == []
     assert result.evidence_summary["repeated_move_run_count"] == 0
     assert result.artifact_payload["repeated_move_runs"] == []
+
+
+def test_run_source_quality_checks_flags_monthly_single_day_dominance():
+    valuation_points = [
+        DailyInputData(
+            perf_date=date(2026, 3, day),
+            begin_mv=1000.0,
+            end_mv=1001.0 + (index * 0.01),
+        )
+        for index, day in enumerate([2, 3, 4, 5, 6, 9, 10, 11, 12, 13])
+    ]
+    valuation_points.append(DailyInputData(perf_date=date(2026, 3, 16), begin_mv=1000.0, end_mv=1080.0))
+    performance_request = PerformanceRequest(
+        portfolio_id="NON_CANONICAL_PORTFOLIO",
+        performance_start_date=date(2026, 3, 2),
+        metric_basis="NET",
+        report_end_date=date(2026, 3, 16),
+        analyses=[Analysis(period="MTD", frequencies=["daily"])],
+        valuation_points=valuation_points,
+    )
+
+    result = run_source_quality_checks(
+        performance_request=performance_request,
+        inspection_profile=TWRInspectionProfile.CANONICAL_VALIDATION,
+    )
+
+    assert {finding.code for finding in result.findings} == {"MONTHLY_RETURN_DAY_DOMINANCE_DETECTED"}
+    finding = result.findings[0]
+    assert finding.evidence["min_observations"] == 10
+    assert finding.evidence["threshold"] == 0.75
+    assert finding.evidence["dominance_count"] == 1
+    samples = finding.evidence["samples"]
+    assert isinstance(samples, list)
+    assert len(samples) == 1
+    sample = samples[0]
+    assert sample["month"] == "2026-03"
+    assert sample["observation_count"] == 11
+    assert sample["dominance_ratio"] > 0.75
+    assert sample["dominant_move"] == {"perf_date": "2026-03-16", "return_pct": pytest.approx(8.0)}
+    assert result.evidence_summary["monthly_day_dominance_count"] == 1
+    assert result.artifact_payload["monthly_day_dominance_count"] == 1
+
+
+def test_run_source_quality_checks_requires_enough_monthly_observations_for_day_dominance():
+    performance_request = PerformanceRequest(
+        portfolio_id="NON_CANONICAL_PORTFOLIO",
+        performance_start_date=date(2026, 3, 2),
+        metric_basis="NET",
+        report_end_date=date(2026, 3, 6),
+        analyses=[Analysis(period="MTD", frequencies=["daily"])],
+        valuation_points=[
+            DailyInputData(perf_date=date(2026, 3, 2), begin_mv=1000.0, end_mv=1080.0),
+            DailyInputData(perf_date=date(2026, 3, 3), begin_mv=1000.0, end_mv=1001.0),
+            DailyInputData(perf_date=date(2026, 3, 4), begin_mv=1000.0, end_mv=1001.0),
+            DailyInputData(perf_date=date(2026, 3, 5), begin_mv=1000.0, end_mv=1001.0),
+            DailyInputData(perf_date=date(2026, 3, 6), begin_mv=1000.0, end_mv=1001.0),
+        ],
+    )
+
+    result = run_source_quality_checks(
+        performance_request=performance_request,
+        inspection_profile=TWRInspectionProfile.CANONICAL_VALIDATION,
+    )
+
+    assert "MONTHLY_RETURN_DAY_DOMINANCE_DETECTED" not in {finding.code for finding in result.findings}
+    assert result.evidence_summary["monthly_day_dominance_count"] == 0
+    assert result.artifact_payload["monthly_day_dominance_samples"] == []
