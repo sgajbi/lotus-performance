@@ -229,6 +229,7 @@ def test_twr_inspection_runs_reconciliation_for_resolved_stateful_subject(client
                             "cash_flows": [
                                 {"amount": "5000.0", "timing": "bod", "cash_flow_type": "external_flow"},
                                 {"amount": "10.0", "timing": "eod", "cash_flow_type": "fee"},
+                                {"amount": "2.0", "timing": "eod", "cash_flow_type": "dividend"},
                             ],
                         },
                     ],
@@ -317,6 +318,7 @@ def test_twr_inspection_runs_reconciliation_for_resolved_stateful_subject(client
         "POSITIVE_FEE_SOURCE_SIGNAL",
         "EXTERNAL_CASHFLOW_NORMALIZATION_MISMATCH",
         "DUPLICATE_EXTERNAL_CASHFLOW_SOURCE_SIGNAL",
+        "NONCANONICAL_CASHFLOW_TYPE_PRESENT",
     }
     assert body["evidence_summary"]["mixed_epoch_date_count"] == 1
     assert body["evidence_summary"]["reconciliation_gap_date_count"] == 2
@@ -346,6 +348,8 @@ def test_twr_inspection_runs_reconciliation_for_resolved_stateful_subject(client
     assert source_economics_body["positive_fee_signal_count"] == 1
     assert source_economics_body["external_cashflow_date_count"] == 1
     assert source_economics_body["duplicate_external_cashflow_signal_count"] == 1
+    assert source_economics_body["noncanonical_cashflow_type_date_count"] == 1
+    assert source_economics_body["noncanonical_cashflow_types"] == ["dividend"]
 
 
 def test_twr_inspection_flags_relative_arithmetic_mismatch_for_existing_calculation(client):
