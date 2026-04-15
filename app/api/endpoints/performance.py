@@ -662,6 +662,26 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
     "/attribution",
     response_model=AttributionResponse | AttributionAcceptedResponse,
     summary="Calculate Multi-Level Performance Attribution",
+    description=(
+        "Decomposes portfolio active return versus a benchmark into allocation, selection, "
+        "interaction, and total effect using Brinson-style attribution. Use this endpoint "
+        "when front-office users need to explain whether active performance came from asset "
+        "allocation, group or security selection, or the interaction between active weights "
+        "and active returns. Stateless callers may supply instrument or pre-aggregated group "
+        "inputs. Stateful callers source portfolio positions and benchmark components through "
+        "lotus-core analytics-input contracts. Each level returns authoritative total fields "
+        "for UI footers and summary-only views; downstream systems should not infer totals by "
+        "summing only visible rows."
+    ),
+    responses={
+        202: {
+            "model": AttributionAcceptedResponse,
+            "description": (
+                "Accepted for asynchronous attribution execution. Poll poll_path for execution "
+                "status or result_path for the completed attribution response."
+            ),
+        }
+    },
 )
 async def calculate_attribution_endpoint(request: AttributionAnalyticsRequest) -> AttributionResponse | JSONResponse:
     """
@@ -844,6 +864,11 @@ def _accepted_attribution_response(calculation_id) -> AttributionAcceptedRespons
     "/attribution/results/{calculation_id}",
     response_model=AttributionResponse | AttributionAcceptedResponse,
     summary="Retrieve async attribution result",
+    description=(
+        "Returns the completed response for an attribution request that was previously accepted "
+        "for asynchronous execution, or returns the accepted envelope while the calculation is "
+        "still pending. Use this route with result_path from the 202 response."
+    ),
 )
 async def get_attribution_result(calculation_id: UUID) -> AttributionResponse | JSONResponse:
     return resolve_async_result(

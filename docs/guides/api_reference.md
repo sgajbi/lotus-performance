@@ -300,6 +300,8 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - lotus-performance stamps source consumer identity server-side for the stateful envelope
   - when a benchmark is resolved, the response also emits top-level `benchmark_context`
   - each attribution group row now includes average portfolio weight, average benchmark weight, portfolio return, and benchmark return alongside allocation, selection, interaction, and total effect
+  - each attribution level exposes authoritative totals in `totals` and as explicit `allocation_total_pct`, `selection_total_pct`, `interaction_total_pct`, and `total_effect_pct` fields
+  - downstream consumers should use level totals for footers and summary-only states instead of summing visible rows
   - current stateful fences:
     - `mode=by_instrument` only
     - `group_by` limited to canonical lotus-core attribution dimensions plus `currency`: `asset_class`, `sector`, `country`, `currency`

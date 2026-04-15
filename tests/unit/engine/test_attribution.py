@@ -285,6 +285,42 @@ def test_prepare_data_from_instruments_zero_portfolio_capital_forces_zero_group_
     assert obs["return_base"] == 0.0
 
 
+def test_prepare_data_from_instruments_preserves_unclassified_weight():
+    request_data = {
+        "portfolio_id": "TEST",
+        "mode": "by_instrument",
+        "group_by": ["sector"],
+        "linking": "none",
+        "frequency": "daily",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1015}],
+        },
+        "instruments_data": [
+            {
+                "instrument_id": "CLASSIFIED",
+                "meta": {"sector": "Tech"},
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 600, "end_mv": 612}],
+            },
+            {
+                "instrument_id": "UNCLASSIFIED",
+                "meta": {},
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 400, "end_mv": 403}],
+            },
+        ],
+        "benchmark_groups_data": [],
+    }
+    request = AttributionRequest.model_validate(request_data)
+
+    result_groups = _prepare_data_from_instruments(request)
+    weights_by_sector = {group.key["sector"]: group.observations[0]["weight_bop"] for group in result_groups}
+
+    assert weights_by_sector == pytest.approx({"Tech": 0.6, "unknown": 0.4})
+
+
 def test_prepare_panel_from_groups_handles_empty_cases():
     assert _prepare_panel_from_groups([], ["sector"]).empty
 
@@ -301,6 +337,54 @@ def test_align_and_prepare_data_returns_empty_when_benchmark_missing(by_group_re
     request = AttributionRequest.model_validate(request_payload)
     aligned_df = _align_and_prepare_data(request, request.portfolio_groups_data)
     assert aligned_df.empty
+
+
+def test_align_and_prepare_data_uses_period_start_weights_for_sparse_groups():
+    request = AttributionRequest.model_validate(
+        {
+            "portfolio_id": "SPARSE_MONTHLY_ATTRIBUTION",
+            "mode": "by_group",
+            "group_by": ["sector"],
+            "linking": "none",
+            "frequency": "monthly",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-31",
+            "analyses": [{"period": "ITD", "frequencies": ["monthly"]}],
+            "portfolio_groups_data": [
+                {
+                    "key": {"sector": "existing"},
+                    "observations": [
+                        {"date": "2025-01-01", "weight_bop": 1.0, "return_base": 0.01},
+                        {"date": "2025-01-31", "weight_bop": 0.8, "return_base": 0.01},
+                    ],
+                },
+                {
+                    "key": {"sector": "acquired_mid_period"},
+                    "observations": [
+                        {"date": "2025-01-15", "weight_bop": 0.2, "return_base": 0.02},
+                        {"date": "2025-01-31", "weight_bop": 0.2, "return_base": 0.02},
+                    ],
+                },
+            ],
+            "benchmark_groups_data": [
+                {
+                    "key": {"sector": "existing"},
+                    "observations": [{"date": "2025-01-01", "weight_bop": 1.0, "return_base": 0.01}],
+                },
+                {
+                    "key": {"sector": "acquired_mid_period"},
+                    "observations": [{"date": "2025-01-01", "weight_bop": 0.0, "return_base": 0.0}],
+                },
+            ],
+        }
+    )
+
+    aligned_df = _align_and_prepare_data(request, request.portfolio_groups_data or [])
+
+    period_date = pd.Timestamp("2025-01-31")
+    assert aligned_df.loc[(period_date, "existing"), "w_p"] == pytest.approx(1.0)
+    assert aligned_df.loc[(period_date, "acquired_mid_period"), "w_p"] == pytest.approx(0.0)
+    assert aligned_df.groupby(level="date")["w_p"].sum().loc[period_date] == pytest.approx(1.0)
 
 
 def test_link_effects_top_down_noop_when_arithmetic_total_zero():

@@ -2,7 +2,7 @@
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.attribution_analytics_requests import AttributionInputMode
 from common.enums import AttributionModel, LinkingMethod
@@ -58,6 +58,54 @@ class AttributionLevelResult(BaseModel):
     )
     groups: List[AttributionGroupResult] = Field(description="Group-level attribution effects for this level.")
     totals: AttributionLevelTotals = Field(description="Summed attribution effects for the level.")
+    allocation_total_pct: float = Field(
+        description=(
+            "Authoritative level allocation total in percentage-point output units. "
+            "Use this field for UI footers and summary-only views instead of summing visible rows."
+        ),
+        examples=[0.31],
+    )
+    selection_total_pct: float = Field(
+        description=(
+            "Authoritative level selection total in percentage-point output units. "
+            "Use this field for UI footers and summary-only views instead of summing visible rows."
+        ),
+        examples=[0.22],
+    )
+    interaction_total_pct: float = Field(
+        description=(
+            "Authoritative level interaction total in percentage-point output units. "
+            "Use this field for UI footers and summary-only views instead of summing visible rows."
+        ),
+        examples=[0.05],
+    )
+    total_effect_pct: float = Field(
+        description=(
+            "Authoritative level total effect in percentage-point output units. "
+            "This equals allocation_total_pct + selection_total_pct + interaction_total_pct after engine linking."
+        ),
+        examples=[0.58],
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def populate_authoritative_total_fields(cls, data: object) -> object:
+        if not isinstance(data, dict):
+            return data
+        totals = data.get("totals")
+        if totals is None:
+            return data
+        if isinstance(totals, AttributionLevelTotals):
+            totals_payload = totals.model_dump()
+        elif isinstance(totals, dict):
+            totals_payload = totals
+        else:
+            return data
+        data.setdefault("allocation_total_pct", totals_payload.get("allocation"))
+        data.setdefault("selection_total_pct", totals_payload.get("selection"))
+        data.setdefault("interaction_total_pct", totals_payload.get("interaction"))
+        data.setdefault("total_effect_pct", totals_payload.get("total_effect"))
+        return data
 
 
 class Reconciliation(BaseModel):
@@ -163,6 +211,15 @@ class AttributionResponse(BaseModel):
 class AttributionAcceptedResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    calculation_id: UUID
-    poll_path: str
-    result_path: str
+    calculation_id: UUID = Field(
+        description="Stable calculation handle for the accepted attribution request.",
+        examples=["209da27d-f3f4-4e64-97c5-a2eb1d4fe4f3"],
+    )
+    poll_path: str = Field(
+        description="Execution-status endpoint to poll while the attribution request is running.",
+        examples=["/performance/executions/209da27d-f3f4-4e64-97c5-a2eb1d4fe4f3"],
+    )
+    result_path: str = Field(
+        description="Endpoint that returns the completed attribution response once execution is complete.",
+        examples=["/performance/attribution/results/209da27d-f3f4-4e64-97c5-a2eb1d4fe4f3"],
+    )

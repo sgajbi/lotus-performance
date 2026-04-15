@@ -4,7 +4,7 @@ from pydantic import ValidationError
 
 from app.models.attribution_analytics_requests import AttributionAnalyticsRequest
 from app.models.attribution_requests import AttributionRequest, BenchmarkGroup, PortfolioGroup
-from app.models.attribution_responses import SinglePeriodAttributionResult
+from app.models.attribution_responses import AttributionLevelResult, SinglePeriodAttributionResult
 from common.enums import PeriodType
 
 
@@ -66,6 +66,41 @@ def test_attribution_group_result_schema_includes_side_by_side_context_fields():
     assert "benchmark_weight_avg" in properties
     assert "portfolio_return" in properties
     assert "benchmark_return" in properties
+
+
+def test_attribution_level_result_exposes_authoritative_total_fields_from_nested_totals():
+    level = AttributionLevelResult.model_validate(
+        {
+            "dimension": "asset_class",
+            "groups": [],
+            "totals": {
+                "allocation": 0.31,
+                "selection": 0.22,
+                "interaction": 0.05,
+                "total_effect": 0.58,
+            },
+        }
+    )
+
+    assert level.allocation_total_pct == pytest.approx(0.31)
+    assert level.selection_total_pct == pytest.approx(0.22)
+    assert level.interaction_total_pct == pytest.approx(0.05)
+    assert level.total_effect_pct == pytest.approx(0.58)
+
+
+def test_attribution_level_result_schema_documents_authoritative_total_fields():
+    schema = SinglePeriodAttributionResult.model_json_schema()
+    properties = schema["$defs"]["AttributionLevelResult"]["properties"]
+
+    for field_name in (
+        "allocation_total_pct",
+        "selection_total_pct",
+        "interaction_total_pct",
+        "total_effect_pct",
+    ):
+        assert field_name in properties
+        assert properties[field_name]["description"]
+        assert properties[field_name]["examples"]
 
 
 def test_attribution_analytics_request_rejects_stateful_and_legacy_conflicts(base_attribution_payload):

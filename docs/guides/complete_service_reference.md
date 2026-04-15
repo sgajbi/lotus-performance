@@ -634,9 +634,9 @@ Sample response:
       "levels": [
         {
           "dimension": "sector",
-          "rows": [
+          "groups": [
             {
-              "label": "technology",
+              "key": { "sector": "technology" },
               "portfolio_weight_avg": 60.5,
               "benchmark_weight_avg": 58.0,
               "portfolio_return": 3.2,
@@ -646,9 +646,24 @@ Sample response:
               "interaction": 0.0,
               "total_effect": 0.3
             }
-          ]
+          ],
+          "totals": {
+            "allocation": 0.1,
+            "selection": 0.2,
+            "interaction": 0.0,
+            "total_effect": 0.3
+          },
+          "allocation_total_pct": 0.1,
+          "selection_total_pct": 0.2,
+          "interaction_total_pct": 0.0,
+          "total_effect_pct": 0.3
         }
-      ]
+      ],
+      "reconciliation": {
+        "total_active_return": 0.3,
+        "sum_of_effects": 0.3,
+        "residual": 0.0
+      }
     }
   }
 }

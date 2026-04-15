@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-04-15T10:21:25.014286+00:00",
+  "generatedAt": "2026-04-15T10:37:31.890410+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.account_reset_shadow_days",
@@ -473,15 +473,15 @@
       "example": [
         {
           "key": {
-            "key": "value"
+            "asset_class": "equity"
           },
           "observations": [
             {
               "date": "2026-02-27",
-              "weight_bop": 0.1234,
-              "return_base": 0.1234,
-              "return_local": 0.1234,
-              "return_fx": 0.1234
+              "weight_bop": 0.6,
+              "return_base": 0.0125,
+              "return_local": 0.01,
+              "return_fx": 0.0025
             }
           ]
         }
@@ -1335,7 +1335,7 @@
       "semanticId": "lotus.date",
       "canonicalTerm": "date",
       "preferredName": "date",
-      "description": "Business date for date.",
+      "description": "Observation date for the benchmark group return and beginning weight.",
       "example": "2026-02-27",
       "type": "string",
       "locations": [
@@ -1945,9 +1945,9 @@
       "semanticId": "lotus.group_by",
       "canonicalTerm": "group_by",
       "preferredName": "group_by",
-      "description": "attribution analytics request field: group by.",
+      "description": "Ordered grouping dimensions for attribution levels, for example asset_class then sector.",
       "example": [
-        "example_group_by_item"
+        "asset_class"
       ],
       "type": "array",
       "locations": [
@@ -2241,9 +2241,11 @@
       "description": "Legacy stateless instrument attribution payload. Prefer stateless_input for new integrations.",
       "example": [
         {
-          "instrument_id": "INSTRUMENT_001",
+          "instrument_id": "AAPL_US",
           "meta": {
-            "key": "value"
+            "asset_class": "equity",
+            "currency": "USD",
+            "sector": "technology"
           },
           "valuation_points": [
             {
@@ -2284,7 +2286,7 @@
       "semanticId": "lotus.key",
       "canonicalTerm": "key",
       "preferredName": "key",
-      "description": "benchmark group field: key.",
+      "description": "Benchmark grouping key. Keys must match the requested group_by dimensions.",
       "example": {
         "key": "value"
       },
@@ -3171,14 +3173,14 @@
       "semanticId": "lotus.observations",
       "canonicalTerm": "observations",
       "preferredName": "observations",
-      "description": "benchmark group field: observations.",
+      "description": "Benchmark group observations aligned to the attribution period.",
       "example": [
         {
           "date": "2026-02-27",
-          "weight_bop": 0.1234,
-          "return_base": 0.1234,
-          "return_local": 0.1234,
-          "return_fx": 0.1234
+          "weight_bop": 0.6,
+          "return_base": 0.0125,
+          "return_local": 0.01,
+          "return_fx": 0.0025
         }
       ],
       "type": "array",
@@ -3712,7 +3714,7 @@
       "example": [
         {
           "key": {
-            "key": "value"
+            "asset_class": "equity"
           },
           "observations": [
             {
@@ -4737,8 +4739,8 @@
       "semanticId": "lotus.return_base",
       "canonicalTerm": "return_base",
       "preferredName": "return_base",
-      "description": "Performance metric value for return base.",
-      "example": 0.1234,
+      "description": "Benchmark group base-currency return for the observation as a decimal ratio.",
+      "example": 0.1,
       "type": "number",
       "locations": [
         "body"
@@ -4751,8 +4753,8 @@
       "semanticId": "lotus.return_fx",
       "canonicalTerm": "return_fx",
       "preferredName": "return_fx",
-      "description": "Performance metric value for return fx.",
-      "example": 0.1234,
+      "description": "Optional FX return component as a decimal ratio for currency-aware attribution.",
+      "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [
         "body"
@@ -4765,8 +4767,8 @@
       "semanticId": "lotus.return_local",
       "canonicalTerm": "return_local",
       "preferredName": "return_local",
-      "description": "Performance metric value for return local.",
-      "example": 0.1234,
+      "description": "Optional local-currency benchmark return as a decimal ratio for currency-aware attribution.",
+      "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [
         "body"
@@ -5838,8 +5840,8 @@
       "semanticId": "lotus.weight_bop",
       "canonicalTerm": "weight_bop",
       "preferredName": "weight_bop",
-      "description": "benchmark observation field: weight bop.",
-      "example": 0.1234,
+      "description": "Benchmark group beginning-of-period weight as a decimal ratio. Example: 0.6 means 60%.",
+      "example": 0.1,
       "type": "number",
       "locations": [
         "body"

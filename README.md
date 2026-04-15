@@ -202,6 +202,11 @@ See [Contribution Endpoint Certification](docs/technical/contribution-endpoint-c
   - when a benchmark is resolved, the response also emits top-level `benchmark_context`
 
 Large input sets and long-window stateful attribution requests can be executor-offloaded and return `202 Accepted`.
+Attribution level outputs expose authoritative totals as both a nested `totals` block and explicit
+`allocation_total_pct`, `selection_total_pct`, `interaction_total_pct`, and `total_effect_pct`
+fields. Downstream systems should use those level totals for footers and summary-only views rather
+than summing the currently visible group rows.
+See [Attribution Endpoint Certification](docs/technical/attribution-endpoint-certification.md).
 
 ### Returns series integration
 
