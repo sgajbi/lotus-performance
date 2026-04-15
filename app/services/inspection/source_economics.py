@@ -102,6 +102,7 @@ def analyze_source_economics(
     external_normalization_samples: list[dict[str, object]] = []
     duplicate_external_signal_samples: list[dict[str, object]] = []
     external_source_mismatch_samples: list[dict[str, object]] = []
+    external_timing_contradiction_samples: list[dict[str, object]] = []
     fee_flow_dates: list[str] = []
     external_flow_dates: list[str] = []
 
@@ -199,6 +200,10 @@ def analyze_source_economics(
                 explicit_total=source_point.explicit_eod_total,
                 detailed_total=source_point.detailed_external_eod,
             )
+        _record_external_timing_contradictions(
+            source_point=source_point,
+            sample_target=external_timing_contradiction_samples,
+        )
 
     findings = _build_findings(
         portfolio_id=portfolio_id,
@@ -209,6 +214,7 @@ def analyze_source_economics(
         external_normalization_samples=external_normalization_samples,
         duplicate_external_signal_samples=duplicate_external_signal_samples,
         external_source_mismatch_samples=external_source_mismatch_samples,
+        external_timing_contradiction_samples=external_timing_contradiction_samples,
     )
 
     return SourceEconomicsCheckResult(
@@ -224,6 +230,7 @@ def analyze_source_economics(
             "external_cashflow_normalization_gap_count": len(external_normalization_samples),
             "duplicate_external_cashflow_signal_count": len(duplicate_external_signal_samples),
             "external_cashflow_source_mismatch_count": len(external_source_mismatch_samples),
+            "external_cashflow_timing_contradiction_count": len(external_timing_contradiction_samples),
         },
         artifact_payload={
             "portfolio_id": portfolio_id,
@@ -246,6 +253,8 @@ def analyze_source_economics(
             "duplicate_external_cashflow_signal_samples": duplicate_external_signal_samples[:25],
             "external_cashflow_source_mismatch_count": len(external_source_mismatch_samples),
             "external_cashflow_source_mismatch_samples": external_source_mismatch_samples[:25],
+            "external_cashflow_timing_contradiction_count": len(external_timing_contradiction_samples),
+            "external_cashflow_timing_contradiction_samples": external_timing_contradiction_samples[:25],
         },
     )
 
@@ -357,6 +366,41 @@ def _record_external_source_signal(
         mismatch_target.append(sample)
 
 
+def _record_external_timing_contradictions(
+    *,
+    source_point: ObservationSourceEconomics,
+    sample_target: list[dict[str, object]],
+) -> None:
+    if (
+        source_point.explicit_bod_total is not None
+        and source_point.detailed_external_bod == 0
+        and source_point.detailed_external_eod != 0
+    ):
+        sample_target.append(
+            {
+                "valuation_date": source_point.valuation_date,
+                "explicit_timing": "bod",
+                "opposite_detailed_timing": "eod",
+                "explicit_cashflow_amount": float(source_point.explicit_bod_total),
+                "opposite_detailed_cashflow_amount": float(source_point.detailed_external_eod),
+            }
+        )
+    if (
+        source_point.explicit_eod_total is not None
+        and source_point.detailed_external_eod == 0
+        and source_point.detailed_external_bod != 0
+    ):
+        sample_target.append(
+            {
+                "valuation_date": source_point.valuation_date,
+                "explicit_timing": "eod",
+                "opposite_detailed_timing": "bod",
+                "explicit_cashflow_amount": float(source_point.explicit_eod_total),
+                "opposite_detailed_cashflow_amount": float(source_point.detailed_external_bod),
+            }
+        )
+
+
 def _build_findings(
     *,
     portfolio_id: str,
@@ -367,6 +411,7 @@ def _build_findings(
     external_normalization_samples: list[dict[str, object]],
     duplicate_external_signal_samples: list[dict[str, object]],
     external_source_mismatch_samples: list[dict[str, object]],
+    external_timing_contradiction_samples: list[dict[str, object]],
 ) -> list[TWRInspectionFinding]:
     findings: list[TWRInspectionFinding] = []
 
@@ -534,6 +579,30 @@ def _build_findings(
                     "portfolio_id": portfolio_id,
                     "sample_dates": [sample["valuation_date"] for sample in external_source_mismatch_samples[:10]],
                     "samples": external_source_mismatch_samples[:10],
+                },
+            )
+        )
+
+    if external_timing_contradiction_samples:
+        findings.append(
+            TWRInspectionFinding(
+                code="EXTERNAL_CASHFLOW_TIMING_BUCKET_CONTRADICTION",
+                severity="high",
+                category="cashflow_classification",
+                owner_repo="lotus-core",
+                summary="The stateful portfolio source serves external cash-flow totals in one timing bucket and detailed rows in the opposite bucket.",
+                explanation=(
+                    "The raw portfolio observation includes a bod or eod external cash-flow aggregate, but the "
+                    "detailed external cash-flow rows for the same valuation date exist only in the opposite timing bucket."
+                ),
+                recommended_action=(
+                    "Review lotus-core portfolio-timeseries cash-flow timing semantics so explicit bod/eod totals "
+                    "and detailed external cash-flow rows classify the movement in the same timing bucket."
+                ),
+                evidence={
+                    "portfolio_id": portfolio_id,
+                    "sample_dates": [sample["valuation_date"] for sample in external_timing_contradiction_samples[:10]],
+                    "samples": external_timing_contradiction_samples[:10],
                 },
             )
         )

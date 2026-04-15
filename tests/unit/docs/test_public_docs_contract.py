@@ -398,7 +398,28 @@ def test_complete_service_reference_covers_endpoint_surface_and_config_inventory
     assert "CORE_QUERY_BASE_URL" in guide
     assert "docs/examples/workspace_summary_request.json" in guide
     assert "docs/examples/integration_capabilities_response.json" in guide
+    assert "twr_inspection_checks.md" in guide
     assert "guides/complete_service_reference.md" in readme
+
+
+def test_twr_inspection_checks_guide_lists_current_check_inventory():
+    guide = _read("docs/guides/twr_inspection_checks.md")
+
+    assert "POST /performance/inspections/twr" in guide
+    assert "inspection_summary.json" in guide
+    assert "findings.json" in guide
+    assert "reconciliation_summary.json" in guide
+    assert "source_economics_summary.json" in guide
+    assert "RELATIVE_PERFORMANCE_SUMMARY_MISMATCH" in guide
+    assert "WEEKEND_OBSERVATIONS_PRESENT" in guide
+    assert "EXTREME_DAILY_MOVE_DETECTED" in guide
+    assert "MIXED_POSITION_EPOCH_SNAPSHOT" in guide
+    assert "PORTFOLIO_POSITION_RECONCILIATION_GAP" in guide
+    assert "FEE_CASHFLOW_CLASSIFICATION_NOT_PRESERVED" in guide
+    assert "FEE_SOURCE_TOTAL_MISMATCH" in guide
+    assert "POSITIVE_FEE_SOURCE_SIGNAL" in guide
+    assert "EXTERNAL_CASHFLOW_NORMALIZATION_MISMATCH" in guide
+    assert "EXTERNAL_CASHFLOW_TIMING_BUCKET_CONTRADICTION" in guide
 
 
 def test_runtime_alert_runbook_covers_breach_gauges():
