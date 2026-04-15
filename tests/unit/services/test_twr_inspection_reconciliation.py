@@ -198,3 +198,48 @@ def test_analyze_portfolio_position_reconciliation_flags_invalid_epoch_values():
             "raw_epoch_value": "latest",
         }
     ]
+
+
+def test_analyze_portfolio_position_reconciliation_flags_duplicate_snapshot_rows():
+    performance_request = PerformanceRequest(
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        performance_start_date=date(2026, 1, 2),
+        metric_basis="NET",
+        report_end_date=date(2026, 1, 2),
+        analyses=[Analysis(period="YTD", frequencies=["daily"])],
+        valuation_points=[
+            DailyInputData(perf_date=date(2026, 1, 2), begin_mv=1000.0, end_mv=400.0),
+        ],
+    )
+
+    result = analyze_portfolio_position_reconciliation(
+        performance_request=performance_request,
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        inspection_profile=TWRInspectionProfile.DEEP_RECONCILIATION,
+        position_rows=[
+            {
+                "valuation_date": "2026-01-02",
+                "position_id": "SEC_2",
+                "valuation_epoch": 5,
+                "ending_market_value_portfolio_currency": "400.0",
+            },
+            {
+                "valuation_date": "2026-01-02",
+                "position_id": "SEC_2",
+                "valuation_epoch": 5,
+                "ending_market_value_portfolio_currency": "400.0",
+            },
+        ],
+    )
+
+    assert {finding.code for finding in result.findings} == {"DUPLICATE_POSITION_SNAPSHOT_ROW_PRESENT"}
+    assert result.evidence_summary["duplicate_snapshot_date_count"] == 1
+    assert result.evidence_summary["duplicate_snapshot_row_count"] == 1
+    assert result.artifact_payload["duplicate_snapshot_samples"] == [
+        {
+            "valuation_date": "2026-01-02",
+            "position_id": "SEC_2",
+            "valuation_epoch": 5,
+            "duplicate_count": 2,
+        }
+    ]

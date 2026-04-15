@@ -99,6 +99,7 @@ These findings are currently routed to `lotus-core` because they compare portfol
 | Code | Meaning | Typical Evidence |
 | --- | --- | --- |
 | `MIXED_POSITION_EPOCH_SNAPSHOT` | multiple position snapshot epochs are served for the same valuation date | affected dates and count |
+| `DUPLICATE_POSITION_SNAPSHOT_ROW_PRESENT` | duplicate rows are served for the same valuation date, position id, and snapshot epoch | affected dates, positions, epochs, duplicate counts |
 | `INVALID_POSITION_EPOCH_PRESENT` | one or more position rows use missing or non-numeric snapshot epoch labels | affected dates, positions, epoch field, raw epoch value |
 | `INVALID_POSITION_END_VALUE_PRESENT` | latest selected position rows include missing, blank, or non-numeric ending market values | affected dates, positions, raw values, epochs |
 | `PORTFOLIO_POSITION_RECONCILIATION_GAP` | served portfolio end value does not tie to the latest coherent position-state total | gap dates, samples, max gap amount |
@@ -167,6 +168,7 @@ Use for:
 Use for:
 
 - mixed-epoch date counts
+- duplicate snapshot counts and sampled rows
 - invalid epoch counts and sampled rows
 - invalid selected-position value counts and sampled rows
 - portfolio-versus-position gap counts

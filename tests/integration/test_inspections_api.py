@@ -273,6 +273,12 @@ def test_twr_inspection_runs_reconciliation_for_resolved_stateful_subject(client
                             "ending_market_value_portfolio_currency": "399.0",
                         },
                         {
+                            "valuation_date": "2026-01-01",
+                            "position_id": "SEC_2",
+                            "valuation_epoch": 4,
+                            "ending_market_value_portfolio_currency": "399.0",
+                        },
+                        {
                             "valuation_date": "2026-01-02",
                             "position_id": "SEC_1",
                             "valuation_epoch": 5,
@@ -325,6 +331,7 @@ def test_twr_inspection_runs_reconciliation_for_resolved_stateful_subject(client
     ]
     assert {finding["code"] for finding in body["findings"]} >= {
         "MIXED_POSITION_EPOCH_SNAPSHOT",
+        "DUPLICATE_POSITION_SNAPSHOT_ROW_PRESENT",
         "INVALID_POSITION_EPOCH_PRESENT",
         "INVALID_POSITION_END_VALUE_PRESENT",
         "PORTFOLIO_POSITION_RECONCILIATION_GAP",
@@ -355,11 +362,21 @@ def test_twr_inspection_runs_reconciliation_for_resolved_stateful_subject(client
     assert reconciliation_artifact.status_code == 200
     reconciliation_body = reconciliation_artifact.json()
     assert reconciliation_body["mixed_epoch_date_count"] == 1
+    assert reconciliation_body["duplicate_snapshot_date_count"] == 1
+    assert reconciliation_body["duplicate_snapshot_row_count"] == 1
     assert reconciliation_body["invalid_position_epoch_date_count"] == 1
     assert reconciliation_body["invalid_position_epoch_row_count"] == 1
     assert reconciliation_body["invalid_position_value_date_count"] == 1
     assert reconciliation_body["invalid_position_value_row_count"] == 1
     assert reconciliation_body["reconciliation_gap_date_count"] == 2
+    assert reconciliation_body["duplicate_snapshot_samples"] == [
+        {
+            "valuation_date": "2026-01-01",
+            "position_id": "SEC_2",
+            "valuation_epoch": 4,
+            "duplicate_count": 2,
+        }
+    ]
     assert reconciliation_body["invalid_position_epoch_samples"] == [
         {
             "valuation_date": "2026-01-01",

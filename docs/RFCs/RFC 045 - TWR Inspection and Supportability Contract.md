@@ -683,8 +683,8 @@ Implementation status on 2026-04-15:
 
 1. stateful existing-calculation inspection now performs portfolio-versus-position reconciliation using
    the same `StatefulInputService` seam already trusted by the analytics runtime,
-2. mixed-epoch position snapshots and latest-position-versus-portfolio end-value gaps are emitted as
-   first-class `lotus-core` findings,
+2. mixed-epoch position snapshots, duplicate snapshot rows, and latest-position-versus-portfolio
+   end-value gaps are emitted as first-class `lotus-core` findings,
 3. rows with unusable snapshot epoch labels and latest selected position rows with unusable ending
    market values are now emitted as explicit `lotus-core` reconciliation evidence instead of being
    dropped silently from selection or tie-out totals,

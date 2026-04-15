@@ -78,6 +78,7 @@ def analyze_portfolio_position_reconciliation(
         point.perf_date.isoformat(): Decimal(str(point.end_mv))
         for point in performance_request.valuation_points
     }
+    duplicate_snapshot_samples = _collect_duplicate_snapshot_samples(position_rows)
     invalid_epoch_samples = _collect_invalid_epoch_samples(position_rows)
     selected_position_rows = _select_latest_position_rows(position_rows)
     position_end_by_date, invalid_position_value_samples = _sum_position_end_values_by_date(selected_position_rows)
@@ -105,6 +106,32 @@ def analyze_portfolio_position_reconciliation(
                     "portfolio_id": portfolio_id,
                     "mixed_epoch_dates": mixed_epoch_dates[:10],
                     "mixed_epoch_date_count": len(mixed_epoch_dates),
+                },
+            )
+        )
+
+    if duplicate_snapshot_samples:
+        findings.append(
+            TWRInspectionFinding(
+                code="DUPLICATE_POSITION_SNAPSHOT_ROW_PRESENT",
+                severity="warning",
+                category="epoch_coherence",
+                owner_repo="lotus-core",
+                summary="Position timeseries includes duplicate rows for the same position snapshot.",
+                explanation=(
+                    "The served position source includes multiple rows with the same valuation date, position id, "
+                    "and snapshot epoch. The inspector collapses those duplicates during latest-row selection, so "
+                    "upstream snapshot publication is not uniquely identifying a promoted position state."
+                ),
+                recommended_action=(
+                    "Review lotus-core position-timeseries publication and ensure each position/date/epoch snapshot "
+                    "is emitted once."
+                ),
+                evidence={
+                    "portfolio_id": portfolio_id,
+                    "duplicate_snapshot_dates": [sample["valuation_date"] for sample in duplicate_snapshot_samples[:10]],
+                    "duplicate_snapshot_row_count": len(duplicate_snapshot_samples),
+                    "duplicate_snapshot_samples": duplicate_snapshot_samples[:10],
                 },
             )
         )
@@ -219,6 +246,8 @@ def analyze_portfolio_position_reconciliation(
             "position_row_count": len(position_rows),
             "selected_position_row_count": len(selected_position_rows),
             "mixed_epoch_date_count": len(mixed_epoch_dates),
+            "duplicate_snapshot_date_count": len({sample["valuation_date"] for sample in duplicate_snapshot_samples}),
+            "duplicate_snapshot_row_count": len(duplicate_snapshot_samples),
             "invalid_position_epoch_date_count": len({sample["valuation_date"] for sample in invalid_epoch_samples}),
             "invalid_position_epoch_row_count": len(invalid_epoch_samples),
             "invalid_position_value_date_count": len({sample["valuation_date"] for sample in invalid_position_value_samples}),
@@ -233,6 +262,9 @@ def analyze_portfolio_position_reconciliation(
             "selected_position_row_count": len(selected_position_rows),
             "mixed_epoch_dates": mixed_epoch_dates,
             "mixed_epoch_date_count": len(mixed_epoch_dates),
+            "duplicate_snapshot_date_count": len({sample["valuation_date"] for sample in duplicate_snapshot_samples}),
+            "duplicate_snapshot_row_count": len(duplicate_snapshot_samples),
+            "duplicate_snapshot_samples": duplicate_snapshot_samples[:25],
             "invalid_position_epoch_date_count": len({sample["valuation_date"] for sample in invalid_epoch_samples}),
             "invalid_position_epoch_row_count": len(invalid_epoch_samples),
             "invalid_position_epoch_samples": invalid_epoch_samples[:25],
@@ -301,6 +333,33 @@ def _select_position_end_value_field(row: dict[str, object]) -> tuple[str, objec
     if row.get("ending_market_value_reporting_currency") is not None:
         return "ending_market_value_reporting_currency", row.get("ending_market_value_reporting_currency")
     return "ending_market_value_portfolio_currency", row.get("ending_market_value_portfolio_currency")
+
+
+def _collect_duplicate_snapshot_samples(position_rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    counts: dict[tuple[str, object, int], int] = {}
+    sample_index_by_key: dict[tuple[str, object, int], int] = {}
+    samples: list[dict[str, object]] = []
+    for row in position_rows:
+        valuation_date = row.get("valuation_date")
+        position_id = row.get("position_id")
+        if not isinstance(valuation_date, str) or not isinstance(position_id, str):
+            continue
+        epoch = _parse_epoch_value(row)
+        key = (valuation_date, position_id, epoch)
+        counts[key] = counts.get(key, 0) + 1
+        if counts[key] == 2:
+            samples.append(
+                {
+                    "valuation_date": valuation_date,
+                    "position_id": position_id,
+                    "valuation_epoch": epoch,
+                    "duplicate_count": counts[key],
+                }
+            )
+            sample_index_by_key[key] = len(samples) - 1
+        elif counts[key] > 2:
+            samples[sample_index_by_key[key]]["duplicate_count"] = counts[key]
+    return samples
 
 
 def _collect_invalid_epoch_samples(position_rows: list[dict[str, object]]) -> list[dict[str, object]]:
