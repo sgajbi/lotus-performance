@@ -78,6 +78,7 @@ def analyze_portfolio_position_reconciliation(
         point.perf_date.isoformat(): Decimal(str(point.end_mv))
         for point in performance_request.valuation_points
     }
+    invalid_epoch_samples = _collect_invalid_epoch_samples(position_rows)
     selected_position_rows = _select_latest_position_rows(position_rows)
     position_end_by_date, invalid_position_value_samples = _sum_position_end_values_by_date(selected_position_rows)
 
@@ -104,6 +105,32 @@ def analyze_portfolio_position_reconciliation(
                     "portfolio_id": portfolio_id,
                     "mixed_epoch_dates": mixed_epoch_dates[:10],
                     "mixed_epoch_date_count": len(mixed_epoch_dates),
+                },
+            )
+        )
+
+    if invalid_epoch_samples:
+        findings.append(
+            TWRInspectionFinding(
+                code="INVALID_POSITION_EPOCH_PRESENT",
+                severity="warning",
+                category="epoch_coherence",
+                owner_repo="lotus-core",
+                summary="Position timeseries includes rows with unusable snapshot epoch values.",
+                explanation=(
+                    "One or more served position rows carry a non-numeric epoch label. The inspector falls back to "
+                    "epoch `0` for those rows, so upstream epoch serialization is not explicit enough to support a "
+                    "trustworthy latest-snapshot selection."
+                ),
+                recommended_action=(
+                    "Review lotus-core position snapshot serialization and emit numeric valuation epochs for every "
+                    "served position row."
+                ),
+                evidence={
+                    "portfolio_id": portfolio_id,
+                    "invalid_position_epoch_dates": [sample["valuation_date"] for sample in invalid_epoch_samples[:10]],
+                    "invalid_position_epoch_row_count": len(invalid_epoch_samples),
+                    "invalid_position_epoch_samples": invalid_epoch_samples[:10],
                 },
             )
         )
@@ -192,6 +219,8 @@ def analyze_portfolio_position_reconciliation(
             "position_row_count": len(position_rows),
             "selected_position_row_count": len(selected_position_rows),
             "mixed_epoch_date_count": len(mixed_epoch_dates),
+            "invalid_position_epoch_date_count": len({sample["valuation_date"] for sample in invalid_epoch_samples}),
+            "invalid_position_epoch_row_count": len(invalid_epoch_samples),
             "invalid_position_value_date_count": len({sample["valuation_date"] for sample in invalid_position_value_samples}),
             "invalid_position_value_row_count": len(invalid_position_value_samples),
             "reconciliation_gap_date_count": len(gap_details),
@@ -204,6 +233,9 @@ def analyze_portfolio_position_reconciliation(
             "selected_position_row_count": len(selected_position_rows),
             "mixed_epoch_dates": mixed_epoch_dates,
             "mixed_epoch_date_count": len(mixed_epoch_dates),
+            "invalid_position_epoch_date_count": len({sample["valuation_date"] for sample in invalid_epoch_samples}),
+            "invalid_position_epoch_row_count": len(invalid_epoch_samples),
+            "invalid_position_epoch_samples": invalid_epoch_samples[:25],
             "invalid_position_value_date_count": len({sample["valuation_date"] for sample in invalid_position_value_samples}),
             "invalid_position_value_row_count": len(invalid_position_value_samples),
             "invalid_position_value_samples": invalid_position_value_samples[:25],
@@ -271,16 +303,41 @@ def _select_position_end_value_field(row: dict[str, object]) -> tuple[str, objec
     return "ending_market_value_portfolio_currency", row.get("ending_market_value_portfolio_currency")
 
 
+def _collect_invalid_epoch_samples(position_rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    invalid_samples: list[dict[str, object]] = []
+    for row in position_rows:
+        valuation_date = row.get("valuation_date")
+        position_id = row.get("position_id")
+        epoch_value, invalid_epoch, epoch_field, raw_epoch_value = _parse_epoch_details(row)
+        del epoch_value
+        if not invalid_epoch or not isinstance(valuation_date, str):
+            continue
+        invalid_samples.append(
+            {
+                "valuation_date": valuation_date,
+                "position_id": position_id,
+                "epoch_field": epoch_field,
+                "raw_epoch_value": raw_epoch_value,
+            }
+        )
+    return invalid_samples
+
+
 def _parse_epoch_value(row: dict[str, object]) -> int:
+    epoch_value, _, _, _ = _parse_epoch_details(row)
+    return epoch_value
+
+
+def _parse_epoch_details(row: dict[str, object]) -> tuple[int, bool, str | None, object]:
     for key in ("valuation_epoch", "snapshot_epoch", "epoch"):
         raw_value = row.get(key)
         if raw_value is None:
             continue
         try:
-            return int(raw_value)
+            return int(raw_value), False, key, raw_value
         except (TypeError, ValueError):
-            continue
-    return 0
+            return 0, True, key, raw_value
+    return 0, False, None, None
 
 
 def _parse_decimal(raw_value: object) -> Decimal | None:

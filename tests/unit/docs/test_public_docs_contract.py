@@ -417,6 +417,7 @@ def test_twr_inspection_checks_guide_lists_current_check_inventory():
     assert "NONPOSITIVE_DAILY_CAPITAL_BASE_DETECTED" in guide
     assert "EXTREME_DAILY_MOVE_DETECTED" in guide
     assert "MIXED_POSITION_EPOCH_SNAPSHOT" in guide
+    assert "INVALID_POSITION_EPOCH_PRESENT" in guide
     assert "INVALID_POSITION_END_VALUE_PRESENT" in guide
     assert "PORTFOLIO_POSITION_RECONCILIATION_GAP" in guide
     assert "FEE_CASHFLOW_CLASSIFICATION_NOT_PRESERVED" in guide
