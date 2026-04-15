@@ -71,7 +71,7 @@ stateful input service:
 
 - benchmark assignment when `benchmark_id` is omitted;
 - benchmark market series with `series_fields=["component_weight"]`;
-- index catalog only when aggregate dimensions need classification labels.
+- targeted index catalog lookup only when aggregate dimensions need classification labels.
 
 If only `POSITION` is requested, the endpoint does not fetch index catalog data. This keeps the
 simple downstream path cheaper and avoids unnecessary upstream dependency.
@@ -100,12 +100,13 @@ Open issue search found no endpoint-specific defects in:
 - `sgajbi/lotus-risk`;
 - `sgajbi/lotus-gateway`.
 
-One upstream data-quality issue was opened:
+Upstream benchmark component classification coverage is now aligned:
 
-- `sgajbi/lotus-core#306`: canonical benchmark index catalog records for
-  `IDX_GLOBAL_EQUITY_TR` and `IDX_GLOBAL_BOND_TR` expose `asset_class` and `region`, but not
-  `sector`. lotus-performance therefore correctly emits `SECTOR_UNKNOWN` for canonical benchmark
-  sector exposure.
+- `sgajbi/lotus-core#306` was fixed in lotus-core.
+- canonical benchmark component indices now publish governed broad-market sector labels such as
+  `broad_market_equity` and `broad_market_fixed_income`.
+- lotus-performance consumes those source-owned labels as published rather than synthesizing local
+  sector fallbacks.
 
 ## Live Canonical Proof
 
@@ -136,8 +137,8 @@ Observed response:
 - `row_count=5`;
 - `POSITION` weight sum for `2026-04-10` is `1.0`;
 - `ASSET_CLASS` weight sum for `2026-04-10` is `1.0`;
-- `SECTOR` weight sum for `2026-04-10` is `1.0`, but the row is `SECTOR_UNKNOWN` because lotus-core
-  does not currently provide sector labels for the canonical benchmark indices.
+- `SECTOR` weight sum for `2026-04-10` is `1.0`, with governed broad-market sector rows sourced
+  from lotus-core index catalog metadata.
 
 Relevant upstream catalog slice:
 
@@ -147,6 +148,7 @@ Relevant upstream catalog slice:
     "index_id": "IDX_GLOBAL_BOND_TR",
     "classification_labels": {
       "asset_class": "fixed_income",
+      "sector": "broad_market_fixed_income",
       "region": "global"
     }
   },
@@ -154,6 +156,7 @@ Relevant upstream catalog slice:
     "index_id": "IDX_GLOBAL_EQUITY_TR",
     "classification_labels": {
       "asset_class": "equity",
+      "sector": "broad_market_equity",
       "region": "global"
     }
   }

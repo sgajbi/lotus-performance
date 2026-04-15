@@ -36,6 +36,7 @@ class _AttributionInputServiceStub:
         self.position_response = (200, {"rows": []})
         self.assignment_response = (200, {"benchmark_id": "BMK_1"})
         self.index_response = (200, {"records": []})
+        self.index_catalog_calls: list[dict[str, object]] = []
 
     async def get_position_timeseries(self, **kwargs):
         return self.position_response
@@ -44,6 +45,7 @@ class _AttributionInputServiceStub:
         return self.assignment_response
 
     async def get_index_catalog(self, **kwargs):
+        self.index_catalog_calls.append(kwargs)
         return self.index_response
 
 
@@ -101,10 +103,12 @@ async def test_retrieve_stateful_attribution_source_input_uses_override_benchmar
     )
     service.index_response = (200, {"records": [{"index_id": "IDX_1", "classification_labels": {"sector": "Tech"}}]})
 
+    calculation_id = uuid4()
+
     result = await retrieve_stateful_attribution_source_input(
         settings=object(),
         stateful_input_service=service,
-        calculation_id=uuid4(),
+        calculation_id=calculation_id,
         portfolio_id="P1",
         as_of_date=date(2025, 1, 1),
         report_start_date=date(2025, 1, 1),
@@ -123,6 +127,13 @@ async def test_retrieve_stateful_attribution_source_input_uses_override_benchmar
     assert result.position_retrieval_metadata == RetrievalMetadata(chunk_count=2, page_count=3)
     assert result.benchmark_retrieval_metadata == RetrievalMetadata(chunk_count=4, page_count=5)
     assert result.index_retrieval_metadata == RetrievalMetadata(chunk_count=1, page_count=1)
+    assert service.index_catalog_calls == [
+        {
+            "as_of_date": date(2025, 1, 1),
+            "index_ids": ["IDX_1"],
+            "calculation_id": calculation_id,
+        }
+    ]
 
 
 @pytest.mark.asyncio

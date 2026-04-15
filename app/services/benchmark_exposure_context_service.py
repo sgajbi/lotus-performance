@@ -34,10 +34,6 @@ async def build_benchmark_exposure_context(
     stateful_input_service: StatefulInputService,
 ) -> BenchmarkExposureContextResponse:
     benchmark_id = await _resolve_benchmark_id(request=request, stateful_input_service=stateful_input_service)
-    classification_map = await _classification_map_for_request(
-        request=request,
-        stateful_input_service=stateful_input_service,
-    )
     market_status, market_payload = await stateful_input_service.get_benchmark_market_series(
         calculation_id=request.calculation_id,
         benchmark_id=benchmark_id,
@@ -59,8 +55,14 @@ async def build_benchmark_exposure_context(
             detail=f"benchmark market-series source unavailable ({market_status}).",
         )
 
+    component_series = _parse_component_series(market_payload)
+    classification_map = await _classification_map_for_request(
+        request=request,
+        stateful_input_service=stateful_input_service,
+        component_series=component_series,
+    )
     rows = _build_exposure_rows(
-        component_series=_parse_component_series(market_payload),
+        component_series=component_series,
         grouping_dimensions=request.grouping_dimensions,
         classification_map=classification_map,
     )
@@ -137,15 +139,27 @@ async def _classification_map_for_request(
     *,
     request: BenchmarkExposureContextRequest,
     stateful_input_service: StatefulInputService,
+    component_series: list[dict[str, Any]],
 ) -> dict[str, dict[str, str]]:
     if not any(
         dimension in {BenchmarkExposureGroupingDimension.SECTOR, BenchmarkExposureGroupingDimension.ASSET_CLASS}
         for dimension in request.grouping_dimensions
     ):
         return {}
+    index_ids = sorted(
+        {
+            index_id
+            for component in component_series
+            for index_id in [component.get("index_id")]
+            if isinstance(index_id, str) and index_id
+        }
+    )
+    if not index_ids:
+        return {}
     catalog_status, catalog_payload = await stateful_input_service.get_index_catalog(
         calculation_id=request.calculation_id,
         as_of_date=request.as_of_date,
+        index_ids=index_ids,
     )
     if catalog_status >= status.HTTP_400_BAD_REQUEST:
         raise HTTPException(
