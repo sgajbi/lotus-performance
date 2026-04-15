@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-04-15T12:30:06.654446+00:00",
+  "generatedAt": "2026-04-15T13:07:20.963299+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.account_reset_shadow_days",
@@ -2865,6 +2865,20 @@
       ],
       "observedTypes": [
         "integer"
+      ]
+    },
+    {
+      "semanticId": "lotus.message",
+      "canonicalTerm": "message",
+      "preferredName": "message",
+      "description": "Human-readable service entry message that points operators and developers to the API docs.",
+      "example": "Welcome to the Portfolio Performance Analytics API. Access /docs for API documentation.",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -13906,7 +13920,32 @@
         "fields": []
       },
       "response": {
-        "fields": []
+        "fields": [
+          {
+            "name": "status",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.status",
+            "attributeRef": "#/attributeCatalog/lotus.status"
+          },
+          {
+            "name": "reason",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.reason",
+            "attributeRef": "#/attributeCatalog/lotus.reason"
+          },
+          {
+            "name": "remediation_hint",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.remediation_hint",
+            "attributeRef": "#/attributeCatalog/lotus.remediation_hint"
+          }
+        ]
       }
     },
     {
@@ -13919,7 +13958,32 @@
         "fields": []
       },
       "response": {
-        "fields": []
+        "fields": [
+          {
+            "name": "status",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.status",
+            "attributeRef": "#/attributeCatalog/lotus.status"
+          },
+          {
+            "name": "reason",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.reason",
+            "attributeRef": "#/attributeCatalog/lotus.reason"
+          },
+          {
+            "name": "remediation_hint",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.remediation_hint",
+            "attributeRef": "#/attributeCatalog/lotus.remediation_hint"
+          }
+        ]
       }
     },
     {
@@ -13932,7 +13996,32 @@
         "fields": []
       },
       "response": {
-        "fields": []
+        "fields": [
+          {
+            "name": "status",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.status",
+            "attributeRef": "#/attributeCatalog/lotus.status"
+          },
+          {
+            "name": "reason",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.reason",
+            "attributeRef": "#/attributeCatalog/lotus.reason"
+          },
+          {
+            "name": "remediation_hint",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.remediation_hint",
+            "attributeRef": "#/attributeCatalog/lotus.remediation_hint"
+          }
+        ]
       }
     },
     {
@@ -13940,12 +14029,21 @@
       "method": "GET",
       "path": "/",
       "operationId": "root__get",
-      "summary": "Root",
+      "summary": "Service entry",
       "request": {
         "fields": []
       },
       "response": {
-        "fields": []
+        "fields": [
+          {
+            "name": "message",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.message",
+            "attributeRef": "#/attributeCatalog/lotus.message"
+          }
+        ]
       }
     }
   ]

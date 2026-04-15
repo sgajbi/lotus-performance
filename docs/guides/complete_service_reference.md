@@ -98,6 +98,7 @@ Default deployment topology:
 | `GET /health/live` | liveness |
 | `GET /health/ready` | readiness including durable-store and lineage-storage checks |
 | `GET /metrics` | Prometheus metrics |
+| `GET /` | service entry |
 
 ## Public API Reference
 
@@ -1422,6 +1423,20 @@ Certification evidence:
 
 - `docs/technical/runtime-retention-endpoint-certification.md`
 
+### `GET /`
+
+Sample response:
+
+```json
+{
+  "message": "Welcome to the Portfolio Performance Analytics API. Access /docs for API documentation."
+}
+```
+
+Certification evidence:
+
+- `docs/technical/platform-surfaces-endpoint-certification.md`
+
 ### `GET /health`
 
 Sample response:
@@ -1474,6 +1489,10 @@ Sample response excerpt:
 # TYPE lotus_performance_compute_queue_degradation_breach gauge
 lotus_performance_compute_queue_degradation_breach{reason="pending_age_exceeded"} 0
 ```
+
+Certification evidence:
+
+- `docs/technical/platform-surfaces-endpoint-certification.md`
 
 ## Execution Pattern
 

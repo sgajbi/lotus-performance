@@ -153,6 +153,24 @@ def test_runtime_retention_docs_reflect_certified_operator_contract():
     assert "No duplicate lotus-performance runtime-retention endpoint" in certification
 
 
+def test_platform_surfaces_docs_reflect_certified_operational_contract():
+    readme = _read("README.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    complete_reference = _read("docs/guides/complete_service_reference.md")
+    certification = _read("docs/technical/platform-surfaces-endpoint-certification.md")
+
+    assert "technical/platform-surfaces-endpoint-certification.md" in readme
+    assert "app.models.platform_surfaces.RootResponse" in api_reference
+    assert "app.models.platform_surfaces.HealthStatusResponse" in api_reference
+    assert "text/plain" in api_reference
+    assert "Access /docs for API documentation." in complete_reference
+    assert "lotus_performance_compute_queue_degradation_breach" in complete_reference
+    assert "GET /metrics" in certification
+    assert "GET /health/ready" in certification
+    assert "Test Pyramid Assessment" in certification
+    assert "no duplicate lotus-performance health or metrics endpoint" in certification.lower()
+
+
 def test_execution_polling_docs_reflect_certified_contract():
     readme = _read("README.md")
     api_reference = _read("docs/guides/api_reference.md")

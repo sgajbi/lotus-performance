@@ -792,13 +792,26 @@ Return semantics for the workspace surface are now explicit rather than inferred
 
 ## Health and observability
 
+### `GET /`
+
+- purpose: return the service-entry message and point callers to `/docs`
+- use this only as an informational entry route; do not treat it as a strategic analytics or operator API
+- response model: `app.models.platform_surfaces.RootResponse`
+- certification evidence: `docs/technical/platform-surfaces-endpoint-certification.md`
+
 ### `GET /health`
 
 - returns basic process health
+- use this as a lightweight reachability probe, not as a durable readiness contract
+- response model: `app.models.platform_surfaces.HealthStatusResponse`
+- certification evidence: `docs/technical/platform-surfaces-endpoint-certification.md`
 
 ### `GET /health/live`
 
 - returns liveness state
+- use this to confirm the process is running without checking durable dependencies
+- response model: `app.models.platform_surfaces.HealthStatusResponse`
+- certification evidence: `docs/technical/platform-surfaces-endpoint-certification.md`
 
 ### `GET /health/ready`
 
@@ -813,10 +826,14 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - `503 {"status":"unavailable","reason":"lineage_storage_path_missing"}`
   - `503 {"status":"unavailable","reason":"lineage_storage_write_probe_failed"}`
 - readiness failures may also include `remediation_hint` when the service has a concrete recovery recommendation
+- response model: `app.models.platform_surfaces.HealthStatusResponse`
+- certification evidence: `docs/technical/platform-surfaces-endpoint-certification.md`
 
 ### `GET /metrics`
 
 - Prometheus metrics surface
+- contract note:
+  - served as `text/plain` Prometheus exposition format, not JSON
 - includes durable queue metrics for compute and lineage backlog/failure pressure
 - operator runbook:
   - `docs/runbooks/runtime-alerts.md` is the governed first-response guide for queue, storage, and recovery-drill breach gauges
@@ -828,6 +845,7 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - `docs/standards/runtime-threshold-profiles.md` defines recommended dev, staging, and production values for the runtime degradation settings behind these gauges
   - `docs/examples/runtime-thresholds.production.env` and its dev/staging companions provide concrete env overlays for those settings
   - `docs/examples/docker-compose.runtime-thresholds.production.yml` and its dev/staging companions provide compose-ready override files for the same thresholds
+- certification evidence: `docs/technical/platform-surfaces-endpoint-certification.md`
 - includes alert-ready queue policy breach metrics:
   - `lotus_performance_compute_queue_degradation_breach{reason=...}`
   - `lotus_performance_lineage_queue_degradation_breach{reason=...}`

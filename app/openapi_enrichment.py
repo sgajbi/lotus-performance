@@ -43,6 +43,22 @@ EXAMPLE_BY_KEY = {
 
 OPERATION_JSON_EXAMPLES: dict[tuple[str, str], dict[str, Any]] = {
     (
+        "/",
+        "response",
+    ): {"message": "Welcome to the Portfolio Performance Analytics API. Access /docs for API documentation."},
+    (
+        "/health",
+        "response",
+    ): {"status": "ok"},
+    (
+        "/health/live",
+        "response",
+    ): {"status": "live"},
+    (
+        "/health/ready",
+        "response",
+    ): {"status": "ready"},
+    (
         "/performance/twr",
         "request",
     ): {
@@ -254,6 +270,11 @@ def _ensure_operation_documentation(schema: dict[str, Any]) -> None:
                 operation["summary"] = f"{method.upper()} {path}"
             if not operation.get("description"):
                 operation["description"] = f"{method.upper()} operation for {path} in lotus-performance."
+            if path == "/metrics":
+                operation["description"] = (
+                    "Returns the Prometheus metrics surface for lotus-performance, including durable queue availability, "
+                    "queue pressure, lineage storage capacity, recovery-drill assurance, and runtime-retention assurance gauges."
+                )
             if not operation.get("tags"):
                 if path.startswith("/health"):
                     operation["tags"] = ["Health"]
@@ -298,10 +319,27 @@ def _ensure_operation_documentation(schema: dict[str, Any]) -> None:
                     content = response.get("content", {})
                     if not isinstance(content, dict):
                         continue
+                    if path == "/metrics":
+                        metrics_example = (
+                            "# HELP lotus_performance_durable_queue_store_availability Durable queue store availability.\n"
+                            "# TYPE lotus_performance_durable_queue_store_availability gauge\n"
+                            'lotus_performance_durable_queue_store_availability{store="compute"} 1.0\n'
+                        )
+                        response["content"] = {
+                            "text/plain": {
+                                "schema": {"type": "string", "description": "Prometheus exposition format payload."},
+                                "example": metrics_example,
+                            }
+                        }
+                        continue
                     json_content = content.get("application/json")
                     if not isinstance(json_content, dict):
                         continue
                     response_schema = json_content.get("schema", {})
+                    operation_example = OPERATION_JSON_EXAMPLES.get((path, "response"))
+                    if operation_example is not None:
+                        json_content["example"] = copy.deepcopy(operation_example)
+                        continue
                     if (
                         isinstance(response_schema, dict)
                         and "example" not in json_content

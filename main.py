@@ -29,6 +29,7 @@ from app.core.config import get_settings
 from app.core.exceptions import PerformanceCalculatorError
 from app.core.handlers import performance_calculator_exception_handler
 from app.enterprise_readiness import build_enterprise_audit_middleware, validate_enterprise_runtime_config
+from app.models.platform_surfaces import RootResponse
 from app.observability import setup_observability
 from app.openapi_enrichment import enrich_openapi_schema
 from app.services.async_result_store import async_result_store
@@ -165,7 +166,11 @@ app.include_router(runtime_retention_history.router, prefix="/integration")
 app.include_router(health.router)
 
 
-@app.get("/")
-async def root():
-    """Provides a welcome message and a link to the API documentation."""
+@app.get(
+    "/",
+    response_model=RootResponse,
+    summary="Service entry",
+    description="Returns the lotus-performance service entry message and points callers to `/docs` for the governed API contract.",
+)
+async def root() -> RootResponse:
     return {"message": "Welcome to the Portfolio Performance Analytics API. Access /docs for API documentation."}
