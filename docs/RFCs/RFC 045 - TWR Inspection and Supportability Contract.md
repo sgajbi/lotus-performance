@@ -640,9 +640,11 @@ Implementation status on 2026-04-15:
 
 1. relative summary and cumulative arithmetic checks compare portfolio minus benchmark against the served
    relative-performance block,
-2. relative breakdown rows now require aligned period labels and start/end date windows across the
+2. benchmark and relative-performance blocks are now required to appear as a pair for benchmarked TWR
+   periods,
+3. relative breakdown rows now require aligned period labels and start/end date windows across the
    relative, portfolio, and benchmark blocks before row-level arithmetic is interpreted,
-3. portfolio and benchmark breakdown rows must geometrically link to the served summary return.
+4. portfolio and benchmark breakdown rows must geometrically link to the served summary return.
 
 ### Slice 3: Source Quality and Plausibility Checks
 

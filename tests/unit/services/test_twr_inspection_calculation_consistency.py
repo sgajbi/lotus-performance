@@ -94,6 +94,70 @@ def test_calculation_consistency_does_not_compare_misaligned_relative_breakdown_
     assert "RELATIVE_BREAKDOWN_PERIOD_MISMATCH" not in finding_codes
 
 
+def test_calculation_consistency_flags_relative_block_without_benchmark_block():
+    response = SimpleNamespace(
+        results_by_period={
+            "YTD": SinglePeriodPerformanceResult(
+                portfolio=_analytics_block(
+                    period="2026-03",
+                    period_start=date(2026, 3, 1),
+                    period_end=date(2026, 3, 31),
+                    period_return=2.0,
+                ),
+                benchmark=None,
+                relative_performance=_analytics_block(
+                    period="2026-03",
+                    period_start=date(2026, 3, 1),
+                    period_end=date(2026, 3, 31),
+                    period_return=1.0,
+                ),
+            )
+        }
+    )
+
+    result = run_twr_calculation_consistency_checks(response)
+
+    assert {finding.code for finding in result.findings} == {"RELATIVE_PERFORMANCE_BENCHMARK_BLOCK_MISSING"}
+    assert result.findings[0].evidence == {
+        "period": "YTD",
+        "scope": "relative_performance",
+        "benchmark_present": False,
+        "relative_performance_present": True,
+    }
+
+
+def test_calculation_consistency_flags_benchmark_block_without_relative_block():
+    response = SimpleNamespace(
+        results_by_period={
+            "YTD": SinglePeriodPerformanceResult(
+                portfolio=_analytics_block(
+                    period="2026-03",
+                    period_start=date(2026, 3, 1),
+                    period_end=date(2026, 3, 31),
+                    period_return=2.0,
+                ),
+                benchmark=_analytics_block(
+                    period="2026-03",
+                    period_start=date(2026, 3, 1),
+                    period_end=date(2026, 3, 31),
+                    period_return=1.0,
+                ),
+                relative_performance=None,
+            )
+        }
+    )
+
+    result = run_twr_calculation_consistency_checks(response)
+
+    assert {finding.code for finding in result.findings} == {"BENCHMARK_RELATIVE_PERFORMANCE_BLOCK_MISSING"}
+    assert result.findings[0].evidence == {
+        "period": "YTD",
+        "scope": "benchmark",
+        "benchmark_present": True,
+        "relative_performance_present": False,
+    }
+
+
 def _analytics_block(
     *,
     period: str,

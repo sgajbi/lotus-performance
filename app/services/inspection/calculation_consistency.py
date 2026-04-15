@@ -31,6 +31,14 @@ def run_twr_calculation_consistency_checks(response: PerformanceResponse) -> Cal
         portfolio_block = period_result.portfolio
         benchmark_block = period_result.benchmark
 
+        findings.extend(
+            _check_benchmark_relative_pairing(
+                period_name=period_name,
+                benchmark_block=benchmark_block,
+                relative_block=relative_block,
+            )
+        )
+
         if benchmark_block is not None and relative_block is not None:
             relative_rows_checked += _count_breakdown_rows(relative_block)
             findings.extend(
@@ -75,6 +83,37 @@ def run_twr_calculation_consistency_checks(response: PerformanceResponse) -> Cal
 
 def _count_breakdown_rows(analytics_block: ComparativeAnalyticsBlock) -> int:
     return sum(len(items) for items in analytics_block.breakdowns.values())
+
+
+def _check_benchmark_relative_pairing(
+    *,
+    period_name: str,
+    benchmark_block: ComparativeAnalyticsBlock | None,
+    relative_block: ComparativeAnalyticsBlock | None,
+) -> list[TWRInspectionFinding]:
+    if benchmark_block is None and relative_block is None:
+        return []
+    if benchmark_block is None:
+        return [
+            _build_finding(
+                code="RELATIVE_PERFORMANCE_BENCHMARK_BLOCK_MISSING",
+                period_name=period_name,
+                scope="relative_performance",
+                summary="Relative-performance block is present without the benchmark block required to validate it.",
+                evidence={"benchmark_present": False, "relative_performance_present": True},
+            )
+        ]
+    if relative_block is None:
+        return [
+            _build_finding(
+                code="BENCHMARK_RELATIVE_PERFORMANCE_BLOCK_MISSING",
+                period_name=period_name,
+                scope="benchmark",
+                summary="Benchmark block is present without the relative-performance block required by the TWR benchmark contract.",
+                evidence={"benchmark_present": True, "relative_performance_present": False},
+            )
+        ]
+    return []
 
 
 def _check_relative_block(
