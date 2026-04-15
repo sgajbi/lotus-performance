@@ -47,7 +47,7 @@ The following RFCs are not yet implemented. This roadmap presents a logical orde
 
 2.  **RFC 045 — TWR Inspection and Supportability Contract**
     * **Reasoning:** **Separate analytics calculation from supportability triage before hardening stateful validation further.** Establishes an inspector architecture for source-quality diagnostics, reconciliation, and production support findings without overloading the core TWR endpoint.
-    * **Current state:** **Slice 1 delivered.** The durable inspection contract, async runtime path, artifact plumbing, and operator/capability wiring now exist. The substantive inspection check families remain for later slices.
+    * **Current state:** **Slices 1-2 delivered.** The durable inspection contract, async runtime path, artifact plumbing, operator/capability wiring, and calculation-consistency checks now exist. Source-quality, plausibility, and reconciliation checks remain for later slices.
 
 ### Phase 1: Foundational Enhancements
 
