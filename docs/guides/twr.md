@@ -74,6 +74,11 @@ Benchmark selection follows this precedence:
 2. lotus-core benchmark assignment in stateful mode
 3. validation error if stateless mode requests benchmark output without a benchmark configuration
 
+For stateful benchmark assignment, lotus-core currently resolves the assignment by
+`portfolio_id + as_of_date`. Request context such as reporting currency is useful for lineage and
+consumer symmetry, but should not be treated as changing assignment selection unless lotus-core
+explicitly versions that behavior in the public contract.
+
 When benchmark output is requested, TWR returns:
 
 - a parallel `benchmark` block calculated through the shared benchmark engine

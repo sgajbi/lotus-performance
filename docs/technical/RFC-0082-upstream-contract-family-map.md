@@ -72,6 +72,19 @@ Implementation entrypoints:
 6. lineage stores upstream request and response fingerprints for reproducibility where a durable calculation is involved;
 7. the watchlist routes above require explicit RFC-0082 review before their semantics are expanded.
 
+Route-specific downstream interpretations that must stay truthful:
+
+1. benchmark assignment resolution is keyed by `portfolio_id` and `as_of_date`; request
+   `reporting_currency` is caller-context metadata and must not be treated as a benchmark-selection
+   key unless lotus-core explicitly versions that behavior in the public contract;
+2. `POST /integration/reference/risk-free-series` returning an empty `points` list means the route
+   is reachable but usable source data is absent for the requested currency/window, so downstream
+   consumers must treat that as a data-availability gap rather than a methodology signal to fall
+   back to zero risk-free inputs;
+3. `POST /integration/indices/catalog` classification labels, including canonical broad-market
+   sector labels such as `broad_market_equity` and `broad_market_fixed_income`, are source-owned
+   metadata; `lotus-performance` must not synthesize missing sector labels locally.
+
 ## Existing Conformance Evidence
 
 Current test and implementation evidence:
