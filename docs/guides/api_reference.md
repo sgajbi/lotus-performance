@@ -432,6 +432,11 @@ Return semantics for the workspace surface are now explicit rather than inferred
 
 - purpose: advertise lotus-performance capabilities to downstream consumers
 - response model: integration capabilities contract in `app.api.endpoints.integration_capabilities`
+- canonical query controls:
+  - `consumer_system`: downstream consumer system, for example `lotus-gateway`, `lotus-risk`, or `lotus-manage`
+  - `tenant_id`: tenant or policy scope, default `default`
+  - `feature_limit`: bounded feature row limit, default `100`, max `500`
+  - `workflow_limit`: bounded workflow row limit, default `50`, max `200`
 - response includes:
   - service-level `supported_input_modes`
   - endpoint-level `analytics_surfaces` entries with:
@@ -452,6 +457,8 @@ Return semantics for the workspace surface are now explicit rather than inferred
 - `workspace_summary` now also advertises machine-readable request options for benchmark mode support
 - canonical capability example payload:
   - `docs/examples/integration_capabilities_response.json`
+- certification evidence lives in:
+  - `docs/technical/integration-capabilities-endpoint-certification.md`
 
 **Canonical capabilities response excerpt**
 

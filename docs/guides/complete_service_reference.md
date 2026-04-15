@@ -809,6 +809,7 @@ Sample response:
 Canonical example file:
 
 - `docs/examples/integration_capabilities_response.json`
+- certification evidence: `docs/technical/integration-capabilities-endpoint-certification.md`
 
 ### `POST /integration/returns/series`
 

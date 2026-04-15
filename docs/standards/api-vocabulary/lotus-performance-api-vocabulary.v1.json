@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-04-15T12:05:21.782525+00:00",
+  "generatedAt": "2026-04-15T12:17:40.668434+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.account_reset_shadow_days",
@@ -164,30 +164,32 @@
       "description": "Endpoint-level analytics capability details for downstream service integration.",
       "example": [
         {
-          "key": "example_key",
-          "path": "example_path",
+          "key": "workspace_summary",
+          "path": "/performance/workspace-summary",
           "enabled": true,
           "supported_input_modes": [
-            "example_supported_input_modes_item"
+            "stateful",
+            "stateless"
           ],
           "supports_async": true,
-          "poll_path_template": "example_poll_path_template",
-          "result_path_template": "example_result_path_template",
+          "poll_path_template": "/performance/executions/{calculation_id}",
+          "result_path_template": "/performance/workspace-summary/results/{calculation_id}",
           "stateful_restrictions": [
-            "example_stateful_restrictions_item"
+            "POSITION, SECTOR, and ASSET_CLASS grouping dimensions are supported"
           ],
           "contract_notes": [
-            "example_contract_notes_item"
+            "returns a lineage-backed benchmark exposure view aligned to benchmark performance context"
           ],
           "options": [
             {
-              "key": "example_key",
+              "key": "benchmark_mode",
               "supported_values": [
-                "example_supported_values_item"
+                "user_input_stateless",
+                "linked_stateful"
               ],
-              "required_when": "example_required_when",
+              "required_when": "benchmark or benchmark-aware blocks are requested",
               "notes": [
-                "example_notes_item"
+                "stateful workspace summary can resolve the linked benchmark from lotus-core assignment"
               ]
             }
           ]
@@ -1027,7 +1029,7 @@
       "preferredName": "contract_notes",
       "description": "Surface-specific contract notes that downstream consumers should treat as part of the supported behavior.",
       "example": [
-        "example_contract_notes_item"
+        "returns a lineage-backed benchmark exposure view aligned to benchmark performance context"
       ],
       "type": "array",
       "locations": [
@@ -1041,7 +1043,7 @@
       "semanticId": "lotus.contract_version",
       "canonicalTerm": "contract_version",
       "preferredName": "contract_version",
-      "description": "integration capabilities response field: contract version.",
+      "description": "Version of the integration-capabilities response contract.",
       "example": "v1",
       "type": "string",
       "locations": [
@@ -1400,7 +1402,7 @@
       "canonicalTerm": "description",
       "preferredName": "description",
       "description": "Human-readable capability summary.",
-      "example": "example_description",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -1756,10 +1758,10 @@
       "description": "integration capabilities response field: features.",
       "example": [
         {
-          "key": "example_key",
+          "key": "pa.analytics.twr",
           "enabled": true,
-          "owner_service": "example_owner_service",
-          "description": "example_description"
+          "owner_service": "lotus-performance",
+          "description": "Time-weighted return APIs."
         }
       ],
       "type": "array",
@@ -1904,7 +1906,7 @@
       "semanticId": "lotus.generated_at",
       "canonicalTerm": "generated_at",
       "preferredName": "generated_at",
-      "description": "Timestamp for generated at.",
+      "description": "UTC timestamp when the capability response was generated.",
       "example": "2026-02-27T10:30:00Z",
       "type": "string",
       "locations": [
@@ -3370,13 +3372,14 @@
       "description": "Machine-readable request-option capabilities for this analytics surface.",
       "example": [
         {
-          "key": "example_key",
+          "key": "benchmark_mode",
           "supported_values": [
-            "example_supported_values_item"
+            "user_input_stateless",
+            "linked_stateful"
           ],
-          "required_when": "example_required_when",
+          "required_when": "benchmark or benchmark-aware blocks are requested",
           "notes": [
-            "example_notes_item"
+            "stateful workspace summary can resolve the linked benchmark from lotus-core assignment"
           ]
         }
       ],
@@ -3425,7 +3428,7 @@
       "canonicalTerm": "owner_service",
       "preferredName": "owner_service",
       "description": "Owning service for this feature.",
-      "example": "example_owner_service",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -3500,7 +3503,7 @@
       "canonicalTerm": "path",
       "preferredName": "path",
       "description": "HTTP path for this analytics surface.",
-      "example": "example_path",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -3658,7 +3661,7 @@
       "semanticId": "lotus.policy_version",
       "canonicalTerm": "policy_version",
       "preferredName": "policy_version",
-      "description": "integration capabilities response field: policy version.",
+      "description": "Capability policy version applied by lotus-performance.",
       "example": "tenant-default-v1",
       "type": "string",
       "locations": [
@@ -3687,7 +3690,7 @@
       "canonicalTerm": "poll_path_template",
       "preferredName": "poll_path_template",
       "description": "Execution polling path template for async-capable surfaces.",
-      "example": "example_poll_path_template",
+      "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [
         "body"
@@ -4467,7 +4470,9 @@
       "preferredName": "required_features",
       "description": "Feature keys required for this workflow.",
       "example": [
-        "example_required_features_item"
+        "pa.analytics.workspace_summary",
+        "pa.analytics.twr",
+        "pa.analytics.mwr"
       ],
       "type": "array",
       "locations": [
@@ -4482,7 +4487,7 @@
       "canonicalTerm": "required_when",
       "preferredName": "required_when",
       "description": "Condition under which this option or companion input becomes required.",
-      "example": "example_required_when",
+      "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [
         "body"
@@ -4611,7 +4616,7 @@
       "canonicalTerm": "result_path_template",
       "preferredName": "result_path_template",
       "description": "Endpoint-specific async result path template for async-capable surfaces.",
-      "example": "example_result_path_template",
+      "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [
         "body"
@@ -5151,7 +5156,7 @@
       "semanticId": "lotus.source_service",
       "canonicalTerm": "source_service",
       "preferredName": "source_service",
-      "description": "integration capabilities response field: source service.",
+      "description": "Service that owns and emitted this capability contract.",
       "example": "lotus-performance",
       "type": "string",
       "locations": [
@@ -5265,7 +5270,7 @@
       "preferredName": "stateful_restrictions",
       "description": "Current stateful-mode fences or restrictions for this analytics surface.",
       "example": [
-        "example_stateful_restrictions_item"
+        "POSITION, SECTOR, and ASSET_CLASS grouping dimensions are supported"
       ],
       "type": "array",
       "locations": [
@@ -5479,7 +5484,8 @@
       "preferredName": "supported_values",
       "description": "Supported values or named options for this request capability.",
       "example": [
-        "example_supported_values_item"
+        "user_input_stateless",
+        "linked_stateful"
       ],
       "type": "array",
       "locations": [
@@ -5902,7 +5908,7 @@
       "canonicalTerm": "workflow_key",
       "preferredName": "workflow_key",
       "description": "Workflow key for feature orchestration.",
-      "example": "example_workflow_key",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -5932,10 +5938,12 @@
       "description": "integration capabilities response field: workflows.",
       "example": [
         {
-          "workflow_key": "example_workflow_key",
+          "workflow_key": "performance_workspace",
           "enabled": true,
           "required_features": [
-            "example_required_features_item"
+            "pa.analytics.workspace_summary",
+            "pa.analytics.twr",
+            "pa.analytics.mwr"
           ]
         }
       ],
@@ -6089,12 +6097,16 @@
       "location": "query",
       "required": false,
       "type": "string",
-      "description": "Canonical consumer system used by lotus-performance APIs.",
+      "description": "Canonical downstream consumer system. Use snake_case query name `consumer_system`.",
       "example": "lotus-gateway",
       "allowedValues": [
         "lotus-gateway",
         "lotus-performance",
+        "lotus-risk",
         "lotus-manage",
+        "lotus-workbench",
+        "lotus-report",
+        "lotus-advise",
         "UI",
         "UNKNOWN"
       ],
@@ -6107,7 +6119,7 @@
       "location": "query",
       "required": false,
       "type": "string",
-      "description": "Canonical tenant id used by lotus-performance APIs.",
+      "description": "Tenant or policy scope. Use snake_case query name `tenant_id`.",
       "example": "ENTITY_001",
       "allowedValues": [],
       "semanticId": "lotus.tenant_id",
@@ -6119,7 +6131,7 @@
       "location": "query",
       "required": false,
       "type": "integer",
-      "description": "Canonical feature limit used by lotus-performance APIs.",
+      "description": "Maximum number of feature capability rows to return.",
       "example": 1,
       "allowedValues": [],
       "semanticId": "lotus.feature_limit",
@@ -6131,7 +6143,7 @@
       "location": "query",
       "required": false,
       "type": "integer",
-      "description": "Canonical workflow limit used by lotus-performance APIs.",
+      "description": "Maximum number of workflow capability rows to return.",
       "example": 1,
       "allowedValues": [],
       "semanticId": "lotus.workflow_limit",

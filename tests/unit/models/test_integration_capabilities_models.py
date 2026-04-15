@@ -6,16 +6,29 @@ from app.api.endpoints.integration_capabilities import IntegrationCapabilitiesRe
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
-def test_integration_capabilities_response_schema_includes_workspace_summary_example():
+def test_integration_capabilities_response_schema_includes_certified_surface_example():
     schema = IntegrationCapabilitiesResponse.model_json_schema()
     example = schema["examples"][0]
+    surfaces = {surface["key"]: surface for surface in example["analytics_surfaces"]}
+    features = {feature["key"] for feature in example["features"]}
+    workflows = {workflow["workflow_key"] for workflow in example["workflows"]}
 
     assert example["contract_version"] == "v1"
-    assert example["analytics_surfaces"][0]["key"] == "workspace_summary"
-    assert example["analytics_surfaces"][0]["poll_path_template"] == "/performance/executions/{calculation_id}"
-    assert example["analytics_surfaces"][0]["options"][0]["key"] == "benchmark_mode"
-    assert example["features"][0]["key"] == "pa.analytics.workspace_summary"
-    assert example["workflows"][0]["workflow_key"] == "performance_workspace"
+    assert set(surfaces) == {
+        "twr",
+        "twr_inspection",
+        "mwr",
+        "benchmark",
+        "workspace_summary",
+        "contribution",
+        "attribution",
+        "returns_series",
+        "benchmark_exposure_context",
+    }
+    assert surfaces["workspace_summary"]["poll_path_template"] == "/performance/executions/{calculation_id}"
+    assert surfaces["workspace_summary"]["options"][0]["key"] == "benchmark_mode"
+    assert "pa.analytics.workspace_summary" in features
+    assert "performance_workspace" in workflows
 
 
 def test_integration_capabilities_json_example_matches_schema_example():

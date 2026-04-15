@@ -182,6 +182,8 @@ def test_api_reference_documents_endpoint_level_capabilities_contract():
     api_reference = _read("docs/guides/api_reference.md")
     readme = _read("README.md")
     runtime_topology = _read("docs/technical/runtime_topology.md")
+    certification = _read("docs/technical/integration-capabilities-endpoint-certification.md")
+    example = json.loads(_read("docs/examples/integration_capabilities_response.json"))
 
     assert "analytics_surfaces" in api_reference
     assert "stateful_restrictions" in api_reference
@@ -211,6 +213,22 @@ def test_api_reference_documents_endpoint_level_capabilities_contract():
     assert "async-capable surfaces now also advertise their canonical execution polling" in api_reference
     assert "workspace_summary` now also advertises machine-readable request options" in api_reference
     assert "Canonical capabilities response excerpt" in api_reference
+    assert "consumer_system" in api_reference
+    assert "tenant_id" in api_reference
+    assert "lotus-gateway#109" in certification
+    assert "Downstream Consumers" in certification
+    assert "Test Pyramid Assessment" in certification
+    assert {surface["key"] for surface in example["analytics_surfaces"]} == {
+        "twr",
+        "twr_inspection",
+        "mwr",
+        "benchmark",
+        "workspace_summary",
+        "contribution",
+        "attribution",
+        "returns_series",
+        "benchmark_exposure_context",
+    }
 
 
 def test_benchmark_exposure_context_docs_reflect_certified_contract():
@@ -398,10 +416,14 @@ def test_json_examples_match_current_dual_mode_contract():
 
     capabilities = json.loads(_read("docs/examples/integration_capabilities_response.json"))
     assert capabilities["contract_version"] == "v1"
-    assert capabilities["analytics_surfaces"][0]["key"] == "workspace_summary"
-    assert capabilities["analytics_surfaces"][0]["options"][0]["key"] == "benchmark_mode"
-    assert capabilities["analytics_surfaces"][0]["stateful_restrictions"] == []
-    assert len(capabilities["analytics_surfaces"][0]["options"]) == 1
+    capability_surfaces = {surface["key"]: surface for surface in capabilities["analytics_surfaces"]}
+    assert capability_surfaces["workspace_summary"]["options"][0]["key"] == "benchmark_mode"
+    assert capability_surfaces["workspace_summary"]["stateful_restrictions"] == []
+    assert len(capability_surfaces["workspace_summary"]["options"]) == 1
+    assert capability_surfaces["mwr"]["supports_async"] is False
+    assert capability_surfaces["returns_series"]["result_path_template"] == (
+        "/integration/returns/series/results/{calculation_id}"
+    )
 
 
 def test_workspace_summary_guide_documents_explicit_return_vocabulary():

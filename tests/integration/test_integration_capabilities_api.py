@@ -162,6 +162,16 @@ def test_integration_capabilities_env_override(monkeypatch):
     assert {item["key"] for item in surfaces["workspace_summary"]["options"]} == {"benchmark_mode"}
 
 
+def test_integration_capabilities_honors_canonical_query_controls():
+    with TestClient(app) as client:
+        response = client.get("/integration/capabilities?consumer_system=lotus-risk&tenant_id=tenant-risk")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["consumer_system"] == "lotus-risk"
+    assert body["tenant_id"] == "tenant-risk"
+
+
 def test_integration_capabilities_limit_guardrails():
     with TestClient(app) as client:
         response = client.get(
@@ -172,6 +182,37 @@ def test_integration_capabilities_limit_guardrails():
     body = response.json()
     assert len(body["features"]) == 2
     assert len(body["workflows"]) == 1
+
+
+def test_integration_capabilities_advertises_every_supported_surface():
+    with TestClient(app) as client:
+        response = client.get("/integration/capabilities?consumer_system=lotus-gateway&tenant_id=default")
+
+    assert response.status_code == 200
+    surfaces = {item["key"]: item for item in response.json()["analytics_surfaces"]}
+    assert set(surfaces) == {
+        "twr",
+        "twr_inspection",
+        "mwr",
+        "benchmark",
+        "workspace_summary",
+        "contribution",
+        "attribution",
+        "returns_series",
+        "benchmark_exposure_context",
+    }
+    assert surfaces["mwr"]["supports_async"] is False
+    for key in {
+        "twr",
+        "benchmark",
+        "workspace_summary",
+        "contribution",
+        "attribution",
+        "returns_series",
+    }:
+        assert surfaces[key]["supports_async"] is True
+        assert surfaces[key]["poll_path_template"] == "/performance/executions/{calculation_id}"
+        assert surfaces[key]["result_path_template"]
 
 
 def test_health_and_metrics_endpoints_available(client):
