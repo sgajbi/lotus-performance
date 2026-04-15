@@ -20,6 +20,8 @@ _STALE_SAMPLE_LIMIT = 10
 _RETURN_CONCENTRATION_MIN_OBSERVATIONS = 20
 _RETURN_CONCENTRATION_TOP_N = 3
 _RETURN_CONCENTRATION_THRESHOLD = 0.80
+_REPEATED_MOVE_MIN_ABS_PCT = 1.0
+_REPEATED_MOVE_MIN_RUN_LENGTH = 3
 
 
 @dataclass(frozen=True)
@@ -67,6 +69,15 @@ class ReturnConcentrationAssessment:
     triggered: bool
 
 
+@dataclass(frozen=True)
+class RepeatedMoveRun:
+    direction: str
+    start_date: str
+    end_date: str
+    observation_count: int
+    moves: list[DailyMove]
+
+
 def run_source_quality_checks(
     *,
     performance_request: PerformanceRequest,
@@ -90,6 +101,7 @@ def run_source_quality_checks(
         extreme_threshold_pct=threshold,
     )
     return_concentration = _assess_return_concentration(daily_moves)
+    repeated_move_runs = _find_repeated_move_runs(daily_moves)
 
     findings = [
         *_build_weekend_findings(weekend_dates),
@@ -101,6 +113,7 @@ def run_source_quality_checks(
             mandate_outliers=mandate_outliers,
         ),
         *_build_return_concentration_findings(return_concentration),
+        *_build_repeated_move_pattern_findings(repeated_move_runs),
         *_build_extreme_move_findings(
             inspection_profile=inspection_profile,
             threshold=threshold,
@@ -143,6 +156,10 @@ def run_source_quality_checks(
         "return_concentration_ratio": return_concentration.concentration_ratio,
         "return_concentration_observation_count": return_concentration.observation_count,
         "return_concentration_top_moves": _daily_moves_to_artifacts(return_concentration.top_moves),
+        "repeated_move_min_abs_pct": _REPEATED_MOVE_MIN_ABS_PCT,
+        "repeated_move_min_run_length": _REPEATED_MOVE_MIN_RUN_LENGTH,
+        "repeated_move_run_count": len(repeated_move_runs),
+        "repeated_move_runs": _repeated_move_runs_to_artifacts(repeated_move_runs),
     }
     return SourceQualityCheckResult(
         findings=findings,
@@ -156,6 +173,7 @@ def run_source_quality_checks(
             "largest_abs_daily_move_pct": largest_abs_daily_move_pct,
             "mandate_daily_move_outlier_count": len(mandate_outliers),
             "return_concentration_ratio": return_concentration.concentration_ratio,
+            "repeated_move_run_count": len(repeated_move_runs),
         },
         artifact_payload=artifact_payload,
     )
@@ -408,6 +426,94 @@ def _build_return_concentration_findings(
     ]
 
 
+def _find_repeated_move_runs(daily_moves: list[DailyMove]) -> list[RepeatedMoveRun]:
+    runs: list[RepeatedMoveRun] = []
+    current_run: list[DailyMove] = []
+    current_direction: str | None = None
+
+    for move in daily_moves:
+        direction = _large_move_direction(move)
+        if direction is None:
+            _append_repeated_move_run_if_needed(
+                runs=runs,
+                run_moves=current_run,
+                direction=current_direction,
+            )
+            current_run = []
+            current_direction = None
+            continue
+        if current_direction is None or direction != current_direction:
+            _append_repeated_move_run_if_needed(
+                runs=runs,
+                run_moves=current_run,
+                direction=current_direction,
+            )
+            current_run = [move]
+            current_direction = direction
+            continue
+        current_run.append(move)
+
+    _append_repeated_move_run_if_needed(
+        runs=runs,
+        run_moves=current_run,
+        direction=current_direction,
+    )
+    return runs
+
+
+def _large_move_direction(move: DailyMove) -> str | None:
+    if abs(move.return_pct) < _REPEATED_MOVE_MIN_ABS_PCT:
+        return None
+    return "positive" if move.return_pct > 0 else "negative"
+
+
+def _append_repeated_move_run_if_needed(
+    *,
+    runs: list[RepeatedMoveRun],
+    run_moves: list[DailyMove],
+    direction: str | None,
+) -> None:
+    if direction is None or len(run_moves) < _REPEATED_MOVE_MIN_RUN_LENGTH:
+        return
+    runs.append(
+        RepeatedMoveRun(
+            direction=direction,
+            start_date=run_moves[0].perf_date,
+            end_date=run_moves[-1].perf_date,
+            observation_count=len(run_moves),
+            moves=list(run_moves),
+        )
+    )
+
+
+def _build_repeated_move_pattern_findings(repeated_move_runs: list[RepeatedMoveRun]) -> list[TWRInspectionFinding]:
+    if not repeated_move_runs:
+        return []
+    return [
+        TWRInspectionFinding(
+            code="REPEATED_DAILY_MOVE_PATTERN_DETECTED",
+            severity="warning",
+            category="economic_plausibility",
+            owner_repo="lotus-performance",
+            summary="Resolved source inputs contain repeated same-direction large daily moves.",
+            explanation=(
+                f"The inspector found at least {_REPEATED_MOVE_MIN_RUN_LENGTH} consecutive same-direction daily "
+                f"moves with absolute return at or above {_REPEATED_MOVE_MIN_ABS_PCT:.2f}%."
+            ),
+            recommended_action=(
+                "Review the repeated-move dates for valuation restatement, source-state carry-forward, fee, or "
+                "external cash-flow events before relying on the TWR path as supportable."
+            ),
+            evidence={
+                "min_abs_return_pct": _REPEATED_MOVE_MIN_ABS_PCT,
+                "min_run_length": _REPEATED_MOVE_MIN_RUN_LENGTH,
+                "run_count": len(repeated_move_runs),
+                "runs": _repeated_move_runs_to_artifacts(repeated_move_runs),
+            },
+        )
+    ]
+
+
 def _build_extreme_move_findings(
     *,
     inspection_profile: TWRInspectionProfile,
@@ -462,6 +568,19 @@ def _assess_daily_move_inputs(valuation_points: list[DailyInputData]) -> DailyMo
 
 def _daily_moves_to_artifacts(daily_moves: list[DailyMove]) -> list[dict[str, float | str]]:
     return [move.to_artifact() for move in daily_moves[:_STALE_SAMPLE_LIMIT]]
+
+
+def _repeated_move_runs_to_artifacts(repeated_move_runs: list[RepeatedMoveRun]) -> list[dict[str, object]]:
+    return [
+        {
+            "direction": run.direction,
+            "start_date": run.start_date,
+            "end_date": run.end_date,
+            "observation_count": run.observation_count,
+            "moves": _daily_moves_to_artifacts(run.moves),
+        }
+        for run in repeated_move_runs[:_STALE_SAMPLE_LIMIT]
+    ]
 
 
 def _find_missing_business_dates(valuation_points: list[DailyInputData]) -> list[str]:

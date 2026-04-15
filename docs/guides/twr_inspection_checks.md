@@ -86,6 +86,7 @@ These findings are currently owned by `lotus-performance` because they evaluate 
 | `NONPOSITIVE_DAILY_CAPITAL_BASE_DETECTED` | one or more observations have `begin_mv + bod_cf <= 0`, so daily move plausibility cannot be interpreted normally | affected dates, `begin_mv`, `bod_cf`, effective capital base |
 | `MANDATE_DAILY_MOVE_OUTLIER_DETECTED` | canonical balanced private-banking portfolio inputs have daily moves above the mandate warning band but below the generic extreme-move threshold | mandate profile, threshold percent, sampled outlier dates |
 | `RETURN_CONCENTRATION_DETECTED` | a small number of daily moves explain most absolute movement across a sufficiently long inspected window | top-N setting, concentration threshold, concentration ratio, sampled top dates |
+| `REPEATED_DAILY_MOVE_PATTERN_DETECTED` | consecutive same-direction daily moves exceed the repeated-move threshold | run direction, start/end dates, run length, sampled moves |
 | `EXTREME_DAILY_MOVE_DETECTED` | one or more daily moves exceed the profile threshold | threshold percent and sampled extreme dates |
 
 Primary evidence surfaces:
@@ -244,6 +245,12 @@ Bounded return-concentration rule:
 - it warns when the top `3` absolute daily moves explain at least `80%` of total absolute daily movement
 - this is a concentration signal for support triage, not a mathematical error by itself
 
+Bounded repeated-move rule:
+
+- the current rule warns when at least `3` consecutive daily moves have the same direction and each absolute move is at least `1.00%`
+- alternating large moves and short runs do not trigger this finding
+- this is a source-quality pattern signal for support triage; it does not rewrite the return
+
 ### `source_quality_summary.json`
 
 Use for:
@@ -254,6 +261,7 @@ Use for:
 - nonpositive daily capital-base counts and sampled dates
 - mandate daily move profile, warning threshold, and sampled mandate outlier dates
 - return concentration ratio, top-N setting, threshold, and sampled top daily moves
+- repeated daily move run count, minimum run length, threshold, and sampled runs
 - extreme daily move threshold and sampled dates
 
 ## Operator Notes

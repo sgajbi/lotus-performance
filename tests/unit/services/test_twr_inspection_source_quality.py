@@ -204,7 +204,7 @@ def test_run_source_quality_checks_flags_top_day_return_concentration():
             business_dates.append(current_date)
         current_date += timedelta(days=1)
 
-    high_move_dates = set(business_dates[-3:])
+    high_move_dates = {business_dates[4], business_dates[11], business_dates[19]}
     valuation_points = [
         DailyInputData(
             perf_date=perf_date,
@@ -267,3 +267,72 @@ def test_run_source_quality_checks_requires_enough_observations_for_return_conce
     assert result.evidence_summary["return_concentration_ratio"] == 0.0
     assert result.artifact_payload["return_concentration_observation_count"] == 3
     assert result.artifact_payload["return_concentration_top_moves"] == []
+
+
+def test_run_source_quality_checks_flags_repeated_same_direction_daily_move_pattern():
+    performance_request = PerformanceRequest(
+        portfolio_id="NON_CANONICAL_PORTFOLIO",
+        performance_start_date=date(2026, 4, 1),
+        metric_basis="NET",
+        report_end_date=date(2026, 4, 7),
+        analyses=[Analysis(period="YTD", frequencies=["daily"])],
+        valuation_points=[
+            DailyInputData(perf_date=date(2026, 4, 1), begin_mv=1000.0, end_mv=1002.0),
+            DailyInputData(perf_date=date(2026, 4, 2), begin_mv=1000.0, end_mv=1015.0),
+            DailyInputData(perf_date=date(2026, 4, 3), begin_mv=1000.0, end_mv=1016.0),
+            DailyInputData(perf_date=date(2026, 4, 6), begin_mv=1000.0, end_mv=1017.0),
+            DailyInputData(perf_date=date(2026, 4, 7), begin_mv=1000.0, end_mv=1002.0),
+        ],
+    )
+
+    result = run_source_quality_checks(
+        performance_request=performance_request,
+        inspection_profile=TWRInspectionProfile.CANONICAL_VALIDATION,
+    )
+
+    assert {finding.code for finding in result.findings} == {"REPEATED_DAILY_MOVE_PATTERN_DETECTED"}
+    finding = result.findings[0]
+    assert finding.evidence["min_abs_return_pct"] == 1.0
+    assert finding.evidence["min_run_length"] == 3
+    assert finding.evidence["run_count"] == 1
+    runs = finding.evidence["runs"]
+    assert isinstance(runs, list)
+    assert len(runs) == 1
+    run = runs[0]
+    assert run["direction"] == "positive"
+    assert run["start_date"] == "2026-04-02"
+    assert run["end_date"] == "2026-04-06"
+    assert run["observation_count"] == 3
+    assert run["moves"] == [
+        {"perf_date": "2026-04-02", "return_pct": pytest.approx(1.5)},
+        {"perf_date": "2026-04-03", "return_pct": pytest.approx(1.6)},
+        {"perf_date": "2026-04-06", "return_pct": pytest.approx(1.7)},
+    ]
+    assert result.evidence_summary["repeated_move_run_count"] == 1
+    assert result.artifact_payload["repeated_move_run_count"] == 1
+    assert result.artifact_payload["repeated_move_min_run_length"] == 3
+
+
+def test_run_source_quality_checks_ignores_alternating_large_daily_moves_for_repeated_pattern():
+    performance_request = PerformanceRequest(
+        portfolio_id="NON_CANONICAL_PORTFOLIO",
+        performance_start_date=date(2026, 4, 1),
+        metric_basis="NET",
+        report_end_date=date(2026, 4, 6),
+        analyses=[Analysis(period="YTD", frequencies=["daily"])],
+        valuation_points=[
+            DailyInputData(perf_date=date(2026, 4, 1), begin_mv=1000.0, end_mv=1015.0),
+            DailyInputData(perf_date=date(2026, 4, 2), begin_mv=1000.0, end_mv=985.0),
+            DailyInputData(perf_date=date(2026, 4, 3), begin_mv=1000.0, end_mv=1016.0),
+            DailyInputData(perf_date=date(2026, 4, 6), begin_mv=1000.0, end_mv=984.0),
+        ],
+    )
+
+    result = run_source_quality_checks(
+        performance_request=performance_request,
+        inspection_profile=TWRInspectionProfile.CANONICAL_VALIDATION,
+    )
+
+    assert result.findings == []
+    assert result.evidence_summary["repeated_move_run_count"] == 0
+    assert result.artifact_payload["repeated_move_runs"] == []

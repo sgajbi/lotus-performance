@@ -670,7 +670,9 @@ Implementation status on 2026-04-15:
    governed,
 7. source-quality inspection now warns when the top three absolute daily moves explain at least
    `80%` of total absolute movement across an inspected window with at least 20 interpretable daily
-   moves.
+   moves,
+8. source-quality inspection now warns on repeated same-direction daily move patterns when at least
+   three consecutive daily moves each have absolute return of at least `1.00%`.
 
 ### Slice 4: Reconciliation Checks
 
