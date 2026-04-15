@@ -140,6 +140,149 @@ def test_twr_inspection_keeps_completed_evidence_when_later_check_family_fails(f
     assert [finding.code for finding in response.findings] == ["INSPECTION_CHECK_FAMILY_FAILED"]
 
 
+def test_twr_inspection_records_math_failure_for_missing_existing_artifacts(fake_registry, monkeypatch):
+    calculation_id = uuid4()
+    monkeypatch.setattr(
+        service,
+        "resolve_twr_inspection_subject",
+        lambda _request: ResolvedTWRInspectionSubject(
+            subject_type=TWRInspectionSubjectType.TWR_CALCULATION,
+            subject_calculation_id=calculation_id,
+            portfolio_id="PB_SG_GLOBAL_BAL_001",
+            related_execution=None,
+            request_payload=None,
+        ),
+    )
+    monkeypatch.setattr(
+        service,
+        "load_existing_twr_calculation_artifacts",
+        lambda _calculation_id: (_ for _ in ()).throw(KeyError("missing response")),
+    )
+
+    response = service.run_twr_inspection(
+        TWRInspectionRequest(
+            subject_type=TWRInspectionSubjectType.TWR_CALCULATION,
+            subject_calculation_id=calculation_id,
+        )
+    )
+
+    assert response.verdict == TWRInspectionVerdict.INSPECTION_FAILED
+    assert response.evidence_summary["failed_check_families"] == ["calculation_consistency"]
+    assert ("math_reconciliation", "'missing response'") in fake_registry.failed_stages
+
+
+def test_twr_inspection_preserves_source_quality_when_stateful_reconciliation_checks_fail(
+    fake_registry,
+    monkeypatch,
+):
+    calculation_id = uuid4()
+    performance_request = _build_performance_request()
+    resolved_request = SimpleNamespace(portfolio=performance_request)
+
+    monkeypatch.setattr(
+        service,
+        "resolve_twr_inspection_subject",
+        lambda _request: ResolvedTWRInspectionSubject(
+            subject_type=TWRInspectionSubjectType.TWR_CALCULATION,
+            subject_calculation_id=calculation_id,
+            portfolio_id="PB_SG_GLOBAL_BAL_001",
+            related_execution=None,
+            request_payload=None,
+        ),
+    )
+    monkeypatch.setattr(
+        service,
+        "load_existing_twr_calculation_artifacts",
+        lambda _calculation_id: SimpleNamespace(request_payload={}, response_model=object()),
+    )
+    monkeypatch.setattr(service, "extract_resolved_execution_request_from_payload", lambda _payload: resolved_request)
+    monkeypatch.setattr(service, "extract_performance_request_from_payload", lambda _payload: performance_request)
+    monkeypatch.setattr(
+        service,
+        "run_twr_calculation_consistency_checks",
+        lambda _response: CalculationConsistencyCheckResult(findings=[], evidence_summary={"period_count": 1}),
+    )
+    monkeypatch.setattr(service, "_scope_request_to_response_master_window", lambda request, _response: request)
+    monkeypatch.setattr(
+        service, "_scope_resolved_request_to_response_master_window", lambda request, _response: request
+    )
+    monkeypatch.setattr(
+        service,
+        "run_source_quality_checks",
+        lambda **_kwargs: SimpleNamespace(
+            findings=[], evidence_summary={"invalid_capital_base_count": 0}, artifact_payload={}
+        ),
+    )
+    monkeypatch.setattr(
+        service,
+        "run_reconciliation_checks",
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("position source down")),
+    )
+    monkeypatch.setattr(
+        service,
+        "run_source_economics_checks",
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("portfolio source down")),
+    )
+
+    response = service.run_twr_inspection(
+        TWRInspectionRequest(
+            subject_type=TWRInspectionSubjectType.TWR_CALCULATION,
+            subject_calculation_id=calculation_id,
+        )
+    )
+
+    assert response.verdict == TWRInspectionVerdict.SUPPORTABLE_WITH_WARNINGS
+    assert response.evidence_summary["failed_check_families"] == ["reconciliation", "cashflow_classification"]
+    assert ("source_state_reconciliation", "position source down") in fake_registry.failed_stages
+    assert ("source_economics_assessment", "portfolio source down") in fake_registry.failed_stages
+
+
+def test_twr_inspection_marks_artifact_materialization_failure(fake_registry, monkeypatch):
+    monkeypatch.setattr(
+        service,
+        "run_source_quality_checks",
+        lambda **_kwargs: SimpleNamespace(findings=[], evidence_summary={}, artifact_payload={}),
+    )
+    monkeypatch.setattr(
+        service,
+        "enqueue_twr_inspection_artifacts",
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("artifact store offline")),
+    )
+
+    with pytest.raises(RuntimeError, match="artifact store offline"):
+        service.run_twr_inspection(
+            TWRInspectionRequest(
+                subject_type=TWRInspectionSubjectType.TWR_REQUEST,
+                request=_build_twr_request(),
+            )
+        )
+
+    assert ("artifact_materialization", "artifact store offline") in fake_registry.failed_stages
+
+
+def test_twr_inspection_verdict_and_window_helpers_cover_clean_and_unscoped_paths():
+    assert (
+        service._synthesize_verdict(
+            findings=[],
+            completed_check_families=["source_quality"],
+            failed_check_families=[],
+            pending_check_families=[],
+        )
+        == TWRInspectionVerdict.SUPPORTABLE
+    )
+    performance_request = _build_performance_request()
+    response_without_window = SimpleNamespace(meta=SimpleNamespace(periods={}))
+    assert (
+        service._scope_request_to_response_master_window(performance_request, response_without_window)
+        is performance_request
+    )
+    assert service._scope_request_to_response_master_window(None, response_without_window) is None
+    assert service._response_master_window(SimpleNamespace(meta=SimpleNamespace(periods={"master_start": "bad"}))) == (
+        None,
+        None,
+    )
+
+
 def _build_twr_request() -> TWRAnalyticsRequest:
     return TWRAnalyticsRequest(
         portfolio_id="PB_SG_GLOBAL_BAL_001",

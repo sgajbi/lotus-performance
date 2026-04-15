@@ -1,6 +1,7 @@
 from datetime import date
 
 from app.models.requests import Analysis, DailyInputData, PerformanceRequest
+from app.services.inspection import source_economics
 from app.services.inspection.source_economics import analyze_source_economics
 
 
@@ -327,7 +328,7 @@ def test_analyze_source_economics_flags_beginning_of_day_fee_timing_bucket():
     assert result.artifact_payload["fee_timing_bucket_samples"] == [
         {
             "valuation_date": "2026-03-16",
-            "rows": [{"timing": "bod", "amount": -25.0, "cash_flow_type": "fee"}],
+            "rows": [{"timing": "bod", "amount": "-25.0", "cash_flow_type": "fee"}],
         }
     ]
 
@@ -818,8 +819,8 @@ def test_analyze_source_economics_flags_conflicting_explicit_source_alias_values
                     "semantic": "bod_cashflow_total",
                     "raw_value": "55.0",
                     "resolved_field": "bod_cashflow",
-                    "resolved_value": 50.0,
-                    "conflicting_value": 55.0,
+                    "resolved_value": "50.0",
+                    "conflicting_value": "55.0",
                 }
             ],
         }
@@ -1091,7 +1092,7 @@ def test_analyze_source_economics_flags_missing_cashflow_type_labels():
     assert result.artifact_payload["missing_cashflow_type_samples"] == [
         {
             "valuation_date": "2026-03-20",
-            "rows": [{"timing": "eod", "amount": 5.0}],
+            "rows": [{"timing": "eod", "amount": "5.0"}],
         }
     ]
     assert result.artifact_payload["missing_cashflow_type_date_count"] == 1
@@ -1137,7 +1138,7 @@ def test_analyze_source_economics_treats_blank_cashflow_type_as_missing_label():
     assert result.artifact_payload["missing_cashflow_type_samples"] == [
         {
             "valuation_date": "2026-03-22",
-            "rows": [{"timing": "eod", "amount": 4.0}],
+            "rows": [{"timing": "eod", "amount": "4.0"}],
         }
     ]
     assert result.artifact_payload["noncanonical_cashflow_types"] == []
@@ -1183,7 +1184,7 @@ def test_analyze_source_economics_flags_invalid_cashflow_timing_labels():
     assert result.artifact_payload["invalid_cashflow_timing_samples"] == [
         {
             "valuation_date": "2026-03-23",
-            "rows": [{"timing": "intraday", "amount": 4.0, "cash_flow_type": "external_flow"}],
+            "rows": [{"timing": "intraday", "amount": "4.0", "cash_flow_type": "external_flow"}],
         }
     ]
     assert result.artifact_payload["invalid_cashflow_timing_date_count"] == 1
@@ -1242,9 +1243,63 @@ def test_analyze_source_economics_artifact_captures_timing_and_taxonomy_samples(
         {
             "valuation_date": "2026-03-21",
             "cash_flow_types": ["dividend"],
-            "rows": [{"timing": "eod", "amount": -2000.0, "cash_flow_type": "dividend"}],
+            "rows": [{"timing": "eod", "amount": "-2000.0", "cash_flow_type": "dividend"}],
         }
     ]
     assert result.artifact_payload["missing_cashflow_type_date_count"] == 0
     assert result.artifact_payload["noncanonical_cashflow_types"] == ["dividend"]
     assert result.artifact_payload["unsupported_cashflow_types"] == ["dividend"]
+
+
+def test_analyze_source_economics_captures_governed_alias_and_raw_collection_samples():
+    performance_request = PerformanceRequest(
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        performance_start_date=date(2026, 3, 24),
+        metric_basis="NET",
+        report_end_date=date(2026, 3, 25),
+        analyses=[Analysis(period="YTD", frequencies=["daily"])],
+        valuation_points=[
+            DailyInputData(perf_date=date(2026, 3, 24), begin_mv=1000.0, end_mv=1100.0, eod_cf=100.0),
+            DailyInputData(perf_date=date(2026, 3, 25), begin_mv=1100.0, end_mv=1100.0),
+        ],
+    )
+
+    result = analyze_source_economics(
+        performance_request=performance_request,
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        observations=[
+            {
+                "valuation_date": "2026-03-24",
+                "beginning_market_value": "1000.0",
+                "ending_market_value": "1100.0",
+                "cash_flows": [
+                    {"amount": "100.0", "timing": "eod", "cash_flow_type": "deposit"},
+                    {"amount": "1.0", "timing": "eod", "cash_flow_type": object()},
+                ],
+            },
+            {
+                "valuation_date": "2026-03-25",
+                "beginning_market_value": "1100.0",
+                "ending_market_value": "1100.0",
+                "cash_flows": {"bad": "shape"},
+            },
+        ],
+    )
+
+    assert result.evidence_summary["governed_alias_cashflow_type_date_count"] == 1
+    assert result.artifact_payload["governed_alias_cashflow_type_samples"] == [
+        {
+            "valuation_date": "2026-03-24",
+            "cash_flow_types": ["deposit"],
+            "rows": [{"timing": "eod", "amount": "100.0", "cash_flow_type": "deposit"}],
+        }
+    ]
+    assert result.artifact_payload["invalid_cashflow_collection_samples"] == [
+        {
+            "valuation_date": "2026-03-25",
+            "raw_type": "dict",
+            "raw_value": {"bad": "shape"},
+        }
+    ]
+    assert source_economics._sample_raw_collection_value(["not", "scalar"]) == "['not', 'scalar']"
+    assert source_economics._parse_decimal(object()) is None

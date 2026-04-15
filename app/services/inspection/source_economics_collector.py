@@ -8,6 +8,14 @@ if TYPE_CHECKING:
     from app.services.inspection.source_economics import ObservationSourceEconomics
 
 
+def _decimal_to_artifact(value: Decimal) -> str:
+    return format(value, "f")
+
+
+def _optional_decimal_to_artifact(value: Decimal | None) -> str | None:
+    return _decimal_to_artifact(value) if value is not None else None
+
+
 @dataclass(frozen=True)
 class SourceEconomicsSamples:
     invalid_observation_date_samples: list[dict[str, object]]
@@ -186,7 +194,7 @@ class _SourceEconomicsSampleCollector:
                     "valuation_date": source_point.valuation_date,
                     "raw_fee_bod": float(source_point.detailed_fee_bod),
                     "raw_fee_eod": float(source_point.detailed_fee_eod),
-                    "expected_fee_amount": float(expected_fee_total),
+                    "expected_fee_amount": _decimal_to_artifact(expected_fee_total),
                     "fee_source_kind": fee_source_kind,
                     "normalized_bod_cf": float(source_point.normalized_bod_cf),
                     "normalized_eod_cf": float(source_point.normalized_eod_cf),
@@ -199,26 +207,24 @@ class _SourceEconomicsSampleCollector:
             self.duplicate_fee_signal_samples.append(
                 {
                     "valuation_date": source_point.valuation_date,
-                    "explicit_fee_amount": float(source_point.explicit_fee_total),
-                    "fee_cashflow_amount": float(fee_total),
+                    "explicit_fee_amount": _decimal_to_artifact(source_point.explicit_fee_total),
+                    "fee_cashflow_amount": _decimal_to_artifact(fee_total),
                 }
             )
         elif source_point.explicit_fee_total is not None and fee_total != 0:
             self.fee_source_mismatch_samples.append(
                 {
                     "valuation_date": source_point.valuation_date,
-                    "explicit_fee_amount": float(source_point.explicit_fee_total),
-                    "fee_cashflow_amount": float(fee_total),
+                    "explicit_fee_amount": _decimal_to_artifact(source_point.explicit_fee_total),
+                    "fee_cashflow_amount": _decimal_to_artifact(fee_total),
                 }
             )
         if fee_total > 0 or (source_point.explicit_fee_total is not None and source_point.explicit_fee_total > 0):
             self.positive_fee_signal_samples.append(
                 {
                     "valuation_date": source_point.valuation_date,
-                    "detailed_fee_amount": float(fee_total),
-                    "explicit_fee_amount": (
-                        float(source_point.explicit_fee_total) if source_point.explicit_fee_total is not None else None
-                    ),
+                    "detailed_fee_amount": _decimal_to_artifact(fee_total),
+                    "explicit_fee_amount": _optional_decimal_to_artifact(source_point.explicit_fee_total),
                 }
             )
         if source_point.fee_bod_timing_rows:
@@ -364,11 +370,11 @@ def _record_external_source_signal(
     explicit_total: Decimal,
     detailed_total: Decimal,
 ) -> None:
-    sample = {
+    sample: dict[str, object] = {
         "valuation_date": valuation_date,
         "timing": timing,
-        "explicit_cashflow_amount": float(explicit_total),
-        "detailed_cashflow_amount": float(detailed_total),
+        "explicit_cashflow_amount": _decimal_to_artifact(explicit_total),
+        "detailed_cashflow_amount": _decimal_to_artifact(detailed_total),
     }
     if _amounts_match(explicit_total, detailed_total):
         sample_target.append(sample)
@@ -391,8 +397,8 @@ def _record_external_timing_contradictions(
                 "valuation_date": source_point.valuation_date,
                 "explicit_timing": "bod",
                 "opposite_detailed_timing": "eod",
-                "explicit_cashflow_amount": float(source_point.explicit_bod_total),
-                "opposite_detailed_cashflow_amount": float(source_point.detailed_external_eod),
+                "explicit_cashflow_amount": _decimal_to_artifact(source_point.explicit_bod_total),
+                "opposite_detailed_cashflow_amount": _decimal_to_artifact(source_point.detailed_external_eod),
             }
         )
     if (
@@ -405,8 +411,8 @@ def _record_external_timing_contradictions(
                 "valuation_date": source_point.valuation_date,
                 "explicit_timing": "eod",
                 "opposite_detailed_timing": "bod",
-                "explicit_cashflow_amount": float(source_point.explicit_eod_total),
-                "opposite_detailed_cashflow_amount": float(source_point.detailed_external_bod),
+                "explicit_cashflow_amount": _decimal_to_artifact(source_point.explicit_eod_total),
+                "opposite_detailed_cashflow_amount": _decimal_to_artifact(source_point.detailed_external_bod),
             }
         )
 

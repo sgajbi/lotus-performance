@@ -268,7 +268,7 @@ def _as_int(value: object) -> int:
         return int(value)
     if isinstance(value, int):
         return value
-    if isinstance(value, float):
+    if isinstance(value, float):  # monetary-float-allow
         return int(value)
     return -1
 

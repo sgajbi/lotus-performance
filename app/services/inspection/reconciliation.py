@@ -16,6 +16,14 @@ _INSPECTOR_CONSUMER_SYSTEM = "lotus-performance-inspector"
 _RECONCILIATION_SAMPLE_LIMIT = 25
 
 
+def _decimal_to_artifact(value: Decimal) -> str:
+    return format(value, "f")
+
+
+def _decimal_pct_to_float(pct: Decimal) -> float:
+    return float(pct)  # monetary-float-allow
+
+
 @dataclass(frozen=True)
 class ReconciliationCheckResult:
     findings: list[TWRInspectionFinding]
@@ -206,13 +214,13 @@ def analyze_portfolio_position_reconciliation(
         max_abs_gap_amount = max(max_abs_gap_amount, abs(gap_amount))
         gap_pct = None
         if portfolio_end != 0:
-            gap_pct = float((gap_amount / portfolio_end) * Decimal("100"))
+            gap_pct = _decimal_pct_to_float((gap_amount / portfolio_end) * Decimal("100"))
         gap_details.append(
             {
                 "valuation_date": valuation_date,
-                "portfolio_end_mv": float(portfolio_end),
-                "latest_position_end_mv": float(position_end),
-                "gap_amount": float(gap_amount),
+                "portfolio_end_mv": _decimal_to_artifact(portfolio_end),
+                "latest_position_end_mv": _decimal_to_artifact(position_end),
+                "gap_amount": _decimal_to_artifact(gap_amount),
                 "gap_pct_of_portfolio_end": gap_pct,
             }
         )
@@ -237,7 +245,7 @@ def analyze_portfolio_position_reconciliation(
                     "portfolio_id": portfolio_id,
                     "reconciliation_gap_dates": [detail["valuation_date"] for detail in gap_details[:10]],
                     "gap_samples": gap_details[:10],
-                    "max_gap_amount": float(max_abs_gap_amount),
+                    "max_gap_amount": _decimal_to_artifact(max_abs_gap_amount),
                 },
             )
         )
@@ -288,7 +296,7 @@ def analyze_portfolio_position_reconciliation(
             ),
             "invalid_position_value_row_count": len(invalid_position_value_samples),
             "reconciliation_gap_date_count": len(gap_details),
-            "reconciliation_max_gap_amount": float(max_abs_gap_amount),
+            "reconciliation_max_gap_amount": _decimal_to_artifact(max_abs_gap_amount),
             "position_continuity_gap_count": len(position_continuity_gap_samples),
         },
         artifact_payload={
@@ -310,7 +318,7 @@ def analyze_portfolio_position_reconciliation(
             "invalid_position_value_row_count": len(invalid_position_value_samples),
             "invalid_position_value_samples": invalid_position_value_samples[:25],
             "reconciliation_gap_date_count": len(gap_details),
-            "max_gap_amount": float(max_abs_gap_amount),
+            "max_gap_amount": _decimal_to_artifact(max_abs_gap_amount),
             "gap_samples": gap_details[:_RECONCILIATION_SAMPLE_LIMIT],
             "position_continuity_gap_count": len(position_continuity_gap_samples),
             "position_continuity_gap_samples": position_continuity_gap_samples[:_RECONCILIATION_SAMPLE_LIMIT],
@@ -437,16 +445,16 @@ def _build_position_continuity_gap_sample(
 
     gap_pct = None
     if previous_end != 0:
-        gap_pct = float((gap_amount / previous_end) * Decimal("100"))
+        gap_pct = _decimal_pct_to_float((gap_amount / previous_end) * Decimal("100"))
     return {
         "position_id": position_id,
         "previous_valuation_date": previous_row.get("valuation_date"),
         "valuation_date": current_row.get("valuation_date"),
         "previous_end_value_field": previous_end_field,
         "current_begin_value_field": current_begin_field,
-        "previous_end_value": float(previous_end),
-        "current_begin_value": float(current_begin),
-        "gap_amount": float(gap_amount),
+        "previous_end_value": _decimal_to_artifact(previous_end),
+        "current_begin_value": _decimal_to_artifact(current_begin),
+        "gap_amount": _decimal_to_artifact(gap_amount),
         "gap_pct_of_previous_end": gap_pct,
     }
 

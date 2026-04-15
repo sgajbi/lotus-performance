@@ -4,6 +4,7 @@ import asyncio
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation
+from numbers import Real
 
 from app.core.config import Settings, get_settings
 from app.models.inspection_responses import TWRInspectionFinding
@@ -18,6 +19,10 @@ from app.services.source_cashflow_taxonomy import classify_cashflow_type
 
 _INSPECTOR_CONSUMER_SYSTEM = "lotus-performance-inspector"
 _SAMPLE_LIMIT = 25
+
+
+def _decimal_to_artifact(value: Decimal) -> str:
+    return format(value, "f")
 
 
 @dataclass(frozen=True)
@@ -474,7 +479,7 @@ def _sum_detailed_cash_flows(cash_flows_raw: object) -> DetailedCashFlowEconomic
             invalid_timing_rows.append(
                 {
                     "timing": normalized_timing,
-                    "amount": float(amount),
+                    "amount": _decimal_to_artifact(amount),
                     "cash_flow_type": cash_flow_type,
                 }
             )
@@ -482,14 +487,14 @@ def _sum_detailed_cash_flows(cash_flows_raw: object) -> DetailedCashFlowEconomic
         cashflow_type_classification = classify_cashflow_type(cash_flow_type)
         normalized_cash_flow_type = cashflow_type_classification.normalized_value
         if cashflow_type_classification.economics_role == "missing":
-            missing_cashflow_type_rows.append({"timing": normalized_timing, "amount": float(amount)})
+            missing_cashflow_type_rows.append({"timing": normalized_timing, "amount": _decimal_to_artifact(amount)})
         elif not cashflow_type_classification.canonical:
             if normalized_cash_flow_type is None:
                 continue
             noncanonical_cashflow_types.add(normalized_cash_flow_type)
             sample_row = {
                 "timing": normalized_timing,
-                "amount": float(amount),
+                "amount": _decimal_to_artifact(amount),
                 "cash_flow_type": normalized_cash_flow_type,
             }
             if cashflow_type_classification.governed_alias:
@@ -502,7 +507,7 @@ def _sum_detailed_cash_flows(cash_flows_raw: object) -> DetailedCashFlowEconomic
                 fee_bod_timing_rows.append(
                     {
                         "timing": normalized_timing,
-                        "amount": float(amount),
+                        "amount": _decimal_to_artifact(amount),
                         "cash_flow_type": normalized_cash_flow_type,
                     }
                 )
@@ -558,8 +563,8 @@ def _read_explicit_decimal_fields(
                         "semantic": semantic,
                         "raw_value": raw_value,
                         "resolved_field": decimal_field,
-                        "resolved_value": float(decimal_value),
-                        "conflicting_value": float(parsed_value),
+                        "resolved_value": _decimal_to_artifact(decimal_value),
+                        "conflicting_value": _decimal_to_artifact(parsed_value),
                     }
                 )
             continue
@@ -568,7 +573,9 @@ def _read_explicit_decimal_fields(
 
 
 def _sample_raw_collection_value(raw_value: object) -> object:
-    if isinstance(raw_value, str | int | float | bool) or raw_value is None:
+    if isinstance(raw_value, str | bool) or raw_value is None:
+        return raw_value
+    if isinstance(raw_value, Real):
         return raw_value
     if isinstance(raw_value, dict):
         return raw_value

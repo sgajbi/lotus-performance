@@ -1,7 +1,9 @@
 from datetime import date
+from decimal import Decimal
 
 from app.models.inspection_requests import TWRInspectionProfile
 from app.models.requests import Analysis, DailyInputData, PerformanceRequest
+from app.services.inspection import reconciliation
 from app.services.inspection.reconciliation import analyze_portfolio_position_reconciliation
 
 
@@ -62,7 +64,7 @@ def test_analyze_portfolio_position_reconciliation_flags_mixed_epochs_and_gap():
     }
     assert result.evidence_summary["mixed_epoch_date_count"] == 1
     assert result.evidence_summary["reconciliation_gap_date_count"] == 2
-    assert result.evidence_summary["reconciliation_max_gap_amount"] > 30
+    assert Decimal(str(result.evidence_summary["reconciliation_max_gap_amount"])) > Decimal("30")
 
 
 def test_analyze_portfolio_position_reconciliation_accepts_coherent_rows():
@@ -160,9 +162,9 @@ def test_analyze_portfolio_position_reconciliation_flags_unexplained_position_be
             "valuation_date": "2025-04-26",
             "previous_end_value_field": "ending_market_value_portfolio_currency",
             "current_begin_value_field": "beginning_market_value_portfolio_currency",
-            "previous_end_value": 87129.93,
-            "current_begin_value": 0.0,
-            "gap_amount": -87129.93,
+            "previous_end_value": "87129.93",
+            "current_begin_value": "0.00",
+            "gap_amount": "-87129.93",
             "gap_pct_of_previous_end": -100.0,
         }
     ]
@@ -248,6 +250,69 @@ def test_analyze_portfolio_position_reconciliation_uses_position_currency_for_co
     )
 
     assert "POSITION_BEGIN_VALUE_CARRY_FORWARD_BREAK" not in {finding.code for finding in result.findings}
+    assert result.evidence_summary["position_continuity_gap_count"] == 0
+
+
+def test_reconciliation_handles_malformed_position_payload_edges():
+    rows = reconciliation._position_rows_from_payload({"rows": {"not": "a-list"}})
+    assert rows == []
+
+    result = analyze_portfolio_position_reconciliation(
+        performance_request=PerformanceRequest(
+            portfolio_id="PB_SG_GLOBAL_BAL_001",
+            performance_start_date=date(2026, 1, 1),
+            metric_basis="NET",
+            report_end_date=date(2026, 1, 3),
+            analyses=[Analysis(period="YTD", frequencies=["daily"])],
+            valuation_points=[
+                DailyInputData(perf_date=date(2026, 1, 1), begin_mv=1000.0, end_mv=1000.0),
+                DailyInputData(perf_date=date(2026, 1, 2), begin_mv=1000.0, end_mv=1000.0),
+                DailyInputData(perf_date=date(2026, 1, 3), begin_mv=1000.0, end_mv=1000.0),
+            ],
+        ),
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        inspection_profile=TWRInspectionProfile.DEEP_RECONCILIATION,
+        position_rows=[
+            {"valuation_date": None, "position_id": "IGNORED", "ending_market_value_portfolio_currency": "10"},
+            {"valuation_date": "2026-01-01", "position_id": "SEC_1", "snapshot_epoch": "bad"},
+            {
+                "valuation_date": "2026-01-01",
+                "position_id": "SEC_1",
+                "valuation_epoch": 1,
+                "ending_market_value_reporting_currency": "1000.00",
+            },
+            {
+                "valuation_date": "2026-01-01",
+                "position_id": "SEC_1",
+                "valuation_epoch": 1,
+                "ending_market_value_reporting_currency": "1000.00",
+            },
+            {
+                "valuation_date": "2026-01-01",
+                "position_id": "SEC_1",
+                "valuation_epoch": 1,
+                "ending_market_value_reporting_currency": "1000.00",
+            },
+            {
+                "valuation_date": "2026-01-02",
+                "position_id": "SEC_1",
+                "beginning_market_value_reporting_currency": "0.00",
+                "ending_market_value_reporting_currency": "1000.00",
+                "cash_flows": [{"amount": "1000.00"}],
+            },
+            {
+                "valuation_date": "2026-01-03",
+                "position_id": "SEC_1",
+                "beginning_market_value_reporting_currency": "0.00",
+                "ending_market_value_reporting_currency": "1000.00",
+                "trade_amount": "1000.00",
+            },
+        ],
+    )
+
+    assert result.evidence_summary["duplicate_snapshot_row_count"] == 1
+    assert result.artifact_payload["duplicate_snapshot_samples"][0]["duplicate_count"] == 3
+    assert result.evidence_summary["invalid_position_epoch_row_count"] == 1
     assert result.evidence_summary["position_continuity_gap_count"] == 0
 
 

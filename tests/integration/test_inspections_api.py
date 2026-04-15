@@ -439,8 +439,8 @@ def test_twr_inspection_runs_reconciliation_for_resolved_stateful_subject(client
                     "semantic": "bod_cashflow_total",
                     "raw_value": "4900.0",
                     "resolved_field": "bod_cashflow",
-                    "resolved_value": 5000.0,
-                    "conflicting_value": 4900.0,
+                    "resolved_value": "5000.0",
+                    "conflicting_value": "4900.0",
                 }
             ],
         }
@@ -463,13 +463,13 @@ def test_twr_inspection_runs_reconciliation_for_resolved_stateful_subject(client
     assert source_economics_body["invalid_cashflow_timing_samples"] == [
         {
             "valuation_date": "2026-01-02",
-            "rows": [{"timing": "intraday", "amount": 3.0, "cash_flow_type": "external_flow"}],
+            "rows": [{"timing": "intraday", "amount": "3.0", "cash_flow_type": "external_flow"}],
         }
     ]
     assert source_economics_body["missing_cashflow_type_samples"] == [
         {
             "valuation_date": "2026-01-02",
-            "rows": [{"timing": "eod", "amount": 1.0}],
+            "rows": [{"timing": "eod", "amount": "1.0"}],
         }
     ]
     assert source_economics_body["noncanonical_cashflow_types"] == ["dividend"]
@@ -616,10 +616,55 @@ def test_twr_inspection_artifact_exposes_external_timing_contradiction_samples(c
             "valuation_date": "2026-01-02",
             "explicit_timing": "bod",
             "opposite_detailed_timing": "eod",
-            "explicit_cashflow_amount": -1000.0,
-            "opposite_detailed_cashflow_amount": -1000.0,
+            "explicit_cashflow_amount": "-1000.0",
+            "opposite_detailed_cashflow_amount": "-1000.0",
         }
     ]
+
+
+def test_twr_inspection_artifact_serves_pending_payload_when_file_not_materialized(client):
+    inspection_id = uuid4()
+    lineage_metadata_store.enqueue_lineage_payload(
+        calculation_id=inspection_id,
+        calculation_type="TWR_INSPECTION",
+        request_json="{}",
+        response_json="{}",
+        details={"inspection_summary.json": '{"status":"complete"}'},
+    )
+    lineage_metadata_store.mark_complete(
+        inspection_id,
+        artifact_names=["inspection_summary.json"],
+    )
+
+    response = client.get(f"/performance/inspections/{inspection_id}/artifacts/inspection_summary.json")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "complete"}
+    assert response.headers["content-disposition"] == 'attachment; filename="inspection_summary.json"'
+
+
+def test_twr_inspection_artifact_reports_missing_record_and_missing_storage(client):
+    missing_id = uuid4()
+    missing_response = client.get(f"/performance/inspections/{missing_id}/artifacts/inspection_summary.json")
+    assert missing_response.status_code == 404
+
+    inspection_id = uuid4()
+    lineage_metadata_store.enqueue_lineage_payload(
+        calculation_id=inspection_id,
+        calculation_type="TWR_INSPECTION",
+        request_json="{}",
+        response_json="{}",
+        details={},
+    )
+    lineage_metadata_store.mark_complete(
+        inspection_id,
+        artifact_names=["inspection_summary.json"],
+    )
+
+    missing_storage_response = client.get(f"/performance/inspections/{inspection_id}/artifacts/inspection_summary.json")
+
+    assert missing_storage_response.status_code == 503
+    assert missing_storage_response.json()["detail"] == "Inspection artifact is missing from storage."
 
 
 def test_twr_inspection_flags_relative_arithmetic_mismatch_for_existing_calculation(client):

@@ -51,7 +51,7 @@ class DailyMoveInputsAssessment:
 @dataclass(frozen=True)
 class DailyMove:
     perf_date: str
-    return_pct: float
+    return_pct: float  # monetary-float-allow
 
     def to_artifact(self) -> dict[str, float | str]:
         return {"perf_date": self.perf_date, "return_pct": self.return_pct}

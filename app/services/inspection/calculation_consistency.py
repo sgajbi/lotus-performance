@@ -342,7 +342,7 @@ def _subtract_return_values(
     )
 
 
-def _link_returns(values: Iterable[float]) -> float:
+def _link_returns(values: Iterable[float]) -> float:  # monetary-float-allow
     running = 1.0
     for value in values:
         running *= 1 + (value / 100.0)
