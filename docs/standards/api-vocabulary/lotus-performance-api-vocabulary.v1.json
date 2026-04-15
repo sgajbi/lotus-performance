@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-04-15T12:17:40.668434+00:00",
+  "generatedAt": "2026-04-15T12:24:29.969279+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.account_reset_shadow_days",
@@ -207,8 +207,8 @@
       "semanticId": "lotus.analytics_type",
       "canonicalTerm": "analytics_type",
       "preferredName": "analytics_type",
-      "description": "execution response field: analytics type.",
-      "example": "example_analytics_type",
+      "description": "Analytics family associated with this execution.",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -325,8 +325,8 @@
       "semanticId": "lotus.as_of_date",
       "canonicalTerm": "as_of_date",
       "preferredName": "as_of_date",
-      "description": "upstream snapshot response field: as of date.",
-      "example": "2026-02-27",
+      "description": "Business date associated with the upstream snapshot.",
+      "example": "2025-03-31",
       "type": "string",
       "locations": [
         "body"
@@ -339,13 +339,13 @@
       "semanticId": "lotus.async_result",
       "canonicalTerm": "async_result",
       "preferredName": "async_result",
-      "description": "execution response field: async result.",
+      "description": "Endpoint-specific async result metadata when a durable result record exists.",
       "example": {
-        "result_status": "example_result_status",
-        "error_message": "example_error_message",
-        "error_type": "example_error_type",
-        "created_at_utc": "example_created_at_utc",
-        "updated_at_utc": "2026-02-27"
+        "result_status": "complete",
+        "error_message": "explode",
+        "error_type": "RuntimeError",
+        "created_at_utc": "2026-04-10T12:00:06Z",
+        "updated_at_utc": "2026-04-10T12:00:08Z"
       },
       "type": "object",
       "locations": [
@@ -811,8 +811,8 @@
       "semanticId": "lotus.completed_at_utc",
       "canonicalTerm": "completed_at_utc",
       "preferredName": "completed_at_utc",
-      "description": "execution response field: completed at utc.",
-      "example": "example_completed_at_utc",
+      "description": "UTC timestamp when execution reached a terminal state.",
+      "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [
         "body"
@@ -911,20 +911,20 @@
       "semanticId": "lotus.compute_job",
       "canonicalTerm": "compute_job",
       "preferredName": "compute_job",
-      "description": "execution response field: compute job.",
+      "description": "Async compute-job metadata when this execution used the compute executor.",
       "example": {
-        "job_status": "example_job_status",
+        "job_status": "pending",
         "attempt_count": 1,
-        "max_attempts": 1,
-        "worker_id": "WORKER_001",
-        "error_message": "example_error_message",
-        "error_type": "example_error_type",
-        "leased_at_utc": "example_leased_at_utc",
-        "lease_expires_at_utc": "example_lease_expires_at_utc",
-        "last_error_at_utc": "example_last_error_at_utc",
-        "created_at_utc": "example_created_at_utc",
-        "started_at_utc": "example_started_at_utc",
-        "completed_at_utc": "example_completed_at_utc"
+        "max_attempts": 3,
+        "worker_id": "performance-compute-executor-1",
+        "error_message": "temporary upstream issue",
+        "error_type": "HTTPException",
+        "leased_at_utc": "2026-04-10T12:00:03Z",
+        "lease_expires_at_utc": "2026-04-10T12:05:03Z",
+        "last_error_at_utc": "2026-04-10T12:00:04Z",
+        "created_at_utc": "2026-04-10T12:00:00Z",
+        "started_at_utc": "2026-04-10T12:00:03Z",
+        "completed_at_utc": "2026-04-10T12:00:08Z"
       },
       "type": "object",
       "locations": [
@@ -1105,8 +1105,8 @@
       "semanticId": "lotus.created_at_utc",
       "canonicalTerm": "created_at_utc",
       "preferredName": "created_at_utc",
-      "description": "execution response field: created at utc.",
-      "example": "example_created_at_utc",
+      "description": "UTC timestamp when the execution record was created.",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -1415,10 +1415,8 @@
       "semanticId": "lotus.details",
       "canonicalTerm": "details",
       "preferredName": "details",
-      "description": "Optional stage metadata details.",
-      "example": {
-        "key": "value"
-      },
+      "description": "Stage-specific metadata such as observation counts, chunk counts, or materialized artifact names.",
+      "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [
         "body"
@@ -1629,8 +1627,8 @@
       "semanticId": "lotus.error_message",
       "canonicalTerm": "error_message",
       "preferredName": "error_message",
-      "description": "execution response field: error message.",
-      "example": "example_error_message",
+      "description": "Top-level execution failure message when the calculation failed.",
+      "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [
         "body"
@@ -1671,8 +1669,8 @@
       "semanticId": "lotus.execution_mode",
       "canonicalTerm": "execution_mode",
       "preferredName": "execution_mode",
-      "description": "execution response field: execution mode.",
-      "example": "async",
+      "description": "Whether the calculation ran inline or through the async compute executor.",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -3486,10 +3484,8 @@
       "semanticId": "lotus.paging_metadata",
       "canonicalTerm": "paging_metadata",
       "preferredName": "paging_metadata",
-      "description": "upstream snapshot response field: paging metadata.",
-      "example": {
-        "key": "value"
-      },
+      "description": "Optional paging or chunking metadata captured during upstream retrieval.",
+      "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [
         "body"
@@ -4438,8 +4434,8 @@
       "semanticId": "lotus.request_fingerprint",
       "canonicalTerm": "request_fingerprint",
       "preferredName": "request_fingerprint",
-      "description": "upstream snapshot response field: request fingerprint.",
-      "example": "example_request_fingerprint",
+      "description": "Stable fingerprint of the upstream request payload.",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -4452,7 +4448,7 @@
       "semanticId": "lotus.requested_window",
       "canonicalTerm": "requested_window",
       "preferredName": "requested_window",
-      "description": "execution response field: requested window.",
+      "description": "Normalized request-window metadata captured for operator and downstream polling.",
       "example": {
         "key": "value"
       },
@@ -4572,8 +4568,8 @@
       "semanticId": "lotus.response_fingerprint",
       "canonicalTerm": "response_fingerprint",
       "preferredName": "response_fingerprint",
-      "description": "upstream snapshot response field: response fingerprint.",
-      "example": "example_response_fingerprint",
+      "description": "Stable fingerprint of the upstream response payload.",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -4704,8 +4700,8 @@
       "semanticId": "lotus.retrieval_status",
       "canonicalTerm": "retrieval_status",
       "preferredName": "retrieval_status",
-      "description": "upstream snapshot response field: retrieval status.",
-      "example": "example_retrieval_status",
+      "description": "Upstream retrieval outcome, usually the HTTP status code or governed retrieval state.",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -5098,8 +5094,8 @@
       "semanticId": "lotus.snapshot_id",
       "canonicalTerm": "snapshot_id",
       "preferredName": "snapshot_id",
-      "description": "Unique snapshot identifier.",
-      "example": "SNAPSHOT_001",
+      "description": "Durable upstream snapshot identifier recorded for this calculation.",
+      "example": "ENTITY_001",
       "type": "string",
       "locations": [
         "body"
@@ -5142,8 +5138,8 @@
       "semanticId": "lotus.source_identifier",
       "canonicalTerm": "source_identifier",
       "preferredName": "source_identifier",
-      "description": "upstream snapshot response field: source identifier.",
-      "example": "example_source_identifier",
+      "description": "Portfolio, benchmark, index, or source identifier used for upstream retrieval.",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -5184,8 +5180,8 @@
       "semanticId": "lotus.stage_name",
       "canonicalTerm": "stage_name",
       "preferredName": "stage_name",
-      "description": "Internal execution stage name.",
-      "example": "example_stage_name",
+      "description": "Stable execution stage name within the calculation lifecycle.",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -5198,17 +5194,19 @@
       "semanticId": "lotus.stages",
       "canonicalTerm": "stages",
       "preferredName": "stages",
-      "description": "execution response field: stages.",
+      "description": "Ordered stage-level lifecycle records for retrieval, normalization, execution, lineage, or submission.",
       "example": [
         {
-          "stage_name": "example_stage_name",
-          "status": "pending",
-          "started_at_utc": "example_started_at_utc",
-          "completed_at_utc": "example_completed_at_utc",
+          "stage_name": "execution",
+          "status": "complete",
+          "started_at_utc": "2026-04-10T12:00:01Z",
+          "completed_at_utc": "2026-04-10T12:00:02Z",
           "details": {
-            "key": "value"
+            "portfolio_chunk_count": 1,
+            "portfolio_observations": 3,
+            "portfolio_page_count": 1
           },
-          "error_message": "example_error_message"
+          "error_message": "temporary upstream issue"
         }
       ],
       "type": "array",
@@ -5238,8 +5236,8 @@
       "semanticId": "lotus.started_at_utc",
       "canonicalTerm": "started_at_utc",
       "preferredName": "started_at_utc",
-      "description": "execution response field: started at utc.",
-      "example": "example_started_at_utc",
+      "description": "UTC timestamp when execution started.",
+      "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [
         "body"
@@ -5309,8 +5307,8 @@
       "semanticId": "lotus.status",
       "canonicalTerm": "status",
       "preferredName": "status",
-      "description": "execution response field: status.",
-      "example": "pending",
+      "description": "Overall execution lifecycle status. Typical values are pending, running, complete, and failed.",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body",
@@ -5755,8 +5753,8 @@
       "semanticId": "lotus.upstream_endpoint",
       "canonicalTerm": "upstream_endpoint",
       "preferredName": "upstream_endpoint",
-      "description": "upstream snapshot response field: upstream endpoint.",
-      "example": "example_upstream_endpoint",
+      "description": "Canonical upstream contract family or endpoint that produced the snapshot.",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -5769,20 +5767,21 @@
       "semanticId": "lotus.upstream_snapshots",
       "canonicalTerm": "upstream_snapshots",
       "preferredName": "upstream_snapshots",
-      "description": "execution response field: upstream snapshots.",
+      "description": "Durable upstream source snapshots captured during stateful calculation sourcing.",
       "example": [
         {
-          "snapshot_id": "SNAPSHOT_001",
-          "upstream_endpoint": "example_upstream_endpoint",
-          "source_identifier": "example_source_identifier",
-          "as_of_date": "2026-02-27",
-          "request_fingerprint": "example_request_fingerprint",
-          "response_fingerprint": "example_response_fingerprint",
-          "retrieval_status": "example_retrieval_status",
+          "snapshot_id": "portfolio_timeseries:PB_SG_GLOBAL_BAL_001:2026-04-10",
+          "upstream_endpoint": "portfolio_timeseries",
+          "source_identifier": "PB_SG_GLOBAL_BAL_001",
+          "as_of_date": "2026-04-10",
+          "request_fingerprint": "sha256:request-fingerprint",
+          "response_fingerprint": "sha256:response-fingerprint",
+          "retrieval_status": "200",
           "paging_metadata": {
-            "key": "value"
+            "chunk_count": 1,
+            "page_count": 1
           },
-          "created_at_utc": "example_created_at_utc"
+          "created_at_utc": "2026-04-10T12:00:00Z"
         }
       ],
       "type": "array",
@@ -6037,7 +6036,7 @@
       "location": "path",
       "required": true,
       "type": "string",
-      "description": "Canonical calculation id used by lotus-performance APIs.",
+      "description": "Durable calculation identifier returned by an analytics endpoint.",
       "example": "ENTITY_001",
       "allowedValues": [],
       "semanticId": "lotus.calculation_id",
@@ -9167,7 +9166,7 @@
           {
             "name": "portfolio_id",
             "location": "body",
-            "required": true,
+            "required": false,
             "type": "object",
             "semanticId": "lotus.portfolio_id",
             "attributeRef": "#/attributeCatalog/lotus.portfolio_id"
@@ -9199,7 +9198,7 @@
           {
             "name": "input_fingerprint",
             "location": "body",
-            "required": true,
+            "required": false,
             "type": "object",
             "semanticId": "lotus.input_fingerprint",
             "attributeRef": "#/attributeCatalog/lotus.input_fingerprint"
@@ -9207,7 +9206,7 @@
           {
             "name": "calculation_hash",
             "location": "body",
-            "required": true,
+            "required": false,
             "type": "object",
             "semanticId": "lotus.calculation_hash",
             "attributeRef": "#/attributeCatalog/lotus.calculation_hash"
@@ -9215,7 +9214,7 @@
           {
             "name": "error_message",
             "location": "body",
-            "required": true,
+            "required": false,
             "type": "object",
             "semanticId": "lotus.error_message",
             "attributeRef": "#/attributeCatalog/lotus.error_message"
@@ -9231,7 +9230,7 @@
           {
             "name": "started_at_utc",
             "location": "body",
-            "required": true,
+            "required": false,
             "type": "object",
             "semanticId": "lotus.started_at_utc",
             "attributeRef": "#/attributeCatalog/lotus.started_at_utc"
@@ -9239,7 +9238,7 @@
           {
             "name": "completed_at_utc",
             "location": "body",
-            "required": true,
+            "required": false,
             "type": "object",
             "semanticId": "lotus.completed_at_utc",
             "attributeRef": "#/attributeCatalog/lotus.completed_at_utc"

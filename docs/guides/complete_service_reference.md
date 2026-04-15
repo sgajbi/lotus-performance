@@ -710,6 +710,8 @@ Sample response:
 Purpose:
 
 - poll the durable execution lifecycle for any async-capable workflow
+- use the endpoint-specific `result_path` after `status` becomes `complete`
+- inspect stage progress, upstream snapshots, retry state, and terminal failure metadata
 
 Sample response:
 
@@ -717,20 +719,70 @@ Sample response:
 {
   "calculation_id": "0d000003-1111-4222-8333-abcdefabcdef",
   "analytics_type": "WORKSPACE_SUMMARY",
+  "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+  "execution_mode": "async",
   "status": "complete",
+  "requested_window": {
+    "start_date": "2026-01-01",
+    "end_date": "2026-04-10",
+    "input_count": 100
+  },
+  "input_fingerprint": "sha256:input-fingerprint",
+  "calculation_hash": "sha256:calculation-output",
+  "error_message": null,
+  "created_at_utc": "2026-04-10T12:00:00Z",
+  "started_at_utc": "2026-04-10T12:00:01Z",
+  "completed_at_utc": "2026-04-10T12:00:08Z",
   "stages": [
-    { "name": "execution", "status": "complete" },
-    { "name": "lineage", "status": "queued" }
+    {
+      "stage_name": "execution",
+      "status": "complete",
+      "started_at_utc": "2026-04-10T12:00:01Z",
+      "completed_at_utc": "2026-04-10T12:00:08Z",
+      "details": { "input_count": 100 },
+      "error_message": null
+    }
+  ],
+  "upstream_snapshots": [
+    {
+      "snapshot_id": "portfolio_timeseries:PB_SG_GLOBAL_BAL_001:2026-04-10",
+      "upstream_endpoint": "portfolio_timeseries",
+      "source_identifier": "PB_SG_GLOBAL_BAL_001",
+      "as_of_date": "2026-04-10",
+      "request_fingerprint": "sha256:request-fingerprint",
+      "response_fingerprint": "sha256:response-fingerprint",
+      "retrieval_status": "200",
+      "paging_metadata": { "chunk_count": 1, "page_count": 1 },
+      "created_at_utc": "2026-04-10T12:00:00Z"
+    }
   ],
   "compute_job": {
-    "status": "complete"
+    "job_status": "complete",
+    "attempt_count": 1,
+    "max_attempts": 3,
+    "worker_id": "performance-compute-executor-1",
+    "error_message": null,
+    "error_type": null,
+    "leased_at_utc": "2026-04-10T12:00:03Z",
+    "lease_expires_at_utc": "2026-04-10T12:05:03Z",
+    "last_error_at_utc": null,
+    "created_at_utc": "2026-04-10T12:00:00Z",
+    "started_at_utc": "2026-04-10T12:00:03Z",
+    "completed_at_utc": "2026-04-10T12:00:08Z"
   },
   "async_result": {
-    "status": "complete",
-    "result_path": "/performance/workspace-summary/results/0d000003-1111-4222-8333-abcdefabcdef"
+    "result_status": "complete",
+    "error_message": null,
+    "error_type": null,
+    "created_at_utc": "2026-04-10T12:00:06Z",
+    "updated_at_utc": "2026-04-10T12:00:08Z"
   }
 }
 ```
+
+Certification evidence:
+
+- `docs/technical/execution-polling-endpoint-certification.md`
 
 ### `GET /performance/lineage/{calculation_id}`
 

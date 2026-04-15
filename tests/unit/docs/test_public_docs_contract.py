@@ -36,6 +36,26 @@ def test_user_guide_documents_async_execution_surfaces():
     assert "/performance/lineage/{calculation_id}/artifacts/{artifact_name}" in guide
 
 
+def test_execution_polling_docs_reflect_certified_contract():
+    readme = _read("README.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    complete_reference = _read("docs/guides/complete_service_reference.md")
+    certification = _read("docs/technical/execution-polling-endpoint-certification.md")
+
+    assert "technical/execution-polling-endpoint-certification.md" in readme
+    assert "app.models.execution_polling.ExecutionResponse" in api_reference
+    assert "upstream_snapshots[]" in api_reference
+    assert "`lotus-risk` uses this endpoint" in api_reference
+    assert "docs/technical/execution-polling-endpoint-certification.md" in api_reference
+    assert '"stage_name": "execution"' in complete_reference
+    assert '"job_status": "complete"' in complete_reference
+    assert '"result_status": "complete"' in complete_reference
+    assert "Downstream Consumers" in certification
+    assert "`lotus-risk`" in certification
+    assert "Test Pyramid Assessment" in certification
+    assert "No duplicate lotus-performance polling endpoint" in certification
+
+
 def test_twr_guide_uses_current_request_shape():
     guide = _read("docs/guides/twr.md")
     certification = _read("docs/technical/twr-endpoint-certification.md")

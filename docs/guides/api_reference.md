@@ -38,6 +38,26 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - completed: `app.models.responses.PerformanceResponse`
   - still running: `app.models.responses.TWRAcceptedResponse`
 
+### `GET /performance/executions/{calculation_id}`
+
+- purpose: poll durable execution lifecycle state for async and synchronous calculations
+- response model: `app.models.execution_polling.ExecutionResponse`
+- use this endpoint when:
+  - an analytics endpoint returns `202 Accepted` with a `poll_path`
+  - support needs to inspect stage progress, retry state, terminal failure details, or upstream snapshot lineage
+  - downstream clients need to decide whether to continue polling or call the endpoint-specific `result_path`
+- do not use this endpoint as the analytics result payload; call the endpoint-specific result route once `status=complete`
+- response includes:
+  - top-level `status`, `execution_mode`, `analytics_type`, `portfolio_id`, requested-window metadata, timestamps, and fingerprints
+  - `stages[]` for submission, retrieval, normalization, execution, and lineage materialization progress where applicable
+  - `upstream_snapshots[]` for stateful source provenance including upstream endpoint, source identifier, fingerprints, retrieval status, and paging metadata
+  - `compute_job` for async executor status, attempts, worker lease, retry, and failure-pressure metadata
+  - `async_result` for endpoint-specific result materialization status and terminal error details
+- downstream consumers:
+  - `lotus-risk` uses this endpoint when polling async returns-series integration results
+  - `lotus-gateway` currently handles synchronous analytics and accepted-payload replay behavior but does not directly poll this endpoint
+- certification evidence: `docs/technical/execution-polling-endpoint-certification.md`
+
 ### `POST /performance/inspections/twr`
 
 - purpose: submit a durable supportability inspection for a TWR result or proposed TWR request
