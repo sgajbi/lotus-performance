@@ -47,6 +47,41 @@ class ObservationSourceEconomics:
     fee_bod_timing_rows: tuple[dict[str, object], ...]
 
 
+@dataclass(frozen=True)
+class RawObservationEconomics:
+    detailed_external_bod: Decimal
+    detailed_external_eod: Decimal
+    detailed_fee_bod: Decimal
+    detailed_fee_eod: Decimal
+    explicit_bod_total: Decimal | None
+    explicit_eod_total: Decimal | None
+    explicit_fee_total: Decimal | None
+    conflicting_explicit_amount_fields: tuple[dict[str, object], ...]
+    invalid_explicit_amount_fields: tuple[dict[str, object], ...]
+    invalid_amount_rows: tuple[dict[str, object], ...]
+    invalid_timing_rows: tuple[dict[str, object], ...]
+    missing_cashflow_type_rows: tuple[dict[str, object], ...]
+    noncanonical_cashflow_types: tuple[str, ...]
+    unsupported_cashflow_type_rows: tuple[dict[str, object], ...]
+    governed_alias_cashflow_type_rows: tuple[dict[str, object], ...]
+    fee_bod_timing_rows: tuple[dict[str, object], ...]
+
+
+@dataclass(frozen=True)
+class DetailedCashFlowEconomics:
+    external_bod: Decimal
+    external_eod: Decimal
+    fee_bod: Decimal
+    fee_eod: Decimal
+    invalid_amount_rows: tuple[dict[str, object], ...]
+    invalid_timing_rows: tuple[dict[str, object], ...]
+    missing_cashflow_type_rows: tuple[dict[str, object], ...]
+    noncanonical_cashflow_types: tuple[str, ...]
+    unsupported_cashflow_type_rows: tuple[dict[str, object], ...]
+    governed_alias_cashflow_type_rows: tuple[dict[str, object], ...]
+    fee_bod_timing_rows: tuple[dict[str, object], ...]
+
+
 def run_source_economics_checks(
     *,
     performance_request: PerformanceRequest,
@@ -332,84 +367,36 @@ def _build_observation_source_economics(
             valuation_date,
             {"bod_cf": Decimal("0"), "eod_cf": Decimal("0"), "mgmt_fees": Decimal("0")},
         )
-        (
-            detailed_external_bod,
-            detailed_external_eod,
-            detailed_fee_bod,
-            detailed_fee_eod,
-            explicit_bod_total,
-            explicit_eod_total,
-            explicit_fee_total,
-            conflicting_explicit_amount_fields,
-            invalid_explicit_amount_fields,
-            invalid_amount_rows,
-            invalid_timing_rows,
-            missing_cashflow_type_rows,
-            noncanonical_cashflow_types,
-            unsupported_cashflow_type_rows,
-            governed_alias_cashflow_type_rows,
-            fee_bod_timing_rows,
-        ) = _collect_observation_economics(observation)
+        raw_economics = _collect_observation_economics(observation)
         source_points.append(
             ObservationSourceEconomics(
                 valuation_date=valuation_date,
                 normalized_bod_cf=normalized_point["bod_cf"],
                 normalized_eod_cf=normalized_point["eod_cf"],
                 normalized_mgmt_fees=normalized_point["mgmt_fees"],
-                detailed_external_bod=detailed_external_bod,
-                detailed_external_eod=detailed_external_eod,
-                detailed_fee_bod=detailed_fee_bod,
-                detailed_fee_eod=detailed_fee_eod,
-                explicit_bod_total=explicit_bod_total,
-                explicit_eod_total=explicit_eod_total,
-                explicit_fee_total=explicit_fee_total,
-                conflicting_explicit_amount_fields=conflicting_explicit_amount_fields,
-                invalid_explicit_amount_fields=invalid_explicit_amount_fields,
-                invalid_amount_rows=invalid_amount_rows,
-                invalid_timing_rows=invalid_timing_rows,
-                missing_cashflow_type_rows=missing_cashflow_type_rows,
-                noncanonical_cashflow_types=noncanonical_cashflow_types,
-                unsupported_cashflow_type_rows=unsupported_cashflow_type_rows,
-                governed_alias_cashflow_type_rows=governed_alias_cashflow_type_rows,
-                fee_bod_timing_rows=fee_bod_timing_rows,
+                detailed_external_bod=raw_economics.detailed_external_bod,
+                detailed_external_eod=raw_economics.detailed_external_eod,
+                detailed_fee_bod=raw_economics.detailed_fee_bod,
+                detailed_fee_eod=raw_economics.detailed_fee_eod,
+                explicit_bod_total=raw_economics.explicit_bod_total,
+                explicit_eod_total=raw_economics.explicit_eod_total,
+                explicit_fee_total=raw_economics.explicit_fee_total,
+                conflicting_explicit_amount_fields=raw_economics.conflicting_explicit_amount_fields,
+                invalid_explicit_amount_fields=raw_economics.invalid_explicit_amount_fields,
+                invalid_amount_rows=raw_economics.invalid_amount_rows,
+                invalid_timing_rows=raw_economics.invalid_timing_rows,
+                missing_cashflow_type_rows=raw_economics.missing_cashflow_type_rows,
+                noncanonical_cashflow_types=raw_economics.noncanonical_cashflow_types,
+                unsupported_cashflow_type_rows=raw_economics.unsupported_cashflow_type_rows,
+                governed_alias_cashflow_type_rows=raw_economics.governed_alias_cashflow_type_rows,
+                fee_bod_timing_rows=raw_economics.fee_bod_timing_rows,
             )
         )
     return source_points
 
 
-def _collect_observation_economics(
-    observation: dict[str, object],
-) -> tuple[
-    Decimal,
-    Decimal,
-    Decimal,
-    Decimal,
-    Decimal | None,
-    Decimal | None,
-    Decimal | None,
-    tuple[dict[str, object], ...],
-    tuple[dict[str, object], ...],
-    tuple[dict[str, object], ...],
-    tuple[dict[str, object], ...],
-    tuple[dict[str, object], ...],
-    tuple[str, ...],
-    tuple[dict[str, object], ...],
-    tuple[dict[str, object], ...],
-    tuple[dict[str, object], ...],
-]:
-    (
-        detailed_external_bod,
-        detailed_external_eod,
-        detailed_fee_bod,
-        detailed_fee_eod,
-        invalid_amount_rows,
-        invalid_timing_rows,
-        missing_cashflow_type_rows,
-        noncanonical_cashflow_types,
-        unsupported_cashflow_type_rows,
-        governed_alias_cashflow_type_rows,
-        fee_bod_timing_rows,
-    ) = _sum_detailed_cash_flows(observation.get("cash_flows"))
+def _collect_observation_economics(observation: dict[str, object]) -> RawObservationEconomics:
+    detailed_cash_flows = _sum_detailed_cash_flows(observation.get("cash_flows"))
     explicit_bod_total, conflicting_bod_fields, invalid_bod_fields = _read_explicit_decimal_fields(
         observation,
         semantic="bod_cashflow_total",
@@ -425,41 +412,27 @@ def _collect_observation_economics(
         semantic="fee_total",
         keys=("fees", "management_fees"),
     )
-    return (
-        detailed_external_bod,
-        detailed_external_eod,
-        detailed_fee_bod,
-        detailed_fee_eod,
-        explicit_bod_total,
-        explicit_eod_total,
-        explicit_fee_total,
-        conflicting_bod_fields + conflicting_eod_fields + conflicting_fee_fields,
-        invalid_bod_fields + invalid_eod_fields + invalid_fee_fields,
-        invalid_amount_rows,
-        invalid_timing_rows,
-        missing_cashflow_type_rows,
-        noncanonical_cashflow_types,
-        unsupported_cashflow_type_rows,
-        governed_alias_cashflow_type_rows,
-        fee_bod_timing_rows,
+    return RawObservationEconomics(
+        detailed_external_bod=detailed_cash_flows.external_bod,
+        detailed_external_eod=detailed_cash_flows.external_eod,
+        detailed_fee_bod=detailed_cash_flows.fee_bod,
+        detailed_fee_eod=detailed_cash_flows.fee_eod,
+        explicit_bod_total=explicit_bod_total,
+        explicit_eod_total=explicit_eod_total,
+        explicit_fee_total=explicit_fee_total,
+        conflicting_explicit_amount_fields=conflicting_bod_fields + conflicting_eod_fields + conflicting_fee_fields,
+        invalid_explicit_amount_fields=invalid_bod_fields + invalid_eod_fields + invalid_fee_fields,
+        invalid_amount_rows=detailed_cash_flows.invalid_amount_rows,
+        invalid_timing_rows=detailed_cash_flows.invalid_timing_rows,
+        missing_cashflow_type_rows=detailed_cash_flows.missing_cashflow_type_rows,
+        noncanonical_cashflow_types=detailed_cash_flows.noncanonical_cashflow_types,
+        unsupported_cashflow_type_rows=detailed_cash_flows.unsupported_cashflow_type_rows,
+        governed_alias_cashflow_type_rows=detailed_cash_flows.governed_alias_cashflow_type_rows,
+        fee_bod_timing_rows=detailed_cash_flows.fee_bod_timing_rows,
     )
 
 
-def _sum_detailed_cash_flows(
-    cash_flows_raw: object,
-) -> tuple[
-    Decimal,
-    Decimal,
-    Decimal,
-    Decimal,
-    tuple[dict[str, object], ...],
-    tuple[dict[str, object], ...],
-    tuple[dict[str, object], ...],
-    tuple[str, ...],
-    tuple[dict[str, object], ...],
-    tuple[dict[str, object], ...],
-    tuple[dict[str, object], ...],
-]:
+def _sum_detailed_cash_flows(cash_flows_raw: object) -> DetailedCashFlowEconomics:
     external_bod = Decimal("0")
     external_eod = Decimal("0")
     fee_bod = Decimal("0")
@@ -472,7 +445,19 @@ def _sum_detailed_cash_flows(
     governed_alias_cashflow_type_rows: list[dict[str, object]] = []
     fee_bod_timing_rows: list[dict[str, object]] = []
     if not isinstance(cash_flows_raw, list):
-        return external_bod, external_eod, fee_bod, fee_eod, (), (), (), (), (), (), ()
+        return DetailedCashFlowEconomics(
+            external_bod=external_bod,
+            external_eod=external_eod,
+            fee_bod=fee_bod,
+            fee_eod=fee_eod,
+            invalid_amount_rows=(),
+            invalid_timing_rows=(),
+            missing_cashflow_type_rows=(),
+            noncanonical_cashflow_types=(),
+            unsupported_cashflow_type_rows=(),
+            governed_alias_cashflow_type_rows=(),
+            fee_bod_timing_rows=(),
+        )
 
     for flow in cash_flows_raw:
         if not isinstance(flow, dict):
@@ -536,18 +521,18 @@ def _sum_detailed_cash_flows(
             external_bod += amount
         else:
             external_eod += amount
-    return (
-        external_bod,
-        external_eod,
-        fee_bod,
-        fee_eod,
-        tuple(invalid_amount_rows),
-        tuple(invalid_timing_rows),
-        tuple(missing_cashflow_type_rows),
-        tuple(sorted(noncanonical_cashflow_types)),
-        tuple(unsupported_cashflow_type_rows),
-        tuple(governed_alias_cashflow_type_rows),
-        tuple(fee_bod_timing_rows),
+    return DetailedCashFlowEconomics(
+        external_bod=external_bod,
+        external_eod=external_eod,
+        fee_bod=fee_bod,
+        fee_eod=fee_eod,
+        invalid_amount_rows=tuple(invalid_amount_rows),
+        invalid_timing_rows=tuple(invalid_timing_rows),
+        missing_cashflow_type_rows=tuple(missing_cashflow_type_rows),
+        noncanonical_cashflow_types=tuple(sorted(noncanonical_cashflow_types)),
+        unsupported_cashflow_type_rows=tuple(unsupported_cashflow_type_rows),
+        governed_alias_cashflow_type_rows=tuple(governed_alias_cashflow_type_rows),
+        fee_bod_timing_rows=tuple(fee_bod_timing_rows),
     )
 
 
