@@ -306,3 +306,41 @@ def test_analyze_source_economics_flags_external_timing_bucket_contradiction():
         "EXTERNAL_CASHFLOW_TIMING_BUCKET_CONTRADICTION",
     }
     assert result.evidence_summary["external_cashflow_timing_contradiction_count"] == 1
+
+
+def test_analyze_source_economics_flags_noncanonical_cashflow_type_labels():
+    performance_request = PerformanceRequest(
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        performance_start_date=date(2026, 3, 20),
+        metric_basis="NET",
+        report_end_date=date(2026, 3, 20),
+        analyses=[Analysis(period="YTD", frequencies=["daily"])],
+        valuation_points=[
+            DailyInputData(
+                perf_date=date(2026, 3, 20),
+                begin_mv=3188.0,
+                end_mv=3191.0,
+                bod_cf=0.0,
+                eod_cf=3.0,
+                mgmt_fees=0.0,
+            ),
+        ],
+    )
+
+    result = analyze_source_economics(
+        performance_request=performance_request,
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        observations=[
+            {
+                "valuation_date": "2026-03-20",
+                "beginning_market_value": "3188.0",
+                "ending_market_value": "3191.0",
+                "cash_flows": [
+                    {"amount": "3.0", "timing": "eod", "cash_flow_type": "dividend"},
+                ],
+            }
+        ],
+    )
+
+    assert {finding.code for finding in result.findings} == {"NONCANONICAL_CASHFLOW_TYPE_PRESENT"}
+    assert result.evidence_summary["noncanonical_cashflow_type_date_count"] == 1

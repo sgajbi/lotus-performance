@@ -700,8 +700,8 @@ Implementation status on 2026-04-15:
    stateful portfolio-source economics checks run,
 4. raw source-economics inspection now covers both fee and external cash-flow classification,
    fee and external normalization mismatches, duplicate source signals, positive fee sign
-   anomalies, explicit fee or external source-total mismatches, and external timing-bucket
-   contradictions,
+   anomalies, explicit fee or external source-total mismatches, external timing-bucket
+   contradictions, and non-canonical `cash_flow_type` labels,
 5. the public service reference and support-facing check guide now document the bounded inspection
    controls, active finding inventory, and artifact set,
 6. a deeper platform-owned canonical validator can now consume the same contract instead of relying

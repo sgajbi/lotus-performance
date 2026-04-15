@@ -7,10 +7,12 @@ from decimal import Decimal, InvalidOperation
 from app.core.config import Settings, get_settings
 from app.models.inspection_responses import TWRInspectionFinding
 from app.models.requests import PerformanceRequest
+from app.services.inspection.source_economics_findings import build_source_economics_findings
 from app.services.portfolio_source_service import build_stateful_input_service
 
 _ABSOLUTE_TOLERANCE = Decimal("0.01")
 _INSPECTOR_CONSUMER_SYSTEM = "lotus-performance-inspector"
+_CANONICAL_CASHFLOW_TYPES = {"fee", "external_flow"}
 
 
 @dataclass(frozen=True)
@@ -33,6 +35,7 @@ class ObservationSourceEconomics:
     explicit_bod_total: Decimal | None
     explicit_eod_total: Decimal | None
     explicit_fee_total: Decimal | None
+    noncanonical_cashflow_types: tuple[str, ...]
 
 
 def run_source_economics_checks(
@@ -103,6 +106,7 @@ def analyze_source_economics(
     duplicate_external_signal_samples: list[dict[str, object]] = []
     external_source_mismatch_samples: list[dict[str, object]] = []
     external_timing_contradiction_samples: list[dict[str, object]] = []
+    noncanonical_cashflow_type_samples: list[dict[str, object]] = []
     fee_flow_dates: list[str] = []
     external_flow_dates: list[str] = []
 
@@ -111,6 +115,13 @@ def analyze_source_economics(
             fee_flow_dates.append(source_point.valuation_date)
         if source_point.detailed_external_bod != 0 or source_point.detailed_external_eod != 0:
             external_flow_dates.append(source_point.valuation_date)
+        if source_point.noncanonical_cashflow_types:
+            noncanonical_cashflow_type_samples.append(
+                {
+                    "valuation_date": source_point.valuation_date,
+                    "cash_flow_types": list(source_point.noncanonical_cashflow_types),
+                }
+            )
 
         expected_fee_total, fee_source_kind = _expected_fee_total(source_point)
         if expected_fee_total is not None and not _amounts_match(source_point.normalized_mgmt_fees, expected_fee_total):
@@ -205,7 +216,7 @@ def analyze_source_economics(
             sample_target=external_timing_contradiction_samples,
         )
 
-    findings = _build_findings(
+    findings = build_source_economics_findings(
         portfolio_id=portfolio_id,
         fee_normalization_samples=fee_normalization_samples,
         duplicate_fee_signal_samples=duplicate_fee_signal_samples,
@@ -215,6 +226,7 @@ def analyze_source_economics(
         duplicate_external_signal_samples=duplicate_external_signal_samples,
         external_source_mismatch_samples=external_source_mismatch_samples,
         external_timing_contradiction_samples=external_timing_contradiction_samples,
+        noncanonical_cashflow_type_samples=noncanonical_cashflow_type_samples,
     )
 
     return SourceEconomicsCheckResult(
@@ -231,6 +243,7 @@ def analyze_source_economics(
             "duplicate_external_cashflow_signal_count": len(duplicate_external_signal_samples),
             "external_cashflow_source_mismatch_count": len(external_source_mismatch_samples),
             "external_cashflow_timing_contradiction_count": len(external_timing_contradiction_samples),
+            "noncanonical_cashflow_type_date_count": len(noncanonical_cashflow_type_samples),
         },
         artifact_payload={
             "portfolio_id": portfolio_id,
@@ -255,6 +268,15 @@ def analyze_source_economics(
             "external_cashflow_source_mismatch_samples": external_source_mismatch_samples[:25],
             "external_cashflow_timing_contradiction_count": len(external_timing_contradiction_samples),
             "external_cashflow_timing_contradiction_samples": external_timing_contradiction_samples[:25],
+            "noncanonical_cashflow_type_date_count": len(noncanonical_cashflow_type_samples),
+            "noncanonical_cashflow_type_samples": noncanonical_cashflow_type_samples[:25],
+            "noncanonical_cashflow_types": sorted(
+                {
+                    cash_flow_type
+                    for sample in noncanonical_cashflow_type_samples
+                    for cash_flow_type in sample["cash_flow_types"]
+                }
+            ),
         },
     )
 
@@ -273,9 +295,13 @@ def _build_observation_source_economics(
             valuation_date,
             {"bod_cf": Decimal("0"), "eod_cf": Decimal("0"), "mgmt_fees": Decimal("0")},
         )
-        detailed_external_bod, detailed_external_eod, detailed_fee_bod, detailed_fee_eod = _sum_detailed_cash_flows(
-            observation.get("cash_flows")
-        )
+        (
+            detailed_external_bod,
+            detailed_external_eod,
+            detailed_fee_bod,
+            detailed_fee_eod,
+            noncanonical_cashflow_types,
+        ) = _sum_detailed_cash_flows(observation.get("cash_flows"))
         source_points.append(
             ObservationSourceEconomics(
                 valuation_date=valuation_date,
@@ -289,27 +315,32 @@ def _build_observation_source_economics(
                 explicit_bod_total=_first_decimal(observation, "bod_cashflow", "beginning_cash_flow"),
                 explicit_eod_total=_first_decimal(observation, "eod_cashflow", "ending_cash_flow"),
                 explicit_fee_total=_first_decimal(observation, "fees", "management_fees"),
+                noncanonical_cashflow_types=noncanonical_cashflow_types,
             )
         )
     return source_points
 
 
-def _sum_detailed_cash_flows(cash_flows_raw: object) -> tuple[Decimal, Decimal, Decimal, Decimal]:
+def _sum_detailed_cash_flows(cash_flows_raw: object) -> tuple[Decimal, Decimal, Decimal, Decimal, tuple[str, ...]]:
     external_bod = Decimal("0")
     external_eod = Decimal("0")
     fee_bod = Decimal("0")
     fee_eod = Decimal("0")
+    noncanonical_cashflow_types: set[str] = set()
     if not isinstance(cash_flows_raw, list):
-        return external_bod, external_eod, fee_bod, fee_eod
+        return external_bod, external_eod, fee_bod, fee_eod, ()
 
     for flow in cash_flows_raw:
         if not isinstance(flow, dict):
             continue
         amount = _parse_decimal(flow.get("amount"))
         timing = flow.get("timing")
+        cash_flow_type = flow.get("cash_flow_type")
         if amount is None or timing not in {"bod", "eod"}:
             continue
-        if flow.get("cash_flow_type") == "fee":
+        if isinstance(cash_flow_type, str) and cash_flow_type and cash_flow_type not in _CANONICAL_CASHFLOW_TYPES:
+            noncanonical_cashflow_types.add(cash_flow_type)
+        if cash_flow_type == "fee":
             if timing == "bod":
                 fee_bod += amount
             else:
@@ -319,7 +350,7 @@ def _sum_detailed_cash_flows(cash_flows_raw: object) -> tuple[Decimal, Decimal, 
             external_bod += amount
         else:
             external_eod += amount
-    return external_bod, external_eod, fee_bod, fee_eod
+    return external_bod, external_eod, fee_bod, fee_eod, tuple(sorted(noncanonical_cashflow_types))
 
 
 def _expected_fee_total(source_point: ObservationSourceEconomics) -> tuple[Decimal | None, str | None]:
@@ -399,215 +430,6 @@ def _record_external_timing_contradictions(
                 "opposite_detailed_cashflow_amount": float(source_point.detailed_external_bod),
             }
         )
-
-
-def _build_findings(
-    *,
-    portfolio_id: str,
-    fee_normalization_samples: list[dict[str, object]],
-    duplicate_fee_signal_samples: list[dict[str, object]],
-    fee_source_mismatch_samples: list[dict[str, object]],
-    positive_fee_signal_samples: list[dict[str, object]],
-    external_normalization_samples: list[dict[str, object]],
-    duplicate_external_signal_samples: list[dict[str, object]],
-    external_source_mismatch_samples: list[dict[str, object]],
-    external_timing_contradiction_samples: list[dict[str, object]],
-) -> list[TWRInspectionFinding]:
-    findings: list[TWRInspectionFinding] = []
-
-    if fee_normalization_samples:
-        findings.append(
-            TWRInspectionFinding(
-                code="FEE_CASHFLOW_CLASSIFICATION_NOT_PRESERVED",
-                severity="high",
-                category="cashflow_classification",
-                owner_repo="lotus-performance",
-                summary="Fee source economics were not normalized faithfully into served mgmt_fees.",
-                explanation=(
-                    "The stateful portfolio source includes fee economics, but the normalized TWR valuation points "
-                    "do not preserve those amounts accurately in mgmt_fees."
-                ),
-                recommended_action=(
-                    "Preserve fee source economics during stateful portfolio normalization so served mgmt_fees tie "
-                    "to the authoritative upstream fee signal."
-                ),
-                evidence={
-                    "portfolio_id": portfolio_id,
-                    "sample_dates": [sample["valuation_date"] for sample in fee_normalization_samples[:10]],
-                    "samples": fee_normalization_samples[:10],
-                },
-            )
-        )
-
-    if duplicate_fee_signal_samples:
-        findings.append(
-            TWRInspectionFinding(
-                code="DUPLICATE_FEE_SOURCE_SIGNAL",
-                severity="high",
-                category="cashflow_classification",
-                owner_repo="lotus-core",
-                summary="The stateful portfolio source exposes duplicate fee signals for the same valuation date.",
-                explanation=(
-                    "The raw portfolio observation carries both fee-classified cash flows and a separate explicit fee "
-                    "field with the same magnitude, creating a duplication risk in downstream economics."
-                ),
-                recommended_action=(
-                    "Review lotus-core portfolio-timeseries fee semantics and emit one authoritative fee signal per "
-                    "valuation date."
-                ),
-                evidence={
-                    "portfolio_id": portfolio_id,
-                    "sample_dates": [sample["valuation_date"] for sample in duplicate_fee_signal_samples[:10]],
-                    "samples": duplicate_fee_signal_samples[:10],
-                },
-            )
-        )
-
-    if fee_source_mismatch_samples:
-        findings.append(
-            TWRInspectionFinding(
-                code="FEE_SOURCE_TOTAL_MISMATCH",
-                severity="high",
-                category="cashflow_classification",
-                owner_repo="lotus-core",
-                summary="The stateful portfolio source serves conflicting fee totals for the same valuation date.",
-                explanation=(
-                    "The raw portfolio observation includes both fee-classified cash flows and an explicit fee total, "
-                    "but those two source signals do not tie for the same valuation date."
-                ),
-                recommended_action=(
-                    "Review lotus-core portfolio-timeseries fee aggregation so explicit fee totals and detailed "
-                    "fee-classified cash flows reconcile."
-                ),
-                evidence={
-                    "portfolio_id": portfolio_id,
-                    "sample_dates": [sample["valuation_date"] for sample in fee_source_mismatch_samples[:10]],
-                    "samples": fee_source_mismatch_samples[:10],
-                },
-            )
-        )
-
-    if positive_fee_signal_samples:
-        findings.append(
-            TWRInspectionFinding(
-                code="POSITIVE_FEE_SOURCE_SIGNAL",
-                severity="high",
-                category="cashflow_classification",
-                owner_repo="lotus-core",
-                summary="The stateful portfolio source serves a positive fee amount.",
-                explanation=(
-                    "Fee-classified source economics should reduce portfolio value. A positive fee amount is a strong "
-                    "supportability signal that fee sign semantics are incorrect upstream."
-                ),
-                recommended_action=(
-                    "Review lotus-core fee sign semantics and ensure fee-classified source amounts are emitted as "
-                    "negative economics."
-                ),
-                evidence={
-                    "portfolio_id": portfolio_id,
-                    "sample_dates": [sample["valuation_date"] for sample in positive_fee_signal_samples[:10]],
-                    "samples": positive_fee_signal_samples[:10],
-                },
-            )
-        )
-
-    if external_normalization_samples:
-        findings.append(
-            TWRInspectionFinding(
-                code="EXTERNAL_CASHFLOW_NORMALIZATION_MISMATCH",
-                severity="high",
-                category="cashflow_classification",
-                owner_repo="lotus-performance",
-                summary="External source cash flows were not normalized into the served TWR valuation points accurately.",
-                explanation=(
-                    "The raw portfolio observation includes external-flow cash movements, but the normalized TWR "
-                    "valuation points do not preserve those bod_cf or eod_cf amounts faithfully."
-                ),
-                recommended_action=(
-                    "Review stateful portfolio normalization in lotus-performance so external cash flows tie exactly "
-                    "from the raw portfolio source into the served valuation points."
-                ),
-                evidence={
-                    "portfolio_id": portfolio_id,
-                    "sample_dates": [sample["valuation_date"] for sample in external_normalization_samples[:10]],
-                    "samples": external_normalization_samples[:10],
-                },
-            )
-        )
-
-    if duplicate_external_signal_samples:
-        findings.append(
-            TWRInspectionFinding(
-                code="DUPLICATE_EXTERNAL_CASHFLOW_SOURCE_SIGNAL",
-                severity="high",
-                category="cashflow_classification",
-                owner_repo="lotus-core",
-                summary="The stateful portfolio source exposes duplicate external cash-flow signals for the same timing bucket.",
-                explanation=(
-                    "The raw portfolio observation carries both detailed external cash-flow rows and a separate "
-                    "explicit bod/eod aggregate with the same magnitude, creating a duplication risk in downstream economics."
-                ),
-                recommended_action=(
-                    "Review lotus-core portfolio-timeseries cash-flow semantics and emit one authoritative external "
-                    "cash-flow signal per timing bucket."
-                ),
-                evidence={
-                    "portfolio_id": portfolio_id,
-                    "sample_dates": [sample["valuation_date"] for sample in duplicate_external_signal_samples[:10]],
-                    "samples": duplicate_external_signal_samples[:10],
-                },
-            )
-        )
-
-    if external_source_mismatch_samples:
-        findings.append(
-            TWRInspectionFinding(
-                code="EXTERNAL_CASHFLOW_SOURCE_TOTAL_MISMATCH",
-                severity="high",
-                category="cashflow_classification",
-                owner_repo="lotus-core",
-                summary="The stateful portfolio source serves conflicting external cash-flow totals for the same timing bucket.",
-                explanation=(
-                    "The raw portfolio observation includes a bod/eod external cash-flow aggregate that does not tie "
-                    "to the detailed external cash-flow rows for the same valuation date."
-                ),
-                recommended_action=(
-                    "Review lotus-core portfolio-timeseries cash-flow aggregation so explicit bod/eod totals and "
-                    "detailed external cash-flow rows reconcile."
-                ),
-                evidence={
-                    "portfolio_id": portfolio_id,
-                    "sample_dates": [sample["valuation_date"] for sample in external_source_mismatch_samples[:10]],
-                    "samples": external_source_mismatch_samples[:10],
-                },
-            )
-        )
-
-    if external_timing_contradiction_samples:
-        findings.append(
-            TWRInspectionFinding(
-                code="EXTERNAL_CASHFLOW_TIMING_BUCKET_CONTRADICTION",
-                severity="high",
-                category="cashflow_classification",
-                owner_repo="lotus-core",
-                summary="The stateful portfolio source serves external cash-flow totals in one timing bucket and detailed rows in the opposite bucket.",
-                explanation=(
-                    "The raw portfolio observation includes a bod or eod external cash-flow aggregate, but the "
-                    "detailed external cash-flow rows for the same valuation date exist only in the opposite timing bucket."
-                ),
-                recommended_action=(
-                    "Review lotus-core portfolio-timeseries cash-flow timing semantics so explicit bod/eod totals "
-                    "and detailed external cash-flow rows classify the movement in the same timing bucket."
-                ),
-                evidence={
-                    "portfolio_id": portfolio_id,
-                    "sample_dates": [sample["valuation_date"] for sample in external_timing_contradiction_samples[:10]],
-                    "samples": external_timing_contradiction_samples[:10],
-                },
-            )
-        )
-
-    return findings
 
 
 def _first_decimal(observation: dict[str, object], *keys: str) -> Decimal | None:

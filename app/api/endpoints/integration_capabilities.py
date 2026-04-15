@@ -307,7 +307,7 @@ async def get_integration_capabilities(
                     "supports inspection of an existing TWR calculation or a proposed TWR request payload",
                     "inspection profiles expose bounded support_triage, canonical_validation, and deep_reconciliation behavior",
                     "artifact retrieval includes inspection_summary.json and findings.json, plus reconciliation_summary.json and source_economics_summary.json when stateful source-economics checks run",
-                    "source-economics inspection now covers fee and external cash-flow classification and normalization mismatches, duplicate source signals, positive fee sign anomalies, fee or external source-total mismatches, and external timing-bucket contradictions",
+                    "source-economics inspection now covers fee and external cash-flow classification and normalization mismatches, duplicate source signals, positive fee sign anomalies, fee or external source-total mismatches, external timing-bucket contradictions, and non-canonical cash_flow_type labels",
                 ]
                 if twr_enabled
                 else []
