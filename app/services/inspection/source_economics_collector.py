@@ -25,6 +25,7 @@ class SourceEconomicsSamples:
     external_mixed_timing_samples: list[dict[str, object]]
     conflicting_explicit_amount_samples: list[dict[str, object]]
     invalid_explicit_amount_samples: list[dict[str, object]]
+    invalid_cashflow_collection_samples: list[dict[str, object]]
     invalid_amount_samples: list[dict[str, object]]
     invalid_timing_samples: list[dict[str, object]]
     missing_cashflow_type_samples: list[dict[str, object]]
@@ -50,6 +51,7 @@ class _SourceEconomicsSampleCollector:
     external_mixed_timing_samples: list[dict[str, object]] = field(default_factory=list)
     conflicting_explicit_amount_samples: list[dict[str, object]] = field(default_factory=list)
     invalid_explicit_amount_samples: list[dict[str, object]] = field(default_factory=list)
+    invalid_cashflow_collection_samples: list[dict[str, object]] = field(default_factory=list)
     invalid_amount_samples: list[dict[str, object]] = field(default_factory=list)
     invalid_timing_samples: list[dict[str, object]] = field(default_factory=list)
     missing_cashflow_type_samples: list[dict[str, object]] = field(default_factory=list)
@@ -79,6 +81,7 @@ class _SourceEconomicsSampleCollector:
             external_mixed_timing_samples=self.external_mixed_timing_samples,
             conflicting_explicit_amount_samples=self.conflicting_explicit_amount_samples,
             invalid_explicit_amount_samples=self.invalid_explicit_amount_samples,
+            invalid_cashflow_collection_samples=self.invalid_cashflow_collection_samples,
             invalid_amount_samples=self.invalid_amount_samples,
             invalid_timing_samples=self.invalid_timing_samples,
             missing_cashflow_type_samples=self.missing_cashflow_type_samples,
@@ -104,6 +107,13 @@ class _SourceEconomicsSampleCollector:
                 {
                     "valuation_date": source_point.valuation_date,
                     "rows": list(source_point.invalid_explicit_amount_fields),
+                }
+            )
+        if source_point.invalid_cashflow_collection is not None:
+            self.invalid_cashflow_collection_samples.append(
+                {
+                    "valuation_date": source_point.valuation_date,
+                    **source_point.invalid_cashflow_collection,
                 }
             )
         if source_point.invalid_amount_rows:

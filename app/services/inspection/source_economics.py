@@ -38,6 +38,7 @@ class ObservationSourceEconomics:
     explicit_fee_total: Decimal | None
     conflicting_explicit_amount_fields: tuple[dict[str, object], ...]
     invalid_explicit_amount_fields: tuple[dict[str, object], ...]
+    invalid_cashflow_collection: dict[str, object] | None
     invalid_amount_rows: tuple[dict[str, object], ...]
     invalid_timing_rows: tuple[dict[str, object], ...]
     missing_cashflow_type_rows: tuple[dict[str, object], ...]
@@ -58,6 +59,7 @@ class RawObservationEconomics:
     explicit_fee_total: Decimal | None
     conflicting_explicit_amount_fields: tuple[dict[str, object], ...]
     invalid_explicit_amount_fields: tuple[dict[str, object], ...]
+    invalid_cashflow_collection: dict[str, object] | None
     invalid_amount_rows: tuple[dict[str, object], ...]
     invalid_timing_rows: tuple[dict[str, object], ...]
     missing_cashflow_type_rows: tuple[dict[str, object], ...]
@@ -73,6 +75,7 @@ class DetailedCashFlowEconomics:
     external_eod: Decimal
     fee_bod: Decimal
     fee_eod: Decimal
+    invalid_cashflow_collection: dict[str, object] | None
     invalid_amount_rows: tuple[dict[str, object], ...]
     invalid_timing_rows: tuple[dict[str, object], ...]
     missing_cashflow_type_rows: tuple[dict[str, object], ...]
@@ -158,6 +161,7 @@ def analyze_source_economics(
         external_mixed_timing_samples=samples.external_mixed_timing_samples,
         conflicting_explicit_amount_samples=samples.conflicting_explicit_amount_samples,
         invalid_explicit_amount_samples=samples.invalid_explicit_amount_samples,
+        invalid_cashflow_collection_samples=samples.invalid_cashflow_collection_samples,
         invalid_amount_samples=samples.invalid_amount_samples,
         invalid_timing_samples=samples.invalid_timing_samples,
         missing_cashflow_type_samples=samples.missing_cashflow_type_samples,
@@ -185,6 +189,7 @@ def analyze_source_economics(
             external_mixed_timing_samples=samples.external_mixed_timing_samples,
             conflicting_explicit_amount_samples=samples.conflicting_explicit_amount_samples,
             invalid_explicit_amount_samples=samples.invalid_explicit_amount_samples,
+            invalid_cashflow_collection_samples=samples.invalid_cashflow_collection_samples,
             invalid_amount_samples=samples.invalid_amount_samples,
             invalid_timing_samples=samples.invalid_timing_samples,
             missing_cashflow_type_samples=samples.missing_cashflow_type_samples,
@@ -210,6 +215,7 @@ def analyze_source_economics(
             external_mixed_timing_samples=samples.external_mixed_timing_samples,
             conflicting_explicit_amount_samples=samples.conflicting_explicit_amount_samples,
             invalid_explicit_amount_samples=samples.invalid_explicit_amount_samples,
+            invalid_cashflow_collection_samples=samples.invalid_cashflow_collection_samples,
             invalid_amount_samples=samples.invalid_amount_samples,
             invalid_timing_samples=samples.invalid_timing_samples,
             missing_cashflow_type_samples=samples.missing_cashflow_type_samples,
@@ -238,6 +244,7 @@ def _build_evidence_summary(
     external_mixed_timing_samples: list[dict[str, object]],
     conflicting_explicit_amount_samples: list[dict[str, object]],
     invalid_explicit_amount_samples: list[dict[str, object]],
+    invalid_cashflow_collection_samples: list[dict[str, object]],
     invalid_amount_samples: list[dict[str, object]],
     invalid_timing_samples: list[dict[str, object]],
     missing_cashflow_type_samples: list[dict[str, object]],
@@ -262,6 +269,7 @@ def _build_evidence_summary(
         "external_cashflow_mixed_timing_date_count": len(external_mixed_timing_samples),
         "conflicting_explicit_source_amount_date_count": len(conflicting_explicit_amount_samples),
         "invalid_explicit_source_amount_date_count": len(invalid_explicit_amount_samples),
+        "invalid_cashflow_collection_date_count": len(invalid_cashflow_collection_samples),
         "invalid_cashflow_amount_date_count": len(invalid_amount_samples),
         "invalid_cashflow_timing_date_count": len(invalid_timing_samples),
         "missing_cashflow_type_date_count": len(missing_cashflow_type_samples),
@@ -290,6 +298,7 @@ def _build_artifact_payload(
     external_mixed_timing_samples: list[dict[str, object]],
     conflicting_explicit_amount_samples: list[dict[str, object]],
     invalid_explicit_amount_samples: list[dict[str, object]],
+    invalid_cashflow_collection_samples: list[dict[str, object]],
     invalid_amount_samples: list[dict[str, object]],
     invalid_timing_samples: list[dict[str, object]],
     missing_cashflow_type_samples: list[dict[str, object]],
@@ -330,6 +339,8 @@ def _build_artifact_payload(
         "conflicting_explicit_source_amount_samples": conflicting_explicit_amount_samples[:_SAMPLE_LIMIT],
         "invalid_explicit_source_amount_date_count": len(invalid_explicit_amount_samples),
         "invalid_explicit_source_amount_samples": invalid_explicit_amount_samples[:_SAMPLE_LIMIT],
+        "invalid_cashflow_collection_date_count": len(invalid_cashflow_collection_samples),
+        "invalid_cashflow_collection_samples": invalid_cashflow_collection_samples[:_SAMPLE_LIMIT],
         "invalid_cashflow_amount_date_count": len(invalid_amount_samples),
         "invalid_cashflow_amount_samples": invalid_amount_samples[:_SAMPLE_LIMIT],
         "invalid_cashflow_timing_date_count": len(invalid_timing_samples),
@@ -399,6 +410,7 @@ def _build_observation_source_economics(
                 explicit_fee_total=raw_economics.explicit_fee_total,
                 conflicting_explicit_amount_fields=raw_economics.conflicting_explicit_amount_fields,
                 invalid_explicit_amount_fields=raw_economics.invalid_explicit_amount_fields,
+                invalid_cashflow_collection=raw_economics.invalid_cashflow_collection,
                 invalid_amount_rows=raw_economics.invalid_amount_rows,
                 invalid_timing_rows=raw_economics.invalid_timing_rows,
                 missing_cashflow_type_rows=raw_economics.missing_cashflow_type_rows,
@@ -438,6 +450,7 @@ def _collect_observation_economics(observation: dict[str, object]) -> RawObserva
         explicit_fee_total=explicit_fee_total,
         conflicting_explicit_amount_fields=conflicting_bod_fields + conflicting_eod_fields + conflicting_fee_fields,
         invalid_explicit_amount_fields=invalid_bod_fields + invalid_eod_fields + invalid_fee_fields,
+        invalid_cashflow_collection=detailed_cash_flows.invalid_cashflow_collection,
         invalid_amount_rows=detailed_cash_flows.invalid_amount_rows,
         invalid_timing_rows=detailed_cash_flows.invalid_timing_rows,
         missing_cashflow_type_rows=detailed_cash_flows.missing_cashflow_type_rows,
@@ -453,6 +466,7 @@ def _sum_detailed_cash_flows(cash_flows_raw: object) -> DetailedCashFlowEconomic
     external_eod = Decimal("0")
     fee_bod = Decimal("0")
     fee_eod = Decimal("0")
+    invalid_cashflow_collection = None
     invalid_amount_rows: list[dict[str, object]] = []
     invalid_timing_rows: list[dict[str, object]] = []
     missing_cashflow_type_rows: list[dict[str, object]] = []
@@ -461,11 +475,17 @@ def _sum_detailed_cash_flows(cash_flows_raw: object) -> DetailedCashFlowEconomic
     governed_alias_cashflow_type_rows: list[dict[str, object]] = []
     fee_bod_timing_rows: list[dict[str, object]] = []
     if not isinstance(cash_flows_raw, list):
+        if cash_flows_raw is not None:
+            invalid_cashflow_collection = {
+                "raw_type": type(cash_flows_raw).__name__,
+                "raw_value": _sample_raw_collection_value(cash_flows_raw),
+            }
         return DetailedCashFlowEconomics(
             external_bod=external_bod,
             external_eod=external_eod,
             fee_bod=fee_bod,
             fee_eod=fee_eod,
+            invalid_cashflow_collection=invalid_cashflow_collection,
             invalid_amount_rows=(),
             invalid_timing_rows=(),
             missing_cashflow_type_rows=(),
@@ -542,6 +562,7 @@ def _sum_detailed_cash_flows(cash_flows_raw: object) -> DetailedCashFlowEconomic
         external_eod=external_eod,
         fee_bod=fee_bod,
         fee_eod=fee_eod,
+        invalid_cashflow_collection=None,
         invalid_amount_rows=tuple(invalid_amount_rows),
         invalid_timing_rows=tuple(invalid_timing_rows),
         missing_cashflow_type_rows=tuple(missing_cashflow_type_rows),
@@ -585,6 +606,14 @@ def _read_explicit_decimal_fields(
             continue
         invalid_fields.append({"field": key, "semantic": semantic, "raw_value": raw_value})
     return decimal_value, tuple(conflicting_fields), tuple(invalid_fields)
+
+
+def _sample_raw_collection_value(raw_value: object) -> object:
+    if isinstance(raw_value, str | int | float | bool) or raw_value is None:
+        return raw_value
+    if isinstance(raw_value, dict):
+        return raw_value
+    return repr(raw_value)
 
 
 def _decimals_match(left: Decimal, right: Decimal) -> bool:

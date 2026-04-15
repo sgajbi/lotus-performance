@@ -440,6 +440,7 @@ def test_twr_inspection_checks_guide_lists_current_check_inventory():
     assert "EXTERNAL_CASHFLOW_MIXED_TIMING_BUCKETS" in guide
     assert "CONFLICTING_EXPLICIT_SOURCE_TOTAL_PRESENT" in guide
     assert "INVALID_EXPLICIT_SOURCE_AMOUNT_PRESENT" in guide
+    assert "INVALID_CASHFLOW_COLLECTION_PRESENT" in guide
     assert "INVALID_CASHFLOW_AMOUNT_PRESENT" in guide
     assert "INVALID_CASHFLOW_TIMING_PRESENT" in guide
     assert "MISSING_CASHFLOW_TYPE_PRESENT" in guide
