@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-04-15T11:05:06.346589+00:00",
+  "generatedAt": "2026-04-15T11:21:03.693378+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.account_reset_shadow_days",
@@ -1837,8 +1837,8 @@
       "semanticId": "lotus.from_date",
       "canonicalTerm": "from_date",
       "preferredName": "from_date",
-      "description": "returns window field: from date.",
-      "example": "2026-02-27",
+      "description": "Inclusive start date when mode=EXPLICIT.",
+      "example": "2025-03-31",
       "type": "object",
       "locations": [
         "body"
@@ -2100,7 +2100,7 @@
       "semanticId": "lotus.include_portfolio",
       "canonicalTerm": "include_portfolio",
       "preferredName": "include_portfolio",
-      "description": "series selection field: include portfolio.",
+      "description": "Whether to return portfolio returns. This should normally stay true for downstream analytics.",
       "example": true,
       "type": "boolean",
       "locations": [
@@ -2114,7 +2114,7 @@
       "semanticId": "lotus.include_risk_free",
       "canonicalTerm": "include_risk_free",
       "preferredName": "include_risk_free",
-      "description": "series selection field: include risk free.",
+      "description": "Whether to include risk-free point and cumulative return series.",
       "example": true,
       "type": "boolean",
       "locations": [
@@ -2828,8 +2828,8 @@
       "semanticId": "lotus.max_gap_days",
       "canonicalTerm": "max_gap_days",
       "preferredName": "max_gap_days",
-      "description": "app  models  returns series  data policy field: max gap days.",
-      "example": 1,
+      "description": "Optional caller tolerance for retained gap diagnostics. Reserved for future enforcement.",
+      "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [
         "body"
@@ -4823,9 +4823,9 @@
       "semanticId": "lotus.risk_free",
       "canonicalTerm": "risk_free",
       "preferredName": "risk_free",
-      "description": "returns series request field: risk free.",
+      "description": "Optional risk-free lineage hint. Stateful risk-free sourcing is driven by reporting_currency.",
       "example": {
-        "rate_series_ref": "example_rate_series_ref",
+        "rate_series_ref": "USD_SOFR",
         "day_count_basis": "ACT_365"
       },
       "type": "object",
@@ -5605,8 +5605,8 @@
       "semanticId": "lotus.to_date",
       "canonicalTerm": "to_date",
       "preferredName": "to_date",
-      "description": "returns window field: to date.",
-      "example": "2026-02-27",
+      "description": "Inclusive end date when mode=EXPLICIT.",
+      "example": "2025-03-31",
       "type": "object",
       "locations": [
         "body"
@@ -5935,8 +5935,8 @@
       "semanticId": "lotus.year",
       "canonicalTerm": "year",
       "preferredName": "year",
-      "description": "returns window field: year.",
-      "example": 1,
+      "description": "Calendar year when period=YEAR.",
+      "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [
         "body"

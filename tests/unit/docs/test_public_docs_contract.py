@@ -443,6 +443,10 @@ def test_complete_service_reference_covers_endpoint_surface_and_config_inventory
     assert "POST /integration/recovery-drills/run" in guide
     assert "POST /integration/runtime-retention-cleanups/run" in guide
     assert "GET /metrics" in guide
+    assert "all return values are decimal ratios, not percentages" in guide
+    assert '"cumulative_active_returns"' in guide
+    assert '"return_value": 0.00603' in guide
+    assert '"return_value": 0.7' not in guide
     assert "CONTRIBUTION_RESET_AWARE_AVERAGE_WEIGHT_MODE" in guide
     assert "WORKSPACE_SUMMARY_EXECUTOR_WINDOW_DAYS" in guide
     assert "LINEAGE_STORAGE_PATH" in guide

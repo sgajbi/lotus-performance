@@ -77,11 +77,33 @@ class ReturnPoint(BaseModel):
 
 
 class ReturnsWindow(BaseModel):
-    mode: ReturnsWindowMode
-    from_date: dt_date | None = None
-    to_date: dt_date | None = None
-    period: ReturnsRelativePeriod | None = None
-    year: int | None = None
+    mode: ReturnsWindowMode = Field(
+        description=(
+            "Window-resolution mode. Use EXPLICIT when the caller owns the exact observation dates; "
+            "use RELATIVE for period-to-date windows resolved from as_of_date."
+        ),
+        examples=["EXPLICIT"],
+    )
+    from_date: dt_date | None = Field(
+        default=None,
+        description="Inclusive start date when mode=EXPLICIT.",
+        examples=["2026-01-01"],
+    )
+    to_date: dt_date | None = Field(
+        default=None,
+        description="Inclusive end date when mode=EXPLICIT.",
+        examples=["2026-04-10"],
+    )
+    period: ReturnsRelativePeriod | None = Field(
+        default=None,
+        description="Relative period label when mode=RELATIVE.",
+        examples=["YTD"],
+    )
+    year: int | None = Field(
+        default=None,
+        description="Calendar year when period=YEAR.",
+        examples=[2026],
+    )
 
     @model_validator(mode="after")
     def validate_mode_fields(self) -> "ReturnsWindow":
@@ -99,32 +121,98 @@ class ReturnsWindow(BaseModel):
 
 
 class SeriesSelection(BaseModel):
-    include_portfolio: bool = True
-    include_benchmark: bool = False
-    include_risk_free: bool = False
+    include_portfolio: bool = Field(
+        default=True,
+        description="Whether to return portfolio returns. This should normally stay true for downstream analytics.",
+        examples=[True],
+    )
+    include_benchmark: bool = Field(
+        default=False,
+        description=(
+            "Whether to include benchmark, cumulative benchmark, active, and cumulative active series. "
+            "Stateful mode resolves the benchmark assignment unless benchmark.benchmark_id is supplied."
+        ),
+        examples=[True],
+    )
+    include_risk_free: bool = Field(
+        default=False,
+        description="Whether to include risk-free point and cumulative return series.",
+        examples=[False],
+    )
 
 
 class BenchmarkSpec(BaseModel):
-    benchmark_id: str | None = None
-    return_source: BenchmarkReturnSource = BenchmarkReturnSource.CALCULATED
+    benchmark_id: str | None = Field(
+        default=None,
+        description=(
+            "Optional stateful benchmark override. Leave null to resolve the portfolio benchmark assignment from "
+            "lotus-core. Not meaningful in stateless mode."
+        ),
+        examples=["BMK_PB_GLOBAL_BALANCED_60_40"],
+    )
+    return_source: BenchmarkReturnSource = Field(
+        default=BenchmarkReturnSource.CALCULATED,
+        description=(
+            "Stateful benchmark sourcing mode. calculated uses the lotus-performance benchmark engine; "
+            "vendor_series explicitly asks lotus-core for stored benchmark returns."
+        ),
+        examples=["calculated"],
+    )
 
 
 class RiskFreeSpec(BaseModel):
-    rate_series_ref: str | None = None
-    day_count_basis: DayCountBasis | None = None
+    rate_series_ref: str | None = Field(
+        default=None,
+        description="Optional risk-free series reference retained for caller lineage. Stateful sourcing uses reporting_currency.",
+        examples=["USD_SOFR"],
+    )
+    day_count_basis: DayCountBasis | None = Field(
+        default=None,
+        description="Optional day-count basis for risk-free lineage. Returned values are already period returns.",
+        examples=["ACT_365"],
+    )
 
 
 class DataPolicy(BaseModel):
-    missing_data_policy: MissingDataPolicy = MissingDataPolicy.FAIL_FAST
-    fill_method: FillMethod = FillMethod.NONE
-    calendar_policy: CalendarPolicy = CalendarPolicy.BUSINESS
-    max_gap_days: int | None = Field(default=None, ge=1, le=365)
+    missing_data_policy: MissingDataPolicy = Field(
+        default=MissingDataPolicy.FAIL_FAST,
+        description=(
+            "Policy for missing observations. FAIL_FAST rejects missing portfolio coverage; ALLOW_PARTIAL emits "
+            "coverage diagnostics; STRICT_INTERSECTION keeps only dates common to selected series."
+        ),
+        examples=["ALLOW_PARTIAL"],
+    )
+    fill_method: FillMethod = Field(
+        default=FillMethod.NONE,
+        description="Optional fill method applied to selected benchmark/risk-free side series before alignment.",
+        examples=["NONE"],
+    )
+    calendar_policy: CalendarPolicy = Field(
+        default=CalendarPolicy.BUSINESS,
+        description="Calendar used to estimate requested coverage points for diagnostics.",
+        examples=["BUSINESS"],
+    )
+    max_gap_days: int | None = Field(
+        default=None,
+        ge=1,
+        le=365,
+        description="Optional caller tolerance for retained gap diagnostics. Reserved for future enforcement.",
+        examples=[5],
+    )
 
 
 class StatelessInput(BaseModel):
-    portfolio_returns: list[ReturnPoint]
-    benchmark_returns: list[ReturnPoint] | None = None
-    risk_free_returns: list[ReturnPoint] | None = None
+    portfolio_returns: list[ReturnPoint] = Field(
+        description="Caller-supplied portfolio point returns as decimal ratios for stateless mode."
+    )
+    benchmark_returns: list[ReturnPoint] | None = Field(
+        default=None,
+        description="Caller-supplied benchmark point returns as decimal ratios when include_benchmark=true.",
+    )
+    risk_free_returns: list[ReturnPoint] | None = Field(
+        default=None,
+        description="Caller-supplied risk-free point returns as decimal ratios when include_risk_free=true.",
+    )
 
 
 class StatefulInput(BaseModel):
@@ -138,17 +226,71 @@ class ReturnsSeriesRequest(BaseModel):
     )
     portfolio_id: str = Field(description="Portfolio identifier.", examples=["DEMO_DPM_EUR_001"])
     as_of_date: dt_date = Field(description="As-of date for window resolution.", examples=["2026-02-27"])
-    window: ReturnsWindow
-    frequency: ReturnsFrequency = ReturnsFrequency.DAILY
-    metric_basis: MetricBasis = MetricBasis.NET
+    window: ReturnsWindow = Field(description="Requested measurement window.")
+    frequency: ReturnsFrequency = Field(
+        default=ReturnsFrequency.DAILY,
+        description="Output sampling frequency. Weekly and monthly values are geometrically linked from daily points.",
+        examples=["DAILY"],
+    )
+    metric_basis: MetricBasis = Field(
+        default=MetricBasis.NET,
+        description="Portfolio return basis. NET includes fee drag; GROSS neutralizes fees according to methodology.",
+        examples=["NET"],
+    )
     reporting_currency: str | None = Field(default=None, description="Target reporting currency.", examples=["USD"])
-    series_selection: SeriesSelection = Field(default_factory=SeriesSelection)
-    benchmark: BenchmarkSpec | None = None
-    risk_free: RiskFreeSpec | None = None
-    data_policy: DataPolicy = Field(default_factory=DataPolicy)
-    input_mode: InputMode = InputMode.STATELESS
-    stateless_input: StatelessInput | None = None
-    stateful_input: StatefulInput | None = None
+    series_selection: SeriesSelection = Field(
+        default_factory=SeriesSelection,
+        description="Controls which return families are included in the response.",
+    )
+    benchmark: BenchmarkSpec | None = Field(
+        default=None,
+        description="Optional stateful benchmark sourcing override.",
+    )
+    risk_free: RiskFreeSpec | None = Field(
+        default=None,
+        description="Optional risk-free lineage hint. Stateful risk-free sourcing is driven by reporting_currency.",
+    )
+    data_policy: DataPolicy = Field(default_factory=DataPolicy, description="Coverage and alignment policy.")
+    input_mode: InputMode = Field(
+        default=InputMode.STATELESS,
+        description="stateless uses request-supplied return points; stateful sources portfolio and side series.",
+        examples=["stateful"],
+    )
+    stateless_input: StatelessInput | None = Field(
+        default=None,
+        description="Required when input_mode=stateless. Must be omitted for stateful requests.",
+    )
+    stateful_input: StatefulInput | None = Field(
+        default=None,
+        description="Required empty envelope when input_mode=stateful. Source identity is stamped server-side.",
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+                    "as_of_date": "2026-04-10",
+                    "window": {"mode": "RELATIVE", "period": "YTD"},
+                    "frequency": "DAILY",
+                    "metric_basis": "NET",
+                    "reporting_currency": "USD",
+                    "series_selection": {
+                        "include_portfolio": True,
+                        "include_benchmark": True,
+                        "include_risk_free": False,
+                    },
+                    "data_policy": {
+                        "missing_data_policy": "ALLOW_PARTIAL",
+                        "fill_method": "NONE",
+                        "calendar_policy": "BUSINESS",
+                    },
+                    "input_mode": "stateful",
+                    "stateful_input": {},
+                }
+            ]
+        }
+    )
 
     @model_validator(mode="after")
     def validate_selection(self) -> "ReturnsSeriesRequest":
@@ -175,9 +317,13 @@ class ReturnsSeriesRequest(BaseModel):
 
 
 class ResolvedWindow(BaseModel):
-    start_date: dt_date
-    end_date: dt_date
-    resolved_period_label: str | None = None
+    start_date: dt_date = Field(description="Inclusive resolved start date.", examples=["2026-01-01"])
+    end_date: dt_date = Field(description="Inclusive resolved end date.", examples=["2026-04-10"])
+    resolved_period_label: str | None = Field(
+        default=None,
+        description="Relative period label when the request used mode=RELATIVE.",
+        examples=["YTD"],
+    )
 
 
 class SeriesCoverage(BaseModel):
@@ -287,10 +433,19 @@ class ReturnsSeriesResponse(BaseModel):
 
 
 class ReturnsSeriesAcceptedResponse(BaseModel):
-    calculation_id: UUID
-    source_service: Literal["lotus-performance"] = "lotus-performance"
-    contract_version: str = "v1"
-    execution_mode: Literal["async"] = "async"
-    status: Literal["pending"] = "pending"
-    poll_path: str
-    result_path: str
+    calculation_id: UUID = Field(description="Stable calculation handle for the accepted async request.")
+    source_service: Literal["lotus-performance"] = Field(
+        default="lotus-performance",
+        description="Service that accepted the async request.",
+    )
+    contract_version: str = Field(default="v1", description="Public response contract version.")
+    execution_mode: Literal["async"] = Field(default="async", description="Execution mode for this accepted request.")
+    status: Literal["pending"] = Field(default="pending", description="Current async result status.")
+    poll_path: str = Field(
+        description="Execution status path for polling progress and failure detail.",
+        examples=["/performance/executions/f25cbd85-b7e5-4aaf-b994-ff59cb143ef5"],
+    )
+    result_path: str = Field(
+        description="Endpoint-specific path for retrieving the final returns-series payload.",
+        examples=["/integration/returns/series/results/f25cbd85-b7e5-4aaf-b994-ff59cb143ef5"],
+    )

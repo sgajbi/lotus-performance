@@ -229,6 +229,13 @@ See [Attribution Endpoint Certification](docs/technical/attribution-endpoint-cer
 - `benchmark.return_source="vendor_series"` is an explicit stateful-only override for lotus-core benchmark return-series retrieval
 - sync or async execution depending on workload shape
 
+`series.*_returns` values are decimal ratios, not percentages. `active_returns` are pointwise
+portfolio-minus-benchmark excess returns, while `cumulative_active_returns` is cumulative portfolio
+return minus cumulative benchmark return. Stateful risk-free points that arrive from core as
+annualized rates are normalized into period returns before response emission. Daily BUSINESS and
+MARKET calendar policies filter output to weekdays before coverage diagnostics. See
+[Returns-Series Endpoint Certification](docs/technical/returns-series-endpoint-certification.md).
+
 ## Setup
 
 ### Local Python environment

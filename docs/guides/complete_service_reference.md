@@ -800,6 +800,10 @@ Canonical example file:
 Purpose:
 
 - return canonical portfolio, benchmark, risk-free, and active return series
+- use this endpoint when a downstream analytics service needs aligned return observations; do not
+  reconstruct this feed from TWR, MWR, or benchmark endpoint responses
+- all return values are decimal ratios, not percentages
+- `calendar_policy=BUSINESS` filters daily output to weekdays before coverage diagnostics
 
 Sample request:
 
@@ -815,6 +819,16 @@ Sample request:
   },
   "frequency": "DAILY",
   "metric_basis": "NET",
+  "series_selection": {
+    "include_portfolio": true,
+    "include_benchmark": true,
+    "include_risk_free": false
+  },
+  "data_policy": {
+    "missing_data_policy": "ALLOW_PARTIAL",
+    "fill_method": "NONE",
+    "calendar_policy": "BUSINESS"
+  },
   "stateless_input": {
     "portfolio_returns": [
       { "date": "2026-03-30", "return_value": 0.01 },
@@ -846,12 +860,12 @@ Sample response:
     "active_returns": [
       { "date": "2026-03-30", "return_value": 0.002 },
       { "date": "2026-03-31", "return_value": 0.005 }
+    ],
+    "cumulative_active_returns": [
+      { "date": "2026-03-30", "return_value": 0.002 },
+      { "date": "2026-03-31", "return_value": 0.00603 }
     ]
-  },
-  "cumulative_active_returns": [
-    { "date": "2026-03-30", "return_value": 0.2 },
-    { "date": "2026-03-31", "return_value": 0.7 }
-  ]
+  }
 }
 ```
 

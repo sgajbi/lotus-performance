@@ -601,6 +601,8 @@ Return semantics for the workspace surface are now explicit rather than inferred
 ### `POST /integration/returns/series`
 
 - purpose: return canonical portfolio, benchmark, and risk-free return series for downstream analytics
+- use this endpoint when risk, attribution, or another analytics service needs reusable return
+  observations; do not reconstruct this feed from TWR, MWR, or benchmark endpoint responses
 - request model: `app.models.returns_series.ReturnsSeriesRequest`
 - response model:
   - sync: `app.models.returns_series.ReturnsSeriesResponse`
@@ -623,6 +625,13 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - cumulative portfolio, benchmark, and risk-free ladders are geometrically linked
   - `cumulative_active_returns` is arithmetic excess of cumulative portfolio and cumulative benchmark returns
   - when stateful benchmark resolution is used, the response also emits `benchmark_context` with the resolved `benchmark_id` and `return_source`
+  - `series.*_returns` values are decimal ratios, not percentages; `0.0012` means `0.12%`
+  - stateful risk-free points carrying `value_convention="annualized_rate"` are converted to
+    period returns using the supplied day-count convention before being returned or linked
+  - `calendar_policy=BUSINESS` filters daily output to weekdays before coverage diagnostics;
+    `MARKET` currently applies the same weekday approximation and emits a warning
+  - downstream certification and figure tie-outs are recorded in
+    `docs/technical/returns-series-endpoint-certification.md`
 
 ### `GET /integration/returns/series/results/{calculation_id}`
 

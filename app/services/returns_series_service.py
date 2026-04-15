@@ -141,6 +141,17 @@ def resample_returns(df: pd.DataFrame, *, frequency: ReturnsFrequency) -> pd.Dat
     return grouped.dropna().reset_index()
 
 
+def apply_calendar_policy(
+    df: pd.DataFrame,
+    *,
+    frequency: ReturnsFrequency,
+    calendar_policy: CalendarPolicy,
+) -> pd.DataFrame:
+    if frequency != ReturnsFrequency.DAILY or calendar_policy == CalendarPolicy.CALENDAR:
+        return df
+    return df[df["date"].dt.weekday < 5].copy()
+
+
 def date_range_count(
     resolved_window: ResolvedWindow, *, frequency: ReturnsFrequency, calendar_policy: CalendarPolicy
 ) -> int:
@@ -155,13 +166,31 @@ def date_range_count(
     return len(pd.date_range(start, end, freq="ME"))
 
 
-def detect_gaps(df: pd.DataFrame, *, frequency: ReturnsFrequency, series_type: str) -> list[SeriesGap]:
+def detect_gaps(
+    df: pd.DataFrame,
+    *,
+    frequency: ReturnsFrequency,
+    series_type: str,
+    calendar_policy: CalendarPolicy = CalendarPolicy.CALENDAR,
+) -> list[SeriesGap]:
     if len(df) < 2:
         return []
     expected_days = 1 if frequency == ReturnsFrequency.DAILY else (7 if frequency == ReturnsFrequency.WEEKLY else 31)
     gaps: list[SeriesGap] = []
     dates = list(df["date"].dt.date)
     for prev, curr in zip(dates, dates[1:]):
+        if frequency == ReturnsFrequency.DAILY and calendar_policy != CalendarPolicy.CALENDAR:
+            missing_business_days = len(pd.bdate_range(pd.Timestamp(prev), pd.Timestamp(curr))) - 2
+            if missing_business_days > 0:
+                gaps.append(
+                    SeriesGap(
+                        series_type=series_type,
+                        from_date=prev,
+                        to_date=curr,
+                        gap_days=missing_business_days,
+                    )
+                )
+            continue
         delta = (curr - prev).days
         if delta > expected_days + 1:
             gaps.append(SeriesGap(series_type=series_type, from_date=prev, to_date=curr, gap_days=delta - 1))
@@ -435,6 +464,32 @@ def _benchmark_daily_returns_to_dataframe(daily_returns_df: pd.DataFrame) -> pd.
     return benchmark_df
 
 
+def _risk_free_day_count_denominator(day_count_convention: object) -> Decimal:
+    convention = str(day_count_convention or "ACT_360").upper()
+    if convention in {"ACT_365", "ACT/365"}:
+        return Decimal("365")
+    if convention in {"30_360", "30/360", "ACT_360", "ACT/360"}:
+        return Decimal("360")
+    return Decimal("360")
+
+
+def risk_free_points_to_dataframe(*, points: list[dict[str, Any]]) -> pd.DataFrame:
+    normalized_points: list[ReturnPoint] = []
+    for point in points:
+        date_raw = point.get("series_date")
+        value_raw = point.get("value")
+        if not isinstance(date_raw, str) or value_raw is None:
+            continue
+        try:
+            return_value = Decimal(str(value_raw))
+            if str(point.get("value_convention") or "").lower() == "annualized_rate":
+                return_value = return_value / _risk_free_day_count_denominator(point.get("day_count_convention"))
+            normalized_points.append(ReturnPoint(date=date.fromisoformat(date_raw), return_value=return_value))
+        except (ValueError, ArithmeticError):
+            continue
+    return to_dataframe(normalized_points, series_type="risk_free")
+
+
 async def calculate_returns_series(
     request: ReturnsSeriesRequest,
     *,
@@ -506,6 +561,11 @@ async def _calculate_returns_series(
             ),
             frequency=request.frequency,
         )
+        portfolio_df = apply_calendar_policy(
+            portfolio_df,
+            frequency=request.frequency,
+            calendar_policy=request.data_policy.calendar_policy,
+        )
         if request.series_selection.include_benchmark:
             benchmark_df = resample_returns(
                 filter_window(
@@ -514,6 +574,11 @@ async def _calculate_returns_series(
                 ),
                 frequency=request.frequency,
             )
+            benchmark_df = apply_calendar_policy(
+                benchmark_df,
+                frequency=request.frequency,
+                calendar_policy=request.data_policy.calendar_policy,
+            )
         if request.series_selection.include_risk_free:
             risk_free_df = resample_returns(
                 filter_window(
@@ -521,6 +586,11 @@ async def _calculate_returns_series(
                     resolved_window=resolved_window,
                 ),
                 frequency=request.frequency,
+            )
+            risk_free_df = apply_calendar_policy(
+                risk_free_df,
+                frequency=request.frequency,
+                calendar_policy=request.data_policy.calendar_policy,
             )
 
         active_stage = "execution"
@@ -648,14 +718,29 @@ async def _calculate_returns_series(
                     else Decimal("1"),
                 ),
                 gaps=[
-                    *detect_gaps(portfolio_df, frequency=request.frequency, series_type="portfolio"),
+                    *detect_gaps(
+                        portfolio_df,
+                        frequency=request.frequency,
+                        series_type="portfolio",
+                        calendar_policy=request.data_policy.calendar_policy,
+                    ),
                     *(
-                        detect_gaps(benchmark_df, frequency=request.frequency, series_type="benchmark")
+                        detect_gaps(
+                            benchmark_df,
+                            frequency=request.frequency,
+                            series_type="benchmark",
+                            calendar_policy=request.data_policy.calendar_policy,
+                        )
                         if benchmark_df is not None
                         else []
                     ),
                     *(
-                        detect_gaps(risk_free_df, frequency=request.frequency, series_type="risk_free")
+                        detect_gaps(
+                            risk_free_df,
+                            frequency=request.frequency,
+                            series_type="risk_free",
+                            calendar_policy=request.data_policy.calendar_policy,
+                        )
                         if risk_free_df is not None
                         else []
                     ),
@@ -942,12 +1027,7 @@ async def resolve_stateful_returns_series_request(
     if risk_free_points is not None:
         risk_free_df = resample_returns(
             filter_window(
-                core_points_to_dataframe(
-                    points=risk_free_points,
-                    date_key="series_date",
-                    value_key="value",
-                    series_type="risk_free",
-                ),
+                risk_free_points_to_dataframe(points=risk_free_points),
                 resolved_window=resolved_window,
             ),
             frequency=request.frequency,
