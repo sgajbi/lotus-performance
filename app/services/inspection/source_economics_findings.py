@@ -10,6 +10,7 @@ def build_source_economics_findings(
     duplicate_fee_signal_samples: list[dict[str, object]],
     fee_source_mismatch_samples: list[dict[str, object]],
     positive_fee_signal_samples: list[dict[str, object]],
+    fee_timing_bucket_samples: list[dict[str, object]],
     external_normalization_samples: list[dict[str, object]],
     duplicate_external_signal_samples: list[dict[str, object]],
     external_source_mismatch_samples: list[dict[str, object]],
@@ -102,6 +103,27 @@ def build_source_economics_findings(
                     "negative economics."
                 ),
                 evidence=_sample_evidence(portfolio_id=portfolio_id, samples=positive_fee_signal_samples),
+            )
+        )
+
+    if fee_timing_bucket_samples:
+        findings.append(
+            TWRInspectionFinding(
+                code="FEE_CASHFLOW_TIMING_BUCKET_UNSUPPORTED",
+                severity="warning",
+                category="cashflow_classification",
+                owner_repo="lotus-core",
+                summary="The stateful portfolio source serves fee-classified cash flows in the beginning-of-day bucket.",
+                explanation=(
+                    "Fee-classified source economics should be operational fee drag, not beginning-of-day capital "
+                    "movement. The inspector still treats the amount as a fee for normalization checks, but preserves "
+                    "the timing bucket as upstream contract evidence."
+                ),
+                recommended_action=(
+                    "Review lotus-core portfolio-timeseries fee timing semantics and emit operational fee rows in "
+                    "the canonical end-of-day timing bucket unless a separate governed fee timing model is approved."
+                ),
+                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=fee_timing_bucket_samples),
             )
         )
 

@@ -44,6 +44,7 @@ class ObservationSourceEconomics:
     noncanonical_cashflow_types: tuple[str, ...]
     unsupported_cashflow_type_rows: tuple[dict[str, object], ...]
     governed_alias_cashflow_type_rows: tuple[dict[str, object], ...]
+    fee_bod_timing_rows: tuple[dict[str, object], ...]
 
 
 def run_source_economics_checks(
@@ -113,6 +114,7 @@ def analyze_source_economics(
         duplicate_fee_signal_samples=samples.duplicate_fee_signal_samples,
         fee_source_mismatch_samples=samples.fee_source_mismatch_samples,
         positive_fee_signal_samples=samples.positive_fee_signal_samples,
+        fee_timing_bucket_samples=samples.fee_timing_bucket_samples,
         external_normalization_samples=samples.external_normalization_samples,
         duplicate_external_signal_samples=samples.duplicate_external_signal_samples,
         external_source_mismatch_samples=samples.external_source_mismatch_samples,
@@ -137,6 +139,7 @@ def analyze_source_economics(
             duplicate_fee_signal_samples=samples.duplicate_fee_signal_samples,
             fee_source_mismatch_samples=samples.fee_source_mismatch_samples,
             positive_fee_signal_samples=samples.positive_fee_signal_samples,
+            fee_timing_bucket_samples=samples.fee_timing_bucket_samples,
             external_normalization_samples=samples.external_normalization_samples,
             duplicate_external_signal_samples=samples.duplicate_external_signal_samples,
             external_source_mismatch_samples=samples.external_source_mismatch_samples,
@@ -159,6 +162,7 @@ def analyze_source_economics(
             duplicate_fee_signal_samples=samples.duplicate_fee_signal_samples,
             fee_source_mismatch_samples=samples.fee_source_mismatch_samples,
             positive_fee_signal_samples=samples.positive_fee_signal_samples,
+            fee_timing_bucket_samples=samples.fee_timing_bucket_samples,
             external_normalization_samples=samples.external_normalization_samples,
             duplicate_external_signal_samples=samples.duplicate_external_signal_samples,
             external_source_mismatch_samples=samples.external_source_mismatch_samples,
@@ -184,6 +188,7 @@ def _build_evidence_summary(
     duplicate_fee_signal_samples: list[dict[str, object]],
     fee_source_mismatch_samples: list[dict[str, object]],
     positive_fee_signal_samples: list[dict[str, object]],
+    fee_timing_bucket_samples: list[dict[str, object]],
     external_normalization_samples: list[dict[str, object]],
     duplicate_external_signal_samples: list[dict[str, object]],
     external_source_mismatch_samples: list[dict[str, object]],
@@ -205,6 +210,7 @@ def _build_evidence_summary(
         "duplicate_fee_signal_count": len(duplicate_fee_signal_samples),
         "fee_source_mismatch_count": len(fee_source_mismatch_samples),
         "positive_fee_signal_count": len(positive_fee_signal_samples),
+        "fee_timing_bucket_anomaly_count": len(fee_timing_bucket_samples),
         "external_cashflow_normalization_gap_count": len(external_normalization_samples),
         "duplicate_external_cashflow_signal_count": len(duplicate_external_signal_samples),
         "external_cashflow_source_mismatch_count": len(external_source_mismatch_samples),
@@ -230,6 +236,7 @@ def _build_artifact_payload(
     duplicate_fee_signal_samples: list[dict[str, object]],
     fee_source_mismatch_samples: list[dict[str, object]],
     positive_fee_signal_samples: list[dict[str, object]],
+    fee_timing_bucket_samples: list[dict[str, object]],
     external_normalization_samples: list[dict[str, object]],
     duplicate_external_signal_samples: list[dict[str, object]],
     external_source_mismatch_samples: list[dict[str, object]],
@@ -258,6 +265,8 @@ def _build_artifact_payload(
         "fee_source_mismatch_samples": fee_source_mismatch_samples[:_SAMPLE_LIMIT],
         "positive_fee_signal_count": len(positive_fee_signal_samples),
         "positive_fee_signal_samples": positive_fee_signal_samples[:_SAMPLE_LIMIT],
+        "fee_timing_bucket_anomaly_count": len(fee_timing_bucket_samples),
+        "fee_timing_bucket_samples": fee_timing_bucket_samples[:_SAMPLE_LIMIT],
         "external_cashflow_normalization_gap_count": len(external_normalization_samples),
         "external_cashflow_normalization_gap_samples": external_normalization_samples[:_SAMPLE_LIMIT],
         "duplicate_external_cashflow_signal_count": len(duplicate_external_signal_samples),
@@ -339,6 +348,7 @@ def _build_observation_source_economics(
             noncanonical_cashflow_types,
             unsupported_cashflow_type_rows,
             governed_alias_cashflow_type_rows,
+            fee_bod_timing_rows,
         ) = _collect_observation_economics(observation)
         source_points.append(
             ObservationSourceEconomics(
@@ -361,6 +371,7 @@ def _build_observation_source_economics(
                 noncanonical_cashflow_types=noncanonical_cashflow_types,
                 unsupported_cashflow_type_rows=unsupported_cashflow_type_rows,
                 governed_alias_cashflow_type_rows=governed_alias_cashflow_type_rows,
+                fee_bod_timing_rows=fee_bod_timing_rows,
             )
         )
     return source_points
@@ -384,6 +395,7 @@ def _collect_observation_economics(
     tuple[str, ...],
     tuple[dict[str, object], ...],
     tuple[dict[str, object], ...],
+    tuple[dict[str, object], ...],
 ]:
     (
         detailed_external_bod,
@@ -396,6 +408,7 @@ def _collect_observation_economics(
         noncanonical_cashflow_types,
         unsupported_cashflow_type_rows,
         governed_alias_cashflow_type_rows,
+        fee_bod_timing_rows,
     ) = _sum_detailed_cash_flows(observation.get("cash_flows"))
     explicit_bod_total, conflicting_bod_fields, invalid_bod_fields = _read_explicit_decimal_fields(
         observation,
@@ -428,6 +441,7 @@ def _collect_observation_economics(
         noncanonical_cashflow_types,
         unsupported_cashflow_type_rows,
         governed_alias_cashflow_type_rows,
+        fee_bod_timing_rows,
     )
 
 
@@ -444,6 +458,7 @@ def _sum_detailed_cash_flows(
     tuple[str, ...],
     tuple[dict[str, object], ...],
     tuple[dict[str, object], ...],
+    tuple[dict[str, object], ...],
 ]:
     external_bod = Decimal("0")
     external_eod = Decimal("0")
@@ -455,8 +470,9 @@ def _sum_detailed_cash_flows(
     noncanonical_cashflow_types: set[str] = set()
     unsupported_cashflow_type_rows: list[dict[str, object]] = []
     governed_alias_cashflow_type_rows: list[dict[str, object]] = []
+    fee_bod_timing_rows: list[dict[str, object]] = []
     if not isinstance(cash_flows_raw, list):
-        return external_bod, external_eod, fee_bod, fee_eod, (), (), (), (), (), ()
+        return external_bod, external_eod, fee_bod, fee_eod, (), (), (), (), (), (), ()
 
     for flow in cash_flows_raw:
         if not isinstance(flow, dict):
@@ -504,6 +520,13 @@ def _sum_detailed_cash_flows(
         if cashflow_type_classification.economics_role == "fee":
             if normalized_timing == "bod":
                 fee_bod += amount
+                fee_bod_timing_rows.append(
+                    {
+                        "timing": normalized_timing,
+                        "amount": float(amount),
+                        "cash_flow_type": normalized_cash_flow_type,
+                    }
+                )
             else:
                 fee_eod += amount
             continue
@@ -524,6 +547,7 @@ def _sum_detailed_cash_flows(
         tuple(sorted(noncanonical_cashflow_types)),
         tuple(unsupported_cashflow_type_rows),
         tuple(governed_alias_cashflow_type_rows),
+        tuple(fee_bod_timing_rows),
     )
 
 

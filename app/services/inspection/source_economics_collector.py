@@ -16,6 +16,7 @@ class SourceEconomicsSamples:
     duplicate_fee_signal_samples: list[dict[str, object]]
     fee_source_mismatch_samples: list[dict[str, object]]
     positive_fee_signal_samples: list[dict[str, object]]
+    fee_timing_bucket_samples: list[dict[str, object]]
     external_normalization_samples: list[dict[str, object]]
     duplicate_external_signal_samples: list[dict[str, object]]
     external_source_mismatch_samples: list[dict[str, object]]
@@ -38,6 +39,7 @@ class _SourceEconomicsSampleCollector:
     duplicate_fee_signal_samples: list[dict[str, object]] = field(default_factory=list)
     fee_source_mismatch_samples: list[dict[str, object]] = field(default_factory=list)
     positive_fee_signal_samples: list[dict[str, object]] = field(default_factory=list)
+    fee_timing_bucket_samples: list[dict[str, object]] = field(default_factory=list)
     external_normalization_samples: list[dict[str, object]] = field(default_factory=list)
     duplicate_external_signal_samples: list[dict[str, object]] = field(default_factory=list)
     external_source_mismatch_samples: list[dict[str, object]] = field(default_factory=list)
@@ -64,6 +66,7 @@ class _SourceEconomicsSampleCollector:
             duplicate_fee_signal_samples=self.duplicate_fee_signal_samples,
             fee_source_mismatch_samples=self.fee_source_mismatch_samples,
             positive_fee_signal_samples=self.positive_fee_signal_samples,
+            fee_timing_bucket_samples=self.fee_timing_bucket_samples,
             external_normalization_samples=self.external_normalization_samples,
             duplicate_external_signal_samples=self.duplicate_external_signal_samples,
             external_source_mismatch_samples=self.external_source_mismatch_samples,
@@ -183,6 +186,13 @@ class _SourceEconomicsSampleCollector:
                     "explicit_fee_amount": (
                         float(source_point.explicit_fee_total) if source_point.explicit_fee_total is not None else None
                     ),
+                }
+            )
+        if source_point.fee_bod_timing_rows:
+            self.fee_timing_bucket_samples.append(
+                {
+                    "valuation_date": source_point.valuation_date,
+                    "rows": list(source_point.fee_bod_timing_rows),
                 }
             )
 

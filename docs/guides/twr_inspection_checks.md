@@ -123,6 +123,7 @@ These findings evaluate whether raw source cash and fee economics tie to the ser
 | `DUPLICATE_FEE_SOURCE_SIGNAL` | `lotus-core` | detailed fee rows and explicit fee total repeat the same fee economics | explicit fee amount and detailed fee amount |
 | `FEE_SOURCE_TOTAL_MISMATCH` | `lotus-core` | detailed fee rows and explicit fee total disagree | explicit fee amount and detailed fee amount |
 | `POSITIVE_FEE_SOURCE_SIGNAL` | `lotus-core` | fee economics are served with a positive sign | positive fee sample and date |
+| `FEE_CASHFLOW_TIMING_BUCKET_UNSUPPORTED` | `lotus-core` | fee-classified cash-flow rows are served in the beginning-of-day timing bucket | valuation dates and sampled fee rows |
 
 #### External cash-flow findings
 
@@ -194,6 +195,7 @@ Use for:
 - invalid cash-flow amount date counts
 - invalid cash-flow timing date counts
 - missing cash-flow type date counts
+- fee timing-bucket anomaly counts
 - non-canonical cash-flow type date counts
 - governed alias cash-flow type date counts
 - unsupported cash-flow type date counts
@@ -205,6 +207,7 @@ Key support-facing sample fields:
 - `external_cashflow_timing_contradiction_samples[*].opposite_detailed_timing`
 - `external_cashflow_timing_contradiction_samples[*].explicit_cashflow_amount`
 - `external_cashflow_timing_contradiction_samples[*].opposite_detailed_cashflow_amount`
+- `fee_timing_bucket_samples[*].rows`
 - `noncanonical_cashflow_type_samples[*].cash_flow_types`
 - `noncanonical_cashflow_types`
 - `governed_alias_cashflow_type_samples[*].cash_flow_types`

@@ -723,9 +723,10 @@ Implementation status on 2026-04-15:
 4. raw source-economics inspection now covers both fee and external cash-flow classification,
    conflicting or malformed explicit fee or bod/eod source totals, fee and external normalization
    mismatches, duplicate source signals, positive fee sign anomalies, explicit fee or external
-   source-total mismatches, external timing-bucket contradictions, invalid amount values, invalid
-   timing labels, missing `cash_flow_type` labels, non-canonical `cash_flow_type` labels, governed
-   aliases such as `management_fee`, and unsupported labels such as `dividend`,
+   source-total mismatches, unsupported beginning-of-day fee timing, external timing-bucket
+   contradictions, invalid amount values, invalid timing labels, missing `cash_flow_type` labels,
+   non-canonical `cash_flow_type` labels, governed aliases such as `management_fee`, and unsupported
+   labels such as `dividend`,
 5. stateful portfolio and position valuation normalization now use the same source cash-flow taxonomy so
    canonical fee economics, including operational expenses emitted as `cash_flow_type="fee"` with
    `source_classification="EXPENSE"`, are preserved in `mgmt_fees` rather than in generic cash-flow buckets,
