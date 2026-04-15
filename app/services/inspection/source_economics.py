@@ -202,6 +202,7 @@ def _build_evidence_summary(
         "external_cashflow_source_mismatch_count": len(samples.external_source_mismatch_samples),
         "external_cashflow_timing_contradiction_count": len(samples.external_timing_contradiction_samples),
         "external_cashflow_mixed_timing_date_count": len(samples.external_mixed_timing_samples),
+        "external_cashflow_explicit_mixed_timing_date_count": len(samples.external_explicit_mixed_timing_samples),
         "conflicting_explicit_source_amount_date_count": len(samples.conflicting_explicit_amount_samples),
         "invalid_explicit_source_amount_date_count": len(samples.invalid_explicit_amount_samples),
         "invalid_cashflow_collection_date_count": len(samples.invalid_cashflow_collection_samples),
@@ -254,6 +255,10 @@ def _build_artifact_payload(
         ),
         "external_cashflow_mixed_timing_date_count": len(samples.external_mixed_timing_samples),
         "external_cashflow_mixed_timing_samples": samples.external_mixed_timing_samples[:_SAMPLE_LIMIT],
+        "external_cashflow_explicit_mixed_timing_date_count": len(samples.external_explicit_mixed_timing_samples),
+        "external_cashflow_explicit_mixed_timing_samples": (
+            samples.external_explicit_mixed_timing_samples[:_SAMPLE_LIMIT]
+        ),
         "conflicting_explicit_source_amount_date_count": len(samples.conflicting_explicit_amount_samples),
         "conflicting_explicit_source_amount_samples": samples.conflicting_explicit_amount_samples[:_SAMPLE_LIMIT],
         "invalid_explicit_source_amount_date_count": len(samples.invalid_explicit_amount_samples),

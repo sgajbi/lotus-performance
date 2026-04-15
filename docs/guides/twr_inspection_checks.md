@@ -150,6 +150,7 @@ These findings evaluate whether raw source cash and fee economics tie to the ser
 | `EXTERNAL_CASHFLOW_SOURCE_TOTAL_MISMATCH` | `lotus-core` | detailed external rows and explicit bod/eod aggregate disagree | explicit amount, detailed amount, timing |
 | `EXTERNAL_CASHFLOW_TIMING_BUCKET_CONTRADICTION` | `lotus-core` | explicit external cash-flow total is served in one timing bucket while detailed rows exist only in the opposite timing bucket | explicit timing, opposite detailed timing, sampled amounts |
 | `EXTERNAL_CASHFLOW_MIXED_TIMING_BUCKETS` | `lotus-core` | detailed external cash-flow rows exist in both beginning-of-day and end-of-day buckets for the same valuation date | valuation dates, detailed BOD amount, detailed EOD amount |
+| `EXTERNAL_CASHFLOW_EXPLICIT_MIXED_TIMING_BUCKETS` | `lotus-core` | explicit external cash-flow aggregate totals exist in both beginning-of-day and end-of-day buckets for the same valuation date | valuation dates, explicit BOD amount, explicit EOD amount |
 | `CONFLICTING_EXPLICIT_SOURCE_TOTAL_PRESENT` | `lotus-core` | raw source serves conflicting numeric alias fields for the same explicit fee or bod/eod total | valuation dates, alias field names, resolved and conflicting values |
 | `INVALID_EXPLICIT_SOURCE_AMOUNT_PRESENT` | `lotus-core` | raw source serves malformed explicit fee or bod/eod cash-flow totals | valuation dates, explicit field names, raw field values |
 | `INVALID_PORTFOLIO_OBSERVATION_DATE_PRESENT` | `lotus-core` | raw source serves portfolio observations without a usable ISO `valuation_date` identity | raw valuation-date type/value and observation keys |
@@ -213,6 +214,7 @@ Use for:
 - source-total mismatch counts
 - timing-bucket contradiction counts
 - mixed external timing-bucket counts
+- mixed explicit external timing-bucket counts
 - mixed fee timing-bucket counts
 - conflicting explicit-source amount date counts
 - invalid explicit-source amount date counts
@@ -238,6 +240,8 @@ Key support-facing sample fields:
 - `external_cashflow_timing_contradiction_samples[*].opposite_detailed_cashflow_amount`
 - `external_cashflow_mixed_timing_samples[*].detailed_external_bod`
 - `external_cashflow_mixed_timing_samples[*].detailed_external_eod`
+- `external_cashflow_explicit_mixed_timing_samples[*].explicit_external_bod`
+- `external_cashflow_explicit_mixed_timing_samples[*].explicit_external_eod`
 - `fee_cashflow_mixed_timing_samples[*].detailed_fee_bod`
 - `fee_cashflow_mixed_timing_samples[*].detailed_fee_eod`
 - `fee_timing_bucket_samples[*].rows`

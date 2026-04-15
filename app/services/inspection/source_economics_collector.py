@@ -24,6 +24,7 @@ class SourceEconomicsSamples:
     external_source_mismatch_samples: list[dict[str, object]]
     external_timing_contradiction_samples: list[dict[str, object]]
     external_mixed_timing_samples: list[dict[str, object]]
+    external_explicit_mixed_timing_samples: list[dict[str, object]]
     conflicting_explicit_amount_samples: list[dict[str, object]]
     invalid_explicit_amount_samples: list[dict[str, object]]
     invalid_cashflow_collection_samples: list[dict[str, object]]
@@ -51,6 +52,7 @@ class _SourceEconomicsSampleCollector:
     external_source_mismatch_samples: list[dict[str, object]] = field(default_factory=list)
     external_timing_contradiction_samples: list[dict[str, object]] = field(default_factory=list)
     external_mixed_timing_samples: list[dict[str, object]] = field(default_factory=list)
+    external_explicit_mixed_timing_samples: list[dict[str, object]] = field(default_factory=list)
     conflicting_explicit_amount_samples: list[dict[str, object]] = field(default_factory=list)
     invalid_explicit_amount_samples: list[dict[str, object]] = field(default_factory=list)
     invalid_cashflow_collection_samples: list[dict[str, object]] = field(default_factory=list)
@@ -85,6 +87,7 @@ class _SourceEconomicsSampleCollector:
             external_source_mismatch_samples=self.external_source_mismatch_samples,
             external_timing_contradiction_samples=self.external_timing_contradiction_samples,
             external_mixed_timing_samples=self.external_mixed_timing_samples,
+            external_explicit_mixed_timing_samples=self.external_explicit_mixed_timing_samples,
             conflicting_explicit_amount_samples=self.conflicting_explicit_amount_samples,
             invalid_explicit_amount_samples=self.invalid_explicit_amount_samples,
             invalid_cashflow_collection_samples=self.invalid_cashflow_collection_samples,
@@ -290,6 +293,19 @@ class _SourceEconomicsSampleCollector:
                     "valuation_date": source_point.valuation_date,
                     "detailed_external_bod": float(source_point.detailed_external_bod),
                     "detailed_external_eod": float(source_point.detailed_external_eod),
+                }
+            )
+        if (
+            source_point.explicit_bod_total is not None
+            and source_point.explicit_eod_total is not None
+            and source_point.explicit_bod_total != 0
+            and source_point.explicit_eod_total != 0
+        ):
+            self.external_explicit_mixed_timing_samples.append(
+                {
+                    "valuation_date": source_point.valuation_date,
+                    "explicit_external_bod": float(source_point.explicit_bod_total),
+                    "explicit_external_eod": float(source_point.explicit_eod_total),
                 }
             )
 

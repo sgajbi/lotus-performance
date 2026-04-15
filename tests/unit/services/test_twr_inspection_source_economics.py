@@ -546,6 +546,52 @@ def test_analyze_source_economics_flags_mixed_external_timing_buckets():
     ]
 
 
+def test_analyze_source_economics_flags_explicit_mixed_external_timing_buckets():
+    performance_request = PerformanceRequest(
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        performance_start_date=date(2026, 3, 25),
+        metric_basis="NET",
+        report_end_date=date(2026, 3, 25),
+        analyses=[Analysis(period="YTD", frequencies=["daily"])],
+        valuation_points=[
+            DailyInputData(
+                perf_date=date(2026, 3, 25),
+                begin_mv=3200.0,
+                end_mv=3200.0,
+                bod_cf=1000.0,
+                eod_cf=-500.0,
+                mgmt_fees=0.0,
+            ),
+        ],
+    )
+
+    result = analyze_source_economics(
+        performance_request=performance_request,
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        observations=[
+            {
+                "valuation_date": "2026-03-25",
+                "beginning_market_value": "3200.0",
+                "ending_market_value": "3200.0",
+                "bod_cashflow": "1000.0",
+                "eod_cashflow": "-500.0",
+                "cash_flows": [],
+            }
+        ],
+    )
+
+    assert {finding.code for finding in result.findings} == {"EXTERNAL_CASHFLOW_EXPLICIT_MIXED_TIMING_BUCKETS"}
+    assert result.evidence_summary["external_cashflow_normalization_gap_count"] == 0
+    assert result.evidence_summary["external_cashflow_explicit_mixed_timing_date_count"] == 1
+    assert result.artifact_payload["external_cashflow_explicit_mixed_timing_samples"] == [
+        {
+            "valuation_date": "2026-03-25",
+            "explicit_external_bod": 1000.0,
+            "explicit_external_eod": -500.0,
+        }
+    ]
+
+
 def test_analyze_source_economics_flags_invalid_cashflow_amount_rows():
     performance_request = PerformanceRequest(
         portfolio_id="PB_SG_GLOBAL_BAL_001",

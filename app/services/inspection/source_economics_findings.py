@@ -264,6 +264,31 @@ def build_source_economics_findings(
             )
         )
 
+    if samples.external_explicit_mixed_timing_samples:
+        findings.append(
+            TWRInspectionFinding(
+                code="EXTERNAL_CASHFLOW_EXPLICIT_MIXED_TIMING_BUCKETS",
+                severity="warning",
+                category="cashflow_classification",
+                owner_repo="lotus-core",
+                summary="The stateful portfolio source serves explicit external cash-flow totals in both timing buckets for the same valuation date.",
+                explanation=(
+                    "The raw portfolio observation includes explicit beginning-of-day and end-of-day external "
+                    "cash-flow totals on the same valuation date. That can be legitimate, but it is timing-sensitive "
+                    "for TWR support even when no detailed rows are present, so the inspector preserves it as "
+                    "source-economics evidence."
+                ),
+                recommended_action=(
+                    "Review the lotus-core transaction story for the sampled dates and confirm both explicit external "
+                    "timing buckets are intentional and reconcile to the normalized TWR valuation points."
+                ),
+                evidence=_sample_evidence(
+                    portfolio_id=portfolio_id,
+                    samples=samples.external_explicit_mixed_timing_samples,
+                ),
+            )
+        )
+
     if samples.conflicting_explicit_amount_samples:
         findings.append(
             TWRInspectionFinding(
