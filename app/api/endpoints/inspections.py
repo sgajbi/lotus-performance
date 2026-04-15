@@ -4,7 +4,7 @@ import os
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
 from app.core.config import get_settings
 from app.models.inspection_requests import TWRInspectionRequest
@@ -93,6 +93,13 @@ def get_twr_inspection_artifact(inspection_id: UUID, artifact_name: str):
 
     artifact_path = _inspection_storage_path(inspection_id=inspection_id, artifact_name=artifact_name)
     if not os.path.exists(artifact_path):
+        payload = lineage_metadata_store.get_payload(inspection_id)
+        if payload is not None and artifact_name in payload.details:
+            return Response(
+                content=payload.details[artifact_name],
+                media_type="application/json",
+                headers={"Content-Disposition": f'attachment; filename="{artifact_name}"'},
+            )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Inspection artifact is missing from storage.",

@@ -100,9 +100,7 @@ def test_twr_inspection_request_subject_runs_through_async_runtime_and_artifacts
     assert drain_lineage_queue() >= 1
 
     execution_after_lineage = client.get(f"/performance/executions/{inspection_id}")
-    stages_after_lineage = {
-        stage["stage_name"]: stage for stage in execution_after_lineage.json()["stages"]
-    }
+    stages_after_lineage = {stage["stage_name"]: stage for stage in execution_after_lineage.json()["stages"]}
     assert stages_after_lineage["artifact_materialization"]["status"] == "complete"
     assert "inspection_summary.json" in stages_after_lineage["artifact_materialization"]["details"]["artifact_names"]
 
@@ -116,6 +114,26 @@ def test_twr_inspection_request_subject_runs_through_async_runtime_and_artifacts
     )
     assert source_quality_artifact.status_code == 200
     assert source_quality_artifact.json()["valuation_point_count"] == 1
+
+
+def test_twr_inspection_artifact_can_be_served_from_retained_payload(client):
+    inspection_id = uuid4()
+    lineage_metadata_store.enqueue_lineage_payload(
+        calculation_id=inspection_id,
+        calculation_type="TWR_INSPECTION",
+        request_json="{}",
+        response_json="{}",
+        details={"source_economics_summary.json": json.dumps({"fee_normalization_gap_count": 0})},
+    )
+    lineage_metadata_store.mark_complete(
+        inspection_id,
+        artifact_names=["source_economics_summary.json"],
+    )
+
+    response = client.get(f"/performance/inspections/{inspection_id}/artifacts/source_economics_summary.json")
+
+    assert response.status_code == 200
+    assert response.json() == {"fee_normalization_gap_count": 0}
 
 
 def test_twr_inspection_existing_calculation_subject_links_back_to_twr_lineage(client):
@@ -692,20 +710,20 @@ def test_twr_inspection_flags_extreme_daily_move_for_request_subject(client):
             "subject_type": "twr_request",
             "inspection_profile": "canonical_validation",
             "request": {
-                    "portfolio_id": "PB_SG_GLOBAL_BAL_001",
-                    "performance_start_date": "2026-01-01",
-                    "metric_basis": "NET",
-                    "report_end_date": "2026-01-06",
-                    "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
-                    "valuation_points": [
-                        {"perf_date": "2026-01-02", "begin_mv": 1000.0, "end_mv": 1000.0},
-                        {"perf_date": "2026-01-03", "begin_mv": 1000.0, "end_mv": 1000.0},
-                        {"perf_date": "2026-01-04", "begin_mv": 1000.0, "end_mv": 1000.0},
-                        {"perf_date": "2026-01-06", "begin_mv": 1000.0, "end_mv": 1300.0},
-                    ],
-                },
+                "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+                "performance_start_date": "2026-01-01",
+                "metric_basis": "NET",
+                "report_end_date": "2026-01-06",
+                "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+                "valuation_points": [
+                    {"perf_date": "2026-01-02", "begin_mv": 1000.0, "end_mv": 1000.0},
+                    {"perf_date": "2026-01-03", "begin_mv": 1000.0, "end_mv": 1000.0},
+                    {"perf_date": "2026-01-04", "begin_mv": 1000.0, "end_mv": 1000.0},
+                    {"perf_date": "2026-01-06", "begin_mv": 1000.0, "end_mv": 1300.0},
+                ],
             },
-        )
+        },
+    )
     assert submit.status_code == 202
 
     assert drain_compute_queue() >= 1
@@ -781,9 +799,7 @@ def test_twr_inspection_flags_nonpositive_daily_capital_base_for_request_subject
     assert result.status_code == 200
     body = result.json()
     assert body["verdict"] == "not_supportable"
-    assert {finding["code"] for finding in body["findings"]} == {
-        "NONPOSITIVE_DAILY_CAPITAL_BASE_DETECTED"
-    }
+    assert {finding["code"] for finding in body["findings"]} == {"NONPOSITIVE_DAILY_CAPITAL_BASE_DETECTED"}
     assert body["evidence_summary"]["nonpositive_capital_base_count"] == 1
     assert body["evidence_summary"]["largest_abs_daily_move_pct"] == pytest.approx(1.0)
 
