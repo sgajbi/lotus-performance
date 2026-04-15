@@ -84,10 +84,12 @@ WORKSPACE_SUMMARY_REQUEST_EXAMPLES = [
 
 
 class WorkspaceSummaryPeriodRequest(BaseModel):
-    period: WorkspacePeriodType = Field(..., description="Workspace horizon to calculate.")
+    period: WorkspacePeriodType = Field(..., description="Workspace horizon to calculate.", examples=["YTD"])
     frequencies: list[Frequency] = Field(
         ...,
         description="Breakdown frequencies to emit for this workspace horizon.",
+        examples=[["daily", "monthly"]],
+        json_schema_extra={"example": ["daily", "monthly"]},
     )
 
     @field_validator("frequencies")
@@ -102,14 +104,17 @@ class WorkspaceBenchmarkRequest(BaseModel):
     benchmark_id: str | None = Field(
         default=None,
         description="Benchmark identifier. Optional in stateful mode when lotus-core assignment should be resolved.",
+        examples=["BMK_PB_GLOBAL_BALANCED_60_40"],
     )
     input_mode: BenchmarkInputMode = Field(
         default=BenchmarkInputMode.STATEFUL,
         description="Execution mode for benchmark analytics requested alongside the workspace summary.",
+        examples=["stateful"],
     )
     return_source: BenchmarkReturnSource = Field(
         default=BenchmarkReturnSource.CALCULATED,
         description="Benchmark return source mode.",
+        examples=["calculated"],
     )
     stateless_input: BenchmarkStatelessInput | None = Field(
         default=None,
@@ -145,10 +150,15 @@ class WorkspaceSummaryRequest(BaseModel):
         description="Durable workspace summary calculation handle. If omitted, lotus-performance generates one.",
     )
     portfolio_id: str = Field(..., description="Portfolio identifier for the workspace.")
-    report_end_date: date = Field(..., description="Anchor end date for all requested workspace horizons.")
+    report_end_date: date = Field(
+        ...,
+        description="Anchor end date for all requested workspace horizons.",
+        examples=["2026-04-10"],
+    )
     report_start_date: date | None = Field(
         default=None,
         description="Explicit start date used only when requested periods include EXPLICIT.",
+        examples=["2026-01-01"],
     )
     performance_start_date: date | None = Field(
         default=None,
@@ -156,30 +166,35 @@ class WorkspaceSummaryRequest(BaseModel):
             "Portfolio inception or earliest date for which performance data is available. "
             "In stateful mode lotus-performance can derive this upstream."
         ),
+        examples=["2026-01-01"],
     )
     periods: list[WorkspaceSummaryPeriodRequest] = Field(
         ...,
         description="Requested workspace horizons and their breakdown frequencies.",
+        examples=[[{"period": "YTD", "frequencies": ["daily", "monthly"]}]],
+        json_schema_extra={"example": [{"period": "YTD", "frequencies": ["daily", "monthly"]}]},
     )
     input_mode: TWRInputMode = Field(
         default=TWRInputMode.STATELESS,
         description="Execution mode for the portfolio analytics used by the workspace summary.",
+        examples=["stateful"],
     )
     stateless_input: TWRStatelessInput | None = Field(
         default=None,
-        description="Stateless portfolio valuation observations.",
+        description="Stateless portfolio valuation observations. Preferred for new stateless integrations.",
     )
     stateful_input: TWRStatefulInput | None = Field(
         default=None,
-        description="Stateful portfolio source configuration.",
+        description="Required empty envelope for stateful source-owned workspace summaries.",
     )
     valuation_points: list[DailyInputData] = Field(
         default_factory=list,
-        description="Legacy stateless valuation input payload. Prefer stateless_input for new integrations.",
+        description="Deprecated compatibility stateless valuation input payload. Prefer stateless_input for new integrations.",
     )
     include_benchmark: bool = Field(
         default=False,
         description="Whether benchmark and active summary blocks should be returned.",
+        examples=[True],
     )
     benchmark: WorkspaceBenchmarkRequest | None = Field(
         default=None,
@@ -188,14 +203,20 @@ class WorkspaceSummaryRequest(BaseModel):
     mwr_method: Literal["XIRR", "MODIFIED_DIETZ", "DIETZ"] = Field(
         default="XIRR",
         description="Money-weighted return method used for the MWR block.",
+        examples=["XIRR"],
     )
     solver: Solver = Field(default_factory=Solver, description="Numerical solver settings for the MWR block.")
-    currency: str = Field("USD", description="The three-letter ISO currency code for the request.")
+    currency: str = Field("USD", description="The three-letter ISO currency code for the request.", examples=["USD"])
     precision_mode: Literal["FLOAT64", "DECIMAL_STRICT"] = Field(
         "FLOAT64",
         description="Numerical precision mode for the workspace summary.",
+        examples=["FLOAT64"],
     )
-    rounding_precision: int = Field(6, description="Number of decimal places to round float outputs to.")
+    rounding_precision: int = Field(
+        6,
+        description="Number of decimal places to round float outputs to.",
+        examples=[6],
+    )
     calendar: Calendar = Field(default_factory=Calendar, description="Calendar settings for the workspace summary.")
     annualization: Annualization = Field(
         default_factory=lambda: Annualization(enabled=True, basis="ACT/365"),
@@ -205,10 +226,12 @@ class WorkspaceSummaryRequest(BaseModel):
     report_ccy: str | None = Field(
         default=None,
         description="Optional reporting currency used for stateful retrieval and output context.",
+        examples=["USD"],
     )
     currency_mode: Literal["BASE_ONLY", "LOCAL_ONLY", "BOTH"] | None = Field(
         default=None,
         description="Optional multi-currency mode for the portfolio path.",
+        examples=["BASE_ONLY"],
     )
     fx: FXRequestBlock | None = Field(
         default=None,

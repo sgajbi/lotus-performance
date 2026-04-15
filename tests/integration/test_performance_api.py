@@ -132,6 +132,159 @@ def test_workspace_summary_endpoint_returns_multi_horizon_summary_blocks(client)
     assert data["audit"]["counts"]["input_rows"] == 2
 
 
+def test_workspace_summary_endpoint_reconciles_all_summary_figures(client):
+    valuation_points = [
+        {"perf_date": "2026-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+        {"perf_date": "2026-01-02", "begin_mv": 1010.0, "bod_cf": 100.0, "end_mv": 1121.0},
+        {
+            "perf_date": "2026-01-03",
+            "begin_mv": 1121.0,
+            "eod_cf": -50.0,
+            "mgmt_fees": -10.0,
+            "end_mv": 1071.0,
+        },
+    ]
+    benchmark_return_points = [
+        {"perf_date": "2026-01-01", "benchmark_return": 0.005},
+        {"perf_date": "2026-01-02", "benchmark_return": 0.004},
+        {"perf_date": "2026-01-03", "benchmark_return": -0.002},
+    ]
+    payload = {
+        "portfolio_id": "WORKSPACE_SUMMARY_FIGURE_CERT",
+        "report_end_date": "2026-01-03",
+        "performance_start_date": "2026-01-01",
+        "report_start_date": "2026-01-01",
+        "input_mode": "stateless",
+        "mwr_method": "DIETZ",
+        "annualization": {"enabled": False, "basis": "ACT/365"},
+        "periods": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
+        "stateless_input": {"valuation_points": valuation_points},
+        "include_benchmark": True,
+        "benchmark": {
+            "benchmark_id": "BMK_WORKSPACE_FIGURE_CERT",
+            "input_mode": "stateless",
+            "return_source": "vendor_series",
+            "stateless_input": {
+                "benchmark_currency": "USD",
+                "benchmark_return_points": benchmark_return_points,
+            },
+        },
+    }
+    direct_twr_payload = {
+        "input_mode": "stateless",
+        "portfolio_id": "WORKSPACE_SUMMARY_FIGURE_CERT",
+        "performance_start_date": "2026-01-01",
+        "report_start_date": "2026-01-01",
+        "report_end_date": "2026-01-03",
+        "analyses": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
+        "stateless_input": {"valuation_points": valuation_points},
+        "annualization": {"enabled": False, "basis": "ACT/365"},
+    }
+    direct_mwr_payload = {
+        "input_mode": "stateless",
+        "portfolio_id": "WORKSPACE_SUMMARY_FIGURE_CERT",
+        "as_of": "2026-01-03",
+        "start_date": "2026-01-01",
+        "mwr_method": "DIETZ",
+        "annualization": {"enabled": False, "basis": "ACT/365"},
+        "stateless_input": {
+            "begin_mv": 1000.0,
+            "end_mv": 1071.0,
+            "cash_flows": [
+                {"amount": 100.0, "date": "2026-01-02"},
+                {"amount": -50.0, "date": "2026-01-03"},
+            ],
+        },
+    }
+    direct_benchmark_payload = {
+        "benchmark_id": "BMK_WORKSPACE_FIGURE_CERT",
+        "benchmark_start_date": "2026-01-01",
+        "report_start_date": "2026-01-01",
+        "report_end_date": "2026-01-03",
+        "analyses": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
+        "input_mode": "stateless",
+        "return_source": "vendor_series",
+        "annualization": {"enabled": False, "basis": "ACT/365"},
+        "stateless_input": {
+            "benchmark_currency": "USD",
+            "benchmark_return_points": benchmark_return_points,
+        },
+    }
+
+    direct_net_response = client.post("/performance/twr", json={**direct_twr_payload, "metric_basis": "NET"})
+    direct_gross_response = client.post("/performance/twr", json={**direct_twr_payload, "metric_basis": "GROSS"})
+    direct_mwr_response = client.post("/performance/mwr", json=direct_mwr_payload)
+    direct_benchmark_response = client.post("/performance/benchmark", json=direct_benchmark_payload)
+    response = client.post("/performance/workspace-summary", json=payload)
+
+    assert direct_net_response.status_code == 200
+    assert direct_gross_response.status_code == 200
+    assert direct_mwr_response.status_code == 200
+    assert direct_benchmark_response.status_code == 200
+    assert response.status_code == 200
+    direct_net = direct_net_response.json()["results_by_period"]["EXPLICIT"]["portfolio"]
+    direct_gross = direct_gross_response.json()["results_by_period"]["EXPLICIT"]["portfolio"]
+    direct_mwr = direct_mwr_response.json()
+    direct_benchmark = direct_benchmark_response.json()["results_by_period"]["EXPLICIT"]["benchmark"]
+    body = response.json()
+    period = body["results_by_period"]["EXPLICIT"]
+    net = period["portfolio_twr"]["net"]
+    gross = period["portfolio_twr"]["gross"]
+    benchmark = period["benchmark"]
+    active = period["active"]
+    mwr = period["money_weighted_return"]
+    economics = net["summary"]["economics"]
+
+    assert economics == {
+        "begin_market_value": 1000.0,
+        "end_market_value": 1071.0,
+        "beginning_cash_flow": 100.0,
+        "ending_cash_flow": -50.0,
+        "fees": -10.0,
+        "net_cash_flow": 50.0,
+        "flow_adjusted_end_market_value": 1021.0,
+    }
+    assert net["summary"]["period_return"]["base"] == pytest.approx(direct_net["summary"]["period_return"]["base"])
+    assert net["summary"]["cumulative_return"]["base"] == pytest.approx(
+        direct_net["summary"]["cumulative_return"]["base"]
+    )
+    assert gross["summary"]["period_return"]["base"] == pytest.approx(direct_gross["summary"]["period_return"]["base"])
+    assert gross["summary"]["cumulative_return"]["base"] == pytest.approx(
+        direct_gross["summary"]["cumulative_return"]["base"]
+    )
+    assert benchmark["summary"]["period_return"]["base"] == pytest.approx(
+        direct_benchmark["summary"]["period_return"]["base"]
+    )
+    assert benchmark["summary"]["cumulative_return"]["base"] == pytest.approx(
+        direct_benchmark["summary"]["cumulative_return"]["base"]
+    )
+    assert active["net"]["period_return"]["base"] == pytest.approx(
+        net["summary"]["period_return"]["base"] - benchmark["summary"]["period_return"]["base"]
+    )
+    assert active["gross"]["period_return"]["base"] == pytest.approx(
+        gross["summary"]["period_return"]["base"] - benchmark["summary"]["period_return"]["base"]
+    )
+    assert mwr["period_return"] == pytest.approx(direct_mwr["money_weighted_return"])
+    assert mwr["cumulative_return"] == pytest.approx(mwr["period_return"])
+    assert mwr["annualized_return"] == pytest.approx(mwr["period_return"])
+    assert mwr["economics"] == economics
+    assert [item["period"] for item in net["breakdowns"]["daily"]] == [
+        item["period"] for item in direct_net["breakdowns"]["daily"]
+    ]
+    for workspace_item, direct_item in zip(net["breakdowns"]["daily"], direct_net["breakdowns"]["daily"]):
+        assert workspace_item["period_return"]["base"] == pytest.approx(direct_item["period_return"]["base"])
+        assert workspace_item["cumulative_return"]["base"] == pytest.approx(direct_item["cumulative_return"]["base"])
+    for workspace_item, direct_item in zip(gross["breakdowns"]["daily"], direct_gross["breakdowns"]["daily"]):
+        assert workspace_item["period_return"]["base"] == pytest.approx(direct_item["period_return"]["base"])
+        assert workspace_item["cumulative_return"]["base"] == pytest.approx(direct_item["cumulative_return"]["base"])
+    for workspace_item, direct_item in zip(benchmark["breakdowns"]["daily"], direct_benchmark["breakdowns"]["daily"]):
+        assert workspace_item["period_return"]["base"] == pytest.approx(direct_item["period_return"]["base"])
+        assert workspace_item["cumulative_return"]["base"] == pytest.approx(direct_item["cumulative_return"]["base"])
+    assert body["audit"]["counts"]["input_rows"] == 3
+    assert body["audit"]["counts"]["periods_resolved"] == 1
+    assert "Benchmark summary uses stateless benchmark input" in body["diagnostics"]["notes"][-1]
+
+
 def test_workspace_summary_endpoint_annualizes_periods_longer_than_one_year(client):
     payload = {
         "portfolio_id": "WORKSPACE_SUMMARY_2Y_TEST",

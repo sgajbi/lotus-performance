@@ -76,12 +76,16 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - stateful mode retrieves only the longest required portfolio window from lotus-core and preserves retrieval chunk counts in audit output
   - benchmark context remains explicit across stateless user-input and stateful lotus-core-linked modes
   - summary and breakdown blocks include beginning market value, ending market value, beginning-of-day cash flow, end-of-day cash flow, fees, net cash flow, and flow-adjusted end market value where those economics belong to the surface
+  - legacy top-level `valuation_points` remains deprecated compatibility input; new stateless callers should use `stateless_input.valuation_points`
+  - contribution and attribution drill-downs are intentionally not embedded in this endpoint; use `/performance/contribution` and `/performance/attribution` for those analytical details
   - async accepted responses return:
     - `poll_path=/performance/executions/{calculation_id}`
     - `result_path=/performance/workspace-summary/results/{calculation_id}`
   - canonical example payloads live in:
     - `docs/examples/workspace_summary_request.json`
     - `docs/examples/workspace_summary_stateful_detail_request.json`
+  - certification evidence lives in:
+    - `docs/technical/workspace-summary-endpoint-certification.md`
 
 **Canonical example: stateless workspace summary**
 
@@ -159,15 +163,27 @@ descriptions and examples are maintained in the generated OpenAPI contract.
               "ending_cash_flow": -5000.0,
               "fees": -350.0,
               "net_cash_flow": 20000.0,
-            "flow_adjusted_end_market_value": 1034100.0
+              "flow_adjusted_end_market_value": 1034100.0
+            },
+            "period_return": { "base": 3.41, "local": 3.18, "fx": 0.23 },
+            "cumulative_return": { "base": 3.41, "local": 3.18, "fx": 0.23 },
+            "annualized_return": { "base": 3.41, "local": 3.18, "fx": 0.23 }
           },
-          "period_return": { "base": 3.41, "local": 3.18, "fx": 0.23 },
-          "cumulative_return": { "base": 3.41, "local": 3.18, "fx": 0.23 },
-          "annualized_return": { "base": 3.41, "local": 3.18, "fx": 0.23 }
+          "breakdowns": {
+            "monthly": [
+              {
+                "period": "2026-03",
+                "period_start": "2026-03-01",
+                "period_end": "2026-03-31",
+                "period_return": { "base": 1.4, "local": 1.25, "fx": 0.15 },
+                "cumulative_return": { "base": 1.4, "local": 1.25, "fx": 0.15 },
+                "annualized_return": { "base": 1.4, "local": 1.25, "fx": 0.15 }
+              }
+            ]
+          }
         }
-      }
-    },
-    "benchmark": {
+      },
+      "benchmark": {
       "benchmark_id": "BMK_GLOBAL_60_40",
       "summary": {
         "period_return": { "base": 2.98 },
@@ -175,8 +191,8 @@ descriptions and examples are maintained in the generated OpenAPI contract.
         "annualized_return": { "base": 2.98 }
       },
       "breakdowns": {}
-    },
-    "active": {
+      },
+      "active": {
       "net": {
         "period_return": { "base": 0.43 },
         "cumulative_return": { "base": 0.43 },
@@ -187,13 +203,13 @@ descriptions and examples are maintained in the generated OpenAPI contract.
         "cumulative_return": { "base": 0.46 },
         "annualized_return": { "base": 0.46 }
       }
-    },
-    "money_weighted_return": {
+      },
+      "money_weighted_return": {
       "method": "XIRR",
       "period_return": 3.27,
       "cumulative_return": 3.27,
       "annualized_return": 3.27
-    },
+      }
     }
   },
   "audit": {

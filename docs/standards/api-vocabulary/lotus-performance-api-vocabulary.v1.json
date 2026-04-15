@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-04-15T11:21:03.693378+00:00",
+  "generatedAt": "2026-04-15T11:35:03.714866+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.account_reset_shadow_days",
@@ -420,7 +420,7 @@
       "preferredName": "benchmark",
       "description": "Optional benchmark request resolved and calculated alongside the workspace summary.",
       "example": {
-        "benchmark_id": "BENCHMARK_001",
+        "benchmark_id": "BMK_PB_GLOBAL_BALANCED_60_40",
         "input_mode": "stateless",
         "return_source": "calculated",
         "stateless_input": {
@@ -1104,7 +1104,7 @@
       "canonicalTerm": "currency",
       "preferredName": "currency",
       "description": "The three-letter ISO currency code for the request.",
-      "example": "USD",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -1118,7 +1118,7 @@
       "canonicalTerm": "currency_mode",
       "preferredName": "currency_mode",
       "description": "Optional multi-currency mode for the portfolio path.",
-      "example": "BASE_ONLY",
+      "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [
         "body"
@@ -1808,7 +1808,8 @@
       "preferredName": "frequencies",
       "description": "Breakdown frequencies to emit for this workspace horizon.",
       "example": [
-        "DAILY"
+        "daily",
+        "monthly"
       ],
       "type": "array",
       "locations": [
@@ -3555,7 +3556,7 @@
       "canonicalTerm": "performance_start_date",
       "preferredName": "performance_start_date",
       "description": "Portfolio inception or earliest date for which performance data is available. In stateful mode lotus-performance can derive this upstream.",
-      "example": "2024-12-31",
+      "example": "2025-03-31",
       "type": "object",
       "locations": [
         "body"
@@ -3587,10 +3588,11 @@
       "description": "Requested workspace horizons and their breakdown frequencies.",
       "example": [
         {
-          "period": "1D",
           "frequencies": [
-            "DAILY"
-          ]
+            "daily",
+            "monthly"
+          ],
+          "period": "YTD"
         }
       ],
       "type": "array",
@@ -4186,7 +4188,7 @@
       "canonicalTerm": "report_ccy",
       "preferredName": "report_ccy",
       "description": "Optional reporting currency used for stateful retrieval and output context.",
-      "example": "example_report_ccy",
+      "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [
         "body"
@@ -4200,7 +4202,7 @@
       "canonicalTerm": "report_end_date",
       "preferredName": "report_end_date",
       "description": "Anchor end date for all requested workspace horizons.",
-      "example": "2026-01-31",
+      "example": "2025-03-31",
       "type": "string",
       "locations": [
         "body"
@@ -4214,7 +4216,7 @@
       "canonicalTerm": "report_start_date",
       "preferredName": "report_start_date",
       "description": "Explicit start date used only when requested periods include EXPLICIT.",
-      "example": "2026-01-01",
+      "example": "2025-03-31",
       "type": "object",
       "locations": [
         "body"
@@ -5231,7 +5233,7 @@
       "semanticId": "lotus.stateful_input",
       "canonicalTerm": "stateful_input",
       "preferredName": "stateful_input",
-      "description": "Stateful portfolio source configuration.",
+      "description": "Required empty envelope for stateful source-owned workspace summaries.",
       "example": {
         "key": "value"
       },
@@ -5263,7 +5265,7 @@
       "semanticId": "lotus.stateless_input",
       "canonicalTerm": "stateless_input",
       "preferredName": "stateless_input",
-      "description": "Stateless portfolio valuation observations.",
+      "description": "Stateless portfolio valuation observations. Preferred for new stateless integrations.",
       "example": {
         "valuation_points": [
           {
@@ -5803,7 +5805,7 @@
       "semanticId": "lotus.valuation_points",
       "canonicalTerm": "valuation_points",
       "preferredName": "valuation_points",
-      "description": "Legacy stateless valuation input payload. Prefer stateless_input for new integrations.",
+      "description": "Deprecated compatibility stateless valuation input payload. Prefer stateless_input for new integrations.",
       "example": [
         {
           "perf_date": "2026-02-27",

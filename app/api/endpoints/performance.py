@@ -234,6 +234,16 @@ def _should_offload_workspace_summary(request: WorkspaceSummaryRequest) -> bool:
     "/workspace-summary",
     response_model=WorkspaceSummaryResponse | WorkspaceSummaryAcceptedResponse,
     summary="Calculate interaction-efficient workspace summary analytics",
+    description=(
+        "Returns a front-office workspace summary for one or more requested horizons in a single "
+        "source-owned response. Use this endpoint when a UI or experience API needs coherent "
+        "portfolio TWR net/gross, benchmark, active return, MWR, economics, diagnostics, and audit "
+        "counts without orchestrating multiple deep-analysis endpoints. Stateless callers supply "
+        "valuation observations and optional benchmark input; stateful callers use an empty "
+        "stateful_input envelope so lotus-performance can source portfolio and benchmark data from "
+        "governed upstream contracts. Large stateful or large-input requests may return 202 with "
+        "poll_path and result_path."
+    ),
 )
 def calculate_workspace_summary_endpoint(
     request: WorkspaceSummaryRequest,
@@ -294,6 +304,10 @@ def calculate_workspace_summary_endpoint(
     "/workspace-summary/results/{calculation_id}",
     response_model=WorkspaceSummaryResponse | WorkspaceSummaryAcceptedResponse,
     summary="Retrieve async workspace summary result",
+    description=(
+        "Retrieves the completed workspace-summary response for an async request, or returns the "
+        "accepted envelope while execution remains pending."
+    ),
 )
 async def get_workspace_summary_result(calculation_id: UUID) -> WorkspaceSummaryResponse | JSONResponse:
     return resolve_async_result(

@@ -290,8 +290,7 @@ Purpose:
   - benchmark summary
   - active summary
   - money-weighted return
-  - optional contribution summary
-  - optional attribution summary
+- use dedicated contribution and attribution endpoints for drill-down rows and effects
 
 Sample request:
 
@@ -310,16 +309,6 @@ Sample request:
   "benchmark": {
     "input_mode": "stateful",
     "stateful_input": {}
-  },
-  "segmentation": {
-    "group_by": ["sector", "country"]
-  },
-  "contribution": {
-    "metric_basis": "NET",
-    "top_positions": 5
-  },
-  "attribution": {
-    "metric_basis": "NET"
   },
   "report_ccy": "USD",
   "currency_mode": "BASE_ONLY"
@@ -349,6 +338,27 @@ Sample response:
             "period_return": { "base": 3.41, "local": 3.18, "fx": 0.23 },
             "cumulative_return": { "base": 3.41, "local": 3.18, "fx": 0.23 },
             "annualized_return": { "base": 3.41, "local": 3.18, "fx": 0.23 }
+          },
+          "breakdowns": {
+            "monthly": [
+              {
+                "period": "2026-03",
+                "period_start": "2026-03-01",
+                "period_end": "2026-03-31",
+                "economics": {
+                  "begin_market_value": 1039500.0,
+                  "end_market_value": 1054100.0,
+                  "beginning_cash_flow": 0.0,
+                  "ending_cash_flow": -5000.0,
+                  "fees": -350.0,
+                  "net_cash_flow": -5000.0,
+                  "flow_adjusted_end_market_value": 1059100.0
+                },
+                "period_return": { "base": 1.4, "local": 1.25, "fx": 0.15 },
+                "cumulative_return": { "base": 1.4, "local": 1.25, "fx": 0.15 },
+                "annualized_return": { "base": 1.4, "local": 1.25, "fx": 0.15 }
+              }
+            ]
           }
         }
       },
@@ -371,8 +381,10 @@ Sample response:
         "method": "XIRR",
         "period_return": 3.27,
         "cumulative_return": 3.27,
-        "annualized_return": 3.27
-      },
+        "annualized_return": 3.27,
+        "start_date": "2026-01-02",
+        "end_date": "2026-03-31"
+      }
     }
   },
   "audit": {
@@ -393,6 +405,7 @@ Canonical example files:
 - `docs/examples/workspace_summary_request.json`
 - `docs/examples/workspace_summary_stateful_detail_request.json`
 - `docs/examples/workspace_summary_accepted_response.json`
+- `docs/technical/workspace-summary-endpoint-certification.md`
 
 ### `GET /performance/workspace-summary/results/{calculation_id}`
 
@@ -405,7 +418,7 @@ Sample response:
 ```json
 {
   "calculation_id": "0d000003-1111-4222-8333-abcdefabcdef",
-  "status": "complete",
+  "poll_path": "/performance/executions/0d000003-1111-4222-8333-abcdefabcdef",
   "result_path": "/performance/workspace-summary/results/0d000003-1111-4222-8333-abcdefabcdef"
 }
 ```

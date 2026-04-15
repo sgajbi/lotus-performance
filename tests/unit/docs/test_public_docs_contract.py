@@ -411,6 +411,10 @@ def test_workspace_summary_docs_publish_canonical_examples():
     assert "Canonical response excerpt" in api_reference
     assert "docs/examples/workspace_summary_request.json" in api_reference
     assert "docs/examples/workspace_summary_stateful_detail_request.json" in api_reference
+    assert "docs/technical/workspace-summary-endpoint-certification.md" in api_reference
+    assert "legacy top-level `valuation_points` remains deprecated compatibility input" in api_reference
+    assert "/performance/contribution" in api_reference
+    assert "/performance/attribution" in api_reference
     assert "Illustrative Canonical Request Example" in rfc
     assert "Illustrative Canonical Response Excerpt" in rfc
     assert '"workspace_detail_block_count": 2' not in rfc
@@ -419,6 +423,8 @@ def test_workspace_summary_docs_publish_canonical_examples():
     assert "../examples/workspace_summary_request.json" in guide
     assert "../examples/workspace_summary_stateful_detail_request.json" in guide
     assert "../examples/workspace_summary_accepted_response.json" in guide
+    assert "../technical/workspace-summary-endpoint-certification.md" in guide
+    assert "Legacy top-level `valuation_points` remains as deprecated compatibility input" in guide
     assert "`POST /performance/workspace-summary`" in guide
     assert "`GET /performance/workspace-summary/results/{calculation_id}`" in guide
     assert "`GET /integration/capabilities` now advertises `workspace_summary`" in guide
@@ -453,6 +459,7 @@ def test_complete_service_reference_covers_endpoint_surface_and_config_inventory
     assert "CORE_CONTROL_PLANE_BASE_URL" in guide
     assert "CORE_QUERY_BASE_URL" in guide
     assert "docs/examples/workspace_summary_request.json" in guide
+    assert "docs/technical/workspace-summary-endpoint-certification.md" in guide
     assert "docs/examples/integration_capabilities_response.json" in guide
     assert "twr_inspection_checks.md" in guide
     assert "guides/complete_service_reference.md" in readme

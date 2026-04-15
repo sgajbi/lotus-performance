@@ -7,6 +7,7 @@
 - time-weighted return (`POST /performance/twr`)
 - benchmark performance (`POST /performance/benchmark`)
 - money-weighted return (`POST /performance/mwr`)
+- front-office workspace summary (`POST /performance/workspace-summary`)
 - contribution (`POST /performance/contribution`)
 - attribution (`POST /performance/attribution`)
 - canonical returns-series integration (`POST /integration/returns/series`)
@@ -62,6 +63,7 @@ Current endpoint-specific async result routes include:
 - `/performance/twr/results/{calculation_id}`
 - `/performance/inspections/{inspection_id}`
 - `/performance/benchmark/results/{calculation_id}`
+- `/performance/workspace-summary/results/{calculation_id}`
 - `/integration/returns/series/results/{calculation_id}`
 - `/performance/contribution/results/{calculation_id}`
 - `/performance/attribution/results/{calculation_id}`
@@ -209,6 +211,17 @@ Attribution level outputs expose authoritative totals as both a nested `totals` 
 fields. Downstream systems should use those level totals for footers and summary-only views rather
 than summing the currently visible group rows.
 See [Attribution Endpoint Certification](docs/technical/attribution-endpoint-certification.md).
+
+### Workspace summary
+
+`POST /performance/workspace-summary` is the strategic, interaction-efficient surface for
+front-office performance workspaces that need multi-horizon TWR, benchmark, active, and MWR summary
+blocks in one coherent response. It is certified as a bounded summary endpoint, not a replacement
+for contribution or attribution drill-downs.
+
+New stateless callers should use `stateless_input.valuation_points`; the top-level
+`valuation_points` field remains deprecated compatibility input. See
+[Workspace Summary Endpoint Certification](docs/technical/workspace-summary-endpoint-certification.md).
 
 ### Returns series integration
 
