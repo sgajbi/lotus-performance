@@ -48,5 +48,7 @@ class TWRInspectionRequest(BaseModel):
                     "twr_calculation inspection requires subject_calculation_id and does not accept request payload."
                 )
         elif self.subject_calculation_id is not None or self.request is None:
-            raise ValueError("twr_request inspection requires request payload and does not accept subject_calculation_id.")
+            raise ValueError(
+                "twr_request inspection requires request payload and does not accept subject_calculation_id."
+            )
         return self
