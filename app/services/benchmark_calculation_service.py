@@ -39,6 +39,8 @@ class BenchmarkCalculationArtifacts:
 
 def calculate_benchmark_artifacts(
     benchmark_request: BenchmarkPerformanceRequest,
+    *,
+    input_mode: str | None = None,
 ) -> BenchmarkCalculationArtifacts:
     periods_to_resolve = [analysis.period for analysis in benchmark_request.analyses]
     requested_frequencies_by_period = {
@@ -107,7 +109,7 @@ def calculate_benchmark_artifacts(
                 breakdowns=benchmark_breakdowns,
                 benchmark_id=benchmark_request.benchmark_id,
                 benchmark_currency=benchmark_request.benchmark_currency,
-                input_mode=None,
+                input_mode=input_mode,
                 return_source=benchmark_request.return_source,
             ),
             daily_returns=_daily_return_records(period_daily_df)

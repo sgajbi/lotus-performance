@@ -67,6 +67,7 @@ def test_benchmark_guide_uses_current_request_shape():
     guide = _read("docs/guides/benchmark.md")
     api_reference = _read("docs/guides/api_reference.md")
     readme = _read("README.md")
+    certification = _read("docs/technical/benchmark-endpoint-certification.md")
 
     assert 'input_mode="stateless"' in guide
     assert 'input_mode="stateful"' in guide
@@ -79,7 +80,15 @@ def test_benchmark_guide_uses_current_request_shape():
     assert "If `calculation_id` is omitted" in guide
     assert "stateful_input.consumer_system" not in guide
     assert "app.models.benchmark_analytics_requests.BenchmarkAnalyticsRequest" in api_reference
+    assert "daily_returns[].benchmark_return" in api_reference
+    assert "docs/technical/benchmark-endpoint-certification.md" in api_reference
+    assert "POST /integration/returns/series" in guide
     assert "POST /performance/benchmark" in readme
+    assert "technical/benchmark-endpoint-certification.md" in readme
+    assert "Required Figure Tie-Outs" in certification
+    assert "component_contributions[]" in certification
+    assert "`lotus-risk`" in certification
+    assert "No duplicate downstream use of `/performance/benchmark`" in certification
     assert "TWRAcceptedResponse" in api_reference
 
 

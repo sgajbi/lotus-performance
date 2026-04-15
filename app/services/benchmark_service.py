@@ -20,7 +20,10 @@ def calculate_benchmark_response(
 ) -> BenchmarkPerformanceResponse:
     execution_registry.start_stage(benchmark_request.calculation_id, "execution")
     try:
-        benchmark_artifacts = calculate_benchmark_artifacts(benchmark_request)
+        benchmark_artifacts = calculate_benchmark_artifacts(
+            benchmark_request,
+            input_mode=input_mode.value,
+        )
 
         response_model = BenchmarkPerformanceResponse(
             calculation_id=benchmark_request.calculation_id,

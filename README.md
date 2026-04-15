@@ -153,6 +153,8 @@ is manager or strategy performance independent of deposits and withdrawals.
   - benchmark definition, component price series, and FX inputs sourced from lotus-core
   - calculated mode supports multi-segment rebalance windows through the lotus-core composition-window contract
 
+See [Benchmark Endpoint Certification](docs/technical/benchmark-endpoint-certification.md).
+
 ### Contribution
 
 `POST /performance/contribution` uses:
@@ -302,6 +304,8 @@ make test-all
 - [guides/mwr.md](docs/guides/mwr.md)
 - [technical/mwr-endpoint-certification.md](docs/technical/mwr-endpoint-certification.md)
 - [technical/twr-mwr-response-attribute-certification.md](docs/technical/twr-mwr-response-attribute-certification.md)
+- [guides/benchmark.md](docs/guides/benchmark.md)
+- [technical/benchmark-endpoint-certification.md](docs/technical/benchmark-endpoint-certification.md)
 - [guides/contribution.md](docs/guides/contribution.md)
 - [guides/attribution.md](docs/guides/attribution.md)
 - [guides/complete_service_reference.md](docs/guides/complete_service_reference.md)

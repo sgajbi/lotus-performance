@@ -31,10 +31,33 @@ from core.repro import generate_canonical_hash
 router = APIRouter(tags=["Performance"])
 
 
+BENCHMARK_ENDPOINT_DESCRIPTION = """
+Calculate benchmark performance for a named benchmark. Use this endpoint when a caller needs the
+benchmark's own return path, component contribution detail, lineage, and async execution handling.
+
+Use `input_mode="stateless"` when the caller supplies benchmark component observations, component
+price points, or vendor return points. Use `input_mode="stateful"` when lotus-performance should
+source benchmark composition, index prices, return series, and FX inputs from the governed lotus-core
+contracts. The default `return_source="calculated"` path derives benchmark returns from component
+weights and returns; `return_source="vendor_series"` consumes authored benchmark return points.
+
+Do not use this endpoint as a generic return-series feed for risk engines or downstream analytics
+that only need aligned portfolio/benchmark/risk-free series; use `POST /integration/returns/series`
+for that purpose.
+"""
+
+BENCHMARK_RESULT_ENDPOINT_DESCRIPTION = """
+Retrieve a benchmark calculation that previously returned `202 Accepted`. Poll
+`/performance/executions/{calculation_id}` for lifecycle status and use this result endpoint for the
+completed benchmark payload.
+"""
+
+
 @router.post(
     "/benchmark",
     response_model=BenchmarkPerformanceResponse | BenchmarkAcceptedResponse,
     summary="Calculate benchmark performance",
+    description=BENCHMARK_ENDPOINT_DESCRIPTION,
 )
 async def calculate_benchmark_endpoint(
     request: BenchmarkAnalyticsRequest,
@@ -190,6 +213,7 @@ async def calculate_benchmark_endpoint(
     "/benchmark/results/{calculation_id}",
     response_model=BenchmarkPerformanceResponse | BenchmarkAcceptedResponse,
     summary="Retrieve async benchmark result",
+    description=BENCHMARK_RESULT_ENDPOINT_DESCRIPTION,
 )
 async def get_benchmark_result(calculation_id: UUID) -> BenchmarkPerformanceResponse | JSONResponse:
     return resolve_async_result(

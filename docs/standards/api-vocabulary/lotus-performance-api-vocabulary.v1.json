@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-04-15T10:37:31.890410+00:00",
+  "generatedAt": "2026-04-15T11:05:06.346589+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.account_reset_shadow_days",
@@ -427,29 +427,29 @@
           "benchmark_currency": "USD",
           "component_observations": [
             {
-              "component_id": "COMPONENT_001",
-              "perf_date": "2026-02-27",
-              "weight_bop": 0.1234,
+              "component_id": "IDX_SP500_TR",
+              "perf_date": "2026-01-02",
+              "weight_bop": 0.6,
               "component_currency": "USD",
-              "component_return": 0.1234,
-              "component_return_local": 0.1234,
-              "component_return_fx": 0.1234
+              "component_return": 0.0125,
+              "component_return_local": 0.01,
+              "component_return_fx": 0.002475
             }
           ],
           "component_price_points": [
             {
-              "component_id": "COMPONENT_001",
-              "perf_date": "2026-02-27",
-              "weight_bop": 0.1234,
-              "index_price": 0.1234,
-              "component_currency": "USD",
-              "fx_rate_to_benchmark": 0.1234
+              "component_id": "IDX_EUROSTOXX_TR",
+              "perf_date": "2026-01-02",
+              "weight_bop": 0.4,
+              "index_price": 101.25,
+              "component_currency": "EUR",
+              "fx_rate_to_benchmark": 1.212
             }
           ],
           "benchmark_return_points": [
             {
-              "perf_date": "2026-02-27",
-              "benchmark_return": 0.1234
+              "perf_date": "2026-01-02",
+              "benchmark_return": 0.0042
             }
           ]
         },
@@ -499,7 +499,7 @@
       "canonicalTerm": "benchmark_id",
       "preferredName": "benchmark_id",
       "description": "Benchmark identifier.",
-      "example": "BENCHMARK_001",
+      "example": "ENTITY_001",
       "type": "string",
       "locations": [
         "body"
@@ -514,7 +514,7 @@
       "canonicalTerm": "benchmark_start_date",
       "preferredName": "benchmark_start_date",
       "description": "Earliest date for which benchmark data is available for the request.",
-      "example": "2026-02-27",
+      "example": "2025-03-31",
       "type": "string",
       "locations": [
         "body"
@@ -4376,29 +4376,29 @@
             "benchmark_currency": "USD",
             "component_observations": [
               {
-                "component_id": "COMPONENT_001",
-                "perf_date": "2026-02-27",
-                "weight_bop": 0.1234,
+                "component_id": "IDX_SP500_TR",
+                "perf_date": "2026-01-02",
+                "weight_bop": 0.6,
                 "component_currency": "USD",
-                "component_return": 0.1234,
-                "component_return_local": 0.1234,
-                "component_return_fx": 0.1234
+                "component_return": 0.0125,
+                "component_return_local": 0.01,
+                "component_return_fx": 0.002475
               }
             ],
             "component_price_points": [
               {
-                "component_id": "COMPONENT_001",
-                "perf_date": "2026-02-27",
-                "weight_bop": 0.1234,
-                "index_price": 0.1234,
-                "component_currency": "USD",
-                "fx_rate_to_benchmark": 0.1234
+                "component_id": "IDX_EUROSTOXX_TR",
+                "perf_date": "2026-01-02",
+                "weight_bop": 0.4,
+                "index_price": 101.25,
+                "component_currency": "EUR",
+                "fx_rate_to_benchmark": 1.212
               }
             ],
             "benchmark_return_points": [
               {
-                "perf_date": "2026-02-27",
-                "benchmark_return": 0.1234
+                "perf_date": "2026-01-02",
+                "benchmark_return": 0.0042
               }
             ]
           },

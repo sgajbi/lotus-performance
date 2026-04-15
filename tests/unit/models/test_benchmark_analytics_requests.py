@@ -6,6 +6,28 @@ from pydantic import ValidationError
 from app.models.benchmark_analytics_requests import BenchmarkAnalyticsRequest
 
 
+def test_benchmark_analytics_request_schema_documents_public_examples():
+    schema = BenchmarkAnalyticsRequest.model_json_schema()
+    examples = schema["examples"]
+
+    assert examples[0]["input_mode"] == "stateless"
+    assert examples[0]["return_source"] == "calculated"
+    assert examples[0]["stateless_input"]["component_observations"][0]["perf_date"] == "2026-01-02"
+    assert examples[1]["input_mode"] == "stateful"
+    assert examples[1]["benchmark_id"] == "BMK_PB_GLOBAL_BALANCED_60_40"
+    for field_name in (
+        "benchmark_id",
+        "benchmark_start_date",
+        "report_end_date",
+        "input_mode",
+        "return_source",
+        "rounding_precision",
+    ):
+        field_schema = schema["properties"][field_name]
+        assert field_schema["description"]
+        assert field_schema["examples"]
+
+
 @pytest.fixture
 def base_payload():
     return {

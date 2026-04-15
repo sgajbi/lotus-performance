@@ -246,6 +246,14 @@ Return semantics for the workspace surface are now explicit rather than inferred
     - `stateless_input.component_price_points`
   - stateful calculated mode sources benchmark definition, component price series, and FX inputs from lotus-core and normalizes them into canonical benchmark component observations before engine execution
   - stateful calculated mode supports multi-segment rebalance windows through the lotus-core composition-window contract
+- output checks:
+  - `benchmark.summary.period_return` geometrically links benchmark daily returns inside the resolved period
+  - `daily_returns[].benchmark_return` reconciles to same-date component contributions in calculated mode
+  - `component_contributions[].contribution` equals `weight_bop * component_return` in percentage-point output units
+  - `meta`, `diagnostics`, and `audit` carry lineage, effective-start, count, and weight-residual evidence
+- certification: `docs/technical/benchmark-endpoint-certification.md`
+- downstream guidance:
+  - downstream analytics engines that only need aligned benchmark return series should use `POST /integration/returns/series`, not this endpoint
 
 ### `GET /performance/benchmark/results/{calculation_id}`
 
