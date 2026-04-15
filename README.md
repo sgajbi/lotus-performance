@@ -230,7 +230,7 @@ Important compose defaults:
 - API container listens on `8000` internally
 - local platform access should still use the canonical ingress identity above
 - stateful integration resolves lotus-core query-control-plane through `CORE_QUERY_BASE_URL`
-- RFC-0071 local ingress default for `CORE_QUERY_BASE_URL` is `http://core-query.dev.lotus`
+- current local ingress default for `CORE_QUERY_BASE_URL` is `http://core-control.dev.lotus`
 - runtime threshold profile overrides can be layered with:
   - `docker compose -f docker-compose.yml -f docs/examples/docker-compose.runtime-thresholds.production.yml up`
 - optional scheduled runtime-retention automation can be enabled with the ops profile:

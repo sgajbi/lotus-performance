@@ -1,5 +1,5 @@
 ## Metric
-TWR Local Return (`portfolio_return.local`)
+TWR Local Return (`portfolio.summary.period_return.local`)
 
 ## Endpoint and Mode Coverage
 - Endpoint: `POST /performance/twr`
@@ -52,13 +52,14 @@ TWR Local Return (`portfolio_return.local`)
 4. For each resolved non-empty period slice:
 - If reset is present: rebase cumulative local return from prior day to slice end.
 - Else: geometric-link `local_ror` over the slice.
-5. Emit `portfolio_return.local` inside each period result.
+5. Emit `portfolio.summary.period_return.local` inside each period result.
 
 ## Validation and Failure Behavior
 - Same request/period validation as base TWR.
 - If FX path is not active (`currency_mode` missing or `BASE_ONLY`, or `fx` block absent):
   - local/fx daily columns are not created.
-  - endpoint returns `portfolio_return.local = portfolio_return.base` and `portfolio_return.fx = 0.0`.
+  - endpoint returns `portfolio.summary.period_return.local = portfolio.summary.period_return.base`
+  - and `portfolio.summary.period_return.fx = 0.0`.
 - Zero denominator rows force local daily return to zero.
 - Unexpected processing failures map to HTTP 500.
 
@@ -70,11 +71,12 @@ TWR Local Return (`portfolio_return.local`)
 
 ## Outputs
 Primary metric field:
-- `results_by_period.<period>.portfolio_return.local`
+- `results_by_period.<period>.portfolio.summary.period_return.local`
+- `results_by_period.<period>.portfolio.summary.cumulative_return.local`
 
 Related fields:
-- `results_by_period.<period>.portfolio_return.base`
-- `results_by_period.<period>.portfolio_return.fx`
+- `results_by_period.<period>.portfolio.summary.period_return.base`
+- `results_by_period.<period>.portfolio.summary.period_return.fx`
 
 ## Worked Example
 FX-active sample (`currency_mode=BOTH`, `metric_basis=GROSS`):
@@ -89,4 +91,4 @@ Intermediate link:
 - `L_P_pp = 3.0200 pp`
 
 Output mapping:
-- `results_by_period.ITD.portfolio_return.local = 3.0200`
+- `results_by_period.ITD.portfolio.summary.period_return.local = 3.0200`
