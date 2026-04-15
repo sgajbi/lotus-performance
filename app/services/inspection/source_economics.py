@@ -306,11 +306,16 @@ def _sum_detailed_cash_flows(
         cash_flow_type = flow.get("cash_flow_type")
         if amount is None or timing not in {"bod", "eod"}:
             continue
-        if cash_flow_type is None:
+        normalized_cash_flow_type = cash_flow_type.strip() if isinstance(cash_flow_type, str) else cash_flow_type
+        if normalized_cash_flow_type is None or normalized_cash_flow_type == "":
             missing_cashflow_type_rows.append({"timing": timing, "amount": float(amount)})
-        if isinstance(cash_flow_type, str) and cash_flow_type and cash_flow_type not in _CANONICAL_CASHFLOW_TYPES:
-            noncanonical_cashflow_types.add(cash_flow_type)
-        if cash_flow_type == "fee":
+        if (
+            isinstance(normalized_cash_flow_type, str)
+            and normalized_cash_flow_type
+            and normalized_cash_flow_type not in _CANONICAL_CASHFLOW_TYPES
+        ):
+            noncanonical_cashflow_types.add(normalized_cash_flow_type)
+        if normalized_cash_flow_type == "fee":
             if timing == "bod":
                 fee_bod += amount
             else:

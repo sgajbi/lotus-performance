@@ -186,11 +186,11 @@ def build_source_economics_findings(
                 severity="warning",
                 category="documentation_drift",
                 owner_repo="lotus-core",
-                summary="The stateful portfolio source serves detailed cash-flow rows without a cash_flow_type label.",
+                summary="The stateful portfolio source serves detailed cash-flow rows without a usable cash_flow_type label.",
                 explanation=(
-                    "The raw portfolio observation includes detailed cash-flow rows with no cash_flow_type label. "
-                    "The inspector currently treats non-fee detailed rows as external economics, so unlabeled rows "
-                    "need explicit upstream semantics or a governed mapping."
+                    "The raw portfolio observation includes detailed cash-flow rows with no cash_flow_type label or "
+                    "with a blank label. The inspector currently treats non-fee detailed rows as external economics, "
+                    "so unlabeled rows need explicit upstream semantics or a governed mapping."
                 ),
                 recommended_action=(
                     "Review lotus-core detailed cash-flow serialization and emit canonical fee/external_flow "
