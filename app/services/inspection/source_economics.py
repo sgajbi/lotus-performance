@@ -7,10 +7,10 @@ from decimal import Decimal, InvalidOperation
 from app.core.config import Settings, get_settings
 from app.models.inspection_responses import TWRInspectionFinding
 from app.models.requests import PerformanceRequest
+from app.services.inspection.source_economics_collector import collect_source_economics_samples
 from app.services.inspection.source_economics_findings import build_source_economics_findings
 from app.services.portfolio_source_service import build_stateful_input_service
 
-_ABSOLUTE_TOLERANCE = Decimal("0.01")
 _INSPECTOR_CONSUMER_SYSTEM = "lotus-performance-inspector"
 _CANONICAL_CASHFLOW_TYPES = {"fee", "external_flow"}
 _SAMPLE_LIMIT = 25
@@ -99,179 +99,54 @@ def analyze_source_economics(
         observations=observations,
         normalized_by_date=normalized_by_date,
     )
-
-    fee_normalization_samples: list[dict[str, object]] = []
-    duplicate_fee_signal_samples: list[dict[str, object]] = []
-    fee_source_mismatch_samples: list[dict[str, object]] = []
-    positive_fee_signal_samples: list[dict[str, object]] = []
-    external_normalization_samples: list[dict[str, object]] = []
-    duplicate_external_signal_samples: list[dict[str, object]] = []
-    external_source_mismatch_samples: list[dict[str, object]] = []
-    external_timing_contradiction_samples: list[dict[str, object]] = []
-    missing_cashflow_type_samples: list[dict[str, object]] = []
-    noncanonical_cashflow_type_samples: list[dict[str, object]] = []
-    fee_flow_dates: list[str] = []
-    external_flow_dates: list[str] = []
-
-    for source_point in source_points:
-        if source_point.detailed_fee_bod != 0 or source_point.detailed_fee_eod != 0:
-            fee_flow_dates.append(source_point.valuation_date)
-        if source_point.detailed_external_bod != 0 or source_point.detailed_external_eod != 0:
-            external_flow_dates.append(source_point.valuation_date)
-        if source_point.missing_cashflow_type_rows:
-            missing_cashflow_type_samples.append(
-                {
-                    "valuation_date": source_point.valuation_date,
-                    "rows": list(source_point.missing_cashflow_type_rows),
-                }
-            )
-        if source_point.noncanonical_cashflow_types:
-            noncanonical_cashflow_type_samples.append(
-                {
-                    "valuation_date": source_point.valuation_date,
-                    "cash_flow_types": list(source_point.noncanonical_cashflow_types),
-                }
-            )
-
-        expected_fee_total, fee_source_kind = _expected_fee_total(source_point)
-        if expected_fee_total is not None and not _amounts_match(source_point.normalized_mgmt_fees, expected_fee_total):
-            fee_normalization_samples.append(
-                {
-                    "valuation_date": source_point.valuation_date,
-                    "raw_fee_bod": float(source_point.detailed_fee_bod),
-                    "raw_fee_eod": float(source_point.detailed_fee_eod),
-                    "expected_fee_amount": float(expected_fee_total),
-                    "fee_source_kind": fee_source_kind,
-                    "normalized_bod_cf": float(source_point.normalized_bod_cf),
-                    "normalized_eod_cf": float(source_point.normalized_eod_cf),
-                    "normalized_mgmt_fees": float(source_point.normalized_mgmt_fees),
-                }
-            )
-
-        fee_total = source_point.detailed_fee_bod + source_point.detailed_fee_eod
-        if source_point.explicit_fee_total is not None and _amounts_match(source_point.explicit_fee_total, fee_total):
-            duplicate_fee_signal_samples.append(
-                {
-                    "valuation_date": source_point.valuation_date,
-                    "explicit_fee_amount": float(source_point.explicit_fee_total),
-                    "fee_cashflow_amount": float(fee_total),
-                }
-            )
-        elif source_point.explicit_fee_total is not None and fee_total != 0:
-            fee_source_mismatch_samples.append(
-                {
-                    "valuation_date": source_point.valuation_date,
-                    "explicit_fee_amount": float(source_point.explicit_fee_total),
-                    "fee_cashflow_amount": float(fee_total),
-                }
-            )
-        if fee_total > 0 or (source_point.explicit_fee_total is not None and source_point.explicit_fee_total > 0):
-            positive_fee_signal_samples.append(
-                {
-                    "valuation_date": source_point.valuation_date,
-                    "detailed_fee_amount": float(fee_total),
-                    "explicit_fee_amount": (
-                        float(source_point.explicit_fee_total) if source_point.explicit_fee_total is not None else None
-                    ),
-                }
-            )
-
-        expected_external_bod, bod_source_kind = _expected_external_total(source_point, timing="bod")
-        expected_external_eod, eod_source_kind = _expected_external_total(source_point, timing="eod")
-        if (
-            expected_external_bod is not None
-            and not _amounts_match(source_point.normalized_bod_cf, expected_external_bod)
-        ) or (
-            expected_external_eod is not None
-            and not _amounts_match(source_point.normalized_eod_cf, expected_external_eod)
-        ):
-            external_normalization_samples.append(
-                {
-                    "valuation_date": source_point.valuation_date,
-                    "raw_external_bod": float(source_point.detailed_external_bod),
-                    "raw_external_eod": float(source_point.detailed_external_eod),
-                    "expected_external_bod": (
-                        float(expected_external_bod) if expected_external_bod is not None else None
-                    ),
-                    "expected_external_eod": (
-                        float(expected_external_eod) if expected_external_eod is not None else None
-                    ),
-                    "bod_source_kind": bod_source_kind,
-                    "eod_source_kind": eod_source_kind,
-                    "normalized_bod_cf": float(source_point.normalized_bod_cf),
-                    "normalized_eod_cf": float(source_point.normalized_eod_cf),
-                }
-            )
-
-        if source_point.explicit_bod_total is not None and source_point.detailed_external_bod != 0:
-            _record_external_source_signal(
-                sample_target=duplicate_external_signal_samples,
-                mismatch_target=external_source_mismatch_samples,
-                valuation_date=source_point.valuation_date,
-                timing="bod",
-                explicit_total=source_point.explicit_bod_total,
-                detailed_total=source_point.detailed_external_bod,
-            )
-        if source_point.explicit_eod_total is not None and source_point.detailed_external_eod != 0:
-            _record_external_source_signal(
-                sample_target=duplicate_external_signal_samples,
-                mismatch_target=external_source_mismatch_samples,
-                valuation_date=source_point.valuation_date,
-                timing="eod",
-                explicit_total=source_point.explicit_eod_total,
-                detailed_total=source_point.detailed_external_eod,
-            )
-        _record_external_timing_contradictions(
-            source_point=source_point,
-            sample_target=external_timing_contradiction_samples,
-        )
+    samples = collect_source_economics_samples(source_points)
 
     findings = build_source_economics_findings(
         portfolio_id=portfolio_id,
-        fee_normalization_samples=fee_normalization_samples,
-        duplicate_fee_signal_samples=duplicate_fee_signal_samples,
-        fee_source_mismatch_samples=fee_source_mismatch_samples,
-        positive_fee_signal_samples=positive_fee_signal_samples,
-        external_normalization_samples=external_normalization_samples,
-        duplicate_external_signal_samples=duplicate_external_signal_samples,
-        external_source_mismatch_samples=external_source_mismatch_samples,
-        external_timing_contradiction_samples=external_timing_contradiction_samples,
-        missing_cashflow_type_samples=missing_cashflow_type_samples,
-        noncanonical_cashflow_type_samples=noncanonical_cashflow_type_samples,
+        fee_normalization_samples=samples.fee_normalization_samples,
+        duplicate_fee_signal_samples=samples.duplicate_fee_signal_samples,
+        fee_source_mismatch_samples=samples.fee_source_mismatch_samples,
+        positive_fee_signal_samples=samples.positive_fee_signal_samples,
+        external_normalization_samples=samples.external_normalization_samples,
+        duplicate_external_signal_samples=samples.duplicate_external_signal_samples,
+        external_source_mismatch_samples=samples.external_source_mismatch_samples,
+        external_timing_contradiction_samples=samples.external_timing_contradiction_samples,
+        missing_cashflow_type_samples=samples.missing_cashflow_type_samples,
+        noncanonical_cashflow_type_samples=samples.noncanonical_cashflow_type_samples,
     )
 
     return SourceEconomicsCheckResult(
         findings=findings,
         evidence_summary=_build_evidence_summary(
             observations=observations,
-            fee_flow_dates=fee_flow_dates,
-            external_flow_dates=external_flow_dates,
-            fee_normalization_samples=fee_normalization_samples,
-            duplicate_fee_signal_samples=duplicate_fee_signal_samples,
-            fee_source_mismatch_samples=fee_source_mismatch_samples,
-            positive_fee_signal_samples=positive_fee_signal_samples,
-            external_normalization_samples=external_normalization_samples,
-            duplicate_external_signal_samples=duplicate_external_signal_samples,
-            external_source_mismatch_samples=external_source_mismatch_samples,
-            external_timing_contradiction_samples=external_timing_contradiction_samples,
-            missing_cashflow_type_samples=missing_cashflow_type_samples,
-            noncanonical_cashflow_type_samples=noncanonical_cashflow_type_samples,
+            fee_flow_dates=samples.fee_flow_dates,
+            external_flow_dates=samples.external_flow_dates,
+            fee_normalization_samples=samples.fee_normalization_samples,
+            duplicate_fee_signal_samples=samples.duplicate_fee_signal_samples,
+            fee_source_mismatch_samples=samples.fee_source_mismatch_samples,
+            positive_fee_signal_samples=samples.positive_fee_signal_samples,
+            external_normalization_samples=samples.external_normalization_samples,
+            duplicate_external_signal_samples=samples.duplicate_external_signal_samples,
+            external_source_mismatch_samples=samples.external_source_mismatch_samples,
+            external_timing_contradiction_samples=samples.external_timing_contradiction_samples,
+            missing_cashflow_type_samples=samples.missing_cashflow_type_samples,
+            noncanonical_cashflow_type_samples=samples.noncanonical_cashflow_type_samples,
         ),
         artifact_payload=_build_artifact_payload(
             portfolio_id=portfolio_id,
             observations=observations,
-            fee_flow_dates=fee_flow_dates,
-            external_flow_dates=external_flow_dates,
-            fee_normalization_samples=fee_normalization_samples,
-            duplicate_fee_signal_samples=duplicate_fee_signal_samples,
-            fee_source_mismatch_samples=fee_source_mismatch_samples,
-            positive_fee_signal_samples=positive_fee_signal_samples,
-            external_normalization_samples=external_normalization_samples,
-            duplicate_external_signal_samples=duplicate_external_signal_samples,
-            external_source_mismatch_samples=external_source_mismatch_samples,
-            external_timing_contradiction_samples=external_timing_contradiction_samples,
-            missing_cashflow_type_samples=missing_cashflow_type_samples,
-            noncanonical_cashflow_type_samples=noncanonical_cashflow_type_samples,
+            fee_flow_dates=samples.fee_flow_dates,
+            external_flow_dates=samples.external_flow_dates,
+            fee_normalization_samples=samples.fee_normalization_samples,
+            duplicate_fee_signal_samples=samples.duplicate_fee_signal_samples,
+            fee_source_mismatch_samples=samples.fee_source_mismatch_samples,
+            positive_fee_signal_samples=samples.positive_fee_signal_samples,
+            external_normalization_samples=samples.external_normalization_samples,
+            duplicate_external_signal_samples=samples.duplicate_external_signal_samples,
+            external_source_mismatch_samples=samples.external_source_mismatch_samples,
+            external_timing_contradiction_samples=samples.external_timing_contradiction_samples,
+            missing_cashflow_type_samples=samples.missing_cashflow_type_samples,
+            noncanonical_cashflow_type_samples=samples.noncanonical_cashflow_type_samples,
         ),
     )
 
@@ -453,99 +328,12 @@ def _sum_detailed_cash_flows(
         tuple(missing_cashflow_type_rows),
         tuple(sorted(noncanonical_cashflow_types)),
     )
-
-
-def _expected_fee_total(source_point: ObservationSourceEconomics) -> tuple[Decimal | None, str | None]:
-    detailed_fee_total = source_point.detailed_fee_bod + source_point.detailed_fee_eod
-    if detailed_fee_total != 0:
-        return detailed_fee_total, "detailed_fee_cash_flows"
-    if source_point.explicit_fee_total is not None:
-        return source_point.explicit_fee_total, "explicit_fee_total"
-    return None, None
-
-
-def _expected_external_total(
-    source_point: ObservationSourceEconomics,
-    *,
-    timing: str,
-) -> tuple[Decimal | None, str | None]:
-    detailed_total = source_point.detailed_external_bod if timing == "bod" else source_point.detailed_external_eod
-    explicit_total = source_point.explicit_bod_total if timing == "bod" else source_point.explicit_eod_total
-    if detailed_total != 0:
-        return detailed_total, "detailed_external_cash_flows"
-    if explicit_total is not None:
-        return explicit_total, f"explicit_{timing}_cashflow_total"
-    return None, None
-
-
-def _record_external_source_signal(
-    *,
-    sample_target: list[dict[str, object]],
-    mismatch_target: list[dict[str, object]],
-    valuation_date: str,
-    timing: str,
-    explicit_total: Decimal,
-    detailed_total: Decimal,
-) -> None:
-    sample = {
-        "valuation_date": valuation_date,
-        "timing": timing,
-        "explicit_cashflow_amount": float(explicit_total),
-        "detailed_cashflow_amount": float(detailed_total),
-    }
-    if _amounts_match(explicit_total, detailed_total):
-        sample_target.append(sample)
-    else:
-        mismatch_target.append(sample)
-
-
-def _record_external_timing_contradictions(
-    *,
-    source_point: ObservationSourceEconomics,
-    sample_target: list[dict[str, object]],
-) -> None:
-    if (
-        source_point.explicit_bod_total is not None
-        and source_point.detailed_external_bod == 0
-        and source_point.detailed_external_eod != 0
-    ):
-        sample_target.append(
-            {
-                "valuation_date": source_point.valuation_date,
-                "explicit_timing": "bod",
-                "opposite_detailed_timing": "eod",
-                "explicit_cashflow_amount": float(source_point.explicit_bod_total),
-                "opposite_detailed_cashflow_amount": float(source_point.detailed_external_eod),
-            }
-        )
-    if (
-        source_point.explicit_eod_total is not None
-        and source_point.detailed_external_eod == 0
-        and source_point.detailed_external_bod != 0
-    ):
-        sample_target.append(
-            {
-                "valuation_date": source_point.valuation_date,
-                "explicit_timing": "eod",
-                "opposite_detailed_timing": "bod",
-                "explicit_cashflow_amount": float(source_point.explicit_eod_total),
-                "opposite_detailed_cashflow_amount": float(source_point.detailed_external_bod),
-            }
-        )
-
-
 def _first_decimal(observation: dict[str, object], *keys: str) -> Decimal | None:
     for key in keys:
         decimal_value = _parse_decimal(observation.get(key))
         if decimal_value is not None:
             return decimal_value
     return None
-
-
-def _amounts_match(left: Decimal, right: Decimal) -> bool:
-    return abs(left - right) <= _ABSOLUTE_TOLERANCE
-
-
 def _parse_decimal(raw_value: object) -> Decimal | None:
     if raw_value is None:
         return None
