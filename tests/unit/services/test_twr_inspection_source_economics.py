@@ -109,3 +109,45 @@ def test_analyze_source_economics_flags_external_flow_normalization_and_source_c
     assert result.evidence_summary["external_cashflow_normalization_gap_count"] == 2
     assert result.evidence_summary["duplicate_external_cashflow_signal_count"] == 1
     assert result.evidence_summary["external_cashflow_source_mismatch_count"] == 1
+
+
+def test_analyze_source_economics_flags_positive_fee_source_signal():
+    performance_request = PerformanceRequest(
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        performance_start_date=date(2026, 3, 13),
+        metric_basis="NET",
+        report_end_date=date(2026, 3, 13),
+        analyses=[Analysis(period="YTD", frequencies=["daily"])],
+        valuation_points=[
+            DailyInputData(
+                perf_date=date(2026, 3, 13),
+                begin_mv=1200.0,
+                end_mv=1210.0,
+                bod_cf=0.0,
+                eod_cf=5.0,
+                mgmt_fees=5.0,
+            ),
+        ],
+    )
+
+    result = analyze_source_economics(
+        performance_request=performance_request,
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        observations=[
+            {
+                "valuation_date": "2026-03-13",
+                "beginning_market_value": "1200.0",
+                "ending_market_value": "1210.0",
+                "fees": "5.0",
+                "cash_flows": [
+                    {"amount": "5.0", "timing": "eod", "cash_flow_type": "fee"},
+                ],
+            }
+        ],
+    )
+
+    assert {finding.code for finding in result.findings} == {
+        "DUPLICATE_FEE_SOURCE_SIGNAL",
+        "POSITIVE_FEE_SOURCE_SIGNAL",
+    }
+    assert result.evidence_summary["positive_fee_signal_count"] == 1

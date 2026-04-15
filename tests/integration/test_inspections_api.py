@@ -225,10 +225,10 @@ def test_twr_inspection_runs_reconciliation_for_resolved_stateful_subject(client
                             "beginning_market_value": "1010.0",
                             "ending_market_value": "1020.1",
                             "bod_cashflow": "5000.0",
-                            "fees": "-10.0",
+                            "fees": "10.0",
                             "cash_flows": [
                                 {"amount": "5000.0", "timing": "bod", "cash_flow_type": "external_flow"},
-                                {"amount": "-10.0", "timing": "eod", "cash_flow_type": "fee"},
+                                {"amount": "10.0", "timing": "eod", "cash_flow_type": "fee"},
                             ],
                         },
                     ],
@@ -314,6 +314,7 @@ def test_twr_inspection_runs_reconciliation_for_resolved_stateful_subject(client
         "PORTFOLIO_POSITION_RECONCILIATION_GAP",
         "FEE_CASHFLOW_CLASSIFICATION_NOT_PRESERVED",
         "DUPLICATE_FEE_SOURCE_SIGNAL",
+        "POSITIVE_FEE_SOURCE_SIGNAL",
         "EXTERNAL_CASHFLOW_NORMALIZATION_MISMATCH",
         "DUPLICATE_EXTERNAL_CASHFLOW_SOURCE_SIGNAL",
     }
@@ -341,6 +342,7 @@ def test_twr_inspection_runs_reconciliation_for_resolved_stateful_subject(client
     source_economics_body = source_economics_artifact.json()
     assert source_economics_body["fee_cashflow_date_count"] == 1
     assert source_economics_body["duplicate_fee_signal_count"] == 1
+    assert source_economics_body["positive_fee_signal_count"] == 1
     assert source_economics_body["external_cashflow_date_count"] == 1
     assert source_economics_body["duplicate_external_cashflow_signal_count"] == 1
 
