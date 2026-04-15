@@ -84,9 +84,13 @@ def test_twr_inspection_request_subject_runs_through_async_runtime_and_artifacts
     body = result.json()
     assert body["inspection_id"] == inspection_id
     assert body["portfolio_id"] == "PB_SG_GLOBAL_BAL_001"
-    assert body["verdict"] == "inspection_failed"
-    assert body["check_coverage"]["completed_check_families"] == []
+    assert body["verdict"] == "supportable_with_warnings"
+    assert body["check_coverage"]["completed_check_families"] == [
+        "source_quality",
+        "economic_plausibility",
+    ]
     assert "calculation_consistency" in body["check_coverage"]["pending_check_families"]
+    assert body["evidence_summary"]["valuation_point_count"] == 1
     assert body["artifacts"]["inspection_summary.json"].endswith("/inspection_summary.json")
 
     assert drain_lineage_queue() >= 1
@@ -137,7 +141,11 @@ def test_twr_inspection_existing_calculation_subject_links_back_to_twr_lineage(c
     assert result.status_code == 200
     body = result.json()
     assert body["verdict"] == "supportable_with_warnings"
-    assert body["check_coverage"]["completed_check_families"] == ["calculation_consistency"]
+    assert body["check_coverage"]["completed_check_families"] == [
+        "calculation_consistency",
+        "source_quality",
+        "economic_plausibility",
+    ]
     assert body["findings"] == []
     assert body["subject_calculation_id"] == twr_calculation_id
     assert body["related_lineage"]["calculation_id"] == twr_calculation_id
@@ -222,6 +230,46 @@ def test_twr_inspection_flags_relative_arithmetic_mismatch_for_existing_calculat
     assert body["verdict"] == "not_supportable"
     assert body["check_coverage"]["completed_check_families"] == ["calculation_consistency"]
     assert {finding["code"] for finding in body["findings"]} >= {"RELATIVE_PERFORMANCE_SUMMARY_MISMATCH"}
+
+
+def test_twr_inspection_flags_extreme_daily_move_for_request_subject(client):
+    inspection_id = str(uuid4())
+    submit = client.post(
+        "/performance/inspections/twr",
+        json={
+            "inspection_id": inspection_id,
+            "subject_type": "twr_request",
+            "inspection_profile": "canonical_validation",
+            "request": {
+                    "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+                    "performance_start_date": "2026-01-01",
+                    "metric_basis": "NET",
+                    "report_end_date": "2026-01-06",
+                    "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+                    "valuation_points": [
+                        {"perf_date": "2026-01-02", "begin_mv": 1000.0, "end_mv": 1010.0},
+                        {"perf_date": "2026-01-03", "begin_mv": 1010.0, "end_mv": 1300.0},
+                        {"perf_date": "2026-01-06", "begin_mv": 1300.0, "end_mv": 1295.0},
+                    ],
+                },
+            },
+        )
+    assert submit.status_code == 202
+
+    assert drain_compute_queue() >= 1
+
+    result = client.get(f"/performance/inspections/{inspection_id}")
+    assert result.status_code == 200
+    body = result.json()
+    assert body["verdict"] == "not_supportable"
+    assert {finding["code"] for finding in body["findings"]} >= {
+        "EXTREME_DAILY_MOVE_DETECTED",
+        "WEEKEND_OBSERVATIONS_PRESENT",
+        "BUSINESS_DATE_GAPS_PRESENT",
+    }
+    assert body["evidence_summary"]["weekend_observation_count"] == 1
+    assert body["evidence_summary"]["missing_business_date_count"] == 1
+    assert body["evidence_summary"]["largest_abs_daily_move_pct"] >= 20.0
 
 
 def test_twr_inspection_reports_failure_for_missing_twr_subject(client):

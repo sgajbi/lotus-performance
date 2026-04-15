@@ -14,10 +14,15 @@ from app.models.inspection_responses import (
 from app.services.execution_registry import execution_registry
 from app.services.inspection.calculation_consistency import run_twr_calculation_consistency_checks
 from app.services.inspection.artifact_service import enqueue_twr_inspection_artifacts
-from app.services.inspection.subject_materialization import load_existing_twr_calculation_artifacts
+from app.services.inspection.source_quality import run_source_quality_checks
+from app.services.inspection.subject_materialization import (
+    extract_performance_request_from_payload,
+    load_existing_twr_calculation_artifacts,
+)
 from app.services.inspection.subject_resolution import resolve_twr_inspection_subject
 
-_PENDING_CHECK_FAMILIES = [
+_ALL_CHECK_FAMILIES = [
+    "calculation_consistency",
     "source_quality",
     "economic_plausibility",
     "reconciliation",
@@ -51,10 +56,12 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
         "related_execution_found": subject.related_execution is not None,
     }
     verdict = TWRInspectionVerdict.INSPECTION_FAILED
+    performance_request = None
     if subject.subject_calculation_id is not None:
         execution_registry.start_stage(request.inspection_id, "math_reconciliation")
         try:
             existing_artifacts = load_existing_twr_calculation_artifacts(subject.subject_calculation_id)
+            performance_request = extract_performance_request_from_payload(existing_artifacts.request_payload)
             consistency_result = run_twr_calculation_consistency_checks(existing_artifacts.response_model)
         except Exception as exc:
             execution_registry.fail_stage(request.inspection_id, "math_reconciliation", str(exc))
@@ -72,9 +79,35 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
             if consistency_findings
             else TWRInspectionVerdict.SUPPORTABLE_WITH_WARNINGS
         )
+    else:
+        performance_request = extract_performance_request_from_payload(subject.request_payload)
+
+    source_quality_findings = []
+    if performance_request is not None:
+        execution_registry.start_stage(request.inspection_id, "source_quality_assessment")
+        try:
+            source_quality_result = run_source_quality_checks(
+                performance_request=performance_request,
+                inspection_profile=request.inspection_profile,
+            )
+        except Exception as exc:
+            execution_registry.fail_stage(request.inspection_id, "source_quality_assessment", str(exc))
+            raise
+        execution_registry.complete_stage(
+            request.inspection_id,
+            "source_quality_assessment",
+            details=source_quality_result.evidence_summary,
+        )
+        source_quality_findings = source_quality_result.findings
+        completed_check_families.extend(["source_quality", "economic_plausibility"])
+        evidence_summary.update(source_quality_result.evidence_summary)
+        if any(finding.severity in {"high", "critical"} for finding in source_quality_findings):
+            verdict = TWRInspectionVerdict.NOT_SUPPORTABLE
+        elif verdict == TWRInspectionVerdict.INSPECTION_FAILED:
+            verdict = TWRInspectionVerdict.SUPPORTABLE_WITH_WARNINGS
 
     execution_registry.start_stage(request.inspection_id, "finding_synthesis")
-    findings = list(consistency_findings)
+    findings = [*consistency_findings, *source_quality_findings]
     if not completed_check_families:
         findings.append(
             TWRInspectionFinding(
@@ -95,7 +128,7 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
                 evidence={
                     "implemented_slice": "slice_1_contract_runtime_skeleton",
                     "completed_check_families": [],
-                    "pending_check_families": ["calculation_consistency", *_PENDING_CHECK_FAMILIES],
+                    "pending_check_families": list(_ALL_CHECK_FAMILIES),
                 },
             )
         )
@@ -115,11 +148,7 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
         evidence_summary=evidence_summary,
         check_coverage=TWRInspectionCheckCoverage(
             completed_check_families=completed_check_families,
-            pending_check_families=(
-                list(_PENDING_CHECK_FAMILIES)
-                if completed_check_families
-                else ["calculation_consistency", *_PENDING_CHECK_FAMILIES]
-            ),
+            pending_check_families=[family for family in _ALL_CHECK_FAMILIES if family not in completed_check_families],
         ),
         related_lineage=(
             TWRInspectionRelatedLineage(
