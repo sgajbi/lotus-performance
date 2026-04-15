@@ -213,6 +213,26 @@ def test_api_reference_documents_endpoint_level_capabilities_contract():
     assert "Canonical capabilities response excerpt" in api_reference
 
 
+def test_benchmark_exposure_context_docs_reflect_certified_contract():
+    readme = _read("README.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    certification = _read("docs/technical/benchmark-exposure-context-endpoint-certification.md")
+
+    assert "POST /integration/benchmarks/exposure-context" in readme
+    assert "Benchmark Exposure Context Endpoint Certification" in readme
+    assert "frequency=DAILY" in readme
+    assert "ISSUER` remains gated" in readme
+    assert "`frequency=DAILY` is the only supported v1 frequency" in api_reference
+    assert "row weights are returned as decimal fractions" in api_reference
+    assert "`POSITION` rows carry `component_id`" in api_reference
+    assert "docs/technical/benchmark-exposure-context-endpoint-certification.md" in api_reference
+    assert "docs/technical/benchmark-exposure-context-endpoint-certification.md" in _read(
+        "docs/guides/complete_service_reference.md"
+    )
+    assert "lotus-risk" in certification
+    assert "No duplicate downstream endpoint use was found" in certification
+
+
 def test_attribution_guide_uses_current_request_shape():
     guide = _read("docs/guides/attribution.md")
     readme = _read("README.md")

@@ -81,6 +81,7 @@ Default deployment topology:
 | `GET /integration/capabilities` | advertise supported analytics surfaces and options |
 | `POST /integration/returns/series` | canonical returns-series surface |
 | `GET /integration/returns/series/results/{calculation_id}` | retrieve async returns-series result |
+| `POST /integration/benchmarks/exposure-context` | benchmark exposure history for downstream active-risk attribution |
 | `GET /integration/runtime-status` | bounded runtime health snapshot |
 | `GET /integration/runtime-work-items` | queue/work-item inspection |
 | `GET /integration/runtime-recoveries` | recovery-event inspection |
@@ -895,6 +896,76 @@ Sample response:
   "calculation_id": "f25cbd85-b7e5-4aaf-b994-ff59cb143ef5",
   "status": "complete",
   "result_path": "/integration/returns/series/results/f25cbd85-b7e5-4aaf-b994-ff59cb143ef5"
+}
+```
+
+### `POST /integration/benchmarks/exposure-context`
+
+Purpose:
+
+- return benchmark exposure history aligned with lotus-performance benchmark return context
+- serve `lotus-risk` stateful active-risk attribution without making risk orchestrate benchmark
+  assignment, market-series, and index-catalog contracts directly
+- keep lotus-core as the benchmark composition and classification system of record
+
+Contract notes:
+
+- v1 supports `frequency=DAILY` only
+- supported grouping dimensions are `POSITION`, `SECTOR`, and `ASSET_CLASS`
+- `ISSUER` is rejected until issuer benchmark exposure semantics are approved
+- row weights are decimal fractions, not percentages
+- pagination uses `page.page_size` and `page.next_page_token`
+- certification evidence lives in
+  `docs/technical/benchmark-exposure-context-endpoint-certification.md`
+
+Sample request:
+
+```json
+{
+  "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+  "benchmark_id": "BMK_PB_GLOBAL_BALANCED_60_40",
+  "as_of_date": "2026-04-10",
+  "window": {
+    "start_date": "2026-01-01",
+    "end_date": "2026-04-10"
+  },
+  "frequency": "DAILY",
+  "reporting_currency": "USD",
+  "grouping_dimensions": ["POSITION", "SECTOR", "ASSET_CLASS"],
+  "page": {
+    "page_size": 1000,
+    "page_token": null
+  }
+}
+```
+
+Sample response excerpt:
+
+```json
+{
+  "source_service": "lotus-performance",
+  "contract_version": "v1",
+  "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+  "benchmark_id": "BMK_PB_GLOBAL_BALANCED_60_40",
+  "frequency": "DAILY",
+  "rows": [
+    {
+      "valuation_date": "2026-04-10",
+      "component_id": "IDX_GLOBAL_EQUITY",
+      "grouping_dimension": "POSITION",
+      "group_key": "IDX_GLOBAL_EQUITY",
+      "group_label": "IDX_GLOBAL_EQUITY",
+      "weight": "0.600000"
+    }
+  ],
+  "page": {
+    "next_page_token": null
+  },
+  "metadata": {
+    "source_system": "lotus-core",
+    "served_by": "lotus-performance",
+    "contract_version": "v1"
+  }
 }
 ```
 

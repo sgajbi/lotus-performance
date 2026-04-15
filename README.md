@@ -11,6 +11,7 @@
 - contribution (`POST /performance/contribution`)
 - attribution (`POST /performance/attribution`)
 - canonical returns-series integration (`POST /integration/returns/series`)
+- benchmark exposure context (`POST /integration/benchmarks/exposure-context`)
 
 It also owns durable execution lifecycle tracking, async compute offload for heavier workloads,
 lineage artifact capture, TWR inspection/supportability triage, and execution/result polling surfaces.
@@ -222,6 +223,18 @@ for contribution or attribution drill-downs.
 New stateless callers should use `stateless_input.valuation_points`; the top-level
 `valuation_points` field remains deprecated compatibility input. See
 [Workspace Summary Endpoint Certification](docs/technical/workspace-summary-endpoint-certification.md).
+
+### Benchmark exposure context
+
+`POST /integration/benchmarks/exposure-context` serves the performance-aligned benchmark exposure
+history used by `lotus-risk` stateful active-risk attribution. It is a derived lineage-backed view:
+lotus-core remains the benchmark composition and classification system of record, while
+lotus-performance keeps benchmark exposure history aligned with benchmark return context.
+
+The v1 contract supports `POSITION`, `SECTOR`, and `ASSET_CLASS` grouping dimensions at
+`frequency=DAILY`; `ISSUER` remains gated until issuer benchmark exposure semantics are approved.
+See
+[Benchmark Exposure Context Endpoint Certification](docs/technical/benchmark-exposure-context-endpoint-certification.md).
 
 ### Returns series integration
 

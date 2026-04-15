@@ -675,8 +675,14 @@ Return semantics for the workspace surface are now explicit rather than inferred
 - contract notes:
   - if `benchmark_id` is omitted, lotus-performance resolves benchmark assignment through lotus-core
   - benchmark market-series is requested with `series_fields=["component_weight"]`
+  - `frequency=DAILY` is the only supported v1 frequency; monthly or weekly benchmark exposure history is intentionally rejected rather than silently resampled
   - response rows use decimal weights, not percentages
+  - row weights are returned as decimal fractions where `0.60` means a 60% benchmark exposure
+  - `POSITION` rows carry `component_id`; aggregate `SECTOR` and `ASSET_CLASS` rows omit `component_id`
+  - pagination uses `page.page_size` and opaque `page.next_page_token` values returned by the endpoint
   - lineage metadata includes `source_system="lotus-core"` and `served_by="lotus-performance"`
+  - downstream certification and consumer posture are recorded in
+    `docs/technical/benchmark-exposure-context-endpoint-certification.md`
 
 ## Health and observability
 

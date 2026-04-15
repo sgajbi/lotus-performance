@@ -48,7 +48,23 @@ class BenchmarkExposurePageRequest(BaseModel):
 
 
 class BenchmarkExposureContextRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "examples": [
+                {
+                    "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+                    "benchmark_id": "BMK_PB_GLOBAL_BALANCED_60_40",
+                    "as_of_date": "2026-04-10",
+                    "window": {"start_date": "2026-01-01", "end_date": "2026-04-10"},
+                    "frequency": "DAILY",
+                    "reporting_currency": "USD",
+                    "grouping_dimensions": ["POSITION", "SECTOR", "ASSET_CLASS"],
+                    "page": {"page_size": 1000, "page_token": None},
+                }
+            ]
+        },
+    )
 
     calculation_id: UUID = Field(
         default_factory=uuid4,
@@ -70,7 +86,8 @@ class BenchmarkExposureContextRequest(BaseModel):
     window: BenchmarkExposureWindow = Field(description="Date window for exposure history.")
     frequency: ReturnsFrequency = Field(
         default=ReturnsFrequency.DAILY,
-        description="Output frequency for benchmark exposure context. v1 supports DAILY.",
+        description="Output frequency for benchmark exposure context. v1 supports DAILY only.",
+        examples=["DAILY"],
     )
     reporting_currency: str | None = Field(
         default=None,
@@ -87,6 +104,8 @@ class BenchmarkExposureContextRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_dimensions(self) -> "BenchmarkExposureContextRequest":
+        if self.frequency != ReturnsFrequency.DAILY:
+            raise ValueError("benchmark exposure context v1 supports frequency=DAILY only")
         if not self.grouping_dimensions:
             raise ValueError("grouping_dimensions must contain at least one value")
         unsupported = sorted(
@@ -157,8 +176,16 @@ class BenchmarkExposureMetadata(BaseModel):
 
 class BenchmarkExposureContextResponse(BaseModel):
     calculation_id: UUID = Field(description="Stable calculation handle for this benchmark exposure context request.")
-    source_service: Literal["lotus-performance"] = Field(default="lotus-performance")
-    contract_version: Literal["v1"] = Field(default="v1")
+    source_service: Literal["lotus-performance"] = Field(
+        default="lotus-performance",
+        description="Service that owns and serves this performance-aligned benchmark exposure context.",
+        examples=["lotus-performance"],
+    )
+    contract_version: Literal["v1"] = Field(
+        default="v1",
+        description="Version of the benchmark exposure context contract.",
+        examples=["v1"],
+    )
     portfolio_id: str = Field(
         description="Portfolio identifier used for request context.", examples=["PB_SG_GLOBAL_BAL_001"]
     )
@@ -175,3 +202,46 @@ class BenchmarkExposureContextResponse(BaseModel):
     rows: list[BenchmarkExposureRow] = Field(description="Benchmark exposure rows aligned to benchmark return context.")
     page: BenchmarkExposurePageResponse = Field(description="Pagination metadata for exposure rows.")
     metadata: BenchmarkExposureMetadata = Field(description="Lineage and operational metadata for the response.")
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "examples": [
+                {
+                    "calculation_id": "0d000004-1111-4222-8333-abcdefabcdef",
+                    "source_service": "lotus-performance",
+                    "contract_version": "v1",
+                    "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+                    "benchmark_id": "BMK_PB_GLOBAL_BALANCED_60_40",
+                    "benchmark_version": "2026-04-10",
+                    "as_of_date": "2026-04-10",
+                    "window": {"start_date": "2026-01-01", "end_date": "2026-04-10"},
+                    "frequency": "DAILY",
+                    "reporting_currency": "USD",
+                    "rows": [
+                        {
+                            "valuation_date": "2026-04-10",
+                            "component_id": "IDX_GLOBAL_EQUITY",
+                            "grouping_dimension": "POSITION",
+                            "group_key": "IDX_GLOBAL_EQUITY",
+                            "group_label": "IDX_GLOBAL_EQUITY",
+                            "weight": "0.600000",
+                        }
+                    ],
+                    "page": {"next_page_token": None},
+                    "metadata": {
+                        "source_system": "lotus-core",
+                        "served_by": "lotus-performance",
+                        "calculation_run_id": "0d000004-1111-4222-8333-abcdefabcdef",
+                        "contract_version": "v1",
+                        "generated_at": "2026-04-10T00:00:00Z",
+                        "retrieval_metadata": {
+                            "benchmark_market_series_chunk_count": 1,
+                            "benchmark_market_series_page_count": 1,
+                            "index_catalog_page_count": 1,
+                        },
+                    },
+                }
+            ]
+        },
+    )
