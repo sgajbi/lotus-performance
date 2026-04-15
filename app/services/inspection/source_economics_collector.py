@@ -62,6 +62,8 @@ class _SourceEconomicsSampleCollector:
     unsupported_cashflow_type_samples: list[dict[str, object]] = field(default_factory=list)
     governed_alias_cashflow_type_samples: list[dict[str, object]] = field(default_factory=list)
 
+    invalid_observation_date_samples: list[dict[str, object]] = field(default_factory=list)
+
     def observe(self, source_point: ObservationSourceEconomics) -> None:
         self._record_taxonomy_samples(source_point)
         self._record_fee_samples(source_point)
@@ -69,7 +71,7 @@ class _SourceEconomicsSampleCollector:
 
     def freeze(self) -> SourceEconomicsSamples:
         return SourceEconomicsSamples(
-            invalid_observation_date_samples=[],
+            invalid_observation_date_samples=self.invalid_observation_date_samples,
             fee_flow_dates=self.fee_flow_dates,
             external_flow_dates=self.external_flow_dates,
             fee_normalization_samples=self.fee_normalization_samples,
@@ -292,8 +294,12 @@ class _SourceEconomicsSampleCollector:
             )
 
 
-def collect_source_economics_samples(source_points: list[ObservationSourceEconomics]) -> SourceEconomicsSamples:
-    collector = _SourceEconomicsSampleCollector()
+def collect_source_economics_samples(
+    *,
+    source_points: list[ObservationSourceEconomics],
+    invalid_observation_date_samples: list[dict[str, object]] | None = None,
+) -> SourceEconomicsSamples:
+    collector = _SourceEconomicsSampleCollector(invalid_observation_date_samples=invalid_observation_date_samples or [])
     for source_point in source_points:
         collector.observe(source_point)
     return collector.freeze()

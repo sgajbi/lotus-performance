@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
@@ -157,12 +157,10 @@ def analyze_source_economics(
         observations=observations,
         normalized_by_date=normalized_by_date,
     )
-    samples = collect_source_economics_samples(observation_build_result.source_points)
-    if observation_build_result.invalid_observation_date_samples:
-        samples = replace(
-            samples,
-            invalid_observation_date_samples=observation_build_result.invalid_observation_date_samples,
-        )
+    samples = collect_source_economics_samples(
+        source_points=observation_build_result.source_points,
+        invalid_observation_date_samples=observation_build_result.invalid_observation_date_samples,
+    )
 
     findings = build_source_economics_findings(
         portfolio_id=portfolio_id,
