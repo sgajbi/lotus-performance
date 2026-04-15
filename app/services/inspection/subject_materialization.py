@@ -55,8 +55,9 @@ def load_existing_twr_calculation_artifacts(calculation_id: UUID) -> ExistingTWR
 def extract_performance_request_from_payload(request_payload: dict | None) -> PerformanceRequest | None:
     if request_payload is None:
         return None
+    resolved_payload = _resolved_request_payload_from_lineage_payload(request_payload)
     try:
-        resolved_request = TWRResolvedExecutionRequest.model_validate(request_payload)
+        resolved_request = TWRResolvedExecutionRequest.model_validate(resolved_payload)
         return resolved_request.portfolio
     except Exception:
         pass
@@ -74,10 +75,16 @@ def extract_resolved_execution_request_from_payload(
 ) -> TWRResolvedExecutionRequest | None:
     if request_payload is None:
         return None
+    resolved_payload = _resolved_request_payload_from_lineage_payload(request_payload)
     try:
-        return TWRResolvedExecutionRequest.model_validate(request_payload)
+        return TWRResolvedExecutionRequest.model_validate(resolved_payload)
     except Exception:
         return None
+
+
+def _resolved_request_payload_from_lineage_payload(request_payload: dict) -> dict:
+    resolved_request = request_payload.get("resolved_request")
+    return resolved_request if isinstance(resolved_request, dict) else request_payload
 
 
 def _load_request_payload(calculation_id: UUID) -> dict | None:
