@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-04-14T12:56:11.502138+00:00",
+  "generatedAt": "2026-04-15T08:28:35.316923+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.account_reset_shadow_days",
@@ -2210,6 +2210,35 @@
       ]
     },
     {
+      "semanticId": "lotus.inspection_id",
+      "canonicalTerm": "inspection_id",
+      "preferredName": "inspection_id",
+      "description": "Client-supplied or service-generated durable inspection identifier.",
+      "example": "INSPECTION_001",
+      "type": "string",
+      "locations": [
+        "body",
+        "path"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.inspection_profile",
+      "canonicalTerm": "inspection_profile",
+      "preferredName": "inspection_profile",
+      "description": "twrinspection profile schema.",
+      "example": "support_triage",
+      "type": "TWRInspectionProfile",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "TWRInspectionProfile"
+      ]
+    },
+    {
       "semanticId": "lotus.instruments_data",
       "canonicalTerm": "instruments_data",
       "preferredName": "instruments_data",
@@ -3626,6 +3655,20 @@
       ]
     },
     {
+      "semanticId": "lotus.poll_path",
+      "canonicalTerm": "poll_path",
+      "preferredName": "poll_path",
+      "description": "twrinspection accepted response field: poll path.",
+      "example": "/performance/executions/2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.poll_path_template",
       "canonicalTerm": "poll_path_template",
       "preferredName": "poll_path_template",
@@ -4198,6 +4241,183 @@
       ]
     },
     {
+      "semanticId": "lotus.request",
+      "canonicalTerm": "request",
+      "preferredName": "request",
+      "description": "Fresh TWR request to inspect when subject_type is twr_request.",
+      "example": {
+        "calculation_id": "2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
+        "portfolio_id": "DEMO_DPM_EUR_001",
+        "performance_start_date": "2024-12-31",
+        "metric_basis": "NET",
+        "report_start_date": "2026-01-01",
+        "report_end_date": "2026-01-31",
+        "analyses": [
+          {
+            "period": "MTD",
+            "frequencies": [
+              "DAILY"
+            ]
+          }
+        ],
+        "valuation_points": [
+          {
+            "perf_date": "2026-02-27",
+            "begin_mv": 0.1234,
+            "bod_cf": 0.1234,
+            "eod_cf": 0.1234,
+            "mgmt_fees": 0.1234,
+            "end_mv": 0.1234
+          }
+        ],
+        "currency": "USD",
+        "precision_mode": "FLOAT64",
+        "rounding_precision": 1,
+        "calendar": {
+          "type": "BUSINESS",
+          "trading_calendar": "example_trading_calendar"
+        },
+        "annualization": {
+          "enabled": true,
+          "basis": "BUS/252",
+          "periods_per_year": 0.1234
+        },
+        "output": {
+          "include_timeseries": true,
+          "include_cumulative": true,
+          "top_n": 1
+        },
+        "flags": {
+          "fail_fast": true
+        },
+        "fee_effect": {
+          "enabled": true
+        },
+        "reset_policy": {
+          "emit": true
+        },
+        "data_policy": {
+          "overrides": {
+            "market_values": [
+              {
+                "key": "value"
+              }
+            ],
+            "cash_flows": [
+              {
+                "key": "value"
+              }
+            ]
+          },
+          "ignore_days": [
+            {
+              "entity_type": "PORTFOLIO",
+              "entity_id": "ENTITY_001",
+              "dates": [
+                "2026-02-27"
+              ]
+            }
+          ],
+          "outliers": {
+            "enabled": true,
+            "scope": [
+              "example_scope_item"
+            ],
+            "method": "example_method",
+            "params": {
+              "key": "value"
+            },
+            "action": "example_action"
+          }
+        },
+        "currency_mode": "BASE_ONLY",
+        "report_ccy": "example_report_ccy",
+        "fx": {
+          "source": "example_source",
+          "fixing": "example_fixing",
+          "rates": [
+            {
+              "date": "2026-02-27",
+              "ccy": "example_ccy",
+              "rate": 0.1234
+            }
+          ]
+        },
+        "hedging": {
+          "mode": "example_mode",
+          "series": [
+            {
+              "date": "2026-02-27",
+              "ccy": "example_ccy",
+              "hedge_ratio": 0.1234
+            }
+          ]
+        },
+        "include_benchmark": true,
+        "input_mode": "stateless",
+        "stateless_input": {
+          "valuation_points": [
+            {
+              "perf_date": "2026-02-27",
+              "begin_mv": 0.1234,
+              "bod_cf": 0.1234,
+              "eod_cf": 0.1234,
+              "mgmt_fees": 0.1234,
+              "end_mv": 0.1234
+            }
+          ]
+        },
+        "stateful_input": {
+          "key": "value"
+        },
+        "benchmark": {
+          "benchmark_id": "BENCHMARK_001",
+          "input_mode": "stateless",
+          "return_source": "calculated",
+          "stateless_input": {
+            "benchmark_currency": "USD",
+            "component_observations": [
+              {
+                "component_id": "COMPONENT_001",
+                "perf_date": "2026-02-27",
+                "weight_bop": 0.1234,
+                "component_currency": "USD",
+                "component_return": 0.1234,
+                "component_return_local": 0.1234,
+                "component_return_fx": 0.1234
+              }
+            ],
+            "component_price_points": [
+              {
+                "component_id": "COMPONENT_001",
+                "perf_date": "2026-02-27",
+                "weight_bop": 0.1234,
+                "index_price": 0.1234,
+                "component_currency": "USD",
+                "fx_rate_to_benchmark": 0.1234
+              }
+            ],
+            "benchmark_return_points": [
+              {
+                "perf_date": "2026-02-27",
+                "benchmark_return": 0.1234
+              }
+            ]
+          },
+          "stateful_input": {
+            "key": "value"
+          }
+        }
+      },
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
       "semanticId": "lotus.request_fingerprint",
       "canonicalTerm": "request_fingerprint",
       "preferredName": "request_fingerprint",
@@ -4361,13 +4581,14 @@
       "semanticId": "lotus.result_path",
       "canonicalTerm": "result_path",
       "preferredName": "result_path",
-      "description": "Async result path for this compute work item when the analytics family exposes a durable result route.",
+      "description": "twrinspection accepted response field: result path.",
       "example": "/integration/returns/series/results/2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
-      "type": "object",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
+        "string",
         "object"
       ]
     },
@@ -5181,6 +5402,34 @@
       ]
     },
     {
+      "semanticId": "lotus.subject_calculation_id",
+      "canonicalTerm": "subject_calculation_id",
+      "preferredName": "subject_calculation_id",
+      "description": "Existing TWR calculation to inspect when subject_type is twr_calculation.",
+      "example": "SUBJECT_CALCULATION_001",
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.subject_type",
+      "canonicalTerm": "subject_type",
+      "preferredName": "subject_type",
+      "description": "twrinspection subject type schema.",
+      "example": "twr_calculation",
+      "type": "TWRInspectionSubjectType",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "TWRInspectionSubjectType"
+      ]
+    },
+    {
       "semanticId": "lotus.sum_of_parts_vs_total_bp",
       "canonicalTerm": "sum_of_parts_vs_total_bp",
       "preferredName": "sum_of_parts_vs_total_bp",
@@ -5771,6 +6020,18 @@
       "allowedValues": [],
       "semanticId": "lotus.calculation_id",
       "attributeRef": "#/attributeCatalog/lotus.calculation_id"
+    },
+    {
+      "name": "inspection_id",
+      "kind": "request_option",
+      "location": "path",
+      "required": true,
+      "type": "string",
+      "description": "Canonical inspection id used by lotus-performance APIs.",
+      "example": "ENTITY_001",
+      "allowedValues": [],
+      "semanticId": "lotus.inspection_id",
+      "attributeRef": "#/attributeCatalog/lotus.inspection_id"
     },
     {
       "name": "calculation_id",
@@ -9086,6 +9347,107 @@
             "attributeRef": "#/attributeCatalog/lotus.async_result"
           }
         ]
+      }
+    },
+    {
+      "domain": "performance",
+      "method": "POST",
+      "path": "/performance/inspections/twr",
+      "operationId": "submit_twr_inspection_performance_inspections_twr_post",
+      "summary": "Submit a durable TWR supportability inspection",
+      "request": {
+        "fields": [
+          {
+            "name": "inspection_id",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.inspection_id",
+            "attributeRef": "#/attributeCatalog/lotus.inspection_id"
+          },
+          {
+            "name": "subject_type",
+            "location": "body",
+            "required": true,
+            "type": "TWRInspectionSubjectType",
+            "semanticId": "lotus.subject_type",
+            "attributeRef": "#/attributeCatalog/lotus.subject_type"
+          },
+          {
+            "name": "subject_calculation_id",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.subject_calculation_id",
+            "attributeRef": "#/attributeCatalog/lotus.subject_calculation_id"
+          },
+          {
+            "name": "request",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.request",
+            "attributeRef": "#/attributeCatalog/lotus.request"
+          },
+          {
+            "name": "inspection_profile",
+            "location": "body",
+            "required": false,
+            "type": "TWRInspectionProfile",
+            "semanticId": "lotus.inspection_profile",
+            "attributeRef": "#/attributeCatalog/lotus.inspection_profile"
+          }
+        ]
+      },
+      "response": {
+        "fields": [
+          {
+            "name": "inspection_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.inspection_id",
+            "attributeRef": "#/attributeCatalog/lotus.inspection_id"
+          },
+          {
+            "name": "poll_path",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.poll_path",
+            "attributeRef": "#/attributeCatalog/lotus.poll_path"
+          },
+          {
+            "name": "result_path",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.result_path",
+            "attributeRef": "#/attributeCatalog/lotus.result_path"
+          }
+        ]
+      }
+    },
+    {
+      "domain": "performance",
+      "method": "GET",
+      "path": "/performance/inspections/{inspection_id}",
+      "operationId": "get_twr_inspection_performance_inspections__inspection_id__get",
+      "summary": "Retrieve durable TWR inspection status or result",
+      "request": {
+        "fields": [
+          {
+            "name": "inspection_id",
+            "location": "path",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.inspection_id",
+            "attributeRef": "#/attributeCatalog/lotus.inspection_id"
+          }
+        ]
+      },
+      "response": {
+        "fields": []
       }
     },
     {
