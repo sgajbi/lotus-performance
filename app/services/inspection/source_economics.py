@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, replace
+from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from app.core.config import Settings, get_settings
@@ -313,10 +314,10 @@ def _build_observation_source_economics(
     invalid_observation_date_samples: list[dict[str, object]] = []
     for observation in observations:
         valuation_date = observation.get("valuation_date")
-        if not isinstance(valuation_date, str):
+        if not isinstance(valuation_date, str) or not _is_iso_date(valuation_date):
             invalid_observation_date_samples.append(
                 {
-                    "valuation_date": None,
+                    "valuation_date": valuation_date if isinstance(valuation_date, str) else None,
                     "raw_type": type(valuation_date).__name__,
                     "raw_value": _sample_raw_collection_value(valuation_date),
                     "observation_keys": sorted(str(key) for key in observation),
@@ -358,6 +359,14 @@ def _build_observation_source_economics(
         source_points=source_points,
         invalid_observation_date_samples=invalid_observation_date_samples,
     )
+
+
+def _is_iso_date(raw_value: str) -> bool:
+    try:
+        date.fromisoformat(raw_value)
+    except ValueError:
+        return False
+    return True
 
 
 def _collect_observation_economics(observation: dict[str, object]) -> RawObservationEconomics:

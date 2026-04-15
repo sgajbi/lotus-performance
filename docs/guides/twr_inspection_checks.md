@@ -152,7 +152,7 @@ These findings evaluate whether raw source cash and fee economics tie to the ser
 | `EXTERNAL_CASHFLOW_MIXED_TIMING_BUCKETS` | `lotus-core` | detailed external cash-flow rows exist in both beginning-of-day and end-of-day buckets for the same valuation date | valuation dates, detailed BOD amount, detailed EOD amount |
 | `CONFLICTING_EXPLICIT_SOURCE_TOTAL_PRESENT` | `lotus-core` | raw source serves conflicting numeric alias fields for the same explicit fee or bod/eod total | valuation dates, alias field names, resolved and conflicting values |
 | `INVALID_EXPLICIT_SOURCE_AMOUNT_PRESENT` | `lotus-core` | raw source serves malformed explicit fee or bod/eod cash-flow totals | valuation dates, explicit field names, raw field values |
-| `INVALID_PORTFOLIO_OBSERVATION_DATE_PRESENT` | `lotus-core` | raw source serves portfolio observations without a usable `valuation_date` identity | raw valuation-date type/value and observation keys |
+| `INVALID_PORTFOLIO_OBSERVATION_DATE_PRESENT` | `lotus-core` | raw source serves portfolio observations without a usable ISO `valuation_date` identity | raw valuation-date type/value and observation keys |
 | `INVALID_CASHFLOW_COLLECTION_PRESENT` | `lotus-core` | raw source serves `cash_flows` as something other than a list of detailed cash-flow rows | valuation dates, raw collection type, sampled raw value |
 | `INVALID_CASHFLOW_ROW_PRESENT` | `lotus-core` | raw source serves one or more `cash_flows` entries that are not detailed cash-flow row objects | valuation dates, raw row type, sampled raw value |
 | `INVALID_CASHFLOW_AMOUNT_PRESENT` | `lotus-core` | raw source serves one or more detailed cash-flow rows with unusable amount values | valuation dates, raw row amounts, row timings, row cash-flow types |
