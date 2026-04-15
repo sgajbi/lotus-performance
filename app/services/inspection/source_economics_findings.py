@@ -20,6 +20,7 @@ def build_source_economics_findings(
     conflicting_explicit_amount_samples: list[dict[str, object]],
     invalid_explicit_amount_samples: list[dict[str, object]],
     invalid_cashflow_collection_samples: list[dict[str, object]],
+    invalid_cashflow_row_samples: list[dict[str, object]],
     invalid_amount_samples: list[dict[str, object]],
     invalid_timing_samples: list[dict[str, object]],
     missing_cashflow_type_samples: list[dict[str, object]],
@@ -312,6 +313,27 @@ def build_source_economics_findings(
                     "detailed cash-flow row objects when detailed cash-flow lineage is present."
                 ),
                 evidence=_sample_evidence(portfolio_id=portfolio_id, samples=invalid_cashflow_collection_samples),
+            )
+        )
+
+    if invalid_cashflow_row_samples:
+        findings.append(
+            TWRInspectionFinding(
+                code="INVALID_CASHFLOW_ROW_PRESENT",
+                severity="warning",
+                category="documentation_drift",
+                owner_repo="lotus-core",
+                summary="The stateful portfolio source serves malformed detailed cash-flow rows.",
+                explanation=(
+                    "The raw portfolio observation includes a cash_flows list, but one or more entries are not "
+                    "cash-flow row objects. The inspector skips those malformed entries for normalization and "
+                    "preserves them as source-contract evidence."
+                ),
+                recommended_action=(
+                    "Review lotus-core portfolio-timeseries serialization and emit each cash_flows entry as a row "
+                    "object with amount, timing, and cash_flow_type fields."
+                ),
+                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=invalid_cashflow_row_samples),
             )
         )
 

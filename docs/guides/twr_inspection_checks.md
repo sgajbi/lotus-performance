@@ -153,6 +153,7 @@ These findings evaluate whether raw source cash and fee economics tie to the ser
 | `CONFLICTING_EXPLICIT_SOURCE_TOTAL_PRESENT` | `lotus-core` | raw source serves conflicting numeric alias fields for the same explicit fee or bod/eod total | valuation dates, alias field names, resolved and conflicting values |
 | `INVALID_EXPLICIT_SOURCE_AMOUNT_PRESENT` | `lotus-core` | raw source serves malformed explicit fee or bod/eod cash-flow totals | valuation dates, explicit field names, raw field values |
 | `INVALID_CASHFLOW_COLLECTION_PRESENT` | `lotus-core` | raw source serves `cash_flows` as something other than a list of detailed cash-flow rows | valuation dates, raw collection type, sampled raw value |
+| `INVALID_CASHFLOW_ROW_PRESENT` | `lotus-core` | raw source serves one or more `cash_flows` entries that are not detailed cash-flow row objects | valuation dates, raw row type, sampled raw value |
 | `INVALID_CASHFLOW_AMOUNT_PRESENT` | `lotus-core` | raw source serves one or more detailed cash-flow rows with unusable amount values | valuation dates, raw row amounts, row timings, row cash-flow types |
 | `INVALID_CASHFLOW_TIMING_PRESENT` | `lotus-core` | raw source serves one or more detailed cash-flow rows with unusable timing labels | valuation dates, row timings, row amounts, row cash-flow types |
 | `MISSING_CASHFLOW_TYPE_PRESENT` | `lotus-core` | raw source serves one or more detailed cash-flow rows without a usable `cash_flow_type` label | valuation dates, row timings, row amounts |
@@ -214,6 +215,7 @@ Use for:
 - conflicting explicit-source amount date counts
 - invalid explicit-source amount date counts
 - invalid cash-flow collection date counts
+- invalid cash-flow row date counts
 - invalid cash-flow amount date counts
 - invalid cash-flow timing date counts
 - missing cash-flow type date counts
@@ -236,6 +238,7 @@ Key support-facing sample fields:
 - `fee_timing_bucket_samples[*].rows`
 - `invalid_cashflow_collection_samples[*].raw_type`
 - `invalid_cashflow_collection_samples[*].raw_value`
+- `invalid_cashflow_row_samples[*].rows`
 - `noncanonical_cashflow_type_samples[*].cash_flow_types`
 - `noncanonical_cashflow_types`
 - `governed_alias_cashflow_type_samples[*].cash_flow_types`

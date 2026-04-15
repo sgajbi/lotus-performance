@@ -587,6 +587,52 @@ def test_analyze_source_economics_flags_invalid_cashflow_collection_shape():
     ]
 
 
+def test_analyze_source_economics_flags_invalid_cashflow_row_shape():
+    performance_request = PerformanceRequest(
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        performance_start_date=date(2026, 3, 20),
+        metric_basis="NET",
+        report_end_date=date(2026, 3, 20),
+        analyses=[Analysis(period="YTD", frequencies=["daily"])],
+        valuation_points=[
+            DailyInputData(
+                perf_date=date(2026, 3, 20),
+                begin_mv=3188.0,
+                end_mv=3188.0,
+                bod_cf=50.0,
+                eod_cf=0.0,
+                mgmt_fees=0.0,
+            ),
+        ],
+    )
+
+    result = analyze_source_economics(
+        performance_request=performance_request,
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        observations=[
+            {
+                "valuation_date": "2026-03-20",
+                "beginning_market_value": "3188.0",
+                "ending_market_value": "3188.0",
+                "cash_flows": [
+                    "bad-row",
+                    {"amount": "50.0", "timing": "bod", "cash_flow_type": "external_flow"},
+                ],
+            }
+        ],
+    )
+
+    assert {finding.code for finding in result.findings} == {"INVALID_CASHFLOW_ROW_PRESENT"}
+    assert result.evidence_summary["invalid_cashflow_row_date_count"] == 1
+    assert result.evidence_summary["external_cashflow_normalization_gap_count"] == 0
+    assert result.artifact_payload["invalid_cashflow_row_samples"] == [
+        {
+            "valuation_date": "2026-03-20",
+            "rows": [{"raw_type": "str", "raw_value": "bad-row"}],
+        }
+    ]
+
+
 def test_analyze_source_economics_flags_conflicting_explicit_source_alias_values():
     performance_request = PerformanceRequest(
         portfolio_id="PB_SG_GLOBAL_BAL_001",
