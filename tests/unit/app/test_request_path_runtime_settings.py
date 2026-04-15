@@ -348,7 +348,7 @@ def test_contribution_service_hierarchy_path_skips_empty_period_slices_and_retur
         return_value=0.03,
     )
     mocker.patch(
-        "app.services.contribution_service.build_hierarchical_contribution_result",
+        "app.services.contribution_service._build_hierarchy_from_adjusted_position_series",
         return_value={
             "summary": {
                 "portfolio_contribution": 3.0,

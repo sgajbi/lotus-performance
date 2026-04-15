@@ -17,7 +17,9 @@ from app.services.twr_mode_service import (
 
 def _settings():
     return SimpleNamespace(
+        CORE_CONTROL_PLANE_BASE_URL="http://core-control",
         CORE_QUERY_BASE_URL="http://core",
+        resolved_core_control_plane_base_url="http://core-control",
         CORE_TIMEOUT_SECONDS=5.0,
         CORE_MAX_RETRIES=2,
         CORE_RETRY_BACKOFF_SECONDS=0.1,
@@ -531,6 +533,42 @@ async def test_resolve_twr_request_fails_when_stateful_portfolio_reference_is_un
 
     with pytest.raises(HTTPException, match="portfolio reference source unavailable"):
         await resolve_twr_request(request, settings=_settings())
+
+
+@pytest.mark.asyncio
+async def test_resolve_twr_request_404_reference_error_mentions_control_plane(monkeypatch):
+    class _UnavailablePortfolioStub:
+        async def get_portfolio_reference(self, **kwargs):  # noqa: ARG002
+            return 404, {"detail": "missing"}
+
+    monkeypatch.setattr(
+        "app.services.twr_mode_service.build_stateful_input_service",
+        lambda settings: _UnavailablePortfolioStub(),  # noqa: ARG005
+    )
+
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+    execution_registry.create_execution(
+        calculation_id=request.calculation_id,
+        analytics_type="TWR",
+        portfolio_id=request.portfolio_id,
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await resolve_twr_request(request, settings=_settings())
+
+    assert "CORE_CONTROL_PLANE_BASE_URL" in str(exc_info.value.detail)
+    assert "query-control-plane" in str(exc_info.value.detail)
+    assert "stale container env" in str(exc_info.value.detail)
 
 
 @pytest.mark.asyncio

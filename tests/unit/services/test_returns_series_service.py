@@ -8,7 +8,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.models.benchmark_requests import BenchmarkComponentObservation
-from app.models.returns_series import ReturnsSeriesRequest
+from app.models.returns_series import CalendarPolicy, ReturnsFrequency, ReturnsSeriesRequest
 from app.services import portfolio_source_service, returns_series_service, stateful_input_service
 from app.services.execution_registry import ExecutionRegistry
 from app.services.stateful_benchmark_input_service import StatefulBenchmarkNormalizedInput
@@ -64,6 +64,90 @@ def test_build_cumulative_active_return_points_uses_cumulative_excess_not_linked
         "0.050000000000",
         "0.107500000000",
     ]
+
+
+def test_risk_free_points_to_dataframe_converts_annualized_rates_to_daily_returns():
+    risk_free_df = returns_series_service.risk_free_points_to_dataframe(
+        points=[
+            {
+                "series_date": "2026-04-10",
+                "value": "0.0435",
+                "value_convention": "annualized_rate",
+                "day_count_convention": "ACT_360",
+            },
+            {
+                "series_date": "2026-04-11",
+                "value": "0.0365",
+                "value_convention": "annualized_rate",
+                "day_count_convention": "ACT_365",
+            },
+            {
+                "series_date": "2026-04-12",
+                "value": "0.0002",
+                "value_convention": "period_return",
+            },
+        ]
+    )
+
+    assert [str(value) for value in risk_free_df["return_value"]] == [
+        "0.0001208333333333333333333333333",
+        "0.0001",
+        "0.0002",
+    ]
+
+
+def test_apply_calendar_policy_filters_daily_business_and_market_dates():
+    df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-04-10", "2026-04-11", "2026-04-12", "2026-04-13"]),
+            "return_value": [Decimal("0.001"), Decimal("0.002"), Decimal("0.003"), Decimal("0.004")],
+        }
+    )
+
+    business_df = returns_series_service.apply_calendar_policy(
+        df,
+        frequency=ReturnsFrequency.DAILY,
+        calendar_policy=CalendarPolicy.BUSINESS,
+    )
+    market_df = returns_series_service.apply_calendar_policy(
+        df,
+        frequency=ReturnsFrequency.DAILY,
+        calendar_policy=CalendarPolicy.MARKET,
+    )
+    calendar_df = returns_series_service.apply_calendar_policy(
+        df,
+        frequency=ReturnsFrequency.DAILY,
+        calendar_policy=CalendarPolicy.CALENDAR,
+    )
+
+    assert [value.isoformat() for value in business_df["date"].dt.date] == ["2026-04-10", "2026-04-13"]
+    assert [value.isoformat() for value in market_df["date"].dt.date] == ["2026-04-10", "2026-04-13"]
+    assert len(calendar_df) == 4
+
+
+def test_detect_gaps_does_not_flag_weekends_under_business_calendar():
+    df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-04-10", "2026-04-13", "2026-04-15"]),
+            "return_value": [Decimal("0.001"), Decimal("0.002"), Decimal("0.003")],
+        }
+    )
+
+    business_gaps = returns_series_service.detect_gaps(
+        df,
+        frequency=ReturnsFrequency.DAILY,
+        series_type="portfolio",
+        calendar_policy=CalendarPolicy.BUSINESS,
+    )
+    calendar_gaps = returns_series_service.detect_gaps(
+        df,
+        frequency=ReturnsFrequency.DAILY,
+        series_type="portfolio",
+        calendar_policy=CalendarPolicy.CALENDAR,
+    )
+
+    assert [gap.gap_days for gap in business_gaps] == [1]
+    assert [gap.gap_days for gap in calendar_gaps] == [2]
 
 
 def _build_stateful_request(**overrides):
@@ -451,7 +535,9 @@ async def test_calculate_returns_series_uses_runtime_stateful_settings(monkeypat
             "Settings",
             (),
             {
+                "CORE_CONTROL_PLANE_BASE_URL": "http://runtime-core-control",
                 "CORE_QUERY_BASE_URL": "http://runtime-core",
+                "resolved_core_control_plane_base_url": "http://runtime-core-control",
                 "CORE_TIMEOUT_SECONDS": 17.0,
                 "CORE_MAX_RETRIES": 5,
                 "CORE_RETRY_BACKOFF_SECONDS": 1.5,
@@ -473,7 +559,7 @@ async def test_calculate_returns_series_uses_runtime_stateful_settings(monkeypat
     response = await returns_series_service.calculate_returns_series(request)
 
     assert captured["core_init"] == {
-        "base_url": "http://runtime-core",
+        "base_url": "http://runtime-core-control",
         "timeout_seconds": 17.0,
         "max_retries": 5,
         "retry_backoff_seconds": 1.5,

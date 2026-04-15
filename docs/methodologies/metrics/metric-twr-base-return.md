@@ -1,5 +1,5 @@
 ## Metric
-TWR Base Return (`portfolio_return.base`)
+TWR Base Return (`portfolio.summary.period_return.base`)
 
 ## Endpoint and Mode Coverage
 - Endpoint: `POST /performance/twr`
@@ -30,7 +30,7 @@ TWR Base Return (`portfolio_return.base`)
 
 ## Unit Conventions
 - `begin_mv`, `end_mv`, `bod_cf`, `eod_cf`, `mgmt_fees` are currency amounts.
-- `daily_ror`, `period_return_pct`, `portfolio_return.base` are percentage points (pp).
+- `daily_ror`, `period_return.base`, and `cumulative_return.base` are percentage points (pp).
 - Geometric linking uses decimal growth internally: `(1 + return_pp/100)`.
 
 ## Variable Dictionary
@@ -63,7 +63,7 @@ TWR Base Return (`portfolio_return.base`)
 - `R_P_pp = 100 * (((1 + C_end_pp/100) / (1 + C_start_pp/100)) - 1)`
 - If `(1 + C_start_pp/100) == 0`, implementation returns `C_end_pp` directly.
 
-4. Breakdown period return (`period_return_pct` in breakdown summaries):
+4. Breakdown period return (`period_return.base` in comparative breakdown rows):
 - Same geometric link from daily `daily_ror` over the aggregation bucket.
 
 ## Step-by-Step Computation
@@ -74,8 +74,8 @@ TWR Base Return (`portfolio_return.base`)
 5. Compute `daily_ror` (pp), sign, NIP, cumulative returns, and reset flags.
 6. Filter master results to each resolved period.
 7. For each non-empty period slice:
-- Build requested frequency breakdowns (`period_return_pct`, optional cumulative/annualized fields).
-- Compute `portfolio_return.base` using reset-aware or non-reset path.
+- Build requested frequency breakdowns (`period_return.base`, optional cumulative/annualized fields).
+- Compute `portfolio.summary.period_return.base` using reset-aware or non-reset path.
 - If the slice contains any `perf_reset=1` row, rebase the slice return from cumulative return state; otherwise compound daily `daily_ror` directly.
 8. Return `results_by_period` plus diagnostics/meta/audit.
 
@@ -93,19 +93,20 @@ TWR Base Return (`portfolio_return.base`)
   - `NET`: includes `mgmt_fees` in numerator.
   - `GROSS`: excludes `mgmt_fees`.
 - `annualization.enabled`, `annualization.basis`, `annualization.periods_per_year`: controls `annualized_return_pct` in breakdown summaries.
-- `output.include_cumulative`: includes `cumulative_return_pct_to_date`.
+- `output.include_cumulative`: includes comparative `cumulative_return.base` fields in breakdown rows.
 - `output.include_timeseries`: for daily breakdown only, include raw day row under `daily_data`.
 - `reset_policy.emit`: include reset event list per period.
 - `data_policy`: can alter input rows before return calculation (overrides/ignore/outlier processing).
 
 ## Outputs
 Primary fields for this metric:
-- `results_by_period.<period>.portfolio_return.base`
+- `results_by_period.<period>.portfolio.summary.period_return.base`
+- `results_by_period.<period>.portfolio.summary.cumulative_return.base`
 
 Related supporting fields from same computation path:
-- `results_by_period.<period>.breakdowns.<frequency>[].summary.period_return_pct`
-- `results_by_period.<period>.breakdowns.<frequency>[].summary.cumulative_return_pct_to_date` (optional)
-- `results_by_period.<period>.breakdowns.<frequency>[].summary.annualized_return_pct` (optional)
+- `results_by_period.<period>.portfolio.breakdowns.<frequency>[].period_return.base`
+- `results_by_period.<period>.portfolio.breakdowns.<frequency>[].cumulative_return.base` (optional)
+- `results_by_period.<period>.portfolio.breakdowns.<frequency>[].annualized_return.base` (optional)
 - `results_by_period.<period>.reset_events[]` when `reset_policy.emit=true`
 
 ## Worked Example
@@ -121,5 +122,6 @@ Intermediate link (no reset in slice):
 - `R_P_pp = 1.6073 pp` (rounded)
 
 Output mapping:
-- `results_by_period.ITD.portfolio_return.base = 1.6073`
-- Daily breakdown entries include each row's `period_return_pct` (`0.8000`, `0.8009`).
+- `results_by_period.ITD.portfolio.summary.period_return.base = 1.6073`
+- `results_by_period.ITD.portfolio.summary.cumulative_return.base = 1.6073`
+- Daily breakdown entries include each row's `period_return.base` (`0.8000`, `0.8009`).

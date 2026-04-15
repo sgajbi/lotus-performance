@@ -186,13 +186,21 @@ def _prepare_data_from_instruments(request: AttributionRequest) -> List[Portfoli
 
     full_df = pd.concat(all_instruments)
     group_cols = request.group_by
+    for group_col in group_cols:
+        if group_col not in full_df.columns:
+            full_df[group_col] = "unknown"
+        else:
+            full_df[group_col] = full_df[group_col].where(
+                full_df[group_col].notna() & (full_df[group_col].astype(str).str.len() > 0),
+                "unknown",
+            )
 
     return_cols = ["return_base", "return_local", "return_fx"]
     for col in return_cols:
         if col in full_df.columns:
             full_df[f"weighted_{col}"] = full_df[col] * full_df["weight_bop"]
 
-    grouped = full_df.groupby([PortfolioColumns.PERF_DATE.value] + group_cols)
+    grouped = full_df.groupby([PortfolioColumns.PERF_DATE.value] + group_cols, dropna=False)
     group_weights = grouped["weight_bop"].sum()
 
     aggregated_panel = pd.DataFrame({"weight_bop": group_weights})
@@ -291,14 +299,36 @@ def _align_and_prepare_data(request: AttributionRequest, portfolio_groups_data: 
 
     return_cols = ["return_base", "return_local", "return_fx"]
 
+    def first_row_preserving_missing(series: pd.Series) -> float | None:
+        if series.empty:
+            return None
+        first_value = series.iloc[0]
+        return None if pd.isna(first_value) else float(first_value)
+
+    def link_period_returns(series: pd.Series) -> float | None:
+        numeric_returns = pd.to_numeric(series, errors="coerce").dropna()
+        if numeric_returns.empty:
+            return None
+        return float((1 + numeric_returns).prod() - 1)
+
     def resample_panel(panel):
-        resampler = panel.unstack(level=group_by).resample(freq_code)
-        weights = resampler["weight_bop"].first()
+        wide_panel = panel.unstack(level=group_by).sort_index()
+        weights = (
+            wide_panel["weight_bop"]
+            .resample(freq_code)
+            .agg(first_row_preserving_missing)
+            .apply(pd.to_numeric, errors="coerce")
+            .fillna(0.0)
+        )
         resampled_data = {"w": weights}
         for col in return_cols:
-            if col in panel.columns and panel[col].notna().any():
-                resampled_data[f"r_{col.split('_')[1]}"] = resampler[col].apply(
-                    lambda x: (1 + x).prod() - 1 if not x.empty else None
+            if col in wide_panel.columns.get_level_values(0) and panel[col].notna().any():
+                resampled_data[f"r_{col.split('_')[1]}"] = (
+                    wide_panel[col]
+                    .resample(freq_code)
+                    .agg(link_period_returns)
+                    .apply(pd.to_numeric, errors="coerce")
+                    .fillna(0.0)
                 )
         return pd.concat(
             [df.stack(group_by, future_stack=True) for df in resampled_data.values()],

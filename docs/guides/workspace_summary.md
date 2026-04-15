@@ -16,6 +16,9 @@ The purpose of this endpoint is not to replace the dedicated deep-analysis surfa
 to let one request return one coherent multi-horizon workspace story with canonical vocabulary and
 clear economics.
 
+Contribution and attribution drill-downs intentionally stay on the dedicated
+`/performance/contribution` and `/performance/attribution` endpoints.
+
 ## Current request contract
 
 The current request shape is:
@@ -32,6 +35,9 @@ Stateless callers provide:
 
 - `performance_start_date`
 - `stateless_input.valuation_points`
+
+Legacy top-level `valuation_points` remains as deprecated compatibility input. New callers should
+use `stateless_input.valuation_points`.
 
 Stateful callers provide:
 
@@ -155,6 +161,7 @@ Canonical example files:
 - [workspace_summary_request.json](../examples/workspace_summary_request.json)
 - [workspace_summary_stateful_detail_request.json](../examples/workspace_summary_stateful_detail_request.json)
 - [workspace_summary_accepted_response.json](../examples/workspace_summary_accepted_response.json)
+- [workspace-summary-endpoint-certification.md](../technical/workspace-summary-endpoint-certification.md)
 
 ### Stateless example
 

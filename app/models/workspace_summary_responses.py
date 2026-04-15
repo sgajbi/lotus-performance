@@ -336,9 +336,15 @@ class WorkspaceSummaryResponse(BaseModel):
 
 
 class WorkspaceSummaryAcceptedResponse(BaseModel):
-    calculation_id: UUID
-    poll_path: str
-    result_path: str
+    calculation_id: UUID = Field(description="Stable calculation handle for the accepted workspace-summary request.")
+    poll_path: str = Field(
+        description="Execution status path for polling progress and failure details.",
+        examples=["/performance/executions/0d000003-1111-4222-8333-abcdefabcdef"],
+    )
+    result_path: str = Field(
+        description="Endpoint-specific path for retrieving the final workspace-summary response.",
+        examples=["/performance/workspace-summary/results/0d000003-1111-4222-8333-abcdefabcdef"],
+    )
 
     model_config = ConfigDict(
         extra="forbid",

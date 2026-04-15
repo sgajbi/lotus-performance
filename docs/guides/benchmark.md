@@ -196,3 +196,14 @@ are emitted for calculated mode.
 Public stateless benchmark observation payloads use `perf_date` consistently.
 
 Use Swagger at `/docs` for exact field-level descriptions and current examples.
+
+## Certification and downstream posture
+
+The endpoint-level certification note is
+[`docs/technical/benchmark-endpoint-certification.md`](../technical/benchmark-endpoint-certification.md).
+
+Downstream analytics engines should not call `POST /performance/benchmark` only to obtain an aligned
+benchmark return series. The strategic integration surface for portfolio, benchmark, and risk-free
+return series is `POST /integration/returns/series`. `POST /performance/benchmark` remains the
+right endpoint when the caller needs benchmark calculation lineage, component contribution detail,
+or standalone benchmark performance evidence.

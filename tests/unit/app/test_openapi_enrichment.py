@@ -144,7 +144,7 @@ def test_enrich_openapi_schema_fills_operation_schema_and_examples():
     assert health_get["description"] == "GET operation for /health in lotus-performance."
     assert health_get["tags"] == ["Health"]
     assert "default" in health_get["responses"]
-    assert health_get["responses"]["200"]["content"]["application/json"]["example"]["status"] == "pending"
+    assert health_get["responses"]["200"]["content"]["application/json"]["example"]["status"] == "ok"
 
     perf_post = enriched["paths"]["/performance/twr"]["post"]
     assert perf_post["description"] == "POST operation for /performance/twr in lotus-performance."
@@ -336,7 +336,10 @@ def test_enrich_openapi_schema_covers_metrics_tags_and_model_level_enum_metadata
 
     assert enriched["paths"]["/metrics"]["get"]["tags"] == ["Monitoring"]
     assert "default" in enriched["paths"]["/metrics"]["get"]["responses"]
-    assert "example" not in enriched["paths"]["/metrics"]["get"]["responses"]["200"]["content"]["text/plain"]
+    assert (
+        "lotus_performance_durable_queue_store_availability"
+        in enriched["paths"]["/metrics"]["get"]["responses"]["200"]["content"]["text/plain"]["example"]
+    )
     assert enriched["paths"]["/custom"]["trace"] == {"summary": "ignored"}
     assert "default" in enriched["paths"]["/custom"]["post"]["responses"]
     assert enriched["components"]["schemas"]["StatusEnum"]["x-enum-descriptions"] == [

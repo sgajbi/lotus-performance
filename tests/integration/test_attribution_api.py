@@ -53,6 +53,21 @@ def _patch_stateful_attribution_benchmark_input(monkeypatch, *observations: Benc
     )
 
 
+def _assert_authoritative_level_totals(level: dict) -> None:
+    totals = level["totals"]
+    assert level["allocation_total_pct"] == pytest.approx(totals["allocation"])
+    assert level["selection_total_pct"] == pytest.approx(totals["selection"])
+    assert level["interaction_total_pct"] == pytest.approx(totals["interaction"])
+    assert level["total_effect_pct"] == pytest.approx(totals["total_effect"])
+    assert level["allocation_total_pct"] == pytest.approx(sum(group["allocation"] for group in level["groups"]))
+    assert level["selection_total_pct"] == pytest.approx(sum(group["selection"] for group in level["groups"]))
+    assert level["interaction_total_pct"] == pytest.approx(sum(group["interaction"] for group in level["groups"]))
+    assert level["total_effect_pct"] == pytest.approx(sum(group["total_effect"] for group in level["groups"]))
+    assert level["total_effect_pct"] == pytest.approx(
+        level["allocation_total_pct"] + level["selection_total_pct"] + level["interaction_total_pct"]
+    )
+
+
 @pytest.fixture()
 def client():
     if os.path.exists(settings.LINEAGE_STORAGE_PATH):
@@ -122,12 +137,17 @@ def test_attribution_endpoint_by_instrument_happy_path(client):
     response_data = response.json()["results_by_period"]["ITD"]
     assert response_data["reconciliation"]["total_active_return"] == pytest.approx(0.1)
     level = response_data["levels"][0]
+    _assert_authoritative_level_totals(level)
+    assert response_data["reconciliation"]["sum_of_effects"] == pytest.approx(level["total_effect_pct"])
     tech_group = next(g for g in level["groups"] if g["key"]["sector"] == "Tech")
     assert tech_group["portfolio_weight_avg"] == pytest.approx(60.0)
     assert tech_group["benchmark_weight_avg"] == pytest.approx(50.0)
     assert tech_group["portfolio_return"] == pytest.approx(2.0)
     assert tech_group["benchmark_return"] == pytest.approx(1.5)
     assert tech_group["selection"] == pytest.approx(0.25)
+    assert tech_group["total_effect"] == pytest.approx(
+        tech_group["allocation"] + tech_group["selection"] + tech_group["interaction"]
+    )
 
 
 def test_attribution_lineage_flow(client):
@@ -221,6 +241,8 @@ def test_attribution_endpoint_hierarchical(client):
     assert len(data["levels"]) == 2
     level_ac = data["levels"][0]
     level_sector = data["levels"][1]
+    _assert_authoritative_level_totals(level_ac)
+    _assert_authoritative_level_totals(level_sector)
     equity_ac_effects = next(g for g in level_ac["groups"] if g["key"]["assetClass"] == "Equity")
     tech_sector_effects = next(g for g in level_sector["groups"] if g["key"]["sector"] == "Tech")
     health_sector_effects = next(g for g in level_sector["groups"] if g["key"]["sector"] == "Health")

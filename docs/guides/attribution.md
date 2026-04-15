@@ -164,6 +164,19 @@ effect terms:
 This lets downstream analytical surfaces show the standard portfolio-versus-benchmark view without
 reverse-engineering group economics from the effect totals alone.
 
+Each `levels[]` object also carries authoritative level totals:
+
+- `totals.allocation`, `totals.selection`, `totals.interaction`, and `totals.total_effect`
+- `allocation_total_pct`
+- `selection_total_pct`
+- `interaction_total_pct`
+- `total_effect_pct`
+
+The explicit `*_total_pct` fields are the same domain totals as the nested `totals` block. They are
+provided so UI and gateway consumers can render footers and summary-only states without summing the
+currently visible rows. This matters when rows are filtered, truncated, or hidden by a downstream
+view. The totals are produced by the attribution engine after the selected linking method is applied.
+
 ## Example request
 
 ```json
@@ -234,9 +247,49 @@ reverse-engineering group economics from the effect totals alone.
   "linking": "none",
   "results_by_period": {
     "ITD": {
-      "levels": [],
+      "levels": [
+        {
+          "dimension": "sector",
+          "groups": [
+            {
+              "key": { "sector": "Tech" },
+              "portfolio_weight_avg": 60.0,
+              "benchmark_weight_avg": 50.0,
+              "portfolio_return": 2.0,
+              "benchmark_return": 1.5,
+              "allocation": -0.05,
+              "selection": 0.25,
+              "interaction": 0.05,
+              "total_effect": 0.25
+            },
+            {
+              "key": { "sector": "Health" },
+              "portfolio_weight_avg": 40.0,
+              "benchmark_weight_avg": 50.0,
+              "portfolio_return": 1.625,
+              "benchmark_return": 2.0,
+              "allocation": 0.05,
+              "selection": -0.1875,
+              "interaction": 0.0375,
+              "total_effect": -0.1
+            }
+          ],
+          "totals": {
+            "allocation": 0.0,
+            "selection": 0.0625,
+            "interaction": 0.0875,
+            "total_effect": 0.15
+          },
+          "allocation_total_pct": 0.0,
+          "selection_total_pct": 0.0625,
+          "interaction_total_pct": 0.0875,
+          "total_effect_pct": 0.15
+        }
+      ],
       "reconciliation": {
-        "total_active_return": 0.1
+        "total_active_return": 0.15,
+        "sum_of_effects": 0.15,
+        "residual": 0.0
       }
     }
   },

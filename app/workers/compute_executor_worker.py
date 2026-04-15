@@ -17,6 +17,7 @@ from app.models.benchmark_analytics_requests import BenchmarkAnalyticsRequest, B
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.contribution_analytics_requests import ContributionAnalyticsRequest, ContributionInputMode
 from app.models.contribution_requests import ContributionRequest
+from app.models.inspection_requests import TWRInspectionRequest
 from app.models.returns_series import InputMode, ReturnsSeriesRequest
 from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode, TWRResolvedExecutionRequest
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
@@ -31,6 +32,7 @@ from app.services.contribution_service import calculate_contribution
 from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
 from app.services.durable_store_runtime import RuntimeStoreProxy
 from app.services.execution_registry import ExecutionRegistry, execution_registry
+from app.services.inspection import run_twr_inspection
 from app.services.returns_series_service import calculate_returns_series
 from app.services.twr_mode_service import resolve_twr_request
 from app.services.twr_service import calculate_twr_response
@@ -59,6 +61,7 @@ def _process_pending_jobs(
     benchmark_calculator: Callable[..., Any] | None = None,
     twr_calculator: Callable[..., Any] | None = None,
     workspace_summary_calculator: Callable[..., Any] | None = None,
+    inspection_calculator: Callable[[TWRInspectionRequest], Any] | None = None,
     settings=None,
 ) -> int:
     active_settings = settings or get_settings()
@@ -74,6 +77,7 @@ def _process_pending_jobs(
     active_benchmark_calculator = benchmark_calculator or calculate_benchmark_response
     active_twr_calculator = twr_calculator or calculate_twr_response
     active_workspace_summary_calculator = workspace_summary_calculator or calculate_workspace_summary
+    active_inspection_calculator = inspection_calculator or run_twr_inspection
     reconciled = active_job_store.reconcile_stale_jobs()
     for reconciled_job in reconciled:
         if reconciled_job.reconciled_status.value == "failed":
@@ -243,6 +247,18 @@ def _process_pending_jobs(
                     calculation_hash=calculation_hash,
                 )
                 response = active_workspace_summary_calculator(workspace_request, settings=active_settings)
+            elif job.analytics_type == "TWR_INSPECTION":
+                inspection_request = TWRInspectionRequest.model_validate(job.request_payload)
+                input_fingerprint, calculation_hash = generate_canonical_hash(
+                    inspection_request,
+                    active_settings.APP_VERSION,
+                )
+                active_execution_store.update_execution_identity(
+                    job.calculation_id,
+                    input_fingerprint=input_fingerprint,
+                    calculation_hash=calculation_hash,
+                )
+                response = active_inspection_calculator(inspection_request)
             else:
                 raise ValueError(f"Unsupported compute job analytics_type: {job.analytics_type}")
             active_result_store.record_success(
@@ -291,7 +307,15 @@ def _process_pending_jobs(
 
 def _is_retryable_exception(exc: Exception) -> bool:
     if isinstance(
-        exc, (ValidationError, InvalidEngineInputError, EngineCalculationError, ValueError, NotImplementedError)
+        exc,
+        (
+            ValidationError,
+            InvalidEngineInputError,
+            EngineCalculationError,
+            ValueError,
+            KeyError,
+            NotImplementedError,
+        ),
     ):
         return False
     if isinstance(exc, HTTPException):

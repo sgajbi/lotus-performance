@@ -42,6 +42,7 @@ from app.services.stateful_performance_input_service import (
     build_stateful_portfolio_valuation_input,
     retrieve_stateful_portfolio_input,
 )
+from app.services.stateful_upstream_errors import stateful_control_plane_unavailable_detail
 from app.services.stateless_benchmark_input_service import normalize_stateless_component_observations
 from app.services.twr_service import (
     _build_relative_return_value,
@@ -417,7 +418,10 @@ def _resolve_stateful_portfolio_start_date(*, request: WorkspaceSummaryRequest, 
     if upstream_status >= status.HTTP_400_BAD_REQUEST:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"stateful portfolio reference source unavailable ({upstream_status}).",
+            detail=stateful_control_plane_unavailable_detail(
+                source_label="stateful portfolio reference source",
+                upstream_status=upstream_status,
+            ),
         )
     portfolio_open_date = upstream_payload.get("portfolio_open_date")
     if not isinstance(portfolio_open_date, str):
@@ -844,10 +848,14 @@ def _build_workspace_mwr_summary(
 
 def _build_mwr_cash_flows(period_slice: pd.DataFrame) -> list[CashFlow]:
     cash_flows: list[CashFlow] = []
+    carry_forward_adjustments = dict(_iter_carry_forward_adjustments(period_slice))
     for _, row in period_slice.iterrows():
         perf_date = row[PortfolioColumns.PERF_DATE.value]
         bod_cf = _decimal_or_zero(row.get("bod_cf"))
         eod_cf = _decimal_or_zero(row.get("eod_cf"))
+        carry_forward_adjustment = carry_forward_adjustments.get(perf_date, Decimal("0"))
+        if carry_forward_adjustment != Decimal("0"):
+            bod_cf += carry_forward_adjustment
         if bod_cf != Decimal("0"):
             cash_flows.append(CashFlow(amount=bod_cf, date=perf_date))
         if eod_cf != Decimal("0"):
@@ -872,6 +880,20 @@ def _build_economic_context(period_slice: pd.DataFrame) -> WorkspaceEconomicCont
         net_cash_flow=net_cash_flow,
         flow_adjusted_end_market_value=end_market_value - net_cash_flow,
     )
+
+
+def _iter_carry_forward_adjustments(period_slice: pd.DataFrame) -> list[tuple[date, Decimal]]:
+    adjustments: list[tuple[date, Decimal]] = []
+    previous_ending_market_value: Decimal | None = None
+    for _, row in period_slice.iterrows():
+        perf_date = row[PortfolioColumns.PERF_DATE.value]
+        begin_mv = _decimal_or_zero(row.get("begin_mv"))
+        if previous_ending_market_value is not None:
+            adjustment = begin_mv - previous_ending_market_value
+            if adjustment != Decimal("0"):
+                adjustments.append((perf_date, adjustment))
+        previous_ending_market_value = _decimal_or_zero(row.get("end_mv"))
+    return adjustments
 
 
 def _annualize_return_value(

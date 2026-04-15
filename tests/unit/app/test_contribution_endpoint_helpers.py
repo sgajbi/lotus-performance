@@ -16,6 +16,7 @@ from app.models.contribution_analytics_requests import ContributionAnalyticsRequ
 from app.models.contribution_requests import ContributionRequest
 from app.services.contribution_service import (
     _build_daily_contribution_series,
+    _build_hierarchy_from_adjusted_position_series,
     _build_portfolio_engine_diagnostics,
     _build_position_contribution_series,
     _build_residual_adjusted_daily_contribution_series,
@@ -24,18 +25,77 @@ from app.services.contribution_service import (
     _calculate_average_weight_sum_residual_bp_from_ratio_series,
     _calculate_grouped_return_reset_alignment_counts,
     _calculate_position_flow_balance_counts,
+    _calculate_position_total_return_pct,
     _calculate_promotion_ready_rate_bp,
     _calculate_reset_aware_average_weight_shadow,
+    _calculate_reset_aware_period_portfolio_return,
+    _calculate_reset_characterization_counts,
+    _calculate_reset_relative_day_counts,
     _classify_average_weight_methodology_status,
     _classify_average_weight_shadow_cutover_blockers,
     _classify_average_weight_shadow_period,
+    _count_carino_invalid_domain_days,
     _is_average_weight_shadow_cutover_candidate,
     _normalize_reset_aware_average_weight_mode,
+    build_position_contributions,
 )
 
 
 def test_contribution_as_numeric_returns_default_for_non_numeric():
     assert _as_numeric("not-a-number", default=3) == 3
+
+
+def test_contribution_reset_helpers_cover_empty_and_zero_paths(mocker):
+    request = ContributionRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+            },
+            "positions_data": [{"position_id": "A", "valuation_points": []}],
+        }
+    )
+
+    assert _calculate_reset_relative_day_counts(pd.DataFrame()) == (0, 0)
+    assert _calculate_reset_characterization_counts(pd.DataFrame()) == (0, 0, 0, 0, 0, 0, 0)
+    assert (
+        _calculate_reset_aware_period_portfolio_return(
+            request,
+            pd.Timestamp("2025-02-01").date(),
+            pd.Timestamp("2025-02-02").date(),
+            "ITD",
+        )
+        == 0.0
+    )
+    assert (
+        _calculate_position_total_return_pct(
+            request=request,
+            position_data=None,
+            period_start_date=pd.Timestamp("2025-01-01").date(),
+            period_end_date=pd.Timestamp("2025-01-02").date(),
+        )
+        == 0.0
+    )
+    assert _count_carino_invalid_domain_days(pd.DataFrame()) == 0
+    diagnostics = _build_portfolio_engine_diagnostics(pd.DataFrame(), pd.Timestamp("2025-01-01").date())
+    assert diagnostics.nip_days == 0
+    assert diagnostics.reset_days == 0
+
+    mocker.patch("app.services.contribution_service.run_engine_for_valuation_points", return_value=pd.DataFrame())
+    position_data = request.positions_data[0]
+    assert (
+        _calculate_position_total_return_pct(
+            request=request,
+            position_data=position_data,
+            period_start_date=pd.Timestamp("2025-01-01").date(),
+            period_end_date=pd.Timestamp("2025-01-01").date(),
+        )
+        == 0.0
+    )
 
 
 def test_calculate_reset_aware_average_weight_shadow_ignores_pre_reset_history_and_nip_days():
@@ -112,6 +172,40 @@ def test_calculate_reset_aware_average_weight_shadow_matches_simple_mean_when_no
     assert sum_shadow_delta_bp == 0
     assert shadow_df.loc[0, "average_weight"] == 0.5
     assert shadow_df.loc[0, "reset_aware_average_weight_shadow"] == 0.5
+
+
+def test_calculate_reset_aware_average_weight_shadow_covers_empty_missing_column_and_zero_valid_day_paths():
+    empty_shadow_df, delta_count, max_bp, sum_bp = _calculate_reset_aware_average_weight_shadow(
+        pd.DataFrame(columns=["position_id", "daily_weight"]),
+        pd.DataFrame(),
+    )
+    assert empty_shadow_df.empty
+    assert (delta_count, max_bp, sum_bp) == (0, 0, 0)
+
+    period_slice_df = pd.DataFrame(
+        {
+            "position_id": ["A"],
+            "perf_date": [pd.Timestamp("2025-01-01").date()],
+            "daily_weight": [0.4],
+        }
+    )
+    missing_column_shadow_df, *_ = _calculate_reset_aware_average_weight_shadow(
+        period_slice_df,
+        pd.DataFrame({"perf_date": [pd.Timestamp("2025-01-01").date()]}),
+    )
+    assert missing_column_shadow_df.loc[0, "reset_aware_average_weight_shadow"] == pytest.approx(0.4)
+
+    zero_valid_shadow_df, *_ = _calculate_reset_aware_average_weight_shadow(
+        period_slice_df,
+        pd.DataFrame(
+            {
+                "perf_date": [pd.Timestamp("2025-01-01").date()],
+                "perf_reset": [0],
+                "nip": [1],
+            }
+        ),
+    )
+    assert zero_valid_shadow_df.loc[0, "reset_aware_average_weight_shadow"] == 0.0
 
 
 def test_build_portfolio_engine_diagnostics_maps_reset_and_nip_characterization_from_engine_frame():
@@ -283,6 +377,41 @@ def test_contribution_series_helpers_sort_and_handle_empty_shapes():
     assert _build_position_contribution_series(pd.DataFrame(columns=["position_id", "perf_date"])) == []
 
 
+def test_build_position_contributions_sorts_and_truncates_top_n(mocker):
+    request = ContributionRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+            },
+            "positions_data": [{"position_id": "A", "valuation_points": []}],
+        }
+    )
+    mocker.patch("app.services.contribution_service.run_engine_for_valuation_points", return_value=pd.DataFrame())
+
+    contributions = build_position_contributions(
+        totals_df=pd.DataFrame(
+            [
+                {"position_id": "A", "total_contribution": 0.01, "average_weight": 0.25},
+                {"position_id": "B", "total_contribution": -0.03, "average_weight": 0.75},
+            ]
+        ),
+        request=request,
+        period_start_date=pd.Timestamp("2025-01-01").date(),
+        period_end_date=pd.Timestamp("2025-01-02").date(),
+        average_weight_column="average_weight",
+        top_n=1,
+    )
+
+    assert len(contributions) == 1
+    assert contributions[0].position_id == "B"
+    assert contributions[0].total_return == 0.0
+
+
 def test_residual_adjusted_position_timeseries_handles_missing_targets_and_missing_weight_signal():
     period_slice_df = pd.DataFrame(
         {
@@ -379,6 +508,60 @@ def test_average_weight_shadow_helper_classifies_materiality_and_cutover_readine
         )
         == "NO_MATERIAL_SHADOW"
     )
+
+
+def test_build_hierarchy_from_adjusted_position_series_handles_empty_and_unclassified_paths():
+    request = ContributionRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "currency_mode": "BOTH",
+            "hierarchy": ["sector"],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+            },
+            "positions_data": [{"position_id": "A", "valuation_points": []}],
+            "emit": {"include_unclassified": False},
+        }
+    )
+
+    empty_result = _build_hierarchy_from_adjusted_position_series(
+        period_slice_df=pd.DataFrame(),
+        position_series=[],
+        request=request,
+    )
+    assert empty_result["levels"] == []
+    assert empty_result["summary"]["portfolio_contribution"] == 0.0
+    assert empty_result["summary"]["coverage_mv_pct"] == 100.0
+    assert empty_result["summary"]["local_contribution"] == 0.0
+    assert empty_result["summary"]["fx_contribution"] == 0.0
+
+    filtered_result = _build_hierarchy_from_adjusted_position_series(
+        period_slice_df=pd.DataFrame(
+            {
+                "position_id": ["A"],
+                "perf_date": [pd.Timestamp("2025-01-01").date()],
+                "daily_weight": [0.4],
+            }
+        ),
+        position_series=[
+            type(
+                "SeriesLike",
+                (),
+                {
+                    "position_id": "A",
+                    "series": [
+                        type("PointLike", (), {"date": pd.Timestamp("2025-01-01").date(), "contribution": 1.0})()
+                    ],
+                },
+            )()
+        ],
+        request=request,
+    )
+    assert filtered_result["levels"] == []
 
 
 def test_contribution_endpoint_helpers_build_execution_windows_and_offload_flags(mocker):

@@ -55,9 +55,10 @@ def _resolve_correlation_id(request: Request) -> str | None:
     response_model=RuntimeRetentionHistoryResponse,
     summary="Get retained runtime-retention cleanup history",
     description=(
-        "Returns the retained runtime-retention cleanup history manifest for lotus-performance, including the latest "
-        "artifact, configured retention policy, and summarized retained cleanup entries. Optional query filters allow "
-        "operators to narrow the history by operator, trigger mode, job identity, cleanup mode, status, and bounded result count."
+        "Returns the retained runtime-retention cleanup history manifest for lotus-performance. Use this operator "
+        "control-plane endpoint to inspect latest cleanup assurance, retained evidence artifacts, retention "
+        "policy, applied filters, deterministic paging, cleanup mode, prunable counts, and time-windowed cleanup "
+        "outcomes without shell access to the artifact directory."
     ),
 )
 async def get_runtime_retention_history(
@@ -118,9 +119,11 @@ async def get_runtime_retention_history(
     response_model=RuntimeRetentionCleanupRunResponse,
     summary="Run a governed runtime-retention cleanup preview or apply action",
     description=(
-        "Runs a service-owned runtime-retention cleanup action using the current durable retention policy or an explicit "
-        "retention-window override. The resulting evidence is retained in the runtime-retention history so operators can "
-        "audit who ran the cleanup, whether it was dry-run or apply, and what terminal state was selected."
+        "Runs a governed service-owned runtime-retention cleanup preview or apply action using the current durable "
+        "retention policy or an explicit retention-window override. The endpoint requires an operator identity, "
+        "enforces preview-before-apply, idempotent replay, cooldown, and stale-lease guards, retains evidence in "
+        "runtime-retention history, and returns prunable execution, compute, async-result, lineage-record, and "
+        "lineage-artifact counts."
     ),
 )
 async def run_runtime_retention_cleanup(

@@ -76,6 +76,83 @@ def test_returns_series_stateless_daily_success_with_benchmark_and_risk_free():
     ]
 
 
+def test_returns_series_stateless_reconciles_every_return_family():
+    payload = _stateless_base_payload()
+    payload["window"] = {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-25"}
+    payload["series_selection"] = {"include_portfolio": True, "include_benchmark": True, "include_risk_free": True}
+    payload["stateless_input"] = {
+        "portfolio_returns": [
+            {"date": "2026-02-23", "return_value": "0.0100"},
+            {"date": "2026-02-24", "return_value": "0.0050"},
+            {"date": "2026-02-25", "return_value": "-0.0025"},
+        ],
+        "benchmark_returns": [
+            {"date": "2026-02-23", "return_value": "0.0010"},
+            {"date": "2026-02-24", "return_value": "0.0012"},
+            {"date": "2026-02-25", "return_value": "0.0014"},
+        ],
+        "risk_free_returns": [
+            {"date": "2026-02-23", "return_value": "0.0001"},
+            {"date": "2026-02-24", "return_value": "0.0001"},
+            {"date": "2026-02-25", "return_value": "0.0001"},
+        ],
+    }
+
+    with TestClient(app) as client:
+        response = client.post("/integration/returns/series", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    series = body["series"]
+
+    assert [point["return_value"] for point in series["portfolio_returns"]] == [
+        "0.010000000000",
+        "0.005000000000",
+        "-0.002500000000",
+    ]
+    assert [point["return_value"] for point in series["benchmark_returns"]] == [
+        "0.001000000000",
+        "0.001200000000",
+        "0.001400000000",
+    ]
+    assert [point["return_value"] for point in series["risk_free_returns"]] == [
+        "0.000100000000",
+        "0.000100000000",
+        "0.000100000000",
+    ]
+    assert [point["return_value"] for point in series["cumulative_portfolio_returns"]] == [
+        "0.010000000000",
+        "0.015050000000",
+        "0.012512375000",
+    ]
+    assert [point["return_value"] for point in series["cumulative_benchmark_returns"]] == [
+        "0.001000000000",
+        "0.002201200000",
+        "0.003604281680",
+    ]
+    assert [point["return_value"] for point in series["cumulative_risk_free_returns"]] == [
+        "0.000100000000",
+        "0.000200010000",
+        "0.000300030001",
+    ]
+    assert [point["return_value"] for point in series["active_returns"]] == [
+        "0.009000000000",
+        "0.003800000000",
+        "-0.003900000000",
+    ]
+    assert [point["return_value"] for point in series["cumulative_active_returns"]] == [
+        "0.009000000000",
+        "0.012848800000",
+        "0.008908093320",
+    ]
+    assert body["diagnostics"]["coverage"] == {
+        "requested_points": 3,
+        "returned_points": 3,
+        "missing_points": 0,
+        "coverage_ratio": "1.0",
+    }
+
+
 def test_returns_series_stateless_weekly_uses_geometric_linking():
     payload = _stateless_base_payload()
     payload["frequency"] = "WEEKLY"
@@ -91,6 +168,36 @@ def test_returns_series_stateless_weekly_uses_geometric_linking():
     ) - Decimal("1")
     actual = Decimal(points[0]["return_value"])
     assert abs(actual - expected) < Decimal("0.0000000001")
+
+
+def test_returns_series_stateless_daily_business_calendar_filters_weekend_points():
+    payload = _stateless_base_payload()
+    payload["window"] = {"mode": "EXPLICIT", "from_date": "2026-04-10", "to_date": "2026-04-13"}
+    payload["data_policy"] = {
+        "missing_data_policy": "FAIL_FAST",
+        "fill_method": "NONE",
+        "calendar_policy": "BUSINESS",
+    }
+    payload["stateless_input"]["portfolio_returns"] = [
+        {"date": "2026-04-10", "return_value": "0.0010"},
+        {"date": "2026-04-11", "return_value": "0.0020"},
+        {"date": "2026-04-12", "return_value": "0.0030"},
+        {"date": "2026-04-13", "return_value": "0.0040"},
+    ]
+
+    with TestClient(app) as client:
+        response = client.post("/integration/returns/series", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [point["date"] for point in body["series"]["portfolio_returns"]] == ["2026-04-10", "2026-04-13"]
+    assert body["diagnostics"]["coverage"] == {
+        "requested_points": 2,
+        "returned_points": 2,
+        "missing_points": 0,
+        "coverage_ratio": "1.0",
+    }
+    assert body["diagnostics"]["gaps"] == []
 
 
 def test_returns_series_rejects_duplicate_dates():
@@ -203,11 +310,36 @@ def test_returns_series_stateful_fetches_benchmark_and_risk_free(monkeypatch):
             200,
             {
                 "points": [
-                    {"series_date": "2026-02-23", "value": "0.0001"},
-                    {"series_date": "2026-02-24", "value": "0.0001"},
-                    {"series_date": "2026-02-25", "value": "0.0001"},
-                    {"series_date": "2026-02-26", "value": "0.0001"},
-                    {"series_date": "2026-02-27", "value": "0.0001"},
+                    {
+                        "series_date": "2026-02-23",
+                        "value": "0.036",
+                        "value_convention": "annualized_rate",
+                        "day_count_convention": "ACT_360",
+                    },
+                    {
+                        "series_date": "2026-02-24",
+                        "value": "0.036",
+                        "value_convention": "annualized_rate",
+                        "day_count_convention": "ACT_360",
+                    },
+                    {
+                        "series_date": "2026-02-25",
+                        "value": "0.036",
+                        "value_convention": "annualized_rate",
+                        "day_count_convention": "ACT_360",
+                    },
+                    {
+                        "series_date": "2026-02-26",
+                        "value": "0.036",
+                        "value_convention": "annualized_rate",
+                        "day_count_convention": "ACT_360",
+                    },
+                    {
+                        "series_date": "2026-02-27",
+                        "value": "0.036",
+                        "value_convention": "annualized_rate",
+                        "day_count_convention": "ACT_360",
+                    },
                 ]
             },
         )
@@ -256,6 +388,7 @@ def test_returns_series_stateful_fetches_benchmark_and_risk_free(monkeypatch):
     assert len(body["series"]["cumulative_benchmark_returns"]) == 5
     assert len(body["series"]["risk_free_returns"]) == 5
     assert len(body["series"]["cumulative_risk_free_returns"]) == 5
+    assert body["series"]["risk_free_returns"][0]["return_value"] == "0.000100000000"
     assert len(body["series"]["active_returns"]) == 5
     assert len(body["series"]["cumulative_active_returns"]) == 5
     assert body["series"]["active_returns"][0]["return_value"] == "0.009000000000"

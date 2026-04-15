@@ -24,50 +24,67 @@ class BenchmarkReturnSource(str, Enum):
 
 
 class BenchmarkComponentObservationInput(BaseModel):
-    component_id: str = Field(..., description="Benchmark component identifier.")
+    component_id: str = Field(..., description="Benchmark component identifier.", examples=["IDX_SP500_TR"])
     perf_date: dt_date = Field(
         ...,
         description="Benchmark observation date in YYYY-MM-DD format.",
+        examples=["2026-01-02"],
     )
-    weight_bop: float = Field(..., description="Beginning-of-day component benchmark weight.")
+    weight_bop: float = Field(
+        ...,
+        description="Beginning-of-day component benchmark weight as a decimal ratio.",
+        examples=[0.6],
+    )
     component_currency: str | None = Field(
         default=None,
         description="Optional benchmark component currency.",
+        examples=["USD"],
     )
     component_return: float = Field(
         ...,
         description="Component daily return expressed as a decimal fraction (0.01 = 1%).",
+        examples=[0.0125],
     )
     component_return_local: float | None = Field(
         default=None,
         description="Optional component daily local return expressed as a decimal fraction.",
+        examples=[0.01],
     )
     component_return_fx: float | None = Field(
         default=None,
         description="Optional component daily FX return expressed as a decimal fraction.",
+        examples=[0.002475],
     )
 
     model_config = ConfigDict(extra="forbid")
 
 
 class BenchmarkComponentPricePointInput(BaseModel):
-    component_id: str = Field(..., description="Benchmark component identifier.")
+    component_id: str = Field(..., description="Benchmark component identifier.", examples=["IDX_EUROSTOXX_TR"])
     perf_date: dt_date = Field(
         ...,
         description="Benchmark price observation date in YYYY-MM-DD format.",
+        examples=["2026-01-02"],
     )
-    weight_bop: float = Field(..., description="Beginning-of-day component benchmark weight.")
+    weight_bop: float = Field(
+        ...,
+        description="Beginning-of-day component benchmark weight as a decimal ratio.",
+        examples=[0.4],
+    )
     index_price: float = Field(
         ...,
         description="Component price or index level observed on the benchmark date.",
+        examples=[101.25],
     )
     component_currency: str | None = Field(
         default=None,
         description="Optional component currency for the price observation.",
+        examples=["EUR"],
     )
     fx_rate_to_benchmark: float | None = Field(
         default=None,
         description="Optional FX rate used to normalize the component price into benchmark currency.",
+        examples=[1.212],
     )
 
     model_config = ConfigDict(extra="forbid")
@@ -77,10 +94,12 @@ class BenchmarkReturnPointInput(BaseModel):
     perf_date: dt_date = Field(
         ...,
         description="Benchmark return observation date in YYYY-MM-DD format.",
+        examples=["2026-01-02"],
     )
     benchmark_return: float = Field(
         ...,
         description="Benchmark daily return expressed as a decimal fraction (0.01 = 1%).",
+        examples=[0.0042],
     )
 
     model_config = ConfigDict(extra="forbid")
@@ -89,7 +108,11 @@ class BenchmarkReturnPointInput(BaseModel):
 class BenchmarkStatelessInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    benchmark_currency: str = Field(..., description="Benchmark currency as a three-letter ISO code, for example USD.")
+    benchmark_currency: str = Field(
+        ...,
+        description="Benchmark currency as a three-letter ISO code, for example USD.",
+        examples=["USD"],
+    )
     component_observations: list[BenchmarkComponentObservationInput] = Field(
         default_factory=list,
         description="Daily benchmark component return observations used when return_source=calculated.",
@@ -109,33 +132,73 @@ class BenchmarkStatefulInput(BaseModel):
 
 
 class BenchmarkAnalyticsRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "examples": [
+                {
+                    "input_mode": "stateless",
+                    "benchmark_id": "BMK_GLOBAL_60_40",
+                    "benchmark_start_date": "2026-01-02",
+                    "report_end_date": "2026-01-03",
+                    "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+                    "return_source": "calculated",
+                    "output": {"include_timeseries": True},
+                    "stateless_input": {
+                        "benchmark_currency": "USD",
+                        "component_observations": [
+                            {
+                                "component_id": "IDX_SP500_TR",
+                                "perf_date": "2026-01-02",
+                                "weight_bop": 0.6,
+                                "component_return": 0.01,
+                            }
+                        ],
+                    },
+                },
+                {
+                    "input_mode": "stateful",
+                    "benchmark_id": "BMK_PB_GLOBAL_BALANCED_60_40",
+                    "benchmark_start_date": "2026-01-01",
+                    "report_end_date": "2026-04-10",
+                    "analyses": [{"period": "YTD", "frequencies": ["daily", "monthly"]}],
+                    "return_source": "calculated",
+                    "stateful_input": {},
+                },
+            ]
+        },
+    )
 
     calculation_id: UUID = Field(
         default_factory=uuid4,
         description="Durable benchmark calculation handle. If omitted, lotus-performance generates one.",
     )
-    benchmark_id: str = Field(..., description="Benchmark identifier.")
+    benchmark_id: str = Field(..., description="Benchmark identifier.", examples=["BMK_PB_GLOBAL_BALANCED_60_40"])
     benchmark_start_date: dt_date = Field(
         ...,
         description="Earliest date for which benchmark data is available for the request.",
+        examples=["2026-01-01"],
     )
     report_start_date: dt_date | None = Field(
         default=None,
         description="Explicit start date used only when analyses include the EXPLICIT period.",
+        examples=["2026-03-01"],
     )
     report_end_date: dt_date = Field(
         ...,
         description="Anchor end date for relative-period resolution.",
+        examples=["2026-04-10"],
     )
     analyses: list[Analysis] = Field(..., description="Requested benchmark period analyses.")
     input_mode: BenchmarkInputMode = Field(
         default=BenchmarkInputMode.STATELESS,
-        description="Execution mode for benchmark analytics.",
+        description="Execution mode for benchmark analytics. Use stateless for caller-supplied input and stateful for lotus-core-sourced input.",
+        examples=["stateful"],
     )
     return_source: BenchmarkReturnSource = Field(
         default=BenchmarkReturnSource.CALCULATED,
-        description="Benchmark return source mode.",
+        description="Benchmark return source mode. Calculated derives returns from components; vendor_series uses authored benchmark return points.",
+        examples=["calculated"],
     )
     stateless_input: BenchmarkStatelessInput | None = Field(
         default=None,
@@ -148,8 +211,9 @@ class BenchmarkAnalyticsRequest(BaseModel):
     precision_mode: Literal["FLOAT64", "DECIMAL_STRICT"] = Field(
         "FLOAT64",
         description="Numerical precision mode for benchmark calculations.",
+        examples=["FLOAT64"],
     )
-    rounding_precision: int = Field(6, description="Number of decimal places to round float outputs to.")
+    rounding_precision: int = Field(6, description="Number of decimal places to round float outputs to.", examples=[6])
     calendar: Calendar = Field(
         default_factory=Calendar, description="Calendar settings applied during benchmark analytics."
     )

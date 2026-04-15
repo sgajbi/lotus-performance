@@ -16,8 +16,11 @@ router = APIRouter(tags=["Integration"])
     response_model=RuntimeRecoveriesResponse,
     summary="List recent runtime recovery events",
     description=(
-        "Returns recent compute and lineage recovery events for operator drill-down, including queue-specific "
-        "availability, matched counts, recovery kind, and calculation handles."
+        "Returns durable compute and lineage recovery events for lotus-performance operator drill-down. "
+        "Use this endpoint after runtime-status reports recovery activity or after runtime-work-items shows "
+        "reclaimable work. It supports queue scoping, bounded offset paging, deterministic seek pagination, "
+        "recovery-time windows, analytics-family filtering, calculation-handle search, queue-specific "
+        "partial-failure status, and direct execution, lineage, and async-result navigation links."
     ),
 )
 async def get_runtime_recoveries(

@@ -76,6 +76,9 @@ def test_lineage_service_enqueue_and_materialize(tmp_path):
     assert metadata.artifact_names == ["details.csv", "request.json", "response.json"]
     assert manifest_data["timestamp_utc"] == metadata.timestamp_utc
     assert manifest_data["artifact_names"] == metadata.artifact_names
+    retained_payload = metadata_store.get_payload(calc_id)
+    assert retained_payload is not None
+    assert retained_payload.request_json == payload.request_json
 
 
 def test_lineage_service_creates_storage_directory_if_missing(tmp_path):

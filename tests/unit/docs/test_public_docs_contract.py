@@ -36,8 +36,164 @@ def test_user_guide_documents_async_execution_surfaces():
     assert "/performance/lineage/{calculation_id}/artifacts/{artifact_name}" in guide
 
 
+def test_lineage_docs_reflect_certified_artifact_contract():
+    readme = _read("README.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    complete_reference = _read("docs/guides/complete_service_reference.md")
+    reproducibility = _read("docs/guides/reproducibility.md")
+    certification = _read("docs/technical/lineage-endpoint-certification.md")
+
+    assert "technical/lineage-endpoint-certification.md" in readme
+    assert "app.models.lineage_responses.LineageResponse" in api_reference
+    assert "Swagger status: documented in `/docs`" in api_reference
+    assert "docs/technical/lineage-endpoint-certification.md" in api_reference
+    assert '"calculation_type": "WORKSPACE_SUMMARY"' in complete_reference
+    assert '"url": "http://performance.dev.lotus/performance/lineage/' in complete_reference
+    assert '"request.json": {' in reproducibility
+    assert '"daily_results.csv": {' in reproducibility
+    assert "Downstream Consumers" in certification
+    assert "lotus-gateway#110" in certification
+    assert "Test Pyramid Assessment" in certification
+
+
+def test_runtime_status_docs_reflect_certified_operator_contract():
+    readme = _read("README.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    complete_reference = _read("docs/guides/complete_service_reference.md")
+    certification = _read("docs/technical/runtime-status-endpoint-certification.md")
+
+    assert "technical/runtime-status-endpoint-certification.md" in readme
+    assert "app.models.runtime_status.RuntimeStatusResponse" in api_reference
+    assert "certification evidence: `docs/technical/runtime-status-endpoint-certification.md`" in api_reference
+    assert '"runtime_status": "ready"' in complete_reference
+    assert '"compute_queue": {' in complete_reference
+    assert '"lineage_queue": {' in complete_reference
+    assert '"runtime_retention": {' in complete_reference
+    assert "Downstream Consumers" in certification
+    assert "Test Pyramid Assessment" in certification
+    assert "No duplicate lotus-performance runtime-status endpoint" in certification
+
+
+def test_runtime_work_items_docs_reflect_certified_operator_contract():
+    readme = _read("README.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    complete_reference = _read("docs/guides/complete_service_reference.md")
+    certification = _read("docs/technical/runtime-work-items-endpoint-certification.md")
+
+    assert "technical/runtime-work-items-endpoint-certification.md" in readme
+    assert "app.models.runtime_work_items.RuntimeWorkItemsResponse" in api_reference
+    assert "certification evidence: `docs/technical/runtime-work-items-endpoint-certification.md`" in api_reference
+    assert '"queue_filter": "both"' in complete_reference
+    assert '"status_filter": "reclaimable"' in complete_reference
+    assert '"compute_queue": {' in complete_reference
+    assert '"lineage_queue": {' in complete_reference
+    assert '"compute_items": [' in complete_reference
+    assert '"lineage_items": [' in complete_reference
+    assert "Downstream Consumers" in certification
+    assert "Test Pyramid Assessment" in certification
+    assert "No duplicate lotus-performance work-item endpoint" in certification
+
+
+def test_runtime_recoveries_docs_reflect_certified_operator_contract():
+    readme = _read("README.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    complete_reference = _read("docs/guides/complete_service_reference.md")
+    certification = _read("docs/technical/runtime-recoveries-endpoint-certification.md")
+
+    assert "technical/runtime-recoveries-endpoint-certification.md" in readme
+    assert "app.models.runtime_recoveries.RuntimeRecoveriesResponse" in api_reference
+    assert "certification evidence: `docs/technical/runtime-recoveries-endpoint-certification.md`" in api_reference
+    assert '"queue_filter": "both"' in complete_reference
+    assert '"recovered_after": "2026-03-29T02:00:00Z"' in complete_reference
+    assert '"compute_queue": {' in complete_reference
+    assert '"lineage_queue": {' in complete_reference
+    assert '"compute_recoveries": [' in complete_reference
+    assert '"lineage_recoveries": [' in complete_reference
+    assert "Downstream Consumers" in certification
+    assert "Test Pyramid Assessment" in certification
+    assert "No duplicate lotus-performance recovery-event endpoint" in certification
+
+
+def test_recovery_drills_docs_reflect_certified_operator_contract():
+    readme = _read("README.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    complete_reference = _read("docs/guides/complete_service_reference.md")
+    certification = _read("docs/technical/recovery-drills-endpoint-certification.md")
+
+    assert "technical/recovery-drills-endpoint-certification.md" in readme
+    assert "app.models.recovery_drill_history.RecoveryDrillHistoryResponse" in api_reference
+    assert "app.models.recovery_drill_history.RecoveryDrillRunRequest" in api_reference
+    assert "app.models.recovery_drill_history.RecoveryDrillRunResponse" in api_reference
+    assert "certification evidence: `docs/technical/recovery-drills-endpoint-certification.md`" in api_reference
+    assert '"latest_file_name": "recovery-drill-20260329T013000Z.json"' in complete_reference
+    assert '"entries": [' in complete_reference
+    assert '"compute_job_processed_count": 1' in complete_reference
+    assert '"materialized_artifact_exists": true' in complete_reference
+    assert "Downstream Consumers" in certification
+    assert "Test Pyramid Assessment" in certification
+    assert "No duplicate lotus-performance recovery-drill endpoint" in certification
+
+
+def test_runtime_retention_docs_reflect_certified_operator_contract():
+    readme = _read("README.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    complete_reference = _read("docs/guides/complete_service_reference.md")
+    certification = _read("docs/technical/runtime-retention-endpoint-certification.md")
+
+    assert "technical/runtime-retention-endpoint-certification.md" in readme
+    assert "app.models.runtime_retention_history.RuntimeRetentionHistoryResponse" in api_reference
+    assert "app.models.runtime_retention_history.RuntimeRetentionCleanupRunRequest" in api_reference
+    assert "app.models.runtime_retention_history.RuntimeRetentionCleanupRunResponse" in api_reference
+    assert "certification evidence: `docs/technical/runtime-retention-endpoint-certification.md`" in api_reference
+    assert '"latest_file_name": "runtime-retention-20260329T014500Z.json"' in complete_reference
+    assert '"prunable_execution_count": 3' in complete_reference
+    assert '"prunable_lineage_artifact_count": 1' in complete_reference
+    assert "Downstream Consumers" in certification
+    assert "Test Pyramid Assessment" in certification
+    assert "No duplicate lotus-performance runtime-retention endpoint" in certification
+
+
+def test_platform_surfaces_docs_reflect_certified_operational_contract():
+    readme = _read("README.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    complete_reference = _read("docs/guides/complete_service_reference.md")
+    certification = _read("docs/technical/platform-surfaces-endpoint-certification.md")
+
+    assert "technical/platform-surfaces-endpoint-certification.md" in readme
+    assert "app.models.platform_surfaces.RootResponse" in api_reference
+    assert "app.models.platform_surfaces.HealthStatusResponse" in api_reference
+    assert "text/plain" in api_reference
+    assert "Access /docs for API documentation." in complete_reference
+    assert "lotus_performance_compute_queue_degradation_breach" in complete_reference
+    assert "GET /metrics" in certification
+    assert "GET /health/ready" in certification
+    assert "Test Pyramid Assessment" in certification
+    assert "no duplicate lotus-performance health or metrics endpoint" in certification.lower()
+
+
+def test_execution_polling_docs_reflect_certified_contract():
+    readme = _read("README.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    complete_reference = _read("docs/guides/complete_service_reference.md")
+    certification = _read("docs/technical/execution-polling-endpoint-certification.md")
+
+    assert "technical/execution-polling-endpoint-certification.md" in readme
+    assert "app.models.execution_polling.ExecutionResponse" in api_reference
+    assert "upstream_snapshots[]" in api_reference
+    assert "`lotus-risk` uses this endpoint" in api_reference
+    assert "docs/technical/execution-polling-endpoint-certification.md" in api_reference
+    assert '"stage_name": "execution"' in complete_reference
+    assert '"job_status": "complete"' in complete_reference
+    assert '"result_status": "complete"' in complete_reference
+    assert "Downstream Consumers" in certification
+    assert "`lotus-risk`" in certification
+    assert "Test Pyramid Assessment" in certification
+    assert "No duplicate lotus-performance polling endpoint" in certification
+
+
 def test_twr_guide_uses_current_request_shape():
     guide = _read("docs/guides/twr.md")
+    certification = _read("docs/technical/twr-endpoint-certification.md")
 
     assert "analyses" in guide
     assert "valuation_points" in guide
@@ -55,12 +211,18 @@ def test_twr_guide_uses_current_request_shape():
     assert "Older examples using `period_type`" in guide
     assert "`daily_data` are not current" in guide
     assert "stateful_input.consumer_system" not in guide
+    assert "Downstream Consumers" in certification
+    assert "`lotus-gateway`" in certification
+    assert "`lotus-risk`" in certification
+    assert "Test Pyramid Assessment" in certification
+    assert "long-window results are not front-office safe" in certification
 
 
 def test_benchmark_guide_uses_current_request_shape():
     guide = _read("docs/guides/benchmark.md")
     api_reference = _read("docs/guides/api_reference.md")
     readme = _read("README.md")
+    certification = _read("docs/technical/benchmark-endpoint-certification.md")
 
     assert 'input_mode="stateless"' in guide
     assert 'input_mode="stateful"' in guide
@@ -73,18 +235,62 @@ def test_benchmark_guide_uses_current_request_shape():
     assert "If `calculation_id` is omitted" in guide
     assert "stateful_input.consumer_system" not in guide
     assert "app.models.benchmark_analytics_requests.BenchmarkAnalyticsRequest" in api_reference
+    assert "daily_returns[].benchmark_return" in api_reference
+    assert "docs/technical/benchmark-endpoint-certification.md" in api_reference
+    assert "POST /integration/returns/series" in guide
     assert "POST /performance/benchmark" in readme
+    assert "technical/benchmark-endpoint-certification.md" in readme
+    assert "Required Figure Tie-Outs" in certification
+    assert "component_contributions[]" in certification
+    assert "`lotus-risk`" in certification
+    assert "No duplicate downstream use of `/performance/benchmark`" in certification
     assert "TWRAcceptedResponse" in api_reference
 
 
 def test_mwr_guide_matches_current_method_reality():
     guide = _read("docs/guides/mwr.md")
+    certification = _read("docs/technical/mwr-endpoint-certification.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    readme = _read("README.md")
 
     assert 'input_mode: "stateless" | "stateful"' in guide
     assert "stateful_input.window_start_date" in guide
     assert 'mwr_method="MODIFIED_DIETZ"' in guide
     assert "maps to the same implemented Dietz computation path" in guide
+    assert "carry-forward adjustments" in guide
+    assert "emit_cashflows_used=true" in guide
+    assert "cashflows_used" in guide
+    assert "investor capital-timing lens" in certification
+    assert "CORE_CONTROL_PLANE_BASE_URL" in certification
+    assert "lotus-gateway" in certification
+    assert "`lotus-risk` does not call `/performance/mwr`" in certification
+    assert "cross-observation capital carry-forward adjustments" in api_reference
+    assert "technical/mwr-endpoint-certification.md" in readme
     assert "[cite_start]" not in guide
+
+
+def test_twr_mwr_response_attribute_certification_documents_field_level_checks():
+    certification = _read("docs/technical/twr-mwr-response-attribute-certification.md")
+    readme = _read("README.md")
+
+    assert (
+        "This certification checks the full emitted response contract, not only headline return values."
+        in certification
+    )
+    assert "`portfolio.summary.period_return.base`" in certification
+    assert "`portfolio.breakdowns.<frequency>[]`" in certification
+    assert "`meta.input_fingerprint` / `meta.calculation_hash`" in certification
+    assert "`diagnostics.effective_period_start`" in certification
+    assert "`audit.counts.input_rows`" in certification
+    assert "`money_weighted_return`" in certification
+    assert "`cashflows_used[].amount` / `date`" in certification
+    assert "`audit.counts.cashflows`" in certification
+    assert "40 / 1040 = 3.846153846%" in certification
+    assert "Workspace may shape the UI response, but it must not" in certification
+    assert "Workspace economics must not include internal MWR carry-forward capital adjustments" in certification
+    assert "`flow_adjusted_end_market_value = end_market_value - explicit net_cash_flow`" in certification
+    assert "tests/integration/test_response_attribute_certification.py" in certification
+    assert "technical/twr-mwr-response-attribute-certification.md" in readme
 
 
 def test_methodology_index_points_to_current_guides():
@@ -131,6 +337,8 @@ def test_api_reference_documents_endpoint_level_capabilities_contract():
     api_reference = _read("docs/guides/api_reference.md")
     readme = _read("README.md")
     runtime_topology = _read("docs/technical/runtime_topology.md")
+    certification = _read("docs/technical/integration-capabilities-endpoint-certification.md")
+    example = json.loads(_read("docs/examples/integration_capabilities_response.json"))
 
     assert "analytics_surfaces" in api_reference
     assert "stateful_restrictions" in api_reference
@@ -160,6 +368,42 @@ def test_api_reference_documents_endpoint_level_capabilities_contract():
     assert "async-capable surfaces now also advertise their canonical execution polling" in api_reference
     assert "workspace_summary` now also advertises machine-readable request options" in api_reference
     assert "Canonical capabilities response excerpt" in api_reference
+    assert "consumer_system" in api_reference
+    assert "tenant_id" in api_reference
+    assert "lotus-gateway#109" in certification
+    assert "Downstream Consumers" in certification
+    assert "Test Pyramid Assessment" in certification
+    assert {surface["key"] for surface in example["analytics_surfaces"]} == {
+        "twr",
+        "twr_inspection",
+        "mwr",
+        "benchmark",
+        "workspace_summary",
+        "contribution",
+        "attribution",
+        "returns_series",
+        "benchmark_exposure_context",
+    }
+
+
+def test_benchmark_exposure_context_docs_reflect_certified_contract():
+    readme = _read("README.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    certification = _read("docs/technical/benchmark-exposure-context-endpoint-certification.md")
+
+    assert "POST /integration/benchmarks/exposure-context" in readme
+    assert "Benchmark Exposure Context Endpoint Certification" in readme
+    assert "frequency=DAILY" in readme
+    assert "ISSUER` remains gated" in readme
+    assert "`frequency=DAILY` is the only supported v1 frequency" in api_reference
+    assert "row weights are returned as decimal fractions" in api_reference
+    assert "`POSITION` rows carry `component_id`" in api_reference
+    assert "docs/technical/benchmark-exposure-context-endpoint-certification.md" in api_reference
+    assert "docs/technical/benchmark-exposure-context-endpoint-certification.md" in _read(
+        "docs/guides/complete_service_reference.md"
+    )
+    assert "lotus-risk" in certification
+    assert "No duplicate downstream endpoint use was found" in certification
 
 
 def test_attribution_guide_uses_current_request_shape():
@@ -327,10 +571,14 @@ def test_json_examples_match_current_dual_mode_contract():
 
     capabilities = json.loads(_read("docs/examples/integration_capabilities_response.json"))
     assert capabilities["contract_version"] == "v1"
-    assert capabilities["analytics_surfaces"][0]["key"] == "workspace_summary"
-    assert capabilities["analytics_surfaces"][0]["options"][0]["key"] == "benchmark_mode"
-    assert capabilities["analytics_surfaces"][0]["stateful_restrictions"] == []
-    assert len(capabilities["analytics_surfaces"][0]["options"]) == 1
+    capability_surfaces = {surface["key"]: surface for surface in capabilities["analytics_surfaces"]}
+    assert capability_surfaces["workspace_summary"]["options"][0]["key"] == "benchmark_mode"
+    assert capability_surfaces["workspace_summary"]["stateful_restrictions"] == []
+    assert len(capability_surfaces["workspace_summary"]["options"]) == 1
+    assert capability_surfaces["mwr"]["supports_async"] is False
+    assert capability_surfaces["returns_series"]["result_path_template"] == (
+        "/integration/returns/series/results/{calculation_id}"
+    )
 
 
 def test_workspace_summary_guide_documents_explicit_return_vocabulary():
@@ -360,6 +608,10 @@ def test_workspace_summary_docs_publish_canonical_examples():
     assert "Canonical response excerpt" in api_reference
     assert "docs/examples/workspace_summary_request.json" in api_reference
     assert "docs/examples/workspace_summary_stateful_detail_request.json" in api_reference
+    assert "docs/technical/workspace-summary-endpoint-certification.md" in api_reference
+    assert "legacy top-level `valuation_points` remains deprecated compatibility input" in api_reference
+    assert "/performance/contribution" in api_reference
+    assert "/performance/attribution" in api_reference
     assert "Illustrative Canonical Request Example" in rfc
     assert "Illustrative Canonical Response Excerpt" in rfc
     assert '"workspace_detail_block_count": 2' not in rfc
@@ -368,6 +620,8 @@ def test_workspace_summary_docs_publish_canonical_examples():
     assert "../examples/workspace_summary_request.json" in guide
     assert "../examples/workspace_summary_stateful_detail_request.json" in guide
     assert "../examples/workspace_summary_accepted_response.json" in guide
+    assert "../technical/workspace-summary-endpoint-certification.md" in guide
+    assert "Legacy top-level `valuation_points` remains as deprecated compatibility input" in guide
     assert "`POST /performance/workspace-summary`" in guide
     assert "`GET /performance/workspace-summary/results/{calculation_id}`" in guide
     assert "`GET /integration/capabilities` now advertises `workspace_summary`" in guide
@@ -392,13 +646,87 @@ def test_complete_service_reference_covers_endpoint_surface_and_config_inventory
     assert "POST /integration/recovery-drills/run" in guide
     assert "POST /integration/runtime-retention-cleanups/run" in guide
     assert "GET /metrics" in guide
+    assert "all return values are decimal ratios, not percentages" in guide
+    assert '"cumulative_active_returns"' in guide
+    assert '"return_value": 0.00603' in guide
+    assert '"return_value": 0.7' not in guide
     assert "CONTRIBUTION_RESET_AWARE_AVERAGE_WEIGHT_MODE" in guide
     assert "WORKSPACE_SUMMARY_EXECUTOR_WINDOW_DAYS" in guide
     assert "LINEAGE_STORAGE_PATH" in guide
+    assert "CORE_CONTROL_PLANE_BASE_URL" in guide
     assert "CORE_QUERY_BASE_URL" in guide
     assert "docs/examples/workspace_summary_request.json" in guide
+    assert "docs/technical/workspace-summary-endpoint-certification.md" in guide
     assert "docs/examples/integration_capabilities_response.json" in guide
+    assert "twr_inspection_checks.md" in guide
     assert "guides/complete_service_reference.md" in readme
+    assert "docs/technical/twr-endpoint-certification.md" in readme
+
+
+def test_twr_inspection_checks_guide_lists_current_check_inventory():
+    guide = _read("docs/guides/twr_inspection_checks.md")
+    readme = _read("README.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    complete_reference = _read("docs/guides/complete_service_reference.md")
+    certification = _read("docs/technical/twr-inspection-endpoint-certification.md")
+
+    assert "POST /performance/inspections/twr" in guide
+    assert "POST /performance/inspections/twr" in api_reference
+    assert "GET /performance/inspections/{inspection_id}/artifacts/{artifact_name}" in api_reference
+    assert "scripts/validate_canonical_twr_inspection.py" in guide
+    assert "scripts/validate_canonical_twr_inspection.py" in readme
+    assert "technical/twr-inspection-endpoint-certification.md" in readme
+    assert "docs/technical/twr-inspection-endpoint-certification.md" in complete_reference
+    assert "inspection_summary.json" in guide
+    assert "findings.json" in guide
+    assert "source_quality_summary.json" in guide
+    assert "reconciliation_summary.json" in guide
+    assert "source_economics_summary.json" in guide
+    assert "INSPECTION_CHECK_FAMILY_FAILED" in guide
+    assert "RELATIVE_PERFORMANCE_SUMMARY_MISMATCH" in guide
+    assert "RELATIVE_PERFORMANCE_BENCHMARK_BLOCK_MISSING" in guide
+    assert "BENCHMARK_RELATIVE_PERFORMANCE_BLOCK_MISSING" in guide
+    assert "RELATIVE_BREAKDOWN_BUCKET_ALIGNMENT_MISMATCH" in guide
+    assert "WEEKEND_OBSERVATIONS_PRESENT" in guide
+    assert "STALE_VALUATION_SERIES_DETECTED" in guide
+    assert "NONPOSITIVE_DAILY_CAPITAL_BASE_DETECTED" in guide
+    assert "MANDATE_DAILY_MOVE_OUTLIER_DETECTED" in guide
+    assert "RETURN_CONCENTRATION_DETECTED" in guide
+    assert "REPEATED_DAILY_MOVE_PATTERN_DETECTED" in guide
+    assert "MONTHLY_RETURN_DAY_DOMINANCE_DETECTED" in guide
+    assert "EXTREME_DAILY_MOVE_DETECTED" in guide
+    assert "MIXED_POSITION_EPOCH_SNAPSHOT" in guide
+    assert "DUPLICATE_POSITION_SNAPSHOT_ROW_PRESENT" in guide
+    assert "INVALID_POSITION_EPOCH_PRESENT" in guide
+    assert "INVALID_POSITION_END_VALUE_PRESENT" in guide
+    assert "PORTFOLIO_POSITION_RECONCILIATION_GAP" in guide
+    assert "FEE_CASHFLOW_CLASSIFICATION_NOT_PRESERVED" in guide
+    assert "FEE_SOURCE_TOTAL_MISMATCH" in guide
+    assert "POSITIVE_FEE_SOURCE_SIGNAL" in guide
+    assert "FEE_CASHFLOW_TIMING_BUCKET_UNSUPPORTED" in guide
+    assert "FEE_CASHFLOW_MIXED_TIMING_BUCKETS" in guide
+    assert "EXTERNAL_CASHFLOW_NORMALIZATION_MISMATCH" in guide
+    assert "EXTERNAL_CASHFLOW_TIMING_BUCKET_CONTRADICTION" in guide
+    assert "EXTERNAL_CASHFLOW_MIXED_TIMING_BUCKETS" in guide
+    assert "EXTERNAL_CASHFLOW_EXPLICIT_MIXED_TIMING_BUCKETS" in guide
+    assert "CONFLICTING_EXPLICIT_SOURCE_TOTAL_PRESENT" in guide
+    assert "INVALID_EXPLICIT_SOURCE_AMOUNT_PRESENT" in guide
+    assert "INVALID_PORTFOLIO_OBSERVATION_DATE_PRESENT" in guide
+    assert "INVALID_CASHFLOW_COLLECTION_PRESENT" in guide
+    assert "INVALID_CASHFLOW_ROW_PRESENT" in guide
+    assert "INVALID_CASHFLOW_AMOUNT_PRESENT" in guide
+    assert "INVALID_CASHFLOW_TIMING_PRESENT" in guide
+    assert "MISSING_CASHFLOW_TYPE_PRESENT" in guide
+    assert "NONCANONICAL_CASHFLOW_TYPE_PRESENT" in guide
+    assert "GOVERNED_ALIAS_CASHFLOW_TYPE_PRESENT" in guide
+    assert "UNSUPPORTED_CASHFLOW_TYPE_PRESENT" in guide
+    assert 'cash_flow_type="expense"` is not a governed analytics-input label' in guide
+    assert "stateful valuation normalization" in guide
+    assert "Downstream Consumers" in certification
+    assert "`lotus-gateway`" in certification
+    assert "`lotus-risk`" in certification
+    assert "Swagger Readiness" in certification
+    assert "Test Pyramid Assessment" in certification
 
 
 def test_runtime_alert_runbook_covers_breach_gauges():

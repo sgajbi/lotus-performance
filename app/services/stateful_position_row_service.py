@@ -5,6 +5,8 @@ from typing import Literal
 
 from fastapi import HTTPException, status
 
+from app.services.source_cashflow_taxonomy import classify_cashflow_type
+
 PositionValueBasis = Literal["position", "portfolio", "reporting"]
 
 
@@ -30,8 +32,12 @@ def split_position_cash_flows_in_value_basis(
         if amount is None or timing not in {"bod", "eod"}:
             continue
         decimal_amount = Decimal(str(amount)) * conversion_factor
-        if cash_flow_type == "fee":
+        cashflow_type = classify_cashflow_type(cash_flow_type)
+        if cashflow_type.economics_role == "fee":
             mgmt_fees += decimal_amount
+            continue
+        if cashflow_type.economics_role == "unsupported":
+            continue
         if timing == "bod":
             bod_cf += decimal_amount
         else:

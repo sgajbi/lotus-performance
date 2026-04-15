@@ -23,3 +23,17 @@ def test_benchmark_exposure_context_requires_at_least_one_grouping_dimension() -
                 "grouping_dimensions": [],
             }
         )
+
+
+def test_benchmark_exposure_context_rejects_non_daily_frequency() -> None:
+    with pytest.raises(ValueError, match="frequency=DAILY only"):
+        BenchmarkExposureContextRequest.model_validate(
+            {
+                "calculation_id": str(uuid4()),
+                "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+                "as_of_date": "2026-03-31",
+                "window": {"start_date": "2026-01-01", "end_date": "2026-03-31"},
+                "frequency": "MONTHLY",
+                "grouping_dimensions": ["POSITION"],
+            }
+        )

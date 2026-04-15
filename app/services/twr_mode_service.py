@@ -18,6 +18,7 @@ from app.services.stateful_performance_input_service import (
     build_stateful_portfolio_valuation_input,
     retrieve_stateful_portfolio_input,
 )
+from app.services.stateful_upstream_errors import stateful_control_plane_unavailable_detail
 from app.services.stateless_benchmark_input_service import normalize_stateless_component_observations
 
 DEFAULT_STATEFUL_CONSUMER_SYSTEM = "lotus-performance"
@@ -259,7 +260,10 @@ async def _resolve_stateful_portfolio_start_date(
     if upstream_status >= status.HTTP_400_BAD_REQUEST:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"stateful portfolio reference source unavailable ({upstream_status}).",
+            detail=stateful_control_plane_unavailable_detail(
+                source_label="stateful portfolio reference source",
+                upstream_status=upstream_status,
+            ),
         )
     portfolio_open_date = upstream_payload.get("portfolio_open_date")
     if not isinstance(portfolio_open_date, str):

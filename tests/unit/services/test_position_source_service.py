@@ -6,6 +6,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
+from app.services.portfolio_source_service import build_stateful_input_service as build_portfolio_stateful_input_service
 from app.services.position_source_service import (
     StatefulPositionTimeseries,
     fetch_stateful_position_timeseries,
@@ -27,7 +28,8 @@ async def test_fetch_stateful_position_timeseries_forwards_request_shape(monkeyp
     stub = _PositionTimeseriesServiceStub()
 
     def _build_stateful_input_service(*, settings: Settings):
-        assert settings.CORE_QUERY_BASE_URL == "http://core-query.dev.lotus"
+        assert settings.CORE_CONTROL_PLANE_BASE_URL == "http://core-control.dev.lotus"
+        assert settings.resolved_core_control_plane_base_url == "http://core-control.dev.lotus"
         return stub
 
     monkeypatch.setattr(
@@ -91,3 +93,19 @@ def test_parse_stateful_position_timeseries_payload_filters_non_mapping_rows():
 def test_parse_stateful_position_timeseries_payload_defaults_missing_rows_to_empty():
     assert parse_stateful_position_timeseries_payload({}) == StatefulPositionTimeseries(rows=[])
     assert parse_stateful_position_timeseries_payload({"rows": "not-a-list"}) == StatefulPositionTimeseries(rows=[])
+
+
+def test_build_stateful_input_service_uses_control_plane_base_url():
+    service = build_portfolio_stateful_input_service(
+        settings=Settings(CORE_CONTROL_PLANE_BASE_URL="http://core-control.example")
+    )
+
+    assert service._core_service._base_url == "http://core-control.example"
+
+
+def test_build_stateful_input_service_falls_back_to_deprecated_core_query_base_url():
+    service = build_portfolio_stateful_input_service(
+        settings=Settings(CORE_CONTROL_PLANE_BASE_URL=None, CORE_QUERY_BASE_URL="http://legacy-core.example")
+    )
+
+    assert service._core_service._base_url == "http://legacy-core.example"

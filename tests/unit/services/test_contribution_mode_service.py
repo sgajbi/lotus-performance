@@ -11,7 +11,9 @@ from app.services.execution_registry import execution_registry
 
 def _settings():
     return SimpleNamespace(
+        CORE_CONTROL_PLANE_BASE_URL="http://core-control",
         CORE_QUERY_BASE_URL="http://core",
+        resolved_core_control_plane_base_url="http://core-control",
         CORE_TIMEOUT_SECONDS=5.0,
         CORE_MAX_RETRIES=2,
         CORE_RETRY_BACKOFF_SECONDS=0.1,

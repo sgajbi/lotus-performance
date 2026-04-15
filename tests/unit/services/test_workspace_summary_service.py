@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -11,6 +12,7 @@ from app.models.workspace_summary_requests import WorkspaceSummaryRequest
 from app.services.workspace_summary_service import (
     WorkspaceTWRArtifacts,
     _annualize_percentage,
+    _build_economic_context,
     _build_mwr_cash_flows,
     _date_from_boundary,
     _resolve_stateful_portfolio_start_date,
@@ -449,6 +451,31 @@ def test_build_mwr_cash_flows_keeps_bod_and_eod_movements():
     cash_flows = _build_mwr_cash_flows(period_slice)
 
     assert [(item.amount, item.date) for item in cash_flows] == [(10.0, date(2026, 1, 2)), (-5.0, date(2026, 1, 3))]
+
+
+def test_build_mwr_cash_flows_includes_carry_forward_capital_breaks():
+    period_slice = pd.DataFrame(
+        {
+            "perf_date": [date(2026, 1, 2), date(2026, 1, 3)],
+            "begin_mv": [1000.0, 1250.0],
+            "end_mv": [1010.0, 1260.0],
+            "bod_cf": [0.0, 10.0],
+            "eod_cf": [0.0, -5.0],
+            "mgmt_fees": [0.0, 0.0],
+        }
+    )
+
+    cash_flows = _build_mwr_cash_flows(period_slice)
+    economics = _build_economic_context(period_slice)
+
+    assert [(item.amount, item.date) for item in cash_flows] == [
+        (250.0, date(2026, 1, 3)),
+        (-5.0, date(2026, 1, 3)),
+    ]
+    assert economics.beginning_cash_flow == Decimal("10.0")
+    assert economics.ending_cash_flow == Decimal("-5.0")
+    assert economics.net_cash_flow == Decimal("5.0")
+    assert economics.flow_adjusted_end_market_value == Decimal("1255.0")
 
 
 def test_annualize_percentage_returns_original_value_when_elapsed_measure_is_non_positive():

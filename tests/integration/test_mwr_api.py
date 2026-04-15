@@ -91,6 +91,7 @@ def test_calculate_mwr_endpoint_supports_stateful_mode(client, monkeypatch):
     assert body["start_date"] == "2025-01-01"
     assert body["method"] == "DIETZ"
     assert body["audit"]["counts"]["cashflows"] == 1
+    assert body["cashflows_used"] == [{"amount": 10000.0, "date": "2025-01-01"}]
 
 
 def test_mwr_stateful_hashes_follow_resolved_inputs(client, monkeypatch):

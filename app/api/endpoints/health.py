@@ -1,26 +1,45 @@
 from fastapi import APIRouter, Request, Response, status
 
+from app.models.platform_surfaces import HealthStatusResponse
 from app.services.durability_health_service import check_durable_metadata_store_ready
 from app.services.remediation_hint_service import get_remediation_hint
 
 router = APIRouter(tags=["Health"])
 
 
-@router.get("/health", summary="Service health")
-async def health() -> dict[str, str]:
-    return {"status": "ok"}
+@router.get(
+    "/health",
+    summary="Service health",
+    response_model=HealthStatusResponse,
+    description="Returns basic process health for lotus-performance. Use this as a lightweight reachability probe, not as a durable readiness contract.",
+)
+async def health() -> HealthStatusResponse:
+    return HealthStatusResponse(status="ok")
 
 
-@router.get("/health/live", summary="Service liveness")
-async def health_live() -> dict[str, str]:
-    return {"status": "live"}
+@router.get(
+    "/health/live",
+    summary="Service liveness",
+    response_model=HealthStatusResponse,
+    description="Returns liveness for lotus-performance. This route answers whether the process is running, without checking durable metadata or lineage storage dependencies.",
+)
+async def health_live() -> HealthStatusResponse:
+    return HealthStatusResponse(status="live")
 
 
-@router.get("/health/ready", summary="Service readiness")
-async def health_ready(request: Request, response: Response) -> dict[str, str]:
+@router.get(
+    "/health/ready",
+    summary="Service readiness",
+    response_model=HealthStatusResponse,
+    description=(
+        "Returns readiness only when lotus-performance is not draining and its durable metadata and lineage storage dependencies are usable. "
+        "Readiness failures return `503` with a concrete reason and, where available, a remediation hint."
+    ),
+)
+async def health_ready(request: Request, response: Response) -> HealthStatusResponse:
     if bool(getattr(request.app.state, "is_draining", False)):
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
-        return {"status": "draining"}
+        return HealthStatusResponse(status="draining")
     durability_status = check_durable_metadata_store_ready()
     if not durability_status.is_ready:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
@@ -31,5 +50,5 @@ async def health_ready(request: Request, response: Response) -> dict[str, str]:
         remediation_hint = get_remediation_hint(durability_status.reason)
         if remediation_hint is not None:
             payload["remediation_hint"] = remediation_hint
-        return payload
-    return {"status": durability_status.status}
+        return HealthStatusResponse(**payload)
+    return HealthStatusResponse(status=durability_status.status)

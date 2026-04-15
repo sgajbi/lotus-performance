@@ -234,6 +234,16 @@ def _should_offload_workspace_summary(request: WorkspaceSummaryRequest) -> bool:
     "/workspace-summary",
     response_model=WorkspaceSummaryResponse | WorkspaceSummaryAcceptedResponse,
     summary="Calculate interaction-efficient workspace summary analytics",
+    description=(
+        "Returns a front-office workspace summary for one or more requested horizons in a single "
+        "source-owned response. Use this endpoint when a UI or experience API needs coherent "
+        "portfolio TWR net/gross, benchmark, active return, MWR, economics, diagnostics, and audit "
+        "counts without orchestrating multiple deep-analysis endpoints. Stateless callers supply "
+        "valuation observations and optional benchmark input; stateful callers use an empty "
+        "stateful_input envelope so lotus-performance can source portfolio and benchmark data from "
+        "governed upstream contracts. Large stateful or large-input requests may return 202 with "
+        "poll_path and result_path."
+    ),
 )
 def calculate_workspace_summary_endpoint(
     request: WorkspaceSummaryRequest,
@@ -294,6 +304,10 @@ def calculate_workspace_summary_endpoint(
     "/workspace-summary/results/{calculation_id}",
     response_model=WorkspaceSummaryResponse | WorkspaceSummaryAcceptedResponse,
     summary="Retrieve async workspace summary result",
+    description=(
+        "Retrieves the completed workspace-summary response for an async request, or returns the "
+        "accepted envelope while execution remains pending."
+    ),
 )
 async def get_workspace_summary_result(calculation_id: UUID) -> WorkspaceSummaryResponse | JSONResponse:
     return resolve_async_result(
@@ -305,7 +319,28 @@ async def get_workspace_summary_result(calculation_id: UUID) -> WorkspaceSummary
     )
 
 
-@router.post("/twr", response_model=PerformanceResponse | TWRAcceptedResponse, summary="Calculate Time-Weighted Return")
+@router.post(
+    "/twr",
+    response_model=PerformanceResponse | TWRAcceptedResponse,
+    summary="Calculate Time-Weighted Return",
+    description=(
+        "Calculates portfolio time-weighted return for stateless caller-supplied valuation "
+        "points or stateful lotus-core-sourced portfolio analytics inputs. Use this endpoint "
+        "for performance measurement where external cash flows must be neutralized and "
+        "investment performance must be geometrically linked across one or more requested "
+        "analysis periods. Smaller requests return the completed TWR response immediately; "
+        "large or long-window stateful requests can return 202 with poll_path and result_path."
+    ),
+    responses={
+        202: {
+            "model": TWRAcceptedResponse,
+            "description": (
+                "Accepted for asynchronous TWR execution. Poll poll_path for execution status "
+                "or result_path for the completed TWR response."
+            ),
+        }
+    },
+)
 async def calculate_twr_endpoint(request: TWRAnalyticsRequest) -> PerformanceResponse | JSONResponse:
     """
     Calculates time-weighted return (TWR) for one or more requested periods
@@ -468,6 +503,20 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest) -> PerformanceRes
     "/twr/results/{calculation_id}",
     response_model=PerformanceResponse | TWRAcceptedResponse,
     summary="Retrieve async TWR result",
+    description=(
+        "Retrieves the result for a TWR request that previously returned 202 Accepted. "
+        "Returns the completed PerformanceResponse when execution is complete, or the "
+        "accepted envelope while the durable calculation is still pending."
+    ),
+    responses={
+        202: {
+            "model": TWRAcceptedResponse,
+            "description": "The async TWR calculation is still pending.",
+        },
+        404: {
+            "description": "No async TWR result exists for the supplied calculation_id.",
+        },
+    },
 )
 async def get_twr_result(calculation_id: UUID) -> PerformanceResponse | JSONResponse:
     return resolve_async_result(
@@ -479,7 +528,23 @@ async def get_twr_result(calculation_id: UUID) -> PerformanceResponse | JSONResp
     )
 
 
-@router.post("/mwr", response_model=MoneyWeightedReturnResponse, summary="Calculate Money-Weighted Return")
+@router.post(
+    "/mwr",
+    response_model=MoneyWeightedReturnResponse,
+    summary="Calculate Money-Weighted Return",
+    description=(
+        "Calculates money-weighted return for the investor capital-timing lens. Use this endpoint when "
+        "the question is how the portfolio performed for the client after the size and timing of external "
+        "cash flows, deposits, withdrawals, and sourced capital-base adjustments are considered. Use "
+        '`input_mode="stateless"` when the caller already owns beginning value, ending value, and the signed '
+        'cash-flow schedule. Use `input_mode="stateful"` for lotus-core-sourced portfolio analytics input; '
+        "lotus-performance reads the query-control-plane portfolio timeseries, normalizes explicit external "
+        "cash flows and cross-observation carry-forward capital breaks into canonical MWR inputs, keeps "
+        "operational fees as performance drag rather than investor cash movement, and then runs the requested "
+        "`mwr_method`. `XIRR` returns the annual IRR solved from irregular cash-flow dates; `DIETZ` returns "
+        "the period Dietz return; `MODIFIED_DIETZ` currently follows the implemented Dietz path."
+    ),
+)
 async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
     """Calculates the money-weighted return (MWR) for a portfolio over a given period."""
     active_settings = get_settings()
@@ -578,6 +643,7 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
         "end_date": mwr_result.end_date,
         "notes": mwr_result.notes,
         "convergence": mwr_result.convergence,
+        "cashflows_used": mwr_request.cash_flows if mwr_request.emit_cashflows_used else None,
         "meta": meta,
         "diagnostics": diagnostics,
         "audit": audit,
@@ -610,6 +676,26 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
     "/attribution",
     response_model=AttributionResponse | AttributionAcceptedResponse,
     summary="Calculate Multi-Level Performance Attribution",
+    description=(
+        "Decomposes portfolio active return versus a benchmark into allocation, selection, "
+        "interaction, and total effect using Brinson-style attribution. Use this endpoint "
+        "when front-office users need to explain whether active performance came from asset "
+        "allocation, group or security selection, or the interaction between active weights "
+        "and active returns. Stateless callers may supply instrument or pre-aggregated group "
+        "inputs. Stateful callers source portfolio positions and benchmark components through "
+        "lotus-core analytics-input contracts. Each level returns authoritative total fields "
+        "for UI footers and summary-only views; downstream systems should not infer totals by "
+        "summing only visible rows."
+    ),
+    responses={
+        202: {
+            "model": AttributionAcceptedResponse,
+            "description": (
+                "Accepted for asynchronous attribution execution. Poll poll_path for execution "
+                "status or result_path for the completed attribution response."
+            ),
+        }
+    },
 )
 async def calculate_attribution_endpoint(request: AttributionAnalyticsRequest) -> AttributionResponse | JSONResponse:
     """
@@ -792,6 +878,11 @@ def _accepted_attribution_response(calculation_id) -> AttributionAcceptedRespons
     "/attribution/results/{calculation_id}",
     response_model=AttributionResponse | AttributionAcceptedResponse,
     summary="Retrieve async attribution result",
+    description=(
+        "Returns the completed response for an attribution request that was previously accepted "
+        "for asynchronous execution, or returns the accepted envelope while the calculation is "
+        "still pending. Use this route with result_path from the 202 response."
+    ),
 )
 async def get_attribution_result(calculation_id: UUID) -> AttributionResponse | JSONResponse:
     return resolve_async_result(

@@ -177,7 +177,7 @@ def test_build_stateful_contribution_input_builds_positions_and_currency_selecti
     assert point.begin_mv == Decimal("900")
     assert point.end_mv == Decimal("909")
     assert point.bod_cf == Decimal("5")
-    assert point.eod_cf == Decimal("-3")
+    assert point.eod_cf == Decimal("-2")
     assert point.mgmt_fees == Decimal("-1")
     assert normalized.positions_data[0].meta["sector"] == "Tech"
 
@@ -345,7 +345,7 @@ def test_position_row_to_daily_point_converts_cash_flows_to_reporting_currency()
     assert point is not None
     assert point["begin_mv"] == Decimal("132")
     assert point["bod_cf"] == Decimal("6.60")
-    assert point["eod_cf"] == Decimal("-3.96")
+    assert point["eod_cf"] == Decimal("-2.6400")
     assert point["mgmt_fees"] == Decimal("-1.32")
 
 

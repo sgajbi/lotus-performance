@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-04-14T12:56:11.502138+00:00",
+  "generatedAt": "2026-04-15T13:07:20.963299+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.account_reset_shadow_days",
@@ -164,30 +164,32 @@
       "description": "Endpoint-level analytics capability details for downstream service integration.",
       "example": [
         {
-          "key": "example_key",
-          "path": "example_path",
+          "key": "workspace_summary",
+          "path": "/performance/workspace-summary",
           "enabled": true,
           "supported_input_modes": [
-            "example_supported_input_modes_item"
+            "stateful",
+            "stateless"
           ],
           "supports_async": true,
-          "poll_path_template": "example_poll_path_template",
-          "result_path_template": "example_result_path_template",
+          "poll_path_template": "/performance/executions/{calculation_id}",
+          "result_path_template": "/performance/workspace-summary/results/{calculation_id}",
           "stateful_restrictions": [
-            "example_stateful_restrictions_item"
+            "POSITION, SECTOR, and ASSET_CLASS grouping dimensions are supported"
           ],
           "contract_notes": [
-            "example_contract_notes_item"
+            "returns a lineage-backed benchmark exposure view aligned to benchmark performance context"
           ],
           "options": [
             {
-              "key": "example_key",
+              "key": "benchmark_mode",
               "supported_values": [
-                "example_supported_values_item"
+                "user_input_stateless",
+                "linked_stateful"
               ],
-              "required_when": "example_required_when",
+              "required_when": "benchmark or benchmark-aware blocks are requested",
               "notes": [
-                "example_notes_item"
+                "stateful workspace summary can resolve the linked benchmark from lotus-core assignment"
               ]
             }
           ]
@@ -205,8 +207,8 @@
       "semanticId": "lotus.analytics_type",
       "canonicalTerm": "analytics_type",
       "preferredName": "analytics_type",
-      "description": "execution response field: analytics type.",
-      "example": "example_analytics_type",
+      "description": "Analytics family associated with this execution.",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -276,10 +278,24 @@
       ]
     },
     {
+      "semanticId": "lotus.artifact_name",
+      "canonicalTerm": "artifact_name",
+      "preferredName": "artifact_name",
+      "description": "Canonical artifact name used by lotus-performance APIs.",
+      "example": null,
+      "type": "string",
+      "locations": [
+        "path"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.artifacts",
       "canonicalTerm": "artifacts",
       "preferredName": "artifacts",
-      "description": "lineage response field: artifacts.",
+      "description": "Download links keyed by artifact filename. Empty while lineage is pending or failed, and populated only after manifest and on-disk artifact integrity checks pass.",
       "example": {
         "key": "value"
       },
@@ -309,8 +325,8 @@
       "semanticId": "lotus.as_of_date",
       "canonicalTerm": "as_of_date",
       "preferredName": "as_of_date",
-      "description": "upstream snapshot response field: as of date.",
-      "example": "2026-02-27",
+      "description": "Business date associated with the upstream snapshot.",
+      "example": "2025-03-31",
       "type": "string",
       "locations": [
         "body"
@@ -323,13 +339,13 @@
       "semanticId": "lotus.async_result",
       "canonicalTerm": "async_result",
       "preferredName": "async_result",
-      "description": "execution response field: async result.",
+      "description": "Endpoint-specific async result metadata when a durable result record exists.",
       "example": {
-        "result_status": "example_result_status",
-        "error_message": "example_error_message",
-        "error_type": "example_error_type",
-        "created_at_utc": "example_created_at_utc",
-        "updated_at_utc": "2026-02-27"
+        "result_status": "complete",
+        "error_message": "explode",
+        "error_type": "RuntimeError",
+        "created_at_utc": "2026-04-10T12:00:06Z",
+        "updated_at_utc": "2026-04-10T12:00:08Z"
       },
       "type": "object",
       "locations": [
@@ -420,36 +436,36 @@
       "preferredName": "benchmark",
       "description": "Optional benchmark request resolved and calculated alongside the workspace summary.",
       "example": {
-        "benchmark_id": "BENCHMARK_001",
+        "benchmark_id": "BMK_PB_GLOBAL_BALANCED_60_40",
         "input_mode": "stateless",
         "return_source": "calculated",
         "stateless_input": {
           "benchmark_currency": "USD",
           "component_observations": [
             {
-              "component_id": "COMPONENT_001",
-              "perf_date": "2026-02-27",
-              "weight_bop": 0.1234,
+              "component_id": "IDX_SP500_TR",
+              "perf_date": "2026-01-02",
+              "weight_bop": 0.6,
               "component_currency": "USD",
-              "component_return": 0.1234,
-              "component_return_local": 0.1234,
-              "component_return_fx": 0.1234
+              "component_return": 0.0125,
+              "component_return_local": 0.01,
+              "component_return_fx": 0.002475
             }
           ],
           "component_price_points": [
             {
-              "component_id": "COMPONENT_001",
-              "perf_date": "2026-02-27",
-              "weight_bop": 0.1234,
-              "index_price": 0.1234,
-              "component_currency": "USD",
-              "fx_rate_to_benchmark": 0.1234
+              "component_id": "IDX_EUROSTOXX_TR",
+              "perf_date": "2026-01-02",
+              "weight_bop": 0.4,
+              "index_price": 101.25,
+              "component_currency": "EUR",
+              "fx_rate_to_benchmark": 1.212
             }
           ],
           "benchmark_return_points": [
             {
-              "perf_date": "2026-02-27",
-              "benchmark_return": 0.1234
+              "perf_date": "2026-01-02",
+              "benchmark_return": 0.0042
             }
           ]
         },
@@ -473,15 +489,15 @@
       "example": [
         {
           "key": {
-            "key": "value"
+            "asset_class": "equity"
           },
           "observations": [
             {
               "date": "2026-02-27",
-              "weight_bop": 0.1234,
-              "return_base": 0.1234,
-              "return_local": 0.1234,
-              "return_fx": 0.1234
+              "weight_bop": 0.6,
+              "return_base": 0.0125,
+              "return_local": 0.01,
+              "return_fx": 0.0025
             }
           ]
         }
@@ -499,7 +515,7 @@
       "canonicalTerm": "benchmark_id",
       "preferredName": "benchmark_id",
       "description": "Benchmark identifier.",
-      "example": "BENCHMARK_001",
+      "example": "ENTITY_001",
       "type": "string",
       "locations": [
         "body"
@@ -514,7 +530,7 @@
       "canonicalTerm": "benchmark_start_date",
       "preferredName": "benchmark_start_date",
       "description": "Earliest date for which benchmark data is available for the request.",
-      "example": "2026-02-27",
+      "example": "2025-03-31",
       "type": "string",
       "locations": [
         "body"
@@ -555,10 +571,8 @@
       "semanticId": "lotus.bucketing",
       "canonicalTerm": "bucketing",
       "preferredName": "bucketing",
-      "description": "contribution analytics request field: bucketing.",
-      "example": {
-        "key": "value"
-      },
+      "description": "Optional future bucketing rules for hierarchy rows.",
+      "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [
         "body"
@@ -571,7 +585,7 @@
       "semanticId": "lotus.by_level",
       "canonicalTerm": "by_level",
       "preferredName": "by_level",
-      "description": "emit field: by level.",
+      "description": "Requests hierarchy-level output when hierarchy dimensions are supplied. For backward compatibility, hierarchy dimensions also imply level output.",
       "example": true,
       "type": "boolean",
       "locations": [
@@ -585,7 +599,7 @@
       "semanticId": "lotus.by_position_timeseries",
       "canonicalTerm": "by_position_timeseries",
       "preferredName": "by_position_timeseries",
-      "description": "emit field: by position timeseries.",
+      "description": "When true, emit residual-adjusted daily contribution series for each position. The summed position daily series reconciles to the period total contribution.",
       "example": true,
       "type": "boolean",
       "locations": [
@@ -657,8 +671,8 @@
       "semanticId": "lotus.calculation_type",
       "canonicalTerm": "calculation_type",
       "preferredName": "calculation_type",
-      "description": "lineage response field: calculation type.",
-      "example": "example_calculation_type",
+      "description": "Analytics family that produced the lineage payload.",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -797,8 +811,8 @@
       "semanticId": "lotus.completed_at_utc",
       "canonicalTerm": "completed_at_utc",
       "preferredName": "completed_at_utc",
-      "description": "execution response field: completed at utc.",
-      "example": "example_completed_at_utc",
+      "description": "UTC timestamp when execution reached a terminal state.",
+      "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [
         "body"
@@ -897,20 +911,20 @@
       "semanticId": "lotus.compute_job",
       "canonicalTerm": "compute_job",
       "preferredName": "compute_job",
-      "description": "execution response field: compute job.",
+      "description": "Async compute-job metadata when this execution used the compute executor.",
       "example": {
-        "job_status": "example_job_status",
+        "job_status": "pending",
         "attempt_count": 1,
-        "max_attempts": 1,
-        "worker_id": "WORKER_001",
-        "error_message": "example_error_message",
-        "error_type": "example_error_type",
-        "leased_at_utc": "example_leased_at_utc",
-        "lease_expires_at_utc": "example_lease_expires_at_utc",
-        "last_error_at_utc": "example_last_error_at_utc",
-        "created_at_utc": "example_created_at_utc",
-        "started_at_utc": "example_started_at_utc",
-        "completed_at_utc": "example_completed_at_utc"
+        "max_attempts": 3,
+        "worker_id": "performance-compute-executor-1",
+        "error_message": "temporary upstream issue",
+        "error_type": "HTTPException",
+        "leased_at_utc": "2026-04-10T12:00:03Z",
+        "lease_expires_at_utc": "2026-04-10T12:05:03Z",
+        "last_error_at_utc": "2026-04-10T12:00:04Z",
+        "created_at_utc": "2026-04-10T12:00:00Z",
+        "started_at_utc": "2026-04-10T12:00:03Z",
+        "completed_at_utc": "2026-04-10T12:00:08Z"
       },
       "type": "object",
       "locations": [
@@ -1015,7 +1029,7 @@
       "preferredName": "contract_notes",
       "description": "Surface-specific contract notes that downstream consumers should treat as part of the supported behavior.",
       "example": [
-        "example_contract_notes_item"
+        "returns a lineage-backed benchmark exposure view aligned to benchmark performance context"
       ],
       "type": "array",
       "locations": [
@@ -1029,7 +1043,7 @@
       "semanticId": "lotus.contract_version",
       "canonicalTerm": "contract_version",
       "preferredName": "contract_version",
-      "description": "integration capabilities response field: contract version.",
+      "description": "Version of the integration-capabilities response contract.",
       "example": "v1",
       "type": "string",
       "locations": [
@@ -1091,8 +1105,8 @@
       "semanticId": "lotus.created_at_utc",
       "canonicalTerm": "created_at_utc",
       "preferredName": "created_at_utc",
-      "description": "execution response field: created at utc.",
-      "example": "example_created_at_utc",
+      "description": "UTC timestamp when the execution record was created.",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -1106,7 +1120,7 @@
       "canonicalTerm": "currency",
       "preferredName": "currency",
       "description": "The three-letter ISO currency code for the request.",
-      "example": "USD",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -1120,7 +1134,7 @@
       "canonicalTerm": "currency_mode",
       "preferredName": "currency_mode",
       "description": "Optional multi-currency mode for the portfolio path.",
-      "example": "BASE_ONLY",
+      "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [
         "body"
@@ -1337,7 +1351,7 @@
       "semanticId": "lotus.date",
       "canonicalTerm": "date",
       "preferredName": "date",
-      "description": "Business date for date.",
+      "description": "Observation date for the benchmark group return and beginning weight.",
       "example": "2026-02-27",
       "type": "string",
       "locations": [
@@ -1388,7 +1402,7 @@
       "canonicalTerm": "description",
       "preferredName": "description",
       "description": "Human-readable capability summary.",
-      "example": "example_description",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -1401,10 +1415,8 @@
       "semanticId": "lotus.details",
       "canonicalTerm": "details",
       "preferredName": "details",
-      "description": "Optional stage metadata details.",
-      "example": {
-        "key": "value"
-      },
+      "description": "Stage-specific metadata such as observation counts, chunk counts, or materialized artifact names.",
+      "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [
         "body"
@@ -1615,8 +1627,8 @@
       "semanticId": "lotus.error_message",
       "canonicalTerm": "error_message",
       "preferredName": "error_message",
-      "description": "execution response field: error message.",
-      "example": "example_error_message",
+      "description": "Top-level execution failure message when the calculation failed.",
+      "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [
         "body"
@@ -1657,8 +1669,8 @@
       "semanticId": "lotus.execution_mode",
       "canonicalTerm": "execution_mode",
       "preferredName": "execution_mode",
-      "description": "execution response field: execution mode.",
-      "example": "async",
+      "description": "Whether the calculation ran inline or through the async compute executor.",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -1713,7 +1725,7 @@
       "semanticId": "lotus.fallback_policy",
       "canonicalTerm": "fallback_policy",
       "preferredName": "fallback_policy",
-      "description": "lookthrough field: fallback policy.",
+      "description": "Reserved fallback policy for future look-through decomposition gaps.",
       "example": "error",
       "type": "string",
       "locations": [
@@ -1744,10 +1756,10 @@
       "description": "integration capabilities response field: features.",
       "example": [
         {
-          "key": "example_key",
+          "key": "pa.analytics.twr",
           "enabled": true,
-          "owner_service": "example_owner_service",
-          "description": "example_description"
+          "owner_service": "lotus-performance",
+          "description": "Time-weighted return APIs."
         }
       ],
       "type": "array",
@@ -1810,7 +1822,8 @@
       "preferredName": "frequencies",
       "description": "Breakdown frequencies to emit for this workspace horizon.",
       "example": [
-        "DAILY"
+        "daily",
+        "monthly"
       ],
       "type": "array",
       "locations": [
@@ -1839,8 +1852,8 @@
       "semanticId": "lotus.from_date",
       "canonicalTerm": "from_date",
       "preferredName": "from_date",
-      "description": "returns window field: from date.",
-      "example": "2026-02-27",
+      "description": "Inclusive start date when mode=EXPLICIT.",
+      "example": "2025-03-31",
       "type": "object",
       "locations": [
         "body"
@@ -1891,7 +1904,7 @@
       "semanticId": "lotus.generated_at",
       "canonicalTerm": "generated_at",
       "preferredName": "generated_at",
-      "description": "Timestamp for generated at.",
+      "description": "UTC timestamp when the capability response was generated.",
       "example": "2026-02-27T10:30:00Z",
       "type": "string",
       "locations": [
@@ -1947,9 +1960,9 @@
       "semanticId": "lotus.group_by",
       "canonicalTerm": "group_by",
       "preferredName": "group_by",
-      "description": "attribution analytics request field: group by.",
+      "description": "Ordered grouping dimensions for attribution levels, for example asset_class then sector.",
       "example": [
-        "example_group_by_item"
+        "asset_class"
       ],
       "type": "array",
       "locations": [
@@ -2046,10 +2059,8 @@
       "semanticId": "lotus.hierarchy",
       "canonicalTerm": "hierarchy",
       "preferredName": "hierarchy",
-      "description": "contribution analytics request field: hierarchy.",
-      "example": [
-        "example_hierarchy_item"
-      ],
+      "description": "Optional hierarchy dimensions such as asset_class, sector, country, currency, or position_id. When supplied, the response includes summary and level rows that reconcile to period contribution.",
+      "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [
         "body"
@@ -2090,7 +2101,7 @@
       "semanticId": "lotus.include_other",
       "canonicalTerm": "include_other",
       "preferredName": "include_other",
-      "description": "emit field: include other.",
+      "description": "Whether rows excluded by top_n_per_level or threshold_weight are rolled into an Other bucket.",
       "example": true,
       "type": "boolean",
       "locations": [
@@ -2104,7 +2115,7 @@
       "semanticId": "lotus.include_portfolio",
       "canonicalTerm": "include_portfolio",
       "preferredName": "include_portfolio",
-      "description": "series selection field: include portfolio.",
+      "description": "Whether to return portfolio returns. This should normally stay true for downstream analytics.",
       "example": true,
       "type": "boolean",
       "locations": [
@@ -2118,7 +2129,7 @@
       "semanticId": "lotus.include_risk_free",
       "canonicalTerm": "include_risk_free",
       "preferredName": "include_risk_free",
-      "description": "series selection field: include risk free.",
+      "description": "Whether to include risk-free point and cumulative return series.",
       "example": true,
       "type": "boolean",
       "locations": [
@@ -2146,7 +2157,7 @@
       "semanticId": "lotus.include_unclassified",
       "canonicalTerm": "include_unclassified",
       "preferredName": "include_unclassified",
-      "description": "emit field: include unclassified.",
+      "description": "Whether positions missing a requested hierarchy dimension are retained under an Unclassified bucket. When false, those rows are excluded from hierarchy rows.",
       "example": true,
       "type": "boolean",
       "locations": [
@@ -2210,15 +2221,46 @@
       ]
     },
     {
+      "semanticId": "lotus.inspection_id",
+      "canonicalTerm": "inspection_id",
+      "preferredName": "inspection_id",
+      "description": "Client-supplied or service-generated durable inspection identifier.",
+      "example": "ENTITY_001",
+      "type": "string",
+      "locations": [
+        "body",
+        "path"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.inspection_profile",
+      "canonicalTerm": "inspection_profile",
+      "preferredName": "inspection_profile",
+      "description": "twrinspection profile schema.",
+      "example": "support_triage",
+      "type": "TWRInspectionProfile",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "TWRInspectionProfile"
+      ]
+    },
+    {
       "semanticId": "lotus.instruments_data",
       "canonicalTerm": "instruments_data",
       "preferredName": "instruments_data",
       "description": "Legacy stateless instrument attribution payload. Prefer stateless_input for new integrations.",
       "example": [
         {
-          "instrument_id": "INSTRUMENT_001",
+          "instrument_id": "AAPL_US",
           "meta": {
-            "key": "value"
+            "asset_class": "equity",
+            "currency": "USD",
+            "sector": "technology"
           },
           "valuation_points": [
             {
@@ -2259,7 +2301,7 @@
       "semanticId": "lotus.key",
       "canonicalTerm": "key",
       "preferredName": "key",
-      "description": "benchmark group field: key.",
+      "description": "Benchmark grouping key. Keys must match the requested group_by dimensions.",
       "example": {
         "key": "value"
       },
@@ -2801,8 +2843,8 @@
       "semanticId": "lotus.max_gap_days",
       "canonicalTerm": "max_gap_days",
       "preferredName": "max_gap_days",
-      "description": "app  models  returns series  data policy field: max gap days.",
-      "example": 1,
+      "description": "Optional caller tolerance for retained gap diagnostics. Reserved for future enforcement.",
+      "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [
         "body"
@@ -2823,6 +2865,20 @@
       ],
       "observedTypes": [
         "integer"
+      ]
+    },
+    {
+      "semanticId": "lotus.message",
+      "canonicalTerm": "message",
+      "preferredName": "message",
+      "description": "Human-readable service entry message that points operators and developers to the API docs.",
+      "example": "Welcome to the Portfolio Performance Analytics API. Access /docs for API documentation.",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -3146,14 +3202,14 @@
       "semanticId": "lotus.observations",
       "canonicalTerm": "observations",
       "preferredName": "observations",
-      "description": "benchmark group field: observations.",
+      "description": "Benchmark group observations aligned to the attribution period.",
       "example": [
         {
           "date": "2026-02-27",
-          "weight_bop": 0.1234,
-          "return_base": 0.1234,
-          "return_local": 0.1234,
-          "return_fx": 0.1234
+          "weight_bop": 0.6,
+          "return_base": 0.0125,
+          "return_local": 0.01,
+          "return_fx": 0.0025
         }
       ],
       "type": "array",
@@ -3328,13 +3384,14 @@
       "description": "Machine-readable request-option capabilities for this analytics surface.",
       "example": [
         {
-          "key": "example_key",
+          "key": "benchmark_mode",
           "supported_values": [
-            "example_supported_values_item"
+            "user_input_stateless",
+            "linked_stateful"
           ],
-          "required_when": "example_required_when",
+          "required_when": "benchmark or benchmark-aware blocks are requested",
           "notes": [
-            "example_notes_item"
+            "stateful workspace summary can resolve the linked benchmark from lotus-core assignment"
           ]
         }
       ],
@@ -3383,7 +3440,7 @@
       "canonicalTerm": "owner_service",
       "preferredName": "owner_service",
       "description": "Owning service for this feature.",
-      "example": "example_owner_service",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -3441,10 +3498,8 @@
       "semanticId": "lotus.paging_metadata",
       "canonicalTerm": "paging_metadata",
       "preferredName": "paging_metadata",
-      "description": "upstream snapshot response field: paging metadata.",
-      "example": {
-        "key": "value"
-      },
+      "description": "Optional paging or chunking metadata captured during upstream retrieval.",
+      "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [
         "body"
@@ -3458,7 +3513,7 @@
       "canonicalTerm": "path",
       "preferredName": "path",
       "description": "HTTP path for this analytics surface.",
-      "example": "example_path",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -3528,7 +3583,7 @@
       "canonicalTerm": "performance_start_date",
       "preferredName": "performance_start_date",
       "description": "Portfolio inception or earliest date for which performance data is available. In stateful mode lotus-performance can derive this upstream.",
-      "example": "2024-12-31",
+      "example": "2025-03-31",
       "type": "object",
       "locations": [
         "body"
@@ -3560,10 +3615,11 @@
       "description": "Requested workspace horizons and their breakdown frequencies.",
       "example": [
         {
-          "period": "1D",
           "frequencies": [
-            "DAILY"
-          ]
+            "daily",
+            "monthly"
+          ],
+          "period": "YTD"
         }
       ],
       "type": "array",
@@ -3615,8 +3671,22 @@
       "semanticId": "lotus.policy_version",
       "canonicalTerm": "policy_version",
       "preferredName": "policy_version",
-      "description": "integration capabilities response field: policy version.",
+      "description": "Capability policy version applied by lotus-performance.",
       "example": "tenant-default-v1",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.poll_path",
+      "canonicalTerm": "poll_path",
+      "preferredName": "poll_path",
+      "description": "Execution polling route for queue, running, stage, and terminal status.",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -3630,7 +3700,7 @@
       "canonicalTerm": "poll_path_template",
       "preferredName": "poll_path_template",
       "description": "Execution polling path template for async-capable surfaces.",
-      "example": "example_poll_path_template",
+      "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [
         "body"
@@ -3673,7 +3743,7 @@
       "example": [
         {
           "key": {
-            "key": "value"
+            "asset_class": "equity"
           },
           "observations": [
             {
@@ -4145,7 +4215,7 @@
       "canonicalTerm": "report_ccy",
       "preferredName": "report_ccy",
       "description": "Optional reporting currency used for stateful retrieval and output context.",
-      "example": "example_report_ccy",
+      "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [
         "body"
@@ -4159,7 +4229,7 @@
       "canonicalTerm": "report_end_date",
       "preferredName": "report_end_date",
       "description": "Anchor end date for all requested workspace horizons.",
-      "example": "2026-01-31",
+      "example": "2025-03-31",
       "type": "string",
       "locations": [
         "body"
@@ -4173,7 +4243,7 @@
       "canonicalTerm": "report_start_date",
       "preferredName": "report_start_date",
       "description": "Explicit start date used only when requested periods include EXPLICIT.",
-      "example": "2026-01-01",
+      "example": "2025-03-31",
       "type": "object",
       "locations": [
         "body"
@@ -4198,11 +4268,188 @@
       ]
     },
     {
+      "semanticId": "lotus.request",
+      "canonicalTerm": "request",
+      "preferredName": "request",
+      "description": "Fresh TWR request to inspect when subject_type is twr_request. This does not replace the normal TWR calculation endpoint; it runs supportability checks against the supplied request shape.",
+      "example": {
+        "calculation_id": "2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
+        "portfolio_id": "DEMO_DPM_EUR_001",
+        "performance_start_date": "2024-12-31",
+        "metric_basis": "NET",
+        "report_start_date": "2026-01-01",
+        "report_end_date": "2026-01-31",
+        "analyses": [
+          {
+            "period": "MTD",
+            "frequencies": [
+              "DAILY"
+            ]
+          }
+        ],
+        "valuation_points": [
+          {
+            "perf_date": "2026-02-27",
+            "begin_mv": 0.1234,
+            "bod_cf": 0.1234,
+            "eod_cf": 0.1234,
+            "mgmt_fees": 0.1234,
+            "end_mv": 0.1234
+          }
+        ],
+        "currency": "USD",
+        "precision_mode": "FLOAT64",
+        "rounding_precision": 1,
+        "calendar": {
+          "type": "BUSINESS",
+          "trading_calendar": "example_trading_calendar"
+        },
+        "annualization": {
+          "enabled": true,
+          "basis": "BUS/252",
+          "periods_per_year": 0.1234
+        },
+        "output": {
+          "include_timeseries": true,
+          "include_cumulative": true,
+          "top_n": 1
+        },
+        "flags": {
+          "fail_fast": true
+        },
+        "fee_effect": {
+          "enabled": true
+        },
+        "reset_policy": {
+          "emit": true
+        },
+        "data_policy": {
+          "overrides": {
+            "market_values": [
+              {
+                "key": "value"
+              }
+            ],
+            "cash_flows": [
+              {
+                "key": "value"
+              }
+            ]
+          },
+          "ignore_days": [
+            {
+              "entity_type": "PORTFOLIO",
+              "entity_id": "ENTITY_001",
+              "dates": [
+                "2026-02-27"
+              ]
+            }
+          ],
+          "outliers": {
+            "enabled": true,
+            "scope": [
+              "example_scope_item"
+            ],
+            "method": "example_method",
+            "params": {
+              "key": "value"
+            },
+            "action": "example_action"
+          }
+        },
+        "currency_mode": "BASE_ONLY",
+        "report_ccy": "example_report_ccy",
+        "fx": {
+          "source": "example_source",
+          "fixing": "example_fixing",
+          "rates": [
+            {
+              "date": "2026-02-27",
+              "ccy": "example_ccy",
+              "rate": 0.1234
+            }
+          ]
+        },
+        "hedging": {
+          "mode": "example_mode",
+          "series": [
+            {
+              "date": "2026-02-27",
+              "ccy": "example_ccy",
+              "hedge_ratio": 0.1234
+            }
+          ]
+        },
+        "include_benchmark": true,
+        "input_mode": "stateless",
+        "stateless_input": {
+          "valuation_points": [
+            {
+              "perf_date": "2026-02-27",
+              "begin_mv": 0.1234,
+              "bod_cf": 0.1234,
+              "eod_cf": 0.1234,
+              "mgmt_fees": 0.1234,
+              "end_mv": 0.1234
+            }
+          ]
+        },
+        "stateful_input": {
+          "key": "value"
+        },
+        "benchmark": {
+          "benchmark_id": "BENCHMARK_001",
+          "input_mode": "stateless",
+          "return_source": "calculated",
+          "stateless_input": {
+            "benchmark_currency": "USD",
+            "component_observations": [
+              {
+                "component_id": "IDX_SP500_TR",
+                "perf_date": "2026-01-02",
+                "weight_bop": 0.6,
+                "component_currency": "USD",
+                "component_return": 0.0125,
+                "component_return_local": 0.01,
+                "component_return_fx": 0.002475
+              }
+            ],
+            "component_price_points": [
+              {
+                "component_id": "IDX_EUROSTOXX_TR",
+                "perf_date": "2026-01-02",
+                "weight_bop": 0.4,
+                "index_price": 101.25,
+                "component_currency": "EUR",
+                "fx_rate_to_benchmark": 1.212
+              }
+            ],
+            "benchmark_return_points": [
+              {
+                "perf_date": "2026-01-02",
+                "benchmark_return": 0.0042
+              }
+            ]
+          },
+          "stateful_input": {
+            "key": "value"
+          }
+        }
+      },
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
       "semanticId": "lotus.request_fingerprint",
       "canonicalTerm": "request_fingerprint",
       "preferredName": "request_fingerprint",
-      "description": "upstream snapshot response field: request fingerprint.",
-      "example": "example_request_fingerprint",
+      "description": "Stable fingerprint of the upstream request payload.",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -4215,7 +4462,7 @@
       "semanticId": "lotus.requested_window",
       "canonicalTerm": "requested_window",
       "preferredName": "requested_window",
-      "description": "execution response field: requested window.",
+      "description": "Normalized request-window metadata captured for operator and downstream polling.",
       "example": {
         "key": "value"
       },
@@ -4233,7 +4480,9 @@
       "preferredName": "required_features",
       "description": "Feature keys required for this workflow.",
       "example": [
-        "example_required_features_item"
+        "pa.analytics.workspace_summary",
+        "pa.analytics.twr",
+        "pa.analytics.mwr"
       ],
       "type": "array",
       "locations": [
@@ -4248,7 +4497,7 @@
       "canonicalTerm": "required_when",
       "preferredName": "required_when",
       "description": "Condition under which this option or companion input becomes required.",
-      "example": "example_required_when",
+      "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [
         "body"
@@ -4319,7 +4568,7 @@
       "semanticId": "lotus.residual_per_position",
       "canonicalTerm": "residual_per_position",
       "preferredName": "residual_per_position",
-      "description": "emit field: residual per position.",
+      "description": "Reserved compatibility flag for older clients. Current contribution output always keeps position, daily, and hierarchy totals reconciled through the service's residual allocation policy.",
       "example": true,
       "type": "boolean",
       "locations": [
@@ -4333,8 +4582,8 @@
       "semanticId": "lotus.response_fingerprint",
       "canonicalTerm": "response_fingerprint",
       "preferredName": "response_fingerprint",
-      "description": "upstream snapshot response field: response fingerprint.",
-      "example": "example_response_fingerprint",
+      "description": "Stable fingerprint of the upstream response payload.",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -4361,13 +4610,14 @@
       "semanticId": "lotus.result_path",
       "canonicalTerm": "result_path",
       "preferredName": "result_path",
-      "description": "Async result path for this compute work item when the analytics family exposes a durable result route.",
-      "example": "/integration/returns/series/results/2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
-      "type": "object",
+      "description": "Endpoint-specific route that returns the completed TWR inspection result.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
+        "string",
         "object"
       ]
     },
@@ -4376,7 +4626,7 @@
       "canonicalTerm": "result_path_template",
       "preferredName": "result_path_template",
       "description": "Endpoint-specific async result path template for async-capable surfaces.",
-      "example": "example_result_path_template",
+      "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [
         "body"
@@ -4464,8 +4714,8 @@
       "semanticId": "lotus.retrieval_status",
       "canonicalTerm": "retrieval_status",
       "preferredName": "retrieval_status",
-      "description": "upstream snapshot response field: retrieval status.",
-      "example": "example_retrieval_status",
+      "description": "Upstream retrieval outcome, usually the HTTP status code or governed retrieval state.",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -4520,8 +4770,8 @@
       "semanticId": "lotus.return_base",
       "canonicalTerm": "return_base",
       "preferredName": "return_base",
-      "description": "Performance metric value for return base.",
-      "example": 0.1234,
+      "description": "Benchmark group base-currency return for the observation as a decimal ratio.",
+      "example": 0.1,
       "type": "number",
       "locations": [
         "body"
@@ -4534,8 +4784,8 @@
       "semanticId": "lotus.return_fx",
       "canonicalTerm": "return_fx",
       "preferredName": "return_fx",
-      "description": "Performance metric value for return fx.",
-      "example": 0.1234,
+      "description": "Optional FX return component as a decimal ratio for currency-aware attribution.",
+      "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [
         "body"
@@ -4548,8 +4798,8 @@
       "semanticId": "lotus.return_local",
       "canonicalTerm": "return_local",
       "preferredName": "return_local",
-      "description": "Performance metric value for return local.",
-      "example": 0.1234,
+      "description": "Optional local-currency benchmark return as a decimal ratio for currency-aware attribution.",
+      "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [
         "body"
@@ -4604,9 +4854,9 @@
       "semanticId": "lotus.risk_free",
       "canonicalTerm": "risk_free",
       "preferredName": "risk_free",
-      "description": "returns series request field: risk free.",
+      "description": "Optional risk-free lineage hint. Stateful risk-free sourcing is driven by reporting_currency.",
       "example": {
-        "rate_series_ref": "example_rate_series_ref",
+        "rate_series_ref": "USD_SOFR",
         "day_count_basis": "ACT_365"
       },
       "type": "object",
@@ -4858,8 +5108,8 @@
       "semanticId": "lotus.snapshot_id",
       "canonicalTerm": "snapshot_id",
       "preferredName": "snapshot_id",
-      "description": "Unique snapshot identifier.",
-      "example": "SNAPSHOT_001",
+      "description": "Durable upstream snapshot identifier recorded for this calculation.",
+      "example": "ENTITY_001",
       "type": "string",
       "locations": [
         "body"
@@ -4902,8 +5152,8 @@
       "semanticId": "lotus.source_identifier",
       "canonicalTerm": "source_identifier",
       "preferredName": "source_identifier",
-      "description": "upstream snapshot response field: source identifier.",
-      "example": "example_source_identifier",
+      "description": "Portfolio, benchmark, index, or source identifier used for upstream retrieval.",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -4916,7 +5166,7 @@
       "semanticId": "lotus.source_service",
       "canonicalTerm": "source_service",
       "preferredName": "source_service",
-      "description": "integration capabilities response field: source service.",
+      "description": "Service that owns and emitted this capability contract.",
       "example": "lotus-performance",
       "type": "string",
       "locations": [
@@ -4944,8 +5194,8 @@
       "semanticId": "lotus.stage_name",
       "canonicalTerm": "stage_name",
       "preferredName": "stage_name",
-      "description": "Internal execution stage name.",
-      "example": "example_stage_name",
+      "description": "Stable execution stage name within the calculation lifecycle.",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -4958,17 +5208,19 @@
       "semanticId": "lotus.stages",
       "canonicalTerm": "stages",
       "preferredName": "stages",
-      "description": "execution response field: stages.",
+      "description": "Ordered stage-level lifecycle records for retrieval, normalization, execution, lineage, or submission.",
       "example": [
         {
-          "stage_name": "example_stage_name",
-          "status": "pending",
-          "started_at_utc": "example_started_at_utc",
-          "completed_at_utc": "example_completed_at_utc",
+          "stage_name": "execution",
+          "status": "complete",
+          "started_at_utc": "2026-04-10T12:00:01Z",
+          "completed_at_utc": "2026-04-10T12:00:02Z",
           "details": {
-            "key": "value"
+            "portfolio_chunk_count": 1,
+            "portfolio_observations": 3,
+            "portfolio_page_count": 1
           },
-          "error_message": "example_error_message"
+          "error_message": "temporary upstream issue"
         }
       ],
       "type": "array",
@@ -4998,8 +5250,8 @@
       "semanticId": "lotus.started_at_utc",
       "canonicalTerm": "started_at_utc",
       "preferredName": "started_at_utc",
-      "description": "execution response field: started at utc.",
-      "example": "example_started_at_utc",
+      "description": "UTC timestamp when execution started.",
+      "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [
         "body"
@@ -5012,7 +5264,7 @@
       "semanticId": "lotus.stateful_input",
       "canonicalTerm": "stateful_input",
       "preferredName": "stateful_input",
-      "description": "Stateful portfolio source configuration.",
+      "description": "Required empty envelope for stateful source-owned workspace summaries.",
       "example": {
         "key": "value"
       },
@@ -5030,7 +5282,7 @@
       "preferredName": "stateful_restrictions",
       "description": "Current stateful-mode fences or restrictions for this analytics surface.",
       "example": [
-        "example_stateful_restrictions_item"
+        "POSITION, SECTOR, and ASSET_CLASS grouping dimensions are supported"
       ],
       "type": "array",
       "locations": [
@@ -5044,7 +5296,7 @@
       "semanticId": "lotus.stateless_input",
       "canonicalTerm": "stateless_input",
       "preferredName": "stateless_input",
-      "description": "Stateless portfolio valuation observations.",
+      "description": "Stateless portfolio valuation observations. Preferred for new stateless integrations.",
       "example": {
         "valuation_points": [
           {
@@ -5069,8 +5321,8 @@
       "semanticId": "lotus.status",
       "canonicalTerm": "status",
       "preferredName": "status",
-      "description": "execution response field: status.",
-      "example": "pending",
+      "description": "Overall execution lifecycle status. Typical values are pending, running, complete, and failed.",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body",
@@ -5181,6 +5433,34 @@
       ]
     },
     {
+      "semanticId": "lotus.subject_calculation_id",
+      "canonicalTerm": "subject_calculation_id",
+      "preferredName": "subject_calculation_id",
+      "description": "Existing TWR calculation to inspect when subject_type is twr_calculation.",
+      "example": "ENTITY_001",
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.subject_type",
+      "canonicalTerm": "subject_type",
+      "preferredName": "subject_type",
+      "description": "twrinspection subject type schema.",
+      "example": "twr_calculation",
+      "type": "TWRInspectionSubjectType",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "TWRInspectionSubjectType"
+      ]
+    },
+    {
       "semanticId": "lotus.sum_of_parts_vs_total_bp",
       "canonicalTerm": "sum_of_parts_vs_total_bp",
       "preferredName": "sum_of_parts_vs_total_bp",
@@ -5216,7 +5496,8 @@
       "preferredName": "supported_values",
       "description": "Supported values or named options for this request capability.",
       "example": [
-        "example_supported_values_item"
+        "user_input_stateless",
+        "linked_stateful"
       ],
       "type": "array",
       "locations": [
@@ -5316,8 +5597,8 @@
       "semanticId": "lotus.threshold_weight",
       "canonicalTerm": "threshold_weight",
       "preferredName": "threshold_weight",
-      "description": "emit field: threshold weight.",
-      "example": 0.1234,
+      "description": "Minimum average weight ratio for an explicit hierarchy row. Example: 0.005 means 0.5% average portfolio weight.",
+      "example": 0.1,
       "type": "number",
       "locations": [
         "body"
@@ -5330,7 +5611,7 @@
       "semanticId": "lotus.timeseries",
       "canonicalTerm": "timeseries",
       "preferredName": "timeseries",
-      "description": "emit field: timeseries.",
+      "description": "When true, emit the residual-adjusted daily total contribution series for each resolved period.",
       "example": true,
       "type": "boolean",
       "locations": [
@@ -5344,8 +5625,8 @@
       "semanticId": "lotus.timestamp_utc",
       "canonicalTerm": "timestamp_utc",
       "preferredName": "timestamp_utc",
-      "description": "lineage response field: timestamp utc.",
-      "example": "2026-02-27T10:30:00Z",
+      "description": "UTC timestamp from the durable lineage record or completed manifest.",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -5358,8 +5639,8 @@
       "semanticId": "lotus.to_date",
       "canonicalTerm": "to_date",
       "preferredName": "to_date",
-      "description": "returns window field: to date.",
-      "example": "2026-02-27",
+      "description": "Inclusive end date when mode=EXPLICIT.",
+      "example": "2025-03-31",
       "type": "object",
       "locations": [
         "body"
@@ -5400,7 +5681,7 @@
       "semanticId": "lotus.top_n_per_level",
       "canonicalTerm": "top_n_per_level",
       "preferredName": "top_n_per_level",
-      "description": "emit field: top n per level.",
+      "description": "Maximum explicit rows to emit for each hierarchy level before excluded rows are rolled into an Other bucket when include_other is true.",
       "example": 1,
       "type": "integer",
       "locations": [
@@ -5486,8 +5767,8 @@
       "semanticId": "lotus.upstream_endpoint",
       "canonicalTerm": "upstream_endpoint",
       "preferredName": "upstream_endpoint",
-      "description": "upstream snapshot response field: upstream endpoint.",
-      "example": "example_upstream_endpoint",
+      "description": "Canonical upstream contract family or endpoint that produced the snapshot.",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -5500,20 +5781,21 @@
       "semanticId": "lotus.upstream_snapshots",
       "canonicalTerm": "upstream_snapshots",
       "preferredName": "upstream_snapshots",
-      "description": "execution response field: upstream snapshots.",
+      "description": "Durable upstream source snapshots captured during stateful calculation sourcing.",
       "example": [
         {
-          "snapshot_id": "SNAPSHOT_001",
-          "upstream_endpoint": "example_upstream_endpoint",
-          "source_identifier": "example_source_identifier",
-          "as_of_date": "2026-02-27",
-          "request_fingerprint": "example_request_fingerprint",
-          "response_fingerprint": "example_response_fingerprint",
-          "retrieval_status": "example_retrieval_status",
+          "snapshot_id": "portfolio_timeseries:PB_SG_GLOBAL_BAL_001:2026-04-10",
+          "upstream_endpoint": "portfolio_timeseries",
+          "source_identifier": "PB_SG_GLOBAL_BAL_001",
+          "as_of_date": "2026-04-10",
+          "request_fingerprint": "sha256:request-fingerprint",
+          "response_fingerprint": "sha256:response-fingerprint",
+          "retrieval_status": "200",
           "paging_metadata": {
-            "key": "value"
+            "chunk_count": 1,
+            "page_count": 1
           },
-          "created_at_utc": "example_created_at_utc"
+          "created_at_utc": "2026-04-10T12:00:00Z"
         }
       ],
       "type": "array",
@@ -5556,7 +5838,7 @@
       "semanticId": "lotus.valuation_points",
       "canonicalTerm": "valuation_points",
       "preferredName": "valuation_points",
-      "description": "Legacy stateless valuation input payload. Prefer stateless_input for new integrations.",
+      "description": "Deprecated compatibility stateless valuation input payload. Prefer stateless_input for new integrations.",
       "example": [
         {
           "perf_date": "2026-02-27",
@@ -5593,8 +5875,8 @@
       "semanticId": "lotus.weight_bop",
       "canonicalTerm": "weight_bop",
       "preferredName": "weight_bop",
-      "description": "benchmark observation field: weight bop.",
-      "example": 0.1234,
+      "description": "Benchmark group beginning-of-period weight as a decimal ratio. Example: 0.6 means 60%.",
+      "example": 0.1,
       "type": "number",
       "locations": [
         "body"
@@ -5639,7 +5921,7 @@
       "canonicalTerm": "workflow_key",
       "preferredName": "workflow_key",
       "description": "Workflow key for feature orchestration.",
-      "example": "example_workflow_key",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -5669,10 +5951,12 @@
       "description": "integration capabilities response field: workflows.",
       "example": [
         {
-          "workflow_key": "example_workflow_key",
+          "workflow_key": "performance_workspace",
           "enabled": true,
           "required_features": [
-            "example_required_features_item"
+            "pa.analytics.workspace_summary",
+            "pa.analytics.twr",
+            "pa.analytics.mwr"
           ]
         }
       ],
@@ -5688,8 +5972,8 @@
       "semanticId": "lotus.year",
       "canonicalTerm": "year",
       "preferredName": "year",
-      "description": "returns window field: year.",
-      "example": 1,
+      "description": "Calendar year when period=YEAR.",
+      "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [
         "body"
@@ -5766,7 +6050,55 @@
       "location": "path",
       "required": true,
       "type": "string",
-      "description": "Canonical calculation id used by lotus-performance APIs.",
+      "description": "Durable calculation identifier returned by an analytics endpoint.",
+      "example": "ENTITY_001",
+      "allowedValues": [],
+      "semanticId": "lotus.calculation_id",
+      "attributeRef": "#/attributeCatalog/lotus.calculation_id"
+    },
+    {
+      "name": "inspection_id",
+      "kind": "request_option",
+      "location": "path",
+      "required": true,
+      "type": "string",
+      "description": "Canonical inspection id used by lotus-performance APIs.",
+      "example": "ENTITY_001",
+      "allowedValues": [],
+      "semanticId": "lotus.inspection_id",
+      "attributeRef": "#/attributeCatalog/lotus.inspection_id"
+    },
+    {
+      "name": "inspection_id",
+      "kind": "request_option",
+      "location": "path",
+      "required": true,
+      "type": "string",
+      "description": "Completed TWR inspection identifier returned by POST /performance/inspections/twr.",
+      "example": "ENTITY_001",
+      "allowedValues": [],
+      "semanticId": "lotus.inspection_id",
+      "attributeRef": "#/attributeCatalog/lotus.inspection_id"
+    },
+    {
+      "name": "artifact_name",
+      "kind": "request_option",
+      "location": "path",
+      "required": true,
+      "type": "string",
+      "description": "Inspection artifact file name. Supported names include inspection_summary.json, findings.json, source_quality_summary.json, reconciliation_summary.json, and source_economics_summary.json when the corresponding check family ran.",
+      "example": "STANDARD_VALUE",
+      "allowedValues": [],
+      "semanticId": "lotus.artifact_name",
+      "attributeRef": "#/attributeCatalog/lotus.artifact_name"
+    },
+    {
+      "name": "calculation_id",
+      "kind": "request_option",
+      "location": "path",
+      "required": true,
+      "type": "string",
+      "description": "Durable calculation identifier returned by an analytics endpoint.",
       "example": "ENTITY_001",
       "allowedValues": [],
       "semanticId": "lotus.calculation_id",
@@ -5778,11 +6110,23 @@
       "location": "path",
       "required": true,
       "type": "string",
-      "description": "Canonical calculation id used by lotus-performance APIs.",
+      "description": "Durable calculation identifier returned by an analytics endpoint.",
       "example": "ENTITY_001",
       "allowedValues": [],
       "semanticId": "lotus.calculation_id",
       "attributeRef": "#/attributeCatalog/lotus.calculation_id"
+    },
+    {
+      "name": "artifact_name",
+      "kind": "request_option",
+      "location": "path",
+      "required": true,
+      "type": "string",
+      "description": "Artifact filename declared by the completed lineage record.",
+      "example": "STANDARD_VALUE",
+      "allowedValues": [],
+      "semanticId": "lotus.artifact_name",
+      "attributeRef": "#/attributeCatalog/lotus.artifact_name"
     },
     {
       "name": "consumer_system",
@@ -5790,12 +6134,16 @@
       "location": "query",
       "required": false,
       "type": "string",
-      "description": "Canonical consumer system used by lotus-performance APIs.",
+      "description": "Canonical downstream consumer system. Use snake_case query name `consumer_system`.",
       "example": "lotus-gateway",
       "allowedValues": [
         "lotus-gateway",
         "lotus-performance",
+        "lotus-risk",
         "lotus-manage",
+        "lotus-workbench",
+        "lotus-report",
+        "lotus-advise",
         "UI",
         "UNKNOWN"
       ],
@@ -5808,7 +6156,7 @@
       "location": "query",
       "required": false,
       "type": "string",
-      "description": "Canonical tenant id used by lotus-performance APIs.",
+      "description": "Tenant or policy scope. Use snake_case query name `tenant_id`.",
       "example": "ENTITY_001",
       "allowedValues": [],
       "semanticId": "lotus.tenant_id",
@@ -5820,7 +6168,7 @@
       "location": "query",
       "required": false,
       "type": "integer",
-      "description": "Canonical feature limit used by lotus-performance APIs.",
+      "description": "Maximum number of feature capability rows to return.",
       "example": 1,
       "allowedValues": [],
       "semanticId": "lotus.feature_limit",
@@ -5832,7 +6180,7 @@
       "location": "query",
       "required": false,
       "type": "integer",
-      "description": "Canonical workflow limit used by lotus-performance APIs.",
+      "description": "Maximum number of workflow capability rows to return.",
       "example": 1,
       "allowedValues": [],
       "semanticId": "lotus.workflow_limit",
@@ -8856,7 +9204,7 @@
           {
             "name": "portfolio_id",
             "location": "body",
-            "required": true,
+            "required": false,
             "type": "object",
             "semanticId": "lotus.portfolio_id",
             "attributeRef": "#/attributeCatalog/lotus.portfolio_id"
@@ -8888,7 +9236,7 @@
           {
             "name": "input_fingerprint",
             "location": "body",
-            "required": true,
+            "required": false,
             "type": "object",
             "semanticId": "lotus.input_fingerprint",
             "attributeRef": "#/attributeCatalog/lotus.input_fingerprint"
@@ -8896,7 +9244,7 @@
           {
             "name": "calculation_hash",
             "location": "body",
-            "required": true,
+            "required": false,
             "type": "object",
             "semanticId": "lotus.calculation_hash",
             "attributeRef": "#/attributeCatalog/lotus.calculation_hash"
@@ -8904,7 +9252,7 @@
           {
             "name": "error_message",
             "location": "body",
-            "required": true,
+            "required": false,
             "type": "object",
             "semanticId": "lotus.error_message",
             "attributeRef": "#/attributeCatalog/lotus.error_message"
@@ -8920,7 +9268,7 @@
           {
             "name": "started_at_utc",
             "location": "body",
-            "required": true,
+            "required": false,
             "type": "object",
             "semanticId": "lotus.started_at_utc",
             "attributeRef": "#/attributeCatalog/lotus.started_at_utc"
@@ -8928,7 +9276,7 @@
           {
             "name": "completed_at_utc",
             "location": "body",
-            "required": true,
+            "required": false,
             "type": "object",
             "semanticId": "lotus.completed_at_utc",
             "attributeRef": "#/attributeCatalog/lotus.completed_at_utc"
@@ -9090,10 +9438,141 @@
     },
     {
       "domain": "performance",
+      "method": "POST",
+      "path": "/performance/inspections/twr",
+      "operationId": "submit_twr_inspection_performance_inspections_twr_post",
+      "summary": "Submit a durable TWR supportability inspection",
+      "request": {
+        "fields": [
+          {
+            "name": "inspection_id",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.inspection_id",
+            "attributeRef": "#/attributeCatalog/lotus.inspection_id"
+          },
+          {
+            "name": "subject_type",
+            "location": "body",
+            "required": true,
+            "type": "TWRInspectionSubjectType",
+            "semanticId": "lotus.subject_type",
+            "attributeRef": "#/attributeCatalog/lotus.subject_type"
+          },
+          {
+            "name": "subject_calculation_id",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.subject_calculation_id",
+            "attributeRef": "#/attributeCatalog/lotus.subject_calculation_id"
+          },
+          {
+            "name": "request",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.request",
+            "attributeRef": "#/attributeCatalog/lotus.request"
+          },
+          {
+            "name": "inspection_profile",
+            "location": "body",
+            "required": false,
+            "type": "TWRInspectionProfile",
+            "semanticId": "lotus.inspection_profile",
+            "attributeRef": "#/attributeCatalog/lotus.inspection_profile"
+          }
+        ]
+      },
+      "response": {
+        "fields": [
+          {
+            "name": "inspection_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.inspection_id",
+            "attributeRef": "#/attributeCatalog/lotus.inspection_id"
+          },
+          {
+            "name": "poll_path",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.poll_path",
+            "attributeRef": "#/attributeCatalog/lotus.poll_path"
+          },
+          {
+            "name": "result_path",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.result_path",
+            "attributeRef": "#/attributeCatalog/lotus.result_path"
+          }
+        ]
+      }
+    },
+    {
+      "domain": "performance",
+      "method": "GET",
+      "path": "/performance/inspections/{inspection_id}",
+      "operationId": "get_twr_inspection_performance_inspections__inspection_id__get",
+      "summary": "Retrieve durable TWR inspection status or result",
+      "request": {
+        "fields": [
+          {
+            "name": "inspection_id",
+            "location": "path",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.inspection_id",
+            "attributeRef": "#/attributeCatalog/lotus.inspection_id"
+          }
+        ]
+      },
+      "response": {
+        "fields": []
+      }
+    },
+    {
+      "domain": "performance",
+      "method": "GET",
+      "path": "/performance/inspections/{inspection_id}/artifacts/{artifact_name}",
+      "operationId": "get_twr_inspection_artifact_performance_inspections__inspection_id__artifacts__artifact_name__get",
+      "summary": "Download a TWR inspection evidence artifact",
+      "request": {
+        "fields": [
+          {
+            "name": "inspection_id",
+            "location": "path",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.inspection_id",
+            "attributeRef": "#/attributeCatalog/lotus.inspection_id"
+          },
+          {
+            "name": "artifact_name",
+            "location": "path",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.artifact_name",
+            "attributeRef": "#/attributeCatalog/lotus.artifact_name"
+          }
+        ]
+      },
+      "response": {
+        "fields": []
+      }
+    },
+    {
+      "domain": "performance",
       "method": "GET",
       "path": "/performance/lineage/{calculation_id}",
       "operationId": "get_lineage_data_performance_lineage__calculation_id__get",
-      "summary": "Retrieve Data Lineage Artifacts",
+      "summary": "Retrieve lineage artifact inventory",
       "request": {
         "fields": [
           {
@@ -9157,6 +9636,36 @@
             "attributeRef": "#/attributeCatalog/lotus.error_message"
           }
         ]
+      }
+    },
+    {
+      "domain": "performance",
+      "method": "GET",
+      "path": "/performance/lineage/{calculation_id}/artifacts/{artifact_name}",
+      "operationId": "lineage_artifact_file_performance_lineage__calculation_id__artifacts__artifact_name__get",
+      "summary": "Download one lineage artifact",
+      "request": {
+        "fields": [
+          {
+            "name": "calculation_id",
+            "location": "path",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.calculation_id",
+            "attributeRef": "#/attributeCatalog/lotus.calculation_id"
+          },
+          {
+            "name": "artifact_name",
+            "location": "path",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.artifact_name",
+            "attributeRef": "#/attributeCatalog/lotus.artifact_name"
+          }
+        ]
+      },
+      "response": {
+        "fields": []
       }
     },
     {
@@ -13411,7 +13920,32 @@
         "fields": []
       },
       "response": {
-        "fields": []
+        "fields": [
+          {
+            "name": "status",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.status",
+            "attributeRef": "#/attributeCatalog/lotus.status"
+          },
+          {
+            "name": "reason",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.reason",
+            "attributeRef": "#/attributeCatalog/lotus.reason"
+          },
+          {
+            "name": "remediation_hint",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.remediation_hint",
+            "attributeRef": "#/attributeCatalog/lotus.remediation_hint"
+          }
+        ]
       }
     },
     {
@@ -13424,7 +13958,32 @@
         "fields": []
       },
       "response": {
-        "fields": []
+        "fields": [
+          {
+            "name": "status",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.status",
+            "attributeRef": "#/attributeCatalog/lotus.status"
+          },
+          {
+            "name": "reason",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.reason",
+            "attributeRef": "#/attributeCatalog/lotus.reason"
+          },
+          {
+            "name": "remediation_hint",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.remediation_hint",
+            "attributeRef": "#/attributeCatalog/lotus.remediation_hint"
+          }
+        ]
       }
     },
     {
@@ -13437,7 +13996,32 @@
         "fields": []
       },
       "response": {
-        "fields": []
+        "fields": [
+          {
+            "name": "status",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.status",
+            "attributeRef": "#/attributeCatalog/lotus.status"
+          },
+          {
+            "name": "reason",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.reason",
+            "attributeRef": "#/attributeCatalog/lotus.reason"
+          },
+          {
+            "name": "remediation_hint",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.remediation_hint",
+            "attributeRef": "#/attributeCatalog/lotus.remediation_hint"
+          }
+        ]
       }
     },
     {
@@ -13445,12 +14029,21 @@
       "method": "GET",
       "path": "/",
       "operationId": "root__get",
-      "summary": "Root",
+      "summary": "Service entry",
       "request": {
         "fields": []
       },
       "response": {
-        "fields": []
+        "fields": [
+          {
+            "name": "message",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.message",
+            "attributeRef": "#/attributeCatalog/lotus.message"
+          }
+        ]
       }
     }
   ]

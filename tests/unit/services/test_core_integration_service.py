@@ -48,7 +48,7 @@ def _patch_async_client(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_portfolio_analytics_timeseries_posts_contract_payload():
-    service = CoreIntegrationService(base_url="http://core", timeout_seconds=2.0)
+    service = CoreIntegrationService(base_url="http://core-control", timeout_seconds=2.0)
     _FakeAsyncClient.queue_json(200, {"observations": []})
 
     status_code, payload = await service.get_portfolio_analytics_timeseries(
@@ -63,7 +63,8 @@ async def test_get_portfolio_analytics_timeseries_posts_contract_payload():
     assert status_code == 200
     assert payload["observations"] == []
     assert (
-        _FakeAsyncClient.calls[0]["url"] == "http://core/integration/portfolios/PORT-1/analytics/portfolio-timeseries"
+        _FakeAsyncClient.calls[0]["url"]
+        == "http://core-control/integration/portfolios/PORT-1/analytics/portfolio-timeseries"
     )
     assert _FakeAsyncClient.calls[0]["json"]["window"]["start_date"] == "2026-01-01"
     assert _FakeAsyncClient.calls[0]["json"]["window"]["end_date"] == "2026-02-24"
@@ -72,7 +73,7 @@ async def test_get_portfolio_analytics_timeseries_posts_contract_payload():
 
 @pytest.mark.asyncio
 async def test_get_benchmark_assignment_posts_contract_payload():
-    service = CoreIntegrationService(base_url="http://core", timeout_seconds=2.0)
+    service = CoreIntegrationService(base_url="http://core-control", timeout_seconds=2.0)
     _FakeAsyncClient.queue_json(200, {"benchmark_id": "BMK_1"})
 
     status_code, payload = await service.get_benchmark_assignment(
@@ -83,13 +84,13 @@ async def test_get_benchmark_assignment_posts_contract_payload():
 
     assert status_code == 200
     assert payload["benchmark_id"] == "BMK_1"
-    assert _FakeAsyncClient.calls[0]["url"] == "http://core/integration/portfolios/PORT-5/benchmark-assignment"
+    assert _FakeAsyncClient.calls[0]["url"] == "http://core-control/integration/portfolios/PORT-5/benchmark-assignment"
     assert _FakeAsyncClient.calls[0]["json"]["reporting_currency"] == "USD"
 
 
 @pytest.mark.asyncio
 async def test_get_portfolio_analytics_reference_posts_contract_payload():
-    service = CoreIntegrationService(base_url="http://core", timeout_seconds=2.0)
+    service = CoreIntegrationService(base_url="http://core-control", timeout_seconds=2.0)
     _FakeAsyncClient.queue_json(200, {"portfolio_open_date": "2024-01-01"})
 
     status_code, payload = await service.get_portfolio_analytics_reference(
@@ -99,7 +100,7 @@ async def test_get_portfolio_analytics_reference_posts_contract_payload():
 
     assert status_code == 200
     assert payload["portfolio_open_date"] == "2024-01-01"
-    assert _FakeAsyncClient.calls[0]["url"] == "http://core/integration/portfolios/PORT-REF/analytics/reference"
+    assert _FakeAsyncClient.calls[0]["url"] == "http://core-control/integration/portfolios/PORT-REF/analytics/reference"
     assert _FakeAsyncClient.calls[0]["json"] == {"as_of_date": "2026-02-24"}
 
 
@@ -122,7 +123,7 @@ async def test_get_benchmark_return_series_posts_contract_payload():
 
 @pytest.mark.asyncio
 async def test_get_position_analytics_timeseries_posts_contract_payload():
-    service = CoreIntegrationService(base_url="http://core", timeout_seconds=2.0)
+    service = CoreIntegrationService(base_url="http://core-control", timeout_seconds=2.0)
     _FakeAsyncClient.queue_json(200, {"rows": []})
 
     status_code, payload = await service.get_position_analytics_timeseries(
@@ -141,7 +142,10 @@ async def test_get_position_analytics_timeseries_posts_contract_payload():
 
     assert status_code == 200
     assert payload["rows"] == []
-    assert _FakeAsyncClient.calls[0]["url"] == "http://core/integration/portfolios/PORT-6/analytics/position-timeseries"
+    assert (
+        _FakeAsyncClient.calls[0]["url"]
+        == "http://core-control/integration/portfolios/PORT-6/analytics/position-timeseries"
+    )
     assert _FakeAsyncClient.calls[0]["json"]["dimensions"] == ["sector"]
     assert _FakeAsyncClient.calls[0]["json"]["include_cash_flows"] is False
     assert _FakeAsyncClient.calls[0]["json"]["filters"] == {"security_ids": ["SEC_1"]}

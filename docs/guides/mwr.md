@@ -32,6 +32,15 @@ and normalizes them into canonical MWR inputs:
 - `cash_flows`
 - authoritative `start_date`
 
+Stateful normalization includes explicit external source cash flows and cross-observation capital
+carry-forward adjustments where a valid observation's beginning market value does not equal the
+prior valid observation's ending market value. Operational fees remain performance drag; they are
+not treated as investor deposits or withdrawals in the MWR cash-flow schedule. This is necessary
+because MWR is a capital-timing measure: a large unexplained capital-base jump must be treated as
+dated client capital movement for the period calculation rather than as investment performance. The
+TWR inspector remains the support tool for diagnosing whether those adjustments are expected source
+behavior or upstream data-quality issues.
+
 Optional controls include:
 
 - `start_date`
@@ -101,6 +110,10 @@ The response contains:
 - `diagnostics`
 - `audit`
 
+When `emit_cashflows_used=true`, which is the default, the response also includes `cashflows_used`
+so support, front office, and downstream clients can see the exact signed flow schedule used by the
+calculation.
+
 ## Multi-currency note
 
 MWR is not decomposed into local and FX components on the current public contract. Callers should
@@ -137,6 +150,10 @@ submit `begin_mv`, `end_mv`, and `cash_flows` in one consistent reporting curren
   "mwr_annualized": 11.723,
   "method": "XIRR",
   "convergence": { "converged": true },
+  "cashflows_used": [
+    { "amount": 10000.0, "date": "2025-03-15" },
+    { "amount": -5000.0, "date": "2025-09-20" }
+  ],
   "start_date": "2025-03-15",
   "end_date": "2025-12-31",
   "notes": ["XIRR calculation successful."],

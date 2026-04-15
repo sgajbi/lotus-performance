@@ -50,6 +50,28 @@ def test_integration_capabilities_default_contract():
     assert surfaces["twr"]["supports_async"] is True
     assert surfaces["twr"]["poll_path_template"] == "/performance/executions/{calculation_id}"
     assert surfaces["twr"]["result_path_template"] == "/performance/twr/results/{calculation_id}"
+    assert surfaces["twr_inspection"]["path"] == "/performance/inspections/twr"
+    assert surfaces["twr_inspection"]["supported_input_modes"] == []
+    assert surfaces["twr_inspection"]["supports_async"] is True
+    assert surfaces["twr_inspection"]["poll_path_template"] == "/performance/executions/{calculation_id}"
+    assert surfaces["twr_inspection"]["result_path_template"] == "/performance/inspections/{inspection_id}"
+    inspection_options = {item["key"]: item for item in surfaces["twr_inspection"]["options"]}
+    assert inspection_options["subject_type"]["supported_values"] == ["twr_calculation", "twr_request"]
+    assert inspection_options["inspection_profile"]["supported_values"] == [
+        "support_triage",
+        "canonical_validation",
+        "deep_reconciliation",
+    ]
+    inspection_notes = " ".join(surfaces["twr_inspection"]["contract_notes"])
+    assert "source_quality_summary.json" in inspection_notes
+    assert "reconciliation_summary.json" in inspection_notes
+    assert "source_economics_summary.json" in inspection_notes
+    assert "external cash-flow classification" in inspection_notes
+    assert "normalization mismatches" in inspection_notes
+    assert "positive fee sign anomalies" in inspection_notes
+    assert "fee or external source-total mismatches" in inspection_notes
+    assert "external timing-bucket contradictions" in inspection_notes
+    assert "non-canonical cash_flow_type labels" in inspection_notes
     assert surfaces["benchmark"]["path"] == "/performance/benchmark"
     assert surfaces["benchmark"]["supported_input_modes"] == ["stateful", "stateless"]
     assert surfaces["benchmark"]["supports_async"] is True
@@ -98,6 +120,7 @@ def test_integration_capabilities_default_contract():
     assert "pa.analytics.benchmark" in features
     assert "pa.integration.benchmark_exposure_context" in features
     assert "pa.analytics.workspace_summary" in features
+    assert "pa.support.twr_inspection" in features
     assert "pa.execution.stateful" in features
     assert "pa.execution.stateless" in features
     assert response.headers.get("X-Correlation-Id")
@@ -122,6 +145,11 @@ def test_integration_capabilities_env_override(monkeypatch):
     assert features["pa.analytics.attribution"] is False
     assert body["supported_input_modes"] == ["stateful"]
     assert surfaces["twr"]["supported_input_modes"] == ["stateful"]
+    assert surfaces["twr_inspection"]["supported_input_modes"] == []
+    assert {item["key"] for item in surfaces["twr_inspection"]["options"]} == {
+        "subject_type",
+        "inspection_profile",
+    }
     assert surfaces["attribution"]["enabled"] is False
     assert surfaces["attribution"]["stateful_restrictions"] == []
     assert surfaces["workspace_summary"]["enabled"] is True
@@ -134,6 +162,16 @@ def test_integration_capabilities_env_override(monkeypatch):
     assert {item["key"] for item in surfaces["workspace_summary"]["options"]} == {"benchmark_mode"}
 
 
+def test_integration_capabilities_honors_canonical_query_controls():
+    with TestClient(app) as client:
+        response = client.get("/integration/capabilities?consumer_system=lotus-risk&tenant_id=tenant-risk")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["consumer_system"] == "lotus-risk"
+    assert body["tenant_id"] == "tenant-risk"
+
+
 def test_integration_capabilities_limit_guardrails():
     with TestClient(app) as client:
         response = client.get(
@@ -144,6 +182,37 @@ def test_integration_capabilities_limit_guardrails():
     body = response.json()
     assert len(body["features"]) == 2
     assert len(body["workflows"]) == 1
+
+
+def test_integration_capabilities_advertises_every_supported_surface():
+    with TestClient(app) as client:
+        response = client.get("/integration/capabilities?consumer_system=lotus-gateway&tenant_id=default")
+
+    assert response.status_code == 200
+    surfaces = {item["key"]: item for item in response.json()["analytics_surfaces"]}
+    assert set(surfaces) == {
+        "twr",
+        "twr_inspection",
+        "mwr",
+        "benchmark",
+        "workspace_summary",
+        "contribution",
+        "attribution",
+        "returns_series",
+        "benchmark_exposure_context",
+    }
+    assert surfaces["mwr"]["supports_async"] is False
+    for key in {
+        "twr",
+        "benchmark",
+        "workspace_summary",
+        "contribution",
+        "attribution",
+        "returns_series",
+    }:
+        assert surfaces[key]["supports_async"] is True
+        assert surfaces[key]["poll_path_template"] == "/performance/executions/{calculation_id}"
+        assert surfaces[key]["result_path_template"]
 
 
 def test_health_and_metrics_endpoints_available(client):

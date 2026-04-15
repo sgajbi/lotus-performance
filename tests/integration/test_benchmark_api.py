@@ -93,14 +93,65 @@ def test_calculate_benchmark_endpoint_supports_stateless_calculated_mode(client)
     itd = body["results_by_period"]["ITD"]
     assert body["input_mode"] == "stateless"
     assert body["return_source"] == "calculated"
+    assert body["benchmark_id"] == "BMK_STATELESS_1"
+    assert body["benchmark_currency"] == "USD"
     assert itd["benchmark"]["summary"]["period_return"]["base"] == pytest.approx(2.4128)
+    assert itd["benchmark"]["summary"]["period_return"]["local"] == pytest.approx(1.98884)
+    assert itd["benchmark"]["summary"]["period_return"]["fx"] == pytest.approx(0.41496598636383464)
     assert itd["benchmark"]["summary"]["cumulative_return"]["base"] == pytest.approx(2.4128)
+    assert itd["benchmark"]["benchmark_id"] == "BMK_STATELESS_1"
+    assert itd["benchmark"]["benchmark_currency"] == "USD"
+    assert itd["benchmark"]["input_mode"] == "stateless"
+    assert itd["benchmark"]["return_source"] == "calculated"
+    assert itd["benchmark"]["breakdowns"]["daily"][0]["period_return"] == pytest.approx(
+        {"base": 1.6, "local": 1.3, "fx": 0.29556650244}
+    )
+    assert itd["benchmark"]["breakdowns"]["daily"][1]["period_return"] == pytest.approx(
+        {"base": 0.8, "local": 0.68, "fx": 0.11904761904}
+    )
     assert itd["benchmark"]["breakdowns"]["daily"][1]["cumulative_return"]["base"] == pytest.approx(2.4128)
     assert itd["benchmark"]["breakdowns"]["monthly"][0]["period_return"]["base"] == pytest.approx(2.4128)
     assert len(itd["daily_returns"]) == 2
     assert len(itd["component_contributions"]) == 4
+    assert itd["daily_returns"][0]["date"] == "2026-01-02"
+    assert itd["daily_returns"][0]["benchmark_return"] == pytest.approx(1.6)
+    assert itd["daily_returns"][0]["cumulative_return"] == pytest.approx(1.6)
     assert itd["daily_returns"][0]["benchmark_return_local"] == pytest.approx(1.3)
     assert itd["daily_returns"][0]["benchmark_return_fx"] == pytest.approx(0.29556650244)
+    assert itd["daily_returns"][1]["date"] == "2026-01-03"
+    assert itd["daily_returns"][1]["benchmark_return"] == pytest.approx(0.8)
+    assert itd["daily_returns"][1]["cumulative_return"] == pytest.approx(2.4128)
+    assert itd["daily_returns"][1]["benchmark_return_local"] == pytest.approx(0.68)
+    assert itd["daily_returns"][1]["benchmark_return_fx"] == pytest.approx(0.11904761904)
+    first_component = itd["component_contributions"][0]
+    assert first_component["date"] == "2026-01-02"
+    assert first_component["component_id"] == "IDX_A"
+    assert first_component["weight_bop"] == pytest.approx(0.6)
+    assert first_component["component_return"] == pytest.approx(2.0)
+    assert first_component["component_return_local"] == pytest.approx(1.5)
+    assert first_component["component_return_fx"] == pytest.approx(0.4926108374)
+    assert first_component["contribution"] == pytest.approx(1.2)
+    assert first_component["local_contribution"] == pytest.approx(0.9)
+    assert first_component["fx_contribution"] == pytest.approx(0.29556650244)
+    assert body["meta"]["calculation_id"] == body["calculation_id"]
+    assert body["meta"]["periods"]["requested"] == ["ITD"]
+    assert body["meta"]["periods"]["master_start"] == "2026-01-02"
+    assert body["meta"]["periods"]["master_end"] == "2026-01-03"
+    assert body["meta"]["report_ccy"] == "USD"
+    assert body["meta"]["input_fingerprint"].startswith("sha256:")
+    assert body["meta"]["calculation_hash"].startswith("sha256:")
+    assert body["diagnostics"] == {
+        "nip_days": 0,
+        "reset_days": 0,
+        "effective_period_start": "2026-01-02",
+        "notes": [],
+    }
+    assert body["audit"]["counts"] == {
+        "component_observations": 4,
+        "benchmark_return_points": 0,
+        "daily_returns": 2,
+    }
+    assert body["audit"]["residual_applied_bp"] == pytest.approx(0.0)
 
 
 def test_calculate_benchmark_endpoint_supports_stateless_component_price_points(client):

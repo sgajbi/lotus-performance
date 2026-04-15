@@ -7,12 +7,14 @@
 - time-weighted return (`POST /performance/twr`)
 - benchmark performance (`POST /performance/benchmark`)
 - money-weighted return (`POST /performance/mwr`)
+- front-office workspace summary (`POST /performance/workspace-summary`)
 - contribution (`POST /performance/contribution`)
 - attribution (`POST /performance/attribution`)
 - canonical returns-series integration (`POST /integration/returns/series`)
+- benchmark exposure context (`POST /integration/benchmarks/exposure-context`)
 
 It also owns durable execution lifecycle tracking, async compute offload for heavier workloads,
-lineage artifact capture, and execution/result polling surfaces.
+lineage artifact capture, TWR inspection/supportability triage, and execution/result polling surfaces.
 
 ## Runtime model
 
@@ -27,6 +29,30 @@ Source-of-truth runtime docs:
 
 - [technical/architecture.md](docs/technical/architecture.md)
 - [technical/runtime_topology.md](docs/technical/runtime_topology.md)
+- [technical/RFC-0082-upstream-contract-family-map.md](docs/technical/RFC-0082-upstream-contract-family-map.md)
+- [technical/RFC-0082-retrieval-performance-hardening.md](docs/technical/RFC-0082-retrieval-performance-hardening.md)
+- [technical/execution-polling-endpoint-certification.md](docs/technical/execution-polling-endpoint-certification.md)
+- [technical/integration-capabilities-endpoint-certification.md](docs/technical/integration-capabilities-endpoint-certification.md)
+- [technical/lineage-endpoint-certification.md](docs/technical/lineage-endpoint-certification.md)
+- [technical/platform-surfaces-endpoint-certification.md](docs/technical/platform-surfaces-endpoint-certification.md)
+- [technical/recovery-drills-endpoint-certification.md](docs/technical/recovery-drills-endpoint-certification.md)
+- [technical/runtime-recoveries-endpoint-certification.md](docs/technical/runtime-recoveries-endpoint-certification.md)
+- [technical/runtime-retention-endpoint-certification.md](docs/technical/runtime-retention-endpoint-certification.md)
+- [technical/runtime-status-endpoint-certification.md](docs/technical/runtime-status-endpoint-certification.md)
+- [technical/runtime-work-items-endpoint-certification.md](docs/technical/runtime-work-items-endpoint-certification.md)
+- [technical/twr-inspection-endpoint-certification.md](docs/technical/twr-inspection-endpoint-certification.md)
+
+Canonical stateful TWR inspection can be validated locally with:
+
+```bash
+python scripts/validate_canonical_twr_inspection.py \
+  --performance-base-url http://127.0.0.1:8002 \
+  --core-control-plane-base-url http://127.0.0.1:8202
+```
+
+This probes the lotus-core query-control-plane analytics-input POST routes, runs stateful TWR for
+`PB_SG_GLOBAL_BAL_001` as of `2026-04-10`, and verifies the RFC-045 inspection evidence has no
+source-economics or reconciliation regressions.
 
 ## Key contracts
 
@@ -46,7 +72,9 @@ Async-capable endpoints follow one common pattern:
 Current endpoint-specific async result routes include:
 
 - `/performance/twr/results/{calculation_id}`
+- `/performance/inspections/{inspection_id}`
 - `/performance/benchmark/results/{calculation_id}`
+- `/performance/workspace-summary/results/{calculation_id}`
 - `/integration/returns/series/results/{calculation_id}`
 - `/performance/contribution/results/{calculation_id}`
 - `/performance/attribution/results/{calculation_id}`
@@ -107,7 +135,13 @@ The public request contract is analysis-based. Older examples using `period_type
 - stateful:
   - `stateful_input.window_start_date`
   - lotus-performance stamps source consumer identity server-side
-  - lotus-core portfolio timeseries are normalized into canonical MWR inputs inside lotus-performance
+  - lotus-core query-control-plane portfolio timeseries are normalized into canonical MWR inputs inside lotus-performance
+  - explicit external cash flows and cross-observation capital carry-forward adjustments are included
+    in the MWR cash-flow schedule
+  - operational fees remain performance drag and are not treated as investor deposits or withdrawals
+
+Use MWR when the business question is the client's capital-timing return. Use TWR when the question
+is manager or strategy performance independent of deposits and withdrawals.
 
 ### Benchmark
 
@@ -132,6 +166,8 @@ The public request contract is analysis-based. Older examples using `period_type
   - benchmark definition, component price series, and FX inputs sourced from lotus-core
   - calculated mode supports multi-segment rebalance windows through the lotus-core composition-window contract
 
+See [Benchmark Endpoint Certification](docs/technical/benchmark-endpoint-certification.md).
+
 ### Contribution
 
 `POST /performance/contribution` uses:
@@ -154,6 +190,9 @@ The public request contract is analysis-based. Older examples using `period_type
   - lotus-core portfolio and position timeseries are normalized into canonical contribution inputs inside lotus-performance
 
 Large position sets and long-window stateful contribution requests can be executor-offloaded and return `202 Accepted`.
+Contribution output is certified to keep period totals, position rows, optional daily series, optional
+by-position series, and optional hierarchy levels reconciled to the same period contribution figure.
+See [Contribution Endpoint Certification](docs/technical/contribution-endpoint-certification.md).
 
 ### Attribution
 
@@ -178,6 +217,34 @@ Large position sets and long-window stateful contribution requests can be execut
   - when a benchmark is resolved, the response also emits top-level `benchmark_context`
 
 Large input sets and long-window stateful attribution requests can be executor-offloaded and return `202 Accepted`.
+Attribution level outputs expose authoritative totals as both a nested `totals` block and explicit
+`allocation_total_pct`, `selection_total_pct`, `interaction_total_pct`, and `total_effect_pct`
+fields. Downstream systems should use those level totals for footers and summary-only views rather
+than summing the currently visible group rows.
+See [Attribution Endpoint Certification](docs/technical/attribution-endpoint-certification.md).
+
+### Workspace summary
+
+`POST /performance/workspace-summary` is the strategic, interaction-efficient surface for
+front-office performance workspaces that need multi-horizon TWR, benchmark, active, and MWR summary
+blocks in one coherent response. It is certified as a bounded summary endpoint, not a replacement
+for contribution or attribution drill-downs.
+
+New stateless callers should use `stateless_input.valuation_points`; the top-level
+`valuation_points` field remains deprecated compatibility input. See
+[Workspace Summary Endpoint Certification](docs/technical/workspace-summary-endpoint-certification.md).
+
+### Benchmark exposure context
+
+`POST /integration/benchmarks/exposure-context` serves the performance-aligned benchmark exposure
+history used by `lotus-risk` stateful active-risk attribution. It is a derived lineage-backed view:
+lotus-core remains the benchmark composition and classification system of record, while
+lotus-performance keeps benchmark exposure history aligned with benchmark return context.
+
+The v1 contract supports `POSITION`, `SECTOR`, and `ASSET_CLASS` grouping dimensions at
+`frequency=DAILY`; `ISSUER` remains gated until issuer benchmark exposure semantics are approved.
+See
+[Benchmark Exposure Context Endpoint Certification](docs/technical/benchmark-exposure-context-endpoint-certification.md).
 
 ### Returns series integration
 
@@ -197,6 +264,13 @@ Large input sets and long-window stateful attribution requests can be executor-o
 - stateful input uses a lightweight `stateful_input` envelope and stamps source consumer identity server-side
 - `benchmark.return_source="vendor_series"` is an explicit stateful-only override for lotus-core benchmark return-series retrieval
 - sync or async execution depending on workload shape
+
+`series.*_returns` values are decimal ratios, not percentages. `active_returns` are pointwise
+portfolio-minus-benchmark excess returns, while `cumulative_active_returns` is cumulative portfolio
+return minus cumulative benchmark return. Stateful risk-free points that arrive from core as
+annualized rates are normalized into period returns before response emission. Daily BUSINESS and
+MARKET calendar policies filter output to weekdays before coverage diagnostics. See
+[Returns-Series Endpoint Certification](docs/technical/returns-series-endpoint-certification.md).
 
 ## Setup
 
@@ -227,8 +301,12 @@ Important compose defaults:
 
 - API container listens on `8000` internally
 - local platform access should still use the canonical ingress identity above
-- stateful integration resolves lotus-core query-control-plane through `CORE_QUERY_BASE_URL`
-- RFC-0071 local ingress default for `CORE_QUERY_BASE_URL` is `http://core-query.dev.lotus`
+- stateful integration resolves lotus-core query-control-plane through `CORE_CONTROL_PLANE_BASE_URL`
+- current local ingress default for `CORE_CONTROL_PLANE_BASE_URL` is `http://core-control.dev.lotus`
+- local host-port base URL for `CORE_CONTROL_PLANE_BASE_URL` is `http://127.0.0.1:8202`
+- Docker-to-host base URL for `CORE_CONTROL_PLANE_BASE_URL` is `http://host.docker.internal:8202`
+- platform-stack internal default for `CORE_CONTROL_PLANE_BASE_URL` is `http://lotus-core-control:8002`
+- `CORE_QUERY_BASE_URL` remains a deprecated compatibility fallback when `CORE_CONTROL_PLANE_BASE_URL` is unset
 - runtime threshold profile overrides can be layered with:
   - `docker compose -f docker-compose.yml -f docs/examples/docker-compose.runtime-thresholds.production.yml up`
 - optional scheduled runtime-retention automation can be enabled with the ops profile:
@@ -265,7 +343,12 @@ make test-all
 ## Documentation map
 
 - [guides/twr.md](docs/guides/twr.md)
+- [technical/twr-endpoint-certification.md](docs/technical/twr-endpoint-certification.md)
 - [guides/mwr.md](docs/guides/mwr.md)
+- [technical/mwr-endpoint-certification.md](docs/technical/mwr-endpoint-certification.md)
+- [technical/twr-mwr-response-attribute-certification.md](docs/technical/twr-mwr-response-attribute-certification.md)
+- [guides/benchmark.md](docs/guides/benchmark.md)
+- [technical/benchmark-endpoint-certification.md](docs/technical/benchmark-endpoint-certification.md)
 - [guides/contribution.md](docs/guides/contribution.md)
 - [guides/attribution.md](docs/guides/attribution.md)
 - [guides/complete_service_reference.md](docs/guides/complete_service_reference.md)

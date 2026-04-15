@@ -321,6 +321,7 @@ def test_contribution_endpoint_hierarchy_keeps_position_contribution_detail(clie
         "report_end_date": "2025-01-01",
         "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
         "hierarchy": ["sector"],
+        "emit": {"timeseries": True, "by_position_timeseries": True, "by_level": True},
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1020}],
@@ -347,6 +348,16 @@ def test_contribution_endpoint_hierarchy_keeps_position_contribution_detail(clie
 
     assert result["total_portfolio_return"] == pytest.approx(2.0)
     assert result["total_contribution"] == pytest.approx(2.0)
+    assert result["summary"]["portfolio_contribution"] == pytest.approx(result["total_contribution"])
+    assert sum(row["contribution"] for row in result["levels"][0]["rows"]) == pytest.approx(
+        result["total_contribution"]
+    )
+    assert sum(point["total_contribution"] for point in result["timeseries"]) == pytest.approx(
+        result["total_contribution"]
+    )
+    assert sum(
+        point["contribution"] for series in result["by_position_timeseries"] for point in series["series"]
+    ) == pytest.approx(result["total_contribution"])
     assert position_rows["Stock_A"]["average_weight"] == pytest.approx(60.0)
     assert position_rows["Stock_A"]["total_return"] == pytest.approx(2.0)
     assert (
@@ -397,6 +408,104 @@ def test_contribution_endpoint_hierarchy_respects_multiple_resolved_periods(clie
     assert set(results) == {"MTD", "YTD"}
     assert results["MTD"]["summary"]["portfolio_contribution"] == pytest.approx(2.0, abs=1e-5)
     assert results["YTD"]["summary"]["portfolio_contribution"] == pytest.approx(3.02, abs=1e-5)
+
+
+def test_contribution_hierarchy_level_rows_reconcile_after_position_residual_allocation(client):
+    payload = {
+        "portfolio_id": "HIER_RECONCILES_WITH_RESIDUAL",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "hierarchy": ["sector"],
+        "emit": {"timeseries": True, "by_position_timeseries": True, "by_level": True},
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1030.2},
+            ],
+        },
+        "positions_data": [
+            {
+                "position_id": "Stock_A",
+                "meta": {"sector": "Technology"},
+                "valuation_points": [
+                    {"perf_date": "2025-01-01", "begin_mv": 600, "end_mv": 606},
+                    {"perf_date": "2025-01-02", "begin_mv": 606, "end_mv": 618.12},
+                ],
+            },
+            {
+                "position_id": "Stock_B",
+                "meta": {"sector": "Healthcare"},
+                "valuation_points": [
+                    {"perf_date": "2025-01-01", "begin_mv": 400, "end_mv": 404},
+                    {"perf_date": "2025-01-02", "begin_mv": 404, "end_mv": 412.08},
+                ],
+            },
+        ],
+    }
+
+    response = client.post("/performance/contribution", json=payload)
+
+    assert response.status_code == 200
+    result = response.json()["results_by_period"]["ITD"]
+    position_total = sum(row["total_contribution"] for row in result["position_contributions"])
+    level_total = sum(row["contribution"] for row in result["levels"][0]["rows"])
+    level_weight_total = sum(row["weight_avg"] for row in result["levels"][0]["rows"])
+    daily_total = sum(point["total_contribution"] for point in result["timeseries"])
+    by_position_daily_total = sum(
+        point["contribution"] for series in result["by_position_timeseries"] for point in series["series"]
+    )
+
+    assert result["total_contribution"] == pytest.approx(result["total_portfolio_return"])
+    assert result["summary"]["portfolio_contribution"] == pytest.approx(result["total_contribution"])
+    assert position_total == pytest.approx(result["total_contribution"])
+    assert level_total == pytest.approx(result["total_contribution"])
+    assert level_weight_total == pytest.approx(100.0)
+    assert daily_total == pytest.approx(result["total_contribution"])
+    assert by_position_daily_total == pytest.approx(result["total_contribution"])
+
+
+def test_contribution_hierarchy_top_n_rolls_excluded_rows_into_other(client):
+    payload = {
+        "portfolio_id": "HIER_TOP_N_OTHER",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "hierarchy": ["sector"],
+        "emit": {"by_level": True, "top_n_per_level": 2, "threshold_weight": 0, "include_other": True},
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1020}],
+        },
+        "positions_data": [
+            {
+                "position_id": "Large",
+                "meta": {"sector": "Large"},
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 700, "end_mv": 714}],
+            },
+            {
+                "position_id": "Medium",
+                "meta": {"sector": "Medium"},
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 200, "end_mv": 204}],
+            },
+            {
+                "position_id": "Small",
+                "meta": {"sector": "Small"},
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 100, "end_mv": 102}],
+            },
+        ],
+    }
+
+    response = client.post("/performance/contribution", json=payload)
+
+    assert response.status_code == 200
+    rows = response.json()["results_by_period"]["ITD"]["levels"][0]["rows"]
+    assert len(rows) == 3
+    assert rows[-1]["is_other"] is True
+    assert rows[-1]["children_count"] == 1
+    assert sum(row["contribution"] for row in rows) == pytest.approx(2.0)
+    assert sum(row["weight_avg"] for row in rows) == pytest.approx(100.0)
 
 
 def test_contribution_endpoint_error_handling(client, mocker):

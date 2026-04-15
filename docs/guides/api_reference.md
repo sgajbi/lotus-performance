@@ -24,7 +24,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - `calculation_id` is caller-optional; when omitted, lotus-performance generates one and returns it in the response
   - existing stateless callers can continue sending top-level `valuation_points`
   - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
-  - stateful mode sources portfolio timeseries from lotus-core query-control-plane and normalizes them into canonical valuation points before engine execution
+  - stateful mode sources portfolio timeseries from lotus-core query-control-plane via `CORE_CONTROL_PLANE_BASE_URL` and normalizes them into canonical valuation points before engine execution
   - `include_benchmark=true` is the canonical switch for returning benchmark performance alongside portfolio TWR
   - the nested `benchmark` object is optional configuration; it can supply `benchmark_id`, `input_mode`, and `return_source`
   - when `include_benchmark=true`, explicit `benchmark.benchmark_id` overrides lotus-core assignment lookup; otherwise stateful mode can source the portfolio-to-benchmark mapping from lotus-core
@@ -38,6 +38,81 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - completed: `app.models.responses.PerformanceResponse`
   - still running: `app.models.responses.TWRAcceptedResponse`
 
+### `GET /performance/executions/{calculation_id}`
+
+- purpose: poll durable execution lifecycle state for async and synchronous calculations
+- response model: `app.models.execution_polling.ExecutionResponse`
+- use this endpoint when:
+  - an analytics endpoint returns `202 Accepted` with a `poll_path`
+  - support needs to inspect stage progress, retry state, terminal failure details, or upstream snapshot lineage
+  - downstream clients need to decide whether to continue polling or call the endpoint-specific `result_path`
+- do not use this endpoint as the analytics result payload; call the endpoint-specific result route once `status=complete`
+- response includes:
+  - top-level `status`, `execution_mode`, `analytics_type`, `portfolio_id`, requested-window metadata, timestamps, and fingerprints
+  - `stages[]` for submission, retrieval, normalization, execution, and lineage materialization progress where applicable
+  - `upstream_snapshots[]` for stateful source provenance including upstream endpoint, source identifier, fingerprints, retrieval status, and paging metadata
+  - `compute_job` for async executor status, attempts, worker lease, retry, and failure-pressure metadata
+  - `async_result` for endpoint-specific result materialization status and terminal error details
+- downstream consumers:
+  - `lotus-risk` uses this endpoint when polling async returns-series integration results
+  - `lotus-gateway` currently handles synchronous analytics and accepted-payload replay behavior but does not directly poll this endpoint
+- certification evidence: `docs/technical/execution-polling-endpoint-certification.md`
+
+### `POST /performance/inspections/twr`
+
+- purpose: submit a durable supportability inspection for a TWR result or proposed TWR request
+- request model: `app.models.inspection_requests.TWRInspectionRequest`
+- response model: `app.models.inspection_responses.TWRInspectionAcceptedResponse`
+- execution mode: async only
+- use this endpoint when:
+  - a TWR number is mathematically available but source quality, source economics, reconciliation, or response arithmetic needs to be explained
+  - support or front office needs owner-routed findings and downloadable evidence artifacts
+  - canonical portfolio validation needs to prove no nonpositive capital-base days, reconciliation gaps, cash-flow timing contradictions, unsupported cash-flow labels, or extreme source-driven daily moves remain
+- do not use this endpoint to calculate TWR; use `POST /performance/twr` for the return result
+- supported subject modes:
+  - `subject_type=twr_calculation` inspects an existing durable TWR calculation and can run calculation-consistency, source-quality, reconciliation, and source-economics checks when lineage is available
+  - `subject_type=twr_request` inspects a proposed request payload and runs request-local source-quality and plausibility checks without mutating the normal TWR contract
+- supported inspection profiles:
+  - `support_triage`: default support workflow for explainability and owner routing
+  - `canonical_validation`: governed validation profile for canonical seeded portfolios such as `PB_SG_GLOBAL_BAL_001`
+  - `deep_reconciliation`: heavier profile for upstream state and economics escalation
+- async accepted responses return:
+  - `poll_path=/performance/executions/{inspection_id}`
+  - `result_path=/performance/inspections/{inspection_id}`
+
+### `GET /performance/inspections/{inspection_id}`
+
+- purpose: retrieve a durable TWR inspection result when complete, or the accepted envelope while queued or running
+- response model:
+  - completed: `app.models.inspection_responses.TWRInspectionResponse`
+  - still running: `app.models.inspection_responses.TWRInspectionAcceptedResponse`
+- response includes:
+  - `verdict`: `supportable`, `supportable_with_warnings`, `not_supportable`, or `inspection_failed`
+  - `findings[]`: stable finding code, severity, category, owning repository, explanation, recommendation, and structured evidence
+  - `owner_summary`: primary and secondary owning repositories inferred from findings
+  - `evidence_summary`: count and tie-out metrics from completed check families
+  - `check_coverage`: completed and pending check families, so absence of findings is not misread as universal coverage
+  - `related_lineage`: source TWR lineage pointer for existing-calculation inspections
+  - `artifacts`: downloadable evidence artifact paths
+
+### `GET /performance/inspections/{inspection_id}/artifacts/{artifact_name}`
+
+- purpose: download one completed TWR inspection evidence artifact
+- Swagger status: documented in `/docs` because the route is part of the supportability contract
+- supported artifact names:
+  - `inspection_summary.json`
+  - `findings.json`
+  - `source_quality_summary.json` when source-quality checks run
+  - `reconciliation_summary.json` when stateful reconciliation runs
+  - `source_economics_summary.json` when stateful source-economics checks run
+- error behavior:
+  - `404` when the inspection record is missing, incomplete, not a TWR inspection, or the artifact name is not recorded for that inspection
+  - `503` when durable metadata declares the artifact but the artifact content is missing from storage
+- support-facing check inventory lives in:
+  - `docs/guides/twr_inspection_checks.md`
+- certification evidence lives in:
+  - `docs/technical/twr-inspection-endpoint-certification.md`
+
 ### `POST /performance/mwr`
 
 - purpose: calculate money-weighted return
@@ -49,9 +124,13 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - `stateless`
   - `stateful`
 - contract note:
+  - use MWR for the investor capital-timing return lens; use TWR for manager or strategy performance independent of client deposits and withdrawals
   - existing stateless callers can continue sending top-level `begin_mv`, `end_mv`, and `cash_flows`
   - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
-  - stateful mode sources portfolio timeseries from lotus-core query-control-plane and normalizes them into canonical `begin_mv`, `end_mv`, `cash_flows`, and authoritative `start_date` before engine execution
+  - stateful mode sources portfolio timeseries from lotus-core query-control-plane via `CORE_CONTROL_PLANE_BASE_URL` and normalizes them into canonical `begin_mv`, `end_mv`, `cash_flows`, and authoritative `start_date` before engine execution
+  - stateful MWR includes explicit external source cash flows and cross-observation capital carry-forward adjustments in the MWR cash-flow schedule
+  - operational fees remain performance drag; they are not treated as investor deposits or withdrawals
+  - `emit_cashflows_used=true` returns the signed cash-flow schedule used by the calculation
   - lotus-performance stamps source consumer identity server-side for the stateful envelope
 
 ### `POST /performance/workspace-summary`
@@ -72,12 +151,16 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - stateful mode retrieves only the longest required portfolio window from lotus-core and preserves retrieval chunk counts in audit output
   - benchmark context remains explicit across stateless user-input and stateful lotus-core-linked modes
   - summary and breakdown blocks include beginning market value, ending market value, beginning-of-day cash flow, end-of-day cash flow, fees, net cash flow, and flow-adjusted end market value where those economics belong to the surface
+  - legacy top-level `valuation_points` remains deprecated compatibility input; new stateless callers should use `stateless_input.valuation_points`
+  - contribution and attribution drill-downs are intentionally not embedded in this endpoint; use `/performance/contribution` and `/performance/attribution` for those analytical details
   - async accepted responses return:
     - `poll_path=/performance/executions/{calculation_id}`
     - `result_path=/performance/workspace-summary/results/{calculation_id}`
   - canonical example payloads live in:
     - `docs/examples/workspace_summary_request.json`
     - `docs/examples/workspace_summary_stateful_detail_request.json`
+  - certification evidence lives in:
+    - `docs/technical/workspace-summary-endpoint-certification.md`
 
 **Canonical example: stateless workspace summary**
 
@@ -155,15 +238,27 @@ descriptions and examples are maintained in the generated OpenAPI contract.
               "ending_cash_flow": -5000.0,
               "fees": -350.0,
               "net_cash_flow": 20000.0,
-            "flow_adjusted_end_market_value": 1034100.0
+              "flow_adjusted_end_market_value": 1034100.0
+            },
+            "period_return": { "base": 3.41, "local": 3.18, "fx": 0.23 },
+            "cumulative_return": { "base": 3.41, "local": 3.18, "fx": 0.23 },
+            "annualized_return": { "base": 3.41, "local": 3.18, "fx": 0.23 }
           },
-          "period_return": { "base": 3.41, "local": 3.18, "fx": 0.23 },
-          "cumulative_return": { "base": 3.41, "local": 3.18, "fx": 0.23 },
-          "annualized_return": { "base": 3.41, "local": 3.18, "fx": 0.23 }
+          "breakdowns": {
+            "monthly": [
+              {
+                "period": "2026-03",
+                "period_start": "2026-03-01",
+                "period_end": "2026-03-31",
+                "period_return": { "base": 1.4, "local": 1.25, "fx": 0.15 },
+                "cumulative_return": { "base": 1.4, "local": 1.25, "fx": 0.15 },
+                "annualized_return": { "base": 1.4, "local": 1.25, "fx": 0.15 }
+              }
+            ]
+          }
         }
-      }
-    },
-    "benchmark": {
+      },
+      "benchmark": {
       "benchmark_id": "BMK_GLOBAL_60_40",
       "summary": {
         "period_return": { "base": 2.98 },
@@ -171,8 +266,8 @@ descriptions and examples are maintained in the generated OpenAPI contract.
         "annualized_return": { "base": 2.98 }
       },
       "breakdowns": {}
-    },
-    "active": {
+      },
+      "active": {
       "net": {
         "period_return": { "base": 0.43 },
         "cumulative_return": { "base": 0.43 },
@@ -183,13 +278,13 @@ descriptions and examples are maintained in the generated OpenAPI contract.
         "cumulative_return": { "base": 0.46 },
         "annualized_return": { "base": 0.46 }
       }
-    },
-    "money_weighted_return": {
+      },
+      "money_weighted_return": {
       "method": "XIRR",
       "period_return": 3.27,
       "cumulative_return": 3.27,
       "annualized_return": 3.27
-    },
+      }
     }
   },
   "audit": {
@@ -242,6 +337,14 @@ Return semantics for the workspace surface are now explicit rather than inferred
     - `stateless_input.component_price_points`
   - stateful calculated mode sources benchmark definition, component price series, and FX inputs from lotus-core and normalizes them into canonical benchmark component observations before engine execution
   - stateful calculated mode supports multi-segment rebalance windows through the lotus-core composition-window contract
+- output checks:
+  - `benchmark.summary.period_return` geometrically links benchmark daily returns inside the resolved period
+  - `daily_returns[].benchmark_return` reconciles to same-date component contributions in calculated mode
+  - `component_contributions[].contribution` equals `weight_bop * component_return` in percentage-point output units
+  - `meta`, `diagnostics`, and `audit` carry lineage, effective-start, count, and weight-residual evidence
+- certification: `docs/technical/benchmark-endpoint-certification.md`
+- downstream guidance:
+  - downstream analytics engines that only need aligned benchmark return series should use `POST /integration/returns/series`, not this endpoint
 
 ### `GET /performance/benchmark/results/{calculation_id}`
 
@@ -262,13 +365,17 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - `stateful`
   - existing stateless callers can continue sending top-level `portfolio_data` and `positions_data`
   - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
-  - stateful mode sources portfolio and position timeseries from lotus-core query-control-plane and normalizes them into canonical contribution inputs before engine execution
+  - stateful mode sources portfolio and position timeseries from lotus-core query-control-plane via `CORE_CONTROL_PLANE_BASE_URL` and normalizes them into canonical contribution inputs before engine execution
   - lotus-performance stamps source consumer identity server-side for the stateful envelope
   - position-level `average_weight` and grouped `weight_avg` are both emitted in percentage units
   - `position_contributions` remains the primary ranking surface for top/bottom contributor views
+  - optional `hierarchy` rows reconcile to the same residual-adjusted `total_contribution` as the position rows
+  - `emit.timeseries` and `emit.by_position_timeseries` return daily ladders that reconcile to `total_contribution`
+  - `emit.top_n_per_level`, `emit.threshold_weight`, `emit.include_other`, and `emit.include_unclassified` control hierarchy row shaping
 - execution mode:
   - synchronous for smaller stateless sets and smaller stateful windows
   - `202 Accepted` with `calculation_id`, `poll_path`, and `result_path` when offloaded to the compute executor
+- certification: `docs/technical/contribution-endpoint-certification.md`
 
 ### `GET /performance/contribution/results/{calculation_id}`
 
@@ -288,10 +395,12 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - `stateless`
   - `stateful`
   - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
-  - stateful mode sources portfolio and position timeseries from lotus-core and derives benchmark group inputs from benchmark assignment plus the shared benchmark engine sourcing path
+  - stateful mode sources portfolio and position timeseries from lotus-core query-control-plane via `CORE_CONTROL_PLANE_BASE_URL` and derives benchmark group inputs from benchmark assignment plus the shared benchmark engine sourcing path
   - lotus-performance stamps source consumer identity server-side for the stateful envelope
   - when a benchmark is resolved, the response also emits top-level `benchmark_context`
   - each attribution group row now includes average portfolio weight, average benchmark weight, portfolio return, and benchmark return alongside allocation, selection, interaction, and total effect
+  - each attribution level exposes authoritative totals in `totals` and as explicit `allocation_total_pct`, `selection_total_pct`, `interaction_total_pct`, and `total_effect_pct` fields
+  - downstream consumers should use level totals for footers and summary-only states instead of summing visible rows
   - current stateful fences:
     - `mode=by_instrument` only
     - `group_by` limited to canonical lotus-core attribution dimensions plus `currency`: `asset_class`, `sector`, `country`, `currency`
@@ -321,15 +430,23 @@ Return semantics for the workspace surface are now explicit rather than inferred
 ### `GET /performance/lineage/{calculation_id}`
 
 - purpose: retrieve durable lineage status and artifact URLs
-- response model: `app.api.endpoints.lineage.LineageResponse`
+- response model: `app.models.lineage_responses.LineageResponse`
+- use this endpoint when support, operations, or front-office evidence workflows need to inspect
+  whether calculation lineage has been materialized and which artifacts can be downloaded
+- response includes:
+  - `calculation_id`, `calculation_type`, `timestamp_utc`, and durable lineage `status`
+  - `artifacts` keyed by artifact filename, each containing a controlled service-owned `url`
+  - `error_message` when materialization failed
 - integrity note:
   - complete lineage requires a readable `manifest.json` that is structurally valid and consistent with the durable lineage record
   - complete lineage also requires every declared artifact to exist on disk before URLs are returned
   - inconsistent or corrupted manifests return `503` instead of silently serving drifted audit metadata
+- certification evidence: `docs/technical/lineage-endpoint-certification.md`
 
 ### `GET /performance/lineage/{calculation_id}/artifacts/{artifact_name}`
 
 - purpose: download a specific lineage artifact through a controlled calculation/artifact route
+- Swagger status: documented in `/docs` because the route is part of the public reproducibility and supportability contract
 - execution mode: synchronous file retrieval
 - contract note:
   - only artifacts listed in the lineage record are downloadable
@@ -343,6 +460,11 @@ Return semantics for the workspace surface are now explicit rather than inferred
 
 - purpose: advertise lotus-performance capabilities to downstream consumers
 - response model: integration capabilities contract in `app.api.endpoints.integration_capabilities`
+- canonical query controls:
+  - `consumer_system`: downstream consumer system, for example `lotus-gateway`, `lotus-risk`, or `lotus-manage`
+  - `tenant_id`: tenant or policy scope, default `default`
+  - `feature_limit`: bounded feature row limit, default `100`, max `500`
+  - `workflow_limit`: bounded workflow row limit, default `50`, max `200`
 - response includes:
   - service-level `supported_input_modes`
   - endpoint-level `analytics_surfaces` entries with:
@@ -363,6 +485,8 @@ Return semantics for the workspace surface are now explicit rather than inferred
 - `workspace_summary` now also advertises machine-readable request options for benchmark mode support
 - canonical capability example payload:
   - `docs/examples/integration_capabilities_response.json`
+- certification evidence lives in:
+  - `docs/technical/integration-capabilities-endpoint-certification.md`
 
 **Canonical capabilities response excerpt**
 
@@ -406,6 +530,7 @@ Return semantics for the workspace surface are now explicit rather than inferred
 ### `GET /integration/runtime-status`
 
 - purpose: expose an operational snapshot of runtime state for support and platform operators
+- response model: `app.models.runtime_status.RuntimeStatusResponse`
 - privileged-read auth:
   - when `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`, this route requires enterprise identity headers plus capability `operations.runtime.read`
   - allowed access is enterprise-audited with governed surface and required-capability metadata
@@ -454,6 +579,7 @@ Return semantics for the workspace surface are now explicit rather than inferred
 - use the inspection anchors to jump directly to:
   - `/performance/executions/{calculation_id}`
   - `/performance/lineage/{calculation_id}`
+- certification evidence: `docs/technical/runtime-status-endpoint-certification.md`
 
 ### `GET /integration/runtime-work-items`
 
@@ -481,6 +607,8 @@ Return semantics for the workspace surface are now explicit rather than inferred
 - `result_path` can now point directly to async result routes for `TWR`, `BENCHMARK`, `ReturnsSeries`, `Contribution`, and `Attribution` when that workflow exposes a stable endpoint-specific result surface
 - use this when runtime-status tells you there is pressure, and you need the actual work items behind it without querying the database directly
 - `next_offset` is queue-local and only appears when additional filtered work items remain for that queue
+- response model: `app.models.runtime_work_items.RuntimeWorkItemsResponse`
+- certification evidence: `docs/technical/runtime-work-items-endpoint-certification.md`
 
 ### `GET /integration/runtime-recoveries`
 
@@ -509,6 +637,8 @@ Return semantics for the workspace surface are now explicit rather than inferred
 - use this when runtime-status shows recent recovery activity and you need the concrete event stream behind the bounded status snapshot without querying the database directly
 - `next_offset` is queue-local and only appears when additional filtered events remain for that queue
 - the cursor fields give deterministic seek pagination for hot recovery streams where offset paging may drift as new recoveries arrive
+- response model: `app.models.runtime_recoveries.RuntimeRecoveriesResponse`
+- certification evidence: `docs/technical/runtime-recoveries-endpoint-certification.md`
 
 ### `GET /integration/recovery-drills`
 
@@ -523,6 +653,8 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - retained enterprise request context when available:
     - `tenant_id`
     - `correlation_id`
+- response model: `app.models.recovery_drill_history.RecoveryDrillHistoryResponse`
+- certification evidence: `docs/technical/recovery-drills-endpoint-certification.md`
 
 ### `POST /integration/recovery-drills/run`
 
@@ -542,6 +674,9 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - `409` when the same governed drill is already running in-flight for the same operator, tenant, and backup identifier
   - stale in-flight drill leases are reclaimed automatically after the configured stale threshold instead of blocking forever after a crash
 - use this when an operator needs an audited recovery drill without shell access
+- request model: `app.models.recovery_drill_history.RecoveryDrillRunRequest`
+- response model: `app.models.recovery_drill_history.RecoveryDrillRunResponse`
+- certification evidence: `docs/technical/recovery-drills-endpoint-certification.md`
 
 ### `GET /integration/runtime-retention-cleanups`
 
@@ -556,6 +691,8 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - retained enterprise request context when available:
     - `tenant_id`
     - `correlation_id`
+- response model: `app.models.runtime_retention_history.RuntimeRetentionHistoryResponse`
+- certification evidence: `docs/technical/runtime-retention-endpoint-certification.md`
 
 ### `POST /integration/runtime-retention-cleanups/run`
 
@@ -579,10 +716,15 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - `409` when the same governed cleanup action is already running in-flight for the same operator, tenant, action mode, retention window, and job identity
   - stale in-flight cleanup leases are reclaimed automatically after the configured stale threshold instead of blocking forever after a crash
 - use this when an operator needs an audited cleanup preview or a deliberate apply action without shell access
+- request model: `app.models.runtime_retention_history.RuntimeRetentionCleanupRunRequest`
+- response model: `app.models.runtime_retention_history.RuntimeRetentionCleanupRunResponse`
+- certification evidence: `docs/technical/runtime-retention-endpoint-certification.md`
 
 ### `POST /integration/returns/series`
 
 - purpose: return canonical portfolio, benchmark, and risk-free return series for downstream analytics
+- use this endpoint when risk, attribution, or another analytics service needs reusable return
+  observations; do not reconstruct this feed from TWR, MWR, or benchmark endpoint responses
 - request model: `app.models.returns_series.ReturnsSeriesRequest`
 - response model:
   - sync: `app.models.returns_series.ReturnsSeriesResponse`
@@ -605,6 +747,13 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - cumulative portfolio, benchmark, and risk-free ladders are geometrically linked
   - `cumulative_active_returns` is arithmetic excess of cumulative portfolio and cumulative benchmark returns
   - when stateful benchmark resolution is used, the response also emits `benchmark_context` with the resolved `benchmark_id` and `return_source`
+  - `series.*_returns` values are decimal ratios, not percentages; `0.0012` means `0.12%`
+  - stateful risk-free points carrying `value_convention="annualized_rate"` are converted to
+    period returns using the supplied day-count convention before being returned or linked
+  - `calendar_policy=BUSINESS` filters daily output to weekdays before coverage diagnostics;
+    `MARKET` currently applies the same weekday approximation and emits a warning
+  - downstream certification and figure tie-outs are recorded in
+    `docs/technical/returns-series-endpoint-certification.md`
 
 ### `GET /integration/returns/series/results/{calculation_id}`
 
@@ -632,18 +781,37 @@ Return semantics for the workspace surface are now explicit rather than inferred
 - contract notes:
   - if `benchmark_id` is omitted, lotus-performance resolves benchmark assignment through lotus-core
   - benchmark market-series is requested with `series_fields=["component_weight"]`
+  - `frequency=DAILY` is the only supported v1 frequency; monthly or weekly benchmark exposure history is intentionally rejected rather than silently resampled
   - response rows use decimal weights, not percentages
+  - row weights are returned as decimal fractions where `0.60` means a 60% benchmark exposure
+  - `POSITION` rows carry `component_id`; aggregate `SECTOR` and `ASSET_CLASS` rows omit `component_id`
+  - pagination uses `page.page_size` and opaque `page.next_page_token` values returned by the endpoint
   - lineage metadata includes `source_system="lotus-core"` and `served_by="lotus-performance"`
+  - downstream certification and consumer posture are recorded in
+    `docs/technical/benchmark-exposure-context-endpoint-certification.md`
 
 ## Health and observability
+
+### `GET /`
+
+- purpose: return the service-entry message and point callers to `/docs`
+- use this only as an informational entry route; do not treat it as a strategic analytics or operator API
+- response model: `app.models.platform_surfaces.RootResponse`
+- certification evidence: `docs/technical/platform-surfaces-endpoint-certification.md`
 
 ### `GET /health`
 
 - returns basic process health
+- use this as a lightweight reachability probe, not as a durable readiness contract
+- response model: `app.models.platform_surfaces.HealthStatusResponse`
+- certification evidence: `docs/technical/platform-surfaces-endpoint-certification.md`
 
 ### `GET /health/live`
 
 - returns liveness state
+- use this to confirm the process is running without checking durable dependencies
+- response model: `app.models.platform_surfaces.HealthStatusResponse`
+- certification evidence: `docs/technical/platform-surfaces-endpoint-certification.md`
 
 ### `GET /health/ready`
 
@@ -658,10 +826,14 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - `503 {"status":"unavailable","reason":"lineage_storage_path_missing"}`
   - `503 {"status":"unavailable","reason":"lineage_storage_write_probe_failed"}`
 - readiness failures may also include `remediation_hint` when the service has a concrete recovery recommendation
+- response model: `app.models.platform_surfaces.HealthStatusResponse`
+- certification evidence: `docs/technical/platform-surfaces-endpoint-certification.md`
 
 ### `GET /metrics`
 
 - Prometheus metrics surface
+- contract note:
+  - served as `text/plain` Prometheus exposition format, not JSON
 - includes durable queue metrics for compute and lineage backlog/failure pressure
 - operator runbook:
   - `docs/runbooks/runtime-alerts.md` is the governed first-response guide for queue, storage, and recovery-drill breach gauges
@@ -673,6 +845,7 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - `docs/standards/runtime-threshold-profiles.md` defines recommended dev, staging, and production values for the runtime degradation settings behind these gauges
   - `docs/examples/runtime-thresholds.production.env` and its dev/staging companions provide concrete env overlays for those settings
   - `docs/examples/docker-compose.runtime-thresholds.production.yml` and its dev/staging companions provide compose-ready override files for the same thresholds
+- certification evidence: `docs/technical/platform-surfaces-endpoint-certification.md`
 - includes alert-ready queue policy breach metrics:
   - `lotus_performance_compute_queue_degradation_breach{reason=...}`
   - `lotus_performance_lineage_queue_degradation_breach{reason=...}`

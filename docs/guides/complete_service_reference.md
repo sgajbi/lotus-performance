@@ -18,6 +18,7 @@ Companion documents:
 
 - human endpoint map: [api_reference.md](api_reference.md)
 - workspace summary deep guide: [workspace_summary.md](workspace_summary.md)
+- TWR inspection check inventory: [twr_inspection_checks.md](twr_inspection_checks.md)
 - methodology index: [../technical/methodology_index.md](../technical/methodology_index.md)
 
 ## Service Features
@@ -33,6 +34,7 @@ Companion documents:
 - canonical returns-series integration
 - async execution offload for heavier workloads
 - execution polling and durable result retrieval
+- TWR inspection and supportability triage
 - lineage status and artifact retrieval
 - integration capability discovery
 - runtime status, work-item inspection, and recovery inspection
@@ -65,6 +67,9 @@ Default deployment topology:
 | `GET /performance/contribution/results/{calculation_id}` | retrieve async contribution result | async retrieval |
 | `POST /performance/attribution` | calculate attribution | both |
 | `GET /performance/attribution/results/{calculation_id}` | retrieve async attribution result | async retrieval |
+| `POST /performance/inspections/twr` | submit durable TWR supportability inspection | async |
+| `GET /performance/inspections/{inspection_id}` | retrieve durable TWR inspection status or result | async retrieval |
+| `GET /performance/inspections/{inspection_id}/artifacts/{artifact_name}` | download one TWR inspection artifact | async retrieval |
 | `GET /performance/executions/{calculation_id}` | poll durable execution state | sync |
 | `GET /performance/lineage/{calculation_id}` | inspect lineage status and artifact inventory | sync |
 | `GET /performance/lineage/{calculation_id}/artifacts/{artifact_name}` | download one lineage artifact | sync |
@@ -76,6 +81,7 @@ Default deployment topology:
 | `GET /integration/capabilities` | advertise supported analytics surfaces and options |
 | `POST /integration/returns/series` | canonical returns-series surface |
 | `GET /integration/returns/series/results/{calculation_id}` | retrieve async returns-series result |
+| `POST /integration/benchmarks/exposure-context` | benchmark exposure history for downstream active-risk attribution |
 | `GET /integration/runtime-status` | bounded runtime health snapshot |
 | `GET /integration/runtime-work-items` | queue/work-item inspection |
 | `GET /integration/runtime-recoveries` | recovery-event inspection |
@@ -92,6 +98,7 @@ Default deployment topology:
 | `GET /health/live` | liveness |
 | `GET /health/ready` | readiness including durable-store and lineage-storage checks |
 | `GET /metrics` | Prometheus metrics |
+| `GET /` | service entry |
 
 ## Public API Reference
 
@@ -170,6 +177,47 @@ Async result route:
 
 - `GET /performance/twr/results/{calculation_id}`
 
+### `POST /performance/inspections/twr`
+
+Purpose:
+
+- submit a durable TWR supportability inspection
+- keep supportability and source-quality triage separate from the core TWR calculation path
+- inspect either an existing TWR calculation or a proposed TWR request
+
+Sample request:
+
+```json
+{
+  "inspection_id": "2b2f1c24-b241-420d-a3ad-54c6d254fa56",
+  "subject_type": "twr_calculation",
+  "subject_calculation_id": "6af3a15f-8b95-4b4f-9c4c-6bb9f4d86a91",
+  "inspection_profile": "support_triage"
+}
+```
+
+Supported request controls:
+
+- `subject_type`: `twr_calculation` or `twr_request`
+- `inspection_profile`: `support_triage`, `canonical_validation`, or `deep_reconciliation`
+
+Async result route:
+
+- `GET /performance/inspections/{inspection_id}`
+
+Artifact route:
+
+- `GET /performance/inspections/{inspection_id}/artifacts/{artifact_name}`
+- base artifact set always includes `inspection_summary.json` and `findings.json`
+- `source_quality_summary.json` is also emitted when source-quality checks run
+- `reconciliation_summary.json` is also emitted when stateful reconciliation runs
+- `source_economics_summary.json` is also emitted when raw stateful portfolio source-economics checks run
+- current reconciliation checks cover mixed position epochs, duplicate position snapshot rows, invalid epoch labels, invalid selected position end values, portfolio-versus-position tie-out gaps, and unexplained position begin-value carry-forward breaks
+- current source-economics checks cover fee and external cash-flow classification loss, conflicting or malformed explicit fee or bod/eod source totals, fee and external normalization mismatches, duplicate raw source signals, positive fee sign anomalies, fee or external explicit source-total mismatches, external timing-bucket contradictions, invalid detailed cash-flow amounts, invalid timing labels, missing `cash_flow_type` labels, non-canonical `cash_flow_type` labels, governed alias labels, and unsupported labels whose TWR economics are not yet governed
+- stateful portfolio and position valuation normalization use the same source cash-flow taxonomy as the inspector, so canonical `fee` cash flows, including operational expenses identified by `source_classification="EXPENSE"`, are normalized into `mgmt_fees`; stale `cash_flow_type="expense"` labels are treated as unsupported analytics input
+- the full support-facing finding inventory lives in `docs/guides/twr_inspection_checks.md`
+- endpoint certification evidence lives in `docs/technical/twr-inspection-endpoint-certification.md`
+
 ### `GET /performance/twr/results/{calculation_id}`
 
 Purpose:
@@ -190,8 +238,12 @@ Sample response:
 
 Purpose:
 
-- calculate money-weighted return
+- calculate money-weighted return for the investor capital-timing lens
 - supports `stateless` and `stateful` input modes
+- stateful mode uses lotus-core query-control-plane portfolio timeseries and normalizes explicit
+  external cash flows plus cross-observation capital carry-forward adjustments into the MWR cash-flow
+  schedule
+- operational fees remain performance drag and are not treated as investor deposits or withdrawals
 
 Sample request:
 
@@ -220,8 +272,12 @@ Sample response:
   "portfolio_id": "PORT_001",
   "method": "XIRR",
   "money_weighted_return": 3.27,
-  "annualized_return": 3.27,
+  "mwr_annualized": 3.27,
   "input_mode": "stateless",
+  "cashflows_used": [
+    { "amount": 25000.0, "date": "2026-02-27" },
+    { "amount": -5000.0, "date": "2026-03-31" }
+  ],
   "notes": []
 }
 ```
@@ -237,8 +293,7 @@ Purpose:
   - benchmark summary
   - active summary
   - money-weighted return
-  - optional contribution summary
-  - optional attribution summary
+- use dedicated contribution and attribution endpoints for drill-down rows and effects
 
 Sample request:
 
@@ -257,16 +312,6 @@ Sample request:
   "benchmark": {
     "input_mode": "stateful",
     "stateful_input": {}
-  },
-  "segmentation": {
-    "group_by": ["sector", "country"]
-  },
-  "contribution": {
-    "metric_basis": "NET",
-    "top_positions": 5
-  },
-  "attribution": {
-    "metric_basis": "NET"
   },
   "report_ccy": "USD",
   "currency_mode": "BASE_ONLY"
@@ -296,6 +341,27 @@ Sample response:
             "period_return": { "base": 3.41, "local": 3.18, "fx": 0.23 },
             "cumulative_return": { "base": 3.41, "local": 3.18, "fx": 0.23 },
             "annualized_return": { "base": 3.41, "local": 3.18, "fx": 0.23 }
+          },
+          "breakdowns": {
+            "monthly": [
+              {
+                "period": "2026-03",
+                "period_start": "2026-03-01",
+                "period_end": "2026-03-31",
+                "economics": {
+                  "begin_market_value": 1039500.0,
+                  "end_market_value": 1054100.0,
+                  "beginning_cash_flow": 0.0,
+                  "ending_cash_flow": -5000.0,
+                  "fees": -350.0,
+                  "net_cash_flow": -5000.0,
+                  "flow_adjusted_end_market_value": 1059100.0
+                },
+                "period_return": { "base": 1.4, "local": 1.25, "fx": 0.15 },
+                "cumulative_return": { "base": 1.4, "local": 1.25, "fx": 0.15 },
+                "annualized_return": { "base": 1.4, "local": 1.25, "fx": 0.15 }
+              }
+            ]
           }
         }
       },
@@ -318,8 +384,10 @@ Sample response:
         "method": "XIRR",
         "period_return": 3.27,
         "cumulative_return": 3.27,
-        "annualized_return": 3.27
-      },
+        "annualized_return": 3.27,
+        "start_date": "2026-01-02",
+        "end_date": "2026-03-31"
+      }
     }
   },
   "audit": {
@@ -340,6 +408,7 @@ Canonical example files:
 - `docs/examples/workspace_summary_request.json`
 - `docs/examples/workspace_summary_stateful_detail_request.json`
 - `docs/examples/workspace_summary_accepted_response.json`
+- `docs/technical/workspace-summary-endpoint-certification.md`
 
 ### `GET /performance/workspace-summary/results/{calculation_id}`
 
@@ -352,7 +421,7 @@ Sample response:
 ```json
 {
   "calculation_id": "0d000003-1111-4222-8333-abcdefabcdef",
-  "status": "complete",
+  "poll_path": "/performance/executions/0d000003-1111-4222-8333-abcdefabcdef",
   "result_path": "/performance/workspace-summary/results/0d000003-1111-4222-8333-abcdefabcdef"
 }
 ```
@@ -581,9 +650,9 @@ Sample response:
       "levels": [
         {
           "dimension": "sector",
-          "rows": [
+          "groups": [
             {
-              "label": "technology",
+              "key": { "sector": "technology" },
               "portfolio_weight_avg": 60.5,
               "benchmark_weight_avg": 58.0,
               "portfolio_return": 3.2,
@@ -593,9 +662,24 @@ Sample response:
               "interaction": 0.0,
               "total_effect": 0.3
             }
-          ]
+          ],
+          "totals": {
+            "allocation": 0.1,
+            "selection": 0.2,
+            "interaction": 0.0,
+            "total_effect": 0.3
+          },
+          "allocation_total_pct": 0.1,
+          "selection_total_pct": 0.2,
+          "interaction_total_pct": 0.0,
+          "total_effect_pct": 0.3
         }
-      ]
+      ],
+      "reconciliation": {
+        "total_active_return": 0.3,
+        "sum_of_effects": 0.3,
+        "residual": 0.0
+      }
     }
   }
 }
@@ -627,6 +711,8 @@ Sample response:
 Purpose:
 
 - poll the durable execution lifecycle for any async-capable workflow
+- use the endpoint-specific `result_path` after `status` becomes `complete`
+- inspect stage progress, upstream snapshots, retry state, and terminal failure metadata
 
 Sample response:
 
@@ -634,20 +720,70 @@ Sample response:
 {
   "calculation_id": "0d000003-1111-4222-8333-abcdefabcdef",
   "analytics_type": "WORKSPACE_SUMMARY",
+  "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+  "execution_mode": "async",
   "status": "complete",
+  "requested_window": {
+    "start_date": "2026-01-01",
+    "end_date": "2026-04-10",
+    "input_count": 100
+  },
+  "input_fingerprint": "sha256:input-fingerprint",
+  "calculation_hash": "sha256:calculation-output",
+  "error_message": null,
+  "created_at_utc": "2026-04-10T12:00:00Z",
+  "started_at_utc": "2026-04-10T12:00:01Z",
+  "completed_at_utc": "2026-04-10T12:00:08Z",
   "stages": [
-    { "name": "execution", "status": "complete" },
-    { "name": "lineage", "status": "queued" }
+    {
+      "stage_name": "execution",
+      "status": "complete",
+      "started_at_utc": "2026-04-10T12:00:01Z",
+      "completed_at_utc": "2026-04-10T12:00:08Z",
+      "details": { "input_count": 100 },
+      "error_message": null
+    }
+  ],
+  "upstream_snapshots": [
+    {
+      "snapshot_id": "portfolio_timeseries:PB_SG_GLOBAL_BAL_001:2026-04-10",
+      "upstream_endpoint": "portfolio_timeseries",
+      "source_identifier": "PB_SG_GLOBAL_BAL_001",
+      "as_of_date": "2026-04-10",
+      "request_fingerprint": "sha256:request-fingerprint",
+      "response_fingerprint": "sha256:response-fingerprint",
+      "retrieval_status": "200",
+      "paging_metadata": { "chunk_count": 1, "page_count": 1 },
+      "created_at_utc": "2026-04-10T12:00:00Z"
+    }
   ],
   "compute_job": {
-    "status": "complete"
+    "job_status": "complete",
+    "attempt_count": 1,
+    "max_attempts": 3,
+    "worker_id": "performance-compute-executor-1",
+    "error_message": null,
+    "error_type": null,
+    "leased_at_utc": "2026-04-10T12:00:03Z",
+    "lease_expires_at_utc": "2026-04-10T12:05:03Z",
+    "last_error_at_utc": null,
+    "created_at_utc": "2026-04-10T12:00:00Z",
+    "started_at_utc": "2026-04-10T12:00:03Z",
+    "completed_at_utc": "2026-04-10T12:00:08Z"
   },
   "async_result": {
-    "status": "complete",
-    "result_path": "/performance/workspace-summary/results/0d000003-1111-4222-8333-abcdefabcdef"
+    "result_status": "complete",
+    "error_message": null,
+    "error_type": null,
+    "created_at_utc": "2026-04-10T12:00:06Z",
+    "updated_at_utc": "2026-04-10T12:00:08Z"
   }
 }
 ```
+
+Certification evidence:
+
+- `docs/technical/execution-polling-endpoint-certification.md`
 
 ### `GET /performance/lineage/{calculation_id}`
 
@@ -660,16 +796,21 @@ Sample response:
 ```json
 {
   "calculation_id": "0d000003-1111-4222-8333-abcdefabcdef",
+  "calculation_type": "WORKSPACE_SUMMARY",
+  "timestamp_utc": "2026-04-10T12:00:00Z",
   "status": "complete",
-  "manifest_path": "lineage_data/0d000003-1111-4222-8333-abcdefabcdef/manifest.json",
-  "artifacts": [
-    {
-      "name": "workspace_summary_portfolio_daily_results_net.csv",
-      "download_path": "/performance/lineage/0d000003-1111-4222-8333-abcdefabcdef/artifacts/workspace_summary_portfolio_daily_results_net.csv"
+  "artifacts": {
+    "workspace_summary_portfolio_daily_results_net.csv": {
+      "url": "http://performance.dev.lotus/performance/lineage/0d000003-1111-4222-8333-abcdefabcdef/artifacts/workspace_summary_portfolio_daily_results_net.csv"
     }
-  ]
+  },
+  "error_message": null
 }
 ```
+
+Certification evidence:
+
+- `docs/technical/lineage-endpoint-certification.md`
 
 ### `GET /performance/lineage/{calculation_id}/artifacts/{artifact_name}`
 
@@ -726,12 +867,17 @@ Sample response:
 Canonical example file:
 
 - `docs/examples/integration_capabilities_response.json`
+- certification evidence: `docs/technical/integration-capabilities-endpoint-certification.md`
 
 ### `POST /integration/returns/series`
 
 Purpose:
 
 - return canonical portfolio, benchmark, risk-free, and active return series
+- use this endpoint when a downstream analytics service needs aligned return observations; do not
+  reconstruct this feed from TWR, MWR, or benchmark endpoint responses
+- all return values are decimal ratios, not percentages
+- `calendar_policy=BUSINESS` filters daily output to weekdays before coverage diagnostics
 
 Sample request:
 
@@ -747,6 +893,16 @@ Sample request:
   },
   "frequency": "DAILY",
   "metric_basis": "NET",
+  "series_selection": {
+    "include_portfolio": true,
+    "include_benchmark": true,
+    "include_risk_free": false
+  },
+  "data_policy": {
+    "missing_data_policy": "ALLOW_PARTIAL",
+    "fill_method": "NONE",
+    "calendar_policy": "BUSINESS"
+  },
   "stateless_input": {
     "portfolio_returns": [
       { "date": "2026-03-30", "return_value": 0.01 },
@@ -778,12 +934,12 @@ Sample response:
     "active_returns": [
       { "date": "2026-03-30", "return_value": 0.002 },
       { "date": "2026-03-31", "return_value": 0.005 }
+    ],
+    "cumulative_active_returns": [
+      { "date": "2026-03-30", "return_value": 0.002 },
+      { "date": "2026-03-31", "return_value": 0.00603 }
     ]
-  },
-  "cumulative_active_returns": [
-    { "date": "2026-03-30", "return_value": 0.2 },
-    { "date": "2026-03-31", "return_value": 0.7 }
-  ]
+  }
 }
 ```
 
@@ -803,6 +959,76 @@ Sample response:
 }
 ```
 
+### `POST /integration/benchmarks/exposure-context`
+
+Purpose:
+
+- return benchmark exposure history aligned with lotus-performance benchmark return context
+- serve `lotus-risk` stateful active-risk attribution without making risk orchestrate benchmark
+  assignment, market-series, and index-catalog contracts directly
+- keep lotus-core as the benchmark composition and classification system of record
+
+Contract notes:
+
+- v1 supports `frequency=DAILY` only
+- supported grouping dimensions are `POSITION`, `SECTOR`, and `ASSET_CLASS`
+- `ISSUER` is rejected until issuer benchmark exposure semantics are approved
+- row weights are decimal fractions, not percentages
+- pagination uses `page.page_size` and `page.next_page_token`
+- certification evidence lives in
+  `docs/technical/benchmark-exposure-context-endpoint-certification.md`
+
+Sample request:
+
+```json
+{
+  "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+  "benchmark_id": "BMK_PB_GLOBAL_BALANCED_60_40",
+  "as_of_date": "2026-04-10",
+  "window": {
+    "start_date": "2026-01-01",
+    "end_date": "2026-04-10"
+  },
+  "frequency": "DAILY",
+  "reporting_currency": "USD",
+  "grouping_dimensions": ["POSITION", "SECTOR", "ASSET_CLASS"],
+  "page": {
+    "page_size": 1000,
+    "page_token": null
+  }
+}
+```
+
+Sample response excerpt:
+
+```json
+{
+  "source_service": "lotus-performance",
+  "contract_version": "v1",
+  "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+  "benchmark_id": "BMK_PB_GLOBAL_BALANCED_60_40",
+  "frequency": "DAILY",
+  "rows": [
+    {
+      "valuation_date": "2026-04-10",
+      "component_id": "IDX_GLOBAL_EQUITY",
+      "grouping_dimension": "POSITION",
+      "group_key": "IDX_GLOBAL_EQUITY",
+      "group_label": "IDX_GLOBAL_EQUITY",
+      "weight": "0.600000"
+    }
+  ],
+  "page": {
+    "next_page_token": null
+  },
+  "metadata": {
+    "source_system": "lotus-core",
+    "served_by": "lotus-performance",
+    "contract_version": "v1"
+  }
+}
+```
+
 ### `GET /integration/runtime-status`
 
 Purpose:
@@ -813,119 +1039,250 @@ Sample response:
 
 ```json
 {
-  "durable_store_available": true,
-  "lineage_storage_available": true,
-  "compute": {
-    "availability": "available",
-    "pending_count": 0,
-    "running_count": 0
+  "contract_version": "v1",
+  "source_service": "lotus-performance",
+  "generated_at": "2026-04-10T12:00:00Z",
+  "runtime_status": "ready",
+  "runtime_degradation_reasons": [],
+  "runtime_degradation_details": [],
+  "draining": false,
+  "durable_metadata_store": {
+    "status": "ready",
+    "reason": null,
+    "remediation_hint": null
   },
-  "lineage": {
-    "availability": "available",
-    "pending_count": 0
+  "compute_queue": {
+    "status": "available",
+    "pending_jobs": 0,
+    "running_jobs": 0,
+    "retry_backlog_jobs": 0,
+    "terminal_failure_jobs": 0,
+    "inspection_anchors": {
+      "oldest_pending_calculation_id": null,
+      "latest_terminal_failure_calculation_id": null
+    },
+    "recent_recoveries": []
   },
-  "inspection_anchors": {
-    "work_items_path": "/integration/runtime-work-items",
-    "recoveries_path": "/integration/runtime-recoveries"
+  "lineage_queue": {
+    "status": "available",
+    "pending_payloads": 0,
+    "retry_backlog_payloads": 0,
+    "terminal_failure_payloads": 0,
+    "storage_free_ratio": 0.72,
+    "inspection_anchors": {
+      "oldest_pending_calculation_id": null,
+      "latest_terminal_failure_calculation_id": null
+    },
+    "recent_recoveries": []
+  },
+  "recovery_drill": {
+    "status": "available",
+    "latest_status": "passed",
+    "active_run_count": 0
+  },
+  "runtime_retention": {
+    "status": "available",
+    "latest_status": "applied",
+    "active_run_count": 0,
+    "current_prunable_execution_count": 0,
+    "current_prunable_lineage_artifact_count": 0
   }
 }
 ```
+
+Certification evidence:
+
+- `docs/technical/runtime-status-endpoint-certification.md`
 
 ### `GET /integration/runtime-work-items`
 
 Purpose:
 
-- inspect active, failed, or reclaimable compute and lineage work items
+- inspect the concrete compute and lineage work items behind runtime queue pressure
 
 Sample request:
 
 ```text
-GET /integration/runtime-work-items?queue=both&status=active&limit=25
+GET /integration/runtime-work-items?queue=both&status=reclaimable&limit=25&min_age_seconds=60
 ```
 
 Sample response:
 
 ```json
 {
-  "queue": "both",
-  "status_filter": "active",
-  "compute": {
+  "contract_version": "v1",
+  "source_service": "lotus-performance",
+  "generated_at": "2026-03-29T02:05:00Z",
+  "queue_filter": "both",
+  "status_filter": "reclaimable",
+  "limit": 25,
+  "offset": 0,
+  "min_age_seconds": 60.0,
+  "durable_metadata_store": {
+    "status": "ready"
+  },
+  "compute_queue": {
+    "status": "available",
     "total_count": 1,
-    "returned_count": 1,
-    "items": [
-      {
-        "calculation_id": "0d000003-1111-4222-8333-abcdefabcdef",
-        "analytics_type": "WORKSPACE_SUMMARY",
-        "status": "running",
-        "execution_path": "/performance/executions/0d000003-1111-4222-8333-abcdefabcdef",
-        "result_path": "/performance/workspace-summary/results/0d000003-1111-4222-8333-abcdefabcdef"
-      }
-    ]
-  }
+    "returned_count": 1
+  },
+  "lineage_queue": {
+    "status": "available",
+    "total_count": 1,
+    "returned_count": 1
+  },
+  "compute_items": [
+    {
+      "calculation_id": "0d000003-1111-4222-8333-abcdefabcdef",
+      "execution_path": "/performance/executions/0d000003-1111-4222-8333-abcdefabcdef",
+      "lineage_path": "/performance/lineage/0d000003-1111-4222-8333-abcdefabcdef",
+      "result_path": "/performance/workspace-summary/results/0d000003-1111-4222-8333-abcdefabcdef",
+      "analytics_type": "WORKSPACE_SUMMARY",
+      "status": "running",
+      "active_since_utc": "2026-03-29T02:00:00Z",
+      "age_seconds": 300.0,
+      "attempt_count": 1,
+      "max_attempts": 3
+    }
+  ],
+  "lineage_items": [
+    {
+      "calculation_id": "0d000004-1111-4222-8333-abcdefabcdef",
+      "execution_path": "/performance/executions/0d000004-1111-4222-8333-abcdefabcdef",
+      "lineage_path": "/performance/lineage/0d000004-1111-4222-8333-abcdefabcdef",
+      "result_path": "/performance/twr/results/0d000004-1111-4222-8333-abcdefabcdef",
+      "calculation_type": "TWR",
+      "status": "pending",
+      "active_since_utc": "2026-03-29T02:01:00Z",
+      "age_seconds": 240.0,
+      "attempt_count": 0
+    }
+  ]
 }
 ```
+
+Certification evidence:
+
+- `docs/technical/runtime-work-items-endpoint-certification.md`
 
 ### `GET /integration/runtime-recoveries`
 
 Purpose:
 
-- inspect recent compute and lineage recovery events
+- inspect durable compute and lineage recovery events after runtime recovery activity
 
 Sample request:
 
 ```text
-GET /integration/runtime-recoveries?queue=both&limit=10
+GET /integration/runtime-recoveries?queue=both&limit=10&recovered_after=2026-03-29T02:00:00Z
 ```
 
 Sample response:
 
 ```json
 {
-  "queue": "both",
-  "compute": {
+  "contract_version": "v1",
+  "source_service": "lotus-performance",
+  "generated_at": "2026-03-29T02:05:30Z",
+  "queue_filter": "both",
+  "limit": 10,
+  "offset": 0,
+  "recovered_after": "2026-03-29T02:00:00Z",
+  "durable_metadata_store": {
+    "status": "ready"
+  },
+  "compute_queue": {
+    "status": "available",
+    "total_count": 1,
     "returned_count": 1,
-    "items": [
-      {
-        "calculation_id": "0d000003-1111-4222-8333-abcdefabcdef",
-        "analytics_type": "WORKSPACE_SUMMARY",
-        "recovery_kind": "lease_reclaimed",
-        "recovered_at": "2026-03-29T02:05:00Z"
-      }
-    ]
-  }
+    "next_cursor_recovered_before": "2026-03-29T02:05:00Z",
+    "next_cursor_calculation_id_before": "0d000003-1111-4222-8333-abcdefabcdef"
+  },
+  "lineage_queue": {
+    "status": "available",
+    "total_count": 1,
+    "returned_count": 1
+  },
+  "compute_recoveries": [
+    {
+      "calculation_id": "0d000003-1111-4222-8333-abcdefabcdef",
+      "execution_path": "/performance/executions/0d000003-1111-4222-8333-abcdefabcdef",
+      "lineage_path": "/performance/lineage/0d000003-1111-4222-8333-abcdefabcdef",
+      "result_path": "/performance/workspace-summary/results/0d000003-1111-4222-8333-abcdefabcdef",
+      "analytics_type": "WORKSPACE_SUMMARY",
+      "recovery_kind": "lease_reclaimed",
+      "recovered_at_utc": "2026-03-29T02:05:00Z",
+      "attempt_count": 1
+    }
+  ],
+  "lineage_recoveries": [
+    {
+      "calculation_id": "0d000004-1111-4222-8333-abcdefabcdef",
+      "execution_path": "/performance/executions/0d000004-1111-4222-8333-abcdefabcdef",
+      "lineage_path": "/performance/lineage/0d000004-1111-4222-8333-abcdefabcdef",
+      "result_path": "/performance/twr/results/0d000004-1111-4222-8333-abcdefabcdef",
+      "calculation_type": "TWR",
+      "recovery_kind": "retryable_materialization_failure",
+      "recovered_at_utc": "2026-03-29T02:04:00Z",
+      "attempt_count": 1
+    }
+  ]
 }
 ```
+
+Certification evidence:
+
+- `docs/technical/runtime-recoveries-endpoint-certification.md`
 
 ### `GET /integration/recovery-drills`
 
 Purpose:
 
-- inspect retained recovery-drill evidence and history
+- inspect retained durable recovery-drill evidence, filters, paging, and assurance status
 
 Sample response:
 
 ```json
 {
-  "latest": {
-    "status": "passed",
-    "backup_identifier": "backup-2026-03-29",
-    "generated_at": "2026-03-29T01:30:00Z"
+  "contract_version": "v1",
+  "source_service": "lotus-performance",
+  "status": "available",
+  "artifact_directory": "artifacts/recovery-drills",
+  "latest_file_name": "recovery-drill-20260329T013000Z.json",
+  "retained_file_names": [
+    "recovery-drill-20260329T013000Z.json"
+  ],
+  "retention_limit": 30,
+  "retention_max_age_days": 90,
+  "total_entries": 1,
+  "matched_entries": 1,
+  "returned_entries": 1,
+  "applied_filters": {
+    "status": "passed"
   },
-  "items": [
+  "entries": [
     {
+      "evidence_file_name": "recovery-drill-20260329T013000Z.json",
+      "generated_at_utc": "2026-03-29T01:30:00Z",
       "status": "passed",
       "operator_id": "ops-user",
+      "tenant_id": "tenant-private-bank",
+      "correlation_id": "runtime-alert-123",
       "backup_identifier": "backup-2026-03-29"
     }
   ]
 }
 ```
 
+Certification evidence:
+
+- `docs/technical/recovery-drills-endpoint-certification.md`
+
 ### `POST /integration/recovery-drills/run`
 
 Purpose:
 
-- execute a governed recovery drill
+- execute a governed durable recovery drill and retain compute, lineage, schema, and artifact proof
 
 Sample request:
 
@@ -939,38 +1296,86 @@ Sample response:
 
 ```json
 {
-  "status": "passed",
-  "backup_identifier": "backup-2026-03-29",
+  "contract_version": "v1",
+  "source_service": "lotus-performance",
+  "drill_name": "durable_metadata_recovery",
+  "generated_at_utc": "2026-03-29T01:30:00Z",
+  "evidence_file_name": "recovery-drill-20260329T013000Z.json",
   "operator_id": "ops-user",
-  "artifact_path": "artifacts/durable-recovery-drill/latest.json"
+  "tenant_id": "tenant-private-bank",
+  "correlation_id": "runtime-alert-123",
+  "backup_identifier": "backup-2026-03-29",
+  "status": "passed",
+  "database_path": "artifacts/recovery-drills/recovery-drill.sqlite",
+  "restored_schema_mode": "upgraded",
+  "owned_tables_present": [
+    "compute_jobs",
+    "lineage_payloads"
+  ],
+  "compute_job_processed_count": 1,
+  "compute_async_result_status": "completed",
+  "compute_execution_status": "completed",
+  "processed_payload_count": 1,
+  "materialized_artifact_path": "artifacts/recovery-drills/lineage.json",
+  "materialized_artifact_exists": true
 }
 ```
+
+Certification evidence:
+
+- `docs/technical/recovery-drills-endpoint-certification.md`
 
 ### `GET /integration/runtime-retention-cleanups`
 
 Purpose:
 
-- inspect retained runtime-retention cleanup evidence and history
+- inspect retained runtime-retention cleanup evidence, filters, paging, and prunable counts
 
 Sample response:
 
 ```json
 {
-  "latest": {
-    "cleanup_mode": "dry_run",
-    "status": "ok",
-    "generated_at": "2026-03-29T01:45:00Z"
+  "contract_version": "v1",
+  "source_service": "lotus-performance",
+  "status": "available",
+  "artifact_directory": "artifacts/runtime-retention",
+  "latest_file_name": "runtime-retention-20260329T014500Z.json",
+  "retained_file_names": [
+    "runtime-retention-20260329T014500Z.json"
+  ],
+  "retention_limit": 30,
+  "retention_max_age_days": 90,
+  "total_entries": 1,
+  "matched_entries": 1,
+  "returned_entries": 1,
+  "applied_filters": {
+    "cleanup_mode": "dry_run"
   },
-  "items": [
+  "entries": [
     {
+      "evidence_file_name": "runtime-retention-20260329T014500Z.json",
+      "generated_at_utc": "2026-03-29T01:45:00Z",
+      "operator_id": "ops-user",
+      "tenant_id": "tenant-private-bank",
+      "correlation_id": "runtime-alert-456",
       "cleanup_mode": "dry_run",
       "trigger_mode": "manual",
+      "job_id": "ops-ticket-123",
       "status": "ok",
-      "retention_days": 30
+      "retention_days": 30,
+      "prunable_execution_count": 3,
+      "prunable_compute_job_count": 2,
+      "prunable_async_result_count": 2,
+      "prunable_lineage_record_count": 1,
+      "prunable_lineage_artifact_count": 1
     }
   ]
 }
 ```
+
+Certification evidence:
+
+- `docs/technical/runtime-retention-endpoint-certification.md`
 
 ### `POST /integration/runtime-retention-cleanups/run`
 
@@ -983,7 +1388,8 @@ Sample request:
 ```json
 {
   "apply": false,
-  "retention_days": 30
+  "retention_days": 30,
+  "job_id": "ops-ticket-123"
 }
 ```
 
@@ -991,13 +1397,45 @@ Sample response:
 
 ```json
 {
+  "contract_version": "v1",
+  "source_service": "lotus-performance",
+  "cleanup_name": "runtime_retention_cleanup",
+  "generated_at_utc": "2026-03-29T01:45:00Z",
+  "evidence_file_name": "runtime-retention-20260329T014500Z.json",
+  "operator_id": "ops-user",
+  "tenant_id": "tenant-private-bank",
+  "correlation_id": "runtime-alert-456",
+  "trigger_mode": "manual",
+  "job_id": "ops-ticket-123",
   "cleanup_mode": "dry_run",
   "status": "ok",
-  "operator_id": "ops-user",
   "retention_days": 30,
-  "artifact_path": "artifacts/runtime-retention-cleanup/latest.json"
+  "cutoff_utc": "2026-02-28T01:45:00Z",
+  "prunable_execution_count": 3,
+  "prunable_compute_job_count": 2,
+  "prunable_async_result_count": 2,
+  "prunable_lineage_record_count": 1,
+  "prunable_lineage_artifact_count": 1
 }
 ```
+
+Certification evidence:
+
+- `docs/technical/runtime-retention-endpoint-certification.md`
+
+### `GET /`
+
+Sample response:
+
+```json
+{
+  "message": "Welcome to the Portfolio Performance Analytics API. Access /docs for API documentation."
+}
+```
+
+Certification evidence:
+
+- `docs/technical/platform-surfaces-endpoint-certification.md`
 
 ### `GET /health`
 
@@ -1052,6 +1490,10 @@ Sample response excerpt:
 lotus_performance_compute_queue_degradation_breach{reason="pending_age_exceeded"} 0
 ```
 
+Certification evidence:
+
+- `docs/technical/platform-surfaces-endpoint-certification.md`
+
 ## Execution Pattern
 
 Async-capable endpoints use one shared pattern:
@@ -1101,7 +1543,8 @@ All service configuration comes from `app.core.config.Settings`.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `CORE_QUERY_BASE_URL` | `http://core-query.dev.lotus` | lotus-core query-control-plane base URL |
+| `CORE_CONTROL_PLANE_BASE_URL` | `http://core-control.dev.lotus` | lotus-core query-control-plane base URL for stateful analytics-input contracts |
+| `CORE_QUERY_BASE_URL` | unset | deprecated compatibility fallback when `CORE_CONTROL_PLANE_BASE_URL` is unset |
 | `CORE_TIMEOUT_SECONDS` | `10.0` | upstream request timeout |
 | `CORE_MAX_RETRIES` | `2` | upstream retry count |
 | `CORE_RETRY_BACKOFF_SECONDS` | `0.2` | upstream retry backoff |

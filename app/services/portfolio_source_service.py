@@ -18,7 +18,7 @@ class StatefulPortfolioTimeseries:
 
 def build_stateful_input_service(*, settings: Settings) -> StatefulInputService:
     core_service = CoreIntegrationService(
-        base_url=settings.CORE_QUERY_BASE_URL,
+        base_url=settings.resolved_core_control_plane_base_url,
         timeout_seconds=settings.CORE_TIMEOUT_SECONDS,
         max_retries=settings.CORE_MAX_RETRIES,
         retry_backoff_seconds=settings.CORE_RETRY_BACKOFF_SECONDS,

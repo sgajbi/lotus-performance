@@ -1,5 +1,5 @@
 ## Metric
-TWR FX Return (`portfolio_return.fx`)
+TWR FX Return (`portfolio.summary.period_return.fx`)
 
 ## Endpoint and Mode Coverage
 - Endpoint: `POST /performance/twr`
@@ -7,7 +7,7 @@ TWR FX Return (`portfolio_return.fx`)
 - Availability condition: FX leg exists only when engine FX path is active:
   - `currency_mode` provided and not `BASE_ONLY`
   - `fx.rates[]` present
-- If FX path is inactive, `portfolio_return.fx` is `0.0`.
+- If FX path is inactive, `portfolio.summary.period_return.fx` is `0.0`.
 
 ## Inputs
 - `valuation_points[]` (for local/base return context)
@@ -58,8 +58,8 @@ TWR FX Return (`portfolio_return.fx`)
 2. Activate FX path only if `currency_mode != BASE_ONLY` and `fx` block exists.
 3. Construct start/end rates per valuation date from forward-filled rate timeline.
 4. Compute daily `fx_ror` (and apply hedge if provided).
-5. Compute slice-level `portfolio_return.base` and `portfolio_return.local`.
-6. Derive `portfolio_return.fx` from base/local decomposition identity.
+5. Compute slice-level `portfolio.summary.period_return.base` and `portfolio.summary.period_return.local`.
+6. Derive `portfolio.summary.period_return.fx` from the base/local decomposition identity.
 
 ## Validation and Failure Behavior
 - Same base endpoint validation and error handling.
@@ -75,11 +75,12 @@ TWR FX Return (`portfolio_return.fx`)
 
 ## Outputs
 Primary metric field:
-- `results_by_period.<period>.portfolio_return.fx`
+- `results_by_period.<period>.portfolio.summary.period_return.fx`
+- `results_by_period.<period>.portfolio.summary.cumulative_return.fx`
 
 Supporting fields used in decomposition identity:
-- `results_by_period.<period>.portfolio_return.base`
-- `results_by_period.<period>.portfolio_return.local`
+- `results_by_period.<period>.portfolio.summary.period_return.base`
+- `results_by_period.<period>.portfolio.summary.period_return.local`
 
 ## Worked Example
 Assume for period `ITD` after linking daily rows:
@@ -96,4 +97,4 @@ Intermediate decomposition:
 | `F_P_pp` | `100 * (FX growth factor - 1)` | 1.90476 |
 
 Output mapping:
-- `results_by_period.ITD.portfolio_return.fx = 1.90476`
+- `results_by_period.ITD.portfolio.summary.period_return.fx = 1.90476`

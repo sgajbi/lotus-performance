@@ -29,7 +29,7 @@ This repository owns:
 Current repository posture:
 
 1. `lotus-performance` is the authoritative performance analytics engine consumed by `lotus-gateway`,
-2. stateful integration with `lotus-core` is active and important for live product flows,
+2. stateful integration with `lotus-core` is active and classified under the RFC-0082 upstream contract-family map,
 3. the service already operates with enterprise-grade CI posture including security, migration, and Docker gates,
 4. async execution, lineage capture, and benchmark-aware workflows are real parts of the contract, not future placeholders.
 
@@ -65,7 +65,8 @@ Boundary rules:
 1. performance analytics authority stays here,
 2. gateway and UI should consume governed outputs rather than reimplement analytics logic,
 3. async and lineage behavior are contract features and should remain explicit,
-4. benchmark and stateful integration behavior must remain truthful and documented.
+4. benchmark and stateful integration behavior must remain truthful and documented,
+5. `lotus-core` must be consumed as a governed source-data and analytics-input authority, not as a provider of performance conclusions.
 
 ## Repo-Native Commands
 
@@ -108,15 +109,18 @@ Most relevant current governance:
 3. `../lotus-platform/rfcs/RFC-0067-centralized-api-vocabulary-inventory-and-openapi-documentation-governance.md`
 4. `../lotus-platform/rfcs/RFC-0072-platform-wide-multi-lane-ci-validation-and-release-governance.md`
 5. `../lotus-platform/rfcs/RFC-0073-lotus-ecosystem-engineering-context-and-agent-guidance-system.md`
-6. `docs/technical/architecture.md`
-7. `docs/technical/runtime_topology.md`
+6. `../lotus-platform/rfcs/RFC-0082-lotus-core-domain-authority-and-analytics-serving-boundary-hardening.md`
+7. `docs/technical/RFC-0082-upstream-contract-family-map.md`
+8. `docs/technical/architecture.md`
+9. `docs/technical/runtime_topology.md`
 
 ## Known Constraints And Implementation Notes
 
 1. this service carries both analytics correctness and product-facing integration consequences, so changes must be checked for downstream gateway and UI impact,
 2. async execution and lineage are already part of the contract and should not be treated as optional infrastructure details,
-3. benchmark-aware stateful behavior must remain aligned with `lotus-core` sourcing and gateway expectations,
-4. methodology and reproducibility documentation matter here as much as code.
+3. benchmark-aware stateful behavior must remain aligned with `lotus-core` sourcing, RFC-0082 contract-family classification, and gateway expectations,
+4. methodology and reproducibility documentation matter here as much as code,
+5. transport optimization between `lotus-performance` and `lotus-core` should start with retrieval-shape evidence before any gRPC proposal.
 
 ## Context Maintenance Rule
 
@@ -126,7 +130,8 @@ Update this document when:
 2. repo-native commands or lane expectations change,
 3. stateful integration boundaries with `lotus-core` change,
 4. methodology, lineage, or execution posture changes materially,
-5. current product-support posture changes.
+5. current product-support posture changes,
+6. RFC-0082 upstream contract-family classification or consumer conformance posture changes.
 
 ## Cross-Links
 

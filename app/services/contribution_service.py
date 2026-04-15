@@ -28,7 +28,6 @@ from engine.config import EngineConfig, PrecisionMode
 from engine.contribution import (
     _calculate_daily_instrument_contributions,
     _prepare_hierarchical_data,
-    build_hierarchical_contribution_result,
 )
 from engine.diagnostics import EngineDiagnostics
 from engine.runtime import run_engine_for_valuation_points
@@ -676,6 +675,135 @@ def _build_residual_adjusted_daily_contribution_series(
     ]
 
 
+def _build_hierarchy_from_adjusted_position_series(
+    *,
+    period_slice_df: pd.DataFrame,
+    position_series: list[PositionContributionSeries],
+    request: ContributionRequest,
+) -> dict[str, Any]:
+    """Builds hierarchy rows from the same adjusted daily position series emitted to clients."""
+    summary = {
+        "portfolio_contribution": 0.0,
+        "coverage_mv_pct": 100.0,
+        "weighting_scheme": request.weighting_scheme.value,
+    }
+    if request.currency_mode == "BOTH":
+        summary["local_contribution"] = 0.0
+        summary["fx_contribution"] = 0.0
+    if not request.hierarchy or period_slice_df.empty or not position_series:
+        return {"summary": summary, "levels": []}
+
+    adjusted_records: list[dict[str, Any]] = []
+    for series in position_series:
+        for point in series.series:
+            adjusted_records.append(
+                {
+                    "position_id": series.position_id,
+                    PortfolioColumns.PERF_DATE.value: point.date,
+                    "adjusted_contribution": point.contribution / 100,
+                }
+            )
+    if not adjusted_records:
+        return {"summary": summary, "levels": []}
+
+    adjusted_df = pd.DataFrame(adjusted_records)
+    meta_columns = ["position_id", PortfolioColumns.PERF_DATE.value, "daily_weight"]
+    for level_name in request.hierarchy:
+        if level_name not in meta_columns:
+            meta_columns.append(level_name)
+
+    daily_meta = period_slice_df.copy()
+    daily_meta[PortfolioColumns.PERF_DATE.value] = pd.to_datetime(daily_meta[PortfolioColumns.PERF_DATE.value]).dt.date
+    for level_name in request.hierarchy:
+        if level_name not in daily_meta.columns:
+            daily_meta[level_name] = None
+    daily_meta = daily_meta[meta_columns]
+
+    merged_df = adjusted_df.merge(
+        daily_meta,
+        on=["position_id", PortfolioColumns.PERF_DATE.value],
+        how="left",
+    )
+    for level_name in request.hierarchy:
+        if request.emit.include_unclassified:
+            merged_df[level_name] = merged_df[level_name].fillna("Unclassified")
+        else:
+            merged_df = merged_df[merged_df[level_name].notna()]
+
+    if merged_df.empty:
+        return {"summary": summary, "levels": []}
+
+    observed_dates = {
+        value
+        for value in pd.to_datetime(period_slice_df[PortfolioColumns.PERF_DATE.value]).dt.date
+        if value is not None
+    }
+    day_count = max(1, len(observed_dates))
+    response_levels = []
+    for index, level_name in enumerate(request.hierarchy):
+        level_keys = request.hierarchy[: index + 1]
+        level_agg = (
+            merged_df.groupby(level_keys, dropna=False)
+            .agg(
+                contribution=("adjusted_contribution", "sum"),
+                weight_sum=("daily_weight", "sum"),
+            )
+            .reset_index()
+        )
+        level_agg["weight_avg"] = level_agg["weight_sum"] / day_count
+        rows = _build_hierarchy_rows(level_agg=level_agg, level_keys=level_keys, request=request)
+        response_levels.append(
+            {
+                "level": index + 1,
+                "name": level_name,
+                "parent": request.hierarchy[index - 1] if index > 0 else None,
+                "rows": rows,
+            }
+        )
+
+    summary["portfolio_contribution"] = _as_numeric(adjusted_df["adjusted_contribution"].sum()) * 100
+    return {"summary": summary, "levels": response_levels}
+
+
+def _build_hierarchy_rows(
+    *,
+    level_agg: pd.DataFrame,
+    level_keys: list[str],
+    request: ContributionRequest,
+) -> list[dict[str, Any]]:
+    ordered = level_agg.copy()
+    ordered["_abs_contribution"] = ordered["contribution"].abs()
+    ordered = ordered.sort_values("_abs_contribution", ascending=False)
+
+    threshold = max(0.0, float(request.emit.threshold_weight))
+    explicit_rows = ordered[ordered["weight_avg"].abs() >= threshold]
+    overflow_rows = ordered[ordered["weight_avg"].abs() < threshold]
+    top_n = max(0, int(request.emit.top_n_per_level))
+    if top_n and len(explicit_rows) > top_n:
+        overflow_rows = pd.concat([overflow_rows, explicit_rows.iloc[top_n:]], ignore_index=True)
+        explicit_rows = explicit_rows.iloc[:top_n]
+
+    rows = [_hierarchy_row_to_response(row, level_keys=level_keys) for _, row in explicit_rows.iterrows()]
+    if request.emit.include_other and not overflow_rows.empty:
+        other_row: dict[str, Any] = {
+            "key": {key: "Other" for key in level_keys},
+            "contribution": _as_numeric(overflow_rows["contribution"].sum()) * 100,
+            "weight_avg": _as_numeric(overflow_rows["weight_avg"].sum()) * 100,
+            "children_count": int(len(overflow_rows)),
+            "is_other": True,
+        }
+        rows.append(other_row)
+    return rows
+
+
+def _hierarchy_row_to_response(row: pd.Series, *, level_keys: list[str]) -> dict[str, Any]:
+    return {
+        "key": {key: row[key] for key in level_keys},
+        "contribution": _as_numeric(row["contribution"]) * 100,
+        "weight_avg": _as_numeric(row["weight_avg"]) * 100,
+    }
+
+
 def _calculate_average_weight_sum_residual_bp(position_contributions: list[PositionContribution]) -> int:
     """Measures how far emitted position average weights drift from a full 100% portfolio weight.
 
@@ -897,20 +1025,70 @@ def calculate_contribution(
                     period.end_date,
                     period.name,
                 )
-                period_results = build_hierarchical_contribution_result(
+                (
+                    average_weight_shadow_df,
+                    period_delta_positions,
+                    period_max_shadow_delta_bp,
+                    period_sum_shadow_delta_bp,
+                ) = _calculate_reset_aware_average_weight_shadow(
                     period_slice_df,
-                    request,
-                    total_portfolio_return=total_portfolio_return,
+                    portfolio_period_slice_df,
+                )
+                average_weight_shadow_delta_positions += period_delta_positions
+                average_weight_shadow_delta_max_bp = max(
+                    average_weight_shadow_delta_max_bp,
+                    period_max_shadow_delta_bp,
+                )
+                average_weight_shadow_delta_sum_bp += period_sum_shadow_delta_bp
+                shadow_period_bucket = _classify_average_weight_shadow_period(period_max_shadow_delta_bp)
+                if shadow_period_bucket == "noise":
+                    average_weight_shadow_noise_periods += 1
+                elif shadow_period_bucket == "warning":
+                    average_weight_shadow_warning_periods += 1
+                elif shadow_period_bucket == "material":
+                    average_weight_shadow_material_periods += 1
+
+                period_position_reset_dates = set(
+                    pd.to_datetime(
+                        period_slice_df.loc[
+                            _numeric_series_or_default(period_slice_df, PortfolioColumns.PERF_RESET.value) == 1,
+                            PortfolioColumns.PERF_DATE.value,
+                        ]
+                    ).dt.date
+                )
+                period_portfolio_reset_dates = set(
+                    pd.to_datetime(
+                        portfolio_period_slice_df.loc[
+                            _numeric_series_or_default(portfolio_period_slice_df, PortfolioColumns.PERF_RESET.value)
+                            == 1,
+                            PortfolioColumns.PERF_DATE.value,
+                        ]
+                    ).dt.date
+                )
+                period_position_flow_balance_counts = _calculate_position_flow_balance_counts(
+                    period_slice_df,
+                    portfolio_period_slice_df,
                 )
                 position_totals = (
                     period_slice_df.groupby("position_id")
                     .agg(
                         total_contribution=("smoothed_contribution", "sum"),
                         local_contribution=("smoothed_local_contribution", "sum"),
-                        average_weight=("daily_weight", "mean"),
                     )
                     .reset_index()
+                    .merge(
+                        average_weight_shadow_df[["position_id", "average_weight"]],
+                        on="position_id",
+                        how="left",
+                    )
                 )
+                sum_of_contributions = _as_numeric(position_totals["total_contribution"].sum())
+                residual = total_portfolio_return - sum_of_contributions
+                total_avg_weight = _as_numeric(position_totals["average_weight"].sum())
+                if total_avg_weight > 0 and request.smoothing.method == "CARINO":
+                    position_totals["total_contribution"] += residual * (
+                        position_totals["average_weight"] / total_avg_weight
+                    )
                 position_totals["fx_contribution"] = (
                     position_totals["total_contribution"] - position_totals["local_contribution"]
                 )
@@ -921,12 +1099,95 @@ def calculate_contribution(
                     period_end_date=period.end_date,
                     average_weight_column="average_weight",
                 )
+                position_series = (
+                    _build_residual_adjusted_position_timeseries(period_slice_df, position_contributions)
+                    if request.emit.by_position_timeseries or request.emit.timeseries or request.hierarchy
+                    else []
+                )
+                daily_series = (
+                    _build_residual_adjusted_daily_contribution_series(position_series)
+                    if request.emit.timeseries
+                    else None
+                )
+                emitted_position_series = position_series if request.emit.by_position_timeseries else None
+                period_results = _build_hierarchy_from_adjusted_position_series(
+                    period_slice_df=period_slice_df,
+                    position_series=position_series,
+                    request=request,
+                )
+                period_average_weight_sum_residual_bp = _calculate_average_weight_sum_residual_bp(
+                    position_contributions
+                )
+                average_weight_sum_residual_bp = max(
+                    average_weight_sum_residual_bp,
+                    period_average_weight_sum_residual_bp,
+                )
+                period_total_contribution = sum(
+                    position_contribution.total_contribution for position_contribution in position_contributions
+                )
+                period_timeseries_total_delta_periods = 0
+                if daily_series is not None:
+                    daily_timeseries_total = sum(point.total_contribution for point in daily_series)
+                    if abs(daily_timeseries_total - period_total_contribution) > 1e-9:
+                        period_timeseries_total_delta_periods = 1
+                        timeseries_total_delta_periods += 1
+                hierarchy_period_cutover_blockers = _classify_average_weight_shadow_cutover_blockers(
+                    max_shadow_delta_bp=period_max_shadow_delta_bp,
+                    average_weight_sum_residual_bp=period_average_weight_sum_residual_bp,
+                    position_flow_residual_days=period_position_flow_balance_counts["position_flow_residual_days"],
+                    portfolio_reset_without_position_reset_days=len(
+                        period_portfolio_reset_dates - period_position_reset_dates
+                    ),
+                    position_reset_without_portfolio_reset_days=len(
+                        period_position_reset_dates - period_portfolio_reset_dates
+                    ),
+                    timeseries_total_delta_periods=period_timeseries_total_delta_periods,
+                )
+                period_is_cutover_candidate = _is_average_weight_shadow_cutover_candidate(
+                    max_shadow_delta_bp=period_max_shadow_delta_bp,
+                    average_weight_sum_residual_bp=period_average_weight_sum_residual_bp,
+                    position_flow_residual_days=period_position_flow_balance_counts["position_flow_residual_days"],
+                    portfolio_reset_without_position_reset_days=len(
+                        period_portfolio_reset_dates - period_position_reset_dates
+                    ),
+                    position_reset_without_portfolio_reset_days=len(
+                        period_position_reset_dates - period_portfolio_reset_dates
+                    ),
+                    timeseries_total_delta_periods=period_timeseries_total_delta_periods,
+                )
+                if period_is_cutover_candidate:
+                    average_weight_shadow_cutover_candidate_periods += 1
+                    hierarchy_period_cutover_blockers = set()
+                elif hierarchy_period_cutover_blockers:
+                    average_weight_shadow_blocked_periods += 1
+                if "weight_residual" in hierarchy_period_cutover_blockers:
+                    average_weight_shadow_blocked_by_weight_residual_periods += 1
+                if "flow_balance" in hierarchy_period_cutover_blockers:
+                    average_weight_shadow_blocked_by_flow_balance_periods += 1
+                if "reset_alignment" in hierarchy_period_cutover_blockers:
+                    average_weight_shadow_blocked_by_reset_alignment_periods += 1
+                if "timeseries_reconciliation" in hierarchy_period_cutover_blockers:
+                    average_weight_shadow_blocked_by_timeseries_delta_periods += 1
+                period_methodology_status = AverageWeightMethodologyStatus(
+                    status=_classify_average_weight_methodology_status(
+                        max_shadow_delta_bp=period_max_shadow_delta_bp,
+                        is_cutover_candidate=period_is_cutover_candidate,
+                        is_promoted=False,
+                        blocker_reason_codes=hierarchy_period_cutover_blockers,
+                    ),
+                    max_shadow_delta_bp=period_max_shadow_delta_bp,
+                    is_material_shadow=period_max_shadow_delta_bp >= 500,
+                    is_cutover_candidate=period_is_cutover_candidate,
+                    is_promoted=False,
+                    blocker_reason_codes=sorted(hierarchy_period_cutover_blockers),
+                )
                 results_by_period[period.name] = SinglePeriodContributionResult(
                     total_portfolio_return=total_portfolio_return * 100,
-                    total_contribution=sum(
-                        position_contribution.total_contribution for position_contribution in position_contributions
-                    ),
+                    total_contribution=period_total_contribution,
                     position_contributions=position_contributions,
+                    timeseries=daily_series,
+                    by_position_timeseries=emitted_position_series,
+                    average_weight_methodology_status=period_methodology_status,
                     summary=period_results.get("summary"),
                     levels=period_results.get("levels"),
                 )

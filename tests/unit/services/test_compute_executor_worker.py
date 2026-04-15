@@ -1,4 +1,5 @@
 from threading import Event
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -1135,3 +1136,130 @@ def test_compute_executor_worker_rejects_unsupported_analytics_type(tmp_path, mo
     assert job is not None
     assert job.job_status == ComputeJobStatus.FAILED
     assert "Unsupported compute job analytics_type" in (job.error_message or "")
+
+
+def test_compute_executor_worker_resolves_benchmark_jobs_from_persisted_stateful_payload():
+    request = BenchmarkPerformanceRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "benchmark_id": "BMK_1",
+            "benchmark_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "benchmark_currency": "USD",
+            "return_source": "calculated",
+            "component_observations": [
+                {
+                    "component_id": "IDX_1",
+                    "perf_date": "2025-01-01",
+                    "weight_bop": 1.0,
+                    "component_return": 0.01,
+                }
+            ],
+        }
+    )
+
+    resolved_request, input_mode = compute_executor_worker._resolve_async_benchmark_job_request(
+        request.model_dump(mode="json"),
+        settings=_worker_settings(),
+    )
+
+    assert resolved_request == request
+    assert input_mode == compute_executor_worker.BenchmarkInputMode.STATEFUL
+
+
+def test_compute_executor_worker_resolves_twr_jobs_from_resolved_payload_and_raw_analytics_payload(monkeypatch):
+    resolved_request_payload = {
+        "portfolio": {
+            "portfolio_id": "P1",
+            "performance_start_date": "2025-01-01",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1001.0}],
+        },
+        "benchmark": None,
+    }
+    persisted = {
+        "resolved_request": resolved_request_payload,
+        "source_input_mode": "stateful",
+        "benchmark_input_mode": "stateful",
+        "resolved_benchmark_id": "BMK_1",
+        "benchmark_return_source": "calculated",
+        "portfolio_id": "P1",
+    }
+
+    (
+        resolved_request,
+        input_mode,
+        request_artifact_model,
+        portfolio_id,
+        benchmark_id,
+        benchmark_input_mode,
+        source,
+        should_update,
+    ) = compute_executor_worker._resolve_async_twr_job_request(
+        persisted,
+        settings=_worker_settings(),
+    )
+    assert input_mode == compute_executor_worker.TWRInputMode.STATEFUL
+    assert request_artifact_model == resolved_request
+    assert portfolio_id == "P1"
+    assert benchmark_id == "BMK_1"
+    assert benchmark_input_mode == compute_executor_worker.BenchmarkInputMode.STATEFUL
+    assert source == "calculated"
+    assert should_update is True
+
+    analytics_request = compute_executor_worker.TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "P2",
+            "performance_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "metric_basis": "NET",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1001.0}],
+        }
+    )
+
+    async def _resolve_twr_request(request, settings):  # noqa: ARG001
+        return SimpleNamespace(
+            performance_request=PerformanceRequest.model_validate(
+                {
+                    "portfolio_id": request.portfolio_id,
+                    "performance_start_date": "2025-01-01",
+                    "metric_basis": "NET",
+                    "report_end_date": "2025-01-02",
+                    "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+                    "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1001.0}],
+                }
+            ),
+            benchmark_request=None,
+            input_mode=compute_executor_worker.TWRInputMode.STATELESS,
+            resolved_benchmark_id=None,
+            benchmark_input_mode=None,
+        )
+
+    monkeypatch.setattr(compute_executor_worker, "resolve_twr_request", _resolve_twr_request)
+
+    (
+        resolved_request,
+        input_mode,
+        request_artifact_model,
+        portfolio_id,
+        benchmark_id,
+        benchmark_input_mode,
+        source,
+        should_update,
+    ) = compute_executor_worker._resolve_async_twr_job_request(
+        analytics_request.model_dump(mode="json"),
+        settings=_worker_settings(),
+    )
+
+    assert input_mode == compute_executor_worker.TWRInputMode.STATELESS
+    assert request_artifact_model.portfolio_id == "P2"
+    assert portfolio_id == "P2"
+    assert benchmark_id is None
+    assert benchmark_input_mode is None
+    assert source == "calculated"
+    assert should_update is False

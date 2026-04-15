@@ -15,8 +15,11 @@ router = APIRouter(tags=["Integration"])
     response_model=RuntimeWorkItemsResponse,
     summary="List filtered runtime work items",
     description=(
-        "Returns concrete compute and lineage work items for operator drill-down, including exact calculation "
-        "handles, lifecycle status, age, attempts, and durable failure context."
+        "Returns the concrete compute and lineage work items behind lotus-performance runtime queue pressure. "
+        "Use this operator drill-down endpoint after the runtime-status snapshot reports active, failed, or "
+        "reclaimable backlog. It supports queue scoping, lifecycle filtering, bounded paging, stale-item "
+        "filtering, analytics-family filtering, calculation-handle search, queue-specific partial-failure "
+        "status, and direct execution, lineage, and async-result navigation links."
     ),
 )
 async def get_runtime_work_items(

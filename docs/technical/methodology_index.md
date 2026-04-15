@@ -35,6 +35,8 @@ That set is the authoritative metric-by-metric reference for:
 - [runtime_topology.md](runtime_topology.md)
 - [engine_config.md](engine_config.md)
 - [data_model.md](data_model.md)
+- [attribution-endpoint-certification.md](attribution-endpoint-certification.md)
+- [contribution-endpoint-certification.md](contribution-endpoint-certification.md)
 
 ## Scope notes
 
