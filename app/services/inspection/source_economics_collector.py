@@ -17,6 +17,7 @@ class SourceEconomicsSamples:
     fee_source_mismatch_samples: list[dict[str, object]]
     positive_fee_signal_samples: list[dict[str, object]]
     fee_timing_bucket_samples: list[dict[str, object]]
+    fee_mixed_timing_samples: list[dict[str, object]]
     external_normalization_samples: list[dict[str, object]]
     duplicate_external_signal_samples: list[dict[str, object]]
     external_source_mismatch_samples: list[dict[str, object]]
@@ -41,6 +42,7 @@ class _SourceEconomicsSampleCollector:
     fee_source_mismatch_samples: list[dict[str, object]] = field(default_factory=list)
     positive_fee_signal_samples: list[dict[str, object]] = field(default_factory=list)
     fee_timing_bucket_samples: list[dict[str, object]] = field(default_factory=list)
+    fee_mixed_timing_samples: list[dict[str, object]] = field(default_factory=list)
     external_normalization_samples: list[dict[str, object]] = field(default_factory=list)
     duplicate_external_signal_samples: list[dict[str, object]] = field(default_factory=list)
     external_source_mismatch_samples: list[dict[str, object]] = field(default_factory=list)
@@ -69,6 +71,7 @@ class _SourceEconomicsSampleCollector:
             fee_source_mismatch_samples=self.fee_source_mismatch_samples,
             positive_fee_signal_samples=self.positive_fee_signal_samples,
             fee_timing_bucket_samples=self.fee_timing_bucket_samples,
+            fee_mixed_timing_samples=self.fee_mixed_timing_samples,
             external_normalization_samples=self.external_normalization_samples,
             duplicate_external_signal_samples=self.duplicate_external_signal_samples,
             external_source_mismatch_samples=self.external_source_mismatch_samples,
@@ -196,6 +199,14 @@ class _SourceEconomicsSampleCollector:
                 {
                     "valuation_date": source_point.valuation_date,
                     "rows": list(source_point.fee_bod_timing_rows),
+                }
+            )
+        if source_point.detailed_fee_bod != 0 and source_point.detailed_fee_eod != 0:
+            self.fee_mixed_timing_samples.append(
+                {
+                    "valuation_date": source_point.valuation_date,
+                    "detailed_fee_bod": float(source_point.detailed_fee_bod),
+                    "detailed_fee_eod": float(source_point.detailed_fee_eod),
                 }
             )
 

@@ -139,6 +139,7 @@ These findings evaluate whether raw source cash and fee economics tie to the ser
 | `FEE_SOURCE_TOTAL_MISMATCH` | `lotus-core` | detailed fee rows and explicit fee total disagree | explicit fee amount and detailed fee amount |
 | `POSITIVE_FEE_SOURCE_SIGNAL` | `lotus-core` | fee economics are served with a positive sign | positive fee sample and date |
 | `FEE_CASHFLOW_TIMING_BUCKET_UNSUPPORTED` | `lotus-core` | fee-classified cash-flow rows are served in the beginning-of-day timing bucket | valuation dates and sampled fee rows |
+| `FEE_CASHFLOW_MIXED_TIMING_BUCKETS` | `lotus-core` | fee-classified cash-flow rows are served in both beginning-of-day and end-of-day timing buckets for the same valuation date | valuation dates, detailed fee BOD amount, detailed fee EOD amount |
 
 #### External cash-flow findings
 
@@ -208,6 +209,7 @@ Use for:
 - source-total mismatch counts
 - timing-bucket contradiction counts
 - mixed external timing-bucket counts
+- mixed fee timing-bucket counts
 - conflicting explicit-source amount date counts
 - invalid explicit-source amount date counts
 - invalid cash-flow amount date counts
@@ -227,6 +229,8 @@ Key support-facing sample fields:
 - `external_cashflow_timing_contradiction_samples[*].opposite_detailed_cashflow_amount`
 - `external_cashflow_mixed_timing_samples[*].detailed_external_bod`
 - `external_cashflow_mixed_timing_samples[*].detailed_external_eod`
+- `fee_cashflow_mixed_timing_samples[*].detailed_fee_bod`
+- `fee_cashflow_mixed_timing_samples[*].detailed_fee_eod`
 - `fee_timing_bucket_samples[*].rows`
 - `noncanonical_cashflow_type_samples[*].cash_flow_types`
 - `noncanonical_cashflow_types`

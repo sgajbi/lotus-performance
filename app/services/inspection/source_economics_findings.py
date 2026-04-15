@@ -11,6 +11,7 @@ def build_source_economics_findings(
     fee_source_mismatch_samples: list[dict[str, object]],
     positive_fee_signal_samples: list[dict[str, object]],
     fee_timing_bucket_samples: list[dict[str, object]],
+    fee_mixed_timing_samples: list[dict[str, object]],
     external_normalization_samples: list[dict[str, object]],
     duplicate_external_signal_samples: list[dict[str, object]],
     external_source_mismatch_samples: list[dict[str, object]],
@@ -125,6 +126,27 @@ def build_source_economics_findings(
                     "the canonical end-of-day timing bucket unless a separate governed fee timing model is approved."
                 ),
                 evidence=_sample_evidence(portfolio_id=portfolio_id, samples=fee_timing_bucket_samples),
+            )
+        )
+
+    if fee_mixed_timing_samples:
+        findings.append(
+            TWRInspectionFinding(
+                code="FEE_CASHFLOW_MIXED_TIMING_BUCKETS",
+                severity="warning",
+                category="cashflow_classification",
+                owner_repo="lotus-core",
+                summary="The stateful portfolio source serves fee-classified cash flows in both timing buckets for the same valuation date.",
+                explanation=(
+                    "The raw portfolio observation includes operational fee rows in both beginning-of-day and "
+                    "end-of-day buckets on the same valuation date. Fees are normally fee drag rather than capital "
+                    "movement, so mixed fee timing should be visible as upstream source-economics evidence."
+                ),
+                recommended_action=(
+                    "Review the lotus-core fee transaction story for the sampled dates and emit one governed fee "
+                    "timing model before relying on the result for production support triage."
+                ),
+                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=fee_mixed_timing_samples),
             )
         )
 

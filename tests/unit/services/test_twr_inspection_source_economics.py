@@ -238,6 +238,56 @@ def test_analyze_source_economics_flags_beginning_of_day_fee_timing_bucket():
     ]
 
 
+def test_analyze_source_economics_flags_mixed_fee_timing_buckets():
+    performance_request = PerformanceRequest(
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        performance_start_date=date(2026, 3, 16),
+        metric_basis="NET",
+        report_end_date=date(2026, 3, 16),
+        analyses=[Analysis(period="YTD", frequencies=["daily"])],
+        valuation_points=[
+            DailyInputData(
+                perf_date=date(2026, 3, 16),
+                begin_mv=1200.0,
+                end_mv=1170.0,
+                bod_cf=0.0,
+                eod_cf=0.0,
+                mgmt_fees=-30.0,
+            ),
+        ],
+    )
+
+    result = analyze_source_economics(
+        performance_request=performance_request,
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        observations=[
+            {
+                "valuation_date": "2026-03-16",
+                "beginning_market_value": "1200.0",
+                "ending_market_value": "1170.0",
+                "cash_flows": [
+                    {"amount": "-10.0", "timing": "bod", "cash_flow_type": "fee"},
+                    {"amount": "-20.0", "timing": "eod", "cash_flow_type": "fee"},
+                ],
+            }
+        ],
+    )
+
+    assert {finding.code for finding in result.findings} == {
+        "FEE_CASHFLOW_TIMING_BUCKET_UNSUPPORTED",
+        "FEE_CASHFLOW_MIXED_TIMING_BUCKETS",
+    }
+    assert result.evidence_summary["fee_timing_bucket_anomaly_count"] == 1
+    assert result.evidence_summary["fee_cashflow_mixed_timing_date_count"] == 1
+    assert result.artifact_payload["fee_cashflow_mixed_timing_samples"] == [
+        {
+            "valuation_date": "2026-03-16",
+            "detailed_fee_bod": -10.0,
+            "detailed_fee_eod": -20.0,
+        }
+    ]
+
+
 def test_analyze_source_economics_flags_explicit_fee_normalization_mismatch_without_detailed_fee_rows():
     performance_request = PerformanceRequest(
         portfolio_id="PB_SG_GLOBAL_BAL_001",

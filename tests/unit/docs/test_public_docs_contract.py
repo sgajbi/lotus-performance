@@ -434,6 +434,7 @@ def test_twr_inspection_checks_guide_lists_current_check_inventory():
     assert "FEE_SOURCE_TOTAL_MISMATCH" in guide
     assert "POSITIVE_FEE_SOURCE_SIGNAL" in guide
     assert "FEE_CASHFLOW_TIMING_BUCKET_UNSUPPORTED" in guide
+    assert "FEE_CASHFLOW_MIXED_TIMING_BUCKETS" in guide
     assert "EXTERNAL_CASHFLOW_NORMALIZATION_MISMATCH" in guide
     assert "EXTERNAL_CASHFLOW_TIMING_BUCKET_CONTRADICTION" in guide
     assert "EXTERNAL_CASHFLOW_MIXED_TIMING_BUCKETS" in guide
