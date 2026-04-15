@@ -17,6 +17,9 @@ _CANONICAL_BALANCED_DAILY_MOVE_THRESHOLD_PCT = 2.0
 _CANONICAL_BALANCED_MANDATE_PROFILE = "canonical_balanced_private_banking"
 _STALE_SERIES_MIN_OBSERVATIONS = 3
 _STALE_SAMPLE_LIMIT = 10
+_RETURN_CONCENTRATION_MIN_OBSERVATIONS = 20
+_RETURN_CONCENTRATION_TOP_N = 3
+_RETURN_CONCENTRATION_THRESHOLD = 0.80
 
 
 @dataclass(frozen=True)
@@ -47,6 +50,14 @@ class MandateDailyMoveProfile:
     threshold_pct: float
 
 
+@dataclass(frozen=True)
+class ReturnConcentrationAssessment:
+    observation_count: int
+    concentration_ratio: float
+    top_moves: list[dict[str, float | str]]
+    triggered: bool
+
+
 def run_source_quality_checks(
     *,
     performance_request: PerformanceRequest,
@@ -69,6 +80,7 @@ def run_source_quality_checks(
         mandate_profile=mandate_profile,
         extreme_threshold_pct=threshold,
     )
+    return_concentration = _assess_return_concentration(daily_moves)
 
     findings = [
         *_build_weekend_findings(weekend_dates),
@@ -79,6 +91,7 @@ def run_source_quality_checks(
             mandate_profile=mandate_profile,
             mandate_outliers=mandate_outliers,
         ),
+        *_build_return_concentration_findings(return_concentration),
         *_build_extreme_move_findings(
             inspection_profile=inspection_profile,
             threshold=threshold,
@@ -115,6 +128,12 @@ def run_source_quality_checks(
         "mandate_daily_move_threshold_pct": mandate_profile.threshold_pct if mandate_profile else None,
         "mandate_daily_move_outlier_count": len(mandate_outliers),
         "mandate_daily_move_outliers": mandate_outliers[:_STALE_SAMPLE_LIMIT],
+        "return_concentration_min_observations": _RETURN_CONCENTRATION_MIN_OBSERVATIONS,
+        "return_concentration_top_n": _RETURN_CONCENTRATION_TOP_N,
+        "return_concentration_threshold": _RETURN_CONCENTRATION_THRESHOLD,
+        "return_concentration_ratio": return_concentration.concentration_ratio,
+        "return_concentration_observation_count": return_concentration.observation_count,
+        "return_concentration_top_moves": return_concentration.top_moves,
     }
     return SourceQualityCheckResult(
         findings=findings,
@@ -127,6 +146,7 @@ def run_source_quality_checks(
             "nonpositive_capital_base_count": len(invalid_capital_bases),
             "largest_abs_daily_move_pct": largest_abs_daily_move_pct,
             "mandate_daily_move_outlier_count": len(mandate_outliers),
+            "return_concentration_ratio": return_concentration.concentration_ratio,
         },
         artifact_payload=artifact_payload,
     )
@@ -322,6 +342,58 @@ def _build_mandate_daily_move_findings(
                 "threshold_pct": mandate_profile.threshold_pct,
                 "outlier_count": len(mandate_outliers),
                 "outliers": mandate_outliers[:_STALE_SAMPLE_LIMIT],
+            },
+        )
+    ]
+
+
+def _assess_return_concentration(daily_moves: list[dict[str, float | str]]) -> ReturnConcentrationAssessment:
+    if len(daily_moves) < _RETURN_CONCENTRATION_MIN_OBSERVATIONS:
+        return ReturnConcentrationAssessment(
+            observation_count=len(daily_moves),
+            concentration_ratio=0.0,
+            top_moves=[],
+            triggered=False,
+        )
+    moves_by_abs_return = sorted(daily_moves, key=lambda move: abs(float(move["return_pct"])), reverse=True)
+    total_abs_return = sum(abs(float(move["return_pct"])) for move in daily_moves)
+    top_moves = moves_by_abs_return[:_RETURN_CONCENTRATION_TOP_N]
+    top_abs_return = sum(abs(float(move["return_pct"])) for move in top_moves)
+    concentration_ratio = top_abs_return / total_abs_return if total_abs_return > 0 else 0.0
+    return ReturnConcentrationAssessment(
+        observation_count=len(daily_moves),
+        concentration_ratio=concentration_ratio,
+        top_moves=top_moves,
+        triggered=concentration_ratio >= _RETURN_CONCENTRATION_THRESHOLD,
+    )
+
+
+def _build_return_concentration_findings(
+    return_concentration: ReturnConcentrationAssessment,
+) -> list[TWRInspectionFinding]:
+    if not return_concentration.triggered:
+        return []
+    return [
+        TWRInspectionFinding(
+            code="RETURN_CONCENTRATION_DETECTED",
+            severity="warning",
+            category="economic_plausibility",
+            owner_repo="lotus-performance",
+            summary="Resolved source inputs concentrate most absolute daily movement in a small number of dates.",
+            explanation=(
+                f"The top {_RETURN_CONCENTRATION_TOP_N} absolute daily moves explain at least "
+                f"{_RETURN_CONCENTRATION_THRESHOLD:.0%} of total absolute movement across the inspected window."
+            ),
+            recommended_action=(
+                "Review the sampled dates for valuation, fee, external cash-flow, or upstream source-state events "
+                "before treating the TWR path as operationally robust."
+            ),
+            evidence={
+                "top_n": _RETURN_CONCENTRATION_TOP_N,
+                "threshold": _RETURN_CONCENTRATION_THRESHOLD,
+                "observation_count": return_concentration.observation_count,
+                "concentration_ratio": return_concentration.concentration_ratio,
+                "top_moves": return_concentration.top_moves,
             },
         )
     ]

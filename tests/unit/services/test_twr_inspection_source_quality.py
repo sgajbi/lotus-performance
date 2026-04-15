@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 
@@ -194,3 +194,76 @@ def test_run_source_quality_checks_keeps_mandate_move_rule_bounded_to_canonical_
     assert result.evidence_summary["mandate_daily_move_outlier_count"] == 0
     assert result.artifact_payload["mandate_daily_move_profile"] is None
     assert result.artifact_payload["mandate_daily_move_outliers"] == []
+
+
+def test_run_source_quality_checks_flags_top_day_return_concentration():
+    business_dates: list[date] = []
+    current_date = date(2026, 3, 2)
+    while len(business_dates) < 20:
+        if current_date.weekday() < 5:
+            business_dates.append(current_date)
+        current_date += timedelta(days=1)
+
+    high_move_dates = set(business_dates[-3:])
+    valuation_points = [
+        DailyInputData(
+            perf_date=perf_date,
+            begin_mv=1000.0,
+            end_mv=(1050.0 if perf_date in high_move_dates else 1001.0) + (index * 0.01),
+        )
+        for index, perf_date in enumerate(business_dates)
+    ]
+    performance_request = PerformanceRequest(
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        performance_start_date=business_dates[0],
+        metric_basis="NET",
+        report_end_date=business_dates[-1],
+        analyses=[Analysis(period="YTD", frequencies=["daily"])],
+        valuation_points=valuation_points,
+    )
+
+    result = run_source_quality_checks(
+        performance_request=performance_request,
+        inspection_profile=TWRInspectionProfile.CANONICAL_VALIDATION,
+    )
+
+    assert {finding.code for finding in result.findings} == {
+        "MANDATE_DAILY_MOVE_OUTLIER_DETECTED",
+        "RETURN_CONCENTRATION_DETECTED",
+    }
+    concentration_finding = next(
+        finding for finding in result.findings if finding.code == "RETURN_CONCENTRATION_DETECTED"
+    )
+    assert concentration_finding.evidence["top_n"] == 3
+    assert concentration_finding.evidence["threshold"] == 0.8
+    assert concentration_finding.evidence["observation_count"] == 20
+    assert concentration_finding.evidence["concentration_ratio"] > 0.8
+    assert result.evidence_summary["return_concentration_ratio"] > 0.8
+    assert result.artifact_payload["return_concentration_observation_count"] == 20
+    assert result.artifact_payload["return_concentration_top_n"] == 3
+    assert len(result.artifact_payload["return_concentration_top_moves"]) == 3
+
+
+def test_run_source_quality_checks_requires_enough_observations_for_return_concentration():
+    performance_request = PerformanceRequest(
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        performance_start_date=date(2026, 4, 1),
+        metric_basis="NET",
+        report_end_date=date(2026, 4, 3),
+        analyses=[Analysis(period="YTD", frequencies=["daily"])],
+        valuation_points=[
+            DailyInputData(perf_date=date(2026, 4, 1), begin_mv=1000.0, end_mv=1001.0),
+            DailyInputData(perf_date=date(2026, 4, 2), begin_mv=1000.0, end_mv=1050.0),
+            DailyInputData(perf_date=date(2026, 4, 3), begin_mv=1000.0, end_mv=1001.0),
+        ],
+    )
+
+    result = run_source_quality_checks(
+        performance_request=performance_request,
+        inspection_profile=TWRInspectionProfile.CANONICAL_VALIDATION,
+    )
+
+    assert "RETURN_CONCENTRATION_DETECTED" not in {finding.code for finding in result.findings}
+    assert result.evidence_summary["return_concentration_ratio"] == 0.0
+    assert result.artifact_payload["return_concentration_observation_count"] == 3
+    assert result.artifact_payload["return_concentration_top_moves"] == []

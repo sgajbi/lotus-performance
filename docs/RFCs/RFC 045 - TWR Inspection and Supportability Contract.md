@@ -667,7 +667,10 @@ Implementation status on 2026-04-15:
 6. source-quality inspection now adds a bounded canonical balanced-mandate warning for
    `PB_SG_GLOBAL_BAL_001` when a daily move is at least `2.00%` but still below the active generic
    extreme-move threshold, keeping the mandate-aware rule scoped until broader mandate profiles are
-   governed.
+   governed,
+7. source-quality inspection now warns when the top three absolute daily moves explain at least
+   `80%` of total absolute movement across an inspected window with at least 20 interpretable daily
+   moves.
 
 ### Slice 4: Reconciliation Checks
 

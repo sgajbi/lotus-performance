@@ -85,6 +85,7 @@ These findings are currently owned by `lotus-performance` because they evaluate 
 | `STALE_VALUATION_SERIES_DETECTED` | unchanged valuation state repeats across multiple observations with zero cash-flow and fee activity | stale run start/end dates, run length, repeated begin/end market values |
 | `NONPOSITIVE_DAILY_CAPITAL_BASE_DETECTED` | one or more observations have `begin_mv + bod_cf <= 0`, so daily move plausibility cannot be interpreted normally | affected dates, `begin_mv`, `bod_cf`, effective capital base |
 | `MANDATE_DAILY_MOVE_OUTLIER_DETECTED` | canonical balanced private-banking portfolio inputs have daily moves above the mandate warning band but below the generic extreme-move threshold | mandate profile, threshold percent, sampled outlier dates |
+| `RETURN_CONCENTRATION_DETECTED` | a small number of daily moves explain most absolute movement across a sufficiently long inspected window | top-N setting, concentration threshold, concentration ratio, sampled top dates |
 | `EXTREME_DAILY_MOVE_DETECTED` | one or more daily moves exceed the profile threshold | threshold percent and sampled extreme dates |
 
 Primary evidence surfaces:
@@ -237,6 +238,12 @@ Bounded mandate move rule:
 - moves at or above the generic threshold are handled by `EXTREME_DAILY_MOVE_DETECTED`, so support gets one clear severity signal instead of duplicate findings for the same date
 - the rule is a plausibility warning for canonical validation and support triage, not a statement that a balanced portfolio can never move by that amount
 
+Bounded return-concentration rule:
+
+- the current rule only runs when the inspected window has at least `20` interpretable daily moves
+- it warns when the top `3` absolute daily moves explain at least `80%` of total absolute daily movement
+- this is a concentration signal for support triage, not a mathematical error by itself
+
 ### `source_quality_summary.json`
 
 Use for:
@@ -246,6 +253,7 @@ Use for:
 - stale-series run counts, run details, and observation counts
 - nonpositive daily capital-base counts and sampled dates
 - mandate daily move profile, warning threshold, and sampled mandate outlier dates
+- return concentration ratio, top-N setting, threshold, and sampled top daily moves
 - extreme daily move threshold and sampled dates
 
 ## Operator Notes
