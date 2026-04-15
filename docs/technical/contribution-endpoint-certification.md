@@ -146,6 +146,17 @@ Gateway live proof through `http://gateway.dev.lotus`:
   rounded position rows, contribution capability `supported`, and portfolio contribution about
   `0.122704%`.
 
+Downstream certification status:
+
+- `lotus-gateway` successfully calls the contribution endpoint and passes the main contribution
+  summary fields through to Workbench.
+- `lotus-gateway#107` tracks the remaining row-coverage and source-total concern: one gateway
+  parser path limits contribution rows and position rankings to 10 entries and can derive a level
+  total from visible rows instead of preserving source-authored totals.
+- Until `lotus-gateway#107` is resolved, the contribution endpoint is certified at the
+  lotus-performance boundary, while Workbench row coverage should be treated as a governed
+  downstream presentation limitation.
+
 ## Validation Commands
 
 Focused checks for this certification slice:

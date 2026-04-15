@@ -1,6 +1,6 @@
 # MWR Endpoint Certification
 
-Status: in progress for `POST /performance/mwr`
+Status: certified for `POST /performance/mwr`
 
 Canonical live portfolio: `PB_SG_GLOBAL_BAL_001`
 
@@ -56,6 +56,22 @@ an upstream data-quality issue.
   uses it in the Workbench performance workspace summary/details flow.
 - `lotus-risk` does not call `/performance/mwr`; risk surfaces consume
   `POST /integration/returns/series` for performance return series.
+
+Downstream certification status:
+
+- `lotus-gateway` uses the stateful MWR endpoint for the investor capital-timing lens and maps the
+  returned MWR value, annualized value, method, period dates, and economic context into Workbench
+  performance contracts.
+- Gateway does not currently request `emit_cashflows_used=true` for normal Workbench surfaces. That
+  is acceptable for front-office summary use, because the cash-flow schedule is support evidence,
+  not a required summary display field.
+- No direct open gateway issue was found for MWR endpoint misuse during this pass.
+
+## GitHub Issue Disposition
+
+Open issue search for MWR currently finds only broad stateful-sourcing issue `#83`. That issue
+remains open because it covers wider RFC-0082 architecture work. No direct open MWR-output defect
+was found during this pass.
 
 ## Live Canonical Evidence
 

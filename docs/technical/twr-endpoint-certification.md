@@ -166,6 +166,10 @@ Current residual test gap:
   expose the needed signals; the downstream UI must not present unsupported long-window results as
   clean front-office performance.
 
+Downstream issue `lotus-gateway#108` tracks this product-surface gap for Workbench horizon
+comparison. Until that issue is resolved, TWR remains certified at the lotus-performance endpoint
+boundary with the governed caveat that long-window front-office presentation must be inspector-gated.
+
 ## Validation Commands
 
 Focused checks run during this certification pass:
