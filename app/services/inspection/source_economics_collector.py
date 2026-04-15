@@ -10,6 +10,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class SourceEconomicsSamples:
+    invalid_observation_date_samples: list[dict[str, object]]
     fee_flow_dates: list[str]
     external_flow_dates: list[str]
     fee_normalization_samples: list[dict[str, object]]
@@ -68,6 +69,7 @@ class _SourceEconomicsSampleCollector:
 
     def freeze(self) -> SourceEconomicsSamples:
         return SourceEconomicsSamples(
+            invalid_observation_date_samples=[],
             fee_flow_dates=self.fee_flow_dates,
             external_flow_dates=self.external_flow_dates,
             fee_normalization_samples=self.fee_normalization_samples,

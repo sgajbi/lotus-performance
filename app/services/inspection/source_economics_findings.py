@@ -11,6 +11,30 @@ def build_source_economics_findings(
 ) -> list[TWRInspectionFinding]:
     findings: list[TWRInspectionFinding] = []
 
+    if samples.invalid_observation_date_samples:
+        findings.append(
+            TWRInspectionFinding(
+                code="INVALID_PORTFOLIO_OBSERVATION_DATE_PRESENT",
+                severity="warning",
+                category="documentation_drift",
+                owner_repo="lotus-core",
+                summary="The stateful portfolio source serves observations without a usable valuation_date.",
+                explanation=(
+                    "The raw portfolio-timeseries payload includes one or more observation rows whose valuation_date "
+                    "is missing or not a string. The inspector cannot align those rows to normalized TWR valuation "
+                    "points, so it preserves the malformed observation identity as source-contract evidence."
+                ),
+                recommended_action=(
+                    "Review lotus-core portfolio-timeseries serialization and emit a YYYY-MM-DD valuation_date for "
+                    "every portfolio observation row."
+                ),
+                evidence=_sample_evidence(
+                    portfolio_id=portfolio_id,
+                    samples=samples.invalid_observation_date_samples,
+                ),
+            )
+        )
+
     if samples.fee_normalization_samples:
         findings.append(
             TWRInspectionFinding(

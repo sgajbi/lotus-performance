@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal, InvalidOperation
 
 from app.core.config import Settings, get_settings
@@ -91,6 +91,12 @@ class DetailedCashFlowEconomics:
     fee_bod_timing_rows: tuple[dict[str, object], ...]
 
 
+@dataclass(frozen=True)
+class SourceObservationBuildResult:
+    source_points: list[ObservationSourceEconomics]
+    invalid_observation_date_samples: list[dict[str, object]]
+
+
 def run_source_economics_checks(
     *,
     performance_request: PerformanceRequest,
@@ -146,11 +152,16 @@ def analyze_source_economics(
         }
         for point in performance_request.valuation_points
     }
-    source_points = _build_observation_source_economics(
+    observation_build_result = _build_observation_source_economics(
         observations=observations,
         normalized_by_date=normalized_by_date,
     )
-    samples = collect_source_economics_samples(source_points)
+    samples = collect_source_economics_samples(observation_build_result.source_points)
+    if observation_build_result.invalid_observation_date_samples:
+        samples = replace(
+            samples,
+            invalid_observation_date_samples=observation_build_result.invalid_observation_date_samples,
+        )
 
     findings = build_source_economics_findings(
         portfolio_id=portfolio_id,
@@ -178,6 +189,7 @@ def _build_evidence_summary(
 ) -> dict[str, object]:
     return {
         "portfolio_observation_count": len(observations),
+        "invalid_observation_date_count": len(samples.invalid_observation_date_samples),
         "fee_cashflow_date_count": len(samples.fee_flow_dates),
         "external_cashflow_date_count": len(samples.external_flow_dates),
         "fee_normalization_gap_count": len(samples.fee_normalization_samples),
@@ -213,6 +225,8 @@ def _build_artifact_payload(
     return {
         "portfolio_id": portfolio_id,
         "portfolio_observation_count": len(observations),
+        "invalid_observation_date_count": len(samples.invalid_observation_date_samples),
+        "invalid_observation_date_samples": samples.invalid_observation_date_samples[:_SAMPLE_LIMIT],
         "fee_cashflow_dates": samples.fee_flow_dates,
         "external_cashflow_dates": samples.external_flow_dates,
         "fee_cashflow_date_count": len(samples.fee_flow_dates),
@@ -294,11 +308,20 @@ def _build_observation_source_economics(
     *,
     observations: list[dict[str, object]],
     normalized_by_date: dict[str, dict[str, Decimal]],
-) -> list[ObservationSourceEconomics]:
+) -> SourceObservationBuildResult:
     source_points: list[ObservationSourceEconomics] = []
+    invalid_observation_date_samples: list[dict[str, object]] = []
     for observation in observations:
         valuation_date = observation.get("valuation_date")
         if not isinstance(valuation_date, str):
+            invalid_observation_date_samples.append(
+                {
+                    "valuation_date": None,
+                    "raw_type": type(valuation_date).__name__,
+                    "raw_value": _sample_raw_collection_value(valuation_date),
+                    "observation_keys": sorted(str(key) for key in observation),
+                }
+            )
             continue
         normalized_point = normalized_by_date.get(
             valuation_date,
@@ -331,7 +354,10 @@ def _build_observation_source_economics(
                 fee_bod_timing_rows=raw_economics.fee_bod_timing_rows,
             )
         )
-    return source_points
+    return SourceObservationBuildResult(
+        source_points=source_points,
+        invalid_observation_date_samples=invalid_observation_date_samples,
+    )
 
 
 def _collect_observation_economics(observation: dict[str, object]) -> RawObservationEconomics:
