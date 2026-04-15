@@ -14,6 +14,7 @@ def build_source_economics_findings(
     duplicate_external_signal_samples: list[dict[str, object]],
     external_source_mismatch_samples: list[dict[str, object]],
     external_timing_contradiction_samples: list[dict[str, object]],
+    invalid_timing_samples: list[dict[str, object]],
     missing_cashflow_type_samples: list[dict[str, object]],
     noncanonical_cashflow_type_samples: list[dict[str, object]],
 ) -> list[TWRInspectionFinding]:
@@ -176,6 +177,27 @@ def build_source_economics_findings(
                     "and detailed external cash-flow rows classify the movement in the same timing bucket."
                 ),
                 evidence=_sample_evidence(portfolio_id=portfolio_id, samples=external_timing_contradiction_samples),
+            )
+        )
+
+    if invalid_timing_samples:
+        findings.append(
+            TWRInspectionFinding(
+                code="INVALID_CASHFLOW_TIMING_PRESENT",
+                severity="warning",
+                category="documentation_drift",
+                owner_repo="lotus-core",
+                summary="The stateful portfolio source serves detailed cash-flow rows with unusable timing labels.",
+                explanation=(
+                    "The raw portfolio observation includes detailed cash-flow rows with missing, blank, or "
+                    "unsupported timing values. The inspector only interprets canonical `bod` and `eod` timing "
+                    "labels, so these rows need explicit upstream semantics."
+                ),
+                recommended_action=(
+                    "Review lotus-core detailed cash-flow serialization and emit canonical `bod` or `eod` timing "
+                    "labels for every nonzero detailed cash-flow row."
+                ),
+                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=invalid_timing_samples),
             )
         )
 

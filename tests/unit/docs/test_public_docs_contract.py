@@ -423,6 +423,7 @@ def test_twr_inspection_checks_guide_lists_current_check_inventory():
     assert "POSITIVE_FEE_SOURCE_SIGNAL" in guide
     assert "EXTERNAL_CASHFLOW_NORMALIZATION_MISMATCH" in guide
     assert "EXTERNAL_CASHFLOW_TIMING_BUCKET_CONTRADICTION" in guide
+    assert "INVALID_CASHFLOW_TIMING_PRESENT" in guide
     assert "MISSING_CASHFLOW_TYPE_PRESENT" in guide
     assert "NONCANONICAL_CASHFLOW_TYPE_PRESENT" in guide
 
