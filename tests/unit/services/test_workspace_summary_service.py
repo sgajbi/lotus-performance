@@ -472,9 +472,10 @@ def test_build_mwr_cash_flows_includes_carry_forward_capital_breaks():
         (250.0, date(2026, 1, 3)),
         (-5.0, date(2026, 1, 3)),
     ]
-    assert economics.beginning_cash_flow == Decimal("250.0")
-    assert economics.net_cash_flow == Decimal("245.0")
-    assert economics.flow_adjusted_end_market_value == Decimal("1015.0")
+    assert economics.beginning_cash_flow == Decimal("10.0")
+    assert economics.ending_cash_flow == Decimal("-5.0")
+    assert economics.net_cash_flow == Decimal("5.0")
+    assert economics.flow_adjusted_end_market_value == Decimal("1255.0")
 
 
 def test_annualize_percentage_returns_original_value_when_elapsed_measure_is_non_positive():

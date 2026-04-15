@@ -82,9 +82,10 @@ source produced domain-plausible YTD stateful MWR:
 - `DIETZ`: about `-0.93%` period return
 - `MODIFIED_DIETZ`: same implemented Dietz path, about `-0.93%`
 
-Gateway Workbench performance summary now returns the same YTD XIRR MWR value, rounded to
-`-3.613903%`, and preserves operational fees as performance drag rather than investor cash
-movement.
+Gateway Workbench performance summary returns the same YTD XIRR MWR value, rounded to
+`-3.613903%`. Workspace economic-context fields remain explicit source economics:
+`beginning_cash_flow`, `ending_cash_flow`, and `net_cash_flow` do not include carry-forward capital
+adjustments, while the MWR calculation cash-flow schedule does include those adjustments.
 
 ## Certification Result
 
@@ -94,6 +95,12 @@ the current lotus-core source still contains large cross-observation capital-bas
 front office needs to explain the source economics. The endpoint contract and normalization are now
 aligned with the PB/quant MWR capital-timing lens, and focused tests cover the critical
 normalization behavior.
+
+Response attribute-level certification is covered in
+`docs/technical/twr-mwr-response-attribute-certification.md` and
+`tests/integration/test_response_attribute_certification.py`. That pass checks emitted MWR response
+fields, cash-flow echo behavior, metadata, diagnostics, audit counts, optional-field omission, and
+independently recomputed Dietz math.
 
 ## Validation Commands
 

@@ -105,6 +105,30 @@ def test_mwr_guide_matches_current_method_reality():
     assert "[cite_start]" not in guide
 
 
+def test_twr_mwr_response_attribute_certification_documents_field_level_checks():
+    certification = _read("docs/technical/twr-mwr-response-attribute-certification.md")
+    readme = _read("README.md")
+
+    assert (
+        "This certification checks the full emitted response contract, not only headline return values."
+        in certification
+    )
+    assert "`portfolio.summary.period_return.base`" in certification
+    assert "`portfolio.breakdowns.<frequency>[]`" in certification
+    assert "`meta.input_fingerprint` / `meta.calculation_hash`" in certification
+    assert "`diagnostics.effective_period_start`" in certification
+    assert "`audit.counts.input_rows`" in certification
+    assert "`money_weighted_return`" in certification
+    assert "`cashflows_used[].amount` / `date`" in certification
+    assert "`audit.counts.cashflows`" in certification
+    assert "40 / 1040 = 3.846153846%" in certification
+    assert "Workspace may shape the UI response, but it must not" in certification
+    assert "Workspace economics must not include internal MWR carry-forward capital adjustments" in certification
+    assert "`flow_adjusted_end_market_value = end_market_value - explicit net_cash_flow`" in certification
+    assert "tests/integration/test_response_attribute_certification.py" in certification
+    assert "technical/twr-mwr-response-attribute-certification.md" in readme
+
+
 def test_methodology_index_points_to_current_guides():
     index = _read("docs/technical/methodology_index.md")
 

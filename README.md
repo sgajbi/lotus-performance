@@ -293,6 +293,7 @@ make test-all
 - [technical/twr-endpoint-certification.md](docs/technical/twr-endpoint-certification.md)
 - [guides/mwr.md](docs/guides/mwr.md)
 - [technical/mwr-endpoint-certification.md](docs/technical/mwr-endpoint-certification.md)
+- [technical/twr-mwr-response-attribute-certification.md](docs/technical/twr-mwr-response-attribute-certification.md)
 - [guides/contribution.md](docs/guides/contribution.md)
 - [guides/attribution.md](docs/guides/attribution.md)
 - [guides/complete_service_reference.md](docs/guides/complete_service_reference.md)

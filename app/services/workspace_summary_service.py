@@ -866,11 +866,7 @@ def _build_mwr_cash_flows(period_slice: pd.DataFrame) -> list[CashFlow]:
 def _build_economic_context(period_slice: pd.DataFrame) -> WorkspaceEconomicContext:
     first_row = period_slice.iloc[0]
     last_row = period_slice.iloc[-1]
-    carry_forward_adjustment = sum(
-        (amount for _, amount in _iter_carry_forward_adjustments(period_slice)),
-        Decimal("0"),
-    )
-    beginning_cash_flow = _sum_decimal_column(period_slice, "bod_cf") + carry_forward_adjustment
+    beginning_cash_flow = _sum_decimal_column(period_slice, "bod_cf")
     ending_cash_flow = _sum_decimal_column(period_slice, "eod_cf")
     fees = _sum_decimal_column(period_slice, "mgmt_fees")
     net_cash_flow = beginning_cash_flow + ending_cash_flow

@@ -144,6 +144,12 @@ Live validation artifacts:
 
 The TWR endpoint has production-grade coverage across the test pyramid:
 
+Response attribute-level certification is covered in
+`docs/technical/twr-mwr-response-attribute-certification.md` and
+`tests/integration/test_response_attribute_certification.py`. That pass checks emitted TWR response
+fields, nested period/breakdown attributes, metadata, diagnostics, audit counts, optional-field
+omission, and independently recomputed daily/cumulative return math.
+
 | Layer | Coverage | Assessment |
 | --- | --- | --- |
 | Model and validation tests | Request mode validation, stateless-vs-stateful exclusivity, benchmark inclusion rules, empty frequencies, explicit-window validation, and extra-field rejection. | Strong. These tests protect client-facing contract semantics before engine execution. |
