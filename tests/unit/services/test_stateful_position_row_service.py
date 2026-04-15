@@ -21,23 +21,24 @@ def test_split_position_cash_flows_in_value_basis_converts_to_portfolio_and_repo
         {"amount": "5", "timing": "bod"},
         {"amount": "-2", "timing": "eod"},
         {"amount": "-1", "timing": "eod", "cash_flow_type": "fee"},
+        {"amount": "-0.5", "timing": "eod", "cash_flow_type": "expense"},
     ]
 
     assert split_position_cash_flows_in_value_basis(
         cash_flows_raw=cash_flows,
         row=row,
         value_basis="position",
-    ) == (Decimal("5"), Decimal("-3"), Decimal("-1"))
+    ) == (Decimal("5"), Decimal("-2"), Decimal("-1.5"))
     assert split_position_cash_flows_in_value_basis(
         cash_flows_raw=cash_flows,
         row=row,
         value_basis="portfolio",
-    ) == (Decimal("6.00"), Decimal("-3.60"), Decimal("-1.20"))
+    ) == (Decimal("6.00"), Decimal("-2.40"), Decimal("-1.80"))
     assert split_position_cash_flows_in_value_basis(
         cash_flows_raw=cash_flows,
         row=row,
         value_basis="reporting",
-    ) == (Decimal("6.6000"), Decimal("-3.9600"), Decimal("-1.3200"))
+    ) == (Decimal("6.6000"), Decimal("-2.6400"), Decimal("-1.9800"))
 
 
 def test_split_position_cash_flows_in_value_basis_rejects_unsupported_cash_flow_currency_mismatch():
@@ -72,7 +73,7 @@ def test_split_position_cash_flows_in_value_basis_ignores_non_list_and_non_usabl
         ],
         row=row,
         value_basis="position",
-    ) == (Decimal("0"), Decimal("3"), Decimal("0"))
+    ) == (Decimal("0"), Decimal("0"), Decimal("0"))
 
 
 def test_cash_flow_conversion_factor_and_decimal_default_helpers_cover_missing_rates():
