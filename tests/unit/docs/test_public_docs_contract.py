@@ -412,6 +412,7 @@ def test_twr_inspection_checks_guide_lists_current_check_inventory():
     assert "source_quality_summary.json" in guide
     assert "reconciliation_summary.json" in guide
     assert "source_economics_summary.json" in guide
+    assert "INSPECTION_CHECK_FAMILY_FAILED" in guide
     assert "RELATIVE_PERFORMANCE_SUMMARY_MISMATCH" in guide
     assert "RELATIVE_PERFORMANCE_BENCHMARK_BLOCK_MISSING" in guide
     assert "BENCHMARK_RELATIVE_PERFORMANCE_BLOCK_MISSING" in guide

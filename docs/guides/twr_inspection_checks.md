@@ -56,6 +56,15 @@ Current completed families:
 
 ## Finding Inventory
 
+### Inspection Runtime
+
+These findings are owned by `lotus-performance` and explain whether the inspector itself completed enough work to
+support the verdict.
+
+| Code | Meaning | Typical Evidence |
+| --- | --- | --- |
+| `INSPECTION_CHECK_FAMILY_FAILED` | one or more check families failed after subject resolution, so completed families remain reviewable but the inspection is partial | failed check families, failed stage name, error type, error message |
+
 ### Calculation Consistency
 
 These findings are owned by `lotus-performance` and point to served-response arithmetic or linking defects.
@@ -163,6 +172,7 @@ Use for:
 - verdict
 - top-level evidence summary
 - completed and pending check families
+- failed check families when a runtime failure prevented a family from producing supportability evidence
 - artifact inventory
 
 ### `findings.json`
@@ -278,6 +288,9 @@ Use for:
 ## Operator Notes
 
 - A mathematically coherent TWR result can still be `not_supportable`.
+- `INSPECTION_CHECK_FAMILY_FAILED` means the inspector preserved a runtime failure as evidence instead of erasing
+  already completed checks. If no check family completed, the verdict is `inspection_failed`; if some families
+  completed, review the completed evidence and rerun after fixing the failed dependency or runtime issue.
 - `lotus-performance` findings usually point to response construction or normalization defects inside this repository.
 - `lotus-core` findings usually point to raw stateful source semantics, aggregation, timing, or reconciliation defects upstream.
 - `POSITION_BEGIN_VALUE_CARRY_FORWARD_BREAK` is the main check for the defect pattern where a position's prior
