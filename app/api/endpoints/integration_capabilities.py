@@ -305,7 +305,33 @@ async def get_integration_capabilities(
             contract_notes=(
                 [
                     "supports inspection of an existing TWR calculation or a proposed TWR request payload",
-                    "slice 1 establishes the durable contract, async runtime path, and artifact plumbing",
+                    "inspection profiles expose bounded support_triage, canonical_validation, and deep_reconciliation behavior",
+                    "artifact retrieval includes inspection_summary.json and findings.json, and reconciliation_summary.json when stateful reconciliation runs",
+                ]
+                if twr_enabled
+                else []
+            ),
+            options=(
+                [
+                    AnalyticsSurfaceOptionCapability(
+                        key="subject_type",
+                        supported_values=["twr_calculation", "twr_request"],
+                        required_when="always",
+                        notes=[
+                            "twr_calculation inspects an existing durable TWR execution identity",
+                            "twr_request inspects a proposed TWR request payload without mutating the normal TWR contract",
+                        ],
+                    ),
+                    AnalyticsSurfaceOptionCapability(
+                        key="inspection_profile",
+                        supported_values=["support_triage", "canonical_validation", "deep_reconciliation"],
+                        required_when="always",
+                        notes=[
+                            "support_triage is the default bounded supportability workflow",
+                            "canonical_validation is the governed profile for canonical portfolio validation",
+                            "deep_reconciliation adds heavier stateful reconciliation evidence for upstream escalation",
+                        ],
+                    ),
                 ]
                 if twr_enabled
                 else []

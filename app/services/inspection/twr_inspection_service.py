@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 
 from app.models.inspection_requests import TWRInspectionRequest
@@ -57,6 +58,7 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
         "artifact_queue_enabled": True,
         "related_execution_found": subject.related_execution is not None,
     }
+    artifact_payloads: dict[str, str] = {}
     performance_request = None
     resolved_execution_request = None
     if subject.subject_calculation_id is not None:
@@ -122,6 +124,10 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
         reconciliation_findings = reconciliation_result.findings
         completed_check_families.append("reconciliation")
         evidence_summary.update(reconciliation_result.evidence_summary)
+        artifact_payloads["reconciliation_summary.json"] = json.dumps(
+            reconciliation_result.artifact_payload,
+            indent=2,
+        )
 
     execution_registry.start_stage(request.inspection_id, "finding_synthesis")
     findings = [*consistency_findings, *source_quality_findings, *reconciliation_findings]
@@ -181,6 +187,15 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
                 f"/performance/inspections/{request.inspection_id}/artifacts/inspection_summary.json"
             ),
             "findings.json": f"/performance/inspections/{request.inspection_id}/artifacts/findings.json",
+            **(
+                {
+                    "reconciliation_summary.json": (
+                        f"/performance/inspections/{request.inspection_id}/artifacts/reconciliation_summary.json"
+                    )
+                }
+                if "reconciliation_summary.json" in artifact_payloads
+                else {}
+            ),
         },
         generated_at_utc=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
     )
@@ -199,6 +214,7 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
             inspection_id=request.inspection_id,
             request_model=request,
             response_model=response,
+            artifact_payloads=artifact_payloads,
         )
     except Exception as exc:
         execution_registry.fail_stage(request.inspection_id, "artifact_materialization", str(exc))

@@ -283,6 +283,17 @@ def test_twr_inspection_runs_reconciliation_for_resolved_stateful_subject(client
     }
     assert body["evidence_summary"]["mixed_epoch_date_count"] == 1
     assert body["evidence_summary"]["reconciliation_gap_date_count"] == 2
+    assert body["artifacts"]["reconciliation_summary.json"].endswith("/reconciliation_summary.json")
+
+    assert drain_lineage_queue() >= 1
+
+    reconciliation_artifact = client.get(
+        f"/performance/inspections/{inspection_id}/artifacts/reconciliation_summary.json"
+    )
+    assert reconciliation_artifact.status_code == 200
+    reconciliation_body = reconciliation_artifact.json()
+    assert reconciliation_body["mixed_epoch_date_count"] == 1
+    assert reconciliation_body["reconciliation_gap_date_count"] == 2
 
 
 def test_twr_inspection_flags_relative_arithmetic_mismatch_for_existing_calculation(client):

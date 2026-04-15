@@ -193,6 +193,11 @@ Sample request:
 }
 ```
 
+Supported request controls:
+
+- `subject_type`: `twr_calculation` or `twr_request`
+- `inspection_profile`: `support_triage`, `canonical_validation`, or `deep_reconciliation`
+
 Async result route:
 
 - `GET /performance/inspections/{inspection_id}`
@@ -200,6 +205,8 @@ Async result route:
 Artifact route:
 
 - `GET /performance/inspections/{inspection_id}/artifacts/{artifact_name}`
+- base artifact set always includes `inspection_summary.json` and `findings.json`
+- `reconciliation_summary.json` is also emitted when stateful reconciliation runs
 
 ### `GET /performance/twr/results/{calculation_id}`
 

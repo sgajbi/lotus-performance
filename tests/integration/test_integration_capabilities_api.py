@@ -55,6 +55,14 @@ def test_integration_capabilities_default_contract():
     assert surfaces["twr_inspection"]["supports_async"] is True
     assert surfaces["twr_inspection"]["poll_path_template"] == "/performance/executions/{calculation_id}"
     assert surfaces["twr_inspection"]["result_path_template"] == "/performance/inspections/{inspection_id}"
+    inspection_options = {item["key"]: item for item in surfaces["twr_inspection"]["options"]}
+    assert inspection_options["subject_type"]["supported_values"] == ["twr_calculation", "twr_request"]
+    assert inspection_options["inspection_profile"]["supported_values"] == [
+        "support_triage",
+        "canonical_validation",
+        "deep_reconciliation",
+    ]
+    assert "reconciliation_summary.json" in " ".join(surfaces["twr_inspection"]["contract_notes"])
     assert surfaces["benchmark"]["path"] == "/performance/benchmark"
     assert surfaces["benchmark"]["supported_input_modes"] == ["stateful", "stateless"]
     assert surfaces["benchmark"]["supports_async"] is True
@@ -129,6 +137,10 @@ def test_integration_capabilities_env_override(monkeypatch):
     assert body["supported_input_modes"] == ["stateful"]
     assert surfaces["twr"]["supported_input_modes"] == ["stateful"]
     assert surfaces["twr_inspection"]["supported_input_modes"] == []
+    assert {item["key"] for item in surfaces["twr_inspection"]["options"]} == {
+        "subject_type",
+        "inspection_profile",
+    }
     assert surfaces["attribution"]["enabled"] is False
     assert surfaces["attribution"]["stateful_restrictions"] == []
     assert surfaces["workspace_summary"]["enabled"] is True

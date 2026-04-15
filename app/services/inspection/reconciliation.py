@@ -19,6 +19,7 @@ _INSPECTOR_CONSUMER_SYSTEM = "lotus-performance-inspector"
 class ReconciliationCheckResult:
     findings: list[TWRInspectionFinding]
     evidence_summary: dict[str, object]
+    artifact_payload: dict[str, object]
 
 
 def run_reconciliation_checks(
@@ -165,6 +166,17 @@ def analyze_portfolio_position_reconciliation(
             "mixed_epoch_date_count": len(mixed_epoch_dates),
             "reconciliation_gap_date_count": len(gap_details),
             "reconciliation_max_gap_amount": float(max_abs_gap_amount),
+        },
+        artifact_payload={
+            "portfolio_id": portfolio_id,
+            "reconciliation_dates_checked": len(overlapping_dates),
+            "position_row_count": len(position_rows),
+            "selected_position_row_count": len(selected_position_rows),
+            "mixed_epoch_dates": mixed_epoch_dates,
+            "mixed_epoch_date_count": len(mixed_epoch_dates),
+            "reconciliation_gap_date_count": len(gap_details),
+            "max_gap_amount": float(max_abs_gap_amount),
+            "gap_samples": gap_details[:25],
         },
     )
 
