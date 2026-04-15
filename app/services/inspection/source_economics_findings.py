@@ -14,6 +14,7 @@ def build_source_economics_findings(
     duplicate_external_signal_samples: list[dict[str, object]],
     external_source_mismatch_samples: list[dict[str, object]],
     external_timing_contradiction_samples: list[dict[str, object]],
+    invalid_explicit_amount_samples: list[dict[str, object]],
     invalid_amount_samples: list[dict[str, object]],
     invalid_timing_samples: list[dict[str, object]],
     missing_cashflow_type_samples: list[dict[str, object]],
@@ -178,6 +179,27 @@ def build_source_economics_findings(
                     "and detailed external cash-flow rows classify the movement in the same timing bucket."
                 ),
                 evidence=_sample_evidence(portfolio_id=portfolio_id, samples=external_timing_contradiction_samples),
+            )
+        )
+
+    if invalid_explicit_amount_samples:
+        findings.append(
+            TWRInspectionFinding(
+                code="INVALID_EXPLICIT_SOURCE_AMOUNT_PRESENT",
+                severity="warning",
+                category="documentation_drift",
+                owner_repo="lotus-core",
+                summary="The stateful portfolio source serves malformed explicit fee or cash-flow totals.",
+                explanation=(
+                    "The raw portfolio observation includes one or more explicit fee, bod cash-flow, or eod cash-flow "
+                    "fields whose value cannot be parsed as a number. The inspector currently treats those fields as "
+                    "unusable, so upstream source-economics lineage is incomplete until serialization is corrected."
+                ),
+                recommended_action=(
+                    "Review lotus-core portfolio-timeseries serialization and emit numeric values for explicit fee, "
+                    "bod cash-flow, and eod cash-flow source fields when those fields are present."
+                ),
+                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=invalid_explicit_amount_samples),
             )
         )
 
