@@ -172,6 +172,15 @@ Use for:
 - non-canonical cash-flow type date counts
 - sampled fee and external source-economics anomalies
 
+Key support-facing sample fields:
+
+- `external_cashflow_timing_contradiction_samples[*].explicit_timing`
+- `external_cashflow_timing_contradiction_samples[*].opposite_detailed_timing`
+- `external_cashflow_timing_contradiction_samples[*].explicit_cashflow_amount`
+- `external_cashflow_timing_contradiction_samples[*].opposite_detailed_cashflow_amount`
+- `noncanonical_cashflow_type_samples[*].cash_flow_types`
+- `noncanonical_cashflow_types`
+
 ## Operator Notes
 
 - A mathematically coherent TWR result can still be `not_supportable`.

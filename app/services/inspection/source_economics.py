@@ -13,6 +13,7 @@ from app.services.portfolio_source_service import build_stateful_input_service
 _ABSOLUTE_TOLERANCE = Decimal("0.01")
 _INSPECTOR_CONSUMER_SYSTEM = "lotus-performance-inspector"
 _CANONICAL_CASHFLOW_TYPES = {"fee", "external_flow"}
+_SAMPLE_LIMIT = 25
 
 
 @dataclass(frozen=True)
@@ -231,53 +232,123 @@ def analyze_source_economics(
 
     return SourceEconomicsCheckResult(
         findings=findings,
-        evidence_summary={
-            "portfolio_observation_count": len(observations),
-            "fee_cashflow_date_count": len(fee_flow_dates),
-            "external_cashflow_date_count": len(external_flow_dates),
-            "fee_normalization_gap_count": len(fee_normalization_samples),
-            "duplicate_fee_signal_count": len(duplicate_fee_signal_samples),
-            "fee_source_mismatch_count": len(fee_source_mismatch_samples),
-            "positive_fee_signal_count": len(positive_fee_signal_samples),
-            "external_cashflow_normalization_gap_count": len(external_normalization_samples),
-            "duplicate_external_cashflow_signal_count": len(duplicate_external_signal_samples),
-            "external_cashflow_source_mismatch_count": len(external_source_mismatch_samples),
-            "external_cashflow_timing_contradiction_count": len(external_timing_contradiction_samples),
-            "noncanonical_cashflow_type_date_count": len(noncanonical_cashflow_type_samples),
-        },
-        artifact_payload={
-            "portfolio_id": portfolio_id,
-            "portfolio_observation_count": len(observations),
-            "fee_cashflow_dates": fee_flow_dates,
-            "external_cashflow_dates": external_flow_dates,
-            "fee_cashflow_date_count": len(fee_flow_dates),
-            "external_cashflow_date_count": len(external_flow_dates),
-            "fee_normalization_gap_count": len(fee_normalization_samples),
-            "fee_normalization_gap_samples": fee_normalization_samples[:25],
-            "duplicate_fee_signal_count": len(duplicate_fee_signal_samples),
-            "duplicate_fee_signal_samples": duplicate_fee_signal_samples[:25],
-            "fee_source_mismatch_count": len(fee_source_mismatch_samples),
-            "fee_source_mismatch_samples": fee_source_mismatch_samples[:25],
-            "positive_fee_signal_count": len(positive_fee_signal_samples),
-            "positive_fee_signal_samples": positive_fee_signal_samples[:25],
-            "external_cashflow_normalization_gap_count": len(external_normalization_samples),
-            "external_cashflow_normalization_gap_samples": external_normalization_samples[:25],
-            "duplicate_external_cashflow_signal_count": len(duplicate_external_signal_samples),
-            "duplicate_external_cashflow_signal_samples": duplicate_external_signal_samples[:25],
-            "external_cashflow_source_mismatch_count": len(external_source_mismatch_samples),
-            "external_cashflow_source_mismatch_samples": external_source_mismatch_samples[:25],
-            "external_cashflow_timing_contradiction_count": len(external_timing_contradiction_samples),
-            "external_cashflow_timing_contradiction_samples": external_timing_contradiction_samples[:25],
-            "noncanonical_cashflow_type_date_count": len(noncanonical_cashflow_type_samples),
-            "noncanonical_cashflow_type_samples": noncanonical_cashflow_type_samples[:25],
-            "noncanonical_cashflow_types": sorted(
-                {
-                    cash_flow_type
-                    for sample in noncanonical_cashflow_type_samples
-                    for cash_flow_type in sample["cash_flow_types"]
-                }
-            ),
-        },
+        evidence_summary=_build_evidence_summary(
+            observations=observations,
+            fee_flow_dates=fee_flow_dates,
+            external_flow_dates=external_flow_dates,
+            fee_normalization_samples=fee_normalization_samples,
+            duplicate_fee_signal_samples=duplicate_fee_signal_samples,
+            fee_source_mismatch_samples=fee_source_mismatch_samples,
+            positive_fee_signal_samples=positive_fee_signal_samples,
+            external_normalization_samples=external_normalization_samples,
+            duplicate_external_signal_samples=duplicate_external_signal_samples,
+            external_source_mismatch_samples=external_source_mismatch_samples,
+            external_timing_contradiction_samples=external_timing_contradiction_samples,
+            noncanonical_cashflow_type_samples=noncanonical_cashflow_type_samples,
+        ),
+        artifact_payload=_build_artifact_payload(
+            portfolio_id=portfolio_id,
+            observations=observations,
+            fee_flow_dates=fee_flow_dates,
+            external_flow_dates=external_flow_dates,
+            fee_normalization_samples=fee_normalization_samples,
+            duplicate_fee_signal_samples=duplicate_fee_signal_samples,
+            fee_source_mismatch_samples=fee_source_mismatch_samples,
+            positive_fee_signal_samples=positive_fee_signal_samples,
+            external_normalization_samples=external_normalization_samples,
+            duplicate_external_signal_samples=duplicate_external_signal_samples,
+            external_source_mismatch_samples=external_source_mismatch_samples,
+            external_timing_contradiction_samples=external_timing_contradiction_samples,
+            noncanonical_cashflow_type_samples=noncanonical_cashflow_type_samples,
+        ),
+    )
+
+
+def _build_evidence_summary(
+    *,
+    observations: list[dict[str, object]],
+    fee_flow_dates: list[str],
+    external_flow_dates: list[str],
+    fee_normalization_samples: list[dict[str, object]],
+    duplicate_fee_signal_samples: list[dict[str, object]],
+    fee_source_mismatch_samples: list[dict[str, object]],
+    positive_fee_signal_samples: list[dict[str, object]],
+    external_normalization_samples: list[dict[str, object]],
+    duplicate_external_signal_samples: list[dict[str, object]],
+    external_source_mismatch_samples: list[dict[str, object]],
+    external_timing_contradiction_samples: list[dict[str, object]],
+    noncanonical_cashflow_type_samples: list[dict[str, object]],
+) -> dict[str, object]:
+    return {
+        "portfolio_observation_count": len(observations),
+        "fee_cashflow_date_count": len(fee_flow_dates),
+        "external_cashflow_date_count": len(external_flow_dates),
+        "fee_normalization_gap_count": len(fee_normalization_samples),
+        "duplicate_fee_signal_count": len(duplicate_fee_signal_samples),
+        "fee_source_mismatch_count": len(fee_source_mismatch_samples),
+        "positive_fee_signal_count": len(positive_fee_signal_samples),
+        "external_cashflow_normalization_gap_count": len(external_normalization_samples),
+        "duplicate_external_cashflow_signal_count": len(duplicate_external_signal_samples),
+        "external_cashflow_source_mismatch_count": len(external_source_mismatch_samples),
+        "external_cashflow_timing_contradiction_count": len(external_timing_contradiction_samples),
+        "noncanonical_cashflow_type_date_count": len(noncanonical_cashflow_type_samples),
+    }
+
+
+def _build_artifact_payload(
+    *,
+    portfolio_id: str,
+    observations: list[dict[str, object]],
+    fee_flow_dates: list[str],
+    external_flow_dates: list[str],
+    fee_normalization_samples: list[dict[str, object]],
+    duplicate_fee_signal_samples: list[dict[str, object]],
+    fee_source_mismatch_samples: list[dict[str, object]],
+    positive_fee_signal_samples: list[dict[str, object]],
+    external_normalization_samples: list[dict[str, object]],
+    duplicate_external_signal_samples: list[dict[str, object]],
+    external_source_mismatch_samples: list[dict[str, object]],
+    external_timing_contradiction_samples: list[dict[str, object]],
+    noncanonical_cashflow_type_samples: list[dict[str, object]],
+) -> dict[str, object]:
+    return {
+        "portfolio_id": portfolio_id,
+        "portfolio_observation_count": len(observations),
+        "fee_cashflow_dates": fee_flow_dates,
+        "external_cashflow_dates": external_flow_dates,
+        "fee_cashflow_date_count": len(fee_flow_dates),
+        "external_cashflow_date_count": len(external_flow_dates),
+        "fee_normalization_gap_count": len(fee_normalization_samples),
+        "fee_normalization_gap_samples": fee_normalization_samples[:_SAMPLE_LIMIT],
+        "duplicate_fee_signal_count": len(duplicate_fee_signal_samples),
+        "duplicate_fee_signal_samples": duplicate_fee_signal_samples[:_SAMPLE_LIMIT],
+        "fee_source_mismatch_count": len(fee_source_mismatch_samples),
+        "fee_source_mismatch_samples": fee_source_mismatch_samples[:_SAMPLE_LIMIT],
+        "positive_fee_signal_count": len(positive_fee_signal_samples),
+        "positive_fee_signal_samples": positive_fee_signal_samples[:_SAMPLE_LIMIT],
+        "external_cashflow_normalization_gap_count": len(external_normalization_samples),
+        "external_cashflow_normalization_gap_samples": external_normalization_samples[:_SAMPLE_LIMIT],
+        "duplicate_external_cashflow_signal_count": len(duplicate_external_signal_samples),
+        "duplicate_external_cashflow_signal_samples": duplicate_external_signal_samples[:_SAMPLE_LIMIT],
+        "external_cashflow_source_mismatch_count": len(external_source_mismatch_samples),
+        "external_cashflow_source_mismatch_samples": external_source_mismatch_samples[:_SAMPLE_LIMIT],
+        "external_cashflow_timing_contradiction_count": len(external_timing_contradiction_samples),
+        "external_cashflow_timing_contradiction_samples": external_timing_contradiction_samples[:_SAMPLE_LIMIT],
+        "noncanonical_cashflow_type_date_count": len(noncanonical_cashflow_type_samples),
+        "noncanonical_cashflow_type_samples": noncanonical_cashflow_type_samples[:_SAMPLE_LIMIT],
+        "noncanonical_cashflow_types": _collect_noncanonical_cashflow_types(noncanonical_cashflow_type_samples),
+    }
+
+
+def _collect_noncanonical_cashflow_types(
+    noncanonical_cashflow_type_samples: list[dict[str, object]],
+) -> list[str]:
+    return sorted(
+        {
+            cash_flow_type
+            for sample in noncanonical_cashflow_type_samples
+            for cash_flow_type in sample["cash_flow_types"]
+        }
     )
 
 
