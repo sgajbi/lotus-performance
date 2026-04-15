@@ -12,6 +12,7 @@ from app.services.portfolio_source_service import (
     parse_stateful_portfolio_timeseries_payload,
 )
 from app.services.stateful_input_service import RetrievalMetadata, StatefulInputService
+from app.services.stateful_upstream_errors import stateful_control_plane_unavailable_detail
 from app.services.valuation_points_service import portfolio_timeseries_to_valuation_points
 
 
@@ -67,7 +68,10 @@ async def retrieve_stateful_portfolio_input(
     if upstream_status >= status.HTTP_400_BAD_REQUEST:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"stateful portfolio timeseries source unavailable ({upstream_status}).",
+            detail=stateful_control_plane_unavailable_detail(
+                source_label="stateful portfolio timeseries source",
+                upstream_status=upstream_status,
+            ),
         )
 
     try:

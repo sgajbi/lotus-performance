@@ -24,7 +24,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - `calculation_id` is caller-optional; when omitted, lotus-performance generates one and returns it in the response
   - existing stateless callers can continue sending top-level `valuation_points`
   - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
-  - stateful mode sources portfolio timeseries from lotus-core query-control-plane and normalizes them into canonical valuation points before engine execution
+  - stateful mode sources portfolio timeseries from lotus-core query-control-plane via `CORE_CONTROL_PLANE_BASE_URL` and normalizes them into canonical valuation points before engine execution
   - `include_benchmark=true` is the canonical switch for returning benchmark performance alongside portfolio TWR
   - the nested `benchmark` object is optional configuration; it can supply `benchmark_id`, `input_mode`, and `return_source`
   - when `include_benchmark=true`, explicit `benchmark.benchmark_id` overrides lotus-core assignment lookup; otherwise stateful mode can source the portfolio-to-benchmark mapping from lotus-core
@@ -51,7 +51,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 - contract note:
   - existing stateless callers can continue sending top-level `begin_mv`, `end_mv`, and `cash_flows`
   - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
-  - stateful mode sources portfolio timeseries from lotus-core query-control-plane and normalizes them into canonical `begin_mv`, `end_mv`, `cash_flows`, and authoritative `start_date` before engine execution
+  - stateful mode sources portfolio timeseries from lotus-core query-control-plane via `CORE_CONTROL_PLANE_BASE_URL` and normalizes them into canonical `begin_mv`, `end_mv`, `cash_flows`, and authoritative `start_date` before engine execution
   - lotus-performance stamps source consumer identity server-side for the stateful envelope
 
 ### `POST /performance/workspace-summary`
@@ -262,7 +262,7 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - `stateful`
   - existing stateless callers can continue sending top-level `portfolio_data` and `positions_data`
   - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
-  - stateful mode sources portfolio and position timeseries from lotus-core query-control-plane and normalizes them into canonical contribution inputs before engine execution
+  - stateful mode sources portfolio and position timeseries from lotus-core query-control-plane via `CORE_CONTROL_PLANE_BASE_URL` and normalizes them into canonical contribution inputs before engine execution
   - lotus-performance stamps source consumer identity server-side for the stateful envelope
   - position-level `average_weight` and grouped `weight_avg` are both emitted in percentage units
   - `position_contributions` remains the primary ranking surface for top/bottom contributor views
@@ -288,7 +288,7 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - `stateless`
   - `stateful`
   - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
-  - stateful mode sources portfolio and position timeseries from lotus-core and derives benchmark group inputs from benchmark assignment plus the shared benchmark engine sourcing path
+  - stateful mode sources portfolio and position timeseries from lotus-core query-control-plane via `CORE_CONTROL_PLANE_BASE_URL` and derives benchmark group inputs from benchmark assignment plus the shared benchmark engine sourcing path
   - lotus-performance stamps source consumer identity server-side for the stateful envelope
   - when a benchmark is resolved, the response also emits top-level `benchmark_context`
   - each attribution group row now includes average portfolio weight, average benchmark weight, portfolio return, and benchmark return alongside allocation, selection, interaction, and total effect

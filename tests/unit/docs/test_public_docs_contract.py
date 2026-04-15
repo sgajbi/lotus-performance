@@ -395,6 +395,7 @@ def test_complete_service_reference_covers_endpoint_surface_and_config_inventory
     assert "CONTRIBUTION_RESET_AWARE_AVERAGE_WEIGHT_MODE" in guide
     assert "WORKSPACE_SUMMARY_EXECUTOR_WINDOW_DAYS" in guide
     assert "LINEAGE_STORAGE_PATH" in guide
+    assert "CORE_CONTROL_PLANE_BASE_URL" in guide
     assert "CORE_QUERY_BASE_URL" in guide
     assert "docs/examples/workspace_summary_request.json" in guide
     assert "docs/examples/integration_capabilities_response.json" in guide

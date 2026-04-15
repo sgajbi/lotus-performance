@@ -36,9 +36,19 @@ Stateful mode uses:
 
 - `stateful_input`
 
-In stateful mode, lotus-performance retrieves portfolio timeseries from lotus-core,
+In stateful mode, lotus-performance retrieves portfolio timeseries from lotus-core query-control-plane
+through `CORE_CONTROL_PLANE_BASE_URL`,
 normalizes them into canonical valuation points, then runs the same owned TWR engine
 used by stateless requests.
+
+Preferred local defaults for `CORE_CONTROL_PLANE_BASE_URL` are:
+
+- app/runtime: `http://core-control.dev.lotus`
+- Docker host-port: `http://host.docker.internal:8202`
+- platform-stack internal: `http://lotus-core-control:8002`
+
+`CORE_QUERY_BASE_URL` remains a deprecated compatibility fallback only when
+`CORE_CONTROL_PLANE_BASE_URL` is unset.
 
 The stateful envelope is intentionally lightweight. lotus-performance stamps the
 source consumer identity server-side instead of requiring an explicit consumer field.

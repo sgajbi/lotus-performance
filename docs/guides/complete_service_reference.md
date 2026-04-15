@@ -1145,7 +1145,8 @@ All service configuration comes from `app.core.config.Settings`.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `CORE_QUERY_BASE_URL` | `http://core-control.dev.lotus` | lotus-core query-control-plane base URL |
+| `CORE_CONTROL_PLANE_BASE_URL` | `http://core-control.dev.lotus` | lotus-core query-control-plane base URL for stateful analytics-input contracts |
+| `CORE_QUERY_BASE_URL` | unset | deprecated compatibility fallback when `CORE_CONTROL_PLANE_BASE_URL` is unset |
 | `CORE_TIMEOUT_SECONDS` | `10.0` | upstream request timeout |
 | `CORE_MAX_RETRIES` | `2` | upstream retry count |
 | `CORE_RETRY_BACKOFF_SECONDS` | `0.2` | upstream retry backoff |

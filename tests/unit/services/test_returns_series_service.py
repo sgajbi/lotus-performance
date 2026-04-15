@@ -451,7 +451,9 @@ async def test_calculate_returns_series_uses_runtime_stateful_settings(monkeypat
             "Settings",
             (),
             {
+                "CORE_CONTROL_PLANE_BASE_URL": "http://runtime-core-control",
                 "CORE_QUERY_BASE_URL": "http://runtime-core",
+                "resolved_core_control_plane_base_url": "http://runtime-core-control",
                 "CORE_TIMEOUT_SECONDS": 17.0,
                 "CORE_MAX_RETRIES": 5,
                 "CORE_RETRY_BACKOFF_SECONDS": 1.5,
@@ -473,7 +475,7 @@ async def test_calculate_returns_series_uses_runtime_stateful_settings(monkeypat
     response = await returns_series_service.calculate_returns_series(request)
 
     assert captured["core_init"] == {
-        "base_url": "http://runtime-core",
+        "base_url": "http://runtime-core-control",
         "timeout_seconds": 17.0,
         "max_retries": 5,
         "retry_backoff_seconds": 1.5,

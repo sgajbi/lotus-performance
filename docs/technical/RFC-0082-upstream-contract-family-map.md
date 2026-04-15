@@ -18,8 +18,16 @@ execution lifecycle, and lineage.
 does not ask `lotus-core` to compute performance, attribution, contribution, benchmark analytics,
 or risk-adjusted analytics.
 
-Current transport posture remains REST/OpenAPI through `CORE_QUERY_BASE_URL`. There is no current
-gRPC contract between `lotus-performance` and `lotus-core`.
+Current transport posture remains REST/OpenAPI through `CORE_CONTROL_PLANE_BASE_URL` for stateful
+analytics-input contracts. `CORE_QUERY_BASE_URL` is a deprecated compatibility fallback only when
+`CORE_CONTROL_PLANE_BASE_URL` is unset. There is no current gRPC contract between
+`lotus-performance` and `lotus-core`.
+
+Governed base-URL examples for the control-plane contract family are:
+
+1. local ingress: `http://core-control.dev.lotus`
+2. local Docker host-port: `http://host.docker.internal:8202`
+3. platform-stack internal: `http://lotus-core-control:8002`
 
 ## Upstream Client Surfaces
 

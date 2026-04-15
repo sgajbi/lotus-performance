@@ -24,7 +24,8 @@ class Settings(BaseSettings):
     LINEAGE_WORKER_MAX_ATTEMPTS: int = 3
     LINEAGE_WORKER_LEASE_SECONDS: int = 60
     LINEAGE_WORKER_ID: str = "lineage-worker-1"
-    CORE_QUERY_BASE_URL: str = "http://core-query.dev.lotus"
+    CORE_CONTROL_PLANE_BASE_URL: str | None = "http://core-control.dev.lotus"
+    CORE_QUERY_BASE_URL: str | None = None
     CORE_TIMEOUT_SECONDS: float = 10.0
     CORE_MAX_RETRIES: int = 2
     CORE_RETRY_BACKOFF_SECONDS: float = 0.2
@@ -83,6 +84,10 @@ class Settings(BaseSettings):
     RECOVERY_DRILL_ACTION_LEASE_STALE_SECONDS: float = 3600.0
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    @property
+    def resolved_core_control_plane_base_url(self) -> str:
+        return self.CORE_CONTROL_PLANE_BASE_URL or self.CORE_QUERY_BASE_URL or "http://core-control.dev.lotus"
 
 
 @lru_cache()
