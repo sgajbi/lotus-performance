@@ -36,6 +36,26 @@ def test_user_guide_documents_async_execution_surfaces():
     assert "/performance/lineage/{calculation_id}/artifacts/{artifact_name}" in guide
 
 
+def test_lineage_docs_reflect_certified_artifact_contract():
+    readme = _read("README.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    complete_reference = _read("docs/guides/complete_service_reference.md")
+    reproducibility = _read("docs/guides/reproducibility.md")
+    certification = _read("docs/technical/lineage-endpoint-certification.md")
+
+    assert "technical/lineage-endpoint-certification.md" in readme
+    assert "app.models.lineage_responses.LineageResponse" in api_reference
+    assert "Swagger status: documented in `/docs`" in api_reference
+    assert "docs/technical/lineage-endpoint-certification.md" in api_reference
+    assert '"calculation_type": "WORKSPACE_SUMMARY"' in complete_reference
+    assert '"url": "http://performance.dev.lotus/performance/lineage/' in complete_reference
+    assert '"request.json": {' in reproducibility
+    assert '"daily_results.csv": {' in reproducibility
+    assert "Downstream Consumers" in certification
+    assert "lotus-gateway#110" in certification
+    assert "Test Pyramid Assessment" in certification
+
+
 def test_execution_polling_docs_reflect_certified_contract():
     readme = _read("README.md")
     api_reference = _read("docs/guides/api_reference.md")

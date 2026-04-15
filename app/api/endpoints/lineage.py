@@ -1,38 +1,18 @@
 # app/api/endpoints/lineage.py
 import json
 import os
-from typing import Dict, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Path, Request, status
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, ValidationError
+from pydantic import ValidationError
 
 from app.core.config import get_settings
+from app.models.lineage_responses import ArtifactLink, LineageManifest, LineageResponse
 from app.services.lineage_metadata_store import LineageStatus, lineage_metadata_store
 from app.services.lineage_service import LineageService
 
-router = APIRouter()
-
-
-class ArtifactLink(BaseModel):
-    url: str
-
-
-class LineageResponse(BaseModel):
-    calculation_id: UUID
-    calculation_type: str
-    timestamp_utc: str
-    status: LineageStatus
-    artifacts: Dict[str, ArtifactLink]
-    error_message: Optional[str] = None
-
-
-class LineageManifest(BaseModel):
-    calculation_type: str
-    timestamp_utc: str
-    status: str
-    artifact_names: list[str]
+router = APIRouter(tags=["Performance"])
 
 
 def _resolve_lineage_artifact_path(*, calculation_id: UUID, artifact_name: str) -> str:
@@ -91,11 +71,37 @@ def _ensure_declared_artifacts_exist(*, calculation_id: UUID, artifact_names: li
             )
 
 
-@router.get("/lineage/{calculation_id}", response_model=LineageResponse, summary="Retrieve Data Lineage Artifacts")
-async def get_lineage_data(calculation_id: UUID, request: Request):
-    """
-    Retrieves the download URLs for all data lineage artifacts associated with a calculation_id.
-    """
+@router.get(
+    "/lineage/{calculation_id}",
+    response_model=LineageResponse,
+    summary="Retrieve lineage artifact inventory",
+    description=(
+        "Returns durable lineage materialization status and controlled download URLs for artifacts associated "
+        "with a calculation. Complete lineage requires a manifest that matches durable metadata and every "
+        "declared artifact to exist on disk before URLs are returned."
+    ),
+    responses={
+        404: {
+            "description": "No lineage record exists, or a completed lineage record has no manifest.",
+            "content": {
+                "application/json": {"example": {"detail": "Lineage data not found for the given calculation_id."}}
+            },
+        },
+        503: {
+            "description": "Lineage storage or manifest integrity is degraded.",
+            "content": {
+                "application/json": {"example": {"detail": "Lineage manifest is inconsistent with durable metadata."}}
+            },
+        },
+    },
+)
+async def get_lineage_data(
+    request: Request,
+    calculation_id: UUID = Path(
+        description="Durable calculation identifier returned by an analytics endpoint.",
+        examples=["2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e"],
+    ),
+) -> LineageResponse:
     record = lineage_metadata_store.get_record(calculation_id)
     if record is None:
         raise HTTPException(
@@ -160,9 +166,37 @@ async def get_lineage_data(calculation_id: UUID, request: Request):
 @router.get(
     "/lineage/{calculation_id}/artifacts/{artifact_name}",
     name="lineage_artifact_file",
-    include_in_schema=False,
+    summary="Download one lineage artifact",
+    description=(
+        "Downloads a lineage artifact through the controlled calculation/artifact route. Only artifacts declared "
+        "by durable lineage metadata are downloadable, and the manifest must still match durable metadata before "
+        "the file is served."
+    ),
+    responses={
+        200: {
+            "description": "Lineage artifact file content.",
+            "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}},
+        },
+        404: {
+            "description": "The lineage record is missing, incomplete, failed, or the artifact name is not declared.",
+            "content": {"application/json": {"example": {"detail": "Lineage artifact not found."}}},
+        },
+        503: {
+            "description": "The manifest or declared artifact file is missing or inconsistent in storage.",
+            "content": {"application/json": {"example": {"detail": "Lineage artifact is missing from storage."}}},
+        },
+    },
 )
-async def get_lineage_artifact(calculation_id: UUID, artifact_name: str):
+async def get_lineage_artifact(
+    calculation_id: UUID = Path(
+        description="Durable calculation identifier returned by an analytics endpoint.",
+        examples=["2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e"],
+    ),
+    artifact_name: str = Path(
+        description="Artifact filename declared by the completed lineage record.",
+        examples=["request.json"],
+    ),
+):
     record = lineage_metadata_store.get_record(calculation_id)
     if record is None or record.status != LineageStatus.COMPLETE:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lineage artifact not found.")

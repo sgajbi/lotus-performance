@@ -430,15 +430,23 @@ Return semantics for the workspace surface are now explicit rather than inferred
 ### `GET /performance/lineage/{calculation_id}`
 
 - purpose: retrieve durable lineage status and artifact URLs
-- response model: `app.api.endpoints.lineage.LineageResponse`
+- response model: `app.models.lineage_responses.LineageResponse`
+- use this endpoint when support, operations, or front-office evidence workflows need to inspect
+  whether calculation lineage has been materialized and which artifacts can be downloaded
+- response includes:
+  - `calculation_id`, `calculation_type`, `timestamp_utc`, and durable lineage `status`
+  - `artifacts` keyed by artifact filename, each containing a controlled service-owned `url`
+  - `error_message` when materialization failed
 - integrity note:
   - complete lineage requires a readable `manifest.json` that is structurally valid and consistent with the durable lineage record
   - complete lineage also requires every declared artifact to exist on disk before URLs are returned
   - inconsistent or corrupted manifests return `503` instead of silently serving drifted audit metadata
+- certification evidence: `docs/technical/lineage-endpoint-certification.md`
 
 ### `GET /performance/lineage/{calculation_id}/artifacts/{artifact_name}`
 
 - purpose: download a specific lineage artifact through a controlled calculation/artifact route
+- Swagger status: documented in `/docs` because the route is part of the public reproducibility and supportability contract
 - execution mode: synchronous file retrieval
 - contract note:
   - only artifacts listed in the lineage record are downloadable

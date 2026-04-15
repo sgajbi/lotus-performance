@@ -795,16 +795,21 @@ Sample response:
 ```json
 {
   "calculation_id": "0d000003-1111-4222-8333-abcdefabcdef",
+  "calculation_type": "WORKSPACE_SUMMARY",
+  "timestamp_utc": "2026-04-10T12:00:00Z",
   "status": "complete",
-  "manifest_path": "lineage_data/0d000003-1111-4222-8333-abcdefabcdef/manifest.json",
-  "artifacts": [
-    {
-      "name": "workspace_summary_portfolio_daily_results_net.csv",
-      "download_path": "/performance/lineage/0d000003-1111-4222-8333-abcdefabcdef/artifacts/workspace_summary_portfolio_daily_results_net.csv"
+  "artifacts": {
+    "workspace_summary_portfolio_daily_results_net.csv": {
+      "url": "http://performance.dev.lotus/performance/lineage/0d000003-1111-4222-8333-abcdefabcdef/artifacts/workspace_summary_portfolio_daily_results_net.csv"
     }
-  ]
+  },
+  "error_message": null
 }
 ```
+
+Certification evidence:
+
+- `docs/technical/lineage-endpoint-certification.md`
 
 ### `GET /performance/lineage/{calculation_id}/artifacts/{artifact_name}`
 

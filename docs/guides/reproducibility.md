@@ -66,12 +66,21 @@ You can retrieve the download URLs for all captured artifacts using a `GET` requ
   "calculation_id": "a4b7e289-7e28-4b7e-8e28-7e284b7e8e28",
   "calculation_type": "TWR",
   "timestamp_utc": "2025-09-08T12:45:00Z",
+  "status": "complete",
   "artifacts": {
-    "request_payload.json": "[http://performance.dev.lotus/performance/lineage/a4b7.../artifacts/request.json](http://performance.dev.lotus/performance/lineage/a4b7.../artifacts/request.json)",
-    "response_payload.json": "[http://performance.dev.lotus/performance/lineage/a4b7.../artifacts/response.json](http://performance.dev.lotus/performance/lineage/a4b7.../artifacts/response.json)",
-    "twr_calculation_details.csv": "[http://performance.dev.lotus/performance/lineage/a4b7.../artifacts/twr_calculation_details.csv](http://performance.dev.lotus/performance/lineage/a4b7.../artifacts/twr_calculation_details.csv)"
-  }
+    "request.json": {
+      "url": "http://performance.dev.lotus/performance/lineage/a4b7e289-7e28-4b7e-8e28-7e284b7e8e28/artifacts/request.json"
+    },
+    "response.json": {
+      "url": "http://performance.dev.lotus/performance/lineage/a4b7e289-7e28-4b7e-8e28-7e284b7e8e28/artifacts/response.json"
+    },
+    "daily_results.csv": {
+      "url": "http://performance.dev.lotus/performance/lineage/a4b7e289-7e28-4b7e-8e28-7e284b7e8e28/artifacts/daily_results.csv"
+    }
+  },
+  "error_message": null
 }
 ```
 
-The `twr_calculation_details.csv` file contains the full DataFrame used by the engine, including every intermediate column (daily signs, cumulative returns, control flags, etc.), giving you a complete picture of the calculation.
+The `daily_results.csv` file contains the daily ladder used by the engine, including return-linking
+fields and control columns that support calculation replay.

@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-04-15T12:24:29.969279+00:00",
+  "generatedAt": "2026-04-15T12:30:06.654446+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.account_reset_shadow_days",
@@ -295,7 +295,7 @@
       "semanticId": "lotus.artifacts",
       "canonicalTerm": "artifacts",
       "preferredName": "artifacts",
-      "description": "lineage response field: artifacts.",
+      "description": "Download links keyed by artifact filename. Empty while lineage is pending or failed, and populated only after manifest and on-disk artifact integrity checks pass.",
       "example": {
         "key": "value"
       },
@@ -671,8 +671,8 @@
       "semanticId": "lotus.calculation_type",
       "canonicalTerm": "calculation_type",
       "preferredName": "calculation_type",
-      "description": "lineage response field: calculation type.",
-      "example": "example_calculation_type",
+      "description": "Analytics family that produced the lineage payload.",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -5611,8 +5611,8 @@
       "semanticId": "lotus.timestamp_utc",
       "canonicalTerm": "timestamp_utc",
       "preferredName": "timestamp_utc",
-      "description": "lineage response field: timestamp utc.",
-      "example": "2026-02-27T10:30:00Z",
+      "description": "UTC timestamp from the durable lineage record or completed manifest.",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -6084,11 +6084,35 @@
       "location": "path",
       "required": true,
       "type": "string",
-      "description": "Canonical calculation id used by lotus-performance APIs.",
+      "description": "Durable calculation identifier returned by an analytics endpoint.",
       "example": "ENTITY_001",
       "allowedValues": [],
       "semanticId": "lotus.calculation_id",
       "attributeRef": "#/attributeCatalog/lotus.calculation_id"
+    },
+    {
+      "name": "calculation_id",
+      "kind": "request_option",
+      "location": "path",
+      "required": true,
+      "type": "string",
+      "description": "Durable calculation identifier returned by an analytics endpoint.",
+      "example": "ENTITY_001",
+      "allowedValues": [],
+      "semanticId": "lotus.calculation_id",
+      "attributeRef": "#/attributeCatalog/lotus.calculation_id"
+    },
+    {
+      "name": "artifact_name",
+      "kind": "request_option",
+      "location": "path",
+      "required": true,
+      "type": "string",
+      "description": "Artifact filename declared by the completed lineage record.",
+      "example": "STANDARD_VALUE",
+      "allowedValues": [],
+      "semanticId": "lotus.artifact_name",
+      "attributeRef": "#/attributeCatalog/lotus.artifact_name"
     },
     {
       "name": "consumer_system",
@@ -9534,7 +9558,7 @@
       "method": "GET",
       "path": "/performance/lineage/{calculation_id}",
       "operationId": "get_lineage_data_performance_lineage__calculation_id__get",
-      "summary": "Retrieve Data Lineage Artifacts",
+      "summary": "Retrieve lineage artifact inventory",
       "request": {
         "fields": [
           {
@@ -9598,6 +9622,36 @@
             "attributeRef": "#/attributeCatalog/lotus.error_message"
           }
         ]
+      }
+    },
+    {
+      "domain": "performance",
+      "method": "GET",
+      "path": "/performance/lineage/{calculation_id}/artifacts/{artifact_name}",
+      "operationId": "lineage_artifact_file_performance_lineage__calculation_id__artifacts__artifact_name__get",
+      "summary": "Download one lineage artifact",
+      "request": {
+        "fields": [
+          {
+            "name": "calculation_id",
+            "location": "path",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.calculation_id",
+            "attributeRef": "#/attributeCatalog/lotus.calculation_id"
+          },
+          {
+            "name": "artifact_name",
+            "location": "path",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.artifact_name",
+            "attributeRef": "#/attributeCatalog/lotus.artifact_name"
+          }
+        ]
+      },
+      "response": {
+        "fields": []
       }
     },
     {
