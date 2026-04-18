@@ -4,6 +4,8 @@
 
 [Architecture](Architecture)
 
+[API Surface](API-Surface)
+
 [Getting Started](Getting-Started)
 
 [Development Workflow](Development-Workflow)

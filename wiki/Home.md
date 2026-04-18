@@ -53,6 +53,7 @@ make ci
 
 - [Overview](Overview)
 - [Architecture](Architecture)
+- [API Surface](API-Surface)
 - [Getting Started](Getting-Started)
 - [Development Workflow](Development-Workflow)
 - [Validation and CI](Validation-and-CI)
