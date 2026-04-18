@@ -26,6 +26,16 @@
 - runtime-control surfaces are part of supportability, not optional extras
 - public docs are regression-tested and should stay aligned to shipped behavior
 
+## Documentation contract proof
+
+When a slice changes `README.md` or public guides, run:
+
+```bash
+python -m pytest tests/unit/docs/test_public_docs_contract.py -q
+```
+
+That pack protects the shipped public contract language and examples, not just formatting.
+
 ## References
 
 - [docs/operations/development-workflow-and-ci-strategy.md](../docs/operations/development-workflow-and-ci-strategy.md)

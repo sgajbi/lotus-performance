@@ -149,6 +149,12 @@ The local mapping is:
 - `make ci-local`
   local Docker-parity proof with full coverage and dependency checks
 
+When a slice changes `README.md` or public guides, also run:
+
+```bash
+python -m pytest tests/unit/docs/test_public_docs_contract.py -q
+```
+
 ## Integration Boundaries
 
 Primary ecosystem relationships:

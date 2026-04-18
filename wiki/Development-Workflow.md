@@ -27,6 +27,12 @@ make ci
 - keep benchmark and stateful integration language aligned to RFC-0082
 - respect the docs regression pack when changing `README.md` or public guides
 
+Targeted documentation proof:
+
+```bash
+python -m pytest tests/unit/docs/test_public_docs_contract.py -q
+```
+
 ## References
 
 - [docs/operations/development-workflow-and-ci-strategy.md](../docs/operations/development-workflow-and-ci-strategy.md)

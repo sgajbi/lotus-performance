@@ -100,7 +100,9 @@ Important validation expectations:
 1. OpenAPI and API vocabulary governance are active,
 2. migration smoke and project-scoped dependency health are required,
 3. unit, integration, e2e, coverage, and Docker build are part of the real merge contract,
-4. analytics quality and runtime characterization matter because downstream product surfaces depend on the truthfulness of these results.
+4. analytics quality and runtime characterization matter because downstream product surfaces depend on the truthfulness of these results,
+5. public documentation is regression-tested and README or guide reshaping should preserve governed
+   contract truth unless the underlying repo truth is intentionally changing.
 
 ## Standards And RFCs That Govern This Repository
 
@@ -124,7 +126,9 @@ Most relevant current governance:
 4. methodology and reproducibility documentation matter here as much as code,
 5. transport optimization between `lotus-performance` and `lotus-core` should start with retrieval-shape evidence before any gRPC proposal,
 6. repo-local `wiki/` content should stay concise, operator-focused, and derived from repo truth rather
-   than becoming a second uncontrolled documentation tree.
+   than becoming a second uncontrolled documentation tree,
+7. `tests/unit/docs/test_public_docs_contract.py` is a meaningful guardrail for README and public-guide
+   changes and should be part of targeted validation when documentation slices touch contract-facing pages.
 
 ## Context Maintenance Rule
 

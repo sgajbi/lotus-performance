@@ -38,3 +38,13 @@ References:
 
 - [docs/runbooks/runtime-alerts.md](../docs/runbooks/runtime-alerts.md)
 - [docs/technical/runtime-status-endpoint-certification.md](../docs/technical/runtime-status-endpoint-certification.md)
+
+## README or public-guide edits fail validation
+
+Run:
+
+```bash
+python -m pytest tests/unit/docs/test_public_docs_contract.py -q
+```
+
+Treat failures there as public-contract drift first, not as superficial wording checks.
