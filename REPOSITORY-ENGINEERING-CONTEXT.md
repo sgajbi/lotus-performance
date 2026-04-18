@@ -47,9 +47,11 @@ Primary areas:
    integration seams and storage/runtime adapters.
 5. `docs/`
    service guides, methodology, and technical runtime docs.
-6. `scripts/`
+6. `wiki/`
+   canonical authored source for GitHub wiki publication and repo-operator onboarding summaries.
+7. `scripts/`
    quality gates, migration checks, and dependency-health tooling.
-7. `tests/`
+8. `tests/`
    unit, integration, e2e, and benchmark or characterization coverage.
 
 ## Runtime And Integration Boundaries
@@ -98,7 +100,9 @@ Important validation expectations:
 1. OpenAPI and API vocabulary governance are active,
 2. migration smoke and project-scoped dependency health are required,
 3. unit, integration, e2e, coverage, and Docker build are part of the real merge contract,
-4. analytics quality and runtime characterization matter because downstream product surfaces depend on the truthfulness of these results.
+4. analytics quality and runtime characterization matter because downstream product surfaces depend on the truthfulness of these results,
+5. public documentation is regression-tested and README or guide reshaping should preserve governed
+   contract truth unless the underlying repo truth is intentionally changing.
 
 ## Standards And RFCs That Govern This Repository
 
@@ -120,7 +124,11 @@ Most relevant current governance:
 2. async execution and lineage are already part of the contract and should not be treated as optional infrastructure details,
 3. benchmark-aware stateful behavior must remain aligned with `lotus-core` sourcing, RFC-0082 contract-family classification, and gateway expectations,
 4. methodology and reproducibility documentation matter here as much as code,
-5. transport optimization between `lotus-performance` and `lotus-core` should start with retrieval-shape evidence before any gRPC proposal.
+5. transport optimization between `lotus-performance` and `lotus-core` should start with retrieval-shape evidence before any gRPC proposal,
+6. repo-local `wiki/` content should stay concise, operator-focused, and derived from repo truth rather
+   than becoming a second uncontrolled documentation tree,
+7. `tests/unit/docs/test_public_docs_contract.py` is a meaningful guardrail for README and public-guide
+   changes and should be part of targeted validation when documentation slices touch contract-facing pages.
 
 ## Context Maintenance Rule
 
@@ -131,7 +139,8 @@ Update this document when:
 3. stateful integration boundaries with `lotus-core` change,
 4. methodology, lineage, or execution posture changes materially,
 5. current product-support posture changes,
-6. RFC-0082 upstream contract-family classification or consumer conformance posture changes.
+6. RFC-0082 upstream contract-family classification or consumer conformance posture changes,
+7. README or `wiki/` structure changes the repository-local onboarding or operator navigation model.
 
 ## Cross-Links
 

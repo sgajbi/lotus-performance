@@ -1,8 +1,15 @@
-# Portfolio Performance Analytics API
+# lotus-performance
 
-`lotus-performance` is the analytics service in the Lotus platform. It owns:
+Authoritative performance analytics service for the Lotus ecosystem.
 
-- repository-local engineering context: `REPOSITORY-ENGINEERING-CONTEXT.md`
+Repository-local engineering context: [REPOSITORY-ENGINEERING-CONTEXT.md](REPOSITORY-ENGINEERING-CONTEXT.md)
+
+## Purpose And Scope
+
+`lotus-performance` is the Lotus domain service for benchmark-aware performance analytics,
+returns-series integration, durable execution tracking, and lineage-backed reproducibility.
+
+It owns:
 
 - time-weighted return (`POST /performance/twr`)
 - benchmark performance (`POST /performance/benchmark`)
@@ -12,11 +19,20 @@
 - attribution (`POST /performance/attribution`)
 - canonical returns-series integration (`POST /integration/returns/series`)
 - benchmark exposure context (`POST /integration/benchmarks/exposure-context`)
+- execution polling, runtime control-plane, and lineage retrieval surfaces
 
-It also owns durable execution lifecycle tracking, async compute offload for heavier workloads,
-lineage artifact capture, TWR inspection/supportability triage, and execution/result polling surfaces.
+It does not own source-of-record portfolio, benchmark, index, FX, or reference datasets, and it
+does not delegate performance conclusions to `lotus-core`.
 
-## Runtime model
+## Current Operational Posture
+
+1. `lotus-performance` is an active domain service consumed primarily through `lotus-gateway`.
+2. Stateful integration with `lotus-core` is live under the RFC-0082 contract-family map.
+3. Async execution, lineage capture, and durable runtime-control surfaces are shipped parts of the
+   contract.
+4. OpenAPI, API vocabulary, migration, security, and Docker parity are part of the real merge gate.
+
+## Architecture At A Glance
 
 The current runtime is a four-service topology:
 
@@ -25,22 +41,65 @@ The current runtime is a four-service topology:
 3. `performance-lineage-worker`
 4. `performance-lineage-db`
 
+Optional ops profile:
+
+5. `performance-runtime-retention-worker`
+
 Source-of-truth runtime docs:
 
-- [technical/architecture.md](docs/technical/architecture.md)
-- [technical/runtime_topology.md](docs/technical/runtime_topology.md)
-- [technical/RFC-0082-upstream-contract-family-map.md](docs/technical/RFC-0082-upstream-contract-family-map.md)
-- [technical/RFC-0082-retrieval-performance-hardening.md](docs/technical/RFC-0082-retrieval-performance-hardening.md)
-- [technical/execution-polling-endpoint-certification.md](docs/technical/execution-polling-endpoint-certification.md)
-- [technical/integration-capabilities-endpoint-certification.md](docs/technical/integration-capabilities-endpoint-certification.md)
-- [technical/lineage-endpoint-certification.md](docs/technical/lineage-endpoint-certification.md)
-- [technical/platform-surfaces-endpoint-certification.md](docs/technical/platform-surfaces-endpoint-certification.md)
-- [technical/recovery-drills-endpoint-certification.md](docs/technical/recovery-drills-endpoint-certification.md)
-- [technical/runtime-recoveries-endpoint-certification.md](docs/technical/runtime-recoveries-endpoint-certification.md)
-- [technical/runtime-retention-endpoint-certification.md](docs/technical/runtime-retention-endpoint-certification.md)
-- [technical/runtime-status-endpoint-certification.md](docs/technical/runtime-status-endpoint-certification.md)
-- [technical/runtime-work-items-endpoint-certification.md](docs/technical/runtime-work-items-endpoint-certification.md)
-- [technical/twr-inspection-endpoint-certification.md](docs/technical/twr-inspection-endpoint-certification.md)
+- [docs/technical/architecture.md](docs/technical/architecture.md)
+- [docs/technical/runtime_topology.md](docs/technical/runtime_topology.md)
+- [docs/technical/RFC-0082-upstream-contract-family-map.md](docs/technical/RFC-0082-upstream-contract-family-map.md)
+
+Grouped public surfaces are derived from the router layout in [main.py](main.py):
+
+- `/performance`
+  TWR, benchmark, contribution, executions, inspections, and lineage
+- `/integration`
+  capabilities, returns-series, benchmark exposure context, runtime status, runtime work items,
+  runtime recoveries, recovery drill history, and runtime retention history
+- platform surfaces
+  `/`, `/health`, `/health/live`, `/health/ready`, `/metrics`, `/docs`, and `/openapi.json`
+
+## Repository Layout
+
+- `app/`
+  FastAPI application layer, models, services, and workers
+- `engine/`
+  analytics and orchestration logic
+- `core/`
+  shared calculation and support foundations
+- `adapters/`
+  storage and integration seams
+- `docs/`
+  architecture, guides, runbooks, standards, RFCs, and certification evidence
+- `scripts/`
+  repo-native validation and operational tooling
+- `tests/`
+  unit, integration, e2e, benchmarks, and docs regression coverage
+
+## Quick Start
+
+Install dependencies:
+
+```bash
+make install
+```
+
+Run the API locally:
+
+```bash
+make run
+```
+
+Then open `/docs` or `/openapi.json`.
+
+For topology-parity local runs, the governed runtime overlays live in
+[docs/examples/](docs/examples). The production-profile compose overlay command remains:
+
+```bash
+docker compose -f docker-compose.yml -f docs/examples/docker-compose.runtime-thresholds.production.yml up
+```
 
 Canonical stateful TWR inspection can be validated locally with:
 
@@ -53,6 +112,115 @@ python scripts/validate_canonical_twr_inspection.py \
 This probes the lotus-core query-control-plane analytics-input POST routes, runs stateful TWR for
 `PB_SG_GLOBAL_BAL_001` as of `2026-04-10`, and verifies the RFC-045 inspection evidence has no
 source-economics or reconciliation regressions.
+
+## Common Commands
+
+- install
+  `make install`
+- fast local gate
+  `make check`
+- PR-grade local gate
+  `make ci`
+- Docker-parity local gate
+  `make ci-local`
+- full test and coverage run
+  `make test-all`
+- migration and recovery smoke
+  `make migration-smoke`
+- retention smoke
+  `make runtime-retention-smoke`
+- Docker image proof
+  `make docker-build`
+
+## Validation And CI Lanes
+
+`lotus-performance` follows the Lotus multi-lane model:
+
+1. `Remote Feature Lane`
+2. `Pull Request Merge Gate`
+3. `Main Releasability Gate`
+
+The local mapping is:
+
+- `make check`
+  lint, no-alias gate, typecheck, OpenAPI gate, API vocabulary gate, and unit tests
+- `make ci`
+  governance, migration smoke, security audit, unit, integration, e2e, coverage, and Docker build
+- `make ci-local`
+  local Docker-parity proof with full coverage and dependency checks
+
+When a slice changes `README.md` or public guides, also run:
+
+```bash
+python -m pytest tests/unit/docs/test_public_docs_contract.py -q
+```
+
+## Integration Boundaries
+
+Primary ecosystem relationships:
+
+- downstream consumers:
+  `lotus-gateway`, selected `lotus-risk` stateful workflows, and operator/support tooling
+- upstream dependencies:
+  `lotus-core` control-plane and source-data contracts for stateful sourcing
+
+Current transport posture remains REST/OpenAPI through `CORE_CONTROL_PLANE_BASE_URL`; there is no
+current gRPC contract between `lotus-performance` and `lotus-core`.
+
+Governed base-URL examples for the control-plane contract family are:
+
+1. local ingress: `http://core-control.dev.lotus`
+2. local host-port: `http://127.0.0.1:8202`
+3. local Docker-to-host: `http://host.docker.internal:8202`
+4. platform-stack internal: `http://lotus-core-control:8002`
+
+## Operations And Runtime Posture
+
+The runtime is intentionally durable:
+
+- `/health/ready` returns `200` only when the API can support executor-backed and lineage-backed workflows
+- `/performance/executions/{calculation_id}` is the canonical polling surface
+- async result routes are durable, not process-local memory
+- runtime status, work-item, recovery-drill, runtime-recovery, and retention surfaces are governed operator APIs
+
+Key operator and certification references:
+
+- [docs/runbooks/runtime-alerts.md](docs/runbooks/runtime-alerts.md)
+- [docs/runbooks/durable-metadata-recovery.md](docs/runbooks/durable-metadata-recovery.md)
+- [docs/runbooks/runtime-retention-cleanup.md](docs/runbooks/runtime-retention-cleanup.md)
+- [docs/technical/lineage-endpoint-certification.md](docs/technical/lineage-endpoint-certification.md)
+- [docs/technical/platform-surfaces-endpoint-certification.md](docs/technical/platform-surfaces-endpoint-certification.md)
+- [docs/technical/execution-polling-endpoint-certification.md](docs/technical/execution-polling-endpoint-certification.md)
+- [docs/technical/runtime-status-endpoint-certification.md](docs/technical/runtime-status-endpoint-certification.md)
+- [docs/technical/runtime-work-items-endpoint-certification.md](docs/technical/runtime-work-items-endpoint-certification.md)
+- [docs/technical/runtime-recoveries-endpoint-certification.md](docs/technical/runtime-recoveries-endpoint-certification.md)
+- [docs/technical/recovery-drills-endpoint-certification.md](docs/technical/recovery-drills-endpoint-certification.md)
+- [docs/technical/runtime-retention-endpoint-certification.md](docs/technical/runtime-retention-endpoint-certification.md)
+- [docs/technical/twr-inspection-endpoint-certification.md](docs/technical/twr-inspection-endpoint-certification.md)
+- [docs/technical/twr-mwr-response-attribute-certification.md](docs/technical/twr-mwr-response-attribute-certification.md)
+
+## Documentation Map
+
+- human API map:
+  [docs/guides/api_reference.md](docs/guides/api_reference.md)
+- complete service reference:
+  [docs/guides/complete_service_reference.md](docs/guides/complete_service_reference.md)
+- reproducibility and lineage:
+  [docs/guides/reproducibility.md](docs/guides/reproducibility.md)
+- workspace-summary guide:
+  [docs/guides/workspace_summary.md](docs/guides/workspace_summary.md)
+- TWR inspection checks:
+  [docs/guides/twr_inspection_checks.md](docs/guides/twr_inspection_checks.md)
+- methodology index:
+  [docs/technical/methodology_index.md](docs/technical/methodology_index.md)
+- local RFC estate:
+  [docs/RFCs/RFC-INDEX.md](docs/RFCs/RFC-INDEX.md)
+
+## Wiki Source
+
+Repository-authored wiki pages live under [wiki/](wiki). If the GitHub wiki is published later,
+keep `wiki/` as the canonical source and treat any separate `*.wiki.git` clone as publication
+plumbing only.
 
 ## Key contracts
 
