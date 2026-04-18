@@ -47,9 +47,11 @@ Primary areas:
    integration seams and storage/runtime adapters.
 5. `docs/`
    service guides, methodology, and technical runtime docs.
-6. `scripts/`
+6. `wiki/`
+   canonical authored source for GitHub wiki publication and repo-operator onboarding summaries.
+7. `scripts/`
    quality gates, migration checks, and dependency-health tooling.
-7. `tests/`
+8. `tests/`
    unit, integration, e2e, and benchmark or characterization coverage.
 
 ## Runtime And Integration Boundaries
@@ -120,7 +122,9 @@ Most relevant current governance:
 2. async execution and lineage are already part of the contract and should not be treated as optional infrastructure details,
 3. benchmark-aware stateful behavior must remain aligned with `lotus-core` sourcing, RFC-0082 contract-family classification, and gateway expectations,
 4. methodology and reproducibility documentation matter here as much as code,
-5. transport optimization between `lotus-performance` and `lotus-core` should start with retrieval-shape evidence before any gRPC proposal.
+5. transport optimization between `lotus-performance` and `lotus-core` should start with retrieval-shape evidence before any gRPC proposal,
+6. repo-local `wiki/` content should stay concise, operator-focused, and derived from repo truth rather
+   than becoming a second uncontrolled documentation tree.
 
 ## Context Maintenance Rule
 
@@ -131,7 +135,8 @@ Update this document when:
 3. stateful integration boundaries with `lotus-core` change,
 4. methodology, lineage, or execution posture changes materially,
 5. current product-support posture changes,
-6. RFC-0082 upstream contract-family classification or consumer conformance posture changes.
+6. RFC-0082 upstream contract-family classification or consumer conformance posture changes,
+7. README or `wiki/` structure changes the repository-local onboarding or operator navigation model.
 
 ## Cross-Links
 
