@@ -74,6 +74,21 @@ def _collect_required_upstream_product_paths(source_directory: Path) -> list[Pat
     return upstream_paths
 
 
+def platform_validation_dependencies_available(source_directory: Path = LOCAL_DECLARATION_DIR) -> bool:
+    required_paths = [
+        PLATFORM_VALIDATOR_PATH,
+        PLATFORM_VOCABULARY_DIR / "domain-data-product-semantics.v1.json",
+        PLATFORM_VOCABULARY_DIR / "domain-data-product-trust-metadata.v1.json",
+    ]
+
+    try:
+        required_paths.extend(_collect_required_upstream_product_paths(source_directory))
+    except FileNotFoundError:
+        return False
+
+    return all(path.exists() for path in required_paths)
+
+
 def validate_repo_native_contracts(source_directory: Path = LOCAL_DECLARATION_DIR) -> list[str]:
     source_directory = source_directory.resolve()
     if not source_directory.exists():

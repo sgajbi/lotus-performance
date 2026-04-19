@@ -1,8 +1,11 @@
 import json
 
+import pytest
+
 from scripts.validate_domain_data_product_contracts import (
     LOCAL_DECLARATION_DIR,
     _collect_required_upstream_product_paths,
+    platform_validation_dependencies_available,
     validate_repo_native_contracts,
 )
 
@@ -12,6 +15,9 @@ def _load_declaration(name: str) -> dict:
 
 
 def test_repo_native_domain_data_product_validation_passes() -> None:
+    if not platform_validation_dependencies_available():
+        pytest.skip("lotus-platform validation dependencies are not available in this environment")
+
     assert validate_repo_native_contracts() == []
 
 
@@ -33,6 +39,9 @@ def test_repo_native_declaration_readme_documents_local_validation_path() -> Non
 
 
 def test_repo_native_validation_script_stages_upstream_core_products() -> None:
+    if not platform_validation_dependencies_available():
+        pytest.skip("lotus-platform validation dependencies are not available in this environment")
+
     upstream_paths = _collect_required_upstream_product_paths(LOCAL_DECLARATION_DIR)
 
     assert [path.name for path in upstream_paths] == ["lotus-core-products.v1.json"]
