@@ -1,0 +1,51 @@
+{
+  "contract_id": "lotus-domain-product-trust-telemetry-snapshot",
+  "contract_version": "1.0.0",
+  "governed_by_rfcs": [
+    "RFC-0087"
+  ],
+  "emitted_at_utc": "2026-04-19T00:00:00Z",
+  "product_id": "lotus-performance:ReturnsSeriesBundle:v1",
+  "producer_repository": "lotus-performance",
+  "product_name": "ReturnsSeriesBundle",
+  "product_version": "v1",
+  "source_repository": "lotus-performance",
+  "freshness": {
+    "freshness_class": "daily",
+    "freshness_state": "current",
+    "evaluated_at_utc": "2026-04-19T00:00:00Z",
+    "observed_at_utc": "2026-04-19T00:00:00Z",
+    "age_seconds": 0,
+    "max_allowed_age_seconds": 86400
+  },
+  "completeness_status": "complete",
+  "reconciliation_status": "reconciled",
+  "data_quality_status": "quality_passed",
+  "lineage": {
+    "lineage_materialized": true,
+    "lineage_bundle_id": "lineage:lotus-performance:returns-series-bundle:2026-04-19",
+    "evidence_access_class": "customer_consumable",
+    "evidence_uris": [
+      "lotus-performance://evidence/returns-series/PB_SG_GLOBAL_BAL_001/2026-04-19"
+    ]
+  },
+  "blocking": {
+    "blocked": false
+  },
+  "observed_trust_metadata": {
+    "product_name": "ReturnsSeriesBundle",
+    "product_version": "v1",
+    "generated_at": "2026-04-19T00:00:00Z",
+    "as_of_date": "2026-04-19",
+    "correlation_id": "rfc-0087-lotus-performance-returns-series"
+  },
+  "evidence": {
+    "correlation_id": "rfc-0087-lotus-performance-returns-series",
+    "validation_lanes": [
+      "feature",
+      "pr-merge"
+    ],
+    "source_event_id": "source-event:lotus-performance:returns-series:2026-04-19",
+    "source_artifact_uri": "lotus-performance://contracts/trust-telemetry/returns-series-bundle.telemetry.v1.json"
+  }
+}
