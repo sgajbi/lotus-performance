@@ -31,7 +31,9 @@ Current repository posture:
 1. `lotus-performance` is the authoritative performance analytics engine consumed by `lotus-gateway`,
 2. stateful integration with `lotus-core` is active and classified under the RFC-0082 upstream contract-family map,
 3. the service already operates with enterprise-grade CI posture including security, migration, and Docker gates,
-4. async execution, lineage capture, and benchmark-aware workflows are real parts of the contract, not future placeholders.
+4. async execution, lineage capture, and benchmark-aware workflows are real parts of the contract, not future placeholders,
+5. repo-native domain-product producer and consumer declarations now live under `contracts/domain-data-products/`
+   with local validation through `make domain-product-validate`.
 
 ## Architecture And Module Map
 
@@ -86,6 +88,8 @@ Use these commands as the primary local contract:
    `make test-all`
 6. run locally
    `make run`
+7. repo-native domain-product declaration validation
+   `make domain-product-validate`
 
 ## Validation And CI Expectations
 
@@ -101,7 +105,8 @@ Important validation expectations:
 2. migration smoke and project-scoped dependency health are required,
 3. unit, integration, e2e, coverage, and Docker build are part of the real merge contract,
 4. analytics quality and runtime characterization matter because downstream product surfaces depend on the truthfulness of these results,
-5. public documentation is regression-tested and README or guide reshaping should preserve governed
+5. repo-native domain-product declaration validation is part of local ownership proof for RFC-0086 rollout,
+6. public documentation is regression-tested and README or guide reshaping should preserve governed
    contract truth unless the underlying repo truth is intentionally changing.
 
 ## Standards And RFCs That Govern This Repository
@@ -140,7 +145,8 @@ Update this document when:
 4. methodology, lineage, or execution posture changes materially,
 5. current product-support posture changes,
 6. RFC-0082 upstream contract-family classification or consumer conformance posture changes,
-7. README or `wiki/` structure changes the repository-local onboarding or operator navigation model.
+7. repo-native domain-product declaration paths or validation commands change,
+8. README or `wiki/` structure changes the repository-local onboarding or operator navigation model.
 
 ## Cross-Links
 

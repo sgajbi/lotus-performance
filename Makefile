@@ -1,4 +1,4 @@
-.PHONY: install install-ci verify-dependencies check check-all test test-unit test-integration test-e2e test-all test-coverage coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint monetary-float-guard format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build
+.PHONY: install install-ci verify-dependencies check check-all test test-unit test-integration test-e2e test-all test-coverage coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint monetary-float-guard format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate domain-product-validate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build
 
 install:
 	pip install -r requirements.txt
@@ -16,7 +16,7 @@ verify-dependencies:
 pre-commit:
 	pre-commit run --all-files
 
-check: lint no-alias-gate typecheck openapi-gate api-vocabulary-gate test
+check: lint no-alias-gate typecheck openapi-gate api-vocabulary-gate domain-product-validate test
 
 test-coverage:
 	COVERAGE_FILE=.coverage.unit python -m pytest tests/unit --cov=app --cov=engine --cov=core --cov=adapters --cov-report=
@@ -27,7 +27,7 @@ test-coverage:
 
 coverage-gate: test-coverage
 
-ci: lint no-alias-gate typecheck openapi-gate api-vocabulary-gate migration-smoke security-audit test-unit test-integration test-e2e coverage-gate docker-build
+ci: lint no-alias-gate typecheck openapi-gate api-vocabulary-gate domain-product-validate migration-smoke security-audit test-unit test-integration test-e2e coverage-gate docker-build
 
 test:
 	$(MAKE) test-unit
@@ -44,7 +44,7 @@ test-e2e:
 test-all:
 	python -m pytest --cov=app --cov=engine --cov=core --cov=adapters --cov-report=term-missing --cov-fail-under=99
 
-ci-local: lint check-deps
+ci-local: lint check-deps domain-product-validate
 	python -m pip check
 	COVERAGE_FILE=.coverage.unit python -m pytest tests/unit --cov=app --cov=engine --cov=core --cov=adapters --cov-report=
 	COVERAGE_FILE=.coverage.integration python -m pytest tests/integration --cov=app --cov=engine --cov=core --cov=adapters --cov-report=
@@ -72,6 +72,9 @@ api-vocabulary-gate:
 
 no-alias-gate:
 	python scripts/no_alias_contract_guard.py
+
+domain-product-validate:
+	python scripts/validate_domain_data_product_contracts.py
 
 migration-smoke:
 	python scripts/migration_contract_check.py --mode durable-schema

@@ -1,0 +1,131 @@
+{
+  "contract_id": "domain-data-product-consumers",
+  "contract_version": "1.0.0",
+  "governed_by_rfc": "RFC-0084",
+  "consumer_repository": "lotus-performance",
+  "dependencies": [
+    {
+      "product_name": "PortfolioTimeseriesInput",
+      "producer_repository": "lotus-core",
+      "required_product_version": "v1",
+      "consumption_mode": "api_read",
+      "business_purpose": "Source canonical portfolio return observations for stateful returns-series workflows.",
+      "validation_lanes": [
+        "feature",
+        "pr-merge"
+      ],
+      "failure_posture": "fail_closed",
+      "required_trust_metadata": [
+        "generated_at",
+        "as_of_date",
+        "reconciliation_status",
+        "data_quality_status",
+        "correlation_id"
+      ],
+      "migration_posture": {
+        "status": "current"
+      }
+    },
+    {
+      "product_name": "PortfolioAnalyticsReference",
+      "producer_repository": "lotus-core",
+      "required_product_version": "v1",
+      "consumption_mode": "api_read",
+      "business_purpose": "Resolve portfolio open-date, reporting-currency, and lifecycle reference context for governed performance products.",
+      "validation_lanes": [
+        "feature",
+        "pr-merge"
+      ],
+      "failure_posture": "fail_closed",
+      "required_trust_metadata": [
+        "generated_at",
+        "as_of_date",
+        "reconciliation_status",
+        "data_quality_status"
+      ],
+      "migration_posture": {
+        "status": "current"
+      }
+    },
+    {
+      "product_name": "BenchmarkAssignment",
+      "producer_repository": "lotus-core",
+      "required_product_version": "v1",
+      "consumption_mode": "api_read",
+      "business_purpose": "Resolve the linked benchmark for stateful returns-series and benchmark-exposure workflows.",
+      "validation_lanes": [
+        "feature",
+        "pr-merge"
+      ],
+      "failure_posture": "fail_closed",
+      "required_trust_metadata": [
+        "generated_at",
+        "as_of_date",
+        "data_quality_status"
+      ],
+      "migration_posture": {
+        "status": "current"
+      }
+    },
+    {
+      "product_name": "MarketDataWindow",
+      "producer_repository": "lotus-core",
+      "required_product_version": "v1",
+      "consumption_mode": "paged_api_read",
+      "business_purpose": "Retrieve benchmark market-series component weights and aligned market observations for performance-owned benchmark context.",
+      "validation_lanes": [
+        "feature",
+        "pr-merge"
+      ],
+      "failure_posture": "fail_closed",
+      "required_trust_metadata": [
+        "generated_at",
+        "data_quality_status",
+        "latest_evidence_timestamp"
+      ],
+      "migration_posture": {
+        "status": "current"
+      }
+    },
+    {
+      "product_name": "InstrumentReferenceBundle",
+      "producer_repository": "lotus-core",
+      "required_product_version": "v1",
+      "consumption_mode": "paged_api_read",
+      "business_purpose": "Source canonical classification and instrument reference metadata for benchmark exposure grouping semantics.",
+      "validation_lanes": [
+        "feature",
+        "pr-merge"
+      ],
+      "failure_posture": "fail_closed",
+      "required_trust_metadata": [
+        "generated_at",
+        "data_quality_status",
+        "latest_evidence_timestamp"
+      ],
+      "migration_posture": {
+        "status": "current"
+      }
+    },
+    {
+      "product_name": "RiskFreeSeriesWindow",
+      "producer_repository": "lotus-core",
+      "required_product_version": "v1",
+      "consumption_mode": "api_read",
+      "business_purpose": "Normalize governed risk-free series when the returns-series product is asked to emit risk-free return observations.",
+      "validation_lanes": [
+        "feature",
+        "pr-merge"
+      ],
+      "failure_posture": "degrade_to_partial",
+      "required_trust_metadata": [
+        "generated_at",
+        "data_quality_status",
+        "latest_evidence_timestamp"
+      ],
+      "migration_posture": {
+        "status": "current"
+      }
+    }
+  ]
+}

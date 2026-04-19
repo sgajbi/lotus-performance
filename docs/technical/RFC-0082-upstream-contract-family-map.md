@@ -104,6 +104,22 @@ Current test and implementation evidence:
 7. `tests/integration/test_benchmark_exposure_context_api.py`
    Verifies benchmark exposure context sourcing from core-backed index and benchmark inputs.
 
+## Repo-Native Machine-Readable Coverage
+
+RFC-0086 repo-native declarations now live in:
+
+1. `contracts/domain-data-products/lotus-performance-products.v1.json`
+2. `contracts/domain-data-products/lotus-performance-consumers.v1.json`
+
+Current machine-readable dependency coverage matches the current first-wave governed dependencies:
+
+1. `PortfolioTimeseriesInput`
+2. `PortfolioAnalyticsReference`
+3. `BenchmarkAssignment`
+4. `MarketDataWindow`
+5. `InstrumentReferenceBundle`
+6. `RiskFreeSeriesWindow`
+
 ## Current Gap Register
 
 1. `GET /fx-rates/` is currently an operational read rather than an `/integration/reference/*`
@@ -115,6 +131,9 @@ Current test and implementation evidence:
 3. Transport optimization is deferred. Retrieval performance work should first profile chunk size, page size,
    export behavior, concurrency, retry policy, and upstream database/query shape before proposing gRPC.
    Current Slice 4 evidence is recorded in `docs/technical/RFC-0082-retrieval-performance-hardening.md`.
+4. benchmark definition, benchmark composition-window, benchmark vendor return-series, index catalog,
+   and index price-series dependencies still rely on this document for truth because corresponding
+   machine-readable upstream producer declarations are not yet available for repo-native consumer coverage.
 
 ## Validation Lane
 
