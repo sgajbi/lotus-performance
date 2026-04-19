@@ -1,8 +1,14 @@
+import json
+
 from scripts.validate_domain_data_product_contracts import (
     LOCAL_DECLARATION_DIR,
     _collect_required_upstream_product_paths,
     validate_repo_native_contracts,
 )
+
+
+def _load_declaration(name: str) -> dict:
+    return json.loads((LOCAL_DECLARATION_DIR / name).read_text(encoding="utf-8"))
 
 
 def test_repo_native_domain_data_product_validation_passes() -> None:
@@ -30,3 +36,31 @@ def test_repo_native_validation_script_stages_upstream_core_products() -> None:
     upstream_paths = _collect_required_upstream_product_paths(LOCAL_DECLARATION_DIR)
 
     assert [path.name for path in upstream_paths] == ["lotus-core-products.v1.json"]
+
+
+def test_repo_native_producer_declarations_cover_only_the_governed_first_wave_products() -> None:
+    payload = _load_declaration("lotus-performance-products.v1.json")
+
+    assert payload["producer_repository"] == "lotus-performance"
+    assert [product["product_name"] for product in payload["products"]] == [
+        "ReturnsSeriesBundle",
+        "BenchmarkExposureContext",
+    ]
+    assert payload["products"][0]["approved_consumers"] == ["lotus-risk"]
+    assert payload["products"][1]["approved_consumers"] == ["lotus-risk"]
+
+
+def test_repo_native_consumer_declarations_keep_watchlist_dependencies_docs_only() -> None:
+    payload = _load_declaration("lotus-performance-consumers.v1.json")
+
+    dependency_names = [dependency["product_name"] for dependency in payload["dependencies"]]
+
+    assert payload["consumer_repository"] == "lotus-performance"
+    assert dependency_names == [
+        "PortfolioTimeseriesInput",
+        "PortfolioAnalyticsReference",
+        "BenchmarkAssignment",
+        "MarketDataWindow",
+        "InstrumentReferenceBundle",
+        "RiskFreeSeriesWindow",
+    ]
