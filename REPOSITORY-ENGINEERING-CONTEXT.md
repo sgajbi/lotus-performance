@@ -33,7 +33,10 @@ Current repository posture:
 3. the service already operates with enterprise-grade CI posture including security, migration, and Docker gates,
 4. async execution, lineage capture, and benchmark-aware workflows are real parts of the contract, not future placeholders,
 5. repo-native domain-product producer and consumer declarations now live under `contracts/domain-data-products/`
-   with local validation through `make domain-product-validate`.
+   with local validation through `make domain-product-validate`,
+6. RFC-0087 trust telemetry proof for `ReturnsSeriesBundle` now lives under
+   `contracts/trust-telemetry/` and is validated by `tests/unit/test_trust_telemetry.py` against
+   the platform trust telemetry validator when `lotus-platform` is available.
 
 ## Architecture And Module Map
 
@@ -49,11 +52,13 @@ Primary areas:
    integration seams and storage/runtime adapters.
 5. `docs/`
    service guides, methodology, and technical runtime docs.
-6. `wiki/`
+6. `contracts/trust-telemetry/`
+   Repo-native RFC-0087 trust telemetry fixtures for governed first-wave performance products.
+7. `wiki/`
    canonical authored source for GitHub wiki publication and repo-operator onboarding summaries.
-7. `scripts/`
+8. `scripts/`
    quality gates, migration checks, and dependency-health tooling.
-8. `tests/`
+9. `tests/`
    unit, integration, e2e, and benchmark or characterization coverage.
 
 ## Runtime And Integration Boundaries
