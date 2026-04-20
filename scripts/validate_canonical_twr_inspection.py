@@ -13,7 +13,10 @@ DEFAULT_PORTFOLIO_ID = "PB_SG_GLOBAL_BAL_001"
 DEFAULT_AS_OF_DATE = "2026-04-10"
 DEFAULT_PERFORMANCE_BASE_URL = "http://127.0.0.1:8002"
 DEFAULT_CORE_CONTROL_PLANE_BASE_URL = "http://127.0.0.1:8202"
-DEFAULT_ALLOWED_FINDING_CODES = ("WEEKEND_OBSERVATIONS_PRESENT",)
+DEFAULT_ALLOWED_FINDING_CODES = (
+    "WEEKEND_OBSERVATIONS_PRESENT",
+    "MONTHLY_RETURN_DAY_DOMINANCE_DETECTED",
+)
 
 REQUIRED_ZERO_EVIDENCE_FIELDS = (
     "nonpositive_capital_base_count",
@@ -42,9 +45,12 @@ def validate_canonical_inspection_summary(
     inspection_summary: dict[str, Any],
     *,
     allowed_finding_codes: tuple[str, ...] = DEFAULT_ALLOWED_FINDING_CODES,
+    require_support_brief: bool = False,
 ) -> CanonicalTWRInspectionValidation:
     errors: list[str] = []
     evidence_summary = _as_dict(inspection_summary.get("evidence_summary"))
+    artifacts = _as_dict(inspection_summary.get("artifacts"))
+    workflow_pack_run = _as_dict(inspection_summary.get("workflow_pack_run"))
     finding_codes = [
         str(finding.get("code"))
         for finding in _as_list(inspection_summary.get("findings"))
@@ -75,6 +81,14 @@ def validate_canonical_inspection_summary(
         errors.append("pending check families are present")
     if _as_dict(inspection_summary.get("check_coverage")).get("failed_check_families"):
         errors.append("failed check families are present")
+    if require_support_brief:
+        errors.extend(
+            _validate_support_brief_posture(
+                evidence_summary=evidence_summary,
+                artifacts=artifacts,
+                workflow_pack_run=workflow_pack_run,
+            )
+        )
 
     summary = {
         "inspection_id": inspection_summary.get("inspection_id"),
@@ -90,7 +104,21 @@ def validate_canonical_inspection_summary(
             "external_cashflow_date_count": evidence_summary.get("external_cashflow_date_count"),
             "largest_abs_daily_move_pct": evidence_summary.get("largest_abs_daily_move_pct"),
             "reconciliation_max_gap_amount": evidence_summary.get("reconciliation_max_gap_amount"),
+            "support_brief_generation_status": evidence_summary.get("support_brief_generation_status"),
+            "support_brief_workflow_pack_run_id": evidence_summary.get("support_brief_workflow_pack_run_id"),
             "weekend_observation_count": evidence_summary.get("weekend_observation_count"),
+        },
+        "support_brief": {
+            "required": require_support_brief,
+            "artifact_path": artifacts.get("support_brief.md"),
+            "workflow_pack_run": {
+                "run_id": workflow_pack_run.get("run_id"),
+                "runtime_state": workflow_pack_run.get("runtime_state"),
+                "review_state": workflow_pack_run.get("review_state"),
+                "supportability_status": workflow_pack_run.get("supportability_status"),
+                "workflow_authority_owner": workflow_pack_run.get("workflow_authority_owner"),
+                "allowed_review_actions": workflow_pack_run.get("allowed_review_actions"),
+            },
         },
     }
     return CanonicalTWRInspectionValidation(
@@ -107,6 +135,7 @@ def run_live_validation(
     portfolio_id: str,
     as_of_date: str,
     allowed_finding_codes: tuple[str, ...],
+    require_support_brief: bool,
     timeout_seconds: int,
 ) -> CanonicalTWRInspectionValidation:
     _probe_core_control_plane(
@@ -151,7 +180,21 @@ def run_live_validation(
     validation = validate_canonical_inspection_summary(
         inspection_result,
         allowed_finding_codes=allowed_finding_codes,
+        require_support_brief=require_support_brief,
     )
+    artifact_errors: list[str] = []
+    if require_support_brief:
+        support_brief_artifact_path = _as_dict(inspection_result.get("artifacts")).get("support_brief.md")
+        if isinstance(support_brief_artifact_path, str) and support_brief_artifact_path:
+            support_brief_artifact = _poll_text(
+                f"{performance_base_url.rstrip('/')}{support_brief_artifact_path}",
+                timeout_seconds=timeout_seconds,
+            )
+            if not support_brief_artifact.strip():
+                artifact_errors.append("support brief artifact was empty")
+            validation.summary["support_brief"]["artifact_preview"] = support_brief_artifact.splitlines()[0:3]
+        else:
+            artifact_errors.append("support brief artifact path was missing from inspection result")
     validation.summary["twr"] = {
         "calculation_id": twr_result.get("calculation_id"),
         "input_mode": twr_result.get("input_mode"),
@@ -160,6 +203,12 @@ def run_live_validation(
         .get("portfolio", {})
         .get("summary"),
     }
+    if artifact_errors:
+        return CanonicalTWRInspectionValidation(
+            passed=False,
+            errors=[*validation.errors, *artifact_errors],
+            summary=validation.summary,
+        )
     return validation
 
 
@@ -230,6 +279,18 @@ def _poll_json(
     raise TimeoutError(f"Timed out waiting for {url}; last payload={last_payload}")
 
 
+def _poll_text(url: str, *, timeout_seconds: int) -> str:
+    deadline = time.monotonic() + timeout_seconds
+    last_error: Exception | None = None
+    while time.monotonic() < deadline:
+        try:
+            return _get_text(url, timeout_seconds=min(10, timeout_seconds))
+        except RuntimeError as exc:
+            last_error = exc
+            time.sleep(2)
+    raise TimeoutError(f"Timed out waiting for {url}; last error={last_error}")
+
+
 def _post_json(url: str, payload: dict[str, Any], *, timeout_seconds: int) -> dict[str, Any]:
     request = Request(
         url,
@@ -244,10 +305,25 @@ def _get_json(url: str, *, timeout_seconds: int) -> dict[str, Any]:
     return _send_json(Request(url, method="GET"), timeout_seconds=timeout_seconds)
 
 
+def _get_text(url: str, *, timeout_seconds: int) -> str:
+    return _send_text(Request(url, method="GET"), timeout_seconds=timeout_seconds)
+
+
 def _send_json(request: Request, *, timeout_seconds: int) -> dict[str, Any]:
     try:
         with urlopen(request, timeout=timeout_seconds) as response:
             return json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"{request.full_url} failed with {exc.code}: {body}") from exc
+    except URLError as exc:
+        raise RuntimeError(f"{request.full_url} unavailable: {exc.reason}") from exc
+
+
+def _send_text(request: Request, *, timeout_seconds: int) -> str:
+    try:
+        with urlopen(request, timeout=timeout_seconds) as response:
+            return response.read().decode("utf-8")
     except HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")
         raise RuntimeError(f"{request.full_url} failed with {exc.code}: {body}") from exc
@@ -273,6 +349,39 @@ def _as_int(value: object) -> int:
     return -1
 
 
+def _validate_support_brief_posture(
+    *,
+    evidence_summary: dict[str, Any],
+    artifacts: dict[str, Any],
+    workflow_pack_run: dict[str, Any],
+) -> list[str]:
+    errors: list[str] = []
+    generation_status = evidence_summary.get("support_brief_generation_status")
+    if generation_status != "GENERATED":
+        errors.append(f"support_brief_generation_status expected 'GENERATED', got {generation_status!r}")
+    artifact_path = artifacts.get("support_brief.md")
+    if not isinstance(artifact_path, str) or not artifact_path.endswith("/artifacts/support_brief.md"):
+        errors.append(f"support_brief artifact path missing or invalid: {artifact_path!r}")
+    run_id = workflow_pack_run.get("run_id")
+    if not isinstance(run_id, str) or not run_id:
+        errors.append("workflow_pack_run.run_id missing for support brief path")
+    if evidence_summary.get("support_brief_workflow_pack_run_id") != run_id:
+        errors.append("support_brief_workflow_pack_run_id did not match workflow_pack_run.run_id")
+    if workflow_pack_run.get("workflow_authority_owner") != "lotus-performance":
+        errors.append(
+            "workflow_pack_run.workflow_authority_owner expected 'lotus-performance', "
+            f"got {workflow_pack_run.get('workflow_authority_owner')!r}"
+        )
+    if workflow_pack_run.get("runtime_state") != "COMPLETED":
+        errors.append(
+            f"workflow_pack_run.runtime_state expected 'COMPLETED', got {workflow_pack_run.get('runtime_state')!r}"
+        )
+    allowed_review_actions = workflow_pack_run.get("allowed_review_actions")
+    if not isinstance(allowed_review_actions, list) or not allowed_review_actions:
+        errors.append("workflow_pack_run.allowed_review_actions missing for support brief path")
+    return errors
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Validate canonical stateful TWR and RFC-045 inspection evidence against live local Lotus services."
@@ -282,6 +391,14 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--portfolio-id", default=DEFAULT_PORTFOLIO_ID)
     parser.add_argument("--as-of-date", default=DEFAULT_AS_OF_DATE)
     parser.add_argument("--timeout-seconds", type=int, default=120)
+    parser.add_argument(
+        "--require-support-brief",
+        action="store_true",
+        help=(
+            "Fail unless the inspection returns workflow-pack-backed support_brief.md generation, "
+            "bounded workflow_pack_run posture, and a retrievable markdown artifact."
+        ),
+    )
     parser.add_argument(
         "--allowed-finding-code",
         action="append",
@@ -299,6 +416,7 @@ def main() -> int:
         portfolio_id=args.portfolio_id,
         as_of_date=args.as_of_date,
         allowed_finding_codes=tuple(args.allowed_finding_code),
+        require_support_brief=args.require_support_brief,
         timeout_seconds=args.timeout_seconds,
     )
     print(json.dumps(validation.summary, indent=2, sort_keys=True))

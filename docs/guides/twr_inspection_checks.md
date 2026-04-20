@@ -49,9 +49,22 @@ python scripts/validate_canonical_twr_inspection.py \
 The script validates `PB_SG_GLOBAL_BAL_001` as of `2026-04-10` through the live
 lotus-core query-control-plane analytics-input POST routes, runs stateful TWR, runs RFC-045
 inspection against the completed calculation, and fails if source-economics or reconciliation
-counts regress. `WEEKEND_OBSERVATIONS_PRESENT` is allowed by default because the current canonical
-source serves weekend observations; other finding codes fail the validation unless explicitly
-allowed.
+counts regress. `WEEKEND_OBSERVATIONS_PRESENT` and `MONTHLY_RETURN_DAY_DOMINANCE_DETECTED` are
+allowed by default because the current canonical source still serves weekend observations and the
+current bounded monthly-dominance policy signal is active for that governed portfolio; other
+finding codes fail the validation unless explicitly allowed.
+
+To prove the optional Lotus AI support-brief seam live as part of the same governed check, run:
+
+```bash
+python scripts/validate_canonical_twr_inspection.py \
+  --performance-base-url http://127.0.0.1:8002 \
+  --core-control-plane-base-url http://127.0.0.1:8202 \
+  --require-support-brief
+```
+
+That stricter mode fails unless the inspection response includes bounded `workflow_pack_run`
+posture, `support_brief.md`, and a retrievable non-empty markdown artifact.
 
 ## Verdicts
 
