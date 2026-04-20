@@ -73,12 +73,19 @@ Current artifact names:
 
 - `inspection_summary.json`
 - `findings.json`
+- `support_brief.md` when the optional Lotus AI support-brief workflow-pack execution succeeds
 - `source_quality_summary.json`
 - `reconciliation_summary.json`
 - `source_economics_summary.json`
 
 The artifact route is part of the public supportability contract and is documented in Swagger. Unknown
 artifact names return `404`; durable metadata that declares a missing artifact returns `503`.
+When `support_brief.md` is retained only in durable metadata details, the fallback artifact response is
+served as `text/markdown` rather than JSON.
+
+The inspection result may also include `workflow_pack_run` when Lotus AI support-brief generation is
+configured. That bounded run posture is additive supportability evidence for the derived brief only; it
+does not replace the inspection findings, verdict, or owner routing owned by `lotus-performance`.
 
 ## Figure And Evidence Tie-Outs
 

@@ -142,10 +142,10 @@ def get_twr_inspection_artifact(
     artifact_name: str = Path(
         description=(
             "Inspection artifact file name. Supported names include inspection_summary.json, findings.json, "
-            "source_quality_summary.json, reconciliation_summary.json, and source_economics_summary.json when "
-            "the corresponding check family ran."
+            "support_brief.md, source_quality_summary.json, reconciliation_summary.json, and "
+            "source_economics_summary.json when the corresponding check family ran."
         ),
-        examples=["source_economics_summary.json"],
+        examples=["support_brief.md"],
     ),
 ):
     record = lineage_metadata_store.get_record(inspection_id)
@@ -158,9 +158,12 @@ def get_twr_inspection_artifact(
     if not os.path.exists(artifact_path):
         payload = lineage_metadata_store.get_payload(inspection_id)
         if payload is not None and artifact_name in payload.details:
+            media_type = "application/json"
+            if artifact_name.endswith(".md"):
+                media_type = "text/markdown"
             return Response(
                 content=payload.details[artifact_name],
-                media_type="application/json",
+                media_type=media_type,
                 headers={"Content-Disposition": f'attachment; filename="{artifact_name}"'},
             )
         raise HTTPException(

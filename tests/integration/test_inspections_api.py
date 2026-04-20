@@ -2,6 +2,7 @@ import json
 import os
 import shutil
 from datetime import date
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -114,6 +115,111 @@ def test_twr_inspection_request_subject_runs_through_async_runtime_and_artifacts
     )
     assert source_quality_artifact.status_code == 200
     assert source_quality_artifact.json()["valuation_point_count"] == 1
+
+
+def test_twr_inspection_generates_support_brief_artifact_when_workflow_pack_succeeds(
+    client,
+    monkeypatch,
+):
+    async def _fake_post_with_retry(**kwargs):
+        return (
+            200,
+            {
+                "execution": {
+                    "status": "COMPLETED",
+                    "result": {"message": "# Support brief\n\nReview the source-quality artifact first."},
+                },
+                "workflow_pack_run": {
+                    "run_id": "packrun_twr_inspection_support_brief_req_001",
+                    "runtime_state": "COMPLETED",
+                    "review_state": "AWAITING_REVIEW",
+                    "allowed_review_actions": ["ACCEPT", "REJECT", "REVISE"],
+                    "supportability_status": "ACTION_REQUIRED",
+                    "workflow_authority_owner": "lotus-performance",
+                    "findings": [
+                        {
+                            "finding_id": "review_pending",
+                            "severity": "ACTION_REQUIRED",
+                            "summary": "Run is awaiting review.",
+                        }
+                    ],
+                },
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.inspection.support_brief_workflow_pack.get_settings",
+        lambda: SimpleNamespace(
+            LOTUS_AI_BASE_URL="http://lotus-ai.dev.lotus",
+            LOTUS_AI_TIMEOUT_SECONDS=10.0,
+            LOTUS_AI_MAX_RETRIES=2,
+            LOTUS_AI_RETRY_BACKOFF_SECONDS=0.2,
+            LOTUS_AI_WORKFLOW_PACK_ENVIRONMENT="DEVELOPMENT",
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.inspection.support_brief_workflow_pack.post_with_retry",
+        _fake_post_with_retry,
+    )
+    inspection_id = str(uuid4())
+    payload = {
+        "inspection_id": inspection_id,
+        "subject_type": "twr_request",
+        "inspection_profile": "support_triage",
+        "request": {
+            "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+            "performance_start_date": "2026-01-01",
+            "metric_basis": "NET",
+            "report_end_date": "2026-01-02",
+            "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+            "valuation_points": [
+                {"perf_date": "2026-01-02", "begin_mv": 1000.0, "end_mv": 1005.0},
+            ],
+        },
+    }
+
+    submit = client.post("/performance/inspections/twr", json=payload)
+    assert submit.status_code == 202
+    assert drain_compute_queue() >= 1
+
+    result = client.get(f"/performance/inspections/{inspection_id}")
+    assert result.status_code == 200
+    body = result.json()
+    assert body["artifacts"]["support_brief.md"].endswith("/artifacts/support_brief.md")
+    assert body["workflow_pack_run"]["run_id"] == "packrun_twr_inspection_support_brief_req_001"
+    assert body["workflow_pack_run"]["workflow_authority_owner"] == "lotus-performance"
+    assert body["evidence_summary"]["support_brief_generation_status"] == "GENERATED"
+    assert body["evidence_summary"]["support_brief_workflow_pack_run_id"] == (
+        "packrun_twr_inspection_support_brief_req_001"
+    )
+
+    assert drain_lineage_queue() >= 1
+
+    artifact = client.get(f"/performance/inspections/{inspection_id}/artifacts/support_brief.md")
+    assert artifact.status_code == 200
+    assert artifact.text == "# Support brief\n\nReview the source-quality artifact first."
+    assert artifact.headers["content-disposition"] == 'attachment; filename="support_brief.md"'
+
+
+def test_twr_inspection_support_brief_artifact_fallback_uses_markdown_content_type(client):
+    inspection_id = uuid4()
+    lineage_metadata_store.enqueue_lineage_payload(
+        calculation_id=inspection_id,
+        calculation_type="TWR_INSPECTION",
+        request_json="{}",
+        response_json="{}",
+        details={"support_brief.md": "# Support brief\n\nRetained payload."},
+    )
+    lineage_metadata_store.mark_complete(
+        inspection_id,
+        artifact_names=["support_brief.md"],
+    )
+
+    response = client.get(f"/performance/inspections/{inspection_id}/artifacts/support_brief.md")
+
+    assert response.status_code == 200
+    assert response.text == "# Support brief\n\nRetained payload."
+    assert response.headers["content-type"].startswith("text/markdown")
 
 
 def test_twr_inspection_artifact_can_be_served_from_retained_payload(client):

@@ -94,6 +94,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - `check_coverage`: completed and pending check families, so absence of findings is not misread as universal coverage
   - `related_lineage`: source TWR lineage pointer for existing-calculation inspections
   - `artifacts`: downloadable evidence artifact paths
+  - `workflow_pack_run`: bounded Lotus AI workflow-pack posture when the optional support brief is generated through the explicit workflow-pack seam
 
 ### `GET /performance/inspections/{inspection_id}/artifacts/{artifact_name}`
 
@@ -102,6 +103,7 @@ descriptions and examples are maintained in the generated OpenAPI contract.
 - supported artifact names:
   - `inspection_summary.json`
   - `findings.json`
+  - `support_brief.md` when Lotus AI support-brief generation succeeds
   - `source_quality_summary.json` when source-quality checks run
   - `reconciliation_summary.json` when stateful reconciliation runs
   - `source_economics_summary.json` when stateful source-economics checks run

@@ -61,9 +61,33 @@ TWR_INSPECTION_RESPONSE_EXAMPLES = [
                 "/performance/inspections/9d000001-1111-4222-8333-abcdefabcdef/artifacts/inspection_summary.json"
             ),
             "findings.json": ("/performance/inspections/9d000001-1111-4222-8333-abcdefabcdef/artifacts/findings.json"),
+            "support_brief.md": (
+                "/performance/inspections/9d000001-1111-4222-8333-abcdefabcdef/artifacts/support_brief.md"
+            ),
             "source_economics_summary.json": (
                 "/performance/inspections/9d000001-1111-4222-8333-abcdefabcdef/artifacts/source_economics_summary.json"
             ),
+        },
+        "workflow_pack_run": {
+            "run_id": "packrun_twr_inspection_support_brief_req_001",
+            "runtime_state": "COMPLETED",
+            "review_state": "AWAITING_REVIEW",
+            "allowed_review_actions": ["ACCEPT", "REJECT", "REVISE"],
+            "supportability_status": "ACTION_REQUIRED",
+            "review_pending": True,
+            "superseded": False,
+            "workflow_authority_owner": "lotus-performance",
+            "current_summary_note": (
+                "Run completed but still requires bounded human review before downstream use."
+            ),
+            "replacement_run_id": None,
+            "findings": [
+                {
+                    "finding_id": "review_pending",
+                    "severity": "ACTION_REQUIRED",
+                    "summary": "Run is awaiting review.",
+                }
+            ],
         },
         "generated_at_utc": "2026-04-10T10:30:00Z",
     }
@@ -178,6 +202,71 @@ class TWRInspectionRelatedLineage(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class TWRInspectionWorkflowPackRunFinding(BaseModel):
+    finding_id: str = Field(
+        description="Stable workflow-pack supportability finding identifier.",
+        examples=["review_pending"],
+    )
+    severity: str = Field(
+        description="Workflow-pack supportability severity emitted by lotus-ai.",
+        examples=["ACTION_REQUIRED"],
+    )
+    summary: str = Field(
+        description="Short workflow-pack supportability summary.",
+        examples=["Run is awaiting review."],
+    )
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class TWRInspectionWorkflowPackRun(BaseModel):
+    run_id: str = Field(
+        description="Stable lotus-ai workflow-pack run identifier backing the support brief.",
+        examples=["packrun_twr_inspection_support_brief_req_001"],
+    )
+    runtime_state: str = Field(
+        description="Current lotus-ai runtime state for the workflow-pack run.",
+        examples=["COMPLETED"],
+    )
+    review_state: str = Field(
+        description="Current lotus-ai review state for the workflow-pack run.",
+        examples=["AWAITING_REVIEW"],
+    )
+    allowed_review_actions: list[str] = Field(
+        default_factory=list,
+        description="Bounded lotus-ai review actions currently accepted by the workflow-pack ledger.",
+        examples=[["ACCEPT", "REJECT", "REVISE"]],
+    )
+    supportability_status: str = Field(
+        description="Current lotus-ai supportability posture for the workflow-pack run.",
+        examples=["ACTION_REQUIRED"],
+    )
+    review_pending: bool = Field(
+        description="Whether lotus-ai still reports the workflow-pack run as pending review.",
+    )
+    superseded: bool = Field(
+        description="Whether lotus-ai marks the workflow-pack run as historical due to replacement lineage.",
+    )
+    workflow_authority_owner: str = Field(
+        description="Service boundary retaining consequence-bearing workflow authority for the run.",
+        examples=["lotus-performance"],
+    )
+    current_summary_note: str = Field(
+        description="Single lotus-ai supportability summary note for the workflow-pack run.",
+        examples=["Run completed but still requires bounded human review before downstream use."],
+    )
+    replacement_run_id: str | None = Field(
+        default=None,
+        description="Replacement workflow-pack run identifier when the current run is historical.",
+    )
+    findings: list[TWRInspectionWorkflowPackRunFinding] = Field(
+        default_factory=list,
+        description="Workflow-pack supportability findings preserved from lotus-ai.",
+    )
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class TWRInspectionResponse(BaseModel):
     inspection_id: UUID = Field(
         description="Durable inspection identifier used for execution polling, result retrieval, and artifacts.",
@@ -232,6 +321,13 @@ class TWRInspectionResponse(BaseModel):
                 ),
             }
         ],
+    )
+    workflow_pack_run: TWRInspectionWorkflowPackRun | None = Field(
+        default=None,
+        description=(
+            "Bounded lotus-ai workflow-pack run posture preserved when the optional support-brief "
+            "artifact is generated through the explicit workflow-pack seam."
+        ),
     )
     generated_at_utc: str = Field(
         description="UTC timestamp when the inspection response was generated.",

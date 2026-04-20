@@ -679,6 +679,7 @@ def test_twr_inspection_checks_guide_lists_current_check_inventory():
     assert "docs/technical/twr-inspection-endpoint-certification.md" in complete_reference
     assert "inspection_summary.json" in guide
     assert "findings.json" in guide
+    assert "support_brief.md" in guide
     assert "source_quality_summary.json" in guide
     assert "reconciliation_summary.json" in guide
     assert "source_economics_summary.json" in guide

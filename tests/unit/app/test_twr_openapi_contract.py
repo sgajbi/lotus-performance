@@ -34,7 +34,7 @@ def test_twr_inspection_openapi_explains_supportability_purpose() -> None:
     artifact_route = spec["paths"]["/performance/inspections/{inspection_id}/artifacts/{artifact_name}"]["get"]
     assert "evidence artifact" in artifact_route["summary"].lower()
     assert "Only artifact names recorded" in artifact_route["description"]
-    assert "source_economics_summary.json" in artifact_route["parameters"][1]["description"]
+    assert "support_brief.md" in artifact_route["parameters"][1]["description"]
     assert "404" in artifact_route["responses"]
     assert "503" in artifact_route["responses"]
 
@@ -52,6 +52,7 @@ def test_twr_inspection_openapi_uses_domain_specific_schema_examples() -> None:
     response_schema = schemas["TWRInspectionResponse"]
     response_example = response_schema["examples"][0]
     assert response_example["portfolio_id"] == "PB_SG_GLOBAL_BAL_001"
+    assert response_example["artifacts"]["support_brief.md"].endswith("/artifacts/support_brief.md")
     assert response_example["artifacts"]["source_economics_summary.json"].endswith(
         "/artifacts/source_economics_summary.json"
     )
@@ -59,6 +60,8 @@ def test_twr_inspection_openapi_uses_domain_specific_schema_examples() -> None:
         response_schema["properties"]["findings"]["description"]
         == "Ordered supportability findings with owner, severity, recommended action, and evidence."
     )
+    assert "workflow_pack_run" in response_schema["properties"]
+    assert response_example["workflow_pack_run"]["workflow_authority_owner"] == "lotus-performance"
 
     finding_schema = schemas["TWRInspectionFinding"]
     finding_example = finding_schema["examples"][0]
