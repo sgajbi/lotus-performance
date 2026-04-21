@@ -77,9 +77,7 @@ TWR_INSPECTION_RESPONSE_EXAMPLES = [
             "review_pending": True,
             "superseded": False,
             "workflow_authority_owner": "lotus-performance",
-            "current_summary_note": (
-                "Run completed but still requires bounded human review before downstream use."
-            ),
+            "current_summary_note": ("Run completed but still requires bounded human review before downstream use."),
             "replacement_run_id": None,
             "findings": [
                 {

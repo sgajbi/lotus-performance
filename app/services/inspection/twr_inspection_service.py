@@ -307,9 +307,7 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
     support_brief_result = generate_twr_inspection_support_brief(inspection=response)
     evidence_summary["support_brief_generation_status"] = support_brief_result.generation_status
     if support_brief_result.workflow_pack_run is not None:
-        evidence_summary["support_brief_workflow_pack_run_id"] = (
-            support_brief_result.workflow_pack_run.run_id
-        )
+        evidence_summary["support_brief_workflow_pack_run_id"] = support_brief_result.workflow_pack_run.run_id
     if support_brief_result.artifact_markdown is not None:
         artifact_payloads["support_brief.md"] = support_brief_result.artifact_markdown
     response = response.model_copy(

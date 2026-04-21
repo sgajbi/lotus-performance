@@ -163,18 +163,14 @@ def _map_workflow_pack_run(value: Any) -> TWRInspectionWorkflowPackRun | None:
         run_id=run_id,
         runtime_state=str(value.get("runtime_state", "")),
         review_state=str(value.get("review_state", "")),
-        allowed_review_actions=[
-            item for item in value.get("allowed_review_actions", []) if isinstance(item, str)
-        ],
+        allowed_review_actions=[item for item in value.get("allowed_review_actions", []) if isinstance(item, str)],
         supportability_status=str(value.get("supportability_status", "")),
         review_pending=bool(value.get("review_state") == "AWAITING_REVIEW"),
         superseded=bool(value.get("supportability_status") == "HISTORICAL"),
         workflow_authority_owner=str(value.get("workflow_authority_owner", "")),
         current_summary_note=_build_summary_note(value),
         replacement_run_id=(
-            str(value.get("replacement_run_id"))
-            if isinstance(value.get("replacement_run_id"), str)
-            else None
+            str(value.get("replacement_run_id")) if isinstance(value.get("replacement_run_id"), str) else None
         ),
         findings=findings,
     )
