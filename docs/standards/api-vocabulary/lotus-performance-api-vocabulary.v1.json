@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-04-15T13:07:20.963299+00:00",
+  "generatedAt": "2026-04-21T00:37:53.931964+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.account_reset_shadow_days",
@@ -6086,7 +6086,7 @@
       "location": "path",
       "required": true,
       "type": "string",
-      "description": "Inspection artifact file name. Supported names include inspection_summary.json, findings.json, source_quality_summary.json, reconciliation_summary.json, and source_economics_summary.json when the corresponding check family ran.",
+      "description": "Inspection artifact file name. Supported names include inspection_summary.json, findings.json, support_brief.md, source_quality_summary.json, reconciliation_summary.json, and source_economics_summary.json when the corresponding check family ran.",
       "example": "STANDARD_VALUE",
       "allowedValues": [],
       "semanticId": "lotus.artifact_name",
