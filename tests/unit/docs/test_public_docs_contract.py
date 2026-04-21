@@ -675,10 +675,12 @@ def test_twr_inspection_checks_guide_lists_current_check_inventory():
     assert "GET /performance/inspections/{inspection_id}/artifacts/{artifact_name}" in api_reference
     assert "scripts/validate_canonical_twr_inspection.py" in guide
     assert "scripts/validate_canonical_twr_inspection.py" in readme
+    assert "--require-support-brief" in guide
     assert "technical/twr-inspection-endpoint-certification.md" in readme
     assert "docs/technical/twr-inspection-endpoint-certification.md" in complete_reference
     assert "inspection_summary.json" in guide
     assert "findings.json" in guide
+    assert "support_brief.md" in guide
     assert "source_quality_summary.json" in guide
     assert "reconciliation_summary.json" in guide
     assert "source_economics_summary.json" in guide

@@ -36,7 +36,10 @@ Current repository posture:
    with local validation through `make domain-product-validate`,
 6. RFC-0087 trust telemetry proof for `ReturnsSeriesBundle` now lives under
    `contracts/trust-telemetry/` and is validated by `tests/unit/test_trust_telemetry.py` against
-   the platform trust telemetry validator when `lotus-platform` is available.
+   the platform trust telemetry validator when `lotus-platform` is available,
+7. the TWR inspection supportability contract can now preserve bounded Lotus AI workflow-pack run
+   posture and the optional `support_brief.md` artifact without making the inspection verdict
+   dependent on Lotus AI availability.
 
 ## Architecture And Module Map
 

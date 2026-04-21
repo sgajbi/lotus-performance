@@ -28,6 +28,9 @@ from app.services.inspection.subject_materialization import (
     load_existing_twr_calculation_artifacts,
 )
 from app.services.inspection.subject_resolution import resolve_twr_inspection_subject
+from app.services.inspection.support_brief_workflow_pack import (
+    generate_twr_inspection_support_brief,
+)
 
 _ALL_CHECK_FAMILIES = [
     "calculation_consistency",
@@ -298,7 +301,32 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
                 else {}
             ),
         },
+        workflow_pack_run=None,
         generated_at_utc=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+    )
+    support_brief_result = generate_twr_inspection_support_brief(inspection=response)
+    evidence_summary["support_brief_generation_status"] = support_brief_result.generation_status
+    if support_brief_result.workflow_pack_run is not None:
+        evidence_summary["support_brief_workflow_pack_run_id"] = support_brief_result.workflow_pack_run.run_id
+    if support_brief_result.artifact_markdown is not None:
+        artifact_payloads["support_brief.md"] = support_brief_result.artifact_markdown
+    response = response.model_copy(
+        update={
+            "evidence_summary": evidence_summary,
+            "artifacts": {
+                **response.artifacts,
+                **(
+                    {
+                        "support_brief.md": (
+                            f"/performance/inspections/{request.inspection_id}/artifacts/support_brief.md"
+                        )
+                    }
+                    if "support_brief.md" in artifact_payloads
+                    else {}
+                ),
+            },
+            "workflow_pack_run": support_brief_result.workflow_pack_run,
+        }
     )
     execution_registry.complete_stage(
         request.inspection_id,
@@ -306,6 +334,7 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
         details={
             "verdict": response.verdict.value,
             "finding_count": len(response.findings),
+            "support_brief_generation_status": support_brief_result.generation_status,
         },
     )
 

@@ -10,6 +10,7 @@ from app.services.lineage_metadata_store import lineage_metadata_store
 INSPECTION_ARTIFACT_FILENAMES = (
     "inspection_summary.json",
     "findings.json",
+    "support_brief.md",
 )
 
 

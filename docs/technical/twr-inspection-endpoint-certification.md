@@ -73,12 +73,19 @@ Current artifact names:
 
 - `inspection_summary.json`
 - `findings.json`
+- `support_brief.md` when the optional Lotus AI support-brief workflow-pack execution succeeds
 - `source_quality_summary.json`
 - `reconciliation_summary.json`
 - `source_economics_summary.json`
 
 The artifact route is part of the public supportability contract and is documented in Swagger. Unknown
 artifact names return `404`; durable metadata that declares a missing artifact returns `503`.
+When `support_brief.md` is retained only in durable metadata details, the fallback artifact response is
+served as `text/markdown` rather than JSON.
+
+The inspection result may also include `workflow_pack_run` when Lotus AI support-brief generation is
+configured. That bounded run posture is additive supportability evidence for the derived brief only; it
+does not replace the inspection findings, verdict, or owner routing owned by `lotus-performance`.
 
 ## Figure And Evidence Tie-Outs
 
@@ -178,7 +185,12 @@ Swagger now documents:
 | Check-family unit tests | Source quality, calculation consistency, reconciliation, and source economics each have focused tests for domain-specific defect patterns. | Strong and domain-aware. |
 | Integration tests | Async submission, execution polling, completed result retrieval, artifact file retrieval, retained-payload artifact fallback, missing-artifact errors, existing-calculation lineage, stateful reconciliation, and source-economics artifacts. | Strong route-level coverage. |
 | Docs/OpenAPI tests | TWR OpenAPI contract and public docs tests now cover supportability purpose, result behavior, artifact route, schema examples, and check inventory documentation. | Strong after this pass. |
-| Live canonical validation | `scripts/validate_canonical_twr_inspection.py` validates `PB_SG_GLOBAL_BAL_001` as of `2026-04-10` against live performance and lotus-core control-plane services. | Available as runtime proof; run before PR or release evidence when the local stack is up. |
+| Live canonical validation | `scripts/validate_canonical_twr_inspection.py` validates `PB_SG_GLOBAL_BAL_001` as of `2026-04-10` against live performance and lotus-core control-plane services, and can optionally require workflow-pack-backed `support_brief.md` plus bounded `workflow_pack_run` posture. | Available as runtime proof; run before PR or release evidence when the local stack is up. |
+
+The validator currently allows `WEEKEND_OBSERVATIONS_PRESENT` and
+`MONTHLY_RETURN_DAY_DOMINANCE_DETECTED` by default for the governed canonical portfolio because
+those are bounded source-quality policy signals under the current seeded data and inspection rules,
+not failures of the inspection contract itself.
 
 ## Validation Commands
 
@@ -190,4 +202,10 @@ python scripts/openapi_quality_gate.py
 python scripts/api_vocabulary_inventory.py --validate-only
 python -m ruff check app/api/endpoints/inspections.py app/models/inspection_requests.py app/models/inspection_responses.py tests/unit/app/test_twr_openapi_contract.py
 python -m ruff format --check app/api/endpoints/inspections.py app/models/inspection_requests.py app/models/inspection_responses.py tests/unit/app/test_twr_openapi_contract.py
+```
+
+Governed live proof with the optional Lotus AI support-brief seam enabled:
+
+```bash
+python scripts/validate_canonical_twr_inspection.py --require-support-brief
 ```
