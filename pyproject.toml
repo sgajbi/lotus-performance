@@ -29,7 +29,7 @@ psycopg = {version = "^3.2.6", extras = ["binary"]}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.0.3"
-python-dotenv = "^1.1.1"
+python-dotenv = "^1.2.2"
 pre-commit = "^4.2.0"
 pytest-cov = "^6.2.1"
 pytest-benchmark = "^4.0.0"
