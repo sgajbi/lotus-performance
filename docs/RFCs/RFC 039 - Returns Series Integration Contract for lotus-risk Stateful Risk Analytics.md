@@ -65,8 +65,9 @@ Ownership boundary:
 - `window` required
   - `mode: EXPLICIT | RELATIVE`
   - `from_date`, `to_date` required for `EXPLICIT`
-  - `period` required for `RELATIVE` (`MTD|QTD|YTD|ONE_YEAR|THREE_YEAR|FIVE_YEAR|SI|YEAR`)
+  - `period` required for `RELATIVE` (`MTD|QTD|YTD|1Y|3Y|5Y|SI|YEAR`)
   - `year` required when `period=YEAR`
+  - legacy aliases `ONE_YEAR`, `THREE_YEAR`, `FIVE_YEAR`, and `ITD` are accepted and normalized at the API boundary
 - `frequency: DAILY | WEEKLY | MONTHLY` required
 - `metric_basis: NET | GROSS` required
 - `reporting_currency: str | None` optional

@@ -4,7 +4,7 @@ from datetime import date as dt_date
 from datetime import datetime as dt_datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Literal
+from typing import Any, ClassVar, Literal
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -21,9 +21,9 @@ class ReturnsRelativePeriod(str, Enum):
     MTD = "MTD"
     QTD = "QTD"
     YTD = "YTD"
-    ONE_YEAR = "ONE_YEAR"
-    THREE_YEAR = "THREE_YEAR"
-    FIVE_YEAR = "FIVE_YEAR"
+    ONE_YEAR = "1Y"
+    THREE_YEAR = "3Y"
+    FIVE_YEAR = "5Y"
     SI = "SI"
     YEAR = "YEAR"
 
@@ -77,6 +77,13 @@ class ReturnPoint(BaseModel):
 
 
 class ReturnsWindow(BaseModel):
+    PERIOD_ALIASES: ClassVar[dict[str, str]] = {
+        "ONE_YEAR": "1Y",
+        "THREE_YEAR": "3Y",
+        "FIVE_YEAR": "5Y",
+        "ITD": "SI",
+    }
+
     mode: ReturnsWindowMode = Field(
         description=(
             "Window-resolution mode. Use EXPLICIT when the caller owns the exact observation dates; "
@@ -96,14 +103,29 @@ class ReturnsWindow(BaseModel):
     )
     period: ReturnsRelativePeriod | None = Field(
         default=None,
-        description="Relative period label when mode=RELATIVE.",
-        examples=["YTD"],
+        description=(
+            "Relative period label when mode=RELATIVE. Prefer canonical values MTD, QTD, "
+            "YTD, 1Y, 3Y, 5Y, SI, and YEAR. Legacy aliases ONE_YEAR, THREE_YEAR, "
+            "FIVE_YEAR, and ITD are accepted and normalized."
+        ),
+        examples=["3Y"],
     )
     year: int | None = Field(
         default=None,
         description="Calendar year when period=YEAR.",
         examples=[2026],
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_period_aliases(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            period = data.get("period")
+            if isinstance(period, str):
+                normalized_period = cls.PERIOD_ALIASES.get(period, period)
+                if normalized_period != period:
+                    return {**data, "period": normalized_period}
+        return data
 
     @model_validator(mode="after")
     def validate_mode_fields(self) -> "ReturnsWindow":
