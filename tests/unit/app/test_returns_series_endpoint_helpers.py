@@ -112,6 +112,16 @@ def test_resolve_window_relative_success_and_missing_period_error():
     assert exc.value.status_code == 400
 
 
+def test_returns_window_normalizes_legacy_relative_period_aliases():
+    window = ReturnsWindow.model_validate({"mode": "RELATIVE", "period": "THREE_YEAR"})
+
+    assert window.period == ReturnsRelativePeriod.THREE_YEAR
+    assert window.period.value == "3Y"
+
+    since_inception = ReturnsWindow.model_validate({"mode": "RELATIVE", "period": "ITD"})
+    assert since_inception.period == ReturnsRelativePeriod.SI
+
+
 def test_dataframe_and_window_helpers_handle_error_paths():
     with pytest.raises(HTTPException) as exc:
         _to_dataframe([], series_type="portfolio")
