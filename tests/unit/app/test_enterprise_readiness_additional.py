@@ -39,7 +39,7 @@ def test_authorize_write_request_allows_when_no_capability_rule_matches(monkeypa
         "X-Tenant-Id": "t1",
         "X-Role": "analyst",
         "X-Correlation-Id": "c1",
-        "X-Service-Identity": "pa",
+        "X-Service-Identity": "lotus-performance",
     }
     allowed, reason = authorize_write_request("POST", "/reports/run", headers)
     assert allowed is True

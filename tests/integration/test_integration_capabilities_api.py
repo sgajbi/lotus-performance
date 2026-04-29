@@ -117,12 +117,13 @@ def test_integration_capabilities_default_contract():
         "ISSUER remains gated until benchmark issuer exposure semantics are approved",
     ]
     features = {item["key"] for item in body["features"]}
-    assert "pa.analytics.benchmark" in features
-    assert "pa.integration.benchmark_exposure_context" in features
-    assert "pa.analytics.workspace_summary" in features
-    assert "pa.support.twr_inspection" in features
-    assert "pa.execution.stateful" in features
-    assert "pa.execution.stateless" in features
+    assert "performance.analytics.benchmark" in features
+    assert "performance.integration.benchmark_exposure_context" in features
+    assert "performance.analytics.workspace_summary" in features
+    assert "performance.support.twr_inspection" in features
+    assert "performance.observability.calculation_supportability" in features
+    assert "performance.execution.stateful" in features
+    assert "performance.execution.stateless" in features
     assert response.headers.get("X-Correlation-Id")
     assert response.headers.get("X-Request-Id")
     assert response.headers.get("X-Trace-Id")
@@ -142,7 +143,7 @@ def test_integration_capabilities_env_override(monkeypatch):
     assert body["policy_version"] == "tenant-a-v4"
     features = {item["key"]: item["enabled"] for item in body["features"]}
     surfaces = {item["key"]: item for item in body["analytics_surfaces"]}
-    assert features["pa.analytics.attribution"] is False
+    assert features["performance.analytics.attribution"] is False
     assert body["supported_input_modes"] == ["stateful"]
     assert surfaces["twr"]["supported_input_modes"] == ["stateful"]
     assert surfaces["twr_inspection"]["supported_input_modes"] == []

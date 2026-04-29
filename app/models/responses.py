@@ -1,6 +1,6 @@
 # app/models/responses.py
 from datetime import date as dt_date
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -156,6 +156,52 @@ class TWRBenchmarkContext(BaseModel):
     return_source: str = Field(description="Resolved benchmark return source.", examples=["calculated"])
 
 
+PerformanceSupportabilityState = Literal["ready", "stale", "degraded", "empty", "error", "unsupported"]
+PerformanceSupportabilityReason = Literal[
+    "calculation_complete",
+    "empty_resolved_periods",
+    "insufficient_valuation_points",
+    "stale_source_observations",
+    "benchmark_unavailable",
+    "calculation_quality_issue",
+    "unsupported_input_mode",
+]
+PerformanceFreshnessBucket = Literal["current", "same_day", "stale", "unknown"]
+
+
+class PerformanceCalculationSupportability(BaseModel):
+    state: PerformanceSupportabilityState = Field(
+        description="Bounded supportability state for the completed performance calculation.",
+        examples=["ready"],
+    )
+    reason: PerformanceSupportabilityReason = Field(
+        description="Bounded reason explaining the supportability state.",
+        examples=["calculation_complete"],
+    )
+    freshness_bucket: PerformanceFreshnessBucket = Field(
+        description="Freshness bucket comparing resolved source observations with the requested report date.",
+        examples=["current"],
+    )
+    input_row_count: int = Field(
+        default=0,
+        ge=0,
+        description="Resolved valuation observation count used by the calculation.",
+        examples=[252],
+    )
+    resolved_period_count: int = Field(
+        default=0,
+        ge=0,
+        description="Number of requested analysis periods that produced a result block.",
+        examples=[3],
+    )
+    benchmark_row_count: int = Field(
+        default=0,
+        ge=0,
+        description="Resolved benchmark observation count used when benchmark analytics were requested.",
+        examples=[252],
+    )
+
+
 class SinglePeriodPerformanceResult(BaseModel):
     """Contains the full set of TWR results for a single, resolved period."""
 
@@ -175,6 +221,7 @@ class PerformanceResponse(BaseModel):
     portfolio_id: str
     input_mode: TWRInputMode = TWRInputMode.STATELESS
     benchmark_context: TWRBenchmarkContext | None = None
+    calculation_supportability: PerformanceCalculationSupportability
 
     results_by_period: Dict[str, SinglePeriodPerformanceResult]
 

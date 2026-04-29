@@ -63,7 +63,7 @@ def test_propagation_headers_generates_when_context_absent():
 
 
 def test_json_formatter_includes_standard_and_extra_fields(monkeypatch):
-    monkeypatch.setenv("SERVICE_NAME", "pa-test")
+    monkeypatch.setenv("SERVICE_NAME", "lotus-performance-test")
     monkeypatch.setenv("ENVIRONMENT", "test")
     correlation_id_var.set("corr-log")
     request_id_var.set("req-log")
@@ -81,7 +81,7 @@ def test_json_formatter_includes_standard_and_extra_fields(monkeypatch):
     )
     record.extra_fields = {"endpoint": "/health", "duration_ms": 12.3}
     payload = json.loads(formatter.format(record))
-    assert payload["service"] == "pa-test"
+    assert payload["service"] == "lotus-performance-test"
     assert payload["environment"] == "test"
     assert payload["message"] == "log-message"
     assert payload["endpoint"] == "/health"

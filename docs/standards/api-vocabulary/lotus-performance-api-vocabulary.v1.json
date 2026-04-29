@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-04-21T00:37:53.931964+00:00",
+  "generatedAt": "2026-04-29T09:15:36.485751+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.account_reset_shadow_days",
@@ -1756,7 +1756,7 @@
       "description": "integration capabilities response field: features.",
       "example": [
         {
-          "key": "pa.analytics.twr",
+          "key": "performance.analytics.twr",
           "enabled": true,
           "owner_service": "lotus-performance",
           "description": "Time-weighted return APIs."
@@ -4480,9 +4480,9 @@
       "preferredName": "required_features",
       "description": "Feature keys required for this workflow.",
       "example": [
-        "pa.analytics.workspace_summary",
-        "pa.analytics.twr",
-        "pa.analytics.mwr"
+        "performance.analytics.workspace_summary",
+        "performance.analytics.twr",
+        "performance.analytics.mwr"
       ],
       "type": "array",
       "locations": [
@@ -5954,9 +5954,9 @@
           "workflow_key": "performance_workspace",
           "enabled": true,
           "required_features": [
-            "pa.analytics.workspace_summary",
-            "pa.analytics.twr",
-            "pa.analytics.mwr"
+            "performance.analytics.workspace_summary",
+            "performance.analytics.twr",
+            "performance.analytics.mwr"
           ]
         }
       ],

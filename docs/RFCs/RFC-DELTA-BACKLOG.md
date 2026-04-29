@@ -206,14 +206,14 @@ Status values:
 - Delta: Implement reproducible year-history readiness workflow or move to platform automation repo.
 - Why still relevant: Proposal exists but no dedicated repo workflow artifacts are tracked.
 - Evidence:
-  - No explicit PA readiness automation profile in this repository.
+  - No explicit lotus-performance readiness automation profile in this repository.
 - Proposed action: Decide ownership and add machine-readable readiness artifacts.
 
 ### RFC-034-D01
 - Status: `open`
 - Priority: P2
 - Source RFC: `RFC-034`
-- Delta: After connected-mode enablement, refactor to PA-owned compute path for connected TWR.
+- Delta: After connected-mode enablement, refactor to lotus-performance-owned compute path for connected TWR.
 - Why still relevant: RFC direction depends on RFC-031, which is not in code.
 - Evidence:
   - No connected TWR endpoint path currently exists.

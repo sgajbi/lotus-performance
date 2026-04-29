@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
-from prometheus_client import REGISTRY
+from prometheus_client import REGISTRY, Counter
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.services.queue_metrics_service import DurableQueueCollector
@@ -15,6 +15,12 @@ from app.services.queue_metrics_service import DurableQueueCollector
 correlation_id_var: ContextVar[str] = ContextVar("correlation_id", default="")
 request_id_var: ContextVar[str] = ContextVar("request_id", default="")
 trace_id_var: ContextVar[str] = ContextVar("trace_id", default="")
+
+PERFORMANCE_CALCULATION_SUPPORTABILITY_TOTAL = Counter(
+    "lotus_performance_calculation_supportability_total",
+    "Performance calculation supportability posture by operation, bounded reason, and freshness bucket.",
+    ["operation", "supportability_state", "reason", "freshness_bucket"],
+)
 
 
 class JsonFormatter(logging.Formatter):
@@ -73,6 +79,21 @@ def propagation_headers(correlation_id: str | None = None) -> dict[str, str]:
         "X-Trace-Id": trace_id,
         "traceparent": f"00-{trace_id}-0000000000000001-01",
     }
+
+
+def record_calculation_supportability(
+    *,
+    operation: str,
+    supportability_state: str,
+    reason: str,
+    freshness_bucket: str,
+) -> None:
+    PERFORMANCE_CALCULATION_SUPPORTABILITY_TOTAL.labels(
+        operation=operation,
+        supportability_state=supportability_state,
+        reason=reason,
+        freshness_bucket=freshness_bucket,
+    ).inc()
 
 
 def build_access_log_fields(*, request: Request, duration_ms: float) -> dict[str, str | float]:

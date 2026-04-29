@@ -10,6 +10,11 @@ def test_twr_openapi_documents_async_execution_contract() -> None:
     assert "202" in twr_post["responses"]
     assert "poll_path" in str(twr_post["responses"]["202"])
     assert "result_path" in str(twr_post["responses"]["202"])
+    response_schema = spec["components"]["schemas"]["PerformanceResponse"]
+    assert "calculation_supportability" in response_schema["properties"]
+    supportability_schema = spec["components"]["schemas"]["PerformanceCalculationSupportability"]
+    assert supportability_schema["properties"]["state"]["description"].startswith("Bounded supportability state")
+    assert "freshness_bucket" in supportability_schema["properties"]
 
     twr_result = spec["paths"]["/performance/twr/results/{calculation_id}"]["get"]
     assert "previously returned 202 Accepted" in twr_result["description"]

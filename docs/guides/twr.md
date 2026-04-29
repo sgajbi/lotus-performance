@@ -84,6 +84,20 @@ When benchmark output is requested, TWR returns:
 - a parallel `benchmark` block calculated through the shared benchmark engine
 - per-period `relative_performance`
 
+Every completed synchronous TWR response also returns `calculation_supportability`. This bounded
+supportability block is the source-owned front-office posture for the calculation:
+
+- `state`: `ready`, `stale`, `degraded`, `empty`, `error`, or `unsupported`
+- `reason`: a bounded machine-readable reason such as `calculation_complete`,
+  `stale_source_observations`, or `insufficient_valuation_points`
+- `freshness_bucket`: `current`, `same_day`, `stale`, or `unknown`
+- `input_row_count`, `resolved_period_count`, and `benchmark_row_count`
+
+The same posture is exported through
+`lotus_performance_calculation_supportability_total{operation="twr",supportability_state,reason,freshness_bucket}`.
+Labels are intentionally bounded and must not include portfolio, client, tenant, account, or
+security identifiers.
+
 Benchmark requests support the same benchmark modes as the dedicated benchmark endpoint:
 
 - `benchmark.input_mode="stateless" | "stateful"`
