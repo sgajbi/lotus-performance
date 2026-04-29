@@ -18,6 +18,17 @@ Primary runtime surfaces:
 - `GET /performance/executions/{calculation_id}`
 - `GET /performance/lineage/{calculation_id}`
 
+## TWR supportability metric
+
+`POST /performance/twr` emits a bounded calculation supportability posture on completed
+synchronous responses and increments:
+
+`lotus_performance_calculation_supportability_total{operation="twr",supportability_state,reason,freshness_bucket}`
+
+Use `supportability_state="stale"` or `supportability_state="empty"` as operator attention signals
+for front-office TWR surfaces. The labels are intentionally bounded and must not carry portfolio,
+client, tenant, account, or security identifiers.
+
 ## Readiness semantics
 
 `/health/ready` is intentionally strict. It returns ready only when the API can support durable

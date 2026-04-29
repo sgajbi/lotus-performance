@@ -33,6 +33,14 @@ def test_scope_request_to_response_master_window_uses_executed_twr_period():
                     }
                 }
             },
+            "calculation_supportability": {
+                "state": "ready",
+                "reason": "calculation_complete",
+                "freshness_bucket": "current",
+                "input_row_count": 375,
+                "resolved_period_count": 1,
+                "benchmark_row_count": 0,
+            },
             "meta": {
                 "calculation_id": str(uuid4()),
                 "engine_version": "1.0.0",

@@ -1,129 +1,146 @@
 {
-  "contract_version": "v1",
-  "source_service": "lotus-performance",
-  "consumer_system": "lotus-gateway",
-  "tenant_id": "default",
-  "generated_at": "2026-04-10T12:00:00Z",
-  "as_of_date": "2026-04-10",
-  "policy_version": "tenant-default-v1",
-  "supported_input_modes": ["stateful", "stateless"],
   "analytics_surfaces": [
     {
-      "key": "twr",
-      "path": "/performance/twr",
+      "contract_notes": [],
       "enabled": true,
-      "supported_input_modes": ["stateful", "stateless"],
-      "supports_async": true,
+      "key": "twr",
+      "options": [],
+      "path": "/performance/twr",
       "poll_path_template": "/performance/executions/{calculation_id}",
       "result_path_template": "/performance/twr/results/{calculation_id}",
       "stateful_restrictions": [],
-      "contract_notes": [],
-      "options": []
+      "supported_input_modes": [
+        "stateful",
+        "stateless"
+      ],
+      "supports_async": true
     },
     {
-      "key": "twr_inspection",
-      "path": "/performance/inspections/twr",
-      "enabled": true,
-      "supported_input_modes": [],
-      "supports_async": true,
-      "poll_path_template": "/performance/executions/{calculation_id}",
-      "result_path_template": "/performance/inspections/{inspection_id}",
-      "stateful_restrictions": [],
       "contract_notes": [
         "supports inspection of an existing TWR calculation or a proposed TWR request payload",
         "inspection profiles expose bounded support_triage, canonical_validation, and deep_reconciliation behavior",
         "artifact retrieval includes inspection_summary.json, findings.json, and source_quality_summary.json, plus reconciliation_summary.json and source_economics_summary.json when stateful source-economics checks run"
       ],
+      "enabled": true,
+      "key": "twr_inspection",
       "options": [
         {
           "key": "subject_type",
-          "supported_values": ["twr_calculation", "twr_request"],
-          "required_when": "always",
           "notes": [
             "twr_calculation inspects an existing durable TWR execution identity",
             "twr_request inspects a proposed TWR request payload without mutating the normal TWR contract"
+          ],
+          "required_when": "always",
+          "supported_values": [
+            "twr_calculation",
+            "twr_request"
           ]
         },
         {
           "key": "inspection_profile",
-          "supported_values": ["support_triage", "canonical_validation", "deep_reconciliation"],
-          "required_when": "always",
           "notes": [
             "support_triage is the default bounded supportability workflow",
             "canonical_validation is the governed profile for canonical portfolio validation",
             "deep_reconciliation adds heavier stateful reconciliation evidence for upstream escalation"
+          ],
+          "required_when": "always",
+          "supported_values": [
+            "support_triage",
+            "canonical_validation",
+            "deep_reconciliation"
           ]
         }
-      ]
+      ],
+      "path": "/performance/inspections/twr",
+      "poll_path_template": "/performance/executions/{calculation_id}",
+      "result_path_template": "/performance/inspections/{inspection_id}",
+      "stateful_restrictions": [],
+      "supported_input_modes": [],
+      "supports_async": true
     },
     {
-      "key": "mwr",
-      "path": "/performance/mwr",
+      "contract_notes": [],
       "enabled": true,
-      "supported_input_modes": ["stateful", "stateless"],
-      "supports_async": false,
+      "key": "mwr",
+      "options": [],
+      "path": "/performance/mwr",
       "poll_path_template": null,
       "result_path_template": null,
       "stateful_restrictions": [],
-      "contract_notes": [],
-      "options": []
+      "supported_input_modes": [
+        "stateful",
+        "stateless"
+      ],
+      "supports_async": false
     },
     {
-      "key": "benchmark",
-      "path": "/performance/benchmark",
+      "contract_notes": [],
       "enabled": true,
-      "supported_input_modes": ["stateful", "stateless"],
-      "supports_async": true,
+      "key": "benchmark",
+      "options": [],
+      "path": "/performance/benchmark",
       "poll_path_template": "/performance/executions/{calculation_id}",
       "result_path_template": "/performance/benchmark/results/{calculation_id}",
       "stateful_restrictions": [],
-      "contract_notes": [],
-      "options": []
+      "supported_input_modes": [
+        "stateful",
+        "stateless"
+      ],
+      "supports_async": true
     },
     {
-      "key": "workspace_summary",
-      "path": "/performance/workspace-summary",
-      "enabled": true,
-      "supported_input_modes": ["stateful", "stateless"],
-      "supports_async": true,
-      "poll_path_template": "/performance/executions/{calculation_id}",
-      "result_path_template": "/performance/workspace-summary/results/{calculation_id}",
-      "stateful_restrictions": [],
       "contract_notes": [
         "supports multi-horizon workspace periods including 1D, 2D, 5D, 10D, 1M, 3M, 6M, YTD, 1Y, 2Y, 5Y, 10Y, SI, and EXPLICIT",
         "summary and breakdown rows emit period_return, cumulative_return, and annualized_return; for periods up to one year annualized_return equals cumulative_return",
         "resolves the longest requested window once and derives shorter requested periods from the same sourced data"
       ],
+      "enabled": true,
+      "key": "workspace_summary",
       "options": [
         {
           "key": "benchmark_mode",
-          "supported_values": ["user_input_stateless", "linked_stateful"],
-          "required_when": "benchmark or benchmark-aware blocks are requested",
           "notes": [
             "stateless workspace summary requires an explicit benchmark payload when include_benchmark=true",
             "stateful workspace summary can resolve the linked benchmark from lotus-core assignment"
+          ],
+          "required_when": "benchmark or benchmark-aware blocks are requested",
+          "supported_values": [
+            "user_input_stateless",
+            "linked_stateful"
           ]
         }
-      ]
+      ],
+      "path": "/performance/workspace-summary",
+      "poll_path_template": "/performance/executions/{calculation_id}",
+      "result_path_template": "/performance/workspace-summary/results/{calculation_id}",
+      "stateful_restrictions": [],
+      "supported_input_modes": [
+        "stateful",
+        "stateless"
+      ],
+      "supports_async": true
     },
     {
-      "key": "contribution",
-      "path": "/performance/contribution",
+      "contract_notes": [],
       "enabled": true,
-      "supported_input_modes": ["stateful", "stateless"],
-      "supports_async": true,
+      "key": "contribution",
+      "options": [],
+      "path": "/performance/contribution",
       "poll_path_template": "/performance/executions/{calculation_id}",
       "result_path_template": "/performance/contribution/results/{calculation_id}",
       "stateful_restrictions": [],
-      "contract_notes": [],
-      "options": []
+      "supported_input_modes": [
+        "stateful",
+        "stateless"
+      ],
+      "supports_async": true
     },
     {
-      "key": "attribution",
-      "path": "/performance/attribution",
+      "contract_notes": [],
       "enabled": true,
-      "supported_input_modes": ["stateful", "stateless"],
-      "supports_async": true,
+      "key": "attribution",
+      "options": [],
+      "path": "/performance/attribution",
       "poll_path_template": "/performance/executions/{calculation_id}",
       "result_path_template": "/performance/attribution/results/{calculation_id}",
       "stateful_restrictions": [
@@ -131,27 +148,36 @@
         "group_by limited to asset_class, sector, country, currency",
         "currency_mode=BOTH requires report_ccy and fx.rates for mixed-currency positions"
       ],
-      "contract_notes": [],
-      "options": []
+      "supported_input_modes": [
+        "stateful",
+        "stateless"
+      ],
+      "supports_async": true
     },
     {
-      "key": "returns_series",
-      "path": "/integration/returns/series",
+      "contract_notes": [],
       "enabled": true,
-      "supported_input_modes": ["stateful", "stateless"],
-      "supports_async": true,
+      "key": "returns_series",
+      "options": [],
+      "path": "/integration/returns/series",
       "poll_path_template": "/performance/executions/{calculation_id}",
       "result_path_template": "/integration/returns/series/results/{calculation_id}",
       "stateful_restrictions": [],
-      "contract_notes": [],
-      "options": []
+      "supported_input_modes": [
+        "stateful",
+        "stateless"
+      ],
+      "supports_async": true
     },
     {
-      "key": "benchmark_exposure_context",
-      "path": "/integration/benchmarks/exposure-context",
+      "contract_notes": [
+        "returns a lineage-backed benchmark exposure view aligned to benchmark performance context",
+        "intended for lotus-risk stateful ACTIVE_RISK attribution integration"
+      ],
       "enabled": true,
-      "supported_input_modes": ["stateful"],
-      "supports_async": false,
+      "key": "benchmark_exposure_context",
+      "options": [],
+      "path": "/integration/benchmarks/exposure-context",
       "poll_path_template": null,
       "result_path_template": null,
       "stateful_restrictions": [
@@ -159,105 +185,139 @@
         "POSITION, SECTOR, and ASSET_CLASS grouping dimensions are supported",
         "ISSUER remains gated until benchmark issuer exposure semantics are approved"
       ],
-      "contract_notes": [
-        "returns a lineage-backed benchmark exposure view aligned to benchmark performance context",
-        "intended for lotus-risk stateful ACTIVE_RISK attribution integration"
+      "supported_input_modes": [
+        "stateful"
       ],
-      "options": []
+      "supports_async": false
     }
   ],
+  "as_of_date": "2026-04-10",
+  "consumer_system": "lotus-gateway",
+  "contract_version": "v1",
   "features": [
     {
-      "key": "pa.analytics.twr",
+      "description": "Time-weighted return analytics APIs.",
       "enabled": true,
-      "owner_service": "lotus-performance",
-      "description": "Time-weighted return analytics APIs."
+      "key": "performance.analytics.twr",
+      "owner_service": "lotus-performance"
     },
     {
-      "key": "pa.analytics.mwr",
+      "description": "Money-weighted return analytics APIs.",
       "enabled": true,
-      "owner_service": "lotus-performance",
-      "description": "Money-weighted return analytics APIs."
+      "key": "performance.analytics.mwr",
+      "owner_service": "lotus-performance"
     },
     {
-      "key": "pa.analytics.contribution",
+      "description": "Contribution analytics APIs.",
       "enabled": true,
-      "owner_service": "lotus-performance",
-      "description": "Contribution analytics APIs."
+      "key": "performance.analytics.contribution",
+      "owner_service": "lotus-performance"
     },
     {
-      "key": "pa.analytics.attribution",
+      "description": "Attribution analytics APIs.",
       "enabled": true,
-      "owner_service": "lotus-performance",
-      "description": "Attribution analytics APIs."
+      "key": "performance.analytics.attribution",
+      "owner_service": "lotus-performance"
     },
     {
-      "key": "pa.analytics.benchmark",
+      "description": "Benchmark performance analytics APIs.",
       "enabled": true,
-      "owner_service": "lotus-performance",
-      "description": "Benchmark performance analytics APIs."
+      "key": "performance.analytics.benchmark",
+      "owner_service": "lotus-performance"
     },
     {
-      "key": "pa.integration.benchmark_exposure_context",
+      "description": "Performance-aligned benchmark exposure context derived from lotus-core benchmark lineage.",
       "enabled": true,
-      "owner_service": "lotus-performance",
-      "description": "Performance-aligned benchmark exposure context derived from lotus-core benchmark lineage."
+      "key": "performance.integration.benchmark_exposure_context",
+      "owner_service": "lotus-performance"
     },
     {
-      "key": "pa.analytics.workspace_summary",
+      "description": "Interaction-efficient workspace summary analytics API.",
       "enabled": true,
-      "owner_service": "lotus-performance",
-      "description": "Interaction-efficient workspace summary analytics API."
+      "key": "performance.analytics.workspace_summary",
+      "owner_service": "lotus-performance"
     },
     {
-      "key": "pa.support.twr_inspection",
+      "description": "Durable TWR supportability inspection and artifact-backed triage API.",
       "enabled": true,
-      "owner_service": "lotus-performance",
-      "description": "Durable TWR supportability inspection and artifact-backed triage API."
+      "key": "performance.support.twr_inspection",
+      "owner_service": "lotus-performance"
     },
     {
-      "key": "pa.execution.stateful",
+      "description": "Bounded TWR calculation supportability response metadata and Prometheus posture metric.",
       "enabled": true,
-      "owner_service": "lotus-performance",
-      "description": "lotus-performance executes using platform-managed stateful input retrieval."
+      "key": "performance.observability.calculation_supportability",
+      "owner_service": "lotus-performance"
     },
     {
-      "key": "pa.execution.stateless",
+      "description": "lotus-performance executes using platform-managed stateful input retrieval.",
       "enabled": true,
-      "owner_service": "lotus-performance",
-      "description": "lotus-performance executes analytics from request-supplied stateless input data."
+      "key": "performance.execution.stateful",
+      "owner_service": "lotus-performance"
+    },
+    {
+      "description": "lotus-performance executes analytics from request-supplied stateless input data.",
+      "enabled": true,
+      "key": "performance.execution.stateless",
+      "owner_service": "lotus-performance"
     }
   ],
+  "generated_at": "2026-04-10T12:00:00Z",
+  "policy_version": "tenant-default-v1",
+  "source_service": "lotus-performance",
+  "supported_input_modes": [
+    "stateful",
+    "stateless"
+  ],
+  "tenant_id": "default",
   "workflows": [
     {
-      "workflow_key": "performance_snapshot",
       "enabled": true,
-      "required_features": ["pa.analytics.twr", "pa.analytics.mwr", "pa.analytics.benchmark"]
+      "required_features": [
+        "performance.analytics.twr",
+        "performance.analytics.mwr",
+        "performance.analytics.benchmark"
+      ],
+      "workflow_key": "performance_snapshot"
     },
     {
-      "workflow_key": "performance_explainability",
       "enabled": true,
-      "required_features": ["pa.analytics.contribution", "pa.analytics.attribution"]
+      "required_features": [
+        "performance.analytics.contribution",
+        "performance.analytics.attribution"
+      ],
+      "workflow_key": "performance_explainability"
     },
     {
-      "workflow_key": "performance_workspace",
       "enabled": true,
-      "required_features": ["pa.analytics.workspace_summary", "pa.analytics.twr", "pa.analytics.mwr"]
+      "required_features": [
+        "performance.analytics.workspace_summary",
+        "performance.analytics.twr",
+        "performance.analytics.mwr"
+      ],
+      "workflow_key": "performance_workspace"
     },
     {
-      "workflow_key": "performance_support_triage",
       "enabled": true,
-      "required_features": ["pa.analytics.twr", "pa.support.twr_inspection"]
+      "required_features": [
+        "performance.analytics.twr",
+        "performance.support.twr_inspection"
+      ],
+      "workflow_key": "performance_support_triage"
     },
     {
-      "workflow_key": "execution_stateful",
       "enabled": true,
-      "required_features": ["pa.execution.stateful"]
+      "required_features": [
+        "performance.execution.stateful"
+      ],
+      "workflow_key": "execution_stateful"
     },
     {
-      "workflow_key": "execution_stateless",
       "enabled": true,
-      "required_features": ["pa.execution.stateless"]
+      "required_features": [
+        "performance.execution.stateless"
+      ],
+      "workflow_key": "execution_stateless"
     }
   ]
 }

@@ -526,19 +526,19 @@
       "review_by": "2026-09-17"
     },
     {
-      "finding": "app/services/twr_service.py:145:def _link_return_series(series: pd.Series) -> float:",
+      "finding": "app/services/twr_service.py:149:def _link_return_series(series: pd.Series) -> float:",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
       "review_by": "2026-09-17"
     },
     {
-      "finding": "app/services/twr_service.py:149:return float((running - Decimal(\"1\")) * Decimal(\"100\"))",
+      "finding": "app/services/twr_service.py:153:return float((running - Decimal(\"1\")) * Decimal(\"100\"))",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
       "review_by": "2026-09-17"
     },
     {
-      "finding": "app/services/twr_service.py:37:numeric = float(str(value))",
+      "finding": "app/services/twr_service.py:41:numeric = float(str(value))",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
       "review_by": "2026-09-17"

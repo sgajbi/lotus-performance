@@ -55,6 +55,22 @@ def test_twr_reports_reset_events_when_requested(client):
     reset_reasons_by_date = {event["date"]: event["reason"] for event in itd_results["reset_events"]}
     assert "NCTRL_1" in reset_reasons_by_date["2025-01-02"]
     assert "NCTRL_4" in reset_reasons_by_date["2025-01-03"]
+    assert data["calculation_supportability"] == {
+        "state": "ready",
+        "reason": "calculation_complete",
+        "freshness_bucket": "current",
+        "input_row_count": 4,
+        "resolved_period_count": 1,
+        "benchmark_row_count": 0,
+    }
+
+    metrics = client.get("/metrics")
+    assert metrics.status_code == 200
+    assert "lotus_performance_calculation_supportability_total" in metrics.text
+    assert 'operation="twr"' in metrics.text
+    assert 'supportability_state="ready"' in metrics.text
+    assert 'reason="calculation_complete"' in metrics.text
+    assert 'freshness_bucket="current"' in metrics.text
 
 
 def test_workspace_summary_endpoint_returns_multi_horizon_summary_blocks(client):

@@ -44,6 +44,21 @@ Validated option families:
   stateless benchmark configuration, empty frequencies, unsupported extra inputs, and missing
   explicit-window start dates.
 
+## Supportability and Observability
+
+`POST /performance/twr` now emits source-owned supportability posture on successful synchronous
+responses through `calculation_supportability`. The block uses bounded state, reason, and freshness
+vocabularies so Gateway and Workbench can distinguish a ready calculation from stale or empty source
+posture without parsing prose diagnostics.
+
+The Prometheus metric is:
+
+`lotus_performance_calculation_supportability_total{operation,supportability_state,reason,freshness_bucket}`
+
+Current implemented operation scope is `operation="twr"`. Broader performance surfaces such as
+workspace summary, MWR, contribution, attribution, benchmark, and returns-series supportability
+remain separate implementation work and must not be inferred from this TWR proof.
+
 ## Downstream Consumers
 
 Current downstream consumers are:
@@ -52,7 +67,7 @@ Current downstream consumers are:
 | --- | --- | --- |
 | `lotus-gateway` Workbench overview/foundation routes | Calls `LotusAnalyticsClient.get_stateful_twr` and `get_twr_analytics`, which POST to `/performance/twr` and poll async results. | `lotus-gateway/src/app/clients/lotus_analytics_client.py`; `lotus-gateway/tests/unit/test_upstream_clients.py` |
 | `lotus-gateway` performance workspace routes | Builds UI-facing performance summary, details, horizon-comparison, and attribution-trend contracts from lotus-performance TWR and workspace-summary calls. | `lotus-gateway/src/app/services/performance_workspace_service.py`; `lotus-gateway/src/app/routers/workbench.py` |
-| `lotus-gateway` platform capabilities | Uses `pa.analytics.twr` to decide whether performance workspace navigation is available. | `lotus-gateway/src/app/services/platform_capabilities_service.py` |
+| `lotus-gateway` platform capabilities | Uses `performance.analytics.twr` to decide whether performance workspace navigation is available. | `lotus-gateway/src/app/services/platform_capabilities_service.py` |
 | `lotus-risk` stateful risk analytics | Does not call `/performance/twr` directly. It consumes `POST /integration/returns/series`, which is the correct performance-owned return-series contract for risk engines. | `lotus-risk/src/app/integrations/lotus_performance_client.py`; `lotus-risk/docs/domain-apis/RFC-0082-upstream-contract-family-map.md` |
 
 Gateway runtime probes through `http://gateway.dev.lotus` returned `200` for:

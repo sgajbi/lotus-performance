@@ -51,6 +51,7 @@ def test_twr_response_attributes_tie_to_deterministic_stateless_inputs(client):
         "portfolio_id",
         "input_mode",
         "results_by_period",
+        "calculation_supportability",
         "meta",
         "diagnostics",
         "audit",
@@ -70,6 +71,14 @@ def test_twr_response_attributes_tie_to_deterministic_stateless_inputs(client):
     assert body["meta"]["input_fingerprint"].startswith("sha256:")
     assert body["meta"]["calculation_hash"].startswith("sha256:")
     assert body["audit"]["counts"] == {"input_rows": 3}
+    assert body["calculation_supportability"] == {
+        "state": "ready",
+        "reason": "calculation_complete",
+        "freshness_bucket": "current",
+        "input_row_count": 3,
+        "resolved_period_count": 1,
+        "benchmark_row_count": 0,
+    }
     assert body["audit"]["residual_applied_bp"] == 0.0
     assert body["diagnostics"]["effective_period_start"] == "2026-01-01"
     assert body["diagnostics"]["nip_days"] == 0

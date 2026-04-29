@@ -190,61 +190,67 @@ INTEGRATION_CAPABILITIES_RESPONSE_EXAMPLES = [
         ],
         "features": [
             {
-                "key": "pa.analytics.twr",
+                "key": "performance.analytics.twr",
                 "enabled": True,
                 "owner_service": "lotus-performance",
                 "description": "Time-weighted return analytics APIs.",
             },
             {
-                "key": "pa.analytics.mwr",
+                "key": "performance.analytics.mwr",
                 "enabled": True,
                 "owner_service": "lotus-performance",
                 "description": "Money-weighted return analytics APIs.",
             },
             {
-                "key": "pa.analytics.contribution",
+                "key": "performance.analytics.contribution",
                 "enabled": True,
                 "owner_service": "lotus-performance",
                 "description": "Contribution analytics APIs.",
             },
             {
-                "key": "pa.analytics.attribution",
+                "key": "performance.analytics.attribution",
                 "enabled": True,
                 "owner_service": "lotus-performance",
                 "description": "Attribution analytics APIs.",
             },
             {
-                "key": "pa.analytics.benchmark",
+                "key": "performance.analytics.benchmark",
                 "enabled": True,
                 "owner_service": "lotus-performance",
                 "description": "Benchmark performance analytics APIs.",
             },
             {
-                "key": "pa.integration.benchmark_exposure_context",
+                "key": "performance.integration.benchmark_exposure_context",
                 "enabled": True,
                 "owner_service": "lotus-performance",
                 "description": "Performance-aligned benchmark exposure context derived from lotus-core benchmark lineage.",
             },
             {
-                "key": "pa.analytics.workspace_summary",
+                "key": "performance.analytics.workspace_summary",
                 "enabled": True,
                 "owner_service": "lotus-performance",
                 "description": "Interaction-efficient workspace summary analytics API.",
             },
             {
-                "key": "pa.support.twr_inspection",
+                "key": "performance.support.twr_inspection",
                 "enabled": True,
                 "owner_service": "lotus-performance",
                 "description": "Durable TWR supportability inspection and artifact-backed triage API.",
             },
             {
-                "key": "pa.execution.stateful",
+                "key": "performance.observability.calculation_supportability",
+                "enabled": True,
+                "owner_service": "lotus-performance",
+                "description": "Bounded TWR calculation supportability response metadata and Prometheus posture metric.",
+            },
+            {
+                "key": "performance.execution.stateful",
                 "enabled": True,
                 "owner_service": "lotus-performance",
                 "description": "lotus-performance executes using platform-managed stateful input retrieval.",
             },
             {
-                "key": "pa.execution.stateless",
+                "key": "performance.execution.stateless",
                 "enabled": True,
                 "owner_service": "lotus-performance",
                 "description": "lotus-performance executes analytics from request-supplied stateless input data.",
@@ -254,32 +260,40 @@ INTEGRATION_CAPABILITIES_RESPONSE_EXAMPLES = [
             {
                 "workflow_key": "performance_snapshot",
                 "enabled": True,
-                "required_features": ["pa.analytics.twr", "pa.analytics.mwr", "pa.analytics.benchmark"],
+                "required_features": [
+                    "performance.analytics.twr",
+                    "performance.analytics.mwr",
+                    "performance.analytics.benchmark",
+                ],
             },
             {
                 "workflow_key": "performance_explainability",
                 "enabled": True,
-                "required_features": ["pa.analytics.contribution", "pa.analytics.attribution"],
+                "required_features": ["performance.analytics.contribution", "performance.analytics.attribution"],
             },
             {
                 "workflow_key": "performance_workspace",
                 "enabled": True,
-                "required_features": ["pa.analytics.workspace_summary", "pa.analytics.twr", "pa.analytics.mwr"],
+                "required_features": [
+                    "performance.analytics.workspace_summary",
+                    "performance.analytics.twr",
+                    "performance.analytics.mwr",
+                ],
             },
             {
                 "workflow_key": "performance_support_triage",
                 "enabled": True,
-                "required_features": ["pa.analytics.twr", "pa.support.twr_inspection"],
+                "required_features": ["performance.analytics.twr", "performance.support.twr_inspection"],
             },
             {
                 "workflow_key": "execution_stateful",
                 "enabled": True,
-                "required_features": ["pa.execution.stateful"],
+                "required_features": ["performance.execution.stateful"],
             },
             {
                 "workflow_key": "execution_stateless",
                 "enabled": True,
-                "required_features": ["pa.execution.stateless"],
+                "required_features": ["performance.execution.stateless"],
             },
         ],
     }
@@ -287,7 +301,7 @@ INTEGRATION_CAPABILITIES_RESPONSE_EXAMPLES = [
 
 
 class FeatureCapability(BaseModel):
-    key: str = Field(description="Canonical feature key.", examples=["pa.analytics.twr"])
+    key: str = Field(description="Canonical feature key.", examples=["performance.analytics.twr"])
     enabled: bool = Field(description="Whether this feature is enabled.", examples=[True])
     owner_service: str = Field(description="Owning service for this feature.", examples=["lotus-performance"])
     description: str = Field(description="Human-readable capability summary.", examples=["Time-weighted return APIs."])
@@ -302,8 +316,16 @@ class WorkflowCapability(BaseModel):
     required_features: list[str] = Field(
         default_factory=list,
         description="Feature keys required for this workflow.",
-        examples=[["pa.analytics.workspace_summary", "pa.analytics.twr", "pa.analytics.mwr"]],
-        json_schema_extra={"example": ["pa.analytics.workspace_summary", "pa.analytics.twr", "pa.analytics.mwr"]},
+        examples=[
+            ["performance.analytics.workspace_summary", "performance.analytics.twr", "performance.analytics.mwr"]
+        ],
+        json_schema_extra={
+            "example": [
+                "performance.analytics.workspace_summary",
+                "performance.analytics.twr",
+                "performance.analytics.mwr",
+            ]
+        },
     )
 
 
@@ -447,61 +469,67 @@ async def get_integration_capabilities(
 
     features = [
         FeatureCapability(
-            key="pa.analytics.twr",
+            key="performance.analytics.twr",
             enabled=twr_enabled,
             owner_service="lotus-performance",
             description="Time-weighted return analytics APIs.",
         ),
         FeatureCapability(
-            key="pa.analytics.mwr",
+            key="performance.analytics.mwr",
             enabled=mwr_enabled,
             owner_service="lotus-performance",
             description="Money-weighted return analytics APIs.",
         ),
         FeatureCapability(
-            key="pa.analytics.contribution",
+            key="performance.analytics.contribution",
             enabled=contribution_enabled,
             owner_service="lotus-performance",
             description="Contribution analytics APIs.",
         ),
         FeatureCapability(
-            key="pa.analytics.attribution",
+            key="performance.analytics.attribution",
             enabled=attribution_enabled,
             owner_service="lotus-performance",
             description="Attribution analytics APIs.",
         ),
         FeatureCapability(
-            key="pa.analytics.benchmark",
+            key="performance.analytics.benchmark",
             enabled=benchmark_enabled,
             owner_service="lotus-performance",
             description="Benchmark performance analytics APIs.",
         ),
         FeatureCapability(
-            key="pa.integration.benchmark_exposure_context",
+            key="performance.integration.benchmark_exposure_context",
             enabled=benchmark_enabled and stateful_mode_enabled,
             owner_service="lotus-performance",
             description="Performance-aligned benchmark exposure context derived from lotus-core benchmark lineage.",
         ),
         FeatureCapability(
-            key="pa.analytics.workspace_summary",
+            key="performance.analytics.workspace_summary",
             enabled=workspace_summary_enabled,
             owner_service="lotus-performance",
             description="Interaction-efficient workspace summary analytics API.",
         ),
         FeatureCapability(
-            key="pa.support.twr_inspection",
+            key="performance.support.twr_inspection",
             enabled=twr_enabled,
             owner_service="lotus-performance",
             description="Durable TWR supportability inspection and artifact-backed triage API.",
         ),
         FeatureCapability(
-            key="pa.execution.stateful",
+            key="performance.observability.calculation_supportability",
+            enabled=twr_enabled,
+            owner_service="lotus-performance",
+            description="Bounded TWR calculation supportability response metadata and Prometheus posture metric.",
+        ),
+        FeatureCapability(
+            key="performance.execution.stateful",
             enabled=stateful_mode_enabled,
             owner_service="lotus-performance",
             description="lotus-performance executes using platform-managed stateful input retrieval.",
         ),
         FeatureCapability(
-            key="pa.execution.stateless",
+            key="performance.execution.stateless",
             enabled=stateless_mode_enabled,
             owner_service="lotus-performance",
             description="lotus-performance executes analytics from request-supplied stateless input data.",
@@ -512,32 +540,40 @@ async def get_integration_capabilities(
         WorkflowCapability(
             workflow_key="performance_snapshot",
             enabled=twr_enabled and mwr_enabled and benchmark_enabled,
-            required_features=["pa.analytics.twr", "pa.analytics.mwr", "pa.analytics.benchmark"],
+            required_features=[
+                "performance.analytics.twr",
+                "performance.analytics.mwr",
+                "performance.analytics.benchmark",
+            ],
         ),
         WorkflowCapability(
             workflow_key="performance_explainability",
             enabled=contribution_enabled and attribution_enabled,
-            required_features=["pa.analytics.contribution", "pa.analytics.attribution"],
+            required_features=["performance.analytics.contribution", "performance.analytics.attribution"],
         ),
         WorkflowCapability(
             workflow_key="performance_workspace",
             enabled=workspace_summary_enabled and twr_enabled and mwr_enabled,
-            required_features=["pa.analytics.workspace_summary", "pa.analytics.twr", "pa.analytics.mwr"],
+            required_features=[
+                "performance.analytics.workspace_summary",
+                "performance.analytics.twr",
+                "performance.analytics.mwr",
+            ],
         ),
         WorkflowCapability(
             workflow_key="performance_support_triage",
             enabled=twr_enabled,
-            required_features=["pa.analytics.twr", "pa.support.twr_inspection"],
+            required_features=["performance.analytics.twr", "performance.support.twr_inspection"],
         ),
         WorkflowCapability(
             workflow_key="execution_stateful",
             enabled=stateful_mode_enabled,
-            required_features=["pa.execution.stateful"],
+            required_features=["performance.execution.stateful"],
         ),
         WorkflowCapability(
             workflow_key="execution_stateless",
             enabled=stateless_mode_enabled,
-            required_features=["pa.execution.stateless"],
+            required_features=["performance.execution.stateless"],
         ),
     ]
 

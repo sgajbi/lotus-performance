@@ -128,6 +128,14 @@ def _performance_response_payload(*, calculation_id: str) -> dict:
                 "reset_events": [],
             }
         },
+        "calculation_supportability": {
+            "state": "ready",
+            "reason": "calculation_complete",
+            "freshness_bucket": "current",
+            "input_row_count": 1,
+            "resolved_period_count": 1,
+            "benchmark_row_count": 0,
+        },
         "meta": {
             "calculation_id": calculation_id,
             "engine_version": "test",

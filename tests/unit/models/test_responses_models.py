@@ -62,6 +62,14 @@ def test_performance_response_new_structure_passes(base_response_footer, single_
             "YTD": single_period_result_payload,
             "MTD": single_period_result_payload,
         },
+        "calculation_supportability": {
+            "state": "ready",
+            "reason": "calculation_complete",
+            "freshness_bucket": "current",
+            "input_row_count": 10,
+            "resolved_period_count": 2,
+            "benchmark_row_count": 0,
+        },
         **base_response_footer,
     }
     try:

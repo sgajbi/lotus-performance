@@ -516,7 +516,7 @@ Return semantics for the workspace surface are now explicit rather than inferred
   ],
   "features": [
     {
-      "key": "pa.analytics.workspace_summary",
+      "key": "performance.analytics.workspace_summary",
       "enabled": true
     }
   ],

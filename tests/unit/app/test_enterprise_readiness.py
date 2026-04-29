@@ -48,7 +48,7 @@ def test_authorize_write_request_enforces_capability_rules(monkeypatch):
         "X-Tenant-Id": "t1",
         "X-Role": "analyst",
         "X-Correlation-Id": "c1",
-        "X-Service-Identity": "pa",
+        "X-Service-Identity": "lotus-performance",
         "X-Capabilities": "analytics.read",
     }
     denied, denied_reason = authorize_write_request("POST", "/analytics/calc", headers)
@@ -68,7 +68,7 @@ def test_authorize_write_request_requires_runtime_manage_capability_for_retentio
         "X-Tenant-Id": "t1",
         "X-Role": "operator",
         "X-Correlation-Id": "c1",
-        "X-Service-Identity": "pa",
+        "X-Service-Identity": "lotus-performance",
         "X-Capabilities": "operations.runtime.read",
     }
     denied, denied_reason = authorize_write_request("POST", "/integration/runtime-retention-cleanups/run", headers)
@@ -88,7 +88,7 @@ def test_authorize_write_request_requires_runtime_manage_capability_for_recovery
         "X-Tenant-Id": "t1",
         "X-Role": "operator",
         "X-Correlation-Id": "c1",
-        "X-Service-Identity": "pa",
+        "X-Service-Identity": "lotus-performance",
         "X-Capabilities": "operations.runtime.read",
     }
     denied, denied_reason = authorize_write_request("POST", "/integration/recovery-drills/run", headers)
@@ -112,7 +112,7 @@ def test_authorize_privileged_read_request_enforces_required_headers_and_capabil
         "X-Tenant-Id": "t1",
         "X-Role": "analyst",
         "X-Correlation-Id": "c1",
-        "X-Service-Identity": "pa",
+        "X-Service-Identity": "lotus-performance",
         "X-Capabilities": "analytics.read",
     }
     denied, denied_reason = authorize_privileged_read_request("GET", "/integration/runtime-status", headers)
@@ -245,7 +245,7 @@ async def test_middleware_audits_allowed_privileged_read_with_governed_surface_m
             (b"x-tenant-id", b"t1"),
             (b"x-role", b"operator"),
             (b"x-correlation-id", b"c1"),
-            (b"x-service-identity", b"pa"),
+            (b"x-service-identity", b"lotus-performance"),
             (b"x-capabilities", b"operations.runtime.read"),
         ],
     }
@@ -281,7 +281,7 @@ async def test_middleware_audits_allowed_governed_write_with_capability_metadata
             (b"x-tenant-id", b"t1"),
             (b"x-role", b"operator"),
             (b"x-correlation-id", b"c1"),
-            (b"x-service-identity", b"pa"),
+            (b"x-service-identity", b"lotus-performance"),
             (b"x-capabilities", b"operations.runtime.manage"),
         ],
     }
