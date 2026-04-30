@@ -597,6 +597,24 @@ def test_workspace_summary_guide_documents_explicit_return_vocabulary():
     assert "it should not fabricate pseudo market values or pseudo cash flows" in rfc
 
 
+def test_front_office_supportability_docs_cover_all_completed_calculation_surfaces():
+    twr_certification = _read("docs/technical/twr-endpoint-certification.md")
+    mwr_certification = _read("docs/technical/mwr-endpoint-certification.md")
+    contribution_certification = _read("docs/technical/contribution-endpoint-certification.md")
+    attribution_certification = _read("docs/technical/attribution-endpoint-certification.md")
+    runbook = _read("wiki/Operations-Runbook.md")
+    repo_context = _read("REPOSITORY-ENGINEERING-CONTEXT.md")
+
+    for operation in ("twr", "mwr", "contribution", "attribution"):
+        assert f'operation="{operation}"' in twr_certification or f"`{operation}`" in runbook
+
+    assert 'operation="mwr"' in mwr_certification
+    assert 'operation="contribution"' in contribution_certification
+    assert 'operation="attribution"' in attribution_certification
+    assert "`calculation_supportability`" in repo_context
+    assert 'supportability_state="stale"' in runbook
+
+
 def test_workspace_summary_docs_publish_canonical_examples():
     api_reference = _read("docs/guides/api_reference.md")
     rfc = _read("docs/RFCs/RFC 044 - Interaction-Efficient Performance Workspace Analytics Contract.md")

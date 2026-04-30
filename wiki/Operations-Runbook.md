@@ -18,16 +18,17 @@ Primary runtime surfaces:
 - `GET /performance/executions/{calculation_id}`
 - `GET /performance/lineage/{calculation_id}`
 
-## TWR supportability metric
+## Calculation supportability metric
 
-`POST /performance/twr` emits a bounded calculation supportability posture on completed
-synchronous responses and increments:
+Completed TWR, MWR, contribution, and attribution responses emit a bounded calculation
+supportability posture and increment:
 
-`lotus_performance_calculation_supportability_total{operation="twr",supportability_state,reason,freshness_bucket}`
+`lotus_performance_calculation_supportability_total{operation,supportability_state,reason,freshness_bucket}`
 
 Use `supportability_state="stale"` or `supportability_state="empty"` as operator attention signals
-for front-office TWR surfaces. The labels are intentionally bounded and must not carry portfolio,
-client, tenant, account, or security identifiers.
+for front-office performance surfaces. Current operation labels are `twr`, `mwr`, `contribution`,
+and `attribution`. The labels are intentionally bounded and must not carry portfolio, client,
+tenant, account, or security identifiers.
 
 ## Readiness semantics
 

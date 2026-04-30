@@ -89,6 +89,18 @@ Downstream certification status:
 - `lotus-gateway` issue `#105` tracks removal of the historical dependency on UI-side attribution
   total reconstruction once the lotus-performance totals contract is merged.
 
+## Supportability and Observability
+
+Completed attribution responses now include `calculation_supportability` with bounded `state`,
+`reason`, and `freshness_bucket` values plus input-row, resolved-period, and benchmark-row counts.
+The service also increments:
+
+`lotus_performance_calculation_supportability_total{operation="attribution",supportability_state,reason,freshness_bucket}`
+
+Use this block as the source-owned freshness and degraded-state signal for front-office attribution
+panels. The metric labels remain bounded and must not include portfolio, tenant, account, or
+security identifiers.
+
 ## Canonical Live Findings
 
 For `PB_SG_GLOBAL_BAL_001` as of `2026-04-10`, the stateful attribution endpoint now reconciles

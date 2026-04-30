@@ -39,7 +39,11 @@ Current repository posture:
    the platform trust telemetry validator when `lotus-platform` is available,
 7. the TWR inspection supportability contract can now preserve bounded Lotus AI workflow-pack run
    posture and the optional `support_brief.md` artifact without making the inspection verdict
-   dependent on Lotus AI availability.
+   dependent on Lotus AI availability,
+8. completed TWR, MWR, contribution, and attribution responses expose the shared
+   `calculation_supportability` block and emit the bounded
+   `lotus_performance_calculation_supportability_total` metric for front-office freshness and
+   degraded-state handling.
 
 ## Architecture And Module Map
 
