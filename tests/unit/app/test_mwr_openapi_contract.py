@@ -16,3 +16,6 @@ def test_mwr_openapi_explains_capital_timing_purpose_and_modes() -> None:
     assert "period Dietz return" in mwr_post["description"]
     assert "200" in mwr_post["responses"]
     assert "422" in mwr_post["responses"]
+    response_schema = spec["components"]["schemas"]["MoneyWeightedReturnResponse"]
+    assert "calculation_supportability" in response_schema["properties"]
+    assert "source freshness" in response_schema["properties"]["calculation_supportability"]["description"]

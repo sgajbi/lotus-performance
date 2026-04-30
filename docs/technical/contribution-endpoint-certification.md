@@ -104,6 +104,18 @@ Current downstream consumers are:
 | `lotus-advise` through gateway-generated advisor brief context | Consumes Workbench performance contribution context rather than calling lotus-performance directly. | `lotus-gateway/src/app/services/advisor_brief_service.py` |
 | `lotus-risk` | Does not consume `/performance/contribution`; its contribution terminology is risk-component contribution and attribution, not performance contribution. | `lotus-risk` client search |
 
+## Supportability and Observability
+
+Completed contribution responses now include `calculation_supportability` with bounded `state`,
+`reason`, and `freshness_bucket` values plus input-row and resolved-period counts. The service also
+increments:
+
+`lotus_performance_calculation_supportability_total{operation="contribution",supportability_state,reason,freshness_bucket}`
+
+Use this block as the source-owned freshness and degraded-state signal for front-office contribution
+panels. The metric labels remain bounded and must not include portfolio, tenant, account, or
+security identifiers.
+
 ## GitHub Issue Disposition
 
 Open issue search for contribution currently finds only broad stateful-sourcing issue `#83`. That

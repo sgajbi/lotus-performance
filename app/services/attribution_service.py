@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import pandas as pd
 from fastapi import HTTPException, status
 
@@ -7,6 +9,10 @@ from app.core.config import get_settings
 from app.models.attribution_analytics_requests import AttributionInputMode
 from app.models.attribution_requests import AttributionRequest
 from app.models.attribution_responses import AttributionResponse
+from app.services.calculation_supportability_service import (
+    build_calculation_supportability,
+    record_supportability_metric,
+)
 from app.services.execution_lifecycle_service import (
     complete_execution_with_lineage,
     record_execution_failure,
@@ -16,6 +22,35 @@ from core.envelope import Meta
 from core.periods import resolve_periods
 from engine.attribution import aggregate_attribution_results, run_attribution_calculations
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
+
+
+def _count_attribution_benchmark_rows(request: AttributionRequest) -> int:
+    return sum(len(group.observations) for group in request.benchmark_groups_data)
+
+
+def _count_attribution_input_rows(request: AttributionRequest) -> int:
+    portfolio_observations = len(request.portfolio_data.valuation_points) if request.portfolio_data is not None else 0
+    instrument_observations = sum(len(instrument.valuation_points) for instrument in (request.instruments_data or []))
+    portfolio_group_observations = sum(len(group.observations) for group in (request.portfolio_groups_data or []))
+    return (
+        portfolio_observations
+        + instrument_observations
+        + portfolio_group_observations
+        + _count_attribution_benchmark_rows(request)
+    )
+
+
+def _latest_attribution_observation_date(request: AttributionRequest):
+    dates: list[Any] = []
+    if request.portfolio_data is not None:
+        dates.extend(point.perf_date for point in request.portfolio_data.valuation_points)
+    for instrument in request.instruments_data or []:
+        dates.extend(point.perf_date for point in instrument.valuation_points)
+    for group in request.portfolio_groups_data or []:
+        dates.extend(observation.get("date") for observation in group.observations if observation.get("date"))
+    for group in request.benchmark_groups_data:
+        dates.extend(observation.date for observation in group.observations)
+    return max(pd.Timestamp(point).date() for point in dates) if dates else None
 
 
 def calculate_attribution(
@@ -84,6 +119,14 @@ def calculate_attribution(
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
         )
+        calculation_supportability = build_calculation_supportability(
+            input_row_count=_count_attribution_input_rows(request),
+            resolved_period_count=len(results_by_period),
+            latest_observation_date=_latest_attribution_observation_date(request),
+            report_end_date=request.report_end_date,
+            benchmark_row_count=_count_attribution_benchmark_rows(request),
+        )
+        record_supportability_metric(operation="attribution", supportability=calculation_supportability)
 
         response_model = AttributionResponse(
             calculation_id=request.calculation_id,
@@ -100,6 +143,7 @@ def calculate_attribution(
                 if resolved_benchmark_id is not None and resolved_benchmark_return_source is not None
                 else None
             ),
+            calculation_supportability=calculation_supportability,
             meta=meta,
         )
 

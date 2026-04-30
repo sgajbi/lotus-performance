@@ -67,6 +67,17 @@ Downstream certification status:
   not a required summary display field.
 - No direct open gateway issue was found for MWR endpoint misuse during this pass.
 
+## Supportability and Observability
+
+Completed MWR responses now include `calculation_supportability` with bounded `state`, `reason`,
+and `freshness_bucket` values plus input-row and resolved-period counts. The service also increments:
+
+`lotus_performance_calculation_supportability_total{operation="mwr",supportability_state,reason,freshness_bucket}`
+
+Use this block as the source-owned freshness and degraded-state signal for front-office MWR panels.
+The metric labels remain bounded and must not include portfolio, tenant, account, or security
+identifiers.
+
 ## GitHub Issue Disposition
 
 Open issue search for MWR currently finds only broad stateful-sourcing issue `#83`. That issue

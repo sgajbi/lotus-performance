@@ -17,6 +17,10 @@ from app.models.contribution_responses import (
     PositionDailyContribution,
     SinglePeriodContributionResult,
 )
+from app.services.calculation_supportability_service import (
+    build_calculation_supportability,
+    record_supportability_metric,
+)
 from app.services.execution_lifecycle_service import (
     complete_execution_with_lineage,
     record_execution_failure,
@@ -942,6 +946,19 @@ def _classify_average_weight_shadow_cutover_blockers(
     return blockers
 
 
+def _count_contribution_input_rows(request: ContributionRequest) -> int:
+    return len(request.portfolio_data.valuation_points) + sum(
+        len(position.valuation_points) for position in request.positions_data
+    )
+
+
+def _latest_contribution_observation_date(request: ContributionRequest):
+    dates = [point.perf_date for point in request.portfolio_data.valuation_points]
+    for position in request.positions_data:
+        dates.extend(point.perf_date for point in position.valuation_points)
+    return max(dates) if dates else None
+
+
 def calculate_contribution(
     request: ContributionRequest,
     *,
@@ -1591,12 +1608,20 @@ def calculate_contribution(
             **position_flow_balance_counts,
         }
     )
+    calculation_supportability = build_calculation_supportability(
+        input_row_count=_count_contribution_input_rows(request),
+        resolved_period_count=len(results_by_period),
+        latest_observation_date=_latest_contribution_observation_date(request),
+        report_end_date=request.report_end_date,
+    )
+    record_supportability_metric(operation="contribution", supportability=calculation_supportability)
 
     response_model = ContributionResponse(
         calculation_id=request.calculation_id,
         portfolio_id=request.portfolio_id,
         input_mode=input_mode,
         results_by_period=results_by_period,
+        calculation_supportability=calculation_supportability,
         meta=meta,
         diagnostics=diagnostics,
         audit=audit,

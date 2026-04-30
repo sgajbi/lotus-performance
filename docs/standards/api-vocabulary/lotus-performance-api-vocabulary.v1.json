@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-04-29T09:15:36.485751+00:00",
+  "generatedAt": "2026-04-30T05:54:54.104836+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.account_reset_shadow_days",
@@ -526,6 +526,20 @@
       ]
     },
     {
+      "semanticId": "lotus.benchmark_row_count",
+      "canonicalTerm": "benchmark_row_count",
+      "preferredName": "benchmark_row_count",
+      "description": "Resolved benchmark observation count used when benchmark analytics were requested.",
+      "example": 1,
+      "type": "integer",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "integer"
+      ]
+    },
+    {
       "semanticId": "lotus.benchmark_start_date",
       "canonicalTerm": "benchmark_start_date",
       "preferredName": "benchmark_start_date",
@@ -665,6 +679,22 @@
       ],
       "observedTypes": [
         "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.calculation_supportability",
+      "canonicalTerm": "calculation_supportability",
+      "preferredName": "calculation_supportability",
+      "description": "performance calculation supportability object.",
+      "example": {
+        "key": "value"
+      },
+      "type": "PerformanceCalculationSupportability",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "PerformanceCalculationSupportability"
       ]
     },
     {
@@ -1849,6 +1879,20 @@
       ]
     },
     {
+      "semanticId": "lotus.freshness_bucket",
+      "canonicalTerm": "freshness_bucket",
+      "preferredName": "freshness_bucket",
+      "description": "Freshness bucket comparing resolved source observations with the requested report date.",
+      "example": "current",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.from_date",
       "canonicalTerm": "from_date",
       "preferredName": "from_date",
@@ -2198,6 +2242,20 @@
         "BenchmarkInputMode",
         "ContributionInputMode",
         "InputMode"
+      ]
+    },
+    {
+      "semanticId": "lotus.input_row_count",
+      "canonicalTerm": "input_row_count",
+      "preferredName": "input_row_count",
+      "description": "Resolved valuation observation count used by the calculation.",
+      "example": 1,
+      "type": "integer",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "integer"
       ]
     },
     {
@@ -3964,8 +4022,8 @@
       "semanticId": "lotus.reason",
       "canonicalTerm": "reason",
       "preferredName": "reason",
-      "description": "Concrete degradation trigger identifier.",
-      "example": "example_reason",
+      "description": "Bounded reason explaining the supportability state.",
+      "example": "calculation_complete",
       "type": "string",
       "locations": [
         "body"
@@ -4576,6 +4634,20 @@
       ],
       "observedTypes": [
         "boolean"
+      ]
+    },
+    {
+      "semanticId": "lotus.resolved_period_count",
+      "canonicalTerm": "resolved_period_count",
+      "preferredName": "resolved_period_count",
+      "description": "Number of requested analysis periods that produced a result block.",
+      "example": 1,
+      "type": "integer",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "integer"
       ]
     },
     {
@@ -5258,6 +5330,20 @@
       ],
       "observedTypes": [
         "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.state",
+      "canonicalTerm": "state",
+      "preferredName": "state",
+      "description": "Bounded supportability state for the completed performance calculation.",
+      "example": "ready",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -7781,6 +7867,62 @@
             "type": "array",
             "semanticId": "lotus.notes",
             "attributeRef": "#/attributeCatalog/lotus.notes"
+          },
+          {
+            "name": "calculation_supportability",
+            "location": "body",
+            "required": true,
+            "type": "PerformanceCalculationSupportability",
+            "semanticId": "lotus.calculation_supportability",
+            "attributeRef": "#/attributeCatalog/lotus.calculation_supportability"
+          },
+          {
+            "name": "calculation_supportability.state",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.state",
+            "attributeRef": "#/attributeCatalog/lotus.state"
+          },
+          {
+            "name": "calculation_supportability.reason",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.reason",
+            "attributeRef": "#/attributeCatalog/lotus.reason"
+          },
+          {
+            "name": "calculation_supportability.freshness_bucket",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.freshness_bucket",
+            "attributeRef": "#/attributeCatalog/lotus.freshness_bucket"
+          },
+          {
+            "name": "calculation_supportability.input_row_count",
+            "location": "body",
+            "required": false,
+            "type": "integer",
+            "semanticId": "lotus.input_row_count",
+            "attributeRef": "#/attributeCatalog/lotus.input_row_count"
+          },
+          {
+            "name": "calculation_supportability.resolved_period_count",
+            "location": "body",
+            "required": false,
+            "type": "integer",
+            "semanticId": "lotus.resolved_period_count",
+            "attributeRef": "#/attributeCatalog/lotus.resolved_period_count"
+          },
+          {
+            "name": "calculation_supportability.benchmark_row_count",
+            "location": "body",
+            "required": false,
+            "type": "integer",
+            "semanticId": "lotus.benchmark_row_count",
+            "attributeRef": "#/attributeCatalog/lotus.benchmark_row_count"
           },
           {
             "name": "meta",

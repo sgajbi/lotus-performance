@@ -42,6 +42,14 @@ def test_calculate_mwr_endpoint_xirr_happy_path(client):
     assert response_data["method"] == "XIRR"
     assert response_data["money_weighted_return"] == pytest.approx(11.723, abs=1e-3)
     assert response_data["mwr_annualized"] is not None
+    assert response_data["calculation_supportability"] == {
+        "state": "ready",
+        "reason": "calculation_complete",
+        "freshness_bucket": "current",
+        "input_row_count": 4,
+        "resolved_period_count": 1,
+        "benchmark_row_count": 0,
+    }
 
 
 def test_calculate_mwr_endpoint_supports_stateful_mode(client, monkeypatch):

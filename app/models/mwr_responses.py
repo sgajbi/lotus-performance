@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from app.models.mwr_analytics_requests import MWRInputMode
 from app.models.mwr_requests import CashFlow
+from app.models.responses import PerformanceCalculationSupportability
 from core.envelope import Audit, Diagnostics, Meta
 
 
@@ -67,6 +68,12 @@ class MoneyWeightedReturnResponse(BaseModel):
     start_date: date = Field(description="Inclusive start date for the evaluated window.", examples=["2026-01-01"])
     end_date: date = Field(description="Inclusive end date for the evaluated window.", examples=["2026-03-31"])
     notes: List[str] = Field(description="Method or validation notes returned by the engine.")
+    calculation_supportability: PerformanceCalculationSupportability = Field(
+        description=(
+            "Bounded supportability state for completed MWR output, including source freshness and "
+            "resolved-input counts used by front-office degraded-state handling."
+        )
+    )
 
     meta: Meta = Field(description="Shared metadata envelope for the calculation.")
     diagnostics: Diagnostics = Field(description="Diagnostic details for the calculation.")

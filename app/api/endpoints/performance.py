@@ -19,6 +19,10 @@ from app.models.workspace_summary_responses import WorkspaceSummaryAcceptedRespo
 from app.services.async_result_service import resolve_async_result
 from app.services.attribution_mode_service import resolve_attribution_request
 from app.services.attribution_service import calculate_attribution
+from app.services.calculation_supportability_service import (
+    build_calculation_supportability,
+    record_supportability_metric,
+)
 from app.services.execution_lifecycle_service import (
     complete_execution_with_lineage,
     record_execution_failure,
@@ -631,6 +635,14 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
         notes=mwr_result.notes,
     )
     audit = Audit(counts={"cashflows": len(mwr_request.cash_flows)})
+    calculation_supportability = build_calculation_supportability(
+        input_row_count=len(mwr_request.cash_flows) + 2,
+        resolved_period_count=1,
+        latest_observation_date=mwr_result.end_date,
+        report_end_date=mwr_request.as_of,
+        minimum_input_row_count=2,
+    )
+    record_supportability_metric(operation="mwr", supportability=calculation_supportability)
 
     response_payload = {
         "calculation_id": request.calculation_id,
@@ -644,6 +656,7 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
         "notes": mwr_result.notes,
         "convergence": mwr_result.convergence,
         "cashflows_used": mwr_request.cash_flows if mwr_request.emit_cashflows_used else None,
+        "calculation_supportability": calculation_supportability,
         "meta": meta,
         "diagnostics": diagnostics,
         "audit": audit,

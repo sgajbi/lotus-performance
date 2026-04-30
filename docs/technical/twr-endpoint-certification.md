@@ -55,9 +55,11 @@ The Prometheus metric is:
 
 `lotus_performance_calculation_supportability_total{operation,supportability_state,reason,freshness_bucket}`
 
-Current implemented operation scope is `operation="twr"`. Broader performance surfaces such as
-workspace summary, MWR, contribution, attribution, benchmark, and returns-series supportability
-remain separate implementation work and must not be inferred from this TWR proof.
+Implemented operation scope now includes `operation="twr"`, `operation="mwr"`,
+`operation="contribution"`, and `operation="attribution"` for completed synchronous calculations
+and completed async result payloads. Workspace summary, benchmark, and returns-series
+supportability remain separate implementation work and must not be inferred from this endpoint
+proof.
 
 ## Downstream Consumers
 

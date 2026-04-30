@@ -151,6 +151,7 @@ def test_mwr_response_attributes_tie_to_deterministic_stateless_inputs(client):
         "start_date",
         "end_date",
         "notes",
+        "calculation_supportability",
         "meta",
         "diagnostics",
         "audit",
@@ -161,6 +162,14 @@ def test_mwr_response_attributes_tie_to_deterministic_stateless_inputs(client):
     assert body["start_date"] == "2026-01-02"
     assert body["end_date"] == "2026-01-03"
     assert body["notes"] == []
+    assert body["calculation_supportability"] == {
+        "state": "ready",
+        "reason": "calculation_complete",
+        "freshness_bucket": "current",
+        "input_row_count": 4,
+        "resolved_period_count": 1,
+        "benchmark_row_count": 0,
+    }
     assert body["cashflows_used"] == [
         {"amount": 100.0, "date": "2026-01-02"},
         {"amount": -20.0, "date": "2026-01-03"},

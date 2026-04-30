@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.contribution_analytics_requests import ContributionInputMode
+from app.models.responses import PerformanceCalculationSupportability
 from core.envelope import Audit, Diagnostics, Meta
 
 
@@ -219,6 +220,12 @@ class ContributionResponse(BaseModel):
 
     results_by_period: Dict[str, SinglePeriodContributionResult] = Field(
         description="Per-period contribution outputs. Contribution and return figures are emitted in percentage-point output units unless explicitly labeled otherwise."
+    )
+    calculation_supportability: PerformanceCalculationSupportability = Field(
+        description=(
+            "Bounded supportability state for completed contribution output, including source freshness and "
+            "resolved-input counts used by front-office degraded-state handling."
+        )
     )
 
     # Shared footer
