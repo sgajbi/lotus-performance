@@ -21,6 +21,11 @@ PERFORMANCE_CALCULATION_SUPPORTABILITY_TOTAL = Counter(
     "Performance calculation supportability posture by operation, bounded reason, and freshness bucket.",
     ["operation", "supportability_state", "reason", "freshness_bucket"],
 )
+ANALYTICS_FRESHNESS_BUCKET_TOTAL = Counter(
+    "lotus_analytics_freshness_bucket_total",
+    "Backend analytics freshness and supportability posture by service, operation, and bounded freshness bucket.",
+    ["service", "operation", "freshness_bucket", "supportability_state"],
+)
 
 
 class JsonFormatter(logging.Formatter):
@@ -93,6 +98,20 @@ def record_calculation_supportability(
         supportability_state=supportability_state,
         reason=reason,
         freshness_bucket=freshness_bucket,
+    ).inc()
+
+
+def record_analytics_freshness_bucket(
+    *,
+    operation: str,
+    freshness_bucket: str,
+    supportability_state: str,
+) -> None:
+    ANALYTICS_FRESHNESS_BUCKET_TOTAL.labels(
+        service="lotus-performance",
+        operation=operation,
+        freshness_bucket=freshness_bucket,
+        supportability_state=supportability_state,
     ).inc()
 
 
