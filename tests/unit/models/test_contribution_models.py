@@ -44,6 +44,14 @@ def base_response_footer():
             "effective_period_start": "2025-01-01",
         },
         "audit": {"counts": {"input_rows": 10}},
+        "calculation_supportability": {
+            "state": "ready",
+            "reason": "calculation_complete",
+            "freshness_bucket": "current",
+            "input_row_count": 3,
+            "resolved_period_count": 1,
+            "benchmark_row_count": 0,
+        },
     }
 
 

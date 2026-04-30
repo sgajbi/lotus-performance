@@ -5,6 +5,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.attribution_analytics_requests import AttributionInputMode
+from app.models.responses import PerformanceCalculationSupportability
 from common.enums import AttributionModel, LinkingMethod
 from core.envelope import Audit, Diagnostics, Meta
 
@@ -201,6 +202,12 @@ class AttributionResponse(BaseModel):
     benchmark_context: Optional[AttributionBenchmarkContext] = Field(
         default=None,
         description="Resolved benchmark context when the request sourced a benchmark.",
+    )
+    calculation_supportability: PerformanceCalculationSupportability = Field(
+        description=(
+            "Bounded supportability state for completed attribution output, including source freshness and "
+            "resolved input and benchmark counts used by front-office degraded-state handling."
+        )
     )
 
     meta: Meta = Field(description="Shared metadata envelope for the calculation.")

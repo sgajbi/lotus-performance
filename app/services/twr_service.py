@@ -16,16 +16,17 @@ from app.models.responses import (
     ComparativeReturnValue,
     ComparativeSummary,
     PerformanceCalculationSupportability,
-    PerformanceFreshnessBucket,
     PerformanceResponse,
-    PerformanceSupportabilityReason,
     PortfolioReturnDecomposition,
     SinglePeriodPerformanceResult,
     TWRBenchmarkContext,
 )
 from app.models.twr_requests import TWRInputMode
-from app.observability import record_calculation_supportability
 from app.services.benchmark_calculation_service import calculate_benchmark_artifacts
+from app.services.calculation_supportability_service import (
+    build_calculation_supportability,
+    record_supportability_metric,
+)
 from app.services.execution_lifecycle_service import complete_execution_with_lineage
 from app.services.execution_registry import execution_registry
 from common.enums import Frequency
@@ -361,18 +362,6 @@ def _get_benchmark_cumulative_return_to_date(
     return _calculate_benchmark_return_from_slice(cumulative_rows)
 
 
-def _resolve_freshness_bucket(*, latest_observation_date, report_end_date) -> PerformanceFreshnessBucket:
-    if latest_observation_date is None or report_end_date is None:
-        return "unknown"
-    latest = pd.Timestamp(latest_observation_date).date()
-    expected = pd.Timestamp(report_end_date).date()
-    if latest >= expected:
-        return "current"
-    if latest == expected:
-        return "same_day"
-    return "stale"
-
-
 def _resolve_twr_supportability(
     *,
     performance_request: PerformanceRequest,
@@ -384,30 +373,13 @@ def _resolve_twr_supportability(
     latest_observation_date = None
     if daily_results_df is not None and not daily_results_df.empty:
         latest_observation_date = daily_results_df[PortfolioColumns.PERF_DATE.value].max()
-    freshness_bucket = _resolve_freshness_bucket(
-        latest_observation_date=latest_observation_date,
-        report_end_date=performance_request.report_end_date,
-    )
-    if input_row_count < 2:
-        state = "empty"
-        reason: PerformanceSupportabilityReason = "insufficient_valuation_points"
-    elif not results_by_period:
-        state = "empty"
-        reason = "empty_resolved_periods"
-    elif freshness_bucket == "stale":
-        state = "stale"
-        reason = "stale_source_observations"
-    else:
-        state = "ready"
-        reason = "calculation_complete"
-
-    return PerformanceCalculationSupportability(
-        state=state,
-        reason=reason,
-        freshness_bucket=freshness_bucket,
+    return build_calculation_supportability(
         input_row_count=input_row_count,
         resolved_period_count=len(results_by_period),
+        latest_observation_date=latest_observation_date,
+        report_end_date=performance_request.report_end_date,
         benchmark_row_count=benchmark_row_count,
+        minimum_input_row_count=2,
     )
 
 
@@ -564,11 +536,9 @@ def calculate_twr_response(
         daily_results_df=daily_results_df,
         benchmark_row_count=benchmark_row_count,
     )
-    record_calculation_supportability(
+    record_supportability_metric(
         operation="twr",
-        supportability_state=calculation_supportability.state,
-        reason=calculation_supportability.reason,
-        freshness_bucket=calculation_supportability.freshness_bucket,
+        supportability=calculation_supportability,
     )
 
     response_model = PerformanceResponse(

@@ -56,6 +56,14 @@ def test_contribution_endpoint_happy_path_and_envelope(client, happy_path_payloa
     assert response_data["portfolio_id"] == "CONTRIB_TEST_01"
     assert "results_by_period" in response_data
     assert "ITD" in response_data["results_by_period"]
+    assert response_data["calculation_supportability"] == {
+        "state": "ready",
+        "reason": "calculation_complete",
+        "freshness_bucket": "current",
+        "input_row_count": 4,
+        "resolved_period_count": 1,
+        "benchmark_row_count": 0,
+    }
 
 
 def test_contribution_endpoint_reports_zero_grouped_return_alignment_drift_for_simple_aligned_case(client):

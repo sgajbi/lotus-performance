@@ -134,7 +134,16 @@ def test_attribution_endpoint_by_instrument_happy_path(client):
 
     response = client.post("/performance/attribution", json=payload)
     assert response.status_code == 200
-    response_data = response.json()["results_by_period"]["ITD"]
+    body = response.json()
+    assert body["calculation_supportability"] == {
+        "state": "ready",
+        "reason": "calculation_complete",
+        "freshness_bucket": "current",
+        "input_row_count": 5,
+        "resolved_period_count": 1,
+        "benchmark_row_count": 2,
+    }
+    response_data = body["results_by_period"]["ITD"]
     assert response_data["reconciliation"]["total_active_return"] == pytest.approx(0.1)
     level = response_data["levels"][0]
     _assert_authoritative_level_totals(level)
