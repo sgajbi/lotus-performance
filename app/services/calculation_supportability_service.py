@@ -11,7 +11,7 @@ from app.models.responses import (
     PerformanceSupportabilityReason,
     PerformanceSupportabilityState,
 )
-from app.observability import record_calculation_supportability
+from app.observability import record_analytics_freshness_bucket, record_calculation_supportability
 
 
 def resolve_freshness_bucket(
@@ -78,4 +78,9 @@ def record_supportability_metric(
         supportability_state=supportability.state,
         reason=supportability.reason,
         freshness_bucket=supportability.freshness_bucket,
+    )
+    record_analytics_freshness_bucket(
+        operation=operation,
+        freshness_bucket=supportability.freshness_bucket,
+        supportability_state=supportability.state,
     )

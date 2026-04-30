@@ -71,6 +71,11 @@ def test_twr_reports_reset_events_when_requested(client):
     assert 'supportability_state="ready"' in metrics.text
     assert 'reason="calculation_complete"' in metrics.text
     assert 'freshness_bucket="current"' in metrics.text
+    assert "lotus_analytics_freshness_bucket_total" in metrics.text
+    assert (
+        'lotus_analytics_freshness_bucket_total{freshness_bucket="current",'
+        'operation="twr",service="lotus-performance",supportability_state="ready"}'
+    ) in metrics.text
 
 
 def test_workspace_summary_endpoint_returns_multi_horizon_summary_blocks(client):

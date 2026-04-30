@@ -25,6 +25,10 @@ supportability posture and increment:
 
 `lotus_performance_calculation_supportability_total{operation,supportability_state,reason,freshness_bucket}`
 
+The same source-owned posture also increments the RFC-0108 cross-service freshness counter:
+
+`lotus_analytics_freshness_bucket_total{service="lotus-performance",operation,freshness_bucket,supportability_state}`
+
 Use `supportability_state="stale"` or `supportability_state="empty"` as operator attention signals
 for front-office performance surfaces. Current operation labels are `twr`, `mwr`, `contribution`,
 and `attribution`. The labels are intentionally bounded and must not carry portfolio, client,

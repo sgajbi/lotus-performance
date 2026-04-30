@@ -95,6 +95,8 @@ supportability block is the source-owned front-office posture for the calculatio
 
 The same posture is exported through
 `lotus_performance_calculation_supportability_total{operation="twr",supportability_state,reason,freshness_bucket}`.
+It also increments the RFC-0108 backend freshness counter
+`lotus_analytics_freshness_bucket_total{service="lotus-performance",operation="twr",freshness_bucket,supportability_state}`.
 Labels are intentionally bounded and must not include portfolio, client, tenant, account, or
 security identifiers.
 
