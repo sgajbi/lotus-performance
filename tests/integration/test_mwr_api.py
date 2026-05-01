@@ -6,9 +6,12 @@ from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
 from app.models.mwr_requests import MoneyWeightedReturnRequest
+from app.observability_contracts import PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS
 from core.repro import generate_canonical_hash
 from main import app
 from tests.conftest import drain_lineage_queue
+
+_EXPECTED_SUPPORTABILITY_METRIC_LABELS = list(PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS)
 
 
 @pytest.fixture(scope="module")
@@ -49,6 +52,7 @@ def test_calculate_mwr_endpoint_xirr_happy_path(client):
         "input_row_count": 4,
         "resolved_period_count": 1,
         "benchmark_row_count": 0,
+        "metric_labels": _EXPECTED_SUPPORTABILITY_METRIC_LABELS,
     }
 
 

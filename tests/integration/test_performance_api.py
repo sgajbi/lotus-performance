@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
+from prometheus_client import REGISTRY, generate_latest
 
 from app.api.endpoints.performance import _generate_twr_request_hashes
 from app.core.config import get_settings
@@ -11,10 +12,29 @@ from app.models.benchmark_analytics_requests import BenchmarkInputMode
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.requests import PerformanceRequest
 from app.models.twr_requests import TWRAnalyticsRequest, TWRResolvedExecutionRequest
+from app.observability_contracts import (
+    PERFORMANCE_ANALYTICS_FRESHNESS_METRIC_LABELS,
+    PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS,
+)
 from app.services.twr_mode_service import ResolvedTWRRequest
 from core.repro import generate_canonical_hash_from_value
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
 from main import app
+
+_EXPECTED_SUPPORTABILITY_METRIC_LABELS = list(PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS)
+_FORBIDDEN_METRIC_LABELS = {
+    "portfolio_id",
+    "account_id",
+    "client_id",
+    "correlation_id",
+    "trace_id",
+    "transaction_id",
+    "security_id",
+    "benchmark_id",
+    "calculation_id",
+    "request_body",
+    "response_body",
+}
 
 
 @pytest.fixture(scope="module")
@@ -62,6 +82,7 @@ def test_twr_reports_reset_events_when_requested(client):
         "input_row_count": 4,
         "resolved_period_count": 1,
         "benchmark_row_count": 0,
+        "metric_labels": _EXPECTED_SUPPORTABILITY_METRIC_LABELS,
     }
 
     metrics = client.get("/metrics")
@@ -76,6 +97,46 @@ def test_twr_reports_reset_events_when_requested(client):
         'lotus_analytics_freshness_bucket_total{freshness_bucket="current",'
         'operation="twr",service="lotus-performance",supportability_state="ready"}'
     ) in metrics.text
+
+
+def test_twr_supportability_metric_labels_are_bounded_and_support_safe(client):
+    payload = {
+        "portfolio_id": "TWR_LABEL_BOUNDARY_TEST",
+        "performance_start_date": "2025-01-01",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "metric_basis": "NET",
+        "valuation_points": [
+            {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+            {"perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+        ],
+    }
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 200
+    assert response.json()["calculation_supportability"]["metric_labels"] == _EXPECTED_SUPPORTABILITY_METRIC_LABELS
+    metrics_text = generate_latest(REGISTRY).decode("utf-8")
+    supportability_lines = [
+        line
+        for line in metrics_text.splitlines()
+        if line.startswith("lotus_performance_calculation_supportability_total{") and 'operation="twr"' in line
+    ]
+    freshness_lines = [
+        line
+        for line in metrics_text.splitlines()
+        if line.startswith("lotus_analytics_freshness_bucket_total{") and 'operation="twr"' in line
+    ]
+
+    assert supportability_lines
+    assert freshness_lines
+    for label in PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS:
+        assert f"{label}=" in supportability_lines[-1]
+    for label in PERFORMANCE_ANALYTICS_FRESHNESS_METRIC_LABELS:
+        assert f"{label}=" in freshness_lines[-1]
+    for label in _FORBIDDEN_METRIC_LABELS:
+        assert f"{label}=" not in supportability_lines[-1]
+        assert f"{label}=" not in freshness_lines[-1]
 
 
 def test_workspace_summary_endpoint_returns_multi_horizon_summary_blocks(client):

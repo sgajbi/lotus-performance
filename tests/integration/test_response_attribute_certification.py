@@ -3,7 +3,10 @@ import math
 import pytest
 from fastapi.testclient import TestClient
 
+from app.observability_contracts import PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS
 from main import app
+
+_EXPECTED_SUPPORTABILITY_METRIC_LABELS = list(PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS)
 
 
 @pytest.fixture
@@ -78,6 +81,7 @@ def test_twr_response_attributes_tie_to_deterministic_stateless_inputs(client):
         "input_row_count": 3,
         "resolved_period_count": 1,
         "benchmark_row_count": 0,
+        "metric_labels": _EXPECTED_SUPPORTABILITY_METRIC_LABELS,
     }
     assert body["audit"]["residual_applied_bp"] == 0.0
     assert body["diagnostics"]["effective_period_start"] == "2026-01-01"
@@ -169,6 +173,7 @@ def test_mwr_response_attributes_tie_to_deterministic_stateless_inputs(client):
         "input_row_count": 4,
         "resolved_period_count": 1,
         "benchmark_row_count": 0,
+        "metric_labels": _EXPECTED_SUPPORTABILITY_METRIC_LABELS,
     }
     assert body["cashflows_used"] == [
         {"amount": 100.0, "date": "2026-01-02"},

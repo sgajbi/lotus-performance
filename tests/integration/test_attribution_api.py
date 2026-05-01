@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from app.core.config import get_settings
 from app.models.attribution_analytics_requests import AttributionAnalyticsRequest
 from app.models.benchmark_requests import BenchmarkComponentObservation
+from app.observability_contracts import PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS
 from app.services.async_result_store import async_result_store
 from app.services.attribution_mode_service import resolve_attribution_request
 from app.services.compute_job_store import compute_job_store
@@ -23,6 +24,7 @@ from main import app
 from tests.conftest import drain_compute_queue, drain_lineage_queue
 
 settings = get_settings()
+_EXPECTED_SUPPORTABILITY_METRIC_LABELS = list(PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS)
 
 
 def _stateful_benchmark_input(*observations: BenchmarkComponentObservation) -> StatefulBenchmarkNormalizedInput:
@@ -142,6 +144,7 @@ def test_attribution_endpoint_by_instrument_happy_path(client):
         "input_row_count": 5,
         "resolved_period_count": 1,
         "benchmark_row_count": 2,
+        "metric_labels": _EXPECTED_SUPPORTABILITY_METRIC_LABELS,
     }
     response_data = body["results_by_period"]["ITD"]
     assert response_data["reconciliation"]["total_active_return"] == pytest.approx(0.1)

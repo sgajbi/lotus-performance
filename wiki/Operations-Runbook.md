@@ -25,6 +25,15 @@ supportability posture and increment:
 
 `lotus_performance_calculation_supportability_total{operation,supportability_state,reason,freshness_bucket}`
 
+The same response block includes `metric_labels` so downstream operators can see the exact
+Prometheus label set that the service owns:
+
+```json
+{
+  "metric_labels": ["operation", "supportability_state", "reason", "freshness_bucket"]
+}
+```
+
 The same source-owned posture also increments the RFC-0108 cross-service freshness counter:
 
 `lotus_analytics_freshness_bucket_total{service="lotus-performance",operation,freshness_bucket,supportability_state}`
@@ -32,7 +41,19 @@ The same source-owned posture also increments the RFC-0108 cross-service freshne
 Use `supportability_state="stale"` or `supportability_state="empty"` as operator attention signals
 for front-office performance surfaces. Current operation labels are `twr`, `mwr`, `contribution`,
 and `attribution`. The labels are intentionally bounded and must not carry portfolio, client,
-tenant, account, or security identifiers.
+tenant, account, benchmark, calculation, trace, correlation, request body, response body, or
+security identifiers.
+
+```mermaid
+flowchart LR
+    A[Performance calculation endpoint] --> B[calculation_supportability response block]
+    B --> C[Gateway source_supportability]
+    B --> D[lotus_performance_calculation_supportability_total]
+    B --> E[lotus_analytics_freshness_bucket_total]
+    D --> F[Platform dashboard and alerts]
+    E --> F
+    C --> G[Workbench performance support state]
+```
 
 ## Readiness semantics
 

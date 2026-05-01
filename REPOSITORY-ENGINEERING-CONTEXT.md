@@ -41,9 +41,11 @@ Current repository posture:
    posture and the optional `support_brief.md` artifact without making the inspection verdict
    dependent on Lotus AI availability,
 8. completed TWR, MWR, contribution, and attribution responses expose the shared
-   `calculation_supportability` block and emit the bounded
+   `calculation_supportability` block, publish the allowed `metric_labels`, and emit the bounded
    `lotus_performance_calculation_supportability_total` metric for front-office freshness and
-   degraded-state handling.
+   degraded-state handling. Tests prove the Prometheus exposition uses only bounded labels and does
+   not promote portfolio, account, client, trace, correlation, calculation, benchmark, security, or
+   request/response payload values into metric labels.
 
 ## Architecture And Module Map
 

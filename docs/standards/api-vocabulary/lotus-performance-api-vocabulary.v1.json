@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-04-30T05:54:54.104836+00:00",
+  "generatedAt": "2026-05-01T13:22:57.397291+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.account_reset_shadow_days",
@@ -2998,6 +2998,25 @@
       "observedTypes": [
         "string",
         "MetricBasis"
+      ]
+    },
+    {
+      "semanticId": "lotus.metric_labels",
+      "canonicalTerm": "metric_labels",
+      "preferredName": "metric_labels",
+      "description": "Bounded Prometheus label keys emitted by lotus_performance_calculation_supportability_total. Identifiers, trace or correlation values, and request or response payload fields must not be metric labels.",
+      "example": [
+        "operation",
+        "supportability_state",
+        "reason",
+        "freshness_bucket"
+      ],
+      "type": "array",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "array"
       ]
     },
     {
@@ -7923,6 +7942,14 @@
             "type": "integer",
             "semanticId": "lotus.benchmark_row_count",
             "attributeRef": "#/attributeCatalog/lotus.benchmark_row_count"
+          },
+          {
+            "name": "calculation_supportability.metric_labels",
+            "location": "body",
+            "required": false,
+            "type": "array",
+            "semanticId": "lotus.metric_labels",
+            "attributeRef": "#/attributeCatalog/lotus.metric_labels"
           },
           {
             "name": "meta",
