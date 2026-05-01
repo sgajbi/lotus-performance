@@ -373,6 +373,7 @@ def test_api_reference_documents_endpoint_level_capabilities_contract():
     assert "lotus-gateway#109" in certification
     assert "Downstream Consumers" in certification
     assert "Test Pyramid Assessment" in certification
+    assert "implemented TWR, MWR, contribution, and attribution calculation supportability posture" in certification
     assert {surface["key"] for surface in example["analytics_surfaces"]} == {
         "twr",
         "twr_inspection",
@@ -613,6 +614,10 @@ def test_front_office_supportability_docs_cover_all_completed_calculation_surfac
     assert 'operation="attribution"' in attribution_certification
     assert "`calculation_supportability`" in repo_context
     assert 'supportability_state="stale"' in runbook
+    assert (
+        "Bounded TWR, MWR, contribution, and attribution calculation supportability response metadata and Prometheus posture metrics."
+        in _read("docs/examples/integration_capabilities_response.json")
+    )
 
 
 def test_workspace_summary_docs_publish_canonical_examples():
