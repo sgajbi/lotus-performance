@@ -1,5 +1,6 @@
 from datetime import date
 
+from app.observability_contracts import PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS
 from app.services.calculation_supportability_service import build_calculation_supportability
 
 
@@ -18,6 +19,7 @@ def test_calculation_supportability_marks_current_completed_calculation_ready() 
     assert supportability.input_row_count == 4
     assert supportability.resolved_period_count == 1
     assert supportability.benchmark_row_count == 2
+    assert supportability.metric_labels == PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS
 
 
 def test_calculation_supportability_marks_missing_periods_empty() -> None:

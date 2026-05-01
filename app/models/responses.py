@@ -168,6 +168,8 @@ PerformanceSupportabilityReason = Literal[
 ]
 PerformanceFreshnessBucket = Literal["current", "same_day", "stale", "unknown"]
 
+from app.observability_contracts import PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS  # noqa: E402
+
 
 class PerformanceCalculationSupportability(BaseModel):
     state: PerformanceSupportabilityState = Field(
@@ -199,6 +201,16 @@ class PerformanceCalculationSupportability(BaseModel):
         ge=0,
         description="Resolved benchmark observation count used when benchmark analytics were requested.",
         examples=[252],
+    )
+    metric_labels: tuple[str, ...] = Field(
+        default=PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS,
+        description=(
+            "Bounded Prometheus label keys emitted by "
+            "lotus_performance_calculation_supportability_total. Identifiers, trace or correlation values, "
+            "and request or response payload fields must not be metric labels."
+        ),
+        examples=[list(PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS)],
+        json_schema_extra={"example": list(PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS)},
     )
 
 

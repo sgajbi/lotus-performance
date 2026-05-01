@@ -55,6 +55,12 @@ The Prometheus metric is:
 
 `lotus_performance_calculation_supportability_total{operation,supportability_state,reason,freshness_bucket}`
 
+The response also publishes `calculation_supportability.metric_labels` with the same bounded label
+keys so Gateway, Workbench, and operators can inspect the service-owned label contract without
+scraping Prometheus metadata. The implementation-backed proof covers both the JSON response and the
+actual Prometheus exposition, and verifies that portfolio, account, client, benchmark, calculation,
+security, trace, correlation, request body, and response body values are not labels.
+
 Implemented operation scope now includes `operation="twr"`, `operation="mwr"`,
 `operation="contribution"`, and `operation="attribution"` for completed synchronous calculations
 and completed async result payloads. Workspace summary, benchmark, and returns-series

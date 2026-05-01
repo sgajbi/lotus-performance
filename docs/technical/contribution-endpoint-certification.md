@@ -113,8 +113,9 @@ increments:
 `lotus_performance_calculation_supportability_total{operation="contribution",supportability_state,reason,freshness_bucket}`
 
 Use this block as the source-owned freshness and degraded-state signal for front-office contribution
-panels. The metric labels remain bounded and must not include portfolio, tenant, account, or
-security identifiers.
+panels. The response publishes `calculation_supportability.metric_labels` with the same bounded
+label keys used by the metric. The metric labels must not include portfolio, tenant, account,
+benchmark, calculation, trace, correlation, request body, response body, or security identifiers.
 
 ## GitHub Issue Disposition
 

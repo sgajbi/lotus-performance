@@ -10,6 +10,7 @@ from app.api.endpoints.contribution import _build_execution_window
 from app.core.config import get_settings
 from app.models.contribution_analytics_requests import ContributionAnalyticsRequest
 from app.models.contribution_requests import ContributionRequest
+from app.observability_contracts import PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS
 from app.services.async_result_store import async_result_store
 from app.services.compute_job_store import compute_job_store
 from app.services.execution_registry import execution_registry
@@ -20,6 +21,7 @@ from main import app
 from tests.conftest import drain_compute_queue, drain_lineage_queue
 
 settings = get_settings()
+_EXPECTED_SUPPORTABILITY_METRIC_LABELS = list(PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS)
 
 
 @pytest.fixture()
@@ -63,6 +65,7 @@ def test_contribution_endpoint_happy_path_and_envelope(client, happy_path_payloa
         "input_row_count": 4,
         "resolved_period_count": 1,
         "benchmark_row_count": 0,
+        "metric_labels": _EXPECTED_SUPPORTABILITY_METRIC_LABELS,
     }
 
 
