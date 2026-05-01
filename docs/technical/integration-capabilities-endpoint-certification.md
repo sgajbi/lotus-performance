@@ -73,6 +73,11 @@ Certified surface keys:
 - `returns_series`
 - `benchmark_exposure_context`
 
+`performance.observability.calculation_supportability` is the shared feature key for the
+implemented TWR, MWR, contribution, and attribution calculation supportability posture. It remains
+enabled when any of those calculation surfaces is enabled; disabling only TWR must not hide
+supportability posture for MWR, contribution, or attribution.
+
 ## Behavior And Feature Controls
 
 Environment controls:

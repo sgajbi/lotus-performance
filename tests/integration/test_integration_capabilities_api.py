@@ -116,12 +116,16 @@ def test_integration_capabilities_default_contract():
         "POSITION, SECTOR, and ASSET_CLASS grouping dimensions are supported",
         "ISSUER remains gated until benchmark issuer exposure semantics are approved",
     ]
-    features = {item["key"] for item in body["features"]}
+    features = {item["key"]: item for item in body["features"]}
     assert "performance.analytics.benchmark" in features
     assert "performance.integration.benchmark_exposure_context" in features
     assert "performance.analytics.workspace_summary" in features
     assert "performance.support.twr_inspection" in features
-    assert "performance.observability.calculation_supportability" in features
+    assert features["performance.observability.calculation_supportability"]["enabled"] is True
+    assert (
+        features["performance.observability.calculation_supportability"]["description"]
+        == "Bounded TWR, MWR, contribution, and attribution calculation supportability response metadata and Prometheus posture metrics."
+    )
     assert "performance.execution.stateful" in features
     assert "performance.execution.stateless" in features
     assert response.headers.get("X-Correlation-Id")
@@ -161,6 +165,25 @@ def test_integration_capabilities_env_override(monkeypatch):
         == "/performance/workspace-summary/results/{calculation_id}"
     )
     assert {item["key"] for item in surfaces["workspace_summary"]["options"]} == {"benchmark_mode"}
+
+
+def test_integration_capabilities_keeps_supportability_enabled_when_twr_is_disabled(monkeypatch):
+    monkeypatch.setenv("PA_CAP_TWR_ENABLED", "false")
+
+    with TestClient(app) as client:
+        response = client.get("/integration/capabilities?consumer_system=lotus-gateway&tenant_id=default")
+
+    assert response.status_code == 200
+    body = response.json()
+    features = {item["key"]: item for item in body["features"]}
+    surfaces = {item["key"]: item for item in body["analytics_surfaces"]}
+
+    assert surfaces["twr"]["enabled"] is False
+    assert surfaces["mwr"]["enabled"] is True
+    assert surfaces["contribution"]["enabled"] is True
+    assert surfaces["attribution"]["enabled"] is True
+    assert features["performance.support.twr_inspection"]["enabled"] is False
+    assert features["performance.observability.calculation_supportability"]["enabled"] is True
 
 
 def test_integration_capabilities_honors_canonical_query_controls():

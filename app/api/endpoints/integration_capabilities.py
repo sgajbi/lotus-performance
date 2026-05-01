@@ -19,6 +19,12 @@ ConsumerSystem = Literal[
     "UNKNOWN",
 ]
 
+CALCULATION_SUPPORTABILITY_SURFACE_KEYS = ("twr", "mwr", "contribution", "attribution")
+CALCULATION_SUPPORTABILITY_DESCRIPTION = (
+    "Bounded TWR, MWR, contribution, and attribution calculation supportability response metadata "
+    "and Prometheus posture metrics."
+)
+
 INTEGRATION_CAPABILITIES_RESPONSE_EXAMPLES = [
     {
         "contract_version": "v1",
@@ -241,7 +247,7 @@ INTEGRATION_CAPABILITIES_RESPONSE_EXAMPLES = [
                 "key": "performance.observability.calculation_supportability",
                 "enabled": True,
                 "owner_service": "lotus-performance",
-                "description": "Bounded TWR calculation supportability response metadata and Prometheus posture metric.",
+                "description": CALCULATION_SUPPORTABILITY_DESCRIPTION,
             },
             {
                 "key": "performance.execution.stateful",
@@ -466,6 +472,15 @@ async def get_integration_capabilities(
     workspace_summary_enabled = _env_bool("PA_CAP_WORKSPACE_SUMMARY_ENABLED", True)
     stateful_mode_enabled = _env_bool("PLATFORM_INPUT_MODE_STATEFUL_ENABLED", True)
     stateless_mode_enabled = _env_bool("PLATFORM_INPUT_MODE_STATELESS_ENABLED", True)
+    calculation_supportability_surface_enabled = {
+        "twr": twr_enabled,
+        "mwr": mwr_enabled,
+        "contribution": contribution_enabled,
+        "attribution": attribution_enabled,
+    }
+    calculation_supportability_enabled = any(
+        calculation_supportability_surface_enabled[key] for key in CALCULATION_SUPPORTABILITY_SURFACE_KEYS
+    )
 
     features = [
         FeatureCapability(
@@ -518,9 +533,9 @@ async def get_integration_capabilities(
         ),
         FeatureCapability(
             key="performance.observability.calculation_supportability",
-            enabled=twr_enabled,
+            enabled=calculation_supportability_enabled,
             owner_service="lotus-performance",
-            description="Bounded TWR calculation supportability response metadata and Prometheus posture metric.",
+            description=CALCULATION_SUPPORTABILITY_DESCRIPTION,
         ),
         FeatureCapability(
             key="performance.execution.stateful",
