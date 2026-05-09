@@ -101,6 +101,41 @@ def test_attribution_metric_docs_describe_top_down_linking_factor_explicitly():
         assert "scale" in content
 
 
+def test_attribution_methodology_docs_cover_stateful_source_owned_input_resolution():
+    attribution_docs = [
+        "metric-attribution-active-return.md",
+        "metric-attribution-allocation.md",
+        "metric-attribution-selection.md",
+        "metric-attribution-interaction.md",
+    ]
+    currency_docs = [
+        "metric-currency-local-allocation.md",
+        "metric-currency-local-selection.md",
+        "metric-currency-allocation.md",
+        "metric-currency-selection.md",
+    ]
+    master_index = _read(METRICS_DIR / "master-index.md")
+
+    for name in attribution_docs:
+        content = _read(METRICS_DIR / name)
+        assert "stateful payload (`stateful_input`)" in content
+        assert "lotus-core portfolio" in content
+        assert "position timeseries" in content
+        assert "benchmark assignment" in content
+        assert "benchmark component inputs" in content
+        assert "calculation_supportability" in content
+
+    for name in currency_docs:
+        content = _read(METRICS_DIR / name)
+        assert "stateful attribution inputs" in content
+        assert "FX/source currency evidence" in content
+        assert "calculation_supportability" in content
+
+    assert "Attribution Allocation Effect | POST /performance/attribution | Stateless + Stateful" in master_index
+    assert "Currency Allocation | POST /performance/attribution | Stateless + Stateful" in master_index
+    assert "Stateful attribution resolves" in master_index
+
+
 def test_currency_attribution_metric_docs_describe_total_effect_relationship():
     for name in [
         "metric-currency-local-allocation.md",

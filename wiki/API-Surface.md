@@ -52,6 +52,12 @@ portfolio/position timeseries sourcing. In stateful mode it is the source-owned 
 methodology surface for downstream product experiences; clients should consume emitted total,
 local, and FX contribution results rather than reconstructing contribution downstream.
 
+`POST /performance/attribution` supports both stateless caller-owned inputs and stateful lotus-core
+portfolio/position, benchmark, and source currency sourcing. In stateful mode it is the source-owned
+attribution methodology surface for downstream product experiences; clients should consume emitted
+allocation, selection, interaction, active-return, and currency-attribution results rather than
+reconstructing attribution downstream.
+
 ## Operator and platform surfaces
 
 Runtime and supportability routes:

@@ -314,6 +314,10 @@ def test_methodology_index_points_to_current_guides():
     assert "stateful lotus-core portfolio" in index
     assert "Stateful contribution source flow" in integrations_wiki
     assert "they must not reconstruct position contribution" in integrations_wiki
+    assert "Stateful attribution source flow" in integrations_wiki
+    assert "reconstruct allocation, selection, interaction" in integrations_wiki
+    assert "source-normalized attribution" in index
+    assert "inputs; callers should consume emitted allocation" in index
 
 
 def test_standalone_guide_uses_current_engine_api():

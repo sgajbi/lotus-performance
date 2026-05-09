@@ -28,7 +28,8 @@ That set is the authoritative metric-by-metric reference for:
   source normalization
 - contribution metrics, including stateless caller-owned inputs and stateful lotus-core portfolio
   and position timeseries normalization
-- attribution metrics
+- attribution metrics, including stateless caller-owned inputs and stateful lotus-core portfolio,
+  position, benchmark, and source currency normalization
 - returns-series portfolio, benchmark, and risk-free series
 
 ## Technical references
@@ -52,6 +53,12 @@ That set is the authoritative metric-by-metric reference for:
   lotus-core portfolio and position timeseries into source-normalized contribution inputs; callers
   should consume emitted contribution results and supportability rather than reconstructing
   position contribution from TWR, MWR, attribution, or raw source rows downstream.
+- `POST /performance/attribution` also supports stateful execution. Stateful attribution resolves
+  lotus-core portfolio and position timeseries, benchmark assignment or explicit benchmark override,
+  benchmark component inputs, and source currency evidence into source-normalized attribution
+  inputs; callers should consume emitted allocation, selection, interaction, active-return, and
+  currency-attribution results instead of reconstructing attribution from contribution, TWR, MWR,
+  benchmark, or raw source rows downstream.
 - Contribution, attribution, and returns-series may run synchronously or asynchronously depending on
   workload size and executor policy.
 - OpenAPI is the canonical field-level contract source for descriptions and examples.

@@ -74,6 +74,27 @@ flowchart LR
     F --> G[Gateway, Workbench, risk, and reporting consumers]
 ```
 
+## Stateful attribution source flow
+
+Stateful attribution is a source-normalized performance methodology path. `lotus-performance`
+retrieves portfolio and position timeseries from `lotus-core`, resolves benchmark assignment or an
+explicit benchmark override, sources benchmark component inputs through the shared benchmark engine
+path, and normalizes source currency evidence for the multi-currency branch. Gateway, Workbench,
+risk, and reporting consumers should consume the emitted attribution response; they must not
+reconstruct allocation, selection, interaction, active return, or currency attribution from
+contribution, TWR, MWR, benchmark, or raw source rows.
+
+```mermaid
+flowchart LR
+    A[lotus-core portfolio timeseries] --> D[lotus-performance stateful attribution normalization]
+    B[lotus-core position timeseries] --> D
+    C[lotus-core benchmark assignment / component inputs / FX evidence] --> D
+    D --> E[portfolio groups / benchmark groups / source currency metadata]
+    E --> F[Attribution engine: allocation / selection / interaction / active return / currency effects]
+    F --> G[Attribution response + calculation_supportability + benchmark_context]
+    G --> H[Gateway, Workbench, risk, and reporting consumers]
+```
+
 ## References
 
 - [docs/technical/RFC-0082-upstream-contract-family-map.md](../docs/technical/RFC-0082-upstream-contract-family-map.md)
