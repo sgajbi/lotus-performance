@@ -72,6 +72,23 @@ def test_mwr_methodology_docs_cover_stateful_source_owned_input_resolution():
     assert "Stateful MWR resolves lotus-core portfolio timeseries" in master_index
 
 
+def test_contribution_methodology_docs_cover_stateful_source_owned_input_resolution():
+    total = _read(METRICS_DIR / "metric-contribution-total.md")
+    local = _read(METRICS_DIR / "metric-contribution-local.md")
+    fx = _read(METRICS_DIR / "metric-contribution-fx.md")
+    master_index = _read(METRICS_DIR / "master-index.md")
+
+    for content in (total, local, fx):
+        assert "stateful payload (`stateful_input`)" in content
+        assert "lotus-core portfolio and position timeseries" in content
+        assert "stateful_input.metric_basis" in content
+        assert "stateful_input.include_cash_flows" in content
+        assert "calculation_supportability" in content
+
+    assert "Position Total Contribution | POST /performance/contribution | Stateless + Stateful" in master_index
+    assert "Stateful contribution resolves" in master_index
+
+
 def test_attribution_metric_docs_describe_top_down_linking_factor_explicitly():
     for name in [
         "metric-attribution-allocation.md",

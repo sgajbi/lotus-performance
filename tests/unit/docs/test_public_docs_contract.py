@@ -311,6 +311,9 @@ def test_methodology_index_points_to_current_guides():
     assert "stateful_input.window_start_date" in dietz_methodology
     assert "Stateful MWR source flow" in integrations_wiki
     assert "Gateway and Workbench should consume the emitted MWR response" in integrations_wiki
+    assert "stateful lotus-core portfolio" in index
+    assert "Stateful contribution source flow" in integrations_wiki
+    assert "they must not reconstruct position contribution" in integrations_wiki
 
 
 def test_standalone_guide_uses_current_engine_api():
