@@ -55,6 +55,25 @@ flowchart LR
     F --> G[Workbench investor capital-timing lens]
 ```
 
+## Stateful contribution source flow
+
+Stateful contribution is a source-normalized performance methodology path. `lotus-performance`
+retrieves portfolio and position timeseries from `lotus-core`, normalizes source rows into the
+contribution engine request shape, and emits total, local, and FX contribution with bounded
+supportability metadata. Gateway, Workbench, risk, and reporting consumers should consume the
+emitted contribution response; they must not reconstruct position contribution from TWR, MWR,
+attribution, or raw source rows.
+
+```mermaid
+flowchart LR
+    A[lotus-core portfolio timeseries] --> C[lotus-performance stateful contribution normalization]
+    B[lotus-core position timeseries] --> C
+    C --> D[portfolio_data / positions_data / dimensions / source currency metadata]
+    D --> E[Contribution engine: total / local / FX]
+    E --> F[Contribution response + calculation_supportability]
+    F --> G[Gateway, Workbench, risk, and reporting consumers]
+```
+
 ## References
 
 - [docs/technical/RFC-0082-upstream-contract-family-map.md](../docs/technical/RFC-0082-upstream-contract-family-map.md)

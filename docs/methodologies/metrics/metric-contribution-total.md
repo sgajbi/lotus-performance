@@ -3,7 +3,10 @@ Position Total Contribution (`position_contributions[].total_contribution`)
 
 ## Endpoint and Mode Coverage
 - Endpoint: `POST /performance/contribution`
-- Mode: stateless request payload (`portfolio_data`, `positions_data`)
+- Request modes:
+  - stateless payload (`stateless_input.portfolio_data`, `stateless_input.positions_data[]`)
+  - legacy stateless top-level `portfolio_data` and `positions_data[]`
+  - stateful payload (`stateful_input`) resolved from lotus-core portfolio and position timeseries
 - Output shapes:
   - flat position output when `hierarchy` is null
   - hierarchical output when `hierarchy` is provided
@@ -14,13 +17,22 @@ Position Total Contribution (`position_contributions[].total_contribution`)
 ## Inputs
 - `portfolio_data.valuation_points[]`
 - `positions_data[].valuation_points[]`
+- `stateful_input.metric_basis` (`NET` or `GROSS`) when source-resolved
+- `stateful_input.dimensions[]`, `stateful_input.include_cash_flows`, and `stateful_input.filters`
+  when source-resolved
 - `analyses[]` (period resolution)
 - `weighting_scheme` (implemented branch: `BOD`)
 - `smoothing.method` (`CARINO` or `NONE`)
 - Optional FX controls influencing underlying returns: `currency_mode`, `fx`, `hedging`, `report_ccy`
 
 ## Upstream Data Sources
-- No runtime upstream dependency; all inputs are request-supplied.
+- Stateless mode has no runtime upstream dependency; all required values are supplied by the caller.
+- Stateful mode resolves source input from lotus-core portfolio and position timeseries through the
+  stateful input service. The resolver retrieves portfolio observations, position rows,
+  dimensions, optional cash-flow rows, filters, retrieval metadata, and source currency fields,
+  then normalizes them into the same `ContributionRequest` shape used by stateless execution.
+- `lotus-performance` remains the contribution methodology owner; lotus-core supplies analytics
+  inputs and source metadata, not contribution conclusions.
 
 ## Unit Conventions
 - Daily contribution math in engine uses decimal form.
@@ -39,6 +51,9 @@ Position Total Contribution (`position_contributions[].total_contribution`)
 - `R_P`: linked portfolio period return (decimal)
 - `K_t`: Carino daily factor
 - `K`: Carino total factor
+- `basis`: source-resolved contribution metric basis (`NET` or `GROSS`)
+- `M_i`: source metadata attached to position `i`, including dimensions and selected currency
+  evidence where available
 
 ## Methodology and Formulas
 1. Daily weight (`BOD` branch):
@@ -73,18 +88,28 @@ Position Total Contribution (`position_contributions[].total_contribution`)
   - emit one hierarchy summary per resolved period, not one master-window hierarchy
 
 ## Step-by-Step Computation
-1. Resolve requested periods.
-2. Run TWR engine for portfolio and each position to obtain daily returns.
-3. Merge position rows with portfolio capital columns by date.
-4. Compute daily weights and raw daily contributions.
-5. Apply smoothing method (`CARINO` or `NONE`).
-6. Zero contribution rows on NIP/reset dates.
-7. Slice both contribution rows and portfolio daily-return rows by each resolved period.
-8. Aggregate by position or hierarchy within that period slice and apply residual reconciliation when applicable.
-9. Convert decimal contributions to pp in response (`*100`).
+1. Resolve mode-specific inputs. In stateful mode retrieve lotus-core portfolio and position
+   timeseries, normalize source rows into `portfolio_data` and `positions_data`, preserve source
+   dimensions in position metadata, and convert source cash-flow rows into BOD, EOD, and fee fields.
+2. Resolve requested periods.
+3. Run TWR engine for portfolio and each position to obtain daily returns.
+4. Merge position rows with portfolio capital columns by date.
+5. Compute daily weights and raw daily contributions.
+6. Apply smoothing method (`CARINO` or `NONE`).
+7. Zero contribution rows on NIP/reset dates.
+8. Slice both contribution rows and portfolio daily-return rows by each resolved period.
+9. Aggregate by position or hierarchy within that period slice and apply residual reconciliation when applicable.
+10. Convert decimal contributions to pp in response (`*100`).
 
 ## Validation and Failure Behavior
 - Empty `analyses` is request validation error.
+- Stateful mode rejects missing `stateful_input`, rejects stateless payloads in stateful mode, and
+  fails through the retrieval or normalization stage when lotus-core source data cannot produce
+  usable portfolio or position inputs.
+- Stateful `currency_mode=BOTH` requires reporting currency, position currency, and FX rates when
+  source position currency differs from the reporting currency.
+- Source rows without usable dates or market values are skipped during normalization rather than
+  guessed.
 - No resolved periods: HTTP 400.
 - Empty period slice: period omitted from `results_by_period`.
 - Division by zero in weights is tolerated and mapped to zero weight.
@@ -95,12 +120,16 @@ Position Total Contribution (`position_contributions[].total_contribution`)
 - `smoothing.method` (`CARINO` enables smoothing + residual allocation)
 - `hierarchy` (changes response shape and aggregation path)
 - `currency_mode`/`fx`/`hedging`/`report_ccy` (changes underlying return decomposition)
+- `stateful_input.metric_basis`, `stateful_input.dimensions`, `stateful_input.include_cash_flows`,
+  and `stateful_input.filters` when `input_mode=stateful`
 
 ## Outputs
 Primary fields:
 - `results_by_period.<period>.position_contributions[].total_contribution`
 - `results_by_period.<period>.total_contribution`
 - `results_by_period.<period>.total_portfolio_return`
+- `input_mode`
+- `calculation_supportability`, `meta`, `diagnostics`, and `audit`
 
 Hierarchical path fields:
 - `results_by_period.<period>.summary.portfolio_contribution`

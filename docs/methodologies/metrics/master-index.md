@@ -9,9 +9,9 @@ This index maps implemented lotus-performance metrics to detailed methodology do
 | TWR FX Return | POST /performance/twr | Stateless + Stateful | [metric-twr-fx-return.md](./metric-twr-fx-return.md) |
 | MWR (XIRR) | POST /performance/mwr | Stateless + Stateful | [metric-mwr-xirr.md](./metric-mwr-xirr.md) |
 | MWR (Dietz fallback / explicit) | POST /performance/mwr | Stateless + Stateful | [metric-mwr-dietz.md](./metric-mwr-dietz.md) |
-| Position Total Contribution | POST /performance/contribution | Stateless | [metric-contribution-total.md](./metric-contribution-total.md) |
-| Position Local Contribution | POST /performance/contribution | Stateless | [metric-contribution-local.md](./metric-contribution-local.md) |
-| Position FX Contribution | POST /performance/contribution | Stateless | [metric-contribution-fx.md](./metric-contribution-fx.md) |
+| Position Total Contribution | POST /performance/contribution | Stateless + Stateful | [metric-contribution-total.md](./metric-contribution-total.md) |
+| Position Local Contribution | POST /performance/contribution | Stateless + Stateful | [metric-contribution-local.md](./metric-contribution-local.md) |
+| Position FX Contribution | POST /performance/contribution | Stateless + Stateful | [metric-contribution-fx.md](./metric-contribution-fx.md) |
 | Attribution Allocation Effect | POST /performance/attribution | Stateless | [metric-attribution-allocation.md](./metric-attribution-allocation.md) |
 | Attribution Selection Effect | POST /performance/attribution | Stateless | [metric-attribution-selection.md](./metric-attribution-selection.md) |
 | Attribution Interaction Effect | POST /performance/attribution | Stateless | [metric-attribution-interaction.md](./metric-attribution-interaction.md) |
@@ -31,6 +31,10 @@ This index maps implemented lotus-performance metrics to detailed methodology do
   `POST /performance/mwr`. Stateful MWR resolves lotus-core portfolio timeseries into canonical
   MWR inputs and preserves source-owned capital-flow supportability instead of making downstream
   consumers reconstruct investor cash-flow schedules.
+- `POST /performance/contribution` also supports stateful execution. Stateful contribution resolves
+  lotus-core portfolio and position timeseries into canonical contribution inputs while keeping
+  contribution methodology, smoothing, hierarchy aggregation, and response supportability owned by
+  `lotus-performance`.
 - In current engine behavior, `mwr_method=MODIFIED_DIETZ` is mapped to the same Dietz computation path as `DIETZ`.
 
 

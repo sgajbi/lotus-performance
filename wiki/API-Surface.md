@@ -47,6 +47,11 @@ timeseries sourcing. In stateful mode it is the source-owned investor capital-ti
 surface for downstream product experiences; clients should consume its emitted MWR response and
 supportability block rather than rebuilding cash-flow schedules locally.
 
+`POST /performance/contribution` supports both stateless caller-owned inputs and stateful lotus-core
+portfolio/position timeseries sourcing. In stateful mode it is the source-owned contribution
+methodology surface for downstream product experiences; clients should consume emitted total,
+local, and FX contribution results rather than reconstructing contribution downstream.
+
 ## Operator and platform surfaces
 
 Runtime and supportability routes:
