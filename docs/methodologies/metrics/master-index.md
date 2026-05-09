@@ -7,8 +7,8 @@ This index maps implemented lotus-performance metrics to detailed methodology do
 | TWR Base Return | POST /performance/twr | Stateless + Stateful | [metric-twr-base-return.md](./metric-twr-base-return.md) |
 | TWR Local Return | POST /performance/twr | Stateless + Stateful | [metric-twr-local-return.md](./metric-twr-local-return.md) |
 | TWR FX Return | POST /performance/twr | Stateless + Stateful | [metric-twr-fx-return.md](./metric-twr-fx-return.md) |
-| MWR (XIRR) | POST /performance/mwr | Stateless | [metric-mwr-xirr.md](./metric-mwr-xirr.md) |
-| MWR (Dietz fallback / explicit) | POST /performance/mwr | Stateless | [metric-mwr-dietz.md](./metric-mwr-dietz.md) |
+| MWR (XIRR) | POST /performance/mwr | Stateless + Stateful | [metric-mwr-xirr.md](./metric-mwr-xirr.md) |
+| MWR (Dietz fallback / explicit) | POST /performance/mwr | Stateless + Stateful | [metric-mwr-dietz.md](./metric-mwr-dietz.md) |
 | Position Total Contribution | POST /performance/contribution | Stateless | [metric-contribution-total.md](./metric-contribution-total.md) |
 | Position Local Contribution | POST /performance/contribution | Stateless | [metric-contribution-local.md](./metric-contribution-local.md) |
 | Position FX Contribution | POST /performance/contribution | Stateless | [metric-contribution-fx.md](./metric-contribution-fx.md) |
@@ -27,7 +27,10 @@ This index maps implemented lotus-performance metrics to detailed methodology do
 
 ## Notes
 - simulation mode is not exposed on lotus-performance public analytics contracts in this slice.
-- Stateful execution currently applies to the returns-series integration endpoint; core performance analytics endpoints remain request-data driven.
+- Stateful execution currently applies to the returns-series integration endpoint and to
+  `POST /performance/mwr`. Stateful MWR resolves lotus-core portfolio timeseries into canonical
+  MWR inputs and preserves source-owned capital-flow supportability instead of making downstream
+  consumers reconstruct investor cash-flow schedules.
 - In current engine behavior, `mwr_method=MODIFIED_DIETZ` is mapped to the same Dietz computation path as `DIETZ`.
 
 

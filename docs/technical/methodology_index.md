@@ -24,7 +24,8 @@ Canonical metric-level methodology documents live in:
 That set is the authoritative metric-by-metric reference for:
 
 - TWR base, local, and FX return
-- MWR XIRR and Dietz paths
+- MWR XIRR and Dietz paths, including stateless caller-owned inputs and stateful lotus-core
+  source normalization
 - contribution metrics
 - attribution metrics
 - returns-series portfolio, benchmark, and risk-free series
@@ -42,7 +43,10 @@ That set is the authoritative metric-by-metric reference for:
 
 - The current public TWR, contribution, and attribution contracts use `analyses` and do not use the
   older `period_type` plus top-level `frequencies` shape.
-- The current returns-series contract is the only public surface with stateful execution mode.
+- The current returns-series integration contract and `POST /performance/mwr` support stateful
+  execution. Stateful MWR uses lotus-core portfolio timeseries to resolve the investor
+  capital-timing input schedule; downstream callers should use the source-owned response fields and
+  must not reconstruct MWR inputs from TWR, benchmark, or workspace summary payloads.
 - Contribution, attribution, and returns-series may run synchronously or asynchronously depending on
   workload size and executor policy.
 - OpenAPI is the canonical field-level contract source for descriptions and examples.

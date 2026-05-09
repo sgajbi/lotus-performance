@@ -55,6 +55,23 @@ def test_methodology_master_index_covers_all_metric_docs_and_describes_v3_standa
     assert "## Worked Example" in index
 
 
+def test_mwr_methodology_docs_cover_stateful_source_owned_input_resolution():
+    xirr = _read(METRICS_DIR / "metric-mwr-xirr.md")
+    dietz = _read(METRICS_DIR / "metric-mwr-dietz.md")
+    master_index = _read(METRICS_DIR / "master-index.md")
+
+    for content in (xirr, dietz):
+        assert "Stateless + Stateful" in master_index
+        assert "stateful_input.window_start_date" in content
+        assert "CORE_CONTROL_PLANE_BASE_URL" in content
+        assert "cross-observation carry-forward capital adjustments" in content
+        assert "fee-classified rows" in content
+        assert "must not reconstruct" not in content
+
+    assert "resolved start date" in xirr
+    assert "Stateful MWR resolves lotus-core portfolio timeseries" in master_index
+
+
 def test_attribution_metric_docs_describe_top_down_linking_factor_explicitly():
     for name in [
         "metric-attribution-allocation.md",

@@ -37,6 +37,24 @@ Governed base-URL examples:
 - operator surfaces:
   execution polling, lineage, runtime status, work items, recoveries, drills, retention
 
+## Stateful MWR source flow
+
+Stateful MWR is a source-owned performance methodology path. `lotus-performance` retrieves
+portfolio analytics timeseries from `lotus-core`, normalizes the investor capital-flow schedule,
+and emits MWR plus supportability metadata for downstream consumers.
+Gateway and Workbench should consume the emitted MWR response as source-owned performance truth;
+they must not reconstruct cash flows from TWR, benchmark, or workspace summary payloads.
+
+```mermaid
+flowchart LR
+    A[lotus-core portfolio timeseries] --> B[lotus-performance stateful MWR normalization]
+    B --> C[begin_mv / end_mv / cashflows_used / start_date]
+    C --> D[XIRR or Dietz engine path]
+    D --> E[MWR response + calculation_supportability]
+    E --> F[lotus-gateway performance contract]
+    F --> G[Workbench investor capital-timing lens]
+```
+
 ## References
 
 - [docs/technical/RFC-0082-upstream-contract-family-map.md](../docs/technical/RFC-0082-upstream-contract-family-map.md)
