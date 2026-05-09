@@ -3,6 +3,11 @@ Attribution Allocation Effect (`levels[].groups[].allocation`)
 
 ## Endpoint and Mode Coverage
 - Endpoint: `POST /performance/attribution`
+- Request modes:
+  - stateless payload (`stateless_input`) with caller-owned attribution inputs
+  - legacy stateless top-level attribution inputs
+  - stateful payload (`stateful_input`) resolved from lotus-core portfolio, position, benchmark
+    assignment, and benchmark component sources
 - Modes: `BY_GROUP` and `BY_INSTRUMENT`
 - Computed per group, then aggregated to level totals for each resolved period.
 
@@ -14,9 +19,17 @@ Attribution Allocation Effect (`levels[].groups[].allocation`)
   - benchmark total return `r_b_total`
 - `model` (`BRINSON_FACHLER` or `BRINSON_HOOD_BEEBOWER`)
 - `linking`
+- `stateful_input.portfolio_id`, optional `stateful_input.benchmark_id`, dimensions, and source
+  window fields when source-resolved
 
 ## Upstream Data Sources
-- Request payload only.
+- Stateless mode has no runtime upstream dependency; all aligned portfolio and benchmark group
+  facts are supplied by the caller.
+- Stateful mode resolves lotus-core portfolio and position timeseries, resolves benchmark
+  assignment when needed, and resolves benchmark component inputs through the shared benchmark
+  engine sourcing path before normalizing the source rows into the aligned attribution panel.
+- `lotus-performance` owns allocation methodology and active-return linking; lotus-core supplies
+  source inputs and benchmark/source currency evidence, not allocation conclusions.
 
 ## Unit Conventions
 - Effect calculations are decimal in engine.
@@ -32,6 +45,7 @@ Attribution Allocation Effect (`levels[].groups[].allocation`)
 - `AR_geo`: geometric active return across the requested period
 - `AR_arith`: arithmetic active return across the requested period
 - `scale`: top-down linking factor `AR_geo / AR_arith`
+- `M_g`: source metadata for group `g`, including dimensions and benchmark context where available
 
 ## Methodology and Formulas
 1. Single-period allocation by model:
@@ -49,16 +63,21 @@ Attribution Allocation Effect (`levels[].groups[].allocation`)
   - `A_g = scale * sum_t A_g,t`
 
 ## Step-by-Step Computation
-1. Build aligned portfolio/benchmark panel by date and group.
-2. Resample to requested `frequency`, using first `weight_bop` in each bucket and geometric linking for returns.
-3. Compute benchmark total return per period bucket `r_b,t`.
-4. Compute single-period `allocation` using selected model.
-5. If linking enabled, compute `scale` from portfolio and benchmark active return and multiply allocation effects by that factor.
-6. Aggregate by hierarchy levels and scale to pp for response.
+1. Resolve mode-specific inputs. In stateful mode retrieve lotus-core portfolio and position
+   timeseries, benchmark assignment or explicit benchmark override, and benchmark component inputs,
+   then normalize source rows into attribution panel fields.
+2. Build aligned portfolio/benchmark panel by date and group.
+3. Resample to requested `frequency`, using first `weight_bop` in each bucket and geometric linking for returns.
+4. Compute benchmark total return per period bucket `r_b,t`.
+5. Compute single-period `allocation` using selected model.
+6. If linking enabled, compute `scale` from portfolio and benchmark active return and multiply allocation effects by that factor.
+7. Aggregate by hierarchy levels and scale to pp for response.
 
 ## Validation and Failure Behavior
 - Empty aligned panel produces no period results.
 - Invalid model/mode paths return HTTP 400.
+- Stateful source resolution fails closed when lotus-core portfolio, position, benchmark, or
+  source-currency inputs cannot produce usable attribution panel rows.
 - If arithmetic active return is zero in linking path, scaling is skipped (effects unchanged).
 
 ## Configuration Options
@@ -66,11 +85,15 @@ Attribution Allocation Effect (`levels[].groups[].allocation`)
 - `linking`
 - `group_by`
 - `frequency`
+- `stateful_input.portfolio_id`, optional `stateful_input.benchmark_id`, dimensions, and source
+  window fields when `input_mode=stateful`
 
 ## Outputs
 - `results_by_period.<period>.levels[].groups[].allocation`
 - `results_by_period.<period>.levels[].totals.allocation`
 - `results_by_period.<period>.levels[].groups[].total_effect` includes allocation plus selection and interaction
+- `benchmark_context` and `calculation_supportability` when source resolution emits bounded
+  supportability metadata.
 
 ## Worked Example
 Brinson-Fachler example:

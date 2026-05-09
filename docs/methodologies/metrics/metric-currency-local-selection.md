@@ -3,6 +3,10 @@ Currency Attribution Local Selection (`currency_attribution[].effects.local_sele
 
 ## Endpoint and Mode Coverage
 - Endpoint: `POST /performance/attribution`
+- Request modes:
+  - stateless attribution inputs with caller-owned local and FX return columns
+  - stateful attribution inputs resolved from lotus-core portfolio, position, benchmark, and FX
+    source rows when those rows can produce local and FX return fields
 - Availability requires currency attribution path to be active:
   - `currency_mode=BOTH`
   - required columns are present in the aligned effects panel
@@ -12,9 +16,16 @@ Currency Attribution Local Selection (`currency_attribution[].effects.local_sele
 - `w_b` (benchmark currency weight)
 - `r_local_p` (portfolio local return by currency)
 - `r_local_b` (benchmark local return by currency)
+- source currency metadata and FX/local-return fields when `input_mode=stateful`
 
 ## Upstream Data Sources
-- Request payload only.
+- Stateless mode has no runtime upstream dependency; required local and FX fields are supplied by
+  the caller.
+- Stateful mode uses lotus-core portfolio and position timeseries, benchmark assignment/component
+  inputs, and FX/source currency evidence normalized by the attribution resolver. The currency
+  attribution branch runs only after those source rows produce the required local and FX columns.
+- `lotus-performance` owns Karnosky-Singer local selection methodology; lotus-core supplies source
+  rows and currency evidence, not currency-attribution conclusions.
 
 ## Unit Conventions
 - Formula computed in decimal.
@@ -38,22 +49,29 @@ Aggregation:
 - `TE_c = LA_c + LS_c + CA_c + CS_c`
 
 ## Step-by-Step Computation
-1. Aggregate aligned panel by (`date`, `currency`).
-2. Compute local return spread per row.
-3. Multiply by benchmark weight to get `LS_c,t`.
-4. Sum across dates and convert to pp in response.
+1. Resolve mode-specific attribution inputs. In stateful mode retrieve and normalize lotus-core
+   portfolio, position, benchmark, and FX/source currency rows.
+2. Aggregate aligned panel by (`date`, `currency`).
+3. Compute local return spread per row.
+4. Multiply by benchmark weight to get `LS_c,t`.
+5. Sum across dates and convert to pp in response.
 
 ## Validation and Failure Behavior
 - Currency-attribution block is omitted when prerequisites are not met.
+- Stateful source rows without usable source currency, reporting currency, local return, or FX
+  return evidence do not produce currency-attribution facts.
 - Endpoint-level invalid input errors map to HTTP 400/500 paths.
 
 ## Configuration Options
 - `currency_mode=BOTH`
 - `frequency` (controls aggregation horizon)
+- `stateful_input.portfolio_id`, optional `stateful_input.benchmark_id`, source dimensions, and
+  source window fields when `input_mode=stateful`
 
 ## Outputs
 - `results_by_period.<period>.currency_attribution[].effects.local_selection`
 - contributes to `results_by_period.<period>.currency_attribution[].effects.total_effect`
+- `calculation_supportability` when source resolution emits bounded supportability metadata.
 
 ## Worked Example
 

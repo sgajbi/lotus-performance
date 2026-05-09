@@ -3,6 +3,10 @@ Currency Attribution Currency Selection (`currency_attribution[].effects.currenc
 
 ## Endpoint and Mode Coverage
 - Endpoint: `POST /performance/attribution`
+- Request modes:
+  - stateless attribution inputs with caller-owned local and FX return columns
+  - stateful attribution inputs resolved from lotus-core portfolio, position, benchmark, and FX
+    source rows when those rows can produce local and FX return fields
 - Available only when currency-attribution branch is active:
   - `currency_mode=BOTH`
   - required local/FX columns are present in the aligned effects panel
@@ -12,9 +16,16 @@ Currency Attribution Currency Selection (`currency_attribution[].effects.currenc
 - `w_b`
 - `r_local_p`, `r_local_b`
 - `r_fx_b`
+- source currency metadata and FX/local-return fields when `input_mode=stateful`
 
 ## Upstream Data Sources
-- Request payload only.
+- Stateless mode has no runtime upstream dependency; required local and FX fields are supplied by
+  the caller.
+- Stateful mode uses lotus-core portfolio and position timeseries, benchmark assignment/component
+  inputs, and FX/source currency evidence normalized by the attribution resolver. The currency
+  attribution branch runs only after those source rows produce the required local and FX columns.
+- `lotus-performance` owns Karnosky-Singer currency selection methodology; lotus-core supplies
+  source rows and currency evidence, not currency-attribution conclusions.
 
 ## Unit Conventions
 - Computed in decimal, emitted as percentage points (`*100`).
@@ -39,23 +50,30 @@ Aggregation and total effect:
   - `TE_c = LA_c + LS_c + CA_c + CS_c`
 
 ## Step-by-Step Computation
-1. Compute local return spread per currency-date.
-2. Multiply by benchmark weight.
-3. Multiply by benchmark FX return.
-4. Sum across dates and convert to pp.
-5. Add into per-currency total effect.
+1. Resolve mode-specific attribution inputs. In stateful mode retrieve and normalize lotus-core
+   portfolio, position, benchmark, and FX/source currency rows.
+2. Compute local return spread per currency-date.
+3. Multiply by benchmark weight.
+4. Multiply by benchmark FX return.
+5. Sum across dates and convert to pp.
+6. Add into per-currency total effect.
 
 ## Validation and Failure Behavior
 - Currency attribution omitted if prerequisites are not met.
+- Stateful source rows without usable source currency, reporting currency, local return, or FX
+  return evidence do not produce currency-attribution facts.
 - Standard endpoint error behavior applies for invalid inputs/exceptions.
 
 ## Configuration Options
 - `currency_mode=BOTH`
 - `frequency`
+- `stateful_input.portfolio_id`, optional `stateful_input.benchmark_id`, source dimensions, and
+  source window fields when `input_mode=stateful`
 
 ## Outputs
 - `results_by_period.<period>.currency_attribution[].effects.currency_selection`
 - contributes to `results_by_period.<period>.currency_attribution[].effects.total_effect`
+- `calculation_supportability` when source resolution emits bounded supportability metadata.
 
 ## Worked Example
 
