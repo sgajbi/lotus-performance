@@ -3,7 +3,10 @@ Money-Weighted Return via Dietz (`money_weighted_return` when method resolves to
 
 ## Endpoint and Mode Coverage
 - Endpoint: `POST /performance/mwr`
-- Request mode: stateless payload
+- Request modes:
+  - stateless payload (`stateless_input.begin_mv`, `stateless_input.end_mv`, `stateless_input.cash_flows[]`)
+  - legacy stateless top-level `begin_mv`, `end_mv`, and `cash_flows[]`
+  - stateful payload (`stateful_input.window_start_date`) resolved from lotus-core portfolio timeseries
 - Path coverage:
   - explicit request `mwr_method="DIETZ"` or `"MODIFIED_DIETZ"`
   - fallback when `mwr_method="XIRR"` fails sign/convergence checks
@@ -13,12 +16,21 @@ Money-Weighted Return via Dietz (`money_weighted_return` when method resolves to
 - `begin_mv`
 - `end_mv`
 - `cash_flows[]` (`amount`, `date`)
+- `start_date` when supplied directly or resolved from stateful normalization
 - `as_of`
 - `annualization.enabled`
 - `annualization.basis` (`ACT/ACT` or other -> 365.0)
 
 ## Upstream Data Sources
-- Request payload only.
+- Stateless mode has no runtime upstream dependency; all required values are supplied by the caller.
+- Stateful mode resolves source input from `lotus-core`
+  `POST /integration/portfolios/{portfolio_id}/analytics/portfolio-timeseries` through
+  `CORE_CONTROL_PLANE_BASE_URL`.
+- Stateful normalization uses first and last valid source observations for beginning and ending
+  market value, includes explicit external or missing-classified source cash-flow rows, adds
+  cross-observation carry-forward capital adjustments where beginning market value differs from the
+  prior valid ending market value, and excludes operational fee-classified rows from the investor
+  capital-flow schedule.
 
 ## Unit Conventions
 - Amount fields are currency amounts.
@@ -33,6 +45,8 @@ Money-Weighted Return via Dietz (`money_weighted_return` when method resolves to
 - `Num`: Dietz numerator
 - `r_D`: Dietz periodic return (decimal)
 - `r_A`: annualized return (decimal)
+- `S`: resolved start date (`stateful_input.window_start_date`, explicit `start_date`, or the
+  earliest cash-flow date when no start date is supplied)
 - `days`: `(as_of - start_date).days`
 - `ppy`: annualization factor (`365.25` for `ACT/ACT`, else `365.0`)
 
@@ -57,15 +71,23 @@ Money-Weighted Return via Dietz (`money_weighted_return` when method resolves to
 - `mwr_annualized = 100 * r_A` when annualized else null
 
 ## Step-by-Step Computation
-1. Determine `start_date` as min cash-flow date (or `as_of` if none); set `end_date = as_of`.
-2. Compute `CF_sum` from `cash_flows[]`.
-3. Compute `Den`; if zero, return deterministic zero-result branch.
-4. Compute `Num` and periodic Dietz return `r_D`.
-5. If annualization requested and period length positive, compute `r_A`.
-6. Return response with `method="DIETZ"` and notes (including fallback notes if applicable).
+1. Resolve mode-specific inputs. In stateful mode retrieve lotus-core portfolio timeseries and
+   normalize it into `begin_mv`, `end_mv`, signed `cash_flows[]`, and `start_date`.
+2. Determine `start_date` from the resolved request; set `end_date = as_of`.
+3. Compute `CF_sum` from `cash_flows[]`.
+4. Compute `Den`; if zero, return deterministic zero-result branch.
+5. Compute `Num` and periodic Dietz return `r_D`.
+6. If annualization requested and period length positive, compute `r_A`.
+7. Return response with `method="DIETZ"` and notes (including fallback notes if applicable).
 
 ## Validation and Failure Behavior
 - Schema-level validation enforces required inputs.
+- Stateful mode rejects missing `stateful_input`, rejects stateless payloads in stateful mode, and
+  fails through the retrieval or normalization stage when lotus-core source data cannot produce a
+  valid resolved MWR input.
+- Source fee rows are preserved as performance drag by the upstream analytics input and are not
+  included as investor cash flows; unsupported or invalid source cash-flow rows are skipped during
+  normalization rather than guessed.
 - XIRR fallback notes are preserved when entering Dietz path from failed XIRR attempt.
 - Zero denominator is non-fatal; returns `0.0` with explanatory note.
 - If `annualization.enabled=true` and `days<=0`, annualized output remains null.
@@ -84,12 +106,14 @@ Primary fields:
 - `mwr_annualized` (optional)
 - `method`
 - `start_date`, `end_date`, `notes`
+- `calculation_supportability`, `meta`, `diagnostics`, and `audit`
 
 ## Worked Example
 Inputs:
 - `begin_mv = 100`
 - `cash_flows = [{date: 2026-03-01, amount: 10}]`
 - `end_mv = 112`
+- `start_date = 2026-03-01`
 - `as_of = 2026-03-31`
 - `annualization.enabled = true`, `basis = ACT/ACT`
 

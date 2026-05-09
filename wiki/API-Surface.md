@@ -42,6 +42,11 @@ Cross-service and downstream-facing routes:
 - `GET /integration/returns/series/results/{calculation_id}`
 - `POST /integration/benchmarks/exposure-context`
 
+`POST /performance/mwr` supports both stateless caller-owned inputs and stateful lotus-core
+timeseries sourcing. In stateful mode it is the source-owned investor capital-timing methodology
+surface for downstream product experiences; clients should consume its emitted MWR response and
+supportability block rather than rebuilding cash-flow schedules locally.
+
 ## Operator and platform surfaces
 
 Runtime and supportability routes:

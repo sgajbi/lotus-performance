@@ -295,10 +295,22 @@ def test_twr_mwr_response_attribute_certification_documents_field_level_checks()
 
 def test_methodology_index_points_to_current_guides():
     index = _read("docs/technical/methodology_index.md")
+    master_index = _read("docs/methodologies/metrics/master-index.md")
+    xirr_methodology = _read("docs/methodologies/metrics/metric-mwr-xirr.md")
+    dietz_methodology = _read("docs/methodologies/metrics/metric-mwr-dietz.md")
+    integrations_wiki = _read("wiki/Integrations.md")
 
     assert "../guides/twr.md" in index
     assert "../guides/api_reference.md" in index
     assert "period_type" in index
+    assert "`POST /performance/mwr` support stateful" in index
+    assert "must not reconstruct MWR inputs from TWR, benchmark, or workspace summary payloads" in index
+    assert "MWR (XIRR) | POST /performance/mwr | Stateless + Stateful" in master_index
+    assert "MWR (Dietz fallback / explicit) | POST /performance/mwr | Stateless + Stateful" in master_index
+    assert "stateful_input.window_start_date" in xirr_methodology
+    assert "stateful_input.window_start_date" in dietz_methodology
+    assert "Stateful MWR source flow" in integrations_wiki
+    assert "Gateway and Workbench should consume the emitted MWR response" in integrations_wiki
 
 
 def test_standalone_guide_uses_current_engine_api():
