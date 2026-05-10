@@ -2,8 +2,8 @@ from statistics import median
 from time import perf_counter
 from uuid import uuid4
 
-import pytest
 import pandas as pd
+import pytest
 
 import app.services.portfolio_source_service as portfolio_source_service
 import app.services.returns_series_service as returns_series_service
