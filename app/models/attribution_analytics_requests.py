@@ -20,10 +20,21 @@ class AttributionInputMode(str, Enum):
 
 
 class AttributionStatelessInput(BaseModel):
-    portfolio_data: AttributionPortfolioData | None = None
-    instruments_data: list[InstrumentData] | None = None
-    portfolio_groups_data: list[PortfolioGroup] | None = None
-    benchmark_groups_data: list[BenchmarkGroup]
+    portfolio_data: AttributionPortfolioData | None = Field(
+        default=None,
+        description="Total portfolio series for position-level stateless attribution.",
+    )
+    instruments_data: list[InstrumentData] | None = Field(
+        default=None,
+        description="Position or instrument series for by_instrument stateless attribution.",
+    )
+    portfolio_groups_data: list[PortfolioGroup] | None = Field(
+        default=None,
+        description="Pre-aggregated portfolio group series for by_group stateless attribution.",
+    )
+    benchmark_groups_data: list[BenchmarkGroup] = Field(
+        description="Benchmark group observations aligned to the requested attribution window.",
+    )
 
 
 class AttributionStatefulInput(BaseModel):
@@ -36,14 +47,17 @@ class AttributionStatefulInput(BaseModel):
     benchmark_id: str | None = Field(
         default=None,
         description="Optional benchmark identifier override. When omitted, lotus-core benchmark assignment is used.",
+        examples=["BMK_PRIVATE_BANKING_BALANCED"],
     )
     dimensions: list[StatefulDimensionName] = Field(
         default_factory=list,
         description="Dimension labels requested from lotus-core position-timeseries for attribution metadata.",
+        examples=[["asset_class", "sector"]],
     )
     include_cash_flows: bool = Field(
         default=True,
         description="Whether stateful position sourcing should request canonical cash flow rows.",
+        examples=[True],
     )
     filters: StatefulPositionFilters = Field(
         default_factory=StatefulPositionFilters,
@@ -52,6 +66,31 @@ class AttributionStatefulInput(BaseModel):
 
 
 class AttributionAnalyticsRequest(AttributionRequest):
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "examples": [
+                {
+                    "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+                    "report_start_date": "2026-01-01",
+                    "report_end_date": "2026-03-31",
+                    "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+                    "mode": "by_instrument",
+                    "frequency": "daily",
+                    "group_by": ["asset_class", "sector"],
+                    "model": "BF",
+                    "linking": "carino",
+                    "input_mode": "stateful",
+                    "stateful_input": {
+                        "metric_basis": "NET",
+                        "dimensions": ["asset_class", "sector"],
+                        "include_cash_flows": True,
+                    },
+                }
+            ]
+        },
+    )
+
     portfolio_data: AttributionPortfolioData | None = Field(
         default=None,
         description="Legacy stateless portfolio attribution payload. Prefer stateless_input for new integrations.",
@@ -76,10 +115,32 @@ class AttributionAnalyticsRequest(AttributionRequest):
     stateless_input: AttributionStatelessInput | None = Field(
         default=None,
         description="Stateless attribution input payload.",
+        examples=[
+            {
+                "portfolio_data": {
+                    "metric_basis": "NET",
+                    "valuation_points": [{"perf_date": "2026-03-31", "begin_mv": 1000000, "end_mv": 1012500}],
+                },
+                "instruments_data": [
+                    {
+                        "instrument_id": "SEC_PRIVATE_BANKING_EQ_01",
+                        "meta": {"asset_class": "equity", "sector": "technology"},
+                        "valuation_points": [{"perf_date": "2026-03-31", "begin_mv": 600000, "end_mv": 610500}],
+                    }
+                ],
+                "benchmark_groups_data": [
+                    {
+                        "key": {"asset_class": "equity", "sector": "technology"},
+                        "observations": [{"date": "2026-03-31", "weight_bop": 0.6, "return_base": 0.01}],
+                    }
+                ],
+            }
+        ],
     )
     stateful_input: AttributionStatefulInput | None = Field(
         default=None,
         description="Stateful attribution input payload resolved through lotus-core integrations.",
+        examples=[{"metric_basis": "NET", "dimensions": ["asset_class", "sector"], "include_cash_flows": True}],
     )
 
     @model_validator(mode="after")

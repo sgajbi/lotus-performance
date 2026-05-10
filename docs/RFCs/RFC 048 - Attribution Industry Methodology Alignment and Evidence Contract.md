@@ -496,6 +496,14 @@ Validation:
 
 Purpose: make the attribution API integration-grade.
 
+Implementation evidence: `docs/RFCs/RFC-048-api-contract-openapi-slice5.md`. Slice 5 certified
+the attribution OpenAPI contract with private-banking stateful request examples, controlled period
+status/reason/supportability examples, residual-materiality response examples, and explicit
+documented error paths for invalid requests, duplicate/conflicting async submissions, missing or
+failed async results, unsupported stateful/source-contract cases, missing FX, and unexpected
+request-resolution failures. OpenAPI quality and API vocabulary gates passed with no vocabulary
+drift.
+
 Scope:
 
 1. update request/response models for approved status/evidence fields;

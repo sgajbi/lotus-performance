@@ -199,6 +199,23 @@ class AttributionReason(BaseModel):
 class AttributionSupportabilityEvidence(BaseModel):
     """Support-safe evidence summary for a resolved attribution period."""
 
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "portfolio_only_group_count": 1,
+                    "benchmark_only_group_count": 0,
+                    "unclassified_group_count": 0,
+                    "missing_benchmark_return_count": 0,
+                    "negative_weight_count": 0,
+                    "zero_portfolio_exposure_count": 0,
+                    "currency_attribution_status": "not_requested",
+                    "linking_status": "linked",
+                }
+            ]
+        }
+    )
+
     portfolio_only_group_count: int = Field(
         default=0,
         ge=0,
@@ -295,9 +312,31 @@ class SinglePeriodAttributionResult(BaseModel):
     reasons: List[AttributionReason] = Field(
         default_factory=list,
         description="Detailed controlled reasons for the attribution period.",
+        examples=[
+            [
+                {
+                    "code": "off_benchmark_exposure",
+                    "severity": "warning",
+                    "message": "Portfolio holds one or more groups that are absent from the benchmark.",
+                    "affected_group_count": 1,
+                }
+            ]
+        ],
     )
     supportability_evidence: AttributionSupportabilityEvidence = Field(
-        description="Support-safe attribution evidence summary for this period."
+        description="Support-safe attribution evidence summary for this period.",
+        examples=[
+            {
+                "portfolio_only_group_count": 1,
+                "benchmark_only_group_count": 0,
+                "unclassified_group_count": 0,
+                "missing_benchmark_return_count": 0,
+                "negative_weight_count": 0,
+                "zero_portfolio_exposure_count": 0,
+                "currency_attribution_status": "not_requested",
+                "linking_status": "linked",
+            }
+        ],
     )
     levels: List[AttributionLevelResult] = Field(description="Hierarchical attribution levels for the period.")
     reconciliation: Reconciliation = Field(
@@ -318,6 +357,109 @@ class AttributionBenchmarkContext(BaseModel):
 
 class AttributionResponse(BaseModel):
     """Response model for the Attribution engine."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "calculation_id": "209da27d-f3f4-4e64-97c5-a2eb1d4fe4f3",
+                    "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+                    "input_mode": "stateful",
+                    "model": "brinson_fachler",
+                    "linking": "carino",
+                    "results_by_period": {
+                        "ITD": {
+                            "status": "partial",
+                            "reason_codes": ["off_benchmark_exposure"],
+                            "reasons": [
+                                {
+                                    "code": "off_benchmark_exposure",
+                                    "severity": "warning",
+                                    "message": (
+                                        "Portfolio holds one or more groups that are absent from the benchmark."
+                                    ),
+                                    "affected_group_count": 1,
+                                }
+                            ],
+                            "supportability_evidence": {
+                                "portfolio_only_group_count": 1,
+                                "benchmark_only_group_count": 0,
+                                "unclassified_group_count": 0,
+                                "missing_benchmark_return_count": 0,
+                                "negative_weight_count": 0,
+                                "zero_portfolio_exposure_count": 0,
+                                "currency_attribution_status": "not_requested",
+                                "linking_status": "linked",
+                            },
+                            "levels": [
+                                {
+                                    "dimension": "asset_class",
+                                    "parent_key": None,
+                                    "groups": [
+                                        {
+                                            "key": {"asset_class": "equity"},
+                                            "portfolio_weight_avg": 65.0,
+                                            "benchmark_weight_avg": 60.0,
+                                            "portfolio_return": 4.25,
+                                            "benchmark_return": 3.8,
+                                            "allocation": 0.24,
+                                            "selection": 0.15,
+                                            "interaction": 0.03,
+                                            "total_effect": 0.42,
+                                        }
+                                    ],
+                                    "totals": {
+                                        "allocation": 0.24,
+                                        "selection": 0.15,
+                                        "interaction": 0.03,
+                                        "total_effect": 0.42,
+                                    },
+                                    "allocation_total_pct": 0.24,
+                                    "selection_total_pct": 0.15,
+                                    "interaction_total_pct": 0.03,
+                                    "total_effect_pct": 0.42,
+                                }
+                            ],
+                            "reconciliation": {
+                                "total_active_return": 0.42,
+                                "sum_of_effects": 0.42,
+                                "residual": 0.0,
+                                "residual_materiality": {
+                                    "classification": "immaterial",
+                                    "treatment": "no_action",
+                                    "absolute_residual": 0.0,
+                                    "warning_threshold": 0.001,
+                                    "material_threshold": 0.01,
+                                },
+                            },
+                        }
+                    },
+                    "benchmark_context": {
+                        "benchmark_id": "BMK_PRIVATE_BANKING_BALANCED",
+                        "return_source": "calculated",
+                    },
+                    "calculation_supportability": {
+                        "state": "ready",
+                        "reason": "calculation_complete",
+                        "freshness_bucket": "current",
+                        "input_row_count": 4,
+                        "resolved_period_count": 1,
+                        "benchmark_row_count": 2,
+                        "source_quality_evidence": None,
+                        "metric_labels": [
+                            "operation",
+                            "supportability_state",
+                            "reason",
+                            "freshness_bucket",
+                        ],
+                    },
+                    "meta": {"schema_version": "1.0.0"},
+                    "diagnostics": None,
+                    "audit": None,
+                }
+            ]
+        }
+    )
 
     calculation_id: UUID = Field(description="Stable calculation handle for this attribution request.")
     portfolio_id: str = Field(description="Portfolio identifier.", examples=["PORTFOLIO_001"])
