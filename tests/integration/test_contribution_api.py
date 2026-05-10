@@ -322,6 +322,171 @@ def test_contribution_endpoint_hierarchy_happy_path(client, happy_path_payload):
     assert data["summary"]["portfolio_contribution"] == pytest.approx(2.95327, abs=1e-5)
 
 
+def test_contribution_endpoint_treats_external_deposit_as_non_performance(client):
+    payload = {
+        "portfolio_id": "CONTRIB_EXTERNAL_DEPOSIT_NO_PERF",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 1000, "bod_cf": 100, "end_mv": 1100},
+            ],
+        },
+        "positions_data": [
+            {
+                "position_id": "CASH_DEPOSIT",
+                "meta": {"asset_class": "Cash"},
+                "valuation_points": [
+                    {"perf_date": "2025-01-01", "begin_mv": 1000, "bod_cf": 100, "end_mv": 1100},
+                ],
+            }
+        ],
+        "hierarchy": ["asset_class"],
+    }
+
+    response = client.post("/performance/contribution", json=payload)
+
+    assert response.status_code == 200
+    period = response.json()["results_by_period"]["ITD"]
+    assert period["total_portfolio_return"] == pytest.approx(0.0)
+    assert period["total_contribution"] == pytest.approx(0.0)
+    assert period["summary"]["portfolio_contribution"] == pytest.approx(0.0)
+    assert period["levels"][0]["rows"][0]["key"] == {"asset_class": "Cash"}
+    assert period["levels"][0]["rows"][0]["contribution"] == pytest.approx(0.0)
+
+
+def test_contribution_endpoint_assigns_income_to_generating_asset(client):
+    payload = {
+        "portfolio_id": "CONTRIB_INCOME_GENERATING_ASSET",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1015}],
+        },
+        "positions_data": [
+            {
+                "position_id": "BOND_INCOME_ASSET",
+                "meta": {"asset_class": "Fixed Income", "income_pnl": 15},
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1015}],
+            }
+        ],
+        "hierarchy": ["asset_class"],
+    }
+
+    response = client.post("/performance/contribution", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    period = body["results_by_period"]["ITD"]
+    row = period["levels"][0]["rows"][0]
+    assert row["key"] == {"asset_class": "Fixed Income"}
+    assert row["contribution"] == pytest.approx(period["total_contribution"])
+    assert period["total_contribution"] == pytest.approx(1.5)
+    assert "income_pnl" not in body["source_economics_evidence"]["unsupported_economics"]
+
+
+def test_contribution_endpoint_assigns_net_fee_drag_to_fee_bucket(client):
+    payload = {
+        "portfolio_id": "CONTRIB_NET_FEE_BUCKET",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1000, "mgmt_fees": -10},
+            ],
+        },
+        "positions_data": [
+            {
+                "position_id": "ADVISORY_FEE_BUCKET",
+                "meta": {"asset_class": "Fees", "fee_pnl": -10},
+                "valuation_points": [
+                    {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1000, "mgmt_fees": -10},
+                ],
+            }
+        ],
+        "hierarchy": ["asset_class"],
+    }
+
+    response = client.post("/performance/contribution", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    period = body["results_by_period"]["ITD"]
+    row = period["levels"][0]["rows"][0]
+    assert row["key"] == {"asset_class": "Fees"}
+    assert row["contribution"] == pytest.approx(-1.0)
+    assert period["total_contribution"] == pytest.approx(-1.0)
+    assert "fee_pnl" not in body["source_economics_evidence"]["unsupported_economics"]
+
+
+def test_contribution_endpoint_preserves_missing_classification_as_unclassified(client):
+    payload = {
+        "portfolio_id": "CONTRIB_UNCLASSIFIED",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+        },
+        "positions_data": [
+            {
+                "position_id": "UNCLASSIFIED_ASSET",
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+            }
+        ],
+        "hierarchy": ["asset_class"],
+    }
+
+    response = client.post("/performance/contribution", json=payload)
+
+    assert response.status_code == 200
+    period = response.json()["results_by_period"]["ITD"]
+    assert period["levels"][0]["rows"][0]["key"] == {"asset_class": "Unclassified"}
+    assert period["levels"][0]["rows"][0]["contribution"] == pytest.approx(1.0)
+
+
+def test_contribution_endpoint_preserves_short_position_inverse_sign_behavior(client):
+    payload = {
+        "portfolio_id": "CONTRIB_SHORT_SIGN",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 990}],
+        },
+        "positions_data": [
+            {
+                "position_id": "SHORT_TECH",
+                "meta": {"asset_class": "Short Equity"},
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": -100, "end_mv": -90}],
+            },
+            {
+                "position_id": "LONG_CASH",
+                "meta": {"asset_class": "Cash"},
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1100, "end_mv": 1080}],
+            },
+        ],
+        "hierarchy": ["asset_class"],
+    }
+
+    response = client.post("/performance/contribution", json=payload)
+
+    assert response.status_code == 200
+    period = response.json()["results_by_period"]["ITD"]
+    rows_by_asset_class = {row["key"]["asset_class"]: row for row in period["levels"][0]["rows"]}
+    assert rows_by_asset_class["Short Equity"]["weight_avg"] == pytest.approx(-10.0)
+    assert rows_by_asset_class["Short Equity"]["contribution"] < 0
+    assert period["total_contribution"] == pytest.approx(period["total_portfolio_return"])
+
+
 def test_contribution_endpoint_weight_fields_use_percentage_units_for_position_and_hierarchy_outputs(client):
     base_payload = {
         "portfolio_id": "CONTRIB_WEIGHT_UNITS",
