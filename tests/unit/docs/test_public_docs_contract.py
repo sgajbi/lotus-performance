@@ -333,6 +333,50 @@ def test_mwrr_industry_material_is_converted_to_lotus_product_docs():
     assert "MoneyWeightedReturnAnalytics" in mesh_wiki
 
 
+def test_mwr_rfc_closure_truth_is_implementation_backed():
+    rfc_016 = _read("docs/RFCs/RFC 016 - MWR Enhancements (XIRR + Modified Dietz).md")
+    rfc_index = _read("docs/RFCs/RFC-INDEX.md")
+    status = _read("docs/RFCs/RFC_IMPLEMENTATION_STATUS.md")
+    wiki_rfc_index = _read("wiki/RFC-Index.md")
+
+    assert "**Status:** Implemented" in rfc_016
+    assert "Requirement-To-Implementation Traceability" in rfc_016
+    assert "`engine/mwr.py`" in rfc_016
+    assert "tests/integration/test_response_attribute_certification.py" in rfc_016
+    assert "does not depend on SciPy" in rfc_016 or "does\nnot depend on SciPy" in rfc_016
+    assert "`money_weighted_return`" in rfc_016
+    assert "`holding_period_return`" in rfc_016
+    assert "`calculation_supportability`" in rfc_016
+    assert "single reporting-currency MWR contract" in rfc_016
+    assert "FX-aware per-flow MWR conversion is not part of RFC-016 closure" in rfc_016
+    assert "| RFC-016 | MWR Enhancements (XIRR + Modified Dietz) | Implemented | Implemented |" in rfc_index
+    assert "RFC 016    | MWR Enhancements (XIRR + Modified Dietz)" in status
+    assert "RFC-016" in wiki_rfc_index
+
+
+def test_rfc_020_status_does_not_overstate_fx_aware_mwr():
+    status = _read("docs/RFCs/RFC_IMPLEMENTATION_STATUS.md")
+    rfc_index = _read("docs/RFCs/RFC-INDEX.md")
+    backlog = _read("docs/RFCs/RFC-DELTA-BACKLOG.md")
+    fx_design = _read("docs/technical/mwr-fx-contract-design.md")
+    wiki_rfc_index = _read("wiki/RFC-Index.md")
+
+    assert (
+        "RFC 020    | Multi-Currency & FX-Aware Performance"
+        not in status.split("## Partially Implemented Or Gated RFCs")[0]
+    )
+    assert "RFC 020 | Multi-Currency & FX-Aware Performance | ⚠️ Partially Implemented" in status
+    assert "MWR remains a single reporting-currency schedule" in status
+    assert "per-flow conversion evidence" in status or "per-flow\n      conversion evidence" in status
+    assert (
+        "| RFC-020 | Multi-Currency & FX-Aware Performance | Final (For Approval) | Partially Implemented |"
+        in rfc_index
+    )
+    assert "MWR remains pre-converted input model" in backlog
+    assert "FX-aware MWR is not done until all of these are true" in fx_design
+    assert "partially implemented" in wiki_rfc_index
+
+
 def test_twr_mwr_response_attribute_certification_documents_field_level_checks():
     certification = _read("docs/technical/twr-mwr-response-attribute-certification.md")
     readme = _read("README.md")

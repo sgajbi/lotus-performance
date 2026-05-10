@@ -27,13 +27,24 @@ The following RFCs have been **fully implemented** and their features are part o
 | RFC 017    | Contribution Enhancements                                  | ✅ Fully Implemented |
 | RFC 018    | Attribution Enhancements                                   | ✅ Fully Implemented |
 | RFC 019    | Multi-Level Contribution API                               | ✅ Fully Implemented |
-| RFC 020    | Multi-Currency & FX-Aware Performance                      | ✅ Fully Implemented |
 | RFC 024    | Robustness Policies Framework                              | ✅ Fully Implemented |
 | RFC 025    | Deterministic Reproducibility & Drill-Down                 | ✅ Fully Implemented |
 | RFC-028    | Unified `snake_case` API Naming & Legacy Alias Removal     | ✅ Fully Implemented |
 | RFC 031    | lotus-core Connected TWR Input Mode                               | ✅ Fully Implemented |
 | RFC 041    | API Orchestrator, Compute Executor, and PostgreSQL Durable State  | ✅ Fully Implemented |
 | RFC 045    | TWR Inspection and Supportability Contract                        | ✅ Fully Implemented |
+
+---
+
+## Partially Implemented Or Gated RFCs
+
+The following RFCs have shipped meaningful implementation, but their full original scope is not
+closed. They must not be presented as fully implemented until the remaining acceptance criteria are
+implementation-backed.
+
+| RFC Number | Title | Status | Current boundary |
+| :--------- | :---- | :----- | :--------------- |
+| RFC 020 | Multi-Currency & FX-Aware Performance | ⚠️ Partially Implemented | TWR, contribution, and attribution have FX-aware support. MWR remains a single reporting-currency schedule and does not perform per-flow FX conversion. The implementation-readiness contract for FX-aware MWR lives in `docs/technical/mwr-fx-contract-design.md`. |
 
 ---
 
@@ -67,6 +78,17 @@ delivery evidence for completed work.
     * **Monthly-dominance note, 2026-04-15:** Source-quality inspection now warns when one day explains at least 75% of total absolute movement in a month with at least 10 interpretable daily moves.
     * **Relative-alignment note, 2026-04-15:** Calculation-consistency inspection now flags relative breakdown rows whose period label or date window does not align with the corresponding portfolio and benchmark buckets before doing row-level relative arithmetic.
     * **Benchmark-relative pairing note, 2026-04-15:** Calculation-consistency inspection now flags benchmark blocks without relative-performance blocks and relative-performance blocks without benchmark blocks, making incomplete benchmarked TWR response contracts explicit.
+
+3.  **RFC 020 — Multi-Currency & FX-Aware Performance**
+    * **Reasoning:** **Keep multi-currency claims truthful before extending MWR.** TWR,
+      contribution, and attribution have implementation-backed FX-aware paths, but MWR is currently
+      a single reporting-currency money-weighted return contract. The next RFC-020 slice for MWR
+      must satisfy `docs/technical/mwr-fx-contract-design.md`: governed upstream FX evidence,
+      OpenAPI fields, deterministic conversion tests, gateway and Workbench propagation, and data
+      mesh declaration updates.
+    * **Current state:** **Partially implemented.** Do not claim fully FX-aware MWR until per-flow
+      conversion evidence, stale/missing-rate failure behavior, response provenance, and downstream
+      preservation are all merged and validated.
 
 ### Phase 1: Foundational Enhancements
 
