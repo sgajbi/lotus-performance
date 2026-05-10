@@ -158,6 +158,7 @@ def test_mwr_response_attributes_tie_to_deterministic_stateless_inputs(client):
         "is_annualized_primary",
         "is_approximation",
         "cashflows_used",
+        "reporting_currency",
         "start_date",
         "end_date",
         "notes",
@@ -174,6 +175,7 @@ def test_mwr_response_attributes_tie_to_deterministic_stateless_inputs(client):
     assert body["warnings"] == []
     assert body["is_annualized_primary"] is False
     assert body["is_approximation"] is True
+    assert body["reporting_currency"] == "USD"
     assert body["start_date"] == "2026-01-02"
     assert body["end_date"] == "2026-01-03"
     assert body["notes"] == []
