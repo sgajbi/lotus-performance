@@ -56,7 +56,12 @@ Local validation:
 GitHub CI:
 
 1. `Feature Lane / Workflow Lint` passed at the time this slice evidence was recorded.
-2. `Feature Lane / Lint Typecheck Test` and `PR Merge Gate / Workflow Lint` were pending at the time of evidence capture and must be green before closure.
+2. `Feature Lane / Lint Typecheck Test` passed.
+3. `PR Merge Gate / Workflow Lint` passed.
+4. `PR Merge Gate / Lint Typecheck Coverage Build` passed.
+5. `PR Merge Gate / Playwright Smoke` passed.
+6. `PR Merge Gate / Validate Docker Build` passed.
+7. `PR Merge Gate / CI Local Docker Parity` passed.
 
 ## Critical Review
 
@@ -67,7 +72,8 @@ What was strengthened:
 3. Workbench displays exact upstream statuses and reason codes, avoiding local inference or aspirational quality labels.
 4. Fixture-backed tests now include contribution source-economics and smoothing evidence.
 
-Remaining closure condition:
+Closure assessment:
 
-1. Workbench GitHub checks must finish green before Slice 7 is considered fully closed.
+1. Gateway and Workbench CI finished green.
 2. No additional `lotus-core` changes were required for this slice.
+3. Slice 7 is complete and ready for Slice 8 sequencing.
