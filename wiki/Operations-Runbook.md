@@ -68,6 +68,8 @@ executor-backed and lineage-backed workflows.
   [docs/runbooks/durable-metadata-recovery.md](../docs/runbooks/durable-metadata-recovery.md)
 - retention cleanup:
   [docs/runbooks/runtime-retention-cleanup.md](../docs/runbooks/runtime-retention-cleanup.md)
+- MWR support:
+  [docs/operations/mwr-production-support-playbook.md](../docs/operations/mwr-production-support-playbook.md)
 
 ## Runtime thresholds and overlays
 

@@ -204,9 +204,16 @@ integrations.
 
 Use `/docs` for the exact response schema and latest examples.
 
-## Industry Reference Pack
+## Lotus Production Controls
 
-The reviewed MWRR industry material is retained under
-`docs/reference/mwrr-industry-pack/`. Start with
-`docs/reference/mwrr-industry-pack/lotus-implementation-mapping.md` for the implementation-backed
-mapping between that reference pack and the current Lotus contract.
+The reviewed MWRR industry material has been converted into Lotus-authored, implementation-backed
+documentation rather than retained as generic reference text:
+
+- [Lotus MWR production controls](mwr-lotus-production-controls.md) explains the supported
+  business flow, solver behavior, response controls, data mesh boundaries, and validation posture.
+- [MWR production support playbook](../operations/mwr-production-support-playbook.md) gives
+  operations, support, and front-office teams a reason-code triage flow and client-safe explanation
+  language.
+- [MWR industry review findings](../technical/mwr-industry-review-findings.md) records what was
+  adopted, what Lotus already handled more strongly, and which candidate enhancements remain outside
+  the current implementation-backed contract.
