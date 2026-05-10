@@ -12,6 +12,9 @@
 - Product ID: `lotus-performance:MoneyWeightedReturnAnalytics:v1`
 - Product role: governed investor capital-timing return product consumed by gateway and Workbench
   experiences
+- Product ID: `lotus-performance:ContributionAnalytics:v1`
+- Product role: governed performance explanation product that identifies which positions and
+  hierarchy dimensions contributed to portfolio return
 - Product ID: `lotus-performance:ReturnsSeriesBundle:v1`
 - Product role: governed return-series and performance evidence consumed by risk, advisory, reporting, gateway, and Workbench discovery flows
 - Source declaration: `contracts/domain-data-products/`
@@ -40,6 +43,17 @@
   [docs/guides/mwr-lotus-production-controls.md](../docs/guides/mwr-lotus-production-controls.md)
   and
   [docs/technical/mwr-industry-review-findings.md](../docs/technical/mwr-industry-review-findings.md).
+- Contribution product evidence: `POST /performance/contribution` emits source-owned
+  contribution totals, position rows, optional hierarchy rows, optional daily and by-position
+  series, `smoothing_evidence`, `source_economics_evidence`, `calculation_supportability`,
+  metadata, diagnostics, audit fields, and async lineage. The governed product is declared as
+  `ContributionAnalytics` in
+  `contracts/domain-data-products/lotus-performance-products.v1.json`, backed by
+  `contracts/trust-telemetry/contribution-analytics.telemetry.v1.json`, and approved for
+  `lotus-gateway` consumption. Gateway and Workbench may display contribution product evidence,
+  but must not reconstruct contribution totals, source-quality posture, or Carino smoothing state
+  downstream. Source inputs are portfolio and position analytics inputs from `lotus-core`; missing
+  component-P&L families remain explicit unsupported/degraded evidence rather than inferred facts.
 
 ## Platform relationship
 

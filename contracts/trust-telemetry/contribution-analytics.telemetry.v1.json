@@ -1,0 +1,64 @@
+{
+  "contract_id": "lotus-domain-product-trust-telemetry-snapshot",
+  "contract_version": "1.0.0",
+  "governed_by_rfcs": [
+    "RFC-0087",
+    "RFC-047"
+  ],
+  "emitted_at_utc": "2026-05-10T00:00:00Z",
+  "product_id": "lotus-performance:ContributionAnalytics:v1",
+  "producer_repository": "lotus-performance",
+  "product_name": "ContributionAnalytics",
+  "product_version": "v1",
+  "source_repository": "lotus-performance",
+  "freshness": {
+    "freshness_class": "daily",
+    "freshness_state": "current",
+    "evaluated_at_utc": "2026-05-10T00:00:00Z",
+    "observed_at_utc": "2026-05-10T00:00:00Z",
+    "age_seconds": 0,
+    "max_allowed_age_seconds": 86400
+  },
+  "completeness_status": "complete",
+  "reconciliation_status": "reconciled",
+  "data_quality_status": "quality_passed",
+  "lineage": {
+    "lineage_materialized": true,
+    "lineage_bundle_id": "lineage:lotus-performance:contribution-analytics:2026-05-10",
+    "evidence_access_class": "customer_consumable",
+    "evidence_uris": [
+      "lotus-performance://evidence/contribution/PB_SG_GLOBAL_BAL_001/2026-05-10"
+    ]
+  },
+  "blocking": {
+    "blocked": false
+  },
+  "observed_trust_metadata": {
+    "product_name": "ContributionAnalytics",
+    "product_version": "v1",
+    "generated_at": "2026-05-10T00:00:00Z",
+    "as_of_date": "2026-05-10",
+    "correlation_id": "rfc-047-lotus-performance-contribution",
+    "request_fingerprint": "sha256:rfc-047-contribution-canonical-proof",
+    "source_services": [
+      "lotus-core",
+      "lotus-performance"
+    ],
+    "upstream_request_fingerprints": [
+      "sha256:rfc-047-lotus-core-portfolio-timeseries",
+      "sha256:rfc-047-lotus-core-position-timeseries"
+    ],
+    "data_quality_status": "quality_passed",
+    "coverage_status": "complete",
+    "coverage_ratio": "1.0"
+  },
+  "evidence": {
+    "correlation_id": "rfc-047-lotus-performance-contribution",
+    "validation_lanes": [
+      "feature",
+      "pr-merge"
+    ],
+    "source_event_id": "source-event:lotus-performance:contribution:2026-05-10",
+    "source_artifact_uri": "lotus-performance://contracts/trust-telemetry/contribution-analytics.telemetry.v1.json"
+  }
+}

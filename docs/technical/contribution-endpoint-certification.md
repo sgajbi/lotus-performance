@@ -144,6 +144,28 @@ cash-flow families and classification dimensions were present, which component-P
 source-authored, and where upstream snapshot lineage is retained. Downstream consumers must preserve
 this block instead of inferring source quality from rounded contribution totals.
 
+## Data Product And Mesh Posture
+
+Contribution is now promoted as `lotus-performance:ContributionAnalytics:v1`, a governed
+portfolio-level performance explanation data product rather than a standalone endpoint. The product
+declaration lives in `contracts/domain-data-products/lotus-performance-products.v1.json` and covers:
+
+- routes: `POST /performance/contribution` and
+  `GET /performance/contribution/results/{calculation_id}`;
+- approved consumer: `lotus-gateway`, which feeds Workbench and advisor-brief experiences;
+- freshness: daily, based on governed valuation-date source observations;
+- lineage: required, customer-consumable lineage summary posture;
+- trust metadata: product identity, generation/as-of dates, correlation and request fingerprints,
+  source services, upstream fingerprints, data-quality status, coverage status, and coverage ratio;
+- source dependencies: `lotus-core` `PortfolioTimeseriesInput:v1` and
+  `PositionTimeseriesInput:v1`.
+
+Repo-local trust telemetry is stored at
+`contracts/trust-telemetry/contribution-analytics.telemetry.v1.json`. Platform SLO, access, and
+evidence policy participation is provided under the RFC-047 platform branch so mesh certification
+can recognize contribution as a governed product with blocking freshness, completeness,
+reconciliation, data-quality, and lineage treatment.
+
 ## GitHub Issue Disposition
 
 Open issue search for contribution currently finds only broad stateful-sourcing issue `#83`. That
