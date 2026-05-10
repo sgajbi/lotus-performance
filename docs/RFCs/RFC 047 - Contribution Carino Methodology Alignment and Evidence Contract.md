@@ -1,6 +1,6 @@
 # RFC 047 - Contribution Carino Methodology Alignment and Evidence Contract
 
-Status: Draft - Gold-Standard Review For Approval
+Status: Approved - Implementation In Progress
 
 Owner repository: `lotus-performance`
 
@@ -10,8 +10,8 @@ Source package: `C:\Users\Sandeep\Downloads\contribution-carino-docs.zip\contrib
 
 Created: 2026-05-10
 
-Implementation posture: not started. This RFC is the approval artifact for the next implementation
-cycle. No contribution implementation work may begin until this RFC is explicitly approved.
+Implementation posture: approved for slice-by-slice implementation. Contribution implementation
+started with Slice 0 after explicit operator approval on 2026-05-10.
 
 ## 0. Critical Review and Tightening Notes
 
@@ -737,12 +737,18 @@ This RFC is done only when:
 
 ## 14. Approval Gate
 
-Implementation may start only after this RFC is approved.
+Implementation started after operator approval on 2026-05-10.
 
 Approval decision needed:
 
-1. approve the Carino correction and evidence-contract direction;
-2. approve cross-repo changes where required;
-3. approve no backward-compatibility constraint for misleading contribution APIs;
-4. approve data-product promotion of `ContributionAnalytics:v1`;
-5. approve documentation/wiki productization scope.
+1. approved the Carino correction and evidence-contract direction;
+2. approved cross-repo changes where required;
+3. approved no backward-compatibility constraint for misleading contribution APIs;
+4. approved data-product promotion of `ContributionAnalytics:v1`;
+5. approved documentation/wiki productization scope.
+
+## 15. Slice Evidence Ledger
+
+| Slice | Status | Evidence |
+| --- | --- | --- |
+| Slice 0 - Source Map, Branch Hygiene, and Baseline Assessment | Complete | `docs/RFCs/RFC-047-source-map-and-baseline-slice0.md` |
