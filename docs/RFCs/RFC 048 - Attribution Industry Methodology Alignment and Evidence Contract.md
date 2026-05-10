@@ -1,6 +1,6 @@
 # RFC 048 - Attribution Industry Methodology Alignment and Evidence Contract
 
-Status: Draft for approval
+Status: Approved - implementation in progress
 
 Owner repository: `lotus-performance`
 
@@ -10,9 +10,10 @@ Source package: `C:\Users\Sandeep\Downloads\attribution-industry-docs.zip\attrib
 
 Created: 2026-05-11
 
-Implementation posture: no implementation is approved yet. This RFC must be reviewed and approved
-before any code, API, contract, downstream, upstream, wiki, or supported-feature implementation work
-starts.
+Implementation posture: approved for slice-by-slice implementation by the operator on 2026-05-11.
+No implementation slice may start until the previous slice is fully implemented, validated,
+reviewed, documented, committed, and in a solid state. Slice 0 baseline evidence is captured in
+`docs/RFCs/RFC-048-source-map-and-baseline-slice0.md`.
 
 ## 0. Critical Review Before Implementation
 
