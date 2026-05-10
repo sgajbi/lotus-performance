@@ -52,6 +52,21 @@ def base_response_footer():
             "resolved_period_count": 1,
             "benchmark_row_count": 0,
         },
+        "source_economics_evidence": {
+            "input_mode": "stateless",
+            "source_owner": "caller",
+            "status": "CALLER_SUPPLIED",
+            "reason_codes": ["STATELESS_CALLER_SUPPLIED_SOURCE_ECONOMICS"],
+            "source_contracts": ["ContributionRequest"],
+            "available_economics": ["portfolio_market_values", "position_market_values"],
+            "unsupported_economics": [],
+            "degraded_economics": [],
+            "cash_flow_type_counts": {},
+            "source_snapshot_count": 0,
+            "source_snapshot_endpoints": [],
+            "classification_dimensions": ["sector"],
+            "lineage_policy": "caller-supplied stateless payload; no upstream source snapshot is available",
+        },
     }
 
 

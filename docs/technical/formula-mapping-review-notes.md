@@ -854,6 +854,7 @@ This supplied implementation defines contribution average weight using several l
 Primary engine path:
 
 - [engine/contribution.py](C:/Users/Sandeep/projects/lotus-performance/engine/contribution.py)
+- [engine/contribution_smoothing.py](C:/Users/Sandeep/projects/lotus-performance/engine/contribution_smoothing.py)
   - `_calculate_daily_instrument_contributions(...)`
   - `build_hierarchical_contribution_result(...)`
 - [app/services/contribution_service.py](C:/Users/Sandeep/projects/lotus-performance/app/services/contribution_service.py)
@@ -964,10 +965,11 @@ Relevant current behavior:
   - `CARINO`
   - `NONE`
 - computes:
-  - `k_daily = log(1 + r_t) / r_t`
-  - `K_total = log(1 + R_total) / R_total`
-- applies adjustment:
-  - `daily_weight * (R_port_t * ((K_total / k_t) - 1))`
+  - `k_t = log1p(R_P,t) / R_P,t`
+  - `K = log1p(R_P) / R_P`
+  - `F_t = k_t / K`
+- applies factor:
+  - `smoothed_contribution_i,t = raw_contribution_i,t * F_t`
 
 ### Assessment
 
@@ -976,13 +978,15 @@ Relevant current behavior:
 - explicit per-date smoothing-factor map object: `Not Covered`
 - long/short log-ratio framework: `Not Covered`
 - archival of smoothing intermediates: `Not Covered`
-- exact formula parity: `Not Exact`
+- exact core Carino factor direction: `Covered`
+- richer smoothing evidence model: `Not Covered`
 
 ### Notes
 
-Current `lotus-performance` contribution smoothing is simpler than the supplied framework:
+Current `lotus-performance` contribution smoothing implements the source-doc Carino factor
+direction for contribution linking, but is still simpler than the supplied framework:
 
-- it uses a standard Carino-style adjustment
+- it uses direct `F_t = k_t / K` Carino factor application
 - it does not expose:
   - `SmoothingData`
   - `ratio_of_ln_long_short`
@@ -990,8 +994,8 @@ Current `lotus-performance` contribution smoothing is simpler than the supplied 
   - archival of smoothing-factor intermediates
 - it does not appear to use complex-number intermediate types
 
-So the current implementation likely captures the broad smoothing intent for contribution,
-but not the full supplied smoothing model.
+So the current implementation captures the core smoothing outcome for contribution, but not the
+full supplied smoothing evidence model.
 
 ### Current status
 

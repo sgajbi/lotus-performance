@@ -4,6 +4,7 @@ from typing import Any
 
 import pandas as pd
 from fastapi import HTTPException, status
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import get_settings
 from app.models.contribution_analytics_requests import ContributionInputMode
@@ -11,6 +12,7 @@ from app.models.contribution_requests import ContributionRequest, PositionData
 from app.models.contribution_responses import (
     AverageWeightMethodologyStatus,
     ContributionResponse,
+    ContributionSmoothingEvidence,
     DailyContribution,
     PositionContribution,
     PositionContributionSeries,
@@ -21,11 +23,12 @@ from app.services.calculation_supportability_service import (
     build_calculation_supportability,
     record_supportability_metric,
 )
+from app.services.contribution_source_economics import build_contribution_source_economics_evidence
 from app.services.execution_lifecycle_service import (
     complete_execution_with_lineage,
     record_execution_failure,
 )
-from app.services.execution_registry import execution_registry
+from app.services.execution_registry import UpstreamSnapshotRecord, execution_registry
 from core.envelope import Audit, Diagnostics, Meta
 from core.periods import resolve_periods
 from engine.config import EngineConfig, PrecisionMode
@@ -39,6 +42,13 @@ from engine.schema import PortfolioColumns
 
 RESET_AWARE_AVERAGE_WEIGHT_MODE_OFF = "OFF"
 RESET_AWARE_AVERAGE_WEIGHT_MODE_CANDIDATE_PERIODS = "CANDIDATE_PERIODS"
+
+
+def _list_upstream_snapshots_for_contribution(calculation_id: Any) -> list[UpstreamSnapshotRecord]:
+    try:
+        return execution_registry.list_upstream_snapshots(str(calculation_id))
+    except SQLAlchemyError:
+        return []
 
 
 def _to_basis_points(decimal_ratio: Any) -> int:
@@ -248,6 +258,87 @@ def _count_carino_invalid_domain_days(portfolio_period_slice_df: pd.DataFrame) -
         errors="coerce",
     )
     return int((1 + (daily_returns / 100) <= 0).sum())
+
+
+def _build_contribution_smoothing_evidence(
+    *,
+    period_slice_df: pd.DataFrame,
+    portfolio_period_slice_df: pd.DataFrame,
+    smoothing_method: str,
+    linked_return: float,
+    final_contribution: float,
+    residual_allocation_applied: bool,
+    residual_allocation_basis: str | None,
+) -> ContributionSmoothingEvidence:
+    """Builds support-safe raw/smoothed contribution evidence for one resolved period."""
+    if period_slice_df.empty:
+        return ContributionSmoothingEvidence(
+            smoothing_method=smoothing_method,
+            status="NO_CONTRIBUTION_ROWS",
+            reason_codes=["NO_CONTRIBUTION_ROWS"],
+            linked_return=linked_return * 100,
+            raw_contribution=0.0,
+            smoothed_contribution=0.0,
+            final_contribution=final_contribution * 100,
+            raw_residual=linked_return * 100,
+            smoothing_residual=linked_return * 100,
+            post_allocation_residual=(linked_return - final_contribution) * 100,
+            residual_allocation_applied=False,
+            residual_allocation_basis=None,
+            invalid_domain_days=0,
+        )
+
+    raw_contribution = _as_numeric(period_slice_df.get("raw_contribution", pd.Series(dtype=float)).sum())
+    smoothed_contribution = _as_numeric(period_slice_df.get("smoothed_contribution", pd.Series(dtype=float)).sum())
+    invalid_domain_days = (
+        _count_carino_invalid_domain_days(portfolio_period_slice_df) if smoothing_method == "CARINO" else 0
+    )
+    reason_codes: list[str] = []
+    if smoothing_method != "CARINO":
+        status_text = "NOT_REQUESTED"
+        reason_codes.append("SMOOTHING_NOT_REQUESTED")
+    elif invalid_domain_days > 0:
+        status_text = "INVALID_DOMAIN_FALLBACK"
+        reason_codes.append("CARINO_INVALID_DAILY_LOG_DOMAIN")
+    else:
+        status_text = "APPLIED"
+        reason_codes.append("CARINO_FACTOR_APPLIED")
+
+    raw_residual = linked_return - raw_contribution
+    smoothing_residual = linked_return - smoothed_contribution
+    post_allocation_residual = linked_return - final_contribution
+    if residual_allocation_applied:
+        reason_codes.append("RESIDUAL_ALLOCATED_TO_RECONCILE_PERIOD")
+    if abs(raw_residual) > 1e-12:
+        reason_codes.append("RAW_CONTRIBUTION_DIFFERS_FROM_LINKED_RETURN")
+    if abs(smoothing_residual) <= 1e-9 and smoothing_method == "CARINO" and invalid_domain_days == 0:
+        reason_codes.append("SMOOTHED_CONTRIBUTION_RECONCILES")
+
+    carino_factor_min = None
+    carino_factor_max = None
+    if "carino_factor" in period_slice_df.columns:
+        factors = pd.to_numeric(period_slice_df["carino_factor"], errors="coerce").dropna()
+        if not factors.empty:
+            carino_factor_min = _as_numeric(factors.min(), default=None)
+            carino_factor_max = _as_numeric(factors.max(), default=None)
+
+    return ContributionSmoothingEvidence(
+        smoothing_method=smoothing_method,
+        status=status_text,
+        reason_codes=sorted(set(reason_codes)),
+        linked_return=linked_return * 100,
+        raw_contribution=raw_contribution * 100,
+        smoothed_contribution=smoothed_contribution * 100,
+        final_contribution=final_contribution * 100,
+        raw_residual=raw_residual * 100,
+        smoothing_residual=smoothing_residual * 100,
+        post_allocation_residual=post_allocation_residual * 100,
+        residual_allocation_applied=residual_allocation_applied,
+        residual_allocation_basis=residual_allocation_basis if residual_allocation_applied else None,
+        carino_factor_min=carino_factor_min,
+        carino_factor_max=carino_factor_max,
+        invalid_domain_days=invalid_domain_days,
+    )
 
 
 def _build_portfolio_engine_diagnostics(portfolio_results_df: pd.DataFrame, effective_period_start) -> Diagnostics:
@@ -1102,7 +1193,9 @@ def calculate_contribution(
                 sum_of_contributions = _as_numeric(position_totals["total_contribution"].sum())
                 residual = total_portfolio_return - sum_of_contributions
                 total_avg_weight = _as_numeric(position_totals["average_weight"].sum())
+                residual_allocation_applied = False
                 if total_avg_weight > 0 and request.smoothing.method == "CARINO":
+                    residual_allocation_applied = abs(residual) > 1e-12
                     position_totals["total_contribution"] += residual * (
                         position_totals["average_weight"] / total_avg_weight
                     )
@@ -1141,6 +1234,15 @@ def calculate_contribution(
                 )
                 period_total_contribution = sum(
                     position_contribution.total_contribution for position_contribution in position_contributions
+                )
+                smoothing_evidence = _build_contribution_smoothing_evidence(
+                    period_slice_df=period_slice_df,
+                    portfolio_period_slice_df=portfolio_period_slice_df,
+                    smoothing_method=request.smoothing.method,
+                    linked_return=total_portfolio_return,
+                    final_contribution=period_total_contribution / 100,
+                    residual_allocation_applied=residual_allocation_applied,
+                    residual_allocation_basis="average_weight",
                 )
                 period_timeseries_total_delta_periods = 0
                 if daily_series is not None:
@@ -1205,6 +1307,7 @@ def calculate_contribution(
                     timeseries=daily_series,
                     by_position_timeseries=emitted_position_series,
                     average_weight_methodology_status=period_methodology_status,
+                    smoothing_evidence=smoothing_evidence,
                     summary=period_results.get("summary"),
                     levels=period_results.get("levels"),
                 )
@@ -1336,7 +1439,9 @@ def calculate_contribution(
                 residual = total_portfolio_return - sum_of_contributions
                 total_avg_weight = _as_numeric(totals["selected_average_weight"].sum())
 
+                residual_allocation_applied = False
                 if total_avg_weight > 0 and request.smoothing.method == "CARINO":
+                    residual_allocation_applied = abs(residual) > 1e-12
                     totals["total_contribution"] += residual * (totals["selected_average_weight"] / total_avg_weight)
 
                 totals["fx_contribution"] = totals["total_contribution"] - totals["local_contribution"]
@@ -1369,6 +1474,15 @@ def calculate_contribution(
                 )
                 period_timeseries_total_delta_periods = 0
                 period_total_contribution = sum(pc.total_contribution for pc in position_contributions)
+                smoothing_evidence = _build_contribution_smoothing_evidence(
+                    period_slice_df=period_slice_df,
+                    portfolio_period_slice_df=portfolio_period_slice_df,
+                    smoothing_method=request.smoothing.method,
+                    linked_return=total_portfolio_return,
+                    final_contribution=period_total_contribution / 100,
+                    residual_allocation_applied=residual_allocation_applied,
+                    residual_allocation_basis=selected_average_weight_column,
+                )
                 if daily_series is not None:
                     daily_timeseries_total = sum(point.total_contribution for point in daily_series)
                     if abs(daily_timeseries_total - period_total_contribution) > 1e-9:
@@ -1433,6 +1547,7 @@ def calculate_contribution(
                     timeseries=daily_series,
                     by_position_timeseries=emitted_position_series,
                     average_weight_methodology_status=period_methodology_status,
+                    smoothing_evidence=smoothing_evidence,
                 )
     except HTTPException as exc:
         record_execution_failure(
@@ -1614,6 +1729,11 @@ def calculate_contribution(
         latest_observation_date=_latest_contribution_observation_date(request),
         report_end_date=request.report_end_date,
     )
+    source_economics_evidence = build_contribution_source_economics_evidence(
+        request=request,
+        input_mode=input_mode,
+        upstream_snapshots=_list_upstream_snapshots_for_contribution(request.calculation_id),
+    )
     record_supportability_metric(operation="contribution", supportability=calculation_supportability)
 
     response_model = ContributionResponse(
@@ -1622,6 +1742,7 @@ def calculate_contribution(
         input_mode=input_mode,
         results_by_period=results_by_period,
         calculation_supportability=calculation_supportability,
+        source_economics_evidence=source_economics_evidence,
         meta=meta,
         diagnostics=diagnostics,
         audit=audit,

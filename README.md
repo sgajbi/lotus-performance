@@ -30,7 +30,10 @@ does not delegate performance conclusions to `lotus-core`.
 2. Stateful integration with `lotus-core` is live under the RFC-0082 contract-family map.
 3. Async execution, lineage capture, and durable runtime-control surfaces are shipped parts of the
    contract.
-4. OpenAPI, API vocabulary, migration, security, and Docker parity are part of the real merge gate.
+4. Time-weighted return, money-weighted return, contribution, returns-series, and benchmark exposure
+   context are declared as governed data products under `contracts/domain-data-products/`.
+5. OpenAPI, API vocabulary, domain-product validation, migration, security, and Docker parity are
+   part of the real merge gate.
 
 ## Architecture At A Glance
 
@@ -211,6 +214,10 @@ Key deeper references:
   [docs/technical/benchmark-endpoint-certification.md](docs/technical/benchmark-endpoint-certification.md)
 - MWR certification:
   [docs/technical/mwr-endpoint-certification.md](docs/technical/mwr-endpoint-certification.md)
+- Contribution certification:
+  [docs/technical/contribution-endpoint-certification.md](docs/technical/contribution-endpoint-certification.md)
+- Contribution Analytics product wiki:
+  [wiki/Contribution-Analytics.md](wiki/Contribution-Analytics.md)
 - Benchmark Exposure Context Endpoint Certification:
   [docs/technical/benchmark-exposure-context-endpoint-certification.md](docs/technical/benchmark-exposure-context-endpoint-certification.md)
 

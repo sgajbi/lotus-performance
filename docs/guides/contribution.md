@@ -41,6 +41,9 @@ Inside the current contract:
 - stateless `portfolio_data` contains `metric_basis` and `valuation_points`
 - each stateless entry in `positions_data` contains `position_id`, optional `meta`, and `valuation_points`
 - stateful mode sources canonical portfolio and position timeseries from lotus-core and normalizes them into the same stateless engine inputs used by direct requests
+- stateful mode preserves source-economics posture in `source_economics_evidence`, including
+  source contracts, cash-flow type counts, available economics, unsupported component-P&L families,
+  and upstream snapshot posture
 
 Older examples using nested `daily_data` or request-level `period_type` are not current.
 
@@ -94,6 +97,19 @@ Daily raw contribution is the position weight multiplied by position return.
 
 The default smoothing method is `CARINO`, which is used so that multi-period contribution results
 reconcile to the total geometric portfolio return.
+
+For a valid linked return path, Lotus applies the industry Carino factor directly to raw daily
+contribution:
+
+- `k_t = log1p(R_P,t) / R_P,t`
+- `K = log1p(R_P) / R_P`
+- `F_t = k_t / K`
+- `smoothed_contribution_i,t = raw_contribution_i,t * F_t`
+
+This matters because raw arithmetic contribution can sum to a different value from linked portfolio
+return. For example, `+10%` followed by `-10%` sums to `0%` arithmetically, but geometrically links
+to `-1%`; Carino maps the raw daily contributions to that linked return when the logarithmic domain
+is valid.
 
 ### 4. Hierarchical aggregation
 
@@ -217,6 +233,72 @@ The audit block now also quantifies the size of that disagreement:
   slice
 
 Each resolved period now also includes a compact response block at:
+
+- `results_by_period.<period>.smoothing_evidence`
+
+Use this block when explaining raw versus linked contribution:
+
+- `smoothing_method`: requested method, such as `CARINO` or `NONE`
+- `status`: resolved posture, such as `APPLIED`, `NOT_REQUESTED`, or
+  `INVALID_DOMAIN_FALLBACK`
+- `reason_codes`: machine-readable status and residual reasons
+- `linked_return`: source portfolio linked return in percentage-point units
+- `raw_contribution`: raw daily contribution sum before smoothing in percentage-point units
+- `smoothed_contribution`: smoothed contribution sum before residual allocation in
+  percentage-point units
+- `final_contribution`: final period contribution after any residual allocation in
+  percentage-point units
+- `raw_residual`: linked return minus raw contribution
+- `smoothing_residual`: linked return minus smoothed contribution before residual allocation
+- `post_allocation_residual`: linked return minus final contribution
+- `residual_allocation_applied` and `residual_allocation_basis`: whether and how final residual
+  allocation was needed
+- `carino_factor_min` and `carino_factor_max`: factor range when Carino factor evidence exists
+- `invalid_domain_days`: count of days where Carino was not mathematically valid
+
+This is the first place support teams should look before recomputing contribution internals.
+
+The top-level response also includes:
+
+- `source_economics_evidence`
+
+Use this block to understand what the contribution result was actually sourced from:
+
+- `source_owner`: `lotus-core` for stateful analytics inputs, `caller` for stateless payloads
+- `status`: `SOURCE_BACKED`, `SOURCE_LIMITED`, or `CALLER_SUPPLIED`
+- `source_contracts`: source contracts used, such as `PortfolioTimeseriesInput:v1` and
+  `PositionTimeseriesInput:v1`
+- `available_economics`: source-backed inputs such as market values, external flows, internal
+  trade flows, fees, FX rates, and classification dimensions
+- `unsupported_economics`: component-P&L families that are not source-authored in the current
+  contract, such as income, tax, corporate-action, derivative, cash, and residual P&L buckets
+- `degraded_economics`: degraded signals such as unsupported source cash-flow types, missing
+  classification, or execution-only upstream snapshot lineage
+- `cash_flow_type_counts`: source cash-flow labels observed on stateful position rows
+- `source_snapshot_count` and `source_snapshot_endpoints`: execution-registry lineage coverage
+
+Lotus does not guess unavailable income, tax, FX P&L, corporate-action, derivative, loan, cash, or
+liability economics. Those fields remain explicit unsupported or degraded evidence until a
+source-owned contract publishes them.
+
+## Source-Document Edge Semantics
+
+RFC-047 adds implementation-backed QA coverage for contribution economics that commonly create
+front-office and audit confusion:
+
+- external deposits and withdrawals are cash-flow events, not portfolio performance;
+- balanced internal trade flows do not become portfolio external flow;
+- income can remain assigned to the generating asset when source metadata supplies `income_pnl`;
+- net fee drag can be represented through an explicit fee bucket when source metadata supplies
+  `fee_pnl`;
+- missing hierarchy classification is emitted as `Unclassified` rather than dropped or guessed;
+- short positions preserve signed average weight and inverse contribution sign behavior;
+- hierarchy rows, position rows, daily totals, and by-position series reconcile to the
+  source-owned period total.
+
+These semantics are product behavior, not documentation examples. They are covered by
+`tests/integration/test_contribution_api.py` and `tests/e2e/test_workflow_journeys.py` and are
+summarized for product audiences in `wiki/Contribution-Analytics.md`.
 
 - `results_by_period.<period>.average_weight_methodology_status`
 

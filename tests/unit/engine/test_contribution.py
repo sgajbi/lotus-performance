@@ -81,7 +81,7 @@ def test_calculate_daily_contributions_smoothing(prepared_data_fixture):
     stock_a_day_1 = result_df[result_df["position_id"] == "Stock_A"].iloc[0]
     assert stock_a_day_1["raw_contribution"] == pytest.approx(0.012)
     assert stock_a_day_1["smoothed_contribution"] != pytest.approx(0.012)
-    assert stock_a_day_1["smoothed_contribution"] == pytest.approx(0.01194, abs=1e-5)
+    assert stock_a_day_1["smoothed_contribution"] == pytest.approx(0.01205617, abs=1e-8)
 
 
 def test_calculate_carino_factors():
@@ -90,6 +90,141 @@ def test_calculate_carino_factors():
     assert k_daily.iloc[0] == pytest.approx(0.95310179)
     k_zero = _calculate_carino_factors(pd.Series([0.0]))
     assert k_zero.iloc[0] == 1.0
+
+
+def test_carino_factors_match_source_docs_two_day_example():
+    """Carino industry example: +10% then -10% links to -1% with F_t = k_t / K."""
+    ror_series = pd.Series(
+        [0.10, -0.10],
+        index=pd.to_datetime(["2025-01-01", "2025-01-02"]),
+    )
+
+    k_daily = _calculate_carino_factors(ror_series)
+    linked_return = float((1 + ror_series).prod() - 1)
+    k_total = _calculate_carino_factor_for_return(linked_return)
+
+    assert linked_return == pytest.approx(-0.01)
+    assert k_daily.iloc[0] == pytest.approx(0.9531017980)
+    assert k_daily.iloc[1] == pytest.approx(1.0536051566)
+    assert k_total == pytest.approx(1.0050335854)
+    assert k_daily.iloc[0] / k_total == pytest.approx(0.9483283066)
+    assert k_daily.iloc[1] / k_total == pytest.approx(1.0483283066)
+
+
+def test_carino_smoothing_reconciles_raw_daily_mismatch_to_linked_return():
+    """Raw daily contributions can fail multi-period linkage until Carino factors are applied."""
+    instruments_df = pd.DataFrame(
+        [
+            {
+                "perf_date": pd.Timestamp("2025-01-01"),
+                "position_id": "P1",
+                "begin_mv": 100.0,
+                "bod_cf": 0.0,
+                "daily_ror": 10.0,
+                "local_ror": 10.0,
+                "fx_ror": 0.0,
+            },
+            {
+                "perf_date": pd.Timestamp("2025-01-02"),
+                "position_id": "P1",
+                "begin_mv": 110.0,
+                "bod_cf": 0.0,
+                "daily_ror": -10.0,
+                "local_ror": -10.0,
+                "fx_ror": 0.0,
+            },
+        ]
+    )
+    portfolio_df = pd.DataFrame(
+        [
+            {
+                "perf_date": pd.Timestamp("2025-01-01"),
+                "begin_mv": 100.0,
+                "bod_cf": 0.0,
+                "daily_ror": 10.0,
+                "nip": 0,
+                "perf_reset": 0,
+            },
+            {
+                "perf_date": pd.Timestamp("2025-01-02"),
+                "begin_mv": 110.0,
+                "bod_cf": 0.0,
+                "daily_ror": -10.0,
+                "nip": 0,
+                "perf_reset": 0,
+            },
+        ]
+    )
+
+    result_df = _calculate_daily_instrument_contributions(
+        instruments_df,
+        portfolio_df,
+        WeightingScheme.BOD,
+        Smoothing(method="CARINO"),
+    )
+
+    assert result_df["raw_contribution"].sum() == pytest.approx(0.0)
+    assert result_df["smoothed_contribution"].sum() == pytest.approx(-0.01)
+    assert result_df["carino_factor"].tolist() == pytest.approx([0.9483283066, 1.0483283066])
+
+
+def test_carino_smoothing_handles_zero_linked_return():
+    instruments_df = pd.DataFrame(
+        [
+            {
+                "perf_date": pd.Timestamp("2025-01-01"),
+                "position_id": "P1",
+                "begin_mv": 100.0,
+                "bod_cf": 0.0,
+                "daily_ror": 10.0,
+                "local_ror": 10.0,
+                "fx_ror": 0.0,
+            },
+            {
+                "perf_date": pd.Timestamp("2025-01-02"),
+                "position_id": "P1",
+                "begin_mv": 110.0,
+                "bod_cf": 0.0,
+                "daily_ror": -9.090909090909,
+                "local_ror": -9.090909090909,
+                "fx_ror": 0.0,
+            },
+        ]
+    )
+    portfolio_df = pd.DataFrame(
+        [
+            {
+                "perf_date": pd.Timestamp("2025-01-01"),
+                "begin_mv": 100.0,
+                "bod_cf": 0.0,
+                "daily_ror": 10.0,
+                "nip": 0,
+                "perf_reset": 0,
+            },
+            {
+                "perf_date": pd.Timestamp("2025-01-02"),
+                "begin_mv": 110.0,
+                "bod_cf": 0.0,
+                "daily_ror": -9.090909090909,
+                "nip": 0,
+                "perf_reset": 0,
+            },
+        ]
+    )
+
+    result_df = _calculate_daily_instrument_contributions(
+        instruments_df,
+        portfolio_df,
+        WeightingScheme.BOD,
+        Smoothing(method="CARINO"),
+    )
+
+    assert result_df["K_total"].iloc[0] == pytest.approx(1.0)
+    assert result_df["smoothed_contribution"].sum() == pytest.approx(0.0, abs=1e-12)
+
+
+def test_carino_factor_uses_neutral_value_for_near_zero_return():
+    assert _calculate_carino_factor_for_return(1e-14) == 1.0
 
 
 def test_calculate_carino_factor_uses_neutral_fallback_when_log_domain_breaks():

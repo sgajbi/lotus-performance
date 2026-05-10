@@ -3,10 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-CashflowEconomicsRole = Literal["fee", "external", "unsupported", "missing"]
+CashflowEconomicsRole = Literal["fee", "external", "internal", "unsupported", "missing"]
 
 _CANONICAL_FEE_TYPES = {"fee"}
-_CANONICAL_EXTERNAL_TYPES = {"external_flow"}
+_CANONICAL_EXTERNAL_TYPES = {"external_flow", "transfer"}
+_CANONICAL_INTERNAL_TYPES = {"internal_trade_flow"}
 _FEE_LIKE_ALIASES = {
     "advisory_fee",
     "custody_fee",
@@ -64,6 +65,14 @@ def classify_cashflow_type(raw_value: object) -> CashflowTypeClassification:
             raw_value=raw_value,
             normalized_value=normalized_value,
             economics_role="external",
+            canonical=True,
+            governed_alias=False,
+        )
+    if normalized_value in _CANONICAL_INTERNAL_TYPES:
+        return CashflowTypeClassification(
+            raw_value=raw_value,
+            normalized_value=normalized_value,
+            economics_role="internal",
             canonical=True,
             governed_alias=False,
         )

@@ -27,6 +27,28 @@
       }
     },
     {
+      "product_name": "PositionTimeseriesInput",
+      "producer_repository": "lotus-core",
+      "required_product_version": "v1",
+      "consumption_mode": "paged_api_read",
+      "business_purpose": "Source canonical position market values, cash-flow labels, FX metadata, and classification dimensions for stateful contribution analytics.",
+      "validation_lanes": [
+        "feature",
+        "pr-merge"
+      ],
+      "failure_posture": "fail_closed",
+      "required_trust_metadata": [
+        "generated_at",
+        "as_of_date",
+        "reconciliation_status",
+        "data_quality_status",
+        "correlation_id"
+      ],
+      "migration_posture": {
+        "status": "current"
+      }
+    },
+    {
       "product_name": "PortfolioAnalyticsReference",
       "producer_repository": "lotus-core",
       "required_product_version": "v1",

@@ -12,7 +12,7 @@ claim list.
 | Benchmark-aware TWR | Portfolio TWR with benchmark return and active return | `POST /performance/twr` with `include_benchmark=true` | `benchmark_context.supportability_evidence` exposes benchmark source/method, currency state, FX decomposition posture, calendar alignment, missing-date counts, and bounded warning codes. |
 | TWR inspection | Source-quality, economic-plausibility, reconciliation, cash-flow classification, reset/linkability supportability | `POST /performance/inspections/twr` | Inspection findings and artifacts support operational diagnosis; resolved async TWR subjects can use durable compute-job request payloads when API-local lineage files are not yet visible. Inspection is the deeper support surface and does not replace the calculation response contract. |
 | Money-weighted return | Portfolio-level XIRR, Modified Dietz fallback, Simple Dietz explicit path | `POST /performance/mwr` | Status, reason codes, warnings, convergence, fallback metadata, reporting currency, currency evidence, calculation supportability, and production-control docs. |
-| Contribution | Portfolio and position contribution, including stateful source-normalized input | `POST /performance/contribution` | Total, local, and FX contribution results with bounded supportability. Downstream consumers should not reconstruct contribution. |
+| Contribution | Portfolio, position, and hierarchy contribution, including stateful source-normalized input | `POST /performance/contribution` | Total, local, and FX contribution results with bounded supportability, Carino smoothing evidence, source-economics evidence, trust telemetry, and governed `ContributionAnalytics:v1` data-product declaration. RFC-047 proves external-deposit neutrality, income assignment, fee drag, missing classification, short-sleeve sign behavior, downstream Gateway preservation, and Workbench evidence display. Downstream consumers should not reconstruct contribution. |
 | Attribution | Portfolio/benchmark attribution, including stateful source-normalized input | `POST /performance/attribution` | Allocation, selection, interaction, active return, currency-attribution evidence, and supportability metadata. |
 | Returns series | Performance-owned return-series bundle for downstream analytics engines | `POST /integration/returns/series` | Correct downstream surface for risk engines; `lotus-risk` should consume this rather than direct TWR response internals. |
 | Benchmark exposure context | Benchmark exposure rows for risk and integration workflows | `POST /integration/benchmarks/exposure-context` | Benchmark-context integration product; not a composite TWR calculation surface. |
@@ -62,9 +62,18 @@ requires lineage, carries customer-consumable evidence posture, and is approved 
 consumption. Gateway and Workbench can publish the evidence, but they do not redefine the
 performance methodology.
 
+`ContributionAnalytics:v1` is also a governed `lotus-performance` data product. It is declared in
+`contracts/domain-data-products/lotus-performance-products.v1.json`, has repo-local trust telemetry
+at `contracts/trust-telemetry/contribution-analytics.telemetry.v1.json`, uses daily freshness
+semantics, requires lineage, and is approved for Gateway consumption. Stateful contribution depends
+on `lotus-core` `PortfolioTimeseriesInput:v1` and `PositionTimeseriesInput:v1`; unsupported
+component-P&L families are exposed as unsupported or degraded evidence rather than inferred
+downstream. The product is detailed in [Contribution Analytics](Contribution-Analytics).
+
 ## References
 
 - [Time-Weighted Return](Time-Weighted-Return)
+- [Contribution Analytics](Contribution-Analytics)
 - [Mesh Data Products](Mesh-Data-Products)
 - [docs/guides/twr.md](../docs/guides/twr.md)
 - [docs/technical/twr-documentation-map.md](../docs/technical/twr-documentation-map.md)

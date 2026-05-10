@@ -76,6 +76,17 @@ def test_split_position_cash_flows_in_value_basis_ignores_non_list_and_non_usabl
     ) == (Decimal("0"), Decimal("0"), Decimal("0"))
 
 
+def test_split_position_cash_flows_in_value_basis_includes_internal_trade_flows():
+    assert split_position_cash_flows_in_value_basis(
+        cash_flows_raw=[
+            {"amount": "10", "timing": "bod", "cash_flow_type": "internal_trade_flow"},
+            {"amount": "-4", "timing": "eod", "cash_flow_type": "transfer"},
+        ],
+        row={},
+        value_basis="position",
+    ) == (Decimal("10"), Decimal("-4"), Decimal("0"))
+
+
 def test_cash_flow_conversion_factor_and_decimal_default_helpers_cover_missing_rates():
     assert _cash_flow_conversion_factor(row={}, value_basis="position") == Decimal("1")
     assert _cash_flow_conversion_factor(row={}, value_basis="portfolio") == Decimal("1")

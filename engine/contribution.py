@@ -7,35 +7,24 @@ import pandas as pd
 from app.models.contribution_requests import ContributionRequest, Smoothing
 from common.enums import WeightingScheme
 from engine.config import EngineConfig
+from engine.contribution_smoothing import (
+    _calculate_carino_factor_for_return,
+    _calculate_carino_factors,
+    _carino_smoothing_domain_is_valid,
+    apply_contribution_smoothing,
+)
 from engine.runtime import run_engine_for_valuation_points
 from engine.schema import PortfolioColumns
 
-
-def _calculate_carino_factor_for_return(portfolio_return: float) -> float:
-    """Returns the Carino linking factor for a single return when the log domain is valid.
-
-    Domain meaning:
-    Carino smoothing relies on ``log(1 + r)``, so it is only defined while the linked gross return
-    factor remains strictly positive. When the portfolio path falls to ``-100%`` or below, that
-    assumption breaks and the caller must avoid Carino adjustments for that episode.
-    """
-    if portfolio_return == 0:
-        return 1.0
-    if 1 + portfolio_return <= 0:
-        return 1.0
-    return float(np.log(1 + portfolio_return) / portfolio_return)
-
-
-def _carino_smoothing_domain_is_valid(portfolio_return_series: pd.Series) -> bool:
-    """Reports whether Carino smoothing is mathematically valid for a linked portfolio path.
-
-    Carino assumes every linked sub-period has a positive gross return factor. Once any day has
-    ``1 + r <= 0``, the logarithmic smoothing term stops being defined and the engine should fall
-    back to unsmoothed daily contribution arithmetic for that period slice.
-    """
-    numeric_returns = pd.to_numeric(portfolio_return_series, errors="coerce")
-    gross_return_factors = 1 + numeric_returns
-    return bool(gross_return_factors.gt(0).all())
+__all__ = [
+    "_calculate_carino_factor_for_return",
+    "_calculate_carino_factors",
+    "_carino_smoothing_domain_is_valid",
+    "_calculate_daily_instrument_contributions",
+    "_prepare_hierarchical_data",
+    "build_hierarchical_contribution_result",
+    "calculate_hierarchical_contribution",
+]
 
 
 def _calculate_daily_instrument_contributions(
@@ -67,34 +56,7 @@ def _calculate_daily_instrument_contributions(
     df["raw_local_contribution"] = df["daily_weight"] * (df.get("local_ror", 0.0) / 100)
     df["raw_fx_contribution"] = df["daily_weight"] * (df.get("fx_ror", 0.0) / 100)
     df["raw_contribution"] = df["daily_weight"] * (df[PortfolioColumns.DAILY_ROR.value] / 100)
-
-    if smoothing.method == "CARINO":
-        portfolio_df_indexed = portfolio_df.set_index(PortfolioColumns.PERF_DATE.value)
-        port_ror_series = portfolio_df_indexed[PortfolioColumns.DAILY_ROR.value] / 100
-        if _carino_smoothing_domain_is_valid(port_ror_series):
-            k_daily = _calculate_carino_factors(port_ror_series)
-            port_total_ror = float((1 + port_ror_series).prod() - 1)
-            K_total = _calculate_carino_factor_for_return(port_total_ror)
-
-            df = pd.merge(df, k_daily.rename("k_t"), left_on=PortfolioColumns.PERF_DATE.value, right_index=True)
-            df["K_total"] = K_total
-
-            port_ror_daily_map = portfolio_df_indexed[PortfolioColumns.DAILY_ROR.value] / 100
-            df["R_port_t"] = df[PortfolioColumns.PERF_DATE.value].map(port_ror_daily_map)
-
-            adjustment_factor = df["daily_weight"] * (df["R_port_t"] * ((df["K_total"] / df["k_t"]) - 1))
-
-            df["smoothed_contribution"] = df["raw_contribution"] + adjustment_factor.fillna(0.0)
-            df["smoothed_local_contribution"] = df["raw_local_contribution"]
-            df["smoothed_fx_contribution"] = df["smoothed_contribution"] - df["smoothed_local_contribution"]
-        else:
-            df["smoothed_local_contribution"] = df["raw_local_contribution"]
-            df["smoothed_fx_contribution"] = df["raw_fx_contribution"]
-            df["smoothed_contribution"] = df["raw_contribution"]
-    else:
-        df["smoothed_local_contribution"] = df["raw_local_contribution"]
-        df["smoothed_fx_contribution"] = df["raw_fx_contribution"]
-        df["smoothed_contribution"] = df["raw_contribution"]
+    df = apply_contribution_smoothing(df, portfolio_df, smoothing)
 
     nip_reset_dates = portfolio_df[
         (portfolio_df[PortfolioColumns.NIP.value] == 1) | (portfolio_df[PortfolioColumns.PERF_RESET.value] == 1)
@@ -297,14 +259,3 @@ def build_hierarchical_contribution_result(
         summary["fx_contribution"] = aggregated_df["fx_contribution"].sum() * 100
 
     return {"summary": summary, "levels": response_levels}
-
-
-def _calculate_carino_factors(ror_series: pd.Series) -> pd.Series:
-    """Calculates daily Carino factors for returns that remain inside the valid log domain."""
-    if not isinstance(ror_series.index, pd.DatetimeIndex):
-        ror_series.index = pd.to_datetime(ror_series.index)
-
-    return pd.Series(
-        [_calculate_carino_factor_for_return(float(portfolio_return)) for portfolio_return in ror_series],
-        index=ror_series.index,
-    )

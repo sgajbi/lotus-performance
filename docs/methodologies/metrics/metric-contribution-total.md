@@ -33,6 +33,12 @@ Position Total Contribution (`position_contributions[].total_contribution`)
   then normalizes them into the same `ContributionRequest` shape used by stateless execution.
 - `lotus-performance` remains the contribution methodology owner; lotus-core supplies analytics
   inputs and source metadata, not contribution conclusions.
+- Current lotus-core stateful contracts supply the essential market-value, cash-flow, FX,
+  classification, paging, and lineage fields required by this contribution methodology. They do
+  not publish source-authored component P&L buckets for price, income, tax, FX P&L,
+  corporate-action, derivative, cash, or residual contribution. lotus-performance therefore
+  reports those families through `source_economics_evidence.unsupported_economics` instead of
+  reconstructing them.
 
 ## Unit Conventions
 - Daily contribution math in engine uses decimal form.
@@ -49,8 +55,9 @@ Position Total Contribution (`position_contributions[].total_contribution`)
 - `c_s_i,t`: smoothed daily contribution (decimal)
 - `R_P,t`: portfolio daily return (decimal)
 - `R_P`: linked portfolio period return (decimal)
-- `K_t`: Carino daily factor
+- `k_t`: Carino daily factor
 - `K`: Carino total factor
+- `F_t`: Carino smoothing factor applied to raw daily contribution
 - `basis`: source-resolved contribution metric basis (`NET` or `GROSS`)
 - `M_i`: source metadata attached to position `i`, including dimensions and selected currency
   evidence where available
@@ -65,11 +72,13 @@ Position Total Contribution (`position_contributions[].total_contribution`)
 - `c_raw_i,t = w_i,t * r_i,t`
 
 3. Carino smoothing branch (`smoothing.method=CARINO`):
-- `K_t = log(1 + R_P,t) / R_P,t` (if `R_P,t=0`, use `1`)
+- `k_t = log1p(R_P,t) / R_P,t` (if `R_P,t` is near zero, use `1`)
 - `R_P = prod_t(1 + R_P,t) - 1`
-- `K = log(1 + R_P) / R_P` (if `R_P=0`, use `1`)
-- `adjust_i,t = w_i,t * (R_P,t * (K / K_t - 1))`
-- `c_s_i,t = c_raw_i,t + adjust_i,t`
+- `K = log1p(R_P) / R_P` (if `R_P` is near zero, use `1`)
+- `F_t = k_t / K`
+- `c_s_i,t = c_raw_i,t * F_t`
+- If any daily linked gross return factor is `<= 0`, Carino is not defined for that slice and
+  contribution falls back to raw daily contribution arithmetic.
 
 4. Non-Carino branch:
 - `c_s_i,t = c_raw_i,t`
@@ -95,7 +104,8 @@ Position Total Contribution (`position_contributions[].total_contribution`)
 3. Run TWR engine for portfolio and each position to obtain daily returns.
 4. Merge position rows with portfolio capital columns by date.
 5. Compute daily weights and raw daily contributions.
-6. Apply smoothing method (`CARINO` or `NONE`).
+6. Apply smoothing method (`CARINO` or `NONE`). For `CARINO`, multiply raw daily contribution by
+   `F_t = k_t / K` when the logarithmic domain is valid.
 7. Zero contribution rows on NIP/reset dates.
 8. Slice both contribution rows and portfolio daily-return rows by each resolved period.
 9. Aggregate by position or hierarchy within that period slice and apply residual reconciliation when applicable.
@@ -128,8 +138,26 @@ Primary fields:
 - `results_by_period.<period>.position_contributions[].total_contribution`
 - `results_by_period.<period>.total_contribution`
 - `results_by_period.<period>.total_portfolio_return`
+- `results_by_period.<period>.smoothing_evidence`
+- `source_economics_evidence`
 - `input_mode`
 - `calculation_supportability`, `meta`, `diagnostics`, and `audit`
+
+Smoothing evidence fields:
+- `linked_return`, `raw_contribution`, `smoothed_contribution`, `final_contribution`
+- `raw_residual`, `smoothing_residual`, `post_allocation_residual`
+- `smoothing_method`, `status`, `reason_codes`
+- `residual_allocation_applied`, `residual_allocation_basis`
+- `carino_factor_min`, `carino_factor_max`, `invalid_domain_days`
+
+Source-economics evidence fields:
+- `status`, `source_owner`, `source_contracts`, and `reason_codes`
+- `available_economics`, including market values, external flows, internal trade flows, fees, FX
+  rates, and classification dimensions where available
+- `unsupported_economics`, including component-P&L families that are not source-authored
+- `degraded_economics`, including unsupported cash-flow types, missing classification, or missing
+  embedded snapshot evidence
+- `cash_flow_type_counts`, `source_snapshot_count`, and `source_snapshot_endpoints`
 
 Hierarchical path fields:
 - `results_by_period.<period>.summary.portfolio_contribution`
@@ -151,3 +179,16 @@ Aggregation:
 Output mapping:
 - `results_by_period.ITD.position_contributions[0].total_contribution = 1.80`
 - In hierarchy mode, the same period slice would map to `results_by_period.ITD.summary.portfolio_contribution = 1.80`
+
+Two-day Carino linking example (`smoothing=CARINO`, one fully covered position):
+
+| day | `R_P,t` | `c_raw_i,t` | `k_t` | `K` | `F_t = k_t / K` | `c_s_i,t` |
+|---|---:|---:|---:|---:|---:|---:|
+| 1 | 0.1000 | 0.1000 | 0.9531017980 | 1.0050335854 | 0.9483283066 | 0.0948328307 |
+| 2 | -0.1000 | -0.1000 | 1.0536051566 | 1.0050335854 | 1.0483283066 | -0.1048328307 |
+
+Aggregation:
+- Raw arithmetic sum: `0.1000 + -0.1000 = 0.0000`
+- Linked portfolio return: `(1.10 * 0.90) - 1 = -0.0100`
+- Carino-smoothed contribution: `0.0948328307 + -0.1048328307 = -0.0100`
+- Response value in pp: `-0.0100 * 100 = -1.00`

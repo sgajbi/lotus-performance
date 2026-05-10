@@ -70,6 +70,11 @@ Every certified contribution response must satisfy these invariants for each res
   `levels[].rows[].contribution` reconcile to `total_contribution`;
 - hierarchy row `weight_avg` values are average portfolio weights in percentage units, and first
   level rows should reconcile to 100% when the requested visible scope covers the full portfolio.
+- `smoothing_evidence.linked_return` reconciles to `total_portfolio_return`;
+- `smoothing_evidence.final_contribution` reconciles to `total_contribution`;
+- `smoothing_evidence.raw_residual`, `smoothing_residual`, and `post_allocation_residual` explain
+  raw arithmetic mismatch, Carino smoothing residual, and final residual allocation posture without
+  hidden recomputation.
 
 The hierarchy path now builds rows from the same residual-adjusted daily position series used for
 position output. This prevents hierarchy rows from drifting away from first-class position
@@ -88,11 +93,22 @@ The base URL must be `CORE_CONTROL_PLANE_BASE_URL`, not the lotus-core query-ser
 Stateful normalization maps lotus-core position rows into canonical contribution inputs:
 
 - position and portfolio market values become beginning and ending valuation points;
+- canonical `cash_flow_type="external_flow"` and `cash_flow_type="internal_trade_flow"` rows
+  become position cash-flow adjustments;
 - operational `cash_flow_type="fee"` rows remain fee drag;
 - position dimensions become grouping metadata;
+- source cash-flow type counts, selected FX metadata, and selected classification dimensions are
+  preserved into `source_economics_evidence`;
 - `include_cash_flows=false` is a scoped-source option that can intentionally remove cash-flow
   rows from the position story, and diagnostics should be read carefully when this creates
   non-flow-neutral slices.
+
+Slice 5 upstream review concluded that `lotus-core` already supplies the essential contribution
+analytics input contract for the current Lotus methodology: portfolio market values, position
+market values, source cash-flow rows, FX conversion rates, dimensions, snapshot epoch, runtime
+metadata, and execution snapshot lineage. No `lotus-core` code change was required in this slice.
+Component P&L families that are not source-authored by the current contract remain explicit
+unsupported/degraded evidence in lotus-performance rather than being reconstructed locally.
 
 ## Downstream Consumers
 
@@ -100,7 +116,7 @@ Current downstream consumers are:
 
 | Consumer | How it uses contribution | Evidence |
 | --- | --- | --- |
-| `lotus-gateway` Workbench performance workspace | Calls `/performance/contribution` through `LotusAnalyticsClient.get_contribution_analytics`, then shapes contribution into performance workspace detail and summary blocks. | `lotus-gateway/src/app/clients/lotus_analytics_client.py`; `lotus-gateway/src/app/services/performance_workspace_service.py`; `lotus-gateway/tests/unit/test_upstream_clients.py` |
+| `lotus-gateway` Workbench performance workspace | Calls `/performance/contribution` through `LotusAnalyticsClient.get_contribution_analytics`, then shapes contribution into performance workspace detail and summary blocks while preserving source-owned contribution return, smoothing evidence, and source-economics evidence. | `lotus-gateway/src/app/clients/lotus_analytics_client.py`; `lotus-gateway/src/app/services/performance_workspace_service.py`; `lotus-gateway/tests/unit/test_performance_workspace_service.py`; `lotus-gateway` PR `sgajbi/lotus-gateway#206` |
 | `lotus-advise` through gateway-generated advisor brief context | Consumes Workbench performance contribution context rather than calling lotus-performance directly. | `lotus-gateway/src/app/services/advisor_brief_service.py` |
 | `lotus-risk` | Does not consume `/performance/contribution`; its contribution terminology is risk-component contribution and attribution, not performance contribution. | `lotus-risk` client search |
 
@@ -117,6 +133,39 @@ panels. The response publishes `calculation_supportability.metric_labels` with t
 label keys used by the metric. The metric labels must not include portfolio, tenant, account,
 benchmark, calculation, trace, correlation, request body, response body, or security identifiers.
 
+Each resolved period also includes `smoothing_evidence`, a support-safe evidence block for raw
+versus smoothed contribution. Use it to answer whether Carino was applied, whether invalid-domain
+fallback occurred, what factor range was used, how far raw contribution was from linked return, and
+whether final residual allocation was needed.
+
+The top-level `source_economics_evidence` block explains whether contribution used caller-supplied
+stateless inputs or lotus-core stateful analytics inputs, which source contracts were used, which
+cash-flow families and classification dimensions were present, which component-P&L families are not
+source-authored, and where upstream snapshot lineage is retained. Downstream consumers must preserve
+this block instead of inferring source quality from rounded contribution totals.
+
+## Data Product And Mesh Posture
+
+Contribution is now promoted as `lotus-performance:ContributionAnalytics:v1`, a governed
+portfolio-level performance explanation data product rather than a standalone endpoint. The product
+declaration lives in `contracts/domain-data-products/lotus-performance-products.v1.json` and covers:
+
+- routes: `POST /performance/contribution` and
+  `GET /performance/contribution/results/{calculation_id}`;
+- approved consumer: `lotus-gateway`, which feeds Workbench and advisor-brief experiences;
+- freshness: daily, based on governed valuation-date source observations;
+- lineage: required, customer-consumable lineage summary posture;
+- trust metadata: product identity, generation/as-of dates, correlation and request fingerprints,
+  source services, upstream fingerprints, data-quality status, coverage status, and coverage ratio;
+- source dependencies: `lotus-core` `PortfolioTimeseriesInput:v1` and
+  `PositionTimeseriesInput:v1`.
+
+Repo-local trust telemetry is stored at
+`contracts/trust-telemetry/contribution-analytics.telemetry.v1.json`. Platform SLO, access, and
+evidence policy participation is provided under the RFC-047 platform branch so mesh certification
+can recognize contribution as a governed product with blocking freshness, completeness,
+reconciliation, data-quality, and lineage treatment.
+
 ## GitHub Issue Disposition
 
 Open issue search for contribution currently finds only broad stateful-sourcing issue `#83`. That
@@ -128,10 +177,10 @@ contribution-output defect was found during this pass.
 | Layer | Coverage | Assessment |
 | --- | --- | --- |
 | Model and validation tests | Request-mode exclusivity, stateless and stateful payload validation, extra-field rejection, and emitted schema descriptions. | Good, with Swagger operation text hardened in this pass. |
-| Engine and service tests | Position return, contribution linking, hierarchy aggregation, residual allocation, reset-aware shadow methodology, currency behavior, and async execution. | Strong for core contribution behavior. |
-| Integration tests | `/performance/contribution`, async result retrieval, stateful resolution, hierarchy, series emission, lineage, duplicate submission fencing, and reset-heavy tie-out. | Strong after the hierarchy tie-out regression tests added in this pass. |
+| Engine and service tests | Position return, contribution linking, hierarchy aggregation, residual allocation, reset-aware shadow methodology, source-economics evidence, currency behavior, and async execution. | Strong for core contribution behavior. |
+| Integration tests | `/performance/contribution`, async result retrieval, stateful resolution, source-economics evidence, hierarchy, series emission, lineage, duplicate submission fencing, and reset-heavy tie-out. | Strong after the source-economics and hierarchy tie-out regression tests added in this pass. |
 | Documentation and OpenAPI tests | Public guide plus OpenAPI quality and vocabulary gates. | Adequate; this certification note records the endpoint-level invariants and consumer posture. |
-| Cross-repo consumer tests | Gateway upstream client and performance workspace tests cover the known direct consumer. | Adequate for known downstream consumers. |
+| Cross-repo consumer tests | Gateway upstream client and performance workspace tests cover the known direct consumer; Workbench tests prove evidence status display. | Strong for known downstream consumers after RFC-047 Slice 7. |
 | Live canonical probes | Stateful option matrix for `PB_SG_GLOBAL_BAL_001` across NET/GROSS, dimensions, hierarchy, cash-flow inclusion, top-N Other bucketing, and series emission. | Passed on rebuilt local service. |
 
 ## Live Canonical Evidence
@@ -161,14 +210,15 @@ Gateway live proof through `http://gateway.dev.lotus`:
 
 Downstream certification status:
 
-- `lotus-gateway` successfully calls the contribution endpoint and passes the main contribution
-  summary fields through to Workbench.
-- `lotus-gateway#107` tracks the remaining row-coverage and source-total concern: one gateway
-  parser path limits contribution rows and position rankings to 10 entries and can derive a level
-  total from visible rows instead of preserving source-authored totals.
-- Until `lotus-gateway#107` is resolved, the contribution endpoint is certified at the
-  lotus-performance boundary, while Workbench row coverage should be treated as a governed
-  downstream presentation limitation.
+- `lotus-gateway` successfully calls the contribution endpoint and preserves the source-owned
+  contribution return, `smoothing_evidence`, and `source_economics_evidence` into the performance
+  workspace contract.
+- `lotus-workbench` renders source-economics and smoothing statuses from Gateway in the Performance
+  Drivers module without inventing local quality state.
+- RFC-047 Slice 7 downstream proof is recorded in
+  `docs/RFCs/RFC-047-api-contract-downstream-slice7.md`. Gateway PR `sgajbi/lotus-gateway#206`
+  and Workbench PR `sgajbi/lotus-workbench#177` were locally validated and CI-green when the slice
+  was closed.
 
 ## Validation Commands
 

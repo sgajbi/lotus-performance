@@ -54,6 +54,7 @@ def test_repo_native_producer_declarations_cover_governed_first_wave_products_an
     assert [product["product_name"] for product in payload["products"]] == [
         "TimeWeightedReturnAnalytics",
         "MoneyWeightedReturnAnalytics",
+        "ContributionAnalytics",
         "ReturnsSeriesBundle",
         "BenchmarkExposureContext",
     ]
@@ -65,8 +66,16 @@ def test_repo_native_producer_declarations_cover_governed_first_wave_products_an
     assert payload["products"][1]["approved_consumers"] == ["lotus-gateway"]
     assert payload["products"][1]["current_routes"] == ["/performance/mwr"]
     assert "upstream_request_fingerprints" in payload["products"][1]["required_trust_metadata"]
-    assert payload["products"][2]["approved_consumers"] == ["lotus-risk"]
+    contribution_product = payload["products"][2]
+    assert contribution_product["approved_consumers"] == ["lotus-gateway"]
+    assert contribution_product["current_routes"] == [
+        "/performance/contribution",
+        "/performance/contribution/results/{calculation_id}",
+    ]
+    assert "coverage_status" in contribution_product["required_trust_metadata"]
+    assert "coverage_ratio" in contribution_product["required_trust_metadata"]
     assert payload["products"][3]["approved_consumers"] == ["lotus-risk"]
+    assert payload["products"][4]["approved_consumers"] == ["lotus-risk"]
 
 
 def test_repo_native_consumer_declarations_keep_watchlist_dependencies_docs_only() -> None:
@@ -77,6 +86,7 @@ def test_repo_native_consumer_declarations_keep_watchlist_dependencies_docs_only
     assert payload["consumer_repository"] == "lotus-performance"
     assert dependency_names == [
         "PortfolioTimeseriesInput",
+        "PositionTimeseriesInput",
         "PortfolioAnalyticsReference",
         "BenchmarkAssignment",
         "MarketDataWindow",
