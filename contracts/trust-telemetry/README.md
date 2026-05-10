@@ -9,6 +9,10 @@ The current snapshots are:
    Runtime trust proof for `lotus-performance:TimeWeightedReturnAnalytics:v1`.
 2. `returns-series-bundle.telemetry.v1.json`
    Runtime trust proof for `lotus-performance:ReturnsSeriesBundle:v1`.
+3. `contribution-analytics.telemetry.v1.json`
+   Runtime trust proof for `lotus-performance:ContributionAnalytics:v1`.
+4. `attribution-analytics.telemetry.v1.json`
+   Runtime trust proof for `lotus-performance:AttributionAnalytics:v1`.
 
 Validate locally with:
 

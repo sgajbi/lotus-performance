@@ -531,6 +531,11 @@ Validation:
 
 ### Slice 6 - Data Product and Platform Hardening
 
+Implementation evidence: `docs/RFCs/RFC-048-data-product-platform-hardening-slice6.md`. Slice 6
+promoted attribution to a governed `AttributionAnalytics` data product, added attribution trust
+telemetry, pinned the required metadata and approved consumer contract, and refreshed platform
+generated discovery so `lotus-platform` recognizes the product in the cross-repository catalog.
+
 Purpose: strengthen attribution as a true Lotus data product.
 
 Scope:

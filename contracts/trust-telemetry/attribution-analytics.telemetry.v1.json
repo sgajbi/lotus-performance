@@ -1,0 +1,72 @@
+{
+  "contract_id": "lotus-domain-product-trust-telemetry-snapshot",
+  "contract_version": "1.0.0",
+  "governed_by_rfcs": [
+    "RFC-0087",
+    "RFC-048"
+  ],
+  "emitted_at_utc": "2026-05-11T00:00:00Z",
+  "product_id": "lotus-performance:AttributionAnalytics:v1",
+  "producer_repository": "lotus-performance",
+  "product_name": "AttributionAnalytics",
+  "product_version": "v1",
+  "source_repository": "lotus-performance",
+  "freshness": {
+    "freshness_class": "daily",
+    "freshness_state": "current",
+    "evaluated_at_utc": "2026-05-11T00:00:00Z",
+    "observed_at_utc": "2026-05-11T00:00:00Z",
+    "age_seconds": 0,
+    "max_allowed_age_seconds": 86400
+  },
+  "completeness_status": "complete",
+  "reconciliation_status": "reconciled",
+  "data_quality_status": "quality_passed",
+  "lineage": {
+    "lineage_materialized": true,
+    "lineage_bundle_id": "lineage:lotus-performance:attribution-analytics:2026-05-11",
+    "evidence_access_class": "customer_consumable",
+    "evidence_uris": [
+      "lotus-performance://evidence/attribution/PB_SG_GLOBAL_BAL_001/2026-05-11"
+    ]
+  },
+  "blocking": {
+    "blocked": false
+  },
+  "observed_trust_metadata": {
+    "product_name": "AttributionAnalytics",
+    "product_version": "v1",
+    "generated_at": "2026-05-11T00:00:00Z",
+    "as_of_date": "2026-05-11",
+    "correlation_id": "rfc-048-lotus-performance-attribution",
+    "request_fingerprint": "sha256:rfc-048-attribution-canonical-proof",
+    "source_services": [
+      "lotus-core",
+      "lotus-performance"
+    ],
+    "upstream_request_fingerprints": [
+      "sha256:rfc-048-lotus-core-portfolio-timeseries",
+      "sha256:rfc-048-lotus-core-position-timeseries",
+      "sha256:rfc-048-lotus-core-benchmark-source",
+      "sha256:rfc-048-lotus-core-index-catalog"
+    ],
+    "benchmark_context": {
+      "benchmark_id": "BMK_PRIVATE_BANKING_BALANCED",
+      "return_source": "calculated",
+      "source_contract": "lotus-core benchmark assignment, component observations, and index catalog"
+    },
+    "data_quality_status": "quality_passed",
+    "coverage_status": "complete",
+    "coverage_ratio": "1.0",
+    "reconciliation_status": "reconciled"
+  },
+  "evidence": {
+    "correlation_id": "rfc-048-lotus-performance-attribution",
+    "validation_lanes": [
+      "feature",
+      "pr-merge"
+    ],
+    "source_event_id": "source-event:lotus-performance:attribution:2026-05-11",
+    "source_artifact_uri": "lotus-performance://contracts/trust-telemetry/attribution-analytics.telemetry.v1.json"
+  }
+}

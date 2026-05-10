@@ -189,6 +189,71 @@
       "temporal_semantics_ref": "as_of_date"
     },
     {
+      "product_name": "AttributionAnalytics",
+      "product_version": "v1",
+      "owner_repository": "lotus-performance",
+      "product_family": "analytics_output",
+      "authoritative_domain": "performance_analytics",
+      "lifecycle_status": "active",
+      "request_scope": {
+        "scope_level": "portfolio",
+        "supports_bulk": false
+      },
+      "temporal_scope": {
+        "primary_time_field": "as_of_date",
+        "freshness_basis": "valuation_date",
+        "supports_restatement": true
+      },
+      "required_trust_metadata": [
+        "product_name",
+        "product_version",
+        "generated_at",
+        "as_of_date",
+        "correlation_id",
+        "request_fingerprint",
+        "source_services",
+        "upstream_request_fingerprints",
+        "benchmark_context",
+        "data_quality_status",
+        "coverage_status",
+        "coverage_ratio",
+        "reconciliation_status"
+      ],
+      "current_routes": [
+        "/performance/attribution",
+        "/performance/attribution/results/{calculation_id}"
+      ],
+      "freshness_policy": {
+        "freshness_class": "daily",
+        "max_allowed_age_description": "Stateful attribution is recalculated from governed lotus-core portfolio, position, benchmark, classification, and FX source inputs for the requested as-of date and measurement window."
+      },
+      "completeness_policy": {
+        "default_status": "complete",
+        "partial_allowed": true
+      },
+      "lineage_policy": {
+        "lineage_required": true,
+        "evidence_bundle_required": false,
+        "evidence_access_class_ref": "customer_consumable",
+        "lineage_bundle_class_ref": "customer_lineage_summary"
+      },
+      "security_profile_ref": "system_access:client_confidential:retain_for_client_record:audit_system_access",
+      "approved_consumers": [
+        "lotus-gateway"
+      ],
+      "deprecation_policy": {
+        "state": "not_deprecated",
+        "successor_product": null
+      },
+      "identifier_refs": [
+        "portfolio_id",
+        "benchmark_id",
+        "calculation_id",
+        "correlation_id"
+      ],
+      "temporal_semantics_ref": "as_of_date"
+    },
+    {
       "product_name": "ReturnsSeriesBundle",
       "product_version": "v1",
       "owner_repository": "lotus-performance",
