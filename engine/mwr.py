@@ -1,31 +1,175 @@
 # engine/mwr.py
 from datetime import date
+from math import exp, isfinite, log
 from typing import List, Literal
 
 import numpy as np
-from scipy.optimize import brentq
 
 from app.models.mwr_requests import CashFlow
 from app.models.mwr_responses import Convergence, MWRResult
 from core.envelope import Annualization
 
 
-def _xirr(values: np.ndarray, dates: np.ndarray) -> dict:
-    """Calculates XIRR using the Brent method for root-finding."""
+def _day_count_denominator(annualization: Annualization) -> float:
+    if annualization.periods_per_year:
+        return float(annualization.periods_per_year)
+    if annualization.basis == "ACT/ACT":
+        return 365.25
+    return 365.0
+
+
+def _net_same_day_flows(values: list[float], dates: list[date]) -> tuple[np.ndarray, np.ndarray]:
+    by_date: dict[date, float] = {}
+    for value, flow_date in zip(values, dates):
+        by_date[flow_date] = by_date.get(flow_date, 0.0) + float(value)
+    sorted_items = [(flow_date, amount) for flow_date, amount in sorted(by_date.items()) if amount != 0.0]
+    return (
+        np.array([amount for _, amount in sorted_items], dtype=float),
+        np.array([flow_date for flow_date, _ in sorted_items]),
+    )
+
+
+def _npv_at_rate(values: np.ndarray, taus: np.ndarray, rate: float) -> float:
+    return float(np.sum(values / ((1 + rate) ** taus)))
+
+
+def _bisect_root(
+    func, left: float, right: float, *, value_tolerance: float, rate_tolerance: float, max_iter: int
+) -> tuple[float, int]:
+    left_value = func(left)
+    for iteration in range(1, max_iter + 1):
+        middle = (left + right) / 2
+        middle_value = func(middle)
+        if abs(middle_value) <= value_tolerance or abs(right - left) <= rate_tolerance:
+            return middle, iteration
+        if left_value * middle_value <= 0:
+            right = middle
+        else:
+            left = middle
+            left_value = middle_value
+    return (left + right) / 2, max_iter
+
+
+def _xirr(
+    values: np.ndarray,
+    dates: np.ndarray,
+    *,
+    annualization: Annualization | None = None,
+    rate_lower_bound: float = -0.999999999,
+    rate_upper_bound: float = 1000.0,
+    root_scan_steps: int = 512,
+    tolerance: float = 1e-10,
+    max_iter: int = 200,
+) -> dict:
+    """Calculates XIRR using log-rate bracket scanning and bisection refinement."""
+    annualization = annualization or Annualization(enabled=False, basis="ACT/365")
+    values, dates = _net_same_day_flows(list(values), list(dates))
+    gross_cash_flow_scale = float(np.sum(np.abs(values)))
+    anchor_date = dates.min() if len(dates) else None
+    base_convergence = {
+        "algorithm": "log_rate_bracket_scan_bisection",
+        "rate_lower_bound": rate_lower_bound,
+        "rate_upper_bound": rate_upper_bound,
+        "day_count_basis": annualization.basis,
+        "anchor_date": anchor_date,
+        "normalized_flow_count": int(len(values)),
+        "gross_cash_flow_scale": gross_cash_flow_scale,
+    }
+    if len(values) == 0 or gross_cash_flow_scale == 0:
+        return {
+            "rate": None,
+            "converged": False,
+            "notes": "No economic content in cash-flow vector.",
+            "reason_code": "NO_ECONOMIC_CONTENT",
+            "convergence": {**base_convergence, "root_count_detected": 0, "converged": False},
+        }
     if np.all(values >= 0) or np.all(values <= 0):
-        return {"rate": None, "converged": False, "notes": "No sign change in cash flows."}
+        return {
+            "rate": None,
+            "converged": False,
+            "notes": "No positive and negative cash flows in solver vector.",
+            "reason_code": "NO_POSITIVE_AND_NEGATIVE_CASH_FLOW",
+            "convergence": {**base_convergence, "root_count_detected": 0, "converged": False},
+        }
 
-    t0 = dates.min()
-    time_diffs = np.array([(d - t0).days / 365.25 for d in dates])
+    if rate_lower_bound <= -1 or rate_upper_bound <= rate_lower_bound:
+        return {
+            "rate": None,
+            "converged": False,
+            "notes": "Invalid XIRR search bounds.",
+            "reason_code": "INVALID_SOLVER_BOUNDS",
+            "convergence": {**base_convergence, "root_count_detected": 0, "converged": False},
+        }
 
-    def npv_func(rate):
-        return np.sum(values / ((1 + rate) ** time_diffs))
+    day_count = _day_count_denominator(annualization)
+    time_diffs = np.array([(d - anchor_date).days / day_count for d in dates])
 
-    try:
-        rate = brentq(npv_func, -0.99, 100.0)
-        return {"rate": rate, "converged": True, "notes": "XIRR calculation successful."}
-    except (RuntimeError, ValueError) as e:
-        return {"rate": None, "converged": False, "notes": f"XIRR failed to converge: {e}"}
+    def f_log(log_rate: float) -> float:
+        return float(np.sum(values * np.exp(-log_rate * time_diffs)))
+
+    x_min = log(1 + rate_lower_bound)
+    x_max = log(1 + rate_upper_bound)
+    grid = np.linspace(x_min, x_max, max(root_scan_steps, 32))
+    roots: list[tuple[float, int, float]] = []
+    previous_x = float(grid[0])
+    previous_y = f_log(previous_x)
+    for current_x_raw in grid[1:]:
+        current_x = float(current_x_raw)
+        current_y = f_log(current_x)
+        if not isfinite(previous_y) or not isfinite(current_y):
+            previous_x, previous_y = current_x, current_y
+            continue
+        if abs(previous_y) <= tolerance:
+            root_x = previous_x
+            iterations = 0
+        elif previous_y * current_y < 0:
+            root_x, iterations = _bisect_root(
+                f_log,
+                previous_x,
+                current_x,
+                value_tolerance=max(tolerance * max(gross_cash_flow_scale, 1.0), 1e-8),
+                rate_tolerance=tolerance,
+                max_iter=max_iter,
+            )
+        else:
+            previous_x, previous_y = current_x, current_y
+            continue
+        root_rate = exp(root_x) - 1
+        if all(abs(root_rate - existing_rate) > 1e-8 for existing_rate, _, _ in roots):
+            residual = _npv_at_rate(values, time_diffs, root_rate)
+            roots.append((root_rate, iterations, residual))
+        previous_x, previous_y = current_x, current_y
+
+    convergence = {**base_convergence, "root_count_detected": len(roots), "converged": False}
+    if not roots:
+        return {
+            "rate": None,
+            "converged": False,
+            "notes": "No XIRR root found in configured bounds.",
+            "reason_code": "NO_ROOT_FOUND",
+            "convergence": convergence,
+        }
+    if len(roots) > 1:
+        return {
+            "rate": None,
+            "converged": False,
+            "notes": "Multiple XIRR roots detected.",
+            "reason_code": "MULTIPLE_IRR_ROOTS_DETECTED",
+            "convergence": convergence,
+        }
+    rate, iterations, residual = roots[0]
+    return {
+        "rate": rate,
+        "converged": True,
+        "notes": "XIRR calculation successful.",
+        "convergence": {
+            **convergence,
+            "iterations": iterations,
+            "residual": residual,
+            "residual_npv": residual,
+            "converged": True,
+        },
+    }
 
 
 def calculate_money_weighted_return(
@@ -36,6 +180,7 @@ def calculate_money_weighted_return(
     annualization: Annualization,
     as_of: date,
     start_date: date | None = None,
+    solver=None,
 ) -> MWRResult:
     """
     Orchestrates the MWR calculation using the specified method and fallback logic.
@@ -49,16 +194,43 @@ def calculate_money_weighted_return(
         else:
             start_date = min(all_dates)
     end_date = as_of
+    period_days = (end_date - start_date).days if end_date > start_date else 0
+
+    if begin_mv == 0 and end_mv == 0 and not cash_flows:
+        notes.append("No economic content in MWR inputs.")
+        return MWRResult(
+            mwr=0.0,
+            method="DIETZ",
+            start_date=start_date,
+            end_date=end_date,
+            notes=notes,
+            status="NOT_APPLICABLE",
+            reason_codes=["NO_ECONOMIC_CONTENT"],
+        )
 
     if calculation_method == "XIRR":
         xirr_start_date = start_date
         dates = [xirr_start_date] + [cf.date for cf in cash_flows] + [end_date]
         values = [-begin_mv] + [-cf.amount for cf in cash_flows] + [end_mv]
 
-        xirr_result = _xirr(np.array(values), np.array(dates))
+        xirr_result = _xirr(
+            np.array(values),
+            np.array(dates),
+            annualization=annualization,
+            rate_lower_bound=getattr(solver, "rate_lower_bound", -0.999999999),
+            rate_upper_bound=getattr(solver, "rate_upper_bound", 1000.0),
+            root_scan_steps=getattr(solver, "root_scan_steps", 512),
+            tolerance=getattr(solver, "tolerance", 1e-10),
+            max_iter=getattr(solver, "max_iter", 200),
+        )
+        convergence = Convergence.model_validate(xirr_result.get("convergence", {}))
         if xirr_result["converged"]:
             rate = xirr_result["rate"]
             notes.append(xirr_result["notes"])
+            holding_period_return = None
+            if period_days > 0:
+                day_count = _day_count_denominator(annualization)
+                holding_period_return = (((1 + rate) ** (period_days / day_count)) - 1) * 100
             return MWRResult(
                 mwr=rate * 100,
                 mwr_annualized=rate * 100,
@@ -66,28 +238,51 @@ def calculate_money_weighted_return(
                 start_date=xirr_start_date,
                 end_date=end_date,
                 notes=notes,
-                convergence=Convergence(converged=True),
+                convergence=convergence,
+                holding_period_return=holding_period_return,
+                is_annualized_primary=True,
+                is_approximation=False,
             )
         notes.append(xirr_result["notes"])
-        notes.append("XIRR failed, falling back to Simple Dietz.")
+        reason_code = xirr_result.get("reason_code", "SOLVER_DID_NOT_CONVERGE")
+        if reason_code == "NO_ECONOMIC_CONTENT":
+            return MWRResult(
+                mwr=0.0,
+                method="DIETZ",
+                start_date=start_date,
+                end_date=end_date,
+                notes=notes,
+                convergence=convergence,
+                status="NOT_APPLICABLE",
+                reason_codes=[reason_code],
+            )
+        notes.append("XIRR failed, falling back to Dietz.")
 
     net_cash_flow = sum(cf.amount for cf in cash_flows)
     denominator = begin_mv + (net_cash_flow / 2)
     if denominator == 0:
         notes.append("Calculation resulted in a zero denominator.")
-        return MWRResult(mwr=0.0, method="DIETZ", start_date=start_date, end_date=end_date, notes=notes)
+        return MWRResult(
+            mwr=0.0,
+            method="DIETZ",
+            start_date=start_date,
+            end_date=end_date,
+            notes=notes,
+            status="NOT_CALCULABLE",
+            reason_codes=["ZERO_DENOMINATOR"],
+        )
 
     numerator = end_mv - begin_mv - net_cash_flow
     periodic_rate = numerator / denominator
 
     mwr_annualized = None
     if annualization.enabled:
-        days_in_period = (end_date - start_date).days if end_date > start_date else 0
-        if days_in_period > 0:
+        if period_days > 0:
             ppy = 365.25 if annualization.basis == "ACT/ACT" else 365.0
-            scale = ppy / days_in_period
+            scale = ppy / period_days
             mwr_annualized = ((1 + periodic_rate) ** scale - 1) * 100
 
+    fallback_used = calculation_method == "XIRR"
     return MWRResult(
         mwr=periodic_rate * 100,
         mwr_annualized=mwr_annualized,
@@ -95,4 +290,12 @@ def calculate_money_weighted_return(
         start_date=start_date,
         end_date=end_date,
         notes=notes,
+        status="FALLBACK_USED" if fallback_used else "CALCULATED",
+        reason_codes=([reason_code, "DIETZ_FALLBACK_USED"] if fallback_used else []),
+        warnings=(["FALLBACK_METHOD_USED"] if fallback_used else []),
+        holding_period_return=periodic_rate * 100,
+        is_annualized_primary=False,
+        fallback_from="XIRR" if fallback_used else None,
+        fallback_reason=reason_code if fallback_used else None,
+        is_approximation=True,
     )

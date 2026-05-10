@@ -44,14 +44,17 @@ portfolio analytics timeseries from `lotus-core`, normalizes the investor capita
 and emits MWR plus supportability metadata for downstream consumers.
 Gateway and Workbench should consume the emitted MWR response as source-owned performance truth;
 they must not reconstruct cash flows from TWR, benchmark, or workspace summary payloads.
+Gateway should preserve calculation-quality fields (`status`, `reason_codes`, `warnings`,
+`fallback_reason`, `is_approximation`, and `holding_period_return`) because they explain whether the
+client-facing number is annualized XIRR, a labeled Dietz fallback, or not calculable.
 
 ```mermaid
 flowchart LR
     A[lotus-core portfolio timeseries] --> B[lotus-performance stateful MWR normalization]
     B --> C[begin_mv / end_mv / cashflows_used / start_date]
-    C --> D[XIRR or Dietz engine path]
-    D --> E[MWR response + calculation_supportability]
-    E --> F[lotus-gateway performance contract]
+    C --> D[XIRR root scan or Dietz engine path]
+    D --> E[MWR response + status + fallback metadata + calculation_supportability]
+    E --> F[lotus-gateway performance contract preserves metadata]
     F --> G[Workbench investor capital-timing lens]
 ```
 

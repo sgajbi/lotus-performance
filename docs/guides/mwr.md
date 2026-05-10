@@ -54,8 +54,11 @@ Optional controls include:
 The current engine behavior is:
 
 - `mwr_method="XIRR"` attempts an XIRR solve first
-- if the XIRR solve does not converge or the cash-flow pattern has no sign change, the engine falls
-  back to the Dietz computation path
+- the XIRR path nets same-day solver flows, scans the configured log-rate interval, and returns
+  XIRR only when exactly one root is detected
+- if the XIRR path has no economic content, no positive and negative solver flows, no root,
+  multiple roots, or invalid solver bounds, the response is explicitly labeled rather than silently
+  selecting an arbitrary rate
 - `mwr_method="DIETZ"` uses the Dietz computation path directly
 - `mwr_method="MODIFIED_DIETZ"` currently maps to the same implemented Dietz computation path as
   `DIETZ`
@@ -76,6 +79,10 @@ of:
 
 equal to zero across irregular cash-flow dates.
 
+The successful XIRR value is annualized. The response also includes `holding_period_return` so
+front-office and support users can distinguish the measured-period client outcome from the
+annualized IRR.
+
 ### Dietz path
 
 When the engine uses the Dietz path, it computes a period return from:
@@ -86,6 +93,8 @@ When the engine uses the Dietz path, it computes a period return from:
 - a midpoint-style denominator adjustment
 
 If the denominator is zero, the engine returns `0.0` and records the condition in `notes`.
+It also returns `status="NOT_CALCULABLE"` with `reason_codes=["ZERO_DENOMINATOR"]`, so downstream
+consumers do not treat the value as an ordinary calculated zero return.
 
 ### Annualization
 
@@ -102,6 +111,14 @@ The response contains:
 - `money_weighted_return`
 - `mwr_annualized`
 - `method`
+- `status`
+- `reason_codes`
+- `warnings`
+- `holding_period_return`
+- `is_annualized_primary`
+- `fallback_from`
+- `fallback_reason`
+- `is_approximation`
 - `convergence`
 - `start_date`
 - `end_date`
@@ -146,10 +163,28 @@ submit `begin_mv`, `end_mv`, and `cash_flows` in one consistent reporting curren
   "calculation_id": "2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
   "portfolio_id": "MWR_EXAMPLE_01",
   "input_mode": "stateless",
-  "money_weighted_return": 11.723,
-  "mwr_annualized": 11.723,
+  "money_weighted_return": 11.7149255445268,
+  "mwr_annualized": 11.7149255445268,
   "method": "XIRR",
-  "convergence": { "converged": true },
+  "status": "CALCULATED",
+  "reason_codes": [],
+  "warnings": [],
+  "holding_period_return": 9.23382685403924,
+  "is_annualized_primary": true,
+  "is_approximation": false,
+  "convergence": {
+    "iterations": 26,
+    "converged": true,
+    "algorithm": "log_rate_bracket_scan_bisection",
+    "root_count_detected": 1,
+    "residual_npv": 0.000009008654160425067,
+    "rate_lower_bound": -0.999999999,
+    "rate_upper_bound": 1000.0,
+    "day_count_basis": "ACT/365",
+    "anchor_date": "2025-03-15",
+    "normalized_flow_count": 3,
+    "gross_cash_flow_scale": 230000.0
+  },
   "cashflows_used": [
     { "amount": 10000.0, "date": "2025-03-15" },
     { "amount": -5000.0, "date": "2025-09-20" }
@@ -168,3 +203,10 @@ stateless compatibility, but the Lotus-style mode envelope is the current contra
 integrations.
 
 Use `/docs` for the exact response schema and latest examples.
+
+## Industry Reference Pack
+
+The reviewed MWRR industry material is retained under
+`docs/reference/mwrr-industry-pack/`. Start with
+`docs/reference/mwrr-industry-pack/lotus-implementation-mapping.md` for the implementation-backed
+mapping between that reference pack and the current Lotus contract.

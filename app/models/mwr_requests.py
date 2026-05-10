@@ -19,6 +19,9 @@ class Solver(BaseModel):
     method: str = "brent"
     max_iter: int = 200
     tolerance: float = 1e-10
+    rate_lower_bound: float = -0.999999999
+    rate_upper_bound: float = 1000.0
+    root_scan_steps: int = 512
 
 
 class MoneyWeightedReturnRequestBase(BaseModel):

@@ -27,6 +27,13 @@ for that TWR lens.
 - `mwr_method="DIETZ"` returns the period Dietz return.
 - `mwr_method="MODIFIED_DIETZ"` currently follows the implemented Dietz path.
 - `emit_cashflows_used=true` returns the exact signed cash-flow schedule used by the calculation.
+- `solver` controls searched annual-rate bounds, root scan density, tolerance, and maximum
+  bisection iterations.
+
+The XIRR implementation nets same-day solver flows after sign normalization, scans the configured
+log-rate interval for all sign-changing roots, and returns XIRR only when exactly one root exists.
+No-root and multiple-root cases are not silently interpreted as a valid annual IRR; they are labeled
+through `status`, `reason_codes`, `fallback_from`, and `fallback_reason`.
 
 ## Upstream Integration
 
@@ -60,8 +67,9 @@ an upstream data-quality issue.
 Downstream certification status:
 
 - `lotus-gateway` uses the stateful MWR endpoint for the investor capital-timing lens and maps the
-  returned MWR value, annualized value, method, period dates, and economic context into Workbench
-  performance contracts.
+  returned MWR value, annualized value, method, period dates, economic context, status,
+  reason-code, warning, holding-period, annualized-primary, fallback, and approximation metadata
+  into Workbench performance contracts.
 - Gateway does not currently request `emit_cashflows_used=true` for normal Workbench surfaces. That
   is acceptable for front-office summary use, because the cash-flow schedule is support evidence,
   not a required summary display field.
@@ -78,6 +86,18 @@ Use this block as the source-owned freshness and degraded-state signal for front
 The response publishes `calculation_supportability.metric_labels` with the same bounded label keys
 used by the metric. The metric labels must not include portfolio, tenant, account, benchmark,
 calculation, trace, correlation, request body, response body, or security identifiers.
+
+Calculation-quality metadata is part of the product contract:
+
+- `status="CALCULATED"` means the emitted method completed without fallback.
+- `status="FALLBACK_USED"` means XIRR was attempted but Dietz was returned with explicit
+  `fallback_reason`.
+- `status="NOT_CALCULABLE"` means the engine could not produce a meaningful return, for example
+  `ZERO_DENOMINATOR`.
+- `status="NOT_APPLICABLE"` means no economic content was present.
+- `holding_period_return` distinguishes measured-period outcome from annualized XIRR.
+- `convergence` carries root count, residual NPV, searched bounds, day-count basis, anchor date,
+  normalized solver-flow count, and gross cash-flow scale.
 
 ## GitHub Issue Disposition
 

@@ -43,8 +43,17 @@ def test_calculate_mwr_endpoint_xirr_happy_path(client):
     assert response_data["portfolio_id"] == "MWR_XIRR_TEST_01"
     assert response_data["input_mode"] == "stateless"
     assert response_data["method"] == "XIRR"
-    assert response_data["money_weighted_return"] == pytest.approx(11.723, abs=1e-3)
+    assert response_data["status"] == "CALCULATED"
+    assert response_data["reason_codes"] == []
+    assert response_data["warnings"] == []
+    assert response_data["money_weighted_return"] == pytest.approx(11.71492554, abs=1e-6)
     assert response_data["mwr_annualized"] is not None
+    assert response_data["holding_period_return"] is not None
+    assert response_data["is_annualized_primary"] is True
+    assert response_data["convergence"]["root_count_detected"] == 1
+    assert response_data["convergence"]["converged"] is True
+    assert response_data["convergence"]["day_count_basis"] == "ACT/365"
+    assert response_data["convergence"]["residual_npv"] == pytest.approx(0.0, abs=0.01)
     assert response_data["calculation_supportability"] == {
         "state": "ready",
         "reason": "calculation_complete",

@@ -69,6 +69,10 @@ def test_mwr_methodology_docs_cover_stateful_source_owned_input_resolution():
         assert "must not reconstruct" not in content
 
     assert "resolved start date" in xirr
+    assert "MULTIPLE_IRR_ROOTS_DETECTED" in xirr
+    assert "holding_period_return" in xirr
+    assert "ZERO_DENOMINATOR" in dietz
+    assert 'status="FALLBACK_USED"' in dietz
     assert "Stateful MWR resolves lotus-core portfolio timeseries" in master_index
 
 

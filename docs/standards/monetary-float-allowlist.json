@@ -1,7 +1,7 @@
 {
   "description": "Approved baseline monetary-float findings. New findings fail CI.",
   "policy_version": "1.1.0",
-  "generated_at": "2026-04-30T05:56:07Z",
+  "generated_at": "2026-05-10T00:31:19Z",
   "allowlist": [
     {
       "finding": "app/models/attribution_requests.py:56:weight_bop: float = Field(",
@@ -244,16 +244,52 @@
       "review_by": "2026-08-24"
     },
     {
-      "finding": "app/models/mwr_responses.py:29:mwr: float = Field(description=\"Money-weighted return in percentage-point output units.\", examples=[11.723])",
+      "finding": "app/models/mwr_requests.py:22:rate_lower_bound: float = -0.999999999",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
-      "review_by": "2026-10-27"
+      "review_by": "2026-11-06"
     },
     {
-      "finding": "app/models/mwr_responses.py:51:money_weighted_return: float = Field(",
+      "finding": "app/models/mwr_requests.py:23:rate_upper_bound: float = 1000.0",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
-      "review_by": "2026-10-27"
+      "review_by": "2026-11-06"
+    },
+    {
+      "finding": "app/models/mwr_responses.py:27:rate_lower_bound: Optional[float] = Field(default=None, description=\"Lower searched annual rate bound.\")",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-11-06"
+    },
+    {
+      "finding": "app/models/mwr_responses.py:28:rate_upper_bound: Optional[float] = Field(default=None, description=\"Upper searched annual rate bound.\")",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-11-06"
+    },
+    {
+      "finding": "app/models/mwr_responses.py:38:mwr: float = Field(description=\"Money-weighted return in percentage-point output units.\", examples=[11.723])",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-11-06"
+    },
+    {
+      "finding": "app/models/mwr_responses.py:56:holding_period_return: Optional[float] = Field(",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-11-06"
+    },
+    {
+      "finding": "app/models/mwr_responses.py:74:money_weighted_return: float = Field(",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-11-06"
+    },
+    {
+      "finding": "app/models/mwr_responses.py:89:holding_period_return: Optional[float] = Field(",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-11-06"
     },
     {
       "finding": "app/models/requests.py:39:end_mv: float = Field(..., description=\"The market value of the portfolio at the end of the day.\")",
@@ -698,6 +734,78 @@
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
       "review_by": "2026-09-17"
+    },
+    {
+      "finding": "engine/mwr.py:107:def f_log(log_rate: float) -> float:",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-11-06"
+    },
+    {
+      "finding": "engine/mwr.py:108:return float(np.sum(values * np.exp(-log_rate * time_diffs)))",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-11-06"
+    },
+    {
+      "finding": "engine/mwr.py:15:return float(annualization.periods_per_year)",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-11-06"
+    },
+    {
+      "finding": "engine/mwr.py:21:def _net_same_day_flows(values: list[float], dates: list[date]) -> tuple[np.ndarray, np.ndarray]:",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-11-06"
+    },
+    {
+      "finding": "engine/mwr.py:24:by_date[flow_date] = by_date.get(flow_date, 0.0) + float(value)",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-11-06"
+    },
+    {
+      "finding": "engine/mwr.py:27:np.array([amount for _, amount in sorted_items], dtype=float),",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-11-06"
+    },
+    {
+      "finding": "engine/mwr.py:32:def _npv_at_rate(values: np.ndarray, taus: np.ndarray, rate: float) -> float:",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-11-06"
+    },
+    {
+      "finding": "engine/mwr.py:33:return float(np.sum(values / ((1 + rate) ** taus)))",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-11-06"
+    },
+    {
+      "finding": "engine/mwr.py:37:func, left: float, right: float, *, value_tolerance: float, rate_tolerance: float, max_iter: int",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-11-06"
+    },
+    {
+      "finding": "engine/mwr.py:58:rate_lower_bound: float = -0.999999999,",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-11-06"
+    },
+    {
+      "finding": "engine/mwr.py:59:rate_upper_bound: float = 1000.0,",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-11-06"
+    },
+    {
+      "finding": "engine/mwr.py:67:gross_cash_flow_scale = float(np.sum(np.abs(values)))",
+      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
+      "owner": "platform-governance",
+      "review_by": "2026-11-06"
     },
     {
       "finding": "engine/ror.py:20:Calculates the daily rate of return, supporting both float and Decimal.",

@@ -10,6 +10,11 @@
 - Product role: governed return-series and performance evidence consumed by risk, advisory, reporting, gateway, and Workbench discovery flows
 - Source declaration: `contracts/domain-data-products/`
 - Trust telemetry: `contracts/trust-telemetry/`
+- MWR product evidence: `POST /performance/mwr` emits source-owned calculation quality through
+  `status`, `reason_codes`, `warnings`, `fallback_reason`, `holding_period_return`,
+  `convergence`, `calculation_supportability`, lineage, metadata, diagnostics, and audit fields.
+  Downstream products may display or summarize those fields, but must not reinterpret ambiguous
+  XIRR roots or rebuild investor cash-flow schedules outside the producer.
 
 ## Platform relationship
 

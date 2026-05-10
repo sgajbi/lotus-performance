@@ -97,6 +97,13 @@ the daily returns.
 | `money_weighted_return` | MWR result in percentage points. |
 | `mwr_annualized` | Present when annualization is produced; omitted when not applicable. |
 | `method` | Computation path actually used, for example `XIRR` or `DIETZ`. |
+| `status` | Calculation status, including calculated, fallback used, not calculable, or not applicable. |
+| `reason_codes` | Machine-readable reason codes for fallback, not-calculable, or not-applicable states. Empty for clean calculations. |
+| `warnings` | Machine-readable warning codes, including fallback warnings. Empty for clean calculations. |
+| `holding_period_return` | Measured-period MWR in percentage points; for XIRR this distinguishes period outcome from annualized IRR. |
+| `is_annualized_primary` | `true` when `money_weighted_return` is annualized XIRR; `false` for Dietz period return. |
+| `fallback_from` / `fallback_reason` | Present when XIRR falls back to Dietz; omitted for clean direct calculations. |
+| `is_approximation` | Indicates whether the emitted method is approximate. XIRR success is `false`; Dietz output is `true`. |
 | `convergence` | Present for XIRR convergence evidence; omitted for direct Dietz output. |
 | `cashflows_used` | Present when `emit_cashflows_used=true`; omitted when explicitly false. |
 | `cashflows_used[].amount` / `date` | Exact signed cash-flow schedule used by the engine. |

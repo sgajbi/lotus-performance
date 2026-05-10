@@ -133,6 +133,9 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - stateful MWR includes explicit external source cash flows and cross-observation capital carry-forward adjustments in the MWR cash-flow schedule
   - operational fees remain performance drag; they are not treated as investor deposits or withdrawals
   - `emit_cashflows_used=true` returns the signed cash-flow schedule used by the calculation
+  - XIRR responses expose `status`, `reason_codes`, `warnings`, `holding_period_return`, `is_annualized_primary`, `fallback_from`, `fallback_reason`, and `is_approximation`
+  - XIRR convergence diagnostics expose root count, residual NPV, searched bounds, day-count basis, anchor date, normalized flow count, and gross solver-flow scale
+  - ambiguous XIRR cases such as no root or multiple roots are labeled and fall back to Dietz; consumers should use `status` and `fallback_reason` instead of inferring quality from `method` alone
   - lotus-performance stamps source consumer identity server-side for the stateful envelope
 
 ### `POST /performance/workspace-summary`

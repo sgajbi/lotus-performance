@@ -832,6 +832,7 @@ def _build_workspace_mwr_summary(
         annualization=request.annualization,
         as_of=period.end_date,
         start_date=period.start_date,
+        solver=request.solver,
     )
     return WorkspaceMoneyWeightedReturnSummary(
         input_mode=input_mode,

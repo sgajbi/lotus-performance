@@ -21,6 +21,15 @@ class Convergence(BaseModel):
         examples=[1e-10],
     )
     converged: Optional[bool] = Field(default=None, description="Whether the numerical method converged successfully.")
+    algorithm: Optional[str] = Field(default=None, description="Solver algorithm used for root detection/refinement.")
+    root_count_detected: Optional[int] = Field(default=None, description="Number of unique XIRR roots detected.")
+    residual_npv: Optional[float] = Field(default=None, description="Final NPV residual for the selected root.")
+    rate_lower_bound: Optional[float] = Field(default=None, description="Lower searched annual rate bound.")
+    rate_upper_bound: Optional[float] = Field(default=None, description="Upper searched annual rate bound.")
+    day_count_basis: Optional[str] = Field(default=None, description="Day-count convention used for dated XIRR.")
+    anchor_date: Optional[date] = Field(default=None, description="Anchor date used for year-fraction calculation.")
+    normalized_flow_count: Optional[int] = Field(default=None, description="Number of normalized solver flows.")
+    gross_cash_flow_scale: Optional[float] = Field(default=None, description="Gross absolute solver-flow scale.")
 
 
 class MWRResult(BaseModel):
@@ -39,6 +48,20 @@ class MWRResult(BaseModel):
     convergence: Optional[Convergence] = Field(
         default=None, description="Numerical convergence diagnostics when applicable."
     )
+    status: Literal["CALCULATED", "FALLBACK_USED", "NOT_CALCULABLE", "NOT_APPLICABLE"] = Field(
+        default="CALCULATED", description="Calculation status for the MWR result."
+    )
+    reason_codes: List[str] = Field(default_factory=list, description="Machine-readable reason codes.")
+    warnings: List[str] = Field(default_factory=list, description="Machine-readable warning codes.")
+    holding_period_return: Optional[float] = Field(
+        default=None, description="Holding-period money-weighted return in percentage-point output units."
+    )
+    is_annualized_primary: Optional[bool] = Field(
+        default=None, description="Whether money_weighted_return is an annualized value."
+    )
+    fallback_from: Optional[str] = Field(default=None, description="Primary method that fell back, when applicable.")
+    fallback_reason: Optional[str] = Field(default=None, description="Reason fallback method was used.")
+    is_approximation: Optional[bool] = Field(default=None, description="Whether the returned method is approximate.")
 
 
 class MoneyWeightedReturnResponse(BaseModel):
@@ -58,6 +81,20 @@ class MoneyWeightedReturnResponse(BaseModel):
         examples=[18.42],
     )
     method: Literal["XIRR", "MODIFIED_DIETZ", "DIETZ"] = Field(description="Computation method used for the result.")
+    status: Literal["CALCULATED", "FALLBACK_USED", "NOT_CALCULABLE", "NOT_APPLICABLE"] = Field(
+        default="CALCULATED", description="Calculation status for the MWR result."
+    )
+    reason_codes: List[str] = Field(default_factory=list, description="Machine-readable reason codes.")
+    warnings: List[str] = Field(default_factory=list, description="Machine-readable warning codes.")
+    holding_period_return: Optional[float] = Field(
+        default=None, description="Holding-period money-weighted return in percentage-point output units."
+    )
+    is_annualized_primary: Optional[bool] = Field(
+        default=None, description="Whether money_weighted_return is an annualized value."
+    )
+    fallback_from: Optional[str] = Field(default=None, description="Primary method that fell back, when applicable.")
+    fallback_reason: Optional[str] = Field(default=None, description="Reason fallback method was used.")
+    is_approximation: Optional[bool] = Field(default=None, description="Whether the returned method is approximate.")
     convergence: Optional[Convergence] = Field(
         default=None, description="Numerical convergence diagnostics when applicable."
     )
