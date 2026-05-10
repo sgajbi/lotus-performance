@@ -1,6 +1,6 @@
 # RFC 047 - Contribution Carino Methodology Alignment and Evidence Contract
 
-Status: Approved - Implementation In Progress
+Status: Complete
 
 Owner repository: `lotus-performance`
 
@@ -763,3 +763,5 @@ Approval decision needed:
 | Slice 9 - Documentation and Wiki Productization | Complete | `docs/RFCs/RFC-047-documentation-productization-slice9.md`; added `wiki/Contribution-Analytics.md`, updated supported features, mesh data-product posture, API surface, README, contribution guide, and endpoint certification so contribution is documented as an implementation-backed data product with downstream realization. |
 | Slice 10 - Implementation Proof and Live Front-Office Evidence | Complete | `docs/RFCs/RFC-047-implementation-proof-slice10.md`; live canonical Workbench proof passed for `PB_SG_GLOBAL_BAL_001`, direct `POST /performance/contribution` produced calculation `6991d0ad-5833-4268-a54d-44d826cc852d` with Carino smoothing `APPLIED`, source economics `SOURCE_LIMITED`, settled lineage complete, Gateway summary/details supported, readiness/metrics/log proof captured, and live stack left running by operator request. |
 | Slice 11 - Second-Last Hardening and Review | Complete | `docs/RFCs/RFC-047-hardening-review-slice11.md`; fixed Workbench live evidence validation in PR `sgajbi/lotus-workbench#178`, tightened contribution-local 422 validation to remove a deprecation warning, reran contribution integration/unit/docs/OpenAPI/vocabulary/no-alias checks, and cleared Slice 10 live-proof observations for final closure. |
+| Slice 12 - Final Closure | Complete | `docs/RFCs/RFC-047-final-closure-slice12.md`; recorded final gold-pass assessment, merged cross-repo evidence, wiki publication requirement, validation proof, context/skill decision, and go-for-merge conclusion. |
+| Slice 13 - Post-Completion Communication | Complete | `docs/RFCs/RFC-047-post-completion-communication-slice13.md`; drafted implementation-backed LinkedIn post `LI-2026-05-10-013-contribution-needs-method-evidence.md` and merged it through `sgajbi/lotus-platform#322`. |
