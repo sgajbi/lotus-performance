@@ -48,6 +48,7 @@ and support-safe evidence outputs.
 | `test_residual_materiality_policy_classifies_review_and_material_breaks` | Residual policy thresholds and operations treatment. |
 | `test_attribution_supportability_evidence_flags_alignment_and_source_quality_edges` | Portfolio-only, benchmark-only, unclassified, missing benchmark return, negative weights, and lineage evidence flags. |
 | `test_attribution_supportability_evidence_flags_currency_and_linking_gaps` | Currency attribution unavailable and linking scaling skip reason codes. |
+| `tests/unit/engine/test_attribution_supportability.py` | Direct supportability-policy coverage for empty evidence, nullable fallback, zero exposure, residual watch, and material residual warning paths. |
 | `test_single_period_attribution_result_schema_documents_status_reason_and_materiality_fields` | Response schema descriptions for status, reasons, evidence, and residual materiality. |
 | `test_attribution_endpoint_emits_controlled_status_reason_and_supportability_evidence` | End-to-end API payload exposes source-owned status/reasons/evidence and lineage artifact. |
 | `test_api_vocabulary_inventory_preserves_nullable_scalar_type` | API vocabulary generator keeps nullable numeric fields typed as numeric vocabulary rather than generic object vocabulary. |
@@ -69,7 +70,8 @@ Local validation completed on 2026-05-11:
 10. `git diff --check` - passed
 11. `python scripts\check_monetary_float_usage.py --update-allowlist` - regenerated approved baseline after line-sensitive attribution percentage-return findings moved
 12. `python scripts\check_monetary_float_usage.py` - passed, `Findings=137, allowlisted=137`
-13. `make check` - passed, including ruff, format check, monetary-float guard, no-alias guard, mypy, OpenAPI quality gate, API vocabulary gate, domain data-product contract validation, and `1221` unit tests
+13. `python -m pytest tests\unit\engine\test_attribution.py tests\unit\engine\test_attribution_supportability.py --cov=engine.attribution_supportability --cov-report=term-missing -q` - passed with `100%` coverage for `engine/attribution_supportability.py`
+14. `make check` - passed, including ruff, format check, monetary-float guard, no-alias guard, mypy, OpenAPI quality gate, API vocabulary gate, domain data-product contract validation, and `1225` unit tests
 
 ## Slice 3 Review
 
