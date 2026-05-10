@@ -231,6 +231,30 @@ The audit block now also quantifies the size of that disagreement:
 
 Each resolved period now also includes a compact response block at:
 
+- `results_by_period.<period>.smoothing_evidence`
+
+Use this block when explaining raw versus linked contribution:
+
+- `smoothing_method`: requested method, such as `CARINO` or `NONE`
+- `status`: resolved posture, such as `APPLIED`, `NOT_REQUESTED`, or
+  `INVALID_DOMAIN_FALLBACK`
+- `reason_codes`: machine-readable status and residual reasons
+- `linked_return`: source portfolio linked return in percentage-point units
+- `raw_contribution`: raw daily contribution sum before smoothing in percentage-point units
+- `smoothed_contribution`: smoothed contribution sum before residual allocation in
+  percentage-point units
+- `final_contribution`: final period contribution after any residual allocation in
+  percentage-point units
+- `raw_residual`: linked return minus raw contribution
+- `smoothing_residual`: linked return minus smoothed contribution before residual allocation
+- `post_allocation_residual`: linked return minus final contribution
+- `residual_allocation_applied` and `residual_allocation_basis`: whether and how final residual
+  allocation was needed
+- `carino_factor_min` and `carino_factor_max`: factor range when Carino factor evidence exists
+- `invalid_domain_days`: count of days where Carino was not mathematically valid
+
+This is the first place support teams should look before recomputing contribution internals.
+
 - `results_by_period.<period>.average_weight_methodology_status`
 
 This per-period block summarizes:

@@ -67,6 +67,18 @@ def test_contribution_endpoint_happy_path_and_envelope(client, happy_path_payloa
         "benchmark_row_count": 0,
         "metric_labels": _EXPECTED_SUPPORTABILITY_METRIC_LABELS,
     }
+    smoothing_evidence = response_data["results_by_period"]["ITD"]["smoothing_evidence"]
+    assert smoothing_evidence["smoothing_method"] == "CARINO"
+    assert smoothing_evidence["status"] == "APPLIED"
+    assert "CARINO_FACTOR_APPLIED" in smoothing_evidence["reason_codes"]
+    assert smoothing_evidence["linked_return"] == pytest.approx(
+        response_data["results_by_period"]["ITD"]["total_portfolio_return"]
+    )
+    assert smoothing_evidence["final_contribution"] == pytest.approx(
+        response_data["results_by_period"]["ITD"]["total_contribution"]
+    )
+    assert smoothing_evidence["carino_factor_min"] is not None
+    assert smoothing_evidence["carino_factor_max"] is not None
 
 
 def test_contribution_endpoint_reports_zero_grouped_return_alignment_drift_for_simple_aligned_case(client):
@@ -240,6 +252,36 @@ def test_contribution_endpoint_no_smoothing(client, happy_path_payload):
     payload["smoothing"] = {"method": "NONE"}
     response = client.post("/performance/contribution", json=payload)
     assert response.status_code == 200
+    smoothing_evidence = response.json()["results_by_period"]["ITD"]["smoothing_evidence"]
+    assert smoothing_evidence["status"] == "NOT_REQUESTED"
+    assert "SMOOTHING_NOT_REQUESTED" in smoothing_evidence["reason_codes"]
+
+
+def test_contribution_endpoint_smoothing_evidence_reports_invalid_carino_domain(client):
+    payload = {
+        "portfolio_id": "CONTRIB_INVALID_CARINO_EVIDENCE",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 100, "end_mv": -50}],
+        },
+        "positions_data": [
+            {
+                "position_id": "BROKEN_CAPITAL",
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 100, "end_mv": -50}],
+            }
+        ],
+    }
+
+    response = client.post("/performance/contribution", json=payload)
+
+    assert response.status_code == 200
+    smoothing_evidence = response.json()["results_by_period"]["ITD"]["smoothing_evidence"]
+    assert smoothing_evidence["status"] == "INVALID_DOMAIN_FALLBACK"
+    assert smoothing_evidence["invalid_domain_days"] == 1
+    assert "CARINO_INVALID_DAILY_LOG_DOMAIN" in smoothing_evidence["reason_codes"]
 
 
 def test_contribution_endpoint_with_timeseries(client, happy_path_payload):

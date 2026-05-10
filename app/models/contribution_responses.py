@@ -170,6 +170,78 @@ class AverageWeightMethodologyStatus(BaseModel):
     )
 
 
+class ContributionSmoothingEvidence(BaseModel):
+    """Explains raw, smoothed, and residual contribution posture for one resolved period."""
+
+    smoothing_method: str = Field(description="Requested contribution smoothing method.", examples=["CARINO"])
+    status: str = Field(
+        description=(
+            "Resolved smoothing status for the period. Examples: APPLIED, NOT_REQUESTED, "
+            "INVALID_DOMAIN_FALLBACK, NO_CONTRIBUTION_ROWS."
+        ),
+        examples=["APPLIED"],
+    )
+    reason_codes: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Machine-readable smoothing and residual reason codes. Examples: CARINO_FACTOR_APPLIED, "
+            "CARINO_INVALID_DAILY_LOG_DOMAIN, RESIDUAL_ALLOCATED_TO_RECONCILE_PERIOD."
+        ),
+    )
+    linked_return: float = Field(
+        description="Portfolio linked return for the period in percentage-point output units.",
+        examples=[-1.0],
+    )
+    raw_contribution: float = Field(
+        description="Sum of raw daily contribution before smoothing in percentage-point output units.",
+        examples=[0.0],
+    )
+    smoothed_contribution: float = Field(
+        description="Sum of smoothed daily contribution before period residual allocation in percentage-point output units.",
+        examples=[-1.0],
+    )
+    final_contribution: float = Field(
+        description="Final period contribution after any residual allocation in percentage-point output units.",
+        examples=[-1.0],
+    )
+    raw_residual: float = Field(
+        description="Linked return minus raw contribution in percentage-point output units.",
+        examples=[-1.0],
+    )
+    smoothing_residual: float = Field(
+        description="Linked return minus smoothed contribution before residual allocation in percentage-point output units.",
+        examples=[0.0],
+    )
+    post_allocation_residual: float = Field(
+        description="Linked return minus final contribution after residual allocation in percentage-point output units.",
+        examples=[0.0],
+    )
+    residual_allocation_applied: bool = Field(
+        description="Whether the service allocated period residual back to contribution rows.",
+        examples=[False],
+    )
+    residual_allocation_basis: Optional[str] = Field(
+        default=None,
+        description="Basis used for residual allocation when applied.",
+        examples=["average_weight"],
+    )
+    carino_factor_min: Optional[float] = Field(
+        default=None,
+        description="Minimum Carino factor applied during the period when available.",
+        examples=[0.9483283066],
+    )
+    carino_factor_max: Optional[float] = Field(
+        default=None,
+        description="Maximum Carino factor applied during the period when available.",
+        examples=[1.0483283066],
+    )
+    invalid_domain_days: int = Field(
+        default=0,
+        description="Count of period days where Carino logarithmic smoothing was not mathematically valid.",
+        examples=[0],
+    )
+
+
 class SinglePeriodContributionResult(BaseModel):
     """Contains the full set of contribution results for a single, resolved period."""
 
@@ -198,6 +270,10 @@ class SinglePeriodContributionResult(BaseModel):
     average_weight_methodology_status: Optional[AverageWeightMethodologyStatus] = Field(
         default=None,
         description="Per-period rollout status for reset-aware average-weight methodology.",
+    )
+    smoothing_evidence: Optional[ContributionSmoothingEvidence] = Field(
+        default=None,
+        description="Period-level raw, smoothed, linked-return, residual, and Carino factor evidence.",
     )
     summary: Optional[ContributionSummary] = Field(
         default=None, description="Summary contribution totals for the period."

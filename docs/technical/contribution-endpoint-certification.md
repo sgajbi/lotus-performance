@@ -70,6 +70,11 @@ Every certified contribution response must satisfy these invariants for each res
   `levels[].rows[].contribution` reconcile to `total_contribution`;
 - hierarchy row `weight_avg` values are average portfolio weights in percentage units, and first
   level rows should reconcile to 100% when the requested visible scope covers the full portfolio.
+- `smoothing_evidence.linked_return` reconciles to `total_portfolio_return`;
+- `smoothing_evidence.final_contribution` reconciles to `total_contribution`;
+- `smoothing_evidence.raw_residual`, `smoothing_residual`, and `post_allocation_residual` explain
+  raw arithmetic mismatch, Carino smoothing residual, and final residual allocation posture without
+  hidden recomputation.
 
 The hierarchy path now builds rows from the same residual-adjusted daily position series used for
 position output. This prevents hierarchy rows from drifting away from first-class position
@@ -116,6 +121,11 @@ Use this block as the source-owned freshness and degraded-state signal for front
 panels. The response publishes `calculation_supportability.metric_labels` with the same bounded
 label keys used by the metric. The metric labels must not include portfolio, tenant, account,
 benchmark, calculation, trace, correlation, request body, response body, or security identifiers.
+
+Each resolved period also includes `smoothing_evidence`, a support-safe evidence block for raw
+versus smoothed contribution. Use it to answer whether Carino was applied, whether invalid-domain
+fallback occurred, what factor range was used, how far raw contribution was from linked return, and
+whether final residual allocation was needed.
 
 ## GitHub Issue Disposition
 

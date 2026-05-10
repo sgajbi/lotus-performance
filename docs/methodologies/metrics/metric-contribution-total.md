@@ -132,8 +132,16 @@ Primary fields:
 - `results_by_period.<period>.position_contributions[].total_contribution`
 - `results_by_period.<period>.total_contribution`
 - `results_by_period.<period>.total_portfolio_return`
+- `results_by_period.<period>.smoothing_evidence`
 - `input_mode`
 - `calculation_supportability`, `meta`, `diagnostics`, and `audit`
+
+Smoothing evidence fields:
+- `linked_return`, `raw_contribution`, `smoothed_contribution`, `final_contribution`
+- `raw_residual`, `smoothing_residual`, `post_allocation_residual`
+- `smoothing_method`, `status`, `reason_codes`
+- `residual_allocation_applied`, `residual_allocation_basis`
+- `carino_factor_min`, `carino_factor_max`, `invalid_domain_days`
 
 Hierarchical path fields:
 - `results_by_period.<period>.summary.portfolio_contribution`
