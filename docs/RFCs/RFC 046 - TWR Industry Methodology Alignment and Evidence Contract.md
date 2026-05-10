@@ -38,6 +38,7 @@
   - Slice 5: `docs/RFCs/RFC-046-denominator-linkability-slice5.md`
   - Slice 6: `docs/RFCs/RFC-046-source-quality-slice6.md`
   - Slice 7: `docs/RFCs/RFC-046-benchmark-fx-calendar-slice7.md`
+  - Slice 8: `docs/RFCs/RFC-046-composite-boundary-slice8.md`
 
 ## 0. Critical Review Of The First Draft
 

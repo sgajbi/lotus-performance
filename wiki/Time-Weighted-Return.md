@@ -64,16 +64,18 @@ TWR is not only a formula endpoint. The current implementation also provides:
 
 ## Current Limitations
 
-RFC-046 is improving the TWR evidence contract and documentation. Until those slices are
-implemented and proven:
+`POST /performance/twr` is a portfolio-level calculation contract. It does not expose
+composite, group, or sleeve TWR calculation endpoints, and RFC-046 does not promote those
+capabilities as supported product features.
 
-- daily denominator, flow timing, and calculation-method evidence is not yet fully first-class in
-  the normal TWR response
-- zero, negative, near-zero, and less-than-or-equal-to `-100%` linkability behavior is governed by
-  existing reset and diagnostic behavior but still needs stronger semantic reason-code coverage
-- source classification and data-quality evidence is deeper in inspection/supportability surfaces
-  than in the normal calculation response
+Current governed boundaries:
+
 - composite, group, and sleeve TWR are not promoted as supported RFC-046 capabilities
+- group-level contribution and attribution remain separate analytics surfaces, not TWR substitutes
+- benchmark exposure grouping is an integration context for benchmark and risk workflows, not
+  composite TWR calculation
+- long/short exposure handling inside portfolio TWR is portfolio exposure behavior, not sleeve
+  performance reporting
 
 ## References
 

@@ -226,6 +226,10 @@ def test_twr_guide_uses_current_request_shape():
     assert "`lotus-risk`" in certification
     assert "Test Pyramid Assessment" in certification
     assert "long-window results are not front-office safe" in certification
+    assert "Long and short exposure handling" in guide
+    assert "Long and short sleeve handling" not in guide
+    assert "Composite, group, and sleeve TWR" in guide
+    assert "calculation is not part of the current `POST /performance/twr` contract" in guide
 
 
 def test_twr_documentation_map_and_wiki_navigation_are_present():

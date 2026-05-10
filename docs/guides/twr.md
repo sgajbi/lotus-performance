@@ -140,10 +140,12 @@ from beginning-of-day and end-of-day cash flows. Management fees affect the dail
 Daily returns are geometrically linked across each requested analysis window to produce period-level
 time-weighted return.
 
-### 3. Long and short sleeve handling
+### 3. Long and short exposure handling
 
 The engine maintains separate long and short compounding paths so that sign flips and short exposure
 are handled consistently instead of forcing all exposure through a single naive compounding stream.
+This is portfolio-exposure evidence, not sleeve-level TWR. Composite, group, and sleeve TWR
+calculation is not part of the current `POST /performance/twr` contract.
 
 ### 4. Robustness rules
 

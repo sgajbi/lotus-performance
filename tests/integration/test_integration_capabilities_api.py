@@ -118,6 +118,9 @@ def test_integration_capabilities_default_contract():
     ]
     features = {item["key"]: item for item in body["features"]}
     assert "performance.analytics.benchmark" in features
+    assert (
+        features["performance.analytics.twr"]["description"] == "Portfolio-level time-weighted return analytics APIs."
+    )
     assert "performance.integration.benchmark_exposure_context" in features
     assert "performance.analytics.workspace_summary" in features
     assert "performance.support.twr_inspection" in features
@@ -128,6 +131,10 @@ def test_integration_capabilities_default_contract():
     )
     assert "performance.execution.stateful" in features
     assert "performance.execution.stateless" in features
+    assert surfaces["twr"]["contract_notes"] == [
+        "supports portfolio-level TWR only",
+        "does not advertise composite, group, or sleeve TWR calculation support",
+    ]
     assert response.headers.get("X-Correlation-Id")
     assert response.headers.get("X-Request-Id")
     assert response.headers.get("X-Trace-Id")

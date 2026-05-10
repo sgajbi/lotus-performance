@@ -45,7 +45,10 @@ INTEGRATION_CAPABILITIES_RESPONSE_EXAMPLES = [
                 "poll_path_template": "/performance/executions/{calculation_id}",
                 "result_path_template": "/performance/twr/results/{calculation_id}",
                 "stateful_restrictions": [],
-                "contract_notes": [],
+                "contract_notes": [
+                    "supports portfolio-level TWR only",
+                    "does not advertise composite, group, or sleeve TWR calculation support",
+                ],
                 "options": [],
             },
             {
@@ -199,7 +202,7 @@ INTEGRATION_CAPABILITIES_RESPONSE_EXAMPLES = [
                 "key": "performance.analytics.twr",
                 "enabled": True,
                 "owner_service": "lotus-performance",
-                "description": "Time-weighted return analytics APIs.",
+                "description": "Portfolio-level time-weighted return analytics APIs.",
             },
             {
                 "key": "performance.analytics.mwr",
@@ -487,7 +490,7 @@ async def get_integration_capabilities(
             key="performance.analytics.twr",
             enabled=twr_enabled,
             owner_service="lotus-performance",
-            description="Time-weighted return analytics APIs.",
+            description="Portfolio-level time-weighted return analytics APIs.",
         ),
         FeatureCapability(
             key="performance.analytics.mwr",
@@ -607,6 +610,10 @@ async def get_integration_capabilities(
             supports_async=True,
             poll_path_template="/performance/executions/{calculation_id}",
             result_path_template="/performance/twr/results/{calculation_id}",
+            contract_notes=[
+                "supports portfolio-level TWR only",
+                "does not advertise composite, group, or sleeve TWR calculation support",
+            ],
         ),
         AnalyticsSurfaceCapability(
             key="twr_inspection",
