@@ -752,3 +752,4 @@ Approval decision needed:
 | Slice | Status | Evidence |
 | --- | --- | --- |
 | Slice 0 - Source Map, Branch Hygiene, and Baseline Assessment | Complete | `docs/RFCs/RFC-047-source-map-and-baseline-slice0.md` |
+| Slice 1 - Platform Automation and Scaffolding Improvement | Complete | `docs/RFCs/RFC-047-platform-automation-slice1.md`; reusable analytics data-product onboarding scaffold implemented in `lotus-platform` PR `sgajbi/lotus-platform#319` |
