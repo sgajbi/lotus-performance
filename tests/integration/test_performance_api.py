@@ -560,6 +560,40 @@ def test_twr_daily_calculation_evidence_handles_same_day_deposit_and_withdrawal(
     assert evidence["warnings"] == []
 
 
+def test_twr_industry_qa_links_daily_returns_instead_of_summing_them(client):
+    payload = {
+        "portfolio_id": "TWR_INDUSTRY_GEOMETRIC_LINKING",
+        "performance_start_date": "2024-12-31",
+        "metric_basis": "GROSS",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "valuation_points": [
+            {"perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": 110.0},
+            {"perf_date": "2025-01-02", "begin_mv": 110.0, "end_mv": 99.0},
+        ],
+    }
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 200
+    ytd = response.json()["results_by_period"]["YTD"]["portfolio"]
+    daily_breakdown = ytd["breakdowns"]["daily"]
+    day_1_return = daily_breakdown[0]["period_return"]["base"]
+    day_2_return = daily_breakdown[1]["period_return"]["base"]
+    arithmetic_sum = day_1_return + day_2_return
+
+    assert day_1_return == pytest.approx(10.0)
+    assert day_2_return == pytest.approx(-10.0)
+    assert arithmetic_sum == pytest.approx(0.0)
+    assert ytd["summary"]["period_return"]["base"] == pytest.approx(-1.0)
+    assert daily_breakdown[1]["cumulative_return"]["base"] == pytest.approx(-1.0)
+    for item in daily_breakdown:
+        evidence = item["calculation_evidence"]
+        assert evidence["status"] == "calculated"
+        assert evidence["linkability_status"] == "linkable"
+        assert evidence["reason_codes"] == ["FLOW_NEUTRALIZED_DAILY_RETURN"]
+
+
 def test_calculate_twr_endpoint_multi_period(client):
     """Tests a multi-period request for MTD and YTD."""
     payload = {

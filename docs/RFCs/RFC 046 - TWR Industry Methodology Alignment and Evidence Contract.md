@@ -41,6 +41,7 @@
   - Slice 8: `docs/RFCs/RFC-046-composite-boundary-slice8.md`
   - Slice 9: `docs/RFCs/RFC-046-api-contract-realization-slice9.md`
   - Slice 10: `docs/RFCs/RFC-046-documentation-productization-slice10.md`
+  - Slice 11: `docs/RFCs/RFC-046-deterministic-qa-regression-slice11.md`
 
 ## 0. Critical Review Of The First Draft
 
