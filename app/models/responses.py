@@ -266,6 +266,7 @@ PerformanceSupportabilityReason = Literal[
 ]
 PerformanceFreshnessBucket = Literal["current", "same_day", "stale", "unknown"]
 
+from app.models.source_quality import PerformanceSourceQualityEvidence  # noqa: E402
 from app.observability_contracts import PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS  # noqa: E402
 
 
@@ -299,6 +300,10 @@ class PerformanceCalculationSupportability(BaseModel):
         ge=0,
         description="Resolved benchmark observation count used when benchmark analytics were requested.",
         examples=[252],
+    )
+    source_quality_evidence: PerformanceSourceQualityEvidence | None = Field(
+        default=None,
+        description="Implementation-backed source-quality evidence preserved from stateful source normalization.",
     )
     metric_labels: tuple[str, ...] = Field(
         default=PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS,

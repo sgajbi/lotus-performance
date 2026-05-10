@@ -129,7 +129,12 @@ async def resolve_twr_request(
     execution_registry.start_stage(request.calculation_id, "normalization")
     try:
         resolved_input = (
-            build_stateful_portfolio_valuation_input(portfolio_input) if portfolio_input is not None else None
+            build_stateful_portfolio_valuation_input(
+                source_input=portfolio_input,
+                report_end_date=request.report_end_date,
+            )
+            if portfolio_input is not None
+            else None
         )
         benchmark_start_date = benchmark_start_date or _resolve_benchmark_start_date_from_request(request)
         benchmark_request = (
@@ -179,6 +184,7 @@ async def resolve_twr_request(
                 ),
                 "performance_start_date": resolved_input.performance_start_date,
                 "valuation_points": resolved_input.valuation_points,
+                "source_quality_evidence": resolved_input.source_quality_evidence,
             }
         )
         input_mode = TWRInputMode.STATEFUL

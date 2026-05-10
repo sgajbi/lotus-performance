@@ -223,7 +223,10 @@ def _resolve_workspace_portfolio_input(
             consumer_system=DEFAULT_STATEFUL_CONSUMER_SYSTEM,
         )
     )
-    normalized = build_stateful_portfolio_valuation_input(source_input)
+    normalized = build_stateful_portfolio_valuation_input(
+        source_input=source_input,
+        report_end_date=request.report_end_date,
+    )
     return ResolvedWorkspacePortfolioInput(
         input_mode=MWRInputMode.STATEFUL,
         performance_start_date=normalized.performance_start_date,

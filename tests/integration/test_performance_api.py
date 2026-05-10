@@ -761,7 +761,81 @@ def test_twr_supports_stateful_input_mode(client, monkeypatch):
     assert response.status_code == 200
     body = response.json()
     assert body["input_mode"] == "stateful"
+    source_quality = body["calculation_supportability"]["source_quality_evidence"]
+    assert source_quality["source_owner"] == "lotus-core"
+    assert source_quality["source_product"] == "PortfolioTimeseriesInput"
+    assert source_quality["input_mode"] == "stateful"
+    assert source_quality["quality_state"] == "clean"
+    assert source_quality["observation_count"] == 2
+    assert source_quality["valid_valuation_point_count"] == 2
+    assert source_quality["warnings"] == []
     assert body["results_by_period"]["YTD"]["portfolio"]["summary"]["period_return"]["base"] == pytest.approx(2.01)
+
+
+def test_twr_stateful_supportability_exposes_source_quality_warnings(client, monkeypatch):
+    async def _mock_fetch_stateful_portfolio_timeseries(**kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2024-12-31",
+                "observations": [
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1010",
+                        "source_classification": "official",
+                        "cash_flows": [{"cash_flow_type": "dividend", "amount": "5", "timing": "eod"}],
+                    },
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1011",
+                        "source_classification": "manual_adjustment",
+                    },
+                    {
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value": None,
+                        "ending_market_value": "1020",
+                        "source_classification": "official",
+                    },
+                    {"valuation_date": "2025-01-03", "beginning_market_value": "1011", "ending_market_value": "1021"},
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.stateful_performance_input_service.fetch_stateful_portfolio_timeseries",
+        _mock_fetch_stateful_portfolio_timeseries,
+    )
+
+    payload = {
+        "portfolio_id": "STATEFUL_TWR_SOURCE_QUALITY",
+        "performance_start_date": "2024-12-31",
+        "metric_basis": "NET",
+        "report_end_date": "2025-01-04",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {},
+    }
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 200
+    supportability = response.json()["calculation_supportability"]
+    assert supportability["state"] == "stale"
+    assert supportability["reason"] == "stale_source_observations"
+    source_quality = supportability["source_quality_evidence"]
+    assert source_quality["quality_state"] == "stale"
+    assert source_quality["skipped_observation_count"] == 1
+    assert source_quality["unsupported_cashflow_count"] == 1
+    assert source_quality["source_conflict_count"] == 1
+    assert source_quality["warnings"] == [
+        "MISSING_VALUATION_POINTS",
+        "UNSUPPORTED_CASHFLOW_LABELS",
+        "SOURCE_DATE_CONFLICTS",
+        "STALE_SOURCE_OBSERVATIONS",
+    ]
+    assert source_quality["source_classification_counts"] == {"manual_adjustment": 1, "official": 2}
 
 
 def test_twr_supports_explicit_period_for_stateful_requests(client, monkeypatch):
@@ -1735,6 +1809,21 @@ def test_twr_stateful_hashes_follow_resolved_inputs(client, monkeypatch):
                 {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
                 {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1020.1},
             ],
+            "source_quality_evidence": {
+                "source_product": "PortfolioTimeseriesInput",
+                "source_owner": "lotus-core",
+                "input_mode": "stateful",
+                "quality_state": "clean",
+                "observation_count": 2,
+                "valid_valuation_point_count": 2,
+                "skipped_observation_count": 0,
+                "unsupported_cashflow_count": 0,
+                "source_conflict_count": 0,
+                "latest_observation_date": "2025-01-02",
+                "report_end_date": "2025-01-02",
+                "warnings": [],
+                "source_classification_counts": {},
+            },
         }
     )
     expected_input_fingerprint, expected_calculation_hash = generate_canonical_hash_from_value(

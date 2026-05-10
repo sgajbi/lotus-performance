@@ -11,6 +11,7 @@ from app.models.responses import (
     PerformanceSupportabilityReason,
     PerformanceSupportabilityState,
 )
+from app.models.source_quality import PerformanceSourceQualityEvidence
 from app.observability import record_analytics_freshness_bucket, record_calculation_supportability
 
 
@@ -38,6 +39,7 @@ def build_calculation_supportability(
     latest_observation_date: Any,
     benchmark_row_count: int = 0,
     minimum_input_row_count: int = 1,
+    source_quality_evidence: PerformanceSourceQualityEvidence | None = None,
 ) -> PerformanceCalculationSupportability:
     freshness_bucket = resolve_freshness_bucket(
         latest_observation_date=latest_observation_date,
@@ -54,6 +56,9 @@ def build_calculation_supportability(
     elif freshness_bucket == "stale":
         state = "stale"
         reason = "stale_source_observations"
+    elif source_quality_evidence is not None and source_quality_evidence.quality_state == "degraded":
+        state = "degraded"
+        reason = "calculation_quality_issue"
     else:
         state = "ready"
         reason = "calculation_complete"
@@ -65,6 +70,7 @@ def build_calculation_supportability(
         input_row_count=input_row_count,
         resolved_period_count=resolved_period_count,
         benchmark_row_count=benchmark_row_count,
+        source_quality_evidence=source_quality_evidence,
     )
 
 

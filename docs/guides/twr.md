@@ -94,6 +94,13 @@ supportability block is the source-owned front-office posture for the calculatio
 - `input_row_count`, `resolved_period_count`, and `benchmark_row_count`
 - `metric_labels`: the bounded Prometheus label keys emitted for supportability metrics
 
+For stateful TWR, `calculation_supportability.source_quality_evidence` preserves the source
+quality view from `PortfolioTimeseriesInput` normalization. It identifies the source owner
+(`lotus-core`), source product, raw observation count, normalized valuation-point count, skipped
+observation count, unsupported cash-flow label count, duplicate-date source conflict count, latest
+source observation date, and bounded warnings such as `MISSING_VALUATION_POINTS`,
+`UNSUPPORTED_CASHFLOW_LABELS`, `SOURCE_DATE_CONFLICTS`, and `STALE_SOURCE_OBSERVATIONS`.
+
 The same posture is exported through
 `lotus_performance_calculation_supportability_total{operation="twr",supportability_state,reason,freshness_bucket}`.
 It also increments the RFC-0108 backend freshness counter

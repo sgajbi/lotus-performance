@@ -482,6 +482,7 @@ def _resolve_twr_supportability(
         report_end_date=performance_request.report_end_date,
         benchmark_row_count=benchmark_row_count,
         minimum_input_row_count=2,
+        source_quality_evidence=performance_request.source_quality_evidence,
     )
 
 

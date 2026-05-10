@@ -7,10 +7,12 @@ from uuid import UUID
 from fastapi import HTTPException, status
 
 from app.core.config import Settings
+from app.models.source_quality import PerformanceSourceQualityEvidence
 from app.services.portfolio_source_service import (
     fetch_stateful_portfolio_timeseries,
     parse_stateful_portfolio_timeseries_payload,
 )
+from app.services.source_quality_evidence import build_portfolio_source_quality_evidence
 from app.services.stateful_input_service import RetrievalMetadata, StatefulInputService
 from app.services.stateful_upstream_errors import stateful_control_plane_unavailable_detail
 from app.services.valuation_points_service import portfolio_timeseries_to_valuation_points
@@ -32,6 +34,7 @@ class StatefulPortfolioValuationInput:
     performance_start_date: date
     observations: list[dict[str, object]]
     valuation_points: list[dict[str, object]]
+    source_quality_evidence: PerformanceSourceQualityEvidence
 
 
 async def retrieve_stateful_portfolio_input(
@@ -111,13 +114,23 @@ async def retrieve_stateful_portfolio_input(
 
 
 def build_stateful_portfolio_valuation_input(
+    *,
     source_input: StatefulPortfolioInput,
+    report_end_date: date,
 ) -> StatefulPortfolioValuationInput:
     valuation_points = portfolio_timeseries_to_valuation_points(observations=source_input.observations)
     return StatefulPortfolioValuationInput(
         performance_start_date=source_input.performance_start_date,
         observations=source_input.observations,
         valuation_points=valuation_points,
+        source_quality_evidence=build_portfolio_source_quality_evidence(
+            observations=source_input.observations,
+            valid_valuation_point_count=len(valuation_points),
+            report_end_date=report_end_date,
+            input_mode="stateful",
+            source_owner="lotus-core",
+            source_product="PortfolioTimeseriesInput",
+        ),
     )
 
 

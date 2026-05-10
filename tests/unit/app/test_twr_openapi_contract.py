@@ -15,6 +15,10 @@ def test_twr_openapi_documents_async_execution_contract() -> None:
     supportability_schema = spec["components"]["schemas"]["PerformanceCalculationSupportability"]
     assert supportability_schema["properties"]["state"]["description"].startswith("Bounded supportability state")
     assert "freshness_bucket" in supportability_schema["properties"]
+    assert "source_quality_evidence" in supportability_schema["properties"]
+    source_quality_schema = spec["components"]["schemas"]["PerformanceSourceQualityEvidence"]
+    assert "unsupported for TWR" in source_quality_schema["properties"]["unsupported_cashflow_count"]["description"]
+    assert "source-quality warning codes" in source_quality_schema["properties"]["warnings"]["description"]
     breakdown_item_schema = spec["components"]["schemas"]["ComparativeBreakdownItem"]
     assert "calculation_evidence" in breakdown_item_schema["properties"]
     assert (
