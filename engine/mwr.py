@@ -172,6 +172,18 @@ def _xirr(
     }
 
 
+def _dietz_denominator(*, begin_mv, cash_flows, start_date, end_date, method):
+    if method == "DIETZ":
+        return begin_mv + (sum(cf.amount for cf in cash_flows) / 2)
+
+    period_days = (end_date - start_date).days
+    if period_days <= 0:
+        return begin_mv + (sum(cf.amount for cf in cash_flows) / 2)
+
+    weighted_cash_flows = sum(cf.amount * ((end_date - cf.date).days / period_days) for cf in cash_flows)
+    return begin_mv + weighted_cash_flows
+
+
 def calculate_money_weighted_return(
     begin_mv: float,
     end_mv: float,
@@ -256,15 +268,24 @@ def calculate_money_weighted_return(
                 status="NOT_APPLICABLE",
                 reason_codes=[reason_code],
             )
-        notes.append("XIRR failed, falling back to Dietz.")
+        notes.append("XIRR failed, falling back to Modified Dietz.")
 
     net_cash_flow = sum(cf.amount for cf in cash_flows)
-    denominator = begin_mv + (net_cash_flow / 2)
+    dietz_method: Literal["MODIFIED_DIETZ", "DIETZ"] = (
+        "MODIFIED_DIETZ" if calculation_method in {"XIRR", "MODIFIED_DIETZ"} else "DIETZ"
+    )
+    denominator = _dietz_denominator(
+        begin_mv=begin_mv,
+        cash_flows=cash_flows,
+        start_date=start_date,
+        end_date=end_date,
+        method=dietz_method,
+    )
     if denominator == 0:
         notes.append("Calculation resulted in a zero denominator.")
         return MWRResult(
             mwr=0.0,
-            method="DIETZ",
+            method=dietz_method,
             start_date=start_date,
             end_date=end_date,
             notes=notes,
@@ -286,7 +307,7 @@ def calculate_money_weighted_return(
     return MWRResult(
         mwr=periodic_rate * 100,
         mwr_annualized=mwr_annualized,
-        method="DIETZ",
+        method=dietz_method,
         start_date=start_date,
         end_date=end_date,
         notes=notes,

@@ -52,7 +52,7 @@ def test_calculate_mwr_xirr():
 
 
 def test_calculate_mwr_xirr_fallback_to_dietz():
-    """Tests that XIRR correctly falls back to Dietz when no sign change is present."""
+    """Tests that XIRR correctly falls back to Modified Dietz when no sign change is present."""
     result = calculate_money_weighted_return(
         begin_mv=1000.0,
         end_mv=-200.0,
@@ -61,14 +61,14 @@ def test_calculate_mwr_xirr_fallback_to_dietz():
         annualization=Annualization(enabled=False),
         as_of=date(2025, 12, 31),
     )
-    assert result.method == "DIETZ"
+    assert result.method == "MODIFIED_DIETZ"
     assert result.status == "FALLBACK_USED"
     assert result.fallback_from == "XIRR"
     assert result.fallback_reason == "NO_POSITIVE_AND_NEGATIVE_CASH_FLOW"
     assert "NO_POSITIVE_AND_NEGATIVE_CASH_FLOW" in result.reason_codes
     assert "No positive and negative cash flows in solver vector." in result.notes
-    assert "XIRR failed, falling back to Dietz." in result.notes
-    assert result.mwr == pytest.approx(-123.8095, abs=1e-4)
+    assert "XIRR failed, falling back to Modified Dietz." in result.notes
+    assert result.mwr == pytest.approx(-118.1818, abs=1e-4)
 
 
 def test_calculate_mwr_dietz_annualization():
@@ -88,6 +88,23 @@ def test_calculate_mwr_dietz_annualization():
     assert result.method == "DIETZ"
     assert result.mwr == pytest.approx(0.9756, abs=1e-4)
     assert result.mwr_annualized == pytest.approx(1.9882, abs=1e-4)
+
+
+def test_calculate_mwr_modified_dietz_weights_cash_flows_by_time_remaining():
+    result = calculate_money_weighted_return(
+        begin_mv=100.0,
+        end_mv=112.0,
+        cash_flows=[CashFlow(amount=10.0, date=date(2026, 1, 1))],
+        calculation_method="MODIFIED_DIETZ",
+        annualization=Annualization(enabled=False),
+        as_of=date(2026, 3, 31),
+        start_date=date(2026, 1, 1),
+    )
+
+    assert result.method == "MODIFIED_DIETZ"
+    assert result.status == "CALCULATED"
+    assert result.mwr == pytest.approx(1.8181818, abs=1e-6)
+    assert result.holding_period_return == pytest.approx(1.8181818, abs=1e-6)
 
 
 def test_calculate_mwr_zero_denominator_returns_not_calculable():
@@ -172,7 +189,7 @@ def test_calculate_mwr_xirr_multiple_root_fallback_is_labeled():
     )
 
     assert result.status == "FALLBACK_USED"
-    assert result.method == "DIETZ"
+    assert result.method == "MODIFIED_DIETZ"
     assert result.fallback_reason == "MULTIPLE_IRR_ROOTS_DETECTED"
     assert result.is_approximation is True
     assert "FALLBACK_METHOD_USED" in result.warnings

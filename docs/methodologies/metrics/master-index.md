@@ -8,7 +8,7 @@ This index maps implemented lotus-performance metrics to detailed methodology do
 | TWR Local Return | POST /performance/twr | Stateless + Stateful | [metric-twr-local-return.md](./metric-twr-local-return.md) |
 | TWR FX Return | POST /performance/twr | Stateless + Stateful | [metric-twr-fx-return.md](./metric-twr-fx-return.md) |
 | MWR (XIRR) | POST /performance/mwr | Stateless + Stateful | [metric-mwr-xirr.md](./metric-mwr-xirr.md) |
-| MWR (Dietz fallback / explicit) | POST /performance/mwr | Stateless + Stateful | [metric-mwr-dietz.md](./metric-mwr-dietz.md) |
+| MWR (Modified Dietz fallback / Dietz explicit) | POST /performance/mwr | Stateless + Stateful | [metric-mwr-dietz.md](./metric-mwr-dietz.md) |
 | Position Total Contribution | POST /performance/contribution | Stateless + Stateful | [metric-contribution-total.md](./metric-contribution-total.md) |
 | Position Local Contribution | POST /performance/contribution | Stateless + Stateful | [metric-contribution-local.md](./metric-contribution-local.md) |
 | Position FX Contribution | POST /performance/contribution | Stateless + Stateful | [metric-contribution-fx.md](./metric-contribution-fx.md) |
@@ -40,7 +40,8 @@ This index maps implemented lotus-performance metrics to detailed methodology do
   benchmark component inputs, and source currency evidence into canonical attribution panel inputs
   while keeping Brinson, active-return, linking, and Karnosky-Singer methodology owned by
   `lotus-performance`.
-- In current engine behavior, `mwr_method=MODIFIED_DIETZ` is mapped to the same Dietz computation path as `DIETZ`.
+- In current engine behavior, `mwr_method=MODIFIED_DIETZ` uses dated cash-flow weights and
+  `mwr_method=DIETZ` keeps the midpoint Simple Dietz path.
 
 
 ## Documentation Standard

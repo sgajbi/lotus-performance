@@ -90,14 +90,17 @@ Status values:
 - Proposed action: Populate and test full diagnostics/audit blocks for attribution.
 
 ### RFC-016-D01
-- Status: `open`
+- Status: `closed`
 - Priority: P1
 - Source RFC: `RFC-016`
 - Delta: Implement true Modified Dietz as a distinct method path from Simple Dietz.
-- Why still relevant: Current behavior maps MODIFIED_DIETZ to Dietz path.
+- Closure: `mwr_method="MODIFIED_DIETZ"` now uses dated cash-flow weights, while
+  `mwr_method="DIETZ"` keeps midpoint weighting. XIRR fallback emits `method="MODIFIED_DIETZ"`.
 - Evidence:
-  - `docs/methodologies/metrics/master-index.md` notes MODIFIED_DIETZ currently shares Dietz computation path.
-- Proposed action: Add weighted-cashflow Modified Dietz implementation and tests.
+  - `engine/mwr.py`
+  - `tests/unit/engine/test_mwr.py`
+  - `tests/integration/test_mwr_api.py`
+  - `docs/methodologies/metrics/metric-mwr-dietz.md`
 
 ### RFC-018-D01
 - Status: `open`

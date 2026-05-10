@@ -46,7 +46,8 @@ Gateway and Workbench should consume the emitted MWR response as source-owned pe
 they must not reconstruct cash flows from TWR, benchmark, or workspace summary payloads.
 Gateway should preserve calculation-quality fields (`status`, `reason_codes`, `warnings`,
 `fallback_reason`, `is_approximation`, and `holding_period_return`) because they explain whether the
-client-facing number is annualized XIRR, a labeled Dietz fallback, or not calculable.
+client-facing number is annualized XIRR, a labeled Modified Dietz fallback, a Simple Dietz result,
+or not calculable.
 The implementation-backed Lotus production control guide is maintained at
 [docs/guides/mwr-lotus-production-controls.md](../docs/guides/mwr-lotus-production-controls.md).
 
@@ -54,7 +55,7 @@ The implementation-backed Lotus production control guide is maintained at
 flowchart LR
     A[lotus-core portfolio timeseries] --> B[lotus-performance stateful MWR normalization]
     B --> C[begin_mv / end_mv / cashflows_used / start_date]
-    C --> D[XIRR root scan or Dietz engine path]
+    C --> D[XIRR root scan or Modified Dietz / Simple Dietz engine path]
     D --> E[MWR response + status + fallback metadata + calculation_supportability]
     E --> F[lotus-gateway performance contract preserves metadata]
     F --> G[Workbench investor capital-timing lens]

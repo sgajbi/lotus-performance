@@ -49,7 +49,7 @@ supportability block rather than rebuilding cash-flow schedules locally. The res
 calculation-quality metadata (`status`, `reason_codes`, `warnings`, `fallback_reason`,
 `is_approximation`) plus `holding_period_return` and XIRR convergence diagnostics so demos,
 support workflows, and downstream UI panels can explain whether the value is an annualized XIRR, a
-Dietz fallback, or not calculable.
+Modified Dietz fallback, Simple Dietz result, or not calculable.
 
 `POST /performance/contribution` supports both stateless caller-owned inputs and stateful lotus-core
 portfolio/position timeseries sourcing. In stateful mode it is the source-owned contribution

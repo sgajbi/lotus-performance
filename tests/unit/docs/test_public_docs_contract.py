@@ -256,7 +256,7 @@ def test_mwr_guide_matches_current_method_reality():
     assert 'input_mode: "stateless" | "stateful"' in guide
     assert "stateful_input.window_start_date" in guide
     assert 'mwr_method="MODIFIED_DIETZ"' in guide
-    assert "maps to the same implemented Dietz computation path" in guide
+    assert "uses weighted cash-flow capital" in guide
     assert "carry-forward adjustments" in guide
     assert "emit_cashflows_used=true" in guide
     assert "cashflows_used" in guide
@@ -356,7 +356,9 @@ def test_methodology_index_points_to_current_guides():
     assert "`POST /performance/mwr` support stateful" in index
     assert "must not reconstruct MWR inputs from TWR, benchmark, or workspace summary payloads" in index
     assert "MWR (XIRR) | POST /performance/mwr | Stateless + Stateful" in master_index
-    assert "MWR (Dietz fallback / explicit) | POST /performance/mwr | Stateless + Stateful" in master_index
+    assert (
+        "MWR (Modified Dietz fallback / Dietz explicit) | POST /performance/mwr | Stateless + Stateful" in master_index
+    )
     assert "stateful_input.window_start_date" in xirr_methodology
     assert "stateful_input.window_start_date" in dietz_methodology
     assert "Stateful MWR source flow" in integrations_wiki

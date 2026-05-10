@@ -15,6 +15,7 @@ was used as a review input; the durable documentation is now Lotus-authored and 
 | Net same-day cash flows deterministically. | Cash flows are normalized and netted by date before solving; tests prove order independence. |
 | Make support behavior operationally usable. | The MWR support playbook maps reason codes to support actions and client-safe explanations. |
 | Track fallback and solver ambiguity rates operationally. | `/metrics` emits `lotus_performance_mwr_solver_outcome_total` with bounded labels for input mode, method, status, reason code, and fallback use; `docs/operations/mwr-alert-rule-templates.md` converts those signals into Lotus alert and dashboard templates. |
+| Support Modified Dietz as a distinct method. | `mwr_method="MODIFIED_DIETZ"` uses dated cash-flow weights, while `mwr_method="DIETZ"` keeps midpoint weighting. XIRR fallback now emits `method="MODIFIED_DIETZ"`. |
 
 ## Areas Where Lotus Is Stronger
 
@@ -31,21 +32,17 @@ was used as a review input; the durable documentation is now Lotus-authored and 
 The following are not represented as supported Lotus behavior until implementation, tests, OpenAPI,
 consumer propagation, and documentation are completed:
 
-- true Modified Dietz as a separate independently certified method;
 - multi-currency per-flow FX conversion inside MWR;
 - component or attribution-level MWR decomposition;
 - private-market since-inception IRR workflows with capital-call/distribution schedules;
-- operational SLO dashboards and alert thresholds for MWR reason-code frequency and fallback rate.
 
 ## Backlog Candidates
 
 Candidate enhancements should be implemented as governed slices:
 
-1. Add an independently certified Modified Dietz method if business reporting requires it separately
-   from the current labeled fallback path.
-2. Add FX-aware MWR only after the cross-repository currency contract is explicit and consumer
+1. Add FX-aware MWR only after the cross-repository currency contract is explicit and consumer
    surfaces can show currency provenance.
-3. Extend demo/wiki material when front-office surfaces expose reason-code drill-downs directly.
+2. Extend demo/wiki material when front-office surfaces expose reason-code drill-downs directly.
 
 ## Proof Points
 

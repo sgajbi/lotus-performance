@@ -89,7 +89,8 @@ Money-Weighted Return via XIRR (`money_weighted_return` when method resolves to 
 4. Net same-day solver flows and remove zero net rows.
 5. Reject empty/no-economic-content vectors and vectors without both positive and negative values.
 6. Scan the configured log-rate interval, refine roots by bisection, and count unique roots.
-7. Return XIRR only when exactly one root exists; otherwise enter the labeled Dietz fallback branch.
+7. Return XIRR only when exactly one root exists; otherwise enter the labeled Modified Dietz
+   fallback branch.
 
 ## Validation and Failure Behavior
 - Request schema enforces required fields and types.
@@ -101,7 +102,7 @@ Money-Weighted Return via XIRR (`money_weighted_return` when method resolves to 
   normalization rather than guessed.
 - `NO_ECONOMIC_CONTENT` returns `status="NOT_APPLICABLE"`.
 - `NO_POSITIVE_AND_NEGATIVE_CASH_FLOW`, `NO_ROOT_FOUND`, `MULTIPLE_IRR_ROOTS_DETECTED`, and
-  `INVALID_SOLVER_BOUNDS` enter a labeled Dietz fallback unless no economic content exists.
+  `INVALID_SOLVER_BOUNDS` enter a labeled Modified Dietz fallback unless no economic content exists.
 - Labeled fallback responses set `status="FALLBACK_USED"`, include `DIETZ_FALLBACK_USED` in
   `reason_codes`, set `fallback_from="XIRR"`, set `fallback_reason`, and set
   `is_approximation=true`.
