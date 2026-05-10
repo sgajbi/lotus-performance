@@ -387,6 +387,11 @@ def test_position_meta_and_retrieval_metadata_defaults():
         "portfolio_to_reporting_fx_rate": Decimal("1.1"),
         "sector": "Tech",
         "country": "US",
+        "_source_economics": {
+            "cash_flow_type_counts": {},
+            "valuation_status": None,
+            "source_contract": "PositionTimeseriesInput:v1",
+        },
     }
     assert _parse_retrieval_metadata({}) == RetrievalMetadata(chunk_count=1, page_count=1)
 

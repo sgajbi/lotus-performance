@@ -4,6 +4,7 @@ from typing import Any
 
 import pandas as pd
 from fastapi import HTTPException, status
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import get_settings
 from app.models.contribution_analytics_requests import ContributionInputMode
@@ -27,7 +28,7 @@ from app.services.execution_lifecycle_service import (
     complete_execution_with_lineage,
     record_execution_failure,
 )
-from app.services.execution_registry import execution_registry
+from app.services.execution_registry import UpstreamSnapshotRecord, execution_registry
 from core.envelope import Audit, Diagnostics, Meta
 from core.periods import resolve_periods
 from engine.config import EngineConfig, PrecisionMode
@@ -41,6 +42,13 @@ from engine.schema import PortfolioColumns
 
 RESET_AWARE_AVERAGE_WEIGHT_MODE_OFF = "OFF"
 RESET_AWARE_AVERAGE_WEIGHT_MODE_CANDIDATE_PERIODS = "CANDIDATE_PERIODS"
+
+
+def _list_upstream_snapshots_for_contribution(calculation_id: Any) -> list[UpstreamSnapshotRecord]:
+    try:
+        return execution_registry.list_upstream_snapshots(str(calculation_id))
+    except SQLAlchemyError:
+        return []
 
 
 def _to_basis_points(decimal_ratio: Any) -> int:
@@ -1724,7 +1732,7 @@ def calculate_contribution(
     source_economics_evidence = build_contribution_source_economics_evidence(
         request=request,
         input_mode=input_mode,
-        upstream_snapshots=execution_registry.list_upstream_snapshots(request.calculation_id),
+        upstream_snapshots=_list_upstream_snapshots_for_contribution(request.calculation_id),
     )
     record_supportability_metric(operation="contribution", supportability=calculation_supportability)
 
