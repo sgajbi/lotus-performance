@@ -72,3 +72,32 @@ def test_source_quality_evidence_marks_clean_stateful_source():
 
     assert evidence.quality_state == "clean"
     assert evidence.warnings == []
+
+
+def test_source_quality_evidence_marks_degraded_malformed_source_without_staleness():
+    evidence = build_portfolio_source_quality_evidence(
+        observations=[
+            {
+                "valuation_date": "not-a-date",
+                "beginning_market_value": "1000",
+                "ending_market_value": "1010",
+                "cash_flows": ["not-a-dict-flow"],
+            },
+            {
+                "valuation_date": "2026-03-31",
+                "beginning_market_value": "1000",
+                "ending_market_value": "1010",
+                "cash_flows": [],
+            },
+        ],
+        valid_valuation_point_count=1,
+        report_end_date=date(2026, 3, 31),
+        input_mode="stateful",
+        source_owner="lotus-core",
+        source_product="PortfolioTimeseriesInput",
+    )
+
+    assert evidence.quality_state == "degraded"
+    assert evidence.skipped_observation_count == 1
+    assert evidence.latest_observation_date == date(2026, 3, 31)
+    assert evidence.warnings == ["MISSING_VALUATION_POINTS"]
