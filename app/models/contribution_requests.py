@@ -58,6 +58,9 @@ class Smoothing(BaseModel):
         description=(
             "Contribution linking method. CARINO links multi-period contribution so rows reconcile "
             "to geometric portfolio return when the return path stays inside the valid logarithmic domain; "
+            "it applies the Carino factor F_t = k_t / K to raw daily contribution, where "
+            "k_t = log1p(daily portfolio return) / daily portfolio return and K is the same factor "
+            "for the linked period return. "
             "NONE leaves daily contribution unlinked."
         ),
         examples=["CARINO"],

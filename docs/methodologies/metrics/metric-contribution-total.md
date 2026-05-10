@@ -49,8 +49,9 @@ Position Total Contribution (`position_contributions[].total_contribution`)
 - `c_s_i,t`: smoothed daily contribution (decimal)
 - `R_P,t`: portfolio daily return (decimal)
 - `R_P`: linked portfolio period return (decimal)
-- `K_t`: Carino daily factor
+- `k_t`: Carino daily factor
 - `K`: Carino total factor
+- `F_t`: Carino smoothing factor applied to raw daily contribution
 - `basis`: source-resolved contribution metric basis (`NET` or `GROSS`)
 - `M_i`: source metadata attached to position `i`, including dimensions and selected currency
   evidence where available
@@ -65,11 +66,13 @@ Position Total Contribution (`position_contributions[].total_contribution`)
 - `c_raw_i,t = w_i,t * r_i,t`
 
 3. Carino smoothing branch (`smoothing.method=CARINO`):
-- `K_t = log(1 + R_P,t) / R_P,t` (if `R_P,t=0`, use `1`)
+- `k_t = log1p(R_P,t) / R_P,t` (if `R_P,t` is near zero, use `1`)
 - `R_P = prod_t(1 + R_P,t) - 1`
-- `K = log(1 + R_P) / R_P` (if `R_P=0`, use `1`)
-- `adjust_i,t = w_i,t * (R_P,t * (K / K_t - 1))`
-- `c_s_i,t = c_raw_i,t + adjust_i,t`
+- `K = log1p(R_P) / R_P` (if `R_P` is near zero, use `1`)
+- `F_t = k_t / K`
+- `c_s_i,t = c_raw_i,t * F_t`
+- If any daily linked gross return factor is `<= 0`, Carino is not defined for that slice and
+  contribution falls back to raw daily contribution arithmetic.
 
 4. Non-Carino branch:
 - `c_s_i,t = c_raw_i,t`
@@ -95,7 +98,8 @@ Position Total Contribution (`position_contributions[].total_contribution`)
 3. Run TWR engine for portfolio and each position to obtain daily returns.
 4. Merge position rows with portfolio capital columns by date.
 5. Compute daily weights and raw daily contributions.
-6. Apply smoothing method (`CARINO` or `NONE`).
+6. Apply smoothing method (`CARINO` or `NONE`). For `CARINO`, multiply raw daily contribution by
+   `F_t = k_t / K` when the logarithmic domain is valid.
 7. Zero contribution rows on NIP/reset dates.
 8. Slice both contribution rows and portfolio daily-return rows by each resolved period.
 9. Aggregate by position or hierarchy within that period slice and apply residual reconciliation when applicable.
@@ -151,3 +155,16 @@ Aggregation:
 Output mapping:
 - `results_by_period.ITD.position_contributions[0].total_contribution = 1.80`
 - In hierarchy mode, the same period slice would map to `results_by_period.ITD.summary.portfolio_contribution = 1.80`
+
+Two-day Carino linking example (`smoothing=CARINO`, one fully covered position):
+
+| day | `R_P,t` | `c_raw_i,t` | `k_t` | `K` | `F_t = k_t / K` | `c_s_i,t` |
+|---|---:|---:|---:|---:|---:|---:|
+| 1 | 0.1000 | 0.1000 | 0.9531017980 | 1.0050335854 | 0.9483283066 | 0.0948328307 |
+| 2 | -0.1000 | -0.1000 | 1.0536051566 | 1.0050335854 | 1.0483283066 | -0.1048328307 |
+
+Aggregation:
+- Raw arithmetic sum: `0.1000 + -0.1000 = 0.0000`
+- Linked portfolio return: `(1.10 * 0.90) - 1 = -0.0100`
+- Carino-smoothed contribution: `0.0948328307 + -0.1048328307 = -0.0100`
+- Response value in pp: `-0.0100 * 100 = -1.00`

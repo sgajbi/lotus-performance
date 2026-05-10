@@ -95,6 +95,19 @@ Daily raw contribution is the position weight multiplied by position return.
 The default smoothing method is `CARINO`, which is used so that multi-period contribution results
 reconcile to the total geometric portfolio return.
 
+For a valid linked return path, Lotus applies the industry Carino factor directly to raw daily
+contribution:
+
+- `k_t = log1p(R_P,t) / R_P,t`
+- `K = log1p(R_P) / R_P`
+- `F_t = k_t / K`
+- `smoothed_contribution_i,t = raw_contribution_i,t * F_t`
+
+This matters because raw arithmetic contribution can sum to a different value from linked portfolio
+return. For example, `+10%` followed by `-10%` sums to `0%` arithmetically, but geometrically links
+to `-1%`; Carino maps the raw daily contributions to that linked return when the logarithmic domain
+is valid.
+
 ### 4. Hierarchical aggregation
 
 When `hierarchy` is supplied, the engine aggregates bottom-up from the most granular rows to each

@@ -208,7 +208,7 @@
       "review_by": "2026-09-17"
     },
     {
-      "finding": "app/models/contribution_requests.py:97:threshold_weight: float = Field(",
+      "finding": "app/models/contribution_requests.py:100:threshold_weight: float = Field(",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
       "review_by": "2026-10-12"
@@ -718,19 +718,19 @@
       "review_by": "2026-09-10"
     },
     {
-      "finding": "engine/contribution.py:14:def _calculate_carino_factor_for_return(portfolio_return: float) -> float:",
+      "finding": "engine/contribution_smoothing.py:10:def _calculate_carino_factor_for_return(portfolio_return: float) -> float:",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
       "review_by": "2026-09-17"
     },
     {
-      "finding": "engine/contribution.py:26:return float(np.log(1 + portfolio_return) / portfolio_return)",
+      "finding": "engine/contribution_smoothing.py:22:return float(np.log1p(portfolio_return) / portfolio_return)",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
       "review_by": "2026-09-17"
     },
     {
-      "finding": "engine/contribution.py:308:[_calculate_carino_factor_for_return(float(portfolio_return)) for portfolio_return in ror_series],",
+      "finding": "engine/contribution_smoothing.py:38:[_calculate_carino_factor_for_return(float(portfolio_return)) for portfolio_return in ror_series],",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
       "review_by": "2026-09-17"

@@ -4,6 +4,8 @@ import pandas as pd
 from app.models.contribution_requests import Smoothing
 from engine.schema import PortfolioColumns
 
+CARINO_ZERO_RETURN_TOLERANCE = 1e-12
+
 
 def _calculate_carino_factor_for_return(portfolio_return: float) -> float:
     """Returns the Carino linking factor for a single return when the log domain is valid.
@@ -13,11 +15,11 @@ def _calculate_carino_factor_for_return(portfolio_return: float) -> float:
     factor remains strictly positive. When the portfolio path falls to ``-100%`` or below, that
     assumption breaks and the caller must avoid Carino adjustments for that episode.
     """
-    if portfolio_return == 0:
-        return 1.0
     if 1 + portfolio_return <= 0:
         return 1.0
-    return float(np.log(1 + portfolio_return) / portfolio_return)
+    if np.isclose(portfolio_return, 0.0, atol=CARINO_ZERO_RETURN_TOLERANCE):
+        return 1.0
+    return float(np.log1p(portfolio_return) / portfolio_return)
 
 
 def _carino_smoothing_domain_is_valid(portfolio_return_series: pd.Series) -> bool:
@@ -75,13 +77,14 @@ def apply_contribution_smoothing(
     )
     contribution_df["K_total"] = k_total
     contribution_df["R_port_t"] = contribution_df[PortfolioColumns.PERF_DATE.value].map(port_ror_series)
+    contribution_df["carino_factor"] = contribution_df["k_t"] / contribution_df["K_total"]
 
-    adjustment_factor = contribution_df["daily_weight"] * (
-        contribution_df["R_port_t"] * ((contribution_df["K_total"] / contribution_df["k_t"]) - 1)
-    )
-
-    contribution_df["smoothed_contribution"] = contribution_df["raw_contribution"] + adjustment_factor.fillna(0.0)
-    contribution_df["smoothed_local_contribution"] = contribution_df["raw_local_contribution"]
+    contribution_df["smoothed_contribution"] = (
+        contribution_df["raw_contribution"] * contribution_df["carino_factor"]
+    ).fillna(contribution_df["raw_contribution"])
+    contribution_df["smoothed_local_contribution"] = (
+        contribution_df["raw_local_contribution"] * contribution_df["carino_factor"]
+    ).fillna(contribution_df["raw_local_contribution"])
     contribution_df["smoothed_fx_contribution"] = (
         contribution_df["smoothed_contribution"] - contribution_df["smoothed_local_contribution"]
     )
