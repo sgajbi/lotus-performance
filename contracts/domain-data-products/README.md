@@ -40,8 +40,9 @@ Validation posture:
 
 Current coverage boundary:
 
-1. this directory covers the currently governed `ReturnsSeriesBundle` and `BenchmarkExposureContext`
-   products plus the first-wave `lotus-core` dependency declarations already aligned under RFC-0084,
+1. this directory covers the currently governed `MoneyWeightedReturnAnalytics`,
+   `ReturnsSeriesBundle`, and `BenchmarkExposureContext` products plus the first-wave `lotus-core`
+   dependency declarations already aligned under RFC-0084,
 2. benchmark-definition, benchmark-composition, vendor-return, index-catalog, index-price-series, and
    FX operational-read dependencies remain documented in `docs/technical/RFC-0082-upstream-contract-family-map.md`
    but are not yet machine-readable here because the corresponding upstream producer declarations have not

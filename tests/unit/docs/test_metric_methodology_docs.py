@@ -66,6 +66,8 @@ def test_mwr_methodology_docs_cover_stateful_source_owned_input_resolution():
         assert "CORE_CONTROL_PLANE_BASE_URL" in content
         assert "cross-observation carry-forward capital adjustments" in content
         assert "fee-classified rows" in content
+        assert "one reporting currency" in content
+        assert "mwr-fx-contract-design.md" in content
         assert "must not reconstruct" not in content
 
     assert "resolved start date" in xirr
@@ -76,6 +78,7 @@ def test_mwr_methodology_docs_cover_stateful_source_owned_input_resolution():
     assert "ZERO_DENOMINATOR" in dietz
     assert 'status="FALLBACK_USED"' in dietz
     assert "Stateful MWR resolves lotus-core portfolio timeseries" in master_index
+    assert "Future FX-aware MWR" in master_index
 
 
 def test_contribution_methodology_docs_cover_stateful_source_owned_input_resolution():

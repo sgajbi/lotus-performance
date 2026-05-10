@@ -16,6 +16,7 @@ was used as a review input; the durable documentation is now Lotus-authored and 
 | Make support behavior operationally usable. | The MWR support playbook maps reason codes to support actions and client-safe explanations. |
 | Track fallback and solver ambiguity rates operationally. | `/metrics` emits `lotus_performance_mwr_solver_outcome_total` with bounded labels for input mode, method, status, reason code, and fallback use; `docs/operations/mwr-alert-rule-templates.md` converts those signals into Lotus alert and dashboard templates. |
 | Support Modified Dietz as a distinct method. | `mwr_method="MODIFIED_DIETZ"` uses dated cash-flow weights, while `mwr_method="DIETZ"` keeps midpoint weighting. XIRR fallback now emits `method="MODIFIED_DIETZ"`. |
+| Keep FX-aware MWR behind a reproducible evidence contract. | `docs/technical/mwr-fx-contract-design.md` defines the upstream FX evidence, response provenance, data mesh, consumer, and validation gates required before multi-currency per-flow conversion becomes supported behavior. |
 
 ## Areas Where Lotus Is Stronger
 
@@ -40,8 +41,9 @@ consumer propagation, and documentation are completed:
 
 Candidate enhancements should be implemented as governed slices:
 
-1. Add FX-aware MWR only after the cross-repository currency contract is explicit and consumer
-   surfaces can show currency provenance.
+1. Implement FX-aware MWR only after the contract in `docs/technical/mwr-fx-contract-design.md` is
+   backed by upstream FX analytics-input evidence, OpenAPI changes, gateway and Workbench
+   propagation, and tests.
 2. Extend demo/wiki material when front-office surfaces expose reason-code drill-downs directly.
 
 ## Proof Points
@@ -56,3 +58,5 @@ Implementation-backed proof currently lives in:
 - `docs/guides/mwr-lotus-production-controls.md` and
   `docs/operations/mwr-production-support-playbook.md` for product and support documentation;
 - `docs/operations/mwr-alert-rule-templates.md` for MWR alert thresholds and dashboard queries.
+- `docs/technical/mwr-fx-contract-design.md` for the governed readiness gate before FX-aware MWR
+  can become implementation-supported behavior.

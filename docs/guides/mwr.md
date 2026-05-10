@@ -143,6 +143,9 @@ calculation.
 
 MWR is not decomposed into local and FX components on the current public contract. Callers should
 submit `begin_mv`, `end_mv`, and `cash_flows` in one consistent reporting currency.
+`cashflows_used` proves the signed schedule used by the engine; it is not FX conversion provenance.
+The implementation-readiness contract for a future FX-aware MWR extension is documented in
+[MWR FX-aware contract design](../technical/mwr-fx-contract-design.md).
 
 ## Example request
 
@@ -225,6 +228,9 @@ documentation rather than retained as generic reference text:
 - [MWR industry review findings](../technical/mwr-industry-review-findings.md) records what was
   adopted, what Lotus already handled more strongly, and which candidate enhancements remain outside
   the current implementation-backed contract.
+- [MWR FX-aware contract design](../technical/mwr-fx-contract-design.md) defines the upstream,
+  downstream, lineage, and testing gates required before multi-currency per-flow conversion becomes
+  supported MWR behavior.
 
 Operational trend visibility is exposed through
 `lotus_performance_mwr_solver_outcome_total{input_mode,method,status,reason_code,fallback_used}` for
