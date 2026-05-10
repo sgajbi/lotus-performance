@@ -47,6 +47,8 @@ they must not reconstruct cash flows from TWR, benchmark, or workspace summary p
 Gateway should preserve calculation-quality fields (`status`, `reason_codes`, `warnings`,
 `fallback_reason`, `is_approximation`, and `holding_period_return`) because they explain whether the
 client-facing number is annualized XIRR, a labeled Dietz fallback, or not calculable.
+The implementation-backed Lotus production control guide is maintained at
+[docs/guides/mwr-lotus-production-controls.md](../docs/guides/mwr-lotus-production-controls.md).
 
 ```mermaid
 flowchart LR

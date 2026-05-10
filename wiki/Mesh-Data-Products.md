@@ -15,6 +15,10 @@
   `convergence`, `calculation_supportability`, lineage, metadata, diagnostics, and audit fields.
   Downstream products may display or summarize those fields, but must not reinterpret ambiguous
   XIRR roots or rebuild investor cash-flow schedules outside the producer.
+  Production controls and review findings are maintained in
+  [docs/guides/mwr-lotus-production-controls.md](../docs/guides/mwr-lotus-production-controls.md)
+  and
+  [docs/technical/mwr-industry-review-findings.md](../docs/technical/mwr-industry-review-findings.md).
 
 ## Platform relationship
 

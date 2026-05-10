@@ -263,7 +263,9 @@ def test_mwr_guide_matches_current_method_reality():
     assert "holding_period_return" in guide
     assert "fallback_reason" in guide
     assert "root_count_detected" in guide
-    assert "docs/reference/mwrr-industry-pack/lotus-implementation-mapping.md" in guide
+    assert "mwr-lotus-production-controls.md" in guide
+    assert "mwr-production-support-playbook.md" in guide
+    assert "mwr-industry-review-findings.md" in guide
     assert "investor capital-timing lens" in certification
     assert "No-root and multiple-root cases are not silently interpreted" in certification
     assert 'status="FALLBACK_USED"' in certification
@@ -275,33 +277,31 @@ def test_mwr_guide_matches_current_method_reality():
     assert "[cite_start]" not in guide
 
 
-def test_mwrr_industry_reference_pack_is_retained_with_lotus_mapping():
-    mapping = _read("docs/reference/mwrr-industry-pack/lotus-implementation-mapping.md")
+def test_mwrr_industry_material_is_converted_to_lotus_product_docs():
+    controls = _read("docs/guides/mwr-lotus-production-controls.md")
+    playbook = _read("docs/operations/mwr-production-support-playbook.md")
+    findings = _read("docs/technical/mwr-industry-review-findings.md")
     guide = _read("docs/guides/mwr.md")
-    wiki = _read("wiki/API-Surface.md")
+    api_wiki = _read("wiki/API-Surface.md")
+    ops_wiki = _read("wiki/Operations-Runbook.md")
 
-    required_files = [
-        "01-mwrr-methodology.md",
-        "02-mwrr-calculation-methods.md",
-        "03-mwrr-cash-flow-classification.md",
-        "04-mwrr-implementation-design.md",
-        "05-mwrr-solver-and-numerical-controls.md",
-        "06-mwrr-edge-cases-and-controls.md",
-        "07-mwrr-qa-regression-pack.md",
-        "08-mwrr-production-support-agent-playbook.md",
-        "mwrr-industry-playbook-all-in-one.md",
-    ]
-    for file_name in required_files:
-        assert file_name in mapping
-        assert "MWRR" in _read(f"docs/reference/mwrr-industry-pack/{file_name}")
+    assert not (REPO_ROOT / "docs/reference/mwrr-industry-pack").exists()
 
-    assert "Implemented And Test-Backed Now" in mapping
-    assert "Current Intentional Differences" in mapping
-    assert "Remaining Backlog Candidates" in mapping
-    assert "MULTIPLE_IRR_ROOTS_DETECTED" in mapping
-    assert "Data mesh producer truth" in mapping
-    assert "docs/reference/mwrr-industry-pack/lotus-implementation-mapping.md" in guide
-    assert "docs/reference/mwrr-industry-pack/lotus-implementation-mapping.md" in wiki
+    for text in (controls, playbook, findings):
+        assert "lotus-performance" in text
+        assert "MULTIPLE_IRR_ROOTS_DETECTED" in text
+        assert "holding_period_return" in text
+
+    assert "lotus-gateway" in controls
+    assert "data mesh" in controls.lower()
+    assert "calculation_supportability" in playbook
+    assert "NO_ECONOMIC_CONTENT" in playbook
+    assert "Adopted Into The Current Contract" in findings
+    assert "Areas Where Lotus Is Stronger" in findings
+    assert "Backlog Candidates" in findings
+    assert "mwr-lotus-production-controls.md" in guide
+    assert "mwr-lotus-production-controls.md" in api_wiki
+    assert "mwr-production-support-playbook.md" in ops_wiki
 
 
 def test_twr_mwr_response_attribute_certification_documents_field_level_checks():
