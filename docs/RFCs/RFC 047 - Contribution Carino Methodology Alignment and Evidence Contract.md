@@ -753,3 +753,4 @@ Approval decision needed:
 | --- | --- | --- |
 | Slice 0 - Source Map, Branch Hygiene, and Baseline Assessment | Complete | `docs/RFCs/RFC-047-source-map-and-baseline-slice0.md` |
 | Slice 1 - Platform Automation and Scaffolding Improvement | Complete | `docs/RFCs/RFC-047-platform-automation-slice1.md`; reusable analytics data-product onboarding scaffold implemented in `lotus-platform` PR `sgajbi/lotus-platform#319` |
+| Slice 2 - Cleanup and Contribution Module Structure | Complete | `docs/RFCs/RFC-047-cleanup-and-structure-slice2.md`; extracted contribution smoothing into `engine/contribution_smoothing.py` with behavior-preserving unit and integration proof |
