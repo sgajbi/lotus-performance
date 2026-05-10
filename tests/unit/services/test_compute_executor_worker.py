@@ -307,12 +307,13 @@ def test_compute_executor_worker_processes_resolved_twr_job(tmp_path, monkeypatc
     assert result is not None
     assert result.result_status == AsyncResultStatus.COMPLETE
     assert result.response_payload["input_mode"] == TWRInputMode.STATEFUL.value
-    assert result.response_payload["benchmark_context"] == {
-        "benchmark_id": "BMK_1",
-        "benchmark_currency": "USD",
-        "input_mode": "stateful",
-        "return_source": "calculated",
-    }
+    benchmark_context = result.response_payload["benchmark_context"]
+    assert benchmark_context["benchmark_id"] == "BMK_1"
+    assert benchmark_context["benchmark_currency"] == "USD"
+    assert benchmark_context["input_mode"] == "stateful"
+    assert benchmark_context["return_source"] == "calculated"
+    assert benchmark_context["supportability_evidence"]["calendar_alignment_state"] == "aligned"
+    assert benchmark_context["supportability_evidence"]["currency_state"] == "single_currency"
     period_result = result.response_payload["results_by_period"]["YTD"]
     assert period_result["benchmark"]["benchmark_id"] == "BMK_1"
     assert period_result["relative_performance"] is not None

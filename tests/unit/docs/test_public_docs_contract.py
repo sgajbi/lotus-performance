@@ -211,6 +211,9 @@ def test_twr_guide_uses_current_request_shape():
     assert "`episode_status` explains the row's TWR episode" in guide
     assert "calculation_supportability.source_quality_evidence" in guide
     assert "UNSUPPORTED_CASHFLOW_LABELS" in guide
+    assert "benchmark_context.supportability_evidence" in guide
+    assert "BENCHMARK_CALENDAR_GAP" in guide
+    assert "vendor_series_base_only" in guide
     assert '"portfolio": {' in guide
     assert '"portfolio_return"' not in guide.split("## Example stateful request")[0]
     assert "If `calculation_id` is omitted" in guide

@@ -16,6 +16,17 @@ def test_twr_openapi_documents_async_execution_contract() -> None:
     assert supportability_schema["properties"]["state"]["description"].startswith("Bounded supportability state")
     assert "freshness_bucket" in supportability_schema["properties"]
     assert "source_quality_evidence" in supportability_schema["properties"]
+    benchmark_context_schema = spec["components"]["schemas"]["TWRBenchmarkContext"]
+    assert "supportability_evidence" in benchmark_context_schema["properties"]
+    benchmark_evidence_schema = spec["components"]["schemas"]["TWRBenchmarkSupportabilityEvidence"]
+    assert (
+        "FX, and calendar supportability warning codes"
+        in benchmark_evidence_schema["properties"]["warning_codes"]["description"]
+    )
+    assert (
+        "Portfolio and benchmark daily observation date alignment state"
+        in benchmark_evidence_schema["properties"]["calendar_alignment_state"]["description"]
+    )
     source_quality_schema = spec["components"]["schemas"]["PerformanceSourceQualityEvidence"]
     assert "unsupported for TWR" in source_quality_schema["properties"]["unsupported_cashflow_count"]["description"]
     assert "source-quality warning codes" in source_quality_schema["properties"]["warnings"]["description"]

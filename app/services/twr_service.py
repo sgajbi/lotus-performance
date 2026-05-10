@@ -154,6 +154,9 @@ def _link_return_series(series: pd.Series) -> float:
     return float((running - Decimal("1")) * Decimal("100"))
 
 
+from app.services.twr_benchmark_supportability import build_twr_benchmark_supportability_evidence  # noqa: E402
+
+
 def _build_daily_calculation_evidence(
     row: pd.Series,
     *,
@@ -634,6 +637,18 @@ def calculate_twr_response(
         results_by_period[period.name] = period_result
 
     benchmark_row_count = len(benchmark_artifacts.daily_returns_df) if benchmark_artifacts is not None else 0
+    benchmark_supportability_evidence = (
+        build_twr_benchmark_supportability_evidence(
+            performance_request=performance_request,
+            benchmark_request=benchmark_request,
+            portfolio_daily_results_df=daily_results_df,
+            benchmark_daily_returns_df=benchmark_artifacts.daily_returns_df,
+            benchmark_input_mode=(benchmark_input_mode or BenchmarkInputMode.STATELESS).value,
+            benchmark_return_source=normalized_benchmark_return_source.value,
+        )
+        if benchmark_artifacts is not None and benchmark_request is not None
+        else None
+    )
     calculation_supportability = _resolve_twr_supportability(
         performance_request=performance_request,
         results_by_period=results_by_period,
@@ -655,6 +670,7 @@ def calculate_twr_response(
                 benchmark_currency=benchmark_request.benchmark_currency,
                 input_mode=(benchmark_input_mode or BenchmarkInputMode.STATELESS).value,
                 return_source=normalized_benchmark_return_source.value,
+                supportability_evidence=benchmark_supportability_evidence,
             )
             if benchmark_artifacts is not None and benchmark_request is not None
             else None

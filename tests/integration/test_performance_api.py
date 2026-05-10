@@ -712,6 +712,7 @@ def test_twr_response_includes_portfolio_summary_block(client):
         "performance_start_date": "2024-12-31",
         "metric_basis": "NET",
         "report_end_date": "2025-01-02",
+        "report_ccy": "USD",
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
         "valuation_points": [
             {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
@@ -927,6 +928,7 @@ def test_twr_supports_stateless_benchmark_request(client):
         "performance_start_date": "2024-12-31",
         "metric_basis": "NET",
         "report_end_date": "2025-01-02",
+        "report_ccy": "USD",
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
         "include_benchmark": True,
         "valuation_points": [
@@ -951,11 +953,26 @@ def test_twr_supports_stateless_benchmark_request(client):
 
     assert response.status_code == 200
     body = response.json()
-    assert body["benchmark_context"] == {
-        "benchmark_id": "BMK_STATELESS_1",
-        "benchmark_currency": "USD",
-        "input_mode": "stateless",
+    benchmark_context = body["benchmark_context"]
+    assert benchmark_context["benchmark_id"] == "BMK_STATELESS_1"
+    assert benchmark_context["benchmark_currency"] == "USD"
+    assert benchmark_context["input_mode"] == "stateless"
+    assert benchmark_context["return_source"] == "calculated"
+    assert benchmark_context["supportability_evidence"] == {
         "return_source": "calculated",
+        "input_mode": "stateless",
+        "reporting_currency": "USD",
+        "benchmark_currency": "USD",
+        "currency_state": "single_currency",
+        "calendar_alignment_state": "aligned",
+        "portfolio_observation_count": 2,
+        "benchmark_observation_count": 2,
+        "overlapping_observation_count": 2,
+        "missing_benchmark_date_count": 0,
+        "missing_benchmark_dates_sample": [],
+        "extra_benchmark_date_count": 0,
+        "extra_benchmark_dates_sample": [],
+        "warning_codes": [],
     }
     benchmark_block = body["results_by_period"]["YTD"]["benchmark"]
     relative_block = body["results_by_period"]["YTD"]["relative_performance"]
@@ -1035,12 +1052,11 @@ def test_twr_supports_stateful_benchmark_assignment(client, monkeypatch):
 
     assert response.status_code == 200
     body = response.json()
-    assert body["benchmark_context"] == {
-        "benchmark_id": "BMK_ASSIGNED",
-        "benchmark_currency": "USD",
-        "input_mode": "stateful",
-        "return_source": "calculated",
-    }
+    assert body["benchmark_context"]["benchmark_id"] == "BMK_ASSIGNED"
+    assert body["benchmark_context"]["benchmark_currency"] == "USD"
+    assert body["benchmark_context"]["input_mode"] == "stateful"
+    assert body["benchmark_context"]["return_source"] == "calculated"
+    assert body["benchmark_context"]["supportability_evidence"]["calendar_alignment_state"] == "aligned"
     benchmark_block = body["results_by_period"]["YTD"]["benchmark"]
     assert benchmark_block["benchmark_id"] == "BMK_ASSIGNED"
     assert benchmark_block["input_mode"] == "stateful"
@@ -1133,12 +1149,11 @@ def test_twr_supports_include_benchmark_without_nested_stateful_benchmark_config
 
     assert response.status_code == 200
     body = response.json()
-    assert body["benchmark_context"] == {
-        "benchmark_id": "BMK_ASSIGNED_DEFAULT",
-        "benchmark_currency": "USD",
-        "input_mode": "stateful",
-        "return_source": "calculated",
-    }
+    assert body["benchmark_context"]["benchmark_id"] == "BMK_ASSIGNED_DEFAULT"
+    assert body["benchmark_context"]["benchmark_currency"] == "USD"
+    assert body["benchmark_context"]["input_mode"] == "stateful"
+    assert body["benchmark_context"]["return_source"] == "calculated"
+    assert body["benchmark_context"]["supportability_evidence"]["calendar_alignment_state"] == "aligned"
     assert body["results_by_period"]["YTD"]["benchmark"]["benchmark_id"] == "BMK_ASSIGNED_DEFAULT"
     assert body["results_by_period"]["YTD"]["benchmark"]["input_mode"] == "stateful"
 

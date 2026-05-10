@@ -1004,12 +1004,13 @@ def test_execution_api_tracks_async_twr_job_state(client, monkeypatch):
         twr_result_response = client.get(f"/performance/twr/results/{calculation_id}")
         assert twr_result_response.status_code == 200
         twr_result_body = twr_result_response.json()
-        assert twr_result_body["benchmark_context"] == {
-            "benchmark_id": "BMK_RESOLVED",
-            "benchmark_currency": "USD",
-            "input_mode": "stateful",
-            "return_source": "calculated",
-        }
+        benchmark_context = twr_result_body["benchmark_context"]
+        assert benchmark_context["benchmark_id"] == "BMK_RESOLVED"
+        assert benchmark_context["benchmark_currency"] == "USD"
+        assert benchmark_context["input_mode"] == "stateful"
+        assert benchmark_context["return_source"] == "calculated"
+        assert benchmark_context["supportability_evidence"]["calendar_alignment_state"] == "partial_overlap"
+        assert benchmark_context["supportability_evidence"]["missing_benchmark_date_count"] == 1
         assert twr_result_body["results_by_period"]["YTD"]["relative_performance"] is not None
     finally:
         settings.TWR_EXECUTOR_WINDOW_DAYS = original_window_threshold

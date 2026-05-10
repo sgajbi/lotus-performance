@@ -83,6 +83,12 @@ When benchmark output is requested, TWR returns:
 
 - a parallel `benchmark` block calculated through the shared benchmark engine
 - per-period `relative_performance`
+- `benchmark_context.supportability_evidence`, which records benchmark source/method,
+  reporting currency, benchmark currency, FX decomposition posture, portfolio-vs-benchmark calendar
+  alignment, overlap counts, missing-date samples, and bounded warning codes such as
+  `BENCHMARK_CALENDAR_GAP`, `BENCHMARK_VENDOR_SERIES_BASE_ONLY`,
+  `BENCHMARK_FX_DECOMPOSITION_UNAVAILABLE`, and
+  `BENCHMARK_CURRENCY_DIFFERS_FROM_REPORTING_CURRENCY`
 
 Every completed synchronous TWR response also returns `calculation_supportability`. This bounded
 supportability block is the source-owned front-office posture for the calculation:
@@ -233,6 +239,13 @@ contains:
 - `base`
 
 See [multi_currency.md](multi_currency.md) for the detailed multi-currency path.
+
+Benchmark FX evidence is intentionally explicit. Stateless benchmark component price points require
+`fx_rate_to_benchmark` whenever a component currency differs from the benchmark currency; missing FX
+rates are rejected instead of silently producing base-only active return. Calculated benchmark
+returns expose `currency_state="fx_decomposed"` when local and FX benchmark return components are
+available. Vendor benchmark series are treated as `vendor_series_base_only` because Lotus receives
+the authored benchmark return stream, not component-level FX decomposition.
 
 ## Example request
 

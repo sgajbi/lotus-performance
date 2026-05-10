@@ -241,6 +241,87 @@ class ComparativeAnalyticsBlock(BaseModel):
     )
 
 
+TWRBenchmarkCalendarAlignmentState = Literal["aligned", "partial_overlap", "no_overlap"]
+TWRBenchmarkCurrencyState = Literal[
+    "single_currency",
+    "base_only",
+    "fx_decomposed",
+    "vendor_series_base_only",
+]
+
+
+class TWRBenchmarkSupportabilityEvidence(BaseModel):
+    return_source: str = Field(
+        description="Resolved benchmark return source used by the TWR calculation.",
+        examples=["calculated"],
+    )
+    input_mode: str = Field(description="Resolved benchmark input mode.", examples=["stateful"])
+    reporting_currency: str | None = Field(
+        default=None,
+        description="Requested portfolio reporting currency, when supplied.",
+        examples=["USD"],
+    )
+    benchmark_currency: str | None = Field(
+        default=None,
+        description="Benchmark currency used for benchmark return evidence.",
+        examples=["USD"],
+    )
+    currency_state: TWRBenchmarkCurrencyState = Field(
+        description=(
+            "Benchmark currency evidence state. fx_decomposed means Lotus received or derived local and FX "
+            "benchmark return components; vendor_series_base_only means the benchmark vendor series only "
+            "provides the benchmark return stream."
+        ),
+        examples=["fx_decomposed"],
+    )
+    calendar_alignment_state: TWRBenchmarkCalendarAlignmentState = Field(
+        description="Portfolio and benchmark daily observation date alignment state for active return supportability.",
+        examples=["aligned"],
+    )
+    portfolio_observation_count: int = Field(
+        ge=0,
+        description="Number of portfolio daily return observations in the resolved TWR calculation window.",
+        examples=[252],
+    )
+    benchmark_observation_count: int = Field(
+        ge=0,
+        description="Number of benchmark daily return observations in the resolved TWR calculation window.",
+        examples=[252],
+    )
+    overlapping_observation_count: int = Field(
+        ge=0,
+        description="Number of dates where both portfolio and benchmark observations are available.",
+        examples=[252],
+    )
+    missing_benchmark_date_count: int = Field(
+        ge=0,
+        description="Number of portfolio observation dates without a corresponding benchmark observation.",
+        examples=[0],
+    )
+    missing_benchmark_dates_sample: list[dt_date] = Field(
+        default_factory=list,
+        description="Sample of portfolio observation dates missing benchmark observations.",
+        examples=[["2026-01-03"]],
+    )
+    extra_benchmark_date_count: int = Field(
+        ge=0,
+        description="Number of benchmark observation dates outside the portfolio observation set.",
+        examples=[0],
+    )
+    extra_benchmark_dates_sample: list[dt_date] = Field(
+        default_factory=list,
+        description="Sample of benchmark observation dates without portfolio observations.",
+        examples=[["2026-01-04"]],
+    )
+    warning_codes: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Bounded benchmark, FX, and calendar supportability warning codes for TWR active-return evidence."
+        ),
+        examples=[["BENCHMARK_CALENDAR_GAP"]],
+    )
+
+
 class TWRBenchmarkContext(BaseModel):
     benchmark_id: str = Field(
         description="Resolved benchmark identifier used for this TWR response.", examples=["BMK_GLOBAL_60_40"]
@@ -252,6 +333,10 @@ class TWRBenchmarkContext(BaseModel):
     )
     input_mode: str = Field(description="Resolved benchmark input mode.", examples=["stateful"])
     return_source: str = Field(description="Resolved benchmark return source.", examples=["calculated"])
+    supportability_evidence: TWRBenchmarkSupportabilityEvidence | None = Field(
+        default=None,
+        description="Implementation-backed benchmark, FX, and calendar supportability evidence for TWR.",
+    )
 
 
 PerformanceSupportabilityState = Literal["ready", "stale", "degraded", "empty", "error", "unsupported"]
