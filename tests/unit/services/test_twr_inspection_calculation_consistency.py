@@ -127,6 +127,45 @@ def test_calculation_consistency_flags_relative_block_without_benchmark_block():
     }
 
 
+def test_calculation_consistency_flags_relative_breakdown_cardinality_mismatch():
+    response = SimpleNamespace(
+        results_by_period={
+            "YTD": SinglePeriodPerformanceResult(
+                portfolio=_analytics_block(
+                    period="2026-03",
+                    period_start=date(2026, 3, 1),
+                    period_end=date(2026, 3, 31),
+                    period_return=2.0,
+                ),
+                benchmark=ComparativeAnalyticsBlock(
+                    summary=ComparativeSummary(
+                        period_return=ComparativeReturnValue(base=1.0),
+                        cumulative_return=ComparativeReturnValue(base=1.0),
+                    ),
+                    breakdowns={Frequency.MONTHLY: []},
+                ),
+                relative_performance=_analytics_block(
+                    period="2026-03",
+                    period_start=date(2026, 3, 1),
+                    period_end=date(2026, 3, 31),
+                    period_return=1.0,
+                ),
+            )
+        }
+    )
+
+    result = run_twr_calculation_consistency_checks(response)
+
+    finding_codes = {finding.code for finding in result.findings}
+    assert "RELATIVE_BREAKDOWN_CARDINALITY_MISMATCH" in finding_codes
+    cardinality_finding = next(
+        finding for finding in result.findings if finding.code == "RELATIVE_BREAKDOWN_CARDINALITY_MISMATCH"
+    )
+    assert cardinality_finding.evidence["relative_count"] == 1
+    assert cardinality_finding.evidence["portfolio_count"] == 1
+    assert cardinality_finding.evidence["benchmark_count"] == 0
+
+
 def test_calculation_consistency_flags_benchmark_block_without_relative_block():
     response = SimpleNamespace(
         results_by_period={
@@ -226,6 +265,41 @@ def test_calculation_consistency_flags_daily_calculation_evidence_mismatch():
     assert finding.evidence["mismatches"]["external_outflows"] == {"expected": 50.0, "actual": 0.0}
     assert finding.evidence["mismatches"]["daily_return"]["actual"] == 99.0
     assert finding.evidence["mismatches"]["period_return.base"]["actual"] == 1.3
+
+
+def test_calculation_consistency_flags_calculated_status_with_zero_adjusted_capital():
+    response = SimpleNamespace(
+        results_by_period={
+            "YTD": SinglePeriodPerformanceResult(
+                portfolio=_daily_evidence_block(
+                    evidence=TWRDailyCalculationEvidence(
+                        begin_mv=0.0,
+                        end_mv=0.0,
+                        bod_cf=0.0,
+                        eod_cf=0.0,
+                        external_inflows=0.0,
+                        external_outflows=0.0,
+                        management_fees=0.0,
+                        adjusted_capital=0.0,
+                        performance_pnl=0.0,
+                        daily_return=0.0,
+                        status="calculated",
+                        reason_codes=["FLOW_NEUTRALIZED_DAILY_RETURN"],
+                        warnings=[],
+                    )
+                )
+            )
+        }
+    )
+
+    result = run_twr_calculation_consistency_checks(response)
+
+    assert {finding.code for finding in result.findings} == {"DAILY_CALCULATION_EVIDENCE_MISMATCH"}
+    assert result.findings[0].evidence["mismatches"]["status"] == {
+        "expected": "not_calculated",
+        "actual": "calculated",
+        "reason": "zero_adjusted_capital",
+    }
 
 
 def _analytics_block(
