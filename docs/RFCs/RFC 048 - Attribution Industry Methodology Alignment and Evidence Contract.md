@@ -348,6 +348,10 @@ Validation:
 
 Purpose: fix repeatable platform gaps at platform level.
 
+Implementation evidence: `docs/RFCs/RFC-048-platform-automation-slice1.md`. Slice 1 strengthened
+`lotus-platform` analytics data-product onboarding through `sgajbi/lotus-platform#323`, merged as
+`df085a5194235cae15968a54471f51e4400e49cc`.
+
 Scope:
 
 1. assess whether platform automation already scaffolds API certification, Swagger quality,
