@@ -6,8 +6,10 @@
 - Requires Approval From:
   - lotus-performance maintainers
   - lotus-platform maintainers
-  - lotus-core maintainers, only for source-contract changes
-  - downstream maintainers, only if API changes affect consumers
+  - lotus-core maintainers when upstream source contracts, source products, or seeded evidence need
+    changes
+  - downstream maintainers when API, gateway, Workbench, report, AI, or product-realization
+    contracts change
 - Source Material:
   - `C:\Users\Sandeep\Downloads\twr-industry-docs.zip\twr-industry-docs`
 - LinkedIn Communication Source:
@@ -62,12 +64,18 @@ semantic reason codes, denominator and linkability policy clarity, episode metad
 quality visibility, deterministic edge-case coverage, enterprise data-product discoverability,
 security/CI hardening, and Lotus-owned documentation.
 
-This RFC is additive-first. It should not rewrite the TWR engine or widen the calculation scope
-unless Slice 0 proves that an implementation change is necessary and supportable. Any API contract
-change must include OpenAPI, vocabulary, no-alias, documentation, data mesh, and downstream
-consumer impact review.
+This RFC is correctness-first and realization-first. It should not rewrite the TWR engine or widen
+the calculation scope without evidence, but it may change existing APIs when that is the right
+design. Backward compatibility is not a constraint for this RFC. If contracts change, all required
+upstream and downstream repositories must be updated in the same RFC delivery so the business value
+is realized end to end.
 
 Composite calculation is explicitly out of scope for this RFC.
+
+No follow-up RFC, second wave, or downstream-only realization track should be required for the
+approved RFC-046 business value. Required upstream source work, platform work, downstream consumer
+work, documentation, wiki, CI, security, and product realization belong inside this RFC. Only
+explicit non-goals, such as composite calculation, may remain outside the RFC.
 
 ## 2. Business Outcomes
 
@@ -121,11 +129,15 @@ material.
    are discovered.
 8. Improve `lotus-platform` automation and scaffolding for cross-cutting concerns that should not
    be solved repeatedly inside individual apps.
-9. Keep API changes additive unless maintainers explicitly approve a breaking change.
-10. Update downstream consumers when an API or contract change affects them.
+9. Choose the correct API contract even when it requires breaking changes.
+10. Update all required upstream and downstream repositories in the same RFC when source contracts,
+    API contracts, product surfaces, gateway orchestration, reporting, or AI evidence consumption
+    are affected.
 11. Keep README, docs, wiki, OpenAPI, API vocabulary, supported-features, context, and agent
     guidance aligned.
 12. Produce a truthful post-completion LinkedIn draft based only on what was implemented and proven.
+13. Fully realize the approved RFC-046 business value without requiring a follow-up RFC or second
+    implementation wave.
 
 ## 5. Non-Goals
 
@@ -138,11 +150,13 @@ material.
    migration notes, and approval.
 6. Do not copy generic industry documentation into Lotus docs. Final documentation must use Lotus
    vocabulary and reflect implemented behavior.
-7. Do not claim UI or demo readiness unless downstream Gateway/Workbench work is implemented and
-   proven separately.
+7. Do not claim UI or demo readiness unless downstream Gateway/Workbench work is implemented,
+   integrated, and proven as part of this RFC when required for business realization.
 8. Do not treat platform automation gaps as local-only app work when they belong in
    `lotus-platform` scaffolding.
 9. Do not draft public communication with aspirational or unimplemented claims.
+10. Do not leave required upstream or downstream work as a follow-up RFC when it is necessary to
+    realize the approved RFC-046 business value.
 
 ## 6. Architecture Direction
 
@@ -156,9 +170,14 @@ RFC-046 should keep TWR ownership clean:
    is sourced, calculated, missing, stale, degraded, or unsupported.
 4. Inspection remains a supportability contract. Calculation responses may summarize source quality,
    but inspection artifacts remain the deeper support diagnostic surface.
-5. Gateway and Workbench are downstream consumers only when this RFC changes a contract they use.
+5. Gateway and Workbench must be updated in the same RFC when their APIs, typed clients, panels,
+   data loading, evidence displays, or product workflows need changes to consume the corrected
+   `lotus-performance` contract.
 6. Platform-level automation and scaffolding belong in `lotus-platform` when the gap is repeatable
    across apps.
+7. `lotus-report`, `lotus-ai`, and other downstream consumers must be updated in the same RFC when
+   TWR evidence, methodology, supportability, report input, AI evidence input, or product material
+   contracts change.
 
 The design must avoid mixing concerns:
 
@@ -195,6 +214,7 @@ unmerged branch.
 | FX and reporting currency evidence | Upstream FX source plus `lotus-performance` calculation layer | Expose missing/stale FX behavior and reporting-currency assumptions. |
 | Inspection findings | `lotus-performance` inspection subsystem | Keep separate from calculation, but align reason-code vocabulary and supportability language. |
 | API and product composition | `lotus-gateway`, `lotus-workbench` | Downstream only if this RFC changes response contracts consumed by product surfaces. |
+| Reporting and AI evidence consumption | `lotus-report`, `lotus-ai`, and related consumers | Update in the same RFC when TWR evidence, report input, or AI evidence input contracts change. |
 | Platform governance and scaffolding | `lotus-platform` | Improve reusable automation/scaffolding where gaps are not app-specific. |
 
 ## 9. Data Product Requirements
@@ -223,8 +243,10 @@ mesh wording is not enough.
 
 ## 10. Proposed Response Evidence Direction
 
-The first implementation should prefer additive evidence fields rather than breaking current TWR
-responses. The exact field names must be finalized in the implementation slice and pass API
+The implementation should choose the clearest and most durable TWR response contract. Additive
+fields are acceptable when they keep the contract clean, but breaking response changes are allowed
+when they materially improve correctness, supportability, data product clarity, or downstream
+realization. The exact field names must be finalized in the implementation slice and pass API
 vocabulary review, but the evidence should cover:
 
 1. calculation method,
@@ -308,6 +330,8 @@ Scope:
    evidence, data mesh metadata, and downstream consumers.
 5. Review the current RFC again after branch reconciliation and tighten it if unique branch truth
    changes the plan.
+6. Classify every required upstream and downstream repository change as in-scope, not-required, or
+   explicitly out-of-scope because it belongs to an RFC-046 non-goal.
 
 Acceptance:
 
@@ -316,6 +340,8 @@ Acceptance:
 3. The source map is implementation-backed and does not promote unsupported features.
 4. Downstream and upstream dependencies are explicitly classified as required, optional, deferred,
    or no-change.
+5. No required source, platform, gateway, Workbench, report, AI, or consumer change is left as an
+   unspecified follow-up.
 
 ### Slice 1 - Platform Automation and Scaffolding Improvement
 
@@ -388,7 +414,8 @@ Scope:
 1. Add internal and API-visible daily calculation evidence for portfolio TWR.
 2. Include method, denominator basis, flow timing, beginning value, ending value, external flows,
    adjusted capital, performance P&L, daily return, status, warnings, and reason codes.
-3. Decide whether verbose evidence is default or gated by an explicit output/detail option.
+3. Decide whether verbose evidence is default or gated by an explicit output/detail option based on
+   product usability and downstream realization, not backward compatibility.
 4. Ensure evidence is documented as product contract, not a debug-only afterthought.
 
 Acceptance:
@@ -396,7 +423,8 @@ Acceptance:
 1. Unit and integration tests cover no-flow, deposit-neutralized, withdrawal-neutralized, same-day
    deposit/withdrawal, and denominator evidence.
 2. OpenAPI examples describe the new evidence.
-3. Existing clients remain compatible unless a breaking change is explicitly approved.
+3. If existing clients break because the corrected contract is materially better, all affected
+   downstream consumers are updated in the same RFC.
 
 ### Slice 5 - Denominator, Linkability, Reset, and Episode Semantics
 
@@ -452,31 +480,42 @@ Scope:
 1. Document that composite calculation is out of scope for this RFC.
 2. Confirm whether any existing docs or supported-feature entries imply composite, group, or sleeve
    TWR support and correct them if needed.
-3. Create a future RFC backlog note only if source contracts and product demand justify it.
+3. Remove or correct any current misleading product, API, or wiki wording that implies composite
+   support.
 
 Acceptance:
 
 1. No composite calculation code is added.
 2. No composite, group, or sleeve TWR support claim is promoted.
 3. Supported-features and docs are truthful.
+4. No future-RFC wording is used to defer any required RFC-046 business value.
 
-### Slice 9 - API, OpenAPI, Vocabulary, and Downstream Contract Pass
+### Slice 9 - API, OpenAPI, Vocabulary, and Cross-Repo Contract Realization
 
 Scope:
 
 1. Update response models, OpenAPI examples, API vocabulary inventory, no-alias guard coverage, and
    docs contract tests for any additive evidence fields.
-2. Inspect downstream consumers for strict parsing or UI assumptions.
-3. Patch `lotus-gateway`, `lotus-workbench`, or other consumers only if this RFC changes contracts
-   they consume.
-4. Ensure all APIs touched by this RFC are properly certified.
+2. Redesign existing APIs when the corrected TWR contract requires it.
+3. Inspect downstream consumers for strict parsing, typed client assumptions, UI assumptions,
+   report input assumptions, AI evidence assumptions, and gateway orchestration assumptions.
+4. Patch `lotus-gateway`, `lotus-workbench`, `lotus-report`, `lotus-ai`, or other consumers when
+   this RFC changes contracts they consume or when integration is required to realize the business
+   value.
+5. Patch `lotus-core` or upstream source systems when required source evidence, cashflow
+   classification, FX, benchmark, valuation, or lineage behavior is missing and within the RFC-046
+   realization boundary.
+6. Ensure all APIs touched by this RFC are properly certified.
 
 Acceptance:
 
 1. OpenAPI quality, vocabulary, no-alias, and endpoint certification gates pass.
-2. Downstream impact is implemented or explicitly proven as no-change.
+2. Upstream and downstream impact is implemented or explicitly proven as no-change.
 3. Swagger is grouped correctly and includes clear what/when/how guidance, full request/response
    examples, and field-level descriptions, types, and examples.
+4. Every downstream consumer uses the correct `lotus-performance` endpoint and contract for the
+   feature it realizes.
+5. No required contract realization remains outside this RFC.
 
 ### Slice 10 - Lotus TWR Documentation and Wiki Productization
 
@@ -657,12 +696,14 @@ Implementation must use GitHub effectively:
 
 1. create or continue a remote feature branch,
 2. use small, meaningful, well-scoped commits,
-3. open a PR when ready for asynchronous checks,
+3. open PRs for every affected repository when cross-repo implementation is required,
 4. monitor pipelines at regular intervals,
 5. fix failures promptly,
 6. keep branch hygiene under control,
 7. use repository-native validation commands,
-8. keep CI health, security posture, dependency hygiene, and PR evidence truthful.
+8. keep CI health, security posture, dependency hygiene, and PR evidence truthful,
+9. coordinate upstream and downstream PR ordering so consumers are not merged against stale
+   contracts.
 
 Required lanes:
 
@@ -698,7 +739,7 @@ evidence. Docs must not claim composite calculation support under this RFC.
 
 | Risk | Control |
 | --- | --- |
-| API evidence fields create compatibility issues | Prefer additive fields, inspect downstream consumers, and update consumers in the same delivery window if affected. |
+| API evidence fields create integration impact | Choose the correct contract, inspect downstream consumers, and update every affected consumer in the same RFC delivery window. |
 | TWR methodology docs become generic | Require every claim to map to actual implementation, tests, OpenAPI, or explicit limitation. |
 | Data mesh posture remains decorative | Add data product hardening slice with metadata, lineage, supportability, trust telemetry, discoverability, and consumer-contract acceptance criteria. |
 | Platform gaps are solved locally and repeated later | Mandatory platform automation/scaffolding slice with reusable improvements or deliberate no-change evidence. |
@@ -710,13 +751,16 @@ evidence. Docs must not claim composite calculation support under this RFC.
 
 ## 19. Rollout and Compatibility
 
-1. Prefer additive response fields.
-2. If a breaking change is unavoidable, document migration and update downstream consumers in the
-   same delivery window.
+1. Prefer the correct product and data contract over backward compatibility.
+2. Breaking changes are allowed when they materially improve correctness, clarity, supportability,
+   or product realization.
+3. Every breaking change must include migration notes, OpenAPI/vocabulary updates, test coverage,
+   and same-RFC updates to all affected upstream and downstream repositories.
 3. Keep existing reset diagnostics available while adding semantic TWR reason codes.
 4. Preserve existing stateless, stateful, benchmark, async, lineage, and inspection behavior.
 5. Do not promote new supported-feature claims until proof and wiki publication are complete.
 6. Keep composite calculation out of scope.
+7. No required RFC-046 realization work may be deferred to a follow-up RFC or second wave.
 
 ## 20. Definition of Done
 
@@ -727,7 +771,7 @@ This RFC is complete only when:
 3. tests cover adopted industry edge cases,
 4. OpenAPI, vocabulary, no-alias, data mesh, docs, wiki, CI, security, and platform compliance
    checks pass or governed deviations are formally tracked,
-5. downstream consumers are updated or proven unaffected,
+5. upstream and downstream repositories are updated or proven unaffected,
 6. README/docs/wiki/supported-features/context truth is aligned,
 7. skills, guidance, documentation, and agent context have been consciously reviewed and updated or
    explicitly left unchanged with rationale,
@@ -736,5 +780,8 @@ This RFC is complete only when:
 10. wiki is published after merge,
 11. branch hygiene confirms no unclassified governance truth remains,
 12. a truthful post-completion LinkedIn draft is prepared if requested for persistence, based only
-    on implemented and proven outcomes.
-
+    on implemented and proven outcomes,
+13. every downstream consumer that should realize RFC-046 business value uses the right
+    `lotus-performance` endpoint and contract,
+14. no required business-value, integration, platform, source, or consumer work is left to a
+    follow-up RFC or second wave.
