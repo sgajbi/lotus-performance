@@ -3,6 +3,7 @@ from time import perf_counter
 from uuid import uuid4
 
 import pytest
+import pandas as pd
 
 import app.services.portfolio_source_service as portfolio_source_service
 import app.services.returns_series_service as returns_series_service
@@ -101,9 +102,10 @@ async def test_returns_series_stateful_orchestration_characterization_contract(t
         returns_series_service.execution_registry = original_returns_series_registry
         stateful_input_service.execution_registry = original_stateful_input_registry
 
-    assert len(response.series.portfolio_returns) == 3653
-    assert len(response.series.benchmark_returns or []) == 3653
-    assert len(response.series.risk_free_returns or []) == 3653
+    expected_points = len(pd.bdate_range(STATEFUL_PORTFOLIO_WINDOW_START, STATEFUL_PORTFOLIO_WINDOW_END))
+    assert len(response.series.portfolio_returns) == expected_points
+    assert len(response.series.benchmark_returns or []) == expected_points
+    assert len(response.series.risk_free_returns or []) == expected_points
 
     median_ms = median(timings)
     assert median_ms <= RETURNS_SERIES_ORCHESTRATION_MEDIAN_MS_BUDGET, (

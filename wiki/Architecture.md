@@ -49,8 +49,32 @@ Router grouping in [main.py](../main.py):
   durable execution registry plus executor job storage
 - lineage seam:
   durable metadata plus artifact materialization
+- inspection seam:
+  TWR inspector resolves completed responses through async result storage and resolves request
+  truth through lineage metadata, lineage files, or durable compute-job payloads
 - operator seam:
   runtime-status, work-items, recoveries, drill history, and retention history
+
+## TWR Inspection Runtime
+
+Resolved async TWR inspection uses a three-part durable evidence path:
+
+```mermaid
+flowchart LR
+    A[TWR API request] --> B[Execution registry]
+    B --> C[Compute job store request payload]
+    C --> D[Compute executor]
+    D --> E[Async result store response payload]
+    D --> F[Lineage worker artifacts]
+    E --> G[TWR inspector]
+    C --> G
+    F --> G
+    G --> H[Inspection findings and artifacts]
+```
+
+The compute-job fallback is part of the supportability contract. It keeps inspections reliable when
+a completed async result is already visible to the API while lineage artifacts are still
+materializing or are worker-local.
 
 ## Deeper docs
 

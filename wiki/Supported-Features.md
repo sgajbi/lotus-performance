@@ -10,7 +10,7 @@ claim list.
 | --- | --- | --- | --- |
 | Portfolio TWR | Portfolio-level stateless and stateful TWR, synchronous and async | `POST /performance/twr`, `GET /performance/twr/results/{calculation_id}` | Daily calculation evidence, linkability status, episode status, supportability metadata, reset diagnostics, lineage, and docs contract tests. Composite, group, and sleeve TWR are not supported. |
 | Benchmark-aware TWR | Portfolio TWR with benchmark return and active return | `POST /performance/twr` with `include_benchmark=true` | `benchmark_context.supportability_evidence` exposes benchmark source/method, currency state, FX decomposition posture, calendar alignment, missing-date counts, and bounded warning codes. |
-| TWR inspection | Source-quality, reconciliation, source economics, reset/linkability supportability | `POST /performance/inspections/twr` | Inspection findings and artifacts support operational diagnosis; inspection is the deeper support surface and does not replace the calculation response contract. |
+| TWR inspection | Source-quality, economic-plausibility, reconciliation, cash-flow classification, reset/linkability supportability | `POST /performance/inspections/twr` | Inspection findings and artifacts support operational diagnosis; resolved async TWR subjects can use durable compute-job request payloads when API-local lineage files are not yet visible. Inspection is the deeper support surface and does not replace the calculation response contract. |
 | Money-weighted return | Portfolio-level XIRR, Modified Dietz fallback, Simple Dietz explicit path | `POST /performance/mwr` | Status, reason codes, warnings, convergence, fallback metadata, reporting currency, currency evidence, calculation supportability, and production-control docs. |
 | Contribution | Portfolio and position contribution, including stateful source-normalized input | `POST /performance/contribution` | Total, local, and FX contribution results with bounded supportability. Downstream consumers should not reconstruct contribution. |
 | Attribution | Portfolio/benchmark attribution, including stateful source-normalized input | `POST /performance/attribution` | Allocation, selection, interaction, active return, currency-attribution evidence, and supportability metadata. |
@@ -30,10 +30,17 @@ documented, and tested:
 - linkability status and episode status for reset boundaries, no-investment periods, and full-loss
   or not-calculated rows
 - stateful source-quality evidence from `lotus-core` normalized inputs
+- canonical inspection evidence for resolved stateful subjects, including source-quality,
+  economic-plausibility, reconciliation, and cash-flow-classification check families
 - benchmark/FX/calendar supportability evidence under `benchmark_context.supportability_evidence`
 - Gateway workspace preservation of benchmark evidence
 - Workbench presentation of benchmark evidence as an implementation-backed product metric
 - explicit portfolio-only boundary for TWR
+
+Gold-pass live validation on 2026-05-10 proved canonical stateful TWR inspection against the local
+front-office stack. The inspector completed all required evidence families with zero reconciliation
+gap dates, zero nonpositive capital-base dates, zero cash-flow normalization/timing/type defects,
+and only the allowed canonical data warnings.
 
 ## Not Supported By RFC-046
 

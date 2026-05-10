@@ -28,6 +28,8 @@ Current `lotus-performance` TWR supports:
 - lineage and reproducibility artifacts for durable workflows
 - bounded calculation supportability metadata and Prometheus freshness posture
 - TWR inspection workflows for deeper source-quality and reconciliation evidence
+- async inspection of resolved stateful TWR calculations using durable compute-job request payloads
+  when API-local lineage materialization is not yet visible
 
 ## Product Contract
 
@@ -44,6 +46,7 @@ understand whether the return is usable, explainable, benchmark-aware, and sourc
 | Is the source data trustworthy enough? | `calculation_supportability` and, for stateful TWR, `source_quality_evidence` expose source freshness and degraded-state posture. |
 | Is the benchmark comparison supportable? | `benchmark_context.supportability_evidence` exposes benchmark source, currency posture, FX decomposition, calendar overlap, missing dates, and warning codes. |
 | Can operations reproduce or investigate the result? | Async execution, lineage, inspection, and artifact routes preserve durable evidence. |
+| Can a just-completed async TWR run be inspected reliably? | The inspector resolves the durable response and falls back to the compute-job request payload if lineage request materialization has not yet reached the API container. |
 
 ## Business Flow
 
@@ -55,6 +58,9 @@ flowchart LR
     C --> E
     E --> F[TWR engine: daily return, reset policy, geometric linking]
     F --> G[TWR response + supportability + benchmark context]
+    F --> K[Compute job request and async result stores]
+    K --> L[TWR inspector]
+    G --> L
     G --> H[lotus-gateway and downstream consumers]
     H --> I[Workbench, reporting, risk, support, and demo surfaces]
 ```
@@ -72,6 +78,8 @@ flowchart LR
     G --> H[Gateway workspace summary]
     H --> I[Workbench Benchmark Evidence metric]
     G --> J[TWR inspection and support workflows]
+    K[Compute job request payload] --> J
+    L[Lineage artifacts] --> J
 ```
 
 ## Integration Boundaries
@@ -106,6 +114,15 @@ TWR is not only a formula endpoint. The current implementation also provides:
   security identifiers
 - endpoint certification and docs contract tests
 - inspection supportability for source-quality and reconciliation analysis
+- canonical inspection proof for resolved stateful TWR subjects, including calculation-consistency,
+  source-quality, economic-plausibility, reconciliation, and cash-flow-classification check
+  families
+- durable compute-job fallback for async inspections so support does not depend on worker-local
+  lineage file visibility
+
+Canonical live proof on 2026-05-10 returned zero nonpositive capital-base dates, zero
+reconciliation gap dates, zero cash-flow normalization/timing/type defects, and only the allowed
+canonical data warnings `WEEKEND_OBSERVATIONS_PRESENT` and `MONTHLY_RETURN_DAY_DOMINANCE_DETECTED`.
 
 ## Demo And Client-Ready Talking Points
 

@@ -1,4 +1,5 @@
 import json
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -60,6 +61,65 @@ def test_load_existing_twr_calculation_artifacts_reads_materialized_lineage_file
     )
     monkeypatch.setattr(materialization.async_result_store, "get_result", lambda _calculation_id: None)
     monkeypatch.setattr(materialization.lineage_metadata_store, "get_payload", lambda _calculation_id: None)
+
+    artifacts = load_existing_twr_calculation_artifacts(calculation_id)
+
+    assert artifacts.response_model.calculation_id == calculation_id
+    assert artifacts.request_payload == request_payload
+
+
+def test_load_existing_twr_calculation_artifacts_waits_for_lineage_request_payload(monkeypatch, tmp_path):
+    calculation_id = uuid4()
+    response_payload = _performance_response_payload(calculation_id=str(calculation_id))
+    request_payload = {"resolved_request": _resolved_request_payload()}
+    lineage_calls = {"count": 0}
+
+    def _get_payload(_calculation_id):
+        lineage_calls["count"] += 1
+        if lineage_calls["count"] == 1:
+            return None
+        return SimpleNamespace(
+            request_json=json.dumps(request_payload),
+            response_json=json.dumps(response_payload),
+        )
+
+    monkeypatch.setattr(
+        materialization, "get_settings", lambda: type("Settings", (), {"LINEAGE_STORAGE_PATH": str(tmp_path)})()
+    )
+    monkeypatch.setattr(
+        materialization.async_result_store,
+        "get_result",
+        lambda _calculation_id: SimpleNamespace(response_payload=response_payload),
+    )
+    monkeypatch.setattr(materialization.lineage_metadata_store, "get_payload", _get_payload)
+    monkeypatch.setattr(materialization.compute_job_store, "get_job", lambda _calculation_id: None)
+
+    artifacts = load_existing_twr_calculation_artifacts(calculation_id)
+
+    assert artifacts.response_model.calculation_id == calculation_id
+    assert artifacts.request_payload == request_payload
+    assert lineage_calls["count"] == 2
+
+
+def test_load_existing_twr_calculation_artifacts_reads_compute_job_request_payload(monkeypatch, tmp_path):
+    calculation_id = uuid4()
+    response_payload = _performance_response_payload(calculation_id=str(calculation_id))
+    request_payload = {"resolved_request": _resolved_request_payload()}
+
+    monkeypatch.setattr(
+        materialization, "get_settings", lambda: type("Settings", (), {"LINEAGE_STORAGE_PATH": str(tmp_path)})()
+    )
+    monkeypatch.setattr(
+        materialization.async_result_store,
+        "get_result",
+        lambda _calculation_id: SimpleNamespace(response_payload=response_payload),
+    )
+    monkeypatch.setattr(materialization.lineage_metadata_store, "get_payload", lambda _calculation_id: None)
+    monkeypatch.setattr(
+        materialization.compute_job_store,
+        "get_job",
+        lambda _calculation_id: SimpleNamespace(request_payload=request_payload),
+    )
 
     artifacts = load_existing_twr_calculation_artifacts(calculation_id)
 
