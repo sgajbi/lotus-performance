@@ -13,5 +13,7 @@ def test_runtime_services_share_lineage_artifact_volume() -> None:
     ):
         service_start = compose.index(f"  {service}:")
         next_service_start = compose.find("\n  performance-", service_start + 1)
-        service_block = compose[service_start:] if next_service_start == -1 else compose[service_start:next_service_start]
+        service_block = (
+            compose[service_start:] if next_service_start == -1 else compose[service_start:next_service_start]
+        )
         assert "- performance-lineage-data:/app/lineage_data" in service_block
