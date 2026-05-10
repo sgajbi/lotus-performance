@@ -47,20 +47,26 @@ def test_repo_native_validation_script_stages_upstream_core_products() -> None:
     assert [path.name for path in upstream_paths] == ["lotus-core-products.v1.json"]
 
 
-def test_repo_native_producer_declarations_cover_governed_first_wave_products_and_mwr() -> None:
+def test_repo_native_producer_declarations_cover_governed_first_wave_products_and_twr_mwr() -> None:
     payload = _load_declaration("lotus-performance-products.v1.json")
 
     assert payload["producer_repository"] == "lotus-performance"
     assert [product["product_name"] for product in payload["products"]] == [
+        "TimeWeightedReturnAnalytics",
         "MoneyWeightedReturnAnalytics",
         "ReturnsSeriesBundle",
         "BenchmarkExposureContext",
     ]
-    assert payload["products"][0]["approved_consumers"] == ["lotus-gateway"]
-    assert payload["products"][0]["current_routes"] == ["/performance/mwr"]
-    assert "upstream_request_fingerprints" in payload["products"][0]["required_trust_metadata"]
-    assert payload["products"][1]["approved_consumers"] == ["lotus-risk"]
+    twr_product = payload["products"][0]
+    assert twr_product["approved_consumers"] == ["lotus-gateway"]
+    assert twr_product["current_routes"] == ["/performance/twr", "/performance/twr/results/{calculation_id}"]
+    assert "upstream_request_fingerprints" in twr_product["required_trust_metadata"]
+    assert twr_product["lineage_policy"]["lineage_required"] is True
+    assert payload["products"][1]["approved_consumers"] == ["lotus-gateway"]
+    assert payload["products"][1]["current_routes"] == ["/performance/mwr"]
+    assert "upstream_request_fingerprints" in payload["products"][1]["required_trust_metadata"]
     assert payload["products"][2]["approved_consumers"] == ["lotus-risk"]
+    assert payload["products"][3]["approved_consumers"] == ["lotus-risk"]
 
 
 def test_repo_native_consumer_declarations_keep_watchlist_dependencies_docs_only() -> None:

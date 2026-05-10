@@ -154,6 +154,105 @@ def _link_return_series(series: pd.Series) -> float:
     return float((running - Decimal("1")) * Decimal("100"))
 
 
+from app.services.twr_benchmark_supportability import build_twr_benchmark_supportability_evidence  # noqa: E402
+
+
+def _build_daily_calculation_evidence(
+    row: pd.Series,
+    *,
+    metric_basis: str,
+) -> object:
+    from app.models.responses import TWRDailyCalculationEvidence
+
+    begin_mv = _as_numeric(row.get(PortfolioColumns.BEGIN_MV.value, 0))
+    bod_cf = _as_numeric(row.get(PortfolioColumns.BOD_CF.value, 0))
+    eod_cf = _as_numeric(row.get(PortfolioColumns.EOD_CF.value, 0))
+    management_fees = _as_numeric(row.get(PortfolioColumns.MGMT_FEES.value, 0))
+    end_mv = _as_numeric(row.get(PortfolioColumns.END_MV.value, 0))
+    signed_adjusted_capital = begin_mv + bod_cf
+    adjusted_capital = abs(signed_adjusted_capital)
+    performance_pnl = end_mv - bod_cf - begin_mv - eod_cf
+    if metric_basis == "NET":
+        performance_pnl += management_fees
+
+    status = "calculated" if adjusted_capital != 0 else "not_calculated"
+    linkability_status = "linkable"
+    episode_status = "open"
+    reason_codes = ["FLOW_NEUTRALIZED_DAILY_RETURN"]
+    warnings: list[str] = []
+
+    if adjusted_capital == 0:
+        reason_codes.append("ZERO_ADJUSTED_CAPITAL")
+        warnings.append("ZERO_ADJUSTED_CAPITAL")
+        linkability_status = "not_calculated"
+    elif signed_adjusted_capital < 0:
+        reason_codes.append("NEGATIVE_ADJUSTED_CAPITAL_INPUT")
+        warnings.append("NEGATIVE_ADJUSTED_CAPITAL_INPUT")
+    elif adjusted_capital < 1e-8:
+        reason_codes.append("NEAR_ZERO_ADJUSTED_CAPITAL")
+        warnings.append("NEAR_ZERO_ADJUSTED_CAPITAL")
+
+    perf_date_raw = row.get(PortfolioColumns.PERF_DATE.value)
+    effective_start_raw = row.get(PortfolioColumns.EFFECTIVE_PERIOD_START_DATE.value)
+    if perf_date_raw is not None and effective_start_raw is not None and pd.notna(effective_start_raw):
+        perf_date = pd.to_datetime(str(perf_date_raw)).date()
+        effective_start = pd.to_datetime(str(effective_start_raw)).date()
+        if perf_date < effective_start:
+            status = "not_calculated"
+            linkability_status = "not_calculated"
+            episode_status = "not_in_period"
+            reason_codes.append("BEFORE_EFFECTIVE_PERIOD_START")
+            warnings.append("BEFORE_EFFECTIVE_PERIOD_START")
+
+    if _as_numeric(row.get(PortfolioColumns.PERF_RESET.value, 0)) == 1:
+        reason_codes.append("RESET_DAY")
+        episode_status = "reset_boundary"
+        if linkability_status == "linkable":
+            linkability_status = "reset_boundary"
+    if _as_numeric(row.get(PortfolioColumns.NIP.value, 0)) == 1:
+        reason_codes.append("NO_INVESTMENT_PERIOD")
+        if episode_status == "open":
+            episode_status = "no_investment"
+        if linkability_status == "linkable":
+            linkability_status = "not_calculated"
+
+    if end_mv == 0 and eod_cf < 0:
+        reason_codes.append("FULL_WITHDRAWAL_DAY")
+    if begin_mv <= 0 and bod_cf > 0:
+        reason_codes.append("REFUNDING_DAY")
+
+    daily_return = _as_numeric(row.get(PortfolioColumns.DAILY_ROR.value, 0))
+    if daily_return == -100:
+        reason_codes.append("FULL_LOSS_RETURN")
+        warnings.append("FULL_LOSS_RETURN")
+        if linkability_status == "linkable":
+            linkability_status = "not_linkable"
+    elif daily_return < -100:
+        reason_codes.append("BELOW_FULL_LOSS_RETURN")
+        warnings.append("BELOW_FULL_LOSS_RETURN")
+        if linkability_status == "linkable":
+            linkability_status = "not_linkable"
+
+    return TWRDailyCalculationEvidence(
+        begin_mv=begin_mv,
+        end_mv=end_mv,
+        bod_cf=bod_cf,
+        eod_cf=eod_cf,
+        external_inflows=sum(value for value in (bod_cf, eod_cf) if value > 0),
+        external_outflows=abs(sum(value for value in (bod_cf, eod_cf) if value < 0)),
+        management_fees=management_fees,
+        signed_adjusted_capital=signed_adjusted_capital,
+        adjusted_capital=adjusted_capital,
+        performance_pnl=performance_pnl,
+        daily_return=daily_return,
+        status=status,
+        linkability_status=linkability_status,
+        episode_status=episode_status,
+        reason_codes=reason_codes,
+        warnings=warnings,
+    )
+
+
 def _calculate_benchmark_return_from_slice(period_daily_df: pd.DataFrame) -> ComparativeReturnValue:
     local = None
     fx = None
@@ -240,6 +339,7 @@ def _build_portfolio_breakdowns(
     requested_frequencies: list[Frequency],
     breakdowns_data: dict[Frequency, list[dict]],
     include_timeseries: bool,
+    metric_basis: str,
 ) -> dict[Frequency, list[ComparativeBreakdownItem]]:
     breakdowns: dict[Frequency, list[ComparativeBreakdownItem]] = {}
     for frequency in requested_frequencies:
@@ -272,6 +372,11 @@ def _build_portfolio_breakdowns(
                     daily_data=(
                         [frequency_df.iloc[0].to_dict()]
                         if include_timeseries and frequency == Frequency.DAILY and not frequency_df.empty
+                        else None
+                    ),
+                    calculation_evidence=(
+                        _build_daily_calculation_evidence(frequency_df.iloc[0], metric_basis=metric_basis)
+                        if frequency == Frequency.DAILY and not frequency_df.empty
                         else None
                     ),
                 )
@@ -380,6 +485,7 @@ def _resolve_twr_supportability(
         report_end_date=performance_request.report_end_date,
         benchmark_row_count=benchmark_row_count,
         minimum_input_row_count=2,
+        source_quality_evidence=performance_request.source_quality_evidence,
     )
 
 
@@ -461,6 +567,7 @@ def calculate_twr_response(
             requested_frequencies=requested_frequencies_for_period,
             breakdowns_data=breakdowns_data,
             include_timeseries=performance_request.output.include_timeseries,
+            metric_basis=performance_request.metric_basis,
         )
 
         period_result = SinglePeriodPerformanceResult(
@@ -530,6 +637,18 @@ def calculate_twr_response(
         results_by_period[period.name] = period_result
 
     benchmark_row_count = len(benchmark_artifacts.daily_returns_df) if benchmark_artifacts is not None else 0
+    benchmark_supportability_evidence = (
+        build_twr_benchmark_supportability_evidence(
+            performance_request=performance_request,
+            benchmark_request=benchmark_request,
+            portfolio_daily_results_df=daily_results_df,
+            benchmark_daily_returns_df=benchmark_artifacts.daily_returns_df,
+            benchmark_input_mode=(benchmark_input_mode or BenchmarkInputMode.STATELESS).value,
+            benchmark_return_source=normalized_benchmark_return_source.value,
+        )
+        if benchmark_artifacts is not None and benchmark_request is not None
+        else None
+    )
     calculation_supportability = _resolve_twr_supportability(
         performance_request=performance_request,
         results_by_period=results_by_period,
@@ -551,6 +670,7 @@ def calculate_twr_response(
                 benchmark_currency=benchmark_request.benchmark_currency,
                 input_mode=(benchmark_input_mode or BenchmarkInputMode.STATELESS).value,
                 return_source=normalized_benchmark_return_source.value,
+                supportability_evidence=benchmark_supportability_evidence,
             )
             if benchmark_artifacts is not None and benchmark_request is not None
             else None

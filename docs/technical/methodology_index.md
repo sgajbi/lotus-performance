@@ -6,6 +6,7 @@ analytics and integration surfaces.
 ## Public API guides
 
 - [guides/twr.md](../guides/twr.md)
+- [technical/twr-documentation-map.md](twr-documentation-map.md)
 - [guides/mwr.md](../guides/mwr.md)
 - [technical/mwr-fx-contract-design.md](mwr-fx-contract-design.md)
 - [guides/contribution.md](../guides/contribution.md)
@@ -39,6 +40,7 @@ That set is the authoritative metric-by-metric reference for:
 - [runtime_topology.md](runtime_topology.md)
 - [engine_config.md](engine_config.md)
 - [data_model.md](data_model.md)
+- [twr-documentation-map.md](twr-documentation-map.md)
 - [attribution-endpoint-certification.md](attribution-endpoint-certification.md)
 - [contribution-endpoint-certification.md](contribution-endpoint-certification.md)
 

@@ -98,6 +98,97 @@ class ComparativeSummary(BaseModel):
     )
 
 
+TWRDailyCalculationEvidenceStatus = Literal["calculated", "not_calculated"]
+TWRDailyLinkabilityStatus = Literal["linkable", "not_linkable", "reset_boundary", "not_calculated"]
+TWRDailyEpisodeStatus = Literal["open", "reset_boundary", "no_investment", "not_in_period"]
+NumericOutput = float
+
+
+class TWRDailyCalculationEvidence(BaseModel):
+    calculation_method: Literal["flow_neutralized_daily_twr"] = Field(
+        default="flow_neutralized_daily_twr",
+        description="Daily TWR method used for this portfolio day.",
+        examples=["flow_neutralized_daily_twr"],
+    )
+    denominator_basis: Literal["absolute_begin_mv_plus_bod_cf"] = Field(
+        default="absolute_begin_mv_plus_bod_cf",
+        description="Capital denominator convention used by the daily return calculation.",
+        examples=["absolute_begin_mv_plus_bod_cf"],
+    )
+    flow_timing_convention: Literal["bod_flows_in_denominator_eod_flows_excluded_from_denominator"] = Field(
+        default="bod_flows_in_denominator_eod_flows_excluded_from_denominator",
+        description=(
+            "External flow timing convention: beginning-of-day flows adjust invested capital; "
+            "end-of-day flows are neutralized from performance P&L but do not adjust the denominator."
+        ),
+        examples=["bod_flows_in_denominator_eod_flows_excluded_from_denominator"],
+    )
+    begin_mv: NumericOutput = Field(
+        description="Beginning market value used for the daily return calculation.",
+        examples=[1000000.0],
+    )
+    end_mv: NumericOutput = Field(
+        description="Ending market value used for the daily return calculation.", examples=[1012500.0]
+    )
+    bod_cf: NumericOutput = Field(description="Beginning-of-day external cash flow.", examples=[25000.0])
+    eod_cf: NumericOutput = Field(description="End-of-day external cash flow.", examples=[-10000.0])
+    external_inflows: NumericOutput = Field(
+        description="Positive external cash flows for the day across beginning-of-day and end-of-day flows.",
+        examples=[25000.0],
+    )
+    external_outflows: NumericOutput = Field(
+        description="Absolute value of negative external cash flows for the day across beginning-of-day and end-of-day flows.",
+        examples=[10000.0],
+    )
+    management_fees: NumericOutput = Field(
+        description="Management fees included in performance P&L for NET calculations.",
+        examples=[125.0],
+    )
+    signed_adjusted_capital: NumericOutput = Field(
+        description="Beginning market value plus beginning-of-day flow before applying the absolute denominator policy.",
+        examples=[1025000.0],
+    )
+    adjusted_capital: NumericOutput = Field(
+        description="Absolute beginning market value plus beginning-of-day flow denominator used for the daily return.",
+        examples=[1025000.0],
+    )
+    performance_pnl: NumericOutput = Field(
+        description="Flow-neutralized performance P&L numerator used for the daily return.",
+        examples=[12500.0],
+    )
+    daily_return: NumericOutput = Field(
+        description="Daily return in percentage-point output units. Example: 1.25 means 1.25%, not 125%.",
+        examples=[1.25],
+    )
+    status: TWRDailyCalculationEvidenceStatus = Field(
+        description="Whether the row had enough governed capital basis to calculate a daily return.",
+        examples=["calculated"],
+    )
+    linkability_status: TWRDailyLinkabilityStatus = Field(
+        default="linkable",
+        description=(
+            "Whether this daily return can participate in geometric linking without crossing a reset, "
+            "non-calculation, or full-loss boundary."
+        ),
+        examples=["linkable"],
+    )
+    episode_status: TWRDailyEpisodeStatus = Field(
+        default="open",
+        description="TWR episode classification for the day: open, reset boundary, no-investment, or outside the effective period.",
+        examples=["open"],
+    )
+    reason_codes: list[str] = Field(
+        default_factory=list,
+        description="Bounded reason codes explaining noteworthy calculation conditions for this row.",
+        examples=[["FLOW_NEUTRALIZED_DAILY_RETURN"]],
+    )
+    warnings: list[str] = Field(
+        default_factory=list,
+        description="Bounded warning codes for rows requiring reviewer attention.",
+        examples=[["ZERO_ADJUSTED_CAPITAL"]],
+    )
+
+
 class ComparativeBreakdownItem(BaseModel):
     period: str = Field(description="Resolved bucket label for this breakdown row.", examples=["2026-03"])
     period_start: dt_date = Field(description="Inclusive bucket start date.", examples=["2026-03-01"])
@@ -114,6 +205,13 @@ class ComparativeBreakdownItem(BaseModel):
     daily_data: Optional[List[Dict]] = Field(
         default=None,
         description="Optional underlying daily detail retained for drill-down use.",
+    )
+    calculation_evidence: TWRDailyCalculationEvidence | None = Field(
+        default=None,
+        description=(
+            "Implementation-backed daily TWR calculation evidence for portfolio daily breakdown rows. "
+            "This curated evidence is returned independently of optional raw daily_data."
+        ),
     )
 
 
@@ -143,6 +241,87 @@ class ComparativeAnalyticsBlock(BaseModel):
     )
 
 
+TWRBenchmarkCalendarAlignmentState = Literal["aligned", "partial_overlap", "no_overlap"]
+TWRBenchmarkCurrencyState = Literal[
+    "single_currency",
+    "base_only",
+    "fx_decomposed",
+    "vendor_series_base_only",
+]
+
+
+class TWRBenchmarkSupportabilityEvidence(BaseModel):
+    return_source: str = Field(
+        description="Resolved benchmark return source used by the TWR calculation.",
+        examples=["calculated"],
+    )
+    input_mode: str = Field(description="Resolved benchmark input mode.", examples=["stateful"])
+    reporting_currency: str | None = Field(
+        default=None,
+        description="Requested portfolio reporting currency, when supplied.",
+        examples=["USD"],
+    )
+    benchmark_currency: str | None = Field(
+        default=None,
+        description="Benchmark currency used for benchmark return evidence.",
+        examples=["USD"],
+    )
+    currency_state: TWRBenchmarkCurrencyState = Field(
+        description=(
+            "Benchmark currency evidence state. fx_decomposed means Lotus received or derived local and FX "
+            "benchmark return components; vendor_series_base_only means the benchmark vendor series only "
+            "provides the benchmark return stream."
+        ),
+        examples=["fx_decomposed"],
+    )
+    calendar_alignment_state: TWRBenchmarkCalendarAlignmentState = Field(
+        description="Portfolio and benchmark daily observation date alignment state for active return supportability.",
+        examples=["aligned"],
+    )
+    portfolio_observation_count: int = Field(
+        ge=0,
+        description="Number of portfolio daily return observations in the resolved TWR calculation window.",
+        examples=[252],
+    )
+    benchmark_observation_count: int = Field(
+        ge=0,
+        description="Number of benchmark daily return observations in the resolved TWR calculation window.",
+        examples=[252],
+    )
+    overlapping_observation_count: int = Field(
+        ge=0,
+        description="Number of dates where both portfolio and benchmark observations are available.",
+        examples=[252],
+    )
+    missing_benchmark_date_count: int = Field(
+        ge=0,
+        description="Number of portfolio observation dates without a corresponding benchmark observation.",
+        examples=[0],
+    )
+    missing_benchmark_dates_sample: list[dt_date] = Field(
+        default_factory=list,
+        description="Sample of portfolio observation dates missing benchmark observations.",
+        examples=[["2026-01-03"]],
+    )
+    extra_benchmark_date_count: int = Field(
+        ge=0,
+        description="Number of benchmark observation dates outside the portfolio observation set.",
+        examples=[0],
+    )
+    extra_benchmark_dates_sample: list[dt_date] = Field(
+        default_factory=list,
+        description="Sample of benchmark observation dates without portfolio observations.",
+        examples=[["2026-01-04"]],
+    )
+    warning_codes: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Bounded benchmark, FX, and calendar supportability warning codes for TWR active-return evidence."
+        ),
+        examples=[["BENCHMARK_CALENDAR_GAP"]],
+    )
+
+
 class TWRBenchmarkContext(BaseModel):
     benchmark_id: str = Field(
         description="Resolved benchmark identifier used for this TWR response.", examples=["BMK_GLOBAL_60_40"]
@@ -154,6 +333,10 @@ class TWRBenchmarkContext(BaseModel):
     )
     input_mode: str = Field(description="Resolved benchmark input mode.", examples=["stateful"])
     return_source: str = Field(description="Resolved benchmark return source.", examples=["calculated"])
+    supportability_evidence: TWRBenchmarkSupportabilityEvidence | None = Field(
+        default=None,
+        description="Implementation-backed benchmark, FX, and calendar supportability evidence for TWR.",
+    )
 
 
 PerformanceSupportabilityState = Literal["ready", "stale", "degraded", "empty", "error", "unsupported"]
@@ -168,6 +351,7 @@ PerformanceSupportabilityReason = Literal[
 ]
 PerformanceFreshnessBucket = Literal["current", "same_day", "stale", "unknown"]
 
+from app.models.source_quality import PerformanceSourceQualityEvidence  # noqa: E402
 from app.observability_contracts import PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS  # noqa: E402
 
 
@@ -201,6 +385,10 @@ class PerformanceCalculationSupportability(BaseModel):
         ge=0,
         description="Resolved benchmark observation count used when benchmark analytics were requested.",
         examples=[252],
+    )
+    source_quality_evidence: PerformanceSourceQualityEvidence | None = Field(
+        default=None,
+        description="Implementation-backed source-quality evidence preserved from stateful source normalization.",
     )
     metric_labels: tuple[str, ...] = Field(
         default=PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS,

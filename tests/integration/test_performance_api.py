@@ -500,6 +500,99 @@ def test_calculate_twr_endpoint_legacy_path_and_diagnostics(client):
     assert "audit" in response_data
     assert response_data["audit"]["counts"]["input_rows"] == 5
 
+    daily_breakdown = ytd_results["portfolio"]["breakdowns"]["daily"]
+    no_flow_evidence = daily_breakdown[0]["calculation_evidence"]
+    assert no_flow_evidence["calculation_method"] == "flow_neutralized_daily_twr"
+    assert no_flow_evidence["denominator_basis"] == "absolute_begin_mv_plus_bod_cf"
+    assert no_flow_evidence["flow_timing_convention"] == "bod_flows_in_denominator_eod_flows_excluded_from_denominator"
+    assert no_flow_evidence["begin_mv"] == 100000.0
+    assert no_flow_evidence["end_mv"] == 101000.0
+    assert no_flow_evidence["adjusted_capital"] == 100000.0
+    assert no_flow_evidence["performance_pnl"] == 1000.0
+    assert no_flow_evidence["daily_return"] == pytest.approx(1.0)
+    assert no_flow_evidence["status"] == "calculated"
+    assert no_flow_evidence["reason_codes"] == ["FLOW_NEUTRALIZED_DAILY_RETURN"]
+
+    deposit_evidence = daily_breakdown[3]["calculation_evidence"]
+    assert deposit_evidence["bod_cf"] == 25000.0
+    assert deposit_evidence["eod_cf"] == 0.0
+    assert deposit_evidence["external_inflows"] == 25000.0
+    assert deposit_evidence["external_outflows"] == 0.0
+    assert deposit_evidence["adjusted_capital"] == pytest.approx(125989.9)
+    assert deposit_evidence["performance_pnl"] == pytest.approx(1259.39)
+    assert deposit_evidence["daily_return"] == pytest.approx(0.999596, abs=1e-6)
+
+
+def test_twr_daily_calculation_evidence_handles_same_day_deposit_and_withdrawal(client):
+    payload = {
+        "portfolio_id": "TWR_DAILY_EVIDENCE",
+        "performance_start_date": "2024-12-31",
+        "metric_basis": "NET",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "valuation_points": [
+            {
+                "perf_date": "2025-01-01",
+                "begin_mv": 1000.0,
+                "bod_cf": 200.0,
+                "eod_cf": -100.0,
+                "mgmt_fees": 2.0,
+                "end_mv": 1113.0,
+            }
+        ],
+    }
+
+    response = client.post("/performance/twr", json=payload)
+    assert response.status_code == 200
+
+    daily_item = response.json()["results_by_period"]["YTD"]["portfolio"]["breakdowns"]["daily"][0]
+    evidence = daily_item["calculation_evidence"]
+    assert evidence["begin_mv"] == 1000.0
+    assert evidence["bod_cf"] == 200.0
+    assert evidence["eod_cf"] == -100.0
+    assert evidence["external_inflows"] == 200.0
+    assert evidence["external_outflows"] == 100.0
+    assert evidence["management_fees"] == 2.0
+    assert evidence["adjusted_capital"] == 1200.0
+    assert evidence["performance_pnl"] == 15.0
+    assert evidence["daily_return"] == pytest.approx(1.25)
+    assert evidence["status"] == "calculated"
+    assert evidence["warnings"] == []
+
+
+def test_twr_industry_qa_links_daily_returns_instead_of_summing_them(client):
+    payload = {
+        "portfolio_id": "TWR_INDUSTRY_GEOMETRIC_LINKING",
+        "performance_start_date": "2024-12-31",
+        "metric_basis": "GROSS",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "valuation_points": [
+            {"perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": 110.0},
+            {"perf_date": "2025-01-02", "begin_mv": 110.0, "end_mv": 99.0},
+        ],
+    }
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 200
+    ytd = response.json()["results_by_period"]["YTD"]["portfolio"]
+    daily_breakdown = ytd["breakdowns"]["daily"]
+    day_1_return = daily_breakdown[0]["period_return"]["base"]
+    day_2_return = daily_breakdown[1]["period_return"]["base"]
+    arithmetic_sum = day_1_return + day_2_return
+
+    assert day_1_return == pytest.approx(10.0)
+    assert day_2_return == pytest.approx(-10.0)
+    assert arithmetic_sum == pytest.approx(0.0)
+    assert ytd["summary"]["period_return"]["base"] == pytest.approx(-1.0)
+    assert daily_breakdown[1]["cumulative_return"]["base"] == pytest.approx(-1.0)
+    for item in daily_breakdown:
+        evidence = item["calculation_evidence"]
+        assert evidence["status"] == "calculated"
+        assert evidence["linkability_status"] == "linkable"
+        assert evidence["reason_codes"] == ["FLOW_NEUTRALIZED_DAILY_RETURN"]
+
 
 def test_calculate_twr_endpoint_multi_period(client):
     """Tests a multi-period request for MTD and YTD."""
@@ -634,6 +727,7 @@ def test_twr_respects_include_timeseries_flag(client):
     daily_breakdown_with = response_with.json()["results_by_period"]["YTD"]["portfolio"]["breakdowns"]["daily"][0]
     assert "daily_data" in daily_breakdown_with
     assert daily_breakdown_with["daily_data"] is not None
+    assert daily_breakdown_with["calculation_evidence"]["adjusted_capital"] == 1000.0
 
     # Case 2: Flag is false
     payload_without = base_payload.copy()
@@ -642,6 +736,7 @@ def test_twr_respects_include_timeseries_flag(client):
     assert response_without.status_code == 200
     daily_breakdown_without = response_without.json()["results_by_period"]["YTD"]["portfolio"]["breakdowns"]["daily"][0]
     assert daily_breakdown_without.get("daily_data") is None
+    assert daily_breakdown_without["calculation_evidence"]["adjusted_capital"] == 1000.0
 
 
 def test_twr_response_includes_portfolio_summary_block(client):
@@ -651,6 +746,7 @@ def test_twr_response_includes_portfolio_summary_block(client):
         "performance_start_date": "2024-12-31",
         "metric_basis": "NET",
         "report_end_date": "2025-01-02",
+        "report_ccy": "USD",
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
         "valuation_points": [
             {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
@@ -700,7 +796,81 @@ def test_twr_supports_stateful_input_mode(client, monkeypatch):
     assert response.status_code == 200
     body = response.json()
     assert body["input_mode"] == "stateful"
+    source_quality = body["calculation_supportability"]["source_quality_evidence"]
+    assert source_quality["source_owner"] == "lotus-core"
+    assert source_quality["source_product"] == "PortfolioTimeseriesInput"
+    assert source_quality["input_mode"] == "stateful"
+    assert source_quality["quality_state"] == "clean"
+    assert source_quality["observation_count"] == 2
+    assert source_quality["valid_valuation_point_count"] == 2
+    assert source_quality["warnings"] == []
     assert body["results_by_period"]["YTD"]["portfolio"]["summary"]["period_return"]["base"] == pytest.approx(2.01)
+
+
+def test_twr_stateful_supportability_exposes_source_quality_warnings(client, monkeypatch):
+    async def _mock_fetch_stateful_portfolio_timeseries(**kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2024-12-31",
+                "observations": [
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1010",
+                        "source_classification": "official",
+                        "cash_flows": [{"cash_flow_type": "dividend", "amount": "5", "timing": "eod"}],
+                    },
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1011",
+                        "source_classification": "manual_adjustment",
+                    },
+                    {
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value": None,
+                        "ending_market_value": "1020",
+                        "source_classification": "official",
+                    },
+                    {"valuation_date": "2025-01-03", "beginning_market_value": "1011", "ending_market_value": "1021"},
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.stateful_performance_input_service.fetch_stateful_portfolio_timeseries",
+        _mock_fetch_stateful_portfolio_timeseries,
+    )
+
+    payload = {
+        "portfolio_id": "STATEFUL_TWR_SOURCE_QUALITY",
+        "performance_start_date": "2024-12-31",
+        "metric_basis": "NET",
+        "report_end_date": "2025-01-04",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {},
+    }
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 200
+    supportability = response.json()["calculation_supportability"]
+    assert supportability["state"] == "stale"
+    assert supportability["reason"] == "stale_source_observations"
+    source_quality = supportability["source_quality_evidence"]
+    assert source_quality["quality_state"] == "stale"
+    assert source_quality["skipped_observation_count"] == 1
+    assert source_quality["unsupported_cashflow_count"] == 1
+    assert source_quality["source_conflict_count"] == 1
+    assert source_quality["warnings"] == [
+        "MISSING_VALUATION_POINTS",
+        "UNSUPPORTED_CASHFLOW_LABELS",
+        "SOURCE_DATE_CONFLICTS",
+        "STALE_SOURCE_OBSERVATIONS",
+    ]
+    assert source_quality["source_classification_counts"] == {"manual_adjustment": 1, "official": 2}
 
 
 def test_twr_supports_explicit_period_for_stateful_requests(client, monkeypatch):
@@ -792,6 +962,7 @@ def test_twr_supports_stateless_benchmark_request(client):
         "performance_start_date": "2024-12-31",
         "metric_basis": "NET",
         "report_end_date": "2025-01-02",
+        "report_ccy": "USD",
         "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
         "include_benchmark": True,
         "valuation_points": [
@@ -816,11 +987,26 @@ def test_twr_supports_stateless_benchmark_request(client):
 
     assert response.status_code == 200
     body = response.json()
-    assert body["benchmark_context"] == {
-        "benchmark_id": "BMK_STATELESS_1",
-        "benchmark_currency": "USD",
-        "input_mode": "stateless",
+    benchmark_context = body["benchmark_context"]
+    assert benchmark_context["benchmark_id"] == "BMK_STATELESS_1"
+    assert benchmark_context["benchmark_currency"] == "USD"
+    assert benchmark_context["input_mode"] == "stateless"
+    assert benchmark_context["return_source"] == "calculated"
+    assert benchmark_context["supportability_evidence"] == {
         "return_source": "calculated",
+        "input_mode": "stateless",
+        "reporting_currency": "USD",
+        "benchmark_currency": "USD",
+        "currency_state": "single_currency",
+        "calendar_alignment_state": "aligned",
+        "portfolio_observation_count": 2,
+        "benchmark_observation_count": 2,
+        "overlapping_observation_count": 2,
+        "missing_benchmark_date_count": 0,
+        "missing_benchmark_dates_sample": [],
+        "extra_benchmark_date_count": 0,
+        "extra_benchmark_dates_sample": [],
+        "warning_codes": [],
     }
     benchmark_block = body["results_by_period"]["YTD"]["benchmark"]
     relative_block = body["results_by_period"]["YTD"]["relative_performance"]
@@ -900,12 +1086,11 @@ def test_twr_supports_stateful_benchmark_assignment(client, monkeypatch):
 
     assert response.status_code == 200
     body = response.json()
-    assert body["benchmark_context"] == {
-        "benchmark_id": "BMK_ASSIGNED",
-        "benchmark_currency": "USD",
-        "input_mode": "stateful",
-        "return_source": "calculated",
-    }
+    assert body["benchmark_context"]["benchmark_id"] == "BMK_ASSIGNED"
+    assert body["benchmark_context"]["benchmark_currency"] == "USD"
+    assert body["benchmark_context"]["input_mode"] == "stateful"
+    assert body["benchmark_context"]["return_source"] == "calculated"
+    assert body["benchmark_context"]["supportability_evidence"]["calendar_alignment_state"] == "aligned"
     benchmark_block = body["results_by_period"]["YTD"]["benchmark"]
     assert benchmark_block["benchmark_id"] == "BMK_ASSIGNED"
     assert benchmark_block["input_mode"] == "stateful"
@@ -998,12 +1183,11 @@ def test_twr_supports_include_benchmark_without_nested_stateful_benchmark_config
 
     assert response.status_code == 200
     body = response.json()
-    assert body["benchmark_context"] == {
-        "benchmark_id": "BMK_ASSIGNED_DEFAULT",
-        "benchmark_currency": "USD",
-        "input_mode": "stateful",
-        "return_source": "calculated",
-    }
+    assert body["benchmark_context"]["benchmark_id"] == "BMK_ASSIGNED_DEFAULT"
+    assert body["benchmark_context"]["benchmark_currency"] == "USD"
+    assert body["benchmark_context"]["input_mode"] == "stateful"
+    assert body["benchmark_context"]["return_source"] == "calculated"
+    assert body["benchmark_context"]["supportability_evidence"]["calendar_alignment_state"] == "aligned"
     assert body["results_by_period"]["YTD"]["benchmark"]["benchmark_id"] == "BMK_ASSIGNED_DEFAULT"
     assert body["results_by_period"]["YTD"]["benchmark"]["input_mode"] == "stateful"
 
@@ -1674,6 +1858,21 @@ def test_twr_stateful_hashes_follow_resolved_inputs(client, monkeypatch):
                 {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
                 {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1020.1},
             ],
+            "source_quality_evidence": {
+                "source_product": "PortfolioTimeseriesInput",
+                "source_owner": "lotus-core",
+                "input_mode": "stateful",
+                "quality_state": "clean",
+                "observation_count": 2,
+                "valid_valuation_point_count": 2,
+                "skipped_observation_count": 0,
+                "unsupported_cashflow_count": 0,
+                "source_conflict_count": 0,
+                "latest_observation_date": "2025-01-02",
+                "report_end_date": "2025-01-02",
+                "warnings": [],
+                "source_classification_counts": {},
+            },
         }
     )
     expected_input_fingerprint, expected_calculation_hash = generate_canonical_hash_from_value(

@@ -22,6 +22,11 @@ Authoritative analytics routes:
 - `POST /performance/attribution`
 - `POST /performance/inspections/twr`
 
+`POST /performance/twr` is the supported portfolio-level TWR contract. RFC-046 response evidence
+includes daily calculation evidence, source-quality supportability, and benchmark supportability.
+Use [Time-Weighted Return](Time-Weighted-Return) and
+[Supported Features](Supported-Features) for the implementation-backed product boundary.
+
 Async and supportability routes:
 
 - `GET /performance/executions/{calculation_id}`
@@ -87,6 +92,9 @@ Runtime and supportability routes:
 
 ## Where to go next
 
+- TWR product and methodology navigation:
+  [Time-Weighted Return](Time-Weighted-Return),
+  [docs/technical/twr-documentation-map.md](../docs/technical/twr-documentation-map.md)
 - contract and payload detail:
   [docs/guides/api_reference.md](../docs/guides/api_reference.md)
 - full examples and config inventory:

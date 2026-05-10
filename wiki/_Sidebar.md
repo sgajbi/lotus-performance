@@ -6,6 +6,10 @@
 
 [API Surface](API-Surface)
 
+[Time-Weighted Return](Time-Weighted-Return)
+
+[Supported Features](Supported-Features)
+
 [Getting Started](Getting-Started)
 
 [Development Workflow](Development-Workflow)

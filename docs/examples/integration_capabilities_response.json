@@ -1,7 +1,10 @@
 {
   "analytics_surfaces": [
     {
-      "contract_notes": [],
+      "contract_notes": [
+        "supports portfolio-level TWR only",
+        "does not advertise composite, group, or sleeve TWR calculation support"
+      ],
       "enabled": true,
       "key": "twr",
       "options": [],
@@ -196,7 +199,7 @@
   "contract_version": "v1",
   "features": [
     {
-      "description": "Time-weighted return analytics APIs.",
+      "description": "Portfolio-level time-weighted return analytics APIs.",
       "enabled": true,
       "key": "performance.analytics.twr",
       "owner_service": "lotus-performance"

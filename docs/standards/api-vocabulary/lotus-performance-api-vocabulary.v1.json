@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-05-10T02:47:55.074207+00:00",
+  "generatedAt": "2026-05-10T05:29:35.167758+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.account_reset_shadow_days",
@@ -4606,6 +4606,27 @@
             "action": "example_action"
           }
         },
+        "source_quality_evidence": {
+          "source_product": "PortfolioTimeseriesInput",
+          "source_owner": "lotus-core",
+          "input_mode": "stateful",
+          "quality_state": "degraded",
+          "observation_count": 252,
+          "valid_valuation_point_count": 251,
+          "skipped_observation_count": 1,
+          "unsupported_cashflow_count": 2,
+          "source_conflict_count": 0,
+          "latest_observation_date": "2026-03-31",
+          "report_end_date": "2026-03-31",
+          "warnings": [
+            "UNSUPPORTED_CASHFLOW_LABELS",
+            "MISSING_VALUATION_POINTS"
+          ],
+          "source_classification_counts": {
+            "manual_adjustment": 2,
+            "official": 250
+          }
+        },
         "currency_mode": "BASE_ONLY",
         "report_ccy": "example_report_ccy",
         "fx": {
@@ -5437,6 +5458,40 @@
       ],
       "observedTypes": [
         "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.source_quality_evidence",
+      "canonicalTerm": "source_quality_evidence",
+      "preferredName": "source_quality_evidence",
+      "description": "Internal source-quality evidence preserved from stateful source normalization.",
+      "example": {
+        "source_product": "PortfolioTimeseriesInput",
+        "source_owner": "lotus-core",
+        "input_mode": "stateful",
+        "quality_state": "degraded",
+        "observation_count": 252,
+        "valid_valuation_point_count": 251,
+        "skipped_observation_count": 1,
+        "unsupported_cashflow_count": 2,
+        "source_conflict_count": 0,
+        "latest_observation_date": "2026-03-31",
+        "report_end_date": "2026-03-31",
+        "warnings": [
+          "UNSUPPORTED_CASHFLOW_LABELS",
+          "MISSING_VALUATION_POINTS"
+        ],
+        "source_classification_counts": {
+          "manual_adjustment": 2,
+          "official": 250
+        }
+      },
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
       ]
     },
     {
@@ -7642,6 +7697,14 @@
             "attributeRef": "#/attributeCatalog/lotus.data_policy"
           },
           {
+            "name": "source_quality_evidence",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.source_quality_evidence",
+            "attributeRef": "#/attributeCatalog/lotus.source_quality_evidence"
+          },
+          {
             "name": "currency_mode",
             "location": "body",
             "required": false,
@@ -8272,6 +8335,14 @@
             "type": "integer",
             "semanticId": "lotus.benchmark_row_count",
             "attributeRef": "#/attributeCatalog/lotus.benchmark_row_count"
+          },
+          {
+            "name": "calculation_supportability.source_quality_evidence",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.source_quality_evidence",
+            "attributeRef": "#/attributeCatalog/lotus.source_quality_evidence"
           },
           {
             "name": "calculation_supportability.metric_labels",

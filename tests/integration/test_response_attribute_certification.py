@@ -117,6 +117,9 @@ def test_twr_response_attributes_tie_to_deterministic_stateless_inputs(client):
         assert item["cumulative_return"]["base"] == pytest.approx(cumulative_return)
         assert item["cumulative_return"]["local"] == pytest.approx(cumulative_return)
         assert item["cumulative_return"]["fx"] == 0.0
+        assert item["calculation_evidence"]["calculation_method"] == "flow_neutralized_daily_twr"
+        assert item["calculation_evidence"]["adjusted_capital"] > 0
+        assert item["calculation_evidence"]["status"] == "calculated"
         assert "annualized_return" not in item
         assert "daily_data" not in item
 

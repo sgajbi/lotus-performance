@@ -27,6 +27,10 @@ def test_integration_capabilities_response_schema_includes_certified_surface_exa
     }
     assert surfaces["workspace_summary"]["poll_path_template"] == "/performance/executions/{calculation_id}"
     assert surfaces["workspace_summary"]["options"][0]["key"] == "benchmark_mode"
+    assert surfaces["twr"]["contract_notes"] == [
+        "supports portfolio-level TWR only",
+        "does not advertise composite, group, or sleeve TWR calculation support",
+    ]
     assert "performance.analytics.workspace_summary" in features
     assert "performance_workspace" in workflows
 

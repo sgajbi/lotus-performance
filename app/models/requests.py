@@ -49,6 +49,9 @@ class ResetPolicy(BaseModel):
     )
 
 
+from app.models.source_quality import PerformanceSourceQualityEvidence  # noqa: E402
+
+
 class Analysis(BaseModel):
     """Defines a single analysis with its period and desired frequencies."""
 
@@ -113,6 +116,10 @@ class PerformanceRequestBase(BaseModel):
     fee_effect: FeeEffect = Field(default_factory=FeeEffect)
     reset_policy: ResetPolicy = Field(default_factory=ResetPolicy)
     data_policy: Optional[DataPolicy] = None
+    source_quality_evidence: Optional[PerformanceSourceQualityEvidence] = Field(
+        default=None,
+        description="Internal source-quality evidence preserved from stateful source normalization.",
+    )
 
     currency_mode: Optional[Literal["BASE_ONLY", "LOCAL_ONLY", "BOTH"]] = None
     report_ccy: Optional[str] = None

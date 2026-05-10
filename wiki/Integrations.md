@@ -37,6 +37,31 @@ Governed base-URL examples:
 - operator surfaces:
   execution polling, lineage, runtime status, work items, recoveries, drills, retention
 
+## Stateful TWR source flow
+
+Stateful TWR is the source-normalized portfolio performance path. `lotus-performance` retrieves
+portfolio timeseries from `lotus-core`, normalizes valuation and cash-flow facts into the owned TWR
+engine input shape, and emits TWR response, benchmark context, supportability metadata, and lineage
+evidence for downstream consumers. Gateway, Workbench, reporting, risk, and support consumers
+should consume the emitted TWR contract rather than reconstructing daily returns from raw source
+rows.
+
+RFC-046 adds product-visible TWR evidence that downstream consumers should preserve rather than
+flatten away: `calculation_evidence`, `calculation_supportability.source_quality_evidence`, and
+`benchmark_context.supportability_evidence`. Gateway now carries benchmark currency state,
+calendar alignment state, warning codes, and missing benchmark date count into workspace summaries;
+Workbench can present that evidence in the return-path metrics. Risk engines should continue using
+`POST /integration/returns/series` for canonical return-series input.
+
+```mermaid
+flowchart LR
+    A[lotus-core portfolio timeseries] --> B[lotus-performance stateful TWR normalization]
+    B --> C[valuation points / cash-flow timing / source freshness]
+    C --> D[TWR engine: daily return / reset policy / geometric linking]
+    D --> E[TWR response + benchmark context + calculation_supportability]
+    E --> F[Gateway, Workbench, risk, reporting, and support consumers]
+```
+
 ## Stateful MWR source flow
 
 Stateful MWR is a source-owned performance methodology path. `lotus-performance` retrieves
@@ -109,4 +134,5 @@ flowchart LR
 ## References
 
 - [docs/technical/RFC-0082-upstream-contract-family-map.md](../docs/technical/RFC-0082-upstream-contract-family-map.md)
+- [docs/technical/twr-documentation-map.md](../docs/technical/twr-documentation-map.md)
 - [docs/guides/api_reference.md](../docs/guides/api_reference.md)

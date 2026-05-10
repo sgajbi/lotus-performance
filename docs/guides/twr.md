@@ -83,6 +83,12 @@ When benchmark output is requested, TWR returns:
 
 - a parallel `benchmark` block calculated through the shared benchmark engine
 - per-period `relative_performance`
+- `benchmark_context.supportability_evidence`, which records benchmark source/method,
+  reporting currency, benchmark currency, FX decomposition posture, portfolio-vs-benchmark calendar
+  alignment, overlap counts, missing-date samples, and bounded warning codes such as
+  `BENCHMARK_CALENDAR_GAP`, `BENCHMARK_VENDOR_SERIES_BASE_ONLY`,
+  `BENCHMARK_FX_DECOMPOSITION_UNAVAILABLE`, and
+  `BENCHMARK_CURRENCY_DIFFERS_FROM_REPORTING_CURRENCY`
 
 Every completed synchronous TWR response also returns `calculation_supportability`. This bounded
 supportability block is the source-owned front-office posture for the calculation:
@@ -93,6 +99,13 @@ supportability block is the source-owned front-office posture for the calculatio
 - `freshness_bucket`: `current`, `same_day`, `stale`, or `unknown`
 - `input_row_count`, `resolved_period_count`, and `benchmark_row_count`
 - `metric_labels`: the bounded Prometheus label keys emitted for supportability metrics
+
+For stateful TWR, `calculation_supportability.source_quality_evidence` preserves the source
+quality view from `PortfolioTimeseriesInput` normalization. It identifies the source owner
+(`lotus-core`), source product, raw observation count, normalized valuation-point count, skipped
+observation count, unsupported cash-flow label count, duplicate-date source conflict count, latest
+source observation date, and bounded warnings such as `MISSING_VALUATION_POINTS`,
+`UNSUPPORTED_CASHFLOW_LABELS`, `SOURCE_DATE_CONFLICTS`, and `STALE_SOURCE_OBSERVATIONS`.
 
 The same posture is exported through
 `lotus_performance_calculation_supportability_total{operation="twr",supportability_state,reason,freshness_bucket}`.
@@ -127,10 +140,12 @@ from beginning-of-day and end-of-day cash flows. Management fees affect the dail
 Daily returns are geometrically linked across each requested analysis window to produce period-level
 time-weighted return.
 
-### 3. Long and short sleeve handling
+### 3. Long and short exposure handling
 
 The engine maintains separate long and short compounding paths so that sign flips and short exposure
 are handled consistently instead of forcing all exposure through a single naive compounding stream.
+This is portfolio-exposure evidence, not sleeve-level TWR. Composite, group, and sleeve TWR
+calculation is not part of the current `POST /performance/twr` contract.
 
 ### 4. Robustness rules
 
@@ -172,7 +187,29 @@ Each period result may contain:
 - `relative_performance`
 - `reset_events`
 
-If `output.include_timeseries` is enabled, daily breakdown entries can also include `daily_data`.
+Daily portfolio breakdown entries include `calculation_evidence` as a curated, implementation-backed
+explanation of the daily TWR calculation. This evidence is returned independently of raw
+timeseries output and includes the calculation method, denominator basis, flow timing convention,
+beginning and ending market value, beginning-of-day and end-of-day external flows, external inflows
+and outflows, management fees, signed adjusted capital before denominator policy, adjusted capital,
+performance P&L, daily return, calculation status, linkability status, episode status, reason codes,
+and warnings.
+
+The denominator basis is `absolute_begin_mv_plus_bod_cf`: Lotus uses the absolute value of
+beginning market value plus beginning-of-day external cash flow as the invested capital denominator.
+Beginning-of-day flows adjust invested capital. End-of-day flows are neutralized from performance
+P&L but do not adjust the denominator.
+
+`linkability_status` explains whether the day can participate in geometric linking. `linkable`
+means the daily return can be compounded normally, `reset_boundary` means compounding is explicitly
+broken by a reset day, `not_calculated` means the row has no governed capital basis or is a
+no-investment/effective-period exclusion, and `not_linkable` means the daily return crossed a
+full-loss boundary such as `-100%` or below. `episode_status` explains the row's TWR episode:
+`open`, `reset_boundary`, `no_investment`, or `not_in_period`.
+
+If `output.include_timeseries` is enabled, daily breakdown entries can also include raw `daily_data`.
+Raw `daily_data` is drill-down material; `calculation_evidence` is the supported calculation
+contract for explaining how the daily return was produced.
 
 When benchmark output is included, each period result uses sibling comparative blocks:
 
@@ -204,6 +241,13 @@ contains:
 - `base`
 
 See [multi_currency.md](multi_currency.md) for the detailed multi-currency path.
+
+Benchmark FX evidence is intentionally explicit. Stateless benchmark component price points require
+`fx_rate_to_benchmark` whenever a component currency differs from the benchmark currency; missing FX
+rates are rejected instead of silently producing base-only active return. Calculated benchmark
+returns expose `currency_state="fx_decomposed"` when local and FX benchmark return components are
+available. Vendor benchmark series are treated as `vendor_series_base_only` because Lotus receives
+the authored benchmark return stream, not component-level FX decomposition.
 
 ## Example request
 

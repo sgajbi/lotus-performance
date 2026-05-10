@@ -10,6 +10,7 @@ from app.models.responses import (
     ComparativeBreakdownItem,
     ComparativeReturnValue,
     PerformanceResponse,
+    TWRDailyCalculationEvidence,
 )
 
 _ABS_TOLERANCE = 1e-6
@@ -21,10 +22,19 @@ class CalculationConsistencyCheckResult:
     evidence_summary: dict[str, object]
 
 
+@dataclass(frozen=True)
+class DailyEvidenceExpectedSemantics:
+    linkability_status: str
+    episode_status: str
+    required_reason_codes: set[str]
+    required_warnings: set[str]
+
+
 def run_twr_calculation_consistency_checks(response: PerformanceResponse) -> CalculationConsistencyCheckResult:
     findings: list[TWRInspectionFinding] = []
     linked_blocks_checked = 0
     relative_rows_checked = 0
+    daily_evidence_rows_checked = 0
 
     for period_name, period_result in response.results_by_period.items():
         relative_block = period_result.relative_performance
@@ -59,6 +69,12 @@ def run_twr_calculation_consistency_checks(response: PerformanceResponse) -> Cal
                 analytics_block=portfolio_block,
             )
         )
+        evidence_result = _check_portfolio_daily_calculation_evidence(
+            period_name=period_name,
+            portfolio_block=portfolio_block,
+        )
+        daily_evidence_rows_checked += evidence_result[0]
+        findings.extend(evidence_result[1])
         if benchmark_block is not None:
             linked_blocks_checked += 1
             findings.extend(
@@ -76,6 +92,7 @@ def run_twr_calculation_consistency_checks(response: PerformanceResponse) -> Cal
             "period_count": len(response.results_by_period),
             "linked_blocks_checked": linked_blocks_checked,
             "relative_rows_checked": relative_rows_checked,
+            "daily_calculation_evidence_rows_checked": daily_evidence_rows_checked,
             "consistency_findings": len(findings),
         },
     )
@@ -280,6 +297,190 @@ def _check_block_linking(
                 )
             )
     return findings
+
+
+def _check_portfolio_daily_calculation_evidence(
+    *,
+    period_name: str,
+    portfolio_block: ComparativeAnalyticsBlock,
+) -> tuple[int, list[TWRInspectionFinding]]:
+    findings: list[TWRInspectionFinding] = []
+    rows_checked = 0
+    for frequency, items in portfolio_block.breakdowns.items():
+        if frequency.value != "daily":
+            continue
+        for item in items:
+            evidence = item.calculation_evidence
+            if evidence is None:
+                continue
+            rows_checked += 1
+            scope = f"breakdowns.{frequency.value}.{item.period}.calculation_evidence"
+            expected_signed_adjusted_capital = evidence.begin_mv + evidence.bod_cf
+            expected_adjusted_capital = abs(evidence.begin_mv + evidence.bod_cf)
+            expected_inflows = sum(value for value in (evidence.bod_cf, evidence.eod_cf) if value > 0)
+            expected_outflows = abs(sum(value for value in (evidence.bod_cf, evidence.eod_cf) if value < 0))
+
+            mismatches: dict[str, dict[str, object]] = {}
+            _record_numeric_mismatch(
+                mismatches=mismatches,
+                field="signed_adjusted_capital",
+                expected=expected_signed_adjusted_capital,
+                actual=evidence.signed_adjusted_capital,
+            )
+            _record_numeric_mismatch(
+                mismatches=mismatches,
+                field="adjusted_capital",
+                expected=expected_adjusted_capital,
+                actual=evidence.adjusted_capital,
+            )
+            _record_numeric_mismatch(
+                mismatches=mismatches,
+                field="external_inflows",
+                expected=expected_inflows,
+                actual=evidence.external_inflows,
+            )
+            _record_numeric_mismatch(
+                mismatches=mismatches,
+                field="external_outflows",
+                expected=expected_outflows,
+                actual=evidence.external_outflows,
+            )
+            if evidence.status == "calculated" and evidence.adjusted_capital != 0:
+                expected_daily_return = evidence.performance_pnl / evidence.adjusted_capital * 100
+                _record_numeric_mismatch(
+                    mismatches=mismatches,
+                    field="daily_return",
+                    expected=expected_daily_return,
+                    actual=evidence.daily_return,
+                )
+                _record_numeric_mismatch(
+                    mismatches=mismatches,
+                    field="period_return.base",
+                    expected=evidence.daily_return,
+                    actual=item.period_return.base,
+                )
+            if evidence.status == "calculated" and evidence.adjusted_capital == 0:
+                mismatches["status"] = {
+                    "expected": "not_calculated",
+                    "actual": evidence.status,
+                    "reason": "zero_adjusted_capital",
+                }
+            semantic_mismatches = _daily_evidence_semantic_mismatches(evidence)
+            if semantic_mismatches:
+                mismatches["semantics"] = semantic_mismatches
+
+            if mismatches:
+                findings.append(
+                    _build_finding(
+                        code="DAILY_CALCULATION_EVIDENCE_MISMATCH",
+                        period_name=period_name,
+                        scope=scope,
+                        summary="Daily TWR calculation evidence does not reconcile to its served return contract.",
+                        evidence={
+                            "daily_period": item.period,
+                            "mismatches": mismatches,
+                            "calculation_method": evidence.calculation_method,
+                            "denominator_basis": evidence.denominator_basis,
+                        },
+                    )
+                )
+    return rows_checked, findings
+
+
+def _daily_evidence_semantic_mismatches(evidence: TWRDailyCalculationEvidence) -> dict[str, object]:
+    expected = _expected_daily_evidence_semantics(evidence)
+    mismatches: dict[str, object] = {}
+    if evidence.linkability_status != expected.linkability_status:
+        mismatches["linkability_status"] = {
+            "expected": expected.linkability_status,
+            "actual": evidence.linkability_status,
+        }
+    if evidence.episode_status != expected.episode_status:
+        mismatches["episode_status"] = {
+            "expected": expected.episode_status,
+            "actual": evidence.episode_status,
+        }
+
+    reason_codes = set(evidence.reason_codes)
+    missing_reason_codes = sorted(expected.required_reason_codes - reason_codes)
+    if missing_reason_codes:
+        mismatches["missing_reason_codes"] = missing_reason_codes
+
+    warnings = set(evidence.warnings)
+    missing_warnings = sorted(expected.required_warnings - warnings)
+    if missing_warnings:
+        mismatches["missing_warnings"] = missing_warnings
+    return mismatches
+
+
+def _expected_daily_evidence_semantics(evidence: TWRDailyCalculationEvidence) -> DailyEvidenceExpectedSemantics:
+    reason_codes = set(evidence.reason_codes)
+    required_reason_codes = {"FLOW_NEUTRALIZED_DAILY_RETURN"}
+    required_warnings: set[str] = set()
+    linkability_status = "linkable"
+    episode_status = "open"
+
+    if evidence.status == "not_calculated":
+        linkability_status = "not_calculated"
+    if evidence.adjusted_capital == 0:
+        required_reason_codes.add("ZERO_ADJUSTED_CAPITAL")
+        required_warnings.add("ZERO_ADJUSTED_CAPITAL")
+        linkability_status = "not_calculated"
+    elif evidence.signed_adjusted_capital < 0:
+        required_reason_codes.add("NEGATIVE_ADJUSTED_CAPITAL_INPUT")
+        required_warnings.add("NEGATIVE_ADJUSTED_CAPITAL_INPUT")
+    elif evidence.adjusted_capital < 1e-8:
+        required_reason_codes.add("NEAR_ZERO_ADJUSTED_CAPITAL")
+        required_warnings.add("NEAR_ZERO_ADJUSTED_CAPITAL")
+
+    if "BEFORE_EFFECTIVE_PERIOD_START" in reason_codes:
+        linkability_status = "not_calculated"
+        episode_status = "not_in_period"
+        required_warnings.add("BEFORE_EFFECTIVE_PERIOD_START")
+    if "RESET_DAY" in reason_codes:
+        episode_status = "reset_boundary"
+        if linkability_status == "linkable":
+            linkability_status = "reset_boundary"
+    if "NO_INVESTMENT_PERIOD" in reason_codes:
+        if episode_status == "open":
+            episode_status = "no_investment"
+        if linkability_status == "linkable":
+            linkability_status = "not_calculated"
+
+    if evidence.end_mv == 0 and evidence.eod_cf < 0:
+        required_reason_codes.add("FULL_WITHDRAWAL_DAY")
+    if evidence.begin_mv <= 0 and evidence.bod_cf > 0:
+        required_reason_codes.add("REFUNDING_DAY")
+
+    if evidence.daily_return == -100:
+        required_reason_codes.add("FULL_LOSS_RETURN")
+        required_warnings.add("FULL_LOSS_RETURN")
+        if linkability_status == "linkable":
+            linkability_status = "not_linkable"
+    elif evidence.daily_return < -100:
+        required_reason_codes.add("BELOW_FULL_LOSS_RETURN")
+        required_warnings.add("BELOW_FULL_LOSS_RETURN")
+        if linkability_status == "linkable":
+            linkability_status = "not_linkable"
+
+    return DailyEvidenceExpectedSemantics(
+        linkability_status=linkability_status,
+        episode_status=episode_status,
+        required_reason_codes=required_reason_codes,
+        required_warnings=required_warnings,
+    )
+
+
+def _record_numeric_mismatch(
+    *,
+    mismatches: dict[str, dict[str, object]],
+    field: str,
+    expected: float,
+    actual: float,
+) -> None:
+    if isclose(expected, actual, abs_tol=_ABS_TOLERANCE):
+        return
+    mismatches[field] = {"expected": expected, "actual": actual}
 
 
 def _compare_return_values(
