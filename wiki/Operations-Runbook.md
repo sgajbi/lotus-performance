@@ -71,6 +71,8 @@ executor-backed and lineage-backed workflows.
 - MWR support:
   [docs/operations/mwr-production-support-playbook.md](../docs/operations/mwr-production-support-playbook.md)
   and `lotus_performance_mwr_solver_outcome_total` for fallback, no-root, and multiple-root rates.
+- MWR alert and dashboard templates:
+  [docs/operations/mwr-alert-rule-templates.md](../docs/operations/mwr-alert-rule-templates.md)
 
 ## Runtime thresholds and overlays
 

@@ -93,6 +93,9 @@ calculation, trace, correlation, request body, response body, or security identi
 The solver-outcome metric follows the same support-safety rule: label values are bounded to input
 mode, calculation method, outcome status, reason code, and fallback flag.
 
+Operational alert and dashboard templates for fallback, no-root, multiple-root, and stateful
+source-data rejection rates are governed in `docs/operations/mwr-alert-rule-templates.md`.
+
 Calculation-quality metadata is part of the product contract:
 
 - `status="CALCULATED"` means the emitted method completed without fallback.

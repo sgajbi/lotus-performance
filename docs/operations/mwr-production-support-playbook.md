@@ -19,6 +19,9 @@ not be used to infer unsupported calculation behavior.
 7. Check `/metrics` for
    `lotus_performance_mwr_solver_outcome_total{input_mode,method,status,reason_code,fallback_used}`
    when triaging repeated fallback, no-root, or multiple-root patterns.
+8. Use `docs/operations/mwr-alert-rule-templates.md` for Prometheus alert rules and dashboard
+   panels that track fallback rate, no-root rate, multiple-root rate, and source-data rejection
+   rate.
 
 ## Reason-Code Triage
 
@@ -52,6 +55,11 @@ Escalate to `lotus-performance` engineering when:
 - repeated stateful requests show inconsistent supportability metadata for the same input evidence.
 - `lotus_performance_mwr_solver_outcome_total` stops emitting bounded `reason_code`, `status`, or
   `fallback_used` labels for completed MWR responses.
+- `LotusPerformanceMWRFallbackRateElevated`,
+  `LotusPerformanceMWRNoRootRateElevated`,
+  `LotusPerformanceMWRMultipleRootRateElevated`, or
+  `LotusPerformanceMWRSourceDataRejectionRateElevated` remains active after the first
+  response checks in `docs/operations/mwr-alert-rule-templates.md`.
 
 Escalate to upstream data ownership when:
 

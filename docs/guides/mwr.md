@@ -221,3 +221,5 @@ documentation rather than retained as generic reference text:
 Operational trend visibility is exposed through
 `lotus_performance_mwr_solver_outcome_total{input_mode,method,status,reason_code,fallback_used}` for
 fallback, no-root, and multiple-root rate monitoring.
+Alert and dashboard templates for this signal live in
+`docs/operations/mwr-alert-rule-templates.md`.

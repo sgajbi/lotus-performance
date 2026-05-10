@@ -282,6 +282,7 @@ def test_mwr_guide_matches_current_method_reality():
 def test_mwrr_industry_material_is_converted_to_lotus_product_docs():
     controls = _read("docs/guides/mwr-lotus-production-controls.md")
     playbook = _read("docs/operations/mwr-production-support-playbook.md")
+    alert_templates = _read("docs/operations/mwr-alert-rule-templates.md")
     findings = _read("docs/technical/mwr-industry-review-findings.md")
     guide = _read("docs/guides/mwr.md")
     api_wiki = _read("wiki/API-Surface.md")
@@ -298,13 +299,24 @@ def test_mwrr_industry_material_is_converted_to_lotus_product_docs():
     assert "data mesh" in controls.lower()
     assert "calculation_supportability" in playbook
     assert "lotus_performance_mwr_solver_outcome_total" in playbook
+    assert "mwr-alert-rule-templates.md" in playbook
     assert "NO_ECONOMIC_CONTENT" in playbook
     assert "Adopted Into The Current Contract" in findings
     assert "Areas Where Lotus Is Stronger" in findings
     assert "Backlog Candidates" in findings
+    assert "mwr-alert-rule-templates.md" in findings
+    assert "LotusPerformanceMWRFallbackRateElevated" in alert_templates
+    assert "LotusPerformanceMWRNoRootRateElevated" in alert_templates
+    assert "LotusPerformanceMWRMultipleRootRateElevated" in alert_templates
+    assert "LotusPerformanceMWRSourceDataRejectionRateElevated" in alert_templates
+    assert "MULTIPLE_IRR_ROOTS_DETECTED" in alert_templates
+    assert "NO_ROOT_FOUND" in alert_templates
+    assert 'supportability_state=~"empty|stale"' in alert_templates
     assert "mwr-lotus-production-controls.md" in guide
+    assert "mwr-alert-rule-templates.md" in guide
     assert "mwr-lotus-production-controls.md" in api_wiki
     assert "mwr-production-support-playbook.md" in ops_wiki
+    assert "mwr-alert-rule-templates.md" in ops_wiki
 
 
 def test_twr_mwr_response_attribute_certification_documents_field_level_checks():
@@ -847,6 +859,7 @@ def test_enterprise_readiness_covers_privileged_operator_reads():
 
 def test_runtime_alert_templates_cover_exported_breach_gauges():
     templates = _read("docs/operations/runtime-alert-rule-templates.md")
+    mwr_templates = _read("docs/operations/mwr-alert-rule-templates.md")
     runbook = _read("docs/runbooks/runtime-alerts.md")
     api_reference = _read("docs/guides/api_reference.md")
     runtime_topology = _read("docs/technical/runtime_topology.md")
@@ -860,9 +873,13 @@ def test_runtime_alert_templates_cover_exported_breach_gauges():
     assert "lotus_performance_lineage_storage_capacity_availability" in templates
     assert "lotus_performance_recovery_drill_availability" in templates
     assert "lotus_performance_runtime_retention_availability" in templates
+    assert "lotus_performance_mwr_solver_outcome_total" in mwr_templates
+    assert "lotus_performance_calculation_supportability_total" in mwr_templates
     assert "docs/operations/runtime-alert-rule-templates.md" in runbook
     assert "runtime-alert-rule-templates.md" in api_reference
+    assert "mwr-alert-rule-templates.md" in api_reference
     assert "runtime-alert-rule-templates.md" in runtime_topology
+    assert "mwr-alert-rule-templates.md" in runtime_topology
 
 
 def test_runtime_alert_policy_governs_severity_defaults():
@@ -879,6 +896,8 @@ def test_runtime_alert_policy_governs_severity_defaults():
     assert "lotus_performance_lineage_storage_pressure_breach" in policy
     assert "lotus_performance_recovery_drill_degradation_breach" in policy
     assert "lotus_performance_runtime_retention_degradation_breach" in policy
+    assert "MWR fallback/no-root/multiple-root rate alerts" in policy
+    assert "MWR source-data rejection rate alert" in policy
     assert "`page`" in policy
     assert "`ticket`" in policy
     assert "docs/standards/runtime-alert-policy.md" in templates

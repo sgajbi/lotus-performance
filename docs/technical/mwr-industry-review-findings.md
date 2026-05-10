@@ -14,7 +14,7 @@ was used as a review input; the durable documentation is now Lotus-authored and 
 | Distinguish annualized and holding-period returns. | `money_weighted_return` remains the primary annualized value and `holding_period_return` is emitted separately. |
 | Net same-day cash flows deterministically. | Cash flows are normalized and netted by date before solving; tests prove order independence. |
 | Make support behavior operationally usable. | The MWR support playbook maps reason codes to support actions and client-safe explanations. |
-| Track fallback and solver ambiguity rates operationally. | `/metrics` emits `lotus_performance_mwr_solver_outcome_total` with bounded labels for input mode, method, status, reason code, and fallback use. |
+| Track fallback and solver ambiguity rates operationally. | `/metrics` emits `lotus_performance_mwr_solver_outcome_total` with bounded labels for input mode, method, status, reason code, and fallback use; `docs/operations/mwr-alert-rule-templates.md` converts those signals into Lotus alert and dashboard templates. |
 
 ## Areas Where Lotus Is Stronger
 
@@ -43,11 +43,9 @@ Candidate enhancements should be implemented as governed slices:
 
 1. Add an independently certified Modified Dietz method if business reporting requires it separately
    from the current labeled fallback path.
-2. Add alert thresholds and dashboards for the emitted MWR solver-outcome metric, including fallback
-   rate, no-root rate, multiple-root rate, and stateful source-data rejection rate.
-3. Add FX-aware MWR only after the cross-repository currency contract is explicit and consumer
+2. Add FX-aware MWR only after the cross-repository currency contract is explicit and consumer
    surfaces can show currency provenance.
-4. Extend demo/wiki material when front-office surfaces expose reason-code drill-downs directly.
+3. Extend demo/wiki material when front-office surfaces expose reason-code drill-downs directly.
 
 ## Proof Points
 
@@ -59,4 +57,5 @@ Implementation-backed proof currently lives in:
 - `tests/integration/test_response_attribute_certification.py` for emitted response fields;
 - `tests/unit/test_observability.py` for bounded MWR metric labels;
 - `docs/guides/mwr-lotus-production-controls.md` and
-  `docs/operations/mwr-production-support-playbook.md` for product and support documentation.
+  `docs/operations/mwr-production-support-playbook.md` for product and support documentation;
+- `docs/operations/mwr-alert-rule-templates.md` for MWR alert thresholds and dashboard queries.
