@@ -802,3 +802,102 @@ This RFC is complete only when:
     `lotus-performance` endpoint and contract,
 14. no required business-value, integration, platform, source, or consumer work is left to a
     follow-up RFC or second wave.
+
+## 21. Gold-Pass Assessment
+
+### 21.1 What Was Truly Completed
+
+RFC-046 delivered portfolio-level TWR hardening, not composite calculation. The implemented product
+surface now includes:
+
+1. daily TWR calculation evidence with denominator basis, adjusted capital, performance P&L,
+   calculation method, linkability status, episode status, warnings, and reason codes,
+2. semantic reset, no-investment, and full-loss linkability evidence for support and demo
+   explanation,
+3. stateful source-quality evidence covering stale series, skipped observations, unsupported cash
+   flows, source conflicts, source classifications, and canonical inspection findings,
+4. benchmark, FX, calendar, and workspace-summary supportability posture that is visible through
+   API responses and platform capabilities,
+5. explicit composite/group/sleeve non-support documentation so product material does not imply
+   unsupported business value,
+6. TWR inspection support with source-quality, economic-plausibility, reconciliation, and
+   cash-flow-classification evidence for resolved stateful TWR subjects,
+7. implementation-backed docs/wiki material for TWR, supported features, API surface,
+   integrations, mesh data-product posture, architecture, operations, and troubleshooting.
+
+### 21.2 Quality Improvements Made During Gold Pass
+
+Live validation found issues that focused local tests did not catch. The gold pass fixed them rather
+than treating them as acceptable noise:
+
+1. `lotus-gateway` risk workspace defaulted missing `as_of_date` to calendar today. On Sunday
+   2026-05-10 this caused lotus-risk to report stale source observations against the Friday
+   2026-05-08 canonical market data. Gateway now defaults missing risk as-of dates to the latest
+   business day, with unit coverage.
+2. `lotus-gateway` live platform-capabilities e2e assertions were stale. The live contract now
+   includes `lotus_advise` and emits `source_service`; the test now matches the current platform
+   contract.
+3. `lotus-performance` engine reset-shadow calculation used a pandas indexed loop in the hot path.
+   The gold pass replaced it with array-backed iteration. The 75,000-row benchmark median improved
+   from approximately 4.06 seconds to approximately 132 ms on the validation machine.
+4. `lotus-performance` returns-series orchestration benchmark asserted calendar-day output even
+   though the governed default is `BUSINESS` calendar. The test now derives its expected count from
+   `pd.bdate_range`.
+5. `lotus-performance` TWR inspector could inspect a just-completed async TWR calculation before
+   API-visible lineage request payload materialization was available. Subject materialization now
+   falls back to the durable compute-job request payload, so live inspections can complete all
+   required evidence families without depending on worker-local lineage files.
+
+### 21.3 Debt Removed
+
+1. Removed a slow, brittle `.loc`-based loop from engine reset-shadow calculation.
+2. Removed stale live e2e expectations from Gateway platform-capabilities validation.
+3. Removed an inspector coupling to lineage worker file visibility for async TWR proof.
+4. Replaced fixed calendar-day benchmark assumptions with business-calendar-aware expectations.
+
+### 21.4 Proof Captured
+
+Local and live evidence captured during the gold pass:
+
+1. `python -m pytest` in `lotus-performance`: 1515 passed.
+2. Focused post-fix regression pack in `lotus-performance`: 9 passed.
+3. `python scripts/openapi_quality_gate.py`: passed.
+4. `python scripts/api_vocabulary_inventory.py --validate-only`: passed.
+5. `python scripts/no_alias_contract_guard.py`: passed.
+6. `make domain-product-validate`: validated 1 producer and 1 consumer declaration.
+7. `make security-audit`: known vulnerabilities 0.
+8. `python scripts/validate_canonical_twr_inspection.py`: passed against live containers. Evidence
+   included zero nonpositive capital base dates, zero reconciliation gap dates, zero cash-flow
+   normalization/timing/type defects, completed source-quality/economic-plausibility/
+   reconciliation/cash-flow-classification families, and only the allowed canonical data warnings
+   `WEEKEND_OBSERVATIONS_PRESENT` and `MONTHLY_RETURN_DAY_DOMINANCE_DETECTED`.
+9. Canonical Workbench live validation passed for `PB_SG_GLOBAL_BAL_001` with refreshed
+   `performance-analytics`, `performance-compute-executor`, and `performance-lineage-worker`
+   containers. Screenshot/evidence pack:
+   `output/rfc-046-gold-pass/front-office-shots`.
+10. `lotus-gateway` full test suite after Gateway fixes: 669 passed.
+11. Gateway live probes verified risk summary, concentration, drawdown, rolling, attribution, and
+    platform capabilities through `gateway.dev.lotus` with caller context headers.
+12. Runtime log review found no `ERROR`, `Traceback`, `Exception`, or `CRITICAL` entries in
+    `performance-analytics`, `performance-compute-executor`, or `performance-lineage-worker`
+    after the fixes.
+
+### 21.5 Residuals and Deliberate Boundaries
+
+1. Composite, group, and sleeve TWR remain intentionally unsupported by RFC-046.
+2. The canonical Workbench evidence panel remains truthfully degraded for Gateway-owned lineage
+   evidence under RFC-0079; RFC-046 does not relabel that state as ready.
+3. Support brief generation for the canonical TWR inspection is `NOT_CONFIGURED` unless the caller
+   explicitly requires support-brief workflow-pack proof.
+4. Existing FastAPI `HTTP_422_UNPROCESSABLE_ENTITY` deprecation warnings remain visible in the
+   suite and should be handled in a separate dependency-modernization cleanup, not hidden inside
+   RFC-046.
+
+### 21.6 Final Standard Assessment
+
+The RFC-046 implementation reached the expected standard for the scoped TWR data product: the API
+contract, methodology evidence, source-quality posture, inspection evidence, Gateway realization,
+Workbench live proof, OpenAPI/vocabulary/no-alias gates, data mesh contract checks, security audit,
+and test suite are implementation-backed and passing. The gold pass raised the standard by fixing
+live-stack defects found through real validation rather than relying on documentation or unit tests
+alone.

@@ -40,6 +40,12 @@ Source of truth for the local topology is [docker-compose.yml](/C:/Users/Sandeep
 - retries failed lineage materialization within a bounded attempt budget before marking terminal failure
 - supports explicit quiescence via a worker stop signal instead of relying on process kill semantics
 
+Lineage artifact storage is a shared runtime dependency, not worker-local scratch space. In the
+local compose topology, `performance-analytics`, `performance-lineage-worker`,
+`performance-compute-executor`, and the optional `performance-runtime-retention-worker` all mount
+the `performance-lineage-data` volume at `/app/lineage_data`. This keeps durable metadata in
+PostgreSQL aligned with retrievable artifact files after asynchronous materialization.
+
 ### `performance-lineage-db`
 
 - PostgreSQL backing durable operational state

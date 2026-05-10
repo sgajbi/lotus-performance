@@ -177,15 +177,13 @@ def calculate_sod_reset_reason(df: pd.DataFrame, base_reset_mask: pd.Series) -> 
     is_decimal_mode = df[PortfolioColumns.BOD_CF.value].dtype == "object"
     zero = Decimal(0) if is_decimal_mode else 0.0
 
-    next_day_bod_cf = df[PortfolioColumns.BOD_CF.value].shift(-1, fill_value=zero)
-    canonical_reset = base_reset_mask.astype(bool).copy()
-    sod_reset = pd.Series(False, index=df.index)
+    next_day_bod_cf = df[PortfolioColumns.BOD_CF.value].shift(-1, fill_value=zero).to_numpy(copy=False)
+    canonical_reset = base_reset_mask.astype(bool).to_numpy(copy=True)
+    sod_reset = np.zeros(len(df), dtype=bool)
 
     for position in range(len(df) - 2, -1, -1):
-        current_index = df.index[position]
-        next_index = df.index[position + 1]
-        should_reset_from_next_open = (next_day_bod_cf.loc[current_index] != zero) and canonical_reset.loc[next_index]
-        sod_reset.loc[current_index] = should_reset_from_next_open
-        canonical_reset.loc[current_index] = canonical_reset.loc[current_index] or should_reset_from_next_open
+        should_reset_from_next_open = (next_day_bod_cf[position] != zero) and canonical_reset[position + 1]
+        sod_reset[position] = should_reset_from_next_open
+        canonical_reset[position] = canonical_reset[position] or should_reset_from_next_open
 
-    return sod_reset.astype(int)
+    return pd.Series(sod_reset.astype(int), index=df.index)

@@ -20,6 +20,8 @@ services:
     environment:
       CORE_CONTROL_PLANE_BASE_URL: "${CORE_CONTROL_PLANE_BASE_URL:-http://host.docker.internal:8202}"
       LINEAGE_METADATA_DATABASE_URL: "${LINEAGE_METADATA_DATABASE_URL:-postgresql+psycopg://lotus:lotus@performance-lineage-db:5432/lotus_performance}"
+    volumes:
+      - performance-lineage-data:/app/lineage_data
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -35,6 +37,8 @@ services:
     environment:
       CORE_CONTROL_PLANE_BASE_URL: "${CORE_CONTROL_PLANE_BASE_URL:-http://host.docker.internal:8202}"
       LINEAGE_METADATA_DATABASE_URL: "${LINEAGE_METADATA_DATABASE_URL:-postgresql+psycopg://lotus:lotus@performance-lineage-db:5432/lotus_performance}"
+    volumes:
+      - performance-lineage-data:/app/lineage_data
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -48,6 +52,8 @@ services:
     environment:
       CORE_CONTROL_PLANE_BASE_URL: "${CORE_CONTROL_PLANE_BASE_URL:-http://host.docker.internal:8202}"
       LINEAGE_METADATA_DATABASE_URL: "${LINEAGE_METADATA_DATABASE_URL:-postgresql+psycopg://lotus:lotus@performance-lineage-db:5432/lotus_performance}"
+    volumes:
+      - performance-lineage-data:/app/lineage_data
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -63,8 +69,13 @@ services:
       CORE_CONTROL_PLANE_BASE_URL: "${CORE_CONTROL_PLANE_BASE_URL:-http://host.docker.internal:8202}"
       LINEAGE_METADATA_DATABASE_URL: "${LINEAGE_METADATA_DATABASE_URL:-postgresql+psycopg://lotus:lotus@performance-lineage-db:5432/lotus_performance}"
       RUNTIME_RETENTION_WORKER_APPLY: "${RUNTIME_RETENTION_WORKER_APPLY:-false}"
+    volumes:
+      - performance-lineage-data:/app/lineage_data
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
       performance-lineage-db:
         condition: service_healthy
+
+volumes:
+  performance-lineage-data:

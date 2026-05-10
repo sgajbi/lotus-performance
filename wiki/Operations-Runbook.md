@@ -17,6 +17,8 @@ Primary runtime surfaces:
 - `POST /integration/runtime-retention-cleanups/run`
 - `GET /performance/executions/{calculation_id}`
 - `GET /performance/lineage/{calculation_id}`
+- `POST /performance/inspections/twr`
+- `GET /performance/inspections/{inspection_id}`
 
 ## Calculation supportability metric
 
@@ -59,6 +61,33 @@ flowchart LR
 
 `/health/ready` is intentionally strict. It returns ready only when the API can support durable
 executor-backed and lineage-backed workflows.
+
+## TWR inspection support workflow
+
+Use `POST /performance/inspections/twr` when support needs proof behind a portfolio-level TWR
+result. For `subject_type="twr_calculation"`, the inspector loads the completed response and then
+resolves the request source in this order:
+
+1. durable lineage metadata,
+2. materialized lineage files,
+3. durable compute-job request payload for async calculations.
+
+That fallback is intentional. It prevents a just-completed async TWR calculation from looking only
+partially inspectable when the compute worker has finished the result but the API container cannot
+yet see worker-local lineage files. A canonical stateful inspection should complete calculation
+consistency, source quality, economic plausibility, reconciliation, and cash-flow classification
+families. If those families remain pending, treat it as an implementation or runtime defect, not as
+a support success.
+
+Live proof command:
+
+```powershell
+python scripts/validate_canonical_twr_inspection.py
+```
+
+The 2026-05-10 gold-pass run completed against live containers with zero reconciliation gap dates,
+zero nonpositive capital-base dates, zero cash-flow normalization/timing/type defects, and only the
+allowed canonical data warnings.
 
 ## First-response documents
 
