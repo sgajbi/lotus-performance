@@ -260,7 +260,12 @@ def test_mwr_guide_matches_current_method_reality():
     assert "carry-forward adjustments" in guide
     assert "emit_cashflows_used=true" in guide
     assert "cashflows_used" in guide
+    assert "holding_period_return" in guide
+    assert "fallback_reason" in guide
+    assert "root_count_detected" in guide
     assert "investor capital-timing lens" in certification
+    assert "No-root and multiple-root cases are not silently interpreted" in certification
+    assert 'status="FALLBACK_USED"' in certification
     assert "CORE_CONTROL_PLANE_BASE_URL" in certification
     assert "lotus-gateway" in certification
     assert "`lotus-risk` does not call `/performance/mwr`" in certification

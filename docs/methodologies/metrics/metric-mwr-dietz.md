@@ -9,7 +9,7 @@ Money-Weighted Return via Dietz (`money_weighted_return` when method resolves to
   - stateful payload (`stateful_input.window_start_date`) resolved from lotus-core portfolio timeseries
 - Path coverage:
   - explicit request `mwr_method="DIETZ"` or `"MODIFIED_DIETZ"`
-  - fallback when `mwr_method="XIRR"` fails sign/convergence checks
+  - labeled fallback when `mwr_method="XIRR"` cannot produce one unambiguous root
 - Current implementation returns `method="DIETZ"` for this path.
 
 ## Inputs
@@ -34,7 +34,7 @@ Money-Weighted Return via Dietz (`money_weighted_return` when method resolves to
 
 ## Unit Conventions
 - Amount fields are currency amounts.
-- `money_weighted_return` and `mwr_annualized` are percentage points.
+- `money_weighted_return`, `mwr_annualized`, and `holding_period_return` are percentage points.
 - Internal periodic Dietz rate is decimal and multiplied by 100 for output.
 
 ## Variable Dictionary
@@ -58,7 +58,8 @@ Money-Weighted Return via Dietz (`money_weighted_return` when method resolves to
 - `r_D = Num / Den`
 
 2. Zero denominator handling:
-- If `Den == 0`, engine returns `money_weighted_return = 0.0` and note `Calculation resulted in a zero denominator.`
+- If `Den == 0`, engine returns `status="NOT_CALCULABLE"`, `reason_codes=["ZERO_DENOMINATOR"]`,
+  and note `Calculation resulted in a zero denominator.`
 
 3. Optional annualization:
 - If `annualization.enabled` and `days > 0`:
@@ -68,17 +69,21 @@ Money-Weighted Return via Dietz (`money_weighted_return` when method resolves to
 
 4. Response mapping:
 - `money_weighted_return = 100 * r_D`
+- `holding_period_return = 100 * r_D`
 - `mwr_annualized = 100 * r_A` when annualized else null
+- `is_annualized_primary = false`
+- `is_approximation = true`
 
 ## Step-by-Step Computation
 1. Resolve mode-specific inputs. In stateful mode retrieve lotus-core portfolio timeseries and
    normalize it into `begin_mv`, `end_mv`, signed `cash_flows[]`, and `start_date`.
 2. Determine `start_date` from the resolved request; set `end_date = as_of`.
 3. Compute `CF_sum` from `cash_flows[]`.
-4. Compute `Den`; if zero, return deterministic zero-result branch.
+4. Compute `Den`; if zero, return the not-calculable branch.
 5. Compute `Num` and periodic Dietz return `r_D`.
 6. If annualization requested and period length positive, compute `r_A`.
-7. Return response with `method="DIETZ"` and notes (including fallback notes if applicable).
+7. Return response with `method="DIETZ"` and notes, including fallback notes when entering from a
+   failed or ambiguous XIRR attempt.
 
 ## Validation and Failure Behavior
 - Schema-level validation enforces required inputs.
@@ -88,15 +93,19 @@ Money-Weighted Return via Dietz (`money_weighted_return` when method resolves to
 - Source fee rows are preserved as performance drag by the upstream analytics input and are not
   included as investor cash flows; unsupported or invalid source cash-flow rows are skipped during
   normalization rather than guessed.
-- XIRR fallback notes are preserved when entering Dietz path from failed XIRR attempt.
-- Zero denominator is non-fatal; returns `0.0` with explanatory note.
+- Explicit `DIETZ` and `MODIFIED_DIETZ` requests return `status="CALCULATED"` when the denominator
+  is non-zero.
+- XIRR fallback responses return `status="FALLBACK_USED"`, include the XIRR failure reason and
+  `DIETZ_FALLBACK_USED` in `reason_codes`, set `fallback_from="XIRR"`, and set `fallback_reason`.
+- Zero denominator is non-fatal but not reported as a normal zero return; it returns
+  `status="NOT_CALCULABLE"` with `ZERO_DENOMINATOR`.
 - If `annualization.enabled=true` and `days<=0`, annualized output remains null.
 - Endpoint unexpected failures map to HTTP 500.
 
 ## Configuration Options
 - `mwr_method`:
-  - `DIETZ` and `MODIFIED_DIETZ` both use this same implementation branch.
-  - `XIRR` can route here via fallback.
+  - `DIETZ` and `MODIFIED_DIETZ` both use this same implemented midpoint Dietz branch.
+  - `XIRR` can route here via labeled fallback.
 - `annualization.enabled`
 - `annualization.basis`
 
@@ -104,7 +113,15 @@ Money-Weighted Return via Dietz (`money_weighted_return` when method resolves to
 Primary fields:
 - `money_weighted_return`
 - `mwr_annualized` (optional)
+- `holding_period_return`
 - `method`
+- `status`
+- `reason_codes`
+- `warnings`
+- `fallback_from`
+- `fallback_reason`
+- `is_annualized_primary`
+- `is_approximation`
 - `start_date`, `end_date`, `notes`
 - `calculation_supportability`, `meta`, `diagnostics`, and `audit`
 
@@ -131,5 +148,9 @@ Intermediate calculations:
 
 Output mapping:
 - `money_weighted_return = 1.90476`
+- `holding_period_return = 1.90476`
 - `mwr_annualized = 25.82`
 - `method = "DIETZ"`
+- `status = "CALCULATED"`
+- `is_annualized_primary = false`
+- `is_approximation = true`

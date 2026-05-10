@@ -273,7 +273,19 @@ Sample response:
   "method": "XIRR",
   "money_weighted_return": 3.27,
   "mwr_annualized": 3.27,
+  "status": "CALCULATED",
+  "reason_codes": [],
+  "warnings": [],
+  "holding_period_return": 0.82,
+  "is_annualized_primary": true,
+  "is_approximation": false,
   "input_mode": "stateless",
+  "convergence": {
+    "converged": true,
+    "algorithm": "log_rate_bracket_scan_bisection",
+    "root_count_detected": 1,
+    "day_count_basis": "ACT/365"
+  },
   "cashflows_used": [
     { "amount": 25000.0, "date": "2026-02-27" },
     { "amount": -5000.0, "date": "2026-03-31" }

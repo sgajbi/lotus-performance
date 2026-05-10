@@ -45,7 +45,11 @@ Cross-service and downstream-facing routes:
 `POST /performance/mwr` supports both stateless caller-owned inputs and stateful lotus-core
 timeseries sourcing. In stateful mode it is the source-owned investor capital-timing methodology
 surface for downstream product experiences; clients should consume its emitted MWR response and
-supportability block rather than rebuilding cash-flow schedules locally.
+supportability block rather than rebuilding cash-flow schedules locally. The response now carries
+calculation-quality metadata (`status`, `reason_codes`, `warnings`, `fallback_reason`,
+`is_approximation`) plus `holding_period_return` and XIRR convergence diagnostics so demos,
+support workflows, and downstream UI panels can explain whether the value is an annualized XIRR, a
+Dietz fallback, or not calculable.
 
 `POST /performance/contribution` supports both stateless caller-owned inputs and stateful lotus-core
 portfolio/position timeseries sourcing. In stateful mode it is the source-owned contribution
