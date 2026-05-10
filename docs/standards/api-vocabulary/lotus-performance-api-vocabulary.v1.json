@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-05-10T00:31:45.131301+00:00",
+  "generatedAt": "2026-05-10T02:47:55.074207+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.account_reset_shadow_days",
@@ -1166,6 +1166,55 @@
       ],
       "observedTypes": [
         "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.currency_evidence",
+      "canonicalTerm": "currency_evidence",
+      "preferredName": "currency_evidence",
+      "description": "Currency context and source-component evidence for stateful MWR. The block is additive to legacy cashflows_used and documents when upstream values are pre-converted without per-input FX metadata.",
+      "example": {
+        "reporting_currency": "USD",
+        "portfolio_currency": "USD",
+        "currency_mode": "USD",
+        "conversion_evidence_status": "example_conversion_evidence_status",
+        "conversion_evidence_reason_codes": [
+          "example_conversion_evidence_reason_codes_item"
+        ],
+        "market_values_used": [
+          {
+            "valuation_date": "2026-02-27",
+            "amount": "example_amount",
+            "currency": "USD",
+            "value_role": "beginning_market_value",
+            "source_product": "example_source_product",
+            "conversion_status": "example_conversion_status"
+          }
+        ],
+        "cashflow_evidence": [
+          {
+            "date": "2026-02-27",
+            "amount": "example_amount",
+            "currency": "USD",
+            "source_components": [
+              {
+                "component_type": "source_cash_flow",
+                "amount": "example_amount",
+                "currency": "USD",
+                "cash_flow_type": "example_cash_flow_type",
+                "flow_scope": "example_flow_scope",
+                "source_classification": "example_source_classification"
+              }
+            ]
+          }
+        ]
+      },
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
       ]
     },
     {
@@ -4457,8 +4506,8 @@
       "semanticId": "lotus.reporting_currency",
       "canonicalTerm": "reporting_currency",
       "preferredName": "reporting_currency",
-      "description": "Target reporting currency.",
-      "example": "STANDARD_VALUE",
+      "description": "Effective reporting currency for MWR market values and cash flows.",
+      "example": "USD",
       "type": "object",
       "locations": [
         "body"
@@ -8127,6 +8176,22 @@
             "type": "object",
             "semanticId": "lotus.cashflows_used",
             "attributeRef": "#/attributeCatalog/lotus.cashflows_used"
+          },
+          {
+            "name": "reporting_currency",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.reporting_currency",
+            "attributeRef": "#/attributeCatalog/lotus.reporting_currency"
+          },
+          {
+            "name": "currency_evidence",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.currency_evidence",
+            "attributeRef": "#/attributeCatalog/lotus.currency_evidence"
           },
           {
             "name": "start_date",

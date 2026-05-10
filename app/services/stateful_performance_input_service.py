@@ -20,6 +20,8 @@ from app.services.valuation_points_service import portfolio_timeseries_to_valuat
 class StatefulPortfolioInput:
     performance_start_date: date
     observations: list[dict[str, object]]
+    portfolio_currency: str | None = None
+    reporting_currency: str | None = None
     retrieval_metadata: RetrievalMetadata = field(
         default_factory=lambda: RetrievalMetadata(chunk_count=1, page_count=1)
     )
@@ -102,6 +104,8 @@ async def retrieve_stateful_portfolio_input(
     return StatefulPortfolioInput(
         performance_start_date=performance_start_date,
         observations=portfolio_source.observations,
+        portfolio_currency=portfolio_source.portfolio_currency,
+        reporting_currency=portfolio_source.reporting_currency,
         retrieval_metadata=_parse_retrieval_metadata(upstream_payload),
     )
 

@@ -18,17 +18,30 @@ from app.services.stateful_performance_input_service import StatefulPortfolioInp
 def test_build_stateful_mwr_input_aggregates_cash_flows():
     source_input = StatefulPortfolioInput(
         performance_start_date=date(2025, 1, 1),
+        portfolio_currency="EUR",
+        reporting_currency="USD",
         observations=[
             {
                 "valuation_date": "2025-01-01",
                 "beginning_market_value": "1000",
                 "ending_market_value": "1110",
-                "cash_flows": [{"amount": "100", "timing": "bod"}, {"amount": "10", "timing": "eod"}],
+                "cash_flow_currency": "USD",
+                "cash_flows": [
+                    {
+                        "amount": "100",
+                        "timing": "bod",
+                        "cash_flow_type": "external_flow",
+                        "flow_scope": "external",
+                        "source_classification": "CONTRIBUTION",
+                    },
+                    {"amount": "10", "timing": "eod"},
+                ],
             },
             {
                 "valuation_date": "2025-01-02",
                 "beginning_market_value": "1110",
                 "ending_market_value": "1120",
+                "cash_flow_currency": "USD",
                 "cash_flows": [{"amount": "-20", "timing": "bod"}],
             },
         ],
@@ -43,6 +56,20 @@ def test_build_stateful_mwr_input_aggregates_cash_flows():
         ("2025-01-01", 110.0),
         ("2025-01-02", -20.0),
     ]
+    assert normalized.currency_evidence.reporting_currency == "USD"
+    assert normalized.currency_evidence.portfolio_currency == "EUR"
+    assert normalized.currency_evidence.currency_mode == "SINGLE_REPORTING_CURRENCY"
+    assert normalized.currency_evidence.conversion_evidence_reason_codes == [
+        "UPSTREAM_PORTFOLIO_TIMESERIES_PRECONVERTED",
+        "PER_INPUT_FX_METADATA_NOT_EXPOSED_BY_SOURCE_CONTRACT",
+    ]
+    assert [item.value_role for item in normalized.currency_evidence.market_values_used] == [
+        "beginning_market_value",
+        "ending_market_value",
+    ]
+    assert normalized.currency_evidence.cashflow_evidence[0].source_components[0].source_classification == (
+        "CONTRIBUTION"
+    )
 
 
 def test_build_stateful_mwr_input_for_window_uses_requested_window_start():
@@ -177,17 +204,21 @@ async def test_resolve_mwr_request_uses_stateful_portfolio_window(monkeypatch):
         assert kwargs["end_date"] == date(2025, 1, 3)
         return StatefulPortfolioInput(
             performance_start_date=date(2024, 1, 1),
+            portfolio_currency="EUR",
+            reporting_currency="USD",
             observations=[
                 {
                     "valuation_date": "2025-01-01",
                     "beginning_market_value": "1000",
                     "ending_market_value": "1110",
+                    "cash_flow_currency": "USD",
                     "cash_flows": [{"amount": "100", "timing": "bod"}],
                 },
                 {
                     "valuation_date": "2025-01-03",
                     "beginning_market_value": "1110",
                     "ending_market_value": "1125",
+                    "cash_flow_currency": "USD",
                     "cash_flows": [],
                 },
             ],
@@ -222,6 +253,8 @@ async def test_resolve_mwr_request_uses_stateful_portfolio_window(monkeypatch):
     assert resolved.mwr_request.begin_mv == 1000
     assert resolved.mwr_request.end_mv == 1125
     assert len(resolved.mwr_request.cash_flows) == 1
+    assert resolved.currency_evidence is not None
+    assert resolved.currency_evidence.reporting_currency == "USD"
 
 
 @pytest.mark.asyncio

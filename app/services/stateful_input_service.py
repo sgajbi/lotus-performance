@@ -87,6 +87,16 @@ class StatefulInputService:
             for _, payload in responses
             if isinstance(payload, dict) and isinstance(payload.get("portfolio_open_date"), str)
         ]
+        portfolio_currencies = {
+            payload["portfolio_currency"]
+            for _, payload in responses
+            if isinstance(payload, dict) and isinstance(payload.get("portfolio_currency"), str)
+        }
+        reporting_currencies = {
+            payload["reporting_currency"]
+            for _, payload in responses
+            if isinstance(payload, dict) and isinstance(payload.get("reporting_currency"), str)
+        }
         observations = self._merge_dedup_records(
             records=[
                 obs
@@ -103,6 +113,8 @@ class StatefulInputService:
         )
         return 200, {
             "portfolio_open_date": min(open_dates) if open_dates else None,
+            "portfolio_currency": _single_value_or_none(portfolio_currencies),
+            "reporting_currency": _single_value_or_none(reporting_currencies),
             "observations": observations,
             "retrieval_metadata": {
                 "chunk_count": len(chunks),
@@ -803,6 +815,8 @@ class StatefulInputService:
         page_token: str | None = None
         merged_observations: list[dict[str, Any]] = []
         portfolio_open_date: str | None = None
+        portfolio_currency: str | None = None
+        effective_reporting_currency: str | None = None
         snapshot_batch: list[dict[str, Any]] = []
         existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
         page_count = 0
@@ -857,6 +871,10 @@ class StatefulInputService:
 
             if portfolio_open_date is None and isinstance(payload.get("portfolio_open_date"), str):
                 portfolio_open_date = payload["portfolio_open_date"]
+            if portfolio_currency is None and isinstance(payload.get("portfolio_currency"), str):
+                portfolio_currency = payload["portfolio_currency"]
+            if effective_reporting_currency is None and isinstance(payload.get("reporting_currency"), str):
+                effective_reporting_currency = payload["reporting_currency"]
 
             observations = payload.get("observations", [])
             if isinstance(observations, list):
@@ -874,6 +892,8 @@ class StatefulInputService:
 
         return 200, {
             "portfolio_open_date": portfolio_open_date,
+            "portfolio_currency": portfolio_currency,
+            "reporting_currency": effective_reporting_currency,
             "observations": self._merge_dedup_records(records=merged_observations, date_key="valuation_date"),
             "retrieval_metadata": {
                 "page_count": page_count,
@@ -1122,3 +1142,7 @@ class StatefulInputService:
             cached_snapshot_ids = self._execution_store.list_upstream_snapshot_ids(calculation_id)
             self._snapshot_id_cache[calculation_id] = cached_snapshot_ids
         return cached_snapshot_ids
+
+
+def _single_value_or_none(values: set[str]) -> str | None:
+    return next(iter(values)) if len(values) == 1 else None

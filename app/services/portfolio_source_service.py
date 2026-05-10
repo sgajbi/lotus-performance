@@ -13,6 +13,8 @@ from app.services.stateful_input_service import StatefulInputService
 @dataclass(frozen=True)
 class StatefulPortfolioTimeseries:
     portfolio_open_date: str | None
+    portfolio_currency: str | None
+    reporting_currency: str | None
     observations: list[dict[str, object]]
 
 
@@ -67,9 +69,15 @@ def parse_stateful_portfolio_timeseries_payload(
     )
     portfolio_open_date_raw = payload.get("portfolio_open_date")
     portfolio_open_date = portfolio_open_date_raw if isinstance(portfolio_open_date_raw, str) else None
+    portfolio_currency_raw = payload.get("portfolio_currency")
+    portfolio_currency = portfolio_currency_raw if isinstance(portfolio_currency_raw, str) else None
+    reporting_currency_raw = payload.get("reporting_currency")
+    reporting_currency = reporting_currency_raw if isinstance(reporting_currency_raw, str) else None
     if require_open_date and portfolio_open_date is None:
         raise ValueError("Stateful source missing portfolio_open_date.")
     return StatefulPortfolioTimeseries(
         portfolio_open_date=portfolio_open_date,
+        portfolio_currency=portfolio_currency,
+        reporting_currency=reporting_currency,
         observations=observations,
     )

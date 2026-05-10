@@ -1,4 +1,6 @@
 # app/api/endpoints/performance.py
+from dataclasses import asdict
+from decimal import Decimal
 from uuid import UUID
 
 import pandas as pd
@@ -653,6 +655,11 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
         reason_codes=mwr_result.reason_codes,
         fallback_used=mwr_result.fallback_from is not None or mwr_result.is_approximation,
     )
+    reporting_currency = (
+        resolved_request.currency_evidence.reporting_currency
+        if resolved_request.currency_evidence is not None
+        else mwr_request.report_ccy or mwr_request.currency
+    )
 
     response_payload = {
         "calculation_id": request.calculation_id,
@@ -674,6 +681,12 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
         "notes": mwr_result.notes,
         "convergence": mwr_result.convergence,
         "cashflows_used": mwr_request.cash_flows if mwr_request.emit_cashflows_used else None,
+        "reporting_currency": reporting_currency,
+        "currency_evidence": (
+            _decimal_safe_dataclass_payload(resolved_request.currency_evidence)
+            if resolved_request.currency_evidence is not None
+            else None
+        ),
         "calculation_supportability": calculation_supportability,
         "meta": meta,
         "diagnostics": diagnostics,
@@ -701,6 +714,21 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
     )
 
     return response_model
+
+
+def _decimal_safe_dataclass_payload(value: object) -> object:
+    payload = asdict(value)
+    return _stringify_decimals(payload)
+
+
+def _stringify_decimals(value: object) -> object:
+    if isinstance(value, Decimal):
+        return str(value)
+    if isinstance(value, list):
+        return [_stringify_decimals(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _stringify_decimals(item) for key, item in value.items()}
+    return value
 
 
 @router.post(

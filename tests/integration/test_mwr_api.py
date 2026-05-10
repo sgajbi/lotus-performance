@@ -104,17 +104,29 @@ def test_calculate_mwr_endpoint_supports_stateful_mode(client, monkeypatch):
             200,
             {
                 "portfolio_open_date": "2024-01-01",
+                "portfolio_currency": "EUR",
+                "reporting_currency": "USD",
                 "observations": [
                     {
                         "valuation_date": "2025-01-01",
                         "beginning_market_value": "100000",
                         "ending_market_value": "110000",
-                        "cash_flows": [{"amount": "10000", "timing": "bod"}],
+                        "cash_flow_currency": "USD",
+                        "cash_flows": [
+                            {
+                                "amount": "10000",
+                                "timing": "bod",
+                                "cash_flow_type": "external_flow",
+                                "flow_scope": "external",
+                                "source_classification": "CONTRIBUTION",
+                            }
+                        ],
                     },
                     {
                         "valuation_date": "2025-01-03",
                         "beginning_market_value": "110000",
                         "ending_market_value": "111000",
+                        "cash_flow_currency": "USD",
                         "cash_flows": [],
                     },
                 ],
@@ -146,6 +158,34 @@ def test_calculate_mwr_endpoint_supports_stateful_mode(client, monkeypatch):
     assert body["method"] == "DIETZ"
     assert body["audit"]["counts"]["cashflows"] == 1
     assert body["cashflows_used"] == [{"amount": 10000.0, "date": "2025-01-01"}]
+    assert body["reporting_currency"] == "USD"
+    assert body["currency_evidence"]["portfolio_currency"] == "EUR"
+    assert body["currency_evidence"]["currency_mode"] == "SINGLE_REPORTING_CURRENCY"
+    assert body["currency_evidence"]["conversion_evidence_status"] == (
+        "upstream_preconverted_missing_per_input_fx_metadata"
+    )
+    assert body["currency_evidence"]["market_values_used"] == [
+        {
+            "valuation_date": "2025-01-01",
+            "amount": "100000",
+            "currency": "USD",
+            "value_role": "beginning_market_value",
+            "source_product": "PortfolioTimeseriesInput",
+            "conversion_status": "upstream_preconverted",
+        },
+        {
+            "valuation_date": "2025-01-03",
+            "amount": "111000",
+            "currency": "USD",
+            "value_role": "ending_market_value",
+            "source_product": "PortfolioTimeseriesInput",
+            "conversion_status": "upstream_preconverted",
+        },
+    ]
+    assert (
+        body["currency_evidence"]["cashflow_evidence"][0]["source_components"][0]["source_classification"]
+        == "CONTRIBUTION"
+    )
 
 
 def test_mwr_stateful_hashes_follow_resolved_inputs(client, monkeypatch):

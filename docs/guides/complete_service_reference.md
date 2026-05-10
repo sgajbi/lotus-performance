@@ -290,9 +290,17 @@ Sample response:
     { "amount": 25000.0, "date": "2026-02-27" },
     { "amount": -5000.0, "date": "2026-03-31" }
   ],
+  "reporting_currency": "USD",
+  "currency_evidence": null,
   "notes": []
 }
 ```
+
+Stateful MWR responses populate `currency_evidence` with `market_values_used[]`,
+`cashflow_evidence[]`, and `currency_mode="SINGLE_REPORTING_CURRENCY"`. The current conversion
+evidence status is `upstream_preconverted_missing_per_input_fx_metadata`, which means
+lotus-performance preserves the reporting-currency context and source components received from
+lotus-core but does not yet expose full per-input FX rate provenance.
 
 ### `POST /performance/workspace-summary`
 

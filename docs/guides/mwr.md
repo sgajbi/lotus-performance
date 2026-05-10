@@ -139,11 +139,25 @@ When `emit_cashflows_used=true`, which is the default, the response also include
 so support, front office, and downstream clients can see the exact signed flow schedule used by the
 calculation.
 
+The response also exposes `reporting_currency`. For stateful runs, `currency_evidence` preserves
+the current Lotus sourcing truth:
+
+- `currency_mode="SINGLE_REPORTING_CURRENCY"`
+- `market_values_used[]` for the beginning and ending `PortfolioTimeseriesInput` values used by
+  the engine
+- `cashflow_evidence[]` with the source cash-flow and carry-forward components aggregated into each
+  MWR cash-flow date
+- `conversion_evidence_status="upstream_preconverted_missing_per_input_fx_metadata"` until
+  `lotus-core` publishes per-input FX rate, policy, version, and fingerprint evidence
+
 ## Multi-currency note
 
 MWR is not decomposed into local and FX components on the current public contract. Callers should
 submit `begin_mv`, `end_mv`, and `cash_flows` in one consistent reporting currency.
-`cashflows_used` proves the signed schedule used by the engine; it is not FX conversion provenance.
+`cashflows_used` proves the signed schedule used by the engine; `currency_evidence` proves the
+stateful reporting-currency context and source components currently available to lotus-performance.
+It is not yet full FX conversion provenance because the upstream portfolio timeseries contract does
+not expose per-input rate source, rate version, conversion policy, or conversion fingerprint fields.
 The implementation-readiness contract for a future FX-aware MWR extension is documented in
 [MWR FX-aware contract design](../technical/mwr-fx-contract-design.md).
 
