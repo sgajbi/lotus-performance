@@ -6,6 +6,8 @@
 
 [API Surface](API-Surface)
 
+[Time-Weighted Return](Time-Weighted-Return)
+
 [Getting Started](Getting-Started)
 
 [Development Workflow](Development-Workflow)

@@ -218,6 +218,27 @@ def test_twr_guide_uses_current_request_shape():
     assert "long-window results are not front-office safe" in certification
 
 
+def test_twr_documentation_map_and_wiki_navigation_are_present():
+    map_doc = _read("docs/technical/twr-documentation-map.md")
+    methodology_index = _read("docs/technical/methodology_index.md")
+    wiki_page = _read("wiki/Time-Weighted-Return.md")
+    wiki_sidebar = _read("wiki/_Sidebar.md")
+    wiki_home = _read("wiki/Home.md")
+    wiki_api_surface = _read("wiki/API-Surface.md")
+    wiki_integrations = _read("wiki/Integrations.md")
+
+    assert "Source Of Truth Layers" in map_doc
+    assert "wiki/Time-Weighted-Return.md" in map_doc
+    assert "Composite, group, and sleeve TWR are not promoted" in map_doc
+    assert "twr-documentation-map.md" in methodology_index
+    assert "Stateful TWR source flow" in wiki_integrations
+    assert "lotus-core source authority" in wiki_page
+    assert "composite, group, and sleeve TWR are not promoted" in wiki_page
+    assert "[Time-Weighted Return](Time-Weighted-Return)" in wiki_sidebar
+    assert "[Time-Weighted Return](Time-Weighted-Return)" in wiki_home
+    assert "docs/technical/twr-documentation-map.md" in wiki_api_surface
+
+
 def test_benchmark_guide_uses_current_request_shape():
     guide = _read("docs/guides/benchmark.md")
     api_reference = _read("docs/guides/api_reference.md")

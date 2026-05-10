@@ -87,6 +87,9 @@ Runtime and supportability routes:
 
 ## Where to go next
 
+- TWR product and methodology navigation:
+  [Time-Weighted Return](Time-Weighted-Return),
+  [docs/technical/twr-documentation-map.md](../docs/technical/twr-documentation-map.md)
 - contract and payload detail:
   [docs/guides/api_reference.md](../docs/guides/api_reference.md)
 - full examples and config inventory:
