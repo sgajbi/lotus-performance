@@ -101,3 +101,75 @@ def test_twr_benchmark_supportability_reports_calendar_and_vendor_series_warning
         "BENCHMARK_VENDOR_SERIES_BASE_ONLY",
         "BENCHMARK_CURRENCY_DIFFERS_FROM_REPORTING_CURRENCY",
     ]
+
+
+def test_twr_benchmark_supportability_reports_no_overlap_and_empty_benchmark_dates():
+    benchmark_request = BenchmarkPerformanceRequest.model_validate(
+        {
+            "benchmark_id": "BMK_EMPTY",
+            "benchmark_start_date": "2025-01-01",
+            "report_end_date": "2025-01-03",
+            "benchmark_currency": "USD",
+            "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+            "return_source": "calculated",
+            "component_observations": [
+                {
+                    "component_id": "IDX_USD",
+                    "perf_date": "2025-01-01",
+                    "weight_bop": 1.0,
+                    "component_currency": "USD",
+                    "component_return": 0.012,
+                }
+            ],
+        }
+    )
+
+    evidence = build_twr_benchmark_supportability_evidence(
+        performance_request=_performance_request(),
+        benchmark_request=benchmark_request,
+        portfolio_daily_results_df=pd.DataFrame({"perf_date": [date(2025, 1, 1), date(2025, 1, 2)]}),
+        benchmark_daily_returns_df=pd.DataFrame({"benchmark_return": []}),
+        benchmark_input_mode="stateful",
+        benchmark_return_source="calculated",
+    )
+
+    assert evidence.currency_state == "single_currency"
+    assert evidence.calendar_alignment_state == "no_overlap"
+    assert evidence.benchmark_observation_count == 0
+    assert evidence.missing_benchmark_date_count == 2
+    assert evidence.warning_codes == ["BENCHMARK_CALENDAR_NO_OVERLAP"]
+
+
+def test_twr_benchmark_supportability_reports_base_only_cross_currency_evidence():
+    benchmark_request = BenchmarkPerformanceRequest.model_validate(
+        {
+            "benchmark_id": "BMK_BASE_ONLY",
+            "benchmark_start_date": "2025-01-01",
+            "report_end_date": "2025-01-03",
+            "benchmark_currency": "USD",
+            "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+            "return_source": "calculated",
+            "component_observations": [
+                {
+                    "component_id": "IDX_EUR",
+                    "perf_date": "2025-01-01",
+                    "weight_bop": 1.0,
+                    "component_currency": "EUR",
+                    "component_return": 0.012,
+                }
+            ],
+        }
+    )
+
+    evidence = build_twr_benchmark_supportability_evidence(
+        performance_request=_performance_request(),
+        benchmark_request=benchmark_request,
+        portfolio_daily_results_df=pd.DataFrame({"perf_date": [date(2025, 1, 1)]}),
+        benchmark_daily_returns_df=pd.DataFrame({"date": [date(2025, 1, 1)], "benchmark_return": [0.012]}),
+        benchmark_input_mode="stateless",
+        benchmark_return_source="calculated",
+    )
+
+    assert evidence.currency_state == "base_only"
+    assert evidence.calendar_alignment_state == "aligned"
+    assert evidence.warning_codes == ["BENCHMARK_FX_DECOMPOSITION_UNAVAILABLE"]

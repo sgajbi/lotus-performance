@@ -62,7 +62,9 @@ date as a hidden calculation success.
 Slice 7 was validated with focused, contract, governance, and full coverage gates:
 
 - `python -m pytest tests/unit/services/test_twr_benchmark_supportability.py tests/unit/app/test_twr_openapi_contract.py tests/unit/docs/test_public_docs_contract.py tests/integration/test_performance_api.py::test_twr_supports_stateless_benchmark_request tests/integration/test_performance_api.py::test_twr_supports_stateful_benchmark_assignment tests/integration/test_performance_api.py::test_twr_supports_include_benchmark_without_nested_stateful_benchmark_config tests/unit/services/test_stateless_benchmark_input_service.py::test_normalize_stateless_component_observations_rejects_cross_currency_price_points_without_fx -q`
-  - Result: `50 passed, 1 warning`
+  - Result: `52 passed, 1 warning`
+- `python -m pytest tests/unit/services/test_twr_benchmark_supportability.py --cov=app.services.twr_benchmark_supportability --cov-report=term-missing -q`
+  - Result: `4 passed`; `app.services.twr_benchmark_supportability` coverage `100%`
 - `python -m pytest tests/integration/test_performance_api.py tests/integration/test_response_attribute_certification.py tests/unit/app/test_twr_openapi_contract.py tests/unit/docs/test_public_docs_contract.py tests/unit/models/test_responses_models.py tests/unit/services/test_twr_benchmark_supportability.py tests/unit/services/test_stateless_benchmark_input_service.py -q`
   - Result: `100 passed, 7 warnings`
 - `python -m pytest tests/unit/services/test_compute_executor_worker.py::test_compute_executor_worker_processes_resolved_twr_job -q`
@@ -80,4 +82,4 @@ Slice 7 was validated with focused, contract, governance, and full coverage gate
 - `python scripts/no_alias_contract_guard.py`
   - Result: passed
 - `make coverage-gate`
-  - Result: unit `1200 passed`, integration `274 passed`, e2e `21 passed`, combined coverage `99%`
+  - Result: unit `1202 passed`, integration `274 passed`, e2e `21 passed`, combined coverage `99%`
