@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-05-01T13:22:57.397291+00:00",
+  "generatedAt": "2026-05-10T00:31:45.131301+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.account_reset_shadow_days",
@@ -1091,7 +1091,16 @@
       "example": {
         "iterations": 8,
         "residual": 1e-10,
-        "converged": true
+        "converged": true,
+        "algorithm": "example_algorithm",
+        "root_count_detected": 1,
+        "residual_npv": 0.1234,
+        "rate_lower_bound": 0.1234,
+        "rate_upper_bound": 0.1234,
+        "day_count_basis": "example_day_count_basis",
+        "anchor_date": "2026-02-27",
+        "normalized_flow_count": 1,
+        "gross_cash_flow_scale": 0.1234
       },
       "type": "object",
       "locations": [
@@ -1752,6 +1761,20 @@
       ]
     },
     {
+      "semanticId": "lotus.fallback_from",
+      "canonicalTerm": "fallback_from",
+      "preferredName": "fallback_from",
+      "description": "Primary method that fell back, when applicable.",
+      "example": "example_fallback_from",
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
       "semanticId": "lotus.fallback_policy",
       "canonicalTerm": "fallback_policy",
       "preferredName": "fallback_policy",
@@ -1763,6 +1786,20 @@
       ],
       "observedTypes": [
         "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.fallback_reason",
+      "canonicalTerm": "fallback_reason",
+      "preferredName": "fallback_reason",
+      "description": "Reason fallback method was used.",
+      "example": "example_fallback_reason",
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
       ]
     },
     {
@@ -2114,6 +2151,20 @@
       ]
     },
     {
+      "semanticId": "lotus.holding_period_return",
+      "canonicalTerm": "holding_period_return",
+      "preferredName": "holding_period_return",
+      "description": "Holding-period money-weighted return in percentage-point output units.",
+      "example": 0.1234,
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
       "semanticId": "lotus.include_benchmark",
       "canonicalTerm": "include_benchmark",
       "preferredName": "include_benchmark",
@@ -2332,6 +2383,34 @@
           ]
         }
       ],
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.is_annualized_primary",
+      "canonicalTerm": "is_annualized_primary",
+      "preferredName": "is_annualized_primary",
+      "description": "Whether money_weighted_return is an annualized value.",
+      "example": true,
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.is_approximation",
+      "canonicalTerm": "is_approximation",
+      "preferredName": "is_approximation",
+      "description": "Whether the returned method is approximate.",
+      "example": true,
       "type": "object",
       "locations": [
         "body"
@@ -4038,6 +4117,34 @@
       ]
     },
     {
+      "semanticId": "lotus.rate_lower_bound",
+      "canonicalTerm": "rate_lower_bound",
+      "preferredName": "rate_lower_bound",
+      "description": "Performance metric value for rate lower bound.",
+      "example": 0.1234,
+      "type": "number",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "number"
+      ]
+    },
+    {
+      "semanticId": "lotus.rate_upper_bound",
+      "canonicalTerm": "rate_upper_bound",
+      "preferredName": "rate_upper_bound",
+      "description": "Performance metric value for rate upper bound.",
+      "example": 0.1234,
+      "type": "number",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "number"
+      ]
+    },
+    {
       "semanticId": "lotus.reason",
       "canonicalTerm": "reason",
       "preferredName": "reason",
@@ -4050,6 +4157,22 @@
       "observedTypes": [
         "string",
         "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.reason_codes",
+      "canonicalTerm": "reason_codes",
+      "preferredName": "reason_codes",
+      "description": "Machine-readable reason codes.",
+      "example": [
+        "example_reason_codes_item"
+      ],
+      "type": "array",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "array"
       ]
     },
     {
@@ -4959,6 +5082,20 @@
       ]
     },
     {
+      "semanticId": "lotus.root_scan_steps",
+      "canonicalTerm": "root_scan_steps",
+      "preferredName": "root_scan_steps",
+      "description": "solver field: root scan steps.",
+      "example": 1,
+      "type": "integer",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "integer"
+      ]
+    },
+    {
       "semanticId": "lotus.rounding_precision",
       "canonicalTerm": "rounding_precision",
       "preferredName": "rounding_precision",
@@ -5426,8 +5563,8 @@
       "semanticId": "lotus.status",
       "canonicalTerm": "status",
       "preferredName": "status",
-      "description": "Overall execution lifecycle status. Typical values are pending, running, complete, and failed.",
-      "example": "STANDARD_VALUE",
+      "description": "Calculation status for the MWR result.",
+      "example": "pending",
       "type": "string",
       "locations": [
         "body",
@@ -5953,6 +6090,22 @@
           "mgmt_fees": 0.1234,
           "end_mv": 0.1234
         }
+      ],
+      "type": "array",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "array"
+      ]
+    },
+    {
+      "semanticId": "lotus.warnings",
+      "canonicalTerm": "warnings",
+      "preferredName": "warnings",
+      "description": "Machine-readable warning codes.",
+      "example": [
+        "example_warnings_item"
       ],
       "type": "array",
       "locations": [
@@ -6948,6 +7101,30 @@
             "attributeRef": "#/attributeCatalog/lotus.tolerance"
           },
           {
+            "name": "solver.rate_lower_bound",
+            "location": "body",
+            "required": false,
+            "type": "number",
+            "semanticId": "lotus.rate_lower_bound",
+            "attributeRef": "#/attributeCatalog/lotus.rate_lower_bound"
+          },
+          {
+            "name": "solver.rate_upper_bound",
+            "location": "body",
+            "required": false,
+            "type": "number",
+            "semanticId": "lotus.rate_upper_bound",
+            "attributeRef": "#/attributeCatalog/lotus.rate_upper_bound"
+          },
+          {
+            "name": "solver.root_scan_steps",
+            "location": "body",
+            "required": false,
+            "type": "integer",
+            "semanticId": "lotus.root_scan_steps",
+            "attributeRef": "#/attributeCatalog/lotus.root_scan_steps"
+          },
+          {
             "name": "currency",
             "location": "body",
             "required": false,
@@ -7580,6 +7757,30 @@
             "attributeRef": "#/attributeCatalog/lotus.tolerance"
           },
           {
+            "name": "solver.rate_lower_bound",
+            "location": "body",
+            "required": false,
+            "type": "number",
+            "semanticId": "lotus.rate_lower_bound",
+            "attributeRef": "#/attributeCatalog/lotus.rate_lower_bound"
+          },
+          {
+            "name": "solver.rate_upper_bound",
+            "location": "body",
+            "required": false,
+            "type": "number",
+            "semanticId": "lotus.rate_upper_bound",
+            "attributeRef": "#/attributeCatalog/lotus.rate_upper_bound"
+          },
+          {
+            "name": "solver.root_scan_steps",
+            "location": "body",
+            "required": false,
+            "type": "integer",
+            "semanticId": "lotus.root_scan_steps",
+            "attributeRef": "#/attributeCatalog/lotus.root_scan_steps"
+          },
+          {
             "name": "emit_cashflows_used",
             "location": "body",
             "required": false,
@@ -7846,6 +8047,70 @@
             "type": "string",
             "semanticId": "lotus.method",
             "attributeRef": "#/attributeCatalog/lotus.method"
+          },
+          {
+            "name": "status",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.status",
+            "attributeRef": "#/attributeCatalog/lotus.status"
+          },
+          {
+            "name": "reason_codes",
+            "location": "body",
+            "required": false,
+            "type": "array",
+            "semanticId": "lotus.reason_codes",
+            "attributeRef": "#/attributeCatalog/lotus.reason_codes"
+          },
+          {
+            "name": "warnings",
+            "location": "body",
+            "required": false,
+            "type": "array",
+            "semanticId": "lotus.warnings",
+            "attributeRef": "#/attributeCatalog/lotus.warnings"
+          },
+          {
+            "name": "holding_period_return",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.holding_period_return",
+            "attributeRef": "#/attributeCatalog/lotus.holding_period_return"
+          },
+          {
+            "name": "is_annualized_primary",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.is_annualized_primary",
+            "attributeRef": "#/attributeCatalog/lotus.is_annualized_primary"
+          },
+          {
+            "name": "fallback_from",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.fallback_from",
+            "attributeRef": "#/attributeCatalog/lotus.fallback_from"
+          },
+          {
+            "name": "fallback_reason",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.fallback_reason",
+            "attributeRef": "#/attributeCatalog/lotus.fallback_reason"
+          },
+          {
+            "name": "is_approximation",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.is_approximation",
+            "attributeRef": "#/attributeCatalog/lotus.is_approximation"
           },
           {
             "name": "convergence",
