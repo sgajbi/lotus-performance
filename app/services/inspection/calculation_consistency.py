@@ -25,6 +25,7 @@ def run_twr_calculation_consistency_checks(response: PerformanceResponse) -> Cal
     findings: list[TWRInspectionFinding] = []
     linked_blocks_checked = 0
     relative_rows_checked = 0
+    daily_evidence_rows_checked = 0
 
     for period_name, period_result in response.results_by_period.items():
         relative_block = period_result.relative_performance
@@ -59,6 +60,12 @@ def run_twr_calculation_consistency_checks(response: PerformanceResponse) -> Cal
                 analytics_block=portfolio_block,
             )
         )
+        evidence_result = _check_portfolio_daily_calculation_evidence(
+            period_name=period_name,
+            portfolio_block=portfolio_block,
+        )
+        daily_evidence_rows_checked += evidence_result[0]
+        findings.extend(evidence_result[1])
         if benchmark_block is not None:
             linked_blocks_checked += 1
             findings.extend(
@@ -76,6 +83,7 @@ def run_twr_calculation_consistency_checks(response: PerformanceResponse) -> Cal
             "period_count": len(response.results_by_period),
             "linked_blocks_checked": linked_blocks_checked,
             "relative_rows_checked": relative_rows_checked,
+            "daily_calculation_evidence_rows_checked": daily_evidence_rows_checked,
             "consistency_findings": len(findings),
         },
     )
@@ -280,6 +288,96 @@ def _check_block_linking(
                 )
             )
     return findings
+
+
+def _check_portfolio_daily_calculation_evidence(
+    *,
+    period_name: str,
+    portfolio_block: ComparativeAnalyticsBlock,
+) -> tuple[int, list[TWRInspectionFinding]]:
+    findings: list[TWRInspectionFinding] = []
+    rows_checked = 0
+    for frequency, items in portfolio_block.breakdowns.items():
+        if frequency.value != "daily":
+            continue
+        for item in items:
+            evidence = item.calculation_evidence
+            if evidence is None:
+                continue
+            rows_checked += 1
+            scope = f"breakdowns.{frequency.value}.{item.period}.calculation_evidence"
+            expected_adjusted_capital = abs(evidence.begin_mv + evidence.bod_cf)
+            expected_inflows = sum(value for value in (evidence.bod_cf, evidence.eod_cf) if value > 0)
+            expected_outflows = abs(sum(value for value in (evidence.bod_cf, evidence.eod_cf) if value < 0))
+
+            mismatches: dict[str, dict[str, object]] = {}
+            _record_numeric_mismatch(
+                mismatches=mismatches,
+                field="adjusted_capital",
+                expected=expected_adjusted_capital,
+                actual=evidence.adjusted_capital,
+            )
+            _record_numeric_mismatch(
+                mismatches=mismatches,
+                field="external_inflows",
+                expected=expected_inflows,
+                actual=evidence.external_inflows,
+            )
+            _record_numeric_mismatch(
+                mismatches=mismatches,
+                field="external_outflows",
+                expected=expected_outflows,
+                actual=evidence.external_outflows,
+            )
+            if evidence.status == "calculated" and evidence.adjusted_capital != 0:
+                expected_daily_return = evidence.performance_pnl / evidence.adjusted_capital * 100
+                _record_numeric_mismatch(
+                    mismatches=mismatches,
+                    field="daily_return",
+                    expected=expected_daily_return,
+                    actual=evidence.daily_return,
+                )
+                _record_numeric_mismatch(
+                    mismatches=mismatches,
+                    field="period_return.base",
+                    expected=evidence.daily_return,
+                    actual=item.period_return.base,
+                )
+            if evidence.status == "calculated" and evidence.adjusted_capital == 0:
+                mismatches["status"] = {
+                    "expected": "not_calculated",
+                    "actual": evidence.status,
+                    "reason": "zero_adjusted_capital",
+                }
+
+            if mismatches:
+                findings.append(
+                    _build_finding(
+                        code="DAILY_CALCULATION_EVIDENCE_MISMATCH",
+                        period_name=period_name,
+                        scope=scope,
+                        summary="Daily TWR calculation evidence does not reconcile to its served return contract.",
+                        evidence={
+                            "daily_period": item.period,
+                            "mismatches": mismatches,
+                            "calculation_method": evidence.calculation_method,
+                            "denominator_basis": evidence.denominator_basis,
+                        },
+                    )
+                )
+    return rows_checked, findings
+
+
+def _record_numeric_mismatch(
+    *,
+    mismatches: dict[str, dict[str, object]],
+    field: str,
+    expected: float,
+    actual: float,
+) -> None:
+    if isclose(expected, actual, abs_tol=_ABS_TOLERANCE):
+        return
+    mismatches[field] = {"expected": expected, "actual": actual}
 
 
 def _compare_return_values(

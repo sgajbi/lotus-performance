@@ -54,10 +54,20 @@ This is an additive response contract change. No downstream repository change is
 continue functioning. Later RFC-046 downstream realization slices must decide whether Gateway,
 Workbench, reporting, or AI surfaces should consume and display this evidence as product value.
 
+## Inspector Alignment
+
+Slice 4 also strengthens the RFC-045 calculation-consistency inspector. The inspector now validates
+daily portfolio calculation evidence when it is present and raises
+`DAILY_CALCULATION_EVIDENCE_MISMATCH` if adjusted capital, flow split, daily return, or served
+daily period return does not reconcile to the evidence contract. This keeps the new RFC-046
+evidence from becoming a passive response field that can drift away from the served calculation.
+
 ## Validation
 
 Slice 4 validation completed:
 
+- `python -m pytest tests/unit/services/test_twr_inspection_calculation_consistency.py tests/unit/services/test_twr_daily_calculation_evidence.py tests/unit/app/test_twr_openapi_contract.py tests/integration/test_performance_api.py::test_twr_daily_calculation_evidence_handles_same_day_deposit_and_withdrawal -q`
+  - Passed: 15 tests.
 - `python -m pytest tests/integration/test_performance_api.py::test_calculate_twr_endpoint_legacy_path_and_diagnostics tests/integration/test_performance_api.py::test_twr_daily_calculation_evidence_handles_same_day_deposit_and_withdrawal tests/integration/test_performance_api.py::test_twr_respects_include_timeseries_flag tests/integration/test_response_attribute_certification.py::test_twr_response_attributes_tie_to_deterministic_stateless_inputs tests/unit/app/test_twr_openapi_contract.py tests/unit/models/test_responses_models.py tests/unit/docs/test_public_docs_contract.py -q`
   - Passed: 52 tests.
 - `python -m pytest tests/unit/app/test_twr_openapi_contract.py tests/unit/models/test_responses_models.py tests/unit/docs/test_public_docs_contract.py tests/integration/test_performance_api.py tests/integration/test_response_attribute_certification.py -q`
@@ -70,6 +80,8 @@ Slice 4 validation completed:
   - Passed, including `monetary-float-guard` with no allowlist update.
 - `make typecheck`
   - Passed.
+- `make coverage-gate`
+  - Passed: unit 1180 passed, integration 273 passed, e2e 21 passed, combined coverage 99%.
 - `python scripts/openapi_quality_gate.py`
   - Passed.
 - `make api-vocabulary-gate`
