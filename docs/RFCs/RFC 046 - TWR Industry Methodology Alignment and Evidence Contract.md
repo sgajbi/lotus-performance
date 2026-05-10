@@ -29,6 +29,8 @@
   - RFC-042
   - RFC-043
   - RFC-045
+- Slice Evidence:
+  - Slice 0: `docs/RFCs/RFC-046-source-map-and-gap-analysis.md`
 
 ## 0. Critical Review Of The First Draft
 
@@ -197,7 +199,7 @@ Before this RFC was drafted, the required governance branch check found one unme
 
 | Branch | Governance path touched | Classification | Required action before implementation |
 | --- | --- | --- | --- |
-| `origin/feat/api-contract-hardening` | `docs/standards/api-vocabulary/lotus-performance-api-vocabulary.v1.json` plus TWR request/docs/tests outside the governance-path filter | Active | Reconcile before Slice 0 closure. Merge, cherry-pick, or explicitly supersede any durable TWR contract truth before implementation starts. |
+| `origin/feat/api-contract-hardening` | `docs/standards/api-vocabulary/lotus-performance-api-vocabulary.v1.json` plus TWR request/docs/tests outside the governance-path filter | Superseded for RFC-046 by current mainline | Do not merge. Slice 0 verified the durable public-input contract truth is already present on current mainline, while the branch itself is stale and would delete newer governance, wiki, RFC, inspection, domain-product, trust-telemetry, and runtime truth if merged. Evidence: `docs/RFCs/RFC-046-source-map-and-gap-analysis.md`. |
 
 No implementation slice may close while required TWR, API vocabulary, docs, wiki, context,
 supported-feature, OpenAPI, migration, workflow, or platform contract truth exists only on an
