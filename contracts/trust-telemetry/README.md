@@ -3,9 +3,11 @@
 This directory contains repo-owned RFC-0087 trust telemetry snapshots for governed
 `lotus-performance` domain products.
 
-The current first-wave snapshot is:
+The current snapshots are:
 
-1. `returns-series-bundle.telemetry.v1.json`
+1. `time-weighted-return-analytics.telemetry.v1.json`
+   Runtime trust proof for `lotus-performance:TimeWeightedReturnAnalytics:v1`.
+2. `returns-series-bundle.telemetry.v1.json`
    Runtime trust proof for `lotus-performance:ReturnsSeriesBundle:v1`.
 
 Validate locally with:

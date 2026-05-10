@@ -33,6 +33,7 @@
   - Slice 0: `docs/RFCs/RFC-046-source-map-and-gap-analysis.md`
   - Slice 1: `docs/RFCs/RFC-046-platform-automation-slice1.md`
   - Slice 2: `docs/RFCs/RFC-046-cleanup-and-structure-slice2.md`
+  - Slice 3: `docs/RFCs/RFC-046-data-product-hardening-slice3.md`
 
 ## 0. Critical Review Of The First Draft
 
