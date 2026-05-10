@@ -14,6 +14,7 @@ was used as a review input; the durable documentation is now Lotus-authored and 
 | Distinguish annualized and holding-period returns. | `money_weighted_return` remains the primary annualized value and `holding_period_return` is emitted separately. |
 | Net same-day cash flows deterministically. | Cash flows are normalized and netted by date before solving; tests prove order independence. |
 | Make support behavior operationally usable. | The MWR support playbook maps reason codes to support actions and client-safe explanations. |
+| Track fallback and solver ambiguity rates operationally. | `/metrics` emits `lotus_performance_mwr_solver_outcome_total` with bounded labels for input mode, method, status, reason code, and fallback use. |
 
 ## Areas Where Lotus Is Stronger
 
@@ -34,7 +35,7 @@ consumer propagation, and documentation are completed:
 - multi-currency per-flow FX conversion inside MWR;
 - component or attribution-level MWR decomposition;
 - private-market since-inception IRR workflows with capital-call/distribution schedules;
-- operational SLO dashboards for MWR reason-code frequency and fallback rate.
+- operational SLO dashboards and alert thresholds for MWR reason-code frequency and fallback rate.
 
 ## Backlog Candidates
 
@@ -42,8 +43,8 @@ Candidate enhancements should be implemented as governed slices:
 
 1. Add an independently certified Modified Dietz method if business reporting requires it separately
    from the current labeled fallback path.
-2. Add MWR operational metrics for fallback rate, no-root rate, multiple-root rate, and stateful
-   source-data rejection rate.
+2. Add alert thresholds and dashboards for the emitted MWR solver-outcome metric, including fallback
+   rate, no-root rate, multiple-root rate, and stateful source-data rejection rate.
 3. Add FX-aware MWR only after the cross-repository currency contract is explicit and consumer
    surfaces can show currency provenance.
 4. Extend demo/wiki material when front-office surfaces expose reason-code drill-downs directly.
@@ -56,5 +57,6 @@ Implementation-backed proof currently lives in:
 - `app/models/mwr_responses.py` for the response contract;
 - `tests/unit/engine/test_mwr.py` and `tests/integration/test_mwr_api.py` for calculation behavior;
 - `tests/integration/test_response_attribute_certification.py` for emitted response fields;
+- `tests/unit/test_observability.py` for bounded MWR metric labels;
 - `docs/guides/mwr-lotus-production-controls.md` and
   `docs/operations/mwr-production-support-playbook.md` for product and support documentation.

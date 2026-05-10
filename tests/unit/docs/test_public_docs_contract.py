@@ -263,11 +263,13 @@ def test_mwr_guide_matches_current_method_reality():
     assert "holding_period_return" in guide
     assert "fallback_reason" in guide
     assert "root_count_detected" in guide
+    assert "lotus_performance_mwr_solver_outcome_total" in guide
     assert "mwr-lotus-production-controls.md" in guide
     assert "mwr-production-support-playbook.md" in guide
     assert "mwr-industry-review-findings.md" in guide
     assert "investor capital-timing lens" in certification
     assert "No-root and multiple-root cases are not silently interpreted" in certification
+    assert "lotus_performance_mwr_solver_outcome_total" in certification
     assert 'status="FALLBACK_USED"' in certification
     assert "CORE_CONTROL_PLANE_BASE_URL" in certification
     assert "lotus-gateway" in certification
@@ -295,6 +297,7 @@ def test_mwrr_industry_material_is_converted_to_lotus_product_docs():
     assert "lotus-gateway" in controls
     assert "data mesh" in controls.lower()
     assert "calculation_supportability" in playbook
+    assert "lotus_performance_mwr_solver_outcome_total" in playbook
     assert "NO_ECONOMIC_CONTENT" in playbook
     assert "Adopted Into The Current Contract" in findings
     assert "Areas Where Lotus Is Stronger" in findings

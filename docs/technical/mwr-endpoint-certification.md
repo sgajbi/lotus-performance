@@ -82,10 +82,16 @@ and `freshness_bucket` values plus input-row and resolved-period counts. The ser
 
 `lotus_performance_calculation_supportability_total{operation="mwr",supportability_state,reason,freshness_bucket}`
 
+MWR-specific solver outcomes are also counted for operational trend analysis:
+
+`lotus_performance_mwr_solver_outcome_total{input_mode,method,status,reason_code,fallback_used}`
+
 Use this block as the source-owned freshness and degraded-state signal for front-office MWR panels.
 The response publishes `calculation_supportability.metric_labels` with the same bounded label keys
 used by the metric. The metric labels must not include portfolio, tenant, account, benchmark,
 calculation, trace, correlation, request body, response body, or security identifiers.
+The solver-outcome metric follows the same support-safety rule: label values are bounded to input
+mode, calculation method, outcome status, reason code, and fallback flag.
 
 Calculation-quality metadata is part of the product contract:
 

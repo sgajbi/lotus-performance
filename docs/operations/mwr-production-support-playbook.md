@@ -16,6 +16,9 @@ not be used to infer unsupported calculation behavior.
    flow count.
 6. For stateful requests, review `calculation_supportability` and source lineage before escalating
    to `lotus-core` data owners.
+7. Check `/metrics` for
+   `lotus_performance_mwr_solver_outcome_total{input_mode,method,status,reason_code,fallback_used}`
+   when triaging repeated fallback, no-root, or multiple-root patterns.
 
 ## Reason-Code Triage
 
@@ -47,6 +50,8 @@ Escalate to `lotus-performance` engineering when:
 - `lotus-gateway` or another consumer drops status, reason codes, warnings, or approximation flags;
 - a documented reason code is missing from OpenAPI or API vocabulary artifacts;
 - repeated stateful requests show inconsistent supportability metadata for the same input evidence.
+- `lotus_performance_mwr_solver_outcome_total` stops emitting bounded `reason_code`, `status`, or
+  `fallback_used` labels for completed MWR responses.
 
 Escalate to upstream data ownership when:
 

@@ -16,6 +16,7 @@ from app.models.responses import PerformanceResponse, TWRAcceptedResponse
 from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode, TWRResolvedExecutionRequest
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
 from app.models.workspace_summary_responses import WorkspaceSummaryAcceptedResponse, WorkspaceSummaryResponse
+from app.observability import record_mwr_solver_outcome
 from app.services.async_result_service import resolve_async_result
 from app.services.attribution_mode_service import resolve_attribution_request
 from app.services.attribution_service import calculate_attribution
@@ -644,6 +645,13 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
         minimum_input_row_count=2,
     )
     record_supportability_metric(operation="mwr", supportability=calculation_supportability)
+    record_mwr_solver_outcome(
+        input_mode=request.input_mode.value,
+        method=mwr_result.method,
+        status=mwr_result.status,
+        reason_codes=mwr_result.reason_codes,
+        fallback_used=mwr_result.fallback_from is not None or mwr_result.is_approximation,
+    )
 
     response_payload = {
         "calculation_id": request.calculation_id,

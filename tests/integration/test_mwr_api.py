@@ -65,6 +65,39 @@ def test_calculate_mwr_endpoint_xirr_happy_path(client):
     }
 
 
+def test_calculate_mwr_endpoint_emits_solver_outcome_metric(client):
+    payload = {
+        "calculation_id": str(uuid4()),
+        "portfolio_id": "MWR_METRIC_MULTIPLE_ROOT",
+        "begin_mv": 100.0,
+        "end_mv": -132.0,
+        "as_of": "2028-01-01",
+        "start_date": "2026-01-01",
+        "cash_flows": [{"amount": -230.0, "date": "2027-01-01"}],
+        "mwr_method": "XIRR",
+        "annualization": {"enabled": False, "basis": "ACT/365"},
+    }
+
+    response = client.post("/performance/mwr", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "FALLBACK_USED"
+    assert body["fallback_reason"] == "MULTIPLE_IRR_ROOTS_DETECTED"
+
+    metrics = client.get("/metrics")
+
+    assert metrics.status_code == 200
+    assert (
+        'lotus_performance_mwr_solver_outcome_total{fallback_used="true",input_mode="stateless",'
+        'method="DIETZ",reason_code="MULTIPLE_IRR_ROOTS_DETECTED",status="FALLBACK_USED"}' in metrics.text
+    )
+    assert (
+        'lotus_performance_mwr_solver_outcome_total{fallback_used="true",input_mode="stateless",'
+        'method="DIETZ",reason_code="DIETZ_FALLBACK_USED",status="FALLBACK_USED"}' in metrics.text
+    )
+
+
 def test_calculate_mwr_endpoint_supports_stateful_mode(client, monkeypatch):
     async def _mock_get_portfolio_timeseries(self, **kwargs):  # noqa: ARG001
         return (

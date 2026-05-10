@@ -2,12 +2,14 @@ import json
 import logging
 
 from fastapi import Request
+from prometheus_client import REGISTRY, generate_latest
 
 from app.observability import (
     JsonFormatter,
     build_access_log_fields,
     correlation_id_var,
     propagation_headers,
+    record_mwr_solver_outcome,
     request_id_var,
     resolve_correlation_id,
     resolve_request_id,
@@ -99,3 +101,31 @@ def test_build_access_log_fields_contains_platform_duration_and_legacy_latency()
     assert fields["endpoint"] == "/health"
     assert fields["duration_ms"] == 10.5
     assert fields["latency_ms"] == 10.5
+
+
+def test_record_mwr_solver_outcome_uses_bounded_support_safe_labels():
+    record_mwr_solver_outcome(
+        input_mode="stateful",
+        method="XIRR",
+        status="FALLBACK_USED",
+        reason_codes=["MULTIPLE_IRR_ROOTS_DETECTED"],
+        fallback_used=True,
+    )
+    record_mwr_solver_outcome(
+        input_mode="portfolio-123",
+        method="CUSTOM",
+        status="SURPRISE",
+        reason_codes=["portfolio-123"],
+        fallback_used=False,
+    )
+
+    metrics_text = generate_latest(REGISTRY).decode("utf-8")
+
+    assert (
+        'lotus_performance_mwr_solver_outcome_total{fallback_used="true",input_mode="stateful",'
+        'method="XIRR",reason_code="MULTIPLE_IRR_ROOTS_DETECTED",status="FALLBACK_USED"}' in metrics_text
+    )
+    assert (
+        'lotus_performance_mwr_solver_outcome_total{fallback_used="false",input_mode="other",'
+        'method="OTHER",reason_code="OTHER",status="OTHER"}' in metrics_text
+    )

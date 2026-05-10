@@ -70,6 +70,7 @@ executor-backed and lineage-backed workflows.
   [docs/runbooks/runtime-retention-cleanup.md](../docs/runbooks/runtime-retention-cleanup.md)
 - MWR support:
   [docs/operations/mwr-production-support-playbook.md](../docs/operations/mwr-production-support-playbook.md)
+  and `lotus_performance_mwr_solver_outcome_total` for fallback, no-root, and multiple-root rates.
 
 ## Runtime thresholds and overlays
 
