@@ -46,6 +46,13 @@ evidence for downstream consumers. Gateway, Workbench, reporting, risk, and supp
 should consume the emitted TWR contract rather than reconstructing daily returns from raw source
 rows.
 
+RFC-046 adds product-visible TWR evidence that downstream consumers should preserve rather than
+flatten away: `calculation_evidence`, `calculation_supportability.source_quality_evidence`, and
+`benchmark_context.supportability_evidence`. Gateway now carries benchmark currency state,
+calendar alignment state, warning codes, and missing benchmark date count into workspace summaries;
+Workbench can present that evidence in the return-path metrics. Risk engines should continue using
+`POST /integration/returns/series` for canonical return-series input.
+
 ```mermaid
 flowchart LR
     A[lotus-core portfolio timeseries] --> B[lotus-performance stateful TWR normalization]

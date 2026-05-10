@@ -6,6 +6,9 @@
 
 ## Governed products
 
+- Product ID: `lotus-performance:TimeWeightedReturnAnalytics:v1`
+- Product role: governed portfolio time-weighted return product consumed by gateway and Workbench
+  experiences
 - Product ID: `lotus-performance:MoneyWeightedReturnAnalytics:v1`
 - Product role: governed investor capital-timing return product consumed by gateway and Workbench
   experiences
@@ -13,6 +16,15 @@
 - Product role: governed return-series and performance evidence consumed by risk, advisory, reporting, gateway, and Workbench discovery flows
 - Source declaration: `contracts/domain-data-products/`
 - Trust telemetry: `contracts/trust-telemetry/`
+- TWR product evidence: `POST /performance/twr` emits portfolio TWR, benchmark-aware TWR,
+  relative performance, daily calculation evidence, linkability status, episode status,
+  `calculation_supportability`, stateful `source_quality_evidence`,
+  `benchmark_context.supportability_evidence`, lineage, metadata, diagnostics, and audit fields.
+  The product is portfolio-level only; composite, group, and sleeve TWR are not supported by
+  RFC-046. Gateway and Workbench can publish the emitted evidence, but must not recompute TWR or
+  redefine benchmark supportability downstream. Current feature truth is summarized in
+  [Supported Features](Supported-Features) and detailed in
+  [docs/guides/twr.md](../docs/guides/twr.md).
 - MWR product evidence: `POST /performance/mwr` emits source-owned calculation quality through
   `status`, `reason_codes`, `warnings`, `fallback_reason`, `holding_period_return`,
   `convergence`, `reporting_currency`, `currency_evidence`, `calculation_supportability`,

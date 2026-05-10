@@ -13,6 +13,7 @@ material in both `docs/` and `wiki/`.
 | Operations and support | [performance-reset-scenarios.md](performance-reset-scenarios.md), [twr-inspection-endpoint-certification.md](twr-inspection-endpoint-certification.md) | Reset behavior, no-investment-period diagnostics, source-quality inspection, and supportability workflows. |
 | API reviewers | [twr-endpoint-certification.md](twr-endpoint-certification.md) | Certified endpoint behavior, downstream consumers, figure tie-outs, and test pyramid posture. |
 | Business, sales, pre-sales, and demos | [wiki/Time-Weighted-Return.md](../../wiki/Time-Weighted-Return.md) | Product-level explanation, implemented capability boundary, integration posture, and current limitations. |
+| Supported-feature reviewers | [wiki/Supported-Features.md](../../wiki/Supported-Features.md) | Implementation-backed feature ledger and non-supported RFC-046 boundaries. |
 | RFC implementers | [RFC 046 - TWR Industry Methodology Alignment and Evidence Contract.md](../RFCs/RFC%20046%20-%20TWR%20Industry%20Methodology%20Alignment%20and%20Evidence%20Contract.md) | Execution plan, slice gates, evidence expectations, and RFC-specific implementation decisions. |
 
 ## Source Of Truth Layers
@@ -25,6 +26,7 @@ material in both `docs/` and `wiki/`.
 | `docs/technical/twr-endpoint-certification.md` | Endpoint certification, downstream consumers, test pyramid assessment, and known supportability issues. | Generic methodology or unproven roadmap statements. |
 | `docs/technical/twr-inspection-endpoint-certification.md` | Supportability and inspection endpoint certification, artifact boundaries, and operator evidence workflow. | Normal calculation-response contract detail. |
 | `wiki/Time-Weighted-Return.md` | Durable product-facing TWR overview for business users, operations, developers, sales/pre-sales, and demos. | Field-level API reference or detailed formula derivation. |
+| `wiki/Supported-Features.md` | Implementation-backed supported capability ledger, product boundary, and demo-safe feature claims. | Future roadmap claims or unsupported composite/group/sleeve TWR language. |
 | `docs/RFCs/RFC-046-*.md` | RFC-046 implementation control evidence, slice decisions, validation, and branch reconciliation. | Durable product documentation after RFC closure. |
 
 ## Current Structure Decisions
@@ -39,6 +41,8 @@ material in both `docs/` and `wiki/`.
    states limitations plainly.
 5. Composite, group, and sleeve TWR are not promoted by this documentation structure. RFC-046
    remains portfolio TWR focused unless later approved implementation work proves otherwise.
+6. Keep supported-feature claims in `wiki/Supported-Features.md`; link to detailed guides rather
+   than duplicating formulas or field-level API reference in the wiki.
 
 ## Slice 2 Cleanup Review
 

@@ -240,17 +240,28 @@ def test_twr_documentation_map_and_wiki_navigation_are_present():
     wiki_home = _read("wiki/Home.md")
     wiki_api_surface = _read("wiki/API-Surface.md")
     wiki_integrations = _read("wiki/Integrations.md")
+    supported_features = _read("wiki/Supported-Features.md")
+    mesh_data_products = _read("wiki/Mesh-Data-Products.md")
 
     assert "Source Of Truth Layers" in map_doc
     assert "wiki/Time-Weighted-Return.md" in map_doc
+    assert "wiki/Supported-Features.md" in map_doc
     assert "Composite, group, and sleeve TWR are not promoted" in map_doc
     assert "twr-documentation-map.md" in methodology_index
     assert "Stateful TWR source flow" in wiki_integrations
+    assert "benchmark_context.supportability_evidence" in wiki_integrations
     assert "lotus-core source authority" in wiki_page
+    assert "daily calculation evidence" in wiki_page
+    assert "Benchmark Evidence" in wiki_page
     assert "composite, group, and sleeve TWR are not promoted" in wiki_page
     assert "[Time-Weighted Return](Time-Weighted-Return)" in wiki_sidebar
+    assert "[Supported Features](Supported-Features)" in wiki_sidebar
     assert "[Time-Weighted Return](Time-Weighted-Return)" in wiki_home
+    assert "[Supported Features](Supported-Features)" in wiki_home
     assert "docs/technical/twr-documentation-map.md" in wiki_api_surface
+    assert "TimeWeightedReturnAnalytics:v1" in supported_features
+    assert "Composite, group, and sleeve TWR are not supported" in supported_features
+    assert "lotus-performance:TimeWeightedReturnAnalytics:v1" in mesh_data_products
 
 
 def test_benchmark_guide_uses_current_request_shape():

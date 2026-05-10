@@ -12,6 +12,10 @@ adjacent integration surfaces. It serves the contract that downstream services u
 - canonical returns-series and benchmark exposure context
 - execution polling and lineage retrieval
 
+The current implementation-backed feature ledger is maintained in
+[Supported Features](Supported-Features). Use that page for demo, sales, operations, and client
+conversation boundaries; use [Roadmap](Roadmap) for target-state material.
+
 ## Ownership boundaries
 
 This repo owns:
@@ -38,4 +42,5 @@ This repo does not own:
 
 - [Architecture](Architecture)
 - [Integrations](Integrations)
+- [Supported Features](Supported-Features)
 - [Operations Runbook](Operations-Runbook)
