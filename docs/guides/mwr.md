@@ -59,12 +59,12 @@ The current engine behavior is:
 - if the XIRR path has no economic content, no positive and negative solver flows, no root,
   multiple roots, or invalid solver bounds, the response is explicitly labeled rather than silently
   selecting an arbitrary rate
-- `mwr_method="DIETZ"` uses the Dietz computation path directly
-- `mwr_method="MODIFIED_DIETZ"` currently maps to the same implemented Dietz computation path as
-  `DIETZ`
+- `mwr_method="MODIFIED_DIETZ"` uses weighted cash-flow capital based on each flow's time
+  remaining in the measurement window
+- `mwr_method="DIETZ"` uses the midpoint Dietz computation path directly
 
-That last point is an implementation reality, not a theory. It is also tracked in the metric
-methodology index and RFC backlog.
+This closes the earlier implementation gap where `MODIFIED_DIETZ` mapped to the same midpoint path
+as `DIETZ`.
 
 ## Core methodology
 
@@ -83,9 +83,17 @@ The successful XIRR value is annualized. The response also includes `holding_per
 front-office and support users can distinguish the measured-period client outcome from the
 annualized IRR.
 
-### Dietz path
+### Dietz-family paths
 
-When the engine uses the Dietz path, it computes a period return from:
+When the engine uses the Modified Dietz path, it computes a period return from:
+
+- beginning market value
+- ending market value
+- net cash flow over the period
+- a dated cash-flow denominator adjustment where each cash flow is weighted by its time remaining
+  in the measurement window
+
+When the engine uses the Simple Dietz path, it computes a period return from:
 
 - beginning market value
 - ending market value
@@ -98,8 +106,8 @@ consumers do not treat the value as an ordinary calculated zero return.
 
 ### Annualization
 
-If annualization is enabled, the Dietz result is annualized from the measured period length using
-the requested annualization basis.
+If annualization is enabled, the Dietz-family result is annualized from the measured period length
+using the requested annualization basis.
 
 ## Current response shape
 

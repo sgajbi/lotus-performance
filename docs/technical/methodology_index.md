@@ -24,7 +24,7 @@ Canonical metric-level methodology documents live in:
 That set is the authoritative metric-by-metric reference for:
 
 - TWR base, local, and FX return
-- MWR XIRR and Dietz paths, including stateless caller-owned inputs and stateful lotus-core
+- MWR XIRR, Modified Dietz, and Simple Dietz paths, including stateless caller-owned inputs and stateful lotus-core
   source normalization
 - contribution metrics, including stateless caller-owned inputs and stateful lotus-core portfolio
   and position timeseries normalization

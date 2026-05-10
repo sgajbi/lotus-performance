@@ -90,11 +90,11 @@ def test_calculate_mwr_endpoint_emits_solver_outcome_metric(client):
     assert metrics.status_code == 200
     assert (
         'lotus_performance_mwr_solver_outcome_total{fallback_used="true",input_mode="stateless",'
-        'method="DIETZ",reason_code="MULTIPLE_IRR_ROOTS_DETECTED",status="FALLBACK_USED"}' in metrics.text
+        'method="MODIFIED_DIETZ",reason_code="MULTIPLE_IRR_ROOTS_DETECTED",status="FALLBACK_USED"}' in metrics.text
     )
     assert (
         'lotus_performance_mwr_solver_outcome_total{fallback_used="true",input_mode="stateless",'
-        'method="DIETZ",reason_code="DIETZ_FALLBACK_USED",status="FALLBACK_USED"}' in metrics.text
+        'method="MODIFIED_DIETZ",reason_code="DIETZ_FALLBACK_USED",status="FALLBACK_USED"}' in metrics.text
     )
 
 

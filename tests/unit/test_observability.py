@@ -106,7 +106,7 @@ def test_build_access_log_fields_contains_platform_duration_and_legacy_latency()
 def test_record_mwr_solver_outcome_uses_bounded_support_safe_labels():
     record_mwr_solver_outcome(
         input_mode="stateful",
-        method="XIRR",
+        method="MODIFIED_DIETZ",
         status="FALLBACK_USED",
         reason_codes=["MULTIPLE_IRR_ROOTS_DETECTED"],
         fallback_used=True,
@@ -123,7 +123,7 @@ def test_record_mwr_solver_outcome_uses_bounded_support_safe_labels():
 
     assert (
         'lotus_performance_mwr_solver_outcome_total{fallback_used="true",input_mode="stateful",'
-        'method="XIRR",reason_code="MULTIPLE_IRR_ROOTS_DETECTED",status="FALLBACK_USED"}' in metrics_text
+        'method="MODIFIED_DIETZ",reason_code="MULTIPLE_IRR_ROOTS_DETECTED",status="FALLBACK_USED"}' in metrics_text
     )
     assert (
         'lotus_performance_mwr_solver_outcome_total{fallback_used="false",input_mode="other",'

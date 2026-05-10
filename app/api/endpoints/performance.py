@@ -546,8 +546,9 @@ async def get_twr_result(calculation_id: UUID) -> PerformanceResponse | JSONResp
         "lotus-performance reads the query-control-plane portfolio timeseries, normalizes explicit external "
         "cash flows and cross-observation carry-forward capital breaks into canonical MWR inputs, keeps "
         "operational fees as performance drag rather than investor cash movement, and then runs the requested "
-        "`mwr_method`. `XIRR` returns the annual IRR solved from irregular cash-flow dates; `DIETZ` returns "
-        "the period Dietz return; `MODIFIED_DIETZ` currently follows the implemented Dietz path."
+        "`mwr_method`. `XIRR` returns the annual IRR solved from irregular cash-flow dates; "
+        "`MODIFIED_DIETZ` returns a period return using dated cash-flow weights; `DIETZ` returns "
+        "the midpoint Dietz period return."
     ),
 )
 async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):

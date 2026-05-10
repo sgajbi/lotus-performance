@@ -24,8 +24,9 @@ for that TWR lens.
 - `input_mode="stateful"` accepts `stateful_input.window_start_date` and sources the portfolio
   timeseries from lotus-core query-control-plane.
 - `mwr_method="XIRR"` solves annual IRR across irregular cash-flow dates.
-- `mwr_method="DIETZ"` returns the period Dietz return.
-- `mwr_method="MODIFIED_DIETZ"` currently follows the implemented Dietz path.
+- `mwr_method="MODIFIED_DIETZ"` returns the period Modified Dietz return using dated cash-flow
+  weights.
+- `mwr_method="DIETZ"` returns the period midpoint Dietz return.
 - `emit_cashflows_used=true` returns the exact signed cash-flow schedule used by the calculation.
 - `solver` controls searched annual-rate bounds, root scan density, tolerance, and maximum
   bisection iterations.
@@ -99,7 +100,7 @@ source-data rejection rates are governed in `docs/operations/mwr-alert-rule-temp
 Calculation-quality metadata is part of the product contract:
 
 - `status="CALCULATED"` means the emitted method completed without fallback.
-- `status="FALLBACK_USED"` means XIRR was attempted but Dietz was returned with explicit
+- `status="FALLBACK_USED"` means XIRR was attempted but Modified Dietz was returned with explicit
   `fallback_reason`.
 - `status="NOT_CALCULABLE"` means the engine could not produce a meaningful return, for example
   `ZERO_DENOMINATOR`.
@@ -137,7 +138,7 @@ source produced domain-plausible YTD stateful MWR:
 
 - `XIRR`: about `-3.61%` annual IRR
 - `DIETZ`: about `-0.93%` period return
-- `MODIFIED_DIETZ`: same implemented Dietz path, about `-0.93%`
+- `MODIFIED_DIETZ`: weighted cash-flow period return from dated capital movements
 
 Gateway Workbench performance summary returns the same YTD XIRR MWR value, rounded to
 `-3.613903%`. Workspace economic-context fields remain explicit source economics:
