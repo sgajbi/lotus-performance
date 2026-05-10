@@ -176,13 +176,21 @@ Daily portfolio breakdown entries include `calculation_evidence` as a curated, i
 explanation of the daily TWR calculation. This evidence is returned independently of raw
 timeseries output and includes the calculation method, denominator basis, flow timing convention,
 beginning and ending market value, beginning-of-day and end-of-day external flows, external inflows
-and outflows, management fees, adjusted capital, performance P&L, daily return, calculation status,
-reason codes, and warnings.
+and outflows, management fees, signed adjusted capital before denominator policy, adjusted capital,
+performance P&L, daily return, calculation status, linkability status, episode status, reason codes,
+and warnings.
 
 The denominator basis is `absolute_begin_mv_plus_bod_cf`: Lotus uses the absolute value of
 beginning market value plus beginning-of-day external cash flow as the invested capital denominator.
 Beginning-of-day flows adjust invested capital. End-of-day flows are neutralized from performance
 P&L but do not adjust the denominator.
+
+`linkability_status` explains whether the day can participate in geometric linking. `linkable`
+means the daily return can be compounded normally, `reset_boundary` means compounding is explicitly
+broken by a reset day, `not_calculated` means the row has no governed capital basis or is a
+no-investment/effective-period exclusion, and `not_linkable` means the daily return crossed a
+full-loss boundary such as `-100%` or below. `episode_status` explains the row's TWR episode:
+`open`, `reset_boundary`, `no_investment`, or `not_in_period`.
 
 If `output.include_timeseries` is enabled, daily breakdown entries can also include raw `daily_data`.
 Raw `daily_data` is drill-down material; `calculation_evidence` is the supported calculation

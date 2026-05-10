@@ -27,6 +27,9 @@ def test_daily_calculation_evidence_net_includes_management_fees():
     assert evidence.performance_pnl == 13.0
     assert evidence.daily_return == 1.3
     assert evidence.status == "calculated"
+    assert evidence.signed_adjusted_capital == 1000.0
+    assert evidence.linkability_status == "linkable"
+    assert evidence.episode_status == "open"
     assert evidence.reason_codes == ["FLOW_NEUTRALIZED_DAILY_RETURN"]
     assert evidence.warnings == []
 
@@ -53,6 +56,7 @@ def test_daily_calculation_evidence_zero_adjusted_capital_is_not_calculated():
 
     assert evidence.adjusted_capital == 0.0
     assert evidence.status == "not_calculated"
+    assert evidence.linkability_status == "not_calculated"
     assert "ZERO_ADJUSTED_CAPITAL" in evidence.reason_codes
     assert "ZERO_ADJUSTED_CAPITAL" in evidence.warnings
 
@@ -69,6 +73,8 @@ def test_daily_calculation_evidence_before_effective_start_is_not_calculated():
     )
 
     assert evidence.status == "not_calculated"
+    assert evidence.linkability_status == "not_calculated"
+    assert evidence.episode_status == "not_in_period"
     assert "BEFORE_EFFECTIVE_PERIOD_START" in evidence.reason_codes
     assert "BEFORE_EFFECTIVE_PERIOD_START" in evidence.warnings
 
@@ -86,3 +92,92 @@ def test_daily_calculation_evidence_records_reset_and_no_investment_reason_codes
 
     assert "RESET_DAY" in evidence.reason_codes
     assert "NO_INVESTMENT_PERIOD" in evidence.reason_codes
+    assert evidence.linkability_status == "reset_boundary"
+    assert evidence.episode_status == "reset_boundary"
+
+
+def test_daily_calculation_evidence_records_negative_and_near_zero_denominator_semantics():
+    negative = _build_daily_calculation_evidence(
+        _row(
+            **{
+                PortfolioColumns.BEGIN_MV.value: -1000.0,
+                PortfolioColumns.END_MV.value: -990.0,
+                PortfolioColumns.DAILY_ROR.value: 1.3,
+            }
+        ),
+        metric_basis="NET",
+    )
+    near_zero = _build_daily_calculation_evidence(
+        _row(
+            **{
+                PortfolioColumns.BEGIN_MV.value: 0.000000001,
+                PortfolioColumns.END_MV.value: 0.000000001,
+                PortfolioColumns.MGMT_FEES.value: 0.0,
+                PortfolioColumns.DAILY_ROR.value: 0.0,
+            }
+        ),
+        metric_basis="NET",
+    )
+
+    assert negative.signed_adjusted_capital == -1000.0
+    assert negative.adjusted_capital == 1000.0
+    assert "NEGATIVE_ADJUSTED_CAPITAL_INPUT" in negative.reason_codes
+    assert "NEGATIVE_ADJUSTED_CAPITAL_INPUT" in negative.warnings
+    assert near_zero.status == "calculated"
+    assert "NEAR_ZERO_ADJUSTED_CAPITAL" in near_zero.reason_codes
+    assert "NEAR_ZERO_ADJUSTED_CAPITAL" in near_zero.warnings
+
+
+def test_daily_calculation_evidence_records_full_loss_and_below_full_loss_linkability():
+    full_loss = _build_daily_calculation_evidence(
+        _row(
+            **{
+                PortfolioColumns.END_MV.value: 0.0,
+                PortfolioColumns.DAILY_ROR.value: -100.0,
+            }
+        ),
+        metric_basis="GROSS",
+    )
+    below_full_loss = _build_daily_calculation_evidence(
+        _row(
+            **{
+                PortfolioColumns.END_MV.value: -10.0,
+                PortfolioColumns.DAILY_ROR.value: -101.0,
+            }
+        ),
+        metric_basis="GROSS",
+    )
+
+    assert full_loss.linkability_status == "not_linkable"
+    assert "FULL_LOSS_RETURN" in full_loss.reason_codes
+    assert "FULL_LOSS_RETURN" in full_loss.warnings
+    assert below_full_loss.linkability_status == "not_linkable"
+    assert "BELOW_FULL_LOSS_RETURN" in below_full_loss.reason_codes
+    assert "BELOW_FULL_LOSS_RETURN" in below_full_loss.warnings
+
+
+def test_daily_calculation_evidence_records_full_withdrawal_and_refunding_semantics():
+    full_withdrawal = _build_daily_calculation_evidence(
+        _row(
+            **{
+                PortfolioColumns.END_MV.value: 0.0,
+                PortfolioColumns.EOD_CF.value: -1000.0,
+                PortfolioColumns.DAILY_ROR.value: 100.0,
+            }
+        ),
+        metric_basis="GROSS",
+    )
+    refunding = _build_daily_calculation_evidence(
+        _row(
+            **{
+                PortfolioColumns.BEGIN_MV.value: 0.0,
+                PortfolioColumns.BOD_CF.value: 1000.0,
+                PortfolioColumns.END_MV.value: 1000.0,
+                PortfolioColumns.DAILY_ROR.value: 0.0,
+            }
+        ),
+        metric_basis="GROSS",
+    )
+
+    assert "FULL_WITHDRAWAL_DAY" in full_withdrawal.reason_codes
+    assert "REFUNDING_DAY" in refunding.reason_codes

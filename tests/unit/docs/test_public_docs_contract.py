@@ -207,6 +207,8 @@ def test_twr_guide_uses_current_request_shape():
     assert "calculation_evidence" in guide
     assert "absolute_begin_mv_plus_bod_cf" in guide
     assert "Beginning-of-day flows adjust invested capital" in guide
+    assert "`linkability_status` explains whether the day can participate in geometric linking" in guide
+    assert "`episode_status` explains the row's TWR episode" in guide
     assert '"portfolio": {' in guide
     assert '"portfolio_return"' not in guide.split("## Example stateful request")[0]
     assert "If `calculation_id` is omitted" in guide

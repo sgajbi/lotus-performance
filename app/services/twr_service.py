@@ -166,18 +166,28 @@ def _build_daily_calculation_evidence(
     eod_cf = _as_numeric(row.get(PortfolioColumns.EOD_CF.value, 0))
     management_fees = _as_numeric(row.get(PortfolioColumns.MGMT_FEES.value, 0))
     end_mv = _as_numeric(row.get(PortfolioColumns.END_MV.value, 0))
-    adjusted_capital = abs(begin_mv + bod_cf)
+    signed_adjusted_capital = begin_mv + bod_cf
+    adjusted_capital = abs(signed_adjusted_capital)
     performance_pnl = end_mv - bod_cf - begin_mv - eod_cf
     if metric_basis == "NET":
         performance_pnl += management_fees
 
     status = "calculated" if adjusted_capital != 0 else "not_calculated"
+    linkability_status = "linkable"
+    episode_status = "open"
     reason_codes = ["FLOW_NEUTRALIZED_DAILY_RETURN"]
     warnings: list[str] = []
 
     if adjusted_capital == 0:
         reason_codes.append("ZERO_ADJUSTED_CAPITAL")
         warnings.append("ZERO_ADJUSTED_CAPITAL")
+        linkability_status = "not_calculated"
+    elif signed_adjusted_capital < 0:
+        reason_codes.append("NEGATIVE_ADJUSTED_CAPITAL_INPUT")
+        warnings.append("NEGATIVE_ADJUSTED_CAPITAL_INPUT")
+    elif adjusted_capital < 1e-8:
+        reason_codes.append("NEAR_ZERO_ADJUSTED_CAPITAL")
+        warnings.append("NEAR_ZERO_ADJUSTED_CAPITAL")
 
     perf_date_raw = row.get(PortfolioColumns.PERF_DATE.value)
     effective_start_raw = row.get(PortfolioColumns.EFFECTIVE_PERIOD_START_DATE.value)
@@ -186,15 +196,40 @@ def _build_daily_calculation_evidence(
         effective_start = pd.to_datetime(str(effective_start_raw)).date()
         if perf_date < effective_start:
             status = "not_calculated"
+            linkability_status = "not_calculated"
+            episode_status = "not_in_period"
             reason_codes.append("BEFORE_EFFECTIVE_PERIOD_START")
             warnings.append("BEFORE_EFFECTIVE_PERIOD_START")
 
     if _as_numeric(row.get(PortfolioColumns.PERF_RESET.value, 0)) == 1:
         reason_codes.append("RESET_DAY")
+        episode_status = "reset_boundary"
+        if linkability_status == "linkable":
+            linkability_status = "reset_boundary"
     if _as_numeric(row.get(PortfolioColumns.NIP.value, 0)) == 1:
         reason_codes.append("NO_INVESTMENT_PERIOD")
+        if episode_status == "open":
+            episode_status = "no_investment"
+        if linkability_status == "linkable":
+            linkability_status = "not_calculated"
+
+    if end_mv == 0 and eod_cf < 0:
+        reason_codes.append("FULL_WITHDRAWAL_DAY")
+    if begin_mv <= 0 and bod_cf > 0:
+        reason_codes.append("REFUNDING_DAY")
 
     daily_return = _as_numeric(row.get(PortfolioColumns.DAILY_ROR.value, 0))
+    if daily_return == -100:
+        reason_codes.append("FULL_LOSS_RETURN")
+        warnings.append("FULL_LOSS_RETURN")
+        if linkability_status == "linkable":
+            linkability_status = "not_linkable"
+    elif daily_return < -100:
+        reason_codes.append("BELOW_FULL_LOSS_RETURN")
+        warnings.append("BELOW_FULL_LOSS_RETURN")
+        if linkability_status == "linkable":
+            linkability_status = "not_linkable"
+
     return TWRDailyCalculationEvidence(
         begin_mv=begin_mv,
         end_mv=end_mv,
@@ -203,10 +238,13 @@ def _build_daily_calculation_evidence(
         external_inflows=sum(value for value in (bod_cf, eod_cf) if value > 0),
         external_outflows=abs(sum(value for value in (bod_cf, eod_cf) if value < 0)),
         management_fees=management_fees,
+        signed_adjusted_capital=signed_adjusted_capital,
         adjusted_capital=adjusted_capital,
         performance_pnl=performance_pnl,
         daily_return=daily_return,
         status=status,
+        linkability_status=linkability_status,
+        episode_status=episode_status,
         reason_codes=reason_codes,
         warnings=warnings,
     )

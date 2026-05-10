@@ -99,6 +99,8 @@ class ComparativeSummary(BaseModel):
 
 
 TWRDailyCalculationEvidenceStatus = Literal["calculated", "not_calculated"]
+TWRDailyLinkabilityStatus = Literal["linkable", "not_linkable", "reset_boundary", "not_calculated"]
+TWRDailyEpisodeStatus = Literal["open", "reset_boundary", "no_investment", "not_in_period"]
 NumericOutput = float
 
 
@@ -142,6 +144,10 @@ class TWRDailyCalculationEvidence(BaseModel):
         description="Management fees included in performance P&L for NET calculations.",
         examples=[125.0],
     )
+    signed_adjusted_capital: NumericOutput = Field(
+        description="Beginning market value plus beginning-of-day flow before applying the absolute denominator policy.",
+        examples=[1025000.0],
+    )
     adjusted_capital: NumericOutput = Field(
         description="Absolute beginning market value plus beginning-of-day flow denominator used for the daily return.",
         examples=[1025000.0],
@@ -157,6 +163,19 @@ class TWRDailyCalculationEvidence(BaseModel):
     status: TWRDailyCalculationEvidenceStatus = Field(
         description="Whether the row had enough governed capital basis to calculate a daily return.",
         examples=["calculated"],
+    )
+    linkability_status: TWRDailyLinkabilityStatus = Field(
+        default="linkable",
+        description=(
+            "Whether this daily return can participate in geometric linking without crossing a reset, "
+            "non-calculation, or full-loss boundary."
+        ),
+        examples=["linkable"],
+    )
+    episode_status: TWRDailyEpisodeStatus = Field(
+        default="open",
+        description="TWR episode classification for the day: open, reset boundary, no-investment, or outside the effective period.",
+        examples=["open"],
     )
     reason_codes: list[str] = Field(
         default_factory=list,

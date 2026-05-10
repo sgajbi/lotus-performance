@@ -26,7 +26,13 @@ def test_twr_openapi_documents_async_execution_contract() -> None:
     assert evidence_properties["calculation_method"]["description"] == "Daily TWR method used for this portfolio day."
     assert "Capital denominator convention" in evidence_properties["denominator_basis"]["description"]
     assert "External flow timing convention" in evidence_properties["flow_timing_convention"]["description"]
+    assert (
+        "before applying the absolute denominator policy"
+        in evidence_properties["signed_adjusted_capital"]["description"]
+    )
     assert "percentage-point output units" in evidence_properties["daily_return"]["description"]
+    assert "geometric linking" in evidence_properties["linkability_status"]["description"]
+    assert "TWR episode classification" in evidence_properties["episode_status"]["description"]
     assert "reason_codes" in evidence_properties
     assert "warnings" in evidence_properties
 
