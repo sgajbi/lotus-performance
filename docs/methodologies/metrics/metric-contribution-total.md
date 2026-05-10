@@ -33,6 +33,12 @@ Position Total Contribution (`position_contributions[].total_contribution`)
   then normalizes them into the same `ContributionRequest` shape used by stateless execution.
 - `lotus-performance` remains the contribution methodology owner; lotus-core supplies analytics
   inputs and source metadata, not contribution conclusions.
+- Current lotus-core stateful contracts supply the essential market-value, cash-flow, FX,
+  classification, paging, and lineage fields required by this contribution methodology. They do
+  not publish source-authored component P&L buckets for price, income, tax, FX P&L,
+  corporate-action, derivative, cash, or residual contribution. lotus-performance therefore
+  reports those families through `source_economics_evidence.unsupported_economics` instead of
+  reconstructing them.
 
 ## Unit Conventions
 - Daily contribution math in engine uses decimal form.
@@ -133,6 +139,7 @@ Primary fields:
 - `results_by_period.<period>.total_contribution`
 - `results_by_period.<period>.total_portfolio_return`
 - `results_by_period.<period>.smoothing_evidence`
+- `source_economics_evidence`
 - `input_mode`
 - `calculation_supportability`, `meta`, `diagnostics`, and `audit`
 
@@ -142,6 +149,15 @@ Smoothing evidence fields:
 - `smoothing_method`, `status`, `reason_codes`
 - `residual_allocation_applied`, `residual_allocation_basis`
 - `carino_factor_min`, `carino_factor_max`, `invalid_domain_days`
+
+Source-economics evidence fields:
+- `status`, `source_owner`, `source_contracts`, and `reason_codes`
+- `available_economics`, including market values, external flows, internal trade flows, fees, FX
+  rates, and classification dimensions where available
+- `unsupported_economics`, including component-P&L families that are not source-authored
+- `degraded_economics`, including unsupported cash-flow types, missing classification, or missing
+  embedded snapshot evidence
+- `cash_flow_type_counts`, `source_snapshot_count`, and `source_snapshot_endpoints`
 
 Hierarchical path fields:
 - `results_by_period.<period>.summary.portfolio_contribution`

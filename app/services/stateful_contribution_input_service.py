@@ -8,6 +8,7 @@ from fastapi import HTTPException, status
 from app.core.config import Settings
 from app.models.contribution_requests import PortfolioData, PositionData
 from app.services.position_source_service import parse_stateful_position_timeseries_payload
+from app.services.source_cashflow_taxonomy import classify_cashflow_type
 from app.services.stateful_input_service import RetrievalMetadata, StatefulInputService
 from app.services.stateful_performance_input_service import (
     StatefulPortfolioInput,
@@ -243,7 +244,26 @@ def _position_meta_from_row(row: dict[str, object]) -> dict[str, object]:
         for key, value in dimensions_raw.items():
             if isinstance(key, str) and value is not None:
                 meta[key] = value
+    meta["_source_economics"] = _position_source_economics_from_row(row)
     return meta
+
+
+def _position_source_economics_from_row(row: dict[str, object]) -> dict[str, object]:
+    cash_flow_type_counts: dict[str, int] = {}
+    cash_flows_raw = row.get("cash_flows")
+    if isinstance(cash_flows_raw, list):
+        for flow in cash_flows_raw:
+            if not isinstance(flow, dict):
+                continue
+            classification = classify_cashflow_type(flow.get("cash_flow_type"))
+            key = classification.normalized_value or "missing"
+            cash_flow_type_counts[key] = cash_flow_type_counts.get(key, 0) + 1
+
+    return {
+        "cash_flow_type_counts": dict(sorted(cash_flow_type_counts.items())),
+        "valuation_status": row.get("valuation_status"),
+        "source_contract": "PositionTimeseriesInput:v1",
+    }
 
 
 def _validate_stateful_both_currency_support(

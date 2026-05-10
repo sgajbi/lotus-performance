@@ -1,0 +1,128 @@
+from datetime import date
+from uuid import uuid4
+
+from app.models.contribution_analytics_requests import ContributionInputMode
+from app.models.contribution_requests import ContributionRequest
+from app.services.contribution_source_economics import build_contribution_source_economics_evidence
+from app.services.execution_registry import UpstreamSnapshotRecord
+
+
+def _request_with_position_meta(meta: dict) -> ContributionRequest:
+    return ContributionRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+            "report_start_date": "2026-03-01",
+            "report_end_date": "2026-03-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [
+                    {"perf_date": "2026-03-01", "begin_mv": 1000, "end_mv": 1010},
+                    {"perf_date": "2026-03-02", "begin_mv": 1010, "end_mv": 1020},
+                ],
+            },
+            "positions_data": [
+                {
+                    "position_id": "PB_SG_GLOBAL_BAL_001:SEC_A",
+                    "meta": meta,
+                    "valuation_points": [
+                        {"perf_date": "2026-03-01", "begin_mv": 600, "end_mv": 606},
+                        {"perf_date": "2026-03-02", "begin_mv": 606, "end_mv": 612},
+                    ],
+                }
+            ],
+        }
+    )
+
+
+def _snapshot(endpoint: str) -> UpstreamSnapshotRecord:
+    return UpstreamSnapshotRecord(
+        snapshot_id=f"{endpoint}-snapshot",
+        upstream_endpoint=endpoint,
+        source_identifier="PB_SG_GLOBAL_BAL_001",
+        as_of_date=str(date(2026, 3, 2)),
+        request_fingerprint=f"{endpoint}-request",
+        response_fingerprint=f"{endpoint}-response",
+        retrieval_status="200",
+        paging_metadata={"page_token": None},
+        created_at_utc="2026-03-02T00:00:00Z",
+    )
+
+
+def test_source_economics_evidence_preserves_source_rich_stateful_contract():
+    request = _request_with_position_meta(
+        {
+            "asset_class": "Equity",
+            "sector": "Technology",
+            "position_to_portfolio_fx_rate": "1.10",
+            "portfolio_to_reporting_fx_rate": "1.20",
+            "_source_economics": {
+                "cash_flow_type_counts": {
+                    "external_flow": 1,
+                    "internal_trade_flow": 1,
+                    "fee": 1,
+                }
+            },
+        }
+    )
+
+    evidence = build_contribution_source_economics_evidence(
+        request=request,
+        input_mode=ContributionInputMode.STATEFUL,
+        upstream_snapshots=[_snapshot("portfolio_timeseries"), _snapshot("position_timeseries")],
+    )
+
+    assert evidence.source_owner == "lotus-core"
+    assert evidence.status == "SOURCE_LIMITED"
+    assert "external_flows" in evidence.available_economics
+    assert "internal_trade_flows" in evidence.available_economics
+    assert "fees" in evidence.available_economics
+    assert "fx_rates" in evidence.available_economics
+    assert evidence.cash_flow_type_counts["internal_trade_flow"] == 1
+    assert evidence.source_snapshot_endpoints == ["portfolio_timeseries", "position_timeseries"]
+    assert "COMPONENT_PNL_NOT_SOURCE_AUTHORED" in evidence.reason_codes
+    assert "income_pnl" in evidence.unsupported_economics
+
+
+def test_source_economics_evidence_reports_source_limited_stateful_contract():
+    request = _request_with_position_meta(
+        {
+            "asset_class": "Unclassified",
+            "_source_economics": {
+                "cash_flow_type_counts": {
+                    "dividend": 1,
+                }
+            },
+        }
+    )
+
+    evidence = build_contribution_source_economics_evidence(
+        request=request,
+        input_mode=ContributionInputMode.STATEFUL,
+        upstream_snapshots=[],
+    )
+
+    assert evidence.status == "SOURCE_LIMITED"
+    assert evidence.degraded_economics == [
+        "missing_classification",
+        "unsupported_cash_flow_types",
+        "upstream_snapshot_lineage_not_embedded",
+    ]
+    assert "UNSUPPORTED_SOURCE_CASH_FLOW_TYPES_PRESENT" in evidence.reason_codes
+    assert "UPSTREAM_SNAPSHOT_LINEAGE_AVAILABLE_VIA_EXECUTION_ONLY" in evidence.reason_codes
+
+
+def test_source_economics_evidence_keeps_stateless_boundary_explicit():
+    request = _request_with_position_meta({"currency": "USD"})
+
+    evidence = build_contribution_source_economics_evidence(
+        request=request,
+        input_mode=ContributionInputMode.STATELESS,
+        upstream_snapshots=[],
+    )
+
+    assert evidence.status == "CALLER_SUPPLIED"
+    assert evidence.source_owner == "caller"
+    assert evidence.source_contracts == ["ContributionRequest"]
+    assert evidence.source_snapshot_count == 0

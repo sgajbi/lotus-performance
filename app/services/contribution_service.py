@@ -22,6 +22,7 @@ from app.services.calculation_supportability_service import (
     build_calculation_supportability,
     record_supportability_metric,
 )
+from app.services.contribution_source_economics import build_contribution_source_economics_evidence
 from app.services.execution_lifecycle_service import (
     complete_execution_with_lineage,
     record_execution_failure,
@@ -1720,6 +1721,11 @@ def calculate_contribution(
         latest_observation_date=_latest_contribution_observation_date(request),
         report_end_date=request.report_end_date,
     )
+    source_economics_evidence = build_contribution_source_economics_evidence(
+        request=request,
+        input_mode=input_mode,
+        upstream_snapshots=execution_registry.list_upstream_snapshots(request.calculation_id),
+    )
     record_supportability_metric(operation="contribution", supportability=calculation_supportability)
 
     response_model = ContributionResponse(
@@ -1728,6 +1734,7 @@ def calculate_contribution(
         input_mode=input_mode,
         results_by_period=results_by_period,
         calculation_supportability=calculation_supportability,
+        source_economics_evidence=source_economics_evidence,
         meta=meta,
         diagnostics=diagnostics,
         audit=audit,

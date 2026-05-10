@@ -242,6 +242,70 @@ class ContributionSmoothingEvidence(BaseModel):
     )
 
 
+class ContributionSourceEconomicsEvidence(BaseModel):
+    """Summarizes source-economics coverage for contribution inputs."""
+
+    input_mode: str = Field(description="Resolved contribution input mode.", examples=["stateful"])
+    source_owner: str = Field(
+        description="Boundary that supplied the source economics used by contribution.",
+        examples=["lotus-core"],
+    )
+    status: str = Field(
+        description="Bounded source-economics posture. Examples: SOURCE_BACKED, SOURCE_LIMITED, CALLER_SUPPLIED.",
+        examples=["SOURCE_LIMITED"],
+    )
+    reason_codes: List[str] = Field(
+        default_factory=list,
+        description="Machine-readable source-economics reason codes for support and downstream degraded-state UI.",
+        examples=[["LOTUS_CORE_ANALYTICS_INPUTS_USED", "COMPONENT_PNL_NOT_SOURCE_AUTHORED"]],
+    )
+    source_contracts: List[str] = Field(
+        default_factory=list,
+        description="Source contracts used to build contribution inputs.",
+        examples=[["PortfolioTimeseriesInput:v1", "PositionTimeseriesInput:v1"]],
+    )
+    available_economics: List[str] = Field(
+        default_factory=list,
+        description="Source-backed economics families available to the calculation.",
+        examples=[["portfolio_market_values", "position_market_values", "external_flows", "fx_rates"]],
+    )
+    unsupported_economics: List[str] = Field(
+        default_factory=list,
+        description="Economics families not source-authored in the current contribution input contract.",
+        examples=[["income_pnl", "tax_pnl", "corporate_action_pnl"]],
+    )
+    degraded_economics: List[str] = Field(
+        default_factory=list,
+        description="Economics families present only with degraded or incomplete source evidence.",
+        examples=[["unsupported_cash_flow_types"]],
+    )
+    cash_flow_type_counts: Dict[str, int] = Field(
+        default_factory=dict,
+        description="Counts by canonical or raw source cash_flow_type where stateful rows supplied cash flows.",
+        examples=[{"external_flow": 2, "internal_trade_flow": 1, "fee": 1}],
+    )
+    source_snapshot_count: int = Field(
+        default=0,
+        ge=0,
+        description="Count of upstream snapshots recorded for this calculation in the execution registry.",
+        examples=[2],
+    )
+    source_snapshot_endpoints: List[str] = Field(
+        default_factory=list,
+        description="Upstream endpoints represented in execution snapshot evidence.",
+        examples=[["portfolio_timeseries", "position_timeseries"]],
+    )
+    classification_dimensions: List[str] = Field(
+        default_factory=list,
+        description="Classification dimensions available on position metadata.",
+        examples=[["asset_class", "sector"]],
+    )
+    lineage_policy: str = Field(
+        description="Where source lineage evidence is retained for replay and support.",
+        examples=["stateful contribution preserves lotus-core analytics-input snapshot evidence through executions"],
+    )
+
+
 class SinglePeriodContributionResult(BaseModel):
     """Contains the full set of contribution results for a single, resolved period."""
 
@@ -301,6 +365,12 @@ class ContributionResponse(BaseModel):
         description=(
             "Bounded supportability state for completed contribution output, including source freshness and "
             "resolved-input counts used by front-office degraded-state handling."
+        )
+    )
+    source_economics_evidence: ContributionSourceEconomicsEvidence = Field(
+        description=(
+            "Contribution-specific source-economics posture, including source-backed, unsupported, and "
+            "degraded economic input families."
         )
     )
 

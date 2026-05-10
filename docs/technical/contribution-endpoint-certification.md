@@ -93,11 +93,22 @@ The base URL must be `CORE_CONTROL_PLANE_BASE_URL`, not the lotus-core query-ser
 Stateful normalization maps lotus-core position rows into canonical contribution inputs:
 
 - position and portfolio market values become beginning and ending valuation points;
+- canonical `cash_flow_type="external_flow"` and `cash_flow_type="internal_trade_flow"` rows
+  become position cash-flow adjustments;
 - operational `cash_flow_type="fee"` rows remain fee drag;
 - position dimensions become grouping metadata;
+- source cash-flow type counts, selected FX metadata, and selected classification dimensions are
+  preserved into `source_economics_evidence`;
 - `include_cash_flows=false` is a scoped-source option that can intentionally remove cash-flow
   rows from the position story, and diagnostics should be read carefully when this creates
   non-flow-neutral slices.
+
+Slice 5 upstream review concluded that `lotus-core` already supplies the essential contribution
+analytics input contract for the current Lotus methodology: portfolio market values, position
+market values, source cash-flow rows, FX conversion rates, dimensions, snapshot epoch, runtime
+metadata, and execution snapshot lineage. No `lotus-core` code change was required in this slice.
+Component P&L families that are not source-authored by the current contract remain explicit
+unsupported/degraded evidence in lotus-performance rather than being reconstructed locally.
 
 ## Downstream Consumers
 
@@ -127,6 +138,12 @@ versus smoothed contribution. Use it to answer whether Carino was applied, wheth
 fallback occurred, what factor range was used, how far raw contribution was from linked return, and
 whether final residual allocation was needed.
 
+The top-level `source_economics_evidence` block explains whether contribution used caller-supplied
+stateless inputs or lotus-core stateful analytics inputs, which source contracts were used, which
+cash-flow families and classification dimensions were present, which component-P&L families are not
+source-authored, and where upstream snapshot lineage is retained. Downstream consumers must preserve
+this block instead of inferring source quality from rounded contribution totals.
+
 ## GitHub Issue Disposition
 
 Open issue search for contribution currently finds only broad stateful-sourcing issue `#83`. That
@@ -138,8 +155,8 @@ contribution-output defect was found during this pass.
 | Layer | Coverage | Assessment |
 | --- | --- | --- |
 | Model and validation tests | Request-mode exclusivity, stateless and stateful payload validation, extra-field rejection, and emitted schema descriptions. | Good, with Swagger operation text hardened in this pass. |
-| Engine and service tests | Position return, contribution linking, hierarchy aggregation, residual allocation, reset-aware shadow methodology, currency behavior, and async execution. | Strong for core contribution behavior. |
-| Integration tests | `/performance/contribution`, async result retrieval, stateful resolution, hierarchy, series emission, lineage, duplicate submission fencing, and reset-heavy tie-out. | Strong after the hierarchy tie-out regression tests added in this pass. |
+| Engine and service tests | Position return, contribution linking, hierarchy aggregation, residual allocation, reset-aware shadow methodology, source-economics evidence, currency behavior, and async execution. | Strong for core contribution behavior. |
+| Integration tests | `/performance/contribution`, async result retrieval, stateful resolution, source-economics evidence, hierarchy, series emission, lineage, duplicate submission fencing, and reset-heavy tie-out. | Strong after the source-economics and hierarchy tie-out regression tests added in this pass. |
 | Documentation and OpenAPI tests | Public guide plus OpenAPI quality and vocabulary gates. | Adequate; this certification note records the endpoint-level invariants and consumer posture. |
 | Cross-repo consumer tests | Gateway upstream client and performance workspace tests cover the known direct consumer. | Adequate for known downstream consumers. |
 | Live canonical probes | Stateful option matrix for `PB_SG_GLOBAL_BAL_001` across NET/GROSS, dimensions, hierarchy, cash-flow inclusion, top-N Other bucketing, and series emission. | Passed on rebuilt local service. |

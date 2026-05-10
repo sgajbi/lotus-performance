@@ -4,6 +4,7 @@ from app.services.source_cashflow_taxonomy import classify_cashflow_type
 def test_classify_cashflow_type_maps_canonical_fee_and_external_flow():
     fee = classify_cashflow_type("fee")
     external = classify_cashflow_type("external_flow")
+    transfer = classify_cashflow_type("transfer")
 
     assert fee.economics_role == "fee"
     assert fee.canonical is True
@@ -11,6 +12,17 @@ def test_classify_cashflow_type_maps_canonical_fee_and_external_flow():
     assert external.economics_role == "external"
     assert external.canonical is True
     assert external.governed_alias is False
+    assert transfer.economics_role == "external"
+    assert transfer.canonical is True
+    assert transfer.governed_alias is False
+
+
+def test_classify_cashflow_type_maps_canonical_internal_trade_flow():
+    classification = classify_cashflow_type("internal_trade_flow")
+
+    assert classification.economics_role == "internal"
+    assert classification.canonical is True
+    assert classification.governed_alias is False
 
 
 def test_classify_cashflow_type_maps_governed_fee_alias():

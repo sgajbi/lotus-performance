@@ -79,6 +79,10 @@ def test_contribution_endpoint_happy_path_and_envelope(client, happy_path_payloa
     )
     assert smoothing_evidence["carino_factor_min"] is not None
     assert smoothing_evidence["carino_factor_max"] is not None
+    source_economics = response_data["source_economics_evidence"]
+    assert source_economics["status"] == "CALLER_SUPPLIED"
+    assert source_economics["source_owner"] == "caller"
+    assert "ContributionRequest" in source_economics["source_contracts"]
 
 
 def test_contribution_endpoint_reports_zero_grouped_return_alignment_drift_for_simple_aligned_case(client):
@@ -959,6 +963,12 @@ def test_contribution_supports_stateful_input_mode(client, monkeypatch):
     assert body["portfolio_id"] == "CONTRIB_STATEFUL"
     assert body["input_mode"] == "stateful"
     assert "ITD" in body["results_by_period"]
+    source_economics = body["source_economics_evidence"]
+    assert source_economics["source_owner"] == "lotus-core"
+    assert source_economics["status"] == "SOURCE_LIMITED"
+    assert "PortfolioTimeseriesInput:v1" in source_economics["source_contracts"]
+    assert "PositionTimeseriesInput:v1" in source_economics["source_contracts"]
+    assert "sector" in source_economics["classification_dimensions"]
 
 
 def test_contribution_stateful_cash_only_external_flows_do_not_create_position_flow_residuals(client, monkeypatch):
@@ -1458,7 +1468,15 @@ def test_contribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch
             "positions_data": [
                 {
                     "position_id": "SEC_1",
-                    "meta": {"security_id": "SEC_1", "sector": "Technology"},
+                    "meta": {
+                        "security_id": "SEC_1",
+                        "sector": "Technology",
+                        "_source_economics": {
+                            "cash_flow_type_counts": {},
+                            "source_contract": "PositionTimeseriesInput:v1",
+                            "valuation_status": None,
+                        },
+                    },
                     "valuation_points": [
                         {
                             "perf_date": "2025-01-01",

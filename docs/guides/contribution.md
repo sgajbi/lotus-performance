@@ -41,6 +41,9 @@ Inside the current contract:
 - stateless `portfolio_data` contains `metric_basis` and `valuation_points`
 - each stateless entry in `positions_data` contains `position_id`, optional `meta`, and `valuation_points`
 - stateful mode sources canonical portfolio and position timeseries from lotus-core and normalizes them into the same stateless engine inputs used by direct requests
+- stateful mode preserves source-economics posture in `source_economics_evidence`, including
+  source contracts, cash-flow type counts, available economics, unsupported component-P&L families,
+  and upstream snapshot posture
 
 Older examples using nested `daily_data` or request-level `period_type` are not current.
 
@@ -254,6 +257,29 @@ Use this block when explaining raw versus linked contribution:
 - `invalid_domain_days`: count of days where Carino was not mathematically valid
 
 This is the first place support teams should look before recomputing contribution internals.
+
+The top-level response also includes:
+
+- `source_economics_evidence`
+
+Use this block to understand what the contribution result was actually sourced from:
+
+- `source_owner`: `lotus-core` for stateful analytics inputs, `caller` for stateless payloads
+- `status`: `SOURCE_BACKED`, `SOURCE_LIMITED`, or `CALLER_SUPPLIED`
+- `source_contracts`: source contracts used, such as `PortfolioTimeseriesInput:v1` and
+  `PositionTimeseriesInput:v1`
+- `available_economics`: source-backed inputs such as market values, external flows, internal
+  trade flows, fees, FX rates, and classification dimensions
+- `unsupported_economics`: component-P&L families that are not source-authored in the current
+  contract, such as income, tax, corporate-action, derivative, cash, and residual P&L buckets
+- `degraded_economics`: degraded signals such as unsupported source cash-flow types, missing
+  classification, or execution-only upstream snapshot lineage
+- `cash_flow_type_counts`: source cash-flow labels observed on stateful position rows
+- `source_snapshot_count` and `source_snapshot_endpoints`: execution-registry lineage coverage
+
+Lotus does not guess unavailable income, tax, FX P&L, corporate-action, derivative, loan, cash, or
+liability economics. Those fields remain explicit unsupported or degraded evidence until a
+source-owned contract publishes them.
 
 - `results_by_period.<period>.average_weight_methodology_status`
 
