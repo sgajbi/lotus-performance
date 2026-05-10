@@ -88,6 +88,9 @@ not reinterpret solver status, collapse reason codes, or relabel approximation m
 - Reproducibility: deterministic cash-flow normalization and solver metadata make calculation output
   explainable across reruns.
 - Supportability: every non-OK calculation path carries status and reason-code evidence.
+- Operational metrics: `/metrics` exposes
+  `lotus_performance_mwr_solver_outcome_total{input_mode,method,status,reason_code,fallback_used}`
+  so operators can track fallback, no-root, and multiple-root rates with bounded labels.
 - Domain correctness: XIRR and Dietz are not presented as interchangeable; Dietz is exposed only as a
   labeled approximation path.
 - Consumer compatibility: downstream Lotus consumers receive the expanded response contract without
@@ -100,6 +103,6 @@ The current implementation is backed by:
 - unit tests for XIRR, short-period annualization, same-day netting, no-root, multiple-root, no
   economic-content, and fallback paths;
 - integration tests for `/performance/mwr` response status, reason codes, warning propagation,
-  holding-period return, and convergence metadata;
+  holding-period return, convergence metadata, and solver-outcome metric emission;
 - documentation contract tests that keep public docs, wiki links, and response certification aligned;
 - `make check`, `make domain-product-validate`, OpenAPI quality, and API vocabulary validation.

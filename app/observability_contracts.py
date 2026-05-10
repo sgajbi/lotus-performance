@@ -13,3 +13,11 @@ PERFORMANCE_ANALYTICS_FRESHNESS_METRIC_LABELS: tuple[str, ...] = (
     "freshness_bucket",
     "supportability_state",
 )
+
+PERFORMANCE_MWR_SOLVER_OUTCOME_METRIC_LABELS: tuple[str, ...] = (
+    "input_mode",
+    "method",
+    "status",
+    "reason_code",
+    "fallback_used",
+)

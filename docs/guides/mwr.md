@@ -217,3 +217,7 @@ documentation rather than retained as generic reference text:
 - [MWR industry review findings](../technical/mwr-industry-review-findings.md) records what was
   adopted, what Lotus already handled more strongly, and which candidate enhancements remain outside
   the current implementation-backed contract.
+
+Operational trend visibility is exposed through
+`lotus_performance_mwr_solver_outcome_total{input_mode,method,status,reason_code,fallback_used}` for
+fallback, no-root, and multiple-root rate monitoring.

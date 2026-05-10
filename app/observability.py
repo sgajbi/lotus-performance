@@ -13,6 +13,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from app.observability_contracts import (
     PERFORMANCE_ANALYTICS_FRESHNESS_METRIC_LABELS,
     PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS,
+    PERFORMANCE_MWR_SOLVER_OUTCOME_METRIC_LABELS,
 )
 from app.services.queue_metrics_service import DurableQueueCollector
 
@@ -29,6 +30,27 @@ ANALYTICS_FRESHNESS_BUCKET_TOTAL = Counter(
     "lotus_analytics_freshness_bucket_total",
     "Backend analytics freshness and supportability posture by service, operation, and bounded freshness bucket.",
     PERFORMANCE_ANALYTICS_FRESHNESS_METRIC_LABELS,
+)
+MWR_SOLVER_OUTCOME_TOTAL = Counter(
+    "lotus_performance_mwr_solver_outcome_total",
+    "MWR solver outcomes by bounded input mode, method, status, reason code, and fallback flag.",
+    PERFORMANCE_MWR_SOLVER_OUTCOME_METRIC_LABELS,
+)
+
+_MWR_ALLOWED_INPUT_MODES = frozenset({"stateless", "stateful"})
+_MWR_ALLOWED_METHODS = frozenset({"XIRR", "DIETZ"})
+_MWR_ALLOWED_STATUSES = frozenset({"CALCULATED", "FALLBACK_USED", "NOT_APPLICABLE", "NOT_CALCULABLE"})
+_MWR_ALLOWED_REASON_CODES = frozenset(
+    {
+        "NONE",
+        "DIETZ_FALLBACK_USED",
+        "MULTIPLE_IRR_ROOTS_DETECTED",
+        "NO_ECONOMIC_CONTENT",
+        "NO_POSITIVE_AND_NEGATIVE_CASH_FLOW",
+        "NO_ROOT_FOUND",
+        "SOLVER_DID_NOT_CONVERGE",
+        "ZERO_DENOMINATOR",
+    }
 )
 
 
@@ -117,6 +139,30 @@ def record_analytics_freshness_bucket(
         freshness_bucket=freshness_bucket,
         supportability_state=supportability_state,
     ).inc()
+
+
+def record_mwr_solver_outcome(
+    *,
+    input_mode: str,
+    method: str,
+    status: str,
+    reason_codes: list[str] | tuple[str, ...],
+    fallback_used: bool,
+) -> None:
+    bounded_input_mode = input_mode if input_mode in _MWR_ALLOWED_INPUT_MODES else "other"
+    bounded_method = method if method in _MWR_ALLOWED_METHODS else "OTHER"
+    bounded_status = status if status in _MWR_ALLOWED_STATUSES else "OTHER"
+    emitted_reason_codes = tuple(reason_codes) if reason_codes else ("NONE",)
+
+    for reason_code in emitted_reason_codes:
+        bounded_reason_code = reason_code if reason_code in _MWR_ALLOWED_REASON_CODES else "OTHER"
+        MWR_SOLVER_OUTCOME_TOTAL.labels(
+            input_mode=bounded_input_mode,
+            method=bounded_method,
+            status=bounded_status,
+            reason_code=bounded_reason_code,
+            fallback_used=str(fallback_used).lower(),
+        ).inc()
 
 
 def build_access_log_fields(*, request: Request, duration_ms: float) -> dict[str, str | float]:
