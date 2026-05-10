@@ -75,7 +75,8 @@ Live proof:
 GitHub proof before final merge:
 
 1. `lotus-performance#157` Feature Lane and PR Merge Gate were green at commit
-   `d80968e9aaeadd309c845fea97d49352c77fdaf3`.
+   `7cd2bf3` before squash merge, and the final merge commit is
+   `0f5dd928fd905d2b1fbbb9d3e065ee6dfc00933d`.
 2. `lotus-gateway#206` was merged.
 3. `lotus-workbench#177` was merged.
 4. `lotus-workbench#178` was merged.
