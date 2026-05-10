@@ -42,6 +42,9 @@ This index maps implemented lotus-performance metrics to detailed methodology do
   `lotus-performance`.
 - In current engine behavior, `mwr_method=MODIFIED_DIETZ` uses dated cash-flow weights and
   `mwr_method=DIETZ` keeps the midpoint Simple Dietz path.
+- Current MWR methodology documents assume a single reporting-currency schedule. Future FX-aware MWR
+  is governed by `docs/technical/mwr-fx-contract-design.md` and is not implementation-supported
+  until upstream FX evidence, response provenance, consumer propagation, and tests are complete.
 
 
 ## Documentation Standard

@@ -32,6 +32,9 @@ Money-Weighted Return via XIRR (`money_weighted_return` when method resolves to 
 
 ## Unit Conventions
 - Cash flow and market values are currency amounts.
+- `begin_mv`, `end_mv`, and `cash_flows[].amount` must be in one reporting currency before the
+  XIRR solver runs; current `cashflows_used` output is schedule evidence, not FX conversion
+  provenance.
 - `money_weighted_return`, `mwr_annualized`, and `holding_period_return` are percentage points.
 - XIRR uses a decimal annual rate internally, then multiplies by 100 for response fields.
 - Successful XIRR returns an annualized primary value; `holding_period_return` gives the measured-period equivalent.
@@ -100,6 +103,9 @@ Money-Weighted Return via XIRR (`money_weighted_return` when method resolves to 
 - Source fee rows are preserved as performance drag by the upstream analytics input and are not
   included as investor cash flows; unsupported or invalid source cash-flow rows are skipped during
   normalization rather than guessed.
+- Mixed source-currency schedules are not converted by the current XIRR path. FX-aware MWR remains
+  gated by `docs/technical/mwr-fx-contract-design.md` and must fail closed in any future
+  implementation when conversion evidence is incomplete.
 - `NO_ECONOMIC_CONTENT` returns `status="NOT_APPLICABLE"`.
 - `NO_POSITIVE_AND_NEGATIVE_CASH_FLOW`, `NO_ROOT_FOUND`, `MULTIPLE_IRR_ROOTS_DETECTED`, and
   `INVALID_SOLVER_BOUNDS` enter a labeled Modified Dietz fallback unless no economic content exists.

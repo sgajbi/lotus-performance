@@ -7,6 +7,7 @@ analytics and integration surfaces.
 
 - [guides/twr.md](../guides/twr.md)
 - [guides/mwr.md](../guides/mwr.md)
+- [technical/mwr-fx-contract-design.md](mwr-fx-contract-design.md)
 - [guides/contribution.md](../guides/contribution.md)
 - [guides/attribution.md](../guides/attribution.md)
 - [guides/workspace_summary.md](../guides/workspace_summary.md)
@@ -49,6 +50,9 @@ That set is the authoritative metric-by-metric reference for:
   execution. Stateful MWR uses lotus-core portfolio timeseries to resolve the investor
   capital-timing input schedule; downstream callers should use the source-owned response fields and
   must not reconstruct MWR inputs from TWR, benchmark, or workspace summary payloads.
+- Current MWR methods require a single reporting-currency schedule. FX-aware MWR remains gated by
+  [mwr-fx-contract-design.md](mwr-fx-contract-design.md), including upstream FX evidence,
+  reporting-currency provenance, gateway and Workbench propagation, and fail-closed validation.
 - `POST /performance/contribution` also supports stateful execution. Stateful contribution resolves
   lotus-core portfolio and position timeseries into source-normalized contribution inputs; callers
   should consume emitted contribution results and supportability rather than reconstructing

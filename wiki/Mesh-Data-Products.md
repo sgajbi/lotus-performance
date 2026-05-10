@@ -4,8 +4,11 @@
 
 `lotus-performance` is a maturity-wave producer in the Lotus enterprise data mesh.
 
-## Governed product
+## Governed products
 
+- Product ID: `lotus-performance:MoneyWeightedReturnAnalytics:v1`
+- Product role: governed investor capital-timing return product consumed by gateway and Workbench
+  experiences
 - Product ID: `lotus-performance:ReturnsSeriesBundle:v1`
 - Product role: governed return-series and performance evidence consumed by risk, advisory, reporting, gateway, and Workbench discovery flows
 - Source declaration: `contracts/domain-data-products/`
@@ -15,6 +18,10 @@
   `convergence`, `calculation_supportability`, lineage, metadata, diagnostics, and audit fields.
   Downstream products may display or summarize those fields, but must not reinterpret ambiguous
   XIRR roots or rebuild investor cash-flow schedules outside the producer.
+  It is now declared as `MoneyWeightedReturnAnalytics` in
+  `contracts/domain-data-products/lotus-performance-products.v1.json`. Current MWR is a single
+  reporting-currency product; future FX-aware MWR remains gated by
+  [docs/technical/mwr-fx-contract-design.md](../docs/technical/mwr-fx-contract-design.md).
   Production controls and review findings are maintained in
   [docs/guides/mwr-lotus-production-controls.md](../docs/guides/mwr-lotus-production-controls.md)
   and

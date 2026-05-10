@@ -50,6 +50,10 @@ calculation-quality metadata (`status`, `reason_codes`, `warnings`, `fallback_re
 `is_approximation`) plus `holding_period_return` and XIRR convergence diagnostics so demos,
 support workflows, and downstream UI panels can explain whether the value is an annualized XIRR, a
 Modified Dietz fallback, Simple Dietz result, or not calculable.
+Current MWR inputs must be in one reporting currency; `cashflows_used` is calculation-schedule
+evidence, not FX conversion provenance. FX-aware MWR is contract-gated by
+[docs/technical/mwr-fx-contract-design.md](../docs/technical/mwr-fx-contract-design.md), and
+downstream consumers must not infer missing FX rates or conversion policy from the current response.
 
 `POST /performance/contribution` supports both stateless caller-owned inputs and stateful lotus-core
 portfolio/position timeseries sourcing. In stateful mode it is the source-owned contribution
@@ -86,7 +90,8 @@ Runtime and supportability routes:
   [docs/guides/complete_service_reference.md](../docs/guides/complete_service_reference.md)
 - Lotus MWR production controls and review findings:
   [docs/guides/mwr-lotus-production-controls.md](../docs/guides/mwr-lotus-production-controls.md),
-  [docs/technical/mwr-industry-review-findings.md](../docs/technical/mwr-industry-review-findings.md)
+  [docs/technical/mwr-industry-review-findings.md](../docs/technical/mwr-industry-review-findings.md),
+  [docs/technical/mwr-fx-contract-design.md](../docs/technical/mwr-fx-contract-design.md)
 - runtime behavior and readiness:
   [Operations Runbook](Operations-Runbook)
 - upstream contract boundary:

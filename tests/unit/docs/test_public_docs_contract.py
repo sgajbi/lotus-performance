@@ -265,6 +265,8 @@ def test_mwr_guide_matches_current_method_reality():
     assert "root_count_detected" in guide
     assert "lotus_performance_mwr_solver_outcome_total" in guide
     assert "mwr-lotus-production-controls.md" in guide
+    assert "mwr-fx-contract-design.md" in guide
+    assert "cashflows_used` proves the signed schedule" in guide
     assert "mwr-production-support-playbook.md" in guide
     assert "mwr-industry-review-findings.md" in guide
     assert "investor capital-timing lens" in certification
@@ -284,9 +286,12 @@ def test_mwrr_industry_material_is_converted_to_lotus_product_docs():
     playbook = _read("docs/operations/mwr-production-support-playbook.md")
     alert_templates = _read("docs/operations/mwr-alert-rule-templates.md")
     findings = _read("docs/technical/mwr-industry-review-findings.md")
+    fx_design = _read("docs/technical/mwr-fx-contract-design.md")
     guide = _read("docs/guides/mwr.md")
     api_wiki = _read("wiki/API-Surface.md")
     ops_wiki = _read("wiki/Operations-Runbook.md")
+    integrations_wiki = _read("wiki/Integrations.md")
+    mesh_wiki = _read("wiki/Mesh-Data-Products.md")
 
     assert not (REPO_ROOT / "docs/reference/mwrr-industry-pack").exists()
 
@@ -305,6 +310,12 @@ def test_mwrr_industry_material_is_converted_to_lotus_product_docs():
     assert "Areas Where Lotus Is Stronger" in findings
     assert "Backlog Candidates" in findings
     assert "mwr-alert-rule-templates.md" in findings
+    assert "mwr-fx-contract-design.md" in findings
+    assert "Required Input Provenance" in fx_design
+    assert "source_amount" in fx_design
+    assert "conversion_fingerprint" in fx_design
+    assert "must not reconstruct FX conversion" in fx_design
+    assert "fail closed" in fx_design
     assert "LotusPerformanceMWRFallbackRateElevated" in alert_templates
     assert "LotusPerformanceMWRNoRootRateElevated" in alert_templates
     assert "LotusPerformanceMWRMultipleRootRateElevated" in alert_templates
@@ -315,8 +326,11 @@ def test_mwrr_industry_material_is_converted_to_lotus_product_docs():
     assert "mwr-lotus-production-controls.md" in guide
     assert "mwr-alert-rule-templates.md" in guide
     assert "mwr-lotus-production-controls.md" in api_wiki
+    assert "mwr-fx-contract-design.md" in api_wiki
     assert "mwr-production-support-playbook.md" in ops_wiki
     assert "mwr-alert-rule-templates.md" in ops_wiki
+    assert "must not infer FX rates" in integrations_wiki
+    assert "MoneyWeightedReturnAnalytics" in mesh_wiki
 
 
 def test_twr_mwr_response_attribute_certification_documents_field_level_checks():
@@ -363,6 +377,7 @@ def test_methodology_index_points_to_current_guides():
     assert "stateful_input.window_start_date" in dietz_methodology
     assert "Stateful MWR source flow" in integrations_wiki
     assert "Gateway and Workbench should consume the emitted MWR response" in integrations_wiki
+    assert "FX-aware MWR remains gated" in index
     assert "stateful lotus-core portfolio" in index
     assert "Stateful contribution source flow" in integrations_wiki
     assert "they must not reconstruct position contribution" in integrations_wiki

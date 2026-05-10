@@ -36,6 +36,9 @@ or `MODIFIED_DIETZ`)
 
 ## Unit Conventions
 - Amount fields are currency amounts.
+- `begin_mv`, `end_mv`, and `cash_flows[].amount` must be in one reporting currency before the
+  Dietz-family calculation runs; current `cashflows_used` output is schedule evidence, not FX
+  conversion provenance.
 - `money_weighted_return`, `mwr_annualized`, and `holding_period_return` are percentage points.
 - Internal periodic Dietz rate is decimal and multiplied by 100 for output.
 
@@ -104,6 +107,9 @@ or `MODIFIED_DIETZ`)
 - Source fee rows are preserved as performance drag by the upstream analytics input and are not
   included as investor cash flows; unsupported or invalid source cash-flow rows are skipped during
   normalization rather than guessed.
+- Mixed source-currency schedules are not converted by the current Dietz-family path. FX-aware MWR
+  remains gated by `docs/technical/mwr-fx-contract-design.md` and must fail closed in any future
+  implementation when conversion evidence is incomplete.
 - Explicit `MODIFIED_DIETZ` and `DIETZ` requests return `status="CALCULATED"` when the denominator
   is non-zero.
 - XIRR fallback responses return `status="FALLBACK_USED"`, include the XIRR failure reason and
