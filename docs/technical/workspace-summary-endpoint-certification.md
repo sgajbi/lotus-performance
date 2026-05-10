@@ -153,10 +153,28 @@ Observed response:
 - diagnostics note: `Benchmark summary uses stateful benchmark input with calculated returns.`;
 - audit counts: `input_rows=100`, `periods_resolved=2`, `portfolio_chunk_count=2`,
   `portfolio_page_count=2`;
-- YTD net TWR `0.1227054514533199`, gross TWR `0.14317077642345133`, benchmark
-  `5.095680231948784`, active net `-4.9729747804954645`, MWR `-3.613903477849731`;
-- 1M net TWR `0.28230078105095924`, gross TWR `0.30279872769536365`, benchmark
-  `2.428296633866729`, active net `-2.1459958528157697`, MWR `3.748202939315167`.
+- current canonical Gateway-backed evidence for `PB_SG_GLOBAL_BAL_001`, `YTD`, `NET`,
+  `BMK_PB_GLOBAL_BALANCED_60_40`, and report end `2026-05-08` returns net TWR
+  `-0.691792`, gross TWR `-0.671493`, benchmark `6.997327`, active net `-7.689119`, and MWR
+  `-1.926818`;
+- contribution total ties to the workspace TWR at `-0.691791`; contribution smoothing evidence is
+  `APPLIED` with `CARINO_FACTOR_APPLIED`, `RAW_CONTRIBUTION_DIFFERS_FROM_LINKED_RETURN`, and
+  `RESIDUAL_ALLOCATED_TO_RECONCILE_PERIOD`;
+- attribution returns `active_return_pct=-7.016227`, `sum_of_effects_pct=-7.016227`, and
+  `residual_pct=0.0`;
+- evidence view is `supported`, source service is `lotus-performance`, and calculation artifacts
+  include request/response JSON plus workspace-summary portfolio daily result CSVs.
+
+Live audit note - 2026-05-10:
+
+- the earlier numerical certification bullets reflected a prior canonical seed snapshot and were
+  stale against the currently running front-office stack;
+- Gateway summary and details endpoints both returned HTTP `200` when called with required caller
+  context headers;
+- `input_freshness` reported `performance=stale` and `benchmark=stale` because the canonical
+  Workbench as-of date is `2026-05-10` while the latest performance and benchmark evidence is
+  `2026-05-08`; this is surfaced explicitly rather than hidden;
+- live validation with `npm run live:validate` was rerun as part of the audit.
 
 ## Certification Commands
 
