@@ -77,7 +77,6 @@ def test_time_weighted_return_analytics_trust_telemetry_is_tied_to_repo_declarat
     assert set(snapshot["observed_trust_metadata"]) == set(declared_product["required_trust_metadata"])
     assert snapshot["lineage"]["lineage_materialized"] is True
     assert (
-        snapshot["lineage"]["evidence_access_class"]
-        == declared_product["lineage_policy"]["evidence_access_class_ref"]
+        snapshot["lineage"]["evidence_access_class"] == declared_product["lineage_policy"]["evidence_access_class_ref"]
     )
     assert snapshot["blocking"]["blocked"] is False
