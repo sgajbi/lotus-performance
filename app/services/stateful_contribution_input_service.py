@@ -274,7 +274,7 @@ def _validate_stateful_both_currency_support(
 ) -> None:
     if not reporting_currency:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Stateful contribution input requires report_ccy when currency_mode=BOTH.",
         )
 
@@ -286,7 +286,7 @@ def _validate_stateful_both_currency_support(
     }
     if not position_currencies:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 "Stateful contribution input requires position_currency on lotus-core position-timeseries rows "
                 "when currency_mode=BOTH."
@@ -295,7 +295,7 @@ def _validate_stateful_both_currency_support(
 
     if any(position_currency != reporting_currency for position_currency in position_currencies) and fx is None:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 "Stateful contribution input requires fx.rates when currency_mode=BOTH and sourced positions "
                 "include currencies different from report_ccy."
