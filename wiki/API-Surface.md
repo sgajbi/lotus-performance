@@ -84,6 +84,8 @@ Runtime and supportability routes:
   [docs/guides/api_reference.md](../docs/guides/api_reference.md)
 - full examples and config inventory:
   [docs/guides/complete_service_reference.md](../docs/guides/complete_service_reference.md)
+- MWRR industry reference and Lotus implementation mapping:
+  [docs/reference/mwrr-industry-pack/lotus-implementation-mapping.md](../docs/reference/mwrr-industry-pack/lotus-implementation-mapping.md)
 - runtime behavior and readiness:
   [Operations Runbook](Operations-Runbook)
 - upstream contract boundary:

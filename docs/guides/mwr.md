@@ -203,3 +203,10 @@ stateless compatibility, but the Lotus-style mode envelope is the current contra
 integrations.
 
 Use `/docs` for the exact response schema and latest examples.
+
+## Industry Reference Pack
+
+The reviewed MWRR industry material is retained under
+`docs/reference/mwrr-industry-pack/`. Start with
+`docs/reference/mwrr-industry-pack/lotus-implementation-mapping.md` for the implementation-backed
+mapping between that reference pack and the current Lotus contract.
