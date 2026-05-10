@@ -116,7 +116,7 @@ Current downstream consumers are:
 
 | Consumer | How it uses contribution | Evidence |
 | --- | --- | --- |
-| `lotus-gateway` Workbench performance workspace | Calls `/performance/contribution` through `LotusAnalyticsClient.get_contribution_analytics`, then shapes contribution into performance workspace detail and summary blocks. | `lotus-gateway/src/app/clients/lotus_analytics_client.py`; `lotus-gateway/src/app/services/performance_workspace_service.py`; `lotus-gateway/tests/unit/test_upstream_clients.py` |
+| `lotus-gateway` Workbench performance workspace | Calls `/performance/contribution` through `LotusAnalyticsClient.get_contribution_analytics`, then shapes contribution into performance workspace detail and summary blocks while preserving source-owned contribution return, smoothing evidence, and source-economics evidence. | `lotus-gateway/src/app/clients/lotus_analytics_client.py`; `lotus-gateway/src/app/services/performance_workspace_service.py`; `lotus-gateway/tests/unit/test_performance_workspace_service.py`; `lotus-gateway` PR `sgajbi/lotus-gateway#206` |
 | `lotus-advise` through gateway-generated advisor brief context | Consumes Workbench performance contribution context rather than calling lotus-performance directly. | `lotus-gateway/src/app/services/advisor_brief_service.py` |
 | `lotus-risk` | Does not consume `/performance/contribution`; its contribution terminology is risk-component contribution and attribution, not performance contribution. | `lotus-risk` client search |
 
@@ -180,7 +180,7 @@ contribution-output defect was found during this pass.
 | Engine and service tests | Position return, contribution linking, hierarchy aggregation, residual allocation, reset-aware shadow methodology, source-economics evidence, currency behavior, and async execution. | Strong for core contribution behavior. |
 | Integration tests | `/performance/contribution`, async result retrieval, stateful resolution, source-economics evidence, hierarchy, series emission, lineage, duplicate submission fencing, and reset-heavy tie-out. | Strong after the source-economics and hierarchy tie-out regression tests added in this pass. |
 | Documentation and OpenAPI tests | Public guide plus OpenAPI quality and vocabulary gates. | Adequate; this certification note records the endpoint-level invariants and consumer posture. |
-| Cross-repo consumer tests | Gateway upstream client and performance workspace tests cover the known direct consumer. | Adequate for known downstream consumers. |
+| Cross-repo consumer tests | Gateway upstream client and performance workspace tests cover the known direct consumer; Workbench tests prove evidence status display. | Strong for known downstream consumers after RFC-047 Slice 7. |
 | Live canonical probes | Stateful option matrix for `PB_SG_GLOBAL_BAL_001` across NET/GROSS, dimensions, hierarchy, cash-flow inclusion, top-N Other bucketing, and series emission. | Passed on rebuilt local service. |
 
 ## Live Canonical Evidence
@@ -210,14 +210,15 @@ Gateway live proof through `http://gateway.dev.lotus`:
 
 Downstream certification status:
 
-- `lotus-gateway` successfully calls the contribution endpoint and passes the main contribution
-  summary fields through to Workbench.
-- `lotus-gateway#107` tracks the remaining row-coverage and source-total concern: one gateway
-  parser path limits contribution rows and position rankings to 10 entries and can derive a level
-  total from visible rows instead of preserving source-authored totals.
-- Until `lotus-gateway#107` is resolved, the contribution endpoint is certified at the
-  lotus-performance boundary, while Workbench row coverage should be treated as a governed
-  downstream presentation limitation.
+- `lotus-gateway` successfully calls the contribution endpoint and preserves the source-owned
+  contribution return, `smoothing_evidence`, and `source_economics_evidence` into the performance
+  workspace contract.
+- `lotus-workbench` renders source-economics and smoothing statuses from Gateway in the Performance
+  Drivers module without inventing local quality state.
+- RFC-047 Slice 7 downstream proof is recorded in
+  `docs/RFCs/RFC-047-api-contract-downstream-slice7.md`. Gateway PR `sgajbi/lotus-gateway#206`
+  and Workbench PR `sgajbi/lotus-workbench#177` were locally validated and CI-green when the slice
+  was closed.
 
 ## Validation Commands
 

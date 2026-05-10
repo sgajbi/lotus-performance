@@ -8,6 +8,8 @@
 
 [Time-Weighted Return](Time-Weighted-Return)
 
+[Contribution Analytics](Contribution-Analytics)
+
 [Supported Features](Supported-Features)
 
 [Getting Started](Getting-Started)

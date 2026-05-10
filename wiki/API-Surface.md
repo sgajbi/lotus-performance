@@ -66,7 +66,10 @@ response.
 `POST /performance/contribution` supports both stateless caller-owned inputs and stateful lotus-core
 portfolio/position timeseries sourcing. In stateful mode it is the source-owned contribution
 methodology surface for downstream product experiences; clients should consume emitted total,
-local, and FX contribution results rather than reconstructing contribution downstream.
+local, and FX contribution results rather than reconstructing contribution downstream. RFC-047 also
+emits `smoothing_evidence` and `source_economics_evidence`; Gateway preserves those fields and
+Workbench displays exact contribution evidence statuses in Performance Drivers. See
+[Contribution Analytics](Contribution-Analytics) for the implementation-backed product boundary.
 
 `POST /performance/attribution` supports both stateless caller-owned inputs and stateful lotus-core
 portfolio/position, benchmark, and source currency sourcing. In stateful mode it is the source-owned

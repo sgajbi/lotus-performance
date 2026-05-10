@@ -281,6 +281,25 @@ Lotus does not guess unavailable income, tax, FX P&L, corporate-action, derivati
 liability economics. Those fields remain explicit unsupported or degraded evidence until a
 source-owned contract publishes them.
 
+## Source-Document Edge Semantics
+
+RFC-047 adds implementation-backed QA coverage for contribution economics that commonly create
+front-office and audit confusion:
+
+- external deposits and withdrawals are cash-flow events, not portfolio performance;
+- balanced internal trade flows do not become portfolio external flow;
+- income can remain assigned to the generating asset when source metadata supplies `income_pnl`;
+- net fee drag can be represented through an explicit fee bucket when source metadata supplies
+  `fee_pnl`;
+- missing hierarchy classification is emitted as `Unclassified` rather than dropped or guessed;
+- short positions preserve signed average weight and inverse contribution sign behavior;
+- hierarchy rows, position rows, daily totals, and by-position series reconcile to the
+  source-owned period total.
+
+These semantics are product behavior, not documentation examples. They are covered by
+`tests/integration/test_contribution_api.py` and `tests/e2e/test_workflow_journeys.py` and are
+summarized for product audiences in `wiki/Contribution-Analytics.md`.
+
 - `results_by_period.<period>.average_weight_methodology_status`
 
 This per-period block summarizes:
