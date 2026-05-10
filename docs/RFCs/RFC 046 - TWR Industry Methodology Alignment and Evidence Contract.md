@@ -1,6 +1,6 @@
 # RFC 046 - TWR Industry Methodology Alignment, Evidence Contract, and Data Product Hardening
 
-- Status: Draft - For Approval
+- Status: Approved - In Implementation
 - Date: 2026-05-10
 - Owners: Performance Analytics Service
 - Requires Approval From:
@@ -31,6 +31,7 @@
   - RFC-045
 - Slice Evidence:
   - Slice 0: `docs/RFCs/RFC-046-source-map-and-gap-analysis.md`
+  - Slice 1: `docs/RFCs/RFC-046-platform-automation-slice1.md`
 
 ## 0. Critical Review Of The First Draft
 
@@ -49,8 +50,9 @@ minimal ambiguity.
 | Supported features | The draft warned against unsupported claims, but did not maintain a clear product ledger. | Added a supported-features ledger with promotion evidence and non-promotion rules. |
 | Communication | There was no post-completion communication path. | Added a LinkedIn slice that drafts a truthful post only after implementation is complete and evidence-backed. |
 
-This RFC remains approval-only. Implementation must not begin until this strengthened RFC is
-approved.
+This RFC is now approved for slice-by-slice implementation. Implementation must continue under the
+strict slice gate defined below: no slice may start until the previous slice is implemented,
+validated, reviewed, and documented.
 
 ## 1. Executive Summary
 
