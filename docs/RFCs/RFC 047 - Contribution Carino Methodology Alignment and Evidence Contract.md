@@ -1,6 +1,6 @@
 # RFC 047 - Contribution Carino Methodology Alignment and Evidence Contract
 
-Status: Draft - For Approval
+Status: Draft - Gold-Standard Review For Approval
 
 Owner repository: `lotus-performance`
 
@@ -10,7 +10,31 @@ Source package: `C:\Users\Sandeep\Downloads\contribution-carino-docs.zip\contrib
 
 Created: 2026-05-10
 
-Implementation posture: not started. This RFC is the approval artifact for the next implementation cycle.
+Implementation posture: not started. This RFC is the approval artifact for the next implementation
+cycle. No contribution implementation work may begin until this RFC is explicitly approved.
+
+## 0. Critical Review and Tightening Notes
+
+The first RFC-047 draft had the correct direction, but it needed stronger execution discipline in
+five areas before it could serve as an implementation guide:
+
+1. **No second wave**: the first draft allowed too much implied follow-up. This version makes the
+   RFC responsible for all upstream, downstream, platform, data-product, documentation, proof, and
+   communication work required to realize the contribution business value.
+2. **Cross-repo ownership**: the first draft named `lotus-core`, `lotus-gateway`, and
+   `lotus-workbench`, but did not make same-RFC contract realization mandatory enough. This version
+   requires upstream and downstream changes inside the same RFC when contract truth changes.
+3. **Enterprise readiness**: the first draft covered data mesh and OpenAPI, but not enough
+   CI/security/platform-compliance rigor. This version makes CI, dependency hygiene, security
+   posture, API certification, Swagger quality, and platform automation explicit acceptance gates.
+4. **Documentation as product**: the first draft had docs/wiki slices, but needed a stronger bar for
+   implementation-backed, audience-aware, demo-safe documentation. This version requires docs to be
+   grounded in the actual final implementation and forbids generic imported wording.
+5. **Post-completion communication**: the first draft omitted the requested LinkedIn post slice.
+   This version adds a final communication slice governed by the Lotus LinkedIn thought-leadership
+   workflow and tied only to actually implemented outcomes.
+
+The RFC is now written as an execution contract, not a loose proposal.
 
 ## 1. Executive Summary
 
@@ -50,7 +74,9 @@ bank-buyable as a fully auditable contribution data product:
 7. downstream Gateway and Workbench should consume any new evidence/status fields instead of
    inferring contribution quality locally.
 
-No implementation should start until this RFC is approved.
+No implementation should start until this RFC is approved. Once approved, implementation must run
+slice by slice. A slice is not complete until it is implemented, tested, reviewed, documented where
+needed, and proven with appropriate evidence.
 
 ## 2. Business Outcome
 
@@ -147,6 +173,47 @@ Key decisions:
    residual, or supportability state.
 5. If API changes are the right design, backward compatibility is not required for this RFC, but
    every downstream consumer must be updated in the same implementation cycle.
+6. No follow-up RFC or second wave is allowed for essential contribution business value. If the
+   implementation discovers required upstream source fields, downstream contract changes, platform
+   automation gaps, API certification gaps, or product-surface gaps, those must be handled in this
+   RFC unless they are explicitly proven irrelevant to the contribution capability.
+7. If a change belongs in `lotus-platform`, it must be fixed at platform level instead of worked
+   around locally in `lotus-performance`.
+
+## 5.1 Cross-Repository Scope and Same-RFC Realization
+
+This RFC may modify these repositories if required:
+
+| Repository | Role in RFC-047 | Same-RFC obligation |
+| --- | --- | --- |
+| `lotus-performance` | Contribution methodology authority and data-product owner | Own engine, API, evidence, docs, data product declarations, telemetry, tests, and endpoint certification. |
+| `lotus-core` | Source-data authority for portfolio, valuation, transaction, position, classification, FX, and cash-flow inputs | Add or correct source-economics contracts if contribution cannot be implemented truthfully from current stateful inputs. |
+| `lotus-gateway` | Experience API and downstream contract boundary | Preserve source-authored contribution totals, method status, evidence, row coverage, and degraded states. |
+| `lotus-workbench` | Front-office product surface | Render contribution truth from Gateway, including supported/degraded/partial states, without local analytics invention. |
+| `lotus-platform` | Governance, scaffolding, data-mesh, CI, wiki, validation, and automation owner | Improve repeatable automation and certification gaps at platform level. |
+| `lotus-report`, `lotus-ai`, `lotus-risk`, `lotus-advise`, `lotus-manage` | Potential consumers discovered during implementation | Update only if contract search proves direct or indirect dependence. Record explicit no-change evidence otherwise. |
+
+Consumer search is mandatory before any API shape change. The implementation must update every
+affected consumer in the same RFC and prove the consumer path works through tests and, where
+product-facing, live front-office evidence.
+
+## 5.2 Enterprise-Grade Delivery Standard
+
+The implementation must leave `lotus-performance` closer to a product a bank could confidently buy.
+That means:
+
+1. mathematical correctness is proven by deterministic tests and live evidence;
+2. API contracts are source-owned, explicit, and fully documented;
+3. response fields are safe, bounded, and explainable;
+4. error handling is intentional and tested, not accidental exception leakage;
+5. OpenAPI/Swagger is complete enough for a downstream team to integrate without reading code;
+6. security and dependency posture are checked and any residual risk is formally treated;
+7. data-product declarations, trust telemetry, SLO/access/evidence posture, and mesh certification
+   are current;
+8. logs, metrics, diagnostics, supportability state, and lineage are operator-useful without
+   exposing sensitive holdings, client, tenant, trace, or payload data;
+9. CI is monitored continuously through GitHub and failures are fixed promptly;
+10. branch hygiene is maintained throughout the lifecycle.
 
 ## 6. Supported-Features Ledger
 
@@ -163,8 +230,18 @@ This ledger controls what may be promoted into README/wiki/sales/demo material.
 | Gross/net contribution | Supported via basis | Supported with methodology metadata and fee/tax policy evidence | Promote after NET/GROSS QA cases and docs. |
 | Contribution data product | Not fully declared | Governed `ContributionAnalytics:v1` data product | Promote after domain-product, telemetry, SLO/access/evidence, and mesh certification gates pass. |
 | Contribution support runbook | Partial | Implementation-backed wiki/runbook | Promote after live proof and support examples reference actual fields. |
+| Contribution documentation and wiki | Partial | Detailed implementation-backed product material | Promote only after docs reflect final code/API behavior and wiki publication is complete. |
+| Contribution LinkedIn communication | Not drafted | Employer-safe post-completion draft | Draft only after implementation is complete, based only on actual outcomes, and keep separate from product claims that are not proven. |
+
+Every delivered feature must be listed here, in README/wiki/supported-features material where
+appropriate, and in final closure evidence. Aspirational wording must remain clearly marked as
+future/non-goal and must not be presented as supported capability.
 
 ## 7. Slice Plan
+
+Slice execution rule: work strictly slice by slice. Do not begin the next slice until the current
+slice is implemented, validated, reviewed, committed, and in a solid state. When a slice touches
+another repository, that repository must have its own scoped branch, tests, and PR evidence.
 
 ### Slice 0 - Source Map, Branch Hygiene, and Baseline Assessment
 
@@ -198,12 +275,24 @@ Assess and improve platform automation for:
 5. trust telemetry scaffolding for analytics products;
 6. source-data API profile and ingestion-pipeline checklists;
 7. live proof pack structure for endpoint, gateway, and Workbench evidence.
+8. health, liveness, readiness, metadata, and OpenAPI quality defaults for new services;
+9. structured logging and correlation/trace propagation defaults;
+10. standardized error-response examples and exception-to-contract mapping;
+11. security baseline checks, dependency-health checks, and CI lane defaults;
+12. repository documentation and wiki scaffolding for data-product owners;
+13. governance hooks for supported-features, API vocabulary, no-alias rules, and data-mesh
+    declarations.
 
 Acceptance criteria:
 
 1. platform gaps are either fixed in `lotus-platform` or deliberately classified as no-change;
 2. any platform change has tests and is merged/validated before relying on it;
 3. future Lotus apps benefit from the scaffolding improvement.
+4. new app scaffolding starts future services with API certification, Swagger quality, health,
+   observability, logging, error handling, test scaffolding, CI, documentation, governance hooks,
+   and security baseline where applicable;
+5. additional platform/scaffolding gaps discovered during later slices are returned to this slice
+   discipline instead of being left as app-local workarounds.
 
 ### Slice 2 - Cleanup and Contribution Module Structure
 
@@ -216,12 +305,18 @@ Scope:
 3. remove dead or misleading contribution docs/tests;
 4. reduce duplicate docs across README, docs, and wiki;
 5. keep implementation behavior stable except where a verified bug fix is explicitly part of this RFC.
+6. improve repository structure where it materially improves long-term maintainability;
+7. separate long-lived product/operator material from deep RFC mechanics;
+8. move durable audience-facing truth to repo-local wiki source when wiki is the better home;
+9. remove stale target-state claims, duplicate supported-feature wording, and obsolete examples.
 
 Acceptance criteria:
 
 1. raw contribution, smoothing, residual/evidence, and response-shaping responsibilities are clearer;
 2. no unrelated cosmetic churn;
 3. existing tests remain green before moving to the methodology slices.
+4. docs and wiki layering are intentional, with no duplicate uncontrolled truth;
+5. wiki source is ready to publish when post-RFC truth changes.
 
 ### Slice 3 - Carino Methodology Correction and Deterministic Engine Proof
 
@@ -296,9 +391,10 @@ Acceptance criteria:
 3. lotus-performance tests prove both source-rich and source-limited behavior;
 4. no follow-up RFC is required for essential upstream realization.
 
-### Slice 6 - Data Product and Data Mesh Hardening
+### Slice 6 - Data Product and Platform Hardening
 
-Purpose: promote contribution into the governed Lotus data mesh.
+Purpose: promote contribution into the governed Lotus data mesh and harden `lotus-performance` as
+an enterprise-grade analytics product.
 
 Scope:
 
@@ -308,6 +404,14 @@ Scope:
 4. update platform catalog/certification references if needed;
 5. document approved consumers, freshness, completeness, lineage, restatement, access, and evidence classes;
 6. prove mesh certification locally and in CI.
+7. review API posture, metadata quality, discoverability, contract clarity, and documentation
+   quality;
+8. review CI lane coverage, dependency hygiene, vulnerability posture, Docker/runtime readiness,
+   and production operating evidence;
+9. close gaps that would prevent a bank from operating, supporting, auditing, or buying the
+   contribution capability;
+10. update or add platform-generated catalog/discovery artifacts where the mesh source of truth
+    requires it.
 
 Acceptance criteria:
 
@@ -315,6 +419,12 @@ Acceptance criteria:
 2. trust telemetry validates;
 3. mesh certification recognizes contribution as a governed product;
 4. Gateway and Workbench consume contribution through governed APIs only.
+5. security and dependency checks are green or have formal treatment with owner, severity, and
+   remediation path;
+6. CI gates prove unit, integration, e2e, coverage, Docker, workflow, OpenAPI, vocabulary, docs, and
+   data-product checks as applicable;
+7. `lotus-performance` documentation and metadata make contribution discoverable as a first-class
+   data product, not merely an endpoint.
 
 ### Slice 7 - API Contract, OpenAPI, and Downstream Consumer Alignment
 
@@ -394,9 +504,10 @@ Acceptance criteria:
 3. docs tests pass;
 4. repo-local wiki source validates and is ready for publication after merge.
 
-### Slice 10 - Live Front-Office Proof
+### Slice 10 - Implementation Proof and Live Front-Office Evidence
 
-Purpose: prove the implementation in the canonical front-office stack.
+Purpose: prove the implementation end to end against this RFC, including the canonical
+front-office stack and the machine-readable evidence needed to make the result auditable.
 
 Scope:
 
@@ -406,14 +517,22 @@ Scope:
 4. capture machine-readable request/response evidence under `output/`;
 5. use canonical portfolio `PB_SG_GLOBAL_BAL_001` unless a slice requires a specialized fixture;
 6. include contribution, raw/smoothed, hierarchy, residual, source-quality, and downstream display checks;
-7. leave live stack state as requested by the operator.
+7. validate logs, health, readiness, metrics, correlation IDs, and supportability diagnostics;
+8. compare live evidence against unit, integration, OpenAPI, data-product, and documentation claims;
+9. record critical review notes for every observed mismatch, weak assertion, or loose end;
+10. fix discovered gaps before moving to hardening review;
+11. leave live stack state as requested by the operator.
 
 Acceptance criteria:
 
 1. live evidence proves endpoints and product surfaces;
 2. evidence is critically reviewed for mismatches, not merely captured;
 3. discovered gaps are fixed before closure;
-4. demo-safe claims are backed by live evidence.
+4. demo-safe claims are backed by live evidence;
+5. logs and observability signals are usable without exposing restricted customer data;
+6. evidence records exact repository, branch, commit, endpoint, portfolio, request, response, and
+   validation command identifiers;
+7. RFC evidence includes a clear pass/fail judgment, not only raw artifacts.
 
 ### Slice 11 - Second-Last Hardening and Review
 
@@ -422,21 +541,36 @@ Purpose: perform a critical production-readiness review before closure.
 Scope:
 
 1. code review for correctness, modularity, duplication, dead code, and hidden coupling;
-2. API certification review;
-3. Swagger quality review;
-4. error-handling review;
+2. API certification pattern compliance review across every contribution endpoint touched by this RFC;
+3. Swagger quality review:
+   - endpoints are grouped correctly;
+   - each endpoint explains what it does, when to use it, and how to interpret the response;
+   - every request and response shape has complete examples;
+   - every exposed attribute has description, type, and example value;
+   - error responses are described with realistic examples and remediation guidance;
+4. error-handling review for invalid source economics, unsupported partial contribution,
+   invalid Carino linkability, missing valuation periods, no usable periods, and downstream
+   gateway/workbench failure modes;
 5. security/dependency review;
 6. data-mesh certification review;
 7. observability/metrics/logging review;
 8. downstream consumer review;
-9. documentation truth review.
+9. documentation truth review;
+10. implementation-backed supported-features review;
+11. final simplification pass to remove duplication, stale compatibility handling, misleading
+    docs, dead code, and local workarounds that belong in platform automation.
 
 Acceptance criteria:
 
 1. no known correctness defects remain;
 2. security issues are fixed or formally tracked with treatment;
 3. all API fields have descriptions/examples where exposed;
-4. all contribution claims are implementation-backed.
+4. all contribution claims are implementation-backed;
+5. all APIs are certified with tests, OpenAPI examples, negative cases, and downstream coverage;
+6. platform governance and enterprise data mesh standards pass or have explicit remediations
+   completed in this RFC;
+7. the second-last review produces an explicit issue list, fix list, residual-risk statement, and
+   go/no-go conclusion.
 
 ### Slice 12 - Final Closure
 
@@ -451,7 +585,16 @@ Scope:
 5. sync wiki source and publish after merge;
 6. rerun stranded-truth reconciliation;
 7. confirm all touched repos are clean, merged to main, and CI green;
-8. classify any remaining unmerged governance branches.
+8. classify any remaining unmerged governance branches;
+9. update final documentation so it reflects the actual implementation, APIs, constraints,
+   supported capabilities, failure behavior, operational model, and upstream/downstream integrations;
+10. update wiki pages with implementation-backed functional and non-functional product material,
+    including diagrams where they improve understanding;
+11. consciously review whether skills, guidance, documentation, or agent context should be added,
+    removed, tightened, or clarified to support better future work; record an explicit no-change
+    decision if no durable guidance update is needed;
+12. confirm every supported feature delivered by this RFC is reflected in supported-feature
+    material without aspirational language.
 
 Acceptance criteria:
 
@@ -459,7 +602,33 @@ Acceptance criteria:
 2. CI is green;
 3. wiki is published when wiki truth changed;
 4. local repos are clean and aligned with remote main;
-5. no durable truth is stranded on unmerged branches.
+5. no durable truth is stranded on unmerged branches;
+6. final docs and wiki are detailed, audience-aware, Lotus-specific, and grounded in the actual
+   post-RFC implementation;
+7. final closure records context/skill/wiki/support-feature decisions and evidence.
+
+### Slice 13 - Post-Completion Communication
+
+Purpose: draft a truthful LinkedIn post after implementation is complete and proven.
+
+Scope:
+
+1. use the `lotus-linkedin-thought-leadership` workflow;
+2. review the LinkedIn content ledger, themes, and recent drafts before writing;
+3. draft only after final implementation evidence exists;
+4. base the post only on outcomes that were actually implemented, tested, and documented;
+5. avoid client, employer, confidential, or unsupported product claims;
+6. keep the post as thought leadership about private banking performance analytics, evidence,
+   data-product discipline, or production readiness rather than a generic feature announcement;
+7. save the draft under `lotus-platform/thought-leadership/linkedin/drafts/` and update the
+   content ledger as a draft only.
+
+Acceptance criteria:
+
+1. LinkedIn draft is truthful, employer-safe, and implementation-backed;
+2. the draft does not claim unproven Lotus capabilities or conflate Lotus work with client work;
+3. the content ledger is updated without marking the post as published;
+4. the RFC closure evidence links the draft path and the implementation evidence it is based on.
 
 ## 8. API and Compatibility Posture
 
@@ -499,6 +668,19 @@ The implementation must provide:
 6. no sensitive holdings/P&L leakage beyond authorized surfaces;
 7. dependency and security gates green.
 
+## 10.1 GitHub, CI, and Branch Hygiene
+
+Delivery must use GitHub as an active control surface, not only as a final publication step:
+
+1. create or continue a remote feature branch for every touched repository;
+2. keep commits small, meaningful, and scoped to a slice or clear sub-slice;
+3. open or update PRs early enough for GitHub checks to run asynchronously;
+4. monitor GitHub Actions at regular intervals while implementation continues;
+5. fix failed checks promptly and record the fix evidence;
+6. keep PR descriptions, RFC evidence, and test claims synchronized;
+7. do not leave side branches containing unique durable truth after closure;
+8. before final closure, confirm local `main`, remote `origin/main`, and merged PR truth are aligned.
+
 ## 11. Documentation Standard
 
 The final documentation must be:
@@ -536,6 +718,22 @@ Required proof before final closure:
 8. docs/wiki validation;
 9. CI green on all touched repos;
 10. branch cleanup and stranded-truth reconciliation.
+
+## 13.1 Definition of Done
+
+This RFC is done only when:
+
+1. every approved slice is implemented, validated, reviewed, documented, and proven;
+2. all required upstream, downstream, platform, gateway, workbench, and documentation changes are
+   completed in the same RFC;
+3. all touched repositories are merged to `main`, clean locally, and aligned with remote `main`;
+4. GitHub CI is green for every touched repository;
+5. wiki source is updated and published where wiki truth changed;
+6. supported-features material reflects actual delivered capability only;
+7. final implementation evidence proves the APIs, data-product posture, observability, security
+   posture, and front-office realization;
+8. no durable truth is stranded on unmerged branches;
+9. the post-completion LinkedIn draft exists only if it can be grounded in proven outcomes.
 
 ## 14. Approval Gate
 
