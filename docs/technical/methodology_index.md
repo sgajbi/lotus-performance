@@ -11,6 +11,7 @@ analytics and integration surfaces.
 - [technical/mwr-fx-contract-design.md](mwr-fx-contract-design.md)
 - [guides/contribution.md](../guides/contribution.md)
 - [guides/attribution.md](../guides/attribution.md)
+- [technical/attribution-documentation-map.md](attribution-documentation-map.md)
 - [guides/workspace_summary.md](../guides/workspace_summary.md)
 - [guides/multi_currency.md](../guides/multi_currency.md)
 - [guides/robustness_policies.md](../guides/robustness_policies.md)
@@ -41,6 +42,7 @@ That set is the authoritative metric-by-metric reference for:
 - [engine_config.md](engine_config.md)
 - [data_model.md](data_model.md)
 - [twr-documentation-map.md](twr-documentation-map.md)
+- [attribution-documentation-map.md](attribution-documentation-map.md)
 - [attribution-endpoint-certification.md](attribution-endpoint-certification.md)
 - [contribution-endpoint-certification.md](contribution-endpoint-certification.md)
 

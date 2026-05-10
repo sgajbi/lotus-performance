@@ -390,6 +390,10 @@ Validation:
 
 Purpose: simplify before expanding attribution.
 
+Implementation evidence: `docs/RFCs/RFC-048-cleanup-and-structure-slice2.md`. Slice 2 added an
+attribution documentation map, implementation-backed wiki page, wiki navigation links, supported
+feature boundary wording, and corrected stale downstream Gateway issue status.
+
 Scope:
 
 1. remove dead, duplicate, or misleading attribution docs/code/tests discovered in Slice 0;

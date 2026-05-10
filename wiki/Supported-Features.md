@@ -13,7 +13,7 @@ claim list.
 | TWR inspection | Source-quality, economic-plausibility, reconciliation, cash-flow classification, reset/linkability supportability | `POST /performance/inspections/twr` | Inspection findings and artifacts support operational diagnosis; resolved async TWR subjects can use durable compute-job request payloads when API-local lineage files are not yet visible. Inspection is the deeper support surface and does not replace the calculation response contract. |
 | Money-weighted return | Portfolio-level XIRR, Modified Dietz fallback, Simple Dietz explicit path | `POST /performance/mwr` | Status, reason codes, warnings, convergence, fallback metadata, reporting currency, currency evidence, calculation supportability, and production-control docs. |
 | Contribution | Portfolio, position, and hierarchy contribution, including stateful source-normalized input | `POST /performance/contribution` | Total, local, and FX contribution results with bounded supportability, Carino smoothing evidence, source-economics evidence, trust telemetry, and governed `ContributionAnalytics:v1` data-product declaration. RFC-047 proves external-deposit neutrality, income assignment, fee drag, missing classification, short-sleeve sign behavior, downstream Gateway preservation, and Workbench evidence display. Downstream consumers should not reconstruct contribution. |
-| Attribution | Portfolio/benchmark attribution, including stateful source-normalized input | `POST /performance/attribution` | Allocation, selection, interaction, active return, currency-attribution evidence, and supportability metadata. |
+| Attribution | Portfolio/benchmark attribution, including stateful source-normalized input | `POST /performance/attribution` | Allocation, selection, interaction, active return, currency-attribution evidence, supportability metadata, lineage artifacts, and Gateway/Workbench consumption. RFC 048 is improving status, residual materiality, alignment, daily evidence, and data-product posture; fixed-income factor, derivative, sleeve, and composite attribution are not current supported claims. |
 | Returns series | Performance-owned return-series bundle for downstream analytics engines | `POST /integration/returns/series` | Correct downstream surface for risk engines; `lotus-risk` should consume this rather than direct TWR response internals. |
 | Benchmark exposure context | Benchmark exposure rows for risk and integration workflows | `POST /integration/benchmarks/exposure-context` | Benchmark-context integration product; not a composite TWR calculation surface. |
 | Workspace summary | Interaction-efficient performance summary for product surfaces | `POST /performance/workspace-summary` | Product-oriented summary contract for Gateway and Workbench. It should consume performance-owned calculations, not rebuild them. |
@@ -74,8 +74,11 @@ downstream. The product is detailed in [Contribution Analytics](Contribution-Ana
 
 - [Time-Weighted Return](Time-Weighted-Return)
 - [Contribution Analytics](Contribution-Analytics)
+- [Attribution Analytics](Attribution-Analytics)
 - [Mesh Data Products](Mesh-Data-Products)
 - [docs/guides/twr.md](../docs/guides/twr.md)
 - [docs/technical/twr-documentation-map.md](../docs/technical/twr-documentation-map.md)
 - [docs/technical/twr-endpoint-certification.md](../docs/technical/twr-endpoint-certification.md)
 - [docs/guides/twr_inspection_checks.md](../docs/guides/twr_inspection_checks.md)
+- [docs/guides/attribution.md](../docs/guides/attribution.md)
+- [docs/technical/attribution-documentation-map.md](../docs/technical/attribution-documentation-map.md)

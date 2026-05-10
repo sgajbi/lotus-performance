@@ -84,10 +84,10 @@ Downstream certification status:
 
 - `lotus-gateway` passes authoritative attribution totals through to the Workbench performance
   detail contract.
-- `lotus-gateway` issue `#106` tracks the remaining row-coverage concern: the gateway currently
-  limits attribution groups to 10 rows without an explicit truncation or coverage signal.
-- `lotus-gateway` issue `#105` tracks removal of the historical dependency on UI-side attribution
-  total reconstruction once the lotus-performance totals contract is merged.
+- `lotus-gateway#106` is closed. Gateway now treats row-coverage handling as a governed consumer
+  concern instead of an unresolved attribution endpoint defect.
+- `lotus-gateway#105` is closed. Gateway no longer depends on UI-side attribution total
+  reconstruction for the authoritative totals emitted by `lotus-performance`.
 
 ## Supportability and Observability
 

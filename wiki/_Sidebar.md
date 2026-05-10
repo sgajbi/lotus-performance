@@ -10,6 +10,8 @@
 
 [Contribution Analytics](Contribution-Analytics)
 
+[Attribution Analytics](Attribution-Analytics)
+
 [Supported Features](Supported-Features)
 
 [Getting Started](Getting-Started)
