@@ -24,11 +24,14 @@ contribution totals, source-economics quality, or Carino smoothing state.
 
 ```mermaid
 flowchart LR
-    Core[lotus-core portfolio and position timeseries] --> Performance[lotus-performance contribution engine]
-    Caller[Stateless caller payload] --> Performance
-    Performance --> Gateway[lotus-gateway performance workspace]
+    Core[lotus-core portfolio and position timeseries] --> Normalize[Stateful input normalization]
+    Caller[Stateless caller payload] --> Normalize
+    Normalize --> Engine[Contribution engine]
+    Engine --> Evidence[Smoothing and source economics evidence]
+    Evidence --> Gateway[lotus-gateway performance workspace]
     Gateway --> Workbench[lotus-workbench Performance Drivers]
-    Performance --> Lineage[Executions and lineage artifacts]
+    Engine --> Lineage[Executions and lineage artifacts]
+    Evidence --> Mesh[ContributionAnalytics:v1 data product]
 ```
 
 1. A front-office workflow requests contribution for a portfolio, period, basis, and optional
@@ -41,6 +44,64 @@ flowchart LR
    users can tell whether the result is source-backed, limited, caller-supplied, smoothed, or
    fallback-governed.
 5. Operations and support can inspect execution, lineage, diagnostics, and audit counts.
+
+## Architecture and Integrations
+
+```mermaid
+sequenceDiagram
+    participant UI as lotus-workbench
+    participant GW as lotus-gateway
+    participant PERF as lotus-performance
+    participant CORE as lotus-core
+    participant OBS as Observability and lineage
+
+    UI->>GW: Performance details request
+    GW->>PERF: POST /performance/contribution
+    PERF->>CORE: PortfolioTimeseriesInput:v1
+    PERF->>CORE: PositionTimeseriesInput:v1
+    PERF->>PERF: Calculate raw contribution
+    PERF->>PERF: Apply Carino smoothing
+    PERF->>OBS: Store execution, artifacts, and metrics
+    PERF-->>GW: Contribution response with evidence
+    GW-->>UI: Workspace performance payload
+    UI-->>UI: Display contributors and evidence status
+```
+
+| Integration | Direction | Contract posture |
+| --- | --- | --- |
+| `lotus-core` | upstream source | Provides portfolio and position timeseries; component P&L economics are not fully source-authored, so contribution reports `SOURCE_LIMITED`. |
+| `lotus-performance` | producer | Owns contribution calculation, smoothing evidence, source economics evidence, lineage, supportability, and data-product truth. |
+| `lotus-gateway` | downstream experience API | Preserves source-owned contribution totals and evidence without recomputing or overwriting them. |
+| `lotus-workbench` | downstream product surface | Displays contribution ranking and evidence statuses in Performance Drivers and participates in canonical live validation. |
+| Operations | support workflow | Uses readiness, metrics, execution polling, lineage artifacts, diagnostics, and reason codes to investigate support questions. |
+
+## Operational Behavior
+
+| Area | Behavior |
+| --- | --- |
+| Readiness | `lotus-performance` exposes readiness through `/health/ready`; live proof validated the service as ready. |
+| Metrics | Prometheus metrics include contribution supportability and request counters, including success and validation-error classes. |
+| Logs | Structured access logs carry correlation, request, and trace identifiers across Gateway, performance, and upstream source calls. |
+| Lineage | Contribution executions expose retrieval, normalization, execution, and lineage materialization stages plus artifacts such as request, response, daily contribution, and portfolio TWR files. |
+| Error handling | Invalid request shapes and unsupported stateful currency combinations return bounded validation errors; unsupported source economics are not treated as fatal when contribution can still be safely calculated. |
+| Security posture | Downstream calls require governed caller context at Gateway; contribution evidence avoids exposing restricted customer data in public documentation. |
+
+## Demo and Sales Narrative
+
+Contribution Analytics should be presented as an explainable performance driver product for
+private-banking portfolios. The strongest demo path is:
+
+1. open Workbench Performance Drivers for `PB_SG_GLOBAL_BAL_001`;
+2. show top contributors and detractors by asset class or position;
+3. open the evidence context to show that the calculation is supported, source-limited, or
+   caller-supplied as appropriate;
+4. explain that Carino smoothing reconciles multi-period contribution to the linked portfolio return;
+5. show that Gateway and Workbench display producer-owned evidence rather than reconstructing the
+   calculation downstream.
+
+The correct sales message is not "all possible component economics are available." The correct
+message is that Lotus makes the calculation, method, lineage, and source limitations visible, which
+is the safer enterprise behavior for private-banking support and client conversations.
 
 ## Edge-Case Semantics
 

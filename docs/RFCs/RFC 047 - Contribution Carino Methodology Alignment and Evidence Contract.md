@@ -765,3 +765,57 @@ Approval decision needed:
 | Slice 11 - Second-Last Hardening and Review | Complete | `docs/RFCs/RFC-047-hardening-review-slice11.md`; fixed Workbench live evidence validation in PR `sgajbi/lotus-workbench#178`, tightened contribution-local 422 validation to remove a deprecation warning, reran contribution integration/unit/docs/OpenAPI/vocabulary/no-alias checks, and cleared Slice 10 live-proof observations for final closure. |
 | Slice 12 - Final Closure | Complete | `docs/RFCs/RFC-047-final-closure-slice12.md`; recorded final gold-pass assessment, merged cross-repo evidence, wiki publication requirement, validation proof, context/skill decision, and go-for-merge conclusion. |
 | Slice 13 - Post-Completion Communication | Complete | `docs/RFCs/RFC-047-post-completion-communication-slice13.md`; drafted implementation-backed LinkedIn post `LI-2026-05-10-013-contribution-needs-method-evidence.md` and merged it through `sgajbi/lotus-platform#322`. |
+
+## 16. Gold-Pass Assessment
+
+RFC 047 reached the expected gold-standard implementation level for the approved scope.
+
+### What Was Truly Completed
+
+1. Contribution Carino smoothing was corrected to the source-document methodology and proved with
+   deterministic examples.
+2. `POST /performance/contribution` now emits implementation-backed smoothing evidence, source
+   economics evidence, lineage, supportability, and async result evidence.
+3. `ContributionAnalytics:v1` is declared as a governed Lotus data product with trust telemetry,
+   data-product catalog posture, and downstream consumer ownership.
+4. `lotus-gateway` preserves source-owned contribution totals and evidence instead of mutating the
+   contribution return to match TWR summary return.
+5. `lotus-workbench` displays contribution evidence and the canonical validator verifies the
+   product surface through the front-office stack.
+6. README, docs, wiki, and supported-features material were updated as product deliverables.
+
+### Quality Improvements Made
+
+1. Smoothing logic was extracted from the contribution service into `engine/contribution_smoothing.py`.
+2. Source economics classification was isolated in `app/services/contribution_source_economics.py`.
+3. Endpoint-level regression coverage now includes external deposits, income, fee drag, missing
+   classification, short-sleeve behavior, stateful source economics, async replay, and result paths.
+4. OpenAPI, API vocabulary, no-alias, docs, data-product, and trust telemetry gates were run.
+5. Workbench live validation was hardened so evidence screenshots and source-supportability states
+   reflect actual observed contribution evidence.
+
+### Debt Removed
+
+1. Ambiguous Carino factor direction was removed.
+2. Unsupported component-P&L economics are no longer implied or reconstructed.
+3. Downstream contribution return mutation was removed.
+4. Hard-coded degraded Workbench evidence screenshots were replaced with observed state.
+5. A contribution-local FastAPI 422 deprecation warning was removed.
+6. RFC index drift found during post-merge audit is tracked in
+   `docs/RFCs/RFC-047-post-merge-gold-pass-audit.md`.
+
+### What Was Proven
+
+1. Local contribution integration, unit, docs, OpenAPI, vocabulary, no-alias, and ruff checks passed.
+2. GitHub Feature Lane and PR Merge Gate passed for `lotus-performance#157`.
+3. Downstream `lotus-gateway`, `lotus-workbench`, and `lotus-platform` PRs merged with green CI.
+4. Canonical Workbench live validation passed for `PB_SG_GLOBAL_BAL_001`.
+5. Wiki source was published and `Sync-RepoWikis.ps1 -CheckOnly -Repository lotus-performance`
+   passed after publication.
+
+### Final Judgment
+
+The implementation is production-ready for the approved contribution analytics scope. Remaining
+source limitations are explicit product truth: component P&L economics remain `SOURCE_LIMITED`
+until upstream contracts author those economics. That limitation is now visible, reason-coded,
+documented, and safe for private-banking support, operations, sales, and demo conversations.
