@@ -500,6 +500,65 @@ def test_calculate_twr_endpoint_legacy_path_and_diagnostics(client):
     assert "audit" in response_data
     assert response_data["audit"]["counts"]["input_rows"] == 5
 
+    daily_breakdown = ytd_results["portfolio"]["breakdowns"]["daily"]
+    no_flow_evidence = daily_breakdown[0]["calculation_evidence"]
+    assert no_flow_evidence["calculation_method"] == "flow_neutralized_daily_twr"
+    assert no_flow_evidence["denominator_basis"] == "absolute_begin_mv_plus_bod_cf"
+    assert no_flow_evidence["flow_timing_convention"] == "bod_flows_in_denominator_eod_flows_excluded_from_denominator"
+    assert no_flow_evidence["begin_mv"] == 100000.0
+    assert no_flow_evidence["end_mv"] == 101000.0
+    assert no_flow_evidence["adjusted_capital"] == 100000.0
+    assert no_flow_evidence["performance_pnl"] == 1000.0
+    assert no_flow_evidence["daily_return"] == pytest.approx(1.0)
+    assert no_flow_evidence["status"] == "calculated"
+    assert no_flow_evidence["reason_codes"] == ["FLOW_NEUTRALIZED_DAILY_RETURN"]
+
+    deposit_evidence = daily_breakdown[3]["calculation_evidence"]
+    assert deposit_evidence["bod_cf"] == 25000.0
+    assert deposit_evidence["eod_cf"] == 0.0
+    assert deposit_evidence["external_inflows"] == 25000.0
+    assert deposit_evidence["external_outflows"] == 0.0
+    assert deposit_evidence["adjusted_capital"] == pytest.approx(125989.9)
+    assert deposit_evidence["performance_pnl"] == pytest.approx(1259.39)
+    assert deposit_evidence["daily_return"] == pytest.approx(0.999596, abs=1e-6)
+
+
+def test_twr_daily_calculation_evidence_handles_same_day_deposit_and_withdrawal(client):
+    payload = {
+        "portfolio_id": "TWR_DAILY_EVIDENCE",
+        "performance_start_date": "2024-12-31",
+        "metric_basis": "NET",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "valuation_points": [
+            {
+                "perf_date": "2025-01-01",
+                "begin_mv": 1000.0,
+                "bod_cf": 200.0,
+                "eod_cf": -100.0,
+                "mgmt_fees": 2.0,
+                "end_mv": 1113.0,
+            }
+        ],
+    }
+
+    response = client.post("/performance/twr", json=payload)
+    assert response.status_code == 200
+
+    daily_item = response.json()["results_by_period"]["YTD"]["portfolio"]["breakdowns"]["daily"][0]
+    evidence = daily_item["calculation_evidence"]
+    assert evidence["begin_mv"] == 1000.0
+    assert evidence["bod_cf"] == 200.0
+    assert evidence["eod_cf"] == -100.0
+    assert evidence["external_inflows"] == 200.0
+    assert evidence["external_outflows"] == 100.0
+    assert evidence["management_fees"] == 2.0
+    assert evidence["adjusted_capital"] == 1200.0
+    assert evidence["performance_pnl"] == 15.0
+    assert evidence["daily_return"] == pytest.approx(1.25)
+    assert evidence["status"] == "calculated"
+    assert evidence["warnings"] == []
+
 
 def test_calculate_twr_endpoint_multi_period(client):
     """Tests a multi-period request for MTD and YTD."""
@@ -634,6 +693,7 @@ def test_twr_respects_include_timeseries_flag(client):
     daily_breakdown_with = response_with.json()["results_by_period"]["YTD"]["portfolio"]["breakdowns"]["daily"][0]
     assert "daily_data" in daily_breakdown_with
     assert daily_breakdown_with["daily_data"] is not None
+    assert daily_breakdown_with["calculation_evidence"]["adjusted_capital"] == 1000.0
 
     # Case 2: Flag is false
     payload_without = base_payload.copy()
@@ -642,6 +702,7 @@ def test_twr_respects_include_timeseries_flag(client):
     assert response_without.status_code == 200
     daily_breakdown_without = response_without.json()["results_by_period"]["YTD"]["portfolio"]["breakdowns"]["daily"][0]
     assert daily_breakdown_without.get("daily_data") is None
+    assert daily_breakdown_without["calculation_evidence"]["adjusted_capital"] == 1000.0
 
 
 def test_twr_response_includes_portfolio_summary_block(client):

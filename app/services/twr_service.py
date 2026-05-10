@@ -20,6 +20,7 @@ from app.models.responses import (
     PortfolioReturnDecomposition,
     SinglePeriodPerformanceResult,
     TWRBenchmarkContext,
+    TWRDailyCalculationEvidence,
 )
 from app.models.twr_requests import TWRInputMode
 from app.services.benchmark_calculation_service import calculate_benchmark_artifacts
@@ -147,6 +148,62 @@ def _build_return_value_from_decomposition(
     )
 
 
+def _build_daily_calculation_evidence(
+    row: pd.Series,
+    *,
+    metric_basis: str,
+) -> TWRDailyCalculationEvidence:
+    begin_mv = _as_numeric(row.get(PortfolioColumns.BEGIN_MV.value, 0))
+    bod_cf = _as_numeric(row.get(PortfolioColumns.BOD_CF.value, 0))
+    eod_cf = _as_numeric(row.get(PortfolioColumns.EOD_CF.value, 0))
+    management_fees = _as_numeric(row.get(PortfolioColumns.MGMT_FEES.value, 0))
+    end_mv = _as_numeric(row.get(PortfolioColumns.END_MV.value, 0))
+    adjusted_capital = abs(begin_mv + bod_cf)
+    performance_pnl = end_mv - bod_cf - begin_mv - eod_cf
+    if metric_basis == "NET":
+        performance_pnl += management_fees
+
+    status = "calculated" if adjusted_capital != 0 else "not_calculated"
+    reason_codes = ["FLOW_NEUTRALIZED_DAILY_RETURN"]
+    warnings: list[str] = []
+
+    if adjusted_capital == 0:
+        reason_codes.append("ZERO_ADJUSTED_CAPITAL")
+        warnings.append("ZERO_ADJUSTED_CAPITAL")
+
+    perf_date_raw = row.get(PortfolioColumns.PERF_DATE.value)
+    effective_start_raw = row.get(PortfolioColumns.EFFECTIVE_PERIOD_START_DATE.value)
+    if perf_date_raw is not None and effective_start_raw is not None and pd.notna(effective_start_raw):
+        perf_date = pd.to_datetime(str(perf_date_raw)).date()
+        effective_start = pd.to_datetime(str(effective_start_raw)).date()
+        if perf_date < effective_start:
+            status = "not_calculated"
+            reason_codes.append("BEFORE_EFFECTIVE_PERIOD_START")
+            warnings.append("BEFORE_EFFECTIVE_PERIOD_START")
+
+    if _as_numeric(row.get(PortfolioColumns.PERF_RESET.value, 0)) == 1:
+        reason_codes.append("RESET_DAY")
+    if _as_numeric(row.get(PortfolioColumns.NIP.value, 0)) == 1:
+        reason_codes.append("NO_INVESTMENT_PERIOD")
+
+    daily_return = _as_numeric(row.get(PortfolioColumns.DAILY_ROR.value, 0))
+    return TWRDailyCalculationEvidence(
+        begin_mv=begin_mv,
+        end_mv=end_mv,
+        bod_cf=bod_cf,
+        eod_cf=eod_cf,
+        external_inflows=sum(value for value in (bod_cf, eod_cf) if value > 0),
+        external_outflows=abs(sum(value for value in (bod_cf, eod_cf) if value < 0)),
+        management_fees=management_fees,
+        adjusted_capital=adjusted_capital,
+        performance_pnl=performance_pnl,
+        daily_return=daily_return,
+        status=status,
+        reason_codes=reason_codes,
+        warnings=warnings,
+    )
+
+
 def _link_return_series(series: pd.Series) -> float:
     running = Decimal("1")
     for value in series.tolist():
@@ -240,6 +297,7 @@ def _build_portfolio_breakdowns(
     requested_frequencies: list[Frequency],
     breakdowns_data: dict[Frequency, list[dict]],
     include_timeseries: bool,
+    metric_basis: str,
 ) -> dict[Frequency, list[ComparativeBreakdownItem]]:
     breakdowns: dict[Frequency, list[ComparativeBreakdownItem]] = {}
     for frequency in requested_frequencies:
@@ -272,6 +330,11 @@ def _build_portfolio_breakdowns(
                     daily_data=(
                         [frequency_df.iloc[0].to_dict()]
                         if include_timeseries and frequency == Frequency.DAILY and not frequency_df.empty
+                        else None
+                    ),
+                    calculation_evidence=(
+                        _build_daily_calculation_evidence(frequency_df.iloc[0], metric_basis=metric_basis)
+                        if frequency == Frequency.DAILY and not frequency_df.empty
                         else None
                     ),
                 )
@@ -461,6 +524,7 @@ def calculate_twr_response(
             requested_frequencies=requested_frequencies_for_period,
             breakdowns_data=breakdowns_data,
             include_timeseries=performance_request.output.include_timeseries,
+            metric_basis=performance_request.metric_basis,
         )
 
         period_result = SinglePeriodPerformanceResult(

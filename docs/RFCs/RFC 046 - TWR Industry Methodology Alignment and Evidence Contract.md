@@ -34,6 +34,7 @@
   - Slice 1: `docs/RFCs/RFC-046-platform-automation-slice1.md`
   - Slice 2: `docs/RFCs/RFC-046-cleanup-and-structure-slice2.md`
   - Slice 3: `docs/RFCs/RFC-046-data-product-hardening-slice3.md`
+  - Slice 4: `docs/RFCs/RFC-046-daily-twr-evidence-slice4.md`
 
 ## 0. Critical Review Of The First Draft
 

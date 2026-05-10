@@ -204,6 +204,9 @@ def test_twr_guide_uses_current_request_shape():
     assert "relative_performance" in guide
     assert "benchmark_context" in guide
     assert "summary.cumulative_return" in guide
+    assert "calculation_evidence" in guide
+    assert "absolute_begin_mv_plus_bod_cf" in guide
+    assert "Beginning-of-day flows adjust invested capital" in guide
     assert '"portfolio": {' in guide
     assert '"portfolio_return"' not in guide.split("## Example stateful request")[0]
     assert "If `calculation_id` is omitted" in guide

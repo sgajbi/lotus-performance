@@ -98,6 +98,77 @@ class ComparativeSummary(BaseModel):
     )
 
 
+TWRDailyCalculationEvidenceStatus = Literal["calculated", "not_calculated"]
+
+
+class TWRDailyCalculationEvidence(BaseModel):
+    calculation_method: Literal["flow_neutralized_daily_twr"] = Field(
+        default="flow_neutralized_daily_twr",
+        description="Daily TWR method used for this portfolio day.",
+        examples=["flow_neutralized_daily_twr"],
+    )
+    denominator_basis: Literal["absolute_begin_mv_plus_bod_cf"] = Field(
+        default="absolute_begin_mv_plus_bod_cf",
+        description="Capital denominator convention used by the daily return calculation.",
+        examples=["absolute_begin_mv_plus_bod_cf"],
+    )
+    flow_timing_convention: Literal["bod_flows_in_denominator_eod_flows_excluded_from_denominator"] = Field(
+        default="bod_flows_in_denominator_eod_flows_excluded_from_denominator",
+        description=(
+            "External flow timing convention: beginning-of-day flows adjust invested capital; "
+            "end-of-day flows are neutralized from performance P&L but do not adjust the denominator."
+        ),
+        examples=["bod_flows_in_denominator_eod_flows_excluded_from_denominator"],
+    )
+    begin_mv: float = Field(
+        description="Beginning market value used for the daily return calculation.",
+        examples=[1000000.0],
+    )
+    end_mv: float = Field(
+        description="Ending market value used for the daily return calculation.", examples=[1012500.0]
+    )
+    bod_cf: float = Field(description="Beginning-of-day external cash flow.", examples=[25000.0])
+    eod_cf: float = Field(description="End-of-day external cash flow.", examples=[-10000.0])
+    external_inflows: float = Field(
+        description="Positive external cash flows for the day across beginning-of-day and end-of-day flows.",
+        examples=[25000.0],
+    )
+    external_outflows: float = Field(
+        description="Absolute value of negative external cash flows for the day across beginning-of-day and end-of-day flows.",
+        examples=[10000.0],
+    )
+    management_fees: float = Field(
+        description="Management fees included in performance P&L for NET calculations.",
+        examples=[125.0],
+    )
+    adjusted_capital: float = Field(
+        description="Absolute beginning market value plus beginning-of-day flow denominator used for the daily return.",
+        examples=[1025000.0],
+    )
+    performance_pnl: float = Field(
+        description="Flow-neutralized performance P&L numerator used for the daily return.",
+        examples=[12500.0],
+    )
+    daily_return: float = Field(
+        description="Daily return in percentage-point output units. Example: 1.25 means 1.25%, not 125%.",
+        examples=[1.25],
+    )
+    status: TWRDailyCalculationEvidenceStatus = Field(
+        description="Whether the row had enough governed capital basis to calculate a daily return.",
+        examples=["calculated"],
+    )
+    reason_codes: list[str] = Field(
+        default_factory=list,
+        description="Bounded reason codes explaining noteworthy calculation conditions for this row.",
+        examples=[["FLOW_NEUTRALIZED_DAILY_RETURN"]],
+    )
+    warnings: list[str] = Field(
+        default_factory=list,
+        description="Bounded warning codes for rows requiring reviewer attention.",
+        examples=[["ZERO_ADJUSTED_CAPITAL"]],
+    )
+
+
 class ComparativeBreakdownItem(BaseModel):
     period: str = Field(description="Resolved bucket label for this breakdown row.", examples=["2026-03"])
     period_start: dt_date = Field(description="Inclusive bucket start date.", examples=["2026-03-01"])
@@ -114,6 +185,13 @@ class ComparativeBreakdownItem(BaseModel):
     daily_data: Optional[List[Dict]] = Field(
         default=None,
         description="Optional underlying daily detail retained for drill-down use.",
+    )
+    calculation_evidence: TWRDailyCalculationEvidence | None = Field(
+        default=None,
+        description=(
+            "Implementation-backed daily TWR calculation evidence for portfolio daily breakdown rows. "
+            "This curated evidence is returned independently of optional raw daily_data."
+        ),
     )
 
 

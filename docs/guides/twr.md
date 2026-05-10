@@ -172,7 +172,21 @@ Each period result may contain:
 - `relative_performance`
 - `reset_events`
 
-If `output.include_timeseries` is enabled, daily breakdown entries can also include `daily_data`.
+Daily portfolio breakdown entries include `calculation_evidence` as a curated, implementation-backed
+explanation of the daily TWR calculation. This evidence is returned independently of raw
+timeseries output and includes the calculation method, denominator basis, flow timing convention,
+beginning and ending market value, beginning-of-day and end-of-day external flows, external inflows
+and outflows, management fees, adjusted capital, performance P&L, daily return, calculation status,
+reason codes, and warnings.
+
+The denominator basis is `absolute_begin_mv_plus_bod_cf`: Lotus uses the absolute value of
+beginning market value plus beginning-of-day external cash flow as the invested capital denominator.
+Beginning-of-day flows adjust invested capital. End-of-day flows are neutralized from performance
+P&L but do not adjust the denominator.
+
+If `output.include_timeseries` is enabled, daily breakdown entries can also include raw `daily_data`.
+Raw `daily_data` is drill-down material; `calculation_evidence` is the supported calculation
+contract for explaining how the daily return was produced.
 
 When benchmark output is included, each period result uses sibling comparative blocks:
 
