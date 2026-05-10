@@ -16,6 +16,7 @@ was used as a review input; the durable documentation is now Lotus-authored and 
 | Make support behavior operationally usable. | The MWR support playbook maps reason codes to support actions and client-safe explanations. |
 | Track fallback and solver ambiguity rates operationally. | `/metrics` emits `lotus_performance_mwr_solver_outcome_total` with bounded labels for input mode, method, status, reason code, and fallback use; `docs/operations/mwr-alert-rule-templates.md` converts those signals into Lotus alert and dashboard templates. |
 | Support Modified Dietz as a distinct method. | `mwr_method="MODIFIED_DIETZ"` uses dated cash-flow weights, while `mwr_method="DIETZ"` keeps midpoint weighting. XIRR fallback now emits `method="MODIFIED_DIETZ"`. |
+| Preserve current stateful currency context. | Stateful MWR now emits `reporting_currency` and `currency_evidence` with source `PortfolioTimeseriesInput` market values, cash-flow components, and explicit `upstream_preconverted_missing_per_input_fx_metadata` posture. |
 | Keep FX-aware MWR behind a reproducible evidence contract. | `docs/technical/mwr-fx-contract-design.md` defines the upstream FX evidence, response provenance, data mesh, consumer, and validation gates required before multi-currency per-flow conversion becomes supported behavior. |
 
 ## Areas Where Lotus Is Stronger
@@ -52,6 +53,8 @@ Implementation-backed proof currently lives in:
 
 - `engine/mwr.py` for solver behavior and supportability metadata;
 - `app/models/mwr_responses.py` for the response contract;
+- `app/services/stateful_mwr_input_service.py` for stateful reporting-currency evidence
+  normalization;
 - `tests/unit/engine/test_mwr.py` and `tests/integration/test_mwr_api.py` for calculation behavior;
 - `tests/integration/test_response_attribute_certification.py` for emitted response fields;
 - `tests/unit/test_observability.py` for bounded MWR metric labels;

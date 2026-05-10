@@ -28,6 +28,8 @@ class _CoreServiceStub:
                 200,
                 {
                     "portfolio_open_date": "2025-12-31",
+                    "portfolio_currency": "EUR",
+                    "reporting_currency": "USD",
                     "observations": [
                         {
                             "valuation_date": "2026-01-01",
@@ -43,6 +45,8 @@ class _CoreServiceStub:
                 200,
                 {
                     "portfolio_open_date": "2025-12-31",
+                    "portfolio_currency": "EUR",
+                    "reporting_currency": "USD",
                     "observations": [
                         {
                             "valuation_date": "2026-01-02",
@@ -56,6 +60,8 @@ class _CoreServiceStub:
             200,
             {
                 "portfolio_open_date": "2025-12-31",
+                "portfolio_currency": "EUR",
+                "reporting_currency": "USD",
                 "observations": [
                     {
                         "valuation_date": "2026-01-03",
@@ -279,6 +285,8 @@ async def test_get_portfolio_timeseries_merges_chunked_and_paginated_observation
 
     assert status_code == 200
     assert payload["portfolio_open_date"] == "2025-12-31"
+    assert payload["portfolio_currency"] == "EUR"
+    assert payload["reporting_currency"] == "USD"
     assert [item["valuation_date"] for item in payload["observations"]] == [
         "2026-01-01",
         "2026-01-02",

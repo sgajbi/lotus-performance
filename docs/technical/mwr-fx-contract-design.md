@@ -18,6 +18,16 @@ values and cash flows to already be expressed in one consistent reporting curren
 Modified Dietz, or Simple Dietz execution. This is intentional: today's `cashflows_used` response
 echo proves the signed schedule used by the engine, not FX conversion provenance.
 
+Current stateful execution does preserve the reporting-currency context that `lotus-core` already
+publishes on `PortfolioTimeseriesInput`. The MWR response now includes `reporting_currency` and a
+`currency_evidence` block with `market_values_used[]`, `cashflow_evidence[]`, and
+`currency_mode="SINGLE_REPORTING_CURRENCY"`. That block documents the source-owned values and
+cash-flow components used by MWR. It deliberately reports
+`conversion_evidence_status="upstream_preconverted_missing_per_input_fx_metadata"` because the
+current upstream portfolio-timeseries contract exposes converted amounts and currency context, but
+not per-input FX rate source, rate version, conversion policy, conversion timestamp, or conversion
+fingerprint fields.
+
 ## Design Goal
 
 FX-aware MWR should allow private-bank users to explain investor-experience return when capital
@@ -72,7 +82,8 @@ and documentation consumers are ready. The response should make the following vi
   conversion policy.
 
 No downstream consumer may treat the current base-only `cashflows_used[].amount` as enough to
-explain an FX-aware MWR calculation.
+explain an FX-aware MWR calculation. Consumers may display `currency_evidence` as source-component
+and reporting-currency context, but must not reinterpret it as complete per-input FX provenance.
 
 ## Data Mesh Requirements
 
@@ -110,6 +121,9 @@ FX-aware MWR is not done until all of these are true:
 - OpenAPI exposes the new request and response fields with no alias drift.
 - Stateful mode consumes a governed upstream FX analytics-input contract, not an operational-read
   shortcut with implicit semantics.
+- `currency_evidence.conversion_evidence_status` moves from
+  `upstream_preconverted_missing_per_input_fx_metadata` to a complete governed status only after
+  upstream per-input FX evidence is available and validated.
 - Stateless mode validates complete FX evidence when FX-aware execution is requested.
 - Engine tests cover XIRR and Dietz-family schedules with mixed source currencies after conversion.
 - API tests cover missing FX evidence, stale FX evidence, conflicting reporting currency, and

@@ -260,6 +260,8 @@ def test_mwr_guide_matches_current_method_reality():
     assert "carry-forward adjustments" in guide
     assert "emit_cashflows_used=true" in guide
     assert "cashflows_used" in guide
+    assert "currency_evidence" in guide
+    assert "upstream_preconverted_missing_per_input_fx_metadata" in guide
     assert "holding_period_return" in guide
     assert "fallback_reason" in guide
     assert "root_count_detected" in guide
@@ -267,6 +269,7 @@ def test_mwr_guide_matches_current_method_reality():
     assert "mwr-lotus-production-controls.md" in guide
     assert "mwr-fx-contract-design.md" in guide
     assert "cashflows_used` proves the signed schedule" in guide
+    assert "current `currency_evidence.conversion_evidence_status`" in api_reference
     assert "mwr-production-support-playbook.md" in guide
     assert "mwr-industry-review-findings.md" in guide
     assert "investor capital-timing lens" in certification
@@ -312,8 +315,10 @@ def test_mwrr_industry_material_is_converted_to_lotus_product_docs():
     assert "mwr-alert-rule-templates.md" in findings
     assert "mwr-fx-contract-design.md" in findings
     assert "Required Input Provenance" in fx_design
+    assert "Current stateful execution does preserve the reporting-currency context" in fx_design
     assert "source_amount" in fx_design
     assert "conversion_fingerprint" in fx_design
+    assert "upstream_preconverted_missing_per_input_fx_metadata" in fx_design
     assert "must not reconstruct FX conversion" in fx_design
     assert "fail closed" in fx_design
     assert "LotusPerformanceMWRFallbackRateElevated" in alert_templates
@@ -327,6 +332,8 @@ def test_mwrr_industry_material_is_converted_to_lotus_product_docs():
     assert "mwr-alert-rule-templates.md" in guide
     assert "mwr-lotus-production-controls.md" in api_wiki
     assert "mwr-fx-contract-design.md" in api_wiki
+    assert "currency_evidence" in api_wiki
+    assert "currency_evidence" in mesh_wiki
     assert "mwr-production-support-playbook.md" in ops_wiki
     assert "mwr-alert-rule-templates.md" in ops_wiki
     assert "must not infer FX rates" in integrations_wiki

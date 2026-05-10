@@ -8,7 +8,7 @@ from app.core.config import Settings
 from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest, MWRInputMode
 from app.models.mwr_requests import MoneyWeightedReturnRequest
 from app.services.execution_registry import execution_registry
-from app.services.stateful_mwr_input_service import build_stateful_mwr_input_for_window
+from app.services.stateful_mwr_input_service import MWRCurrencyEvidence, build_stateful_mwr_input_for_window
 from app.services.stateful_performance_input_service import retrieve_stateful_portfolio_input
 
 DEFAULT_STATEFUL_CONSUMER_SYSTEM = "lotus-performance"
@@ -18,6 +18,7 @@ DEFAULT_STATEFUL_CONSUMER_SYSTEM = "lotus-performance"
 class ResolvedMWRRequest:
     mwr_request: MoneyWeightedReturnRequest
     input_mode: MWRInputMode
+    currency_evidence: MWRCurrencyEvidence | None = None
 
 
 async def resolve_mwr_request(
@@ -86,4 +87,5 @@ async def resolve_mwr_request(
             start_date=normalized_input.start_date,
         ),
         input_mode=MWRInputMode.STATEFUL,
+        currency_evidence=normalized_input.currency_evidence,
     )

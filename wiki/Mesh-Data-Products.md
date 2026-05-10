@@ -15,12 +15,14 @@
 - Trust telemetry: `contracts/trust-telemetry/`
 - MWR product evidence: `POST /performance/mwr` emits source-owned calculation quality through
   `status`, `reason_codes`, `warnings`, `fallback_reason`, `holding_period_return`,
-  `convergence`, `calculation_supportability`, lineage, metadata, diagnostics, and audit fields.
-  Downstream products may display or summarize those fields, but must not reinterpret ambiguous
-  XIRR roots or rebuild investor cash-flow schedules outside the producer.
+  `convergence`, `reporting_currency`, `currency_evidence`, `calculation_supportability`,
+  lineage, metadata, diagnostics, and audit fields. Downstream products may display or summarize
+  those fields, but must not reinterpret ambiguous XIRR roots, rebuild investor cash-flow schedules
+  outside the producer, or infer per-input FX provenance from pre-converted source amounts.
   It is now declared as `MoneyWeightedReturnAnalytics` in
   `contracts/domain-data-products/lotus-performance-products.v1.json`. Current MWR is a single
-  reporting-currency product; future FX-aware MWR remains gated by
+  reporting-currency product with explicit source-component evidence; future FX-aware MWR remains
+  gated by
   [docs/technical/mwr-fx-contract-design.md](../docs/technical/mwr-fx-contract-design.md).
   Production controls and review findings are maintained in
   [docs/guides/mwr-lotus-production-controls.md](../docs/guides/mwr-lotus-production-controls.md)

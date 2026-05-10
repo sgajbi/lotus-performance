@@ -1,5 +1,5 @@
 # app/models/mwr_responses.py
-from datetime import date
+from datetime import date as Date
 from typing import List, Literal, Optional
 from uuid import UUID
 
@@ -27,7 +27,7 @@ class Convergence(BaseModel):
     rate_lower_bound: Optional[float] = Field(default=None, description="Lower searched annual rate bound.")
     rate_upper_bound: Optional[float] = Field(default=None, description="Upper searched annual rate bound.")
     day_count_basis: Optional[str] = Field(default=None, description="Day-count convention used for dated XIRR.")
-    anchor_date: Optional[date] = Field(default=None, description="Anchor date used for year-fraction calculation.")
+    anchor_date: Optional[Date] = Field(default=None, description="Anchor date used for year-fraction calculation.")
     normalized_flow_count: Optional[int] = Field(default=None, description="Number of normalized solver flows.")
     gross_cash_flow_scale: Optional[float] = Field(default=None, description="Gross absolute solver-flow scale.")
 
@@ -42,8 +42,8 @@ class MWRResult(BaseModel):
         examples=[18.42],
     )
     method: Literal["XIRR", "MODIFIED_DIETZ", "DIETZ"] = Field(description="Computation method used for the result.")
-    start_date: date = Field(description="Inclusive start date for the evaluated window.", examples=["2026-01-01"])
-    end_date: date = Field(description="Inclusive end date for the evaluated window.", examples=["2026-03-31"])
+    start_date: Date = Field(description="Inclusive start date for the evaluated window.", examples=["2026-01-01"])
+    end_date: Date = Field(description="Inclusive end date for the evaluated window.", examples=["2026-03-31"])
     notes: List[str] = Field(description="Method or validation notes returned by the engine.")
     convergence: Optional[Convergence] = Field(
         default=None, description="Numerical convergence diagnostics when applicable."
@@ -102,8 +102,20 @@ class MoneyWeightedReturnResponse(BaseModel):
         default=None,
         description="Cash flows used by the MWR calculation in reporting currency units.",
     )
-    start_date: date = Field(description="Inclusive start date for the evaluated window.", examples=["2026-01-01"])
-    end_date: date = Field(description="Inclusive end date for the evaluated window.", examples=["2026-03-31"])
+    reporting_currency: Optional[str] = Field(
+        default=None,
+        description="Effective reporting currency for MWR market values and cash flows.",
+    )
+    currency_evidence: Optional["MWRCurrencyEvidence"] = Field(
+        default=None,
+        description=(
+            "Currency context and source-component evidence for stateful MWR. The block is additive "
+            "to legacy cashflows_used and documents when upstream values are pre-converted without "
+            "per-input FX metadata."
+        ),
+    )
+    start_date: Date = Field(description="Inclusive start date for the evaluated window.", examples=["2026-01-01"])
+    end_date: Date = Field(description="Inclusive end date for the evaluated window.", examples=["2026-03-31"])
     notes: List[str] = Field(description="Method or validation notes returned by the engine.")
     calculation_supportability: PerformanceCalculationSupportability = Field(
         description=(
@@ -115,3 +127,73 @@ class MoneyWeightedReturnResponse(BaseModel):
     meta: Meta = Field(description="Shared metadata envelope for the calculation.")
     diagnostics: Diagnostics = Field(description="Diagnostic details for the calculation.")
     audit: Audit = Field(description="Audit details for the calculation.")
+
+
+class MWRCashFlowEvidenceComponent(BaseModel):
+    component_type: Literal["source_cash_flow", "carry_forward_adjustment"] = Field(
+        description="Source component type contributing to the MWR cash-flow amount."
+    )
+    amount: str = Field(description="Signed component amount in the MWR reporting currency.")
+    currency: Optional[str] = Field(default=None, description="Currency context for the component amount.")
+    cash_flow_type: Optional[str] = Field(default=None, description="Canonical source cash-flow type when available.")
+    flow_scope: Optional[str] = Field(default=None, description="Canonical source flow scope when available.")
+    source_classification: Optional[str] = Field(
+        default=None,
+        description="Underlying source classification that produced the cash-flow component.",
+    )
+
+
+class MWRCashFlowEvidence(BaseModel):
+    date: Date = Field(description="Cash-flow date used by the MWR calculation.")
+    amount: str = Field(description="Signed aggregate amount used by MWR.")
+    currency: Optional[str] = Field(default=None, description="Currency context for the aggregate amount.")
+    source_components: List[MWRCashFlowEvidenceComponent] = Field(
+        default_factory=list,
+        description="Source components aggregated into this MWR cash flow.",
+    )
+
+
+class MWRMarketValueEvidence(BaseModel):
+    valuation_date: Optional[Date] = Field(
+        default=None,
+        description="Source valuation date for the market value used by MWR.",
+    )
+    amount: str = Field(description="Market value amount used by MWR.")
+    currency: Optional[str] = Field(default=None, description="Currency context for the market value.")
+    value_role: Literal["beginning_market_value", "ending_market_value"] = Field(
+        description="Whether this value is the beginning or ending MWR market value."
+    )
+    source_product: Literal["PortfolioTimeseriesInput"] = Field(
+        default="PortfolioTimeseriesInput",
+        description="Upstream source data product used for stateful MWR sourcing.",
+    )
+    conversion_status: Literal["upstream_preconverted"] = Field(
+        default="upstream_preconverted",
+        description="Conversion posture for the source amount.",
+    )
+
+
+class MWRCurrencyEvidence(BaseModel):
+    reporting_currency: Optional[str] = Field(
+        default=None,
+        description="Effective reporting currency used for the MWR market values and cash flows.",
+    )
+    portfolio_currency: Optional[str] = Field(default=None, description="Portfolio base currency reported by core.")
+    currency_mode: Literal["SINGLE_REPORTING_CURRENCY"] = Field(
+        description="MWR currently calculates one reporting-currency cash-flow schedule."
+    )
+    conversion_evidence_status: Literal["upstream_preconverted_missing_per_input_fx_metadata"] = Field(
+        description="Whether per-input FX conversion evidence is complete for the MWR response."
+    )
+    conversion_evidence_reason_codes: List[str] = Field(
+        default_factory=list,
+        description="Machine-readable reason codes for conversion evidence completeness.",
+    )
+    market_values_used: List[MWRMarketValueEvidence] = Field(
+        default_factory=list,
+        description="Beginning and ending market values used by the MWR calculation.",
+    )
+    cashflow_evidence: List[MWRCashFlowEvidence] = Field(
+        default_factory=list,
+        description="MWR cash-flow schedule with source component evidence.",
+    )
