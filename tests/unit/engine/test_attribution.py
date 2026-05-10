@@ -16,6 +16,7 @@ from engine.attribution import (
     aggregate_attribution_results,
     run_attribution_calculations,
 )
+from engine.attribution_supportability import classify_attribution_residual
 
 
 @pytest.fixture
@@ -497,3 +498,131 @@ def test_run_attribution_calculations_returns_empty_when_aligned_panel_empty(by_
 
     assert effects_df.empty
     assert "aligned_panel.csv" in lineage
+
+
+def test_residual_materiality_policy_classifies_review_and_material_breaks():
+    immaterial = classify_attribution_residual(0.00009)
+    watch = classify_attribution_residual(0.005)
+    material = classify_attribution_residual(0.02)
+
+    assert immaterial.classification == "immaterial"
+    assert immaterial.treatment == "no_action"
+    assert watch.classification == "watch"
+    assert watch.treatment == "review"
+    assert material.classification == "material"
+    assert material.treatment == "investigate"
+
+
+def test_attribution_supportability_evidence_flags_alignment_and_source_quality_edges():
+    request = AttributionRequest.model_validate(
+        {
+            "portfolio_id": "ATTR_EDGE_STATUS",
+            "mode": "by_group",
+            "group_by": ["sector"],
+            "linking": "none",
+            "frequency": "daily",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-01",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "portfolio_groups_data": [
+                {
+                    "key": {"sector": "Tech"},
+                    "observations": [{"date": "2025-01-01", "return_base": 0.02, "weight_bop": 0.6}],
+                },
+                {
+                    "key": {"sector": "Private Equity"},
+                    "observations": [{"date": "2025-01-01", "return_base": 0.01, "weight_bop": 0.2}],
+                },
+                {
+                    "key": {"sector": "unknown"},
+                    "observations": [{"date": "2025-01-01", "return_base": 0.00, "weight_bop": 0.2}],
+                },
+                {
+                    "key": {"sector": "Short Book"},
+                    "observations": [{"date": "2025-01-01", "return_base": -0.01, "weight_bop": -0.1}],
+                },
+            ],
+            "benchmark_groups_data": [
+                {
+                    "key": {"sector": "Tech"},
+                    "observations": [{"date": "2025-01-01", "return_base": 0.01, "weight_bop": 0.5}],
+                },
+                {
+                    "key": {"sector": "Benchmark Only"},
+                    "observations": [{"date": "2025-01-01", "return_base": 0.005, "weight_bop": 0.2}],
+                },
+                {
+                    "key": {"sector": "Health"},
+                    "observations": [{"date": "2025-01-01", "weight_bop": 0.3}],
+                },
+            ],
+        }
+    )
+
+    effects_df, _ = run_attribution_calculations(request)
+    result, lineage = aggregate_attribution_results(effects_df, request)
+
+    assert result.status == "partial"
+    assert set(result.reason_codes) >= {
+        "off_benchmark_exposure",
+        "benchmark_only_exposure",
+        "unclassified_segment",
+        "missing_benchmark_return",
+        "negative_weight",
+    }
+    assert result.supportability_evidence.portfolio_only_group_count == 3
+    assert result.supportability_evidence.benchmark_only_group_count == 2
+    assert result.supportability_evidence.unclassified_group_count == 1
+    assert result.supportability_evidence.missing_benchmark_return_count == 1
+    assert result.supportability_evidence.negative_weight_count == 1
+    assert result.supportability_evidence.currency_attribution_status == "not_requested"
+    assert result.supportability_evidence.linking_status == "not_requested"
+    assert "attribution_supportability_evidence.csv" in lineage
+    evidence_df = lineage["attribution_supportability_evidence.csv"]
+    assert {"portfolio_only", "benchmark_only", "unclassified", "missing_benchmark_return"}.issubset(
+        evidence_df.columns
+    )
+
+
+def test_attribution_supportability_evidence_flags_currency_and_linking_gaps():
+    request = AttributionRequest.model_validate(
+        {
+            "portfolio_id": "ATTR_LINKING_STATUS",
+            "mode": "by_group",
+            "group_by": ["currency"],
+            "linking": "carino",
+            "frequency": "daily",
+            "currency_mode": "BOTH",
+            "report_ccy": "USD",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "portfolio_groups_data": [
+                {
+                    "key": {"currency": "USD"},
+                    "observations": [
+                        {"date": "2025-01-01", "return_base": 0.01, "weight_bop": 1.0},
+                        {"date": "2025-01-02", "return_base": -0.01, "weight_bop": 1.0},
+                    ],
+                }
+            ],
+            "benchmark_groups_data": [
+                {
+                    "key": {"currency": "USD"},
+                    "observations": [
+                        {"date": "2025-01-01", "return_base": 0.01, "weight_bop": 1.0},
+                        {"date": "2025-01-02", "return_base": -0.01, "weight_bop": 1.0},
+                    ],
+                }
+            ],
+        }
+    )
+
+    effects_df, _ = run_attribution_calculations(request)
+    result, _ = aggregate_attribution_results(effects_df, request)
+
+    assert result.status == "partial"
+    assert "currency_attribution_unavailable" in result.reason_codes
+    assert "linking_scaling_skipped" in result.reason_codes
+    assert result.supportability_evidence.currency_attribution_status == "unavailable"
+    assert result.supportability_evidence.linking_status == "scaling_skipped"

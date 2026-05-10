@@ -147,6 +147,13 @@ def test_attribution_endpoint_by_instrument_happy_path(client):
         "metric_labels": _EXPECTED_SUPPORTABILITY_METRIC_LABELS,
     }
     response_data = body["results_by_period"]["ITD"]
+    assert response_data["status"] == "valid"
+    assert response_data["reason_codes"] == []
+    assert response_data["supportability_evidence"]["portfolio_only_group_count"] == 0
+    assert response_data["supportability_evidence"]["benchmark_only_group_count"] == 0
+    assert response_data["supportability_evidence"]["currency_attribution_status"] == "not_requested"
+    assert response_data["supportability_evidence"]["linking_status"] == "not_requested"
+    assert response_data["reconciliation"]["residual_materiality"]["classification"] == "immaterial"
     assert response_data["reconciliation"]["total_active_return"] == pytest.approx(0.1)
     level = response_data["levels"][0]
     _assert_authoritative_level_totals(level)
@@ -198,6 +205,60 @@ def test_attribution_lineage_flow(client):
     assert lineage_data["calculation_type"] == "Attribution"
     assert "aligned_panel.csv" in lineage_data["artifacts"]
     assert "single_period_effects.csv" in lineage_data["artifacts"]
+    assert "ITD_attribution_supportability_evidence.csv" in lineage_data["artifacts"]
+
+
+def test_attribution_endpoint_emits_controlled_status_reason_and_supportability_evidence(client):
+    payload = {
+        "portfolio_id": "ATTRIB_STATUS_01",
+        "mode": "by_group",
+        "group_by": ["sector"],
+        "linking": "none",
+        "frequency": "daily",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "portfolio_groups_data": [
+            {
+                "key": {"sector": "Technology"},
+                "observations": [{"date": "2025-01-01", "return_base": 0.02, "weight_bop": 0.7}],
+            },
+            {
+                "key": {"sector": "unknown"},
+                "observations": [{"date": "2025-01-01", "return_base": 0.01, "weight_bop": 0.3}],
+            },
+        ],
+        "benchmark_groups_data": [
+            {
+                "key": {"sector": "Technology"},
+                "observations": [{"date": "2025-01-01", "return_base": 0.01, "weight_bop": 0.6}],
+            },
+            {
+                "key": {"sector": "Benchmark Only"},
+                "observations": [{"date": "2025-01-01", "return_base": 0.005, "weight_bop": 0.4}],
+            },
+        ],
+    }
+
+    response = client.post("/performance/attribution", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    period = body["results_by_period"]["ITD"]
+    assert period["status"] == "partial"
+    assert set(period["reason_codes"]) >= {
+        "off_benchmark_exposure",
+        "benchmark_only_exposure",
+        "unclassified_segment",
+    }
+    assert period["supportability_evidence"]["portfolio_only_group_count"] == 1
+    assert period["supportability_evidence"]["benchmark_only_group_count"] == 1
+    assert period["supportability_evidence"]["unclassified_group_count"] == 1
+    assert all(reason["message"] for reason in period["reasons"])
+
+    assert drain_lineage_queue() >= 1
+    lineage = client.get(f"/performance/lineage/{body['calculation_id']}").json()
+    assert "ITD_attribution_supportability_evidence.csv" in lineage["artifacts"]
 
 
 def test_attribution_endpoint_hierarchical(client):

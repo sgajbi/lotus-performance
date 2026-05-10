@@ -21,6 +21,10 @@ from app.models.attribution_responses import (
     SinglePeriodAttributionResult,
 )
 from common.enums import AttributionMode, LinkingMethod
+from engine.attribution_supportability import (
+    build_attribution_supportability_evidence,
+    classify_attribution_residual,
+)
 from engine.config import EngineConfig
 from engine.runtime import run_engine_for_valuation_points
 from engine.schema import PortfolioColumns
@@ -268,12 +272,16 @@ def _prepare_panel_from_groups(groups: List[PortfolioGroup | BenchmarkGroup], gr
         group_key_tuple = tuple(group.key.get(k) for k in group_by)
         for obs in group.observations:
             obs_data = obs if isinstance(obs, dict) else obs.model_dump()
+            return_base = obs_data.get("return_base")
+            if return_base is None:
+                return_base = obs_data.get("return")
             record = {
                 "date": pd.to_datetime(obs_data["date"]),
                 "weight_bop": obs_data.get("weight_bop", 0.0),
-                "return_base": obs_data.get("return_base") or obs_data.get("return", 0.0),
+                "return_base": return_base,
                 "return_local": obs_data.get("return_local"),
                 "return_fx": obs_data.get("return_fx"),
+                "has_return_base": return_base is not None,
             }
             for i, key in enumerate(group_by):
                 record[key] = group_key_tuple[i]
@@ -330,6 +338,10 @@ def _align_and_prepare_data(request: AttributionRequest, portfolio_groups_data: 
                     .apply(pd.to_numeric, errors="coerce")
                     .fillna(0.0)
                 )
+        if "has_return_base" in wide_panel.columns.get_level_values(0):
+            resampled_data["has_base_return"] = (
+                wide_panel["has_return_base"].resample(freq_code).max().where(lambda series: series.notna(), False)
+            )
         return pd.concat(
             [df.stack(group_by, future_stack=True) for df in resampled_data.values()],
             axis=1,
@@ -339,7 +351,24 @@ def _align_and_prepare_data(request: AttributionRequest, portfolio_groups_data: 
     df_p = resample_panel(portfolio_panel)
     df_b = resample_panel(benchmark_panel)
 
-    aligned_df = pd.merge(df_p, df_b, left_index=True, right_index=True, how="outer", suffixes=("_p", "_b")).fillna(0.0)
+    aligned_df = pd.merge(df_p, df_b, left_index=True, right_index=True, how="outer", suffixes=("_p", "_b"))
+    aligned_df["portfolio_observation_present"] = aligned_df["w_p"].notna() | aligned_df["r_base_p"].notna()
+    aligned_df["benchmark_observation_present"] = aligned_df["w_b"].notna() | aligned_df["r_base_b"].notna()
+    if "has_base_return_b" not in aligned_df.columns:
+        aligned_df["has_base_return_b"] = aligned_df["r_base_b"].notna()
+    if "has_base_return_p" not in aligned_df.columns:
+        aligned_df["has_base_return_p"] = aligned_df["r_base_p"].notna()
+    bool_columns = {
+        "portfolio_observation_present",
+        "benchmark_observation_present",
+        "has_base_return_p",
+        "has_base_return_b",
+    }
+    for column in aligned_df.columns:
+        if column in bool_columns:
+            aligned_df[column] = aligned_df[column].where(aligned_df[column].notna(), False).astype(bool)
+        else:
+            aligned_df[column] = aligned_df[column].fillna(0.0)
     aligned_df.index.names = ["date"] + group_by
 
     total_benchmark_return = (aligned_df["w_b"] * aligned_df["r_base_b"]).groupby(level="date").sum()
@@ -394,9 +423,11 @@ def aggregate_attribution_results(
     per_period_b_return = effects_df.groupby(level="date")["r_b_total"].first()
     per_period_active_return = per_period_p_return - per_period_b_return
 
+    linking_status = "not_requested"
     if request.linking != LinkingMethod.NONE:
         geometric_active_return = (1 + per_period_p_return).prod() - 1 - ((1 + per_period_b_return).prod() - 1)
         arithmetic_active_return = per_period_active_return.sum()
+        linking_status = "scaling_skipped" if arithmetic_active_return == 0 else "linked"
         scaled_effects = _link_effects_top_down(
             effects_df.reset_index(), geometric_active_return, arithmetic_active_return
         )
@@ -435,13 +466,36 @@ def aggregate_attribution_results(
     final_totals = (
         levels[0].totals if levels else AttributionLevelTotals(allocation=0, selection=0, interaction=0, total_effect=0)
     )
+    residual = (active_return * 100) - final_totals.total_effect
+    residual_materiality = classify_attribution_residual(residual)
+
+    currency_attribution_status = "not_requested"
+    if request.currency_mode == "BOTH":
+        required_cols = {"r_local_p", "r_local_b", "r_fx_b", "w_p", "w_b"}
+        currency_attribution_status = "complete" if required_cols.issubset(effects_df.columns) else "unavailable"
+
+    status, reason_codes, reasons, supportability_evidence, supportability_lineage = (
+        build_attribution_supportability_evidence(
+            effects_df,
+            request,
+            currency_attribution_status=currency_attribution_status,
+            linking_status=linking_status,
+            residual_materiality=residual_materiality,
+        )
+    )
+    aggregation_lineage["attribution_supportability_evidence.csv"] = supportability_lineage
 
     period_result = SinglePeriodAttributionResult(
+        status=status,
+        reason_codes=reason_codes,
+        reasons=reasons,
+        supportability_evidence=supportability_evidence,
         levels=levels,
         reconciliation=Reconciliation(
             total_active_return=active_return * 100,
             sum_of_effects=final_totals.total_effect,
-            residual=(active_return * 100) - final_totals.total_effect,
+            residual=residual,
+            residual_materiality=residual_materiality,
         ),
     )
 

@@ -425,6 +425,11 @@ Validation:
 
 Purpose: implement the core methodology changes approved by this RFC.
 
+Implementation evidence: `docs/RFCs/RFC-048-attribution-methodology-engine-contract-slice3.md`.
+Slice 3 added controlled attribution period status, reason codes, residual materiality,
+support-safe alignment evidence, and lineage evidence while preserving existing Brinson,
+hierarchy, currency, and linking formulas.
+
 Scope:
 
 1. add controlled attribution status and reason-code model;

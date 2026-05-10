@@ -1,5 +1,5 @@
 # app/models/attribution_responses.py
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -124,6 +124,123 @@ class Reconciliation(BaseModel):
         description="Residual between active return and summed effects in percentage-point output units.",
         examples=[0.01],
     )
+    residual_materiality: "AttributionResidualMateriality" = Field(
+        description=(
+            "Materiality classification for the residual in percentage-point output units. "
+            "Operations should use this block to distinguish immaterial rounding from reviewable breaks."
+        )
+    )
+
+
+AttributionPeriodStatus = Literal["valid", "warning", "partial", "unavailable", "invalid"]
+AttributionReasonSeverity = Literal["info", "warning", "error"]
+AttributionReasonCode = Literal[
+    "off_benchmark_exposure",
+    "benchmark_only_exposure",
+    "unclassified_segment",
+    "missing_benchmark_data",
+    "missing_benchmark_return",
+    "negative_weight",
+    "zero_portfolio_exposure",
+    "currency_attribution_unavailable",
+    "linking_scaling_skipped",
+    "material_residual",
+    "residual_watch",
+]
+AttributionResidualClassification = Literal["immaterial", "watch", "material"]
+AttributionResidualTreatment = Literal["no_action", "review", "investigate"]
+AttributionCurrencyEvidenceStatus = Literal["not_requested", "complete", "unavailable"]
+AttributionLinkingEvidenceStatus = Literal["not_requested", "linked", "scaling_skipped"]
+
+
+class AttributionResidualMateriality(BaseModel):
+    """Residual materiality policy and classification for a resolved attribution period."""
+
+    classification: AttributionResidualClassification = Field(
+        description="Materiality classification applied to the residual.", examples=["immaterial"]
+    )
+    treatment: AttributionResidualTreatment = Field(
+        description="Operational treatment for the residual classification.", examples=["no_action"]
+    )
+    absolute_residual: float = Field(
+        description="Absolute residual in percentage-point output units.", examples=[0.00002]
+    )
+    warning_threshold: float = Field(
+        description="Residual threshold, in percentage points, at which operations should review the result.",
+        examples=[0.001],
+    )
+    material_threshold: float = Field(
+        description="Residual threshold, in percentage points, at which the result is treated as material.",
+        examples=[0.01],
+    )
+
+
+class AttributionReason(BaseModel):
+    """Controlled attribution status reason emitted for operations and downstream consumers."""
+
+    code: AttributionReasonCode = Field(
+        description="Controlled attribution reason code.", examples=["off_benchmark_exposure"]
+    )
+    severity: AttributionReasonSeverity = Field(
+        description="Bounded reason severity for support workflows.", examples=["warning"]
+    )
+    message: str = Field(
+        description="Client-safe support message describing the reason without exposing raw payload values.",
+        examples=["Portfolio holds one or more groups that are absent from the benchmark."],
+    )
+    affected_group_count: int = Field(
+        default=0,
+        ge=0,
+        description="Count of affected attribution groups. Identifiers are intentionally not emitted.",
+        examples=[2],
+    )
+
+
+class AttributionSupportabilityEvidence(BaseModel):
+    """Support-safe evidence summary for a resolved attribution period."""
+
+    portfolio_only_group_count: int = Field(
+        default=0,
+        ge=0,
+        description="Count of groups with portfolio exposure and no benchmark exposure.",
+        examples=[1],
+    )
+    benchmark_only_group_count: int = Field(
+        default=0,
+        ge=0,
+        description="Count of groups with benchmark exposure and no portfolio exposure.",
+        examples=[1],
+    )
+    unclassified_group_count: int = Field(
+        default=0,
+        ge=0,
+        description="Count of groups resolved to the governed unclassified bucket.",
+        examples=[1],
+    )
+    missing_benchmark_return_count: int = Field(
+        default=0,
+        ge=0,
+        description="Count of benchmark-exposed groups whose benchmark return is missing or unavailable.",
+        examples=[1],
+    )
+    negative_weight_count: int = Field(
+        default=0,
+        ge=0,
+        description="Count of rows with negative portfolio or benchmark weights.",
+        examples=[0],
+    )
+    zero_portfolio_exposure_count: int = Field(
+        default=0,
+        ge=0,
+        description="Count of rows where portfolio and benchmark exposure are both zero after alignment.",
+        examples=[0],
+    )
+    currency_attribution_status: AttributionCurrencyEvidenceStatus = Field(
+        description="Currency attribution evidence status for the period.", examples=["not_requested"]
+    )
+    linking_status: AttributionLinkingEvidenceStatus = Field(
+        description="Linking evidence status for the period.", examples=["linked"]
+    )
 
 
 class CurrencyAttributionEffects(BaseModel):
@@ -165,6 +282,23 @@ class CurrencyAttributionResult(BaseModel):
 class SinglePeriodAttributionResult(BaseModel):
     """Contains the full set of attribution results for a single, resolved period."""
 
+    status: AttributionPeriodStatus = Field(
+        default="valid",
+        description="Controlled attribution period status for downstream degraded-state handling.",
+        examples=["valid"],
+    )
+    reason_codes: List[AttributionReasonCode] = Field(
+        default_factory=list,
+        description="Controlled reason-code list for the attribution period.",
+        examples=[["off_benchmark_exposure"]],
+    )
+    reasons: List[AttributionReason] = Field(
+        default_factory=list,
+        description="Detailed controlled reasons for the attribution period.",
+    )
+    supportability_evidence: AttributionSupportabilityEvidence = Field(
+        description="Support-safe attribution evidence summary for this period."
+    )
     levels: List[AttributionLevelResult] = Field(description="Hierarchical attribution levels for the period.")
     reconciliation: Reconciliation = Field(
         description="Reconciliation between active return and summed attribution effects."

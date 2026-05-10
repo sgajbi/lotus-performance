@@ -57,8 +57,13 @@ class BenchmarkObservation(BaseModel):
         description="Benchmark group beginning-of-period weight as a decimal ratio. Example: 0.6 means 60%.",
         examples=[0.6],
     )
-    return_base: float = Field(
-        description="Benchmark group base-currency return for the observation as a decimal ratio.",
+    return_base: Optional[float] = Field(
+        default=None,
+        description=(
+            "Benchmark group base-currency return for the observation as a decimal ratio. "
+            "Null is accepted as source evidence for unavailable benchmark return and is surfaced "
+            "through attribution supportability reason codes instead of being silently invented."
+        ),
         examples=[0.0125],
     )
     return_local: Optional[float] = Field(

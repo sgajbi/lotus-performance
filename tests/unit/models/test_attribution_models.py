@@ -103,6 +103,22 @@ def test_attribution_level_result_schema_documents_authoritative_total_fields():
         assert properties[field_name]["examples"]
 
 
+def test_single_period_attribution_result_schema_documents_status_reason_and_materiality_fields():
+    schema = SinglePeriodAttributionResult.model_json_schema()
+    properties = schema["properties"]
+    reconciliation_properties = schema["$defs"]["Reconciliation"]["properties"]
+
+    for field_name in ("status", "reason_codes", "reasons", "supportability_evidence"):
+        assert field_name in properties
+        assert properties[field_name]["description"]
+
+    assert "residual_materiality" in reconciliation_properties
+    residual_schema_name = reconciliation_properties["residual_materiality"]["$ref"].split("/")[-1]
+    residual_properties = schema["$defs"][residual_schema_name]["properties"]
+    assert residual_properties["classification"]["description"]
+    assert residual_properties["warning_threshold"]["examples"]
+
+
 def test_attribution_analytics_request_rejects_stateful_and_legacy_conflicts(base_attribution_payload):
     payload = {
         **base_attribution_payload,
