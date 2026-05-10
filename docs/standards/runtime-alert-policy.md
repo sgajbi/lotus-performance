@@ -4,6 +4,7 @@
 - Scope: severity, expected response class, and ownership policy for runtime breach gauges and their availability signals
 - Related references:
   - `docs/operations/runtime-alert-rule-templates.md`
+  - `docs/operations/mwr-alert-rule-templates.md`
   - `docs/runbooks/runtime-alerts.md`
   - `docs/standards/scalability-availability.md`
   - `docs/standards/runtime-threshold-profiles.md`
@@ -36,6 +37,8 @@
 | `lotus_performance_lineage_storage_capacity_availability` == `0` | `page` | Storage-capacity blindness removes early warning before lineage write failure. |
 | `lotus_performance_recovery_drill_availability` == `0` | `page` | Recovery evidence becomes unreadable, so recovery-governance signals are no longer trustworthy. |
 | `lotus_performance_runtime_retention_availability` == `0` | `page` | Retention evidence becomes unreadable, so lifecycle-governance signals are no longer trustworthy. |
+| MWR fallback/no-root/multiple-root rate alerts | `ticket` | These indicate calculation ambiguity or data-shape drift that requires support and engineering review, but does not by itself prove service outage. |
+| MWR source-data rejection rate alert | `ticket` | Empty or stale source supportability is a data mesh quality escalation unless paired with readiness or upstream availability failure. |
 
 ## Response Targets
 

@@ -844,6 +844,7 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - `docs/runbooks/runtime-alerts.md` is the governed first-response guide for queue, storage, and recovery-drill breach gauges
 - alert templates:
   - `docs/operations/runtime-alert-rule-templates.md` provides Prometheus-style expressions for the breach and availability gauges exported here
+  - `docs/operations/mwr-alert-rule-templates.md` provides Prometheus-style expressions and dashboard panels for MWR fallback, no-root, multiple-root, and source-data rejection rates
 - alert policy:
   - `docs/standards/runtime-alert-policy.md` defines the default severity and response class for these breach and availability gauges
 - threshold profiles:
@@ -882,6 +883,9 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - `lotus_performance_lineage_storage_capacity_bytes{segment="total|used|free"}`
   - `lotus_performance_lineage_storage_free_ratio`
   - `lotus_performance_lineage_storage_pressure_threshold{threshold="min_free_bytes|min_free_ratio"}`
+- includes MWR operational posture metrics:
+  - `lotus_performance_mwr_solver_outcome_total{input_mode,method,status,reason_code,fallback_used}`
+  - `lotus_performance_calculation_supportability_total{operation="mwr",supportability_state,reason,freshness_bucket}`
 
 ## Runtime Operations
 

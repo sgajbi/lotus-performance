@@ -113,6 +113,8 @@ Operator first response for these breach gauges is governed in
 [runtime-alerts.md](/C:/Users/Sandeep/projects/lotus-performance/docs/runbooks/runtime-alerts.md).
 Prometheus-style rule templates for the same gauges are governed in
 [runtime-alert-rule-templates.md](/C:/Users/Sandeep/projects/lotus-performance/docs/operations/runtime-alert-rule-templates.md).
+MWR fallback, no-root, multiple-root, and source-data rejection alert templates are governed
+in [mwr-alert-rule-templates.md](/C:/Users/Sandeep/projects/lotus-performance/docs/operations/mwr-alert-rule-templates.md).
 Severity and response defaults for those rules are governed in
 [runtime-alert-policy.md](/C:/Users/Sandeep/projects/lotus-performance/docs/standards/runtime-alert-policy.md).
 Recommended dev, staging, and production threshold values are governed in

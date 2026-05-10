@@ -249,6 +249,7 @@ The runtime is intentionally durable:
 Key operator and certification references:
 
 - [docs/runbooks/runtime-alerts.md](docs/runbooks/runtime-alerts.md)
+- [docs/operations/mwr-alert-rule-templates.md](docs/operations/mwr-alert-rule-templates.md)
 - [docs/runbooks/durable-metadata-recovery.md](docs/runbooks/durable-metadata-recovery.md)
 - [docs/runbooks/runtime-retention-cleanup.md](docs/runbooks/runtime-retention-cleanup.md)
 - [docs/technical/lineage-endpoint-certification.md](docs/technical/lineage-endpoint-certification.md)
