@@ -108,6 +108,7 @@ async def resolve_attribution_request(
                 "portfolio_points": len(normalized_input.portfolio_data.valuation_points),
                 "instruments": len(normalized_input.instruments_data),
                 "benchmark_groups": len(normalized_input.benchmark_groups_data),
+                "source_alignment": normalized_input.source_alignment_evidence,
             },
         )
     except Exception as exc:

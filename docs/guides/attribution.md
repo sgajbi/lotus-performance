@@ -145,9 +145,20 @@ The response contains:
 
 Each period result can include:
 
+- `status`
+- `reason_codes`
+- `reasons`
 - `levels`
 - `reconciliation`
+- `supportability_evidence`
 - `currency_attribution` when the multi-currency attribution path is active
+
+Use `status`, `reason_codes`, `reasons`, and `supportability_evidence` as the authoritative
+front-office degraded-state contract for a period. A period can be mathematically calculated but
+still be `partial` when there is off-benchmark exposure, benchmark-only exposure, unclassified
+segments, missing benchmark evidence, skipped linking, currency-attribution gaps, or a material
+residual. `reconciliation.residual_materiality` classifies the active-return residual against the
+governed warning and material thresholds.
 
 Each `levels[].groups[]` row now carries side-by-side front-office context in addition to the
 effect terms:

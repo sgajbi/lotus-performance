@@ -68,6 +68,14 @@ Benchmark assignment and benchmark component inputs are resolved through the sha
 sourcing path. lotus-core provides source data; lotus-performance owns attribution calculations,
 linking, reconciliation, lineage, and response semantics.
 
+Stateful normalization now records bounded source-alignment evidence during execution-stage
+normalization. The evidence covers portfolio observation count, position row count, resolved
+benchmark id, benchmark component observation count, index record count, classification completeness,
+currency/FX source posture, and explicit source-contract limitations. Current source contracts do
+not expose benchmark version, classification version, calendar policy, derivative or short flags, or
+fee/tax/income breakout fields; those are treated as source-limited and must not be promoted as
+supported attribution claims.
+
 ## Downstream Consumers
 
 Known consumers:
@@ -101,6 +109,12 @@ Use this block as the source-owned freshness and degraded-state signal for front
 panels. The response publishes `calculation_supportability.metric_labels` with the same bounded
 label keys used by the metric. The metric labels must not include portfolio, tenant, account,
 benchmark, calculation, trace, correlation, request body, response body, or security identifiers.
+
+Each resolved attribution period also includes controlled `status`, `reason_codes`, detailed
+`reasons`, `supportability_evidence`, and `reconciliation.residual_materiality`. Consumers should
+preserve these fields when displaying partial, warning, or degraded attribution output. They should
+not collapse a partial period into a green state simply because allocation, selection, and
+interaction totals are present.
 
 ## Canonical Live Findings
 

@@ -720,6 +720,10 @@ def test_attribution_supports_stateful_input_mode(client, monkeypatch):
     itd = body["results_by_period"]["ITD"]
     assert itd["reconciliation"]["total_active_return"] == pytest.approx(1.0985232695139984)
     assert itd["reconciliation"]["sum_of_effects"] == pytest.approx(1.0985232695139984)
+    assert itd["status"] == "partial"
+    assert "off_benchmark_exposure" in itd["reason_codes"]
+    assert itd["supportability_evidence"]["portfolio_only_group_count"] == 2
+    assert itd["supportability_evidence"]["benchmark_only_group_count"] == 0
     level = itd["levels"][0]
     tech_group = next(group for group in level["groups"] if group["key"]["sector"] == "technology")
     assert tech_group["selection"] == pytest.approx(0.25)

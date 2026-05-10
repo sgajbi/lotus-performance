@@ -461,6 +461,14 @@ Validation:
 
 Purpose: ensure attribution is source-backed, not locally guessed.
 
+Implementation evidence: `docs/RFCs/RFC-048-stateful-source-alignment-slice4.md`. Slice 4 added
+bounded stateful source-alignment evidence during normalization, strengthened stateful endpoint
+tests for controlled period status and supportability evidence, and recorded that no `lotus-core`
+contract change is required for the approved RFC 048 attribution claims. The implementation keeps
+`lotus-core` as source-data authority and `lotus-performance` as attribution methodology authority;
+benchmark version, classification version, calendar policy, derivative or short flags, and
+fee/tax/income breakout remain explicit source limitations rather than implied product claims.
+
 Scope:
 
 1. test current `lotus-core` sourced portfolio, position, benchmark, classification, and FX inputs

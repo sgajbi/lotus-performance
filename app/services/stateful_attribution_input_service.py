@@ -48,6 +48,7 @@ class StatefulAttributionNormalizedInput:
     portfolio_data: AttributionPortfolioData
     instruments_data: list[InstrumentData]
     benchmark_groups_data: list[BenchmarkGroup]
+    source_alignment_evidence: dict[str, object]
 
 
 async def retrieve_stateful_attribution_source_input(
@@ -116,7 +117,7 @@ async def retrieve_stateful_attribution_source_input(
         )
         if assignment_status == status.HTTP_404_NOT_FOUND:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Stateful attribution input requires a benchmark assignment or explicit stateful_input.benchmark_id.",
             )
         if assignment_status >= status.HTTP_400_BAD_REQUEST:
@@ -185,7 +186,7 @@ def build_stateful_attribution_input(
 ) -> StatefulAttributionNormalizedInput:
     if mode != "by_instrument":
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Stateful attribution currently supports mode=by_instrument only.",
         )
 
@@ -222,12 +223,63 @@ def build_stateful_attribution_input(
         component_observations=source_input.benchmark_component_observations,
         index_records=source_input.index_records,
     )
+    source_alignment_evidence = build_stateful_attribution_source_alignment_evidence(
+        source_input=source_input,
+        group_by=group_by,
+        currency_mode=normalized_currency_mode,
+        fx=fx,
+        reporting_currency=reporting_currency,
+    )
 
     return StatefulAttributionNormalizedInput(
         portfolio_data=portfolio_data,
         instruments_data=instruments_data,
         benchmark_groups_data=benchmark_groups_data,
+        source_alignment_evidence=source_alignment_evidence,
     )
+
+
+def build_stateful_attribution_source_alignment_evidence(
+    *,
+    source_input: StatefulAttributionSourceInput,
+    group_by: list[str],
+    currency_mode: str,
+    fx: object,
+    reporting_currency: str | None,
+) -> dict[str, object]:
+    classification_dimensions = sorted({dimension for dimension in group_by if dimension in _UPSTREAM_DIMENSION_GROUPS})
+    return {
+        "portfolio_observation_count": len(source_input.portfolio_input.observations),
+        "position_row_count": len(source_input.position_rows),
+        "benchmark_id": source_input.benchmark_id,
+        "benchmark_component_observation_count": len(source_input.benchmark_component_observations),
+        "index_record_count": len(source_input.index_records),
+        "classification_dimensions": classification_dimensions,
+        "position_classification": _summarize_position_classification(
+            rows=source_input.position_rows,
+            dimensions=classification_dimensions,
+        ),
+        "benchmark_classification": _summarize_benchmark_classification(
+            component_observations=source_input.benchmark_component_observations,
+            index_records=source_input.index_records,
+            dimensions=classification_dimensions,
+        ),
+        "currency_source": _summarize_currency_source(
+            rows=source_input.position_rows,
+            component_observations=source_input.benchmark_component_observations,
+            currency_mode=currency_mode,
+            fx=fx,
+            reporting_currency=reporting_currency,
+        ),
+        "source_contract_limitations": {
+            "benchmark_version": "not_available_from_current_lotus_core_contract",
+            "classification_version": "not_available_from_current_lotus_core_contract",
+            "calendar_policy": "not_available_from_current_lotus_core_contract",
+            "off_benchmark_policy": "derived_by_lotus_performance_from_portfolio_and_benchmark_exposure",
+            "derivative_or_short_flags": "not_available_from_current_lotus_core_contract",
+            "fee_tax_income_breakout": "not_available_from_current_lotus_core_contract",
+        },
+    }
 
 
 def _validate_stateful_portfolio_position_alignment(
@@ -286,6 +338,112 @@ def _validate_stateful_portfolio_position_alignment(
         )
 
 
+def _summarize_position_classification(
+    *,
+    rows: list[dict[str, object]],
+    dimensions: list[str],
+) -> dict[str, int | str]:
+    if not dimensions:
+        return {"status": "not_required", "classified_row_count": len(rows), "unclassified_row_count": 0}
+
+    classified_count = 0
+    for row in rows:
+        labels = row.get("dimensions")
+        if not isinstance(labels, dict):
+            continue
+        if all(
+            isinstance(labels.get(dimension), str) and str(labels.get(dimension)).strip() for dimension in dimensions
+        ):
+            classified_count += 1
+
+    unclassified_count = len(rows) - classified_count
+    return {
+        "status": "complete" if unclassified_count == 0 else "partial",
+        "classified_row_count": classified_count,
+        "unclassified_row_count": unclassified_count,
+    }
+
+
+def _summarize_benchmark_classification(
+    *,
+    component_observations: list[BenchmarkComponentObservation],
+    index_records: list[dict[str, object]],
+    dimensions: list[str],
+) -> dict[str, int | str]:
+    component_ids = sorted(
+        {observation.component_id for observation in component_observations if observation.component_id}
+    )
+    if not dimensions:
+        return {
+            "status": "not_required",
+            "classified_component_count": len(component_ids),
+            "unclassified_component_count": 0,
+        }
+
+    labels_by_index: dict[str, dict[str, object]] = {}
+    for record in index_records:
+        index_id = record.get("index_id")
+        labels = record.get("classification_labels")
+        if isinstance(index_id, str) and isinstance(labels, dict):
+            labels_by_index[index_id] = labels
+
+    classified_count = 0
+    for component_id in component_ids:
+        labels = labels_by_index.get(component_id)
+        if labels is None:
+            continue
+        if all(
+            isinstance(labels.get(dimension), str) and str(labels.get(dimension)).strip() for dimension in dimensions
+        ):
+            classified_count += 1
+
+    unclassified_count = len(component_ids) - classified_count
+    return {
+        "status": "complete" if unclassified_count == 0 else "partial",
+        "classified_component_count": classified_count,
+        "unclassified_component_count": unclassified_count,
+    }
+
+
+def _summarize_currency_source(
+    *,
+    rows: list[dict[str, object]],
+    component_observations: list[BenchmarkComponentObservation],
+    currency_mode: str,
+    fx: object,
+    reporting_currency: str | None,
+) -> dict[str, int | bool | str | None]:
+    position_currencies = sorted(
+        {
+            position_currency
+            for row in rows
+            for position_currency in [row.get("position_currency")]
+            if isinstance(position_currency, str) and position_currency
+        }
+    )
+    benchmark_component_currencies = sorted(
+        {
+            observation.component_currency
+            for observation in component_observations
+            if isinstance(observation.component_currency, str) and observation.component_currency
+        }
+    )
+    fx_required = (
+        currency_mode == "BOTH"
+        and reporting_currency is not None
+        and any(position_currency != reporting_currency for position_currency in position_currencies)
+    )
+
+    return {
+        "status": "required" if currency_mode == "BOTH" else "not_required",
+        "reporting_currency": reporting_currency,
+        "position_currency_count": len(position_currencies),
+        "benchmark_component_currency_count": len(benchmark_component_currencies),
+        "fx_required": fx_required,
+        "fx_supplied": fx is not None,
+    }
+
+
 def _validate_stateful_position_inception_support(*, rows: list[dict[str, object]]) -> None:
     first_rows_by_position: dict[str, dict[str, object]] = {}
     for row in sorted(rows, key=lambda item: (str(item.get("position_id", "")), str(item.get("valuation_date", "")))):
@@ -307,7 +465,7 @@ def _validate_stateful_position_inception_support(*, rows: list[dict[str, object
     if unsupported_positions:
         sample_positions = ", ".join(unsupported_positions[:5])
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 "Stateful attribution cannot safely compute acquisition-day position returns when the requested window "
                 "starts a sourced position with zero beginning market value, positive ending market value, and no usable "
@@ -321,7 +479,7 @@ def _validate_stateful_group_by(group_by: list[str]) -> None:
     unsupported = sorted({dimension for dimension in group_by if dimension not in _SUPPORTED_ATTRIBUTION_GROUPS})
     if unsupported:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 "Stateful attribution supports group_by only for canonical lotus-core attribution dimensions plus currency: "
                 f"{', '.join(sorted(_SUPPORTED_ATTRIBUTION_GROUPS))}. Unsupported: {', '.join(unsupported)}."
@@ -379,7 +537,7 @@ def _build_benchmark_groups(
 ) -> list[BenchmarkGroup]:
     if not component_observations:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="No normalized benchmark component observations are available for stateful attribution.",
         )
 
@@ -398,7 +556,7 @@ def _build_benchmark_groups(
         component_currency = row.get("component_currency")
         if labels is None and "currency" not in group_by:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"Index catalog missing classification labels for benchmark component {index_id}.",
             )
         group_key = _build_group_key(
@@ -477,7 +635,7 @@ def _build_group_key(
         if dimension == "currency":
             if not isinstance(raw_value, str) or not raw_value:
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                     detail=f"Benchmark component {index_id} missing classification label for {dimension}.",
                 )
             normalized_value = _normalize_group_value(raw_value)
@@ -639,7 +797,7 @@ def _validate_stateful_both_currency_support(
 ) -> None:
     if not reporting_currency:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Stateful attribution input requires report_ccy when currency_mode=BOTH.",
         )
 
@@ -651,7 +809,7 @@ def _validate_stateful_both_currency_support(
     }
     if not position_currencies:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 "Stateful attribution input requires position_currency on lotus-core position-timeseries rows "
                 "when currency_mode=BOTH."
@@ -660,7 +818,7 @@ def _validate_stateful_both_currency_support(
 
     if any(position_currency != reporting_currency for position_currency in position_currencies) and fx is None:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 "Stateful attribution input requires fx.rates when currency_mode=BOTH and sourced positions "
                 "include currencies different from report_ccy."
