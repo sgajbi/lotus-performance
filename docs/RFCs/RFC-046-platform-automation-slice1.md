@@ -9,6 +9,7 @@
 | `lotus-performance` branch | `feat/rfc-046-twr-industry-evidence` |
 | `lotus-platform` branch | `feat/rfc-046-scaffold-realization` |
 | `lotus-platform` PR | `sgajbi/lotus-platform#312` |
+| `lotus-platform` merge commit | `ab67396c51218156a4d8624693cc7fbb8cd50554` |
 
 ## Purpose
 
@@ -32,7 +33,8 @@ realization expectations.
 
 ## Implemented Platform Changes
 
-`lotus-platform` PR `sgajbi/lotus-platform#312` implements the reusable Slice 1 improvements:
+`lotus-platform` PR `sgajbi/lotus-platform#312`, merged to `main` as
+`ab67396c51218156a4d8624693cc7fbb8cd50554`, implements the reusable Slice 1 improvements:
 
 1. `automation/New-Lotus-Service.ps1`
    - Generated backend evidence manifests now include `upstream_realization`.
@@ -110,8 +112,10 @@ Slice 1 is complete for RFC-046 implementation:
 1. the platform/scaffolding gap ledger exists,
 2. the reusable platform gap was fixed in `lotus-platform`,
 3. platform tests and GitHub checks passed,
-4. no-change decisions were recorded for scaffold areas without a proven gap,
-5. the output benefits future Lotus applications, not only `lotus-performance`.
+4. the required platform truth is merged to `lotus-platform` `main`,
+5. no-change decisions were recorded for scaffold areas without a proven gap,
+6. the output benefits future Lotus applications, not only `lotus-performance`.
 
-Final RFC closure still requires the relevant platform truth to be merged to `main` with all other
-RFC-046 durable truth before the RFC can be marked implemented.
+Final RFC closure still requires the remaining `lotus-performance` RFC-046 durable truth and any
+later required upstream or downstream truth to be merged to `main` before the RFC can be marked
+implemented.
