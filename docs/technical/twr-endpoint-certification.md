@@ -113,17 +113,31 @@ Performance improvement opportunities:
 
 ## Domain Certification Result
 
-For canonical portfolio `PB_SG_GLOBAL_BAL_001` as of `2026-04-10`, the following windows are
-domain-safe for UI integration based on current evidence:
+For canonical portfolio `PB_SG_GLOBAL_BAL_001`, the following windows are domain-safe for UI
+integration based on current live evidence.
 
 | Window | Result |
 | --- | --- |
-| `YTD`, NET | `1.2152137301822075%`, daily/monthly breakdowns, max daily absolute move about `0.030546%` |
-| `YTD`, GROSS | `1.2359023665067692%`, gross exceeds net as expected from fee drag |
+| `YTD`, NET as of `2026-04-10` | `-0.6917915976265676%`, `100` daily rows, `4` monthly rows, supportability `ready` / `calculation_complete` |
+| `YTD`, GROSS as of current Workbench canonical evidence window | `-0.671493%`, gross exceeds net as expected from fee drag |
 | `MTD` | `0.10506363961935161%` |
 | `QTD` | `0.10506363961935161%` |
 | `EXPLICIT 2026-03-01..2026-04-10` | `0.3874271363699222%` |
-| `YTD` with benchmark | portfolio `1.2152137301822075%`, benchmark `5.095680231948784%`, active `-3.880466501766577%` |
+| `YTD` with benchmark as of `2026-04-10` | portfolio `-0.6917915976265676%`, benchmark `5.095680231948784%`, active `-5.7874718295753524%`, benchmark calendar posture `partial_overlap` with `BENCHMARK_CALENDAR_GAP` |
+
+Live audit note - 2026-05-10:
+
+- the prior certification figures in this document reflected an older canonical seed snapshot and
+  are no longer the current implementation-backed truth;
+- `POST /performance/twr` returned calculation id `9c448568-f2a7-4a3f-8570-f7189d3390b0` for the
+  audited `PB_SG_GLOBAL_BAL_001` `YTD` stateful TWR request as of `2026-04-10`;
+- `calculation_supportability.state` was `ready`, `reason` was `calculation_complete`, and
+  `freshness_bucket` was `current`;
+- canonical TWR inspection for calculation `63826edc-1ef6-433b-9398-ac0cb13836d0` returned
+  `supportable_with_warnings` with only the allowed canonical warning codes
+  `WEEKEND_OBSERVATIONS_PRESENT` and `MONTHLY_RETURN_DAY_DOMINANCE_DETECTED`;
+- log review for `performance-analytics` and `lotus-gateway` over the live-audit window found no
+  `ERROR`, `CRITICAL`, traceback, or `5xx` entries.
 
 The same endpoint mechanically supports `1Y` and `ITD`, but long-window results are not front-office
 safe for this canonical portfolio yet. Current source history produces nonpositive capital-base days
