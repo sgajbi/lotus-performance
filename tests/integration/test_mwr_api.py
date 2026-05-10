@@ -51,6 +51,7 @@ def test_calculate_mwr_endpoint_xirr_happy_path(client):
     assert response_data["holding_period_return"] is not None
     assert response_data["is_annualized_primary"] is True
     assert response_data["convergence"]["root_count_detected"] == 1
+    assert response_data["convergence"]["converged"] is True
     assert response_data["convergence"]["day_count_basis"] == "ACT/365"
     assert response_data["convergence"]["residual_npv"] == pytest.approx(0.0, abs=0.01)
     assert response_data["calculation_supportability"] == {

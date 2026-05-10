@@ -123,6 +123,7 @@ def test_calculate_mwr_xirr_matches_industry_midyear_deposit_fixture():
     assert result.mwr == pytest.approx(20.25568893, abs=1e-6)
     assert result.holding_period_return == pytest.approx(20.25568893, abs=1e-6)
     assert result.convergence is not None
+    assert result.convergence.converged is True
     assert result.convergence.root_count_detected == 1
     assert result.convergence.day_count_basis == "ACT/365"
     assert result.convergence.residual_npv == pytest.approx(0.0, abs=0.01)
@@ -143,6 +144,7 @@ def test_calculate_mwr_xirr_short_period_exposes_holding_period_return():
     assert result.mwr == pytest.approx(12.86952942, abs=1e-6)
     assert result.holding_period_return == pytest.approx(1.0, abs=1e-8)
     assert result.is_annualized_primary is True
+    assert result.is_approximation is False
 
 
 def test_xirr_detects_multiple_roots_without_selecting_one():

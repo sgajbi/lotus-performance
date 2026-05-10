@@ -81,7 +81,7 @@ def _xirr(
             "converged": False,
             "notes": "No economic content in cash-flow vector.",
             "reason_code": "NO_ECONOMIC_CONTENT",
-            "convergence": {**base_convergence, "root_count_detected": 0},
+            "convergence": {**base_convergence, "root_count_detected": 0, "converged": False},
         }
     if np.all(values >= 0) or np.all(values <= 0):
         return {
@@ -89,7 +89,7 @@ def _xirr(
             "converged": False,
             "notes": "No positive and negative cash flows in solver vector.",
             "reason_code": "NO_POSITIVE_AND_NEGATIVE_CASH_FLOW",
-            "convergence": {**base_convergence, "root_count_detected": 0},
+            "convergence": {**base_convergence, "root_count_detected": 0, "converged": False},
         }
 
     if rate_lower_bound <= -1 or rate_upper_bound <= rate_lower_bound:
@@ -98,7 +98,7 @@ def _xirr(
             "converged": False,
             "notes": "Invalid XIRR search bounds.",
             "reason_code": "INVALID_SOLVER_BOUNDS",
-            "convergence": {**base_convergence, "root_count_detected": 0},
+            "convergence": {**base_convergence, "root_count_detected": 0, "converged": False},
         }
 
     day_count = _day_count_denominator(annualization)
@@ -140,7 +140,7 @@ def _xirr(
             roots.append((root_rate, iterations, residual))
         previous_x, previous_y = current_x, current_y
 
-    convergence = {**base_convergence, "root_count_detected": len(roots)}
+    convergence = {**base_convergence, "root_count_detected": len(roots), "converged": False}
     if not roots:
         return {
             "rate": None,
@@ -167,6 +167,7 @@ def _xirr(
             "iterations": iterations,
             "residual": residual,
             "residual_npv": residual,
+            "converged": True,
         },
     }
 
@@ -240,6 +241,7 @@ def calculate_money_weighted_return(
                 convergence=convergence,
                 holding_period_return=holding_period_return,
                 is_annualized_primary=True,
+                is_approximation=False,
             )
         notes.append(xirr_result["notes"])
         reason_code = xirr_result.get("reason_code", "SOLVER_DID_NOT_CONVERGE")
