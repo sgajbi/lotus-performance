@@ -597,6 +597,7 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
             annualization=mwr_request.annualization,
             as_of=mwr_request.as_of,
             start_date=mwr_request.start_date,
+            solver=mwr_request.solver,
         )
     except HTTPException:
         record_execution_failure(
@@ -651,6 +652,14 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
         "money_weighted_return": mwr_result.mwr,
         "mwr_annualized": mwr_result.mwr_annualized,
         "method": mwr_result.method,
+        "status": mwr_result.status,
+        "reason_codes": mwr_result.reason_codes,
+        "warnings": mwr_result.warnings,
+        "holding_period_return": mwr_result.holding_period_return,
+        "is_annualized_primary": mwr_result.is_annualized_primary,
+        "fallback_from": mwr_result.fallback_from,
+        "fallback_reason": mwr_result.fallback_reason,
+        "is_approximation": mwr_result.is_approximation,
         "start_date": mwr_result.start_date,
         "end_date": mwr_result.end_date,
         "notes": mwr_result.notes,

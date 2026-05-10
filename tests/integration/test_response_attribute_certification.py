@@ -151,6 +151,12 @@ def test_mwr_response_attributes_tie_to_deterministic_stateless_inputs(client):
         "input_mode",
         "money_weighted_return",
         "method",
+        "status",
+        "reason_codes",
+        "warnings",
+        "holding_period_return",
+        "is_annualized_primary",
+        "is_approximation",
         "cashflows_used",
         "start_date",
         "end_date",
@@ -163,6 +169,11 @@ def test_mwr_response_attributes_tie_to_deterministic_stateless_inputs(client):
     assert body["portfolio_id"] == "ATTR_MWR_001"
     assert body["input_mode"] == "stateless"
     assert body["method"] == "DIETZ"
+    assert body["status"] == "CALCULATED"
+    assert body["reason_codes"] == []
+    assert body["warnings"] == []
+    assert body["is_annualized_primary"] is False
+    assert body["is_approximation"] is True
     assert body["start_date"] == "2026-01-02"
     assert body["end_date"] == "2026-01-03"
     assert body["notes"] == []
@@ -181,6 +192,7 @@ def test_mwr_response_attributes_tie_to_deterministic_stateless_inputs(client):
     ]
     expected_mwr = ((1120.0 - 1000.0 - 80.0) / (1000.0 + 80.0 / 2.0)) * 100
     assert body["money_weighted_return"] == pytest.approx(expected_mwr)
+    assert body["holding_period_return"] == pytest.approx(expected_mwr)
     assert "mwr_annualized" not in body
     assert "convergence" not in body
     assert body["calculation_id"] == body["meta"]["calculation_id"]
