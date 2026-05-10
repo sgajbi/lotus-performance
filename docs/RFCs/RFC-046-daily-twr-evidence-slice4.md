@@ -66,6 +66,8 @@ Slice 4 validation completed:
   - Passed.
 - `python -m ruff format --check .`
   - Passed.
+- `make lint`
+  - Passed, including `monetary-float-guard` with no allowlist update.
 - `make typecheck`
   - Passed.
 - `python scripts/openapi_quality_gate.py`

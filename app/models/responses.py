@@ -99,6 +99,7 @@ class ComparativeSummary(BaseModel):
 
 
 TWRDailyCalculationEvidenceStatus = Literal["calculated", "not_calculated"]
+NumericOutput = float
 
 
 class TWRDailyCalculationEvidence(BaseModel):
@@ -120,36 +121,36 @@ class TWRDailyCalculationEvidence(BaseModel):
         ),
         examples=["bod_flows_in_denominator_eod_flows_excluded_from_denominator"],
     )
-    begin_mv: float = Field(
+    begin_mv: NumericOutput = Field(
         description="Beginning market value used for the daily return calculation.",
         examples=[1000000.0],
     )
-    end_mv: float = Field(
+    end_mv: NumericOutput = Field(
         description="Ending market value used for the daily return calculation.", examples=[1012500.0]
     )
-    bod_cf: float = Field(description="Beginning-of-day external cash flow.", examples=[25000.0])
-    eod_cf: float = Field(description="End-of-day external cash flow.", examples=[-10000.0])
-    external_inflows: float = Field(
+    bod_cf: NumericOutput = Field(description="Beginning-of-day external cash flow.", examples=[25000.0])
+    eod_cf: NumericOutput = Field(description="End-of-day external cash flow.", examples=[-10000.0])
+    external_inflows: NumericOutput = Field(
         description="Positive external cash flows for the day across beginning-of-day and end-of-day flows.",
         examples=[25000.0],
     )
-    external_outflows: float = Field(
+    external_outflows: NumericOutput = Field(
         description="Absolute value of negative external cash flows for the day across beginning-of-day and end-of-day flows.",
         examples=[10000.0],
     )
-    management_fees: float = Field(
+    management_fees: NumericOutput = Field(
         description="Management fees included in performance P&L for NET calculations.",
         examples=[125.0],
     )
-    adjusted_capital: float = Field(
+    adjusted_capital: NumericOutput = Field(
         description="Absolute beginning market value plus beginning-of-day flow denominator used for the daily return.",
         examples=[1025000.0],
     )
-    performance_pnl: float = Field(
+    performance_pnl: NumericOutput = Field(
         description="Flow-neutralized performance P&L numerator used for the daily return.",
         examples=[12500.0],
     )
-    daily_return: float = Field(
+    daily_return: NumericOutput = Field(
         description="Daily return in percentage-point output units. Example: 1.25 means 1.25%, not 125%.",
         examples=[1.25],
     )

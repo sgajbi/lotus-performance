@@ -20,7 +20,6 @@ from app.models.responses import (
     PortfolioReturnDecomposition,
     SinglePeriodPerformanceResult,
     TWRBenchmarkContext,
-    TWRDailyCalculationEvidence,
 )
 from app.models.twr_requests import TWRInputMode
 from app.services.benchmark_calculation_service import calculate_benchmark_artifacts
@@ -148,11 +147,20 @@ def _build_return_value_from_decomposition(
     )
 
 
+def _link_return_series(series: pd.Series) -> float:
+    running = Decimal("1")
+    for value in series.tolist():
+        running *= Decimal("1") + Decimal(str(_as_numeric(value)))
+    return float((running - Decimal("1")) * Decimal("100"))
+
+
 def _build_daily_calculation_evidence(
     row: pd.Series,
     *,
     metric_basis: str,
-) -> TWRDailyCalculationEvidence:
+) -> object:
+    from app.models.responses import TWRDailyCalculationEvidence
+
     begin_mv = _as_numeric(row.get(PortfolioColumns.BEGIN_MV.value, 0))
     bod_cf = _as_numeric(row.get(PortfolioColumns.BOD_CF.value, 0))
     eod_cf = _as_numeric(row.get(PortfolioColumns.EOD_CF.value, 0))
@@ -202,13 +210,6 @@ def _build_daily_calculation_evidence(
         reason_codes=reason_codes,
         warnings=warnings,
     )
-
-
-def _link_return_series(series: pd.Series) -> float:
-    running = Decimal("1")
-    for value in series.tolist():
-        running *= Decimal("1") + Decimal(str(_as_numeric(value)))
-    return float((running - Decimal("1")) * Decimal("100"))
 
 
 def _calculate_benchmark_return_from_slice(period_daily_df: pd.DataFrame) -> ComparativeReturnValue:
