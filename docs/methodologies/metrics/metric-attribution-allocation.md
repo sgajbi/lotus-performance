@@ -61,6 +61,8 @@ Attribution Allocation Effect (`levels[].groups[].allocation`)
   - `AR_arith = sum_t (R_p,t - R_b,t)`
   - `scale = AR_geo / AR_arith`
   - `A_g = scale * sum_t A_g,t`
+  - if any `R_p,t <= -1` or `R_b,t <= -1`, the linked chain is supportability-invalid and
+    scaling is not applied as a clean linked result.
 
 ## Step-by-Step Computation
 1. Resolve mode-specific inputs. In stateful mode retrieve lotus-core portfolio and position
@@ -79,6 +81,8 @@ Attribution Allocation Effect (`levels[].groups[].allocation`)
 - Stateful source resolution fails closed when lotus-core portfolio, position, benchmark, or
   source-currency inputs cannot produce usable attribution panel rows.
 - If arithmetic active return is zero in linking path, scaling is skipped (effects unchanged).
+- If a linked period contains `R_p,t <= -1` or `R_b,t <= -1`, the period emits
+  `linking_invalid_return_chain` and `supportability_evidence.linking_status="invalid_return_chain"`.
 
 ## Configuration Options
 - `model`

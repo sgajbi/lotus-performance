@@ -644,6 +644,11 @@ Validation:
 
 Purpose: make attribution documentation implementation-backed and useful.
 
+Implementation evidence: `docs/RFCs/RFC-048-documentation-productization-slice9.md`. Slice 9
+updated README, endpoint certification, methodology v3 docs, API surface, Mesh Data Products,
+Supported Features, and Attribution Analytics wiki material so RFC 048 attribution product claims
+are implementation-backed, data-product-aware, and explicit about unsupported boundaries.
+
 Scope:
 
 1. upgrade attribution methodology docs to the Lotus methodology v3 standard;

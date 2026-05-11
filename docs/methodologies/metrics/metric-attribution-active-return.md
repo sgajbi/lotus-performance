@@ -59,6 +59,8 @@ Attribution Total Active Return (`reconciliation.total_active_return`)
 2. Total active return by linking mode:
 - `linking=NONE`: `AR = sum_t AR_t`
 - `linking!=NONE`: `AR = (prod_t(1+R_p,t)-1) - (prod_t(1+R_b,t)-1)`
+  - if any `R_p,t <= -1` or `R_b,t <= -1`, linked attribution is supportability-invalid and the
+    response preserves arithmetic evidence with `linking_invalid_return_chain`.
 
 3. Reconciliation block:
 - `total_active_return = 100 * AR`
@@ -86,6 +88,9 @@ Attribution Total Active Return (`reconciliation.total_active_return`)
   guessed into attribution facts.
 - Empty aligned panel or empty period slice: period omitted from output.
 - Engine/input errors surface as HTTP 400/500 depending on exception type.
+- If linked attribution is requested and any portfolio or benchmark period return is less than or
+  equal to `-100%`, period `reason_codes` includes `linking_invalid_return_chain` and
+  `supportability_evidence.linking_status` is `invalid_return_chain`.
 
 ## Configuration Options
 - `linking` (`NONE` vs non-`NONE` geometric active return path)
