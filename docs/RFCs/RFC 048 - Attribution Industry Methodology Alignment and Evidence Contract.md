@@ -573,6 +573,13 @@ Validation:
 
 Purpose: ensure changed attribution value is actually available to consumers.
 
+Implementation evidence: `docs/RFCs/RFC-048-downstream-contract-realization-slice7.md`. Slice 7
+merged Gateway PR `sgajbi/lotus-gateway#207` and Workbench PR
+`sgajbi/lotus-workbench#179`, preserving RFC 048 attribution status, reason codes, residual
+materiality, and supportability evidence through the Gateway-owned Performance Workspace contract
+and Workbench product surface without local attribution recomputation. `lotus-report` was classified
+as no-change because it consumes `/performance/contribution`, not `/performance/attribution`.
+
 Scope:
 
 1. search `lotus-gateway`, `lotus-workbench`, `lotus-report`, and adjacent repos for attribution
