@@ -1,7 +1,7 @@
 {
   "description": "Approved baseline monetary-float findings. New findings fail CI.",
   "policy_version": "1.1.0",
-  "generated_at": "2026-05-10T23:13:46Z",
+  "generated_at": "2026-05-11T23:45:55Z",
   "allowlist": [
     {
       "finding": "app/models/attribution_requests.py:56:weight_bop: float = Field(",
@@ -52,16 +52,16 @@
       "review_by": "2026-10-27"
     },
     {
-      "finding": "app/models/attribution_responses.py:288:weight_portfolio_avg: float = Field(",
+      "finding": "app/models/attribution_responses.py:289:weight_portfolio_avg: float = Field(",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
-      "review_by": "2026-11-06"
+      "review_by": "2026-11-07"
     },
     {
-      "finding": "app/models/attribution_responses.py:292:weight_benchmark_avg: float = Field(",
+      "finding": "app/models/attribution_responses.py:293:weight_benchmark_avg: float = Field(",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
-      "review_by": "2026-11-06"
+      "review_by": "2026-11-07"
     },
     {
       "finding": "app/models/attribution_responses.py:31:benchmark_return: float = Field(",

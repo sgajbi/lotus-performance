@@ -157,6 +157,15 @@ def build_attribution_supportability_evidence(
                 0,
             )
         )
+    if linking_status == "invalid_return_chain":
+        reasons.append(
+            _build_attribution_reason(
+                "linking_invalid_return_chain",
+                "warning",
+                "Multi-period linking was requested but one or more portfolio or benchmark period returns were less than or equal to -100%.",
+                0,
+            )
+        )
     if residual_materiality.classification == "material":
         reasons.append(
             _build_attribution_reason(
@@ -182,6 +191,7 @@ def build_attribution_supportability_evidence(
         "unclassified_segment",
         "missing_benchmark_return",
         "currency_attribution_unavailable",
+        "linking_invalid_return_chain",
     }
     reason_codes = [reason.code for reason in reasons]
     if any(code in coverage_reason_codes for code in reason_codes):

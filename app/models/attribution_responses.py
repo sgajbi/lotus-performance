@@ -144,13 +144,14 @@ AttributionReasonCode = Literal[
     "zero_portfolio_exposure",
     "currency_attribution_unavailable",
     "linking_scaling_skipped",
+    "linking_invalid_return_chain",
     "material_residual",
     "residual_watch",
 ]
 AttributionResidualClassification = Literal["immaterial", "watch", "material"]
 AttributionResidualTreatment = Literal["no_action", "review", "investigate"]
 AttributionCurrencyEvidenceStatus = Literal["not_requested", "complete", "unavailable"]
-AttributionLinkingEvidenceStatus = Literal["not_requested", "linked", "scaling_skipped"]
+AttributionLinkingEvidenceStatus = Literal["not_requested", "linked", "scaling_skipped", "invalid_return_chain"]
 
 
 class AttributionResidualMateriality(BaseModel):

@@ -425,12 +425,18 @@ def aggregate_attribution_results(
 
     linking_status = "not_requested"
     if request.linking != LinkingMethod.NONE:
-        geometric_active_return = (1 + per_period_p_return).prod() - 1 - ((1 + per_period_b_return).prod() - 1)
         arithmetic_active_return = per_period_active_return.sum()
-        linking_status = "scaling_skipped" if arithmetic_active_return == 0 else "linked"
-        scaled_effects = _link_effects_top_down(
-            effects_df.reset_index(), geometric_active_return, arithmetic_active_return
-        )
+        invalid_return_chain = bool(((per_period_p_return <= -1) | (per_period_b_return <= -1)).any())
+        if invalid_return_chain:
+            linking_status = "invalid_return_chain"
+            geometric_active_return = arithmetic_active_return
+            scaled_effects = effects_df.reset_index()
+        else:
+            geometric_active_return = (1 + per_period_p_return).prod() - 1 - ((1 + per_period_b_return).prod() - 1)
+            linking_status = "scaling_skipped" if arithmetic_active_return == 0 else "linked"
+            scaled_effects = _link_effects_top_down(
+                effects_df.reset_index(), geometric_active_return, arithmetic_active_return
+            )
         granular_totals = scaled_effects.groupby(request.group_by)[["allocation", "selection", "interaction"]].sum()
         active_return = geometric_active_return
     else:

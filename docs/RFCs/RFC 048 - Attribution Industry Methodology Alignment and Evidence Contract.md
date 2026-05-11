@@ -608,6 +608,13 @@ Validation:
 
 Purpose: convert the supplied QA pack into meaningful Lotus tests.
 
+Implementation evidence: `docs/RFCs/RFC-048-qa-regression-pack-slice8.md`. Slice 8 converted the
+supplied QA pack into deterministic Brinson-Fachler, active-contribution reconciliation,
+segment-union/order-independence, supportability, and invalid linked-return-chain coverage. It also
+added the controlled `linking_invalid_return_chain` reason and `invalid_return_chain` linking
+status so linked attribution does not silently look clean when a period return is less than or equal
+to `-100%`.
+
 Scope:
 
 1. add deterministic Brinson-Fachler reconciliation tests using source-doc examples adapted to
