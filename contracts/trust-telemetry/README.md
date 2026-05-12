@@ -13,6 +13,8 @@ The current snapshots are:
    Runtime trust proof for `lotus-performance:ContributionAnalytics:v1`.
 4. `attribution-analytics.telemetry.v1.json`
    Runtime trust proof for `lotus-performance:AttributionAnalytics:v1`.
+5. `composite-performance-analytics.telemetry.v1.json`
+   Runtime trust proof for `lotus-performance:CompositePerformanceAnalytics:v1`.
 
 Validate locally with:
 

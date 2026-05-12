@@ -17,6 +17,8 @@ It owns:
 - front-office workspace summary (`POST /performance/workspace-summary`)
 - contribution (`POST /performance/contribution`)
 - attribution (`POST /performance/attribution`)
+- composite performance (`POST /performance/composites/twr`,
+  `POST /performance/composites/inspect`)
 - canonical returns-series integration (`POST /integration/returns/series`)
 - benchmark exposure context (`POST /integration/benchmarks/exposure-context`)
 - execution polling, runtime control-plane, and lineage retrieval surfaces
@@ -30,8 +32,8 @@ does not delegate performance conclusions to `lotus-core`.
 2. Stateful integration with `lotus-core` is live under the RFC-0082 contract-family map.
 3. Async execution, lineage capture, and durable runtime-control surfaces are shipped parts of the
    contract.
-4. Time-weighted return, money-weighted return, contribution, attribution, returns-series, and
-   benchmark exposure context are declared as governed data products under
+4. Time-weighted return, money-weighted return, contribution, attribution, composite performance,
+   returns-series, and benchmark exposure context are declared as governed data products under
    `contracts/domain-data-products/`.
 5. OpenAPI, API vocabulary, domain-product validation, migration, security, and Docker parity are
    part of the real merge gate.
@@ -58,7 +60,8 @@ Source-of-truth runtime docs:
 Grouped public surfaces are derived from the router layout in [main.py](main.py):
 
 - `/performance`
-  TWR, benchmark, contribution, executions, inspections, and lineage
+  TWR, benchmark, contribution, attribution, composite performance, executions, inspections, and
+  lineage
 - `/integration`
   capabilities, returns-series, benchmark exposure context, runtime status, runtime work items,
   runtime recoveries, recovery drill history, and runtime retention history
@@ -164,7 +167,8 @@ python -m pytest tests/unit/docs/test_public_docs_contract.py -q
 Important public route groups:
 
 1. `/performance`
-   TWR, benchmark, MWR, workspace summary, contribution, attribution, execution polling, and lineage
+   TWR, benchmark, MWR, workspace summary, contribution, attribution, composite performance,
+   execution polling, and lineage
 2. `/integration`
    capabilities, returns-series, benchmark exposure context, runtime status, work items, recoveries,
    recovery drills, and retention history
@@ -223,6 +227,12 @@ Key deeper references:
   [docs/technical/attribution-endpoint-certification.md](docs/technical/attribution-endpoint-certification.md)
 - Attribution Analytics product wiki:
   [wiki/Attribution-Analytics.md](wiki/Attribution-Analytics.md)
+- Composite Performance guide:
+  [docs/guides/composite_performance.md](docs/guides/composite_performance.md)
+- Composite TWR certification:
+  [docs/technical/composite-twr-endpoint-certification.md](docs/technical/composite-twr-endpoint-certification.md)
+- Composite Performance product wiki:
+  [wiki/Composite-Performance.md](wiki/Composite-Performance.md)
 - Benchmark Exposure Context Endpoint Certification:
   [docs/technical/benchmark-exposure-context-endpoint-certification.md](docs/technical/benchmark-exposure-context-endpoint-certification.md)
 

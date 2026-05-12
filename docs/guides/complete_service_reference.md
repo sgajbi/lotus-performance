@@ -30,6 +30,7 @@ Companion documents:
 - benchmark performance analytics
 - contribution analytics
 - attribution analytics
+- composite performance analytics from persisted member-return facts
 - interaction-efficient multi-horizon workspace summary
 - canonical returns-series integration
 - async execution offload for heavier workloads
@@ -67,6 +68,8 @@ Default deployment topology:
 | `GET /performance/contribution/results/{calculation_id}` | retrieve async contribution result | async retrieval |
 | `POST /performance/attribution` | calculate attribution | both |
 | `GET /performance/attribution/results/{calculation_id}` | retrieve async attribution result | async retrieval |
+| `POST /performance/composites/twr` | calculate composite TWR from persisted member-return facts | sync |
+| `POST /performance/composites/inspect` | inspect composite persisted facts and classified evidence artifacts | sync |
 | `POST /performance/inspections/twr` | submit durable TWR supportability inspection | async |
 | `GET /performance/inspections/{inspection_id}` | retrieve durable TWR inspection status or result | async retrieval |
 | `GET /performance/inspections/{inspection_id}/artifacts/{artifact_name}` | download one TWR inspection artifact | async retrieval |

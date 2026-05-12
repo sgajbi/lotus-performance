@@ -18,6 +18,9 @@
 - Product ID: `lotus-performance:AttributionAnalytics:v1`
 - Product role: governed benchmark-relative performance explanation product that decomposes active
   return into allocation, selection, interaction, residual, supportability, and lineage evidence
+- Product ID: `lotus-performance:CompositePerformanceAnalytics:v1`
+- Product role: governed persisted-fact composite performance product for private-banking
+  composite TWR, source-fact lineage, restatement evidence, and supportable publication workflows
 - Product ID: `lotus-performance:ReturnsSeriesBundle:v1`
 - Product role: governed return-series and performance evidence consumed by risk, advisory, reporting, gateway, and Workbench discovery flows
 - Source declaration: `contracts/domain-data-products/`
@@ -74,6 +77,19 @@
   composite, fee/tax/income-breakout, benchmark-version, classification-version, and calendar-policy
   attribution remain explicit unsupported or source-limited boundaries. See
   [Attribution Analytics](Attribution-Analytics).
+- Composite product evidence: `POST /performance/composites/twr` emits source-owned
+  asset-weighted composite period return, cumulative return, member weights, member contributions,
+  dispersion, source fingerprints, restatement versions, reason codes, and status from persisted
+  member-return facts. `POST /performance/composites/inspect` emits supportability findings and
+  classified artifacts for audit and operations. The governed product is declared as
+  `CompositePerformanceAnalytics` in
+  `contracts/domain-data-products/lotus-performance-products.v1.json`, backed by
+  `contracts/trust-telemetry/composite-performance-analytics.telemetry.v1.json`, and approved for
+  `lotus-gateway` consumption. Gateway and Workbench may display composite product evidence, but
+  must not reconstruct composite returns, weights, lineage, or restatement posture downstream.
+  Composite contribution, attribution, MWR, sleeves, carve-outs, and multi-currency composite
+  aggregation beyond the current single reporting-currency guard remain unsupported. See
+  [Composite Performance](Composite-Performance).
 
 ## Platform relationship
 

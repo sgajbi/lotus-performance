@@ -31,6 +31,10 @@
   interaction-efficient workspace analytics contract
 - RFC-045
   TWR inspection and supportability contract
+- RFC-049
+  implemented composite-performance RFC; persisted-fact composite TWR and inspection are promoted
+  through supported-feature material, while composite contribution, attribution, MWR, sleeves,
+  carve-outs, and advanced composite structures remain unsupported
 
 ## Full local RFC estate
 

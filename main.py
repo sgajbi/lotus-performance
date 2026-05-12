@@ -11,6 +11,7 @@ from starlette.responses import JSONResponse
 from app.api.endpoints import (
     benchmark,
     benchmark_exposure_context,
+    composites,
     contribution,
     executions,
     health,
@@ -151,6 +152,7 @@ app.add_exception_handler(PerformanceCalculatorError, performance_calculator_exc
 # Add a prefix to group performance-related endpoints
 app.include_router(performance.router, prefix="/performance")
 app.include_router(benchmark.router, prefix="/performance")
+app.include_router(composites.router, prefix="/performance")
 app.include_router(contribution.router, prefix="/performance")
 app.include_router(executions.router, prefix="/performance")
 app.include_router(inspections.router, prefix="/performance")

@@ -53,6 +53,7 @@ from app.services.twr_service import (
 )
 from common.enums import Frequency
 from core.envelope import Audit, Diagnostics, Meta
+from core.errors import HTTP_422_UNPROCESSABLE
 from core.repro import generate_canonical_hash
 from core.workspace_periods import ResolvedWorkspacePeriod, resolve_workspace_periods
 from engine.compute import run_calculations
@@ -365,7 +366,7 @@ def _resolve_workspace_benchmark_input(
         benchmark_id_raw = assignment_payload.get("benchmark_id")
         if not isinstance(benchmark_id_raw, str) or not benchmark_id_raw:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=HTTP_422_UNPROCESSABLE,
                 detail="benchmark assignment payload missing benchmark_id.",
             )
         benchmark_id = benchmark_id_raw
@@ -429,14 +430,14 @@ def _resolve_stateful_portfolio_start_date(*, request: WorkspaceSummaryRequest, 
     portfolio_open_date = upstream_payload.get("portfolio_open_date")
     if not isinstance(portfolio_open_date, str):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=HTTP_422_UNPROCESSABLE,
             detail="Stateful source missing portfolio_open_date.",
         )
     try:
         return date.fromisoformat(portfolio_open_date)
     except ValueError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=HTTP_422_UNPROCESSABLE,
             detail="Invalid portfolio_open_date from stateful source.",
         ) from exc
 

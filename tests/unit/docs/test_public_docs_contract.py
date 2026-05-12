@@ -260,7 +260,7 @@ def test_twr_documentation_map_and_wiki_navigation_are_present():
     assert "[Supported Features](Supported-Features)" in wiki_home
     assert "docs/technical/twr-documentation-map.md" in wiki_api_surface
     assert "TimeWeightedReturnAnalytics:v1" in supported_features
-    assert "Composite, group, and sleeve TWR are not supported" in supported_features
+    assert "composite TWR is supported only through `POST /performance/composites/twr`" in supported_features
     assert "lotus-performance:TimeWeightedReturnAnalytics:v1" in mesh_data_products
 
 
@@ -291,6 +291,80 @@ def test_attribution_documentation_map_and_wiki_navigation_are_present():
         "fixed-income factor, derivative, sleeve, and composite attribution are not current supported claims"
         in supported_features
     )
+
+
+def test_rfc_049_advanced_composite_analytics_are_gated():
+    decision = _read("docs/RFCs/RFC-049-advanced-analytics-decision-slice8.md")
+    supported_features = _read("wiki/Supported-Features.md")
+    rfc_index = _read("docs/RFCs/RFC-INDEX.md")
+
+    assert "RFC 049 will not implement the following advanced scopes in this wave" in decision
+    for unsupported_scope in (
+        "composite contribution",
+        "composite attribution",
+        "composite MWR",
+        "carve-outs",
+        "sleeves",
+        "model portfolios",
+        "wrap programs",
+        "pooled fund composites",
+        "private-market composites",
+        "portability records",
+        "tax-aware composites",
+        "leveraged composites",
+        "long/short special composite structures",
+        "multi-currency composite aggregation beyond the current single reporting-currency guard",
+    ):
+        assert unsupported_scope in decision
+        assert unsupported_scope in supported_features
+
+    assert "RFC-049 promotes persisted-fact composite performance" in supported_features
+    assert "Gateway route realization, Workbench typed BFF consumption" in supported_features
+    assert "`POST /performance/composites/twr`" in supported_features
+    assert "`POST /performance/composites/inspect`" in supported_features
+    assert "docs/RFCs/RFC-049-advanced-analytics-decision-slice8.md" in rfc_index
+
+
+def test_rfc_049_composite_documentation_productization_is_grounded():
+    guide = _read("docs/guides/composite_performance.md")
+    methodology_index = _read("docs/technical/methodology_index.md")
+    certification = _read("docs/technical/composite-twr-endpoint-certification.md")
+    map_doc = _read("docs/technical/composite-performance-documentation-map.md")
+    wiki_page = _read("wiki/Composite-Performance.md")
+    wiki_sidebar = _read("wiki/_Sidebar.md")
+    wiki_home = _read("wiki/Home.md")
+    wiki_api_surface = _read("wiki/API-Surface.md")
+    wiki_integrations = _read("wiki/Integrations.md")
+    mesh_data_products = _read("wiki/Mesh-Data-Products.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    complete_reference = _read("docs/guides/complete_service_reference.md")
+    readme = _read("README.md")
+    rfc_index = _read("docs/RFCs/RFC-INDEX.md")
+
+    for content in (guide, certification, map_doc, wiki_page):
+        assert "persisted member-return facts" in content
+        assert "CompositePerformanceAnalytics" in content
+        assert "composite contribution" in content
+        assert "multi-currency composite aggregation" in content
+
+    assert "metric-composite-twr.md" in methodology_index
+    assert "composite-performance-documentation-map.md" in methodology_index
+    assert "member_inputs.csv" in guide
+    assert "period_weights.csv" in certification
+    assert "Composite performance source flow" in wiki_integrations
+    assert "Composite Performance](Composite-Performance)" in wiki_sidebar
+    assert "Composite Performance](Composite-Performance)" in wiki_home
+    assert "POST /performance/composites/twr" in wiki_api_surface
+    assert "POST /performance/composites/inspect" in api_reference
+    assert "calculate composite TWR from persisted member-return facts" in complete_reference
+    assert "docs/guides/composite_performance.md" in readme
+    assert "wiki/Composite-Performance.md" in readme
+    assert "contracts/trust-telemetry/composite-performance-analytics.telemetry.v1.json" in mesh_data_products
+    assert "Slice 11 productized methodology/docs/wiki" in rfc_index
+    assert "Slice 12 live proof" in certification
+    assert "Slice 13 Swagger hardening" in certification
+    assert "Promotes only the persisted-fact composite TWR" in map_doc
+    assert "Supported after RFC-049 implementation proof" in wiki_page
 
 
 def test_benchmark_guide_uses_current_request_shape():

@@ -20,6 +20,7 @@ This index maps implemented lotus-performance metrics to detailed methodology do
 | Currency Local Selection | POST /performance/attribution | Stateless + Stateful (multi-currency path) | [metric-currency-local-selection.md](./metric-currency-local-selection.md) |
 | Currency Allocation | POST /performance/attribution | Stateless + Stateful (multi-currency path) | [metric-currency-allocation.md](./metric-currency-allocation.md) |
 | Currency Selection | POST /performance/attribution | Stateless + Stateful (multi-currency path) | [metric-currency-selection.md](./metric-currency-selection.md) |
+| Composite Time-Weighted Return | POST /performance/composites/twr | Persisted member-return facts | [metric-composite-twr.md](./metric-composite-twr.md) |
 | Portfolio Return Series | POST /integration/returns/series | Stateless + Stateful | [metric-returns-series-portfolio.md](./metric-returns-series-portfolio.md) |
 | Benchmark Return Series | POST /integration/returns/series | Stateless + Stateful | [metric-returns-series-benchmark.md](./metric-returns-series-benchmark.md) |
 | Active Return Series | POST /integration/returns/series | Stateless + Stateful | [metric-returns-series-active.md](./metric-returns-series-active.md) |
@@ -40,6 +41,10 @@ This index maps implemented lotus-performance metrics to detailed methodology do
   benchmark component inputs, and source currency evidence into canonical attribution panel inputs
   while keeping Brinson, active-return, linking, and Karnosky-Singer methodology owned by
   `lotus-performance`.
+- `POST /performance/composites/twr` calculates composite TWR from persisted member-return facts
+  only. It does not accept ad hoc member returns and does not perform hidden request-time portfolio
+  TWR fan-out. Composite contribution, attribution, MWR, sleeves, carve-outs, and multi-currency
+  aggregation beyond the current single reporting-currency guard remain unsupported.
 - In current engine behavior, `mwr_method=MODIFIED_DIETZ` uses dated cash-flow weights and
   `mwr_method=DIETZ` keeps the midpoint Simple Dietz path.
 - Current MWR methodology documents assume a single reporting-currency schedule. Future FX-aware MWR

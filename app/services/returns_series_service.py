@@ -40,6 +40,7 @@ from app.services.stateful_benchmark_input_service import build_stateful_benchma
 from app.services.stateful_performance_input_service import retrieve_stateful_portfolio_input
 from app.services.valuation_points_service import portfolio_timeseries_to_valuation_points
 from common.enums import Frequency, PeriodType
+from core.errors import HTTP_422_UNPROCESSABLE
 from core.repro import generate_canonical_hash
 from engine.benchmarks import benchmark_return_points_to_dataframe, calculate_benchmark_returns
 from engine.compute import run_calculations
@@ -107,7 +108,7 @@ def to_dataframe(points: Iterable[ReturnPoint], *, series_type: str) -> pd.DataF
     df = pd.DataFrame(data)
     if df.empty:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=HTTP_422_UNPROCESSABLE,
             detail={"code": "INSUFFICIENT_DATA", "message": f"{series_type} series is empty."},
         )
     if df["date"].duplicated().any():
@@ -124,7 +125,7 @@ def filter_window(df: pd.DataFrame, *, resolved_window: ResolvedWindow) -> pd.Da
     window_df = df[mask].copy()
     if window_df.empty:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=HTTP_422_UNPROCESSABLE,
             detail={"code": "INSUFFICIENT_DATA", "message": "No observations in resolved window."},
         )
     return window_df
@@ -358,7 +359,7 @@ def daily_ror_from_portfolio_timeseries(
     daily_results_df, _ = run_calculations(engine_df, config)
     if daily_results_df.empty:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=HTTP_422_UNPROCESSABLE,
             detail={"code": "INSUFFICIENT_DATA", "message": "No portfolio return observations in resolved window."},
         )
     output_df = pd.DataFrame(
@@ -373,7 +374,7 @@ def daily_ror_from_portfolio_timeseries(
     output_df = output_df.dropna(subset=["return_value"]).sort_values("date")
     if output_df.empty:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=HTTP_422_UNPROCESSABLE,
             detail={
                 "code": "INSUFFICIENT_DATA",
                 "message": "No valid portfolio return observations after normalization.",
@@ -450,7 +451,7 @@ def _get_requested_benchmark_return_source(request: ReturnsSeriesRequest) -> Ben
 def _benchmark_daily_returns_to_dataframe(daily_returns_df: pd.DataFrame) -> pd.DataFrame:
     if daily_returns_df.empty:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=HTTP_422_UNPROCESSABLE,
             detail={"code": "INSUFFICIENT_DATA", "message": "Benchmark series is empty."},
         )
     benchmark_df = daily_returns_df[["date", "benchmark_return"]].copy()
@@ -603,7 +604,7 @@ async def _calculate_returns_series(
                 common_dates &= set(risk_free_df["date"])
             if not common_dates:
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=HTTP_422_UNPROCESSABLE,
                     detail={"code": "INSUFFICIENT_DATA", "message": "No overlapping dates across selected series."},
                 )
             portfolio_df = portfolio_df[portfolio_df["date"].isin(common_dates)].sort_values("date")
@@ -667,7 +668,7 @@ async def _calculate_returns_series(
         missing_points = max(requested_points - returned_points, 0)
         if request.data_policy.missing_data_policy == MissingDataPolicy.FAIL_FAST and missing_points > 0:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=HTTP_422_UNPROCESSABLE,
                 detail={
                     "code": "INSUFFICIENT_DATA",
                     "message": f"Missing {missing_points} required points under FAIL_FAST policy.",
@@ -814,7 +815,7 @@ async def resolve_stateful_returns_series_request(
                 },
             ) from exc
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=HTTP_422_UNPROCESSABLE,
             detail={
                 "code": "INSUFFICIENT_DATA",
                 "message": str(exc.detail),
@@ -851,7 +852,7 @@ async def resolve_stateful_returns_series_request(
         benchmark_id = str(benchmark_id_raw) if benchmark_id_raw else None
         if not benchmark_id:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=HTTP_422_UNPROCESSABLE,
                 detail={
                     "code": "CONTRACT_VIOLATION_UPSTREAM",
                     "message": "Benchmark assignment payload missing benchmark_id.",
@@ -892,7 +893,7 @@ async def resolve_stateful_returns_series_request(
             benchmark_points = benchmark_payload.get("points")
             if not isinstance(benchmark_points, list):
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=HTTP_422_UNPROCESSABLE,
                     detail={
                         "code": "CONTRACT_VIOLATION_UPSTREAM",
                         "message": "Benchmark return-series payload missing points list.",
@@ -973,7 +974,7 @@ async def resolve_stateful_returns_series_request(
         risk_free_points = risk_free_payload.get("points")
         if not isinstance(risk_free_points, list):
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=HTTP_422_UNPROCESSABLE,
                 detail={
                     "code": "CONTRACT_VIOLATION_UPSTREAM",
                     "message": "Risk-free series payload missing points list.",

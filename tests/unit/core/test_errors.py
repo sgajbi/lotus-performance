@@ -1,5 +1,6 @@
 # tests/unit/core/test_errors.py
 import importlib
+import warnings
 
 from fastapi import status
 
@@ -42,6 +43,8 @@ def test_api_conflict_error():
 def test_legacy_422_fallback_branch(monkeypatch):
     if hasattr(status, "HTTP_422_UNPROCESSABLE_CONTENT"):
         monkeypatch.delattr(status, "HTTP_422_UNPROCESSABLE_CONTENT", raising=False)
-        reloaded = importlib.reload(errors_module)
-        assert reloaded.HTTP_422_UNPROCESSABLE == status.HTTP_422_UNPROCESSABLE_ENTITY
-        importlib.reload(errors_module)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message="'HTTP_422_UNPROCESSABLE_ENTITY' is deprecated")
+            reloaded = importlib.reload(errors_module)
+            assert reloaded.HTTP_422_UNPROCESSABLE == status.HTTP_422_UNPROCESSABLE_ENTITY
+            importlib.reload(errors_module)

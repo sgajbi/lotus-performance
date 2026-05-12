@@ -58,6 +58,7 @@ def test_repo_native_producer_declarations_cover_governed_first_wave_products_an
         "AttributionAnalytics",
         "ReturnsSeriesBundle",
         "BenchmarkExposureContext",
+        "CompositePerformanceAnalytics",
     ]
     twr_product = payload["products"][0]
     assert twr_product["approved_consumers"] == ["lotus-gateway"]
@@ -87,6 +88,13 @@ def test_repo_native_producer_declarations_cover_governed_first_wave_products_an
     assert "coverage_ratio" in attribution_product["required_trust_metadata"]
     assert payload["products"][4]["approved_consumers"] == ["lotus-risk"]
     assert payload["products"][5]["approved_consumers"] == ["lotus-risk"]
+    composite_product = payload["products"][6]
+    assert composite_product["approved_consumers"] == ["lotus-gateway"]
+    assert composite_product["current_routes"] == ["/performance/composites/twr"]
+    assert composite_product["request_scope"]["scope_level"] == "portfolio_set"
+    assert composite_product["freshness_policy"]["freshness_class"] == "batch"
+    assert "composite_id" in composite_product["identifier_refs"]
+    assert "lineage_version" in composite_product["required_trust_metadata"]
 
 
 def test_repo_native_consumer_declarations_keep_watchlist_dependencies_docs_only() -> None:

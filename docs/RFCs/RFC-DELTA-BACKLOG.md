@@ -143,14 +143,20 @@ Status values:
 - Proposed action: Phase 1 mgmt-fee bridge, then add advanced cost components.
 
 ### RFC-022-D01
-- Status: `open`
+- Status: `closed_via_rfc_049`
 - Priority: P2
 - Source RFC: `RFC-022`
-- Delta: Decide ownership and either implement composite/sleeve APIs or archive/re-home RFC.
-- Why still relevant: No runtime implementation and likely cross-domain ownership impact.
+- Delta: Retire RFC-022 as an implementation source and deliver the approved composite-performance
+  scope through RFC-049.
+- Why still relevant: RFC-049 now owns the implementation-backed composite product boundary. RFC-022
+  remains historical context only and must not be implemented directly.
 - Evidence:
-  - No `/composites/*` endpoints or `engine/composite.py`.
-- Proposed action: Architecture decision record + phased implementation/archive plan.
+  - RFC-049 delivered `POST /performance/composites/twr` and
+    `POST /performance/composites/inspect` over persisted member-return facts.
+  - `wiki/Supported-Features.md` promotes persisted-fact composite TWR and preserves advanced
+    unsupported boundaries.
+- Proposed action: No further RFC-022 implementation action. Use RFC-049 and supported-features
+  material for current composite truth.
 
 ### RFC-023-D01
 - Status: `open`

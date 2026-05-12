@@ -16,6 +16,7 @@ from app.services.source_quality_evidence import build_portfolio_source_quality_
 from app.services.stateful_input_service import RetrievalMetadata, StatefulInputService
 from app.services.stateful_upstream_errors import stateful_control_plane_unavailable_detail
 from app.services.valuation_points_service import portfolio_timeseries_to_valuation_points
+from core.errors import HTTP_422_UNPROCESSABLE
 
 
 @dataclass(frozen=True)
@@ -86,13 +87,13 @@ async def retrieve_stateful_portfolio_input(
         )
     except ValueError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=HTTP_422_UNPROCESSABLE,
             detail=str(exc),
         ) from exc
 
     if not portfolio_source.observations:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=HTTP_422_UNPROCESSABLE,
             detail="Stateful source returned no observations.",
         )
 
@@ -100,7 +101,7 @@ async def retrieve_stateful_portfolio_input(
         performance_start_date = date.fromisoformat(portfolio_source.portfolio_open_date or "")
     except ValueError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=HTTP_422_UNPROCESSABLE,
             detail="Invalid portfolio_open_date from stateful source.",
         ) from exc
 

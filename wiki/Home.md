@@ -57,6 +57,7 @@ make ci
 - [Time-Weighted Return](Time-Weighted-Return)
 - [Contribution Analytics](Contribution-Analytics)
 - [Attribution Analytics](Attribution-Analytics)
+- [Composite Performance](Composite-Performance)
 - [Supported Features](Supported-Features)
 - [Getting Started](Getting-Started)
 - [Development Workflow](Development-Workflow)

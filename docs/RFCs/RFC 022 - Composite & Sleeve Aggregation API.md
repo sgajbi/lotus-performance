@@ -1,9 +1,29 @@
-# RFC 022: Composite & Sleeve Aggregation API (Final)
+# RFC 022: Composite & Sleeve Aggregation API (Historical)
 
-**Status:** Final (For Approval)
+**Status:** Superseded by RFC 049 for execution planning
 **Owner:** Senior Architect
 **Reviewers:** Perf Engine, Risk, Platform, Compliance
-**Related:** All core analytics endpoints, RFC-025 (Reproducibility)
+**Related:** All core analytics endpoints, RFC-025 (Reproducibility), RFC-049
+
+## Supersession Notice
+
+RFC 022 is retained as historical context only. It is not the current implementation plan for
+composite performance.
+
+RFC 049 is the approved execution artifact for composite performance because it reflects the current
+Lotus architecture, platform governance, and data-mesh standards. RFC 049 replaces the RFC 022
+assumption that composite analytics can be delivered as stateless `/composites/*` wrappers over all
+core engines. The approved direction is:
+
+1. composite performance starts with composite TWR, not broad composite MWR, contribution,
+   attribution, or sleeve/carve-out promotion;
+2. composite calculation requires explicit source authority, effective-dated membership governance,
+   persisted member-return facts, batch/recalculation controls, lineage, inspector support, exports,
+   and data-product certification;
+3. composite support remains unsupported until RFC 049 is implemented, validated, documented, and
+   promoted through implementation-backed supported-feature material.
+
+Do not implement RFC 022 directly. Use RFC 049 for all composite-performance delivery decisions.
 
 ## 1\. Executive Summary
 

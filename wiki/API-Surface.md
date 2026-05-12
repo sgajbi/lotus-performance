@@ -20,6 +20,8 @@ Authoritative analytics routes:
 - `POST /performance/workspace-summary`
 - `POST /performance/contribution`
 - `POST /performance/attribution`
+- `POST /performance/composites/twr`
+- `POST /performance/composites/inspect`
 - `POST /performance/inspections/twr`
 
 `POST /performance/twr` is the supported portfolio-level TWR contract. RFC-046 response evidence
@@ -82,6 +84,14 @@ when linked attribution is requested across a period return less than or equal t
 [docs/technical/attribution-documentation-map.md](../docs/technical/attribution-documentation-map.md)
 for the implementation-backed product boundary and documentation routing.
 
+`POST /performance/composites/twr` calculates asset-weighted composite TWR from persisted
+member-return facts. It is intentionally not an ad hoc request-time member-return upload surface and
+does not fan out into hidden member portfolio TWR calculations. `POST /performance/composites/inspect`
+uses the same persisted facts to generate supportability findings and classified artifacts for
+operations, audit, and client-evidence preparation. See [Composite Performance](Composite-Performance)
+and [docs/technical/composite-performance-documentation-map.md](../docs/technical/composite-performance-documentation-map.md)
+for the implementation-backed boundary.
+
 ## Operator and platform surfaces
 
 Runtime and supportability routes:
@@ -106,6 +116,9 @@ Runtime and supportability routes:
 - Attribution product and methodology navigation:
   [Attribution Analytics](Attribution-Analytics),
   [docs/technical/attribution-documentation-map.md](../docs/technical/attribution-documentation-map.md)
+- Composite product and methodology navigation:
+  [Composite Performance](Composite-Performance),
+  [docs/technical/composite-performance-documentation-map.md](../docs/technical/composite-performance-documentation-map.md)
 - contract and payload detail:
   [docs/guides/api_reference.md](../docs/guides/api_reference.md)
 - full examples and config inventory:

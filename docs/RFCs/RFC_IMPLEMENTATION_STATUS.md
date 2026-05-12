@@ -139,4 +139,14 @@ delivery evidence for completed work.
 
 14. **RFC 022 — Composite & Sleeve Aggregation API**
     * **Reasoning:** **Enable firm-level and GIPS-compliant reporting.** A major enterprise feature that aggregates results from multiple portfolios into composites, representing the pinnacle of the platform's capabilities.
+    * **Current state:** **Superseded and closed through RFC 049.** RFC 022 remains historical
+      context, but the implementation-backed composite product boundary now lives in RFC 049.
+      RFC 049 delivered persisted-fact composite TWR and inspection through
+      `POST /performance/composites/twr` and `POST /performance/composites/inspect`, promoted
+      `CompositePerformanceAnalytics:v1`, added Gateway and Workbench consumption, proved the path
+      live, and published implementation-backed supported-feature material. Composite contribution,
+      attribution, MWR, sleeves, carve-outs, model portfolios, wrap programs, private-market
+      composites, portability, tax-aware/leveraged/long-short structures, benchmark active return,
+      and multi-currency composite aggregation beyond the single reporting-currency guard remain
+      unsupported.
 

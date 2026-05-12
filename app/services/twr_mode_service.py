@@ -20,6 +20,7 @@ from app.services.stateful_performance_input_service import (
 )
 from app.services.stateful_upstream_errors import stateful_control_plane_unavailable_detail
 from app.services.stateless_benchmark_input_service import normalize_stateless_component_observations
+from core.errors import HTTP_422_UNPROCESSABLE
 
 DEFAULT_STATEFUL_CONSUMER_SYSTEM = "lotus-performance"
 
@@ -83,7 +84,7 @@ async def resolve_twr_request(
             resolved_start_date = derived_start_date or request.performance_start_date
             if resolved_start_date is None:
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=HTTP_422_UNPROCESSABLE,
                     detail="Unable to derive a performance_start_date for the stateful TWR request.",
                 )
             portfolio_input = await retrieve_stateful_portfolio_input(
@@ -274,14 +275,14 @@ async def _resolve_stateful_portfolio_start_date(
     portfolio_open_date = upstream_payload.get("portfolio_open_date")
     if not isinstance(portfolio_open_date, str):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=HTTP_422_UNPROCESSABLE,
             detail="Stateful source missing portfolio_open_date.",
         )
     try:
         return date.fromisoformat(portfolio_open_date)
     except ValueError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=HTTP_422_UNPROCESSABLE,
             detail="Invalid portfolio_open_date from stateful source.",
         ) from exc
 
@@ -327,7 +328,7 @@ async def _resolve_twr_benchmark_source_input(
         benchmark_id_raw = assignment_payload.get("benchmark_id")
         if not isinstance(benchmark_id_raw, str) or not benchmark_id_raw:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=HTTP_422_UNPROCESSABLE,
                 detail="benchmark assignment payload missing benchmark_id.",
             )
         benchmark_id = benchmark_id_raw

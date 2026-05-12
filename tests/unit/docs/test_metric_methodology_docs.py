@@ -155,3 +155,20 @@ def test_currency_attribution_metric_docs_describe_total_effect_relationship():
         content = _read(METRICS_DIR / name)
         assert "TE_c" in content
         assert "total_effect" in content
+
+
+def test_composite_twr_methodology_doc_is_implementation_backed():
+    content = _read(METRICS_DIR / "metric-composite-twr.md")
+    master_index = _read(METRICS_DIR / "master-index.md")
+
+    assert "Composite Time-Weighted Return | POST /performance/composites/twr" in master_index
+    assert "Persisted member-return facts" in master_index
+    assert "persisted_member_return_asset_weighted_twr_v1" in content
+    assert "does not perform hidden request-time portfolio" in master_index
+    assert "source_fingerprint" in content
+    assert "restatement_version" in content
+    assert "mixed_member_return_views" in content
+    assert "mixed_member_reporting_currencies" in content
+    assert "NO_MEMBER_RETURN_FACTS" in content
+    assert "dispersion_equal_weight" in content
+    assert "composite contribution, attribution, MWR" in content
