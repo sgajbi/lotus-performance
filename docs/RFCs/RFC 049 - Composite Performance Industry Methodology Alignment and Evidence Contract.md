@@ -180,9 +180,13 @@ restatement, source authority, and supportability evidence.
 | --- | --- | --- | --- |
 | No composite runtime API | P0 | No composite endpoint or router exists | Add a governed composite API only after source and domain model are approved. |
 | No composite domain model | P0 | No composite definition, member, eligibility, or result model exists | Add explicit Lotus models for composite definition, effective-dated membership, policy, member evidence, result status, and restatement. |
-| No composite engine | P0 | No `engine/composite.py` or equivalent exists | Add a small, testable domain engine that composes existing portfolio analytics where appropriate. |
+| No persisted member-return fact store | P0 | Current portfolio TWR can be calculated and stored through execution/result paths, but there is no governed return-fact store designed for repeated composite use | Add versioned persisted member return facts before supported composite calculation. Composite production reads must not fan out to raw on-the-fly TWR for every member on every request. |
+| No composite batch/recalculation workflow | P0 | No composite job/run/store model exists | Add batch-capable composite calculation runs, recalculation triggers, idempotency, result versioning, and publication/restatement controls. |
+| No composite engine | P0 | No `engine/composite.py` or equivalent exists | Add a small, testable domain engine that consumes persisted member return facts and membership snapshots, while preserving a diagnostic preview path for limited ad hoc scenarios. |
 | No membership source authority | P0 | Current source contracts do not declare composite membership authority | Decide whether `lotus-core`, `lotus-manage`, or another source owns composite definitions and memberships; update upstream contracts if needed. |
 | No composite data product | P0 | Domain product contract does not include `CompositePerformanceAnalytics:v1` | Add producer declaration, trust telemetry, SLO/access/evidence posture, and mesh certification when implemented. |
+| No composite inspector | P1 | Existing TWR inspection is portfolio-oriented | Add composite inspection checks for membership, member return facts, weights, benchmark/active return, dispersion, restatement, source readiness, and support brief evidence. |
+| No composite operational API or artifact export model | P1 | Runtime APIs exist for current execution queues, but no composite-specific run/recalc/publish/restatement/export surface exists | Add operator APIs and governed CSV/XLSX/Markdown artifacts with access classification. |
 | RFC-022 is outdated | P1 | RFC-022 proposes broad `/composites/*` wrappers without modern governance | Supersede with this RFC; preserve useful concepts but remove unsafe implementation assumptions. |
 | Composite docs intentionally say unsupported | P1 | `wiki/Supported-Features.md` and TWR docs say composite/group/sleeve TWR are unsupported | Update only after implementation proof; until then keep unsupported boundary truthful. |
 | No downstream consumer contract | P1 | Gateway and Workbench do not expose composite performance | Same-RFC downstream updates are required if composite APIs are added. |
@@ -197,12 +201,16 @@ Target architecture:
 ```text
 lotus-core / approved source authority
   -> composite definition and effective-dated membership source contract
-  -> member portfolio TWR source contract from lotus-performance
+  -> governed portfolio TWR/member return fact generation in lotus-performance
+  -> persisted member return fact store with lineage and versioning
   -> composite eligibility and policy resolver
+  -> persisted composite membership snapshot
+  -> composite batch/recalculation worker
   -> composite member evidence builder
   -> asset-weighted period return engine
   -> linking, benchmark, asset, dispersion, and status engine
-  -> composite response, lineage, trust telemetry, and support evidence
+  -> persisted composite result versions and publication/restatement state
+  -> composite response, lineage, trust telemetry, inspector evidence, and export artifacts
   -> lotus-gateway composite performance contract
   -> lotus-workbench composite product surface and demo evidence
 ```
@@ -211,8 +219,10 @@ Architecture rules:
 
 1. `lotus-performance` is the composite performance calculation authority once the product is
    approved.
-2. `lotus-performance` should reuse validated portfolio TWR and return-series contracts where
-   possible instead of duplicating portfolio return formulas.
+2. `lotus-performance` should reuse validated portfolio TWR and return-series contracts to generate
+   governed member return facts. Supported composite production reads should consume persisted,
+   versioned member return facts, not recalculate raw portfolio TWR for every member at request
+   time.
 3. Source authority for composite definitions, effective-dated membership, discretion status,
    restriction status, minimum asset thresholds, fee status, benchmark assignment, benchmark
    version, classification, and restatement approval must be explicit before implementation.
@@ -228,14 +238,196 @@ Architecture rules:
 8. The final product must avoid claims of GIPS compliance or verification. Lotus may implement
    GIPS-aware evidence and methodology controls, but formal compliance claims require separate
    business/legal approval.
+9. Composite performance must be implemented as a first-class bounded subsystem inside
+   `lotus-performance`, not as a separate repository. The subsystem may use a separate composite
+   worker/container so heavier composite batch and recalculation workloads can scale independently
+   from the API container.
+10. The architecture must preserve a future extraction path if composite batch scale or governance
+   later justifies a dedicated deployable service, but RFC-049 starts with shared repository,
+   shared platform governance, shared DB/storage contracts, and separate logical modules.
 
-## 5.1 Proposed API Direction
+## 5.1 Deployment and Runtime Architecture
+
+RFC-049 should implement composite performance as a bounded subsystem inside `lotus-performance`.
+It should not create a separate repository. The target runtime should allow independent scaling of
+heavy composite work:
+
+```text
+lotus-performance-api
+  - reads composite definitions, published results, run status, inspection status, and artifacts
+  - accepts calculation/recalculation/publish/export requests
+  - serves OpenAPI, health, metrics, and product APIs
+
+lotus-performance-worker
+  - existing general async execution responsibilities
+
+lotus-performance-composite-worker
+  - generates or refreshes member return facts where needed
+  - resolves composite membership snapshots
+  - runs composite batch/recalculation jobs
+  - writes composite result versions, restatement diffs, lineage, and export artifacts
+  - emits composite-specific bounded metrics and logs
+
+shared governed persistence
+  - member return facts
+  - composite definitions and membership snapshots
+  - composite calculation runs
+  - composite result versions
+  - publication/restatement events
+  - lineage and export artifact metadata
+```
+
+Initial implementation may run the composite worker in the existing worker container only if the
+workload and deployment automation prove that independent scaling is not yet needed. If the
+separate worker/container is deferred, the RFC closure must record the deliberate decision, the
+scale evidence, and the trigger for extracting it later.
+
+## 5.2 Persisted Return Fact and Batch Architecture
+
+Supported composite performance must be batch-capable and persistence-first.
+
+Primary persisted objects:
+
+1. `member_return_fact`
+   - portfolio id;
+   - period start/end;
+   - frequency;
+   - return view;
+   - currency;
+   - return value;
+   - weighting assets;
+   - status and reason codes;
+   - source calculation id;
+   - source lineage artifact reference;
+   - source fingerprint;
+   - calculation/methodology version;
+   - restatement version.
+2. `composite_definition_version`
+   - composite id/name;
+   - strategy or mandate code;
+   - composite currency;
+   - benchmark policy;
+   - return-view policy;
+   - fee policy;
+   - eligibility policy;
+   - approval status;
+   - effective dates.
+3. `composite_membership_snapshot`
+   - snapshot id;
+   - composite definition version;
+   - effective-dated member list;
+   - inclusion/exclusion/blocking decision per member and period;
+   - decision reason codes;
+   - source fingerprint;
+   - override approval evidence.
+4. `composite_calculation_run`
+   - run id;
+   - requested periods;
+   - run type: scheduled, manual, recalculation, restatement, diagnostic preview;
+   - idempotency key;
+   - status;
+   - input snapshot ids;
+   - code/build/methodology version;
+   - operator/user/correlation ids;
+   - started/completed timestamps.
+5. `composite_result_version`
+   - result id;
+   - composite id/version;
+   - period returns;
+   - linked returns;
+   - composite assets;
+   - benchmark/active return where available;
+   - dispersion where available;
+   - member evidence snapshot;
+   - lineage references;
+   - publication state;
+   - restatement state.
+6. `composite_publication_event`
+   - draft/calculated/approved/published/restated transition;
+   - prior result version;
+   - change reason;
+   - approver;
+   - audit timestamp;
+   - downstream publication status.
+
+Request-time calculation is allowed only for:
+
+1. diagnostic previews;
+2. small controlled operator investigations;
+3. test fixtures;
+4. generating or refreshing a missing member return fact through an async workflow;
+5. one-off recalculation jobs that persist their output before product consumption.
+
+The product API should read persisted composite results by default. It must not hide expensive
+fan-out recalculation behind an apparently simple synchronous request.
+
+## 5.3 Lineage Architecture
+
+Composite lineage must answer the audit question:
+
+```text
+This composite return came from these member return fact versions, this membership snapshot, this
+definition version, this benchmark version, this methodology version, this code/build version, this
+calculation run, and this publication/restatement event.
+```
+
+Required lineage layers:
+
+1. composite definition lineage:
+   - `composite_id`;
+   - definition version;
+   - strategy/mandate code;
+   - benchmark policy;
+   - return-view policy;
+   - fee policy;
+   - currency policy;
+   - eligibility policy;
+   - approval status and timestamp.
+2. membership lineage:
+   - membership snapshot id;
+   - effective-dated member list;
+   - included/excluded/blocking decisions by period;
+   - reason codes;
+   - override approver/reason;
+   - source timestamp and source fingerprint.
+3. member return lineage:
+   - member return fact id/version;
+   - member source calculation id;
+   - return period;
+   - return view;
+   - currency;
+   - weighting asset value;
+   - source lineage artifact reference;
+   - restatement version.
+4. composite calculation lineage:
+   - calculation run id;
+   - batch job id;
+   - methodology version;
+   - code/build hash;
+   - input snapshot ids;
+   - request fingerprint;
+   - result fingerprint;
+   - correlation id;
+   - calculation status.
+5. result publication lineage:
+   - draft/calculated/approved/published/restated state;
+   - published result version;
+   - prior version if restated;
+   - change reason;
+   - approval evidence;
+   - downstream publication timestamp.
+
+Lineage artifacts must be classified by audience. Customer-safe lineage summaries may omit
+restricted member detail, while operator-only artifacts can include full member input diagnostics
+subject to entitlement and audit.
+
+## 5.4 Proposed API Direction
 
 The final API shape must be decided during implementation after source-authority review, but the
 preferred Lotus posture is:
 
-1. publish composite performance under `lotus-performance` API ownership, for example
-   `POST /performance/composites/twr` and `GET /performance/composites/twr/results/{calculation_id}`;
+1. publish composite performance under `lotus-performance` API ownership, with product reads
+   defaulting to persisted results rather than hidden request-time recomputation;
 2. keep portfolio TWR at `POST /performance/twr` unchanged unless composite implementation exposes a
    shared internal model;
 3. avoid the older broad RFC-022 `/composites/*` family unless endpoint certification proves that
@@ -248,11 +440,85 @@ preferred Lotus posture is:
    controlled enums with OpenAPI examples;
 7. separate customer-consumable evidence from operator-only evidence.
 
-## 5.2 Cross-Repository Scope
+Candidate product/read APIs:
+
+1. `GET /performance/composites`;
+2. `GET /performance/composites/{composite_id}`;
+3. `GET /performance/composites/{composite_id}/members`;
+4. `GET /performance/composites/{composite_id}/membership-snapshots/{snapshot_id}`;
+5. `GET /performance/composites/{composite_id}/returns`;
+6. `GET /performance/composites/{composite_id}/returns/{result_id}`;
+7. `GET /performance/composites/{composite_id}/lineage/{result_id}`.
+
+Candidate calculation/control APIs:
+
+1. `POST /performance/composites/{composite_id}/calculation-runs`;
+2. `GET /performance/composites/calculation-runs/{run_id}`;
+3. `POST /performance/composites/{composite_id}/recalculate`;
+4. `POST /performance/composites/{composite_id}/publish`;
+5. `POST /performance/composites/{composite_id}/restatements`;
+6. `GET /performance/composites/{composite_id}/restatements`;
+7. `GET /performance/composites/{composite_id}/exports/{artifact_name}`.
+
+Candidate operator/runtime APIs:
+
+1. `GET /integration/composite-runtime-status`;
+2. `GET /integration/composite-work-items`;
+3. `GET /integration/composite-calculation-runs`;
+4. `GET /integration/composite-restatement-history`;
+5. `POST /integration/composite-recovery-drills/run` if composite queue/replay needs separate
+   recovery proof.
+
+Candidate inspector APIs:
+
+1. `POST /performance/inspections/composites`;
+2. `GET /performance/inspections/composites/{inspection_id}`;
+3. `GET /performance/inspections/composites/{inspection_id}/artifacts/{artifact_name}`.
+
+## 5.5 Composite Inspector and Export Architecture
+
+The inspector is not the calculator. It is the support, audit, and evidence surface for composite
+runs.
+
+Composite inspector checks should cover:
+
+1. composite definition and approval status;
+2. membership snapshot completeness and effective-date validity;
+3. duplicate membership and multiple-composite conflicts where policy forbids them;
+4. included/excluded/blocking decisions and reason codes;
+5. missing, stale, provisional, or invalid member return facts;
+6. mixed return view, mixed currency, missing FX, and calendar mismatch;
+7. weight denominator, weight sum, zero/negative/near-zero asset handling;
+8. linked return tie-out;
+9. benchmark and active return tie-out;
+10. dispersion threshold and calculation checks;
+11. restatement impact between result versions;
+12. export completeness and artifact classification.
+
+Composite calculation and inspection should produce controlled artifacts:
+
+1. `member_inputs.csv` - member return facts, assets, currency, return view, status, and lineage ref;
+2. `membership_decisions.csv` - included, excluded, blocked, provisional, and invalid decisions with
+   reason codes;
+3. `period_weights.csv` - period-level member weights and denominator evidence;
+4. `composite_returns.csv` - period returns, linked returns, status, and reason codes;
+5. `benchmark_active_return.csv` - benchmark return, active return, and missing-benchmark status;
+6. `dispersion.csv` - member returns and dispersion statistics where allowed by policy;
+7. `restatement_diff.csv` - before/after result, member, asset, benchmark, and status deltas;
+8. `lineage_manifest.json` - machine-readable lineage references and fingerprints;
+9. `support_brief.md` - human-readable operations support summary;
+10. optional `composite_evidence_workbook.xlsx` bundling approved CSVs for operations and
+    client-review preparation.
+
+Artifact access must be classified. Member-level exports are restricted by default. Customer-safe
+exports may contain summary evidence only unless entitlement and business approval permit member
+detail.
+
+## 5.6 Cross-Repository Scope
 
 | Repository | Role | Same-RFC obligation |
 | --- | --- | --- |
-| `lotus-performance` | Composite performance calculation authority | Engine, API, models, evidence, docs, OpenAPI, API vocabulary, tests, trust telemetry, data-product declaration, supported-features, and wiki source. |
+| `lotus-performance` | Composite performance calculation authority | Persisted member return facts, composite batch worker, engine, API, models, evidence, inspector, export artifacts, docs, OpenAPI, API vocabulary, tests, trust telemetry, data-product declaration, supported-features, and wiki source. |
 | `lotus-core` | Candidate source authority for portfolio state, portfolio returns, classifications, benchmark assignment, discretion/restriction fields, and possibly composite membership | Change only if source truth cannot be represented today. Do not fake missing source authority inside `lotus-performance`. |
 | `lotus-manage` | Candidate source authority for strategy/mandate governance, approval workflow, and composite policy lifecycle | Change only if composite definitions belong to management governance rather than source accounting. |
 | `lotus-gateway` | Experience API boundary | Preserve or expose composite APIs, statuses, reason codes, evidence, degraded states, OpenAPI, and tests. |
@@ -265,7 +531,7 @@ Consumer search is mandatory before any API change. Required searches include en
 response field names, data-product ids, supported-feature entries, Gateway clients, Workbench
 panels, report templates, OpenAPI snapshots, API vocabulary inventories, and wiki material.
 
-## 5.3 Data Product Direction
+## 5.7 Data Product Direction
 
 Composite performance should be promoted as a data product only after implementation proof supports
 the claim.
@@ -281,13 +547,14 @@ Candidate scope:
 1. scope level: composite;
 2. product family: analytics output;
 3. temporal basis: `as_of_date` plus effective-dated membership periods;
-4. source dependencies: portfolio returns, member assets, composite membership, benchmark
-   assignment, FX source, fee policy, discretion/restriction state, and restatement metadata;
+4. source dependencies: persisted member return facts, portfolio returns, member assets, composite
+   membership, benchmark assignment, FX source, fee policy, discretion/restriction state, and
+   restatement metadata;
 5. supported routes: final composite performance routes only after implementation;
 6. trust metadata: product name/version, generated time, as-of date, correlation id, request
    fingerprint, source services, upstream request fingerprints, composite definition version,
-   membership snapshot id, data-quality status, coverage status, reconciliation status, and
-   restatement status;
+   membership snapshot id, member return fact versions, calculation run id, data-quality status,
+   coverage status, reconciliation status, and restatement status;
 7. evidence classes: customer-consumable summary, customer lineage summary, restricted member
    audit, operator diagnostics, internal-only source artifacts.
 
@@ -303,6 +570,8 @@ Promotion rule:
 
 | Feature | Proposed status | Promotion rule | Current claim before implementation |
 | --- | --- | --- | --- |
+| Persisted member return facts for composite use | Proposed | Promote only after fact schema, lineage, versioning, recalculation, and tests are complete. | Not supported. |
+| Composite batch and recalculation workflow | Proposed | Promote only after worker/runtime, idempotency, result versioning, restatement, and operational APIs are complete. | Not supported. |
 | Composite TWR from validated member portfolio returns | Proposed | Promote only after engine/API/tests/live proof and downstream realization are complete. | Not supported. |
 | Effective-dated composite membership and eligibility evidence | Proposed | Promote only after source authority, API response, reason-code tests, and docs are complete. | Not supported. |
 | Included/excluded member audit with reason codes | Proposed | Promote only after every reason family is tested and documented. | Not supported. |
@@ -310,6 +579,7 @@ Promotion rule:
 | Benchmark return and active return for composites | Proposed | Promote only after benchmark source/version policy, missing benchmark behavior, and tests are complete. | Not supported. |
 | Dispersion | Proposed | Promote only after minimum-member policy, calculation method, one-member behavior, and OpenAPI docs are complete. | Not supported. |
 | Restatement and reproducibility evidence | Proposed | Promote only after snapshot, lineage, result id, and restatement behavior are implemented and tested. | Not supported. |
+| Composite inspector and evidence exports | Proposed | Promote only after inspection checks, access classification, CSV/XLSX/Markdown artifact generation, and audit logs are complete. | Not supported. |
 | Composite contribution | Gated | Promote only if implemented in this RFC with reconciliation to composite return and downstream proof. | Not supported. |
 | Composite attribution | Gated | Promote only if implemented in this RFC with benchmark alignment, residual proof, and downstream proof. | Not supported. |
 | Composite MWR | Gated | Promote only if implemented with separate investor-capital-timing disclosure and controls. | Not supported. |
@@ -453,55 +723,76 @@ Validation:
 3. API schema tests;
 4. source-authority documentation review.
 
-### Slice 4 - Core Composite TWR Calculation Engine
+### Slice 4 - Persisted Member Return Facts, Batch Workflow, and Core Composite TWR Engine
 
-Purpose: implement the minimum bank-grade composite calculation capability.
+Purpose: implement the minimum bank-grade composite calculation capability on persisted,
+versioned member return facts instead of request-time fan-out recalculation.
 
 Scope:
 
-1. add a composite engine module with small, testable functions;
-2. calculate period composite return by asset-weighting validated member portfolio returns;
-3. link period returns geometrically;
-4. support daily and monthly calculation only where source member returns exist;
-5. preserve member weights, member returns, assets, return view, currency, and statuses;
-6. implement no-member, one-member, zero-asset, negative-asset, missing-return, invalid-return,
+1. add a governed member return fact model/store with versioning, status, source calculation id,
+   lineage reference, source fingerprint, return view, currency, period, and weighting assets;
+2. add composite calculation run and result-version stores;
+3. implement scheduled/manual/recalculation/restatement run types with idempotency keys and
+   concurrency controls;
+4. add a composite batch workflow, preferably in a separately scalable
+   `lotus-performance-composite-worker` container/process, while retaining a documented fallback if
+   initial deployment keeps it in the existing worker;
+5. add a composite engine module with small, testable functions that consumes member return facts
+   and membership snapshots;
+6. calculate period composite return by asset-weighting validated member portfolio return facts;
+7. link period returns geometrically;
+8. support daily and monthly calculation only where source member return facts exist;
+9. preserve member weights, member returns, assets, return view, currency, statuses, and source
+   lineage in result versions;
+10. implement no-member, one-member, zero-asset, negative-asset, missing-return, invalid-return,
    mixed-currency, mixed-return-view, calendar-mismatch, inactive-gap, duplicate-membership, and
    restatement controls;
-7. expose valid, warning, provisional, blocked, not-available, invalid, and unsupported status
+11. expose valid, warning, provisional, blocked, not-available, invalid, and unsupported status
    semantics.
 
 Acceptance criteria:
 
-1. no-member periods return no performance, not zero return;
-2. eligible members with missing or invalid required data block or degrade according to policy and
+1. supported composite product reads use persisted result versions by default;
+2. no-member periods return no performance, not zero return;
+3. eligible members with missing or invalid required data block or degrade according to policy and
    never disappear silently;
-3. weights are reproducible and sum to one when result status is valid;
-4. linked returns are mathematically correct and do not link through inactive gaps unless policy
+4. weights are reproducible and sum to one when result status is valid;
+5. linked returns are mathematically correct and do not link through inactive gaps unless policy
    explicitly permits it;
-5. deterministic examples from the source QA pack are converted into Lotus tests.
+6. recalculation produces a new result version or restatement event rather than silently overwriting
+   published results;
+7. deterministic examples from the source QA pack are converted into Lotus tests.
 
 Validation:
 
-1. unit tests for engine formulas and edge cases;
+1. unit tests for fact store, run store, engine formulas, and edge cases;
 2. property tests for weight and no-member invariants;
-3. integration tests through API service layer once API is available;
-4. numerical tolerance documentation.
+3. integration tests for batch run and result persistence;
+4. idempotency and concurrency tests;
+5. numerical tolerance documentation.
 
-### Slice 5 - Composite API Contract, OpenAPI, Error Handling, and Async Runtime
+### Slice 5 - Composite Product, Operational, Inspector, and Export API Contracts
 
-Purpose: publish the composite capability through a certified API contract.
+Purpose: publish the composite capability through certified product, operator, inspection, and
+artifact contracts.
 
 Scope:
 
-1. add final composite endpoint routes after approval of route shape;
-2. support sync and async execution using existing execution registry patterns;
-3. implement result retrieval paths;
-4. include full request, response, and error models;
-5. document every attribute with type, description, example value, and controlled enums;
-6. include realistic examples for valid, no-member, blocked missing member return, missing
+1. add final product/read composite endpoint routes after approval of route shape;
+2. add calculation-run, recalculation, publish, restatement, export, and runtime-status APIs as
+   required by the architecture;
+3. add composite inspector APIs for support and audit evidence;
+4. support async execution using existing execution registry patterns and composite-specific run
+   status where needed;
+5. implement persisted result retrieval paths;
+6. include full request, response, and error models;
+7. document every attribute with type, description, example value, and controlled enums;
+8. include realistic examples for valid, no-member, blocked missing member return, missing
    benchmark, mixed return view, and restated result;
-7. add 400/404/409/422/500 behavior where appropriate;
-8. update API vocabulary inventory and no-alias governance.
+9. add 400/401/403/404/409/422/429/500 behavior where appropriate;
+10. update API vocabulary inventory and no-alias governance;
+11. classify export endpoints and artifact fields by audience and entitlement.
 
 Acceptance criteria:
 
@@ -509,7 +800,9 @@ Acceptance criteria:
 2. every endpoint has clear what/when/how guidance;
 3. all error behavior is intentional and tested;
 4. no stale or duplicate composite endpoint exists;
-5. async accepted responses include execution, polling, and result paths.
+5. async accepted responses include execution, polling, and result paths;
+6. operator APIs cannot publish, restate, export, or read restricted member-level artifacts without
+   governed authorization and audit metadata.
 
 Validation:
 
@@ -519,7 +812,7 @@ Validation:
 4. no-alias/vocabulary checks;
 5. `make check`.
 
-### Slice 6 - Data Product and Platform Hardening
+### Slice 6 - Data Product, Runtime, and Platform Hardening
 
 Purpose: promote composite performance only when it satisfies data mesh and platform standards.
 
@@ -532,8 +825,14 @@ Scope:
 5. certify gateway-only publication where customer/product surfaces are involved;
 6. add bounded metrics for composite calculation status and reason-code families without sensitive
    labels;
-7. review dependency, CI, security, observability, logging, health, readiness, and runtime posture;
-8. formally track or fix security vulnerabilities.
+7. add composite worker/container health, liveness, readiness, queue, retry, and stuck-run
+   observability if a separate worker is introduced;
+8. review dependency, CI, security, observability, logging, health, readiness, and runtime posture;
+9. add audit events for calculation, recalculation, publish, restatement, export, privileged reads,
+   and inspection artifact access;
+10. define retention policy for member return facts, result versions, lineage, exports, and
+   operator artifacts;
+11. formally track or fix security vulnerabilities.
 
 Acceptance criteria:
 
@@ -541,6 +840,7 @@ Acceptance criteria:
 2. mesh certification passes or records an approved limited posture;
 3. metrics and logs are bounded, useful, and non-sensitive;
 4. no product claim exceeds implementation proof.
+5. the composite runtime has a clear scaling and recovery posture.
 
 Validation:
 
@@ -565,7 +865,8 @@ Scope:
    - model-fee net only when policy/source data supports it;
 5. document unsupported fee/tax treatment clearly;
 6. implement restatement metadata and snapshot evidence;
-7. preserve reproducibility through lineage and source fingerprints.
+7. preserve reproducibility through lineage and source fingerprints;
+8. implement restatement diff evidence and support-safe explanations.
 
 Acceptance criteria:
 
@@ -574,13 +875,57 @@ Acceptance criteria:
 3. dispersion is not emitted as meaningful for one-member or below-threshold periods;
 4. benchmark missing does not invalidate composite return but blocks active return and attribution;
 5. restatements never silently overwrite published results.
+6. restatement diffs explain changed members, changed returns, changed assets, changed benchmark
+   inputs, and changed statuses.
 
 Validation:
 
 1. deterministic unit tests;
 2. integration tests;
-3. lineage/reproducibility tests;
+3. lineage/reproducibility/restatement tests;
 4. OpenAPI examples for each status family.
+
+### Slice 7A - Composite Inspector and Evidence Export
+
+Purpose: make composite performance inspectable, supportable, and auditable.
+
+Scope:
+
+1. extend the inspection architecture with composite-specific checks rather than overloading
+   portfolio TWR inspection;
+2. validate membership completeness, effective-dated inclusion, duplicate membership, source
+   readiness, member return fact quality, weight denominator, weight sum, linking, benchmark active
+   return, dispersion, restatement, and artifact completeness;
+3. generate support-safe findings, reason-code summaries, support brief, and machine-readable
+   inspection summaries;
+4. generate controlled CSV artifacts:
+   - `member_inputs.csv`;
+   - `membership_decisions.csv`;
+   - `period_weights.csv`;
+   - `composite_returns.csv`;
+   - `benchmark_active_return.csv`;
+   - `dispersion.csv`;
+   - `restatement_diff.csv`;
+5. generate `lineage_manifest.json` and `support_brief.md`;
+6. generate an optional `composite_evidence_workbook.xlsx` only when access classification and
+   dependency posture are approved;
+7. classify every artifact as customer-safe, restricted customer, operator-only, or internal-only;
+8. audit privileged artifact reads.
+
+Acceptance criteria:
+
+1. inspector findings are grounded in persisted facts and result versions;
+2. member-level exports are restricted by default;
+3. exports tie back to calculation run id, result id, lineage manifest, and source fingerprints;
+4. support teams can explain inclusion/exclusion, blocked results, restatements, and calculation
+   differences without inventing methodology.
+
+Validation:
+
+1. inspection service tests;
+2. artifact generation tests;
+3. authorization/audit tests for restricted exports;
+4. docs and support-playbook tests.
 
 ### Slice 8 - Gated Advanced Composite Analytics Decision
 
@@ -694,12 +1039,37 @@ Purpose: make composite documentation implementation-backed and useful across au
 
 Scope:
 
-1. add Lotus methodology v3 composite docs with formulas, variables, deterministic steps,
-   validation/failure behavior, and worked examples;
+1. add a Lotus methodology v3 composite document that is strong enough for audit and operations,
+   including:
+   - definitions and vocabulary;
+   - exact formulas;
+   - variable dictionary;
+   - weighting basis;
+   - daily and monthly calculation steps;
+   - persisted member return fact requirements;
+   - geometric linking;
+   - no-member and one-member treatment;
+   - gross, net actual, and model-fee boundaries;
+   - currency conversion policy;
+   - benchmark and active return policy;
+   - dispersion formula and threshold;
+   - significant cash-flow policy;
+   - minimum asset and grace-period policy;
+   - terminated portfolio handling;
+   - manual override governance;
+   - restatement rules;
+   - validation failures and reason codes;
+   - worked examples with expected outputs;
+   - supported versus unsupported structures;
+   - audit and support interpretation guidance;
 2. add API guide material only after endpoint implementation;
 3. add endpoint certification docs;
-4. update README only with concise current capability and command truth;
-5. update repo-local wiki with:
+4. add composite operations and inspector playbooks that match actual API fields, artifacts, and
+   failure behavior;
+5. add architecture diagrams for persisted facts, batch calculation, lineage, inspector, exports,
+   Gateway, and Workbench where useful;
+6. update README only with concise current capability and command truth;
+7. update repo-local wiki with:
    - feature coverage;
    - upstream and downstream integrations;
    - business flows;
@@ -707,17 +1077,20 @@ Scope:
    - architecture and operational behavior;
    - diagrams where useful;
    - supported and unsupported boundaries;
-6. avoid duplicating detailed RFC mechanics in wiki;
-7. update supported-features only with implementation-backed claims;
-8. publish wiki after merge if changed.
+8. avoid duplicating detailed RFC mechanics in wiki;
+9. update supported-features only with implementation-backed claims;
+10. publish wiki after merge if changed.
 
 Acceptance criteria:
 
 1. docs are not generic imports from the source pack;
 2. every described feature exists in code and tests;
 3. docs support developers, business users, operations, sales, pre-sales, and demos;
-4. diagrams explain source flow, calculation flow, downstream flow, and support triage where useful;
-5. unsupported advanced scopes remain explicit.
+4. methodology docs are detailed enough for audit and support teams to reproduce and explain a
+   result;
+5. diagrams explain source flow, persisted return facts, batch calculation, lineage, export,
+   downstream flow, and support triage where useful;
+6. unsupported advanced scopes remain explicit.
 
 Validation:
 
@@ -880,6 +1253,10 @@ The implementation must satisfy or explicitly classify:
 9. API discoverability and metadata quality suitable for self-serve data-product discovery;
 10. safe public/customer evidence-pack posture that excludes restricted telemetry, raw holdings,
    entitlement details, trace identifiers, and unsafe source artifacts.
+11. persisted-fact lifecycle posture for member returns, composite results, result versions,
+   publication states, and restatements;
+12. batch freshness posture, recalculation posture, and operator recovery posture for composite
+   worker runs.
 
 ## 9. API and Compatibility Posture
 
@@ -905,6 +1282,11 @@ composite contract is materially better. However:
 | Eligible members with missing data are silently excluded | Performance manipulation risk | Missing eligible member blocks/degrades with reason codes. |
 | Gross/net/currency views are mixed | Incorrect performance claims | Return-view and currency consistency validation. |
 | No-member periods return zero | False strategy performance | No-member status returns not available, never zero. |
+| On-the-fly fan-out TWR becomes the production composite path | Poor latency, unstable reproducibility, hard audit | Persisted member return facts and batch-first product reads. |
+| Composite worker cannot scale independently | Heavy composite jobs affect portfolio analytics API | Separate bounded subsystem and optional `lotus-performance-composite-worker` container. |
+| Recalculation overwrites published results | Audit and client reporting defect | Immutable result versions, publication events, and restatement diff evidence. |
+| Member-level exports leak restricted information | Confidentiality defect | Artifact classification, entitlement, audit logs, and customer-safe summaries. |
+| Inspector is treated as calculator | Split-brain calculation behavior | Inspector validates persisted facts/results and never becomes the calculation authority. |
 | API changes break Gateway or Workbench | Front-office regression | Same-RFC downstream updates and live canonical proof. |
 | Metrics leak sensitive/high-cardinality labels | Security/observability defect | Bounded label tests and no-sensitive-content review. |
 | GIPS wording is overclaimed | Legal/compliance risk | Use GIPS-aware controls only; no compliance/verification claim without separate approval. |
@@ -917,20 +1299,23 @@ Final implementation evidence must include:
 1. source-doc-to-implementation mapping;
 2. current implementation baseline and RFC-022 supersession rationale;
 3. deterministic unit tests for composite formulas and edge cases;
-4. property tests for weight, no-member, missing member, and linking invariants;
-5. API and integration tests for sync/async composite routes;
-6. source-authority proof and upstream tests when upstream changes are required;
-7. OpenAPI and vocabulary validation;
-8. data-product and mesh validation if promoted;
-9. Gateway and Workbench tests if contracts change;
-10. live front-office canonical proof where product surfaces change;
-11. docs/wiki validation and publication evidence;
-12. CI check links and final branch hygiene proof;
-13. security/dependency posture evidence or formal risk treatment;
-14. API certification and Swagger quality evidence;
-15. data-product certification, telemetry, SLO/access/evidence posture, and mesh-gate proof where
+4. persisted member return fact, calculation run, result version, publication event, and
+   restatement tests;
+5. property tests for weight, no-member, missing member, and linking invariants;
+6. API and integration tests for product, operator, inspection, export, and async composite routes;
+7. source-authority proof and upstream tests when upstream changes are required;
+8. OpenAPI and vocabulary validation;
+9. data-product and mesh validation if promoted;
+10. Gateway and Workbench tests if contracts change;
+11. live front-office canonical proof where product surfaces change;
+12. inspector and export artifact proof with access classification;
+13. methodology v3, docs/wiki validation, and publication evidence;
+14. CI check links and final branch hygiene proof;
+15. security/dependency posture evidence or formal risk treatment;
+16. API certification and Swagger quality evidence;
+17. data-product certification, telemetry, SLO/access/evidence posture, and mesh-gate proof where
     promoted;
-16. a final gold-pass assessment section in this RFC stating:
+18. a final gold-pass assessment section in this RFC stating:
     - what was truly completed;
     - what quality improvements were made;
     - what debt was removed;
@@ -943,14 +1328,19 @@ Implementation may start only after the operator approves this RFC.
 
 Approval should confirm:
 
-1. composite TWR-first scope is correct;
-2. source-authority decision process is acceptable;
-3. advanced composite analytics gates are acceptable;
-4. API compatibility posture is acceptable;
-5. upstream/downstream same-RFC obligations are acceptable;
-6. data-product promotion scope is acceptable;
-7. documentation, wiki, supported-features, and LinkedIn expectations are acceptable;
-8. slice sequencing is acceptable.
+1. persisted member return fact and batch-first architecture is correct;
+2. separate composite worker/container option inside `lotus-performance` is acceptable;
+3. composite TWR-first scope is correct;
+4. source-authority decision process is acceptable;
+5. composite inspector, operational APIs, exports, lineage, and restatement requirements are
+   acceptable;
+6. advanced composite analytics gates are acceptable;
+7. API compatibility posture is acceptable;
+8. upstream/downstream same-RFC obligations are acceptable;
+9. data-product promotion scope is acceptable;
+10. methodology v3, documentation, wiki, supported-features, and LinkedIn expectations are
+   acceptable;
+11. slice sequencing is acceptable.
 
 Until approval, this RFC remains planning material only.
 

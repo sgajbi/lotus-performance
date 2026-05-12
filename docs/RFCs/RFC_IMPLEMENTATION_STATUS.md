@@ -142,8 +142,10 @@ delivery evidence for completed work.
     * **Current state:** **Superseded for execution planning by RFC 049.** RFC 022 remains useful
       historical context, but it is not implementation-ready under current Lotus governance. RFC
       049 is the approval artifact for composite performance: it keeps current composite support
-      unsupported, requires source-authority and membership governance before calculation, proposes
-      composite TWR as the first-class target, gates composite contribution/attribution/MWR/sleeves,
-      and requires data-product, downstream, docs/wiki, live-proof, security, CI, and branch-hygiene
-      closure before any supported composite claim is promoted.
+      unsupported, requires source-authority and membership governance before calculation, requires
+      persisted member return facts and batch/recalculation workflows rather than hidden on-the-fly
+      TWR fan-out, proposes composite TWR as the first-class target, gates composite
+      contribution/attribution/MWR/sleeves, and requires inspector evidence, export artifacts,
+      lineage, methodology v3 documentation, data-product, downstream, docs/wiki, live-proof,
+      security, CI, and branch-hygiene closure before any supported composite claim is promoted.
 
