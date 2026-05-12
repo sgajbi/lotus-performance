@@ -993,19 +993,21 @@ Direct live attribution details proof through Gateway:
 9. asset-class rows returned `cash`, `equity`, `fixed_income`, and `fund`;
 10. warnings and partial failures were empty.
 
-GitHub evidence in flight:
+GitHub closure evidence:
 
-1. `lotus-performance` PR `#160` includes commit
-   `07e724c fix: allow internal trade timing in attribution alignment`.
-2. `lotus-gateway` PR `#208` includes downstream commit
-   `2c13323 fix: wait for stateful attribution materialization`.
-3. `lotus-workbench` PR `#180` includes downstream commit
-   `f2188e3 fix: bind live validation to canonical as-of`.
+1. `lotus-performance` PR `#160` merged to `main` with the RFC 048 implementation, test, docs,
+   wiki-source, data-product, and closure evidence.
+2. `lotus-gateway` PR `#208` merged to `main`, preserving stateful attribution materialization
+   through the Gateway consumer contract.
+3. `lotus-workbench` PR `#180` merged to `main`, binding canonical live validation to the RFC-0076
+   as-of date for performance and risk routes.
+4. `lotus-workbench` PR `#181` merged to `main`, adding a readiness probe so live panel governance
+   waits for supported performance evidence before classifying the evidence panel.
+5. `lotus-performance` wiki publication completed from repo-local wiki source after merge.
 
 ### 13.5 Remaining Closure Criteria
 
-The implementation is materially stronger after the live audit, but this assessment is not final
-closure until all of the following are complete:
+All closure criteria are complete:
 
 1. all RFC 048 PR checks are green across `lotus-performance`, `lotus-gateway`, and
    `lotus-workbench`;
@@ -1016,6 +1018,6 @@ closure until all of the following are complete:
 5. stranded-truth reconciliation confirms no required RFC, docs, wiki, contract, context,
    OpenAPI, supported-features, or workflow truth remains only on unmerged branches.
 
-Current conclusion: the live audit found real defects and fixed them in the correct repositories.
-The RFC has not yet reached final done because CI, merge, wiki publication, and branch-hygiene
-closure remain open.
+Current conclusion: RFC 048 is complete and closed. The live audit found real defects and fixed
+them in the correct repositories before closure. The final implementation is merged, validated,
+published, and branch-clean for RFC 048 required truth.
