@@ -12,6 +12,8 @@ analytics and integration surfaces.
 - [guides/contribution.md](../guides/contribution.md)
 - [guides/attribution.md](../guides/attribution.md)
 - [technical/attribution-documentation-map.md](attribution-documentation-map.md)
+- [guides/composite_performance.md](../guides/composite_performance.md)
+- [technical/composite-performance-documentation-map.md](composite-performance-documentation-map.md)
 - [guides/workspace_summary.md](../guides/workspace_summary.md)
 - [guides/multi_currency.md](../guides/multi_currency.md)
 - [guides/robustness_policies.md](../guides/robustness_policies.md)
@@ -23,6 +25,7 @@ analytics and integration surfaces.
 Canonical metric-level methodology documents live in:
 
 - [methodologies/metrics/master-index.md](../methodologies/metrics/master-index.md)
+- [methodologies/metrics/metric-composite-twr.md](../methodologies/metrics/metric-composite-twr.md)
 
 That set is the authoritative metric-by-metric reference for:
 
@@ -33,6 +36,9 @@ That set is the authoritative metric-by-metric reference for:
   and position timeseries normalization
 - attribution metrics, including stateless caller-owned inputs and stateful lotus-core portfolio,
   position, benchmark, and source currency normalization
+- composite TWR, including persisted member-return facts, asset-weighted calculation, geometric
+  linking, restatement evidence, source fingerprints, inspector artifacts, and unsupported advanced
+  composite boundaries
 - returns-series portfolio, benchmark, and risk-free series
 
 ## Technical references
@@ -45,6 +51,8 @@ That set is the authoritative metric-by-metric reference for:
 - [attribution-documentation-map.md](attribution-documentation-map.md)
 - [attribution-endpoint-certification.md](attribution-endpoint-certification.md)
 - [contribution-endpoint-certification.md](contribution-endpoint-certification.md)
+- [composite-performance-documentation-map.md](composite-performance-documentation-map.md)
+- [composite-twr-endpoint-certification.md](composite-twr-endpoint-certification.md)
 
 ## Scope notes
 
@@ -69,4 +77,7 @@ That set is the authoritative metric-by-metric reference for:
   benchmark, or raw source rows downstream.
 - Contribution, attribution, and returns-series may run synchronously or asynchronously depending on
   workload size and executor policy.
+- `POST /performance/composites/twr` is persisted-fact only. It consumes materialized composite
+  member-return facts and emits asset-weighted composite return evidence; it does not accept
+  request-time member fact arrays or calculate member portfolio TWR on demand.
 - OpenAPI is the canonical field-level contract source for descriptions and examples.

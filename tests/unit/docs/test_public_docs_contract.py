@@ -324,6 +324,44 @@ def test_rfc_049_advanced_composite_analytics_are_gated():
     assert "docs/RFCs/RFC-049-advanced-analytics-decision-slice8.md" in rfc_index
 
 
+def test_rfc_049_composite_documentation_productization_is_grounded():
+    guide = _read("docs/guides/composite_performance.md")
+    methodology_index = _read("docs/technical/methodology_index.md")
+    certification = _read("docs/technical/composite-twr-endpoint-certification.md")
+    map_doc = _read("docs/technical/composite-performance-documentation-map.md")
+    wiki_page = _read("wiki/Composite-Performance.md")
+    wiki_sidebar = _read("wiki/_Sidebar.md")
+    wiki_home = _read("wiki/Home.md")
+    wiki_api_surface = _read("wiki/API-Surface.md")
+    wiki_integrations = _read("wiki/Integrations.md")
+    mesh_data_products = _read("wiki/Mesh-Data-Products.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    complete_reference = _read("docs/guides/complete_service_reference.md")
+    readme = _read("README.md")
+    rfc_index = _read("docs/RFCs/RFC-INDEX.md")
+
+    for content in (guide, certification, map_doc, wiki_page):
+        assert "persisted member-return facts" in content
+        assert "CompositePerformanceAnalytics" in content
+        assert "composite contribution" in content
+        assert "multi-currency composite aggregation" in content
+
+    assert "metric-composite-twr.md" in methodology_index
+    assert "composite-performance-documentation-map.md" in methodology_index
+    assert "member_inputs.csv" in guide
+    assert "period_weights.csv" in certification
+    assert "Composite performance source flow" in wiki_integrations
+    assert "Composite Performance](Composite-Performance)" in wiki_sidebar
+    assert "Composite Performance](Composite-Performance)" in wiki_home
+    assert "POST /performance/composites/twr" in wiki_api_surface
+    assert "POST /performance/composites/inspect" in api_reference
+    assert "calculate composite TWR from persisted member-return facts" in complete_reference
+    assert "docs/guides/composite_performance.md" in readme
+    assert "wiki/Composite-Performance.md" in readme
+    assert "contracts/trust-telemetry/composite-performance-analytics.telemetry.v1.json" in mesh_data_products
+    assert "Slice 11 added implementation-backed composite methodology v3" in rfc_index
+
+
 def test_benchmark_guide_uses_current_request_shape():
     guide = _read("docs/guides/benchmark.md")
     api_reference = _read("docs/guides/api_reference.md")

@@ -12,6 +12,8 @@
 
 [Attribution Analytics](Attribution-Analytics)
 
+[Composite Performance](Composite-Performance)
+
 [Supported Features](Supported-Features)
 
 [Getting Started](Getting-Started)

@@ -424,6 +424,50 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - completed: `AttributionResponse`
   - still running: `AttributionAcceptedResponse`
 
+### `POST /performance/composites/twr`
+
+- purpose: calculate private-banking composite TWR from persisted member-return facts
+- request model: `app.models.composites.CompositeTWRRequest`
+- response model: `app.models.composites.CompositeTWRResponse`
+- execution mode: synchronous
+- methodology: `persisted_member_return_asset_weighted_twr_v1`
+- use this endpoint when:
+  - composite definition and membership policy have already been materialized
+  - member portfolio returns have already been persisted as member-return facts
+  - operations or downstream consumers need source fingerprints, restatement versions, weights,
+    contributions, status, and reason-code evidence
+- do not use this endpoint for ad hoc member-return uploads or hidden request-time portfolio TWR
+  fan-out
+- unsupported boundaries:
+  - composite contribution, attribution, and MWR
+  - sleeves, carve-outs, model portfolios, wrap programs, pooled funds, private-market composites,
+    portability records, tax-aware composites, leveraged composites, and long/short special
+    structures
+  - multi-currency composite aggregation beyond the current single reporting-currency guard
+- guide: `docs/guides/composite_performance.md`
+- certification: `docs/technical/composite-twr-endpoint-certification.md`
+
+### `POST /performance/composites/inspect`
+
+- purpose: inspect composite TWR persisted facts and evidence artifacts for support, audit, and
+  operations
+- request model: `app.models.composites.CompositeInspectionRequest`
+- response model: `app.models.composites.CompositeInspectionResponse`
+- execution mode: synchronous
+- response includes:
+  - `verdict`: `supportable`, `supportable_with_warnings`, or `not_supportable`
+  - `findings[]`: bounded finding code, severity, owner repository, action, and evidence
+  - `evidence_summary`
+  - classified `artifacts[]`
+- current artifact names:
+  - `member_inputs.csv`
+  - `period_weights.csv`
+  - `composite_returns.csv`
+  - `lineage_manifest.json`
+  - `support_brief.md`
+- guide: `docs/guides/composite_performance.md`
+- certification: `docs/technical/composite-twr-endpoint-certification.md`
+
 ### `GET /performance/executions/{calculation_id}`
 
 - purpose: poll durable execution state

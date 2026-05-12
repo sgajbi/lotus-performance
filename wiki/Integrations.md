@@ -131,8 +131,31 @@ flowchart LR
     G --> H[Gateway, Workbench, risk, and reporting consumers]
 ```
 
+## Composite performance source flow
+
+Composite performance is a persisted-fact source flow. `lotus-manage` owns composite definition and
+effective-dated membership policy, `lotus-core` owns source valuation and asset facts, and
+`lotus-performance` owns persisted member-return facts plus asset-weighted composite TWR
+methodology. Gateway and Workbench consume the emitted composite TWR and inspector evidence; they
+must not reconstruct composite weights, source-fact lineage, restatement posture, or supportability
+state downstream.
+
+```mermaid
+flowchart LR
+    A[lotus-manage composite definition] --> C[composite metadata store]
+    B[lotus-manage effective-dated membership policy] --> C
+    D[lotus-core valuation and asset source facts] --> E[lotus-performance member return materialization]
+    E --> F[persisted member-return facts]
+    F --> C
+    C --> G[Composite TWR API]
+    C --> H[Composite inspector API]
+    G --> I[Gateway and Workbench consumers]
+    H --> J[Operations, audit, and support evidence]
+```
+
 ## References
 
 - [docs/technical/RFC-0082-upstream-contract-family-map.md](../docs/technical/RFC-0082-upstream-contract-family-map.md)
 - [docs/technical/twr-documentation-map.md](../docs/technical/twr-documentation-map.md)
+- [docs/technical/composite-performance-documentation-map.md](../docs/technical/composite-performance-documentation-map.md)
 - [docs/guides/api_reference.md](../docs/guides/api_reference.md)
