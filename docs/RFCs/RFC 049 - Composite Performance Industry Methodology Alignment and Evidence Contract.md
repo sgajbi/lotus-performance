@@ -38,7 +38,9 @@ productization and wiki evidence is captured in
 `docs/RFCs/RFC-049-documentation-productization-slice11.md`. Slice 12 implementation proof is
 captured in `docs/RFCs/RFC-049-implementation-proof-slice12.md`. Slice 13 second-last hardening
 review is captured in `docs/RFCs/RFC-049-hardening-review-slice13.md`. Slice 14 final closure
-evidence is captured in `docs/RFCs/RFC-049-final-closure-slice14.md`.
+evidence is captured in `docs/RFCs/RFC-049-final-closure-slice14.md`. Slice 15 post-completion
+communication evidence is captured in
+`docs/RFCs/RFC-049-post-completion-communication-slice15.md`.
 
 Related RFCs:
 
@@ -1689,3 +1691,8 @@ classified artifacts, downstream contract clarity, live proof tooling, product d
 docs regression coverage for composite analytics. No AGENTS, central context, local skill, or
 platform automation change was required in Slice 14 because RFC-049 used the already-merged platform
 scaffolding and data-product governance patterns without discovering a new reusable platform gap.
+
+Post-completion communication outcome: Slice 15 drafted an implementation-backed LinkedIn post in
+`lotus-platform` PR `sgajbi/lotus-platform#328`. The draft is personal thought-leadership material
+about persisted evidence in composite performance and does not make unsupported GIPS, compliance,
+advanced-composite, employer, or client claims.
