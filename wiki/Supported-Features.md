@@ -20,6 +20,25 @@ claim list.
 | Execution and lineage | Async polling, result retrieval, lineage metadata, artifacts | `/performance/executions/*`, `/performance/lineage/*` | Durable evidence path for reproducibility, operations, and support. |
 | Runtime operations | Health, readiness, metrics, runtime status, recovery, retention | `/health`, `/metrics`, `/integration/runtime-status`, recovery and retention routes | Supports enterprise operational posture and CI/runtime diagnostics. |
 
+## RFC-049 Composite Performance Boundary
+
+RFC-049 is actively implementing persisted-fact composite performance. The branch-level
+implementation now contains composite source authority, persisted member-return facts,
+asset-weighted composite TWR over persisted facts, `POST /performance/composites/twr`,
+`POST /performance/composites/inspect`, `CompositePerformanceAnalytics:v1`, return-view separation,
+single reporting-currency guards, source fingerprints, restatement versions, and classified
+inspection artifacts.
+
+This is not yet a final demo-safe supported-feature claim until RFC-049 completes downstream
+Gateway/Workbench realization, live front-office proof, methodology documentation, wiki
+productization, supported-feature promotion, and final closure.
+
+composite contribution, composite attribution, composite MWR, carve-outs, sleeves, model portfolios,
+wrap programs, pooled fund composites, private-market composites, portability records,
+tax-aware composites, leveraged composites, long/short special composite structures, and
+multi-currency composite aggregation beyond the current single reporting-currency guard are not
+current supported claims.
+
 ## TWR RFC-046 Supported Detail
 
 RFC-046 promotes the following TWR capabilities as supported because they are implemented,

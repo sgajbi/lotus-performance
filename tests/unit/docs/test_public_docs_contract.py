@@ -293,6 +293,37 @@ def test_attribution_documentation_map_and_wiki_navigation_are_present():
     )
 
 
+def test_rfc_049_advanced_composite_analytics_are_gated():
+    decision = _read("docs/RFCs/RFC-049-advanced-analytics-decision-slice8.md")
+    supported_features = _read("wiki/Supported-Features.md")
+    rfc_index = _read("docs/RFCs/RFC-INDEX.md")
+
+    assert "RFC 049 will not implement the following advanced scopes in this wave" in decision
+    for unsupported_scope in (
+        "composite contribution",
+        "composite attribution",
+        "composite MWR",
+        "carve-outs",
+        "sleeves",
+        "model portfolios",
+        "wrap programs",
+        "pooled fund composites",
+        "private-market composites",
+        "portability records",
+        "tax-aware composites",
+        "leveraged composites",
+        "long/short special composite structures",
+        "multi-currency composite aggregation beyond the current single reporting-currency guard",
+    ):
+        assert unsupported_scope in decision
+        assert unsupported_scope in supported_features
+
+    assert "not yet a final demo-safe supported-feature claim" in supported_features
+    assert "`POST /performance/composites/twr`" in supported_features
+    assert "`POST /performance/composites/inspect`" in supported_features
+    assert "docs/RFCs/RFC-049-advanced-analytics-decision-slice8.md" in rfc_index
+
+
 def test_benchmark_guide_uses_current_request_shape():
     guide = _read("docs/guides/benchmark.md")
     api_reference = _read("docs/guides/api_reference.md")

@@ -29,7 +29,8 @@ hardening evidence is captured in
 dispersion/restatement evidence is captured in
 `docs/RFCs/RFC-049-benchmark-assets-fees-dispersion-restatement-slice7.md`. Slice 7A composite
 inspector and evidence export is captured in
-`docs/RFCs/RFC-049-composite-inspector-export-slice7A.md`.
+`docs/RFCs/RFC-049-composite-inspector-export-slice7A.md`. Slice 8 advanced analytics gate
+evidence is captured in `docs/RFCs/RFC-049-advanced-analytics-decision-slice8.md`.
 
 Related RFCs:
 
