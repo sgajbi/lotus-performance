@@ -55,6 +55,7 @@ def test_composite_metadata_store_round_trips_definition_membership_and_fact(tmp
             "reporting_currency": "USD",
             "calculation_id": "7f2b08b0-58e5-49be-b3ef-7a9cfb0321ce",
             "source_snapshot_id": "portfolio-twr-snapshot-1",
+            "source_fingerprint": "sha256:portfolio-twr-snapshot-1",
         }
     )
 
@@ -93,6 +94,7 @@ def test_composite_metadata_store_upserts_member_return_facts_by_composite_portf
             "reporting_currency": "USD",
             "calculation_id": "initial-calculation",
             "source_snapshot_id": "initial-snapshot",
+            "source_fingerprint": "sha256:initial-snapshot",
         }
     )
     restated_fact = CompositeMemberReturnFact.model_validate(
@@ -102,6 +104,8 @@ def test_composite_metadata_store_upserts_member_return_facts_by_composite_portf
             "ending_market_value": "1012500.00",
             "calculation_id": "restated-calculation",
             "source_snapshot_id": "restated-snapshot",
+            "source_fingerprint": "sha256:restated-snapshot",
+            "restatement_version": "v2",
         }
     )
 

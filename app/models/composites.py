@@ -25,6 +25,12 @@ class CompositeMemberReturnStatus(StrEnum):
     NOT_SUPPORTED = "NOT_SUPPORTED"
 
 
+class CompositeReturnView(StrEnum):
+    GROSS = "GROSS"
+    NET_ACTUAL = "NET_ACTUAL"
+    NET_MODEL_FEE = "NET_MODEL_FEE"
+
+
 class CompositeSourceAuthority(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -153,6 +159,11 @@ class CompositeMemberReturnFact(BaseModel):
         description="Persisted member return as a decimal ratio. Example: 0.0125 means 1.25%.",
         examples=["0.0125"],
     )
+    return_view: CompositeReturnView = Field(
+        default=CompositeReturnView.NET_ACTUAL,
+        description="Fee view of the persisted member return. Gross, net actual, and model-fee net facts must not be mixed in one composite result.",
+        examples=["NET_ACTUAL"],
+    )
     beginning_market_value: Decimal = Field(
         ge=0,
         description="Beginning market value used as the member weight basis.",
@@ -176,6 +187,15 @@ class CompositeMemberReturnFact(BaseModel):
     source_snapshot_id: str = Field(
         description="Source snapshot identifier used for lineage and replay.",
         examples=["portfolio-twr-2026-01-31T23:59:59Z"],
+    )
+    source_fingerprint: str = Field(
+        description="Stable fingerprint of the source member-return fact payload used for reproducibility and restatement comparison.",
+        examples=["sha256:member-return-fact-pb-sg-global-bal-001-2026-01"],
+    )
+    restatement_version: str = Field(
+        default="v1",
+        description="Version of the persisted member-return fact used to prevent silent overwrite and support restatement diffs.",
+        examples=["v1"],
     )
     status: CompositeMemberReturnStatus = Field(
         default=CompositeMemberReturnStatus.READY,
@@ -246,6 +266,14 @@ class CompositeMemberContributionResponse(BaseModel):
         examples=["0.003125000000"],
     )
     source_snapshot_id: str = Field(description="Source snapshot identifier used for lineage.", examples=["snapshot-1"])
+    source_fingerprint: str = Field(
+        description="Stable source fingerprint for the member-return fact used in this contribution.",
+        examples=["sha256:member-return-fact-pb-sg-global-bal-001-2026-01"],
+    )
+    restatement_version: str = Field(
+        description="Restatement version of the member-return fact used in this contribution.",
+        examples=["v1"],
+    )
     calculation_id: str = Field(description="Source portfolio calculation identifier.", examples=["calc-1"])
 
 
@@ -277,6 +305,26 @@ class CompositePeriodResultResponse(BaseModel):
         default=None,
         description="Equal-weight sample standard deviation of ready member returns as a decimal ratio.",
         examples=["0.014142135624"],
+    )
+    return_view: str | None = Field(
+        default=None,
+        description="Fee view shared by all ready member-return facts in this period. Null when the period is blocked before a return view can be established.",
+        examples=["NET_ACTUAL"],
+    )
+    reporting_currency: str | None = Field(
+        default=None,
+        description="Composite reporting currency shared by all ready member-return facts in this period.",
+        examples=["USD"],
+    )
+    source_fingerprints: list[str] = Field(
+        default_factory=list,
+        description="Ordered source fingerprints for ready member-return facts included in this period.",
+        examples=[["sha256:member-return-fact-p1-2026-01", "sha256:member-return-fact-p2-2026-01"]],
+    )
+    restatement_versions: list[str] = Field(
+        default_factory=list,
+        description="Ordered restatement versions for ready member-return facts included in this period.",
+        examples=[["v1"]],
     )
     reason_codes: list[str] = Field(
         default_factory=list,

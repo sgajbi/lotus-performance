@@ -43,6 +43,7 @@ def _seed_fact(portfolio_id: str, return_value: str, beginning_market_value: str
                 "reporting_currency": "USD",
                 "calculation_id": f"calc-{portfolio_id}",
                 "source_snapshot_id": f"snapshot-{portfolio_id}",
+                "source_fingerprint": f"sha256:{portfolio_id}",
             }
         )
     )
@@ -70,7 +71,12 @@ def test_composite_twr_api_calculates_from_persisted_member_facts():
     assert payload["status"] == "READY"
     assert payload["cumulative_return"] == "0.025000000000"
     assert payload["periods"][0]["member_count"] == 2
+    assert payload["periods"][0]["return_view"] == "NET_ACTUAL"
+    assert payload["periods"][0]["reporting_currency"] == "USD"
+    assert payload["periods"][0]["source_fingerprints"] == ["sha256:P1", "sha256:P2"]
+    assert payload["periods"][0]["restatement_versions"] == ["v1"]
     assert payload["periods"][0]["member_contributions"][1]["beginning_asset_weight"] == "0.750000000000"
+    assert payload["periods"][0]["member_contributions"][1]["source_fingerprint"] == "sha256:P2"
     assert payload["methodology"] == "persisted_member_return_asset_weighted_twr_v1"
 
 

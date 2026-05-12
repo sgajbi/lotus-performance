@@ -26,6 +26,8 @@ def _member_contribution_response(item) -> CompositeMemberContributionResponse:
         beginning_asset_weight=item.weight,
         contribution=item.contribution,
         source_snapshot_id=item.source_snapshot_id,
+        source_fingerprint=item.source_fingerprint,
+        restatement_version=item.restatement_version,
         calculation_id=item.calculation_id,
     )
 
@@ -42,6 +44,10 @@ def _period_response(item) -> CompositePeriodResultResponse:
         member_count=item.member_count,
         excluded_member_count=item.excluded_member_count,
         dispersion_equal_weight=item.dispersion_equal_weight,
+        return_view=item.return_view,
+        reporting_currency=item.reporting_currency,
+        source_fingerprints=item.source_fingerprints,
+        restatement_versions=item.restatement_versions,
         reason_codes=item.reason_codes,
         member_contributions=[
             _member_contribution_response(contribution) for contribution in item.member_contributions

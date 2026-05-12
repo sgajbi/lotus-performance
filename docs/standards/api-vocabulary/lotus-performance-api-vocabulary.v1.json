@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-05-12T03:11:26.846426+00:00",
+  "generatedAt": "2026-05-12T03:50:04.166967+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.account_reset_shadow_days",
@@ -3174,6 +3174,8 @@
           "beginning_asset_weight": "0.250000000000",
           "contribution": "0.003125000000",
           "source_snapshot_id": "snapshot-1",
+          "source_fingerprint": "sha256:member-return-fact-pb-sg-global-bal-001-2026-01",
+          "restatement_version": "v1",
           "calculation_id": "calc-1"
         }
       ],
@@ -5061,6 +5063,36 @@
       ]
     },
     {
+      "semanticId": "lotus.restatement_version",
+      "canonicalTerm": "restatement_version",
+      "preferredName": "restatement_version",
+      "description": "Restatement version of the member-return fact used in this contribution.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.restatement_versions",
+      "canonicalTerm": "restatement_versions",
+      "preferredName": "restatement_versions",
+      "description": "Ordered restatement versions for ready member-return facts included in this period.",
+      "example": [
+        "STANDARD_VALUE"
+      ],
+      "type": "array",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "array"
+      ]
+    },
+    {
       "semanticId": "lotus.restored_schema_mode",
       "canonicalTerm": "restored_schema_mode",
       "preferredName": "restored_schema_mode",
@@ -5293,6 +5325,20 @@
       "canonicalTerm": "return_value",
       "preferredName": "return_value",
       "description": "Canonical return value used by lotus-performance APIs.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.return_view",
+      "canonicalTerm": "return_view",
+      "preferredName": "return_view",
+      "description": "Canonical return view used by lotus-performance APIs.",
       "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
@@ -5640,6 +5686,36 @@
       ],
       "observedTypes": [
         "Solver"
+      ]
+    },
+    {
+      "semanticId": "lotus.source_fingerprint",
+      "canonicalTerm": "source_fingerprint",
+      "preferredName": "source_fingerprint",
+      "description": "Stable source fingerprint for the member-return fact used in this contribution.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.source_fingerprints",
+      "canonicalTerm": "source_fingerprints",
+      "preferredName": "source_fingerprints",
+      "description": "Ordered source fingerprints for ready member-return facts included in this period.",
+      "example": [
+        "STANDARD_VALUE"
+      ],
+      "type": "array",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "array"
       ]
     },
     {
@@ -9694,6 +9770,38 @@
             "attributeRef": "#/attributeCatalog/lotus.dispersion_equal_weight"
           },
           {
+            "name": "periods[].return_view",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.return_view",
+            "attributeRef": "#/attributeCatalog/lotus.return_view"
+          },
+          {
+            "name": "periods[].reporting_currency",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.reporting_currency",
+            "attributeRef": "#/attributeCatalog/lotus.reporting_currency"
+          },
+          {
+            "name": "periods[].source_fingerprints",
+            "location": "body",
+            "required": false,
+            "type": "array",
+            "semanticId": "lotus.source_fingerprints",
+            "attributeRef": "#/attributeCatalog/lotus.source_fingerprints"
+          },
+          {
+            "name": "periods[].restatement_versions",
+            "location": "body",
+            "required": false,
+            "type": "array",
+            "semanticId": "lotus.restatement_versions",
+            "attributeRef": "#/attributeCatalog/lotus.restatement_versions"
+          },
+          {
             "name": "periods[].reason_codes",
             "location": "body",
             "required": false,
@@ -9772,6 +9880,22 @@
             "type": "string",
             "semanticId": "lotus.source_snapshot_id",
             "attributeRef": "#/attributeCatalog/lotus.source_snapshot_id"
+          },
+          {
+            "name": "periods[].member_contributions[].source_fingerprint",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.source_fingerprint",
+            "attributeRef": "#/attributeCatalog/lotus.source_fingerprint"
+          },
+          {
+            "name": "periods[].member_contributions[].restatement_version",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.restatement_version",
+            "attributeRef": "#/attributeCatalog/lotus.restatement_version"
           },
           {
             "name": "periods[].member_contributions[].calculation_id",

@@ -51,6 +51,7 @@ def _fact(portfolio_id: str, return_value: str, beginning_market_value: str) -> 
             "reporting_currency": "USD",
             "calculation_id": f"calc-{portfolio_id}",
             "source_snapshot_id": f"snapshot-{portfolio_id}",
+            "source_fingerprint": f"sha256:{portfolio_id}",
         }
     )
 

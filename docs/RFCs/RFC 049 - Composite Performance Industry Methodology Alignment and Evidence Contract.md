@@ -25,7 +25,9 @@ contract evidence is captured in `docs/RFCs/RFC-049-public-composite-api-slice5.
 enterprise posture baseline and hardening closure rules are captured in
 `docs/RFCs/RFC-049-enterprise-posture-baseline-slice2A.md`. Slice 6 data-product and runtime
 hardening evidence is captured in
-`docs/RFCs/RFC-049-data-product-runtime-hardening-slice6.md`.
+`docs/RFCs/RFC-049-data-product-runtime-hardening-slice6.md`. Slice 7 benchmark/assets/fees/
+dispersion/restatement evidence is captured in
+`docs/RFCs/RFC-049-benchmark-assets-fees-dispersion-restatement-slice7.md`.
 
 Related RFCs:
 

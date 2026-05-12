@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import date as dt_date
 from typing import Iterator
 
-from sqlalchemy import Date, Index, String, Text, create_engine, select
+from sqlalchemy import Date, Index, String, Text, create_engine, select, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.models.composites import CompositeDefinition, CompositeMemberReturnFact, CompositeMembership
@@ -62,11 +62,14 @@ class CompositeMemberReturnFactModel(Base):
     period_start: Mapped[dt_date] = mapped_column(Date, nullable=False)
     period_end: Mapped[dt_date] = mapped_column(Date, nullable=False)
     return_value: Mapped[str] = mapped_column(Text, nullable=False)
+    return_view: Mapped[str] = mapped_column(String(32), nullable=False)
     beginning_market_value: Mapped[str] = mapped_column(Text, nullable=False)
     ending_market_value: Mapped[str] = mapped_column(Text, nullable=False)
     reporting_currency: Mapped[str] = mapped_column(String(3), nullable=False)
     calculation_id: Mapped[str] = mapped_column(String(64), nullable=False)
     source_snapshot_id: Mapped[str] = mapped_column(String(256), nullable=False)
+    source_fingerprint: Mapped[str] = mapped_column(String(256), nullable=False)
+    restatement_version: Mapped[str] = mapped_column(String(64), nullable=False)
     status: Mapped[str] = mapped_column(String(64), nullable=False)
     reason_codes_json: Mapped[str] = mapped_column(Text, nullable=False)
 
@@ -95,6 +98,25 @@ class CompositeMetadataStore:
 
     def create_schema(self) -> None:
         Base.metadata.create_all(self._engine)
+        self._upgrade_member_return_fact_schema()
+
+    def _upgrade_member_return_fact_schema(self) -> None:
+        if self._engine.dialect.name != "sqlite":
+            return
+        required_columns = {
+            "return_view": "TEXT NOT NULL DEFAULT 'NET_ACTUAL'",
+            "source_fingerprint": "TEXT NOT NULL DEFAULT 'legacy-source-fingerprint-unavailable'",
+            "restatement_version": "TEXT NOT NULL DEFAULT 'v1'",
+        }
+        with self._engine.begin() as connection:
+            existing_columns = {
+                row[1] for row in connection.exec_driver_sql("PRAGMA table_info(composite_member_return_facts)")
+            }
+            for column_name, column_definition in required_columns.items():
+                if column_name not in existing_columns:
+                    connection.execute(
+                        text(f"ALTER TABLE composite_member_return_facts ADD COLUMN {column_name} {column_definition}")
+                    )
 
     @contextmanager
     def _session(self) -> Iterator[Session]:
@@ -197,11 +219,14 @@ class CompositeMetadataStore:
                     period_start=fact.period_start,
                     period_end=fact.period_end,
                     return_value=str(fact.return_value),
+                    return_view=fact.return_view.value,
                     beginning_market_value=str(fact.beginning_market_value),
                     ending_market_value=str(fact.ending_market_value),
                     reporting_currency=fact.reporting_currency,
                     calculation_id=fact.calculation_id,
                     source_snapshot_id=fact.source_snapshot_id,
+                    source_fingerprint=fact.source_fingerprint,
+                    restatement_version=fact.restatement_version,
                     status=fact.status.value,
                     reason_codes_json=json.dumps(fact.reason_codes, sort_keys=True),
                 )
@@ -237,11 +262,14 @@ class CompositeMetadataStore:
                         "period_start": row.period_start,
                         "period_end": row.period_end,
                         "return_value": str(row.return_value),
+                        "return_view": row.return_view,
                         "beginning_market_value": str(row.beginning_market_value),
                         "ending_market_value": str(row.ending_market_value),
                         "reporting_currency": row.reporting_currency,
                         "calculation_id": row.calculation_id,
                         "source_snapshot_id": row.source_snapshot_id,
+                        "source_fingerprint": row.source_fingerprint,
+                        "restatement_version": row.restatement_version,
                         "status": row.status,
                         "reason_codes": json.loads(row.reason_codes_json),
                     }

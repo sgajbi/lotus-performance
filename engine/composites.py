@@ -21,6 +21,8 @@ class CompositeMemberContribution:
     weight: Decimal
     contribution: Decimal
     source_snapshot_id: str
+    source_fingerprint: str
+    restatement_version: str
     calculation_id: str
 
 
@@ -36,6 +38,10 @@ class CompositePeriodResult:
     member_count: int
     excluded_member_count: int
     dispersion_equal_weight: Decimal | None
+    return_view: str | None
+    reporting_currency: str | None
+    source_fingerprints: list[str]
+    restatement_versions: list[str]
     reason_codes: list[str]
     member_contributions: list[CompositeMemberContribution]
 
@@ -89,6 +95,10 @@ def calculate_asset_weighted_composite_twr(
 
         beginning_assets = sum((fact.beginning_market_value for fact in ready_facts), Decimal("0"))
         ending_assets = sum((fact.ending_market_value for fact in ready_facts), Decimal("0"))
+        ready_return_views = sorted({fact.return_view.value for fact in ready_facts})
+        ready_reporting_currencies = sorted({fact.reporting_currency for fact in ready_facts})
+        ready_source_fingerprints = sorted({fact.source_fingerprint for fact in ready_facts})
+        ready_restatement_versions = sorted({fact.restatement_version for fact in ready_facts})
         if not ready_facts:
             period_results.append(
                 CompositePeriodResult(
@@ -102,6 +112,10 @@ def calculate_asset_weighted_composite_twr(
                     member_count=0,
                     excluded_member_count=len(excluded_facts),
                     dispersion_equal_weight=None,
+                    return_view=None,
+                    reporting_currency=None,
+                    source_fingerprints=[],
+                    restatement_versions=[],
                     reason_codes=reason_codes or ["no_ready_member_return_facts"],
                     member_contributions=[],
                 )
@@ -122,11 +136,63 @@ def calculate_asset_weighted_composite_twr(
                     member_count=len(ready_facts),
                     excluded_member_count=len(excluded_facts),
                     dispersion_equal_weight=None,
+                    return_view=ready_return_views[0] if len(ready_return_views) == 1 else None,
+                    reporting_currency=ready_reporting_currencies[0] if len(ready_reporting_currencies) == 1 else None,
+                    source_fingerprints=ready_source_fingerprints,
+                    restatement_versions=ready_restatement_versions,
                     reason_codes=reason_codes + ["nonpositive_composite_beginning_assets"],
                     member_contributions=[],
                 )
             )
             aggregate_reason_codes.add("nonpositive_composite_beginning_assets")
+            continue
+
+        if len(ready_return_views) > 1:
+            period_results.append(
+                CompositePeriodResult(
+                    period_start=period_start,
+                    period_end=period_end,
+                    status="BLOCKED",
+                    return_value=None,
+                    cumulative_return=None,
+                    beginning_market_value=_quantize_decimal(beginning_assets, COMPOSITE_ASSET_QUANTUM),
+                    ending_market_value=_quantize_decimal(ending_assets, COMPOSITE_ASSET_QUANTUM),
+                    member_count=len(ready_facts),
+                    excluded_member_count=len(excluded_facts),
+                    dispersion_equal_weight=None,
+                    return_view=None,
+                    reporting_currency=ready_reporting_currencies[0] if len(ready_reporting_currencies) == 1 else None,
+                    source_fingerprints=ready_source_fingerprints,
+                    restatement_versions=ready_restatement_versions,
+                    reason_codes=reason_codes + ["mixed_member_return_views"],
+                    member_contributions=[],
+                )
+            )
+            aggregate_reason_codes.add("mixed_member_return_views")
+            continue
+
+        if len(ready_reporting_currencies) > 1:
+            period_results.append(
+                CompositePeriodResult(
+                    period_start=period_start,
+                    period_end=period_end,
+                    status="BLOCKED",
+                    return_value=None,
+                    cumulative_return=None,
+                    beginning_market_value=_quantize_decimal(beginning_assets, COMPOSITE_ASSET_QUANTUM),
+                    ending_market_value=_quantize_decimal(ending_assets, COMPOSITE_ASSET_QUANTUM),
+                    member_count=len(ready_facts),
+                    excluded_member_count=len(excluded_facts),
+                    dispersion_equal_weight=None,
+                    return_view=ready_return_views[0],
+                    reporting_currency=None,
+                    source_fingerprints=ready_source_fingerprints,
+                    restatement_versions=ready_restatement_versions,
+                    reason_codes=reason_codes + ["mixed_member_reporting_currencies"],
+                    member_contributions=[],
+                )
+            )
+            aggregate_reason_codes.add("mixed_member_reporting_currencies")
             continue
 
         member_contributions: list[CompositeMemberContribution] = []
@@ -145,6 +211,8 @@ def calculate_asset_weighted_composite_twr(
                     weight=_quantize_decimal(weight, COMPOSITE_RETURN_QUANTUM),
                     contribution=_quantize_decimal(contribution, COMPOSITE_RETURN_QUANTUM),
                     source_snapshot_id=fact.source_snapshot_id,
+                    source_fingerprint=fact.source_fingerprint,
+                    restatement_version=fact.restatement_version,
                     calculation_id=fact.calculation_id,
                 )
             )
@@ -164,6 +232,10 @@ def calculate_asset_weighted_composite_twr(
                 member_count=len(ready_facts),
                 excluded_member_count=len(excluded_facts),
                 dispersion_equal_weight=_sample_standard_deviation([fact.return_value for fact in ready_facts]),
+                return_view=ready_return_views[0],
+                reporting_currency=ready_reporting_currencies[0],
+                source_fingerprints=ready_source_fingerprints,
+                restatement_versions=ready_restatement_versions,
                 reason_codes=reason_codes,
                 member_contributions=member_contributions,
             )

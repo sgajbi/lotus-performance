@@ -61,6 +61,7 @@ def test_member_return_fact_requires_reason_codes_for_degraded_status():
         "reporting_currency": "USD",
         "calculation_id": "7f2b08b0-58e5-49be-b3ef-7a9cfb0321ce",
         "source_snapshot_id": "portfolio-twr-snapshot-1",
+        "source_fingerprint": "sha256:portfolio-twr-snapshot-1",
         "status": "DEGRADED",
     }
 
@@ -81,6 +82,7 @@ def test_member_return_fact_accepts_ready_persisted_fact():
             "reporting_currency": "USD",
             "calculation_id": "7f2b08b0-58e5-49be-b3ef-7a9cfb0321ce",
             "source_snapshot_id": "portfolio-twr-snapshot-1",
+            "source_fingerprint": "sha256:portfolio-twr-snapshot-1",
         }
     )
 
