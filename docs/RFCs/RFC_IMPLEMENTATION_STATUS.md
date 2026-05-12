@@ -139,4 +139,11 @@ delivery evidence for completed work.
 
 14. **RFC 022 — Composite & Sleeve Aggregation API**
     * **Reasoning:** **Enable firm-level and GIPS-compliant reporting.** A major enterprise feature that aggregates results from multiple portfolios into composites, representing the pinnacle of the platform's capabilities.
+    * **Current state:** **Superseded for execution planning by RFC 049.** RFC 022 remains useful
+      historical context, but it is not implementation-ready under current Lotus governance. RFC
+      049 is the approval artifact for composite performance: it keeps current composite support
+      unsupported, requires source-authority and membership governance before calculation, proposes
+      composite TWR as the first-class target, gates composite contribution/attribution/MWR/sleeves,
+      and requires data-product, downstream, docs/wiki, live-proof, security, CI, and branch-hygiene
+      closure before any supported composite claim is promoted.
 

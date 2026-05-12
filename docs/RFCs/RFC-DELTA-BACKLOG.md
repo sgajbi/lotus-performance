@@ -150,7 +150,10 @@ Status values:
 - Why still relevant: No runtime implementation and likely cross-domain ownership impact.
 - Evidence:
   - No `/composites/*` endpoints or `engine/composite.py`.
-- Proposed action: Architecture decision record + phased implementation/archive plan.
+- Proposed action: RFC-049 now supersedes RFC-022 for execution planning and proposes
+  `lotus-performance` ownership of composite performance calculation after explicit source-authority
+  review. Keep this delta open until RFC-049 is approved, implemented, and merged or until the
+  operator rejects the composite-performance direction.
 
 ### RFC-023-D01
 - Status: `open`
