@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date as dt_date
 
 from app.services.composite_metadata_store import CompositeMetadataStore, composite_metadata_store
+from app.services.durable_store_runtime import RuntimeStoreProxy
 from engine.composites import CompositeCalculationResult, calculate_asset_weighted_composite_twr
 
 
@@ -15,7 +16,7 @@ def calculate_composite_twr_from_persisted_facts(
     composite_id: str,
     period_start: dt_date,
     period_end: dt_date,
-    store: CompositeMetadataStore = composite_metadata_store,
+    store: CompositeMetadataStore | RuntimeStoreProxy[CompositeMetadataStore] = composite_metadata_store,
 ) -> CompositeCalculationResult:
     definition = store.get_definition(composite_id)
     if definition is None:
