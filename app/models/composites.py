@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date as dt_date
 from decimal import Decimal
 from enum import StrEnum
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -194,3 +195,123 @@ class CompositeMemberReturnFact(BaseModel):
         if self.status != CompositeMemberReturnStatus.READY and not self.reason_codes:
             raise ValueError("reason_codes are required when member return status is not READY")
         return self
+
+
+class CompositeTWRRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    calculation_id: UUID = Field(
+        default_factory=uuid4,
+        description="Client-provided or generated calculation identifier for idempotency, lineage, and support.",
+        examples=["7f2b08b0-58e5-49be-b3ef-7a9cfb0321ce"],
+    )
+    composite_id: str = Field(
+        min_length=1,
+        description="Composite identifier to calculate from persisted member-return facts.",
+        examples=["PB_GLOBAL_BALANCED_USD"],
+    )
+    period_start: dt_date = Field(
+        description="Inclusive calculation window start date.",
+        examples=["2026-01-01"],
+    )
+    period_end: dt_date = Field(
+        description="Inclusive calculation window end date.",
+        examples=["2026-03-31"],
+    )
+
+    @model_validator(mode="after")
+    def validate_window(self) -> "CompositeTWRRequest":
+        if self.period_end < self.period_start:
+            raise ValueError("period_end cannot be before period_start")
+        return self
+
+
+class CompositeMemberContributionResponse(BaseModel):
+    portfolio_id: str = Field(description="Member portfolio identifier.", examples=["PB_SG_GLOBAL_BAL_001"])
+    period_start: dt_date = Field(description="Inclusive member contribution period start.", examples=["2026-01-01"])
+    period_end: dt_date = Field(description="Inclusive member contribution period end.", examples=["2026-01-31"])
+    return_value: Decimal = Field(
+        description="Persisted member return as a decimal ratio.",
+        examples=["0.0125"],
+    )
+    beginning_market_value: Decimal = Field(
+        description="Beginning market value used as the member weight basis.",
+        examples=["1000000.000000"],
+    )
+    weight: Decimal = Field(
+        description="Beginning-asset member weight as a decimal ratio.", examples=["0.250000000000"]
+    )
+    contribution: Decimal = Field(
+        description="Member contribution to composite return as a decimal ratio.",
+        examples=["0.003125000000"],
+    )
+    source_snapshot_id: str = Field(description="Source snapshot identifier used for lineage.", examples=["snapshot-1"])
+    calculation_id: str = Field(description="Source portfolio calculation identifier.", examples=["calc-1"])
+
+
+class CompositePeriodResultResponse(BaseModel):
+    period_start: dt_date = Field(description="Inclusive composite period start.", examples=["2026-01-01"])
+    period_end: dt_date = Field(description="Inclusive composite period end.", examples=["2026-01-31"])
+    status: str = Field(description="Composite period status: READY, DEGRADED, or BLOCKED.", examples=["READY"])
+    return_value: Decimal | None = Field(
+        default=None,
+        description="Asset-weighted composite period return as a decimal ratio when calculable.",
+        examples=["0.025000000000"],
+    )
+    cumulative_return: Decimal | None = Field(
+        default=None,
+        description="Geometrically linked composite return through this period as a decimal ratio.",
+        examples=["0.030125000000"],
+    )
+    beginning_market_value: Decimal = Field(
+        description="Composite beginning assets across ready members.",
+        examples=["4000000.000000"],
+    )
+    ending_market_value: Decimal = Field(
+        description="Composite ending assets across ready members.",
+        examples=["4050000.000000"],
+    )
+    member_count: int = Field(description="Ready member-return fact count used in this period.", examples=[14])
+    excluded_member_count: int = Field(description="Non-ready member-return fact count excluded.", examples=[1])
+    dispersion_equal_weight: Decimal | None = Field(
+        default=None,
+        description="Equal-weight sample standard deviation of ready member returns as a decimal ratio.",
+        examples=["0.014142135624"],
+    )
+    reason_codes: list[str] = Field(
+        default_factory=list,
+        description="Bounded reason codes explaining degraded or blocked period status.",
+        examples=[["missing_final_valuation"]],
+    )
+    member_contributions: list[CompositeMemberContributionResponse] = Field(
+        default_factory=list,
+        description="Member weights and contribution evidence for ready facts.",
+    )
+
+
+class CompositeTWRResponse(BaseModel):
+    calculation_id: UUID = Field(
+        description="Composite calculation identifier.", examples=["7f2b08b0-58e5-49be-b3ef-7a9cfb0321ce"]
+    )
+    composite_id: str = Field(description="Composite identifier.", examples=["PB_GLOBAL_BALANCED_USD"])
+    status: str = Field(description="Composite calculation status: READY, DEGRADED, or BLOCKED.", examples=["READY"])
+    period_start: dt_date = Field(description="Inclusive calculation window start date.", examples=["2026-01-01"])
+    period_end: dt_date = Field(description="Inclusive calculation window end date.", examples=["2026-03-31"])
+    cumulative_return: Decimal | None = Field(
+        default=None,
+        description="Geometrically linked composite TWR as a decimal ratio when calculable.",
+        examples=["0.030125000000"],
+    )
+    reason_codes: list[str] = Field(
+        default_factory=list,
+        description="Calculation-level bounded reason codes.",
+        examples=[["missing_final_valuation"]],
+    )
+    periods: list[CompositePeriodResultResponse] = Field(
+        description="Ordered period-level composite calculation evidence.",
+    )
+    methodology: str = Field(
+        default="persisted_member_return_asset_weighted_twr_v1",
+        description="Composite methodology identifier used for this response.",
+        examples=["persisted_member_return_asset_weighted_twr_v1"],
+    )

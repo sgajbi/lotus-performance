@@ -1,0 +1,91 @@
+from __future__ import annotations
+
+from dataclasses import asdict
+
+from fastapi import APIRouter, HTTPException, status
+
+from app.models.composites import (
+    CompositeMemberContributionResponse,
+    CompositePeriodResultResponse,
+    CompositeTWRRequest,
+    CompositeTWRResponse,
+)
+from app.services.composite_calculation_service import (
+    CompositeDefinitionNotFoundError,
+    calculate_composite_twr_from_persisted_facts,
+)
+
+router = APIRouter(tags=["Performance"])
+
+
+def _member_contribution_response(item) -> CompositeMemberContributionResponse:
+    return CompositeMemberContributionResponse(**asdict(item))
+
+
+def _period_response(item) -> CompositePeriodResultResponse:
+    return CompositePeriodResultResponse(
+        period_start=item.period_start,
+        period_end=item.period_end,
+        status=item.status,
+        return_value=item.return_value,
+        cumulative_return=item.cumulative_return,
+        beginning_market_value=item.beginning_market_value,
+        ending_market_value=item.ending_market_value,
+        member_count=item.member_count,
+        excluded_member_count=item.excluded_member_count,
+        dispersion_equal_weight=item.dispersion_equal_weight,
+        reason_codes=item.reason_codes,
+        member_contributions=[
+            _member_contribution_response(contribution) for contribution in item.member_contributions
+        ],
+    )
+
+
+@router.post(
+    "/composites/twr",
+    response_model=CompositeTWRResponse,
+    summary="Calculate composite time-weighted return from persisted member-return facts",
+    description=(
+        "Calculates private-banking composite TWR from persisted member-return facts already owned by "
+        "lotus-performance. Use this endpoint after composite definitions, effective-dated membership, "
+        "and member-return facts have been materialized. The endpoint does not accept ad hoc member "
+        "returns and does not perform hidden request-time portfolio TWR fan-out."
+    ),
+    responses={
+        200: {"description": "Composite TWR calculated from persisted member-return facts."},
+        404: {"description": "Composite definition was not found in the durable composite metadata store."},
+        422: {"description": "The request window is invalid or no persisted member-return facts can support it."},
+    },
+)
+def calculate_composite_twr(request: CompositeTWRRequest) -> CompositeTWRResponse:
+    try:
+        result = calculate_composite_twr_from_persisted_facts(
+            composite_id=request.composite_id,
+            period_start=request.period_start,
+            period_end=request.period_end,
+        )
+    except CompositeDefinitionNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "COMPOSITE_NOT_FOUND", "message": str(exc)},
+        ) from exc
+
+    if not result.period_results:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "code": "NO_MEMBER_RETURN_FACTS",
+                "message": "No persisted member-return facts exist for the requested composite window.",
+            },
+        )
+
+    return CompositeTWRResponse(
+        calculation_id=request.calculation_id,
+        composite_id=result.composite_id,
+        status=result.status,
+        period_start=request.period_start,
+        period_end=request.period_end,
+        cumulative_return=result.cumulative_return,
+        reason_codes=result.reason_codes,
+        periods=[_period_response(period) for period in result.period_results],
+    )
