@@ -56,6 +56,7 @@ make ci
 - [API Surface](API-Surface)
 - [Time-Weighted Return](Time-Weighted-Return)
 - [Contribution Analytics](Contribution-Analytics)
+- [Attribution Analytics](Attribution-Analytics)
 - [Supported Features](Supported-Features)
 - [Getting Started](Getting-Started)
 - [Development Workflow](Development-Workflow)

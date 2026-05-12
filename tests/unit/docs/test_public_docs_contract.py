@@ -264,6 +264,35 @@ def test_twr_documentation_map_and_wiki_navigation_are_present():
     assert "lotus-performance:TimeWeightedReturnAnalytics:v1" in mesh_data_products
 
 
+def test_attribution_documentation_map_and_wiki_navigation_are_present():
+    map_doc = _read("docs/technical/attribution-documentation-map.md")
+    methodology_index = _read("docs/technical/methodology_index.md")
+    certification = _read("docs/technical/attribution-endpoint-certification.md")
+    wiki_page = _read("wiki/Attribution-Analytics.md")
+    wiki_sidebar = _read("wiki/_Sidebar.md")
+    wiki_home = _read("wiki/Home.md")
+    wiki_api_surface = _read("wiki/API-Surface.md")
+    supported_features = _read("wiki/Supported-Features.md")
+
+    assert "Source Of Truth Layers" in map_doc
+    assert "wiki/Attribution-Analytics.md" in map_doc
+    assert "fixed-income factor attribution" in map_doc
+    assert "attribution-documentation-map.md" in methodology_index
+    assert "lotus-gateway#105` is closed" in certification
+    assert "lotus-gateway#106` is closed" in certification
+    assert "Attribution analytics explains the active return" in wiki_page
+    assert "lotus-performance attribution input normalization" in wiki_page
+    assert "Current Boundaries" in wiki_page
+    assert "material residual classification" in wiki_page
+    assert "[Attribution Analytics](Attribution-Analytics)" in wiki_sidebar
+    assert "[Attribution Analytics](Attribution-Analytics)" in wiki_home
+    assert "docs/technical/attribution-documentation-map.md" in wiki_api_surface
+    assert (
+        "fixed-income factor, derivative, sleeve, and composite attribution are not current supported claims"
+        in supported_features
+    )
+
+
 def test_benchmark_guide_uses_current_request_shape():
     guide = _read("docs/guides/benchmark.md")
     api_reference = _read("docs/guides/api_reference.md")

@@ -75,7 +75,12 @@ Workbench displays exact contribution evidence statuses in Performance Drivers. 
 portfolio/position, benchmark, and source currency sourcing. In stateful mode it is the source-owned
 attribution methodology surface for downstream product experiences; clients should consume emitted
 allocation, selection, interaction, active-return, and currency-attribution results rather than
-reconstructing attribution downstream.
+reconstructing attribution downstream. Period `status`, `reason_codes`, `residual_materiality`, and
+`supportability_evidence` are part of the contract, including invalid linked-return-chain posture
+when linked attribution is requested across a period return less than or equal to `-100%`. See
+[Attribution Analytics](Attribution-Analytics) and
+[docs/technical/attribution-documentation-map.md](../docs/technical/attribution-documentation-map.md)
+for the implementation-backed product boundary and documentation routing.
 
 ## Operator and platform surfaces
 
@@ -98,6 +103,9 @@ Runtime and supportability routes:
 - TWR product and methodology navigation:
   [Time-Weighted Return](Time-Weighted-Return),
   [docs/technical/twr-documentation-map.md](../docs/technical/twr-documentation-map.md)
+- Attribution product and methodology navigation:
+  [Attribution Analytics](Attribution-Analytics),
+  [docs/technical/attribution-documentation-map.md](../docs/technical/attribution-documentation-map.md)
 - contract and payload detail:
   [docs/guides/api_reference.md](../docs/guides/api_reference.md)
 - full examples and config inventory:

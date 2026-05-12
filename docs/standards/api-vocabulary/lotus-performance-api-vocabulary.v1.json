@@ -8,20 +8,20 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-05-10T05:29:35.167758+00:00",
+  "generatedAt": "2026-05-10T22:40:25.698200+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.account_reset_shadow_days",
       "canonicalTerm": "account_reset_shadow_days",
       "preferredName": "account_reset_shadow_days",
-      "description": "diagnostics field: account reset shadow days.",
+      "description": "Canonical account reset shadow days used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
@@ -42,14 +42,14 @@
       "semanticId": "lotus.active_reset_with_shadow_days",
       "canonicalTerm": "active_reset_with_shadow_days",
       "preferredName": "active_reset_with_shadow_days",
-      "description": "diagnostics field: active reset with shadow days.",
+      "description": "Canonical active reset with shadow days used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
@@ -84,14 +84,14 @@
       "semanticId": "lotus.active_run_reason",
       "canonicalTerm": "active_run_reason",
       "preferredName": "active_run_reason",
-      "description": "Concrete reason when governed recovery-drill action lease visibility is unavailable.",
-      "example": "example_active_run_reason",
-      "type": "object",
+      "description": "Canonical active run reason used by lotus-performance APIs.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
@@ -112,28 +112,28 @@
       "semanticId": "lotus.active_since_utc",
       "canonicalTerm": "active_since_utc",
       "preferredName": "active_since_utc",
-      "description": "UTC timestamp when this work item entered its current active or terminal state.",
-      "example": "example_active_since_utc",
-      "type": "object",
+      "description": "Canonical active since utc used by lotus-performance APIs.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
       "semanticId": "lotus.age_seconds",
       "canonicalTerm": "age_seconds",
       "preferredName": "age_seconds",
-      "description": "Age in seconds since the compute work item entered its current active or terminal state.",
-      "example": 0.1234,
-      "type": "object",
+      "description": "Canonical age seconds used by lotus-performance APIs.",
+      "example": 0.1,
+      "type": "number",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "number"
       ]
     },
     {
@@ -391,13 +391,12 @@
       "preferredName": "backup_identifier",
       "description": "Canonical backup identifier used by lotus-performance APIs.",
       "example": null,
-      "type": "object",
+      "type": "string",
       "locations": [
         "query",
         "body"
       ],
       "observedTypes": [
-        "object",
         "string"
       ]
     },
@@ -426,8 +425,7 @@
         "body"
       ],
       "observedTypes": [
-        "number",
-        "object"
+        "number"
       ]
     },
     {
@@ -521,8 +519,7 @@
         "body"
       ],
       "observedTypes": [
-        "string",
-        "object"
+        "string"
       ]
     },
     {
@@ -627,14 +624,14 @@
       "semanticId": "lotus.calculation_hash",
       "canonicalTerm": "calculation_hash",
       "preferredName": "calculation_hash",
-      "description": "meta field: calculation hash.",
-      "example": "example_calculation_hash",
-      "type": "object",
+      "description": "Canonical calculation hash used by lotus-performance APIs.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
@@ -658,13 +655,13 @@
       "preferredName": "calculation_id_contains",
       "description": "Canonical calculation id contains used by lotus-performance APIs.",
       "example": null,
-      "type": "object",
+      "type": "string",
       "locations": [
         "query",
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
@@ -745,14 +742,14 @@
       "semanticId": "lotus.candidate_canonical_reset_days",
       "canonicalTerm": "candidate_canonical_reset_days",
       "preferredName": "candidate_canonical_reset_days",
-      "description": "diagnostics field: candidate canonical reset days.",
+      "description": "Canonical candidate canonical reset days used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
@@ -799,13 +796,12 @@
       "preferredName": "cleanup_mode",
       "description": "Canonical cleanup mode used by lotus-performance APIs.",
       "example": null,
-      "type": "object",
+      "type": "string",
       "locations": [
         "query",
         "body"
       ],
       "observedTypes": [
-        "object",
         "string"
       ]
     },
@@ -827,42 +823,42 @@
       "semanticId": "lotus.complete_jobs",
       "canonicalTerm": "complete_jobs",
       "preferredName": "complete_jobs",
-      "description": "Number of compute jobs completed successfully and still retained durably.",
+      "description": "Canonical complete jobs used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
       "semanticId": "lotus.completed_at_utc",
       "canonicalTerm": "completed_at_utc",
       "preferredName": "completed_at_utc",
-      "description": "UTC timestamp when execution reached a terminal state.",
+      "description": "Canonical completed at utc used by lotus-performance APIs.",
       "example": "STANDARD_VALUE",
-      "type": "object",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
       "semanticId": "lotus.component_id",
       "canonicalTerm": "component_id",
       "preferredName": "component_id",
-      "description": "Benchmark component identifier when the row represents POSITION-level exposure; null for aggregated groups.",
+      "description": "Canonical component id used by lotus-performance APIs.",
       "example": "ENTITY_001",
-      "type": "object",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
@@ -871,13 +867,13 @@
       "preferredName": "compute_analytics_type",
       "description": "Canonical compute analytics type used by lotus-performance APIs.",
       "example": null,
-      "type": "object",
+      "type": "string",
       "locations": [
         "query",
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
@@ -1114,14 +1110,14 @@
       "semanticId": "lotus.correlation_id",
       "canonicalTerm": "correlation_id",
       "preferredName": "correlation_id",
-      "description": "Enterprise correlation identifier retained with this recovery drill, when present.",
-      "example": "corr_55956bbc6cb3",
-      "type": "object",
+      "description": "Canonical correlation id used by lotus-performance APIs.",
+      "example": "ENTITY_001",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
@@ -1221,112 +1217,112 @@
       "semanticId": "lotus.currency_mode",
       "canonicalTerm": "currency_mode",
       "preferredName": "currency_mode",
-      "description": "Optional multi-currency mode for the portfolio path.",
-      "example": "STANDARD_VALUE",
-      "type": "object",
+      "description": "Canonical currency mode used by lotus-performance APIs.",
+      "example": "BASE_ONLY",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
       "semanticId": "lotus.current_cutoff_utc",
       "canonicalTerm": "current_cutoff_utc",
       "preferredName": "current_cutoff_utc",
-      "description": "Current runtime-retention cutoff timestamp under the active retention policy.",
-      "example": "example_current_cutoff_utc",
-      "type": "object",
+      "description": "Canonical current cutoff utc used by lotus-performance APIs.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
       "semanticId": "lotus.current_prunable_async_result_count",
       "canonicalTerm": "current_prunable_async_result_count",
       "preferredName": "current_prunable_async_result_count",
-      "description": "Current number of async results that would be pruned by a dry-run cleanup.",
+      "description": "Canonical current prunable async result count used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
       "semanticId": "lotus.current_prunable_compute_job_count",
       "canonicalTerm": "current_prunable_compute_job_count",
       "preferredName": "current_prunable_compute_job_count",
-      "description": "Current number of terminal compute jobs that would be pruned by a dry-run cleanup.",
+      "description": "Canonical current prunable compute job count used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
       "semanticId": "lotus.current_prunable_execution_count",
       "canonicalTerm": "current_prunable_execution_count",
       "preferredName": "current_prunable_execution_count",
-      "description": "Current number of terminal execution records that would be pruned by a dry-run cleanup.",
+      "description": "Canonical current prunable execution count used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
       "semanticId": "lotus.current_prunable_lineage_artifact_count",
       "canonicalTerm": "current_prunable_lineage_artifact_count",
       "preferredName": "current_prunable_lineage_artifact_count",
-      "description": "Current number of lineage artifact directories that would be pruned by a dry-run cleanup.",
+      "description": "Canonical current prunable lineage artifact count used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
       "semanticId": "lotus.current_prunable_lineage_record_count",
       "canonicalTerm": "current_prunable_lineage_record_count",
       "preferredName": "current_prunable_lineage_record_count",
-      "description": "Current number of terminal lineage records that would be pruned by a dry-run cleanup.",
+      "description": "Canonical current prunable lineage record count used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
       "semanticId": "lotus.current_retention_days",
       "canonicalTerm": "current_retention_days",
       "preferredName": "current_retention_days",
-      "description": "Current runtime-retention window in days under the active retention policy.",
+      "description": "Canonical current retention days used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
@@ -1335,13 +1331,13 @@
       "preferredName": "cursor_calculation_id_before",
       "description": "Canonical cursor calculation id before used by lotus-performance APIs.",
       "example": null,
-      "type": "object",
+      "type": "string",
       "locations": [
         "query",
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
@@ -1350,13 +1346,13 @@
       "preferredName": "cursor_recovered_before",
       "description": "Canonical cursor recovered before used by lotus-performance APIs.",
       "example": null,
-      "type": "object",
+      "type": "string",
       "locations": [
         "query",
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
@@ -1655,8 +1651,7 @@
         "body"
       ],
       "observedTypes": [
-        "number",
-        "object"
+        "number"
       ]
     },
     {
@@ -1715,28 +1710,28 @@
       "semanticId": "lotus.error_message",
       "canonicalTerm": "error_message",
       "preferredName": "error_message",
-      "description": "Top-level execution failure message when the calculation failed.",
+      "description": "Canonical error message used by lotus-performance APIs.",
       "example": "STANDARD_VALUE",
-      "type": "object",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
       "semanticId": "lotus.error_type",
       "canonicalTerm": "error_type",
       "preferredName": "error_type",
-      "description": "Last durable compute error type associated with the recovery event, when present.",
-      "example": "example_error_type",
-      "type": "object",
+      "description": "Canonical error type used by lotus-performance APIs.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
@@ -1799,28 +1794,28 @@
       "semanticId": "lotus.failed_jobs",
       "canonicalTerm": "failed_jobs",
       "preferredName": "failed_jobs",
-      "description": "Number of compute jobs in terminal failed state.",
+      "description": "Canonical failed jobs used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
       "semanticId": "lotus.fallback_from",
       "canonicalTerm": "fallback_from",
       "preferredName": "fallback_from",
-      "description": "Primary method that fell back, when applicable.",
-      "example": "example_fallback_from",
-      "type": "object",
+      "description": "Canonical fallback from used by lotus-performance APIs.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
@@ -1841,14 +1836,14 @@
       "semanticId": "lotus.fallback_reason",
       "canonicalTerm": "fallback_reason",
       "preferredName": "fallback_reason",
-      "description": "Reason fallback method was used.",
-      "example": "example_fallback_reason",
-      "type": "object",
+      "description": "Canonical fallback reason used by lotus-performance APIs.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
@@ -1982,14 +1977,14 @@
       "semanticId": "lotus.from_date",
       "canonicalTerm": "from_date",
       "preferredName": "from_date",
-      "description": "Inclusive start date when mode=EXPLICIT.",
+      "description": "Canonical from date used by lotus-performance APIs.",
       "example": "2025-03-31",
-      "type": "object",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
@@ -2022,12 +2017,12 @@
       "preferredName": "generated_after",
       "description": "Canonical generated after used by lotus-performance APIs.",
       "example": null,
-      "type": "object",
+      "type": "string",
       "locations": [
         "query"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
@@ -2064,12 +2059,12 @@
       "preferredName": "generated_before",
       "description": "Canonical generated before used by lotus-performance APIs.",
       "example": null,
-      "type": "object",
+      "type": "string",
       "locations": [
         "query"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
@@ -2203,14 +2198,14 @@
       "semanticId": "lotus.holding_period_return",
       "canonicalTerm": "holding_period_return",
       "preferredName": "holding_period_return",
-      "description": "Holding-period money-weighted return in percentage-point output units.",
-      "example": 0.1234,
-      "type": "object",
+      "description": "Canonical holding period return used by lotus-performance APIs.",
+      "example": 0.1,
+      "type": "number",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "number"
       ]
     },
     {
@@ -2315,14 +2310,14 @@
       "semanticId": "lotus.input_fingerprint",
       "canonicalTerm": "input_fingerprint",
       "preferredName": "input_fingerprint",
-      "description": "meta field: input fingerprint.",
-      "example": "example_input_fingerprint",
-      "type": "object",
+      "description": "Canonical input fingerprint used by lotus-performance APIs.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
@@ -2444,28 +2439,28 @@
       "semanticId": "lotus.is_annualized_primary",
       "canonicalTerm": "is_annualized_primary",
       "preferredName": "is_annualized_primary",
-      "description": "Whether money_weighted_return is an annualized value.",
+      "description": "Canonical is annualized primary used by lotus-performance APIs.",
       "example": true,
-      "type": "object",
+      "type": "boolean",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "boolean"
       ]
     },
     {
       "semanticId": "lotus.is_approximation",
       "canonicalTerm": "is_approximation",
       "preferredName": "is_approximation",
-      "description": "Whether the returned method is approximate.",
+      "description": "Canonical is approximation used by lotus-performance APIs.",
       "example": true,
-      "type": "object",
+      "type": "boolean",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "boolean"
       ]
     },
     {
@@ -2474,13 +2469,13 @@
       "preferredName": "job_id",
       "description": "Canonical job id used by lotus-performance APIs.",
       "example": null,
-      "type": "object",
+      "type": "string",
       "locations": [
         "query",
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
@@ -2504,238 +2499,238 @@
       "semanticId": "lotus.latest_age_seconds",
       "canonicalTerm": "latest_age_seconds",
       "preferredName": "latest_age_seconds",
-      "description": "Age in seconds of the latest retained recovery drill.",
-      "example": 0.1234,
-      "type": "object",
+      "description": "Canonical latest age seconds used by lotus-performance APIs.",
+      "example": 0.1,
+      "type": "number",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "number"
       ]
     },
     {
       "semanticId": "lotus.latest_backup_identifier",
       "canonicalTerm": "latest_backup_identifier",
       "preferredName": "latest_backup_identifier",
-      "description": "Backup or restore-set identifier validated by the latest retained recovery drill.",
-      "example": "example_latest_backup_identifier",
-      "type": "object",
+      "description": "Canonical latest backup identifier used by lotus-performance APIs.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
       "semanticId": "lotus.latest_cleanup_mode",
       "canonicalTerm": "latest_cleanup_mode",
       "preferredName": "latest_cleanup_mode",
-      "description": "Cleanup mode recorded for the latest retained runtime-retention cleanup.",
-      "example": "example_latest_cleanup_mode",
-      "type": "object",
+      "description": "Canonical latest cleanup mode used by lotus-performance APIs.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
       "semanticId": "lotus.latest_file_name",
       "canonicalTerm": "latest_file_name",
       "preferredName": "latest_file_name",
-      "description": "Latest retained recovery-drill evidence artifact file name.",
-      "example": "example_latest_file_name",
-      "type": "object",
+      "description": "Canonical latest file name used by lotus-performance APIs.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
       "semanticId": "lotus.latest_generated_at_utc",
       "canonicalTerm": "latest_generated_at_utc",
       "preferredName": "latest_generated_at_utc",
-      "description": "UTC timestamp of the latest retained recovery drill.",
-      "example": "example_latest_generated_at_utc",
-      "type": "object",
+      "description": "Canonical latest generated at utc used by lotus-performance APIs.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
       "semanticId": "lotus.latest_job_id",
       "canonicalTerm": "latest_job_id",
       "preferredName": "latest_job_id",
-      "description": "Scheduler or automation job identity recorded for the latest retained runtime-retention cleanup, when present.",
-      "example": "LATEST_JOB_001",
-      "type": "object",
+      "description": "Canonical latest job id used by lotus-performance APIs.",
+      "example": "ENTITY_001",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
       "semanticId": "lotus.latest_operator_id",
       "canonicalTerm": "latest_operator_id",
       "preferredName": "latest_operator_id",
-      "description": "Operator or automation identity that ran the latest retained recovery drill.",
-      "example": "LATEST_OPERATOR_001",
-      "type": "object",
+      "description": "Canonical latest operator id used by lotus-performance APIs.",
+      "example": "ENTITY_001",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
       "semanticId": "lotus.latest_reclaimed_run_acquired_at_utc",
       "canonicalTerm": "latest_reclaimed_run_acquired_at_utc",
       "preferredName": "latest_reclaimed_run_acquired_at_utc",
-      "description": "UTC timestamp when the latest reclaimed stale governed recovery-drill run originally acquired its lease.",
-      "example": "example_latest_reclaimed_run_acquired_at_utc",
-      "type": "object",
+      "description": "Canonical latest reclaimed run acquired at utc used by lotus-performance APIs.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
       "semanticId": "lotus.latest_reclaimed_run_age_seconds",
       "canonicalTerm": "latest_reclaimed_run_age_seconds",
       "preferredName": "latest_reclaimed_run_age_seconds",
-      "description": "Age in seconds since the latest stale governed recovery-drill lease was reclaimed.",
-      "example": 0.1234,
-      "type": "object",
+      "description": "Canonical latest reclaimed run age seconds used by lotus-performance APIs.",
+      "example": 0.1,
+      "type": "number",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "number"
       ]
     },
     {
       "semanticId": "lotus.latest_reclaimed_run_governed_target",
       "canonicalTerm": "latest_reclaimed_run_governed_target",
       "preferredName": "latest_reclaimed_run_governed_target",
-      "description": "Governed recovery-drill target from the latest reclaimed stale run, typically the backup identifier.",
-      "example": "example_latest_reclaimed_run_governed_target",
-      "type": "object",
+      "description": "Canonical latest reclaimed run governed target used by lotus-performance APIs.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
       "semanticId": "lotus.latest_reclaimed_run_operator_id",
       "canonicalTerm": "latest_reclaimed_run_operator_id",
       "preferredName": "latest_reclaimed_run_operator_id",
-      "description": "Operator or automation identity from the latest reclaimed stale governed recovery-drill run, when present.",
-      "example": "LATEST_RECLAIMED_RUN_OPERATOR_001",
-      "type": "object",
+      "description": "Canonical latest reclaimed run operator id used by lotus-performance APIs.",
+      "example": "ENTITY_001",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
       "semanticId": "lotus.latest_reclaimed_run_reclaimed_at_utc",
       "canonicalTerm": "latest_reclaimed_run_reclaimed_at_utc",
       "preferredName": "latest_reclaimed_run_reclaimed_at_utc",
-      "description": "UTC timestamp when the latest stale governed recovery-drill lease was reclaimed.",
-      "example": "example_latest_reclaimed_run_reclaimed_at_utc",
-      "type": "object",
+      "description": "Canonical latest reclaimed run reclaimed at utc used by lotus-performance APIs.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
       "semanticId": "lotus.latest_reclaimed_run_tenant_id",
       "canonicalTerm": "latest_reclaimed_run_tenant_id",
       "preferredName": "latest_reclaimed_run_tenant_id",
-      "description": "Tenant context from the latest reclaimed stale governed recovery-drill run, when present.",
-      "example": "LATEST_RECLAIMED_RUN_TENANT_001",
-      "type": "object",
+      "description": "Canonical latest reclaimed run tenant id used by lotus-performance APIs.",
+      "example": "ENTITY_001",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
       "semanticId": "lotus.latest_retention_days",
       "canonicalTerm": "latest_retention_days",
       "preferredName": "latest_retention_days",
-      "description": "Retention window in days used by the latest retained runtime-retention cleanup.",
+      "description": "Canonical latest retention days used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
       "semanticId": "lotus.latest_status",
       "canonicalTerm": "latest_status",
       "preferredName": "latest_status",
-      "description": "Outcome status of the latest retained recovery drill.",
-      "example": "example_latest_status",
-      "type": "object",
+      "description": "Canonical latest status used by lotus-performance APIs.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
       "semanticId": "lotus.latest_trigger_mode",
       "canonicalTerm": "latest_trigger_mode",
       "preferredName": "latest_trigger_mode",
-      "description": "Whether the latest retained runtime-retention cleanup was triggered manually or by scheduled automation.",
-      "example": "example_latest_trigger_mode",
-      "type": "object",
+      "description": "Canonical latest trigger mode used by lotus-performance APIs.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
       "semanticId": "lotus.lease_expired_jobs",
       "canonicalTerm": "lease_expired_jobs",
       "preferredName": "lease_expired_jobs",
-      "description": "Number of compute jobs carrying expired-lease recovery state.",
+      "description": "Canonical lease expired jobs used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
@@ -2770,28 +2765,28 @@
       "semanticId": "lotus.leased_jobs",
       "canonicalTerm": "leased_jobs",
       "preferredName": "leased_jobs",
-      "description": "Number of compute jobs currently leased by a worker.",
+      "description": "Canonical leased jobs used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
       "semanticId": "lotus.leased_payloads",
       "canonicalTerm": "leased_payloads",
       "preferredName": "leased_payloads",
-      "description": "Number of lineage payloads currently claimed by a worker for materialization.",
+      "description": "Canonical leased payloads used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
@@ -2806,8 +2801,7 @@
         "body"
       ],
       "observedTypes": [
-        "integer",
-        "object"
+        "integer"
       ]
     },
     {
@@ -2816,13 +2810,13 @@
       "preferredName": "lineage_calculation_type",
       "description": "Canonical lineage calculation type used by lotus-performance APIs.",
       "example": null,
-      "type": "object",
+      "type": "string",
       "locations": [
         "query",
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
@@ -3029,14 +3023,14 @@
       "semanticId": "lotus.max_gap_days",
       "canonicalTerm": "max_gap_days",
       "preferredName": "max_gap_days",
-      "description": "Optional caller tolerance for retained gap diagnostics. Reserved for future enforcement.",
-      "example": "STANDARD_VALUE",
-      "type": "object",
+      "description": "Canonical max gap days used by lotus-performance APIs.",
+      "example": 1,
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
@@ -3237,14 +3231,14 @@
       "semanticId": "lotus.mwr_annualized",
       "canonicalTerm": "mwr_annualized",
       "preferredName": "mwr_annualized",
-      "description": "Annualized money-weighted return in percentage-point output units when available.",
-      "example": "STANDARD_VALUE",
-      "type": "object",
+      "description": "Canonical mwr annualized used by lotus-performance APIs.",
+      "example": 0.1,
+      "type": "number",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "number"
       ]
     },
     {
@@ -3265,84 +3259,84 @@
       "semanticId": "lotus.nctrl4_exclusive_reset_days",
       "canonicalTerm": "nctrl4_exclusive_reset_days",
       "preferredName": "nctrl4_exclusive_reset_days",
-      "description": "diagnostics field: nctrl4 exclusive reset days.",
+      "description": "Canonical nctrl4 exclusive reset days used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
       "semanticId": "lotus.nctrl4_reset_days",
       "canonicalTerm": "nctrl4_reset_days",
       "preferredName": "nctrl4_reset_days",
-      "description": "diagnostics field: nctrl4 reset days.",
+      "description": "Canonical nctrl4 reset days used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
       "semanticId": "lotus.next_cursor_calculation_id_before",
       "canonicalTerm": "next_cursor_calculation_id_before",
       "preferredName": "next_cursor_calculation_id_before",
-      "description": "Cursor calculation handle used with the cursor recovery timestamp to paginate older matching events.",
-      "example": "example_next_cursor_calculation_id_before",
-      "type": "object",
+      "description": "Canonical next cursor calculation id before used by lotus-performance APIs.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
       "semanticId": "lotus.next_cursor_recovered_before",
       "canonicalTerm": "next_cursor_recovered_before",
       "preferredName": "next_cursor_recovered_before",
-      "description": "Cursor recovery timestamp for deterministic seek pagination of older matching events.",
-      "example": "2026-02-27T10:30:00Z",
-      "type": "object",
+      "description": "Canonical next cursor recovered before used by lotus-performance APIs.",
+      "example": "2025-03-31T00:00:00Z",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
       "semanticId": "lotus.next_offset",
       "canonicalTerm": "next_offset",
       "preferredName": "next_offset",
-      "description": "Next queue-local offset to request when additional matching work items remain.",
+      "description": "Canonical next offset used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
       "semanticId": "lotus.next_page_token",
       "canonicalTerm": "next_page_token",
       "preferredName": "next_page_token",
-      "description": "Token for the next page, or null when all exposure rows have been returned.",
-      "example": "example_next_page_token",
-      "type": "object",
+      "description": "Canonical next page token used by lotus-performance APIs.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
@@ -3363,28 +3357,28 @@
       "semanticId": "lotus.nip_days_since_last_reset",
       "canonicalTerm": "nip_days_since_last_reset",
       "preferredName": "nip_days_since_last_reset",
-      "description": "diagnostics field: nip days since last reset.",
+      "description": "Canonical nip days since last reset used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
       "semanticId": "lotus.nip_rule_delta_days",
       "canonicalTerm": "nip_rule_delta_days",
       "preferredName": "nip_rule_delta_days",
-      "description": "diagnostics field: nip rule delta days.",
+      "description": "Canonical nip rule delta days used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
@@ -3458,112 +3452,112 @@
       "semanticId": "lotus.oldest_active_run_acquired_at_utc",
       "canonicalTerm": "oldest_active_run_acquired_at_utc",
       "preferredName": "oldest_active_run_acquired_at_utc",
-      "description": "UTC timestamp when the oldest active governed recovery-drill run acquired its lease.",
-      "example": "example_oldest_active_run_acquired_at_utc",
-      "type": "object",
+      "description": "Canonical oldest active run acquired at utc used by lotus-performance APIs.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
       "semanticId": "lotus.oldest_active_run_age_seconds",
       "canonicalTerm": "oldest_active_run_age_seconds",
       "preferredName": "oldest_active_run_age_seconds",
-      "description": "Age in seconds of the oldest active governed recovery-drill run.",
-      "example": 0.1234,
-      "type": "object",
+      "description": "Canonical oldest active run age seconds used by lotus-performance APIs.",
+      "example": 0.1,
+      "type": "number",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "number"
       ]
     },
     {
       "semanticId": "lotus.oldest_active_run_governed_target",
       "canonicalTerm": "oldest_active_run_governed_target",
       "preferredName": "oldest_active_run_governed_target",
-      "description": "Governed recovery-drill target for the oldest active run, typically the backup identifier.",
-      "example": "example_oldest_active_run_governed_target",
-      "type": "object",
+      "description": "Canonical oldest active run governed target used by lotus-performance APIs.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
       "semanticId": "lotus.oldest_active_run_operator_id",
       "canonicalTerm": "oldest_active_run_operator_id",
       "preferredName": "oldest_active_run_operator_id",
-      "description": "Operator or automation identity for the oldest active governed recovery-drill run, when present.",
-      "example": "OLDEST_ACTIVE_RUN_OPERATOR_001",
-      "type": "object",
+      "description": "Canonical oldest active run operator id used by lotus-performance APIs.",
+      "example": "ENTITY_001",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
       "semanticId": "lotus.oldest_active_run_tenant_id",
       "canonicalTerm": "oldest_active_run_tenant_id",
       "preferredName": "oldest_active_run_tenant_id",
-      "description": "Tenant context recorded for the oldest active governed recovery-drill run, when present.",
-      "example": "OLDEST_ACTIVE_RUN_TENANT_001",
-      "type": "object",
+      "description": "Canonical oldest active run tenant id used by lotus-performance APIs.",
+      "example": "ENTITY_001",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
       "semanticId": "lotus.oldest_leased_age_seconds",
       "canonicalTerm": "oldest_leased_age_seconds",
       "preferredName": "oldest_leased_age_seconds",
-      "description": "Age in seconds of the oldest leased compute job awaiting worker progress.",
-      "example": 0.1234,
-      "type": "object",
+      "description": "Canonical oldest leased age seconds used by lotus-performance APIs.",
+      "example": 0.1,
+      "type": "number",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "number"
       ]
     },
     {
       "semanticId": "lotus.oldest_pending_age_seconds",
       "canonicalTerm": "oldest_pending_age_seconds",
       "preferredName": "oldest_pending_age_seconds",
-      "description": "Age in seconds of the oldest pending compute job.",
-      "example": 0.1234,
-      "type": "object",
+      "description": "Canonical oldest pending age seconds used by lotus-performance APIs.",
+      "example": 0.1,
+      "type": "number",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "number"
       ]
     },
     {
       "semanticId": "lotus.oldest_running_age_seconds",
       "canonicalTerm": "oldest_running_age_seconds",
       "preferredName": "oldest_running_age_seconds",
-      "description": "Age in seconds of the oldest running compute job currently executing.",
-      "example": 0.1234,
-      "type": "object",
+      "description": "Canonical oldest running age seconds used by lotus-performance APIs.",
+      "example": 0.1,
+      "type": "number",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "number"
       ]
     },
     {
@@ -3578,8 +3572,7 @@
         "query"
       ],
       "observedTypes": [
-        "string",
-        "object"
+        "string"
       ]
     },
     {
@@ -3689,14 +3682,14 @@
       "semanticId": "lotus.page_token",
       "canonicalTerm": "page_token",
       "preferredName": "page_token",
-      "description": "Opaque pagination token from a previous benchmark exposure context response.",
+      "description": "Canonical page token used by lotus-performance APIs.",
       "example": "STANDARD_VALUE",
-      "type": "object",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
@@ -3745,28 +3738,28 @@
       "semanticId": "lotus.pending_jobs",
       "canonicalTerm": "pending_jobs",
       "preferredName": "pending_jobs",
-      "description": "Number of pending compute jobs awaiting lease.",
+      "description": "Canonical pending jobs used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
       "semanticId": "lotus.pending_payloads",
       "canonicalTerm": "pending_payloads",
       "preferredName": "pending_payloads",
-      "description": "Number of pending lineage payloads awaiting worker materialization.",
+      "description": "Canonical pending payloads used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
@@ -3787,14 +3780,14 @@
       "semanticId": "lotus.performance_start_date",
       "canonicalTerm": "performance_start_date",
       "preferredName": "performance_start_date",
-      "description": "Portfolio inception or earliest date for which performance data is available. In stateful mode lotus-performance can derive this upstream.",
+      "description": "Canonical performance start date used by lotus-performance APIs.",
       "example": "2025-03-31",
-      "type": "object",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
@@ -3840,14 +3833,14 @@
       "semanticId": "lotus.periods_per_year",
       "canonicalTerm": "periods_per_year",
       "preferredName": "periods_per_year",
-      "description": "Optional override for the annualization factor (e.g., 252 or 365). If provided, this value is used instead of the 'basis'.",
-      "example": 0.1234,
-      "type": "object",
+      "description": "Canonical periods per year used by lotus-performance APIs.",
+      "example": 0.1,
+      "type": "number",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "number"
       ]
     },
     {
@@ -3904,14 +3897,14 @@
       "semanticId": "lotus.poll_path_template",
       "canonicalTerm": "poll_path_template",
       "preferredName": "poll_path_template",
-      "description": "Execution polling path template for async-capable surfaces.",
+      "description": "Canonical poll path template used by lotus-performance APIs.",
       "example": "STANDARD_VALUE",
-      "type": "object",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
@@ -3976,8 +3969,7 @@
         "body"
       ],
       "observedTypes": [
-        "string",
-        "object"
+        "string"
       ]
     },
     {
@@ -4029,14 +4021,14 @@
       "semanticId": "lotus.preview_reason",
       "canonicalTerm": "preview_reason",
       "preferredName": "preview_reason",
-      "description": "Concrete reason when the live runtime-retention preview is unavailable.",
-      "example": "example_preview_reason",
-      "type": "object",
+      "description": "Canonical preview reason used by lotus-performance APIs.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
@@ -4204,8 +4196,7 @@
         "body"
       ],
       "observedTypes": [
-        "string",
-        "object"
+        "string"
       ]
     },
     {
@@ -4289,28 +4280,28 @@
       "semanticId": "lotus.reclaimable_jobs",
       "canonicalTerm": "reclaimable_jobs",
       "preferredName": "reclaimable_jobs",
-      "description": "Number of compute jobs whose durable worker lease already expired and are eligible for recovery.",
+      "description": "Canonical reclaimable jobs used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
       "semanticId": "lotus.reclaimable_payloads",
       "canonicalTerm": "reclaimable_payloads",
       "preferredName": "reclaimable_payloads",
-      "description": "Number of pending lineage payloads whose durable worker lease already expired and are eligible for recovery.",
+      "description": "Canonical reclaimable payloads used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
@@ -4361,13 +4352,13 @@
       "preferredName": "recovered_after",
       "description": "Canonical recovered after used by lotus-performance APIs.",
       "example": null,
-      "type": "object",
+      "type": "string",
       "locations": [
         "query",
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
@@ -4390,13 +4381,13 @@
       "preferredName": "recovered_before",
       "description": "Canonical recovered before used by lotus-performance APIs.",
       "example": null,
-      "type": "object",
+      "type": "string",
       "locations": [
         "query",
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
@@ -4449,28 +4440,28 @@
       "semanticId": "lotus.remediation_hint",
       "canonicalTerm": "remediation_hint",
       "preferredName": "remediation_hint",
-      "description": "Operator guidance for resolving the current durable metadata store failure reason, when known.",
-      "example": "example_remediation_hint",
-      "type": "object",
+      "description": "Canonical remediation hint used by lotus-performance APIs.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
       "semanticId": "lotus.report_ccy",
       "canonicalTerm": "report_ccy",
       "preferredName": "report_ccy",
-      "description": "Optional reporting currency used for stateful retrieval and output context.",
+      "description": "Canonical report ccy used by lotus-performance APIs.",
       "example": "STANDARD_VALUE",
-      "type": "object",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
@@ -4491,14 +4482,13 @@
       "semanticId": "lotus.report_start_date",
       "canonicalTerm": "report_start_date",
       "preferredName": "report_start_date",
-      "description": "Explicit start date used only when requested periods include EXPLICIT.",
+      "description": "Canonical report start date used by lotus-performance APIs.",
       "example": "2025-03-31",
-      "type": "object",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object",
         "string"
       ]
     },
@@ -4506,14 +4496,14 @@
       "semanticId": "lotus.reporting_currency",
       "canonicalTerm": "reporting_currency",
       "preferredName": "reporting_currency",
-      "description": "Effective reporting currency for MWR market values and cash flows.",
-      "example": "USD",
-      "type": "object",
+      "description": "Canonical reporting currency used by lotus-performance APIs.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
@@ -4766,14 +4756,14 @@
       "semanticId": "lotus.required_when",
       "canonicalTerm": "required_when",
       "preferredName": "required_when",
-      "description": "Condition under which this option or companion input becomes required.",
+      "description": "Canonical required when used by lotus-performance APIs.",
       "example": "STANDARD_VALUE",
-      "type": "object",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
@@ -4794,14 +4784,14 @@
       "semanticId": "lotus.reset_delta_days",
       "canonicalTerm": "reset_delta_days",
       "preferredName": "reset_delta_days",
-      "description": "diagnostics field: reset delta days.",
+      "description": "Canonical reset delta days used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
@@ -4824,14 +4814,14 @@
       "semanticId": "lotus.residual_applied_bp",
       "canonicalTerm": "residual_applied_bp",
       "preferredName": "residual_applied_bp",
-      "description": "audit field: residual applied bp.",
-      "example": 0.1234,
-      "type": "object",
+      "description": "Canonical residual applied bp used by lotus-performance APIs.",
+      "example": 0.1,
+      "type": "number",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "number"
       ]
     },
     {
@@ -4901,22 +4891,21 @@
         "body"
       ],
       "observedTypes": [
-        "string",
-        "object"
+        "string"
       ]
     },
     {
       "semanticId": "lotus.result_path_template",
       "canonicalTerm": "result_path_template",
       "preferredName": "result_path_template",
-      "description": "Endpoint-specific async result path template for async-capable surfaces.",
+      "description": "Canonical result path template used by lotus-performance APIs.",
       "example": "STANDARD_VALUE",
-      "type": "object",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
@@ -4946,36 +4935,35 @@
         "body"
       ],
       "observedTypes": [
-        "integer",
-        "object"
+        "integer"
       ]
     },
     {
       "semanticId": "lotus.retention_limit",
       "canonicalTerm": "retention_limit",
       "preferredName": "retention_limit",
-      "description": "Configured retention limit for timestamped recovery-drill evidence artifacts.",
+      "description": "Canonical retention limit used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
       "semanticId": "lotus.retention_max_age_days",
       "canonicalTerm": "retention_max_age_days",
       "preferredName": "retention_max_age_days",
-      "description": "Configured maximum age in days for retained recovery-drill evidence artifacts.",
+      "description": "Canonical retention max age days used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
@@ -5026,35 +5014,35 @@
       "semanticId": "lotus.retry_backlog_jobs",
       "canonicalTerm": "retry_backlog_jobs",
       "preferredName": "retry_backlog_jobs",
-      "description": "Number of pending compute jobs awaiting another attempt after a prior failure.",
+      "description": "Canonical retry backlog jobs used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
       "semanticId": "lotus.retry_backlog_payloads",
       "canonicalTerm": "retry_backlog_payloads",
       "preferredName": "retry_backlog_payloads",
-      "description": "Number of pending lineage payloads awaiting a retry after a prior materialization failure.",
+      "description": "Canonical retry backlog payloads used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
       "semanticId": "lotus.return_base",
       "canonicalTerm": "return_base",
       "preferredName": "return_base",
-      "description": "Benchmark group base-currency return for the observation as a decimal ratio.",
+      "description": "Canonical return base used by lotus-performance APIs.",
       "example": 0.1,
       "type": "number",
       "locations": [
@@ -5068,28 +5056,28 @@
       "semanticId": "lotus.return_fx",
       "canonicalTerm": "return_fx",
       "preferredName": "return_fx",
-      "description": "Optional FX return component as a decimal ratio for currency-aware attribution.",
-      "example": "STANDARD_VALUE",
-      "type": "object",
+      "description": "Canonical return fx used by lotus-performance APIs.",
+      "example": 0.1,
+      "type": "number",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "number"
       ]
     },
     {
       "semanticId": "lotus.return_local",
       "canonicalTerm": "return_local",
       "preferredName": "return_local",
-      "description": "Optional local-currency benchmark return as a decimal ratio for currency-aware attribution.",
-      "example": "STANDARD_VALUE",
-      "type": "object",
+      "description": "Canonical return local used by lotus-performance APIs.",
+      "example": 0.1,
+      "type": "number",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "number"
       ]
     },
     {
@@ -5220,14 +5208,14 @@
       "semanticId": "lotus.running_jobs",
       "canonicalTerm": "running_jobs",
       "preferredName": "running_jobs",
-      "description": "Number of compute jobs currently executing.",
+      "description": "Canonical running jobs used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
@@ -5362,28 +5350,28 @@
       "semanticId": "lotus.shadow_only_candidate_reset_days",
       "canonicalTerm": "shadow_only_candidate_reset_days",
       "preferredName": "shadow_only_candidate_reset_days",
-      "description": "diagnostics field: shadow only candidate reset days.",
+      "description": "Canonical shadow only candidate reset days used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
       "semanticId": "lotus.shadow_reset_overlap_days",
       "canonicalTerm": "shadow_reset_overlap_days",
       "preferredName": "shadow_reset_overlap_days",
-      "description": "diagnostics field: shadow reset overlap days.",
+      "description": "Canonical shadow reset overlap days used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
@@ -5420,14 +5408,14 @@
       "semanticId": "lotus.sod_reset_shadow_days",
       "canonicalTerm": "sod_reset_shadow_days",
       "preferredName": "sod_reset_shadow_days",
-      "description": "diagnostics field: sod reset shadow days.",
+      "description": "Canonical sod reset shadow days used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
@@ -5567,14 +5555,13 @@
       "semanticId": "lotus.start_date",
       "canonicalTerm": "start_date",
       "preferredName": "start_date",
-      "description": "money weighted return analytics request field: start date.",
-      "example": "2026-02-27",
-      "type": "object",
+      "description": "Canonical start date used by lotus-performance APIs.",
+      "example": "2025-03-31",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object",
         "string"
       ]
     },
@@ -5582,14 +5569,14 @@
       "semanticId": "lotus.started_at_utc",
       "canonicalTerm": "started_at_utc",
       "preferredName": "started_at_utc",
-      "description": "UTC timestamp when execution started.",
+      "description": "Canonical started at utc used by lotus-performance APIs.",
       "example": "STANDARD_VALUE",
-      "type": "object",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
@@ -5676,8 +5663,7 @@
       ],
       "observedTypes": [
         "string",
-        "LineageStatus",
-        "object"
+        "LineageStatus"
       ]
     },
     {
@@ -5698,28 +5684,28 @@
       "semanticId": "lotus.storage_free_bytes",
       "canonicalTerm": "storage_free_bytes",
       "preferredName": "storage_free_bytes",
-      "description": "Free bytes currently remaining on the lineage artifact storage filesystem.",
+      "description": "Canonical storage free bytes used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
       "semanticId": "lotus.storage_free_ratio",
       "canonicalTerm": "storage_free_ratio",
       "preferredName": "storage_free_ratio",
-      "description": "Fraction of free capacity currently remaining on the lineage artifact storage filesystem.",
-      "example": 0.1234,
-      "type": "object",
+      "description": "Canonical storage free ratio used by lotus-performance APIs.",
+      "example": 0.1,
+      "type": "number",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "number"
       ]
     },
     {
@@ -5754,42 +5740,42 @@
       "semanticId": "lotus.storage_total_bytes",
       "canonicalTerm": "storage_total_bytes",
       "preferredName": "storage_total_bytes",
-      "description": "Total bytes available on the lineage artifact storage filesystem.",
+      "description": "Canonical storage total bytes used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
       "semanticId": "lotus.storage_used_bytes",
       "canonicalTerm": "storage_used_bytes",
       "preferredName": "storage_used_bytes",
-      "description": "Used bytes currently consumed on the lineage artifact storage filesystem.",
+      "description": "Canonical storage used bytes used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
       "semanticId": "lotus.subject_calculation_id",
       "canonicalTerm": "subject_calculation_id",
       "preferredName": "subject_calculation_id",
-      "description": "Existing TWR calculation to inspect when subject_type is twr_calculation.",
+      "description": "Canonical subject calculation id used by lotus-performance APIs.",
       "example": "ENTITY_001",
-      "type": "object",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
@@ -5810,14 +5796,14 @@
       "semanticId": "lotus.sum_of_parts_vs_total_bp",
       "canonicalTerm": "sum_of_parts_vs_total_bp",
       "preferredName": "sum_of_parts_vs_total_bp",
-      "description": "audit field: sum of parts vs total bp.",
-      "example": 0.1234,
-      "type": "object",
+      "description": "Canonical sum of parts vs total bp used by lotus-performance APIs.",
+      "example": 0.1,
+      "type": "number",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "number"
       ]
     },
     {
@@ -5879,8 +5865,7 @@
         "body"
       ],
       "observedTypes": [
-        "string",
-        "object"
+        "string"
       ]
     },
     {
@@ -5901,28 +5886,28 @@
       "semanticId": "lotus.terminal_failure_jobs",
       "canonicalTerm": "terminal_failure_jobs",
       "preferredName": "terminal_failure_jobs",
-      "description": "Number of compute jobs that failed terminally for non-lease-expiry reasons.",
+      "description": "Canonical terminal failure jobs used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
       "semanticId": "lotus.terminal_failure_payloads",
       "canonicalTerm": "terminal_failure_payloads",
       "preferredName": "terminal_failure_payloads",
-      "description": "Number of lineage payloads that exhausted retry budget and failed terminally.",
+      "description": "Canonical terminal failure payloads used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
@@ -5985,14 +5970,14 @@
       "semanticId": "lotus.to_date",
       "canonicalTerm": "to_date",
       "preferredName": "to_date",
-      "description": "Inclusive end date when mode=EXPLICIT.",
+      "description": "Canonical to date used by lotus-performance APIs.",
       "example": "2025-03-31",
-      "type": "object",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
@@ -6013,14 +5998,14 @@
       "semanticId": "lotus.top_n",
       "canonicalTerm": "top_n",
       "preferredName": "top_n",
-      "description": "output field: top n.",
+      "description": "Canonical top n used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
@@ -6069,14 +6054,14 @@
       "semanticId": "lotus.trading_calendar",
       "canonicalTerm": "trading_calendar",
       "preferredName": "trading_calendar",
-      "description": "calendar field: trading calendar.",
-      "example": "example_trading_calendar",
-      "type": "object",
+      "description": "Canonical trading calendar used by lotus-performance APIs.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "string"
       ]
     },
     {
@@ -6085,13 +6070,12 @@
       "preferredName": "trigger_mode",
       "description": "Canonical trigger mode used by lotus-performance APIs.",
       "example": null,
-      "type": "object",
+      "type": "string",
       "locations": [
         "query",
         "body"
       ],
       "observedTypes": [
-        "object",
         "string"
       ]
     },
@@ -6156,14 +6140,14 @@
       "semanticId": "lotus.valid_days_since_last_reset",
       "canonicalTerm": "valid_days_since_last_reset",
       "preferredName": "valid_days_since_last_reset",
-      "description": "diagnostics field: valid days since last reset.",
+      "description": "Canonical valid days since last reset used by lotus-performance APIs.",
       "example": 1,
-      "type": "object",
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     },
     {
@@ -6334,14 +6318,14 @@
       "semanticId": "lotus.year",
       "canonicalTerm": "year",
       "preferredName": "year",
-      "description": "Calendar year when period=YEAR.",
-      "example": "STANDARD_VALUE",
-      "type": "object",
+      "description": "Canonical year used by lotus-performance APIs.",
+      "example": 1,
+      "type": "integer",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "object"
+        "integer"
       ]
     }
   ],
@@ -6634,7 +6618,7 @@
       "kind": "request_option",
       "location": "query",
       "required": false,
-      "type": "object",
+      "type": "string",
       "description": "Optional compute analytics-type filter, such as ReturnsSeries or Attribution.",
       "example": "STANDARD_VALUE",
       "allowedValues": [],
@@ -6646,7 +6630,7 @@
       "kind": "request_option",
       "location": "query",
       "required": false,
-      "type": "object",
+      "type": "string",
       "description": "Optional lineage calculation-type filter, such as TWR or Attribution.",
       "example": "STANDARD_VALUE",
       "allowedValues": [],
@@ -6658,7 +6642,7 @@
       "kind": "request_option",
       "location": "query",
       "required": false,
-      "type": "object",
+      "type": "string",
       "description": "Optional substring filter applied to calculation identifiers in the selected queues.",
       "example": "STANDARD_VALUE",
       "allowedValues": [],
@@ -6710,9 +6694,9 @@
       "kind": "request_option",
       "location": "query",
       "required": false,
-      "type": "object",
+      "type": "string",
       "description": "Optional inclusive lower UTC timestamp bound applied to recovery-event timestamps.",
-      "example": "STANDARD_VALUE",
+      "example": "2025-03-31T00:00:00Z",
       "allowedValues": [],
       "semanticId": "lotus.recovered_after",
       "attributeRef": "#/attributeCatalog/lotus.recovered_after"
@@ -6722,9 +6706,9 @@
       "kind": "request_option",
       "location": "query",
       "required": false,
-      "type": "object",
+      "type": "string",
       "description": "Optional inclusive upper UTC timestamp bound applied to recovery-event timestamps.",
-      "example": "STANDARD_VALUE",
+      "example": "2025-03-31T00:00:00Z",
       "allowedValues": [],
       "semanticId": "lotus.recovered_before",
       "attributeRef": "#/attributeCatalog/lotus.recovered_before"
@@ -6734,9 +6718,9 @@
       "kind": "request_option",
       "location": "query",
       "required": false,
-      "type": "object",
+      "type": "string",
       "description": "Optional cursor recovery timestamp used for deterministic seek pagination of older matching events.",
-      "example": "STANDARD_VALUE",
+      "example": "2025-03-31T00:00:00Z",
       "allowedValues": [],
       "semanticId": "lotus.cursor_recovered_before",
       "attributeRef": "#/attributeCatalog/lotus.cursor_recovered_before"
@@ -6746,7 +6730,7 @@
       "kind": "request_option",
       "location": "query",
       "required": false,
-      "type": "object",
+      "type": "string",
       "description": "Optional cursor calculation handle paired with the cursor recovery timestamp for seek pagination.",
       "example": "STANDARD_VALUE",
       "allowedValues": [],
@@ -6758,7 +6742,7 @@
       "kind": "request_option",
       "location": "query",
       "required": false,
-      "type": "object",
+      "type": "string",
       "description": "Optional compute analytics-type filter, such as ReturnsSeries or Attribution.",
       "example": "STANDARD_VALUE",
       "allowedValues": [],
@@ -6770,7 +6754,7 @@
       "kind": "request_option",
       "location": "query",
       "required": false,
-      "type": "object",
+      "type": "string",
       "description": "Optional lineage calculation-type filter, such as TWR or Attribution.",
       "example": "STANDARD_VALUE",
       "allowedValues": [],
@@ -6782,7 +6766,7 @@
       "kind": "request_option",
       "location": "query",
       "required": false,
-      "type": "object",
+      "type": "string",
       "description": "Optional substring filter applied to calculation identifiers in the selected queues.",
       "example": "STANDARD_VALUE",
       "allowedValues": [],
@@ -6794,9 +6778,9 @@
       "kind": "request_option",
       "location": "query",
       "required": false,
-      "type": "object",
+      "type": "integer",
       "description": "Maximum number of retained recovery-drill entries to return.",
-      "example": "STANDARD_VALUE",
+      "example": 1,
       "allowedValues": [],
       "semanticId": "lotus.limit",
       "attributeRef": "#/attributeCatalog/lotus.limit"
@@ -6818,7 +6802,7 @@
       "kind": "request_option",
       "location": "query",
       "required": false,
-      "type": "object",
+      "type": "string",
       "description": "Filter retained recovery-drill history by operator or automation identity.",
       "example": "ENTITY_001",
       "allowedValues": [],
@@ -6830,7 +6814,7 @@
       "kind": "request_option",
       "location": "query",
       "required": false,
-      "type": "object",
+      "type": "string",
       "description": "Filter retained recovery-drill history by backup or restore-set identifier.",
       "example": "STANDARD_VALUE",
       "allowedValues": [],
@@ -6842,7 +6826,7 @@
       "kind": "request_option",
       "location": "query",
       "required": false,
-      "type": "object",
+      "type": "string",
       "description": "Filter retained recovery-drill history by drill outcome status.",
       "example": "STANDARD_VALUE",
       "allowedValues": [],
@@ -6854,7 +6838,7 @@
       "kind": "request_option",
       "location": "query",
       "required": false,
-      "type": "object",
+      "type": "string",
       "description": "Filter retained recovery-drill history to entries generated at or after this ISO-8601 timestamp.",
       "example": "STANDARD_VALUE",
       "allowedValues": [],
@@ -6866,7 +6850,7 @@
       "kind": "request_option",
       "location": "query",
       "required": false,
-      "type": "object",
+      "type": "string",
       "description": "Filter retained recovery-drill history to entries generated at or before this ISO-8601 timestamp.",
       "example": "STANDARD_VALUE",
       "allowedValues": [],
@@ -6878,9 +6862,9 @@
       "kind": "request_option",
       "location": "query",
       "required": false,
-      "type": "object",
+      "type": "integer",
       "description": "Maximum number of retained runtime-retention cleanup entries to return.",
-      "example": "STANDARD_VALUE",
+      "example": 1,
       "allowedValues": [],
       "semanticId": "lotus.limit",
       "attributeRef": "#/attributeCatalog/lotus.limit"
@@ -6902,7 +6886,7 @@
       "kind": "request_option",
       "location": "query",
       "required": false,
-      "type": "object",
+      "type": "string",
       "description": "Filter retained runtime-retention cleanup history by operator or automation identity.",
       "example": "ENTITY_001",
       "allowedValues": [],
@@ -6914,7 +6898,7 @@
       "kind": "request_option",
       "location": "query",
       "required": false,
-      "type": "object",
+      "type": "string",
       "description": "Filter retained runtime-retention cleanup history by manual or scheduled trigger mode.",
       "example": "STANDARD_VALUE",
       "allowedValues": [],
@@ -6926,7 +6910,7 @@
       "kind": "request_option",
       "location": "query",
       "required": false,
-      "type": "object",
+      "type": "string",
       "description": "Filter retained runtime-retention cleanup history by scheduler or automation job identity.",
       "example": "ENTITY_001",
       "allowedValues": [],
@@ -6938,7 +6922,7 @@
       "kind": "request_option",
       "location": "query",
       "required": false,
-      "type": "object",
+      "type": "string",
       "description": "Filter retained runtime-retention cleanup history by cleanup mode.",
       "example": "STANDARD_VALUE",
       "allowedValues": [],
@@ -6950,7 +6934,7 @@
       "kind": "request_option",
       "location": "query",
       "required": false,
-      "type": "object",
+      "type": "string",
       "description": "Filter retained runtime-retention cleanup history by execution outcome status.",
       "example": "STANDARD_VALUE",
       "allowedValues": [],
@@ -6962,7 +6946,7 @@
       "kind": "request_option",
       "location": "query",
       "required": false,
-      "type": "object",
+      "type": "string",
       "description": "Filter retained runtime-retention cleanup history to entries generated at or after this ISO-8601 timestamp.",
       "example": "STANDARD_VALUE",
       "allowedValues": [],
@@ -6974,7 +6958,7 @@
       "kind": "request_option",
       "location": "query",
       "required": false,
-      "type": "object",
+      "type": "string",
       "description": "Filter retained runtime-retention cleanup history to entries generated at or before this ISO-8601 timestamp.",
       "example": "STANDARD_VALUE",
       "allowedValues": [],
@@ -7032,7 +7016,7 @@
             "name": "report_start_date",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.report_start_date",
             "attributeRef": "#/attributeCatalog/lotus.report_start_date"
           },
@@ -7040,7 +7024,7 @@
             "name": "performance_start_date",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.performance_start_date",
             "attributeRef": "#/attributeCatalog/lotus.performance_start_date"
           },
@@ -7272,7 +7256,7 @@
             "name": "calendar.trading_calendar",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.trading_calendar",
             "attributeRef": "#/attributeCatalog/lotus.trading_calendar"
           },
@@ -7304,7 +7288,7 @@
             "name": "annualization.periods_per_year",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "number",
             "semanticId": "lotus.periods_per_year",
             "attributeRef": "#/attributeCatalog/lotus.periods_per_year"
           },
@@ -7336,7 +7320,7 @@
             "name": "output.top_n",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.top_n",
             "attributeRef": "#/attributeCatalog/lotus.top_n"
           },
@@ -7344,7 +7328,7 @@
             "name": "report_ccy",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.report_ccy",
             "attributeRef": "#/attributeCatalog/lotus.report_ccy"
           },
@@ -7352,7 +7336,7 @@
             "name": "currency_mode",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.currency_mode",
             "attributeRef": "#/attributeCatalog/lotus.currency_mode"
           },
@@ -7420,7 +7404,7 @@
             "name": "performance_start_date",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.performance_start_date",
             "attributeRef": "#/attributeCatalog/lotus.performance_start_date"
           },
@@ -7436,7 +7420,7 @@
             "name": "report_start_date",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.report_start_date",
             "attributeRef": "#/attributeCatalog/lotus.report_start_date"
           },
@@ -7572,7 +7556,7 @@
             "name": "calendar.trading_calendar",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.trading_calendar",
             "attributeRef": "#/attributeCatalog/lotus.trading_calendar"
           },
@@ -7604,7 +7588,7 @@
             "name": "annualization.periods_per_year",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "number",
             "semanticId": "lotus.periods_per_year",
             "attributeRef": "#/attributeCatalog/lotus.periods_per_year"
           },
@@ -7636,7 +7620,7 @@
             "name": "output.top_n",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.top_n",
             "attributeRef": "#/attributeCatalog/lotus.top_n"
           },
@@ -7708,7 +7692,7 @@
             "name": "currency_mode",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.currency_mode",
             "attributeRef": "#/attributeCatalog/lotus.currency_mode"
           },
@@ -7716,7 +7700,7 @@
             "name": "report_ccy",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.report_ccy",
             "attributeRef": "#/attributeCatalog/lotus.report_ccy"
           },
@@ -7912,7 +7896,7 @@
             "name": "start_date",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.start_date",
             "attributeRef": "#/attributeCatalog/lotus.start_date"
           },
@@ -7960,7 +7944,7 @@
             "name": "calendar.trading_calendar",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.trading_calendar",
             "attributeRef": "#/attributeCatalog/lotus.trading_calendar"
           },
@@ -7992,7 +7976,7 @@
             "name": "annualization.periods_per_year",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "number",
             "semanticId": "lotus.periods_per_year",
             "attributeRef": "#/attributeCatalog/lotus.periods_per_year"
           },
@@ -8032,7 +8016,7 @@
             "name": "output.top_n",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.top_n",
             "attributeRef": "#/attributeCatalog/lotus.top_n"
           },
@@ -8056,7 +8040,7 @@
             "name": "report_ccy",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.report_ccy",
             "attributeRef": "#/attributeCatalog/lotus.report_ccy"
           },
@@ -8088,7 +8072,7 @@
             "name": "begin_mv",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "number",
             "semanticId": "lotus.begin_mv",
             "attributeRef": "#/attributeCatalog/lotus.begin_mv"
           },
@@ -8096,7 +8080,7 @@
             "name": "end_mv",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "number",
             "semanticId": "lotus.end_mv",
             "attributeRef": "#/attributeCatalog/lotus.end_mv"
           },
@@ -8148,7 +8132,7 @@
             "name": "mwr_annualized",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "number",
             "semanticId": "lotus.mwr_annualized",
             "attributeRef": "#/attributeCatalog/lotus.mwr_annualized"
           },
@@ -8188,7 +8172,7 @@
             "name": "holding_period_return",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "number",
             "semanticId": "lotus.holding_period_return",
             "attributeRef": "#/attributeCatalog/lotus.holding_period_return"
           },
@@ -8196,7 +8180,7 @@
             "name": "is_annualized_primary",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "boolean",
             "semanticId": "lotus.is_annualized_primary",
             "attributeRef": "#/attributeCatalog/lotus.is_annualized_primary"
           },
@@ -8204,7 +8188,7 @@
             "name": "fallback_from",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.fallback_from",
             "attributeRef": "#/attributeCatalog/lotus.fallback_from"
           },
@@ -8212,7 +8196,7 @@
             "name": "fallback_reason",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.fallback_reason",
             "attributeRef": "#/attributeCatalog/lotus.fallback_reason"
           },
@@ -8220,7 +8204,7 @@
             "name": "is_approximation",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "boolean",
             "semanticId": "lotus.is_approximation",
             "attributeRef": "#/attributeCatalog/lotus.is_approximation"
           },
@@ -8244,7 +8228,7 @@
             "name": "reporting_currency",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.reporting_currency",
             "attributeRef": "#/attributeCatalog/lotus.reporting_currency"
           },
@@ -8412,7 +8396,7 @@
             "name": "meta.annualization.periods_per_year",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "number",
             "semanticId": "lotus.periods_per_year",
             "attributeRef": "#/attributeCatalog/lotus.periods_per_year"
           },
@@ -8436,7 +8420,7 @@
             "name": "meta.calendar.trading_calendar",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.trading_calendar",
             "attributeRef": "#/attributeCatalog/lotus.trading_calendar"
           },
@@ -8452,7 +8436,7 @@
             "name": "meta.input_fingerprint",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.input_fingerprint",
             "attributeRef": "#/attributeCatalog/lotus.input_fingerprint"
           },
@@ -8460,7 +8444,7 @@
             "name": "meta.calculation_hash",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.calculation_hash",
             "attributeRef": "#/attributeCatalog/lotus.calculation_hash"
           },
@@ -8468,7 +8452,7 @@
             "name": "meta.report_ccy",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.report_ccy",
             "attributeRef": "#/attributeCatalog/lotus.report_ccy"
           },
@@ -8492,7 +8476,7 @@
             "name": "diagnostics.nip_rule_delta_days",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.nip_rule_delta_days",
             "attributeRef": "#/attributeCatalog/lotus.nip_rule_delta_days"
           },
@@ -8508,7 +8492,7 @@
             "name": "diagnostics.nctrl4_reset_days",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.nctrl4_reset_days",
             "attributeRef": "#/attributeCatalog/lotus.nctrl4_reset_days"
           },
@@ -8516,7 +8500,7 @@
             "name": "diagnostics.nctrl4_exclusive_reset_days",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.nctrl4_exclusive_reset_days",
             "attributeRef": "#/attributeCatalog/lotus.nctrl4_exclusive_reset_days"
           },
@@ -8524,7 +8508,7 @@
             "name": "diagnostics.account_reset_shadow_days",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.account_reset_shadow_days",
             "attributeRef": "#/attributeCatalog/lotus.account_reset_shadow_days"
           },
@@ -8532,7 +8516,7 @@
             "name": "diagnostics.sod_reset_shadow_days",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.sod_reset_shadow_days",
             "attributeRef": "#/attributeCatalog/lotus.sod_reset_shadow_days"
           },
@@ -8540,7 +8524,7 @@
             "name": "diagnostics.shadow_reset_overlap_days",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.shadow_reset_overlap_days",
             "attributeRef": "#/attributeCatalog/lotus.shadow_reset_overlap_days"
           },
@@ -8548,7 +8532,7 @@
             "name": "diagnostics.shadow_only_candidate_reset_days",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.shadow_only_candidate_reset_days",
             "attributeRef": "#/attributeCatalog/lotus.shadow_only_candidate_reset_days"
           },
@@ -8556,7 +8540,7 @@
             "name": "diagnostics.active_reset_with_shadow_days",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.active_reset_with_shadow_days",
             "attributeRef": "#/attributeCatalog/lotus.active_reset_with_shadow_days"
           },
@@ -8564,7 +8548,7 @@
             "name": "diagnostics.candidate_canonical_reset_days",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.candidate_canonical_reset_days",
             "attributeRef": "#/attributeCatalog/lotus.candidate_canonical_reset_days"
           },
@@ -8572,7 +8556,7 @@
             "name": "diagnostics.reset_delta_days",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.reset_delta_days",
             "attributeRef": "#/attributeCatalog/lotus.reset_delta_days"
           },
@@ -8580,7 +8564,7 @@
             "name": "diagnostics.nip_days_since_last_reset",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.nip_days_since_last_reset",
             "attributeRef": "#/attributeCatalog/lotus.nip_days_since_last_reset"
           },
@@ -8588,7 +8572,7 @@
             "name": "diagnostics.valid_days_since_last_reset",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.valid_days_since_last_reset",
             "attributeRef": "#/attributeCatalog/lotus.valid_days_since_last_reset"
           },
@@ -8636,7 +8620,7 @@
             "name": "audit.sum_of_parts_vs_total_bp",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "number",
             "semanticId": "lotus.sum_of_parts_vs_total_bp",
             "attributeRef": "#/attributeCatalog/lotus.sum_of_parts_vs_total_bp"
           },
@@ -8644,7 +8628,7 @@
             "name": "audit.residual_applied_bp",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "number",
             "semanticId": "lotus.residual_applied_bp",
             "attributeRef": "#/attributeCatalog/lotus.residual_applied_bp"
           },
@@ -8830,7 +8814,7 @@
           {
             "name": "benchmark_groups_data[].observations[].return_base",
             "location": "body",
-            "required": true,
+            "required": false,
             "type": "number",
             "semanticId": "lotus.return_base",
             "attributeRef": "#/attributeCatalog/lotus.return_base"
@@ -8839,7 +8823,7 @@
             "name": "benchmark_groups_data[].observations[].return_local",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "number",
             "semanticId": "lotus.return_local",
             "attributeRef": "#/attributeCatalog/lotus.return_local"
           },
@@ -8847,7 +8831,7 @@
             "name": "benchmark_groups_data[].observations[].return_fx",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "number",
             "semanticId": "lotus.return_fx",
             "attributeRef": "#/attributeCatalog/lotus.return_fx"
           },
@@ -8895,7 +8879,7 @@
             "name": "calendar.trading_calendar",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.trading_calendar",
             "attributeRef": "#/attributeCatalog/lotus.trading_calendar"
           },
@@ -8927,7 +8911,7 @@
             "name": "annualization.periods_per_year",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "number",
             "semanticId": "lotus.periods_per_year",
             "attributeRef": "#/attributeCatalog/lotus.periods_per_year"
           },
@@ -8959,7 +8943,7 @@
             "name": "output.top_n",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.top_n",
             "attributeRef": "#/attributeCatalog/lotus.top_n"
           },
@@ -8983,7 +8967,7 @@
             "name": "currency_mode",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.currency_mode",
             "attributeRef": "#/attributeCatalog/lotus.currency_mode"
           },
@@ -8991,7 +8975,7 @@
             "name": "report_ccy",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.report_ccy",
             "attributeRef": "#/attributeCatalog/lotus.report_ccy"
           },
@@ -9099,7 +9083,7 @@
             "name": "report_start_date",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.report_start_date",
             "attributeRef": "#/attributeCatalog/lotus.report_start_date"
           },
@@ -9203,7 +9187,7 @@
             "name": "calendar.trading_calendar",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.trading_calendar",
             "attributeRef": "#/attributeCatalog/lotus.trading_calendar"
           },
@@ -9235,7 +9219,7 @@
             "name": "annualization.periods_per_year",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "number",
             "semanticId": "lotus.periods_per_year",
             "attributeRef": "#/attributeCatalog/lotus.periods_per_year"
           },
@@ -9267,7 +9251,7 @@
             "name": "output.top_n",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.top_n",
             "attributeRef": "#/attributeCatalog/lotus.top_n"
           }
@@ -9543,7 +9527,7 @@
             "name": "calendar.trading_calendar",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.trading_calendar",
             "attributeRef": "#/attributeCatalog/lotus.trading_calendar"
           },
@@ -9575,7 +9559,7 @@
             "name": "annualization.periods_per_year",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "number",
             "semanticId": "lotus.periods_per_year",
             "attributeRef": "#/attributeCatalog/lotus.periods_per_year"
           },
@@ -9607,7 +9591,7 @@
             "name": "output.top_n",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.top_n",
             "attributeRef": "#/attributeCatalog/lotus.top_n"
           },
@@ -9639,7 +9623,7 @@
             "name": "currency_mode",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.currency_mode",
             "attributeRef": "#/attributeCatalog/lotus.currency_mode"
           },
@@ -9647,7 +9631,7 @@
             "name": "report_ccy",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.report_ccy",
             "attributeRef": "#/attributeCatalog/lotus.report_ccy"
           },
@@ -9775,7 +9759,7 @@
             "name": "portfolio_id",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.portfolio_id",
             "attributeRef": "#/attributeCatalog/lotus.portfolio_id"
           },
@@ -9807,7 +9791,7 @@
             "name": "input_fingerprint",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.input_fingerprint",
             "attributeRef": "#/attributeCatalog/lotus.input_fingerprint"
           },
@@ -9815,7 +9799,7 @@
             "name": "calculation_hash",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.calculation_hash",
             "attributeRef": "#/attributeCatalog/lotus.calculation_hash"
           },
@@ -9823,7 +9807,7 @@
             "name": "error_message",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.error_message",
             "attributeRef": "#/attributeCatalog/lotus.error_message"
           },
@@ -9839,7 +9823,7 @@
             "name": "started_at_utc",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.started_at_utc",
             "attributeRef": "#/attributeCatalog/lotus.started_at_utc"
           },
@@ -9847,7 +9831,7 @@
             "name": "completed_at_utc",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.completed_at_utc",
             "attributeRef": "#/attributeCatalog/lotus.completed_at_utc"
           },
@@ -9879,7 +9863,7 @@
             "name": "stages[].started_at_utc",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.started_at_utc",
             "attributeRef": "#/attributeCatalog/lotus.started_at_utc"
           },
@@ -9887,7 +9871,7 @@
             "name": "stages[].completed_at_utc",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.completed_at_utc",
             "attributeRef": "#/attributeCatalog/lotus.completed_at_utc"
           },
@@ -9903,7 +9887,7 @@
             "name": "stages[].error_message",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.error_message",
             "attributeRef": "#/attributeCatalog/lotus.error_message"
           },
@@ -10034,7 +10018,7 @@
             "name": "subject_calculation_id",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.subject_calculation_id",
             "attributeRef": "#/attributeCatalog/lotus.subject_calculation_id"
           },
@@ -10201,7 +10185,7 @@
             "name": "error_message",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.error_message",
             "attributeRef": "#/attributeCatalog/lotus.error_message"
           }
@@ -10398,7 +10382,7 @@
             "name": "analytics_surfaces[].poll_path_template",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.poll_path_template",
             "attributeRef": "#/attributeCatalog/lotus.poll_path_template"
           },
@@ -10406,7 +10390,7 @@
             "name": "analytics_surfaces[].result_path_template",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.result_path_template",
             "attributeRef": "#/attributeCatalog/lotus.result_path_template"
           },
@@ -10454,7 +10438,7 @@
             "name": "analytics_surfaces[].options[].required_when",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.required_when",
             "attributeRef": "#/attributeCatalog/lotus.required_when"
           },
@@ -10593,7 +10577,7 @@
             "name": "window.from_date",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.from_date",
             "attributeRef": "#/attributeCatalog/lotus.from_date"
           },
@@ -10601,7 +10585,7 @@
             "name": "window.to_date",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.to_date",
             "attributeRef": "#/attributeCatalog/lotus.to_date"
           },
@@ -10617,7 +10601,7 @@
             "name": "window.year",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.year",
             "attributeRef": "#/attributeCatalog/lotus.year"
           },
@@ -10641,7 +10625,7 @@
             "name": "reporting_currency",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.reporting_currency",
             "attributeRef": "#/attributeCatalog/lotus.reporting_currency"
           },
@@ -10729,7 +10713,7 @@
             "name": "data_policy.max_gap_days",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.max_gap_days",
             "attributeRef": "#/attributeCatalog/lotus.max_gap_days"
           },
@@ -10813,7 +10797,7 @@
             "name": "benchmark_id",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.benchmark_id",
             "attributeRef": "#/attributeCatalog/lotus.benchmark_id"
           },
@@ -10861,7 +10845,7 @@
             "name": "reporting_currency",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.reporting_currency",
             "attributeRef": "#/attributeCatalog/lotus.reporting_currency"
           },
@@ -10893,7 +10877,7 @@
             "name": "page.page_token",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.page_token",
             "attributeRef": "#/attributeCatalog/lotus.page_token"
           }
@@ -10993,7 +10977,7 @@
             "name": "reporting_currency",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.reporting_currency",
             "attributeRef": "#/attributeCatalog/lotus.reporting_currency"
           },
@@ -11017,7 +11001,7 @@
             "name": "rows[].component_id",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.component_id",
             "attributeRef": "#/attributeCatalog/lotus.component_id"
           },
@@ -11065,7 +11049,7 @@
             "name": "page.next_page_token",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.next_page_token",
             "attributeRef": "#/attributeCatalog/lotus.next_page_token"
           },
@@ -11239,7 +11223,7 @@
             "name": "durable_metadata_store.reason",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.reason",
             "attributeRef": "#/attributeCatalog/lotus.reason"
           },
@@ -11247,7 +11231,7 @@
             "name": "durable_metadata_store.remediation_hint",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.remediation_hint",
             "attributeRef": "#/attributeCatalog/lotus.remediation_hint"
           },
@@ -11271,7 +11255,7 @@
             "name": "compute_queue.reason",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.reason",
             "attributeRef": "#/attributeCatalog/lotus.reason"
           },
@@ -11319,7 +11303,7 @@
             "name": "compute_queue.pending_jobs",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.pending_jobs",
             "attributeRef": "#/attributeCatalog/lotus.pending_jobs"
           },
@@ -11327,7 +11311,7 @@
             "name": "compute_queue.leased_jobs",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.leased_jobs",
             "attributeRef": "#/attributeCatalog/lotus.leased_jobs"
           },
@@ -11335,7 +11319,7 @@
             "name": "compute_queue.running_jobs",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.running_jobs",
             "attributeRef": "#/attributeCatalog/lotus.running_jobs"
           },
@@ -11343,7 +11327,7 @@
             "name": "compute_queue.failed_jobs",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.failed_jobs",
             "attributeRef": "#/attributeCatalog/lotus.failed_jobs"
           },
@@ -11351,7 +11335,7 @@
             "name": "compute_queue.complete_jobs",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.complete_jobs",
             "attributeRef": "#/attributeCatalog/lotus.complete_jobs"
           },
@@ -11359,7 +11343,7 @@
             "name": "compute_queue.retry_backlog_jobs",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.retry_backlog_jobs",
             "attributeRef": "#/attributeCatalog/lotus.retry_backlog_jobs"
           },
@@ -11367,7 +11351,7 @@
             "name": "compute_queue.lease_expired_jobs",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.lease_expired_jobs",
             "attributeRef": "#/attributeCatalog/lotus.lease_expired_jobs"
           },
@@ -11375,7 +11359,7 @@
             "name": "compute_queue.reclaimable_jobs",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.reclaimable_jobs",
             "attributeRef": "#/attributeCatalog/lotus.reclaimable_jobs"
           },
@@ -11383,7 +11367,7 @@
             "name": "compute_queue.terminal_failure_jobs",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.terminal_failure_jobs",
             "attributeRef": "#/attributeCatalog/lotus.terminal_failure_jobs"
           },
@@ -11391,7 +11375,7 @@
             "name": "compute_queue.oldest_pending_age_seconds",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "number",
             "semanticId": "lotus.oldest_pending_age_seconds",
             "attributeRef": "#/attributeCatalog/lotus.oldest_pending_age_seconds"
           },
@@ -11399,7 +11383,7 @@
             "name": "compute_queue.oldest_leased_age_seconds",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "number",
             "semanticId": "lotus.oldest_leased_age_seconds",
             "attributeRef": "#/attributeCatalog/lotus.oldest_leased_age_seconds"
           },
@@ -11407,7 +11391,7 @@
             "name": "compute_queue.oldest_running_age_seconds",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "number",
             "semanticId": "lotus.oldest_running_age_seconds",
             "attributeRef": "#/attributeCatalog/lotus.oldest_running_age_seconds"
           },
@@ -11471,7 +11455,7 @@
             "name": "compute_queue.recent_recoveries[].error_type",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.error_type",
             "attributeRef": "#/attributeCatalog/lotus.error_type"
           },
@@ -11495,7 +11479,7 @@
             "name": "lineage_queue.reason",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.reason",
             "attributeRef": "#/attributeCatalog/lotus.reason"
           },
@@ -11503,7 +11487,7 @@
             "name": "lineage_queue.remediation_hint",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.remediation_hint",
             "attributeRef": "#/attributeCatalog/lotus.remediation_hint"
           },
@@ -11551,7 +11535,7 @@
             "name": "lineage_queue.pending_payloads",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.pending_payloads",
             "attributeRef": "#/attributeCatalog/lotus.pending_payloads"
           },
@@ -11559,7 +11543,7 @@
             "name": "lineage_queue.leased_payloads",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.leased_payloads",
             "attributeRef": "#/attributeCatalog/lotus.leased_payloads"
           },
@@ -11567,7 +11551,7 @@
             "name": "lineage_queue.retry_backlog_payloads",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.retry_backlog_payloads",
             "attributeRef": "#/attributeCatalog/lotus.retry_backlog_payloads"
           },
@@ -11575,7 +11559,7 @@
             "name": "lineage_queue.terminal_failure_payloads",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.terminal_failure_payloads",
             "attributeRef": "#/attributeCatalog/lotus.terminal_failure_payloads"
           },
@@ -11583,7 +11567,7 @@
             "name": "lineage_queue.reclaimable_payloads",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.reclaimable_payloads",
             "attributeRef": "#/attributeCatalog/lotus.reclaimable_payloads"
           },
@@ -11591,7 +11575,7 @@
             "name": "lineage_queue.oldest_pending_age_seconds",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "number",
             "semanticId": "lotus.oldest_pending_age_seconds",
             "attributeRef": "#/attributeCatalog/lotus.oldest_pending_age_seconds"
           },
@@ -11599,7 +11583,7 @@
             "name": "lineage_queue.oldest_leased_age_seconds",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "number",
             "semanticId": "lotus.oldest_leased_age_seconds",
             "attributeRef": "#/attributeCatalog/lotus.oldest_leased_age_seconds"
           },
@@ -11607,7 +11591,7 @@
             "name": "lineage_queue.storage_total_bytes",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.storage_total_bytes",
             "attributeRef": "#/attributeCatalog/lotus.storage_total_bytes"
           },
@@ -11615,7 +11599,7 @@
             "name": "lineage_queue.storage_used_bytes",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.storage_used_bytes",
             "attributeRef": "#/attributeCatalog/lotus.storage_used_bytes"
           },
@@ -11623,7 +11607,7 @@
             "name": "lineage_queue.storage_free_bytes",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.storage_free_bytes",
             "attributeRef": "#/attributeCatalog/lotus.storage_free_bytes"
           },
@@ -11631,7 +11615,7 @@
             "name": "lineage_queue.storage_free_ratio",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "number",
             "semanticId": "lotus.storage_free_ratio",
             "attributeRef": "#/attributeCatalog/lotus.storage_free_ratio"
           },
@@ -11711,7 +11695,7 @@
             "name": "recovery_drill.reason",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.reason",
             "attributeRef": "#/attributeCatalog/lotus.reason"
           },
@@ -11727,7 +11711,7 @@
             "name": "recovery_drill.active_run_reason",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.active_run_reason",
             "attributeRef": "#/attributeCatalog/lotus.active_run_reason"
           },
@@ -11743,7 +11727,7 @@
             "name": "recovery_drill.oldest_active_run_operator_id",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.oldest_active_run_operator_id",
             "attributeRef": "#/attributeCatalog/lotus.oldest_active_run_operator_id"
           },
@@ -11751,7 +11735,7 @@
             "name": "recovery_drill.oldest_active_run_tenant_id",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.oldest_active_run_tenant_id",
             "attributeRef": "#/attributeCatalog/lotus.oldest_active_run_tenant_id"
           },
@@ -11759,7 +11743,7 @@
             "name": "recovery_drill.oldest_active_run_governed_target",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.oldest_active_run_governed_target",
             "attributeRef": "#/attributeCatalog/lotus.oldest_active_run_governed_target"
           },
@@ -11767,7 +11751,7 @@
             "name": "recovery_drill.oldest_active_run_acquired_at_utc",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.oldest_active_run_acquired_at_utc",
             "attributeRef": "#/attributeCatalog/lotus.oldest_active_run_acquired_at_utc"
           },
@@ -11775,7 +11759,7 @@
             "name": "recovery_drill.oldest_active_run_age_seconds",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "number",
             "semanticId": "lotus.oldest_active_run_age_seconds",
             "attributeRef": "#/attributeCatalog/lotus.oldest_active_run_age_seconds"
           },
@@ -11783,7 +11767,7 @@
             "name": "recovery_drill.latest_reclaimed_run_operator_id",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.latest_reclaimed_run_operator_id",
             "attributeRef": "#/attributeCatalog/lotus.latest_reclaimed_run_operator_id"
           },
@@ -11791,7 +11775,7 @@
             "name": "recovery_drill.latest_reclaimed_run_tenant_id",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.latest_reclaimed_run_tenant_id",
             "attributeRef": "#/attributeCatalog/lotus.latest_reclaimed_run_tenant_id"
           },
@@ -11799,7 +11783,7 @@
             "name": "recovery_drill.latest_reclaimed_run_governed_target",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.latest_reclaimed_run_governed_target",
             "attributeRef": "#/attributeCatalog/lotus.latest_reclaimed_run_governed_target"
           },
@@ -11807,7 +11791,7 @@
             "name": "recovery_drill.latest_reclaimed_run_acquired_at_utc",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.latest_reclaimed_run_acquired_at_utc",
             "attributeRef": "#/attributeCatalog/lotus.latest_reclaimed_run_acquired_at_utc"
           },
@@ -11815,7 +11799,7 @@
             "name": "recovery_drill.latest_reclaimed_run_reclaimed_at_utc",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.latest_reclaimed_run_reclaimed_at_utc",
             "attributeRef": "#/attributeCatalog/lotus.latest_reclaimed_run_reclaimed_at_utc"
           },
@@ -11823,7 +11807,7 @@
             "name": "recovery_drill.latest_reclaimed_run_age_seconds",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "number",
             "semanticId": "lotus.latest_reclaimed_run_age_seconds",
             "attributeRef": "#/attributeCatalog/lotus.latest_reclaimed_run_age_seconds"
           },
@@ -11855,7 +11839,7 @@
             "name": "recovery_drill.recent_reclaimed_runs[].tenant_id",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.tenant_id",
             "attributeRef": "#/attributeCatalog/lotus.tenant_id"
           },
@@ -11943,7 +11927,7 @@
             "name": "recovery_drill.latest_generated_at_utc",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.latest_generated_at_utc",
             "attributeRef": "#/attributeCatalog/lotus.latest_generated_at_utc"
           },
@@ -11951,7 +11935,7 @@
             "name": "recovery_drill.latest_status",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.latest_status",
             "attributeRef": "#/attributeCatalog/lotus.latest_status"
           },
@@ -11959,7 +11943,7 @@
             "name": "recovery_drill.latest_operator_id",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.latest_operator_id",
             "attributeRef": "#/attributeCatalog/lotus.latest_operator_id"
           },
@@ -11967,7 +11951,7 @@
             "name": "recovery_drill.latest_backup_identifier",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.latest_backup_identifier",
             "attributeRef": "#/attributeCatalog/lotus.latest_backup_identifier"
           },
@@ -11975,7 +11959,7 @@
             "name": "recovery_drill.latest_age_seconds",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "number",
             "semanticId": "lotus.latest_age_seconds",
             "attributeRef": "#/attributeCatalog/lotus.latest_age_seconds"
           },
@@ -11999,7 +11983,7 @@
             "name": "runtime_retention.reason",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.reason",
             "attributeRef": "#/attributeCatalog/lotus.reason"
           },
@@ -12015,7 +11999,7 @@
             "name": "runtime_retention.active_run_reason",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.active_run_reason",
             "attributeRef": "#/attributeCatalog/lotus.active_run_reason"
           },
@@ -12031,7 +12015,7 @@
             "name": "runtime_retention.oldest_active_run_operator_id",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.oldest_active_run_operator_id",
             "attributeRef": "#/attributeCatalog/lotus.oldest_active_run_operator_id"
           },
@@ -12039,7 +12023,7 @@
             "name": "runtime_retention.oldest_active_run_tenant_id",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.oldest_active_run_tenant_id",
             "attributeRef": "#/attributeCatalog/lotus.oldest_active_run_tenant_id"
           },
@@ -12047,7 +12031,7 @@
             "name": "runtime_retention.oldest_active_run_governed_target",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.oldest_active_run_governed_target",
             "attributeRef": "#/attributeCatalog/lotus.oldest_active_run_governed_target"
           },
@@ -12055,7 +12039,7 @@
             "name": "runtime_retention.oldest_active_run_acquired_at_utc",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.oldest_active_run_acquired_at_utc",
             "attributeRef": "#/attributeCatalog/lotus.oldest_active_run_acquired_at_utc"
           },
@@ -12063,7 +12047,7 @@
             "name": "runtime_retention.oldest_active_run_age_seconds",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "number",
             "semanticId": "lotus.oldest_active_run_age_seconds",
             "attributeRef": "#/attributeCatalog/lotus.oldest_active_run_age_seconds"
           },
@@ -12071,7 +12055,7 @@
             "name": "runtime_retention.latest_reclaimed_run_operator_id",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.latest_reclaimed_run_operator_id",
             "attributeRef": "#/attributeCatalog/lotus.latest_reclaimed_run_operator_id"
           },
@@ -12079,7 +12063,7 @@
             "name": "runtime_retention.latest_reclaimed_run_tenant_id",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.latest_reclaimed_run_tenant_id",
             "attributeRef": "#/attributeCatalog/lotus.latest_reclaimed_run_tenant_id"
           },
@@ -12087,7 +12071,7 @@
             "name": "runtime_retention.latest_reclaimed_run_governed_target",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.latest_reclaimed_run_governed_target",
             "attributeRef": "#/attributeCatalog/lotus.latest_reclaimed_run_governed_target"
           },
@@ -12095,7 +12079,7 @@
             "name": "runtime_retention.latest_reclaimed_run_acquired_at_utc",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.latest_reclaimed_run_acquired_at_utc",
             "attributeRef": "#/attributeCatalog/lotus.latest_reclaimed_run_acquired_at_utc"
           },
@@ -12103,7 +12087,7 @@
             "name": "runtime_retention.latest_reclaimed_run_reclaimed_at_utc",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.latest_reclaimed_run_reclaimed_at_utc",
             "attributeRef": "#/attributeCatalog/lotus.latest_reclaimed_run_reclaimed_at_utc"
           },
@@ -12111,7 +12095,7 @@
             "name": "runtime_retention.latest_reclaimed_run_age_seconds",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "number",
             "semanticId": "lotus.latest_reclaimed_run_age_seconds",
             "attributeRef": "#/attributeCatalog/lotus.latest_reclaimed_run_age_seconds"
           },
@@ -12143,7 +12127,7 @@
             "name": "runtime_retention.recent_reclaimed_runs[].tenant_id",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.tenant_id",
             "attributeRef": "#/attributeCatalog/lotus.tenant_id"
           },
@@ -12199,7 +12183,7 @@
             "name": "runtime_retention.preview_reason",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.preview_reason",
             "attributeRef": "#/attributeCatalog/lotus.preview_reason"
           },
@@ -12247,7 +12231,7 @@
             "name": "runtime_retention.latest_generated_at_utc",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.latest_generated_at_utc",
             "attributeRef": "#/attributeCatalog/lotus.latest_generated_at_utc"
           },
@@ -12255,7 +12239,7 @@
             "name": "runtime_retention.latest_status",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.latest_status",
             "attributeRef": "#/attributeCatalog/lotus.latest_status"
           },
@@ -12263,7 +12247,7 @@
             "name": "runtime_retention.latest_operator_id",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.latest_operator_id",
             "attributeRef": "#/attributeCatalog/lotus.latest_operator_id"
           },
@@ -12271,7 +12255,7 @@
             "name": "runtime_retention.latest_trigger_mode",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.latest_trigger_mode",
             "attributeRef": "#/attributeCatalog/lotus.latest_trigger_mode"
           },
@@ -12279,7 +12263,7 @@
             "name": "runtime_retention.latest_job_id",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.latest_job_id",
             "attributeRef": "#/attributeCatalog/lotus.latest_job_id"
           },
@@ -12287,7 +12271,7 @@
             "name": "runtime_retention.latest_cleanup_mode",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.latest_cleanup_mode",
             "attributeRef": "#/attributeCatalog/lotus.latest_cleanup_mode"
           },
@@ -12295,7 +12279,7 @@
             "name": "runtime_retention.latest_retention_days",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.latest_retention_days",
             "attributeRef": "#/attributeCatalog/lotus.latest_retention_days"
           },
@@ -12303,7 +12287,7 @@
             "name": "runtime_retention.latest_age_seconds",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "number",
             "semanticId": "lotus.latest_age_seconds",
             "attributeRef": "#/attributeCatalog/lotus.latest_age_seconds"
           },
@@ -12311,7 +12295,7 @@
             "name": "runtime_retention.current_cutoff_utc",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.current_cutoff_utc",
             "attributeRef": "#/attributeCatalog/lotus.current_cutoff_utc"
           },
@@ -12319,7 +12303,7 @@
             "name": "runtime_retention.current_retention_days",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.current_retention_days",
             "attributeRef": "#/attributeCatalog/lotus.current_retention_days"
           },
@@ -12327,7 +12311,7 @@
             "name": "runtime_retention.current_prunable_execution_count",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.current_prunable_execution_count",
             "attributeRef": "#/attributeCatalog/lotus.current_prunable_execution_count"
           },
@@ -12335,7 +12319,7 @@
             "name": "runtime_retention.current_prunable_compute_job_count",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.current_prunable_compute_job_count",
             "attributeRef": "#/attributeCatalog/lotus.current_prunable_compute_job_count"
           },
@@ -12343,7 +12327,7 @@
             "name": "runtime_retention.current_prunable_async_result_count",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.current_prunable_async_result_count",
             "attributeRef": "#/attributeCatalog/lotus.current_prunable_async_result_count"
           },
@@ -12351,7 +12335,7 @@
             "name": "runtime_retention.current_prunable_lineage_record_count",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.current_prunable_lineage_record_count",
             "attributeRef": "#/attributeCatalog/lotus.current_prunable_lineage_record_count"
           },
@@ -12359,7 +12343,7 @@
             "name": "runtime_retention.current_prunable_lineage_artifact_count",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.current_prunable_lineage_artifact_count",
             "attributeRef": "#/attributeCatalog/lotus.current_prunable_lineage_artifact_count"
           },
@@ -12594,7 +12578,7 @@
             "name": "compute_analytics_type",
             "location": "query",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.compute_analytics_type",
             "attributeRef": "#/attributeCatalog/lotus.compute_analytics_type"
           },
@@ -12602,7 +12586,7 @@
             "name": "lineage_calculation_type",
             "location": "query",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.lineage_calculation_type",
             "attributeRef": "#/attributeCatalog/lotus.lineage_calculation_type"
           },
@@ -12610,7 +12594,7 @@
             "name": "calculation_id_contains",
             "location": "query",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.calculation_id_contains",
             "attributeRef": "#/attributeCatalog/lotus.calculation_id_contains"
           }
@@ -12686,7 +12670,7 @@
             "name": "compute_analytics_type",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.compute_analytics_type",
             "attributeRef": "#/attributeCatalog/lotus.compute_analytics_type"
           },
@@ -12694,7 +12678,7 @@
             "name": "lineage_calculation_type",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.lineage_calculation_type",
             "attributeRef": "#/attributeCatalog/lotus.lineage_calculation_type"
           },
@@ -12702,7 +12686,7 @@
             "name": "calculation_id_contains",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.calculation_id_contains",
             "attributeRef": "#/attributeCatalog/lotus.calculation_id_contains"
           },
@@ -12726,7 +12710,7 @@
             "name": "durable_metadata_store.reason",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.reason",
             "attributeRef": "#/attributeCatalog/lotus.reason"
           },
@@ -12734,7 +12718,7 @@
             "name": "durable_metadata_store.remediation_hint",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.remediation_hint",
             "attributeRef": "#/attributeCatalog/lotus.remediation_hint"
           },
@@ -12758,7 +12742,7 @@
             "name": "compute_queue.reason",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.reason",
             "attributeRef": "#/attributeCatalog/lotus.reason"
           },
@@ -12782,7 +12766,7 @@
             "name": "compute_queue.next_offset",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.next_offset",
             "attributeRef": "#/attributeCatalog/lotus.next_offset"
           },
@@ -12806,7 +12790,7 @@
             "name": "lineage_queue.reason",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.reason",
             "attributeRef": "#/attributeCatalog/lotus.reason"
           },
@@ -12830,7 +12814,7 @@
             "name": "lineage_queue.next_offset",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.next_offset",
             "attributeRef": "#/attributeCatalog/lotus.next_offset"
           },
@@ -12870,7 +12854,7 @@
             "name": "compute_items[].result_path",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.result_path",
             "attributeRef": "#/attributeCatalog/lotus.result_path"
           },
@@ -12894,7 +12878,7 @@
             "name": "compute_items[].active_since_utc",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.active_since_utc",
             "attributeRef": "#/attributeCatalog/lotus.active_since_utc"
           },
@@ -12902,7 +12886,7 @@
             "name": "compute_items[].age_seconds",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "number",
             "semanticId": "lotus.age_seconds",
             "attributeRef": "#/attributeCatalog/lotus.age_seconds"
           },
@@ -12926,7 +12910,7 @@
             "name": "compute_items[].error_type",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.error_type",
             "attributeRef": "#/attributeCatalog/lotus.error_type"
           },
@@ -12934,7 +12918,7 @@
             "name": "compute_items[].error_message",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.error_message",
             "attributeRef": "#/attributeCatalog/lotus.error_message"
           },
@@ -12974,7 +12958,7 @@
             "name": "lineage_items[].result_path",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.result_path",
             "attributeRef": "#/attributeCatalog/lotus.result_path"
           },
@@ -12998,7 +12982,7 @@
             "name": "lineage_items[].active_since_utc",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.active_since_utc",
             "attributeRef": "#/attributeCatalog/lotus.active_since_utc"
           },
@@ -13006,7 +12990,7 @@
             "name": "lineage_items[].age_seconds",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "number",
             "semanticId": "lotus.age_seconds",
             "attributeRef": "#/attributeCatalog/lotus.age_seconds"
           },
@@ -13022,7 +13006,7 @@
             "name": "lineage_items[].error_message",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.error_message",
             "attributeRef": "#/attributeCatalog/lotus.error_message"
           }
@@ -13065,7 +13049,7 @@
             "name": "recovered_after",
             "location": "query",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.recovered_after",
             "attributeRef": "#/attributeCatalog/lotus.recovered_after"
           },
@@ -13073,7 +13057,7 @@
             "name": "recovered_before",
             "location": "query",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.recovered_before",
             "attributeRef": "#/attributeCatalog/lotus.recovered_before"
           },
@@ -13081,7 +13065,7 @@
             "name": "cursor_recovered_before",
             "location": "query",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.cursor_recovered_before",
             "attributeRef": "#/attributeCatalog/lotus.cursor_recovered_before"
           },
@@ -13089,7 +13073,7 @@
             "name": "cursor_calculation_id_before",
             "location": "query",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.cursor_calculation_id_before",
             "attributeRef": "#/attributeCatalog/lotus.cursor_calculation_id_before"
           },
@@ -13097,7 +13081,7 @@
             "name": "compute_analytics_type",
             "location": "query",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.compute_analytics_type",
             "attributeRef": "#/attributeCatalog/lotus.compute_analytics_type"
           },
@@ -13105,7 +13089,7 @@
             "name": "lineage_calculation_type",
             "location": "query",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.lineage_calculation_type",
             "attributeRef": "#/attributeCatalog/lotus.lineage_calculation_type"
           },
@@ -13113,7 +13097,7 @@
             "name": "calculation_id_contains",
             "location": "query",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.calculation_id_contains",
             "attributeRef": "#/attributeCatalog/lotus.calculation_id_contains"
           }
@@ -13173,7 +13157,7 @@
             "name": "recovered_after",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.recovered_after",
             "attributeRef": "#/attributeCatalog/lotus.recovered_after"
           },
@@ -13181,7 +13165,7 @@
             "name": "recovered_before",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.recovered_before",
             "attributeRef": "#/attributeCatalog/lotus.recovered_before"
           },
@@ -13189,7 +13173,7 @@
             "name": "cursor_recovered_before",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.cursor_recovered_before",
             "attributeRef": "#/attributeCatalog/lotus.cursor_recovered_before"
           },
@@ -13197,7 +13181,7 @@
             "name": "cursor_calculation_id_before",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.cursor_calculation_id_before",
             "attributeRef": "#/attributeCatalog/lotus.cursor_calculation_id_before"
           },
@@ -13205,7 +13189,7 @@
             "name": "calculation_id_contains",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.calculation_id_contains",
             "attributeRef": "#/attributeCatalog/lotus.calculation_id_contains"
           },
@@ -13213,7 +13197,7 @@
             "name": "compute_analytics_type",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.compute_analytics_type",
             "attributeRef": "#/attributeCatalog/lotus.compute_analytics_type"
           },
@@ -13221,7 +13205,7 @@
             "name": "lineage_calculation_type",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.lineage_calculation_type",
             "attributeRef": "#/attributeCatalog/lotus.lineage_calculation_type"
           },
@@ -13245,7 +13229,7 @@
             "name": "durable_metadata_store.reason",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.reason",
             "attributeRef": "#/attributeCatalog/lotus.reason"
           },
@@ -13253,7 +13237,7 @@
             "name": "durable_metadata_store.remediation_hint",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.remediation_hint",
             "attributeRef": "#/attributeCatalog/lotus.remediation_hint"
           },
@@ -13277,7 +13261,7 @@
             "name": "compute_queue.reason",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.reason",
             "attributeRef": "#/attributeCatalog/lotus.reason"
           },
@@ -13301,7 +13285,7 @@
             "name": "compute_queue.next_offset",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.next_offset",
             "attributeRef": "#/attributeCatalog/lotus.next_offset"
           },
@@ -13309,7 +13293,7 @@
             "name": "compute_queue.next_cursor_recovered_before",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.next_cursor_recovered_before",
             "attributeRef": "#/attributeCatalog/lotus.next_cursor_recovered_before"
           },
@@ -13317,7 +13301,7 @@
             "name": "compute_queue.next_cursor_calculation_id_before",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.next_cursor_calculation_id_before",
             "attributeRef": "#/attributeCatalog/lotus.next_cursor_calculation_id_before"
           },
@@ -13341,7 +13325,7 @@
             "name": "lineage_queue.reason",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.reason",
             "attributeRef": "#/attributeCatalog/lotus.reason"
           },
@@ -13365,7 +13349,7 @@
             "name": "lineage_queue.next_offset",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.next_offset",
             "attributeRef": "#/attributeCatalog/lotus.next_offset"
           },
@@ -13373,7 +13357,7 @@
             "name": "lineage_queue.next_cursor_recovered_before",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.next_cursor_recovered_before",
             "attributeRef": "#/attributeCatalog/lotus.next_cursor_recovered_before"
           },
@@ -13381,7 +13365,7 @@
             "name": "lineage_queue.next_cursor_calculation_id_before",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.next_cursor_calculation_id_before",
             "attributeRef": "#/attributeCatalog/lotus.next_cursor_calculation_id_before"
           },
@@ -13421,7 +13405,7 @@
             "name": "compute_recoveries[].result_path",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.result_path",
             "attributeRef": "#/attributeCatalog/lotus.result_path"
           },
@@ -13461,7 +13445,7 @@
             "name": "compute_recoveries[].error_type",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.error_type",
             "attributeRef": "#/attributeCatalog/lotus.error_type"
           },
@@ -13501,7 +13485,7 @@
             "name": "lineage_recoveries[].result_path",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.result_path",
             "attributeRef": "#/attributeCatalog/lotus.result_path"
           },
@@ -13552,7 +13536,7 @@
             "name": "limit",
             "location": "query",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.limit",
             "attributeRef": "#/attributeCatalog/lotus.limit"
           },
@@ -13568,7 +13552,7 @@
             "name": "operator_id",
             "location": "query",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.operator_id",
             "attributeRef": "#/attributeCatalog/lotus.operator_id"
           },
@@ -13576,7 +13560,7 @@
             "name": "backup_identifier",
             "location": "query",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.backup_identifier",
             "attributeRef": "#/attributeCatalog/lotus.backup_identifier"
           },
@@ -13584,7 +13568,7 @@
             "name": "status",
             "location": "query",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.status",
             "attributeRef": "#/attributeCatalog/lotus.status"
           },
@@ -13592,7 +13576,7 @@
             "name": "generated_after",
             "location": "query",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.generated_after",
             "attributeRef": "#/attributeCatalog/lotus.generated_after"
           },
@@ -13600,7 +13584,7 @@
             "name": "generated_before",
             "location": "query",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.generated_before",
             "attributeRef": "#/attributeCatalog/lotus.generated_before"
           }
@@ -13636,7 +13620,7 @@
             "name": "reason",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.reason",
             "attributeRef": "#/attributeCatalog/lotus.reason"
           },
@@ -13652,7 +13636,7 @@
             "name": "latest_file_name",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.latest_file_name",
             "attributeRef": "#/attributeCatalog/lotus.latest_file_name"
           },
@@ -13668,7 +13652,7 @@
             "name": "retention_limit",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.retention_limit",
             "attributeRef": "#/attributeCatalog/lotus.retention_limit"
           },
@@ -13676,7 +13660,7 @@
             "name": "retention_max_age_days",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.retention_max_age_days",
             "attributeRef": "#/attributeCatalog/lotus.retention_max_age_days"
           },
@@ -13708,7 +13692,7 @@
             "name": "next_offset",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.next_offset",
             "attributeRef": "#/attributeCatalog/lotus.next_offset"
           },
@@ -13756,7 +13740,7 @@
             "name": "entries[].tenant_id",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.tenant_id",
             "attributeRef": "#/attributeCatalog/lotus.tenant_id"
           },
@@ -13764,7 +13748,7 @@
             "name": "entries[].correlation_id",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.correlation_id",
             "attributeRef": "#/attributeCatalog/lotus.correlation_id"
           },
@@ -13859,7 +13843,7 @@
             "name": "tenant_id",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.tenant_id",
             "attributeRef": "#/attributeCatalog/lotus.tenant_id"
           },
@@ -13867,7 +13851,7 @@
             "name": "correlation_id",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.correlation_id",
             "attributeRef": "#/attributeCatalog/lotus.correlation_id"
           },
@@ -13974,7 +13958,7 @@
             "name": "limit",
             "location": "query",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.limit",
             "attributeRef": "#/attributeCatalog/lotus.limit"
           },
@@ -13990,7 +13974,7 @@
             "name": "operator_id",
             "location": "query",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.operator_id",
             "attributeRef": "#/attributeCatalog/lotus.operator_id"
           },
@@ -13998,7 +13982,7 @@
             "name": "trigger_mode",
             "location": "query",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.trigger_mode",
             "attributeRef": "#/attributeCatalog/lotus.trigger_mode"
           },
@@ -14006,7 +13990,7 @@
             "name": "job_id",
             "location": "query",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.job_id",
             "attributeRef": "#/attributeCatalog/lotus.job_id"
           },
@@ -14014,7 +13998,7 @@
             "name": "cleanup_mode",
             "location": "query",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.cleanup_mode",
             "attributeRef": "#/attributeCatalog/lotus.cleanup_mode"
           },
@@ -14022,7 +14006,7 @@
             "name": "status",
             "location": "query",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.status",
             "attributeRef": "#/attributeCatalog/lotus.status"
           },
@@ -14030,7 +14014,7 @@
             "name": "generated_after",
             "location": "query",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.generated_after",
             "attributeRef": "#/attributeCatalog/lotus.generated_after"
           },
@@ -14038,7 +14022,7 @@
             "name": "generated_before",
             "location": "query",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.generated_before",
             "attributeRef": "#/attributeCatalog/lotus.generated_before"
           }
@@ -14074,7 +14058,7 @@
             "name": "reason",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.reason",
             "attributeRef": "#/attributeCatalog/lotus.reason"
           },
@@ -14090,7 +14074,7 @@
             "name": "latest_file_name",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.latest_file_name",
             "attributeRef": "#/attributeCatalog/lotus.latest_file_name"
           },
@@ -14106,7 +14090,7 @@
             "name": "retention_limit",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.retention_limit",
             "attributeRef": "#/attributeCatalog/lotus.retention_limit"
           },
@@ -14114,7 +14098,7 @@
             "name": "retention_max_age_days",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.retention_max_age_days",
             "attributeRef": "#/attributeCatalog/lotus.retention_max_age_days"
           },
@@ -14146,7 +14130,7 @@
             "name": "next_offset",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.next_offset",
             "attributeRef": "#/attributeCatalog/lotus.next_offset"
           },
@@ -14194,7 +14178,7 @@
             "name": "entries[].tenant_id",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.tenant_id",
             "attributeRef": "#/attributeCatalog/lotus.tenant_id"
           },
@@ -14202,7 +14186,7 @@
             "name": "entries[].correlation_id",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.correlation_id",
             "attributeRef": "#/attributeCatalog/lotus.correlation_id"
           },
@@ -14218,7 +14202,7 @@
             "name": "entries[].job_id",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.job_id",
             "attributeRef": "#/attributeCatalog/lotus.job_id"
           },
@@ -14309,7 +14293,7 @@
             "name": "retention_days",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "integer",
             "semanticId": "lotus.retention_days",
             "attributeRef": "#/attributeCatalog/lotus.retention_days"
           },
@@ -14317,7 +14301,7 @@
             "name": "job_id",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.job_id",
             "attributeRef": "#/attributeCatalog/lotus.job_id"
           }
@@ -14377,7 +14361,7 @@
             "name": "tenant_id",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.tenant_id",
             "attributeRef": "#/attributeCatalog/lotus.tenant_id"
           },
@@ -14385,7 +14369,7 @@
             "name": "correlation_id",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.correlation_id",
             "attributeRef": "#/attributeCatalog/lotus.correlation_id"
           },
@@ -14401,7 +14385,7 @@
             "name": "job_id",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.job_id",
             "attributeRef": "#/attributeCatalog/lotus.job_id"
           },
@@ -14503,7 +14487,7 @@
             "name": "reason",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.reason",
             "attributeRef": "#/attributeCatalog/lotus.reason"
           },
@@ -14511,7 +14495,7 @@
             "name": "remediation_hint",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.remediation_hint",
             "attributeRef": "#/attributeCatalog/lotus.remediation_hint"
           }
@@ -14541,7 +14525,7 @@
             "name": "reason",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.reason",
             "attributeRef": "#/attributeCatalog/lotus.reason"
           },
@@ -14549,7 +14533,7 @@
             "name": "remediation_hint",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.remediation_hint",
             "attributeRef": "#/attributeCatalog/lotus.remediation_hint"
           }
@@ -14579,7 +14563,7 @@
             "name": "reason",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.reason",
             "attributeRef": "#/attributeCatalog/lotus.reason"
           },
@@ -14587,7 +14571,7 @@
             "name": "remediation_hint",
             "location": "body",
             "required": false,
-            "type": "object",
+            "type": "string",
             "semanticId": "lotus.remediation_hint",
             "attributeRef": "#/attributeCatalog/lotus.remediation_hint"
           }

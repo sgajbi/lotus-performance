@@ -15,6 +15,9 @@
 - Product ID: `lotus-performance:ContributionAnalytics:v1`
 - Product role: governed performance explanation product that identifies which positions and
   hierarchy dimensions contributed to portfolio return
+- Product ID: `lotus-performance:AttributionAnalytics:v1`
+- Product role: governed benchmark-relative performance explanation product that decomposes active
+  return into allocation, selection, interaction, residual, supportability, and lineage evidence
 - Product ID: `lotus-performance:ReturnsSeriesBundle:v1`
 - Product role: governed return-series and performance evidence consumed by risk, advisory, reporting, gateway, and Workbench discovery flows
 - Source declaration: `contracts/domain-data-products/`
@@ -58,6 +61,19 @@
   income assignment, fee drag, missing classifications, short-sleeve sign behavior, and
   downstream preservation through Gateway and Workbench. See
   [Contribution Analytics](Contribution-Analytics).
+- Attribution product evidence: `POST /performance/attribution` emits source-owned allocation,
+  selection, interaction, active-return, residual-materiality, period-status, reason-code,
+  supportability, currency-attribution, `calculation_supportability`, metadata, diagnostics, audit,
+  and lineage evidence. The governed product is declared as `AttributionAnalytics` in
+  `contracts/domain-data-products/lotus-performance-products.v1.json`, backed by
+  `contracts/trust-telemetry/attribution-analytics.telemetry.v1.json`, and approved for
+  `lotus-gateway` consumption. Gateway and Workbench may display attribution product evidence, but
+  must not reconstruct attribution totals, residual materiality, linked-return posture, or period
+  status downstream. Source inputs are portfolio, position, benchmark, and FX/source-currency inputs
+  from `lotus-core` where stateful mode is used. Fixed-income factor, derivative, sleeve,
+  composite, fee/tax/income-breakout, benchmark-version, classification-version, and calendar-policy
+  attribution remain explicit unsupported or source-limited boundaries. See
+  [Attribution Analytics](Attribution-Analytics).
 
 ## Platform relationship
 

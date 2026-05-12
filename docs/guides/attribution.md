@@ -145,9 +145,24 @@ The response contains:
 
 Each period result can include:
 
+- `status`
+- `reason_codes`
+- `reasons`
 - `levels`
 - `reconciliation`
+- `supportability_evidence`
 - `currency_attribution` when the multi-currency attribution path is active
+
+Use `status`, `reason_codes`, `reasons`, and `supportability_evidence` as the authoritative
+front-office degraded-state contract for a period. A period can be mathematically calculated but
+still be `partial` when there is off-benchmark exposure, benchmark-only exposure, unclassified
+segments, missing benchmark evidence, skipped linking, an invalid multi-period return chain,
+currency-attribution gaps, or a material residual. `reconciliation.residual_materiality` classifies
+the active-return residual against the governed warning and material thresholds. When linked
+attribution is requested and any portfolio or benchmark period return is less than or equal to
+`-100%`, `supportability_evidence.linking_status` is `invalid_return_chain` and
+`reason_codes` includes `linking_invalid_return_chain`; single-period evidence remains available,
+but the linked period should not be used as a clean smoothed attribution view.
 
 Each `levels[].groups[]` row now carries side-by-side front-office context in addition to the
 effect terms:

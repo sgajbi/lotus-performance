@@ -23,7 +23,10 @@ from app.services.stateful_attribution_input_service import (
     _split_position_cash_flows,
     _validate_stateful_both_currency_support,
     _validate_stateful_group_by,
+    _validate_stateful_portfolio_position_alignment,
+    _validate_stateful_position_inception_support,
     build_stateful_attribution_input,
+    build_stateful_attribution_source_alignment_evidence,
     retrieve_stateful_attribution_source_input,
 )
 from app.services.stateful_benchmark_input_service import StatefulBenchmarkNormalizedInput
@@ -398,6 +401,115 @@ def test_build_stateful_attribution_input_builds_instruments_and_benchmark_group
     assert normalized.benchmark_groups_data[0].observations[0].return_base == pytest.approx(0.02)
     assert normalized.benchmark_groups_data[0].observations[0].return_local == pytest.approx(0.02)
     assert normalized.benchmark_groups_data[0].observations[0].return_fx == pytest.approx(0.0)
+    assert normalized.source_alignment_evidence["position_classification"] == {
+        "status": "complete",
+        "classified_row_count": 1,
+        "unclassified_row_count": 0,
+    }
+    assert normalized.source_alignment_evidence["benchmark_classification"] == {
+        "status": "complete",
+        "classified_component_count": 2,
+        "unclassified_component_count": 0,
+    }
+
+
+def test_stateful_attribution_source_alignment_evidence_captures_source_limitations():
+    source_input = StatefulAttributionSourceInput(
+        portfolio_input=StatefulPortfolioInput(
+            performance_start_date=date(2025, 1, 1),
+            observations=[
+                {
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value": "1000",
+                    "ending_market_value": "1010",
+                }
+            ],
+        ),
+        position_rows=[
+            {
+                "position_id": "POS_1",
+                "valuation_date": "2025-01-01",
+                "position_currency": "EUR",
+                "beginning_market_value_reporting_currency": "600",
+                "ending_market_value_reporting_currency": "606",
+                "dimensions": {"sector": "Technology"},
+            },
+            {
+                "position_id": "POS_2",
+                "valuation_date": "2025-01-01",
+                "position_currency": "USD",
+                "beginning_market_value_reporting_currency": "400",
+                "ending_market_value_reporting_currency": "404",
+                "dimensions": {},
+            },
+        ],
+        position_retrieval_metadata=RetrievalMetadata(chunk_count=2, page_count=3),
+        benchmark_id="BMK_PRIVATE_BANKING_BALANCED",
+        benchmark_component_observations=[
+            BenchmarkComponentObservation(
+                component_id="IDX_EQUITY",
+                component_currency="EUR",
+                perf_date=date(2025, 1, 1),
+                weight_bop=0.6,
+                component_return=0.01,
+                component_return_local=0.01,
+                component_return_fx=0.0,
+            ),
+            BenchmarkComponentObservation(
+                component_id="IDX_BOND",
+                component_currency="USD",
+                perf_date=date(2025, 1, 1),
+                weight_bop=0.4,
+                component_return=0.005,
+                component_return_local=0.005,
+                component_return_fx=0.0,
+            ),
+        ],
+        benchmark_source_details={"benchmark_components": 2, "benchmark_chunk_count": 1, "benchmark_page_count": 2},
+        benchmark_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=2),
+        index_records=[
+            {"index_id": "IDX_EQUITY", "classification_labels": {"sector": "Technology"}},
+            {"index_id": "IDX_BOND", "classification_labels": {}},
+        ],
+        index_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+    )
+
+    evidence = build_stateful_attribution_source_alignment_evidence(
+        source_input=source_input,
+        group_by=["sector", "currency"],
+        currency_mode="BOTH",
+        fx={"rates": [{"date": "2024-12-31", "ccy": "EUR", "rate": 1.1}]},
+        reporting_currency="USD",
+    )
+
+    assert evidence["benchmark_id"] == "BMK_PRIVATE_BANKING_BALANCED"
+    assert evidence["classification_dimensions"] == ["sector"]
+    assert evidence["position_classification"] == {
+        "status": "partial",
+        "classified_row_count": 1,
+        "unclassified_row_count": 1,
+    }
+    assert evidence["benchmark_classification"] == {
+        "status": "partial",
+        "classified_component_count": 1,
+        "unclassified_component_count": 1,
+    }
+    assert evidence["currency_source"] == {
+        "status": "required",
+        "reporting_currency": "USD",
+        "position_currency_count": 2,
+        "benchmark_component_currency_count": 2,
+        "fx_required": True,
+        "fx_supplied": True,
+    }
+    assert evidence["source_contract_limitations"] == {
+        "benchmark_version": "not_available_from_current_lotus_core_contract",
+        "classification_version": "not_available_from_current_lotus_core_contract",
+        "calendar_policy": "not_available_from_current_lotus_core_contract",
+        "off_benchmark_policy": "derived_by_lotus_performance_from_portfolio_and_benchmark_exposure",
+        "derivative_or_short_flags": "not_available_from_current_lotus_core_contract",
+        "fee_tax_income_breakout": "not_available_from_current_lotus_core_contract",
+    }
 
 
 def test_build_stateful_attribution_input_rejects_missing_benchmark_observations():
@@ -587,11 +699,194 @@ def test_build_stateful_attribution_input_rejects_portfolio_position_alignment_g
         )
 
 
+def test_build_stateful_attribution_input_allows_internal_trade_timing_alignment_gap():
+    source_input = StatefulAttributionSourceInput(
+        portfolio_input=StatefulPortfolioInput(
+            performance_start_date=date(2025, 1, 1),
+            observations=[
+                {
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value": "1000",
+                    "ending_market_value": "1010",
+                }
+            ],
+        ),
+        position_rows=[
+            {
+                "position_id": "POS_1",
+                "security_id": "SEC_1",
+                "valuation_date": "2025-01-01",
+                "position_to_portfolio_fx_rate": "1",
+                "portfolio_to_reporting_fx_rate": "1",
+                "beginning_market_value_portfolio_currency": "1100",
+                "ending_market_value_portfolio_currency": "1010",
+                "cash_flows": [
+                    {
+                        "amount": "-100",
+                        "timing": "eod",
+                        "cash_flow_type": "internal_trade_flow",
+                    }
+                ],
+                "dimensions": {"sector": "Tech"},
+            }
+        ],
+        position_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+        benchmark_id="BMK_1",
+        benchmark_component_observations=[
+            BenchmarkComponentObservation(
+                component_id="IDX_1",
+                component_currency="USD",
+                perf_date=date(2025, 1, 1),
+                weight_bop=1.0,
+                component_return=0.01,
+                component_return_local=0.01,
+                component_return_fx=0.0,
+            )
+        ],
+        benchmark_source_details={"benchmark_components": 1},
+        benchmark_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+        index_records=[{"index_id": "IDX_1", "classification_labels": {"sector": "Tech"}}],
+        index_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+    )
+
+    normalized = build_stateful_attribution_input(
+        source_input=source_input,
+        mode="by_instrument",
+        group_by=["sector"],
+        metric_basis="NET",
+        currency_mode="BASE_ONLY",
+        fx=None,
+        reporting_currency="USD",
+    )
+
+    assert normalized.instruments_data[0].valuation_points[0].eod_cf == -100
+    assert normalized.instruments_data[0].meta["sector"] == "tech"
+
+
+def test_stateful_attribution_alignment_validator_tolerates_unusable_rows_and_internal_flow_noise():
+    _validate_stateful_portfolio_position_alignment(
+        portfolio_observations=[
+            {"valuation_date": None, "beginning_market_value": "0", "ending_market_value": "0"},
+            {"valuation_date": "2025-01-01", "beginning_market_value": "100", "ending_market_value": "110"},
+        ],
+        position_rows=[
+            {"valuation_date": date(2025, 1, 1), "beginning_market_value_portfolio_currency": "1"},
+            {"valuation_date": "2025-01-01", "cash_flows": []},
+            {
+                "valuation_date": "2025-01-01",
+                "beginning_market_value_portfolio_currency": "100",
+                "ending_market_value_portfolio_currency": "110",
+                "cash_flows": [
+                    "not-a-flow",
+                    {"amount": None, "cash_flow_type": "internal_trade_flow"},
+                    {"amount": "7", "cash_flow_type": "external_contribution"},
+                    {"amount": "-5", "cash_flow_type": "internal_trade_flow"},
+                ],
+            },
+            {
+                "valuation_date": "2025-01-02",
+                "beginning_market_value_portfolio_currency": "50",
+                "ending_market_value_portfolio_currency": "51",
+                "cash_flows": "not-a-list",
+            },
+        ],
+        reporting_currency=None,
+    )
+
+
+def test_stateful_attribution_source_alignment_evidence_flags_unclassified_source_rows_and_benchmark_components():
+    benchmark_component_observations = [
+        BenchmarkComponentObservation(
+            component_id="IDX_1",
+            component_currency="USD",
+            perf_date=date(2025, 1, 1),
+            weight_bop=0.5,
+            component_return=0.01,
+            component_return_local=0.01,
+            component_return_fx=0.0,
+        ),
+        BenchmarkComponentObservation(
+            component_id="IDX_MISSING_LABELS",
+            component_currency="USD",
+            perf_date=date(2025, 1, 1),
+            weight_bop=0.5,
+            component_return=0.02,
+            component_return_local=0.02,
+            component_return_fx=0.0,
+        ),
+    ]
+    source_input = StatefulAttributionSourceInput(
+        portfolio_input=StatefulPortfolioInput(performance_start_date=date(2025, 1, 1), observations=[]),
+        position_rows=[
+            {"position_id": "POS_1", "dimensions": "not-a-dict"},
+            {"position_id": "POS_2", "dimensions": {"sector": "Technology"}},
+        ],
+        position_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+        benchmark_id="BMK_1",
+        benchmark_component_observations=benchmark_component_observations,
+        benchmark_source_details={"benchmark_components": 2},
+        benchmark_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+        index_records=[{"index_id": "IDX_1", "classification_labels": {"sector": "Technology"}}],
+        index_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+    )
+
+    evidence = build_stateful_attribution_source_alignment_evidence(
+        source_input=source_input,
+        group_by=["sector"],
+        currency_mode="BASE_ONLY",
+        fx=None,
+        reporting_currency="USD",
+    )
+
+    assert evidence["position_classification"] == {
+        "status": "partial",
+        "classified_row_count": 1,
+        "unclassified_row_count": 1,
+    }
+    assert evidence["benchmark_classification"] == {
+        "status": "partial",
+        "classified_component_count": 1,
+        "unclassified_component_count": 1,
+    }
+
+
+def test_stateful_attribution_rejects_unsupported_position_inception_window():
+    with pytest.raises(HTTPException, match="cannot safely compute acquisition-day position returns"):
+        _validate_stateful_position_inception_support(
+            rows=[
+                {
+                    "position_id": None,
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value_portfolio_currency": "0",
+                    "ending_market_value_portfolio_currency": "5",
+                    "cash_flows": [],
+                },
+                {
+                    "position_id": "POS_NEW",
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value_portfolio_currency": "0",
+                    "ending_market_value_portfolio_currency": "5",
+                    "cash_flows": [],
+                },
+                {
+                    "position_id": "POS_NEW",
+                    "valuation_date": "2025-01-02",
+                    "beginning_market_value_portfolio_currency": "5",
+                    "ending_market_value_portfolio_currency": "6",
+                    "cash_flows": [],
+                },
+            ]
+        )
+
+
 def test_stateful_attribution_group_by_and_benchmark_validation_errors():
     with pytest.raises(HTTPException, match="Unsupported: issuer"):
         _validate_stateful_group_by(["issuer"])
 
     assert _build_group_key(labels={"sector": ""}, group_by=["sector"], index_id="IDX_1") == (("sector", "unknown"),)
+
+    with pytest.raises(HTTPException, match="Benchmark component IDX_1 missing classification label for currency"):
+        _build_group_key(labels={}, group_by=["currency"], index_id="IDX_1")
 
     with pytest.raises(HTTPException, match="missing classification labels"):
         _build_benchmark_groups(

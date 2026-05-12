@@ -16,6 +16,7 @@ from engine.attribution import (
     aggregate_attribution_results,
     run_attribution_calculations,
 )
+from engine.attribution_supportability import classify_attribution_residual
 
 
 @pytest.fixture
@@ -122,6 +123,46 @@ def test_calculate_single_period_effects_matches_exact_brinson_fachler_formulas(
     assert row["interaction"] == pytest.approx((0.60 - 0.50) * (0.05 - 0.04))
 
 
+def test_calculate_single_period_brinson_fachler_matches_industry_regression_pack_case_a():
+    df = pd.DataFrame(
+        {
+            "group": ["Equity", "Bonds", "Cash"],
+            "w_p": [0.60, 0.30, 0.10],
+            "r_base_p": [0.12, 0.04, 0.01],
+            "w_b": [0.50, 0.40, 0.10],
+            "r_base_b": [0.10, 0.05, 0.01],
+        }
+    ).set_index("group")
+    df["r_b_total"] = (df["w_b"] * df["r_base_b"]).sum()
+
+    result_df = _calculate_single_period_effects(df.copy(), AttributionModel.BRINSON_FACHLER)
+    expected = {
+        "Equity": {"allocation": 0.0029, "selection": 0.0100, "interaction": 0.0020},
+        "Bonds": {"allocation": 0.0021, "selection": -0.0040, "interaction": 0.0010},
+        "Cash": {"allocation": 0.0000, "selection": 0.0000, "interaction": 0.0000},
+    }
+
+    for group, group_expected in expected.items():
+        for effect, value in group_expected.items():
+            assert result_df.loc[group, effect] == pytest.approx(value, abs=1e-12)
+        assert result_df.loc[group, ["allocation", "selection", "interaction"]].sum() == pytest.approx(
+            result_df.loc[group, "w_p"] * result_df.loc[group, "r_base_p"]
+            - result_df.loc[group, "w_b"] * result_df.loc[group, "r_base_b"]
+            - (result_df.loc[group, "w_p"] - result_df.loc[group, "w_b"]) * result_df.loc[group, "r_b_total"],
+            abs=1e-12,
+        )
+
+    portfolio_return = (result_df["w_p"] * result_df["r_base_p"]).sum()
+    benchmark_return = (result_df["w_b"] * result_df["r_base_b"]).sum()
+    active_contribution = (result_df["w_p"] * result_df["r_base_p"]) - (result_df["w_b"] * result_df["r_base_b"])
+    total_effect = result_df[["allocation", "selection", "interaction"]].sum().sum()
+
+    assert portfolio_return == pytest.approx(0.085, abs=1e-12)
+    assert benchmark_return == pytest.approx(0.071, abs=1e-12)
+    assert active_contribution.sum() == pytest.approx(0.014, abs=1e-12)
+    assert total_effect == pytest.approx(0.014, abs=1e-12)
+
+
 def test_calculate_single_period_effects_matches_exact_brinson_hood_beebower_formulas():
     df = pd.DataFrame(
         {
@@ -168,6 +209,62 @@ def test_aggregate_attribution_results_emits_side_by_side_group_context(by_group
     assert tech_group.benchmark_weight_avg == pytest.approx(42.5)
     assert tech_group.portfolio_return == pytest.approx(3.02)
     assert tech_group.benchmark_return == pytest.approx(-0.01)
+
+
+def test_attribution_segment_union_and_order_independence_for_portfolio_and_benchmark_only_groups():
+    def _request(portfolio_groups, benchmark_groups):
+        return AttributionRequest.model_validate(
+            {
+                "portfolio_id": "ATTR_SEGMENT_UNION",
+                "mode": "by_group",
+                "group_by": ["sector"],
+                "model": "BF",
+                "linking": "none",
+                "frequency": "daily",
+                "report_start_date": "2025-01-01",
+                "report_end_date": "2025-01-01",
+                "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+                "portfolio_groups_data": portfolio_groups,
+                "benchmark_groups_data": benchmark_groups,
+            }
+        )
+
+    portfolio_groups = [
+        {"key": {"sector": "Equity"}, "observations": [{"date": "2025-01-01", "return_base": 0.07, "weight_bop": 0.8}]},
+        {
+            "key": {"sector": "Alternatives"},
+            "observations": [{"date": "2025-01-01", "return_base": 0.09, "weight_bop": 0.2}],
+        },
+    ]
+    benchmark_groups = [
+        {"key": {"sector": "Equity"}, "observations": [{"date": "2025-01-01", "return_base": 0.06, "weight_bop": 0.8}]},
+        {
+            "key": {"sector": "Real Estate"},
+            "observations": [{"date": "2025-01-01", "return_base": 0.10, "weight_bop": 0.2}],
+        },
+    ]
+
+    request = _request(portfolio_groups, benchmark_groups)
+    reversed_request = _request(list(reversed(portfolio_groups)), list(reversed(benchmark_groups)))
+
+    effects_df, _ = run_attribution_calculations(request)
+    reversed_effects_df, _ = run_attribution_calculations(reversed_request)
+    result, _ = aggregate_attribution_results(effects_df, request)
+    reversed_result, _ = aggregate_attribution_results(reversed_effects_df, reversed_request)
+
+    groups = {group.key["sector"]: group for group in result.levels[0].groups}
+    reversed_groups = {group.key["sector"]: group for group in reversed_result.levels[0].groups}
+
+    assert set(groups) == {"Alternatives", "Equity", "Real Estate"}
+    assert set(reversed_groups) == set(groups)
+    assert result.status == "partial"
+    assert set(result.reason_codes) >= {"off_benchmark_exposure", "benchmark_only_exposure"}
+    assert result.supportability_evidence.portfolio_only_group_count == 1
+    assert result.supportability_evidence.benchmark_only_group_count == 1
+    assert result.reconciliation.residual == pytest.approx(0.0, abs=1e-12)
+    assert result.reconciliation.total_active_return == pytest.approx(0.6, abs=1e-12)
+    for sector, group in groups.items():
+        assert group.total_effect == pytest.approx(reversed_groups[sector].total_effect, abs=1e-12)
 
 
 def test_run_attribution_calculations_geometric_linking(by_group_request_data):
@@ -497,3 +594,171 @@ def test_run_attribution_calculations_returns_empty_when_aligned_panel_empty(by_
 
     assert effects_df.empty
     assert "aligned_panel.csv" in lineage
+
+
+def test_residual_materiality_policy_classifies_review_and_material_breaks():
+    immaterial = classify_attribution_residual(0.00009)
+    watch = classify_attribution_residual(0.005)
+    material = classify_attribution_residual(0.02)
+
+    assert immaterial.classification == "immaterial"
+    assert immaterial.treatment == "no_action"
+    assert watch.classification == "watch"
+    assert watch.treatment == "review"
+    assert material.classification == "material"
+    assert material.treatment == "investigate"
+
+
+def test_attribution_supportability_evidence_flags_alignment_and_source_quality_edges():
+    request = AttributionRequest.model_validate(
+        {
+            "portfolio_id": "ATTR_EDGE_STATUS",
+            "mode": "by_group",
+            "group_by": ["sector"],
+            "linking": "none",
+            "frequency": "daily",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-01",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "portfolio_groups_data": [
+                {
+                    "key": {"sector": "Tech"},
+                    "observations": [{"date": "2025-01-01", "return_base": 0.02, "weight_bop": 0.6}],
+                },
+                {
+                    "key": {"sector": "Private Equity"},
+                    "observations": [{"date": "2025-01-01", "return_base": 0.01, "weight_bop": 0.2}],
+                },
+                {
+                    "key": {"sector": "unknown"},
+                    "observations": [{"date": "2025-01-01", "return_base": 0.00, "weight_bop": 0.2}],
+                },
+                {
+                    "key": {"sector": "Short Book"},
+                    "observations": [{"date": "2025-01-01", "return_base": -0.01, "weight_bop": -0.1}],
+                },
+            ],
+            "benchmark_groups_data": [
+                {
+                    "key": {"sector": "Tech"},
+                    "observations": [{"date": "2025-01-01", "return_base": 0.01, "weight_bop": 0.5}],
+                },
+                {
+                    "key": {"sector": "Benchmark Only"},
+                    "observations": [{"date": "2025-01-01", "return_base": 0.005, "weight_bop": 0.2}],
+                },
+                {
+                    "key": {"sector": "Health"},
+                    "observations": [{"date": "2025-01-01", "weight_bop": 0.3}],
+                },
+            ],
+        }
+    )
+
+    effects_df, _ = run_attribution_calculations(request)
+    result, lineage = aggregate_attribution_results(effects_df, request)
+
+    assert result.status == "partial"
+    assert set(result.reason_codes) >= {
+        "off_benchmark_exposure",
+        "benchmark_only_exposure",
+        "unclassified_segment",
+        "missing_benchmark_return",
+        "negative_weight",
+    }
+    assert result.supportability_evidence.portfolio_only_group_count == 3
+    assert result.supportability_evidence.benchmark_only_group_count == 2
+    assert result.supportability_evidence.unclassified_group_count == 1
+    assert result.supportability_evidence.missing_benchmark_return_count == 1
+    assert result.supportability_evidence.negative_weight_count == 1
+    assert result.supportability_evidence.currency_attribution_status == "not_requested"
+    assert result.supportability_evidence.linking_status == "not_requested"
+    assert "attribution_supportability_evidence.csv" in lineage
+    evidence_df = lineage["attribution_supportability_evidence.csv"]
+    assert {"portfolio_only", "benchmark_only", "unclassified", "missing_benchmark_return"}.issubset(
+        evidence_df.columns
+    )
+
+
+def test_attribution_supportability_evidence_flags_currency_and_linking_gaps():
+    request = AttributionRequest.model_validate(
+        {
+            "portfolio_id": "ATTR_LINKING_STATUS",
+            "mode": "by_group",
+            "group_by": ["currency"],
+            "linking": "carino",
+            "frequency": "daily",
+            "currency_mode": "BOTH",
+            "report_ccy": "USD",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "portfolio_groups_data": [
+                {
+                    "key": {"currency": "USD"},
+                    "observations": [
+                        {"date": "2025-01-01", "return_base": 0.01, "weight_bop": 1.0},
+                        {"date": "2025-01-02", "return_base": -0.01, "weight_bop": 1.0},
+                    ],
+                }
+            ],
+            "benchmark_groups_data": [
+                {
+                    "key": {"currency": "USD"},
+                    "observations": [
+                        {"date": "2025-01-01", "return_base": 0.01, "weight_bop": 1.0},
+                        {"date": "2025-01-02", "return_base": -0.01, "weight_bop": 1.0},
+                    ],
+                }
+            ],
+        }
+    )
+
+    effects_df, _ = run_attribution_calculations(request)
+    result, _ = aggregate_attribution_results(effects_df, request)
+
+    assert result.status == "partial"
+    assert "currency_attribution_unavailable" in result.reason_codes
+    assert "linking_scaling_skipped" in result.reason_codes
+    assert result.supportability_evidence.currency_attribution_status == "unavailable"
+    assert result.supportability_evidence.linking_status == "scaling_skipped"
+
+
+def test_attribution_linking_flags_invalid_return_chain_from_regression_pack():
+    request = AttributionRequest.model_validate(
+        {
+            "portfolio_id": "ATTR_INVALID_LINKING_CHAIN",
+            "mode": "by_group",
+            "group_by": ["sector"],
+            "linking": "carino",
+            "frequency": "daily",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "portfolio_groups_data": [
+                {
+                    "key": {"sector": "Equity"},
+                    "observations": [
+                        {"date": "2025-01-01", "return_base": -1.0, "weight_bop": 1.0},
+                        {"date": "2025-01-02", "return_base": 0.02, "weight_bop": 1.0},
+                    ],
+                }
+            ],
+            "benchmark_groups_data": [
+                {
+                    "key": {"sector": "Equity"},
+                    "observations": [
+                        {"date": "2025-01-01", "return_base": -0.90, "weight_bop": 1.0},
+                        {"date": "2025-01-02", "return_base": 0.01, "weight_bop": 1.0},
+                    ],
+                }
+            ],
+        }
+    )
+
+    effects_df, _ = run_attribution_calculations(request)
+    result, _ = aggregate_attribution_results(effects_df, request)
+
+    assert result.status == "partial"
+    assert "linking_invalid_return_chain" in result.reason_codes
+    assert result.supportability_evidence.linking_status == "invalid_return_chain"

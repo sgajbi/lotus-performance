@@ -753,7 +753,53 @@ def _stringify_decimals(value: object) -> object:
                 "Accepted for asynchronous attribution execution. Poll poll_path for execution "
                 "status or result_path for the completed attribution response."
             ),
-        }
+            "content": {
+                "application/json": {
+                    "example": {
+                        "calculation_id": "209da27d-f3f4-4e64-97c5-a2eb1d4fe4f3",
+                        "poll_path": "/performance/executions/209da27d-f3f4-4e64-97c5-a2eb1d4fe4f3",
+                        "result_path": "/performance/attribution/results/209da27d-f3f4-4e64-97c5-a2eb1d4fe4f3",
+                    }
+                }
+            },
+        },
+        400: {
+            "description": (
+                "Invalid attribution request shape, unsupported resolved period window, or invalid engine input."
+            ),
+            "content": {"application/json": {"example": {"detail": "Invalid Input: analyses list cannot be empty"}}},
+        },
+        409: {
+            "description": "Duplicate attribution submission conflict or failed async execution state.",
+            "content": {"application/json": {"example": {"detail": "Duplicate submission payload does not match."}}},
+        },
+        422: {
+            "description": (
+                "Attribution source contract cannot support the requested calculation, such as missing benchmark "
+                "assignment, unsupported stateful mode, missing FX for mixed-currency stateful attribution, or "
+                "unsupported grouping dimension."
+            ),
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": (
+                            "Stateful attribution input requires fx.rates when currency_mode=BOTH and sourced "
+                            "positions include currencies different from report_ccy."
+                        )
+                    }
+                }
+            },
+        },
+        500: {
+            "description": "Unexpected attribution request resolution or calculation failure.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "An unexpected error occurred during attribution request resolution: upstream timeout"
+                    }
+                }
+            },
+        },
     },
 )
 async def calculate_attribution_endpoint(request: AttributionAnalyticsRequest) -> AttributionResponse | JSONResponse:
@@ -942,6 +988,24 @@ def _accepted_attribution_response(calculation_id) -> AttributionAcceptedRespons
         "for asynchronous execution, or returns the accepted envelope while the calculation is "
         "still pending. Use this route with result_path from the 202 response."
     ),
+    responses={
+        202: {
+            "model": AttributionAcceptedResponse,
+            "description": "Attribution execution is still pending or running.",
+        },
+        404: {
+            "description": "No async attribution execution exists for the supplied calculation id.",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Async attribution result not found for the given calculation_id."}
+                }
+            },
+        },
+        409: {
+            "description": "The async attribution execution failed and no completed result is available.",
+            "content": {"application/json": {"example": {"detail": "Async attribution execution failed."}}},
+        },
+    },
 )
 async def get_attribution_result(calculation_id: UUID) -> AttributionResponse | JSONResponse:
     return resolve_async_result(

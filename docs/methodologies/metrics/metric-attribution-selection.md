@@ -51,7 +51,9 @@ Attribution Selection Effect (`levels[].groups[].selection`)
 
 2. Linking behavior:
 - `NONE`: `S_g = sum_t S_g,t`
-- non-`NONE`: `S_g = scale * sum_t S_g,t`, where `scale = AR_geo / AR_arith`
+- non-`NONE`: `S_g = scale * sum_t S_g,t`, where `scale = AR_geo / AR_arith`; if any portfolio
+  or benchmark period return is less than or equal to `-100%`, the linked chain is
+  supportability-invalid and selection is not presented as clean linked attribution.
 
 ## Step-by-Step Computation
 1. Resolve mode-specific inputs. In stateful mode retrieve lotus-core portfolio and position
@@ -69,6 +71,9 @@ Attribution Selection Effect (`levels[].groups[].selection`)
 - Stateful source resolution fails closed when lotus-core portfolio, position, benchmark, or
   source-currency inputs cannot produce usable attribution panel rows.
 - If arithmetic active return is zero, linking scaler is not applied.
+- If a linked period contains a portfolio or benchmark return less than or equal to `-100%`, the
+  period emits `linking_invalid_return_chain` and
+  `supportability_evidence.linking_status="invalid_return_chain"`.
 
 ## Configuration Options
 - `model`

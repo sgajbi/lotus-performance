@@ -45,6 +45,9 @@ Certification must validate more than headline active return. For every tested p
   `total_effect_pct` match the nested `totals` block
 - reconciliation `sum_of_effects` equals the top-level attribution level total effect
 - reconciliation residual is explained by linking, rounding, or source-data gaps
+- linked attribution does not report a clean linked state when a portfolio or benchmark period
+  return is less than or equal to `-100%`; the period must emit `linking_invalid_return_chain`
+  and `supportability_evidence.linking_status="invalid_return_chain"`
 - currency attribution effects are present only when the currency attribution contract is active
 - missing portfolio or benchmark grouping labels are preserved under an `unknown` bucket rather than
   dropped from the grouped panel
@@ -68,6 +71,14 @@ Benchmark assignment and benchmark component inputs are resolved through the sha
 sourcing path. lotus-core provides source data; lotus-performance owns attribution calculations,
 linking, reconciliation, lineage, and response semantics.
 
+Stateful normalization now records bounded source-alignment evidence during execution-stage
+normalization. The evidence covers portfolio observation count, position row count, resolved
+benchmark id, benchmark component observation count, index record count, classification completeness,
+currency/FX source posture, and explicit source-contract limitations. Current source contracts do
+not expose benchmark version, classification version, calendar policy, derivative or short flags, or
+fee/tax/income breakout fields; those are treated as source-limited and must not be promoted as
+supported attribution claims.
+
 ## Downstream Consumers
 
 Known consumers:
@@ -84,10 +95,15 @@ Downstream certification status:
 
 - `lotus-gateway` passes authoritative attribution totals through to the Workbench performance
   detail contract.
-- `lotus-gateway` issue `#106` tracks the remaining row-coverage concern: the gateway currently
-  limits attribution groups to 10 rows without an explicit truncation or coverage signal.
-- `lotus-gateway` issue `#105` tracks removal of the historical dependency on UI-side attribution
-  total reconstruction once the lotus-performance totals contract is merged.
+- `lotus-gateway#207` is merged. Gateway preserves period `status`, `reason_codes`, detailed
+  `reasons`, `residual_materiality`, and `supportability_evidence` through the Performance
+  Workspace contract.
+- `lotus-workbench#179` is merged. Workbench displays attribution posture, residual materiality,
+  and supportability evidence from Gateway rather than reconstructing attribution state locally.
+- `lotus-gateway#106` is closed. Gateway now treats row-coverage handling as a governed consumer
+  concern instead of an unresolved attribution endpoint defect.
+- `lotus-gateway#105` is closed. Gateway no longer depends on UI-side attribution total
+  reconstruction for the authoritative totals emitted by `lotus-performance`.
 
 ## Supportability and Observability
 
@@ -101,6 +117,15 @@ Use this block as the source-owned freshness and degraded-state signal for front
 panels. The response publishes `calculation_supportability.metric_labels` with the same bounded
 label keys used by the metric. The metric labels must not include portfolio, tenant, account,
 benchmark, calculation, trace, correlation, request body, response body, or security identifiers.
+
+Each resolved attribution period also includes controlled `status`, `reason_codes`, detailed
+`reasons`, `supportability_evidence`, and `reconciliation.residual_materiality`. Consumers should
+preserve these fields when displaying partial, warning, or degraded attribution output. They should
+not collapse a partial period into a green state simply because allocation, selection, and
+interaction totals are present. Current controlled reason codes include off-benchmark exposure,
+benchmark-only exposure, unclassified segment, missing benchmark data or returns, negative weights,
+zero exposure rows, currency-attribution gaps, skipped linking, invalid linked return chains,
+material residuals, and residual-watch posture.
 
 ## Canonical Live Findings
 
@@ -123,12 +148,15 @@ Focused validation for attribution changes should include:
 
 ```powershell
 python -m pytest tests/integration/test_attribution_api.py tests/unit/models/test_attribution_models.py -q
+python -m pytest tests/unit/engine/test_attribution.py tests/unit/engine/test_attribution_supportability.py -q
 ruff check app/models/attribution_requests.py app/models/attribution_responses.py app/api/endpoints/performance.py engine/attribution.py tests/integration/test_attribution_api.py tests/unit/models/test_attribution_models.py
 ruff format --check app/models/attribution_requests.py app/models/attribution_responses.py app/api/endpoints/performance.py engine/attribution.py tests/integration/test_attribution_api.py tests/unit/models/test_attribution_models.py
 mypy app/models/attribution_requests.py app/models/attribution_responses.py app/api/endpoints/performance.py engine/attribution.py
 python scripts/openapi_quality_gate.py
 python scripts/api_vocabulary_inventory.py --validate-only
+make check
 ```
 
 Gateway consumer validation should include the focused performance workspace service tests when the
-attribution contract shape changes.
+attribution contract shape changes. Workbench validation should include focused presentation and
+performance attribution section tests when product-surface posture changes.

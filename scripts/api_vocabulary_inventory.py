@@ -50,9 +50,25 @@ def _semantic_id(name: str) -> str:
 
 
 def _schema_type(schema: dict[str, Any]) -> str:
+    schema = _unwrap_nullable_schema(schema)
     if "$ref" in schema:
         return schema["$ref"].rsplit("/", 1)[-1]
     return str(schema.get("type", "object"))
+
+
+def _unwrap_nullable_schema(schema: dict[str, Any]) -> dict[str, Any]:
+    variants = schema.get("anyOf") or schema.get("oneOf")
+    if not isinstance(variants, list):
+        return schema
+    non_null_variants = [variant for variant in variants if isinstance(variant, dict) and variant.get("type") != "null"]
+    if len(non_null_variants) == 1 and non_null_variants[0].get("type") in {
+        "boolean",
+        "integer",
+        "number",
+        "string",
+    }:
+        return non_null_variants[0]
+    return schema
 
 
 def _resolve_schema(schema: dict[str, Any], components: dict[str, Any]) -> dict[str, Any]:
@@ -68,6 +84,7 @@ def _fallback_description(name: str) -> str:
 
 
 def _fallback_example(name: str, schema: dict[str, Any]) -> Any:
+    schema = _unwrap_nullable_schema(schema)
     canonical = _canonical_term(name)
     schema_type = schema.get("type")
     schema_format = schema.get("format")
@@ -89,7 +106,7 @@ def _fallback_example(name: str, schema: dict[str, Any]) -> Any:
     if schema_type == "number":
         return 0.1
     if schema_type == "array":
-        return ["VALUE"]
+        return ["STANDARD_VALUE"]
     if schema_type == "object":
         return {"key": "value"}
     return "STANDARD_VALUE"
@@ -112,7 +129,7 @@ def _extract_fields(
     for prop_name, prop_schema in properties.items():
         if not isinstance(prop_schema, dict):
             continue
-        prop_resolved = _resolve_schema(prop_schema, components)
+        prop_resolved = _resolve_schema(_unwrap_nullable_schema(prop_schema), components)
         field_name = f"{prefix}.{prop_name}" if prefix else prop_name
         field = {
             "name": field_name,

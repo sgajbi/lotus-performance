@@ -2126,6 +2126,19 @@ def test_attribution_service_uses_runtime_app_version(mocker):
         "app.services.attribution_service.aggregate_attribution_results",
         return_value=(
             {
+                "status": "valid",
+                "reason_codes": [],
+                "reasons": [],
+                "supportability_evidence": {
+                    "portfolio_only_group_count": 0,
+                    "benchmark_only_group_count": 0,
+                    "unclassified_group_count": 0,
+                    "missing_benchmark_return_count": 0,
+                    "negative_weight_count": 0,
+                    "zero_portfolio_exposure_count": 0,
+                    "currency_attribution_status": "not_requested",
+                    "linking_status": "not_requested",
+                },
                 "levels": [
                     {
                         "dimension": "sector",
@@ -2154,6 +2167,13 @@ def test_attribution_service_uses_runtime_app_version(mocker):
                     "total_active_return": 0.6,
                     "sum_of_effects": 0.6,
                     "residual": 0.0,
+                    "residual_materiality": {
+                        "classification": "immaterial",
+                        "treatment": "no_action",
+                        "absolute_residual": 0.0,
+                        "warning_threshold": 0.001,
+                        "material_threshold": 0.01,
+                    },
                 },
             },
             {},
