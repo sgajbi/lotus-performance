@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-05-10T22:40:25.698200+00:00",
+  "generatedAt": "2026-05-12T03:11:26.846426+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.account_reset_shadow_days",
@@ -426,6 +426,34 @@
       ],
       "observedTypes": [
         "number"
+      ]
+    },
+    {
+      "semanticId": "lotus.beginning_asset_weight",
+      "canonicalTerm": "beginning_asset_weight",
+      "preferredName": "beginning_asset_weight",
+      "description": "Beginning-asset member weight as a decimal ratio.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.beginning_market_value",
+      "canonicalTerm": "beginning_market_value",
+      "preferredName": "beginning_market_value",
+      "description": "Composite beginning assets across ready members.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -862,6 +890,20 @@
       ]
     },
     {
+      "semanticId": "lotus.composite_id",
+      "canonicalTerm": "composite_id",
+      "preferredName": "composite_id",
+      "description": "Composite identifier to calculate from persisted member-return facts.",
+      "example": "ENTITY_001",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.compute_analytics_type",
       "canonicalTerm": "compute_analytics_type",
       "preferredName": "compute_analytics_type",
@@ -1080,6 +1122,20 @@
       ]
     },
     {
+      "semanticId": "lotus.contribution",
+      "canonicalTerm": "contribution",
+      "preferredName": "contribution",
+      "description": "Member contribution to composite return as a decimal ratio.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.convergence",
       "canonicalTerm": "convergence",
       "preferredName": "convergence",
@@ -1141,6 +1197,20 @@
       "canonicalTerm": "created_at_utc",
       "preferredName": "created_at_utc",
       "description": "UTC timestamp when the execution record was created.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.cumulative_return",
+      "canonicalTerm": "cumulative_return",
+      "preferredName": "cumulative_return",
+      "description": "Canonical cumulative return used by lotus-performance APIs.",
       "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
@@ -1526,6 +1596,20 @@
       ]
     },
     {
+      "semanticId": "lotus.dispersion_equal_weight",
+      "canonicalTerm": "dispersion_equal_weight",
+      "preferredName": "dispersion_equal_weight",
+      "description": "Canonical dispersion equal weight used by lotus-performance APIs.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.draining",
       "canonicalTerm": "draining",
       "preferredName": "draining",
@@ -1655,6 +1739,20 @@
       ]
     },
     {
+      "semanticId": "lotus.ending_market_value",
+      "canonicalTerm": "ending_market_value",
+      "preferredName": "ending_market_value",
+      "description": "Composite ending assets across ready members.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.engine_version",
       "canonicalTerm": "engine_version",
       "preferredName": "engine_version",
@@ -1746,6 +1844,20 @@
       ],
       "observedTypes": [
         "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.excluded_member_count",
+      "canonicalTerm": "excluded_member_count",
+      "preferredName": "excluded_member_count",
+      "description": "Non-ready member-return fact count excluded.",
+      "example": 1,
+      "type": "integer",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "integer"
       ]
     },
     {
@@ -3048,6 +3160,46 @@
       ]
     },
     {
+      "semanticId": "lotus.member_contributions",
+      "canonicalTerm": "member_contributions",
+      "preferredName": "member_contributions",
+      "description": "Member weights and contribution evidence for ready facts.",
+      "example": [
+        {
+          "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+          "period_start": "2026-01-01",
+          "period_end": "2026-01-31",
+          "return_value": "0.0125",
+          "beginning_market_value": "1000000.000000",
+          "beginning_asset_weight": "0.250000000000",
+          "contribution": "0.003125000000",
+          "source_snapshot_id": "snapshot-1",
+          "calculation_id": "calc-1"
+        }
+      ],
+      "type": "array",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "array"
+      ]
+    },
+    {
+      "semanticId": "lotus.member_count",
+      "canonicalTerm": "member_count",
+      "preferredName": "member_count",
+      "description": "Ready member-return fact count used in this period.",
+      "example": 1,
+      "type": "integer",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "integer"
+      ]
+    },
+    {
       "semanticId": "lotus.message",
       "canonicalTerm": "message",
       "preferredName": "message",
@@ -3099,6 +3251,20 @@
       "preferredName": "method",
       "description": "solver field: method.",
       "example": "example_method",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.methodology",
+      "canonicalTerm": "methodology",
+      "preferredName": "methodology",
+      "description": "Composite methodology identifier used for this response.",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -3804,6 +3970,34 @@
         "WorkspacePeriodType",
         "PeriodType",
         "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.period_end",
+      "canonicalTerm": "period_end",
+      "preferredName": "period_end",
+      "description": "Inclusive calculation window end date.",
+      "example": "2025-03-31",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.period_start",
+      "canonicalTerm": "period_start",
+      "preferredName": "period_start",
+      "description": "Inclusive calculation window start date.",
+      "example": "2025-03-31",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -5095,6 +5289,20 @@
       ]
     },
     {
+      "semanticId": "lotus.return_value",
+      "canonicalTerm": "return_value",
+      "preferredName": "return_value",
+      "description": "Canonical return value used by lotus-performance APIs.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.returned_count",
       "canonicalTerm": "returned_count",
       "preferredName": "returned_count",
@@ -5488,6 +5696,20 @@
       "preferredName": "source_service",
       "description": "Service that owns and emitted this capability contract.",
       "example": "lotus-performance",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.source_snapshot_id",
+      "canonicalTerm": "source_snapshot_id",
+      "preferredName": "source_snapshot_id",
+      "description": "Source snapshot identifier used for lineage.",
+      "example": "ENTITY_001",
       "type": "string",
       "locations": [
         "body"
@@ -9281,6 +9503,293 @@
       },
       "response": {
         "fields": []
+      }
+    },
+    {
+      "domain": "performance",
+      "method": "POST",
+      "path": "/performance/composites/twr",
+      "operationId": "calculate_composite_twr_performance_composites_twr_post",
+      "summary": "Calculate composite time-weighted return from persisted member-return facts",
+      "request": {
+        "fields": [
+          {
+            "name": "calculation_id",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.calculation_id",
+            "attributeRef": "#/attributeCatalog/lotus.calculation_id"
+          },
+          {
+            "name": "composite_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.composite_id",
+            "attributeRef": "#/attributeCatalog/lotus.composite_id"
+          },
+          {
+            "name": "period_start",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_start",
+            "attributeRef": "#/attributeCatalog/lotus.period_start"
+          },
+          {
+            "name": "period_end",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_end",
+            "attributeRef": "#/attributeCatalog/lotus.period_end"
+          }
+        ]
+      },
+      "response": {
+        "fields": [
+          {
+            "name": "calculation_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.calculation_id",
+            "attributeRef": "#/attributeCatalog/lotus.calculation_id"
+          },
+          {
+            "name": "composite_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.composite_id",
+            "attributeRef": "#/attributeCatalog/lotus.composite_id"
+          },
+          {
+            "name": "status",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.status",
+            "attributeRef": "#/attributeCatalog/lotus.status"
+          },
+          {
+            "name": "period_start",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_start",
+            "attributeRef": "#/attributeCatalog/lotus.period_start"
+          },
+          {
+            "name": "period_end",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_end",
+            "attributeRef": "#/attributeCatalog/lotus.period_end"
+          },
+          {
+            "name": "cumulative_return",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.cumulative_return",
+            "attributeRef": "#/attributeCatalog/lotus.cumulative_return"
+          },
+          {
+            "name": "reason_codes",
+            "location": "body",
+            "required": false,
+            "type": "array",
+            "semanticId": "lotus.reason_codes",
+            "attributeRef": "#/attributeCatalog/lotus.reason_codes"
+          },
+          {
+            "name": "periods",
+            "location": "body",
+            "required": true,
+            "type": "array",
+            "semanticId": "lotus.periods",
+            "attributeRef": "#/attributeCatalog/lotus.periods"
+          },
+          {
+            "name": "periods[].period_start",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_start",
+            "attributeRef": "#/attributeCatalog/lotus.period_start"
+          },
+          {
+            "name": "periods[].period_end",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_end",
+            "attributeRef": "#/attributeCatalog/lotus.period_end"
+          },
+          {
+            "name": "periods[].status",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.status",
+            "attributeRef": "#/attributeCatalog/lotus.status"
+          },
+          {
+            "name": "periods[].return_value",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.return_value",
+            "attributeRef": "#/attributeCatalog/lotus.return_value"
+          },
+          {
+            "name": "periods[].cumulative_return",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.cumulative_return",
+            "attributeRef": "#/attributeCatalog/lotus.cumulative_return"
+          },
+          {
+            "name": "periods[].beginning_market_value",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.beginning_market_value",
+            "attributeRef": "#/attributeCatalog/lotus.beginning_market_value"
+          },
+          {
+            "name": "periods[].ending_market_value",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.ending_market_value",
+            "attributeRef": "#/attributeCatalog/lotus.ending_market_value"
+          },
+          {
+            "name": "periods[].member_count",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.member_count",
+            "attributeRef": "#/attributeCatalog/lotus.member_count"
+          },
+          {
+            "name": "periods[].excluded_member_count",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.excluded_member_count",
+            "attributeRef": "#/attributeCatalog/lotus.excluded_member_count"
+          },
+          {
+            "name": "periods[].dispersion_equal_weight",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.dispersion_equal_weight",
+            "attributeRef": "#/attributeCatalog/lotus.dispersion_equal_weight"
+          },
+          {
+            "name": "periods[].reason_codes",
+            "location": "body",
+            "required": false,
+            "type": "array",
+            "semanticId": "lotus.reason_codes",
+            "attributeRef": "#/attributeCatalog/lotus.reason_codes"
+          },
+          {
+            "name": "periods[].member_contributions",
+            "location": "body",
+            "required": false,
+            "type": "array",
+            "semanticId": "lotus.member_contributions",
+            "attributeRef": "#/attributeCatalog/lotus.member_contributions"
+          },
+          {
+            "name": "periods[].member_contributions[].portfolio_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.portfolio_id",
+            "attributeRef": "#/attributeCatalog/lotus.portfolio_id"
+          },
+          {
+            "name": "periods[].member_contributions[].period_start",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_start",
+            "attributeRef": "#/attributeCatalog/lotus.period_start"
+          },
+          {
+            "name": "periods[].member_contributions[].period_end",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_end",
+            "attributeRef": "#/attributeCatalog/lotus.period_end"
+          },
+          {
+            "name": "periods[].member_contributions[].return_value",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.return_value",
+            "attributeRef": "#/attributeCatalog/lotus.return_value"
+          },
+          {
+            "name": "periods[].member_contributions[].beginning_market_value",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.beginning_market_value",
+            "attributeRef": "#/attributeCatalog/lotus.beginning_market_value"
+          },
+          {
+            "name": "periods[].member_contributions[].beginning_asset_weight",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.beginning_asset_weight",
+            "attributeRef": "#/attributeCatalog/lotus.beginning_asset_weight"
+          },
+          {
+            "name": "periods[].member_contributions[].contribution",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.contribution",
+            "attributeRef": "#/attributeCatalog/lotus.contribution"
+          },
+          {
+            "name": "periods[].member_contributions[].source_snapshot_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.source_snapshot_id",
+            "attributeRef": "#/attributeCatalog/lotus.source_snapshot_id"
+          },
+          {
+            "name": "periods[].member_contributions[].calculation_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.calculation_id",
+            "attributeRef": "#/attributeCatalog/lotus.calculation_id"
+          },
+          {
+            "name": "methodology",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.methodology",
+            "attributeRef": "#/attributeCatalog/lotus.methodology"
+          }
+        ]
       }
     },
     {

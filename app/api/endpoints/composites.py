@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import asdict
-
 from fastapi import APIRouter, HTTPException, status
 
 from app.models.composites import (
@@ -19,7 +17,17 @@ router = APIRouter(tags=["Performance"])
 
 
 def _member_contribution_response(item) -> CompositeMemberContributionResponse:
-    return CompositeMemberContributionResponse(**asdict(item))
+    return CompositeMemberContributionResponse(
+        portfolio_id=item.portfolio_id,
+        period_start=item.period_start,
+        period_end=item.period_end,
+        return_value=item.return_value,
+        beginning_market_value=item.beginning_market_value,
+        beginning_asset_weight=item.weight,
+        contribution=item.contribution,
+        source_snapshot_id=item.source_snapshot_id,
+        calculation_id=item.calculation_id,
+    )
 
 
 def _period_response(item) -> CompositePeriodResultResponse:

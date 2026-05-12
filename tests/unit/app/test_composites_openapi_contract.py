@@ -28,4 +28,4 @@ def test_composite_twr_openapi_documents_persisted_fact_contract() -> None:
         in period_schema["properties"]["dispersion_equal_weight"]["description"]
     )
     member_schema = spec["components"]["schemas"]["CompositeMemberContributionResponse"]
-    assert "Beginning-asset member weight" in member_schema["properties"]["weight"]["description"]
+    assert "Beginning-asset member weight" in member_schema["properties"]["beginning_asset_weight"]["description"]

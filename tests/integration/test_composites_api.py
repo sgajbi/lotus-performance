@@ -70,7 +70,7 @@ def test_composite_twr_api_calculates_from_persisted_member_facts():
     assert payload["status"] == "READY"
     assert payload["cumulative_return"] == "0.025000000000"
     assert payload["periods"][0]["member_count"] == 2
-    assert payload["periods"][0]["member_contributions"][1]["weight"] == "0.750000000000"
+    assert payload["periods"][0]["member_contributions"][1]["beginning_asset_weight"] == "0.750000000000"
     assert payload["methodology"] == "persisted_member_return_asset_weighted_twr_v1"
 
 

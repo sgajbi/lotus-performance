@@ -238,7 +238,7 @@ class CompositeMemberContributionResponse(BaseModel):
         description="Beginning market value used as the member weight basis.",
         examples=["1000000.000000"],
     )
-    weight: Decimal = Field(
+    beginning_asset_weight: Decimal = Field(
         description="Beginning-asset member weight as a decimal ratio.", examples=["0.250000000000"]
     )
     contribution: Decimal = Field(
