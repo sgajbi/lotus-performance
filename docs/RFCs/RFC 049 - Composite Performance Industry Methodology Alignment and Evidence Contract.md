@@ -13,7 +13,9 @@ Created: 2026-05-12
 Implementation posture: approved for slice-by-slice implementation by the operator on
 2026-05-12. Work must proceed strictly slice by slice. A slice is complete only when it is
 implemented, validated, reviewed, documented, committed, and in a solid state. Slice 0 baseline
-evidence is captured in `docs/RFCs/RFC-049-source-map-and-baseline-slice0.md`.
+evidence is captured in `docs/RFCs/RFC-049-source-map-and-baseline-slice0.md`; Slice 1 platform
+automation/scaffolding baseline is captured in
+`docs/RFCs/RFC-049-platform-automation-slice1.md`.
 
 Related RFCs:
 
