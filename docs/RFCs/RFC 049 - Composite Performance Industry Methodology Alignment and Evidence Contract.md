@@ -18,7 +18,9 @@ automation/scaffolding baseline is captured in
 `docs/RFCs/RFC-049-platform-automation-slice1.md`; Slice 2 cleanup and structure evidence is
 captured in `docs/RFCs/RFC-049-cleanup-and-structure-slice2.md`; Slice 3 source authority and
 persisted member-return fact foundation evidence is captured in
-`docs/RFCs/RFC-049-source-authority-and-member-facts-slice3.md`.
+`docs/RFCs/RFC-049-source-authority-and-member-facts-slice3.md`; Slice 4 persisted composite
+calculation foundation evidence is captured in
+`docs/RFCs/RFC-049-persisted-composite-calculation-slice4.md`.
 
 Related RFCs:
 
