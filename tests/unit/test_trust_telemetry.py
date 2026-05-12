@@ -15,6 +15,7 @@ SNAPSHOT_PATH = TELEMETRY_DIR / "returns-series-bundle.telemetry.v1.json"
 TWR_SNAPSHOT_PATH = TELEMETRY_DIR / "time-weighted-return-analytics.telemetry.v1.json"
 CONTRIBUTION_SNAPSHOT_PATH = TELEMETRY_DIR / "contribution-analytics.telemetry.v1.json"
 ATTRIBUTION_SNAPSHOT_PATH = TELEMETRY_DIR / "attribution-analytics.telemetry.v1.json"
+COMPOSITE_SNAPSHOT_PATH = TELEMETRY_DIR / "composite-performance-analytics.telemetry.v1.json"
 DECLARATION_PATH = REPO_ROOT / "contracts" / "domain-data-products" / "lotus-performance-products.v1.json"
 
 
@@ -118,6 +119,27 @@ def test_attribution_analytics_trust_telemetry_is_tied_to_repo_declaration() -> 
     assert snapshot["freshness"]["freshness_class"] == declared_product["freshness_policy"]["freshness_class"]
     assert set(snapshot["observed_trust_metadata"]) == set(declared_product["required_trust_metadata"])
     assert snapshot["observed_trust_metadata"]["benchmark_context"]["return_source"] == "calculated"
+    assert snapshot["lineage"]["lineage_materialized"] is True
+    assert (
+        snapshot["lineage"]["evidence_access_class"] == declared_product["lineage_policy"]["evidence_access_class_ref"]
+    )
+    assert snapshot["blocking"]["blocked"] is False
+
+
+def test_composite_performance_analytics_trust_telemetry_is_tied_to_repo_declaration() -> None:
+    snapshot = _load_json(COMPOSITE_SNAPSHOT_PATH)
+    declaration = _load_json(DECLARATION_PATH)
+    declared_product = next(
+        product for product in declaration["products"] if product["product_name"] == "CompositePerformanceAnalytics"
+    )
+
+    assert snapshot["product_id"] == "lotus-performance:CompositePerformanceAnalytics:v1"
+    assert snapshot["producer_repository"] == declaration["producer_repository"]
+    assert snapshot["product_name"] == declared_product["product_name"]
+    assert snapshot["product_version"] == declared_product["product_version"]
+    assert snapshot["freshness"]["freshness_class"] == declared_product["freshness_policy"]["freshness_class"]
+    assert set(snapshot["observed_trust_metadata"]) == set(declared_product["required_trust_metadata"])
+    assert snapshot["observed_trust_metadata"]["lineage_version"] == "composite-lineage-v1"
     assert snapshot["lineage"]["lineage_materialized"] is True
     assert (
         snapshot["lineage"]["evidence_access_class"] == declared_product["lineage_policy"]["evidence_access_class_ref"]

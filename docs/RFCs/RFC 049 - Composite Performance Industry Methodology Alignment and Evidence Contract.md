@@ -23,7 +23,9 @@ calculation foundation evidence is captured in
 `docs/RFCs/RFC-049-persisted-composite-calculation-slice4.md`; Slice 5 public composite API
 contract evidence is captured in `docs/RFCs/RFC-049-public-composite-api-slice5.md`. Slice 2A
 enterprise posture baseline and hardening closure rules are captured in
-`docs/RFCs/RFC-049-enterprise-posture-baseline-slice2A.md`.
+`docs/RFCs/RFC-049-enterprise-posture-baseline-slice2A.md`. Slice 6 data-product and runtime
+hardening evidence is captured in
+`docs/RFCs/RFC-049-data-product-runtime-hardening-slice6.md`.
 
 Related RFCs:
 

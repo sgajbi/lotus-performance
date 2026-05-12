@@ -1,0 +1,64 @@
+{
+  "contract_id": "lotus-domain-product-trust-telemetry-snapshot",
+  "contract_version": "1.0.0",
+  "governed_by_rfcs": [
+    "RFC-0087",
+    "RFC-049"
+  ],
+  "emitted_at_utc": "2026-05-12T00:00:00Z",
+  "product_id": "lotus-performance:CompositePerformanceAnalytics:v1",
+  "producer_repository": "lotus-performance",
+  "product_name": "CompositePerformanceAnalytics",
+  "product_version": "v1",
+  "source_repository": "lotus-performance",
+  "freshness": {
+    "freshness_class": "batch",
+    "freshness_state": "current",
+    "evaluated_at_utc": "2026-05-12T00:00:00Z",
+    "observed_at_utc": "2026-05-12T00:00:00Z",
+    "age_seconds": 0,
+    "max_allowed_age_seconds": 86400
+  },
+  "completeness_status": "complete",
+  "reconciliation_status": "reconciled",
+  "data_quality_status": "quality_passed",
+  "lineage": {
+    "lineage_materialized": true,
+    "lineage_bundle_id": "lineage:lotus-performance:composite-performance-analytics:2026-05-12",
+    "evidence_access_class": "customer_consumable",
+    "evidence_uris": [
+      "lotus-performance://evidence/composites/PB_GLOBAL_BALANCED_USD/2026-05-12"
+    ]
+  },
+  "blocking": {
+    "blocked": false
+  },
+  "observed_trust_metadata": {
+    "product_name": "CompositePerformanceAnalytics",
+    "product_version": "v1",
+    "generated_at": "2026-05-12T00:00:00Z",
+    "as_of_date": "2026-05-12",
+    "correlation_id": "rfc-049-lotus-performance-composite",
+    "request_fingerprint": "sha256:rfc-049-composite-persisted-fact-proof",
+    "source_services": [
+      "lotus-performance"
+    ],
+    "upstream_request_fingerprints": [
+      "sha256:rfc-049-composite-member-return-facts"
+    ],
+    "data_quality_status": "quality_passed",
+    "coverage_status": "complete",
+    "coverage_ratio": "1.0",
+    "reconciliation_status": "reconciled",
+    "lineage_version": "composite-lineage-v1"
+  },
+  "evidence": {
+    "correlation_id": "rfc-049-lotus-performance-composite",
+    "validation_lanes": [
+      "feature",
+      "pr-merge"
+    ],
+    "source_event_id": "source-event:lotus-performance:composite:2026-05-12",
+    "source_artifact_uri": "lotus-performance://contracts/trust-telemetry/composite-performance-analytics.telemetry.v1.json"
+  }
+}
