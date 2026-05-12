@@ -15,7 +15,8 @@ Implementation posture: approved for slice-by-slice implementation by the operat
 implemented, validated, reviewed, documented, committed, and in a solid state. Slice 0 baseline
 evidence is captured in `docs/RFCs/RFC-049-source-map-and-baseline-slice0.md`; Slice 1 platform
 automation/scaffolding baseline is captured in
-`docs/RFCs/RFC-049-platform-automation-slice1.md`.
+`docs/RFCs/RFC-049-platform-automation-slice1.md`; Slice 2 cleanup and structure evidence is
+captured in `docs/RFCs/RFC-049-cleanup-and-structure-slice2.md`.
 
 Related RFCs:
 

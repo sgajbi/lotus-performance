@@ -143,17 +143,18 @@ Status values:
 - Proposed action: Phase 1 mgmt-fee bridge, then add advanced cost components.
 
 ### RFC-022-D01
-- Status: `open`
+- Status: `in_progress_via_rfc_049`
 - Priority: P2
 - Source RFC: `RFC-022`
-- Delta: Decide ownership and either implement composite/sleeve APIs or archive/re-home RFC.
-- Why still relevant: No runtime implementation and likely cross-domain ownership impact.
+- Delta: Retire RFC-022 as an implementation source and deliver the approved composite-performance
+  scope through RFC-049.
+- Why still relevant: No runtime implementation exists yet, but the ownership and delivery direction
+  is now governed by RFC-049 rather than the older stateless `/composites/*` wrapper design.
 - Evidence:
   - No `/composites/*` endpoints or `engine/composite.py`.
-- Proposed action: RFC-049 now supersedes RFC-022 for execution planning and proposes
-  `lotus-performance` ownership of composite performance calculation after explicit source-authority
-  review. Keep this delta open until RFC-049 is approved, implemented, and merged or until the
-  operator rejects the composite-performance direction.
+- Proposed action: Keep this delta open only as a tracking pointer until RFC-049 is implemented,
+  merged, and promoted through implementation-backed supported-feature and wiki material. Do not
+  implement RFC-022 directly.
 
 ### RFC-023-D01
 - Status: `open`
