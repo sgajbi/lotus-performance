@@ -260,7 +260,7 @@ def test_twr_documentation_map_and_wiki_navigation_are_present():
     assert "[Supported Features](Supported-Features)" in wiki_home
     assert "docs/technical/twr-documentation-map.md" in wiki_api_surface
     assert "TimeWeightedReturnAnalytics:v1" in supported_features
-    assert "Composite, group, and sleeve TWR are not supported" in supported_features
+    assert "composite TWR is supported only through `POST /performance/composites/twr`" in supported_features
     assert "lotus-performance:TimeWeightedReturnAnalytics:v1" in mesh_data_products
 
 
@@ -318,7 +318,8 @@ def test_rfc_049_advanced_composite_analytics_are_gated():
         assert unsupported_scope in decision
         assert unsupported_scope in supported_features
 
-    assert "not yet a final demo-safe supported-feature claim" in supported_features
+    assert "RFC-049 promotes persisted-fact composite performance" in supported_features
+    assert "Gateway route realization, Workbench typed BFF consumption" in supported_features
     assert "`POST /performance/composites/twr`" in supported_features
     assert "`POST /performance/composites/inspect`" in supported_features
     assert "docs/RFCs/RFC-049-advanced-analytics-decision-slice8.md" in rfc_index
@@ -359,7 +360,11 @@ def test_rfc_049_composite_documentation_productization_is_grounded():
     assert "docs/guides/composite_performance.md" in readme
     assert "wiki/Composite-Performance.md" in readme
     assert "contracts/trust-telemetry/composite-performance-analytics.telemetry.v1.json" in mesh_data_products
-    assert "Slice 11 added implementation-backed composite methodology v3" in rfc_index
+    assert "Slice 11 productized methodology/docs/wiki" in rfc_index
+    assert "Slice 12 live proof" in certification
+    assert "Slice 13 Swagger hardening" in certification
+    assert "Promotes only the persisted-fact composite TWR" in map_doc
+    assert "Supported after RFC-049 implementation proof" in wiki_page
 
 
 def test_benchmark_guide_uses_current_request_shape():

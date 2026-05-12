@@ -1,6 +1,6 @@
 # RFC 049 - Composite Performance Industry Methodology Alignment and Evidence Contract
 
-Status: Approved - implementation in progress
+Status: Implemented - final closure ready
 
 Owner repository: `lotus-performance`
 
@@ -35,7 +35,10 @@ downstream/upstream integration realization evidence is captured in
 `docs/RFCs/RFC-049-downstream-upstream-integration-slice9.md`. Slice 10 QA regression pack
 evidence is captured in `docs/RFCs/RFC-049-qa-regression-pack-slice10.md`. Slice 11 documentation
 productization and wiki evidence is captured in
-`docs/RFCs/RFC-049-documentation-productization-slice11.md`.
+`docs/RFCs/RFC-049-documentation-productization-slice11.md`. Slice 12 implementation proof is
+captured in `docs/RFCs/RFC-049-implementation-proof-slice12.md`. Slice 13 second-last hardening
+review is captured in `docs/RFCs/RFC-049-hardening-review-slice13.md`. Slice 14 final closure
+evidence is captured in `docs/RFCs/RFC-049-final-closure-slice14.md`.
 
 Related RFCs:
 
@@ -1611,23 +1614,78 @@ Until approval, this RFC remains planning material only.
 
 ## 13. Gold-Pass Assessment
 
-Status: not started.
+Status: complete on the RFC-049 branch; final merge and wiki publication are tracked by
+`docs/RFCs/RFC-049-final-closure-slice14.md`.
 
-This section must be completed during Slice 14 after implementation, live proof, hardening review,
-docs/wiki publication, supported-features promotion, CI closure, branch hygiene, and stranded-truth
-reconciliation are complete.
+RFC-049 delivered the approved composite business value inside `lotus-performance` without a
+separate repository and without promoting an unapproved second wave. The supported capability is
+private-banking composite TWR from persisted member-return facts, exposed through
+`POST /performance/composites/twr` and inspected through
+`POST /performance/composites/inspect`.
 
-Required closure statements:
+Completed implementation-backed outcomes:
 
-1. what was truly completed;
-2. what quality improvements were made;
-3. what debt was removed;
-4. what was proven through testing and evidence;
-5. whether the implementation genuinely reached the expected standard;
-6. which features are supported, gated, or unsupported after closure;
-7. how `lotus-performance` was materially strengthened across enterprise hardening, scalability,
-   workload isolation, logging, observability, tracing/correlation, security, naming, code quality,
-   repository structure, API quality, operational supportability, performance, test quality, and
-   production readiness;
-8. whether skills, guidance, documentation, local skill copies, agent context, or platform
-   automation were improved or deliberately left unchanged.
+1. composite source-authority, definition, membership, and persisted member-return fact foundations;
+2. exact-decimal asset-weighted composite TWR calculation over persisted facts;
+3. return-view separation, single reporting-currency guards, source fingerprints, source snapshots,
+   calculation ids, restatement versions, and blocked/degraded supportability;
+4. composite inspection with supportability findings and classified artifacts;
+5. `CompositePerformanceAnalytics:v1` data-product and trust-telemetry declarations;
+6. public API contracts with OpenAPI/API-vocabulary certification and realistic Swagger error
+   examples;
+7. Gateway route realization and Workbench typed BFF consumption;
+8. deterministic QA coverage, live direct API/Gateway/BFF proof, canonical Workbench validation,
+   and operations evidence;
+9. methodology v3, API guide, endpoint certification, documentation map, README/wiki navigation,
+   and supported-feature promotion.
+
+Quality improvements made:
+
+1. RFC-022 was superseded as execution guidance so stale stateless composite wrapper assumptions no
+   longer steer implementation.
+2. Composite calculation is persisted-fact-first and does not hide request-time member portfolio TWR
+   fan-out behind the public API.
+3. Composite math, inspection, data-product, and downstream contracts are separated into bounded
+   modules and tests rather than a monolithic feature path.
+4. Docs tests now pin the implementation-backed composite product boundary and unsupported advanced
+   scopes.
+5. Slice 13 hardened Swagger error examples and found no remaining avoidable composite
+   implementation defect.
+
+Evidence proving the standard:
+
+1. `make check` passed after Slice 13 with lint, formatting, mypy, OpenAPI quality, vocabulary,
+   no-alias, domain data-product validation, and 1270 unit tests.
+2. PR `sgajbi/lotus-performance#162` was green after Slice 13, including Feature Lane and PR Merge
+   Gate Docker build validation.
+3. Slice 12 live proof captured direct `lotus-performance`, Gateway, Workbench BFF, canonical
+   Workbench, and operations evidence.
+4. Slice 14 stranded-truth reconciliation found no unmerged `lotus-performance` remote branches
+   outside the active RFC-049 branch.
+
+Supported after closure:
+
+1. persisted-fact composite TWR;
+2. composite inspection and classified evidence artifacts;
+3. `CompositePerformanceAnalytics:v1` as a governed data product;
+4. Gateway and Workbench typed consumption of source-owned composite outputs.
+
+Unsupported and intentionally gated:
+
+1. composite contribution;
+2. composite attribution;
+3. composite MWR;
+4. sleeves and carve-outs;
+5. model portfolios and wrap programs;
+6. pooled fund and private-market composites;
+7. portability records;
+8. tax-aware, leveraged, or long/short special composite structures;
+9. multi-currency composite aggregation beyond the single reporting-currency guard;
+10. benchmark active return for composites.
+
+Enterprise-hardening outcome: `lotus-performance` now has stronger source authority, API
+certification, data-product metadata, lineage/restatement evidence, supportability reason codes,
+classified artifacts, downstream contract clarity, live proof tooling, product documentation, and
+docs regression coverage for composite analytics. No AGENTS, central context, local skill, or
+platform automation change was required in Slice 14 because RFC-049 used the already-merged platform
+scaffolding and data-product governance patterns without discovering a new reusable platform gap.

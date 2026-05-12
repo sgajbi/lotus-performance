@@ -32,8 +32,9 @@
 - RFC-045
   TWR inspection and supportability contract
 - RFC-049
-  active composite-performance implementation RFC; composite support remains unsupported until
-  RFC-049 is implemented, proven, documented, and promoted through supported-feature material
+  implemented composite-performance RFC; persisted-fact composite TWR and inspection are promoted
+  through supported-feature material, while composite contribution, attribution, MWR, sleeves,
+  carve-outs, and advanced composite structures remain unsupported
 
 ## Full local RFC estate
 

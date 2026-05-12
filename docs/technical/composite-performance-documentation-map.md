@@ -1,6 +1,7 @@
 # Composite Performance Documentation Map
 
-This map explains where composite performance truth lives after RFC-049 Slice 11.
+This map explains where composite performance truth lives after RFC-049 implementation proof and
+final closure preparation.
 
 ## Audience Routing
 
@@ -24,9 +25,9 @@ the current single reporting-currency guard is not supported.
 | --- | --- | --- |
 | `docs/methodologies/metrics/metric-composite-twr.md` | Audit-grade methodology for persisted-fact asset-weighted composite TWR. | Does not document unsupported composite contribution, attribution, MWR, or advanced structures as implemented. |
 | `docs/guides/composite_performance.md` | API guide, source-authority explanation, operational workflow, and support boundaries. | Human guide only; OpenAPI remains field-level contract. |
-| `docs/technical/composite-twr-endpoint-certification.md` | Endpoint invariants, error behavior, inspector certification, and test-pyramid evidence. | Branch-certified until Slice 12 live proof and final closure. |
+| `docs/technical/composite-twr-endpoint-certification.md` | Endpoint invariants, error behavior, inspector certification, live proof, and test-pyramid evidence. | Certification covers the RFC-049 supported composite TWR boundary only. |
 | `wiki/Composite-Performance.md` | Product-facing wiki page for demos, operators, business users, and engineers. | Summarizes and links; it is not the full methodology source. |
-| `wiki/Supported-Features.md` | Implementation-backed feature ledger and unsupported-scope boundary. | Final demo-safe promotion waits for RFC-049 closure. |
+| `wiki/Supported-Features.md` | Implementation-backed feature ledger and unsupported-scope boundary. | Promotes only the persisted-fact composite TWR and inspector capability proven by RFC-049. |
 
 ## Source Flow
 

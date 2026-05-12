@@ -1,7 +1,7 @@
 # Composite TWR Endpoint Certification
 
-Status: branch-certified for RFC-049 Slice 11; final supported-feature promotion waits for Slice 12
-live proof, Slice 13 hardening, and Slice 14 closure.
+Status: certified for the RFC-049 supported composite TWR boundary after Slice 12 live proof,
+Slice 13 hardening, and Slice 14 closure preparation.
 
 Endpoints:
 
@@ -126,21 +126,28 @@ Certification-relevant mesh controls:
 | Model tests | Definition dates, membership dates, non-ready reason codes, negative asset rejection. | Good for contract validation. |
 | Engine tests | Weighting, linking, degraded facts, no ready facts, no member facts, nonpositive assets, mixed return views, mixed currencies, one-member dispersion, inactive gaps, and reconciliation. | Strong for core methodology. |
 | Service tests | Missing definitions, restated fact selection, persisted fact lookup, inspector findings and artifacts. | Strong for service behavior. |
-| Integration tests | Public API success, missing definition, no persisted facts, degraded facts, invalid windows. | Strong for endpoint behavior before live proof. |
-| OpenAPI tests | Persisted-fact contract text, schema descriptions, and error responses. | Adequate; Slice 13 performs final Swagger hardening. |
-| Downstream tests | Gateway and Workbench typed integration tests exist on their RFC-049 branches. | Adequate before live front-office proof. |
+| Integration tests | Public API success, missing definition, no persisted facts, degraded facts, invalid windows. | Strong for endpoint behavior. |
+| OpenAPI tests | Persisted-fact contract text, schema descriptions, realistic error examples, and field descriptions. | Strong after Slice 13 Swagger hardening. |
+| Downstream tests | Gateway route tests and Workbench typed BFF tests exist on their RFC-049 branches. | Strong after Slice 12 live direct API, Gateway, BFF, canonical front-office, and operations proof. |
 
 ## Current Evidence
 
-Local Slice 10 validation:
+Local validation:
 
-- `python -m pytest tests\unit\engine\test_composites.py tests\unit\models\test_composite_models.py tests\unit\services\test_composite_calculation_service.py tests\unit\services\test_composite_inspection_service.py tests\integration\test_composites_api.py -q`
-- `make check`
+- Slice 10 composite regression pack.
+- Slice 12 live proof utilities and direct runtime probes.
+- Slice 13 OpenAPI/API-certification hardening tests.
+- Slice 14 docs contract and closure validation.
 
 Remote CI evidence:
 
 - PR `sgajbi/lotus-performance#162`
-- Commit `f785071`
-- Feature Lane and PR Merge Gate green after Slice 10.
+- Feature Lane and PR Merge Gate green after Slice 13 commit `60bf860`.
 
-Live canonical front-office proof is planned for Slice 12 before final supported-feature promotion.
+Live proof:
+
+- direct `lotus-performance` composite TWR and inspector probes;
+- Gateway composite TWR and inspector probes;
+- Workbench BFF composite TWR and inspector probes;
+- canonical Workbench validation for `PB_SG_GLOBAL_BAL_001`;
+- operations evidence pack covering readiness, metrics, logs, Prometheus, and Grafana.

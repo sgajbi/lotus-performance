@@ -139,18 +139,14 @@ delivery evidence for completed work.
 
 14. **RFC 022 — Composite & Sleeve Aggregation API**
     * **Reasoning:** **Enable firm-level and GIPS-compliant reporting.** A major enterprise feature that aggregates results from multiple portfolios into composites, representing the pinnacle of the platform's capabilities.
-    * **Current state:** **Superseded for execution planning by RFC 049.** RFC 022 remains useful
-      historical context, but it is not implementation-ready under current Lotus governance. RFC
-      049 is the approval artifact for composite performance: it keeps current composite support
-      unsupported, requires source-authority and membership governance before calculation, requires
-      persisted member return facts and batch/recalculation workflows rather than hidden on-the-fly
-      TWR fan-out, proposes composite TWR as the first-class target, gates composite
-      contribution/attribution/MWR/sleeves, and requires inspector evidence, export artifacts,
-      lineage, methodology v3 documentation, enterprise uplift across scalability, workload
-      isolation, logging, observability, tracing/correlation, security, naming, code quality,
-      repository structure, API quality, operational supportability, performance, test quality, and
-      production readiness, data-product, downstream, docs/wiki, live-proof, security, CI, and
-      branch-hygiene closure before any supported composite claim is promoted. Approved RFC-049
-      scope must be completed in this RFC without an unapproved second wave; unsupported advanced
-      scopes must remain explicit rather than aspirational.
+    * **Current state:** **Superseded and closed through RFC 049.** RFC 022 remains historical
+      context, but the implementation-backed composite product boundary now lives in RFC 049.
+      RFC 049 delivered persisted-fact composite TWR and inspection through
+      `POST /performance/composites/twr` and `POST /performance/composites/inspect`, promoted
+      `CompositePerformanceAnalytics:v1`, added Gateway and Workbench consumption, proved the path
+      live, and published implementation-backed supported-feature material. Composite contribution,
+      attribution, MWR, sleeves, carve-outs, model portfolios, wrap programs, private-market
+      composites, portability, tax-aware/leveraged/long-short structures, benchmark active return,
+      and multi-currency composite aggregation beyond the single reporting-currency guard remain
+      unsupported.
 

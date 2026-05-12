@@ -6,7 +6,7 @@ needed for audit, operations, support, downstream consumers, and client-demo pre
 
 ## Current Functional Coverage
 
-Supported on the RFC-049 branch:
+Supported after RFC-049 implementation proof:
 
 - persisted member-return fact based composite TWR;
 - asset-weighted period returns;
@@ -16,10 +16,9 @@ Supported on the RFC-049 branch:
 - blocked periods when calculation would be misleading;
 - source fingerprints, restatement versions, source snapshots, and member calculation ids;
 - inspector findings and classified artifacts;
-- `CompositePerformanceAnalytics:v1` data-product declaration.
-
-Final demo-safe supported-feature promotion waits for RFC-049 live front-office proof, final
-hardening, merge to `main`, and wiki publication.
+- `CompositePerformanceAnalytics:v1` data-product declaration;
+- Gateway route realization and Workbench typed BFF consumption;
+- live direct performance, Gateway, Workbench BFF, canonical front-office, and operations proof.
 
 ## What The Composite API Does
 

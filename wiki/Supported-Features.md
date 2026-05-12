@@ -8,30 +8,33 @@ claim list.
 
 | Capability | Supported scope | Primary route or surface | Evidence and boundary |
 | --- | --- | --- | --- |
-| Portfolio TWR | Portfolio-level stateless and stateful TWR, synchronous and async | `POST /performance/twr`, `GET /performance/twr/results/{calculation_id}` | Daily calculation evidence, linkability status, episode status, supportability metadata, reset diagnostics, lineage, and docs contract tests. Composite, group, and sleeve TWR are not supported. |
+| Portfolio TWR | Portfolio-level stateless and stateful TWR, synchronous and async | `POST /performance/twr`, `GET /performance/twr/results/{calculation_id}` | Daily calculation evidence, linkability status, episode status, supportability metadata, reset diagnostics, lineage, and docs contract tests. Composite, group, and sleeve TWR are not part of the portfolio TWR endpoint; composite TWR is supported only through `POST /performance/composites/twr`. |
 | Benchmark-aware TWR | Portfolio TWR with benchmark return and active return | `POST /performance/twr` with `include_benchmark=true` | `benchmark_context.supportability_evidence` exposes benchmark source/method, currency state, FX decomposition posture, calendar alignment, missing-date counts, and bounded warning codes. |
 | TWR inspection | Source-quality, economic-plausibility, reconciliation, cash-flow classification, reset/linkability supportability | `POST /performance/inspections/twr` | Inspection findings and artifacts support operational diagnosis; resolved async TWR subjects can use durable compute-job request payloads when API-local lineage files are not yet visible. Inspection is the deeper support surface and does not replace the calculation response contract. |
 | Money-weighted return | Portfolio-level XIRR, Modified Dietz fallback, Simple Dietz explicit path | `POST /performance/mwr` | Status, reason codes, warnings, convergence, fallback metadata, reporting currency, currency evidence, calculation supportability, and production-control docs. |
 | Contribution | Portfolio, position, and hierarchy contribution, including stateful source-normalized input | `POST /performance/contribution` | Total, local, and FX contribution results with bounded supportability, Carino smoothing evidence, source-economics evidence, trust telemetry, and governed `ContributionAnalytics:v1` data-product declaration. RFC-047 proves external-deposit neutrality, income assignment, fee drag, missing classification, short-sleeve sign behavior, downstream Gateway preservation, and Workbench evidence display. Downstream consumers should not reconstruct contribution. |
 | Attribution | Portfolio/benchmark attribution, including stateful source-normalized input | `POST /performance/attribution` | Allocation, selection, interaction, active return, currency-attribution evidence, period status, reason codes, residual materiality, bounded source-alignment evidence, supportability metadata, lineage artifacts, governed `AttributionAnalytics:v1` data-product declaration, and merged Gateway/Workbench consumption; fixed-income factor, derivative, sleeve, and composite attribution are not current supported claims. Benchmark-version, classification-version, calendar-policy, and fee/tax/income breakout attribution are also not current supported claims. |
+| Composite TWR | Private-banking composite performance from persisted member-return facts | `POST /performance/composites/twr`, `POST /performance/composites/inspect` | Asset-weighted composite period returns, geometric linking, member weights and contributions, dispersion, blocked/degraded supportability, source fingerprints, source snapshots, restatement versions, classified inspector artifacts, governed `CompositePerformanceAnalytics:v1` data-product declaration, Gateway route realization, Workbench typed BFF consumption, and live RFC-049 proof. Downstream consumers should not reconstruct composite returns, weights, lineage, or restatement posture. |
 | Returns series | Performance-owned return-series bundle for downstream analytics engines | `POST /integration/returns/series` | Correct downstream surface for risk engines; `lotus-risk` should consume this rather than direct TWR response internals. |
 | Benchmark exposure context | Benchmark exposure rows for risk and integration workflows | `POST /integration/benchmarks/exposure-context` | Benchmark-context integration product; not a composite TWR calculation surface. |
 | Workspace summary | Interaction-efficient performance summary for product surfaces | `POST /performance/workspace-summary` | Product-oriented summary contract for Gateway and Workbench. It should consume performance-owned calculations, not rebuild them. |
 | Execution and lineage | Async polling, result retrieval, lineage metadata, artifacts | `/performance/executions/*`, `/performance/lineage/*` | Durable evidence path for reproducibility, operations, and support. |
 | Runtime operations | Health, readiness, metrics, runtime status, recovery, retention | `/health`, `/metrics`, `/integration/runtime-status`, recovery and retention routes | Supports enterprise operational posture and CI/runtime diagnostics. |
 
-## RFC-049 Composite Performance Boundary
+## Composite Performance Supported Detail
 
-RFC-049 is actively implementing persisted-fact composite performance. The branch-level
-implementation now contains composite source authority, persisted member-return facts,
-asset-weighted composite TWR over persisted facts, `POST /performance/composites/twr`,
-`POST /performance/composites/inspect`, `CompositePerformanceAnalytics:v1`, return-view separation,
-single reporting-currency guards, source fingerprints, restatement versions, and classified
-inspection artifacts.
+RFC-049 promotes persisted-fact composite performance as an implementation-backed supported
+capability. The supported product boundary includes composite source authority, persisted
+member-return facts, asset-weighted composite TWR over persisted facts,
+`POST /performance/composites/twr`, `POST /performance/composites/inspect`,
+`CompositePerformanceAnalytics:v1`, return-view separation, single reporting-currency guards,
+source fingerprints, source snapshots, restatement versions, classified inspection artifacts,
+Gateway route realization, Workbench typed BFF consumption, live direct API/Gateway/BFF proof,
+canonical front-office validation, and operations evidence.
 
-This is not yet a final demo-safe supported-feature claim until RFC-049 completes downstream
-Gateway/Workbench realization, live front-office proof, methodology documentation, wiki
-productization, supported-feature promotion, and final closure.
+The calculation endpoint intentionally reads already-materialized member-return facts. It does not
+fan out into hidden request-time member portfolio TWR calculations, infer membership policy, convert
+return views, or perform cross-currency aggregation at request time.
 
 composite contribution, composite attribution, composite MWR, carve-outs, sleeves, model portfolios,
 wrap programs, pooled fund composites, private-market composites, portability records,
@@ -63,9 +66,8 @@ and only the allowed canonical data warnings.
 
 ## Not Supported By RFC-046
 
-The following are not supported product claims for RFC-046:
+The following are not supported product claims for the portfolio TWR endpoint delivered by RFC-046:
 
-- composite TWR calculation
 - group TWR calculation
 - sleeve TWR calculation
 - downstream reconstruction of TWR from raw source rows
