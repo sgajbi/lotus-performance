@@ -304,6 +304,6 @@ Key operator and certification references:
 
 ## Wiki Source
 
-Repository-authored wiki pages live under [wiki/](wiki). If the GitHub wiki is published later,
-keep `wiki/` as the canonical source and treat any separate `*.wiki.git` clone as publication
-plumbing only.
+Repository-authored wiki pages live under [wiki/](wiki). Keep `wiki/` as the canonical source and
+use the governed platform wiki sync automation to publish it. Treat any separate `*.wiki.git` clone
+as publication plumbing only.

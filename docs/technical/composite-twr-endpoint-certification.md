@@ -1,7 +1,7 @@
 # Composite TWR Endpoint Certification
 
 Status: certified for the RFC-049 supported composite TWR boundary after Slice 12 live proof,
-Slice 13 hardening, and Slice 14 closure preparation.
+Slice 13 hardening, Slice 14 closure, and the post-merge gold-pass audit.
 
 Endpoints:
 
@@ -75,7 +75,7 @@ Blocked periods must not fabricate a zero return or alter cumulative growth.
 
 | Case | Expected behavior |
 | --- | --- |
-| Missing composite definition | HTTP 404 with `COMPOSITE_DEFINITION_NOT_FOUND`. |
+| Missing composite definition | HTTP 404 with `COMPOSITE_NOT_FOUND`. |
 | Invalid date window | HTTP 422 request validation. |
 | No persisted facts in requested window | HTTP 422 with `NO_MEMBER_RETURN_FACTS`. |
 | Period facts exist but none are ready | Period `BLOCKED`; aggregate status is `BLOCKED` unless another period calculates. |
@@ -138,11 +138,13 @@ Local validation:
 - Slice 12 live proof utilities and direct runtime probes.
 - Slice 13 OpenAPI/API-certification hardening tests.
 - Slice 14 docs contract and closure validation.
+- Post-merge gold-pass audit docs regression validating the implemented 404 error code.
 
 Remote CI evidence:
 
 - PR `sgajbi/lotus-performance#162`
-- Feature Lane and PR Merge Gate green after Slice 13 commit `60bf860`.
+- Feature Lane and PR Merge Gate green before merge; PR #162 merged to `main` as
+  `bd6cdc517d51ee8702eb3ae56e1a4cbd2572fa97`.
 
 Live proof:
 

@@ -1,12 +1,12 @@
 # RFC-049 Slice 14 - Final Closure
 
-Status: complete on branch; pending PR merge and post-merge wiki publication.
+Status: complete, merged to `main`, and wiki-published.
 
 ## Purpose
 
 Slice 14 closes RFC-049 as implementation-backed product truth. It promotes only the delivered
 persisted-fact composite TWR capability, records final proof, preserves unsupported advanced
-boundaries, and prepares the branch for merge.
+boundaries, and records mainline merge and wiki publication closure.
 
 ## Final Supported Product Boundary
 
@@ -50,6 +50,22 @@ Updated durable truth:
 | Documentation map | Updated final documentation routing and supported-feature boundary. |
 | RFC ledgers | Updated RFC index, implementation status, RFC-022 delta backlog, and wiki RFC index. |
 | Docs regression tests | Updated docs tests so supported composite TWR is pinned without weakening unsupported advanced-scope gates. |
+
+## Mainline Closure
+
+RFC-049 was merged to `main` through PR `sgajbi/lotus-performance#162`.
+
+Merge commit:
+
+```text
+bd6cdc517d51ee8702eb3ae56e1a4cbd2572fa97
+```
+
+The repo-local wiki source was published after merge. Published wiki commit:
+
+```text
+b77bd48
+```
 
 ## Evidence
 
@@ -99,13 +115,15 @@ data-product governance patterns and did not discover a new reusable platform ga
 
 ## Wiki Publication
 
-Repo-local wiki source changed during RFC-049. Required closure steps:
+Repo-local wiki source changed during RFC-049. Required closure steps completed:
 
-1. run `Sync-RepoWikis.ps1 -CheckOnly -Repository lotus-performance` before merge;
-2. merge PR `sgajbi/lotus-performance#162` only after local and remote checks are green;
-3. after merge to `main`, publish with
+1. `Sync-RepoWikis.ps1 -CheckOnly -Repository lotus-performance` was run before merge and
+   correctly detected expected publication drift;
+2. PR `sgajbi/lotus-performance#162` was merged after local and remote checks were green;
+3. repo-local wiki source was published after merge with
    `Sync-RepoWikis.ps1 -Publish -Repository lotus-performance`;
-4. sync local `main` and confirm the working tree is clean.
+4. local `main` was synced to `origin/main` and confirmed clean before the post-merge audit branch
+   was created.
 
 Pre-merge check on 2026-05-12 confirmed the expected publication drift:
 
@@ -115,8 +133,9 @@ Drift: _Sidebar.md, API-Surface.md, Composite-Performance.md, Home.md, Integrati
 Mesh-Data-Products.md, RFC-Index.md, Roadmap.md, Supported-Features.md
 ```
 
-Treatment: this is expected before the RFC-049 PR is merged. Do not hand-edit the GitHub wiki;
-publish the repo-local `wiki/` source after merge.
+Treatment: this was expected before merge and was resolved by publishing the repo-local `wiki/`
+source after PR #162 merged. Do not hand-edit the GitHub wiki; keep `wiki/` as the source of
+truth for future changes.
 
 ## Closure Assessment
 
