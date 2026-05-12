@@ -1,6 +1,6 @@
 # RFC 049 - Composite Performance Industry Methodology Alignment and Evidence Contract
 
-Status: Draft - approval required before implementation
+Status: Approved - implementation in progress
 
 Owner repository: `lotus-performance`
 
@@ -10,10 +10,10 @@ Source package: `C:\Users\Sandeep\Downloads\composite-performance-docs.zip\compo
 
 Created: 2026-05-12
 
-Implementation posture: planning only. No implementation slice may start until this RFC is
-approved by the operator. After approval, work must proceed strictly slice by slice. A slice is
-complete only when it is implemented, validated, reviewed, documented, committed, and in a solid
-state.
+Implementation posture: approved for slice-by-slice implementation by the operator on
+2026-05-12. Work must proceed strictly slice by slice. A slice is complete only when it is
+implemented, validated, reviewed, documented, committed, and in a solid state. Slice 0 baseline
+evidence is captured in `docs/RFCs/RFC-049-source-map-and-baseline-slice0.md`.
 
 Related RFCs:
 
@@ -79,6 +79,10 @@ git branch -r --no-merged origin/main
 Result: no unmerged remote `lotus-performance` branches were listed. No durable RFC, docs, wiki,
 contract, context, OpenAPI, supported-features, or workflow truth was stranded before drafting this
 RFC.
+
+Implementation-start reconciliation was rerun from the active RFC branch on 2026-05-12 and is
+recorded in `docs/RFCs/RFC-049-source-map-and-baseline-slice0.md`. No additional unmerged
+`lotus-performance` remote branch required merge or cherry-pick before implementation began.
 
 ## 1. Executive Summary
 
