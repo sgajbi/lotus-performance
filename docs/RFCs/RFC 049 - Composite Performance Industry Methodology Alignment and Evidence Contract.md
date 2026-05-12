@@ -16,7 +16,9 @@ implemented, validated, reviewed, documented, committed, and in a solid state. S
 evidence is captured in `docs/RFCs/RFC-049-source-map-and-baseline-slice0.md`; Slice 1 platform
 automation/scaffolding baseline is captured in
 `docs/RFCs/RFC-049-platform-automation-slice1.md`; Slice 2 cleanup and structure evidence is
-captured in `docs/RFCs/RFC-049-cleanup-and-structure-slice2.md`.
+captured in `docs/RFCs/RFC-049-cleanup-and-structure-slice2.md`; Slice 3 source authority and
+persisted member-return fact foundation evidence is captured in
+`docs/RFCs/RFC-049-source-authority-and-member-facts-slice3.md`.
 
 Related RFCs:
 
