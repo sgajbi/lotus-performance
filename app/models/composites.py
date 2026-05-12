@@ -109,7 +109,9 @@ class CompositeMembership(BaseModel):
     composite_id: str = Field(description="Composite identifier.", examples=["PB_GLOBAL_BALANCED_USD"])
     portfolio_id: str = Field(description="Member portfolio identifier.", examples=["PB_SG_GLOBAL_BAL_001"])
     effective_from: dt_date = Field(description="Inclusive membership start date.", examples=["2026-01-01"])
-    effective_to: dt_date | None = Field(default=None, description="Inclusive membership end date.", examples=["2026-12-31"])
+    effective_to: dt_date | None = Field(
+        default=None, description="Inclusive membership end date.", examples=["2026-12-31"]
+    )
     status: CompositeMembershipStatus = Field(
         default=CompositeMembershipStatus.INCLUDED,
         description="Membership state for the effective date range.",
