@@ -697,6 +697,70 @@ def test_build_stateful_attribution_input_rejects_portfolio_position_alignment_g
         )
 
 
+def test_build_stateful_attribution_input_allows_internal_trade_timing_alignment_gap():
+    source_input = StatefulAttributionSourceInput(
+        portfolio_input=StatefulPortfolioInput(
+            performance_start_date=date(2025, 1, 1),
+            observations=[
+                {
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value": "1000",
+                    "ending_market_value": "1010",
+                }
+            ],
+        ),
+        position_rows=[
+            {
+                "position_id": "POS_1",
+                "security_id": "SEC_1",
+                "valuation_date": "2025-01-01",
+                "position_to_portfolio_fx_rate": "1",
+                "portfolio_to_reporting_fx_rate": "1",
+                "beginning_market_value_portfolio_currency": "1100",
+                "ending_market_value_portfolio_currency": "1010",
+                "cash_flows": [
+                    {
+                        "amount": "-100",
+                        "timing": "eod",
+                        "cash_flow_type": "internal_trade_flow",
+                    }
+                ],
+                "dimensions": {"sector": "Tech"},
+            }
+        ],
+        position_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+        benchmark_id="BMK_1",
+        benchmark_component_observations=[
+            BenchmarkComponentObservation(
+                component_id="IDX_1",
+                component_currency="USD",
+                perf_date=date(2025, 1, 1),
+                weight_bop=1.0,
+                component_return=0.01,
+                component_return_local=0.01,
+                component_return_fx=0.0,
+            )
+        ],
+        benchmark_source_details={"benchmark_components": 1},
+        benchmark_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+        index_records=[{"index_id": "IDX_1", "classification_labels": {"sector": "Tech"}}],
+        index_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+    )
+
+    normalized = build_stateful_attribution_input(
+        source_input=source_input,
+        mode="by_instrument",
+        group_by=["sector"],
+        metric_basis="NET",
+        currency_mode="BASE_ONLY",
+        fx=None,
+        reporting_currency="USD",
+    )
+
+    assert normalized.instruments_data[0].valuation_points[0].eod_cf == -100
+    assert normalized.instruments_data[0].meta["sector"] == "tech"
+
+
 def test_stateful_attribution_group_by_and_benchmark_validation_errors():
     with pytest.raises(HTTPException, match="Unsupported: issuer"):
         _validate_stateful_group_by(["issuer"])

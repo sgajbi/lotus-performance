@@ -12,6 +12,7 @@ from app.models.attribution_requests import AttributionPortfolioData, BenchmarkG
 from app.models.benchmark_analytics_requests import BenchmarkReturnSource
 from app.models.benchmark_requests import BenchmarkComponentObservation
 from app.models.stateful_position_inputs import StatefulDimensionName
+from app.services.source_cashflow_taxonomy import classify_cashflow_type
 from app.services.stateful_benchmark_input_service import build_stateful_benchmark_input
 from app.services.stateful_input_service import RetrievalMetadata, StatefulInputService
 from app.services.stateful_performance_input_service import (
@@ -311,9 +312,16 @@ def _validate_stateful_portfolio_position_alignment(
             end_value = row.get("ending_market_value_portfolio_currency")
         if begin_value is None or end_value is None:
             continue
-        totals = position_totals_by_date.setdefault(valuation_date, {"begin": Decimal("0"), "end": Decimal("0")})
+        totals = position_totals_by_date.setdefault(
+            valuation_date,
+            {"begin": Decimal("0"), "end": Decimal("0"), "internal_flow_abs": Decimal("0")},
+        )
         totals["begin"] += Decimal(str(begin_value))
         totals["end"] += Decimal(str(end_value))
+        totals["internal_flow_abs"] += _sum_internal_cash_flow_abs_in_alignment_basis(
+            row=row,
+            reporting_currency=reporting_currency,
+        )
 
     tolerance = Decimal("0.01")
     mismatched_dates: list[str] = []
@@ -321,7 +329,16 @@ def _validate_stateful_portfolio_position_alignment(
         portfolio_begin, portfolio_end = portfolio_by_date[valuation_date]
         position_begin = position_totals_by_date[valuation_date]["begin"]
         position_end = position_totals_by_date[valuation_date]["end"]
-        if abs(portfolio_begin - position_begin) > tolerance or abs(portfolio_end - position_end) > tolerance:
+        begin_mismatch = abs(portfolio_begin - position_begin)
+        end_mismatch = abs(portfolio_end - position_end)
+        internal_flow_abs = position_totals_by_date[valuation_date]["internal_flow_abs"]
+        mismatch_explained_by_internal_transfer_timing = (
+            max(begin_mismatch, end_mismatch) <= internal_flow_abs + tolerance
+        )
+        if (
+            (begin_mismatch > tolerance or end_mismatch > tolerance)
+            and not mismatch_explained_by_internal_transfer_timing
+        ):
             mismatched_dates.append(
                 f"{valuation_date} (portfolio begin/end={portfolio_begin}/{portfolio_end}, "
                 f"positions begin/end={position_begin}/{position_end})"
@@ -336,6 +353,49 @@ def _validate_stateful_portfolio_position_alignment(
                 f"Sample mismatches: {'; '.join(mismatched_dates[:3])}."
             ),
         )
+
+
+def _sum_internal_cash_flow_abs_in_alignment_basis(
+    *,
+    row: dict[str, object],
+    reporting_currency: str | None,
+) -> Decimal:
+    cash_flows_raw = row.get("cash_flows")
+    if not isinstance(cash_flows_raw, list):
+        return Decimal("0")
+
+    conversion_factor = _alignment_cash_flow_conversion_factor(
+        row=row,
+        reporting_currency=reporting_currency,
+    )
+    total = Decimal("0")
+    for flow in cash_flows_raw:
+        if not isinstance(flow, dict):
+            continue
+        amount = flow.get("amount")
+        if amount is None:
+            continue
+        if classify_cashflow_type(flow.get("cash_flow_type")).economics_role != "internal":
+            continue
+        total += abs(Decimal(str(amount)) * conversion_factor)
+    return total
+
+
+def _alignment_cash_flow_conversion_factor(
+    *,
+    row: dict[str, object],
+    reporting_currency: str | None,
+) -> Decimal:
+    position_to_portfolio_rate = _decimal_or_one(row.get("position_to_portfolio_fx_rate"))
+    if reporting_currency is None:
+        return position_to_portfolio_rate
+    return position_to_portfolio_rate * _decimal_or_one(row.get("portfolio_to_reporting_fx_rate"))
+
+
+def _decimal_or_one(value: object) -> Decimal:
+    if value is None:
+        return Decimal("1")
+    return Decimal(str(value))
 
 
 def _summarize_position_classification(
