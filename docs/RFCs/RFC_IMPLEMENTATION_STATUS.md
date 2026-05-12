@@ -146,6 +146,9 @@ delivery evidence for completed work.
       persisted member return facts and batch/recalculation workflows rather than hidden on-the-fly
       TWR fan-out, proposes composite TWR as the first-class target, gates composite
       contribution/attribution/MWR/sleeves, and requires inspector evidence, export artifacts,
-      lineage, methodology v3 documentation, data-product, downstream, docs/wiki, live-proof,
-      security, CI, and branch-hygiene closure before any supported composite claim is promoted.
+      lineage, methodology v3 documentation, enterprise uplift across scalability, workload
+      isolation, logging, observability, tracing/correlation, security, naming, code quality,
+      repository structure, API quality, operational supportability, performance, test quality, and
+      production readiness, data-product, downstream, docs/wiki, live-proof, security, CI, and
+      branch-hygiene closure before any supported composite claim is promoted.
 

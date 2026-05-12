@@ -114,6 +114,79 @@ The RFC must make Lotus stronger, not merely larger:
 5. CI, security, observability, data mesh, and platform compliance must improve as part of the work;
 6. supported-features material must remain truthful and never promote unimplemented composite
    capability.
+7. the repository should be cleaner, more modular, more observable, more scalable, and more
+   production-ready after the RFC than before it started.
+
+## 1.1 Enterprise Uplift Mandate
+
+RFC-049 is not only a functional composite-performance delivery. It is also an explicit
+enterprise-hardening opportunity for `lotus-performance`.
+
+Every implementation slice must assess whether the touched area can be simplified, strengthened,
+or made more production-grade. The RFC must materially improve the service across the following
+dimensions where evidence shows a real gap:
+
+1. enterprise hardening:
+   - authorization and audit posture for privileged reads/writes;
+   - immutable publication and restatement history;
+   - retention and recovery controls;
+   - sensitive-data classification and evidence access controls.
+2. scalability and workload isolation:
+   - composite worker/container isolation where justified;
+   - queue sizing, retry, idempotency, and concurrency controls;
+   - bounded storage and artifact retention;
+   - performance budgets for batch and API paths.
+3. logging, observability, tracing, and correlation:
+   - structured logs for calculation, batch, inspection, publish, restatement, export, and errors;
+   - correlation propagation across API, worker, Gateway, Workbench, and upstream calls;
+   - distributed-tracing readiness where platform support exists;
+   - bounded metrics that avoid sensitive or high-cardinality labels;
+   - supportability reason families and SLO-relevant telemetry.
+4. security posture:
+   - dependency and vulnerability review;
+   - least-privilege operator APIs;
+   - export and artifact entitlement checks;
+   - audit events for privileged access;
+   - no sensitive data in logs, metrics, traces, OpenAPI examples, or demo artifacts.
+5. naming and domain vocabulary:
+   - private-banking vocabulary for composite, strategy, mandate, member, eligibility, return view,
+     restatement, publication, benchmark, and evidence;
+   - API vocabulary inventory and no-alias governance;
+   - removal of misleading historical or generic composite wording.
+6. code quality, structure, and modularity:
+   - bounded composite subsystem modules;
+   - small services and engine functions;
+   - no duplicate calculation paths;
+   - dead-code removal where encountered;
+   - clean separation between calculation, persistence, API, inspector, artifacts, and downstream
+     contracts.
+7. API quality and certification:
+   - full OpenAPI descriptions, examples, errors, tags, and field semantics;
+   - endpoint certification for every new or changed surface;
+   - no duplicate or stale endpoints;
+   - explicit product APIs versus operator APIs.
+8. operational supportability:
+   - runbooks for batch, recalculation, restatement, stuck jobs, exports, and inspection;
+   - support briefs grounded in persisted evidence;
+   - recovery/replay guidance;
+   - clear degraded and unavailable states.
+9. performance and efficiency:
+   - persisted facts and result versions to avoid expensive request-time fan-out;
+   - batch performance characterization;
+   - query/index review for hot paths;
+   - efficient artifact generation and retention.
+10. test quality and production readiness:
+    - deterministic formula tests;
+    - persistence and migration tests;
+    - concurrency/idempotency tests;
+    - API and OpenAPI contract tests;
+    - security/authorization/audit tests;
+    - live canonical proof where product surfaces change;
+    - docs and supported-features regression tests.
+
+This uplift mandate is not a license for broad cosmetic refactoring. Hardening work must be tied to
+real implementation risk, composite workload needs, or an observed enterprise-readiness gap. Each
+slice should record what was improved, what was deliberately left unchanged, and why.
 
 ## 2. Business Outcome
 
@@ -173,6 +246,7 @@ restatement, source authority, and supportability evidence.
 | Data product governance | `contracts/domain-data-products/lotus-performance-products.v1.json`, trust telemetry contracts | Good mesh baseline. Composite performance needs its own product declaration and telemetry if promoted. |
 | OpenAPI and vocabulary governance | `app/openapi_enrichment.py`, `docs/standards/api-vocabulary/lotus-performance-api-vocabulary.v1.json` | Good certification baseline. New composite APIs must satisfy the same quality bar. |
 | Documentation productization | `wiki/Supported-Features.md`, `wiki/Time-Weighted-Return.md`, `wiki/Contribution-Analytics.md`, `wiki/Attribution-Analytics.md` | Strong implementation-backed pattern. Composite docs must remain unsupported until implemented and proven. |
+| Runtime and enterprise posture | health/readiness, metrics, runtime status, recovery drills, retention cleanup, OpenAPI enrichment, API vocabulary, data-product contracts | Strong baseline but RFC-049 must reassess scalability, workload isolation, tracing/correlation, security, artifact entitlement, query/index posture, and operational APIs under heavier composite workloads. |
 
 ### 4.2 Current Gaps
 
@@ -677,6 +751,50 @@ Validation:
 2. grep/search proof for misleading composite support claims;
 3. `Sync-RepoWikis.ps1 -CheckOnly -Repository lotus-performance` when wiki source changes.
 
+### Slice 2A - Enterprise Posture Baseline and Repository Hardening Plan
+
+Purpose: create a focused, evidence-backed hardening plan for `lotus-performance` before composite
+implementation deepens the runtime.
+
+Scope:
+
+1. review current repository structure, module boundaries, runtime topology, API groups,
+   persistence stores, worker responsibilities, docs structure, and test structure;
+2. review current enterprise posture across:
+   - security and dependency posture;
+   - authorization and privileged operator access;
+   - audit events;
+   - logs, metrics, traces, correlation ids, and supportability labels;
+   - health, readiness, runtime status, recovery drills, and retention;
+   - OpenAPI/API certification;
+   - API vocabulary and no-alias governance;
+   - query/index and batch scalability posture;
+   - artifact storage, evidence classification, and export governance;
+   - CI lane coverage and local validation commands;
+3. classify each finding as:
+   - `fix-in-rfc-049`;
+   - `already-strong`;
+   - `not-relevant`;
+   - `defer-with-owner-and-rationale`;
+4. fix small, low-risk, directly relevant cleanup immediately in the slice;
+5. route platform-scaffolding gaps to Slice 1 or `lotus-platform` instead of local one-off fixes;
+6. avoid unrelated cosmetic rewrites.
+
+Acceptance criteria:
+
+1. RFC-049 has an implementation-backed hardening baseline before major new code is added;
+2. composite implementation does not inherit avoidable known weaknesses in runtime, API,
+   observability, security, docs, or test posture;
+3. every hardening item has an owner, scope, validation command, and closure rule;
+4. improvements are material and tied to production readiness.
+
+Validation:
+
+1. repository-native lint/type/unit/docs checks for any changed code/docs;
+2. targeted security/dependency check where applicable;
+3. API vocabulary/OpenAPI checks where API docs change;
+4. review ledger or RFC slice note documenting decisions.
+
 ### Slice 3 - Composite Domain Model, Source Authority, and Membership Governance
 
 Purpose: establish the core business object model before calculation.
@@ -825,14 +943,19 @@ Scope:
 5. certify gateway-only publication where customer/product surfaces are involved;
 6. add bounded metrics for composite calculation status and reason-code families without sensitive
    labels;
-7. add composite worker/container health, liveness, readiness, queue, retry, and stuck-run
+7. add correlation propagation requirements across API, worker, upstream calls, Gateway, and
+   Workbench where paths change;
+8. add composite worker/container health, liveness, readiness, queue, retry, and stuck-run
    observability if a separate worker is introduced;
-8. review dependency, CI, security, observability, logging, health, readiness, and runtime posture;
-9. add audit events for calculation, recalculation, publish, restatement, export, privileged reads,
+9. review dependency, CI, security, observability, logging, health, readiness, tracing, and runtime
+   posture;
+10. add audit events for calculation, recalculation, publish, restatement, export, privileged reads,
    and inspection artifact access;
-10. define retention policy for member return facts, result versions, lineage, exports, and
+11. define retention policy for member return facts, result versions, lineage, exports, and
    operator artifacts;
-11. formally track or fix security vulnerabilities.
+12. formally track or fix security vulnerabilities;
+13. review hot-path queries, indexes, and storage growth for member return facts, calculation runs,
+   result versions, and artifacts.
 
 Acceptance criteria:
 
@@ -841,6 +964,7 @@ Acceptance criteria:
 3. metrics and logs are bounded, useful, and non-sensitive;
 4. no product claim exceeds implementation proof.
 5. the composite runtime has a clear scaling and recovery posture.
+6. logs, metrics, traces, and audit events are support-safe and correlation-ready.
 
 Validation:
 
@@ -1148,15 +1272,20 @@ Scope:
    - every error response has realistic examples;
 7. ensure all errors are complete, correct, and tested;
 8. review logs, metrics, lineage, diagnostics, and security posture;
-9. ensure security vulnerabilities are fixed or formally tracked with treatment;
-10. make final quality improvements before closure.
+9. verify distributed tracing/correlation propagation for every changed cross-service path;
+10. verify query/index, batch throughput, worker isolation, and artifact-retention posture;
+11. verify code quality, repository structure, module boundaries, and dead-code removal;
+12. verify API vocabulary and private-banking domain naming;
+13. ensure security vulnerabilities are fixed or formally tracked with treatment;
+14. make final quality improvements before closure.
 
 Acceptance criteria:
 
 1. no known avoidable production-readiness issue remains;
 2. all required checks are green;
 3. residual risks are documented with owner and treatment;
-4. implementation is simpler and clearer than before.
+4. implementation is simpler and clearer than before;
+5. `lotus-performance` is materially stronger in the enterprise-uplift areas touched by the RFC.
 
 Validation:
 
@@ -1284,6 +1413,10 @@ composite contract is materially better. However:
 | No-member periods return zero | False strategy performance | No-member status returns not available, never zero. |
 | On-the-fly fan-out TWR becomes the production composite path | Poor latency, unstable reproducibility, hard audit | Persisted member return facts and batch-first product reads. |
 | Composite worker cannot scale independently | Heavy composite jobs affect portfolio analytics API | Separate bounded subsystem and optional `lotus-performance-composite-worker` container. |
+| Enterprise hardening becomes a side note | New capability ships while runtime/security/supportability weaknesses remain | Slice 2A baseline, Slice 6 runtime hardening, Slice 13 second-last hardening, and final gold-pass evidence. |
+| Correlation breaks across batch, Gateway, or Workbench | Operators cannot trace composite issues end to end | Explicit correlation propagation and tracing validation. |
+| Generic naming weakens private-banking product language | Poor API/docs quality and business confusion | API vocabulary inventory, no-alias checks, and methodology/docs review. |
+| Composite code becomes monolithic | Hard-to-maintain subsystem | Bounded modules for facts, membership, batch, engine, API, inspector, artifacts, and integration. |
 | Recalculation overwrites published results | Audit and client reporting defect | Immutable result versions, publication events, and restatement diff evidence. |
 | Member-level exports leak restricted information | Confidentiality defect | Artifact classification, entitlement, audit logs, and customer-safe summaries. |
 | Inspector is treated as calculator | Split-brain calculation behavior | Inspector validates persisted facts/results and never becomes the calculation authority. |
@@ -1315,7 +1448,10 @@ Final implementation evidence must include:
 16. API certification and Swagger quality evidence;
 17. data-product certification, telemetry, SLO/access/evidence posture, and mesh-gate proof where
     promoted;
-18. a final gold-pass assessment section in this RFC stating:
+18. enterprise-uplift evidence for scalability, workload isolation, logging, observability,
+    tracing/correlation, security, naming, code quality, repository structure, API quality,
+    operational supportability, performance, test quality, and production readiness;
+19. a final gold-pass assessment section in this RFC stating:
     - what was truly completed;
     - what quality improvements were made;
     - what debt was removed;
@@ -1340,7 +1476,8 @@ Approval should confirm:
 9. data-product promotion scope is acceptable;
 10. methodology v3, documentation, wiki, supported-features, and LinkedIn expectations are
    acceptable;
-11. slice sequencing is acceptable.
+11. enterprise-uplift expectations are accepted as RFC scope and not treated as optional cleanup;
+12. slice sequencing is acceptable.
 
 Until approval, this RFC remains planning material only.
 
@@ -1360,5 +1497,9 @@ Required closure statements:
 4. what was proven through testing and evidence;
 5. whether the implementation genuinely reached the expected standard;
 6. which features are supported, gated, or unsupported after closure;
-7. whether skills, guidance, documentation, local skill copies, agent context, or platform
+7. how `lotus-performance` was materially strengthened across enterprise hardening, scalability,
+   workload isolation, logging, observability, tracing/correlation, security, naming, code quality,
+   repository structure, API quality, operational supportability, performance, test quality, and
+   production readiness;
+8. whether skills, guidance, documentation, local skill copies, agent context, or platform
    automation were improved or deliberately left unchanged.
