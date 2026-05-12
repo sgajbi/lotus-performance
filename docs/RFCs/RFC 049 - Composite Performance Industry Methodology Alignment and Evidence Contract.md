@@ -1415,6 +1415,12 @@ Validation:
 4. targeted security/dependency checks;
 5. docs/wiki/context validation.
 
+Slice 13 evidence is recorded in `docs/RFCs/RFC-049-hardening-review-slice13.md`. The pass
+tightened composite endpoint Swagger with realistic error examples, revalidated composite endpoint
+tests and OpenAPI quality, reviewed API certification, data-product governance, security,
+observability, and residual operational risks, and found no remaining avoidable composite
+implementation defect before final closure.
+
 ### Slice 14 - Final Closure
 
 Purpose: close the RFC as mainline truth.

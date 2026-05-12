@@ -20,6 +20,56 @@ from core.errors import HTTP_422_UNPROCESSABLE
 router = APIRouter(tags=["Performance"])
 
 
+COMPOSITE_NOT_FOUND_RESPONSE = {
+    "description": "Composite definition was not found in the durable composite metadata store.",
+    "content": {
+        "application/json": {
+            "example": {
+                "detail": {
+                    "code": "COMPOSITE_NOT_FOUND",
+                    "message": "Composite definition 'MISSING_COMPOSITE' was not found.",
+                }
+            }
+        }
+    },
+}
+NO_MEMBER_RETURN_FACTS_RESPONSE = {
+    "description": "The request window is invalid or no persisted member-return facts can support it.",
+    "content": {
+        "application/json": {
+            "examples": {
+                "no_persisted_member_return_facts": {
+                    "summary": "No persisted member-return facts exist for the requested window.",
+                    "value": {
+                        "detail": {
+                            "code": "NO_MEMBER_RETURN_FACTS",
+                            "message": "No persisted member-return facts exist for the requested composite window.",
+                        }
+                    },
+                },
+                "invalid_window": {
+                    "summary": "The request end date is before the request start date.",
+                    "value": {
+                        "detail": [
+                            {
+                                "type": "value_error",
+                                "loc": ["body"],
+                                "msg": "Value error, period_end cannot be before period_start",
+                                "input": {
+                                    "composite_id": "PB_GLOBAL_BALANCED_USD",
+                                    "period_start": "2026-02-01",
+                                    "period_end": "2026-01-31",
+                                },
+                            }
+                        ]
+                    },
+                },
+            }
+        }
+    },
+}
+
+
 def _member_contribution_response(item) -> CompositeMemberContributionResponse:
     return CompositeMemberContributionResponse(
         portfolio_id=item.portfolio_id,
@@ -71,8 +121,8 @@ def _period_response(item) -> CompositePeriodResultResponse:
     ),
     responses={
         200: {"description": "Composite TWR calculated from persisted member-return facts."},
-        404: {"description": "Composite definition was not found in the durable composite metadata store."},
-        422: {"description": "The request window is invalid or no persisted member-return facts can support it."},
+        404: COMPOSITE_NOT_FOUND_RESPONSE,
+        422: NO_MEMBER_RETURN_FACTS_RESPONSE,
     },
 )
 def calculate_composite_twr(request: CompositeTWRRequest) -> CompositeTWRResponse:
@@ -120,7 +170,7 @@ def calculate_composite_twr(request: CompositeTWRRequest) -> CompositeTWRRespons
     ),
     responses={
         200: {"description": "Composite inspection completed over persisted facts."},
-        404: {"description": "Composite definition was not found in the durable composite metadata store."},
+        404: COMPOSITE_NOT_FOUND_RESPONSE,
     },
 )
 def inspect_composite_twr(request: CompositeInspectionRequest) -> CompositeInspectionResponse:
