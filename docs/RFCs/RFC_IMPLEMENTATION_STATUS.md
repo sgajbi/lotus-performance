@@ -150,5 +150,7 @@ delivery evidence for completed work.
       isolation, logging, observability, tracing/correlation, security, naming, code quality,
       repository structure, API quality, operational supportability, performance, test quality, and
       production readiness, data-product, downstream, docs/wiki, live-proof, security, CI, and
-      branch-hygiene closure before any supported composite claim is promoted.
+      branch-hygiene closure before any supported composite claim is promoted. Approved RFC-049
+      scope must be completed in this RFC without an unapproved second wave; unsupported advanced
+      scopes must remain explicit rather than aspirational.
 

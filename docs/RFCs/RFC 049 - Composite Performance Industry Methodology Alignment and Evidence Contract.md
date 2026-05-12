@@ -188,6 +188,82 @@ This uplift mandate is not a license for broad cosmetic refactoring. Hardening w
 real implementation risk, composite workload needs, or an observed enterprise-readiness gap. Each
 slice should record what was improved, what was deliberately left unchanged, and why.
 
+## 1.2 Final Pre-Implementation Critical Review
+
+Final review outcome: RFC-049 should be approved only if the operator accepts it as a full
+business-value delivery RFC, not as a narrow composite endpoint RFC.
+
+The RFC is intentionally larger than a feature addition because a bank-buyable composite capability
+depends on the surrounding product posture. Composite performance will stress `lotus-performance`
+in ways that single-portfolio analytics do not:
+
+1. larger batch workloads;
+2. multi-portfolio fan-in;
+3. long-lived persisted facts;
+4. restatements and publication states;
+5. restricted member-level evidence;
+6. cross-repository source authority;
+7. downstream Gateway/Workbench/product realization;
+8. audit-grade methodology and lineage;
+9. operational support, recovery, and replay.
+
+Therefore implementation must not close by saying "composite calculation works" while leaving
+platform, data-product, security, operability, documentation, or downstream realization unfinished.
+
+Non-negotiable execution principles:
+
+1. **No second wave for approved scope.** Once approved, all work required to realize the approved
+   composite business value and enterprise posture must be handled in RFC-049. If a capability is
+   not delivered, it must be explicitly marked unsupported or gated with rationale, not implied as a
+   follow-up promise.
+2. **Implementation-backed documentation only.** Final README, docs, wiki, supported-features,
+   API reference, methodology docs, and demo material must describe the actual post-RFC
+   `lotus-performance` implementation, APIs, constraints, evidence, and unsupported boundaries.
+3. **Data-product discipline.** Composite performance and any hardened existing performance
+   surfaces must satisfy relevant Lotus data mesh requirements before being promoted as supported
+   data products.
+4. **Cross-repository completion.** If upstream contracts or downstream consumers are affected,
+   `lotus-core`, `lotus-manage`, `lotus-gateway`, `lotus-workbench`, `lotus-report`, or other
+   relevant Lotus repositories must be updated, tested, merged, and documented as part of this RFC.
+5. **Backward compatibility is not the priority.** A cleaner private-banking contract may replace
+   weaker existing APIs or fields, provided every known consumer is migrated in the same RFC.
+6. **GitHub and CI stay under control.** PR checks must be monitored regularly, failures fixed
+   promptly, and branch quality kept healthy while implementation continues slice by slice.
+7. **Gold-standard closure is mainline closure.** The RFC is done only when implementation,
+   durable truth, docs/wiki/context/supported-features, downstream/upstream changes, CI proof,
+   wiki publication, and branch hygiene are complete on `main`.
+
+## 1.3 Definition Of Done
+
+RFC-049 can be marked complete only when all applicable conditions are true:
+
+1. composite performance supported features are implementation-backed and accurately represented
+   in `wiki/Supported-Features.md`;
+2. unsupported composite scopes remain explicit and demo-safe;
+3. persisted member return facts, composite batch/recalculation, result versioning, lineage,
+   publication, restatement, inspector, and export behavior are either implemented and proven or
+   explicitly classified as unsupported/gated;
+4. `lotus-performance` has materially improved enterprise posture across the uplift dimensions
+   touched by the RFC;
+5. API contracts are certified with high-quality Swagger/OpenAPI documentation, examples, errors,
+   and vocabulary inventory;
+6. tests prove formulas, persistence, idempotency, concurrency, authorization, audit, inspection,
+   exports, downstream contracts, docs, and live canonical behavior where applicable;
+7. security vulnerabilities are fixed or formally tracked with owner, severity, and treatment;
+8. platform automation/scaffolding improvements discovered during implementation are fixed in
+   `lotus-platform` when repeatable, not left as local workarounds;
+9. Gateway, Workbench, and any other impacted consumers use the correct `lotus-performance`
+   endpoints and realize the business value end to end;
+10. final documentation is detailed, implementation-backed, audience-aware, and useful for
+    developers, business users, operations, sales, pre-sales, demos, and audit;
+11. the LinkedIn post draft is based only on what was actually implemented and proven;
+12. final closure records whether skills, guidance, documentation, local skill copies, agent
+    context, and platform automation should be improved, with explicit changes or an explicit
+    no-change decision;
+13. relevant local and GitHub CI gates are green;
+14. stranded-truth reconciliation finds no required durable truth only on unmerged branches;
+15. local `main` is aligned to `origin/main` after merge and wiki publication where applicable.
+
 ## 2. Business Outcome
 
 Private bankers, portfolio managers, CIO-office users, investment operations, performance
@@ -710,6 +786,9 @@ Scope:
    governance hooks;
 4. add or update platform templates only when they benefit future Lotus applications;
 5. record a deliberate no-change decision if current platform automation is sufficient.
+6. continue adding platform-level fixes during later slices if repeatable gaps are discovered in
+   API certification, Swagger, observability, health/readiness, structured logging, errors, tests,
+   CI, documentation scaffolding, governance hooks, or security baseline.
 
 Acceptance criteria:
 
@@ -933,6 +1012,11 @@ Validation:
 ### Slice 6 - Data Product, Runtime, and Platform Hardening
 
 Purpose: promote composite performance only when it satisfies data mesh and platform standards.
+
+This slice must also reassess `lotus-performance` as a whole where the composite implementation
+touches shared runtime, API, observability, security, data-product, or CI posture. Existing
+single-portfolio surfaces do not need unrelated redesign, but shared weaknesses discovered while
+building composite performance must be fixed when they affect enterprise readiness.
 
 Scope:
 
@@ -1236,7 +1320,10 @@ Scope:
 4. include canonical portfolio/composite fixtures approved by the operator;
 5. include Gateway and Workbench proof if downstream surfaces change;
 6. identify issues, fix them, and rerun proof until the result is genuinely production-grade;
-7. leave the live stack in the agreed state after testing.
+7. prove upstream and downstream integration end to end where contracts changed;
+8. prove logs, metrics, correlation ids, audit events, inspector artifacts, exports, and runtime
+   status where applicable;
+9. leave the live stack in the agreed state after testing.
 
 Acceptance criteria:
 
@@ -1312,6 +1399,8 @@ Scope:
 7. publish wiki after merge if wiki source changed;
 8. run context/skill/wiki synchronization commands when applicable;
 9. record a deliberate no-change decision when no guidance/context/skill change is needed.
+10. confirm that no approved RFC-049 business value has been deferred to an unapproved follow-up
+    RFC or second wave.
 
 Acceptance criteria:
 
