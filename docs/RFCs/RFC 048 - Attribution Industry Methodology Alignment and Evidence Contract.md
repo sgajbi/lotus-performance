@@ -898,3 +898,124 @@ Approval should confirm:
 7. slice sequencing is acceptable.
 
 Until then, this RFC remains planning material only.
+
+## 13. Gold-Pass Assessment
+
+Status: in progress after live-stack audit on May 12, 2026.
+
+### 13.1 What Was Truly Completed
+
+The RFC implementation now includes a live-proven attribution path for the canonical front-office
+portfolio `PB_SG_GLOBAL_BAL_001` against benchmark `BMK_PB_GLOBAL_BALANCED_60_40` through
+`lotus-performance`, `lotus-gateway`, and `lotus-workbench`.
+
+Implementation-backed outcomes proven in the current pass:
+
+1. `lotus-performance` stateful attribution supports Brinson-Fachler attribution with Carino
+   linking and source-owned reconciliation in the Workbench details contract.
+2. Gateway waits long enough for stateful attribution materialization instead of surfacing an
+   accepted-but-not-materialized async calculation as an empty attribution block.
+3. Stateful attribution input validation distinguishes unexplained portfolio-vs-position market
+   value gaps from internal trade-flow timing differences observed in live `lotus-core` source
+   data.
+4. Canonical Workbench live validation is bound to the governed RFC-0076 as-of date rather than
+   the wall-clock date, so performance and risk proof uses the same contract-backed data window as
+   the canonical fixture.
+5. Workbench proof validates portfolio, performance summary, performance analysis, advisor brief,
+   risk, evidence, DPM outcome review, proof-pack, command center, portfolio memory, and rebalance
+   wave panels in one governed run.
+
+### 13.2 Quality Improvements Made
+
+The live proof found and fixed three production-relevant gaps:
+
+1. Gateway async polling was too short for stateful attribution calculations. The attribution
+   analytics client now uses a longer polling budget for attribution materialization while leaving
+   the default budget unchanged for faster operations.
+2. Attribution source validation was rejecting legitimate internal trade-flow timing differences.
+   The validator now allows only mismatches explainable by classified internal cash flows, while
+   preserving the hard failure for unexplained source alignment gaps.
+3. Canonical Workbench validation was querying direct Gateway proof endpoints without governed
+   `report_end_date` or `as_of_date` parameters. The validator and evidence capture scripts now
+   use `2026-04-10`, the RFC-0076 canonical as-of date, for proof routes.
+
+### 13.3 Debt Removed
+
+Debt reduced in this pass:
+
+1. removed a false-negative live validation pattern that depended on today’s date and therefore
+   failed whenever canonical benchmark or risk source coverage did not extend to wall-clock time;
+2. removed a brittle, case-sensitive browser assertion for observation-trail copy;
+3. removed the silent assumption that all portfolio-vs-position alignment gaps are external source
+   defects, which was incorrect for internal trade-flow timing.
+
+### 13.4 Proof Captured
+
+Local targeted validation:
+
+1. `python -m pytest tests\unit\services\test_stateful_attribution_input_service.py tests\integration\test_attribution_api.py -q`
+   passed with 46 tests.
+2. `python -m ruff check app\services\stateful_attribution_input_service.py tests\unit\services\test_stateful_attribution_input_service.py`
+   passed.
+3. `python -m pytest tests\unit\test_upstream_clients.py -q` passed with 114 tests in
+   `lotus-gateway`.
+4. `python -m ruff check src\app\clients\lotus_analytics_client.py tests\unit\test_upstream_clients.py`
+   passed in `lotus-gateway`.
+5. `npm test -- --runTestsByPath tests/unit/live-canonical-validation-script.test.ts tests/unit/live-validation-browser-workflows.test.ts tests/unit/live-validation-contract-modules.test.ts`
+   passed with 15 tests in `lotus-workbench`.
+6. `powershell -ExecutionPolicy Bypass -File scripts\live\Validate-LotusFrontOfficeCanonical.ps1 -AsOfDate 2026-04-10 -ScreenshotDirectory output\playwright\rfc-048-live-canonical`
+   passed in `lotus-workbench`.
+
+Live canonical evidence from `output/playwright/rfc-048-live-canonical/live-validation-summary.json`:
+
+1. 38 API checks passed.
+2. 19 UI checks passed.
+3. 12 governed screenshots were captured.
+4. 2 calculation sanity checks passed.
+5. 19 supportability checks and 17 panel classifications were recorded.
+6. Performance calculation sanity recorded portfolio return `-0.691792%`, benchmark return
+   `5.09568%`, active return `-5.787472%`, four contribution rows, and four supported
+   attribution rows.
+7. Risk calculation sanity recorded seven ready metrics, 72 observations, four rolling windows,
+   and seven historical risk attribution contributors.
+
+Direct live attribution details proof through Gateway:
+
+1. endpoint:
+   `/api/v1/workbench/PB_SG_GLOBAL_BAL_001/performance/details?period=EXPLICIT&chart_frequency=monthly&detail_basis=NET&contribution_dimension=asset_class&attribution_dimension=asset_class&report_start_date=2025-03-31&report_end_date=2026-04-10&benchmark_code=BMK_PB_GLOBAL_BALANCED_60_40`;
+2. `capabilities.attribution_detail.state` returned `supported`;
+3. attribution model returned `BF`;
+4. linking returned `carino`;
+5. benchmark id returned `BMK_PB_GLOBAL_BALANCED_60_40`;
+6. active return returned `-32.656793%`;
+7. sum of effects returned `-32.64576%`;
+8. residual returned `-0.011034%`;
+9. asset-class rows returned `cash`, `equity`, `fixed_income`, and `fund`;
+10. warnings and partial failures were empty.
+
+GitHub evidence in flight:
+
+1. `lotus-performance` PR `#160` includes commit
+   `07e724c fix: allow internal trade timing in attribution alignment`.
+2. `lotus-gateway` PR `#208` includes downstream commit
+   `2c13323 fix: wait for stateful attribution materialization`.
+3. `lotus-workbench` PR `#180` includes downstream commit
+   `f2188e3 fix: bind live validation to canonical as-of`.
+
+### 13.5 Remaining Closure Criteria
+
+The implementation is materially stronger after the live audit, but this assessment is not final
+closure until all of the following are complete:
+
+1. all RFC 048 PR checks are green across `lotus-performance`, `lotus-gateway`, and
+   `lotus-workbench`;
+2. downstream PRs required by this RFC are merged to `main`;
+3. `lotus-performance` PR `#160` is merged to `main`;
+4. wiki publication, supported-features updates, and final closure synchronization are completed
+   where applicable;
+5. stranded-truth reconciliation confirms no required RFC, docs, wiki, contract, context,
+   OpenAPI, supported-features, or workflow truth remains only on unmerged branches.
+
+Current conclusion: the live audit found real defects and fixed them in the correct repositories.
+The RFC has not yet reached final done because CI, merge, wiki publication, and branch-hygiene
+closure remain open.

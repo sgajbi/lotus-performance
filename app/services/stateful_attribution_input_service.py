@@ -336,9 +336,8 @@ def _validate_stateful_portfolio_position_alignment(
             max(begin_mismatch, end_mismatch) <= internal_flow_abs + tolerance
         )
         if (
-            (begin_mismatch > tolerance or end_mismatch > tolerance)
-            and not mismatch_explained_by_internal_transfer_timing
-        ):
+            begin_mismatch > tolerance or end_mismatch > tolerance
+        ) and not mismatch_explained_by_internal_transfer_timing:
             mismatched_dates.append(
                 f"{valuation_date} (portfolio begin/end={portfolio_begin}/{portfolio_end}, "
                 f"positions begin/end={position_begin}/{position_end})"
