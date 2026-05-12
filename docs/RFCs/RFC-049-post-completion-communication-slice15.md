@@ -1,6 +1,6 @@
 # RFC-049 Slice 15 - Post-Completion Communication
 
-Status: complete on branch; platform PR pending merge.
+Status: complete; platform PR merged.
 
 ## Purpose
 
@@ -27,6 +27,7 @@ Drafted platform thought-leadership content:
 
 - Branch: `lotus-platform` `draft/rfc-049-linkedin-post`;
 - PR: `sgajbi/lotus-platform#328`;
+- Merge status: merged to `lotus-platform` `main`;
 - Draft:
   `thought-leadership/linkedin/drafts/LI-2026-05-12-014-composite-performance-needs-persisted-evidence.md`;
 - Ledger:

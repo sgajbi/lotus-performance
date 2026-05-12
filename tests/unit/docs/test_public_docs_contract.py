@@ -363,8 +363,12 @@ def test_rfc_049_composite_documentation_productization_is_grounded():
     assert "Slice 11 productized methodology/docs/wiki" in rfc_index
     assert "Slice 12 live proof" in certification
     assert "Slice 13 Swagger hardening" in certification
+    assert "COMPOSITE_NOT_FOUND" in certification
+    assert "COMPOSITE_DEFINITION_NOT_FOUND" not in certification
     assert "Promotes only the persisted-fact composite TWR" in map_doc
     assert "Supported after RFC-049 implementation proof" in wiki_page
+    assert "Business And Demo Readiness" in wiki_page
+    assert "Operational Support Model" in wiki_page
 
 
 def test_benchmark_guide_uses_current_request_shape():

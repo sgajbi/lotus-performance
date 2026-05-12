@@ -4,6 +4,15 @@ Composite performance is the private-banking group-return capability introduced 
 calculates asset-weighted composite TWR from persisted member-return facts and keeps the evidence
 needed for audit, operations, support, downstream consumers, and client-demo preparation.
 
+## Audiences
+
+| Audience | What this page supports |
+| --- | --- |
+| Business users | Explains what composite performance means, what can be trusted, and which advanced structures are not currently supported. |
+| Developers | Identifies the producer-owned endpoints, source authorities, data-product contracts, and integration rules. |
+| Operations and support | Shows the inspection workflow, blocked/degraded interpretation, and evidence artifacts used for triage. |
+| Sales, pre-sales, and demos | Provides implementation-backed language for presenting composite TWR without implying unsupported GIPS, attribution, sleeve, or carve-out capability. |
+
 ## Current Functional Coverage
 
 Supported after RFC-049 implementation proof:
@@ -63,6 +72,28 @@ flowchart LR
     G --> H[Audit, operations, support, and client evidence pack]
 ```
 
+## End-To-End Product Flow
+
+```mermaid
+sequenceDiagram
+    participant Manage as lotus-manage
+    participant Core as lotus-core
+    participant Perf as lotus-performance
+    participant Gateway as lotus-gateway
+    participant Workbench as Workbench
+    participant Ops as Operations
+
+    Manage->>Perf: composite definition and effective-dated membership
+    Core->>Perf: valuation and asset source facts used for member return materialization
+    Perf->>Perf: persist member-return facts with calculation ids and source fingerprints
+    Gateway->>Perf: POST /performance/composites/twr
+    Perf-->>Gateway: composite return, member weights, reason codes, restatement evidence
+    Workbench->>Gateway: composite analytics BFF request
+    Gateway-->>Workbench: source-owned composite result
+    Ops->>Perf: POST /performance/composites/inspect
+    Perf-->>Ops: findings and classified evidence artifacts
+```
+
 ## Source Authority
 
 | Domain area | Owner | Lotus behavior |
@@ -85,6 +116,45 @@ flowchart LR
 | Downstream integration | Gateway and Workbench branches consume the new endpoints through typed contracts. |
 | Operational triage | Inspector verdicts and findings route no-fact, blocked, and degraded cases with owner and action. |
 
+## Data Product Posture
+
+`CompositePerformanceAnalytics:v1` is a governed mesh data product, not a display-only API. The
+contract is declared in `contracts/domain-data-products/lotus-performance-products.v1.json` and
+backed by `contracts/trust-telemetry/composite-performance-analytics.telemetry.v1.json`.
+
+Data mesh interpretation:
+
+- producer: `lotus-performance`;
+- approved downstream consumer: `lotus-gateway`, with Workbench consumption through Gateway/BFF;
+- freshness class: batch;
+- required identifier: `composite_id`;
+- required evidence: source fingerprints, request fingerprint, generation/as-of dates, source
+  services, restatement evidence, data-quality status, and lineage posture;
+- consumer rule: Gateway and Workbench may present source-owned evidence but must not recompute
+  composite returns, weights, lineage, or restatement posture downstream.
+
+## Operational Support Model
+
+Composite support starts from the persisted facts and inspector, not from screenshots or downstream
+rendering. When a composite value is questioned:
+
+1. identify the `composite_id`, date window, `calculation_id`, and restatement version;
+2. call `POST /performance/composites/inspect` for the same composite and window;
+3. review the inspector `verdict`, findings, affected periods, member facts, source fingerprints,
+   and artifact classifications;
+4. use `support_brief.md` for first-line triage and `lineage_manifest.json` for operator-level
+   evidence;
+5. only treat a number as client-safe when the calculation is not blocked and the supportability
+   evidence explains any degradation.
+
+Support states:
+
+| State | Meaning | Product treatment |
+| --- | --- | --- |
+| `supportable` | Ready persisted facts explain the composite result without blocking findings. | Safe to present within the supported composite TWR scope. |
+| `supportable_with_warnings` | The result can be explained, but non-ready facts or warnings need disclosure. | Present with supportability context; do not hide degradation. |
+| `not_supportable` | The result is blocked or lacks facts needed for a trustworthy composite return. | Do not present as client-facing composite performance. |
+
 ## Support And Audit Interpretation
 
 Use the inspector before publishing a new or restated composite result.
@@ -104,6 +174,27 @@ Common blocked reasons:
 - nonpositive beginning composite assets;
 - mixed member return views;
 - mixed reporting currencies.
+
+## Business And Demo Readiness
+
+Demo-safe claims:
+
+- Lotus can calculate private-banking composite TWR from persisted member-return facts.
+- Composite results carry member weights, contributions, source fingerprints, restatement versions,
+  reason codes, and supportability state.
+- The inspector produces classified artifacts that support audit, operations, and client-safe
+  evidence-pack preparation.
+- Gateway and Workbench consume the source-owned composite endpoints rather than recreating the
+  calculation downstream.
+
+Do not claim:
+
+- GIPS compliance or independent verification;
+- composite contribution, attribution, or MWR;
+- sleeve, carve-out, model-portfolio, wrap-program, private-market, portability, tax-aware,
+  leveraged, or long/short special-structure support;
+- multi-currency composite aggregation beyond the single reporting-currency guard;
+- benchmark active return for composites.
 
 ## Current Boundaries
 
