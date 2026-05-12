@@ -1366,6 +1366,13 @@ Validation:
 3. saved evidence manifest in closure notes;
 4. API, Gateway, and Workbench direct probes as applicable.
 
+Slice 12 evidence is recorded in
+`docs/RFCs/RFC-049-implementation-proof-slice12.md`. The slice added repeatable fixture and live
+proof utilities, proved direct `lotus-performance`, Gateway, and Workbench BFF composite routes
+against persisted member-return facts, ran canonical Workbench validation for
+`PB_SG_GLOBAL_BAL_001`, captured operations evidence, and corrected stale runtime containers before
+accepting live proof.
+
 ### Slice 13 - Second-Last Hardening and Review
 
 Purpose: run the final engineering quality pass before closure.
