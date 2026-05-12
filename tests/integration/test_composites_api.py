@@ -95,3 +95,29 @@ def test_composite_twr_api_returns_not_found_for_unknown_definition():
 
     assert response.status_code == 404
     assert response.json()["detail"]["code"] == "COMPOSITE_NOT_FOUND"
+
+
+def test_composite_inspection_api_returns_artifacts_from_persisted_facts():
+    with TestClient(app) as client:
+        composite_metadata_store.clear_all_records()
+        _seed_definition()
+        _seed_fact("P1", "0.0100", "100.00")
+        _seed_fact("P2", "0.0300", "300.00")
+
+        response = client.post(
+            "/performance/composites/inspect",
+            json={
+                "inspection_id": "8d1e37d2-aeca-488c-bd43-77dbf6739103",
+                "composite_id": "PB_GLOBAL_BALANCED_USD",
+                "period_start": "2026-01-01",
+                "period_end": "2026-01-31",
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    artifacts = {artifact["artifact_name"]: artifact for artifact in payload["artifacts"]}
+    assert payload["verdict"] == "supportable"
+    assert artifacts["member_inputs.csv"]["access_classification"] == "operator_only"
+    assert artifacts["composite_returns.csv"]["access_classification"] == "customer_consumable"
+    assert "PB_GLOBAL_BALANCED_USD" in artifacts["support_brief.md"]["artifact_content"]

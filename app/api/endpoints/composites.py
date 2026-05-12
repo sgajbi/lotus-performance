@@ -3,6 +3,8 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, status
 
 from app.models.composites import (
+    CompositeInspectionRequest,
+    CompositeInspectionResponse,
     CompositeMemberContributionResponse,
     CompositePeriodResultResponse,
     CompositeTWRRequest,
@@ -12,6 +14,7 @@ from app.services.composite_calculation_service import (
     CompositeDefinitionNotFoundError,
     calculate_composite_twr_from_persisted_facts,
 )
+from app.services.composite_inspection_service import inspect_composite_twr_from_persisted_facts
 
 router = APIRouter(tags=["Performance"])
 
@@ -103,3 +106,32 @@ def calculate_composite_twr(request: CompositeTWRRequest) -> CompositeTWRRespons
         reason_codes=result.reason_codes,
         periods=[_period_response(period) for period in result.period_results],
     )
+
+
+@router.post(
+    "/composites/inspect",
+    response_model=CompositeInspectionResponse,
+    summary="Inspect composite TWR persisted facts and evidence artifacts",
+    description=(
+        "Runs support-safe composite inspection over persisted member-return facts. Use this endpoint "
+        "when operations, audit, or implementation proof needs member inputs, period weights, composite "
+        "returns, lineage manifest, and a support brief without recalculating portfolio-level TWR on the fly."
+    ),
+    responses={
+        200: {"description": "Composite inspection completed over persisted facts."},
+        404: {"description": "Composite definition was not found in the durable composite metadata store."},
+    },
+)
+def inspect_composite_twr(request: CompositeInspectionRequest) -> CompositeInspectionResponse:
+    try:
+        return inspect_composite_twr_from_persisted_facts(
+            inspection_id=request.inspection_id,
+            composite_id=request.composite_id,
+            period_start=request.period_start,
+            period_end=request.period_end,
+        )
+    except CompositeDefinitionNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "COMPOSITE_NOT_FOUND", "message": str(exc)},
+        ) from exc

@@ -363,3 +363,73 @@ class CompositeTWRResponse(BaseModel):
         description="Composite methodology identifier used for this response.",
         examples=["persisted_member_return_asset_weighted_twr_v1"],
     )
+
+
+class CompositeInspectionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    inspection_id: UUID = Field(
+        default_factory=uuid4,
+        description="Client-provided or generated composite inspection identifier.",
+        examples=["8d1e37d2-aeca-488c-bd43-77dbf6739103"],
+    )
+    composite_id: str = Field(
+        min_length=1,
+        description="Composite identifier to inspect from persisted member-return facts.",
+        examples=["PB_GLOBAL_BALANCED_USD"],
+    )
+    period_start: dt_date = Field(description="Inclusive inspection window start date.", examples=["2026-01-01"])
+    period_end: dt_date = Field(description="Inclusive inspection window end date.", examples=["2026-03-31"])
+
+    @model_validator(mode="after")
+    def validate_window(self) -> "CompositeInspectionRequest":
+        if self.period_end < self.period_start:
+            raise ValueError("period_end cannot be before period_start")
+        return self
+
+
+class CompositeInspectionFinding(BaseModel):
+    code: str = Field(description="Stable machine-readable composite inspection finding code.")
+    severity: str = Field(description="Finding severity: info, warning, high, or critical.", examples=["warning"])
+    category: str = Field(description="Finding family.", examples=["member_return_fact_quality"])
+    owner_repo: str = Field(description="Likely owner repository for follow-up.", examples=["lotus-performance"])
+    summary: str = Field(description="Short support-facing finding summary.")
+    recommended_action: str = Field(description="Concrete support or engineering action.")
+    evidence: dict[str, str | int | list[str]] = Field(
+        default_factory=dict,
+        description="Structured support-safe evidence for this finding.",
+    )
+
+
+class CompositeInspectionArtifact(BaseModel):
+    artifact_name: str = Field(description="Artifact file name.", examples=["member_inputs.csv"])
+    content_type: str = Field(description="Artifact media type.", examples=["text/csv"])
+    access_classification: str = Field(
+        description="Evidence access classification.",
+        examples=["operator_only"],
+    )
+    artifact_content: str = Field(description="Artifact content encoded as UTF-8 text.")
+
+
+class CompositeInspectionResponse(BaseModel):
+    inspection_id: UUID = Field(description="Composite inspection identifier.")
+    composite_id: str = Field(description="Composite identifier inspected.", examples=["PB_GLOBAL_BALANCED_USD"])
+    period_start: dt_date = Field(description="Inclusive inspection window start date.", examples=["2026-01-01"])
+    period_end: dt_date = Field(description="Inclusive inspection window end date.", examples=["2026-03-31"])
+    status: str = Field(description="Inspection execution status.", examples=["complete"])
+    verdict: str = Field(
+        description="Composite inspection verdict: supportable, supportable_with_warnings, or not_supportable.",
+        examples=["supportable_with_warnings"],
+    )
+    findings: list[CompositeInspectionFinding] = Field(
+        default_factory=list,
+        description="Ordered supportability findings grounded in persisted composite facts and calculation evidence.",
+    )
+    evidence_summary: dict[str, str | int | list[str]] = Field(
+        default_factory=dict,
+        description="Support-safe summary metrics for inspected composite facts and result periods.",
+    )
+    artifacts: list[CompositeInspectionArtifact] = Field(
+        default_factory=list,
+        description="Classified inspection artifacts for support, audit, and methodology explanation.",
+    )

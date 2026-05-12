@@ -96,6 +96,9 @@ class CompositeMetadataStore:
         self._engine = create_engine(database_url, future=True, connect_args=connect_args)
         self._session_factory = sessionmaker(bind=self._engine, future=True)
 
+    def close(self) -> None:
+        self._engine.dispose()
+
     def create_schema(self) -> None:
         Base.metadata.create_all(self._engine)
         self._upgrade_member_return_fact_schema()

@@ -27,7 +27,9 @@ enterprise posture baseline and hardening closure rules are captured in
 hardening evidence is captured in
 `docs/RFCs/RFC-049-data-product-runtime-hardening-slice6.md`. Slice 7 benchmark/assets/fees/
 dispersion/restatement evidence is captured in
-`docs/RFCs/RFC-049-benchmark-assets-fees-dispersion-restatement-slice7.md`.
+`docs/RFCs/RFC-049-benchmark-assets-fees-dispersion-restatement-slice7.md`. Slice 7A composite
+inspector and evidence export is captured in
+`docs/RFCs/RFC-049-composite-inspector-export-slice7A.md`.
 
 Related RFCs:
 
