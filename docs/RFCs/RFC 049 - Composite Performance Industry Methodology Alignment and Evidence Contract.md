@@ -32,7 +32,8 @@ inspector and evidence export is captured in
 `docs/RFCs/RFC-049-composite-inspector-export-slice7A.md`. Slice 8 advanced analytics gate
 evidence is captured in `docs/RFCs/RFC-049-advanced-analytics-decision-slice8.md`. Slice 9
 downstream/upstream integration realization evidence is captured in
-`docs/RFCs/RFC-049-downstream-upstream-integration-slice9.md`.
+`docs/RFCs/RFC-049-downstream-upstream-integration-slice9.md`. Slice 10 QA regression pack
+evidence is captured in `docs/RFCs/RFC-049-qa-regression-pack-slice10.md`.
 
 Related RFCs:
 

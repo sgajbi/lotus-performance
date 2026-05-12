@@ -15,6 +15,7 @@ from app.services.composite_calculation_service import (
     calculate_composite_twr_from_persisted_facts,
 )
 from app.services.composite_inspection_service import inspect_composite_twr_from_persisted_facts
+from core.errors import HTTP_422_UNPROCESSABLE
 
 router = APIRouter(tags=["Performance"])
 
@@ -89,7 +90,7 @@ def calculate_composite_twr(request: CompositeTWRRequest) -> CompositeTWRRespons
 
     if not result.period_results:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=HTTP_422_UNPROCESSABLE,
             detail={
                 "code": "NO_MEMBER_RETURN_FACTS",
                 "message": "No persisted member-return facts exist for the requested composite window.",

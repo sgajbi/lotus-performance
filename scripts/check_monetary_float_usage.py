@@ -20,6 +20,7 @@ KEYWORDS = (
 IGNORE_DIRS = {"tests", ".venv", "venv", "docs", "rfcs", "output", "build", "dist", "__pycache__"}
 
 FLOAT_ANNOTATION = re.compile(r"\bfloat\b")
+FINDING_PATTERN = re.compile(r"^(?P<path>.+?):(?P<line_no>\d+):(?P<source>.*)$")
 
 
 def is_candidate(path: Path) -> bool:
@@ -46,6 +47,13 @@ def scan_repo(repo_root: Path) -> list[str]:
             finding = f"{rel}:{line_no}:{line.strip()}"
             findings.append(finding)
     return sorted(set(findings))
+
+
+def _finding_key(finding: str) -> str:
+    match = FINDING_PATTERN.match(finding)
+    if match is None:
+        return finding
+    return f"{match.group('path')}:{match.group('source').strip()}"
 
 
 def _parse_review_date(value: str) -> datetime:
@@ -163,7 +171,8 @@ def main() -> int:
         print(f"\nUpdate {allowlist_path} with refreshed review dates and remediation status.")
         return 1
 
-    unexpected = sorted(set(findings) - set(allowlist_entries))
+    allowlist_keys = {_finding_key(finding) for finding in allowlist_entries}
+    unexpected = sorted(finding for finding in findings if _finding_key(finding) not in allowlist_keys)
 
     if unexpected:
         print("Unauthorized monetary float usage detected:")

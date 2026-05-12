@@ -29,7 +29,14 @@ def _seed_definition() -> None:
     )
 
 
-def _seed_fact(portfolio_id: str, return_value: str, beginning_market_value: str) -> None:
+def _seed_fact(
+    portfolio_id: str,
+    return_value: str,
+    beginning_market_value: str,
+    *,
+    status: str = "READY",
+    reason_codes: list[str] | None = None,
+) -> None:
     composite_metadata_store.upsert_member_return_fact(
         CompositeMemberReturnFact.model_validate(
             {
@@ -44,6 +51,8 @@ def _seed_fact(portfolio_id: str, return_value: str, beginning_market_value: str
                 "calculation_id": f"calc-{portfolio_id}",
                 "source_snapshot_id": f"snapshot-{portfolio_id}",
                 "source_fingerprint": f"sha256:{portfolio_id}",
+                "status": status,
+                "reason_codes": reason_codes or [],
             }
         )
     )
@@ -95,6 +104,66 @@ def test_composite_twr_api_returns_not_found_for_unknown_definition():
 
     assert response.status_code == 404
     assert response.json()["detail"]["code"] == "COMPOSITE_NOT_FOUND"
+
+
+def test_composite_twr_api_returns_unprocessable_for_empty_persisted_fact_window():
+    with TestClient(app) as client:
+        composite_metadata_store.clear_all_records()
+        _seed_definition()
+
+        response = client.post(
+            "/performance/composites/twr",
+            json={
+                "composite_id": "PB_GLOBAL_BALANCED_USD",
+                "period_start": "2026-01-01",
+                "period_end": "2026-01-31",
+            },
+        )
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "NO_MEMBER_RETURN_FACTS"
+
+
+def test_composite_twr_api_returns_degraded_reason_codes_for_non_ready_member_facts():
+    with TestClient(app) as client:
+        composite_metadata_store.clear_all_records()
+        _seed_definition()
+        _seed_fact("P1", "0.0100", "100.00")
+        _seed_fact("P2", "0.0300", "300.00", status="DEGRADED", reason_codes=["missing_final_valuation"])
+
+        response = client.post(
+            "/performance/composites/twr",
+            json={
+                "composite_id": "PB_GLOBAL_BALANCED_USD",
+                "period_start": "2026-01-01",
+                "period_end": "2026-01-31",
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "DEGRADED"
+    assert payload["reason_codes"] == ["missing_final_valuation"]
+    assert payload["periods"][0]["excluded_member_count"] == 1
+    assert payload["periods"][0]["reason_codes"] == ["missing_final_valuation"]
+
+
+def test_composite_twr_api_rejects_invalid_window_before_calculation():
+    with TestClient(app) as client:
+        composite_metadata_store.clear_all_records()
+        _seed_definition()
+
+        response = client.post(
+            "/performance/composites/twr",
+            json={
+                "composite_id": "PB_GLOBAL_BALANCED_USD",
+                "period_start": "2026-02-01",
+                "period_end": "2026-01-31",
+            },
+        )
+
+    assert response.status_code == 422
+    assert "period_end cannot be before period_start" in response.text
 
 
 def test_composite_inspection_api_returns_artifacts_from_persisted_facts():

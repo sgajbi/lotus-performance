@@ -3,13 +3,14 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import date
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException
 
 from app.models.benchmark_analytics_requests import (
     BenchmarkComponentPricePointInput,
     BenchmarkStatelessInput,
 )
 from app.models.benchmark_requests import BenchmarkComponentObservation
+from core.errors import HTTP_422_UNPROCESSABLE
 
 
 def normalize_stateless_component_observations(
@@ -28,7 +29,7 @@ def normalize_stateless_component_observations(
             )
         ]
     raise HTTPException(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=HTTP_422_UNPROCESSABLE,
         detail=(
             "stateless benchmark calculated mode requires either component_observations or component_price_points."
         ),
@@ -56,7 +57,7 @@ def _build_component_observations_from_price_points(
             current_date = current_point.perf_date
             if current_date <= previous_date:
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=HTTP_422_UNPROCESSABLE,
                     detail=(
                         "stateless benchmark component_price_points require strictly increasing unique dates "
                         f"per component; component_id={component_id} contains duplicate or non-monotonic "
@@ -67,7 +68,7 @@ def _build_component_observations_from_price_points(
             current_price = float(current_point.index_price)
             if previous_price == 0:
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=HTTP_422_UNPROCESSABLE,
                     detail=(
                         f"stateless benchmark component_price_points require non-zero prior price "
                         f"for component_id={component_id} on {previous_date}."
@@ -86,7 +87,7 @@ def _build_component_observations_from_price_points(
             else:
                 if current_fx is None or previous_fx is None:
                     raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        status_code=HTTP_422_UNPROCESSABLE,
                         detail=(
                             f"stateless benchmark component_price_points require fx_rate_to_benchmark "
                             f"for cross-currency component_id={component_id} on {current_date}."
@@ -117,7 +118,7 @@ def _build_component_observations_from_price_points(
             expected_component_dates = component_dates
         elif component_dates != expected_component_dates:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=HTTP_422_UNPROCESSABLE,
                 detail=(
                     "stateless benchmark component_price_points must yield the same derived return-date "
                     f"set for every component; component_id={component_id} does not match peer coverage."
@@ -126,7 +127,7 @@ def _build_component_observations_from_price_points(
 
     if not observations:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=HTTP_422_UNPROCESSABLE,
             detail=(
                 "stateless benchmark component_price_points did not yield any benchmark return observations; "
                 "at least two price points per component are required."

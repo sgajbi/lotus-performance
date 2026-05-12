@@ -49,6 +49,20 @@ def test_membership_requires_reason_for_non_included_status():
         CompositeMembership.model_validate(payload)
 
 
+def test_membership_rejects_reversed_effective_dates():
+    payload = {
+        "composite_id": "PB_GLOBAL_BALANCED_USD",
+        "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+        "effective_from": "2026-02-01",
+        "effective_to": "2026-01-31",
+        "status": "INCLUDED",
+        "source_snapshot_id": "membership-snapshot-1",
+    }
+
+    with pytest.raises(ValidationError, match="effective_to cannot be before effective_from"):
+        CompositeMembership.model_validate(payload)
+
+
 def test_member_return_fact_requires_reason_codes_for_degraded_status():
     payload = {
         "composite_id": "PB_GLOBAL_BALANCED_USD",
@@ -66,6 +80,25 @@ def test_member_return_fact_requires_reason_codes_for_degraded_status():
     }
 
     with pytest.raises(ValidationError, match="reason_codes are required"):
+        CompositeMemberReturnFact.model_validate(payload)
+
+
+def test_member_return_fact_rejects_negative_assets():
+    payload = {
+        "composite_id": "PB_GLOBAL_BALANCED_USD",
+        "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+        "period_start": "2026-01-01",
+        "period_end": "2026-01-31",
+        "return_value": "0.0125",
+        "beginning_market_value": "-1000000.00",
+        "ending_market_value": "1012500.00",
+        "reporting_currency": "USD",
+        "calculation_id": "7f2b08b0-58e5-49be-b3ef-7a9cfb0321ce",
+        "source_snapshot_id": "portfolio-twr-snapshot-1",
+        "source_fingerprint": "sha256:portfolio-twr-snapshot-1",
+    }
+
+    with pytest.raises(ValidationError):
         CompositeMemberReturnFact.model_validate(payload)
 
 
