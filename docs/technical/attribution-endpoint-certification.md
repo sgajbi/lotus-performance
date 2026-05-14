@@ -79,6 +79,13 @@ not expose benchmark version, classification version, calendar policy, derivativ
 fee/tax/income breakout fields; those are treated as source-limited and must not be promoted as
 supported attribution claims.
 
+When `currency_mode="BOTH"` is source-ready, the response emits both per-currency
+`currency_attribution[]` rows and portfolio-level `currency_attribution_totals`. The totals are the
+source-owned Karnosky-Singer sum of local allocation, local selection, currency allocation, currency
+selection, total effect, and currency bucket count across the emitted rows. Gateway, Workbench,
+reporting, and manage consumers should consume these totals rather than reconstructing
+portfolio-level FX attribution by summing displayed rows.
+
 ## Downstream Consumers
 
 Known consumers:

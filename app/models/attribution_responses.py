@@ -297,6 +297,40 @@ class CurrencyAttributionResult(BaseModel):
     effects: CurrencyAttributionEffects = Field(description="Currency attribution effect breakdown.")
 
 
+class CurrencyAttributionTotals(BaseModel):
+    """Portfolio-level total of the currency attribution breakdown."""
+
+    local_allocation: float = Field(
+        description="Portfolio-level local allocation effect in percentage-point output units.",
+        examples=[0.08],
+    )
+    local_selection: float = Field(
+        description="Portfolio-level local selection effect in percentage-point output units.",
+        examples=[0.11],
+    )
+    currency_allocation: float = Field(
+        description="Portfolio-level currency allocation effect in percentage-point output units.",
+        examples=[0.03],
+    )
+    currency_selection: float = Field(
+        description="Portfolio-level currency selection effect in percentage-point output units.",
+        examples=[0.02],
+    )
+    total_effect: float = Field(
+        description=(
+            "Portfolio-level total currency attribution effect in percentage-point output units. "
+            "This equals the sum of local allocation, local selection, currency allocation, and "
+            "currency selection across all emitted currency buckets."
+        ),
+        examples=[0.24],
+    )
+    currency_count: int = Field(
+        ge=0,
+        description="Number of currency buckets included in the portfolio-level total.",
+        examples=[2],
+    )
+
+
 class SinglePeriodAttributionResult(BaseModel):
     """Contains the full set of attribution results for a single, resolved period."""
 
@@ -346,6 +380,14 @@ class SinglePeriodAttributionResult(BaseModel):
     currency_attribution: Optional[List[CurrencyAttributionResult]] = Field(
         default=None,
         description="Optional currency attribution breakdown in percentage-point output units.",
+    )
+    currency_attribution_totals: Optional[CurrencyAttributionTotals] = Field(
+        default=None,
+        description=(
+            "Optional portfolio-level currency attribution total in percentage-point output "
+            "units. Downstream consumers should use this field instead of summing displayed "
+            "currency rows."
+        ),
     )
 
 

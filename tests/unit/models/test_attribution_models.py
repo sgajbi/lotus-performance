@@ -51,10 +51,23 @@ def test_attribution_request_with_no_analyses_fails(base_attribution_payload):
         AttributionRequest.model_validate(base_attribution_payload)
 
 
-def test_single_period_attribution_result_schema_excludes_dead_currency_totals_field():
+def test_single_period_attribution_result_schema_documents_currency_totals_field():
     schema = SinglePeriodAttributionResult.model_json_schema()
+    properties = schema["properties"]
+    totals_ref = properties["currency_attribution_totals"]["anyOf"][0]["$ref"].split("/")[-1]
+    totals_properties = schema["$defs"][totals_ref]["properties"]
 
-    assert "currency_attribution_totals" not in schema.get("properties", {})
+    assert properties["currency_attribution_totals"]["description"]
+    for field_name in (
+        "local_allocation",
+        "local_selection",
+        "currency_allocation",
+        "currency_selection",
+        "total_effect",
+        "currency_count",
+    ):
+        assert field_name in totals_properties
+        assert totals_properties[field_name]["description"]
 
 
 def test_attribution_group_result_schema_includes_side_by_side_context_fields():

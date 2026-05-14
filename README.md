@@ -203,6 +203,8 @@ Current request-model highlights:
   `benchmark.return_source="vendor_series"`
 - stateful benchmark sourcing now defaults to lotus-performance benchmark calculation
 - returns-series outputs include `active_returns` and `cumulative_active_returns`
+- attribution emits source-owned `currency_attribution_totals` for portfolio-level
+  Karnosky-Singer FX attribution when `currency_mode=BOTH` is source-ready
 - benchmark exposure context is currently certified at `frequency=DAILY`; `ISSUER` remains gated
 - Older examples using `period_type` are not current
 - Older examples using `daily_data` are not current

@@ -83,6 +83,13 @@ Each attribution period also carries period-level supportability:
    warning and material thresholds, providing material residual classification for operations and
    front-office review.
 
+When currency attribution is source-ready, each period also carries
+`currency_attribution_totals`: the portfolio-level Karnosky-Singer total across all emitted
+currency buckets. This gives downstream consumers an authoritative local allocation, local
+selection, currency allocation, currency selection, total effect, and bucket count without requiring
+Gateway, Workbench, reporting, or manage flows to reconstruct portfolio-level FX attribution from
+visible rows.
+
 ## Data Product Contract
 
 `AttributionAnalytics:v1` is declared in

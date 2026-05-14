@@ -152,6 +152,7 @@ Each period result can include:
 - `reconciliation`
 - `supportability_evidence`
 - `currency_attribution` when the multi-currency attribution path is active
+- `currency_attribution_totals` when the multi-currency attribution path is active
 
 Use `status`, `reason_codes`, `reasons`, and `supportability_evidence` as the authoritative
 front-office degraded-state contract for a period. A period can be mathematically calculated but
@@ -163,6 +164,12 @@ attribution is requested and any portfolio or benchmark period return is less th
 `-100%`, `supportability_evidence.linking_status` is `invalid_return_chain` and
 `reason_codes` includes `linking_invalid_return_chain`; single-period evidence remains available,
 but the linked period should not be used as a clean smoothed attribution view.
+
+When currency attribution is active, `currency_attribution[]` contains the per-currency
+Karnosky-Singer breakdown and `currency_attribution_totals` contains the portfolio-level total
+across all emitted currency buckets. Downstream consumers should use `currency_attribution_totals`
+for portfolio-level FX attribution displays, report inputs, and reconciliation checks instead of
+summing visible currency rows.
 
 Each `levels[].groups[]` row now carries side-by-side front-office context in addition to the
 effect terms:

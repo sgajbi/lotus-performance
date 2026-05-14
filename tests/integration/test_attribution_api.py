@@ -425,6 +425,13 @@ def test_attribution_endpoint_currency_attribution(client):
     assert eur_effects["currency_allocation"] == pytest.approx(0.0)
     assert eur_effects["currency_selection"] == pytest.approx(0.005)
     assert eur_effects["total_effect"] == pytest.approx(0.505)
+    totals = data["currency_attribution_totals"]
+    assert totals["local_allocation"] == pytest.approx(0.0)
+    assert totals["local_selection"] == pytest.approx(0.5)
+    assert totals["currency_allocation"] == pytest.approx(0.0)
+    assert totals["currency_selection"] == pytest.approx(0.005)
+    assert totals["total_effect"] == pytest.approx(0.505)
+    assert totals["currency_count"] == 1
 
     calculation_id = response.json()["calculation_id"]
     assert drain_lineage_queue() >= 1
@@ -1489,6 +1496,7 @@ def test_attribution_stateful_currency_mode_both_supports_mixed_currency_decompo
     by_currency = {entry["currency"]: entry for entry in currency_results}
     assert by_currency["eur"]["weight_portfolio_avg"] == pytest.approx(55.0)
     assert by_currency["usd"]["weight_portfolio_avg"] == pytest.approx(45.0)
+    assert body["results_by_period"]["ITD"]["currency_attribution_totals"]["currency_count"] == 2
 
 
 def test_attribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch):

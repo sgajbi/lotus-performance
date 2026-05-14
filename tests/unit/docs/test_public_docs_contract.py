@@ -284,6 +284,10 @@ def test_attribution_documentation_map_and_wiki_navigation_are_present():
     assert "lotus-performance attribution input normalization" in wiki_page
     assert "Current Boundaries" in wiki_page
     assert "material residual classification" in wiki_page
+    assert "currency_attribution_totals" in wiki_page
+    assert "portfolio-level Karnosky-Singer total" in wiki_page
+    assert "portfolio-level FX attribution" in certification
+    assert "should consume these totals rather than reconstructing" in certification
     assert "[Attribution Analytics](Attribution-Analytics)" in wiki_sidebar
     assert "[Attribution Analytics](Attribution-Analytics)" in wiki_home
     assert "docs/technical/attribution-documentation-map.md" in wiki_api_surface

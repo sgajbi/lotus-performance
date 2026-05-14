@@ -41,9 +41,27 @@ def test_attribution_openapi_documents_status_reason_and_supportability_fields()
     assert response_example["results_by_period"]["ITD"]["reason_codes"] == ["off_benchmark_exposure"]
 
     period_schema = schemas["SinglePeriodAttributionResult"]
-    for field_name in ("status", "reason_codes", "reasons", "supportability_evidence"):
+    for field_name in (
+        "status",
+        "reason_codes",
+        "reasons",
+        "supportability_evidence",
+        "currency_attribution_totals",
+    ):
         assert field_name in period_schema["properties"]
         assert period_schema["properties"][field_name]["description"]
+
+    totals_schema = schemas["CurrencyAttributionTotals"]
+    for field_name in (
+        "local_allocation",
+        "local_selection",
+        "currency_allocation",
+        "currency_selection",
+        "total_effect",
+        "currency_count",
+    ):
+        assert field_name in totals_schema["properties"]
+        assert totals_schema["properties"][field_name]["description"]
 
     evidence_schema = schemas["AttributionSupportabilityEvidence"]
     for field_name in (
