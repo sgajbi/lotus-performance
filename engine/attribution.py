@@ -17,6 +17,7 @@ from app.models.attribution_responses import (
     AttributionLevelTotals,
     CurrencyAttributionEffects,
     CurrencyAttributionResult,
+    CurrencyAttributionTotals,
     Reconciliation,
     SinglePeriodAttributionResult,
 )
@@ -541,6 +542,26 @@ def aggregate_attribution_results(
                     )
                 )
             period_result.currency_attribution = fx_results
+            period_result.currency_attribution_totals = CurrencyAttributionTotals(
+                local_allocation=total_fx_effects["local_allocation"].sum() * 100,
+                local_selection=total_fx_effects["local_selection"].sum() * 100,
+                currency_allocation=total_fx_effects["currency_allocation"].sum() * 100,
+                currency_selection=total_fx_effects["currency_selection"].sum() * 100,
+                total_effect=(
+                    total_fx_effects[
+                        [
+                            "local_allocation",
+                            "local_selection",
+                            "currency_allocation",
+                            "currency_selection",
+                        ]
+                    ]
+                    .sum()
+                    .sum()
+                    * 100
+                ),
+                currency_count=len(fx_results),
+            )
 
     return period_result, aggregation_lineage
 

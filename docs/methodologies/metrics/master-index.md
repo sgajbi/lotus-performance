@@ -40,7 +40,9 @@ This index maps implemented lotus-performance metrics to detailed methodology do
   lotus-core portfolio and position timeseries, benchmark assignment or explicit benchmark override,
   benchmark component inputs, and source currency evidence into canonical attribution panel inputs
   while keeping Brinson, active-return, linking, and Karnosky-Singer methodology owned by
-  `lotus-performance`.
+  `lotus-performance`. When `currency_mode=BOTH` is source-ready, attribution responses also emit
+  `currency_attribution_totals` as the portfolio-level Karnosky-Singer sum across emitted currency
+  buckets so downstream consumers do not reconstruct portfolio-level FX attribution locally.
 - `POST /performance/composites/twr` calculates composite TWR from persisted member-return facts
   only. It does not accept ad hoc member returns and does not perform hidden request-time portfolio
   TWR fan-out. Composite contribution, attribution, MWR, sleeves, carve-outs, and multi-currency

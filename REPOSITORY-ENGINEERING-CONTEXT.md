@@ -46,6 +46,10 @@ Current repository posture:
    degraded-state handling. Tests prove the Prometheus exposition uses only bounded labels and does
    not promote portfolio, account, client, trace, correlation, calculation, benchmark, security, or
    request/response payload values into metric labels.
+9. attribution emits `currency_attribution_totals` when the Karnosky-Singer
+   `currency_mode=BOTH` path is source-ready, giving downstream Gateway, Workbench, reporting, and
+   manage consumers a source-owned portfolio-level FX attribution total instead of requiring local
+   row summation.
 
 ## Architecture And Module Map
 
