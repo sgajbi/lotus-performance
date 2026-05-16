@@ -724,6 +724,61 @@ def test_attribution_supportability_evidence_flags_currency_and_linking_gaps():
     assert result.supportability_evidence.linking_status == "scaling_skipped"
 
 
+def test_currency_attribution_fails_closed_when_currency_grouping_is_absent():
+    request = AttributionRequest.model_validate(
+        {
+            "portfolio_id": "ATTR_CCY_GROUP_REQUIRED",
+            "mode": "by_group",
+            "group_by": ["sector"],
+            "linking": "none",
+            "frequency": "daily",
+            "currency_mode": "BOTH",
+            "report_ccy": "USD",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-01",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "portfolio_groups_data": [
+                {
+                    "key": {"sector": "Global Equity"},
+                    "observations": [
+                        {
+                            "date": "2025-01-01",
+                            "return_base": 0.031,
+                            "return_local": 0.025,
+                            "return_fx": 0.006,
+                            "weight_bop": 0.55,
+                        }
+                    ],
+                }
+            ],
+            "benchmark_groups_data": [
+                {
+                    "key": {"sector": "Global Equity"},
+                    "observations": [
+                        {
+                            "date": "2025-01-01",
+                            "return_base": 0.029,
+                            "return_local": 0.020,
+                            "return_fx": 0.009,
+                            "weight_bop": 0.50,
+                        }
+                    ],
+                }
+            ],
+        }
+    )
+
+    effects_df, _ = run_attribution_calculations(request)
+    result, lineage = aggregate_attribution_results(effects_df, request)
+
+    assert result.status == "partial"
+    assert "currency_attribution_unavailable" in result.reason_codes
+    assert result.supportability_evidence.currency_attribution_status == "unavailable"
+    assert result.currency_attribution is None
+    assert result.currency_attribution_totals is None
+    assert "currency_attribution_effects.csv" not in lineage
+
+
 def test_attribution_linking_flags_invalid_return_chain_from_regression_pack():
     request = AttributionRequest.model_validate(
         {
