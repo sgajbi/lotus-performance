@@ -113,8 +113,8 @@ def test_integration_capabilities_default_contract():
     assert surfaces["benchmark_exposure_context"]["supports_async"] is False
     assert surfaces["benchmark_exposure_context"]["stateful_restrictions"] == [
         "lotus-core remains the benchmark composition system of record",
-        "POSITION, SECTOR, and ASSET_CLASS grouping dimensions are supported",
-        "ISSUER remains gated until benchmark issuer exposure semantics are approved",
+        "POSITION, SECTOR, ASSET_CLASS, and ISSUER grouping dimensions are supported",
+        "ISSUER groups use lotus-core index-catalog issuer_id and issuer_name classification labels",
     ]
     features = {item["key"]: item for item in body["features"]}
     assert "performance.analytics.benchmark" in features

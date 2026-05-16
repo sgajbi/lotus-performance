@@ -38,15 +38,30 @@ class _StatefulInputServiceStub:
                 "records": [
                     {
                         "index_id": "IDX_TECH_A",
-                        "classification_labels": {"sector": "Technology", "asset_class": "Equity"},
+                        "classification_labels": {
+                            "sector": "Technology",
+                            "asset_class": "Equity",
+                            "issuer_id": "ISSUER_TECH",
+                            "issuer_name": "Technology Issuer Basket",
+                        },
                     },
                     {
                         "index_id": "IDX_TECH_B",
-                        "classification_labels": {"sector": "Technology", "asset_class": "Equity"},
+                        "classification_labels": {
+                            "sector": "Technology",
+                            "asset_class": "Equity",
+                            "issuer_id": "ISSUER_TECH",
+                            "issuer_name": "Technology Issuer Basket",
+                        },
                     },
                     {
                         "index_id": "IDX_BOND",
-                        "classification_labels": {"sector": "Government Bonds", "asset_class": "Fixed Income"},
+                        "classification_labels": {
+                            "sector": "Government Bonds",
+                            "asset_class": "Fixed Income",
+                            "issuer_id": "ISSUER_GOVT",
+                            "issuer_name": "Government Bond Issuer Basket",
+                        },
                     },
                 ]
             },
@@ -96,6 +111,7 @@ def _request(**overrides) -> BenchmarkExposureContextRequest:
             BenchmarkExposureGroupingDimension.POSITION,
             BenchmarkExposureGroupingDimension.SECTOR,
             BenchmarkExposureGroupingDimension.ASSET_CLASS,
+            BenchmarkExposureGroupingDimension.ISSUER,
         ],
     }
     payload.update(overrides)
@@ -129,6 +145,7 @@ async def test_build_benchmark_exposure_context_groups_and_aligns_weights() -> N
     }
     assert weights[("2026-01-02", "SECTOR", "SECTOR_Technology")] == Decimal("0.60")
     assert weights[("2026-01-02", "ASSET_CLASS", "ASSET_CLASS_Equity")] == Decimal("0.60")
+    assert weights[("2026-01-02", "ISSUER", "ISSUER_ISSUER_TECH")] == Decimal("0.60")
     assert weights[("2026-01-02", "POSITION", "IDX_TECH_A")] == Decimal("0.35")
     assert service.assignment_calls[0]["portfolio_id"] == "PB_SG_GLOBAL_BAL_001"
     assert service.market_series_calls[0]["series_fields"] == ["component_weight"]
@@ -179,9 +196,10 @@ async def test_build_benchmark_exposure_context_rejects_bad_upstream_shapes() ->
         )
 
 
-def test_benchmark_exposure_context_rejects_issuer_until_semantics_exist() -> None:
-    with pytest.raises(ValueError, match="does not yet support"):
-        _request(grouping_dimensions=[BenchmarkExposureGroupingDimension.ISSUER])
+def test_benchmark_exposure_context_accepts_issuer_grouping() -> None:
+    request = _request(grouping_dimensions=[BenchmarkExposureGroupingDimension.ISSUER])
+
+    assert request.grouping_dimensions == [BenchmarkExposureGroupingDimension.ISSUER]
 
 
 @pytest.mark.asyncio
@@ -313,7 +331,7 @@ def test_build_exposure_rows_skips_invalid_component_shapes_and_rejects_invalid_
         )
 
 
-def test_group_identity_uses_unknown_defaults_and_rejects_unsupported_dimension() -> None:
+def test_group_identity_uses_unknown_defaults_for_classification_groups() -> None:
     assert _group_identity(
         index_id="IDX",
         grouping_dimension=BenchmarkExposureGroupingDimension.SECTOR,
@@ -325,12 +343,17 @@ def test_group_identity_uses_unknown_defaults_and_rejects_unsupported_dimension(
         classification_map={},
     ) == ("ASSET_CLASS_UNKNOWN", "UNKNOWN", None)
 
-    with pytest.raises(HTTPException, match="does not yet support grouping_dimension=ISSUER"):
-        _group_identity(
-            index_id="IDX",
-            grouping_dimension=BenchmarkExposureGroupingDimension.ISSUER,
-            classification_map={},
-        )
+    assert _group_identity(
+        index_id="IDX",
+        grouping_dimension=BenchmarkExposureGroupingDimension.ISSUER,
+        classification_map={},
+    ) == ("ISSUER_UNKNOWN", "UNKNOWN", None)
+
+    assert _group_identity(
+        index_id="IDX",
+        grouping_dimension=BenchmarkExposureGroupingDimension.ISSUER,
+        classification_map={"IDX": {"issuer_id": "ISSUER_A", "issuer_name": "Issuer A"}},
+    ) == ("ISSUER_ISSUER_A", "Issuer A", None)
 
 
 def test_page_rows_rejects_invalid_page_token_inputs() -> None:

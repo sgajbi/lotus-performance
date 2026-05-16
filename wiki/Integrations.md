@@ -37,6 +37,12 @@ Governed base-URL examples:
 - operator surfaces:
   execution polling, lineage, runtime status, work items, recoveries, drills, retention
 
+Benchmark exposure context is the performance-owned derived integration view for downstream risk
+attribution. It resolves benchmark assignment and component weights through `lotus-core`, then
+serves `POSITION`, `SECTOR`, `ASSET_CLASS`, and `ISSUER` rows at `frequency=DAILY`. Issuer rows use
+lotus-core index-catalog `classification_labels.issuer_id` and `issuer_name`; `POSITION` is the only
+grouping that carries `component_id`.
+
 ## Stateful TWR source flow
 
 Stateful TWR is the source-normalized portfolio performance path. `lotus-performance` retrieves

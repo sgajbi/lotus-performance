@@ -30,7 +30,7 @@ def test_benchmark_exposure_context_openapi_documents_usage_and_fields() -> None
         assert request_schema["properties"][field_name]["description"]
 
     assert "DAILY only" in request_schema["properties"]["frequency"]["description"]
-    assert request_schema["examples"][0]["grouping_dimensions"] == ["POSITION", "SECTOR", "ASSET_CLASS"]
+    assert request_schema["examples"][0]["grouping_dimensions"] == ["POSITION", "SECTOR", "ASSET_CLASS", "ISSUER"]
 
     for field_name in [
         "valuation_date",

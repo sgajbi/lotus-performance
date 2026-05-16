@@ -59,7 +59,7 @@ class BenchmarkExposureContextRequest(BaseModel):
                     "window": {"start_date": "2026-01-01", "end_date": "2026-04-10"},
                     "frequency": "DAILY",
                     "reporting_currency": "USD",
-                    "grouping_dimensions": ["POSITION", "SECTOR", "ASSET_CLASS"],
+                    "grouping_dimensions": ["POSITION", "SECTOR", "ASSET_CLASS", "ISSUER"],
                     "page": {"page_size": 1000, "page_token": None},
                 }
             ]
@@ -96,9 +96,9 @@ class BenchmarkExposureContextRequest(BaseModel):
     )
     grouping_dimensions: list[BenchmarkExposureGroupingDimension] = Field(
         default_factory=lambda: [BenchmarkExposureGroupingDimension.POSITION],
-        description="Benchmark exposure grouping dimensions to return. v1 supports POSITION, SECTOR, and ASSET_CLASS. ISSUER remains gated until issuer benchmark semantics are approved.",
-        examples=[["POSITION", "SECTOR", "ASSET_CLASS"]],
-        json_schema_extra={"example": ["POSITION", "SECTOR", "ASSET_CLASS"]},
+        description="Benchmark exposure grouping dimensions to return. v1 supports POSITION, SECTOR, ASSET_CLASS, and ISSUER. ISSUER groups are sourced from lotus-core index-catalog classification labels.",
+        examples=[["POSITION", "SECTOR", "ASSET_CLASS", "ISSUER"]],
+        json_schema_extra={"example": ["POSITION", "SECTOR", "ASSET_CLASS", "ISSUER"]},
     )
     page: BenchmarkExposurePageRequest = Field(default_factory=BenchmarkExposurePageRequest)
 
@@ -108,17 +108,6 @@ class BenchmarkExposureContextRequest(BaseModel):
             raise ValueError("benchmark exposure context v1 supports frequency=DAILY only")
         if not self.grouping_dimensions:
             raise ValueError("grouping_dimensions must contain at least one value")
-        unsupported = sorted(
-            {
-                dimension.value
-                for dimension in self.grouping_dimensions
-                if dimension == BenchmarkExposureGroupingDimension.ISSUER
-            }
-        )
-        if unsupported:
-            raise ValueError(
-                "benchmark exposure context does not yet support grouping_dimensions=" + ", ".join(unsupported)
-            )
         return self
 
 

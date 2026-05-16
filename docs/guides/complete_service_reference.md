@@ -994,8 +994,8 @@ Purpose:
 Contract notes:
 
 - v1 supports `frequency=DAILY` only
-- supported grouping dimensions are `POSITION`, `SECTOR`, and `ASSET_CLASS`
-- `ISSUER` is rejected until issuer benchmark exposure semantics are approved
+- supported grouping dimensions are `POSITION`, `SECTOR`, `ASSET_CLASS`, and `ISSUER`
+- `ISSUER` grouping uses `classification_labels.issuer_id` and `issuer_name` from lotus-core index catalog records
 - row weights are decimal fractions, not percentages
 - pagination uses `page.page_size` and `page.next_page_token`
 - certification evidence lives in

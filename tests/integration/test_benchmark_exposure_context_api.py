@@ -21,11 +21,21 @@ class _RecordingStatefulInputService:
                 "records": [
                     {
                         "index_id": "IDX_GLOBAL_EQUITY",
-                        "classification_labels": {"sector": "Global Equity", "asset_class": "Equity"},
+                        "classification_labels": {
+                            "sector": "Global Equity",
+                            "asset_class": "Equity",
+                            "issuer_id": "ISSUER_GLOBAL_EQUITY",
+                            "issuer_name": "Global Equity Issuer Basket",
+                        },
                     },
                     {
                         "index_id": "IDX_GLOBAL_BONDS",
-                        "classification_labels": {"sector": "Global Bonds", "asset_class": "Fixed Income"},
+                        "classification_labels": {
+                            "sector": "Global Bonds",
+                            "asset_class": "Fixed Income",
+                            "issuer_id": "ISSUER_GLOBAL_BONDS",
+                            "issuer_name": "Global Bond Issuer Basket",
+                        },
                     },
                 ]
             },
@@ -64,7 +74,7 @@ def test_benchmark_exposure_context_api_returns_performance_aligned_view(monkeyp
         "window": {"start_date": "2026-01-02", "end_date": "2026-01-02"},
         "frequency": "DAILY",
         "reporting_currency": "USD",
-        "grouping_dimensions": ["POSITION", "SECTOR", "ASSET_CLASS"],
+        "grouping_dimensions": ["POSITION", "SECTOR", "ASSET_CLASS", "ISSUER"],
         "page": {"page_size": 2, "page_token": None},
     }
 
@@ -104,6 +114,8 @@ def test_benchmark_exposure_context_api_returns_performance_aligned_view(monkeyp
     assert {(row["grouping_dimension"], row["group_key"], row["weight"]) for row in next_body["rows"]} == {
         ("POSITION", "IDX_GLOBAL_EQUITY", "0.60"),
         ("POSITION", "IDX_GLOBAL_BONDS", "0.40"),
+        ("ISSUER", "ISSUER_ISSUER_GLOBAL_EQUITY", "0.60"),
+        ("ISSUER", "ISSUER_ISSUER_GLOBAL_BONDS", "0.40"),
         ("SECTOR", "SECTOR_Global Equity", "0.60"),
         ("SECTOR", "SECTOR_Global Bonds", "0.40"),
     }
@@ -119,13 +131,19 @@ def test_benchmark_exposure_context_api_returns_performance_aligned_view(monkeyp
         ("2026-01-02", "POSITION"): 1.0,
         ("2026-01-02", "SECTOR"): 1.0,
         ("2026-01-02", "ASSET_CLASS"): 1.0,
+        ("2026-01-02", "ISSUER"): 1.0,
     }
     assert stateful_service.assignment_calls[0]["portfolio_id"] == "PB_SG_GLOBAL_BAL_001"
     assert stateful_service.market_series_calls[0]["series_fields"] == ["component_weight"]
     assert stateful_service.market_series_calls[0]["target_currency"] == "USD"
 
 
-def test_benchmark_exposure_context_api_rejects_issuer_until_contract_exists() -> None:
+def test_benchmark_exposure_context_api_returns_issuer_groups(monkeypatch) -> None:
+    stateful_service = _RecordingStatefulInputService()
+    monkeypatch.setattr(
+        "app.api.endpoints.benchmark_exposure_context.build_stateful_input_service",
+        lambda *, settings: stateful_service,
+    )
     payload = {
         "portfolio_id": "PB_SG_GLOBAL_BAL_001",
         "as_of_date": "2026-01-02",
@@ -136,8 +154,12 @@ def test_benchmark_exposure_context_api_rejects_issuer_until_contract_exists() -
     with TestClient(app) as client:
         response = client.post("/integration/benchmarks/exposure-context", json=payload)
 
-    assert response.status_code == 422
-    assert "does not yet support" in response.text
+    assert response.status_code == 200
+    body = response.json()
+    assert {(row["group_key"], row["group_label"], row["weight"]) for row in body["rows"]} == {
+        ("ISSUER_ISSUER_GLOBAL_EQUITY", "Global Equity Issuer Basket", "0.60"),
+        ("ISSUER_ISSUER_GLOBAL_BONDS", "Global Bond Issuer Basket", "0.40"),
+    }
 
 
 def test_benchmark_exposure_context_api_rejects_non_daily_frequency() -> None:

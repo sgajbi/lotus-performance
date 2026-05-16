@@ -141,10 +141,7 @@ async def _classification_map_for_request(
     stateful_input_service: StatefulInputService,
     component_series: list[dict[str, Any]],
 ) -> dict[str, dict[str, str]]:
-    if not any(
-        dimension in {BenchmarkExposureGroupingDimension.SECTOR, BenchmarkExposureGroupingDimension.ASSET_CLASS}
-        for dimension in request.grouping_dimensions
-    ):
+    if not any(dimension != BenchmarkExposureGroupingDimension.POSITION for dimension in request.grouping_dimensions):
         return {}
     index_ids = sorted(
         {
@@ -258,6 +255,11 @@ def _group_identity(
     if grouping_dimension == BenchmarkExposureGroupingDimension.ASSET_CLASS:
         label = classification_map.get(index_id, {}).get("asset_class") or "UNKNOWN"
         return f"ASSET_CLASS_{label}", label, None
+    if grouping_dimension == BenchmarkExposureGroupingDimension.ISSUER:
+        labels = classification_map.get(index_id, {})
+        issuer_id = labels.get("issuer_id") or "UNKNOWN"
+        issuer_name = labels.get("issuer_name") or issuer_id
+        return f"ISSUER_{issuer_id}", issuer_name, None
     raise HTTPException(
         status_code=HTTP_422_UNPROCESSABLE,
         detail=f"benchmark exposure context does not yet support grouping_dimension={grouping_dimension.value}",
