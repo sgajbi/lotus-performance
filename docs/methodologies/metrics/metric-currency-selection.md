@@ -48,6 +48,10 @@ Aggregation and total effect:
 - response field = `100 * CS_c`
 - per-currency `total_effect` is sum of four currency effects:
   - `TE_c = LA_c + LS_c + CA_c + CS_c`
+- If the request groups by `currency` plus additional dimensions, the engine first recomputes a
+  date/currency panel by summing portfolio and benchmark weights and calculating local and FX
+  returns as weight-averaged returns. It does not sum granular local or FX returns across sectors
+  or other visible rows.
 
 ## Step-by-Step Computation
 1. Resolve mode-specific attribution inputs. In stateful mode retrieve and normalize lotus-core

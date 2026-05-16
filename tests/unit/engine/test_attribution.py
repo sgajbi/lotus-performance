@@ -578,6 +578,107 @@ def test_calculate_currency_attribution_effects_matches_exact_formulas():
     assert row["currency_selection"] == pytest.approx(0.50 * (0.025 - 0.020) * 0.010)
 
 
+def test_currency_attribution_totals_are_invariant_to_extra_grouping_dimensions():
+    request = AttributionRequest.model_validate(
+        {
+            "portfolio_id": "ATTR_CCY_TOTALS_GRANULAR",
+            "mode": "by_group",
+            "group_by": ["currency", "sector"],
+            "linking": "none",
+            "frequency": "daily",
+            "currency_mode": "BOTH",
+            "report_ccy": "USD",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-01",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "portfolio_groups_data": [
+                {
+                    "key": {"currency": "EUR", "sector": "Equity"},
+                    "observations": [
+                        {
+                            "date": "2025-01-01",
+                            "return_base": 0.041,
+                            "return_local": 0.030,
+                            "return_fx": 0.011,
+                            "weight_bop": 0.30,
+                        }
+                    ],
+                },
+                {
+                    "key": {"currency": "EUR", "sector": "Bonds"},
+                    "observations": [
+                        {
+                            "date": "2025-01-01",
+                            "return_base": 0.026,
+                            "return_local": 0.015,
+                            "return_fx": 0.011,
+                            "weight_bop": 0.20,
+                        }
+                    ],
+                },
+            ],
+            "benchmark_groups_data": [
+                {
+                    "key": {"currency": "EUR", "sector": "Equity"},
+                    "observations": [
+                        {
+                            "date": "2025-01-01",
+                            "return_base": 0.031,
+                            "return_local": 0.020,
+                            "return_fx": 0.011,
+                            "weight_bop": 0.25,
+                        }
+                    ],
+                },
+                {
+                    "key": {"currency": "EUR", "sector": "Bonds"},
+                    "observations": [
+                        {
+                            "date": "2025-01-01",
+                            "return_base": 0.051,
+                            "return_local": 0.040,
+                            "return_fx": 0.011,
+                            "weight_bop": 0.25,
+                        }
+                    ],
+                },
+            ],
+        }
+    )
+
+    effects_df, _ = run_attribution_calculations(request)
+    result, lineage = aggregate_attribution_results(effects_df, request)
+
+    totals = result.currency_attribution_totals
+    assert totals is not None
+    assert totals.currency_count == 1
+    assert result.supportability_evidence.currency_attribution_status == "complete"
+    assert "currency_attribution_effects.csv" in lineage
+
+    # Currency-level returns are weight-averaged before Karnosky-Singer formulas are applied.
+    expected_portfolio_local_return = ((0.30 * 0.030) + (0.20 * 0.015)) / 0.50
+    expected_benchmark_local_return = ((0.25 * 0.020) + (0.25 * 0.040)) / 0.50
+    expected_benchmark_fx_return = ((0.25 * 0.011) + (0.25 * 0.011)) / 0.50
+    expected_local_allocation = (0.50 - 0.50) * expected_benchmark_local_return
+    expected_local_selection = 0.50 * (expected_portfolio_local_return - expected_benchmark_local_return)
+    expected_currency_allocation = (0.50 - 0.50) * (1 + expected_benchmark_local_return) * expected_benchmark_fx_return
+    expected_currency_selection = (
+        0.50 * (expected_portfolio_local_return - expected_benchmark_local_return) * expected_benchmark_fx_return
+    )
+    expected_total_effect = (
+        expected_local_allocation
+        + expected_local_selection
+        + expected_currency_allocation
+        + expected_currency_selection
+    )
+
+    assert totals.local_allocation == pytest.approx(expected_local_allocation * 100)
+    assert totals.local_selection == pytest.approx(expected_local_selection * 100)
+    assert totals.currency_allocation == pytest.approx(expected_currency_allocation * 100)
+    assert totals.currency_selection == pytest.approx(expected_currency_selection * 100)
+    assert totals.total_effect == pytest.approx(expected_total_effect * 100)
+
+
 def test_run_attribution_calculations_invalid_mode_raises_value_error():
     class _UnsupportedRequest:
         mode = "unsupported"

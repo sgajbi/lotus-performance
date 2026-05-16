@@ -82,8 +82,11 @@ supported attribution claims.
 When `currency_mode="BOTH"` is source-ready, the response emits both per-currency
 `currency_attribution[]` rows and portfolio-level `currency_attribution_totals`. The totals are the
 source-owned Karnosky-Singer sum of local allocation, local selection, currency allocation, currency
-selection, total effect, and currency bucket count across the emitted rows. Gateway, Workbench,
-reporting, and manage consumers should consume these totals rather than reconstructing
+selection, total effect, and currency bucket count across the emitted rows. If the request groups
+by `currency` plus another dimension, `lotus-performance` first recomputes a date/currency panel
+using summed weights and weight-averaged local/FX returns; it does not sum granular sector or other
+visible-row returns into the FX methodology. Gateway, Workbench, reporting, and manage consumers
+should consume these totals rather than reconstructing
 portfolio-level FX attribution by summing displayed rows.
 
 ## Downstream Consumers

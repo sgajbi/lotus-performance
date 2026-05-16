@@ -88,7 +88,10 @@ When currency attribution is source-ready, each period also carries
 currency buckets. This gives downstream consumers an authoritative local allocation, local
 selection, currency allocation, currency selection, total effect, and bucket count without requiring
 Gateway, Workbench, reporting, or manage flows to reconstruct portfolio-level FX attribution from
-visible rows.
+visible rows. When `group_by` includes `currency` plus another dimension, `lotus-performance`
+recomputes the portfolio-level date/currency panel with summed weights and weight-averaged local/FX
+returns before applying the Karnosky-Singer formulas, so FX attribution totals are not distorted by
+visible-row granularity.
 
 ## Data Product Contract
 
