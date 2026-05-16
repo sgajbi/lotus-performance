@@ -205,7 +205,8 @@ Current request-model highlights:
 - returns-series outputs include `active_returns` and `cumulative_active_returns`
 - attribution emits source-owned `currency_attribution_totals` for portfolio-level
   Karnosky-Singer FX attribution when `currency_mode=BOTH` is source-ready
-- benchmark exposure context is currently certified at `frequency=DAILY`; `ISSUER` remains gated
+- benchmark exposure context is certified at `frequency=DAILY` for `POSITION`, `SECTOR`,
+  `ASSET_CLASS`, and `ISSUER`; issuer groups use lotus-core index-catalog issuer labels
 - Older examples using `period_type` are not current
 - Older examples using `daily_data` are not current
 

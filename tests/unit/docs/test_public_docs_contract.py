@@ -689,7 +689,7 @@ def test_benchmark_exposure_context_docs_reflect_certified_contract():
     assert "POST /integration/benchmarks/exposure-context" in readme
     assert "Benchmark Exposure Context Endpoint Certification" in readme
     assert "frequency=DAILY" in readme
-    assert "ISSUER` remains gated" in readme
+    assert "`ASSET_CLASS`, and `ISSUER`" in readme
     assert "`frequency=DAILY` is the only supported v1 frequency" in api_reference
     assert "row weights are returned as decimal fractions" in api_reference
     assert "`POSITION` rows carry `component_id`" in api_reference

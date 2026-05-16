@@ -38,9 +38,9 @@ The certified v1 request contract covers:
 - `window.start_date` and `window.end_date`;
 - `frequency=DAILY`;
 - optional `reporting_currency`;
-- supported grouping dimensions `POSITION`, `SECTOR`, and `ASSET_CLASS`;
-- gated grouping dimension `ISSUER`, rejected until issuer benchmark exposure semantics are
-  approved;
+- supported grouping dimensions `POSITION`, `SECTOR`, `ASSET_CLASS`, and `ISSUER`;
+- issuer grouping sourced from `classification_labels.issuer_id` and `issuer_name` in lotus-core
+  index catalog records;
 - pagination through `page.page_size` and `page.page_token`.
 
 `WEEKLY` and `MONTHLY` frequencies are intentionally rejected in v1. Downstream callers should not
@@ -57,8 +57,8 @@ The certification suite checks every output family:
   `reporting_currency`;
 - retrieval counters for benchmark market-series and index catalog calls;
 - `POSITION` rows carry `component_id`, `group_key`, `group_label`, and decimal `weight`;
-- aggregate `SECTOR` and `ASSET_CLASS` rows omit `component_id` and sum component weights by date
-  and group;
+- aggregate `SECTOR`, `ASSET_CLASS`, and `ISSUER` rows omit `component_id` and sum component
+  weights by date and group;
 - for a fully covered date, weights by grouping dimension sum to `1.0`;
 - pagination returns a deterministic next-page token and no token on the final page.
 
@@ -84,10 +84,10 @@ Current strategic downstream consumer:
   - client: `src/app/integrations/lotus_performance_client.py`
   - adapter: `src/app/services/benchmark_exposure_history.py`
   - usage: stateful active-risk attribution fetches benchmark exposure context with
-    `frequency=DAILY`, `page_size=1000`, and supported grouping dimensions.
+    `frequency=DAILY`, `page_size=1000`, and supported grouping dimensions including issuer.
 
 `lotus-gateway` and `lotus-workbench` do not call this endpoint directly. They surface user-facing
-issuer-gating copy when active-risk issuer benchmark exposure semantics are unavailable.
+active-risk issuer attribution only through governed risk and gateway contracts.
 
 No duplicate downstream endpoint use was found. This endpoint remains the strategic integration
 surface for performance-aligned benchmark exposure history.

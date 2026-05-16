@@ -187,8 +187,8 @@ INTEGRATION_CAPABILITIES_RESPONSE_EXAMPLES = [
                 "result_path_template": None,
                 "stateful_restrictions": [
                     "lotus-core remains the benchmark composition system of record",
-                    "POSITION, SECTOR, and ASSET_CLASS grouping dimensions are supported",
-                    "ISSUER remains gated until benchmark issuer exposure semantics are approved",
+                    "POSITION, SECTOR, ASSET_CLASS, and ISSUER grouping dimensions are supported",
+                    "ISSUER groups use lotus-core index-catalog issuer_id and issuer_name classification labels",
                 ],
                 "contract_notes": [
                     "returns a lineage-backed benchmark exposure view aligned to benchmark performance context",
@@ -386,8 +386,8 @@ class AnalyticsSurfaceCapability(BaseModel):
     stateful_restrictions: list[str] = Field(
         default_factory=list,
         description="Current stateful-mode fences or restrictions for this analytics surface.",
-        examples=[["POSITION, SECTOR, and ASSET_CLASS grouping dimensions are supported"]],
-        json_schema_extra={"example": ["POSITION, SECTOR, and ASSET_CLASS grouping dimensions are supported"]},
+        examples=[["POSITION, SECTOR, ASSET_CLASS, and ISSUER grouping dimensions are supported"]],
+        json_schema_extra={"example": ["POSITION, SECTOR, ASSET_CLASS, and ISSUER grouping dimensions are supported"]},
     )
     contract_notes: list[str] = Field(
         default_factory=list,
@@ -756,8 +756,8 @@ async def get_integration_capabilities(
             stateful_restrictions=(
                 [
                     "lotus-core remains the benchmark composition system of record",
-                    "POSITION, SECTOR, and ASSET_CLASS grouping dimensions are supported",
-                    "ISSUER remains gated until benchmark issuer exposure semantics are approved",
+                    "POSITION, SECTOR, ASSET_CLASS, and ISSUER grouping dimensions are supported",
+                    "ISSUER groups use lotus-core index-catalog issuer_id and issuer_name classification labels",
                 ]
                 if benchmark_enabled and stateful_mode_enabled
                 else []

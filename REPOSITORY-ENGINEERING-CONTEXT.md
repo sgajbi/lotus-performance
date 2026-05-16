@@ -13,6 +13,10 @@ For platform-wide truth, read:
 `lotus-performance` is the authoritative performance analytics service in Lotus.
 
 It owns benchmark-aware performance calculations, contribution, attribution, returns series, execution tracking, and lineage capture for performance workflows.
+Its benchmark exposure context integration surface supports `POSITION`, `SECTOR`, `ASSET_CLASS`,
+and `ISSUER` grouping dimensions at `frequency=DAILY`; issuer grouping is a performance-owned
+derived view over lotus-core index-catalog `classification_labels.issuer_id` and `issuer_name`
+source labels.
 
 ## Business And Domain Responsibility
 

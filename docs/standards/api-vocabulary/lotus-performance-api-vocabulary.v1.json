@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-05-12T04:05:46.724618+00:00",
+  "generatedAt": "2026-05-16T00:34:59.570177+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -189,7 +189,7 @@
           "poll_path_template": "/performance/executions/{calculation_id}",
           "result_path_template": "/performance/workspace-summary/results/{calculation_id}",
           "stateful_restrictions": [
-            "POSITION, SECTOR, and ASSET_CLASS grouping dimensions are supported"
+            "POSITION, SECTOR, ASSET_CLASS, and ISSUER grouping dimensions are supported"
           ],
           "contract_notes": [
             "returns a lineage-backed benchmark exposure view aligned to benchmark performance context"
@@ -2390,11 +2390,12 @@
       "semanticId": "lotus.grouping_dimensions",
       "canonicalTerm": "grouping_dimensions",
       "preferredName": "grouping_dimensions",
-      "description": "Benchmark exposure grouping dimensions to return. v1 supports POSITION, SECTOR, and ASSET_CLASS. ISSUER remains gated until issuer benchmark semantics are approved.",
+      "description": "Benchmark exposure grouping dimensions to return. v1 supports POSITION, SECTOR, ASSET_CLASS, and ISSUER. ISSUER groups are sourced from lotus-core index-catalog classification labels.",
       "example": [
         "POSITION",
         "SECTOR",
-        "ASSET_CLASS"
+        "ASSET_CLASS",
+        "ISSUER"
       ],
       "type": "array",
       "locations": [
@@ -6090,7 +6091,7 @@
       "preferredName": "stateful_restrictions",
       "description": "Current stateful-mode fences or restrictions for this analytics surface.",
       "example": [
-        "POSITION, SECTOR, and ASSET_CLASS grouping dimensions are supported"
+        "POSITION, SECTOR, ASSET_CLASS, and ISSUER grouping dimensions are supported"
       ],
       "type": "array",
       "locations": [
