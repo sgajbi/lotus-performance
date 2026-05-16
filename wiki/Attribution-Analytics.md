@@ -131,7 +131,7 @@ Common current reasons:
 | `benchmark_only_exposure` | Benchmark group is absent from portfolio. | Confirm whether the active underweight is expected. |
 | `unclassified_segment` | One or more rows mapped to the governed unknown/unclassified bucket. | Review source classification completeness. |
 | `missing_benchmark_return` | Benchmark exposure exists without benchmark return evidence. | Review benchmark source coverage. |
-| `currency_attribution_unavailable` | Currency attribution was requested without required local/FX evidence. | Review `currency_mode`, `report_ccy`, and FX inputs. |
+| `currency_attribution_unavailable` | Currency attribution was requested without required currency grouping or local/FX evidence. | Review `currency_mode`, `group_by`, `report_ccy`, and FX inputs. |
 | `linking_invalid_return_chain` | Linked attribution was requested but a period return is `<= -100%`. | Treat linked attribution as partial and inspect reset/source events. |
 | `material_residual` | Residual exceeds the governed materiality threshold. | Investigate input alignment, linking, and source-data gaps. |
 

@@ -398,6 +398,17 @@ def _calculate_currency_attribution_effects(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def _currency_attribution_requirements_met(effects_df: pd.DataFrame, request: AttributionRequest) -> bool:
+    required_cols = {"r_local_p", "r_local_b", "r_fx_b", "w_p", "w_b"}
+    if request.currency_mode != "BOTH":
+        return False
+    if "currency" not in request.group_by:
+        return False
+    if not required_cols.issubset(effects_df.columns):
+        return False
+    return "currency" in effects_df.reset_index().columns
+
+
 def _link_effects_top_down(
     effects_df: pd.DataFrame, geometric_total_ar: float, arithmetic_total_ar: float
 ) -> pd.DataFrame:
@@ -478,8 +489,9 @@ def aggregate_attribution_results(
 
     currency_attribution_status = "not_requested"
     if request.currency_mode == "BOTH":
-        required_cols = {"r_local_p", "r_local_b", "r_fx_b", "w_p", "w_b"}
-        currency_attribution_status = "complete" if required_cols.issubset(effects_df.columns) else "unavailable"
+        currency_attribution_status = (
+            "complete" if _currency_attribution_requirements_met(effects_df, request) else "unavailable"
+        )
 
     status, reason_codes, reasons, supportability_evidence, supportability_lineage = (
         build_attribution_supportability_evidence(
@@ -507,9 +519,8 @@ def aggregate_attribution_results(
     )
 
     if request.currency_mode == "BOTH":
-        required_cols = {"r_local_p", "r_local_b", "r_fx_b", "w_p", "w_b"}
-        effects_df_reset = effects_df.reset_index()
-        if required_cols.issubset(effects_df.columns) and "currency" in effects_df_reset.columns:
+        if _currency_attribution_requirements_met(effects_df, request):
+            effects_df_reset = effects_df.reset_index()
             currency_df = effects_df_reset.groupby(["date", "currency"]).sum(numeric_only=True)
             fx_effects_df = _calculate_currency_attribution_effects(currency_df)
             aggregation_lineage["currency_attribution_effects.csv"] = fx_effects_df.reset_index()

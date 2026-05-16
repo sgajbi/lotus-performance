@@ -131,7 +131,8 @@ preserve these fields when displaying partial, warning, or degraded attribution 
 not collapse a partial period into a green state simply because allocation, selection, and
 interaction totals are present. Current controlled reason codes include off-benchmark exposure,
 benchmark-only exposure, unclassified segment, missing benchmark data or returns, negative weights,
-zero exposure rows, currency-attribution gaps, skipped linking, invalid linked return chains,
+zero exposure rows, currency-attribution gaps including absent currency grouping or missing local/FX
+evidence, skipped linking, invalid linked return chains,
 material residuals, and residual-watch posture.
 
 ## Canonical Live Findings

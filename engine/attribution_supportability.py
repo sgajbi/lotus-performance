@@ -144,7 +144,7 @@ def build_attribution_supportability_evidence(
             _build_attribution_reason(
                 "currency_attribution_unavailable",
                 "warning",
-                "Currency attribution was requested but required local or FX return evidence was unavailable.",
+                "Currency attribution was requested but required currency grouping or local/FX return evidence was unavailable.",
                 0,
             )
         )

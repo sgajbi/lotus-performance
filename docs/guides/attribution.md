@@ -158,7 +158,8 @@ Use `status`, `reason_codes`, `reasons`, and `supportability_evidence` as the au
 front-office degraded-state contract for a period. A period can be mathematically calculated but
 still be `partial` when there is off-benchmark exposure, benchmark-only exposure, unclassified
 segments, missing benchmark evidence, skipped linking, an invalid multi-period return chain,
-currency-attribution gaps, or a material residual. `reconciliation.residual_materiality` classifies
+currency-attribution gaps, including absent currency grouping or missing local/FX evidence, or a
+material residual. `reconciliation.residual_materiality` classifies
 the active-return residual against the governed warning and material thresholds. When linked
 attribution is requested and any portfolio or benchmark period return is less than or equal to
 `-100%`, `supportability_evidence.linking_status` is `invalid_return_chain` and
