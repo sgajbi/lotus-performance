@@ -138,6 +138,8 @@ def test_attribution_methodology_docs_cover_stateful_source_owned_input_resoluti
         content = _read(METRICS_DIR / name)
         assert "stateful attribution inputs" in content
         assert "FX/source currency evidence" in content
+        assert "weight-averaged returns" in content
+        assert "does not sum granular" in content
         assert "calculation_supportability" in content
 
     assert "Attribution Allocation Effect | POST /performance/attribution | Stateless + Stateful" in master_index

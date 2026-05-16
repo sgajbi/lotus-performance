@@ -398,6 +398,34 @@ def _calculate_currency_attribution_effects(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def _build_currency_attribution_panel(effects_df: pd.DataFrame) -> pd.DataFrame:
+    """Aggregates granular attribution rows into a date/currency panel.
+
+    Currency attribution is portfolio-level evidence. If callers request a more granular grouping,
+    such as currency plus sector, returns must be recomputed as currency-weighted returns rather
+    than summed across the visible groups.
+    """
+    currency_input = effects_df.reset_index()
+
+    def aggregate_currency_row(group: pd.DataFrame) -> pd.Series:
+        w_p = pd.to_numeric(group["w_p"], errors="coerce").fillna(0.0)
+        w_b = pd.to_numeric(group["w_b"], errors="coerce").fillna(0.0)
+        return pd.Series(
+            {
+                "w_p": float(w_p.sum()),
+                "w_b": float(w_b.sum()),
+                "r_local_p": _calculate_weighted_average_return(w_p, group["r_local_p"]),
+                "r_local_b": _calculate_weighted_average_return(w_b, group["r_local_b"]),
+                "r_fx_b": _calculate_weighted_average_return(w_b, group["r_fx_b"]),
+            }
+        )
+
+    return currency_input.groupby(["date", "currency"], dropna=False).apply(
+        aggregate_currency_row,
+        include_groups=False,
+    )
+
+
 def _currency_attribution_requirements_met(effects_df: pd.DataFrame, request: AttributionRequest) -> bool:
     required_cols = {"r_local_p", "r_local_b", "r_fx_b", "w_p", "w_b"}
     if request.currency_mode != "BOTH":
@@ -520,8 +548,7 @@ def aggregate_attribution_results(
 
     if request.currency_mode == "BOTH":
         if _currency_attribution_requirements_met(effects_df, request):
-            effects_df_reset = effects_df.reset_index()
-            currency_df = effects_df_reset.groupby(["date", "currency"]).sum(numeric_only=True)
+            currency_df = _build_currency_attribution_panel(effects_df)
             fx_effects_df = _calculate_currency_attribution_effects(currency_df)
             aggregation_lineage["currency_attribution_effects.csv"] = fx_effects_df.reset_index()
             total_fx_effects = fx_effects_df.groupby("currency").sum(numeric_only=True)
