@@ -1,5 +1,6 @@
 # app/models/mwr_responses.py
 from datetime import date as Date
+from datetime import datetime as DateTime
 from typing import List, Literal, Optional
 from uuid import UUID
 
@@ -109,9 +110,9 @@ class MoneyWeightedReturnResponse(BaseModel):
     currency_evidence: Optional["MWRCurrencyEvidence"] = Field(
         default=None,
         description=(
-            "Currency context and source-component evidence for stateful MWR. The block is additive "
-            "to legacy cashflows_used and documents when upstream values are pre-converted without "
-            "per-input FX metadata."
+            "Currency context and source-component evidence for MWR. The block is additive to legacy "
+            "cashflows_used and documents either stateful upstream pre-conversion without per-input FX "
+            "metadata or stateless source-preconverted inputs with complete per-input FX provenance."
         ),
     )
     start_date: Date = Field(description="Inclusive start date for the evaluated window.", examples=["2026-01-01"])
@@ -151,6 +152,24 @@ class MWRCashFlowEvidence(BaseModel):
         default_factory=list,
         description="Source components aggregated into this MWR cash flow.",
     )
+    source_amount: Optional[str] = Field(
+        default=None, description="Cash-flow amount in source currency before upstream FX conversion."
+    )
+    source_currency: Optional[str] = Field(default=None, description="Source currency before upstream FX conversion.")
+    reporting_amount: Optional[str] = Field(default=None, description="Cash-flow amount supplied to MWR.")
+    reporting_currency: Optional[str] = Field(default=None, description="Reporting currency supplied to MWR.")
+    fx_rate: Optional[str] = Field(default=None, description="FX rate applied before MWR execution.")
+    fx_pair: Optional[str] = Field(default=None, description="FX pair used for upstream conversion.")
+    fx_rate_date: Optional[Date] = Field(default=None, description="FX rate date used for upstream conversion.")
+    fx_rate_source: Optional[str] = Field(default=None, description="Source of the FX rate.")
+    fx_rate_version: Optional[str] = Field(default=None, description="Version or fixing identifier for the FX rate.")
+    conversion_policy: Optional[str] = Field(default=None, description="Policy used for upstream FX conversion.")
+    conversion_timestamp: Optional[DateTime] = Field(
+        default=None, description="Timestamp when upstream conversion was performed."
+    )
+    conversion_fingerprint: Optional[str] = Field(
+        default=None, description="Stable fingerprint of the conversion evidence."
+    )
 
 
 class MWRMarketValueEvidence(BaseModel):
@@ -167,9 +186,27 @@ class MWRMarketValueEvidence(BaseModel):
         default="PortfolioTimeseriesInput",
         description="Upstream source data product used for stateful MWR sourcing.",
     )
-    conversion_status: Literal["upstream_preconverted"] = Field(
+    conversion_status: Literal["upstream_preconverted", "source_preconverted_with_fx_evidence"] = Field(
         default="upstream_preconverted",
         description="Conversion posture for the source amount.",
+    )
+    source_amount: Optional[str] = Field(
+        default=None, description="Market value amount in source currency before upstream FX conversion."
+    )
+    source_currency: Optional[str] = Field(default=None, description="Source currency before upstream FX conversion.")
+    reporting_amount: Optional[str] = Field(default=None, description="Market value amount supplied to MWR.")
+    reporting_currency: Optional[str] = Field(default=None, description="Reporting currency supplied to MWR.")
+    fx_rate: Optional[str] = Field(default=None, description="FX rate applied before MWR execution.")
+    fx_pair: Optional[str] = Field(default=None, description="FX pair used for upstream conversion.")
+    fx_rate_date: Optional[Date] = Field(default=None, description="FX rate date used for upstream conversion.")
+    fx_rate_source: Optional[str] = Field(default=None, description="Source of the FX rate.")
+    fx_rate_version: Optional[str] = Field(default=None, description="Version or fixing identifier for the FX rate.")
+    conversion_policy: Optional[str] = Field(default=None, description="Policy used for upstream FX conversion.")
+    conversion_timestamp: Optional[DateTime] = Field(
+        default=None, description="Timestamp when upstream conversion was performed."
+    )
+    conversion_fingerprint: Optional[str] = Field(
+        default=None, description="Stable fingerprint of the conversion evidence."
     )
 
 
@@ -179,12 +216,16 @@ class MWRCurrencyEvidence(BaseModel):
         description="Effective reporting currency used for the MWR market values and cash flows.",
     )
     portfolio_currency: Optional[str] = Field(default=None, description="Portfolio base currency reported by core.")
-    currency_mode: Literal["SINGLE_REPORTING_CURRENCY"] = Field(
-        description="MWR currently calculates one reporting-currency cash-flow schedule."
+    currency_mode: Literal["SINGLE_REPORTING_CURRENCY", "SOURCE_PRECONVERTED_WITH_FX_EVIDENCE"] = Field(
+        description=(
+            "MWR calculation currency mode. Source-preconverted mode means the caller supplied complete "
+            "per-input FX provenance while the engine still calculated one reporting-currency schedule."
+        )
     )
-    conversion_evidence_status: Literal["upstream_preconverted_missing_per_input_fx_metadata"] = Field(
-        description="Whether per-input FX conversion evidence is complete for the MWR response."
-    )
+    conversion_evidence_status: Literal[
+        "upstream_preconverted_missing_per_input_fx_metadata",
+        "complete_source_preconverted_fx_metadata",
+    ] = Field(description="Whether per-input FX conversion evidence is complete for the MWR response.")
     conversion_evidence_reason_codes: List[str] = Field(
         default_factory=list,
         description="Machine-readable reason codes for conversion evidence completeness.",

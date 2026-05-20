@@ -42,8 +42,10 @@
   outside the producer, or infer per-input FX provenance from pre-converted source amounts.
   It is now declared as `MoneyWeightedReturnAnalytics` in
   `contracts/domain-data-products/lotus-performance-products.v1.json`. Current MWR is a single
-  reporting-currency product with explicit source-component evidence; future FX-aware MWR remains
-  gated by
+  reporting-currency product with explicit source-component evidence. Stateless callers may supply
+  complete `source_preconverted_fx_evidence`; consumers should preserve the emitted
+  `currency_evidence` and must not reconstruct FX conversion locally. Stateful upstream FX-aware
+  MWR remains gated by
   [docs/technical/mwr-fx-contract-design.md](../docs/technical/mwr-fx-contract-design.md).
   Production controls and review findings are maintained in
   [docs/guides/mwr-lotus-production-controls.md](../docs/guides/mwr-lotus-production-controls.md)

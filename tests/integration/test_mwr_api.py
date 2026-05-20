@@ -188,6 +188,164 @@ def test_calculate_mwr_endpoint_supports_stateful_mode(client, monkeypatch):
     )
 
 
+def test_calculate_mwr_endpoint_accepts_complete_stateless_source_fx_evidence(client):
+    payload = {
+        "calculation_id": str(uuid4()),
+        "portfolio_id": "MWR_FX_EVIDENCE_01",
+        "begin_mv": 110000.0,
+        "end_mv": 126500.0,
+        "as_of": "2025-12-31",
+        "start_date": "2025-01-01",
+        "currency": "EUR",
+        "report_ccy": "USD",
+        "cash_flows": [{"amount": 5500.0, "date": "2025-06-30"}],
+        "mwr_method": "DIETZ",
+        "source_preconverted_fx_evidence": {
+            "market_values": [
+                {
+                    "value_role": "beginning_market_value",
+                    "source_amount": 100000.0,
+                    "source_currency": "EUR",
+                    "reporting_amount": 110000.0,
+                    "reporting_currency": "USD",
+                    "fx_rate": 1.1,
+                    "fx_pair": "EUR/USD",
+                    "fx_rate_date": "2025-01-01",
+                    "fx_rate_source": "ECB_FIXING",
+                    "fx_rate_version": "ECB-2025-01-01",
+                    "conversion_policy": "valuation-date-close",
+                    "conversion_timestamp": "2025-01-01T17:00:00Z",
+                    "conversion_fingerprint": "fx-begin-001",
+                },
+                {
+                    "value_role": "ending_market_value",
+                    "source_amount": 115000.0,
+                    "source_currency": "EUR",
+                    "reporting_amount": 126500.0,
+                    "reporting_currency": "USD",
+                    "fx_rate": 1.1,
+                    "fx_pair": "EUR/USD",
+                    "fx_rate_date": "2025-12-31",
+                    "fx_rate_source": "ECB_FIXING",
+                    "fx_rate_version": "ECB-2025-12-31",
+                    "conversion_policy": "valuation-date-close",
+                    "conversion_timestamp": "2025-12-31T17:00:00Z",
+                    "conversion_fingerprint": "fx-end-001",
+                },
+            ],
+            "cash_flows": [
+                {
+                    "cash_flow_index": 0,
+                    "cash_flow_date": "2025-06-30",
+                    "source_amount": 5000.0,
+                    "source_currency": "EUR",
+                    "reporting_amount": 5500.0,
+                    "reporting_currency": "USD",
+                    "fx_rate": 1.1,
+                    "fx_pair": "EUR/USD",
+                    "fx_rate_date": "2025-06-30",
+                    "fx_rate_source": "ECB_FIXING",
+                    "fx_rate_version": "ECB-2025-06-30",
+                    "conversion_policy": "cash-flow-date-close",
+                    "conversion_timestamp": "2025-06-30T17:00:00Z",
+                    "conversion_fingerprint": "fx-cashflow-001",
+                }
+            ],
+        },
+    }
+
+    response = client.post("/performance/mwr", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["input_mode"] == "stateless"
+    assert body["reporting_currency"] == "USD"
+    evidence = body["currency_evidence"]
+    assert evidence["currency_mode"] == "SOURCE_PRECONVERTED_WITH_FX_EVIDENCE"
+    assert evidence["conversion_evidence_status"] == "complete_source_preconverted_fx_metadata"
+    assert evidence["conversion_evidence_reason_codes"] == [
+        "SOURCE_PRECONVERTED_INPUTS_SUPPLIED",
+        "PER_INPUT_FX_METADATA_VALIDATED",
+        "MWR_ENGINE_CALCULATED_REPORTING_CURRENCY_SCHEDULE",
+    ]
+    assert evidence["market_values_used"][0]["conversion_status"] == "source_preconverted_with_fx_evidence"
+    assert evidence["market_values_used"][0]["source_currency"] == "EUR"
+    assert evidence["market_values_used"][0]["reporting_currency"] == "USD"
+    assert evidence["cashflow_evidence"][0]["conversion_fingerprint"] == "fx-cashflow-001"
+    assert evidence["cashflow_evidence"][0]["source_components"] == []
+
+
+def test_calculate_mwr_endpoint_rejects_inconsistent_stateless_fx_evidence(client):
+    payload = {
+        "calculation_id": str(uuid4()),
+        "portfolio_id": "MWR_FX_EVIDENCE_BAD",
+        "begin_mv": 110000.0,
+        "end_mv": 126500.0,
+        "as_of": "2025-12-31",
+        "start_date": "2025-01-01",
+        "report_ccy": "USD",
+        "cash_flows": [{"amount": 5500.0, "date": "2025-06-30"}],
+        "mwr_method": "DIETZ",
+        "source_preconverted_fx_evidence": {
+            "market_values": [
+                {
+                    "value_role": "beginning_market_value",
+                    "source_amount": 100000.0,
+                    "source_currency": "EUR",
+                    "reporting_amount": 111000.0,
+                    "reporting_currency": "USD",
+                    "fx_rate": 1.11,
+                    "fx_pair": "EUR/USD",
+                    "fx_rate_date": "2025-01-01",
+                    "fx_rate_source": "ECB_FIXING",
+                    "fx_rate_version": "ECB-2025-01-01",
+                    "conversion_policy": "valuation-date-close",
+                    "conversion_timestamp": "2025-01-01T17:00:00Z",
+                    "conversion_fingerprint": "fx-begin-001",
+                },
+                {
+                    "value_role": "ending_market_value",
+                    "source_amount": 115000.0,
+                    "source_currency": "EUR",
+                    "reporting_amount": 126500.0,
+                    "reporting_currency": "USD",
+                    "fx_rate": 1.1,
+                    "fx_pair": "EUR/USD",
+                    "fx_rate_date": "2025-12-31",
+                    "fx_rate_source": "ECB_FIXING",
+                    "fx_rate_version": "ECB-2025-12-31",
+                    "conversion_policy": "valuation-date-close",
+                    "conversion_timestamp": "2025-12-31T17:00:00Z",
+                    "conversion_fingerprint": "fx-end-001",
+                },
+            ],
+            "cash_flows": [
+                {
+                    "cash_flow_index": 0,
+                    "cash_flow_date": "2025-06-30",
+                    "source_amount": 5000.0,
+                    "source_currency": "EUR",
+                    "reporting_amount": 5500.0,
+                    "reporting_currency": "USD",
+                    "fx_rate": 1.1,
+                    "fx_pair": "EUR/USD",
+                    "fx_rate_date": "2025-06-30",
+                    "fx_rate_source": "ECB_FIXING",
+                    "fx_rate_version": "ECB-2025-06-30",
+                    "conversion_policy": "cash-flow-date-close",
+                    "conversion_timestamp": "2025-06-30T17:00:00Z",
+                    "conversion_fingerprint": "fx-cashflow-001",
+                }
+            ],
+        },
+    }
+
+    response = client.post("/performance/mwr", json=payload)
+
+    assert response.status_code == 422
+    assert "reporting_amount must match the MWR input amount" in response.json()["detail"]
+
+
 def test_mwr_stateful_hashes_follow_resolved_inputs(client, monkeypatch):
     async def _mock_get_portfolio_timeseries(self, **kwargs):  # noqa: ARG001
         return (

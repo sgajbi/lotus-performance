@@ -37,7 +37,12 @@ or `MODIFIED_DIETZ`)
 ## Unit Conventions
 - Amount fields are currency amounts.
 - `begin_mv`, `end_mv`, and `cash_flows[].amount` must be in one reporting currency before the
-  Dietz-family calculation runs; current `cashflows_used` output is schedule evidence, not FX
+  Dietz-family calculation runs.
+- Stateless callers may supply `source_preconverted_fx_evidence` for every market value and cash
+  flow. Lotus-performance validates that the supplied reporting amounts match the MWR inputs and
+  then emits `currency_evidence` with complete per-input FX provenance; the Dietz-family engine
+  still operates only on the reporting-currency schedule and does not convert source amounts.
+- Without `source_preconverted_fx_evidence`, `cashflows_used` is schedule evidence, not FX
   conversion provenance.
 - `money_weighted_return`, `mwr_annualized`, and `holding_period_return` are percentage points.
 - Internal periodic Dietz rate is decimal and multiplied by 100 for output.
@@ -55,8 +60,26 @@ or `MODIFIED_DIETZ`)
   earliest cash-flow date when no start date is supplied)
 - `days`: `(as_of - start_date).days`
 - `ppy`: annualization factor (`365.25` for `ACT/ACT`, else `365.0`)
+- `SRC_i`: optional source-currency amount supplied in `source_preconverted_fx_evidence`
+- `FX_i`: optional positive FX rate supplied in `source_preconverted_fx_evidence`
+- `RCY`: reporting currency for all MWR engine inputs
 
 ## Methodology and Formulas
+0. Optional source-preconverted FX evidence validation:
+- When `source_preconverted_fx_evidence` is supplied, the endpoint validates exactly one
+  beginning-market-value record, exactly one ending-market-value record, and exactly one cash-flow
+  evidence record for each `cash_flows[]` index.
+- For each component, `reporting_currency` must match `report_ccy` when supplied, otherwise
+  `currency`.
+- For each component, `reporting_amount` must equal the corresponding MWR input amount:
+  `begin_mv`, `end_mv`, or `cash_flows[i].amount`.
+- Required FX provenance fields are `source_amount`, `source_currency`, `fx_rate`, `fx_pair`,
+  `fx_rate_date`, `fx_rate_source`, `fx_rate_version`, `conversion_policy`,
+  `conversion_timestamp`, and `conversion_fingerprint`.
+- If `source_currency == reporting_currency`, `fx_rate` must equal `1`.
+- These checks produce response provenance only; no source amount is converted inside the
+  Dietz-family engine.
+
 1. Modified Dietz periodic return:
 - `CF_sum = sum_i CF_i`
 - `w_i = (as_of - CF_i.date).days / (as_of - S).days`
@@ -108,8 +131,9 @@ or `MODIFIED_DIETZ`)
   included as investor cash flows; unsupported or invalid source cash-flow rows are skipped during
   normalization rather than guessed.
 - Mixed source-currency schedules are not converted by the current Dietz-family path. FX-aware MWR
-  remains gated by `docs/technical/mwr-fx-contract-design.md` and must fail closed in any future
-  implementation when conversion evidence is incomplete.
+  remains gated by `docs/technical/mwr-fx-contract-design.md` for stateful upstream conversion.
+  Stateless source-preconverted schedules may include complete `source_preconverted_fx_evidence`;
+  incomplete or inconsistent evidence fails closed with HTTP 422.
 - Explicit `MODIFIED_DIETZ` and `DIETZ` requests return `status="CALCULATED"` when the denominator
   is non-zero.
 - XIRR fallback responses return `status="FALLBACK_USED"`, include the XIRR failure reason and
@@ -142,6 +166,9 @@ Primary fields:
 - `is_annualized_primary`
 - `is_approximation`
 - `start_date`, `end_date`, `notes`
+- `reporting_currency`
+- `currency_evidence` when stateful source context or stateless source-preconverted FX evidence is
+  available
 - `calculation_supportability`, `meta`, `diagnostics`, and `audit`
 
 ## Worked Example

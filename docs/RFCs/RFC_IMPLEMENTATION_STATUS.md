@@ -44,7 +44,7 @@ implementation-backed.
 
 | RFC Number | Title | Status | Current boundary |
 | :--------- | :---- | :----- | :--------------- |
-| RFC 020 | Multi-Currency & FX-Aware Performance | ⚠️ Partially Implemented | TWR, contribution, and attribution have FX-aware support. MWR remains a single reporting-currency schedule and does not perform per-flow FX conversion. The implementation-readiness contract for FX-aware MWR lives in `docs/technical/mwr-fx-contract-design.md`. |
+| RFC 020 | Multi-Currency & FX-Aware Performance | ⚠️ Partially Implemented | TWR, contribution, and attribution have FX-aware support. MWR remains a single reporting-currency schedule and does not perform per-flow FX conversion. Stateless MWR can now validate complete `source_preconverted_fx_evidence` and emit per-input FX provenance for already converted schedules. Stateful per-flow conversion evidence readiness remains governed by `docs/technical/mwr-fx-contract-design.md`. |
 
 ---
 
@@ -81,14 +81,18 @@ delivery evidence for completed work.
 
 3.  **RFC 020 — Multi-Currency & FX-Aware Performance**
     * **Reasoning:** **Keep multi-currency claims truthful before extending MWR.** TWR,
-      contribution, and attribution have implementation-backed FX-aware paths, but MWR is currently
-      a single reporting-currency money-weighted return contract. The next RFC-020 slice for MWR
-      must satisfy `docs/technical/mwr-fx-contract-design.md`: governed upstream FX evidence,
-      OpenAPI fields, deterministic conversion tests, gateway and Workbench propagation, and data
-      mesh declaration updates.
-    * **Current state:** **Partially implemented.** Do not claim fully FX-aware MWR until per-flow
-      conversion evidence, stale/missing-rate failure behavior, response provenance, and downstream
-      preservation are all merged and validated.
+      contribution, and attribution have implementation-backed FX-aware paths. MWR now supports a
+      bounded stateless source-preconverted evidence path, but it still calculates a single
+      reporting-currency money-weighted return schedule and does not perform in-engine FX
+      conversion. The remaining RFC-020 MWR scope must satisfy
+      `docs/technical/mwr-fx-contract-design.md`: governed upstream FX evidence, stale/missing-rate
+      per-flow conversion evidence, stale/missing-rate failure behavior, gateway and Workbench
+      propagation, and data mesh declaration updates.
+    * **Current state:** **Partially implemented.** Stateless MWR validates complete
+      `source_preconverted_fx_evidence` and emits response provenance for already converted
+      schedules. Do not claim fully FX-aware MWR until stateful upstream per-flow conversion
+      evidence, stale/missing-rate failure behavior, and downstream preservation are all merged and
+      validated.
 
 ### Phase 1: Foundational Enhancements
 

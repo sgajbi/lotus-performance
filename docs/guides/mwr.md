@@ -139,8 +139,8 @@ When `emit_cashflows_used=true`, which is the default, the response also include
 so support, front office, and downstream clients can see the exact signed flow schedule used by the
 calculation.
 
-The response also exposes `reporting_currency`. For stateful runs, `currency_evidence` preserves
-the current Lotus sourcing truth:
+The response also exposes `reporting_currency`. `currency_evidence` preserves the current Lotus
+sourcing truth:
 
 - `currency_mode="SINGLE_REPORTING_CURRENCY"`
 - `market_values_used[]` for the beginning and ending `PortfolioTimeseriesInput` values used by
@@ -150,15 +150,25 @@ the current Lotus sourcing truth:
 - `conversion_evidence_status="upstream_preconverted_missing_per_input_fx_metadata"` until
   `lotus-core` publishes per-input FX rate, policy, version, and fingerprint evidence
 
+For stateless source-preconverted schedules, callers may provide complete
+`source_preconverted_fx_evidence`. Lotus-performance validates the evidence and emits:
+
+- `currency_mode="SOURCE_PRECONVERTED_WITH_FX_EVIDENCE"`
+- `conversion_evidence_status="complete_source_preconverted_fx_metadata"`
+- per-market-value and per-cash-flow source amount, source currency, reporting amount, reporting
+  currency, FX rate, rate source/version/date, conversion policy, conversion timestamp, and
+  conversion fingerprint
+
 ## Multi-currency note
 
 MWR is not decomposed into local and FX components on the current public contract. Callers should
-submit `begin_mv`, `end_mv`, and `cash_flows` in one consistent reporting currency.
-`cashflows_used` proves the signed schedule used by the engine; `currency_evidence` proves the
-stateful reporting-currency context and source components currently available to lotus-performance.
-It is not yet full FX conversion provenance because the upstream portfolio timeseries contract does
-not expose per-input rate source, rate version, conversion policy, or conversion fingerprint fields.
-The implementation-readiness contract for a future FX-aware MWR extension is documented in
+submit `begin_mv`, `end_mv`, and `cash_flows` in one consistent reporting currency. If those values
+were converted before submission, callers can attach `source_preconverted_fx_evidence`; the service
+validates and records provenance but does not convert source-currency amounts inside the MWR engine.
+`cashflows_used` proves the signed schedule used by the engine. Stateful upstream MWR is not yet
+full FX conversion provenance because the upstream portfolio timeseries contract does not expose
+per-input rate source, rate version, conversion policy, or conversion fingerprint fields. The
+implementation-readiness contract for future stateful FX-aware MWR is documented in
 [MWR FX-aware contract design](../technical/mwr-fx-contract-design.md).
 
 ## Example request

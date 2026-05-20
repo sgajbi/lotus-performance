@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-05-16T00:34:59.570177+00:00",
+  "generatedAt": "2026-05-20T01:15:49.587152+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -1315,12 +1315,12 @@
       "semanticId": "lotus.currency_evidence",
       "canonicalTerm": "currency_evidence",
       "preferredName": "currency_evidence",
-      "description": "Currency context and source-component evidence for stateful MWR. The block is additive to legacy cashflows_used and documents when upstream values are pre-converted without per-input FX metadata.",
+      "description": "Currency context and source-component evidence for MWR. The block is additive to legacy cashflows_used and documents either stateful upstream pre-conversion without per-input FX metadata or stateless source-preconverted inputs with complete per-input FX provenance.",
       "example": {
         "reporting_currency": "USD",
         "portfolio_currency": "USD",
-        "currency_mode": "USD",
-        "conversion_evidence_status": "example_conversion_evidence_status",
+        "currency_mode": "SINGLE_REPORTING_CURRENCY",
+        "conversion_evidence_status": "upstream_preconverted_missing_per_input_fx_metadata",
         "conversion_evidence_reason_codes": [
           "example_conversion_evidence_reason_codes_item"
         ],
@@ -1331,7 +1331,19 @@
             "currency": "USD",
             "value_role": "beginning_market_value",
             "source_product": "example_source_product",
-            "conversion_status": "example_conversion_status"
+            "conversion_status": "upstream_preconverted",
+            "source_amount": "example_source_amount",
+            "source_currency": "USD",
+            "reporting_amount": "example_reporting_amount",
+            "reporting_currency": "USD",
+            "fx_rate": "example_fx_rate",
+            "fx_pair": "example_fx_pair",
+            "fx_rate_date": "2026-02-27",
+            "fx_rate_source": "example_fx_rate_source",
+            "fx_rate_version": "example_fx_rate_version",
+            "conversion_policy": "example_conversion_policy",
+            "conversion_timestamp": "2026-02-27T10:30:00Z",
+            "conversion_fingerprint": "example_conversion_fingerprint"
           }
         ],
         "cashflow_evidence": [
@@ -1348,7 +1360,19 @@
                 "flow_scope": "example_flow_scope",
                 "source_classification": "example_source_classification"
               }
-            ]
+            ],
+            "source_amount": "example_source_amount",
+            "source_currency": "USD",
+            "reporting_amount": "example_reporting_amount",
+            "reporting_currency": "USD",
+            "fx_rate": "example_fx_rate",
+            "fx_pair": "example_fx_pair",
+            "fx_rate_date": "2026-02-27",
+            "fx_rate_source": "example_fx_rate_source",
+            "fx_rate_version": "example_fx_rate_version",
+            "conversion_policy": "example_conversion_policy",
+            "conversion_timestamp": "2026-02-27T10:30:00Z",
+            "conversion_fingerprint": "example_conversion_fingerprint"
           }
         ]
       },
@@ -5911,6 +5935,57 @@
       ]
     },
     {
+      "semanticId": "lotus.source_preconverted_fx_evidence",
+      "canonicalTerm": "source_preconverted_fx_evidence",
+      "preferredName": "source_preconverted_fx_evidence",
+      "description": "Optional complete FX provenance for stateless MWR inputs that were converted upstream. Lotus-performance validates this evidence and computes on the supplied reporting amounts; it does not convert source-currency amounts inside the MWR engine.",
+      "example": {
+        "evidence_scope": "example_evidence_scope",
+        "market_values": [
+          {
+            "source_amount": 0.1234,
+            "source_currency": "USD",
+            "reporting_amount": 0.1234,
+            "reporting_currency": "USD",
+            "fx_rate": 0.1234,
+            "fx_pair": "example_fx_pair",
+            "fx_rate_date": "2026-02-27",
+            "fx_rate_source": "example_fx_rate_source",
+            "fx_rate_version": "example_fx_rate_version",
+            "conversion_policy": "example_conversion_policy",
+            "conversion_timestamp": "2026-02-27T10:30:00Z",
+            "conversion_fingerprint": "example_conversion_fingerprint",
+            "value_role": "beginning_market_value"
+          }
+        ],
+        "cash_flows": [
+          {
+            "source_amount": 0.1234,
+            "source_currency": "USD",
+            "reporting_amount": 0.1234,
+            "reporting_currency": "USD",
+            "fx_rate": 0.1234,
+            "fx_pair": "example_fx_pair",
+            "fx_rate_date": "2026-02-27",
+            "fx_rate_source": "example_fx_rate_source",
+            "fx_rate_version": "example_fx_rate_version",
+            "conversion_policy": "example_conversion_policy",
+            "conversion_timestamp": "2026-02-27T10:30:00Z",
+            "conversion_fingerprint": "example_conversion_fingerprint",
+            "cash_flow_index": 1,
+            "cash_flow_date": "2026-02-27"
+          }
+        ]
+      },
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
       "semanticId": "lotus.source_quality_evidence",
       "canonicalTerm": "source_quality_evidence",
       "preferredName": "source_quality_evidence",
@@ -8547,6 +8622,14 @@
             "type": "string",
             "semanticId": "lotus.report_ccy",
             "attributeRef": "#/attributeCatalog/lotus.report_ccy"
+          },
+          {
+            "name": "source_preconverted_fx_evidence",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.source_preconverted_fx_evidence",
+            "attributeRef": "#/attributeCatalog/lotus.source_preconverted_fx_evidence"
           },
           {
             "name": "input_mode",

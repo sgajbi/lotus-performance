@@ -205,6 +205,9 @@ Current request-model highlights:
 - returns-series outputs include `active_returns` and `cumulative_active_returns`
 - attribution emits source-owned `currency_attribution_totals` for portfolio-level
   Karnosky-Singer FX attribution when `currency_mode=BOTH` is source-ready
+- MWR stateless requests may supply complete `source_preconverted_fx_evidence`; the service
+  validates per-input FX provenance and emits `currency_evidence` while still computing on a
+  single reporting-currency schedule
 - benchmark exposure context is certified at `frequency=DAILY` for `POSITION`, `SECTOR`,
   `ASSET_CLASS`, and `ISSUER`; issuer groups use lotus-core index-catalog issuer labels
 - Older examples using `period_type` are not current

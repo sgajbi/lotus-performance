@@ -76,15 +76,17 @@ and emits MWR plus supportability metadata for downstream consumers.
 Gateway and Workbench should consume the emitted MWR response as source-owned performance truth;
 they must not reconstruct cash flows from TWR, benchmark, or workspace summary payloads.
 Current MWR inputs are a single reporting-currency schedule. Gateway, Workbench, reporting, and
-support tooling must not infer FX rates, conversion policy, or source-currency provenance from
-today's `cashflows_used` echo.
+support tooling must not infer FX rates, conversion policy, or source-currency provenance from the
+legacy `cashflows_used` echo. Stateless callers may provide complete
+`source_preconverted_fx_evidence`; when present, downstream consumers should preserve the emitted
+`currency_evidence` and must not recalculate FX conversion or MWR locally.
 Gateway should preserve calculation-quality fields (`status`, `reason_codes`, `warnings`,
 `fallback_reason`, `is_approximation`, and `holding_period_return`) because they explain whether the
 client-facing number is annualized XIRR, a labeled Modified Dietz fallback, a Simple Dietz result,
 or not calculable.
 The implementation-backed Lotus production control guide is maintained at
 [docs/guides/mwr-lotus-production-controls.md](../docs/guides/mwr-lotus-production-controls.md).
-The future FX-aware MWR gate is maintained at
+The stateful upstream FX-aware MWR gate is maintained at
 [docs/technical/mwr-fx-contract-design.md](../docs/technical/mwr-fx-contract-design.md).
 
 ```mermaid

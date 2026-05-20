@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date as Date
+from datetime import datetime as DateTime
 from decimal import Decimal, InvalidOperation
 from typing import Literal
 
@@ -22,28 +23,57 @@ class MWRCashFlowEvidenceComponent:
 
 @dataclass(frozen=True)
 class MWRCashFlowEvidence:
-    date: date
+    date: Date
     amount: Decimal
     currency: str | None
     source_components: list[MWRCashFlowEvidenceComponent]
+    source_amount: Decimal | None = None
+    source_currency: str | None = None
+    reporting_amount: Decimal | None = None
+    reporting_currency: str | None = None
+    fx_rate: Decimal | None = None
+    fx_pair: str | None = None
+    fx_rate_date: Date | None = None
+    fx_rate_source: str | None = None
+    fx_rate_version: str | None = None
+    conversion_policy: str | None = None
+    conversion_timestamp: DateTime | None = None
+    conversion_fingerprint: str | None = None
 
 
 @dataclass(frozen=True)
 class MWRMarketValueEvidence:
-    valuation_date: date | None
+    valuation_date: Date | None
     amount: Decimal
     currency: str | None
     value_role: Literal["beginning_market_value", "ending_market_value"]
     source_product: Literal["PortfolioTimeseriesInput"] = "PortfolioTimeseriesInput"
-    conversion_status: Literal["upstream_preconverted"] = "upstream_preconverted"
+    conversion_status: Literal["upstream_preconverted", "source_preconverted_with_fx_evidence"] = (
+        "upstream_preconverted"
+    )
+    source_amount: Decimal | None = None
+    source_currency: str | None = None
+    reporting_amount: Decimal | None = None
+    reporting_currency: str | None = None
+    fx_rate: Decimal | None = None
+    fx_pair: str | None = None
+    fx_rate_date: Date | None = None
+    fx_rate_source: str | None = None
+    fx_rate_version: str | None = None
+    conversion_policy: str | None = None
+    conversion_timestamp: DateTime | None = None
+    conversion_fingerprint: str | None = None
 
 
 @dataclass(frozen=True)
 class MWRCurrencyEvidence:
     reporting_currency: str | None
     portfolio_currency: str | None
-    currency_mode: Literal["SINGLE_REPORTING_CURRENCY"]
-    conversion_evidence_status: Literal["upstream_preconverted_missing_per_input_fx_metadata"]
+    currency_mode: Literal["SINGLE_REPORTING_CURRENCY", "SOURCE_PRECONVERTED_WITH_FX_EVIDENCE"]
+    conversion_evidence_status: Literal[
+        "upstream_preconverted_missing_per_input_fx_metadata",
+        "complete_source_preconverted_fx_metadata",
+    ]
     conversion_evidence_reason_codes: list[str]
     market_values_used: list[MWRMarketValueEvidence]
     cashflow_evidence: list[MWRCashFlowEvidence]
@@ -51,7 +81,7 @@ class MWRCurrencyEvidence:
 
 @dataclass(frozen=True)
 class StatefulMWRInput:
-    start_date: date
+    start_date: Date
     begin_mv: Decimal
     end_mv: Decimal
     cash_flows: list[CashFlow]
@@ -69,7 +99,7 @@ def build_stateful_mwr_input(*, source_input: StatefulPortfolioInput) -> Statefu
 def build_stateful_mwr_input_for_window(
     *,
     source_input: StatefulPortfolioInput,
-    window_start_date: date,
+    window_start_date: Date,
 ) -> StatefulMWRInput:
     first_observation = source_input.observations[0]
     last_observation = source_input.observations[-1]
@@ -78,15 +108,15 @@ def build_stateful_mwr_input_for_window(
     end_mv = Decimal(str(last_observation["ending_market_value"]))
     reporting_currency = _resolve_reporting_currency(source_input)
 
-    cash_flows_by_date: dict[date, Decimal] = {}
-    cash_flow_components_by_date: dict[date, list[MWRCashFlowEvidenceComponent]] = {}
+    cash_flows_by_date: dict[Date, Decimal] = {}
+    cash_flow_components_by_date: dict[Date, list[MWRCashFlowEvidenceComponent]] = {}
     previous_ending_market_value: Decimal | None = None
     for observation in source_input.observations:
         valuation_date_raw = observation.get("valuation_date")
         if not isinstance(valuation_date_raw, str):
             previous_ending_market_value = None
             continue
-        valuation_date = date.fromisoformat(valuation_date_raw)
+        valuation_date = Date.fromisoformat(valuation_date_raw)
         beginning_market_value = _parse_decimal(observation.get("beginning_market_value"))
         if beginning_market_value is not None and previous_ending_market_value is not None:
             carry_forward_adjustment = beginning_market_value - previous_ending_market_value
@@ -188,12 +218,12 @@ def _parse_decimal(value: object) -> Decimal | None:
         return None
 
 
-def _parse_observation_date(observation: dict[str, object]) -> date | None:
+def _parse_observation_date(observation: dict[str, object]) -> Date | None:
     valuation_date_raw = observation.get("valuation_date")
     if not isinstance(valuation_date_raw, str):
         return None
     try:
-        return date.fromisoformat(valuation_date_raw)
+        return Date.fromisoformat(valuation_date_raw)
     except ValueError:
         return None
 

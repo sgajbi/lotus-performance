@@ -15,8 +15,12 @@ def test_mwr_openapi_explains_capital_timing_purpose_and_modes() -> None:
     assert "annual IRR" in mwr_post["description"]
     assert "dated cash-flow weights" in mwr_post["description"]
     assert "midpoint Dietz period return" in mwr_post["description"]
+    assert "source_preconverted_fx_evidence" in mwr_post["description"]
+    assert "validated FX provenance" in mwr_post["description"]
     assert "200" in mwr_post["responses"]
     assert "422" in mwr_post["responses"]
+    request_schema = spec["components"]["schemas"]["MoneyWeightedReturnAnalyticsRequest"]
+    assert "source_preconverted_fx_evidence" in request_schema["properties"]
     response_schema = spec["components"]["schemas"]["MoneyWeightedReturnResponse"]
     assert "calculation_supportability" in response_schema["properties"]
     assert "reporting_currency" in response_schema["properties"]
@@ -26,3 +30,8 @@ def test_mwr_openapi_explains_capital_timing_purpose_and_modes() -> None:
     assert "market_values_used" in evidence_schema["properties"]
     assert "cashflow_evidence" in evidence_schema["properties"]
     assert "conversion_evidence_status" in evidence_schema["properties"]
+    assert "SOURCE_PRECONVERTED_WITH_FX_EVIDENCE" in evidence_schema["properties"]["currency_mode"]["enum"]
+    assert (
+        "complete_source_preconverted_fx_metadata"
+        in evidence_schema["properties"]["conversion_evidence_status"]["enum"]
+    )

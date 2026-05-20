@@ -544,7 +544,10 @@ async def get_twr_result(calculation_id: UUID) -> PerformanceResponse | JSONResp
         "the question is how the portfolio performed for the client after the size and timing of external "
         "cash flows, deposits, withdrawals, and sourced capital-base adjustments are considered. Use "
         '`input_mode="stateless"` when the caller already owns beginning value, ending value, and the signed '
-        'cash-flow schedule. Use `input_mode="stateful"` for lotus-core-sourced portfolio analytics input; '
+        "cash-flow schedule; callers with upstream-converted source-currency inputs may supply complete "
+        "`source_preconverted_fx_evidence` for every market value and cash flow so the response records "
+        "validated FX provenance while the MWR engine still calculates on reporting-currency amounts. "
+        'Use `input_mode="stateful"` for lotus-core-sourced portfolio analytics input; '
         "lotus-performance reads the query-control-plane portfolio timeseries, normalizes explicit external "
         "cash flows and cross-observation carry-forward capital breaks into canonical MWR inputs, keeps "
         "operational fees as performance drag rather than investor cash movement, and then runs the requested "
