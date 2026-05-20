@@ -54,6 +54,10 @@ Current repository posture:
    `currency_mode=BOTH` path is source-ready, giving downstream Gateway, Workbench, reporting, and
    manage consumers a source-owned portfolio-level FX attribution total instead of requiring local
    row summation.
+10. stateless MWR accepts complete `source_preconverted_fx_evidence`, validates per-input FX
+    provenance for beginning market value, ending market value, and every cash flow, and emits
+    `currency_evidence` while preserving the engine boundary that MWR calculates one
+    reporting-currency schedule and does not perform in-engine FX conversion.
 
 ## Architecture And Module Map
 

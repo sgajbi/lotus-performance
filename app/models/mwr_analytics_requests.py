@@ -82,6 +82,8 @@ class MoneyWeightedReturnAnalyticsRequest(MoneyWeightedReturnRequestBase):
                 raise ValueError("stateless_input must be null when input_mode=stateful")
             if has_legacy_stateless:
                 raise ValueError("begin_mv, end_mv, and cash_flows must be null when input_mode=stateful")
+            if self.source_preconverted_fx_evidence is not None:
+                raise ValueError("source_preconverted_fx_evidence must be null when input_mode=stateful")
         return self
 
     def to_stateless_mwr_request(

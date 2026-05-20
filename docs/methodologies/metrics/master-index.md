@@ -49,9 +49,13 @@ This index maps implemented lotus-performance metrics to detailed methodology do
   aggregation beyond the current single reporting-currency guard remain unsupported.
 - In current engine behavior, `mwr_method=MODIFIED_DIETZ` uses dated cash-flow weights and
   `mwr_method=DIETZ` keeps the midpoint Simple Dietz path.
-- Current MWR methodology documents assume a single reporting-currency schedule. Future FX-aware MWR
-  is governed by `docs/technical/mwr-fx-contract-design.md` and is not implementation-supported
-  until upstream FX evidence, response provenance, consumer propagation, and tests are complete.
+- Future FX-aware MWR remains bounded by the current single reporting-currency engine contract.
+  Current MWR methodology documents assume a single reporting-currency schedule. Stateless callers
+  may supply complete `source_preconverted_fx_evidence` so responses preserve validated per-input
+  FX provenance, but the engine still computes on supplied reporting-currency amounts and does not
+  convert source-currency amounts. Stateful upstream FX-aware MWR remains governed by
+  `docs/technical/mwr-fx-contract-design.md` until upstream FX evidence, consumer propagation, and
+  tests are complete.
 
 
 ## Documentation Standard

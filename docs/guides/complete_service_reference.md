@@ -303,7 +303,11 @@ Stateful MWR responses populate `currency_evidence` with `market_values_used[]`,
 `cashflow_evidence[]`, and `currency_mode="SINGLE_REPORTING_CURRENCY"`. The current conversion
 evidence status is `upstream_preconverted_missing_per_input_fx_metadata`, which means
 lotus-performance preserves the reporting-currency context and source components received from
-lotus-core but does not yet expose full per-input FX rate provenance.
+lotus-core but does not yet expose full per-input FX rate provenance. Stateless callers may supply
+complete `source_preconverted_fx_evidence`; when present and valid, the response emits
+`currency_mode="SOURCE_PRECONVERTED_WITH_FX_EVIDENCE"` and
+`conversion_evidence_status="complete_source_preconverted_fx_metadata"` while the engine still
+computes on the supplied reporting-currency schedule.
 
 ### `POST /performance/workspace-summary`
 

@@ -33,8 +33,13 @@ Money-Weighted Return via XIRR (`money_weighted_return` when method resolves to 
 ## Unit Conventions
 - Cash flow and market values are currency amounts.
 - `begin_mv`, `end_mv`, and `cash_flows[].amount` must be in one reporting currency before the
-  XIRR solver runs; current `cashflows_used` output is schedule evidence, not FX conversion
-  provenance.
+  XIRR solver runs.
+- Stateless callers may supply `source_preconverted_fx_evidence` for every market value and cash
+  flow. Lotus-performance validates that the supplied reporting amounts match the MWR inputs and
+  then emits `currency_evidence` with complete per-input FX provenance; the XIRR solver still
+  operates only on the reporting-currency schedule and does not convert source amounts.
+- Without `source_preconverted_fx_evidence`, `cashflows_used` is schedule evidence, not FX
+  conversion provenance.
 - `money_weighted_return`, `mwr_annualized`, and `holding_period_return` are percentage points.
 - XIRR uses a decimal annual rate internally, then multiplies by 100 for response fields.
 - Successful XIRR returns an annualized primary value; `holding_period_return` gives the measured-period equivalent.
@@ -51,8 +56,26 @@ Money-Weighted Return via XIRR (`money_weighted_return` when method resolves to 
 - `tau_j`: year fraction from anchor date using `(date_j - anchor).days / D`
 - `V_j`: signed value at position `j` in the solver vector after same-day netting
 - `NPV(r)`: discounted cash-flow sum used for root solving
+- `SRC_j`: optional source-currency amount supplied in `source_preconverted_fx_evidence`
+- `FX_j`: optional positive FX rate supplied in `source_preconverted_fx_evidence`
+- `RCY`: reporting currency for all MWR engine inputs
 
 ## Methodology and Formulas
+0. Optional source-preconverted FX evidence validation:
+- When `source_preconverted_fx_evidence` is supplied, the endpoint validates exactly one
+  beginning-market-value record, exactly one ending-market-value record, and exactly one cash-flow
+  evidence record for each `cash_flows[]` index.
+- For each component, `reporting_currency` must match `report_ccy` when supplied, otherwise
+  `currency`.
+- For each component, `reporting_amount` must equal the corresponding MWR input amount:
+  `begin_mv`, `end_mv`, or `cash_flows[i].amount`.
+- Required FX provenance fields are `source_amount`, `source_currency`, `fx_rate`, `fx_pair`,
+  `fx_rate_date`, `fx_rate_source`, `fx_rate_version`, `conversion_policy`,
+  `conversion_timestamp`, and `conversion_fingerprint`.
+- If `source_currency == reporting_currency`, `fx_rate` must equal `1`.
+- These checks produce response provenance only; no source amount is converted inside the XIRR
+  engine.
+
 1. Cash-flow vector construction (`calculate_money_weighted_return`):
 - `S` is the resolved measurement start date. In stateful mode it is the requested
   `stateful_input.window_start_date`; in stateless mode it is explicit `start_date`, the earliest
@@ -104,8 +127,9 @@ Money-Weighted Return via XIRR (`money_weighted_return` when method resolves to 
   included as investor cash flows; unsupported or invalid source cash-flow rows are skipped during
   normalization rather than guessed.
 - Mixed source-currency schedules are not converted by the current XIRR path. FX-aware MWR remains
-  gated by `docs/technical/mwr-fx-contract-design.md` and must fail closed in any future
-  implementation when conversion evidence is incomplete.
+  gated by `docs/technical/mwr-fx-contract-design.md` for stateful upstream conversion. Stateless
+  source-preconverted schedules may include complete `source_preconverted_fx_evidence`; incomplete
+  or inconsistent evidence fails closed with HTTP 422.
 - `NO_ECONOMIC_CONTENT` returns `status="NOT_APPLICABLE"`.
 - `NO_POSITIVE_AND_NEGATIVE_CASH_FLOW`, `NO_ROOT_FOUND`, `MULTIPLE_IRR_ROOTS_DETECTED`, and
   `INVALID_SOLVER_BOUNDS` enter a labeled Modified Dietz fallback unless no economic content exists.
@@ -141,6 +165,9 @@ Primary fields for this metric when XIRR succeeds:
 - `convergence.residual_npv`
 - `convergence.day_count_basis`
 - `cashflows_used` when `emit_cashflows_used=true`
+- `reporting_currency`
+- `currency_evidence` when stateful source context or stateless source-preconverted FX evidence is
+  available
 - `start_date`, `end_date`, `notes`
 - `calculation_supportability`, `meta`, `diagnostics`, and `audit`
 

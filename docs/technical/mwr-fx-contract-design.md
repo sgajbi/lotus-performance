@@ -18,6 +18,13 @@ values and cash flows to already be expressed in one consistent reporting curren
 Modified Dietz, or Simple Dietz execution. This is intentional: today's `cashflows_used` response
 echo proves the signed schedule used by the engine, not FX conversion provenance.
 
+Stateless callers may now supply `source_preconverted_fx_evidence` for already converted inputs.
+When present, `lotus-performance` validates complete per-input FX provenance for both market values
+and every cash flow, rejects inconsistent reporting amounts or missing evidence with HTTP 422, and
+emits `currency_evidence.currency_mode="SOURCE_PRECONVERTED_WITH_FX_EVIDENCE"` with
+`conversion_evidence_status="complete_source_preconverted_fx_metadata"`. This is a source-
+preconverted evidence contract, not an in-engine FX conversion contract.
+
 Current stateful execution does preserve the reporting-currency context that `lotus-core` already
 publishes on `PortfolioTimeseriesInput`. The MWR response now includes `reporting_currency` and a
 `currency_evidence` block with `market_values_used[]`, `cashflow_evidence[]`, and
@@ -62,21 +69,33 @@ carry enough evidence to make the reporting-currency schedule reproducible.
 | `conversion_timestamp` | Timestamp at which conversion evidence was assembled. |
 | `conversion_fingerprint` | Stable fingerprint for reproducibility and lineage tie-out. |
 
-For stateful MWR, this evidence must come from governed upstream analytics-input contracts. For
-stateless MWR, the caller must provide complete conversion evidence if the request asks
-`lotus-performance` to treat amounts as FX-aware. Missing or partial evidence must fail closed
-rather than falling back to guessed rates.
+For stateful MWR, this evidence must come from governed upstream analytics-input contracts before
+stateful MWR can claim complete per-input FX provenance. For stateless MWR, the caller must provide
+complete conversion evidence through `source_preconverted_fx_evidence` if the response should carry
+complete FX provenance. Missing, partial, or inconsistent evidence fails closed rather than falling
+back to guessed rates. In operational terms, the endpoint must fail closed when source and
+reporting-currency evidence cannot be tied out.
 
-## Proposed Response Semantics
+## Implemented And Proposed Response Semantics
 
-When implemented, FX-aware MWR should extend the response only after OpenAPI, gateway, Workbench,
-and documentation consumers are ready. The response should make the following visible:
+Implemented for stateless source-preconverted evidence:
 
 - `reporting_currency` for the MWR result.
-- `currency_mode` or equivalent posture that distinguishes base-only from FX-aware execution.
+- `currency_evidence.currency_mode="SOURCE_PRECONVERTED_WITH_FX_EVIDENCE"` when every supplied
+  input has complete validated source-preconverted FX evidence.
+- `currency_evidence.market_values_used[]` with source amount, source currency, reporting amount,
+  reporting currency, FX rate, rate source/version/date, conversion policy/timestamp, and
+  conversion fingerprint.
+- `currency_evidence.cashflow_evidence[]` with the same per-cash-flow conversion fields aligned to
+  `cash_flows[]` by index.
+- reason codes documenting that the engine calculated a reporting-currency schedule after evidence
+  validation.
+
+Still proposed for future stateful upstream FX-aware MWR:
+
+- `reporting_currency` for the MWR result.
 - `cashflows_used[]` entries with both source and reporting-currency evidence when FX conversion is
-  active.
-- `market_values_used` or equivalent evidence for beginning and ending market-value conversion.
+  active from governed upstream source contracts.
 - conversion-policy metadata in `meta`, `diagnostics`, or a governed supportability block.
 - reason codes for missing FX evidence, stale rates, conflicting reporting currency, or unsupported
   conversion policy.
@@ -122,9 +141,9 @@ FX-aware MWR is not done until all of these are true:
 - Stateful mode consumes a governed upstream FX analytics-input contract, not an operational-read
   shortcut with implicit semantics.
 - `currency_evidence.conversion_evidence_status` moves from
-  `upstream_preconverted_missing_per_input_fx_metadata` to a complete governed status only after
-  upstream per-input FX evidence is available and validated.
-- Stateless mode validates complete FX evidence when FX-aware execution is requested.
+  `upstream_preconverted_missing_per_input_fx_metadata` to a complete governed status in stateful
+  mode only after upstream per-input FX evidence is available and validated.
+- Stateless mode validates complete FX evidence when source-preconverted evidence is supplied.
 - Engine tests cover XIRR and Dietz-family schedules with mixed source currencies after conversion.
 - API tests cover missing FX evidence, stale FX evidence, conflicting reporting currency, and
   source-preconverted schedules.
@@ -133,5 +152,6 @@ FX-aware MWR is not done until all of these are true:
 - Methodology, API guide, wiki, and support docs describe the implemented behavior using Lotus
   reporting-currency and supportability language.
 
-Until those items are complete, Lotus documentation must continue to describe MWR as a
-single-reporting-currency calculation.
+Until stateful upstream FX evidence and downstream consumers are complete, Lotus documentation must
+continue to describe MWR as a single-reporting-currency calculation with optional stateless
+source-preconverted FX provenance, not as an in-engine FX conversion capability.

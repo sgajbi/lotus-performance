@@ -28,6 +28,9 @@ for that TWR lens.
   weights.
 - `mwr_method="DIETZ"` returns the period midpoint Dietz return.
 - `emit_cashflows_used=true` returns the exact signed cash-flow schedule used by the calculation.
+- `source_preconverted_fx_evidence` is optional for stateless requests whose inputs were converted
+  upstream; when supplied, the endpoint validates complete per-input FX provenance and returns it
+  in `currency_evidence` without performing in-engine FX conversion.
 - `solver` controls searched annual-rate bounds, root scan density, tolerance, and maximum
   bisection iterations.
 
@@ -35,6 +38,11 @@ The XIRR implementation nets same-day solver flows after sign normalization, sca
 log-rate interval for all sign-changing roots, and returns XIRR only when exactly one root exists.
 No-root and multiple-root cases are not silently interpreted as a valid annual IRR; they are labeled
 through `status`, `reason_codes`, `fallback_from`, and `fallback_reason`.
+
+Stateless source-preconverted FX evidence fails closed when the evidence does not align with the
+reporting-currency MWR inputs. This protects downstream consumers from accepting a mixed-currency
+story that cannot be reproduced from the submitted market values, cash flows, rate metadata, policy,
+timestamp, and conversion fingerprint.
 
 ## Upstream Integration
 

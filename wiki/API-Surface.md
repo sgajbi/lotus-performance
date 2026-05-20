@@ -58,12 +58,16 @@ calculation-quality metadata (`status`, `reason_codes`, `warnings`, `fallback_re
 support workflows, and downstream UI panels can explain whether the value is an annualized XIRR, a
 Modified Dietz fallback, Simple Dietz result, or not calculable.
 Current MWR inputs must be in one reporting currency. `cashflows_used` remains the legacy
-calculation-schedule echo. Stateful responses also carry `reporting_currency` and
-`currency_evidence`, including beginning/ending market values, source cash-flow components, and the
-explicit `upstream_preconverted_missing_per_input_fx_metadata` posture. FX-aware MWR is still
-contract-gated by [docs/technical/mwr-fx-contract-design.md](../docs/technical/mwr-fx-contract-design.md),
-and downstream consumers must not infer missing FX rates or conversion policy from the current
-response.
+calculation-schedule echo. Stateless callers may supply complete
+`source_preconverted_fx_evidence`; lotus-performance validates it against the supplied
+reporting-currency schedule and emits `currency_evidence` with per-input FX provenance. Stateful
+responses also carry `reporting_currency` and `currency_evidence`, including beginning/ending
+market values, source cash-flow components, and the explicit
+`upstream_preconverted_missing_per_input_fx_metadata` posture. Stateful upstream FX-aware MWR is
+still contract-gated by
+[docs/technical/mwr-fx-contract-design.md](../docs/technical/mwr-fx-contract-design.md), and
+downstream consumers must not infer missing FX rates or conversion policy when those fields are
+absent.
 
 `POST /performance/contribution` supports both stateless caller-owned inputs and stateful lotus-core
 portfolio/position timeseries sourcing. In stateful mode it is the source-owned contribution

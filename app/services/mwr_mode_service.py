@@ -8,6 +8,7 @@ from app.core.config import Settings
 from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest, MWRInputMode
 from app.models.mwr_requests import MoneyWeightedReturnRequest
 from app.services.execution_registry import execution_registry
+from app.services.mwr_fx_evidence_service import build_source_preconverted_mwr_currency_evidence
 from app.services.stateful_mwr_input_service import MWRCurrencyEvidence, build_stateful_mwr_input_for_window
 from app.services.stateful_performance_input_service import retrieve_stateful_portfolio_input
 
@@ -27,9 +28,11 @@ async def resolve_mwr_request(
     settings: Settings,
 ) -> ResolvedMWRRequest:
     if request.input_mode == MWRInputMode.STATELESS:
+        mwr_request = request.to_stateless_mwr_request()
         return ResolvedMWRRequest(
-            mwr_request=request.to_stateless_mwr_request(),
+            mwr_request=mwr_request,
             input_mode=MWRInputMode.STATELESS,
+            currency_evidence=build_source_preconverted_mwr_currency_evidence(mwr_request),
         )
 
     stateful_input = request.stateful_input
