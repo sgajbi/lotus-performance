@@ -38,6 +38,22 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - completed: `app.models.responses.PerformanceResponse`
   - still running: `app.models.responses.TWRAcceptedResponse`
 
+### `POST /performance/mandate-health-context`
+
+- purpose: evaluate a bounded source-owned mandate performance health context
+- request model: `app.models.mandate_health.MandatePerformanceHealthContextRequest`
+- response model: `app.models.mandate_health.MandatePerformanceHealthContextResponse`
+- execution mode: synchronous
+- supported input modes:
+  - `stateless`
+- contract note:
+  - emits `MandatePerformanceHealthContext:v1` for DPM supportability consumers such as `lotus-manage`
+  - derives `ACTIVE_RETURN` from supplied portfolio and benchmark period returns in percentage-point output units
+  - returns `health_state="unavailable"` when active-return evidence is incomplete
+  - preserves lotus-performance methodology posture through `TimeWeightedReturnAnalytics:v1` and `/performance/twr`
+  - does not create mandate actions, rebalance waves, client communications, trades, orders, OMS actions, or execution instructions
+- guide: `docs/guides/mandate_performance_health_context.md`
+
 ### `GET /performance/executions/{calculation_id}`
 
 - purpose: poll durable execution lifecycle state for async and synchronous calculations

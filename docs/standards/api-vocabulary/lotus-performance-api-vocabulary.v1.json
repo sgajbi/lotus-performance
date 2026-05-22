@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-05-20T01:15:49.587152+00:00",
+  "generatedAt": "2026-05-22T01:45:33.261162+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -64,6 +64,35 @@
       ],
       "observedTypes": [
         "integer"
+      ]
+    },
+    {
+      "semanticId": "lotus.active_return",
+      "canonicalTerm": "active_return",
+      "preferredName": "active_return",
+      "description": "Canonical active return used by lotus-performance APIs.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.active_return_attention_threshold",
+      "canonicalTerm": "active_return_attention_threshold",
+      "preferredName": "active_return_attention_threshold",
+      "description": "Active-return attention threshold in percentage points. Negative values indicate underperformance tolerance; -0.50 means attention when portfolio underperforms by more than 50 bps for the evaluated period.",
+      "example": "STANDARD_VALUE",
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object",
+        "string"
       ]
     },
     {
@@ -543,6 +572,36 @@
       ]
     },
     {
+      "semanticId": "lotus.benchmark_available",
+      "canonicalTerm": "benchmark_available",
+      "preferredName": "benchmark_available",
+      "description": "Whether benchmark period-return evidence was available for active-return evaluation.",
+      "example": true,
+      "type": "boolean",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "boolean"
+      ]
+    },
+    {
+      "semanticId": "lotus.benchmark_context",
+      "canonicalTerm": "benchmark_context",
+      "preferredName": "benchmark_context",
+      "description": "mandate performance benchmark context object.",
+      "example": {
+        "key": "value"
+      },
+      "type": "MandatePerformanceBenchmarkContext",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "MandatePerformanceBenchmarkContext"
+      ]
+    },
+    {
       "semanticId": "lotus.benchmark_groups_data",
       "canonicalTerm": "benchmark_groups_data",
       "preferredName": "benchmark_groups_data",
@@ -577,6 +636,35 @@
       "preferredName": "benchmark_id",
       "description": "Benchmark identifier.",
       "example": "ENTITY_001",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.benchmark_period_return",
+      "canonicalTerm": "benchmark_period_return",
+      "preferredName": "benchmark_period_return",
+      "description": "Benchmark period return in percentage-point output units.",
+      "example": "STANDARD_VALUE",
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object",
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.benchmark_return_source",
+      "canonicalTerm": "benchmark_return_source",
+      "preferredName": "benchmark_return_source",
+      "description": "Bounded benchmark-return source posture for this stateless context product.",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -2430,6 +2518,20 @@
       ]
     },
     {
+      "semanticId": "lotus.health_state",
+      "canonicalTerm": "health_state",
+      "preferredName": "health_state",
+      "description": "Bounded performance health posture derived from source-owned active return.",
+      "example": "ready",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.hedging",
       "canonicalTerm": "hedging",
       "preferredName": "hedging",
@@ -3436,6 +3538,36 @@
       ]
     },
     {
+      "semanticId": "lotus.methodology_posture",
+      "canonicalTerm": "methodology_posture",
+      "preferredName": "methodology_posture",
+      "description": "mandate performance health methodology posture object.",
+      "example": {
+        "key": "value"
+      },
+      "type": "MandatePerformanceHealthMethodologyPosture",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "MandatePerformanceHealthMethodologyPosture"
+      ]
+    },
+    {
+      "semanticId": "lotus.methodology_version",
+      "canonicalTerm": "methodology_version",
+      "preferredName": "methodology_version",
+      "description": "Source methodology family used for period and active-return interpretation.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.metric_basis",
       "canonicalTerm": "metric_basis",
       "preferredName": "metric_basis",
@@ -3467,6 +3599,20 @@
       ],
       "observedTypes": [
         "array"
+      ]
+    },
+    {
+      "semanticId": "lotus.metric_name",
+      "canonicalTerm": "metric_name",
+      "preferredName": "metric_name",
+      "description": "Source-owned performance metric used for mandate health posture.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -4163,6 +4309,20 @@
       ]
     },
     {
+      "semanticId": "lotus.period_name",
+      "canonicalTerm": "period_name",
+      "preferredName": "period_name",
+      "description": "Resolved performance period label evaluated by the source product.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.period_start",
       "canonicalTerm": "period_start",
       "preferredName": "period_start",
@@ -4343,6 +4503,21 @@
       ]
     },
     {
+      "semanticId": "lotus.portfolio_period_return",
+      "canonicalTerm": "portfolio_period_return",
+      "preferredName": "portfolio_period_return",
+      "description": "Portfolio period return in percentage-point output units.",
+      "example": "STANDARD_VALUE",
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object",
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.positions_data",
       "canonicalTerm": "positions_data",
       "preferredName": "positions_data",
@@ -4427,6 +4602,34 @@
       ],
       "observedTypes": [
         "integer"
+      ]
+    },
+    {
+      "semanticId": "lotus.product_name",
+      "canonicalTerm": "product_name",
+      "preferredName": "product_name",
+      "description": "Source-owned product emitted by lotus-performance for mandate health performance context.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.product_version",
+      "canonicalTerm": "product_version",
+      "preferredName": "product_version",
+      "description": "Product contract version.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -5935,6 +6138,36 @@
       ]
     },
     {
+      "semanticId": "lotus.source_metric",
+      "canonicalTerm": "source_metric",
+      "preferredName": "source_metric",
+      "description": "mandate performance health source metric object.",
+      "example": {
+        "key": "value"
+      },
+      "type": "MandatePerformanceHealthSourceMetric",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "MandatePerformanceHealthSourceMetric"
+      ]
+    },
+    {
+      "semanticId": "lotus.source_metrics_product",
+      "canonicalTerm": "source_metrics_product",
+      "preferredName": "source_metrics_product",
+      "description": "Underlying source-owned performance product family used for this context.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.source_preconverted_fx_evidence",
       "canonicalTerm": "source_preconverted_fx_evidence",
       "preferredName": "source_preconverted_fx_evidence",
@@ -5986,6 +6219,34 @@
       ]
     },
     {
+      "semanticId": "lotus.source_product_name",
+      "canonicalTerm": "source_product_name",
+      "preferredName": "source_product_name",
+      "description": "Source-owned mandate health performance product name.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.source_product_version",
+      "canonicalTerm": "source_product_version",
+      "preferredName": "source_product_version",
+      "description": "Source-owned mandate health performance product version.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.source_quality_evidence",
       "canonicalTerm": "source_quality_evidence",
       "preferredName": "source_quality_evidence",
@@ -6020,17 +6281,47 @@
       ]
     },
     {
-      "semanticId": "lotus.source_service",
-      "canonicalTerm": "source_service",
-      "preferredName": "source_service",
-      "description": "Service that owns and emitted this capability contract.",
-      "example": "lotus-performance",
+      "semanticId": "lotus.source_route",
+      "canonicalTerm": "source_route",
+      "preferredName": "source_route",
+      "description": "Underlying source route for full source-owned TWR calculation.",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
       ],
       "observedTypes": [
         "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.source_service",
+      "canonicalTerm": "source_service",
+      "preferredName": "source_service",
+      "description": "Authoritative source service for this performance context.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.source_services",
+      "canonicalTerm": "source_services",
+      "preferredName": "source_services",
+      "description": "Ordered source services that materially contribute to this product payload.",
+      "example": [
+        "STANDARD_VALUE"
+      ],
+      "type": "array",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "array"
       ]
     },
     {
@@ -6473,6 +6764,20 @@
       ],
       "observedTypes": [
         "integer"
+      ]
+    },
+    {
+      "semanticId": "lotus.threshold_breached",
+      "canonicalTerm": "threshold_breached",
+      "preferredName": "threshold_breached",
+      "description": "Canonical threshold breached used by lotus-performance APIs.",
+      "example": true,
+      "type": "boolean",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "boolean"
       ]
     },
     {
@@ -11349,6 +11654,277 @@
       },
       "response": {
         "fields": []
+      }
+    },
+    {
+      "domain": "performance",
+      "method": "POST",
+      "path": "/performance/mandate-health-context",
+      "operationId": "evaluate_mandate_performance_health_context_endpoint_performance_mandate_health_context_post",
+      "summary": "Evaluate source-owned mandate performance health context",
+      "request": {
+        "fields": [
+          {
+            "name": "portfolio_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.portfolio_id",
+            "attributeRef": "#/attributeCatalog/lotus.portfolio_id"
+          },
+          {
+            "name": "as_of_date",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.as_of_date",
+            "attributeRef": "#/attributeCatalog/lotus.as_of_date"
+          },
+          {
+            "name": "period_name",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_name",
+            "attributeRef": "#/attributeCatalog/lotus.period_name"
+          },
+          {
+            "name": "portfolio_period_return",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.portfolio_period_return",
+            "attributeRef": "#/attributeCatalog/lotus.portfolio_period_return"
+          },
+          {
+            "name": "benchmark_period_return",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.benchmark_period_return",
+            "attributeRef": "#/attributeCatalog/lotus.benchmark_period_return"
+          },
+          {
+            "name": "active_return_attention_threshold",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.active_return_attention_threshold",
+            "attributeRef": "#/attributeCatalog/lotus.active_return_attention_threshold"
+          }
+        ]
+      },
+      "response": {
+        "fields": [
+          {
+            "name": "product_name",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.product_name",
+            "attributeRef": "#/attributeCatalog/lotus.product_name"
+          },
+          {
+            "name": "product_version",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.product_version",
+            "attributeRef": "#/attributeCatalog/lotus.product_version"
+          },
+          {
+            "name": "portfolio_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.portfolio_id",
+            "attributeRef": "#/attributeCatalog/lotus.portfolio_id"
+          },
+          {
+            "name": "as_of_date",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.as_of_date",
+            "attributeRef": "#/attributeCatalog/lotus.as_of_date"
+          },
+          {
+            "name": "period_name",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_name",
+            "attributeRef": "#/attributeCatalog/lotus.period_name"
+          },
+          {
+            "name": "health_state",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.health_state",
+            "attributeRef": "#/attributeCatalog/lotus.health_state"
+          },
+          {
+            "name": "threshold_breached",
+            "location": "body",
+            "required": false,
+            "type": "boolean",
+            "semanticId": "lotus.threshold_breached",
+            "attributeRef": "#/attributeCatalog/lotus.threshold_breached"
+          },
+          {
+            "name": "active_return_attention_threshold",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.active_return_attention_threshold",
+            "attributeRef": "#/attributeCatalog/lotus.active_return_attention_threshold"
+          },
+          {
+            "name": "source_metric",
+            "location": "body",
+            "required": true,
+            "type": "MandatePerformanceHealthSourceMetric",
+            "semanticId": "lotus.source_metric",
+            "attributeRef": "#/attributeCatalog/lotus.source_metric"
+          },
+          {
+            "name": "source_metric.metric_name",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.metric_name",
+            "attributeRef": "#/attributeCatalog/lotus.metric_name"
+          },
+          {
+            "name": "source_metric.portfolio_period_return",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.portfolio_period_return",
+            "attributeRef": "#/attributeCatalog/lotus.portfolio_period_return"
+          },
+          {
+            "name": "source_metric.benchmark_period_return",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.benchmark_period_return",
+            "attributeRef": "#/attributeCatalog/lotus.benchmark_period_return"
+          },
+          {
+            "name": "source_metric.active_return",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.active_return",
+            "attributeRef": "#/attributeCatalog/lotus.active_return"
+          },
+          {
+            "name": "methodology_posture",
+            "location": "body",
+            "required": false,
+            "type": "MandatePerformanceHealthMethodologyPosture",
+            "semanticId": "lotus.methodology_posture",
+            "attributeRef": "#/attributeCatalog/lotus.methodology_posture"
+          },
+          {
+            "name": "methodology_posture.source_product_name",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.source_product_name",
+            "attributeRef": "#/attributeCatalog/lotus.source_product_name"
+          },
+          {
+            "name": "methodology_posture.source_product_version",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.source_product_version",
+            "attributeRef": "#/attributeCatalog/lotus.source_product_version"
+          },
+          {
+            "name": "methodology_posture.source_service",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.source_service",
+            "attributeRef": "#/attributeCatalog/lotus.source_service"
+          },
+          {
+            "name": "methodology_posture.source_metrics_product",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.source_metrics_product",
+            "attributeRef": "#/attributeCatalog/lotus.source_metrics_product"
+          },
+          {
+            "name": "methodology_posture.methodology_version",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.methodology_version",
+            "attributeRef": "#/attributeCatalog/lotus.methodology_version"
+          },
+          {
+            "name": "methodology_posture.source_route",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.source_route",
+            "attributeRef": "#/attributeCatalog/lotus.source_route"
+          },
+          {
+            "name": "source_services",
+            "location": "body",
+            "required": false,
+            "type": "array",
+            "semanticId": "lotus.source_services",
+            "attributeRef": "#/attributeCatalog/lotus.source_services"
+          },
+          {
+            "name": "benchmark_context",
+            "location": "body",
+            "required": true,
+            "type": "MandatePerformanceBenchmarkContext",
+            "semanticId": "lotus.benchmark_context",
+            "attributeRef": "#/attributeCatalog/lotus.benchmark_context"
+          },
+          {
+            "name": "benchmark_context.benchmark_available",
+            "location": "body",
+            "required": true,
+            "type": "boolean",
+            "semanticId": "lotus.benchmark_available",
+            "attributeRef": "#/attributeCatalog/lotus.benchmark_available"
+          },
+          {
+            "name": "benchmark_context.benchmark_return_source",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.benchmark_return_source",
+            "attributeRef": "#/attributeCatalog/lotus.benchmark_return_source"
+          },
+          {
+            "name": "request_fingerprint",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.request_fingerprint",
+            "attributeRef": "#/attributeCatalog/lotus.request_fingerprint"
+          },
+          {
+            "name": "reason_codes",
+            "location": "body",
+            "required": true,
+            "type": "array",
+            "semanticId": "lotus.reason_codes",
+            "attributeRef": "#/attributeCatalog/lotus.reason_codes"
+          }
+        ]
       }
     },
     {

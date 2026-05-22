@@ -18,6 +18,7 @@ from app.api.endpoints import (
     inspections,
     integration_capabilities,
     lineage,
+    mandate_health_context,
     performance,
     recovery_drill_history,
     returns_series,
@@ -157,6 +158,7 @@ app.include_router(contribution.router, prefix="/performance")
 app.include_router(executions.router, prefix="/performance")
 app.include_router(inspections.router, prefix="/performance")
 app.include_router(lineage.router, prefix="/performance")
+app.include_router(mandate_health_context.router, prefix="/performance")
 app.include_router(integration_capabilities.router, prefix="/integration")
 app.include_router(returns_series.router, prefix="/integration")
 app.include_router(benchmark_exposure_context.router, prefix="/integration")

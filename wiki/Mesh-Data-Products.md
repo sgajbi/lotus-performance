@@ -21,6 +21,9 @@
 - Product ID: `lotus-performance:CompositePerformanceAnalytics:v1`
 - Product role: governed persisted-fact composite performance product for private-banking
   composite TWR, source-fact lineage, restatement evidence, and supportable publication workflows
+- Product ID: `lotus-performance:MandatePerformanceHealthContext:v1`
+- Product role: governed active-return health context for DPM supportability consumers that need
+  source-owned performance threshold posture without downstream methodology reconstruction
 - Product ID: `lotus-performance:ReturnsSeriesBundle:v1`
 - Product role: governed return-series and performance evidence consumed by risk, advisory, reporting, gateway, and Workbench discovery flows
 - Source declaration: `contracts/domain-data-products/`
@@ -92,6 +95,14 @@
   Composite contribution, attribution, MWR, sleeves, carve-outs, and multi-currency composite
   aggregation beyond the current single reporting-currency guard remain unsupported. See
   [Composite Performance](Composite-Performance).
+- Mandate performance health product evidence: `POST /performance/mandate-health-context` emits
+  source-owned active-return threshold posture, methodology posture, request fingerprint, and
+  reason codes for DPM supportability consumers such as `lotus-manage`. The governed product is
+  declared as `MandatePerformanceHealthContext` in
+  `contracts/domain-data-products/lotus-performance-products.v1.json` and approved for Gateway and
+  Manage consumption. Downstream consumers may preserve this evidence, but must not reconstruct
+  active return, reinterpret TWR methodology, create mandate actions, create rebalance waves,
+  contact clients, place orders, or imply OMS/execution behavior.
 
 ## Platform relationship
 
