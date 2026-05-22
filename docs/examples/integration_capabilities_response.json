@@ -158,6 +158,23 @@
       "supports_async": true
     },
     {
+      "contract_notes": [
+        "emits bounded lotus-performance-owned active-return health posture for lotus-manage DPM supportability",
+        "does not create mandate actions, rebalance waves, client communications, orders, OMS, or execution instructions"
+      ],
+      "enabled": true,
+      "key": "mandate_performance_health_context",
+      "options": [],
+      "path": "/performance/mandate-health-context",
+      "poll_path_template": null,
+      "result_path_template": null,
+      "stateful_restrictions": [],
+      "supported_input_modes": [
+        "stateless"
+      ],
+      "supports_async": false
+    },
+    {
       "contract_notes": [],
       "enabled": true,
       "key": "returns_series",
@@ -253,6 +270,12 @@
       "owner_service": "lotus-performance"
     },
     {
+      "description": "Bounded source-owned mandate performance health context for DPM supportability.",
+      "enabled": true,
+      "key": "performance.integration.mandate_performance_health_context",
+      "owner_service": "lotus-performance"
+    },
+    {
       "description": "lotus-performance executes using platform-managed stateful input retrieval.",
       "enabled": true,
       "key": "performance.execution.stateful",
@@ -307,6 +330,14 @@
         "performance.support.twr_inspection"
       ],
       "workflow_key": "performance_support_triage"
+    },
+    {
+      "enabled": true,
+      "required_features": [
+        "performance.analytics.twr",
+        "performance.integration.mandate_performance_health_context"
+      ],
+      "workflow_key": "mandate_performance_health_context"
     },
     {
       "enabled": true,

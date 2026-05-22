@@ -17,6 +17,7 @@ claim list.
 | Composite TWR | Private-banking composite performance from persisted member-return facts | `POST /performance/composites/twr`, `POST /performance/composites/inspect` | Asset-weighted composite period returns, geometric linking, member weights and contributions, dispersion, blocked/degraded supportability, source fingerprints, source snapshots, restatement versions, classified inspector artifacts, governed `CompositePerformanceAnalytics:v1` data-product declaration, Gateway route realization, Workbench typed BFF consumption, and live RFC-049 proof. Downstream consumers should not reconstruct composite returns, weights, lineage, or restatement posture. |
 | Returns series | Performance-owned return-series bundle for downstream analytics engines | `POST /integration/returns/series` | Correct downstream surface for risk engines; `lotus-risk` should consume this rather than direct TWR response internals. |
 | Benchmark exposure context | Benchmark exposure rows for risk and integration workflows | `POST /integration/benchmarks/exposure-context` | Benchmark-context integration product; not a composite TWR calculation surface. |
+| Mandate performance health context | Bounded active-return health posture for DPM supportability consumers | `POST /performance/mandate-health-context` | Source-owned `MandatePerformanceHealthContext:v1` evidence with threshold posture, methodology posture, request fingerprint, and reason codes. It does not create mandate actions, rebalance waves, client communications, orders, OMS actions, or execution instructions. |
 | Workspace summary | Interaction-efficient performance summary for product surfaces | `POST /performance/workspace-summary` | Product-oriented summary contract for Gateway and Workbench. It should consume performance-owned calculations, not rebuild them. |
 | Execution and lineage | Async polling, result retrieval, lineage metadata, artifacts | `/performance/executions/*`, `/performance/lineage/*` | Durable evidence path for reproducibility, operations, and support. |
 | Runtime operations | Health, readiness, metrics, runtime status, recovery, retention | `/health`, `/metrics`, `/integration/runtime-status`, recovery and retention routes | Supports enterprise operational posture and CI/runtime diagnostics. |
@@ -99,12 +100,20 @@ Downstream consumers may present attribution evidence, but must not reconstruct 
 selection, interaction, residual materiality, linked-return posture, or period status. The product is
 detailed in [Attribution Analytics](Attribution-Analytics).
 
+`MandatePerformanceHealthContext:v1` is a governed `lotus-performance` data product. It is declared
+in `contracts/domain-data-products/lotus-performance-products.v1.json`, uses daily freshness
+semantics, requires lineage posture, and is approved for Gateway and Manage consumption. Downstream
+consumers may preserve the emitted active-return health posture, threshold posture, methodology
+posture, request fingerprint, and reason codes; they must not treat it as a mandate decision,
+client communication, trade recommendation, order, OMS action, or execution instruction.
+
 ## References
 
 - [Time-Weighted Return](Time-Weighted-Return)
 - [Contribution Analytics](Contribution-Analytics)
 - [Attribution Analytics](Attribution-Analytics)
 - [Mesh Data Products](Mesh-Data-Products)
+- [docs/guides/mandate_performance_health_context.md](../docs/guides/mandate_performance_health_context.md)
 - [docs/guides/twr.md](../docs/guides/twr.md)
 - [docs/technical/twr-documentation-map.md](../docs/technical/twr-documentation-map.md)
 - [docs/technical/twr-endpoint-certification.md](../docs/technical/twr-endpoint-certification.md)

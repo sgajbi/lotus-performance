@@ -166,6 +166,21 @@ INTEGRATION_CAPABILITIES_RESPONSE_EXAMPLES = [
                 "options": [],
             },
             {
+                "key": "mandate_performance_health_context",
+                "path": "/performance/mandate-health-context",
+                "enabled": True,
+                "supported_input_modes": ["stateless"],
+                "supports_async": False,
+                "poll_path_template": None,
+                "result_path_template": None,
+                "stateful_restrictions": [],
+                "contract_notes": [
+                    "emits bounded lotus-performance-owned active-return health posture for lotus-manage DPM supportability",
+                    "does not create mandate actions, rebalance waves, client communications, orders, OMS, or execution instructions",
+                ],
+                "options": [],
+            },
+            {
                 "key": "returns_series",
                 "path": "/integration/returns/series",
                 "enabled": True,
@@ -253,6 +268,12 @@ INTEGRATION_CAPABILITIES_RESPONSE_EXAMPLES = [
                 "description": CALCULATION_SUPPORTABILITY_DESCRIPTION,
             },
             {
+                "key": "performance.integration.mandate_performance_health_context",
+                "enabled": True,
+                "owner_service": "lotus-performance",
+                "description": "Bounded source-owned mandate performance health context for DPM supportability.",
+            },
+            {
                 "key": "performance.execution.stateful",
                 "enabled": True,
                 "owner_service": "lotus-performance",
@@ -293,6 +314,14 @@ INTEGRATION_CAPABILITIES_RESPONSE_EXAMPLES = [
                 "workflow_key": "performance_support_triage",
                 "enabled": True,
                 "required_features": ["performance.analytics.twr", "performance.support.twr_inspection"],
+            },
+            {
+                "workflow_key": "mandate_performance_health_context",
+                "enabled": True,
+                "required_features": [
+                    "performance.analytics.twr",
+                    "performance.integration.mandate_performance_health_context",
+                ],
             },
             {
                 "workflow_key": "execution_stateful",
@@ -541,6 +570,12 @@ async def get_integration_capabilities(
             description=CALCULATION_SUPPORTABILITY_DESCRIPTION,
         ),
         FeatureCapability(
+            key="performance.integration.mandate_performance_health_context",
+            enabled=twr_enabled,
+            owner_service="lotus-performance",
+            description="Bounded source-owned mandate performance health context for DPM supportability.",
+        ),
+        FeatureCapability(
             key="performance.execution.stateful",
             enabled=stateful_mode_enabled,
             owner_service="lotus-performance",
@@ -582,6 +617,14 @@ async def get_integration_capabilities(
             workflow_key="performance_support_triage",
             enabled=twr_enabled,
             required_features=["performance.analytics.twr", "performance.support.twr_inspection"],
+        ),
+        WorkflowCapability(
+            workflow_key="mandate_performance_health_context",
+            enabled=twr_enabled,
+            required_features=[
+                "performance.analytics.twr",
+                "performance.integration.mandate_performance_health_context",
+            ],
         ),
         WorkflowCapability(
             workflow_key="execution_stateful",
@@ -735,6 +778,21 @@ async def get_integration_capabilities(
                     "currency_mode=BOTH requires report_ccy and fx.rates for mixed-currency positions",
                 ]
                 if stateful_mode_enabled and attribution_enabled
+                else []
+            ),
+        ),
+        AnalyticsSurfaceCapability(
+            key="mandate_performance_health_context",
+            path="/performance/mandate-health-context",
+            enabled=twr_enabled,
+            supported_input_modes=["stateless"],
+            supports_async=False,
+            contract_notes=(
+                [
+                    "emits bounded lotus-performance-owned active-return health posture for lotus-manage DPM supportability",
+                    "does not create mandate actions, rebalance waves, client communications, orders, OMS, or execution instructions",
+                ]
+                if twr_enabled
                 else []
             ),
         ),

@@ -25,8 +25,9 @@ This repository owns:
 1. time-weighted and money-weighted return workflows,
 2. benchmark analytics,
 3. contribution and attribution analytics,
-4. performance execution lifecycle tracking,
-5. performance lineage and reproducibility evidence.
+4. mandate performance health context for bounded DPM supportability consumption,
+5. performance execution lifecycle tracking,
+6. performance lineage and reproducibility evidence.
 
 ## Current-State Summary
 
@@ -58,6 +59,11 @@ Current repository posture:
     provenance for beginning market value, ending market value, and every cash flow, and emits
     `currency_evidence` while preserving the engine boundary that MWR calculates one
     reporting-currency schedule and does not perform in-engine FX conversion.
+11. `MandatePerformanceHealthContext:v1` is a bounded performance-owned data product at
+    `POST /performance/mandate-health-context` for DPM supportability consumers. It emits
+    active-return threshold posture, methodology posture, request fingerprint, and reason codes;
+    it does not create mandate actions, rebalance waves, client communications, orders, OMS
+    actions, or execution instructions.
 
 ## Architecture And Module Map
 

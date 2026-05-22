@@ -56,6 +56,7 @@ def test_repo_native_producer_declarations_cover_governed_first_wave_products_an
         "MoneyWeightedReturnAnalytics",
         "ContributionAnalytics",
         "AttributionAnalytics",
+        "MandatePerformanceHealthContext",
         "ReturnsSeriesBundle",
         "BenchmarkExposureContext",
         "CompositePerformanceAnalytics",
@@ -86,9 +87,16 @@ def test_repo_native_producer_declarations_cover_governed_first_wave_products_an
     assert "reconciliation_status" in attribution_product["required_trust_metadata"]
     assert "coverage_status" in attribution_product["required_trust_metadata"]
     assert "coverage_ratio" in attribution_product["required_trust_metadata"]
-    assert payload["products"][4]["approved_consumers"] == ["lotus-risk"]
+    mandate_health_product = payload["products"][4]
+    assert mandate_health_product["approved_consumers"] == ["lotus-gateway", "lotus-manage"]
+    assert mandate_health_product["current_routes"] == ["/performance/mandate-health-context"]
+    assert mandate_health_product["completeness_policy"]["partial_allowed"] is True
+    assert "request_fingerprint" in mandate_health_product["required_trust_metadata"]
+    assert "source_services" in mandate_health_product["required_trust_metadata"]
+    assert "benchmark_context" in mandate_health_product["required_trust_metadata"]
     assert payload["products"][5]["approved_consumers"] == ["lotus-risk"]
-    composite_product = payload["products"][6]
+    assert payload["products"][6]["approved_consumers"] == ["lotus-risk"]
+    composite_product = payload["products"][7]
     assert composite_product["approved_consumers"] == ["lotus-gateway"]
     assert composite_product["current_routes"] == ["/performance/composites/twr"]
     assert composite_product["request_scope"]["scope_level"] == "portfolio_set"

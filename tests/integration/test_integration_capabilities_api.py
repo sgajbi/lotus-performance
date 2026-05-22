@@ -116,6 +116,12 @@ def test_integration_capabilities_default_contract():
         "POSITION, SECTOR, ASSET_CLASS, and ISSUER grouping dimensions are supported",
         "ISSUER groups use lotus-core index-catalog issuer_id and issuer_name classification labels",
     ]
+    assert surfaces["mandate_performance_health_context"]["path"] == "/performance/mandate-health-context"
+    assert surfaces["mandate_performance_health_context"]["supported_input_modes"] == ["stateless"]
+    assert surfaces["mandate_performance_health_context"]["supports_async"] is False
+    assert "orders, OMS, or execution instructions" in " ".join(
+        surfaces["mandate_performance_health_context"]["contract_notes"]
+    )
     features = {item["key"]: item for item in body["features"]}
     assert "performance.analytics.benchmark" in features
     assert (
@@ -131,6 +137,7 @@ def test_integration_capabilities_default_contract():
     )
     assert "performance.execution.stateful" in features
     assert "performance.execution.stateless" in features
+    assert "performance.integration.mandate_performance_health_context" in features
     assert surfaces["twr"]["contract_notes"] == [
         "supports portfolio-level TWR only",
         "does not advertise composite, group, or sleeve TWR calculation support",
@@ -165,6 +172,7 @@ def test_integration_capabilities_env_override(monkeypatch):
     assert surfaces["attribution"]["enabled"] is False
     assert surfaces["attribution"]["stateful_restrictions"] == []
     assert surfaces["workspace_summary"]["enabled"] is True
+    assert surfaces["mandate_performance_health_context"]["enabled"] is True
     assert surfaces["workspace_summary"]["contract_notes"]
     assert surfaces["workspace_summary"]["poll_path_template"] == "/performance/executions/{calculation_id}"
     assert (
@@ -191,6 +199,7 @@ def test_integration_capabilities_keeps_supportability_enabled_when_twr_is_disab
     assert surfaces["attribution"]["enabled"] is True
     assert features["performance.support.twr_inspection"]["enabled"] is False
     assert features["performance.observability.calculation_supportability"]["enabled"] is True
+    assert features["performance.integration.mandate_performance_health_context"]["enabled"] is False
 
 
 def test_integration_capabilities_honors_canonical_query_controls():
@@ -229,10 +238,12 @@ def test_integration_capabilities_advertises_every_supported_surface():
         "workspace_summary",
         "contribution",
         "attribution",
+        "mandate_performance_health_context",
         "returns_series",
         "benchmark_exposure_context",
     }
     assert surfaces["mwr"]["supports_async"] is False
+    assert surfaces["mandate_performance_health_context"]["supports_async"] is False
     for key in {
         "twr",
         "benchmark",

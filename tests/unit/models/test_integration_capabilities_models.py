@@ -22,6 +22,7 @@ def test_integration_capabilities_response_schema_includes_certified_surface_exa
         "workspace_summary",
         "contribution",
         "attribution",
+        "mandate_performance_health_context",
         "returns_series",
         "benchmark_exposure_context",
     }
@@ -32,7 +33,9 @@ def test_integration_capabilities_response_schema_includes_certified_surface_exa
         "does not advertise composite, group, or sleeve TWR calculation support",
     ]
     assert "performance.analytics.workspace_summary" in features
+    assert "performance.integration.mandate_performance_health_context" in features
     assert "performance_workspace" in workflows
+    assert "mandate_performance_health_context" in workflows
 
 
 def test_integration_capabilities_json_example_matches_schema_example():
