@@ -188,6 +188,65 @@ def test_calculate_mwr_endpoint_supports_stateful_mode(client, monkeypatch):
     )
 
 
+def test_calculate_mwr_endpoint_marks_stateful_single_currency_fx_not_required(client, monkeypatch):
+    async def _mock_get_portfolio_timeseries(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2024-01-01",
+                "portfolio_currency": "EUR",
+                "reporting_currency": "EUR",
+                "observations": [
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "100000",
+                        "ending_market_value": "110000",
+                        "cash_flow_currency": "EUR",
+                        "cash_flows": [{"amount": "10000", "timing": "bod"}],
+                    },
+                    {
+                        "valuation_date": "2025-01-03",
+                        "beginning_market_value": "110000",
+                        "ending_market_value": "111000",
+                        "cash_flow_currency": "EUR",
+                        "cash_flows": [],
+                    },
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_portfolio_timeseries",
+        _mock_get_portfolio_timeseries,
+    )
+
+    response = client.post(
+        "/performance/mwr",
+        json={
+            "portfolio_id": "MWR_STATEFUL_SINGLE_CCY",
+            "as_of": "2025-01-03",
+            "mwr_method": "DIETZ",
+            "input_mode": "stateful",
+            "stateful_input": {
+                "window_start_date": "2025-01-01",
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    evidence = response.json()["currency_evidence"]
+    assert evidence["conversion_evidence_status"] == "not_required_single_currency_inputs"
+    assert evidence["conversion_evidence_reason_codes"] == [
+        "SOURCE_AND_REPORTING_CURRENCY_MATCH",
+        "PER_INPUT_FX_CONVERSION_NOT_REQUIRED",
+        "MWR_ENGINE_CALCULATED_REPORTING_CURRENCY_SCHEDULE",
+    ]
+    assert [item["conversion_status"] for item in evidence["market_values_used"]] == [
+        "no_conversion_required",
+        "no_conversion_required",
+    ]
+
+
 def test_calculate_mwr_endpoint_accepts_complete_stateless_source_fx_evidence(client):
     payload = {
         "calculation_id": str(uuid4()),

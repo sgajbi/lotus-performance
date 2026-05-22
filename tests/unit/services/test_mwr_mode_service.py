@@ -99,6 +99,77 @@ def test_build_stateful_mwr_input_for_window_uses_requested_window_start():
     assert normalized.start_date == date(2025, 1, 10)
 
 
+def test_build_stateful_mwr_input_marks_single_currency_fx_conversion_not_required():
+    source_input = StatefulPortfolioInput(
+        performance_start_date=date(2025, 1, 1),
+        portfolio_currency="EUR",
+        reporting_currency="EUR",
+        observations=[
+            {
+                "valuation_date": "2025-01-01",
+                "beginning_market_value": "1000",
+                "ending_market_value": "1110",
+                "cash_flow_currency": "EUR",
+                "cash_flows": [{"amount": "100", "timing": "bod"}],
+            },
+            {
+                "valuation_date": "2025-01-03",
+                "beginning_market_value": "1110",
+                "ending_market_value": "1120",
+                "cash_flow_currency": "EUR",
+                "cash_flows": [],
+            },
+        ],
+    )
+
+    normalized = build_stateful_mwr_input(source_input=source_input)
+
+    assert normalized.currency_evidence.conversion_evidence_status == "not_required_single_currency_inputs"
+    assert normalized.currency_evidence.conversion_evidence_reason_codes == [
+        "SOURCE_AND_REPORTING_CURRENCY_MATCH",
+        "PER_INPUT_FX_CONVERSION_NOT_REQUIRED",
+        "MWR_ENGINE_CALCULATED_REPORTING_CURRENCY_SCHEDULE",
+    ]
+    assert [item.conversion_status for item in normalized.currency_evidence.market_values_used] == [
+        "no_conversion_required",
+        "no_conversion_required",
+    ]
+
+
+def test_build_stateful_mwr_input_keeps_fx_metadata_gap_when_cash_flow_currency_differs():
+    source_input = StatefulPortfolioInput(
+        performance_start_date=date(2025, 1, 1),
+        portfolio_currency="EUR",
+        reporting_currency="EUR",
+        observations=[
+            {
+                "valuation_date": "2025-01-01",
+                "beginning_market_value": "1000",
+                "ending_market_value": "1110",
+                "cash_flow_currency": "USD",
+                "cash_flows": [{"amount": "100", "timing": "bod"}],
+            },
+            {
+                "valuation_date": "2025-01-03",
+                "beginning_market_value": "1110",
+                "ending_market_value": "1120",
+                "cash_flow_currency": "EUR",
+                "cash_flows": [],
+            },
+        ],
+    )
+
+    normalized = build_stateful_mwr_input(source_input=source_input)
+
+    assert normalized.currency_evidence.conversion_evidence_status == (
+        "upstream_preconverted_missing_per_input_fx_metadata"
+    )
+    assert [item.conversion_status for item in normalized.currency_evidence.market_values_used] == [
+        "upstream_preconverted",
+        "upstream_preconverted",
+    ]
+
+
 def test_build_stateful_mwr_input_captures_carry_forward_capital_breaks():
     source_input = StatefulPortfolioInput(
         performance_start_date=date(2025, 1, 1),
