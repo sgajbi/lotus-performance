@@ -29,7 +29,10 @@ Current stateful execution does preserve the reporting-currency context that `lo
 publishes on `PortfolioTimeseriesInput`. The MWR response now includes `reporting_currency` and a
 `currency_evidence` block with `market_values_used[]`, `cashflow_evidence[]`, and
 `currency_mode="SINGLE_REPORTING_CURRENCY"`. That block documents the source-owned values and
-cash-flow components used by MWR. It deliberately reports
+cash-flow components used by MWR. Single-currency stateful inputs now report
+`conversion_evidence_status="not_required_single_currency_inputs"` and market values with
+`conversion_status="no_conversion_required"` when source and reporting currencies match. Cross-
+currency stateful inputs continue to report
 `conversion_evidence_status="upstream_preconverted_missing_per_input_fx_metadata"` because the
 current upstream portfolio-timeseries contract exposes converted amounts and currency context, but
 not per-input FX rate source, rate version, conversion policy, conversion timestamp, or conversion
@@ -69,12 +72,14 @@ carry enough evidence to make the reporting-currency schedule reproducible.
 | `conversion_timestamp` | Timestamp at which conversion evidence was assembled. |
 | `conversion_fingerprint` | Stable fingerprint for reproducibility and lineage tie-out. |
 
-For stateful MWR, this evidence must come from governed upstream analytics-input contracts before
-stateful MWR can claim complete per-input FX provenance. For stateless MWR, the caller must provide
-complete conversion evidence through `source_preconverted_fx_evidence` if the response should carry
-complete FX provenance. Missing, partial, or inconsistent evidence fails closed rather than falling
-back to guessed rates. In operational terms, the endpoint must fail closed when source and
-reporting-currency evidence cannot be tied out.
+For stateful cross-currency MWR, this evidence must come from governed upstream analytics-input
+contracts before stateful MWR can claim complete per-input FX provenance. Single-currency stateful
+MWR does not require FX conversion evidence when source and reporting currencies match. For
+stateless MWR, the caller must provide complete conversion evidence through
+`source_preconverted_fx_evidence` if the response should carry complete FX provenance. Missing,
+partial, or inconsistent evidence fails closed rather than falling back to guessed rates. In
+operational terms, the endpoint must fail closed when source and reporting-currency evidence cannot
+be tied out.
 
 ## Implemented And Proposed Response Semantics
 
@@ -90,6 +95,16 @@ Implemented for stateless source-preconverted evidence:
   `cash_flows[]` by index.
 - reason codes documenting that the engine calculated a reporting-currency schedule after evidence
   validation.
+
+Implemented for stateful single-currency evidence:
+
+- `reporting_currency` for the MWR result.
+- `currency_evidence.currency_mode="SINGLE_REPORTING_CURRENCY"`.
+- `currency_evidence.conversion_evidence_status="not_required_single_currency_inputs"` when
+  source and reporting currencies match.
+- `currency_evidence.market_values_used[].conversion_status="no_conversion_required"`.
+- reason codes documenting that source and reporting currencies match and the engine calculated a
+  reporting-currency schedule without FX conversion.
 
 Still proposed for future stateful upstream FX-aware MWR:
 

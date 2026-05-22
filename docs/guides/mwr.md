@@ -147,8 +147,11 @@ sourcing truth:
   the engine
 - `cashflow_evidence[]` with the source cash-flow and carry-forward components aggregated into each
   MWR cash-flow date
-- `conversion_evidence_status="upstream_preconverted_missing_per_input_fx_metadata"` until
-  `lotus-core` publishes per-input FX rate, policy, version, and fingerprint evidence
+- `conversion_evidence_status="not_required_single_currency_inputs"` when source and reporting
+  currencies match and no per-input FX conversion is required
+- `conversion_evidence_status="upstream_preconverted_missing_per_input_fx_metadata"` for
+  cross-currency stateful inputs until `lotus-core` publishes per-input FX rate, policy, version,
+  and fingerprint evidence
 
 For stateless source-preconverted schedules, callers may provide complete
 `source_preconverted_fx_evidence`. Lotus-performance validates the evidence and emits:
@@ -165,10 +168,12 @@ MWR is not decomposed into local and FX components on the current public contrac
 submit `begin_mv`, `end_mv`, and `cash_flows` in one consistent reporting currency. If those values
 were converted before submission, callers can attach `source_preconverted_fx_evidence`; the service
 validates and records provenance but does not convert source-currency amounts inside the MWR engine.
-`cashflows_used` proves the signed schedule used by the engine. Stateful upstream MWR is not yet
-full FX conversion provenance because the upstream portfolio timeseries contract does not expose
-per-input rate source, rate version, conversion policy, or conversion fingerprint fields. The
-implementation-readiness contract for future stateful FX-aware MWR is documented in
+`cashflows_used` proves the signed schedule used by the engine. Stateful single-currency MWR now
+marks FX conversion evidence as not required when source and reporting currencies match. Stateful
+upstream cross-currency MWR is not yet full FX conversion provenance because the upstream portfolio
+timeseries contract does not expose per-input rate source, rate version, conversion policy, or
+conversion fingerprint fields. The implementation-readiness contract for future stateful FX-aware
+MWR is documented in
 [MWR FX-aware contract design](../technical/mwr-fx-contract-design.md).
 
 ## Example request

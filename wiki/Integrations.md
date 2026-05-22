@@ -80,6 +80,9 @@ support tooling must not infer FX rates, conversion policy, or source-currency p
 legacy `cashflows_used` echo. Stateless callers may provide complete
 `source_preconverted_fx_evidence`; when present, downstream consumers should preserve the emitted
 `currency_evidence` and must not recalculate FX conversion or MWR locally.
+Stateful single-currency MWR emits `not_required_single_currency_inputs` when source and reporting
+currencies match; cross-currency stateful MWR keeps the missing per-input FX metadata posture until
+the upstream source contract publishes rate, policy, version, and fingerprint evidence.
 Gateway should preserve calculation-quality fields (`status`, `reason_codes`, `warnings`,
 `fallback_reason`, `is_approximation`, and `holding_period_return`) because they explain whether the
 client-facing number is annualized XIRR, a labeled Modified Dietz fallback, a Simple Dietz result,

@@ -48,9 +48,9 @@ class MWRMarketValueEvidence:
     currency: str | None
     value_role: Literal["beginning_market_value", "ending_market_value"]
     source_product: Literal["PortfolioTimeseriesInput"] = "PortfolioTimeseriesInput"
-    conversion_status: Literal["upstream_preconverted", "source_preconverted_with_fx_evidence"] = (
-        "upstream_preconverted"
-    )
+    conversion_status: Literal[
+        "upstream_preconverted", "source_preconverted_with_fx_evidence", "no_conversion_required"
+    ] = "upstream_preconverted"
     source_amount: Decimal | None = None
     source_currency: str | None = None
     reporting_amount: Decimal | None = None
@@ -73,6 +73,7 @@ class MWRCurrencyEvidence:
     conversion_evidence_status: Literal[
         "upstream_preconverted_missing_per_input_fx_metadata",
         "complete_source_preconverted_fx_metadata",
+        "not_required_single_currency_inputs",
     ]
     conversion_evidence_reason_codes: list[str]
     market_values_used: list[MWRMarketValueEvidence]
@@ -107,6 +108,10 @@ def build_stateful_mwr_input_for_window(
     begin_mv = Decimal(str(first_observation["beginning_market_value"]))
     end_mv = Decimal(str(last_observation["ending_market_value"]))
     reporting_currency = _resolve_reporting_currency(source_input)
+    single_currency_inputs = _has_single_currency_inputs(
+        source_input=source_input,
+        reporting_currency=reporting_currency,
+    )
 
     cash_flows_by_date: dict[Date, Decimal] = {}
     cash_flow_components_by_date: dict[Date, list[MWRCashFlowEvidenceComponent]] = {}
@@ -185,23 +190,28 @@ def build_stateful_mwr_input_for_window(
             reporting_currency=reporting_currency,
             portfolio_currency=source_input.portfolio_currency,
             currency_mode="SINGLE_REPORTING_CURRENCY",
-            conversion_evidence_status="upstream_preconverted_missing_per_input_fx_metadata",
-            conversion_evidence_reason_codes=[
-                "UPSTREAM_PORTFOLIO_TIMESERIES_PRECONVERTED",
-                "PER_INPUT_FX_METADATA_NOT_EXPOSED_BY_SOURCE_CONTRACT",
-            ],
+            conversion_evidence_status=(
+                "not_required_single_currency_inputs"
+                if single_currency_inputs
+                else "upstream_preconverted_missing_per_input_fx_metadata"
+            ),
+            conversion_evidence_reason_codes=_stateful_currency_reason_codes(
+                single_currency_inputs=single_currency_inputs,
+            ),
             market_values_used=[
                 MWRMarketValueEvidence(
                     valuation_date=_parse_observation_date(first_observation),
                     amount=begin_mv,
                     currency=reporting_currency,
                     value_role="beginning_market_value",
+                    conversion_status=("no_conversion_required" if single_currency_inputs else "upstream_preconverted"),
                 ),
                 MWRMarketValueEvidence(
                     valuation_date=_parse_observation_date(last_observation),
                     amount=end_mv,
                     currency=reporting_currency,
                     value_role="ending_market_value",
+                    conversion_status=("no_conversion_required" if single_currency_inputs else "upstream_preconverted"),
                 ),
             ],
             cashflow_evidence=cashflow_evidence,
@@ -239,3 +249,28 @@ def _resolve_reporting_currency(source_input: StatefulPortfolioInput) -> str | N
     if len(observation_currencies) == 1:
         return next(iter(observation_currencies))
     return source_input.portfolio_currency
+
+
+def _has_single_currency_inputs(*, source_input: StatefulPortfolioInput, reporting_currency: str | None) -> bool:
+    if not reporting_currency or not source_input.portfolio_currency:
+        return False
+    if source_input.portfolio_currency.upper() != reporting_currency.upper():
+        return False
+    for observation in source_input.observations:
+        cash_flow_currency = observation.get("cash_flow_currency")
+        if isinstance(cash_flow_currency, str) and cash_flow_currency.upper() != reporting_currency.upper():
+            return False
+    return True
+
+
+def _stateful_currency_reason_codes(*, single_currency_inputs: bool) -> list[str]:
+    if single_currency_inputs:
+        return [
+            "SOURCE_AND_REPORTING_CURRENCY_MATCH",
+            "PER_INPUT_FX_CONVERSION_NOT_REQUIRED",
+            "MWR_ENGINE_CALCULATED_REPORTING_CURRENCY_SCHEDULE",
+        ]
+    return [
+        "UPSTREAM_PORTFOLIO_TIMESERIES_PRECONVERTED",
+        "PER_INPUT_FX_METADATA_NOT_EXPOSED_BY_SOURCE_CONTRACT",
+    ]

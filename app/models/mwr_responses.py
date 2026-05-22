@@ -186,7 +186,11 @@ class MWRMarketValueEvidence(BaseModel):
         default="PortfolioTimeseriesInput",
         description="Upstream source data product used for stateful MWR sourcing.",
     )
-    conversion_status: Literal["upstream_preconverted", "source_preconverted_with_fx_evidence"] = Field(
+    conversion_status: Literal[
+        "upstream_preconverted",
+        "source_preconverted_with_fx_evidence",
+        "no_conversion_required",
+    ] = Field(
         default="upstream_preconverted",
         description="Conversion posture for the source amount.",
     )
@@ -225,6 +229,7 @@ class MWRCurrencyEvidence(BaseModel):
     conversion_evidence_status: Literal[
         "upstream_preconverted_missing_per_input_fx_metadata",
         "complete_source_preconverted_fx_metadata",
+        "not_required_single_currency_inputs",
     ] = Field(description="Whether per-input FX conversion evidence is complete for the MWR response.")
     conversion_evidence_reason_codes: List[str] = Field(
         default_factory=list,
