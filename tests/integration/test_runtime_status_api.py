@@ -63,7 +63,7 @@ def _isolate_runtime_assurance_history(mocker):
         ),
     )
     mocker.patch(
-        "app.services.runtime_status_service.build_runtime_retention_history_snapshot",
+        "app.services.runtime_status_lifecycle.build_runtime_retention_history_snapshot",
         return_value=RuntimeRetentionHistorySnapshot(
             status="available",
             artifact_directory="artifacts/runtime-retention-cleanup",
@@ -467,7 +467,7 @@ def test_runtime_status_reports_runtime_retention_failure_and_age_policy(mocker)
     original_threshold = settings.RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS
     settings.RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS = 300.0
     mocker.patch(
-        "app.services.runtime_status_service.build_runtime_retention_history_snapshot",
+        "app.services.runtime_status_lifecycle.build_runtime_retention_history_snapshot",
         return_value=RuntimeRetentionHistorySnapshot(
             status="available",
             artifact_directory="artifacts/runtime-retention-cleanup",

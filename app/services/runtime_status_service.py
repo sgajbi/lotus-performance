@@ -6,9 +6,6 @@ from app.core.config import get_settings
 from app.services.durability_health_service import (
     check_durable_metadata_store_ready,
 )
-from app.services.runtime_retention_history_service import (
-    build_runtime_retention_history_snapshot,
-)
 from app.services.runtime_status_degradation import (
     collect_runtime_degradation_details as _collect_runtime_degradation_details,
 )
@@ -18,28 +15,12 @@ from app.services.runtime_status_degradation import (
 from app.services.runtime_status_degradation import (
     runtime_status_from_component_statuses as _runtime_status_from_component_statuses,
 )
-from app.services.runtime_status_domain import (
-    RuntimeRetentionDegradationPolicy,
-    RuntimeRetentionStatus,
-    RuntimeStatusSnapshot,
-)
+from app.services.runtime_status_domain import RuntimeStatusSnapshot
 from app.services.runtime_status_lifecycle import (
     build_recovery_drill_status as _build_recovery_drill_status,
 )
 from app.services.runtime_status_lifecycle import (
-    missing_runtime_retention_status as _build_missing_runtime_retention_status,
-)
-from app.services.runtime_status_lifecycle import (
-    runtime_retention_degradation_details as _runtime_retention_degradation_details,
-)
-from app.services.runtime_status_lifecycle import (
-    runtime_retention_operator_action_status as _runtime_retention_operator_action_status,
-)
-from app.services.runtime_status_lifecycle import (
-    runtime_retention_status_from_latest as _runtime_retention_status_from_latest,
-)
-from app.services.runtime_status_lifecycle import (
-    unavailable_runtime_retention_status as _build_unavailable_runtime_retention_status,
+    build_runtime_retention_status as _build_runtime_retention_status,
 )
 from app.services.runtime_status_policy import (
     build_compute_queue_policy,
@@ -49,10 +30,6 @@ from app.services.runtime_status_policy import (
 )
 from app.services.runtime_status_queue import build_compute_queue_status as _build_compute_queue_status
 from app.services.runtime_status_queue import build_lineage_queue_status as _build_lineage_queue_status
-from app.services.runtime_status_retention_preview import (
-    build_runtime_retention_preview as _build_runtime_retention_preview,
-)
-from app.services.runtime_status_time import age_seconds_since as _age_seconds_since
 
 
 def build_runtime_status_snapshot(*, is_draining: bool) -> RuntimeStatusSnapshot:
@@ -104,68 +81,4 @@ def build_runtime_status_snapshot(*, is_draining: bool) -> RuntimeStatusSnapshot
         lineage_queue_policy=lineage_queue_policy,
         recovery_drill_policy=recovery_drill_policy,
         runtime_retention_policy=runtime_retention_policy,
-    )
-
-
-def _build_runtime_retention_status(*, settings, policy: RuntimeRetentionDegradationPolicy) -> RuntimeRetentionStatus:
-    active_run_status = _runtime_retention_operator_action_status(settings=settings)
-    try:
-        snapshot = build_runtime_retention_history_snapshot(limit=1)
-    except Exception as exc:
-        return _build_unavailable_runtime_retention_status(
-            reason=type(exc).__name__,
-            active_run_status=active_run_status,
-            preview_status="unavailable",
-            preview_reason="runtime_retention_preview_unavailable",
-            preview_summary=None,
-        )
-    preview_status, preview_reason, preview_summary = _build_runtime_retention_preview()
-
-    if snapshot.status != "available":
-        if snapshot.reason in {
-            "runtime_retention_artifact_directory_missing",
-            "runtime_retention_manifest_missing",
-        }:
-            return _build_missing_runtime_retention_status(
-                threshold=policy.max_age_seconds,
-                active_run_status=active_run_status,
-                preview_status=preview_status,
-                preview_reason=preview_reason,
-                preview_summary=preview_summary,
-            )
-        return _build_unavailable_runtime_retention_status(
-            reason=snapshot.reason or snapshot.status,
-            active_run_status=active_run_status,
-            preview_status=preview_status,
-            preview_reason=preview_reason,
-            preview_summary=preview_summary,
-        )
-
-    if not snapshot.entries:
-        return _build_missing_runtime_retention_status(
-            threshold=policy.max_age_seconds,
-            active_run_status=active_run_status,
-            preview_status=preview_status,
-            preview_reason=preview_reason,
-            preview_summary=preview_summary,
-        )
-
-    latest = snapshot.entries[0]
-    latest_age_seconds = _age_seconds_since(latest.generated_at_utc)
-    degradation_details = _runtime_retention_degradation_details(
-        latest=latest,
-        latest_age_seconds=latest_age_seconds,
-        threshold=policy.max_age_seconds,
-        active_run_status=active_run_status,
-        active_run_age_threshold=policy.active_run_age_seconds,
-        reclaim_threshold=policy.reclaim_count,
-    )
-    return _runtime_retention_status_from_latest(
-        latest=latest,
-        latest_age_seconds=latest_age_seconds,
-        active_run_status=active_run_status,
-        preview_status=preview_status,
-        preview_reason=preview_reason,
-        preview_summary=preview_summary,
-        degradation_details=degradation_details,
     )

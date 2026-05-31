@@ -3,15 +3,17 @@ from decimal import Decimal
 from pathlib import Path
 
 from app.services.recovery_drill_history_service import RecoveryDrillHistoryEntry, RecoveryDrillHistorySnapshot
-from app.services.runtime_retention_history_service import RuntimeRetentionHistoryEntry
+from app.services.runtime_retention_history_service import RuntimeRetentionHistoryEntry, RuntimeRetentionHistorySnapshot
 from app.services.runtime_retention_service import RuntimeRetentionCleanupSummary
 from app.services.runtime_status_domain import (
     OperatorActionStatus,
     RecoveryDrillDegradationPolicy,
     RuntimeDegradationDetail,
+    RuntimeRetentionDegradationPolicy,
 )
 from app.services.runtime_status_lifecycle import (
     build_recovery_drill_status,
+    build_runtime_retention_status,
     missing_recovery_drill_status,
     missing_runtime_retention_status,
     recovery_drill_degradation_details,
@@ -79,6 +81,50 @@ def _recovery_drill_snapshot(
         next_offset=None,
         applied_filters={},
         reason=reason,
+    )
+
+
+def _runtime_retention_policy(max_age_seconds: float = 300.0) -> RuntimeRetentionDegradationPolicy:
+    return RuntimeRetentionDegradationPolicy(
+        max_age_seconds=max_age_seconds,
+        active_run_age_seconds=30.0,
+        reclaim_count=1,
+    )
+
+
+def _runtime_retention_snapshot(
+    *,
+    status: str = "available",
+    entries: list[RuntimeRetentionHistoryEntry] | None = None,
+    reason: str | None = None,
+) -> RuntimeRetentionHistorySnapshot:
+    return RuntimeRetentionHistorySnapshot(
+        status=status,
+        artifact_directory="artifacts/runtime-retention-cleanup",
+        latest_file_name="latest.json" if entries else None,
+        retained_file_names=["latest.json"] if entries else [],
+        retention_limit=30,
+        retention_max_age_days=90,
+        entries=entries or [],
+        total_entries=len(entries or []),
+        matched_entries=len(entries or []),
+        returned_entries=len(entries or []),
+        next_offset=None,
+        applied_filters={},
+        reason=reason,
+    )
+
+
+def _runtime_retention_preview_summary() -> RuntimeRetentionCleanupSummary:
+    return RuntimeRetentionCleanupSummary(
+        dry_run=True,
+        retention_days=45,
+        cutoff_utc="2026-04-16T00:00:00Z",
+        prunable_execution_count=7,
+        prunable_compute_job_count=8,
+        prunable_async_result_count=9,
+        prunable_lineage_record_count=10,
+        prunable_lineage_artifact_count=11,
     )
 
 
@@ -173,6 +219,97 @@ def test_build_recovery_drill_status_returns_unavailable_when_history_read_fails
     assert status.status == "unavailable"
     assert status.reason == "RuntimeError"
     assert status.active_run_count == 1
+
+
+def test_build_runtime_retention_status_projects_latest_history_and_preview(mocker):
+    mocker.patch(
+        "app.services.runtime_status_lifecycle.build_operator_action_status",
+        return_value=_operator_action_status(),
+    )
+    mocker.patch(
+        "app.services.runtime_status_lifecycle.build_runtime_retention_history_snapshot",
+        return_value=_runtime_retention_snapshot(
+            entries=[
+                RuntimeRetentionHistoryEntry(
+                    evidence_file_name="latest.json",
+                    generated_at_utc=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                    operator_id="ops-user",
+                    trigger_mode="scheduled",
+                    job_id="retention-nightly",
+                    cleanup_mode="apply",
+                    status="applied",
+                    retention_days=30,
+                    prunable_execution_count=0,
+                    prunable_compute_job_count=0,
+                    prunable_async_result_count=0,
+                    prunable_lineage_record_count=0,
+                    prunable_lineage_artifact_count=0,
+                )
+            ],
+        ),
+    )
+    mocker.patch(
+        "app.services.runtime_status_lifecycle.build_runtime_retention_preview",
+        return_value=("available", None, _runtime_retention_preview_summary()),
+    )
+
+    status = build_runtime_retention_status(settings=type("Settings", (), {})(), policy=_runtime_retention_policy())
+
+    assert status.status == "available"
+    assert status.reason is None
+    assert status.preview_status == "available"
+    assert status.current_retention_days == 45
+    assert status.current_prunable_execution_count == 7
+    assert status.latest_status == "applied"
+    assert status.latest_job_id == "retention-nightly"
+    assert status.latest_cleanup_mode == "apply"
+    assert status.latest_age_seconds is not None
+    assert status.degradation_reasons == ()
+
+
+def test_build_runtime_retention_status_returns_missing_with_preview_when_artifacts_are_absent(mocker):
+    mocker.patch(
+        "app.services.runtime_status_lifecycle.build_operator_action_status",
+        return_value=_operator_action_status(),
+    )
+    mocker.patch(
+        "app.services.runtime_status_lifecycle.build_runtime_retention_history_snapshot",
+        return_value=_runtime_retention_snapshot(
+            status="unavailable",
+            reason="runtime_retention_manifest_missing",
+        ),
+    )
+    mocker.patch(
+        "app.services.runtime_status_lifecycle.build_runtime_retention_preview",
+        return_value=("available", None, _runtime_retention_preview_summary()),
+    )
+
+    status = build_runtime_retention_status(settings=type("Settings", (), {})(), policy=_runtime_retention_policy())
+
+    assert status.status == "degraded"
+    assert status.reason == "runtime_retention_history_unavailable"
+    assert status.preview_status == "available"
+    assert status.current_retention_days == 45
+    assert status.degradation_reasons == ("runtime_retention_history_unavailable",)
+
+
+def test_build_runtime_retention_status_returns_unavailable_when_history_read_fails(mocker):
+    mocker.patch(
+        "app.services.runtime_status_lifecycle.build_operator_action_status",
+        return_value=_operator_action_status(active_run_count=1),
+    )
+    mocker.patch(
+        "app.services.runtime_status_lifecycle.build_runtime_retention_history_snapshot",
+        side_effect=RuntimeError("history read failed"),
+    )
+
+    status = build_runtime_retention_status(settings=type("Settings", (), {})(), policy=_runtime_retention_policy())
+
+    assert status.status == "unavailable"
+    assert status.reason == "RuntimeError"
+    assert status.active_run_count == 1
+    assert status.preview_status == "unavailable"
+    assert status.preview_reason == "runtime_retention_preview_unavailable"
 
 
 def test_recovery_drill_status_from_latest_preserves_latest_evidence_and_degradation():

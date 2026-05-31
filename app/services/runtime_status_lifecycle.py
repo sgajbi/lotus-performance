@@ -6,7 +6,10 @@ from app.services.recovery_drill_history_service import (
     RecoveryDrillHistoryEntry,
     build_recovery_drill_history_snapshot,
 )
-from app.services.runtime_retention_history_service import RuntimeRetentionHistoryEntry
+from app.services.runtime_retention_history_service import (
+    RuntimeRetentionHistoryEntry,
+    build_runtime_retention_history_snapshot,
+)
 from app.services.runtime_retention_service import RuntimeRetentionCleanupSummary
 from app.services.runtime_status_degradation import (
     append_latest_history_age_degradation_detail,
@@ -20,10 +23,14 @@ from app.services.runtime_status_domain import (
     RecoveryDrillDegradationPolicy,
     RecoveryDrillStatus,
     RuntimeDegradationDetail,
+    RuntimeRetentionDegradationPolicy,
     RuntimeRetentionStatus,
 )
 from app.services.runtime_status_operator_action import build_operator_action_status, operator_action_status_fields
-from app.services.runtime_status_retention_preview import runtime_retention_preview_fields
+from app.services.runtime_status_retention_preview import (
+    build_runtime_retention_preview,
+    runtime_retention_preview_fields,
+)
 from app.services.runtime_status_time import age_seconds_since
 
 
@@ -90,6 +97,70 @@ def runtime_retention_operator_action_status(*, settings) -> OperatorActionStatu
             Path("artifacts/runtime-retention-cleanup"),
         ),
         action_name="runtime_retention_cleanup",
+    )
+
+
+def build_runtime_retention_status(*, settings, policy: RuntimeRetentionDegradationPolicy) -> RuntimeRetentionStatus:
+    active_run_status = runtime_retention_operator_action_status(settings=settings)
+    try:
+        snapshot = build_runtime_retention_history_snapshot(limit=1)
+    except Exception as exc:
+        return unavailable_runtime_retention_status(
+            reason=type(exc).__name__,
+            active_run_status=active_run_status,
+            preview_status="unavailable",
+            preview_reason="runtime_retention_preview_unavailable",
+            preview_summary=None,
+        )
+    preview_status, preview_reason, preview_summary = build_runtime_retention_preview()
+
+    if snapshot.status != "available":
+        if snapshot.reason in {
+            "runtime_retention_artifact_directory_missing",
+            "runtime_retention_manifest_missing",
+        }:
+            return missing_runtime_retention_status(
+                threshold=policy.max_age_seconds,
+                active_run_status=active_run_status,
+                preview_status=preview_status,
+                preview_reason=preview_reason,
+                preview_summary=preview_summary,
+            )
+        return unavailable_runtime_retention_status(
+            reason=snapshot.reason or snapshot.status,
+            active_run_status=active_run_status,
+            preview_status=preview_status,
+            preview_reason=preview_reason,
+            preview_summary=preview_summary,
+        )
+
+    if not snapshot.entries:
+        return missing_runtime_retention_status(
+            threshold=policy.max_age_seconds,
+            active_run_status=active_run_status,
+            preview_status=preview_status,
+            preview_reason=preview_reason,
+            preview_summary=preview_summary,
+        )
+
+    latest = snapshot.entries[0]
+    latest_age_seconds = age_seconds_since(latest.generated_at_utc)
+    degradation_details = runtime_retention_degradation_details(
+        latest=latest,
+        latest_age_seconds=latest_age_seconds,
+        threshold=policy.max_age_seconds,
+        active_run_status=active_run_status,
+        active_run_age_threshold=policy.active_run_age_seconds,
+        reclaim_threshold=policy.reclaim_count,
+    )
+    return runtime_retention_status_from_latest(
+        latest=latest,
+        latest_age_seconds=latest_age_seconds,
+        active_run_status=active_run_status,
+        preview_status=preview_status,
+        preview_reason=preview_reason,
+        preview_summary=preview_summary,
+        degradation_details=degradation_details,
     )
 
 

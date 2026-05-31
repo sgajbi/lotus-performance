@@ -54,7 +54,7 @@ def _isolate_runtime_assurance_history(mocker):
         ),
     )
     mocker.patch(
-        "app.services.runtime_status_service.build_runtime_retention_history_snapshot",
+        "app.services.runtime_status_lifecycle.build_runtime_retention_history_snapshot",
         return_value=RuntimeRetentionHistorySnapshot(
             status="available",
             artifact_directory="artifacts/runtime-retention-cleanup",
@@ -564,7 +564,7 @@ def test_runtime_status_snapshot_degrades_when_runtime_retention_is_stale_or_not
         ),
     )
     mocker.patch(
-        "app.services.runtime_status_service.build_runtime_retention_history_snapshot",
+        "app.services.runtime_status_lifecycle.build_runtime_retention_history_snapshot",
         return_value=RuntimeRetentionHistorySnapshot(
             status="available",
             artifact_directory="artifacts/runtime-retention-cleanup",
@@ -961,7 +961,7 @@ def test_runtime_status_snapshot_reports_unavailable_runtime_retention_preview(m
         ),
     )
     mocker.patch(
-        "app.services.runtime_status_service.build_runtime_retention_history_snapshot",
+        "app.services.runtime_status_lifecycle.build_runtime_retention_history_snapshot",
         return_value=RuntimeRetentionHistorySnapshot(
             status="available",
             artifact_directory="artifacts/runtime-retention-cleanup",

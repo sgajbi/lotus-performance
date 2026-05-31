@@ -40,7 +40,7 @@ Implementation ownership is split so support-critical semantics have one reviewa
 | --- | --- |
 | `app.services.runtime_status_service` | Snapshot orchestration across durable metadata, queue components, lifecycle components, and response policy objects. |
 | `app.services.runtime_status_queue` | Compute and lineage queue component assembly, queue unavailable-state projection, queue degradation-state projection, inspection anchors, storage capacity evidence, and bounded recent recovery evidence. |
-| `app.services.runtime_status_lifecycle` | Recovery-drill component assembly, recovery-drill and runtime-retention action sources, missing/unavailable fallbacks, success projections, and lifecycle-specific degradation rules. |
+| `app.services.runtime_status_lifecycle` | Recovery-drill and runtime-retention component assembly, action sources, missing/unavailable fallbacks, success projections, and lifecycle-specific degradation rules. |
 | `app.services.runtime_status_degradation` | Shared threshold-breach helpers, aggregate runtime status projection, aggregate degradation reasons, and detailed degradation evidence collection. |
 | `app.services.runtime_status_policy` | Live policy-threshold extraction for compute queue, lineage queue, recovery-drill, and runtime-retention response fields. |
 
