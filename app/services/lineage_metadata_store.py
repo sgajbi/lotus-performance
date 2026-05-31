@@ -133,6 +133,12 @@ class LineageQueueInspectionItem:
 
 
 @dataclass(frozen=True)
+class LineageQueueInspectionTiming:
+    status: str
+    active_since: datetime | None
+
+
+@dataclass(frozen=True)
 class LineageQueueInspectionPage:
     total_count: int
     next_offset: int | None
@@ -1129,37 +1135,52 @@ class LineageMetadataStore:
         *,
         now: datetime,
     ) -> LineageQueueInspectionItem:
-        leased_at = None if payload is None else payload.leased_at_utc
-        lease_expires_at = None if payload is None else payload.lease_expires_at_utc
-        normalized_lease_expires_at = None if lease_expires_at is None else _coerce_utc_datetime(lease_expires_at)
-        is_leased = (
-            record.status == LineageStatus.PENDING.value
-            and payload is not None
-            and leased_at is not None
-            and (normalized_lease_expires_at is None or normalized_lease_expires_at >= now)
-        )
-        if record.status == LineageStatus.FAILED.value:
-            active_since = record.timestamp_utc
-            status = LineageStatus.FAILED.value
-        elif is_leased:
-            active_since = leased_at
-            status = "leased"
-        else:
-            active_since = payload.created_at_utc if payload is not None else record.timestamp_utc
-            status = LineageStatus.PENDING.value
+        timing = self._inspection_timing(record=record, payload=payload, now=now)
 
         age_seconds = None
-        if active_since is not None:
-            age_seconds = _elapsed_seconds_since(now, active_since)
+        if timing.active_since is not None:
+            age_seconds = _elapsed_seconds_since(now, timing.active_since)
 
         return LineageQueueInspectionItem(
             calculation_id=record.calculation_id,
             calculation_type=record.calculation_type,
-            status=status,
-            active_since_utc=_format_timestamp(active_since),
+            status=timing.status,
+            active_since_utc=_format_timestamp(timing.active_since),
             age_seconds=age_seconds,
             attempt_count=0 if payload is None else payload.attempt_count,
             error_message=record.error_message,
+        )
+
+    @staticmethod
+    def _inspection_timing(
+        *,
+        record: LineageRecordModel,
+        payload: LineagePayloadModel | None,
+        now: datetime,
+    ) -> LineageQueueInspectionTiming:
+        if record.status == LineageStatus.FAILED.value:
+            return LineageQueueInspectionTiming(
+                status=LineageStatus.FAILED.value,
+                active_since=record.timestamp_utc,
+            )
+
+        if payload is None:
+            return LineageQueueInspectionTiming(
+                status=LineageStatus.PENDING.value,
+                active_since=record.timestamp_utc,
+            )
+
+        lease_expires_at = payload.lease_expires_at_utc
+        normalized_lease_expires_at = None if lease_expires_at is None else _coerce_utc_datetime(lease_expires_at)
+        is_active_lease = payload.leased_at_utc is not None and (
+            normalized_lease_expires_at is None or normalized_lease_expires_at >= now
+        )
+        if record.status == LineageStatus.PENDING.value and is_active_lease:
+            return LineageQueueInspectionTiming(status="leased", active_since=payload.leased_at_utc)
+
+        return LineageQueueInspectionTiming(
+            status=LineageStatus.PENDING.value,
+            active_since=payload.created_at_utc,
         )
 
     def _ensure_payload_lease_columns(self) -> None:
