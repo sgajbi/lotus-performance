@@ -635,7 +635,7 @@ async def _calculate_returns_series(
             if not common_dates:
                 raise HTTPException(
                     status_code=HTTP_422_UNPROCESSABLE,
-                    detail={"code": "INSUFFICIENT_DATA", "message": "No overlapping dates across selected series."},
+                    detail=_insufficient_data_detail("No overlapping dates across selected series."),
                 )
             portfolio_df = portfolio_df[portfolio_df["date"].isin(common_dates)].sort_values("date")
             if benchmark_df is not None:
@@ -699,10 +699,7 @@ async def _calculate_returns_series(
         if request.data_policy.missing_data_policy == MissingDataPolicy.FAIL_FAST and missing_points > 0:
             raise HTTPException(
                 status_code=HTTP_422_UNPROCESSABLE,
-                detail={
-                    "code": "INSUFFICIENT_DATA",
-                    "message": f"Missing {missing_points} required points under FAIL_FAST policy.",
-                },
+                detail=_insufficient_data_detail(f"Missing {missing_points} required points under FAIL_FAST policy."),
             )
 
         warnings: list[str] = []
@@ -843,10 +840,7 @@ async def resolve_stateful_returns_series_request(
             ) from exc
         raise HTTPException(
             status_code=HTTP_422_UNPROCESSABLE,
-            detail={
-                "code": "INSUFFICIENT_DATA",
-                "message": str(exc.detail),
-            },
+            detail=_insufficient_data_detail(str(exc.detail)),
         ) from exc
 
     observations = portfolio_source.observations
