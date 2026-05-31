@@ -216,6 +216,14 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
     }
     assert recovery_threshold_samples["active_run_age_seconds"] == 1800
     assert recovery_threshold_samples["reclaim_count"] == 2
+    runtime_threshold_metric = next(
+        metric for metric in metrics if metric.name == "lotus_performance_runtime_retention_policy_threshold"
+    )
+    runtime_threshold_samples = {
+        sample.labels["threshold"]: sample.value for sample in runtime_threshold_metric.samples
+    }
+    assert runtime_threshold_samples["active_run_age_seconds"] == 1800
+    assert runtime_threshold_samples["reclaim_count"] == 3
 
 
 def test_queue_metrics_collector_exposes_store_unavailability_without_false_zero_backlog(monkeypatch):

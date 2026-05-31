@@ -96,6 +96,21 @@ def _operator_action_lease_metrics(
     return tuple(metrics)
 
 
+def _policy_threshold_metric(
+    *,
+    metric_name: str,
+    description: str,
+    max_age_seconds: float,
+    active_run_age_seconds: float,
+    reclaim_count: int,
+) -> GaugeMetricFamily:
+    metric = GaugeMetricFamily(metric_name, description, labels=["threshold"])
+    metric.add_metric(["max_age_seconds"], max_age_seconds)
+    metric.add_metric(["active_run_age_seconds"], active_run_age_seconds)
+    metric.add_metric(["reclaim_count"], reclaim_count)
+    return metric
+
+
 class DurableQueueCollector:
     def describe(self):
         yield GaugeMetricFamily(
@@ -630,48 +645,34 @@ class DurableQueueCollector:
         )
         yield lineage_storage_thresholds
 
-        recovery_drill_thresholds = GaugeMetricFamily(
-            "lotus_performance_recovery_drill_policy_threshold",
-            "Configured recovery-drill degradation thresholds.",
-            labels=["threshold"],
+        yield _policy_threshold_metric(
+            metric_name="lotus_performance_recovery_drill_policy_threshold",
+            description="Configured recovery-drill degradation thresholds.",
+            max_age_seconds=getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS", 0.0),
+            active_run_age_seconds=getattr(
+                settings,
+                "RUNTIME_STATUS_RECOVERY_DRILL_ACTIVE_RUN_AGE_DEGRADE_SECONDS",
+                0.0,
+            ),
+            reclaim_count=getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT", 0),
         )
-        recovery_drill_thresholds.add_metric(
-            ["max_age_seconds"],
-            getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS", 0.0),
-        )
-        recovery_drill_thresholds.add_metric(
-            ["active_run_age_seconds"],
-            getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_ACTIVE_RUN_AGE_DEGRADE_SECONDS", 0.0),
-        )
-        recovery_drill_thresholds.add_metric(
-            ["reclaim_count"],
-            getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT", 0),
-        )
-        yield recovery_drill_thresholds
 
         yield from _operator_action_lease_metrics(
             snapshot=recovery_drill_action_snapshot,
             spec=RECOVERY_DRILL_ACTION_METRICS,
         )
 
-        runtime_retention_thresholds = GaugeMetricFamily(
-            "lotus_performance_runtime_retention_policy_threshold",
-            "Configured runtime-retention degradation thresholds.",
-            labels=["threshold"],
+        yield _policy_threshold_metric(
+            metric_name="lotus_performance_runtime_retention_policy_threshold",
+            description="Configured runtime-retention degradation thresholds.",
+            max_age_seconds=getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS", 0.0),
+            active_run_age_seconds=getattr(
+                settings,
+                "RUNTIME_STATUS_RUNTIME_RETENTION_ACTIVE_RUN_AGE_DEGRADE_SECONDS",
+                0.0,
+            ),
+            reclaim_count=getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT", 0),
         )
-        runtime_retention_thresholds.add_metric(
-            ["max_age_seconds"],
-            getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS", 0.0),
-        )
-        runtime_retention_thresholds.add_metric(
-            ["active_run_age_seconds"],
-            getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_ACTIVE_RUN_AGE_DEGRADE_SECONDS", 0.0),
-        )
-        runtime_retention_thresholds.add_metric(
-            ["reclaim_count"],
-            getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT", 0),
-        )
-        yield runtime_retention_thresholds
 
         yield from _operator_action_lease_metrics(
             snapshot=runtime_retention_action_snapshot,
