@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from app.core.config import get_settings
+from app.services.operator_action_evidence_paths import is_safe_evidence_file_name
 
 
 @dataclass(frozen=True)
@@ -223,9 +224,13 @@ def _validate_manifest_payload(payload: Any) -> dict[str, Any] | None:
     retention_max_age_days = payload.get("retention_max_age_days")
     entries = payload.get("entries")
 
-    if latest_file_name is not None and not isinstance(latest_file_name, str):
+    if latest_file_name is not None and (
+        not isinstance(latest_file_name, str) or not is_safe_evidence_file_name(latest_file_name)
+    ):
         return None
-    if not isinstance(retained_file_names, list) or any(not isinstance(item, str) for item in retained_file_names):
+    if not isinstance(retained_file_names, list) or any(
+        not isinstance(item, str) or not is_safe_evidence_file_name(item) for item in retained_file_names
+    ):
         return None
     if retention_limit is not None and not isinstance(retention_limit, int):
         return None
@@ -250,6 +255,8 @@ def _validate_manifest_payload(payload: Any) -> dict[str, Any] | None:
         )
         trigger_mode = entry.get("trigger_mode", "manual")
         if any(not isinstance(entry.get(key), str) for key in str_keys):
+            return None
+        if not is_safe_evidence_file_name(entry["evidence_file_name"]):
             return None
         if not isinstance(trigger_mode, str):
             return None

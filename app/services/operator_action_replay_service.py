@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from app.services.operator_action_evidence_paths import resolve_evidence_file_path
 from app.services.recovery_drill_history_service import RecoveryDrillHistorySnapshot
 from app.services.runtime_retention_history_service import (
     RuntimeRetentionHistoryEntry,
@@ -115,9 +116,10 @@ def _load_payload(*, artifact_directory: Path, evidence_file_name: str) -> dict[
 
 
 def _evidence_file_path(*, artifact_directory: Path, evidence_file_name: str) -> Path | None:
-    artifact_root = artifact_directory.resolve()
-    evidence_path = (artifact_root / evidence_file_name).resolve()
-    if not evidence_path.is_relative_to(artifact_root):
+    evidence_path = resolve_evidence_file_path(
+        artifact_directory=artifact_directory, evidence_file_name=evidence_file_name
+    )
+    if evidence_path is None:
         logger.warning("Skipping evidence file outside operator action artifact directory: %s", evidence_file_name)
         return None
     return evidence_path

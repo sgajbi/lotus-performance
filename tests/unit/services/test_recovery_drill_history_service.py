@@ -184,6 +184,35 @@ def test_recovery_drill_history_snapshot_reports_unreadable_manifest(tmp_path, m
             "retention_max_age_days": 90,
             "entries": [],
         },
+        {
+            "latest_file_name": "../outside.json",
+            "retained_file_names": ["../outside.json"],
+            "retention_limit": 30,
+            "retention_max_age_days": 90,
+            "entries": [],
+        },
+        {
+            "latest_file_name": "2026-03-14t00-00-00.json",
+            "retained_file_names": ["nested/evidence.json"],
+            "retention_limit": 30,
+            "retention_max_age_days": 90,
+            "entries": [],
+        },
+        {
+            "latest_file_name": "2026-03-14t00-00-00.json",
+            "retained_file_names": ["2026-03-14t00-00-00.json"],
+            "retention_limit": 30,
+            "retention_max_age_days": 90,
+            "entries": [
+                {
+                    "evidence_file_name": "../outside.json",
+                    "generated_at_utc": "2026-03-14T00:00:00Z",
+                    "operator_id": "ops-user",
+                    "backup_identifier": "backup-123",
+                    "status": "passed",
+                }
+            ],
+        },
     ],
 )
 def test_recovery_drill_history_snapshot_rejects_additional_invalid_manifest_shapes(tmp_path, manifest):
