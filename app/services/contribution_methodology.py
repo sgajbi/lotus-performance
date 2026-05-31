@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 import pandas as pd
@@ -9,6 +10,14 @@ from engine.schema import PortfolioColumns
 
 RESET_AWARE_AVERAGE_WEIGHT_MODE_OFF = "OFF"
 RESET_AWARE_AVERAGE_WEIGHT_MODE_CANDIDATE_PERIODS = "CANDIDATE_PERIODS"
+
+
+@dataclass(frozen=True)
+class AverageWeightShadowCutoverAssessment:
+    """Period-level rollout assessment for reset-aware average-weight promotion."""
+
+    is_cutover_candidate: bool
+    blocker_reason_codes: set[str]
 
 
 def _to_basis_points(decimal_ratio: Any) -> int:
@@ -246,3 +255,40 @@ def _classify_average_weight_shadow_cutover_blockers(
     if timeseries_total_delta_periods > 0:
         blockers.add("timeseries_reconciliation")
     return blockers
+
+
+def _assess_average_weight_shadow_cutover(
+    *,
+    max_shadow_delta_bp: int,
+    average_weight_sum_residual_bp: int,
+    position_flow_residual_days: int,
+    portfolio_reset_without_position_reset_days: int,
+    position_reset_without_portfolio_reset_days: int,
+    timeseries_total_delta_periods: int,
+) -> AverageWeightShadowCutoverAssessment:
+    """Assesses whether a material reset-aware weight shadow is promotion-ready or blocked."""
+    is_cutover_candidate = _is_average_weight_shadow_cutover_candidate(
+        max_shadow_delta_bp=max_shadow_delta_bp,
+        average_weight_sum_residual_bp=average_weight_sum_residual_bp,
+        position_flow_residual_days=position_flow_residual_days,
+        portfolio_reset_without_position_reset_days=portfolio_reset_without_position_reset_days,
+        position_reset_without_portfolio_reset_days=position_reset_without_portfolio_reset_days,
+        timeseries_total_delta_periods=timeseries_total_delta_periods,
+    )
+    if is_cutover_candidate:
+        return AverageWeightShadowCutoverAssessment(
+            is_cutover_candidate=True,
+            blocker_reason_codes=set(),
+        )
+
+    return AverageWeightShadowCutoverAssessment(
+        is_cutover_candidate=False,
+        blocker_reason_codes=_classify_average_weight_shadow_cutover_blockers(
+            max_shadow_delta_bp=max_shadow_delta_bp,
+            average_weight_sum_residual_bp=average_weight_sum_residual_bp,
+            position_flow_residual_days=position_flow_residual_days,
+            portfolio_reset_without_position_reset_days=portfolio_reset_without_position_reset_days,
+            position_reset_without_portfolio_reset_days=position_reset_without_portfolio_reset_days,
+            timeseries_total_delta_periods=timeseries_total_delta_periods,
+        ),
+    )

@@ -23,6 +23,7 @@ from app.services.contribution_diagnostics import (
     _calculate_reset_relative_day_counts,
 )
 from app.services.contribution_methodology import (
+    _assess_average_weight_shadow_cutover,
     _calculate_average_weight_sum_residual_bp,
     _calculate_average_weight_sum_residual_bp_from_ratio_series,
     _calculate_promotion_ready_rate_bp,
@@ -563,6 +564,31 @@ def test_average_weight_shadow_helper_classifies_materiality_and_cutover_readine
         position_reset_without_portfolio_reset_days=0,
         timeseries_total_delta_periods=1,
     ) == {"weight_residual", "flow_balance", "reset_alignment", "timeseries_reconciliation"}
+    ready_assessment = _assess_average_weight_shadow_cutover(
+        max_shadow_delta_bp=600,
+        average_weight_sum_residual_bp=0,
+        position_flow_residual_days=0,
+        portfolio_reset_without_position_reset_days=0,
+        position_reset_without_portfolio_reset_days=0,
+        timeseries_total_delta_periods=0,
+    )
+    blocked_assessment = _assess_average_weight_shadow_cutover(
+        max_shadow_delta_bp=600,
+        average_weight_sum_residual_bp=50,
+        position_flow_residual_days=1,
+        portfolio_reset_without_position_reset_days=1,
+        position_reset_without_portfolio_reset_days=0,
+        timeseries_total_delta_periods=1,
+    )
+    assert ready_assessment.is_cutover_candidate
+    assert ready_assessment.blocker_reason_codes == set()
+    assert not blocked_assessment.is_cutover_candidate
+    assert blocked_assessment.blocker_reason_codes == {
+        "weight_residual",
+        "flow_balance",
+        "reset_alignment",
+        "timeseries_reconciliation",
+    }
     assert (
         _classify_average_weight_methodology_status(
             max_shadow_delta_bp=600,
