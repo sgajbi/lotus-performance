@@ -192,6 +192,26 @@ def compute_queue_failure_pressure_metric(*, stats: Any) -> GaugeMetricFamily:
     )
 
 
+def compute_queue_oldest_age_metrics(*, stats: Any) -> tuple[GaugeMetricFamily, ...]:
+    return (
+        single_sample_metric(
+            metric_name="lotus_performance_compute_queue_oldest_pending_age_seconds",
+            description="Age in seconds of the oldest pending compute job.",
+            value=stats.oldest_pending_age_seconds,
+        ),
+        single_sample_metric(
+            metric_name="lotus_performance_compute_queue_oldest_leased_age_seconds",
+            description="Age in seconds of the oldest leased compute job.",
+            value=stats.oldest_leased_age_seconds,
+        ),
+        single_sample_metric(
+            metric_name="lotus_performance_compute_queue_oldest_running_age_seconds",
+            description="Age in seconds of the oldest running compute job.",
+            value=stats.oldest_running_age_seconds,
+        ),
+    )
+
+
 def lineage_queue_degradation_breach_metric(
     *,
     stats: Any,

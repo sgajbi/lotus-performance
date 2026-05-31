@@ -5,6 +5,7 @@ from app.services.queue_metric_builders import (
     compute_queue_degradation_breach_metric,
     compute_queue_failure_pressure_metric,
     compute_queue_job_count_metric,
+    compute_queue_oldest_age_metrics,
     labeled_metric,
     latest_reclaim_count_or_zero,
     lineage_queue_degradation_breach_metric,
@@ -145,6 +146,27 @@ def test_compute_queue_failure_pressure_metric_uses_governed_category_labels():
         "lease_expired": 7,
         "reclaimable": 2,
         "terminal_failure": 8,
+    }
+
+
+def test_compute_queue_oldest_age_metrics_preserve_metric_contracts():
+    stats = type(
+        "ComputeStats",
+        (),
+        {
+            "oldest_pending_age_seconds": 12.5,
+            "oldest_leased_age_seconds": 6.25,
+            "oldest_running_age_seconds": 3.5,
+        },
+    )()
+
+    metrics = compute_queue_oldest_age_metrics(stats=stats)
+    samples = {metric.name: metric.samples[0].value for metric in metrics}
+
+    assert samples == {
+        "lotus_performance_compute_queue_oldest_pending_age_seconds": 12.5,
+        "lotus_performance_compute_queue_oldest_leased_age_seconds": 6.25,
+        "lotus_performance_compute_queue_oldest_running_age_seconds": 3.5,
     }
 
 

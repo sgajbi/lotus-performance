@@ -18,6 +18,7 @@ from app.services.queue_metric_builders import (
     compute_queue_degradation_breach_metric,
     compute_queue_failure_pressure_metric,
     compute_queue_job_count_metric,
+    compute_queue_oldest_age_metrics,
     labeled_metric,
     lineage_queue_degradation_breach_metric,
     lineage_storage_pressure_breach_metric,
@@ -308,25 +309,7 @@ class DurableQueueCollector:
             yield compute_queue_failure_pressure_metric(stats=compute_stats)
 
         if compute_stats is not None:
-            yield single_sample_metric(
-                metric_name="lotus_performance_compute_queue_oldest_pending_age_seconds",
-                description="Age in seconds of the oldest pending compute job.",
-                value=compute_stats.oldest_pending_age_seconds,
-            )
-
-        if compute_stats is not None:
-            yield single_sample_metric(
-                metric_name="lotus_performance_compute_queue_oldest_leased_age_seconds",
-                description="Age in seconds of the oldest leased compute job.",
-                value=compute_stats.oldest_leased_age_seconds,
-            )
-
-        if compute_stats is not None:
-            yield single_sample_metric(
-                metric_name="lotus_performance_compute_queue_oldest_running_age_seconds",
-                description="Age in seconds of the oldest running compute job.",
-                value=compute_stats.oldest_running_age_seconds,
-            )
+            yield from compute_queue_oldest_age_metrics(stats=compute_stats)
 
             yield compute_queue_degradation_breach_metric(
                 stats=compute_stats,
