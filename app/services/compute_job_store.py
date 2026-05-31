@@ -585,20 +585,10 @@ class ComputeJobStore:
             )
             events: list[ComputeRecoveryEvent] = []
             for row in rows:
-                recovered_at_utc = _format_timestamp(row.last_error_at_utc)
-                if recovered_at_utc is None:
+                event = self._to_recovery_event(row)
+                if event is None:
                     continue
-                recovery_kind = "stale_lease_recovered" if row.error_type == "LeaseExpired" else "retryable_failure"
-                events.append(
-                    ComputeRecoveryEvent(
-                        calculation_id=row.calculation_id,
-                        analytics_type=row.analytics_type,
-                        recovery_kind=recovery_kind,
-                        recovered_at_utc=recovered_at_utc,
-                        attempt_count=row.attempt_count,
-                        error_type=row.error_type,
-                    )
-                )
+                events.append(event)
             total_count = int(
                 session.execute(
                     self._build_recent_recoveries_count_statement(
@@ -1153,6 +1143,20 @@ class ComputeJobStore:
             max_attempts=row.max_attempts,
             error_type=row.error_type,
             error_message=row.error_message,
+        )
+
+    def _to_recovery_event(self, row: ComputeJobModel) -> ComputeRecoveryEvent | None:
+        recovered_at_utc = _format_timestamp(row.last_error_at_utc)
+        if recovered_at_utc is None:
+            return None
+        recovery_kind = "stale_lease_recovered" if row.error_type == "LeaseExpired" else "retryable_failure"
+        return ComputeRecoveryEvent(
+            calculation_id=row.calculation_id,
+            analytics_type=row.analytics_type,
+            recovery_kind=recovery_kind,
+            recovered_at_utc=recovered_at_utc,
+            attempt_count=row.attempt_count,
+            error_type=row.error_type,
         )
 
 
