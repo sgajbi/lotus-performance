@@ -130,14 +130,8 @@ def build_runtime_status_snapshot(*, is_draining: bool) -> RuntimeStatusSnapshot
 
 def _build_compute_queue_status(durability_status: DurabilityHealthStatus, *, settings) -> RuntimeQueueStatus:
     if not durability_status.is_ready:
-        return RuntimeQueueStatus(
-            status="unavailable",
-            reason=durability_status.reason or "durable_metadata_store_unreachable",
-            degradation_reasons=(),
-            degradation_details=(),
-            stats=None,
-            inspection_anchors=None,
-            recent_recoveries=(),
+        return _unavailable_runtime_queue_status(
+            reason=durability_status.reason or "durable_metadata_store_unreachable"
         )
     try:
         stats = compute_job_store.get_queue_stats()
@@ -165,51 +159,21 @@ def _build_compute_queue_status(durability_status: DurabilityHealthStatus, *, se
             recent_recoveries=recent_recoveries,
         )
     except Exception as exc:
-        return RuntimeQueueStatus(
-            status="unavailable",
-            reason=type(exc).__name__,
-            degradation_reasons=(),
-            degradation_details=(),
-            stats=None,
-            inspection_anchors=None,
-            recent_recoveries=(),
-        )
+        return _unavailable_runtime_queue_status(reason=type(exc).__name__)
 
 
 def _build_lineage_queue_status(durability_status: DurabilityHealthStatus, *, settings) -> RuntimeQueueStatus:
     if not durability_status.is_ready:
-        return RuntimeQueueStatus(
-            status="unavailable",
-            reason=durability_status.reason or "durable_metadata_store_unreachable",
-            degradation_reasons=(),
-            degradation_details=(),
-            stats=None,
-            inspection_anchors=None,
-            recent_recoveries=(),
+        return _unavailable_runtime_queue_status(
+            reason=durability_status.reason or "durable_metadata_store_unreachable"
         )
     lineage_storage_status = check_lineage_storage_ready()
     if not lineage_storage_status.is_ready:
-        return RuntimeQueueStatus(
-            status="unavailable",
-            reason=lineage_storage_status.reason or "lineage_storage_unavailable",
-            degradation_reasons=(),
-            degradation_details=(),
-            stats=None,
-            inspection_anchors=None,
-            recent_recoveries=(),
-        )
+        return _unavailable_runtime_queue_status(reason=lineage_storage_status.reason or "lineage_storage_unavailable")
     try:
         storage_capacity = get_lineage_storage_capacity()
     except Exception:
-        return RuntimeQueueStatus(
-            status="unavailable",
-            reason="lineage_storage_capacity_unreadable",
-            degradation_reasons=(),
-            degradation_details=(),
-            stats=None,
-            inspection_anchors=None,
-            recent_recoveries=(),
-        )
+        return _unavailable_runtime_queue_status(reason="lineage_storage_capacity_unreadable")
     try:
         stats = lineage_metadata_store.get_pending_payload_stats()
         inspection_anchors = _safe_lineage_queue_inspection_anchors()
@@ -242,15 +206,19 @@ def _build_lineage_queue_status(durability_status: DurabilityHealthStatus, *, se
             storage_capacity=storage_capacity,
         )
     except Exception as exc:
-        return RuntimeQueueStatus(
-            status="unavailable",
-            reason=type(exc).__name__,
-            degradation_reasons=(),
-            degradation_details=(),
-            stats=None,
-            inspection_anchors=None,
-            recent_recoveries=(),
-        )
+        return _unavailable_runtime_queue_status(reason=type(exc).__name__)
+
+
+def _unavailable_runtime_queue_status(*, reason: str) -> RuntimeQueueStatus:
+    return RuntimeQueueStatus(
+        status="unavailable",
+        reason=reason,
+        degradation_reasons=(),
+        degradation_details=(),
+        stats=None,
+        inspection_anchors=None,
+        recent_recoveries=(),
+    )
 
 
 def _safe_compute_queue_inspection_anchors() -> ComputeQueueInspectionAnchors | None:

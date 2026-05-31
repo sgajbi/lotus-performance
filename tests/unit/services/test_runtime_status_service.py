@@ -2556,6 +2556,19 @@ def test_runtime_status_safe_recent_recoveries_return_empty_on_disabled_limit_an
     assert runtime_status_service._safe_lineage_recent_recoveries(settings=error_settings) == ()
 
 
+def test_runtime_status_unavailable_queue_helper_clears_queue_evidence():
+    status = runtime_status_service._unavailable_runtime_queue_status(reason="durable_metadata_store_unreachable")
+
+    assert status.status == "unavailable"
+    assert status.reason == "durable_metadata_store_unreachable"
+    assert status.degradation_reasons == ()
+    assert status.degradation_details == ()
+    assert status.stats is None
+    assert status.inspection_anchors is None
+    assert status.recent_recoveries == ()
+    assert status.storage_capacity is None
+
+
 def test_runtime_status_safe_lineage_inspection_anchor_returns_none_on_error(mocker):
     mocker.patch(
         "app.services.runtime_status_service.lineage_metadata_store.get_queue_inspection_anchors",
