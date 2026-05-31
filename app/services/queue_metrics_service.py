@@ -111,6 +111,16 @@ def _policy_threshold_metric(
     return metric
 
 
+def _availability_metric(*, metric_name: str, description: str, is_available: bool) -> GaugeMetricFamily:
+    metric = GaugeMetricFamily(metric_name, description)
+    metric.add_metric([], 1 if is_available else 0)
+    return metric
+
+
+def _snapshot_available(snapshot: Any) -> bool:
+    return snapshot is not None and snapshot.status == "available"
+
+
 class DurableQueueCollector:
     def describe(self):
         yield GaugeMetricFamily(
@@ -342,71 +352,41 @@ class DurableQueueCollector:
         availability.add_metric(["lineage"], 1 if lineage_available else 0)
         yield availability
 
-        lineage_storage_availability = GaugeMetricFamily(
-            "lotus_performance_lineage_storage_capacity_availability",
-            "Availability of lineage storage capacity metrics.",
+        yield _availability_metric(
+            metric_name="lotus_performance_lineage_storage_capacity_availability",
+            description="Availability of lineage storage capacity metrics.",
+            is_available=lineage_storage_capacity_available,
         )
-        lineage_storage_availability.add_metric([], 1 if lineage_storage_capacity_available else 0)
-        yield lineage_storage_availability
 
-        recovery_drill_availability = GaugeMetricFamily(
-            "lotus_performance_recovery_drill_availability",
-            "Availability of retained durable recovery-drill history.",
+        yield _availability_metric(
+            metric_name="lotus_performance_recovery_drill_availability",
+            description="Availability of retained durable recovery-drill history.",
+            is_available=recovery_drill_available and _snapshot_available(recovery_drill_snapshot),
         )
-        recovery_drill_availability.add_metric(
-            [],
-            1
-            if recovery_drill_available
-            and recovery_drill_snapshot is not None
-            and recovery_drill_snapshot.status == "available"
-            else 0,
-        )
-        yield recovery_drill_availability
 
-        recovery_drill_action_availability = GaugeMetricFamily(
-            "lotus_performance_recovery_drill_action_availability",
-            "Availability of governed in-flight recovery-drill action lease visibility.",
+        yield _availability_metric(
+            metric_name="lotus_performance_recovery_drill_action_availability",
+            description="Availability of governed in-flight recovery-drill action lease visibility.",
+            is_available=_snapshot_available(recovery_drill_action_snapshot),
         )
-        recovery_drill_action_availability.add_metric(
-            [],
-            1
-            if recovery_drill_action_snapshot is not None and recovery_drill_action_snapshot.status == "available"
-            else 0,
-        )
-        yield recovery_drill_action_availability
 
-        runtime_retention_availability = GaugeMetricFamily(
-            "lotus_performance_runtime_retention_availability",
-            "Availability of retained runtime-retention cleanup history.",
+        yield _availability_metric(
+            metric_name="lotus_performance_runtime_retention_availability",
+            description="Availability of retained runtime-retention cleanup history.",
+            is_available=runtime_retention_available and _snapshot_available(runtime_retention_snapshot),
         )
-        runtime_retention_availability.add_metric(
-            [],
-            1
-            if runtime_retention_available
-            and runtime_retention_snapshot is not None
-            and runtime_retention_snapshot.status == "available"
-            else 0,
-        )
-        yield runtime_retention_availability
 
-        runtime_retention_action_availability = GaugeMetricFamily(
-            "lotus_performance_runtime_retention_action_availability",
-            "Availability of governed in-flight runtime-retention cleanup lease visibility.",
+        yield _availability_metric(
+            metric_name="lotus_performance_runtime_retention_action_availability",
+            description="Availability of governed in-flight runtime-retention cleanup lease visibility.",
+            is_available=_snapshot_available(runtime_retention_action_snapshot),
         )
-        runtime_retention_action_availability.add_metric(
-            [],
-            1
-            if runtime_retention_action_snapshot is not None and runtime_retention_action_snapshot.status == "available"
-            else 0,
-        )
-        yield runtime_retention_action_availability
 
-        runtime_retention_preview_availability = GaugeMetricFamily(
-            "lotus_performance_runtime_retention_preview_availability",
-            "Availability of the live runtime-retention preview under the current policy.",
+        yield _availability_metric(
+            metric_name="lotus_performance_runtime_retention_preview_availability",
+            description="Availability of the live runtime-retention preview under the current policy.",
+            is_available=runtime_retention_preview_available,
         )
-        runtime_retention_preview_availability.add_metric([], 1 if runtime_retention_preview_available else 0)
-        yield runtime_retention_preview_availability
 
         if runtime_retention_preview is not None:
             runtime_retention_prunable = GaugeMetricFamily(
