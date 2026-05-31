@@ -163,6 +163,21 @@ def compute_queue_degradation_breach_metric(
     )
 
 
+def compute_queue_job_count_metric(*, stats: Any) -> GaugeMetricFamily:
+    return labeled_metric(
+        metric_name="lotus_performance_compute_queue_jobs",
+        description="Durable compute job counts by status.",
+        label_name="status",
+        samples=(
+            ("pending", stats.pending_count),
+            ("leased", stats.leased_count),
+            ("running", stats.running_count),
+            ("failed", stats.failed_count),
+            ("complete", stats.complete_count),
+        ),
+    )
+
+
 def lineage_queue_degradation_breach_metric(
     *,
     stats: Any,

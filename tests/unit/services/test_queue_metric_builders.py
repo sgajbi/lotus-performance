@@ -3,6 +3,7 @@ from app.services.queue_metric_builders import (
     active_lease_age_seconds_or_zero,
     availability_metric,
     compute_queue_degradation_breach_metric,
+    compute_queue_job_count_metric,
     labeled_metric,
     latest_reclaim_count_or_zero,
     lineage_queue_degradation_breach_metric,
@@ -93,6 +94,32 @@ def test_reason_labeled_metric_uses_governed_reason_labels():
     assert samples == {
         "age_exceeded": 1,
         "retry_backlog_exceeded": 0,
+    }
+
+
+def test_compute_queue_job_count_metric_uses_governed_status_labels():
+    stats = type(
+        "ComputeStats",
+        (),
+        {
+            "pending_count": 2,
+            "leased_count": 1,
+            "running_count": 3,
+            "failed_count": 4,
+            "complete_count": 5,
+        },
+    )()
+
+    metric = compute_queue_job_count_metric(stats=stats)
+
+    samples = {sample.labels["status"]: sample.value for sample in metric.samples}
+    assert metric.name == "lotus_performance_compute_queue_jobs"
+    assert samples == {
+        "pending": 2,
+        "leased": 1,
+        "running": 3,
+        "failed": 4,
+        "complete": 5,
     }
 
 

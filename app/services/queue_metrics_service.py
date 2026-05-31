@@ -16,6 +16,7 @@ from app.services.queue_metric_builders import (
     RUNTIME_RETENTION_ACTION_METRICS,
     availability_metric,
     compute_queue_degradation_breach_metric,
+    compute_queue_job_count_metric,
     labeled_metric,
     lineage_queue_degradation_breach_metric,
     lineage_storage_pressure_breach_metric,
@@ -300,18 +301,7 @@ class DurableQueueCollector:
             yield runtime_retention_prunable_items_metric(preview=runtime_retention_preview)
 
         if compute_stats is not None:
-            yield labeled_metric(
-                metric_name="lotus_performance_compute_queue_jobs",
-                description="Durable compute job counts by status.",
-                label_name="status",
-                samples=(
-                    ("pending", compute_stats.pending_count),
-                    ("leased", compute_stats.leased_count),
-                    ("running", compute_stats.running_count),
-                    ("failed", compute_stats.failed_count),
-                    ("complete", compute_stats.complete_count),
-                ),
-            )
+            yield compute_queue_job_count_metric(stats=compute_stats)
 
         if compute_stats is not None:
             yield labeled_metric(
