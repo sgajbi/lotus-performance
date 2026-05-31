@@ -1,3 +1,5 @@
+import logging
+
 from app.services.queue_metrics_service import DurableQueueCollector, _load_metric_source
 
 
@@ -13,6 +15,20 @@ def test_load_metric_source_suppresses_source_failures():
 
     assert source is None
     assert available is False
+
+
+def test_load_metric_source_logs_source_failures(caplog):
+    caplog.set_level(logging.WARNING, logger="app.services.queue_metrics_service")
+
+    source, available = _load_metric_source(
+        lambda: (_ for _ in ()).throw(RuntimeError("source unavailable")),
+        source_name="compute queue stats",
+    )
+
+    assert source is None
+    assert available is False
+    assert "Queue metric source load failed for compute queue stats." in caplog.text
+    assert "RuntimeError: source unavailable" in caplog.text
 
 
 def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):

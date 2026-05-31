@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from pathlib import Path
 from typing import TypeVar
@@ -47,11 +48,18 @@ from app.services.runtime_status_time import age_seconds_since
 
 TMetricSource = TypeVar("TMetricSource")
 
+logger = logging.getLogger(__name__)
 
-def _load_metric_source(loader: Callable[[], TMetricSource]) -> tuple[TMetricSource | None, bool]:
+
+def _load_metric_source(
+    loader: Callable[[], TMetricSource],
+    *,
+    source_name: str = "unlabeled source",
+) -> tuple[TMetricSource | None, bool]:
     try:
         return loader(), True
     except Exception:
+        logger.warning("Queue metric source load failed for %s.", source_name, exc_info=True)
         return None, False
 
 
@@ -222,11 +230,21 @@ class DurableQueueCollector:
         lineage_queue_policy = build_lineage_queue_policy(settings=settings)
         recovery_drill_policy = build_recovery_drill_policy(settings=settings)
         runtime_retention_policy = build_runtime_retention_policy(settings=settings)
-        compute_stats, compute_available = _load_metric_source(compute_job_store.get_queue_stats)
-        lineage_stats, lineage_available = _load_metric_source(lineage_metadata_store.get_pending_payload_stats)
-        lineage_storage_capacity, lineage_storage_capacity_available = _load_metric_source(get_lineage_storage_capacity)
+        compute_stats, compute_available = _load_metric_source(
+            compute_job_store.get_queue_stats,
+            source_name="compute queue stats",
+        )
+        lineage_stats, lineage_available = _load_metric_source(
+            lineage_metadata_store.get_pending_payload_stats,
+            source_name="lineage queue payload stats",
+        )
+        lineage_storage_capacity, lineage_storage_capacity_available = _load_metric_source(
+            get_lineage_storage_capacity,
+            source_name="lineage storage capacity",
+        )
         recovery_drill_snapshot, recovery_drill_available = _load_metric_source(
-            lambda: build_recovery_drill_history_snapshot(limit=1)
+            lambda: build_recovery_drill_history_snapshot(limit=1),
+            source_name="recovery drill history snapshot",
         )
         recovery_drill_action_snapshot, _ = _load_metric_source(
             lambda: build_operator_action_lease_snapshot(
@@ -236,10 +254,12 @@ class DurableQueueCollector:
                     Path("artifacts/durable-recovery-drill"),
                 ),
                 action_name="recovery_drill",
-            )
+            ),
+            source_name="recovery drill action lease snapshot",
         )
         runtime_retention_snapshot, runtime_retention_available = _load_metric_source(
-            lambda: build_runtime_retention_history_snapshot(limit=1)
+            lambda: build_runtime_retention_history_snapshot(limit=1),
+            source_name="runtime retention history snapshot",
         )
         runtime_retention_action_snapshot, _ = _load_metric_source(
             lambda: build_operator_action_lease_snapshot(
@@ -249,10 +269,12 @@ class DurableQueueCollector:
                     Path("artifacts/runtime-retention-cleanup"),
                 ),
                 action_name="runtime_retention_cleanup",
-            )
+            ),
+            source_name="runtime retention action lease snapshot",
         )
         runtime_retention_preview, runtime_retention_preview_available = _load_metric_source(
-            lambda: run_runtime_retention_cleanup(dry_run=True)
+            lambda: run_runtime_retention_cleanup(dry_run=True),
+            source_name="runtime retention cleanup preview",
         )
 
         yield durable_queue_store_availability_metric(
