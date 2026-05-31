@@ -34,6 +34,10 @@ from app.services.runtime_status_retention_preview import (
 )
 from app.services.runtime_status_time import age_seconds_since
 
+RECOVERY_DRILL_HISTORY_UNAVAILABLE_REASON = "recovery_drill_history_unavailable"
+RUNTIME_RETENTION_HISTORY_UNAVAILABLE_REASON = "runtime_retention_history_unavailable"
+RUNTIME_RETENTION_PREVIEW_UNAVAILABLE_REASON = "runtime_retention_preview_unavailable"
+
 
 class RuntimeRetentionCurrentPreviewFields(TypedDict):
     preview_status: str
@@ -122,7 +126,7 @@ def build_runtime_retention_status(*, settings, policy: RuntimeRetentionDegradat
             reason=type(exc).__name__,
             active_run_status=active_run_status,
             preview_status="unavailable",
-            preview_reason="runtime_retention_preview_unavailable",
+            preview_reason=RUNTIME_RETENTION_PREVIEW_UNAVAILABLE_REASON,
             preview_summary=None,
         )
     preview_status, preview_reason, preview_summary = build_runtime_retention_preview()
@@ -257,7 +261,7 @@ def missing_recovery_drill_status(
 ) -> RecoveryDrillStatus:
     missing_history_reasons, details = missing_history_degradation(
         threshold=threshold,
-        reason="recovery_drill_history_unavailable",
+        reason=RECOVERY_DRILL_HISTORY_UNAVAILABLE_REASON,
     )
     return RecoveryDrillStatus(
         status="available" if not missing_history_reasons else "degraded",
@@ -380,7 +384,7 @@ def missing_runtime_retention_status(
 ) -> RuntimeRetentionStatus:
     missing_history_reasons, details = missing_history_degradation(
         threshold=threshold,
-        reason="runtime_retention_history_unavailable",
+        reason=RUNTIME_RETENTION_HISTORY_UNAVAILABLE_REASON,
     )
     preview_fields = runtime_retention_current_preview_status_fields(
         preview_status=preview_status,

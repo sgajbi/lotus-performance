@@ -12,6 +12,9 @@ from app.services.runtime_status_domain import (
     RuntimeRetentionDegradationPolicy,
 )
 from app.services.runtime_status_lifecycle import (
+    RECOVERY_DRILL_HISTORY_UNAVAILABLE_REASON,
+    RUNTIME_RETENTION_HISTORY_UNAVAILABLE_REASON,
+    RUNTIME_RETENTION_PREVIEW_UNAVAILABLE_REASON,
     build_recovery_drill_status,
     build_runtime_retention_status,
     missing_recovery_drill_status,
@@ -201,8 +204,8 @@ def test_build_recovery_drill_status_returns_missing_when_artifacts_are_absent(m
     status = build_recovery_drill_status(settings=type("Settings", (), {})(), policy=_recovery_drill_policy())
 
     assert status.status == "degraded"
-    assert status.reason == "recovery_drill_history_unavailable"
-    assert status.degradation_reasons == ("recovery_drill_history_unavailable",)
+    assert status.reason == RECOVERY_DRILL_HISTORY_UNAVAILABLE_REASON
+    assert status.degradation_reasons == (RECOVERY_DRILL_HISTORY_UNAVAILABLE_REASON,)
 
 
 def test_build_recovery_drill_status_returns_unavailable_when_history_read_fails(mocker):
@@ -288,10 +291,10 @@ def test_build_runtime_retention_status_returns_missing_with_preview_when_artifa
     status = build_runtime_retention_status(settings=type("Settings", (), {})(), policy=_runtime_retention_policy())
 
     assert status.status == "degraded"
-    assert status.reason == "runtime_retention_history_unavailable"
+    assert status.reason == RUNTIME_RETENTION_HISTORY_UNAVAILABLE_REASON
     assert status.preview_status == "available"
     assert status.current_retention_days == 45
-    assert status.degradation_reasons == ("runtime_retention_history_unavailable",)
+    assert status.degradation_reasons == (RUNTIME_RETENTION_HISTORY_UNAVAILABLE_REASON,)
 
 
 def test_build_runtime_retention_status_returns_unavailable_when_history_read_fails(mocker):
@@ -310,7 +313,7 @@ def test_build_runtime_retention_status_returns_unavailable_when_history_read_fa
     assert status.reason == "RuntimeError"
     assert status.active_run_count == 1
     assert status.preview_status == "unavailable"
-    assert status.preview_reason == "runtime_retention_preview_unavailable"
+    assert status.preview_reason == RUNTIME_RETENTION_PREVIEW_UNAVAILABLE_REASON
 
 
 def test_recovery_drill_status_from_latest_preserves_latest_evidence_and_degradation():
@@ -397,8 +400,8 @@ def test_missing_recovery_drill_status_degrades_when_threshold_present():
     )
 
     assert status.status == "degraded"
-    assert status.reason == "recovery_drill_history_unavailable"
-    assert status.degradation_reasons == ("recovery_drill_history_unavailable",)
+    assert status.reason == RECOVERY_DRILL_HISTORY_UNAVAILABLE_REASON
+    assert status.degradation_reasons == (RECOVERY_DRILL_HISTORY_UNAVAILABLE_REASON,)
     assert status.latest_generated_at_utc is None
 
 
@@ -412,8 +415,8 @@ def test_missing_runtime_retention_status_degrades_when_threshold_present():
     )
 
     assert status.status == "degraded"
-    assert status.reason == "runtime_retention_history_unavailable"
-    assert status.degradation_reasons == ("runtime_retention_history_unavailable",)
+    assert status.reason == RUNTIME_RETENTION_HISTORY_UNAVAILABLE_REASON
+    assert status.degradation_reasons == (RUNTIME_RETENTION_HISTORY_UNAVAILABLE_REASON,)
     assert status.current_retention_days is None
 
 
