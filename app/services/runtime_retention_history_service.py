@@ -74,35 +74,15 @@ def build_runtime_retention_history_snapshot(
     )
 
     if not directory.exists():
-        return RuntimeRetentionHistorySnapshot(
-            status="unavailable",
-            artifact_directory=str(directory),
-            latest_file_name=None,
-            retained_file_names=[],
-            retention_limit=None,
-            retention_max_age_days=None,
-            entries=[],
-            total_entries=0,
-            matched_entries=0,
-            returned_entries=0,
-            next_offset=None,
+        return _unavailable_snapshot(
+            directory=directory,
             applied_filters=applied_filters,
             reason="runtime_retention_artifact_directory_missing",
         )
 
     if not manifest_path.exists():
-        return RuntimeRetentionHistorySnapshot(
-            status="unavailable",
-            artifact_directory=str(directory),
-            latest_file_name=None,
-            retained_file_names=[],
-            retention_limit=None,
-            retention_max_age_days=None,
-            entries=[],
-            total_entries=0,
-            matched_entries=0,
-            returned_entries=0,
-            next_offset=None,
+        return _unavailable_snapshot(
+            directory=directory,
             applied_filters=applied_filters,
             reason="runtime_retention_manifest_missing",
         )
@@ -110,52 +90,22 @@ def build_runtime_retention_history_snapshot(
     try:
         payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     except OSError:
-        return RuntimeRetentionHistorySnapshot(
-            status="unavailable",
-            artifact_directory=str(directory),
-            latest_file_name=None,
-            retained_file_names=[],
-            retention_limit=None,
-            retention_max_age_days=None,
-            entries=[],
-            total_entries=0,
-            matched_entries=0,
-            returned_entries=0,
-            next_offset=None,
+        return _unavailable_snapshot(
+            directory=directory,
             applied_filters=applied_filters,
             reason="runtime_retention_manifest_unreadable",
         )
     except json.JSONDecodeError:
-        return RuntimeRetentionHistorySnapshot(
-            status="unavailable",
-            artifact_directory=str(directory),
-            latest_file_name=None,
-            retained_file_names=[],
-            retention_limit=None,
-            retention_max_age_days=None,
-            entries=[],
-            total_entries=0,
-            matched_entries=0,
-            returned_entries=0,
-            next_offset=None,
+        return _unavailable_snapshot(
+            directory=directory,
             applied_filters=applied_filters,
             reason="runtime_retention_manifest_invalid",
         )
 
     manifest_payload = _validate_manifest_payload(payload)
     if manifest_payload is None:
-        return RuntimeRetentionHistorySnapshot(
-            status="unavailable",
-            artifact_directory=str(directory),
-            latest_file_name=None,
-            retained_file_names=[],
-            retention_limit=None,
-            retention_max_age_days=None,
-            entries=[],
-            total_entries=0,
-            matched_entries=0,
-            returned_entries=0,
-            next_offset=None,
+        return _unavailable_snapshot(
+            directory=directory,
             applied_filters=applied_filters,
             reason="runtime_retention_manifest_invalid",
         )
@@ -211,6 +161,29 @@ def build_runtime_retention_history_snapshot(
         next_offset=next_offset,
         applied_filters=applied_filters,
         reason=None,
+    )
+
+
+def _unavailable_snapshot(
+    *,
+    directory: Path,
+    applied_filters: dict[str, str | int],
+    reason: str,
+) -> RuntimeRetentionHistorySnapshot:
+    return RuntimeRetentionHistorySnapshot(
+        status="unavailable",
+        artifact_directory=str(directory),
+        latest_file_name=None,
+        retained_file_names=[],
+        retention_limit=None,
+        retention_max_age_days=None,
+        entries=[],
+        total_entries=0,
+        matched_entries=0,
+        returned_entries=0,
+        next_offset=None,
+        applied_filters=applied_filters,
+        reason=reason,
     )
 
 
