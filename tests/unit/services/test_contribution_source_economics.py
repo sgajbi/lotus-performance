@@ -1,8 +1,11 @@
 from datetime import date
 from uuid import uuid4
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from app.models.contribution_analytics_requests import ContributionInputMode
 from app.models.contribution_requests import ContributionRequest
+from app.services import contribution_evidence
 from app.services.contribution_source_economics import build_contribution_source_economics_evidence
 from app.services.execution_registry import UpstreamSnapshotRecord
 
@@ -126,3 +129,20 @@ def test_source_economics_evidence_keeps_stateless_boundary_explicit():
     assert evidence.source_owner == "caller"
     assert evidence.source_contracts == ["ContributionRequest"]
     assert evidence.source_snapshot_count == 0
+
+
+def test_contribution_snapshot_lookup_logs_durable_store_failures(monkeypatch, caplog):
+    def _raise_sqlalchemy_error(calculation_id: str):
+        raise SQLAlchemyError("durable store unavailable")
+
+    monkeypatch.setattr(
+        contribution_evidence.execution_registry,
+        "list_upstream_snapshots",
+        _raise_sqlalchemy_error,
+    )
+
+    with caplog.at_level("WARNING", logger="app.services.contribution_evidence"):
+        snapshots = contribution_evidence._list_upstream_snapshots_for_contribution("calc-123")
+
+    assert snapshots == []
+    assert "Contribution upstream snapshot lineage lookup failed for calculation_id=calc-123" in caplog.text

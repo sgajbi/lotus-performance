@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from sqlalchemy.exc import SQLAlchemyError
@@ -7,11 +8,18 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.models.contribution_requests import ContributionRequest
 from app.services.execution_registry import UpstreamSnapshotRecord, execution_registry
 
+logger = logging.getLogger(__name__)
+
 
 def _list_upstream_snapshots_for_contribution(calculation_id: Any) -> list[UpstreamSnapshotRecord]:
     try:
         return execution_registry.list_upstream_snapshots(str(calculation_id))
     except SQLAlchemyError:
+        logger.warning(
+            "Contribution upstream snapshot lineage lookup failed for calculation_id=%s",
+            calculation_id,
+            exc_info=True,
+        )
         return []
 
 
