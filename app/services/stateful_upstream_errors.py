@@ -23,3 +23,12 @@ def raise_for_stateful_control_plane_unavailable(*, source_label: str, upstream_
             upstream_status=upstream_status,
         ),
     )
+
+
+def raise_for_stateful_source_unavailable(*, source_label: str, upstream_status: int) -> None:
+    if upstream_status < status.HTTP_400_BAD_REQUEST:
+        return
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail=f"{source_label} source unavailable ({upstream_status}).",
+    )

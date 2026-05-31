@@ -42,7 +42,10 @@ from app.services.stateful_performance_input_service import (
     build_stateful_portfolio_valuation_input,
     retrieve_stateful_portfolio_input,
 )
-from app.services.stateful_upstream_errors import raise_for_stateful_control_plane_unavailable
+from app.services.stateful_upstream_errors import (
+    raise_for_stateful_control_plane_unavailable,
+    raise_for_stateful_source_unavailable,
+)
 from app.services.stateless_benchmark_input_service import normalize_stateless_component_observations
 from app.services.twr_service import (
     _build_relative_return_value,
@@ -359,9 +362,9 @@ def _resolve_workspace_benchmark_input(
                 detail=f"No benchmark assignment found for portfolio_id={request.portfolio_id}.",
             )
         if assignment_status >= status.HTTP_400_BAD_REQUEST:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"benchmark assignment source unavailable ({assignment_status}).",
+            raise_for_stateful_source_unavailable(
+                source_label="benchmark assignment",
+                upstream_status=assignment_status,
             )
         benchmark_id_raw = assignment_payload.get("benchmark_id")
         if not isinstance(benchmark_id_raw, str) or not benchmark_id_raw:
