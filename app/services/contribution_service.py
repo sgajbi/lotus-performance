@@ -37,7 +37,10 @@ from app.services.contribution_methodology import (
     _classify_average_weight_shadow_cutover_blockers,
     _is_average_weight_shadow_cutover_candidate,
     _normalize_reset_aware_average_weight_mode,
-    _numeric_series_or_default,
+)
+from app.services.contribution_periods import (
+    _extract_reset_dates,
+    _slice_contribution_period_frames,
 )
 from app.services.contribution_returns import (
     _calculate_reset_aware_period_portfolio_return,
@@ -113,20 +116,14 @@ def calculate_contribution(
         if request.hierarchy:
             results_by_period = {}
             for period in resolved_periods:
-                period_slice_df = daily_contributions_df[
-                    (daily_contributions_df[PortfolioColumns.PERF_DATE.value] >= period.start_date)
-                    & (daily_contributions_df[PortfolioColumns.PERF_DATE.value] <= period.end_date)
-                ].copy()
-                portfolio_period_slice_df = portfolio_results_df[
-                    (
-                        pd.to_datetime(portfolio_results_df[PortfolioColumns.PERF_DATE.value]).dt.date
-                        >= period.start_date
-                    )
-                    & (
-                        pd.to_datetime(portfolio_results_df[PortfolioColumns.PERF_DATE.value]).dt.date
-                        <= period.end_date
-                    )
-                ]
+                period_frames = _slice_contribution_period_frames(
+                    daily_contributions_df=daily_contributions_df,
+                    portfolio_results_df=portfolio_results_df,
+                    start_date=period.start_date,
+                    end_date=period.end_date,
+                )
+                period_slice_df = period_frames.period_slice_df
+                portfolio_period_slice_df = period_frames.portfolio_period_slice_df
 
                 if period_slice_df.empty or portfolio_period_slice_df.empty:
                     continue
@@ -152,23 +149,8 @@ def calculate_contribution(
                     sum_shadow_delta_bp=period_sum_shadow_delta_bp,
                 )
 
-                period_position_reset_dates = set(
-                    pd.to_datetime(
-                        period_slice_df.loc[
-                            _numeric_series_or_default(period_slice_df, PortfolioColumns.PERF_RESET.value) == 1,
-                            PortfolioColumns.PERF_DATE.value,
-                        ]
-                    ).dt.date
-                )
-                period_portfolio_reset_dates = set(
-                    pd.to_datetime(
-                        portfolio_period_slice_df.loc[
-                            _numeric_series_or_default(portfolio_period_slice_df, PortfolioColumns.PERF_RESET.value)
-                            == 1,
-                            PortfolioColumns.PERF_DATE.value,
-                        ]
-                    ).dt.date
-                )
+                period_position_reset_dates = _extract_reset_dates(period_slice_df)
+                period_portfolio_reset_dates = _extract_reset_dates(portfolio_period_slice_df)
                 period_position_flow_balance_counts = _calculate_position_flow_balance_counts(
                     period_slice_df,
                     portfolio_period_slice_df,
@@ -303,24 +285,18 @@ def calculate_contribution(
         else:
             results_by_period = {}
             for period in resolved_periods:
-                period_slice_df = daily_contributions_df[
-                    (daily_contributions_df[PortfolioColumns.PERF_DATE.value] >= period.start_date)
-                    & (daily_contributions_df[PortfolioColumns.PERF_DATE.value] <= period.end_date)
-                ].copy()
+                period_frames = _slice_contribution_period_frames(
+                    daily_contributions_df=daily_contributions_df,
+                    portfolio_results_df=portfolio_results_df,
+                    start_date=period.start_date,
+                    end_date=period.end_date,
+                )
+                period_slice_df = period_frames.period_slice_df
 
                 if period_slice_df.empty:
                     continue
 
-                portfolio_period_slice_df = portfolio_results_df[
-                    (
-                        pd.to_datetime(portfolio_results_df[PortfolioColumns.PERF_DATE.value]).dt.date
-                        >= period.start_date
-                    )
-                    & (
-                        pd.to_datetime(portfolio_results_df[PortfolioColumns.PERF_DATE.value]).dt.date
-                        <= period.end_date
-                    )
-                ]
+                portfolio_period_slice_df = period_frames.portfolio_period_slice_df
 
                 (
                     average_weight_shadow_df,
@@ -337,23 +313,8 @@ def calculate_contribution(
                     sum_shadow_delta_bp=period_sum_shadow_delta_bp,
                 )
 
-                period_position_reset_dates = set(
-                    pd.to_datetime(
-                        period_slice_df.loc[
-                            _numeric_series_or_default(period_slice_df, PortfolioColumns.PERF_RESET.value) == 1,
-                            PortfolioColumns.PERF_DATE.value,
-                        ]
-                    ).dt.date
-                )
-                period_portfolio_reset_dates = set(
-                    pd.to_datetime(
-                        portfolio_period_slice_df.loc[
-                            _numeric_series_or_default(portfolio_period_slice_df, PortfolioColumns.PERF_RESET.value)
-                            == 1,
-                            PortfolioColumns.PERF_DATE.value,
-                        ]
-                    ).dt.date
-                )
+                period_position_reset_dates = _extract_reset_dates(period_slice_df)
+                period_portfolio_reset_dates = _extract_reset_dates(portfolio_period_slice_df)
                 period_position_flow_balance_counts = _calculate_position_flow_balance_counts(
                     period_slice_df,
                     portfolio_period_slice_df,

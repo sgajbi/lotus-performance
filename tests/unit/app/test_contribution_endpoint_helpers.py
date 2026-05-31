@@ -33,6 +33,7 @@ from app.services.contribution_methodology import (
     _is_average_weight_shadow_cutover_candidate,
     _normalize_reset_aware_average_weight_mode,
 )
+from app.services.contribution_periods import _extract_reset_dates, _slice_contribution_period_frames
 from app.services.contribution_returns import (
     _calculate_position_total_return_pct,
     _calculate_reset_aware_period_portfolio_return,
@@ -97,6 +98,42 @@ def test_average_weight_shadow_audit_state_records_counts_and_diagnostic_notes()
     assert counts["timeseries_total_delta_periods"] == 1
     assert any("rollout readiness" in note for note in diagnostics.notes)
     assert any("daily contribution series" in note for note in diagnostics.notes)
+
+
+def test_contribution_period_helpers_slice_frames_and_extract_reset_dates():
+    daily_contributions_df = pd.DataFrame(
+        {
+            "position_id": ["A", "A", "A"],
+            "perf_date": [
+                pd.Timestamp("2025-01-01").date(),
+                pd.Timestamp("2025-01-02").date(),
+                pd.Timestamp("2025-01-03").date(),
+            ],
+            "perf_reset": [0, 1, 0],
+        }
+    )
+    portfolio_results_df = pd.DataFrame(
+        {
+            "perf_date": [
+                pd.Timestamp("2025-01-01"),
+                pd.Timestamp("2025-01-02"),
+                pd.Timestamp("2025-01-03"),
+            ],
+            "perf_reset": [1, 0, 1],
+        }
+    )
+
+    period_frames = _slice_contribution_period_frames(
+        daily_contributions_df=daily_contributions_df,
+        portfolio_results_df=portfolio_results_df,
+        start_date=pd.Timestamp("2025-01-02").date(),
+        end_date=pd.Timestamp("2025-01-03").date(),
+    )
+
+    assert period_frames.period_slice_df["position_id"].tolist() == ["A", "A"]
+    assert period_frames.period_slice_df is not daily_contributions_df
+    assert _extract_reset_dates(period_frames.period_slice_df) == {pd.Timestamp("2025-01-02").date()}
+    assert _extract_reset_dates(period_frames.portfolio_period_slice_df) == {pd.Timestamp("2025-01-03").date()}
 
 
 def test_contribution_reset_helpers_cover_empty_and_zero_paths(mocker):
