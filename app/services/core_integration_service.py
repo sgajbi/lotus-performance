@@ -18,6 +18,29 @@ class CoreIntegrationService:
         self._max_retries = max_retries
         self._retry_backoff_seconds = retry_backoff_seconds
 
+    def _url(self, path: str) -> str:
+        return f"{self._base_url}{path}"
+
+    async def _post_json(self, *, path: str, payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        return await post_with_retry(
+            url=self._url(path),
+            timeout_seconds=self._timeout,
+            json_body=payload,
+            headers=propagation_headers(),
+            max_retries=self._max_retries,
+            backoff_seconds=self._retry_backoff_seconds,
+        )
+
+    async def _get_json(self, *, path: str, query_params: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        return await get_with_retry(
+            url=self._url(path),
+            timeout_seconds=self._timeout,
+            query_params=query_params,
+            headers=propagation_headers(),
+            max_retries=self._max_retries,
+            backoff_seconds=self._retry_backoff_seconds,
+        )
+
     async def get_portfolio_analytics_timeseries(
         self,
         *,
@@ -30,7 +53,6 @@ class CoreIntegrationService:
         page_size: int = 5000,
         page_token: str | None = None,
     ) -> tuple[int, dict[str, Any]]:
-        url = f"{self._base_url}/integration/portfolios/{portfolio_id}/analytics/portfolio-timeseries"
         payload: dict[str, Any] = {
             "as_of_date": str(as_of_date),
             "window": {"start_date": str(start_date), "end_date": str(end_date)},
@@ -40,13 +62,9 @@ class CoreIntegrationService:
         }
         if reporting_currency:
             payload["reporting_currency"] = reporting_currency
-        return await post_with_retry(
-            url=url,
-            timeout_seconds=self._timeout,
-            json_body=payload,
-            headers=propagation_headers(),
-            max_retries=self._max_retries,
-            backoff_seconds=self._retry_backoff_seconds,
+        return await self._post_json(
+            path=f"/integration/portfolios/{portfolio_id}/analytics/portfolio-timeseries",
+            payload=payload,
         )
 
     async def get_position_analytics_timeseries(
@@ -64,7 +82,6 @@ class CoreIntegrationService:
         page_size: int = 5000,
         page_token: str | None = None,
     ) -> tuple[int, dict[str, Any]]:
-        url = f"{self._base_url}/integration/portfolios/{portfolio_id}/analytics/position-timeseries"
         payload: dict[str, Any] = {
             "as_of_date": str(as_of_date),
             "window": {"start_date": str(start_date), "end_date": str(end_date)},
@@ -77,13 +94,9 @@ class CoreIntegrationService:
         }
         if reporting_currency:
             payload["reporting_currency"] = reporting_currency
-        return await post_with_retry(
-            url=url,
-            timeout_seconds=self._timeout,
-            json_body=payload,
-            headers=propagation_headers(),
-            max_retries=self._max_retries,
-            backoff_seconds=self._retry_backoff_seconds,
+        return await self._post_json(
+            path=f"/integration/portfolios/{portfolio_id}/analytics/position-timeseries",
+            payload=payload,
         )
 
     async def get_benchmark_assignment(
@@ -93,17 +106,12 @@ class CoreIntegrationService:
         as_of_date: date,
         reporting_currency: str | None = None,
     ) -> tuple[int, dict[str, Any]]:
-        url = f"{self._base_url}/integration/portfolios/{portfolio_id}/benchmark-assignment"
         payload: dict[str, Any] = {"as_of_date": str(as_of_date)}
         if reporting_currency:
             payload["reporting_currency"] = reporting_currency
-        return await post_with_retry(
-            url=url,
-            timeout_seconds=self._timeout,
-            json_body=payload,
-            headers=propagation_headers(),
-            max_retries=self._max_retries,
-            backoff_seconds=self._retry_backoff_seconds,
+        return await self._post_json(
+            path=f"/integration/portfolios/{portfolio_id}/benchmark-assignment",
+            payload=payload,
         )
 
     async def get_portfolio_analytics_reference(
@@ -112,15 +120,10 @@ class CoreIntegrationService:
         portfolio_id: str,
         as_of_date: date,
     ) -> tuple[int, dict[str, Any]]:
-        url = f"{self._base_url}/integration/portfolios/{portfolio_id}/analytics/reference"
         payload = {"as_of_date": str(as_of_date)}
-        return await post_with_retry(
-            url=url,
-            timeout_seconds=self._timeout,
-            json_body=payload,
-            headers=propagation_headers(),
-            max_retries=self._max_retries,
-            backoff_seconds=self._retry_backoff_seconds,
+        return await self._post_json(
+            path=f"/integration/portfolios/{portfolio_id}/analytics/reference",
+            payload=payload,
         )
 
     async def get_benchmark_return_series(
@@ -132,19 +135,14 @@ class CoreIntegrationService:
         end_date: date,
         frequency: str = "daily",
     ) -> tuple[int, dict[str, Any]]:
-        url = f"{self._base_url}/integration/benchmarks/{benchmark_id}/return-series"
         payload = {
             "as_of_date": str(as_of_date),
             "window": {"start_date": str(start_date), "end_date": str(end_date)},
             "frequency": frequency,
         }
-        return await post_with_retry(
-            url=url,
-            timeout_seconds=self._timeout,
-            json_body=payload,
-            headers=propagation_headers(),
-            max_retries=self._max_retries,
-            backoff_seconds=self._retry_backoff_seconds,
+        return await self._post_json(
+            path=f"/integration/benchmarks/{benchmark_id}/return-series",
+            payload=payload,
         )
 
     async def get_benchmark_definition(
@@ -153,15 +151,10 @@ class CoreIntegrationService:
         benchmark_id: str,
         as_of_date: date,
     ) -> tuple[int, dict[str, Any]]:
-        url = f"{self._base_url}/integration/benchmarks/{benchmark_id}/definition"
         payload = {"as_of_date": str(as_of_date)}
-        return await post_with_retry(
-            url=url,
-            timeout_seconds=self._timeout,
-            json_body=payload,
-            headers=propagation_headers(),
-            max_retries=self._max_retries,
-            backoff_seconds=self._retry_backoff_seconds,
+        return await self._post_json(
+            path=f"/integration/benchmarks/{benchmark_id}/definition",
+            payload=payload,
         )
 
     async def get_benchmark_composition_window(
@@ -171,17 +164,12 @@ class CoreIntegrationService:
         start_date: date,
         end_date: date,
     ) -> tuple[int, dict[str, Any]]:
-        url = f"{self._base_url}/integration/benchmarks/{benchmark_id}/composition-window"
         payload = {
             "window": {"start_date": str(start_date), "end_date": str(end_date)},
         }
-        return await post_with_retry(
-            url=url,
-            timeout_seconds=self._timeout,
-            json_body=payload,
-            headers=propagation_headers(),
-            max_retries=self._max_retries,
-            backoff_seconds=self._retry_backoff_seconds,
+        return await self._post_json(
+            path=f"/integration/benchmarks/{benchmark_id}/composition-window",
+            payload=payload,
         )
 
     async def get_benchmark_market_series(
@@ -195,7 +183,6 @@ class CoreIntegrationService:
         target_currency: str | None = None,
         series_fields: list[str] | None = None,
     ) -> tuple[int, dict[str, Any]]:
-        url = f"{self._base_url}/integration/benchmarks/{benchmark_id}/market-series"
         payload: dict[str, Any] = {
             "as_of_date": str(as_of_date),
             "window": {"start_date": str(start_date), "end_date": str(end_date)},
@@ -204,13 +191,9 @@ class CoreIntegrationService:
         }
         if target_currency:
             payload["target_currency"] = target_currency
-        return await post_with_retry(
-            url=url,
-            timeout_seconds=self._timeout,
-            json_body=payload,
-            headers=propagation_headers(),
-            max_retries=self._max_retries,
-            backoff_seconds=self._retry_backoff_seconds,
+        return await self._post_json(
+            path=f"/integration/benchmarks/{benchmark_id}/market-series",
+            payload=payload,
         )
 
     async def get_fx_rates(
@@ -221,20 +204,15 @@ class CoreIntegrationService:
         start_date: date,
         end_date: date,
     ) -> tuple[int, dict[str, Any]]:
-        url = f"{self._base_url}/fx-rates/"
         query_params = {
             "from_currency": from_currency,
             "to_currency": to_currency,
             "start_date": str(start_date),
             "end_date": str(end_date),
         }
-        return await get_with_retry(
-            url=url,
-            timeout_seconds=self._timeout,
+        return await self._get_json(
+            path="/fx-rates/",
             query_params=query_params,
-            headers=propagation_headers(),
-            max_retries=self._max_retries,
-            backoff_seconds=self._retry_backoff_seconds,
         )
 
     async def get_index_catalog(
@@ -246,7 +224,6 @@ class CoreIntegrationService:
         index_type: str | None = None,
         index_status: str | None = None,
     ) -> tuple[int, dict[str, Any]]:
-        url = f"{self._base_url}/integration/indices/catalog"
         payload: dict[str, Any] = {"as_of_date": str(as_of_date)}
         if index_ids:
             payload["index_ids"] = index_ids
@@ -256,13 +233,9 @@ class CoreIntegrationService:
             payload["index_type"] = index_type
         if index_status:
             payload["index_status"] = index_status
-        return await post_with_retry(
-            url=url,
-            timeout_seconds=self._timeout,
-            json_body=payload,
-            headers=propagation_headers(),
-            max_retries=self._max_retries,
-            backoff_seconds=self._retry_backoff_seconds,
+        return await self._post_json(
+            path="/integration/indices/catalog",
+            payload=payload,
         )
 
     async def get_index_price_series(
@@ -275,7 +248,6 @@ class CoreIntegrationService:
         frequency: str = "daily",
         target_currency: str | None = None,
     ) -> tuple[int, dict[str, Any]]:
-        url = f"{self._base_url}/integration/indices/{index_id}/price-series"
         payload: dict[str, Any] = {
             "as_of_date": str(as_of_date),
             "window": {"start_date": str(start_date), "end_date": str(end_date)},
@@ -283,13 +255,9 @@ class CoreIntegrationService:
         }
         if target_currency:
             payload["target_currency"] = target_currency
-        return await post_with_retry(
-            url=url,
-            timeout_seconds=self._timeout,
-            json_body=payload,
-            headers=propagation_headers(),
-            max_retries=self._max_retries,
-            backoff_seconds=self._retry_backoff_seconds,
+        return await self._post_json(
+            path=f"/integration/indices/{index_id}/price-series",
+            payload=payload,
         )
 
     async def get_risk_free_series(
@@ -302,7 +270,6 @@ class CoreIntegrationService:
         frequency: str = "daily",
         series_mode: str = "return_series",
     ) -> tuple[int, dict[str, Any]]:
-        url = f"{self._base_url}/integration/reference/risk-free-series"
         payload = {
             "currency": currency,
             "series_mode": series_mode,
@@ -310,11 +277,7 @@ class CoreIntegrationService:
             "window": {"start_date": str(start_date), "end_date": str(end_date)},
             "frequency": frequency,
         }
-        return await post_with_retry(
-            url=url,
-            timeout_seconds=self._timeout,
-            json_body=payload,
-            headers=propagation_headers(),
-            max_retries=self._max_retries,
-            backoff_seconds=self._retry_backoff_seconds,
+        return await self._post_json(
+            path="/integration/reference/risk-free-series",
+            payload=payload,
         )
