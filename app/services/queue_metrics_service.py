@@ -28,7 +28,12 @@ from app.services.recovery_drill_history_service import build_recovery_drill_his
 from app.services.runtime_degradation_policy import threshold_breach_flag
 from app.services.runtime_retention_history_service import build_runtime_retention_history_snapshot
 from app.services.runtime_retention_service import run_runtime_retention_cleanup
-from app.services.runtime_status_policy import build_recovery_drill_policy, build_runtime_retention_policy
+from app.services.runtime_status_policy import (
+    build_compute_queue_policy,
+    build_lineage_queue_policy,
+    build_recovery_drill_policy,
+    build_runtime_retention_policy,
+)
 from app.services.runtime_status_time import age_seconds_since
 
 TMetricSource = TypeVar("TMetricSource")
@@ -204,6 +209,8 @@ class DurableQueueCollector:
 
     def collect(self):
         settings = get_settings()
+        compute_queue_policy = build_compute_queue_policy(settings=settings)
+        lineage_queue_policy = build_lineage_queue_policy(settings=settings)
         recovery_drill_policy = build_recovery_drill_policy(settings=settings)
         runtime_retention_policy = build_runtime_retention_policy(settings=settings)
         compute_stats, compute_available = _load_metric_source(compute_job_store.get_queue_stats)
@@ -354,66 +361,42 @@ class DurableQueueCollector:
                     (
                         "compute_retry_backlog_exceeded",
                         threshold_breach_flag(
-                            threshold_value=getattr(
-                                settings,
-                                "RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT",
-                                0,
-                            ),
+                            threshold_value=compute_queue_policy.retry_backlog_count,
                             observed_value=compute_stats.retry_backlog_count,
                         ),
                     ),
                     (
                         "compute_terminal_failure_exceeded",
                         threshold_breach_flag(
-                            threshold_value=getattr(
-                                settings,
-                                "RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT",
-                                0,
-                            ),
+                            threshold_value=compute_queue_policy.terminal_failure_count,
                             observed_value=compute_stats.terminal_failure_count,
                         ),
                     ),
                     (
                         "compute_lease_expiry_pressure_exceeded",
                         threshold_breach_flag(
-                            threshold_value=getattr(
-                                settings,
-                                "RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT",
-                                0,
-                            ),
+                            threshold_value=compute_queue_policy.lease_expiry_count,
                             observed_value=compute_stats.lease_expired_count,
                         ),
                     ),
                     (
                         "compute_pending_age_exceeded",
                         threshold_breach_flag(
-                            threshold_value=getattr(
-                                settings,
-                                "RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS",
-                                0.0,
-                            ),
+                            threshold_value=compute_queue_policy.pending_age_seconds,
                             observed_value=compute_stats.oldest_pending_age_seconds,
                         ),
                     ),
                     (
                         "compute_leased_age_exceeded",
                         threshold_breach_flag(
-                            threshold_value=getattr(
-                                settings,
-                                "RUNTIME_STATUS_COMPUTE_LEASED_AGE_DEGRADE_SECONDS",
-                                0.0,
-                            ),
+                            threshold_value=compute_queue_policy.leased_age_seconds,
                             observed_value=compute_stats.oldest_leased_age_seconds,
                         ),
                     ),
                     (
                         "compute_running_age_exceeded",
                         threshold_breach_flag(
-                            threshold_value=getattr(
-                                settings,
-                                "RUNTIME_STATUS_COMPUTE_RUNNING_AGE_DEGRADE_SECONDS",
-                                0.0,
-                            ),
+                            threshold_value=compute_queue_policy.running_age_seconds,
                             observed_value=compute_stats.oldest_running_age_seconds,
                         ),
                     ),
@@ -453,44 +436,28 @@ class DurableQueueCollector:
                     (
                         "lineage_retry_backlog_exceeded",
                         threshold_breach_flag(
-                            threshold_value=getattr(
-                                settings,
-                                "RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT",
-                                0,
-                            ),
+                            threshold_value=lineage_queue_policy.retry_backlog_count,
                             observed_value=lineage_stats.retry_backlog_count,
                         ),
                     ),
                     (
                         "lineage_terminal_failure_exceeded",
                         threshold_breach_flag(
-                            threshold_value=getattr(
-                                settings,
-                                "RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT",
-                                0,
-                            ),
+                            threshold_value=lineage_queue_policy.terminal_failure_count,
                             observed_value=lineage_stats.terminal_failure_count,
                         ),
                     ),
                     (
                         "lineage_pending_age_exceeded",
                         threshold_breach_flag(
-                            threshold_value=getattr(
-                                settings,
-                                "RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS",
-                                0.0,
-                            ),
+                            threshold_value=lineage_queue_policy.pending_age_seconds,
                             observed_value=lineage_stats.oldest_pending_age_seconds,
                         ),
                     ),
                     (
                         "lineage_leased_age_exceeded",
                         threshold_breach_flag(
-                            threshold_value=getattr(
-                                settings,
-                                "RUNTIME_STATUS_LINEAGE_LEASED_AGE_DEGRADE_SECONDS",
-                                0.0,
-                            ),
+                            threshold_value=lineage_queue_policy.leased_age_seconds,
                             observed_value=getattr(lineage_stats, "oldest_leased_age_seconds", 0.0),
                         ),
                     ),
@@ -515,8 +482,6 @@ class DurableQueueCollector:
                 value=lineage_storage_capacity.free_ratio,
             )
 
-            min_free_bytes = getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES", 0)
-            min_free_ratio = getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO", 0.0)
             yield reason_labeled_metric(
                 metric_name="lotus_performance_lineage_storage_pressure_breach",
                 description="Whether lineage storage currently breaches a proactive saturation threshold.",
@@ -525,7 +490,7 @@ class DurableQueueCollector:
                         "lineage_storage_free_bytes_below_threshold",
                         threshold_breach_flag(
                             observed_value=lineage_storage_capacity.free_bytes,
-                            threshold_value=min_free_bytes,
+                            threshold_value=lineage_queue_policy.storage_min_free_bytes,
                             comparison="at_or_below",
                         ),
                     ),
@@ -533,7 +498,7 @@ class DurableQueueCollector:
                         "lineage_storage_free_ratio_below_threshold",
                         threshold_breach_flag(
                             observed_value=lineage_storage_capacity.free_ratio,
-                            threshold_value=min_free_ratio,
+                            threshold_value=lineage_queue_policy.storage_min_free_ratio,
                             comparison="at_or_below",
                         ),
                     ),
@@ -545,8 +510,8 @@ class DurableQueueCollector:
             description="Configured proactive lineage storage pressure thresholds.",
             label_name="threshold",
             samples=(
-                ("min_free_bytes", getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES", 0)),
-                ("min_free_ratio", getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO", 0.0)),
+                ("min_free_bytes", lineage_queue_policy.storage_min_free_bytes),
+                ("min_free_ratio", lineage_queue_policy.storage_min_free_ratio),
             ),
         )
 
