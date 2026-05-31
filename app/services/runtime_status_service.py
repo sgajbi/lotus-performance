@@ -29,6 +29,11 @@ from app.services.operator_action_lease_service import build_operator_action_lea
 from app.services.recovery_drill_history_service import (
     build_recovery_drill_history_snapshot,
 )
+from app.services.runtime_degradation_policy import (
+    ThresholdComparison,
+    as_decimal_number,
+    threshold_breach_values,
+)
 from app.services.runtime_retention_history_service import (
     build_runtime_retention_history_snapshot,
 )
@@ -868,28 +873,20 @@ def _lineage_queue_degradation_details(
     )
     lineage_storage_min_free_bytes = getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES", 0)
     lineage_storage_min_free_ratio = getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO", 0.0)
-    if (
-        _threshold_is_configured(lineage_storage_min_free_bytes)
-        and storage_capacity.free_bytes <= lineage_storage_min_free_bytes
-    ):
-        details.append(
-            RuntimeDegradationDetail(
-                reason="lineage_storage_free_bytes_below_threshold",
-                observed_value=_as_decimal_number(storage_capacity.free_bytes),
-                threshold_value=_as_decimal_number(lineage_storage_min_free_bytes),
-            )
-        )
-    if (
-        _threshold_is_configured(lineage_storage_min_free_ratio)
-        and storage_capacity.free_ratio <= lineage_storage_min_free_ratio
-    ):
-        details.append(
-            RuntimeDegradationDetail(
-                reason="lineage_storage_free_ratio_below_threshold",
-                observed_value=_as_decimal_number(storage_capacity.free_ratio),
-                threshold_value=_as_decimal_number(lineage_storage_min_free_ratio),
-            )
-        )
+    _append_degradation_detail_if_breached(
+        details,
+        reason="lineage_storage_free_bytes_below_threshold",
+        observed_value=storage_capacity.free_bytes,
+        threshold_value=lineage_storage_min_free_bytes,
+        comparison="at_or_below",
+    )
+    _append_degradation_detail_if_breached(
+        details,
+        reason="lineage_storage_free_ratio_below_threshold",
+        observed_value=storage_capacity.free_ratio,
+        threshold_value=lineage_storage_min_free_ratio,
+        comparison="at_or_below",
+    )
     return tuple(details)
 
 
@@ -899,11 +896,16 @@ def _append_degradation_detail_if_breached(
     reason: str,
     observed_value: object,
     threshold_value: object,
+    comparison: ThresholdComparison = "at_or_above",
 ) -> None:
-    observed_decimal = _as_decimal_number(observed_value)
-    threshold_decimal = _as_decimal_number(threshold_value)
-    if threshold_decimal <= 0 or observed_decimal < threshold_decimal:
+    breached_values = threshold_breach_values(
+        observed_value=observed_value,
+        threshold_value=threshold_value,
+        comparison=comparison,
+    )
+    if breached_values is None:
         return
+    observed_decimal, threshold_decimal = breached_values
     details.append(
         RuntimeDegradationDetail(
             reason=reason,
@@ -913,12 +915,8 @@ def _append_degradation_detail_if_breached(
     )
 
 
-def _threshold_is_configured(threshold_value: object) -> bool:
-    return _as_decimal_number(threshold_value) > 0
-
-
 def _as_decimal_number(value: object) -> Decimal:
-    return Decimal(str(value))
+    return as_decimal_number(value)
 
 
 def _build_missing_recovery_drill_status(

@@ -11,6 +11,7 @@ from app.services.durability_health_service import get_lineage_storage_capacity
 from app.services.lineage_metadata_store import lineage_metadata_store
 from app.services.operator_action_lease_service import build_operator_action_lease_snapshot
 from app.services.recovery_drill_history_service import build_recovery_drill_history_snapshot
+from app.services.runtime_degradation_policy import threshold_breach_flag
 from app.services.runtime_retention_history_service import build_runtime_retention_history_snapshot
 from app.services.runtime_retention_service import run_runtime_retention_cleanup
 
@@ -387,44 +388,44 @@ class DurableQueueCollector:
             )
             compute_breach.add_metric(
                 ["compute_retry_backlog_exceeded"],
-                _breach_flag(
-                    threshold=getattr(settings, "RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT", 0),
-                    observed=compute_stats.retry_backlog_count,
+                threshold_breach_flag(
+                    threshold_value=getattr(settings, "RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT", 0),
+                    observed_value=compute_stats.retry_backlog_count,
                 ),
             )
             compute_breach.add_metric(
                 ["compute_terminal_failure_exceeded"],
-                _breach_flag(
-                    threshold=getattr(settings, "RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT", 0),
-                    observed=compute_stats.terminal_failure_count,
+                threshold_breach_flag(
+                    threshold_value=getattr(settings, "RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT", 0),
+                    observed_value=compute_stats.terminal_failure_count,
                 ),
             )
             compute_breach.add_metric(
                 ["compute_lease_expiry_pressure_exceeded"],
-                _breach_flag(
-                    threshold=getattr(settings, "RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT", 0),
-                    observed=compute_stats.lease_expired_count,
+                threshold_breach_flag(
+                    threshold_value=getattr(settings, "RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT", 0),
+                    observed_value=compute_stats.lease_expired_count,
                 ),
             )
             compute_breach.add_metric(
                 ["compute_pending_age_exceeded"],
-                _breach_flag(
-                    threshold=getattr(settings, "RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS", 0.0),
-                    observed=compute_stats.oldest_pending_age_seconds,
+                threshold_breach_flag(
+                    threshold_value=getattr(settings, "RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS", 0.0),
+                    observed_value=compute_stats.oldest_pending_age_seconds,
                 ),
             )
             compute_breach.add_metric(
                 ["compute_leased_age_exceeded"],
-                _breach_flag(
-                    threshold=getattr(settings, "RUNTIME_STATUS_COMPUTE_LEASED_AGE_DEGRADE_SECONDS", 0.0),
-                    observed=compute_stats.oldest_leased_age_seconds,
+                threshold_breach_flag(
+                    threshold_value=getattr(settings, "RUNTIME_STATUS_COMPUTE_LEASED_AGE_DEGRADE_SECONDS", 0.0),
+                    observed_value=compute_stats.oldest_leased_age_seconds,
                 ),
             )
             compute_breach.add_metric(
                 ["compute_running_age_exceeded"],
-                _breach_flag(
-                    threshold=getattr(settings, "RUNTIME_STATUS_COMPUTE_RUNNING_AGE_DEGRADE_SECONDS", 0.0),
-                    observed=compute_stats.oldest_running_age_seconds,
+                threshold_breach_flag(
+                    threshold_value=getattr(settings, "RUNTIME_STATUS_COMPUTE_RUNNING_AGE_DEGRADE_SECONDS", 0.0),
+                    observed_value=compute_stats.oldest_running_age_seconds,
                 ),
             )
             yield compute_breach
@@ -463,30 +464,30 @@ class DurableQueueCollector:
             )
             lineage_breach.add_metric(
                 ["lineage_retry_backlog_exceeded"],
-                _breach_flag(
-                    threshold=getattr(settings, "RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT", 0),
-                    observed=lineage_stats.retry_backlog_count,
+                threshold_breach_flag(
+                    threshold_value=getattr(settings, "RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT", 0),
+                    observed_value=lineage_stats.retry_backlog_count,
                 ),
             )
             lineage_breach.add_metric(
                 ["lineage_terminal_failure_exceeded"],
-                _breach_flag(
-                    threshold=getattr(settings, "RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT", 0),
-                    observed=lineage_stats.terminal_failure_count,
+                threshold_breach_flag(
+                    threshold_value=getattr(settings, "RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT", 0),
+                    observed_value=lineage_stats.terminal_failure_count,
                 ),
             )
             lineage_breach.add_metric(
                 ["lineage_pending_age_exceeded"],
-                _breach_flag(
-                    threshold=getattr(settings, "RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS", 0.0),
-                    observed=lineage_stats.oldest_pending_age_seconds,
+                threshold_breach_flag(
+                    threshold_value=getattr(settings, "RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS", 0.0),
+                    observed_value=lineage_stats.oldest_pending_age_seconds,
                 ),
             )
             lineage_breach.add_metric(
                 ["lineage_leased_age_exceeded"],
-                _breach_flag(
-                    threshold=getattr(settings, "RUNTIME_STATUS_LINEAGE_LEASED_AGE_DEGRADE_SECONDS", 0.0),
-                    observed=getattr(lineage_stats, "oldest_leased_age_seconds", 0.0),
+                threshold_breach_flag(
+                    threshold_value=getattr(settings, "RUNTIME_STATUS_LINEAGE_LEASED_AGE_DEGRADE_SECONDS", 0.0),
+                    observed_value=getattr(lineage_stats, "oldest_leased_age_seconds", 0.0),
                 ),
             )
             yield lineage_breach
@@ -518,11 +519,19 @@ class DurableQueueCollector:
             min_free_ratio = getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO", 0.0)
             lineage_storage_breach.add_metric(
                 ["lineage_storage_free_bytes_below_threshold"],
-                1 if min_free_bytes > 0 and lineage_storage_capacity.free_bytes <= min_free_bytes else 0,
+                threshold_breach_flag(
+                    observed_value=lineage_storage_capacity.free_bytes,
+                    threshold_value=min_free_bytes,
+                    comparison="at_or_below",
+                ),
             )
             lineage_storage_breach.add_metric(
                 ["lineage_storage_free_ratio_below_threshold"],
-                1 if min_free_ratio > 0 and lineage_storage_capacity.free_ratio <= min_free_ratio else 0,
+                threshold_breach_flag(
+                    observed_value=lineage_storage_capacity.free_ratio,
+                    threshold_value=min_free_ratio,
+                    comparison="at_or_below",
+                ),
             )
             yield lineage_storage_breach
 
@@ -679,16 +688,20 @@ class DurableQueueCollector:
             )
             recovery_drill_breach.add_metric(
                 ["recovery_drill_age_exceeded"],
-                _breach_flag(
-                    threshold=getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS", 0.0),
-                    observed=latest_age_seconds,
+                threshold_breach_flag(
+                    threshold_value=getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS", 0.0),
+                    observed_value=latest_age_seconds,
                 ),
             )
             recovery_drill_breach.add_metric(
                 ["recovery_drill_active_run_age_exceeded"],
-                _breach_flag(
-                    threshold=getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_ACTIVE_RUN_AGE_DEGRADE_SECONDS", 0.0),
-                    observed=(
+                threshold_breach_flag(
+                    threshold_value=getattr(
+                        settings,
+                        "RUNTIME_STATUS_RECOVERY_DRILL_ACTIVE_RUN_AGE_DEGRADE_SECONDS",
+                        0.0,
+                    ),
+                    observed_value=(
                         0.0
                         if recovery_drill_action_snapshot is None
                         or recovery_drill_action_snapshot.status != "available"
@@ -699,9 +712,9 @@ class DurableQueueCollector:
             )
             recovery_drill_breach.add_metric(
                 ["recovery_drill_reclaim_pressure_exceeded"],
-                _breach_flag(
-                    threshold=getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT", 0),
-                    observed=(
+                threshold_breach_flag(
+                    threshold_value=getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT", 0),
+                    observed_value=(
                         0
                         if recovery_drill_action_snapshot is None
                         or recovery_drill_action_snapshot.status != "available"
@@ -738,20 +751,20 @@ class DurableQueueCollector:
             )
             runtime_retention_breach.add_metric(
                 ["runtime_retention_age_exceeded"],
-                _breach_flag(
-                    threshold=getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS", 0.0),
-                    observed=latest_age_seconds,
+                threshold_breach_flag(
+                    threshold_value=getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS", 0.0),
+                    observed_value=latest_age_seconds,
                 ),
             )
             runtime_retention_breach.add_metric(
                 ["runtime_retention_active_run_age_exceeded"],
-                _breach_flag(
-                    threshold=getattr(
+                threshold_breach_flag(
+                    threshold_value=getattr(
                         settings,
                         "RUNTIME_STATUS_RUNTIME_RETENTION_ACTIVE_RUN_AGE_DEGRADE_SECONDS",
                         0.0,
                     ),
-                    observed=(
+                    observed_value=(
                         0.0
                         if runtime_retention_action_snapshot is None
                         or runtime_retention_action_snapshot.status != "available"
@@ -762,9 +775,9 @@ class DurableQueueCollector:
             )
             runtime_retention_breach.add_metric(
                 ["runtime_retention_reclaim_pressure_exceeded"],
-                _breach_flag(
-                    threshold=getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT", 0),
-                    observed=(
+                threshold_breach_flag(
+                    threshold_value=getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT", 0),
+                    observed_value=(
                         0
                         if runtime_retention_action_snapshot is None
                         or runtime_retention_action_snapshot.status != "available"
@@ -774,10 +787,6 @@ class DurableQueueCollector:
                 ),
             )
             yield runtime_retention_breach
-
-
-def _breach_flag(*, threshold: float | int, observed: float | int) -> int:
-    return 1 if threshold > 0 and observed >= threshold else 0
 
 
 def _age_seconds(timestamp_utc: str) -> float:
