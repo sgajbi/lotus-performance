@@ -2727,3 +2727,25 @@ def test_runtime_status_operator_action_degradation_helper_reuses_threshold_sema
     assert details[0].threshold_value == runtime_status_service._as_decimal_number(60.0)
     assert details[1].observed_value == runtime_status_service._as_decimal_number(3)
     assert details[1].threshold_value == runtime_status_service._as_decimal_number(3)
+
+
+def test_runtime_status_latest_history_age_degradation_helper_uses_governed_threshold_semantics():
+    details: list[runtime_status_service.RuntimeDegradationDetail] = []
+
+    runtime_status_service._append_latest_history_age_degradation_detail(
+        details,
+        reason="runtime_retention_age_exceeded",
+        latest_age_seconds=59.9,
+        threshold=60.0,
+    )
+    runtime_status_service._append_latest_history_age_degradation_detail(
+        details,
+        reason="runtime_retention_age_exceeded",
+        latest_age_seconds=60.0,
+        threshold=60.0,
+    )
+
+    assert len(details) == 1
+    assert details[0].reason == "runtime_retention_age_exceeded"
+    assert details[0].observed_value == runtime_status_service._as_decimal_number(60.0)
+    assert details[0].threshold_value == runtime_status_service._as_decimal_number(60.0)

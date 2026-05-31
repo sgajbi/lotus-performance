@@ -514,14 +514,12 @@ def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
                 threshold_value=_as_decimal_number(0),
             )
         )
-    if threshold > 0 and latest_age_seconds >= threshold:
-        degradation_details.append(
-            RuntimeDegradationDetail(
-                reason="recovery_drill_age_exceeded",
-                observed_value=_as_decimal_number(latest_age_seconds),
-                threshold_value=_as_decimal_number(threshold),
-            )
-        )
+    _append_latest_history_age_degradation_detail(
+        degradation_details,
+        reason="recovery_drill_age_exceeded",
+        latest_age_seconds=latest_age_seconds,
+        threshold=threshold,
+    )
     _append_operator_action_degradation_details(
         degradation_details,
         active_run_status=active_run_status,
@@ -701,14 +699,12 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
                 threshold_value=_as_decimal_number(0),
             )
         )
-    if threshold > 0 and latest_age_seconds >= threshold:
-        degradation_details.append(
-            RuntimeDegradationDetail(
-                reason="runtime_retention_age_exceeded",
-                observed_value=_as_decimal_number(latest_age_seconds),
-                threshold_value=_as_decimal_number(threshold),
-            )
-        )
+    _append_latest_history_age_degradation_detail(
+        degradation_details,
+        reason="runtime_retention_age_exceeded",
+        latest_age_seconds=latest_age_seconds,
+        threshold=threshold,
+    )
     _append_operator_action_degradation_details(
         degradation_details,
         active_run_status=active_run_status,
@@ -910,6 +906,21 @@ def _append_operator_action_degradation_details(
         reason=reclaim_reason,
         observed_value=active_run_status.reclaimed_run_count,
         threshold_value=reclaim_threshold,
+    )
+
+
+def _append_latest_history_age_degradation_detail(
+    details: list[RuntimeDegradationDetail],
+    *,
+    reason: str,
+    latest_age_seconds: float,
+    threshold: float,
+) -> None:
+    _append_degradation_detail_if_breached(
+        details,
+        reason=reason,
+        observed_value=latest_age_seconds,
+        threshold_value=threshold,
     )
 
 
