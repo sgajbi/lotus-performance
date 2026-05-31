@@ -51,10 +51,7 @@ async def build_benchmark_exposure_context(
             detail=f"No benchmark market-series found for benchmark_id={benchmark_id}.",
         )
     if market_status >= status.HTTP_400_BAD_REQUEST:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"benchmark market-series source unavailable ({market_status}).",
-        )
+        _raise_source_unavailable(source_label="benchmark market-series", upstream_status=market_status)
 
     component_series = _parse_component_series(market_payload)
     classification_map = await _classification_map_for_request(
@@ -123,10 +120,7 @@ async def _resolve_benchmark_id(
             detail="benchmark exposure context requires a benchmark assignment or explicit benchmark_id.",
         )
     if assignment_status >= status.HTTP_400_BAD_REQUEST:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"benchmark assignment source unavailable ({assignment_status}).",
-        )
+        _raise_source_unavailable(source_label="benchmark assignment", upstream_status=assignment_status)
     benchmark_id = assignment_payload.get("benchmark_id")
     if not isinstance(benchmark_id, str) or not benchmark_id:
         raise HTTPException(
@@ -160,10 +154,7 @@ async def _classification_map_for_request(
         index_ids=index_ids,
     )
     if catalog_status >= status.HTTP_400_BAD_REQUEST:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"index catalog source unavailable ({catalog_status}).",
-        )
+        _raise_source_unavailable(source_label="index catalog", upstream_status=catalog_status)
     records = catalog_payload.get("records")
     if not isinstance(records, list):
         raise HTTPException(
@@ -189,6 +180,13 @@ def _parse_component_series(payload: dict[str, Any]) -> list[dict[str, Any]]:
             detail="benchmark market-series payload missing component_series list.",
         )
     return [component for component in component_series if isinstance(component, dict)]
+
+
+def _raise_source_unavailable(*, source_label: str, upstream_status: int) -> None:
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail=f"{source_label} source unavailable ({upstream_status}).",
+    )
 
 
 def _build_exposure_rows(
