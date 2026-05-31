@@ -24,6 +24,15 @@ class RuntimeRetentionCleanupSummary:
     prunable_lineage_artifact_count: int
 
 
+@dataclass(frozen=True)
+class RuntimeRetentionPrunableItems:
+    execution_ids: list[str]
+    lineage_ids: list[str]
+    compute_job_count: int
+    async_result_count: int
+    lineage_artifact_count: int
+
+
 def run_runtime_retention_cleanup(
     *,
     retention_days: int | None = None,
@@ -35,29 +44,41 @@ def run_runtime_retention_cleanup(
     effective_now = now or datetime.now(timezone.utc)
     cutoff = effective_now - timedelta(days=effective_retention_days)
 
-    prunable_execution_ids = execution_registry.list_terminal_execution_ids_older_than(cutoff)
-    prunable_lineage_ids = lineage_metadata_store.list_terminal_calculation_ids_older_than(cutoff)
-    prunable_compute_job_count = compute_job_store.prune_terminal_jobs_older_than(cutoff, dry_run=True)
-    prunable_async_result_count = async_result_store.prune_results_older_than(cutoff, dry_run=True)
-    prunable_lineage_artifact_count = _count_lineage_artifact_directories(prunable_lineage_ids)
+    prunable_items = _collect_prunable_items(cutoff=cutoff)
 
     if not dry_run:
-        compute_job_store.prune_terminal_jobs_older_than(cutoff, dry_run=False)
-        async_result_store.prune_results_older_than(cutoff, dry_run=False)
-        _delete_lineage_artifact_directories(prunable_lineage_ids)
-        lineage_metadata_store.delete_calculation_ids(prunable_lineage_ids)
-        execution_registry.delete_executions(prunable_execution_ids)
+        _delete_prunable_items(cutoff=cutoff, prunable_items=prunable_items)
 
     return RuntimeRetentionCleanupSummary(
         retention_days=effective_retention_days,
         cutoff_utc=cutoff.isoformat().replace("+00:00", "Z"),
         dry_run=dry_run,
-        prunable_execution_count=len(prunable_execution_ids),
-        prunable_compute_job_count=prunable_compute_job_count,
-        prunable_async_result_count=prunable_async_result_count,
-        prunable_lineage_record_count=len(prunable_lineage_ids),
-        prunable_lineage_artifact_count=prunable_lineage_artifact_count,
+        prunable_execution_count=len(prunable_items.execution_ids),
+        prunable_compute_job_count=prunable_items.compute_job_count,
+        prunable_async_result_count=prunable_items.async_result_count,
+        prunable_lineage_record_count=len(prunable_items.lineage_ids),
+        prunable_lineage_artifact_count=prunable_items.lineage_artifact_count,
     )
+
+
+def _collect_prunable_items(*, cutoff: datetime) -> RuntimeRetentionPrunableItems:
+    prunable_execution_ids = execution_registry.list_terminal_execution_ids_older_than(cutoff)
+    prunable_lineage_ids = lineage_metadata_store.list_terminal_calculation_ids_older_than(cutoff)
+    return RuntimeRetentionPrunableItems(
+        execution_ids=prunable_execution_ids,
+        lineage_ids=prunable_lineage_ids,
+        compute_job_count=compute_job_store.prune_terminal_jobs_older_than(cutoff, dry_run=True),
+        async_result_count=async_result_store.prune_results_older_than(cutoff, dry_run=True),
+        lineage_artifact_count=_count_lineage_artifact_directories(prunable_lineage_ids),
+    )
+
+
+def _delete_prunable_items(*, cutoff: datetime, prunable_items: RuntimeRetentionPrunableItems) -> None:
+    compute_job_store.prune_terminal_jobs_older_than(cutoff, dry_run=False)
+    async_result_store.prune_results_older_than(cutoff, dry_run=False)
+    _delete_lineage_artifact_directories(prunable_items.lineage_ids)
+    lineage_metadata_store.delete_calculation_ids(prunable_items.lineage_ids)
+    execution_registry.delete_executions(prunable_items.execution_ids)
 
 
 def _count_lineage_artifact_directories(calculation_ids: list[str]) -> int:
