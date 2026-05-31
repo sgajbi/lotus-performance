@@ -27,6 +27,9 @@ from app.services.durable_store_time import (
     elapsed_seconds_since as _elapsed_seconds_since,
 )
 from app.services.durable_store_time import (
+    elapsed_seconds_since_or_zero as _elapsed_seconds_since_or_zero,
+)
+from app.services.durable_store_time import (
     format_timestamp as _format_timestamp,
 )
 from app.services.durable_store_time import (
@@ -515,16 +518,6 @@ class ComputeJobStore:
         with self._session() as session:
             aggregate_row = session.execute(self._build_queue_stats_statement(now=stats_now)).one()
 
-            oldest_pending_age_seconds = 0.0
-            if aggregate_row.oldest_pending_created_at is not None:
-                oldest_pending_age_seconds = _elapsed_seconds_since(stats_now, aggregate_row.oldest_pending_created_at)
-            oldest_leased_age_seconds = 0.0
-            if aggregate_row.oldest_leased_at is not None:
-                oldest_leased_age_seconds = _elapsed_seconds_since(stats_now, aggregate_row.oldest_leased_at)
-            oldest_running_age_seconds = 0.0
-            if aggregate_row.oldest_running_at is not None:
-                oldest_running_age_seconds = _elapsed_seconds_since(stats_now, aggregate_row.oldest_running_at)
-
             return ComputeQueueStats(
                 pending_count=int(aggregate_row.pending_count or 0),
                 leased_count=int(aggregate_row.leased_count or 0),
@@ -534,9 +527,12 @@ class ComputeJobStore:
                 retry_backlog_count=int(aggregate_row.retry_backlog_count or 0),
                 lease_expired_count=int(aggregate_row.lease_expired_count or 0),
                 terminal_failure_count=int(aggregate_row.terminal_failure_count or 0),
-                oldest_pending_age_seconds=oldest_pending_age_seconds,
-                oldest_leased_age_seconds=oldest_leased_age_seconds,
-                oldest_running_age_seconds=oldest_running_age_seconds,
+                oldest_pending_age_seconds=_elapsed_seconds_since_or_zero(
+                    stats_now,
+                    aggregate_row.oldest_pending_created_at,
+                ),
+                oldest_leased_age_seconds=_elapsed_seconds_since_or_zero(stats_now, aggregate_row.oldest_leased_at),
+                oldest_running_age_seconds=_elapsed_seconds_since_or_zero(stats_now, aggregate_row.oldest_running_at),
                 reclaimable_count=int(aggregate_row.reclaimable_count or 0),
             )
 

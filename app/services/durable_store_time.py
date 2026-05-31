@@ -22,6 +22,12 @@ def elapsed_seconds_since(now_utc: datetime, timestamp_utc: datetime) -> float:
     return max(0.0, (coerce_utc_datetime(now_utc) - coerce_utc_datetime(timestamp_utc)).total_seconds())
 
 
+def elapsed_seconds_since_or_zero(now_utc: datetime, timestamp_utc: datetime | None) -> float:
+    if timestamp_utc is None:
+        return 0.0
+    return elapsed_seconds_since(now_utc, timestamp_utc)
+
+
 def format_timestamp(value: datetime | None) -> str | None:
     if value is None:
         return None

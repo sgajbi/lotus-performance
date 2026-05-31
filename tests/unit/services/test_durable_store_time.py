@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta, timezone
 from app.services.durable_store_time import (
     coerce_utc_datetime,
     elapsed_seconds_since,
+    elapsed_seconds_since_or_zero,
     format_timestamp,
     normalize_filter_datetime,
 )
@@ -31,3 +32,10 @@ def test_durable_store_time_clamps_elapsed_seconds_for_future_timestamps():
 
     assert elapsed_seconds_since(now, datetime(2026, 3, 14, 23, 59, 0)) == 60.0
     assert elapsed_seconds_since(now, datetime(2026, 3, 15, 0, 1, 0, tzinfo=UTC)) == 0.0
+
+
+def test_durable_store_time_returns_zero_for_missing_elapsed_timestamp():
+    now = datetime(2026, 3, 15, 0, 0, 0, tzinfo=UTC)
+
+    assert elapsed_seconds_since_or_zero(now, None) == 0.0
+    assert elapsed_seconds_since_or_zero(now, datetime(2026, 3, 14, 23, 59, 0)) == 60.0
