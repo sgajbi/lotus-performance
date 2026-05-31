@@ -49,3 +49,15 @@ def test_raise_for_stateful_source_unavailable_preserves_plain_source_outage_mes
     assert exc.value.status_code == 503
     assert exc.value.detail == "benchmark assignment source unavailable (404)."
     assert "CORE_CONTROL_PLANE_BASE_URL" not in exc.value.detail
+
+
+def test_raise_for_stateful_source_unavailable_preserves_context_suffix():
+    with pytest.raises(HTTPException) as exc:
+        raise_for_stateful_source_unavailable(
+            source_label="fx rate",
+            upstream_status=503,
+            context="for USD/SGD",
+        )
+
+    assert exc.value.status_code == 503
+    assert exc.value.detail == "fx rate source unavailable for USD/SGD (503)."

@@ -13,6 +13,7 @@ from app.models.benchmark_analytics_requests import BenchmarkReturnSource
 from app.models.benchmark_requests import BenchmarkComponentObservation, BenchmarkReturnPoint
 from app.services.stateful_input_service import RetrievalMetadata, StatefulInputService
 from app.services.stateful_retrieval_metadata import parse_retrieval_metadata
+from app.services.stateful_upstream_errors import raise_for_stateful_source_unavailable
 from core.errors import HTTP_422_UNPROCESSABLE
 
 
@@ -54,7 +55,10 @@ async def build_stateful_benchmark_input(
                 detail=f"No benchmark definition found for benchmark_id={benchmark_id}.",
             )
         if definition_status >= status.HTTP_400_BAD_REQUEST:
-            _raise_source_unavailable(source_label="benchmark definition", upstream_status=definition_status)
+            raise_for_stateful_source_unavailable(
+                source_label="benchmark definition",
+                upstream_status=definition_status,
+            )
 
         benchmark_currency_raw = definition_payload.get("benchmark_currency")
         if not isinstance(benchmark_currency_raw, str) or not benchmark_currency_raw:
@@ -85,7 +89,10 @@ async def build_stateful_benchmark_input(
             detail=f"No benchmark composition window found for benchmark_id={benchmark_id}.",
         )
     if composition_status >= status.HTTP_400_BAD_REQUEST:
-        _raise_source_unavailable(source_label="benchmark composition-window", upstream_status=composition_status)
+        raise_for_stateful_source_unavailable(
+            source_label="benchmark composition-window",
+            upstream_status=composition_status,
+        )
 
     benchmark_currency, component_segments = _parse_composition_window(
         benchmark_id=benchmark_id,
@@ -162,7 +169,10 @@ async def _build_stateful_vendor_series_input(
             detail=f"No benchmark return series found for benchmark_id={benchmark_id}.",
         )
     if return_status >= status.HTTP_400_BAD_REQUEST:
-        _raise_source_unavailable(source_label="benchmark return-series", upstream_status=return_status)
+        raise_for_stateful_source_unavailable(
+            source_label="benchmark return-series",
+            upstream_status=return_status,
+        )
 
     points_raw = return_payload.get("points")
     if not isinstance(points_raw, list):
@@ -313,7 +323,7 @@ async def _load_component_price_series(
                 detail=f"No index price series found for benchmark component {index_id}.",
             )
         if series_status >= status.HTTP_400_BAD_REQUEST:
-            _raise_source_unavailable(
+            raise_for_stateful_source_unavailable(
                 source_label="index price-series",
                 upstream_status=series_status,
                 context=f"for benchmark component {index_id}",
@@ -379,7 +389,7 @@ async def _load_fx_maps_for_components(
             calculation_id=calculation_id,
         )
         if fx_status >= status.HTTP_400_BAD_REQUEST:
-            _raise_source_unavailable(
+            raise_for_stateful_source_unavailable(
                 source_label="fx rate",
                 upstream_status=fx_status,
                 context=f"for {from_currency}/{to_currency}",
@@ -582,14 +592,6 @@ def _parse_retrieval_metadata(payload: dict[str, Any]) -> RetrievalMetadata:
         default_chunk_count=0,
         default_page_count=0,
         coerce_numeric_counts=True,
-    )
-
-
-def _raise_source_unavailable(*, source_label: str, upstream_status: int, context: str | None = None) -> None:
-    context_detail = f" {context}" if context else ""
-    raise HTTPException(
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        detail=f"{source_label} source unavailable{context_detail} ({upstream_status}).",
     )
 
 

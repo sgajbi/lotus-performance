@@ -24,7 +24,10 @@ from app.services.stateful_position_row_service import (
     split_position_cash_flows_in_value_basis,
 )
 from app.services.stateful_retrieval_metadata import parse_retrieval_metadata as _parse_retrieval_metadata
-from app.services.stateful_upstream_errors import raise_for_stateful_control_plane_unavailable
+from app.services.stateful_upstream_errors import (
+    raise_for_stateful_control_plane_unavailable,
+    raise_for_stateful_source_unavailable,
+)
 from app.services.valuation_points_service import portfolio_timeseries_to_valuation_points
 from engine.benchmarks import calculate_benchmark_returns
 
@@ -119,7 +122,10 @@ async def retrieve_stateful_attribution_source_input(
                 detail="Stateful attribution input requires a benchmark assignment or explicit stateful_input.benchmark_id.",
             )
         if assignment_status >= status.HTTP_400_BAD_REQUEST:
-            _raise_source_unavailable(source_label="benchmark assignment", upstream_status=assignment_status)
+            raise_for_stateful_source_unavailable(
+                source_label="benchmark assignment",
+                upstream_status=assignment_status,
+            )
         benchmark_id_raw = assignment_payload.get("benchmark_id")
         if not isinstance(benchmark_id_raw, str) or not benchmark_id_raw:
             raise HTTPException(
@@ -147,7 +153,7 @@ async def retrieve_stateful_attribution_source_input(
         calculation_id=calculation_id,
     )
     if index_status >= status.HTTP_400_BAD_REQUEST:
-        _raise_source_unavailable(source_label="index catalog", upstream_status=index_status)
+        raise_for_stateful_source_unavailable(source_label="index catalog", upstream_status=index_status)
     index_records = _parse_index_catalog(index_payload)
 
     return StatefulAttributionSourceInput(
@@ -837,13 +843,6 @@ def _parse_position_rows(payload: dict[str, object]) -> list[dict[str, object]]:
 def _parse_index_catalog(payload: dict[str, object]) -> list[dict[str, object]]:
     records_raw = payload.get("records")
     return [record for record in records_raw if isinstance(record, dict)] if isinstance(records_raw, list) else []
-
-
-def _raise_source_unavailable(*, source_label: str, upstream_status: int) -> None:
-    raise HTTPException(
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        detail=f"{source_label} source unavailable ({upstream_status}).",
-    )
 
 
 def _validate_stateful_both_currency_support(
