@@ -19,6 +19,7 @@ from app.services.queue_metric_builders import (
     operator_action_lease_metrics,
     policy_threshold_metric,
     reason_labeled_metric,
+    single_sample_metric,
     snapshot_available,
 )
 from app.services.recovery_drill_history_service import build_recovery_drill_history_snapshot
@@ -338,28 +339,25 @@ class DurableQueueCollector:
             )
 
         if compute_stats is not None:
-            compute_oldest_pending = GaugeMetricFamily(
-                "lotus_performance_compute_queue_oldest_pending_age_seconds",
-                "Age in seconds of the oldest pending compute job.",
+            yield single_sample_metric(
+                metric_name="lotus_performance_compute_queue_oldest_pending_age_seconds",
+                description="Age in seconds of the oldest pending compute job.",
+                value=compute_stats.oldest_pending_age_seconds,
             )
-            compute_oldest_pending.add_metric([], compute_stats.oldest_pending_age_seconds)
-            yield compute_oldest_pending
 
         if compute_stats is not None:
-            compute_oldest_leased = GaugeMetricFamily(
-                "lotus_performance_compute_queue_oldest_leased_age_seconds",
-                "Age in seconds of the oldest leased compute job.",
+            yield single_sample_metric(
+                metric_name="lotus_performance_compute_queue_oldest_leased_age_seconds",
+                description="Age in seconds of the oldest leased compute job.",
+                value=compute_stats.oldest_leased_age_seconds,
             )
-            compute_oldest_leased.add_metric([], compute_stats.oldest_leased_age_seconds)
-            yield compute_oldest_leased
 
         if compute_stats is not None:
-            compute_oldest_running = GaugeMetricFamily(
-                "lotus_performance_compute_queue_oldest_running_age_seconds",
-                "Age in seconds of the oldest running compute job.",
+            yield single_sample_metric(
+                metric_name="lotus_performance_compute_queue_oldest_running_age_seconds",
+                description="Age in seconds of the oldest running compute job.",
+                value=compute_stats.oldest_running_age_seconds,
             )
-            compute_oldest_running.add_metric([], compute_stats.oldest_running_age_seconds)
-            yield compute_oldest_running
 
             yield reason_labeled_metric(
                 metric_name="lotus_performance_compute_queue_degradation_breach",
@@ -435,12 +433,11 @@ class DurableQueueCollector:
             )
 
         if lineage_stats is not None:
-            lineage_pending = GaugeMetricFamily(
-                "lotus_performance_lineage_queue_pending_payloads",
-                "Number of pending lineage payloads awaiting materialization.",
+            yield single_sample_metric(
+                metric_name="lotus_performance_lineage_queue_pending_payloads",
+                description="Number of pending lineage payloads awaiting materialization.",
+                value=lineage_stats.pending_payload_count,
             )
-            lineage_pending.add_metric([], lineage_stats.pending_payload_count)
-            yield lineage_pending
 
         if lineage_stats is not None:
             yield labeled_metric(
@@ -455,12 +452,11 @@ class DurableQueueCollector:
             )
 
         if lineage_stats is not None:
-            lineage_oldest_pending = GaugeMetricFamily(
-                "lotus_performance_lineage_queue_oldest_pending_age_seconds",
-                "Age in seconds of the oldest pending lineage payload.",
+            yield single_sample_metric(
+                metric_name="lotus_performance_lineage_queue_oldest_pending_age_seconds",
+                description="Age in seconds of the oldest pending lineage payload.",
+                value=lineage_stats.oldest_pending_age_seconds,
             )
-            lineage_oldest_pending.add_metric([], lineage_stats.oldest_pending_age_seconds)
-            yield lineage_oldest_pending
 
             yield reason_labeled_metric(
                 metric_name="lotus_performance_lineage_queue_degradation_breach",
@@ -525,12 +521,11 @@ class DurableQueueCollector:
                 ),
             )
 
-            lineage_storage_free_ratio = GaugeMetricFamily(
-                "lotus_performance_lineage_storage_free_ratio",
-                "Fraction of free lineage storage capacity currently remaining.",
+            yield single_sample_metric(
+                metric_name="lotus_performance_lineage_storage_free_ratio",
+                description="Fraction of free lineage storage capacity currently remaining.",
+                value=lineage_storage_capacity.free_ratio,
             )
-            lineage_storage_free_ratio.add_metric([], lineage_storage_capacity.free_ratio)
-            yield lineage_storage_free_ratio
 
             min_free_bytes = getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES", 0)
             min_free_ratio = getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO", 0.0)
@@ -609,12 +604,11 @@ class DurableQueueCollector:
             latest = recovery_drill_snapshot.entries[0]
             latest_age_seconds = age_seconds_since(latest.generated_at_utc)
 
-            recovery_drill_age = GaugeMetricFamily(
-                "lotus_performance_recovery_drill_latest_age_seconds",
-                "Age in seconds of the latest retained durable recovery drill.",
+            yield single_sample_metric(
+                metric_name="lotus_performance_recovery_drill_latest_age_seconds",
+                description="Age in seconds of the latest retained durable recovery drill.",
+                value=latest_age_seconds,
             )
-            recovery_drill_age.add_metric([], latest_age_seconds)
-            yield recovery_drill_age
 
             yield reason_labeled_metric(
                 metric_name="lotus_performance_recovery_drill_degradation_breach",
@@ -663,12 +657,11 @@ class DurableQueueCollector:
             latest = runtime_retention_snapshot.entries[0]
             latest_age_seconds = age_seconds_since(latest.generated_at_utc)
 
-            runtime_retention_age = GaugeMetricFamily(
-                "lotus_performance_runtime_retention_latest_age_seconds",
-                "Age in seconds of the latest retained runtime-retention cleanup.",
+            yield single_sample_metric(
+                metric_name="lotus_performance_runtime_retention_latest_age_seconds",
+                description="Age in seconds of the latest retained runtime-retention cleanup.",
+                value=latest_age_seconds,
             )
-            runtime_retention_age.add_metric([], latest_age_seconds)
-            yield runtime_retention_age
 
             yield reason_labeled_metric(
                 metric_name="lotus_performance_runtime_retention_degradation_breach",

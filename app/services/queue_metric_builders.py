@@ -140,10 +140,18 @@ def latest_reclaim_count_or_zero(snapshot: Any) -> int:
     return snapshot.latest_reclaimed_lease.reclaim_count
 
 
-def availability_metric(*, metric_name: str, description: str, is_available: bool) -> GaugeMetricFamily:
+def single_sample_metric(*, metric_name: str, description: str, value: Any) -> GaugeMetricFamily:
     metric = GaugeMetricFamily(metric_name, description)
-    metric.add_metric([], 1 if is_available else 0)
+    metric.add_metric([], value)
     return metric
+
+
+def availability_metric(*, metric_name: str, description: str, is_available: bool) -> GaugeMetricFamily:
+    return single_sample_metric(
+        metric_name=metric_name,
+        description=description,
+        value=1 if is_available else 0,
+    )
 
 
 def snapshot_available(snapshot: Any) -> bool:

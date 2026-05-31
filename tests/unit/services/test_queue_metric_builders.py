@@ -7,6 +7,7 @@ from app.services.queue_metric_builders import (
     operator_action_lease_metrics,
     policy_threshold_metric,
     reason_labeled_metric,
+    single_sample_metric,
     snapshot_available,
 )
 
@@ -17,6 +18,13 @@ def test_availability_metric_emits_unlabelled_binary_sample():
 
     assert available.samples[0].value == 1
     assert unavailable.samples[0].value == 0
+
+
+def test_single_sample_metric_emits_unlabelled_value():
+    metric = single_sample_metric(metric_name="single_sample", description="single sample", value=123.4)
+
+    assert metric.samples[0].labels == {}
+    assert metric.samples[0].value == 123.4
 
 
 def test_snapshot_available_requires_available_status():
