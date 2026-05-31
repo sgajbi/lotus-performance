@@ -146,15 +146,7 @@ def _safe_compute_recoveries(
     compute_analytics_type: str | None,
 ) -> tuple[RuntimeRecoveryQueueState, list[ComputeRecoveryEvent]]:
     if not include_queue:
-        return RuntimeRecoveryQueueState(
-            status="excluded",
-            reason=None,
-            total_count=0,
-            returned_count=0,
-            next_offset=None,
-            next_cursor_recovered_before=None,
-            next_cursor_calculation_id_before=None,
-        ), []
+        return _queue_state(status="excluded"), []
     try:
         page: ComputeRecoveryEventPage = compute_job_store.list_recent_recoveries(
             limit=limit,
@@ -167,9 +159,8 @@ def _safe_compute_recoveries(
             calculation_id_contains=calculation_id_contains,
         )
         return (
-            RuntimeRecoveryQueueState(
+            _queue_state(
                 status="available",
-                reason=None,
                 total_count=page.total_count,
                 returned_count=len(page.items),
                 next_offset=page.next_offset,
@@ -180,15 +171,7 @@ def _safe_compute_recoveries(
         )
     except Exception as exc:
         return (
-            RuntimeRecoveryQueueState(
-                status="unavailable",
-                reason=type(exc).__name__,
-                total_count=0,
-                returned_count=0,
-                next_offset=None,
-                next_cursor_recovered_before=None,
-                next_cursor_calculation_id_before=None,
-            ),
+            _queue_state(status="unavailable", reason=type(exc).__name__),
             [],
         )
 
@@ -206,15 +189,7 @@ def _safe_lineage_recoveries(
     lineage_calculation_type: str | None,
 ) -> tuple[RuntimeRecoveryQueueState, list[LineageRecoveryEvent]]:
     if not include_queue:
-        return RuntimeRecoveryQueueState(
-            status="excluded",
-            reason=None,
-            total_count=0,
-            returned_count=0,
-            next_offset=None,
-            next_cursor_recovered_before=None,
-            next_cursor_calculation_id_before=None,
-        ), []
+        return _queue_state(status="excluded"), []
     try:
         page: LineageRecoveryEventPage = lineage_metadata_store.list_recent_recoveries(
             limit=limit,
@@ -227,9 +202,8 @@ def _safe_lineage_recoveries(
             calculation_id_contains=calculation_id_contains,
         )
         return (
-            RuntimeRecoveryQueueState(
+            _queue_state(
                 status="available",
-                reason=None,
                 total_count=page.total_count,
                 returned_count=len(page.items),
                 next_offset=page.next_offset,
@@ -240,14 +214,27 @@ def _safe_lineage_recoveries(
         )
     except Exception as exc:
         return (
-            RuntimeRecoveryQueueState(
-                status="unavailable",
-                reason=type(exc).__name__,
-                total_count=0,
-                returned_count=0,
-                next_offset=None,
-                next_cursor_recovered_before=None,
-                next_cursor_calculation_id_before=None,
-            ),
+            _queue_state(status="unavailable", reason=type(exc).__name__),
             [],
         )
+
+
+def _queue_state(
+    *,
+    status: str,
+    reason: str | None = None,
+    total_count: int = 0,
+    returned_count: int = 0,
+    next_offset: int | None = None,
+    next_cursor_recovered_before: str | None = None,
+    next_cursor_calculation_id_before: str | None = None,
+) -> RuntimeRecoveryQueueState:
+    return RuntimeRecoveryQueueState(
+        status=status,
+        reason=reason,
+        total_count=total_count,
+        returned_count=returned_count,
+        next_offset=next_offset,
+        next_cursor_recovered_before=next_cursor_recovered_before,
+        next_cursor_calculation_id_before=next_cursor_calculation_id_before,
+    )
