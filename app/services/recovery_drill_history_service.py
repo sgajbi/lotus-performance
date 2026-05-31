@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from app.core.config import get_settings
 from app.services.operator_action_evidence_paths import is_safe_evidence_file_name
+from app.services.operator_action_history_filters import generated_at_within_bounds, parse_generated_at_bounds
 from app.services.operator_action_history_pagination import paginate_history_entries
 
 RECOVERY_DRILL_ARTIFACT_DIRECTORY_MISSING_REASON = "recovery_drill_artifact_directory_missing"
@@ -247,19 +247,15 @@ def _filter_entries(
         filtered = [entry for entry in filtered if entry.backup_identifier == backup_identifier]
     if status_filter is not None:
         filtered = [entry for entry in filtered if entry.status == status_filter]
-    if generated_after is not None:
-        generated_after_dt = datetime.fromisoformat(generated_after.replace("Z", "+00:00"))
+    generated_at_bounds = parse_generated_at_bounds(
+        generated_after=generated_after,
+        generated_before=generated_before,
+    )
+    if generated_at_bounds.has_bounds:
         filtered = [
             entry
             for entry in filtered
-            if datetime.fromisoformat(entry.generated_at_utc.replace("Z", "+00:00")) >= generated_after_dt
-        ]
-    if generated_before is not None:
-        generated_before_dt = datetime.fromisoformat(generated_before.replace("Z", "+00:00"))
-        filtered = [
-            entry
-            for entry in filtered
-            if datetime.fromisoformat(entry.generated_at_utc.replace("Z", "+00:00")) <= generated_before_dt
+            if generated_at_within_bounds(entry.generated_at_utc, bounds=generated_at_bounds)
         ]
     return filtered
 
