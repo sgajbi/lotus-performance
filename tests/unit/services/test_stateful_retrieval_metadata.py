@@ -18,3 +18,12 @@ def test_parse_retrieval_metadata_uses_configured_defaults_for_invalid_counts():
         default_chunk_count=0,
         default_page_count=0,
     ) == RetrievalMetadata(chunk_count=0, page_count=0)
+
+
+def test_parse_retrieval_metadata_can_preserve_legacy_numeric_coercion():
+    assert parse_retrieval_metadata(
+        {"retrieval_metadata": {"chunk_count": "2", "page_count": 3.0}},
+        default_chunk_count=0,
+        default_page_count=0,
+        coerce_numeric_counts=True,
+    ) == RetrievalMetadata(chunk_count=2, page_count=3)

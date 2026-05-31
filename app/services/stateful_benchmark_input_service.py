@@ -12,6 +12,7 @@ from fastapi import HTTPException, status
 from app.models.benchmark_analytics_requests import BenchmarkReturnSource
 from app.models.benchmark_requests import BenchmarkComponentObservation, BenchmarkReturnPoint
 from app.services.stateful_input_service import RetrievalMetadata, StatefulInputService
+from app.services.stateful_retrieval_metadata import parse_retrieval_metadata
 from core.errors import HTTP_422_UNPROCESSABLE
 
 
@@ -595,12 +596,9 @@ def _normalize_price_to_benchmark_currency(
 
 
 def _parse_retrieval_metadata(payload: dict[str, Any]) -> RetrievalMetadata:
-    metadata = payload.get("retrieval_metadata")
-    if not isinstance(metadata, dict):
-        return RetrievalMetadata(chunk_count=0, page_count=0)
-    chunk_count = metadata.get("chunk_count", 0)
-    page_count = metadata.get("page_count", 0)
-    return RetrievalMetadata(
-        chunk_count=int(chunk_count) if isinstance(chunk_count, (int, float, str)) else 0,
-        page_count=int(page_count) if isinstance(page_count, (int, float, str)) else 0,
+    return parse_retrieval_metadata(
+        payload,
+        default_chunk_count=0,
+        default_page_count=0,
+        coerce_numeric_counts=True,
     )
