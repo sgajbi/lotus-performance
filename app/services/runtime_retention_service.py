@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import shutil
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -10,6 +11,8 @@ from app.services.async_result_store import async_result_store
 from app.services.compute_job_store import compute_job_store
 from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import lineage_metadata_store
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -97,16 +100,31 @@ def _delete_prunable_items(*, cutoff: datetime, prunable_items: RuntimeRetention
 
 
 def _count_lineage_artifact_directories(calculation_ids: list[str]) -> int:
-    lineage_storage_path = Path(get_settings().LINEAGE_STORAGE_PATH)
-    return sum(1 for calculation_id in calculation_ids if (lineage_storage_path / calculation_id).is_dir())
+    return sum(
+        1
+        for calculation_id in calculation_ids
+        if (directory := _lineage_artifact_directory(calculation_id)) is not None and directory.is_dir()
+    )
 
 
 def _delete_lineage_artifact_directories(calculation_ids: list[str]) -> int:
-    lineage_storage_path = Path(get_settings().LINEAGE_STORAGE_PATH)
     deleted_count = 0
     for calculation_id in calculation_ids:
-        directory = lineage_storage_path / calculation_id
-        if directory.is_dir():
+        directory = _lineage_artifact_directory(calculation_id)
+        if directory is not None and directory.is_dir():
             shutil.rmtree(directory)
             deleted_count += 1
     return deleted_count
+
+
+def _lineage_artifact_directory(calculation_id: str) -> Path | None:
+    lineage_storage_path = _lineage_storage_path()
+    directory = (lineage_storage_path / calculation_id).resolve()
+    if not directory.is_relative_to(lineage_storage_path):
+        logger.warning("Skipping unsafe lineage artifact directory outside storage root: %s", calculation_id)
+        return None
+    return directory
+
+
+def _lineage_storage_path() -> Path:
+    return Path(get_settings().LINEAGE_STORAGE_PATH).resolve()

@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
+from app.services import runtime_retention_service
 from app.services.async_result_store import AsyncResultModel, AsyncResultStore
 from app.services.compute_job_store import ComputeJobStore
 from app.services.execution_registry import ExecutionRegistry
@@ -115,3 +116,28 @@ def test_runtime_retention_cleanup_dry_run_and_apply(tmp_path, mocker):
     assert lineage_store.get_record(recent_id) is not None
     assert not (tmp_path / str(old_id)).exists()
     assert (tmp_path / str(recent_id)).is_dir()
+
+
+def test_lineage_artifact_cleanup_rejects_paths_outside_storage_root(tmp_path, mocker):
+    storage_root = tmp_path / "lineage"
+    storage_root.mkdir()
+    valid_calculation_id = "valid-calculation"
+    unsafe_calculation_id = "../outside-lineage"
+    valid_directory = storage_root / valid_calculation_id
+    outside_directory = tmp_path / "outside-lineage"
+    valid_directory.mkdir()
+    outside_directory.mkdir()
+
+    mocker.patch(
+        "app.services.runtime_retention_service.get_settings",
+        return_value=type("Settings", (), {"LINEAGE_STORAGE_PATH": Path(storage_root)})(),
+    )
+
+    assert (
+        runtime_retention_service._count_lineage_artifact_directories([valid_calculation_id, unsafe_calculation_id])
+        == 1
+    )
+    assert runtime_retention_service._delete_lineage_artifact_directories([unsafe_calculation_id]) == 0
+    assert outside_directory.is_dir()
+    assert runtime_retention_service._delete_lineage_artifact_directories([valid_calculation_id]) == 1
+    assert not valid_directory.exists()
