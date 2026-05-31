@@ -14,6 +14,7 @@ from app.models.benchmark_exposure_context import (
     BenchmarkExposurePageResponse,
     BenchmarkExposureRow,
 )
+from app.services.offset_pagination import slice_offset_page
 from app.services.stateful_input_service import StatefulInputService
 from app.services.stateful_retrieval_metadata import parse_zero_default_retrieval_metadata
 from app.services.stateful_upstream_errors import raise_for_stateful_source_unavailable
@@ -265,21 +266,14 @@ def _page_rows(
     page_size: int,
     page_token: str | None,
 ) -> tuple[list[BenchmarkExposureRow], str | None]:
-    try:
-        start = int(page_token) if page_token else 0
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail="page.page_token must be a numeric offset token returned by lotus-performance.",
-        ) from exc
-    if start < 0:
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail="page.page_token must be non-negative.",
-        )
-    end = start + page_size
-    next_page_token = str(end) if end < len(rows) else None
-    return rows[start:end], next_page_token
+    page = slice_offset_page(
+        rows,
+        page_size=page_size,
+        page_token=page_token,
+        invalid_token_detail="page.page_token must be a numeric offset token returned by lotus-performance.",
+        negative_token_detail="page.page_token must be non-negative.",
+    )
+    return page.items, page.next_page_token
 
 
 def _parse_retrieval_metadata(payload: dict[str, Any]) -> dict[str, int]:
