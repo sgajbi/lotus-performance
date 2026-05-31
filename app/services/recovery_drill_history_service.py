@@ -12,6 +12,7 @@ from app.services.operator_action_history_filters import (
     generated_at_within_bounds,
     parse_generated_at_bounds,
 )
+from app.services.operator_action_history_manifest import validate_history_manifest_header
 from app.services.operator_action_history_pagination import paginate_history_entries
 
 RECOVERY_DRILL_ARTIFACT_DIRECTORY_MISSING_REASON = "recovery_drill_artifact_directory_missing"
@@ -168,32 +169,12 @@ def _unavailable_snapshot(
 
 
 def _validate_manifest_payload(payload: Any) -> dict[str, Any] | None:
-    if not isinstance(payload, dict):
-        return None
-
-    latest_file_name = payload.get("latest_file_name")
-    retained_file_names = payload.get("retained_file_names")
-    retention_limit = payload.get("retention_limit")
-    retention_max_age_days = payload.get("retention_max_age_days")
-    entries = payload.get("entries")
-
-    if latest_file_name is not None and (
-        not isinstance(latest_file_name, str) or not is_safe_evidence_file_name(latest_file_name)
-    ):
-        return None
-    if not isinstance(retained_file_names, list) or any(
-        not isinstance(item, str) or not is_safe_evidence_file_name(item) for item in retained_file_names
-    ):
-        return None
-    if retention_limit is not None and not isinstance(retention_limit, int):
-        return None
-    if retention_max_age_days is not None and not isinstance(retention_max_age_days, int):
-        return None
-    if not isinstance(entries, list):
+    header = validate_history_manifest_header(payload)
+    if header is None:
         return None
 
     validated_entries: list[dict[str, str | None]] = []
-    for entry in entries:
+    for entry in header.entries:
         if not isinstance(entry, dict):
             return None
         required = (
@@ -223,14 +204,11 @@ def _validate_manifest_payload(payload: Any) -> dict[str, Any] | None:
             }
         )
 
-    if latest_file_name is not None and latest_file_name not in retained_file_names:
-        return None
-
     return {
-        "latest_file_name": latest_file_name,
-        "retained_file_names": list(retained_file_names),
-        "retention_limit": retention_limit,
-        "retention_max_age_days": retention_max_age_days,
+        "latest_file_name": header.latest_file_name,
+        "retained_file_names": header.retained_file_names,
+        "retention_limit": header.retention_limit,
+        "retention_max_age_days": header.retention_max_age_days,
         "entries": validated_entries,
     }
 
