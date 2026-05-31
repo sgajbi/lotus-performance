@@ -1,10 +1,7 @@
 from __future__ import annotations
 
-from typing import Any
-
 import pandas as pd
 from fastapi import HTTPException, status
-from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import get_settings
 from app.models.contribution_analytics_requests import ContributionInputMode
@@ -22,6 +19,11 @@ from app.services.contribution_diagnostics import (
     _build_portfolio_engine_diagnostics,
     _calculate_grouped_return_reset_alignment_counts,
     _calculate_position_flow_balance_counts,
+)
+from app.services.contribution_evidence import (
+    _count_contribution_input_rows,
+    _latest_contribution_observation_date,
+    _list_upstream_snapshots_for_contribution,
 )
 from app.services.contribution_methodology import (
     RESET_AWARE_AVERAGE_WEIGHT_MODE_CANDIDATE_PERIODS,
@@ -56,7 +58,7 @@ from app.services.execution_lifecycle_service import (
     complete_execution_with_lineage,
     record_execution_failure,
 )
-from app.services.execution_registry import UpstreamSnapshotRecord, execution_registry
+from app.services.execution_registry import execution_registry
 from core.envelope import Audit, Meta
 from core.periods import resolve_periods
 from engine.contribution import (
@@ -64,26 +66,6 @@ from engine.contribution import (
     _prepare_hierarchical_data,
 )
 from engine.schema import PortfolioColumns
-
-
-def _list_upstream_snapshots_for_contribution(calculation_id: Any) -> list[UpstreamSnapshotRecord]:
-    try:
-        return execution_registry.list_upstream_snapshots(str(calculation_id))
-    except SQLAlchemyError:
-        return []
-
-
-def _count_contribution_input_rows(request: ContributionRequest) -> int:
-    return len(request.portfolio_data.valuation_points) + sum(
-        len(position.valuation_points) for position in request.positions_data
-    )
-
-
-def _latest_contribution_observation_date(request: ContributionRequest):
-    dates = [point.perf_date for point in request.portfolio_data.valuation_points]
-    for position in request.positions_data:
-        dates.extend(point.perf_date for point in position.valuation_points)
-    return max(dates) if dates else None
 
 
 def calculate_contribution(
