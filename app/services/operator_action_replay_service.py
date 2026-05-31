@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -10,6 +11,8 @@ from app.services.runtime_retention_history_service import (
     RuntimeRetentionHistoryEntry,
     RuntimeRetentionHistorySnapshot,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -42,7 +45,7 @@ def resolve_runtime_retention_manual_replay(
             job_id=job_id,
         ):
             continue
-        payload = _load_payload(artifact_directory / entry.evidence_file_name)
+        payload = _load_payload(artifact_directory=artifact_directory, evidence_file_name=entry.evidence_file_name)
         if payload is None:
             return None
         return ActionReplayResult(payload=payload, evidence_file_name=entry.evidence_file_name)
@@ -67,7 +70,7 @@ def resolve_recovery_drill_manual_replay(
             continue
         if entry.correlation_id != correlation_id or entry.backup_identifier != backup_identifier:
             continue
-        payload = _load_payload(artifact_directory / entry.evidence_file_name)
+        payload = _load_payload(artifact_directory=artifact_directory, evidence_file_name=entry.evidence_file_name)
         if payload is None:
             return None
         return ActionReplayResult(payload=payload, evidence_file_name=entry.evidence_file_name)
@@ -100,9 +103,21 @@ def _runtime_retention_entry_matches(
     return True
 
 
-def _load_payload(path: Path) -> dict[str, Any] | None:
+def _load_payload(*, artifact_directory: Path, evidence_file_name: str) -> dict[str, Any] | None:
+    path = _evidence_file_path(artifact_directory=artifact_directory, evidence_file_name=evidence_file_name)
+    if path is None:
+        return None
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
     return payload if isinstance(payload, dict) else None
+
+
+def _evidence_file_path(*, artifact_directory: Path, evidence_file_name: str) -> Path | None:
+    artifact_root = artifact_directory.resolve()
+    evidence_path = (artifact_root / evidence_file_name).resolve()
+    if not evidence_path.is_relative_to(artifact_root):
+        logger.warning("Skipping evidence file outside operator action artifact directory: %s", evidence_file_name)
+        return None
+    return evidence_path
