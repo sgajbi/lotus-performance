@@ -15,7 +15,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sess
 from app.core.config import get_settings
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
 from app.services.durable_store_time import (
-    coerce_utc_datetime as _coerce_utc_datetime,
+    elapsed_seconds_since as _elapsed_seconds_since,
 )
 from app.services.durable_store_time import (
     format_timestamp as _format_timestamp,
@@ -508,22 +508,13 @@ class ComputeJobStore:
 
             oldest_pending_age_seconds = 0.0
             if aggregate_row.oldest_pending_created_at is not None:
-                oldest_pending_age_seconds = max(
-                    0.0,
-                    (stats_now - _coerce_utc_datetime(aggregate_row.oldest_pending_created_at)).total_seconds(),
-                )
+                oldest_pending_age_seconds = _elapsed_seconds_since(stats_now, aggregate_row.oldest_pending_created_at)
             oldest_leased_age_seconds = 0.0
             if aggregate_row.oldest_leased_at is not None:
-                oldest_leased_age_seconds = max(
-                    0.0,
-                    (stats_now - _coerce_utc_datetime(aggregate_row.oldest_leased_at)).total_seconds(),
-                )
+                oldest_leased_age_seconds = _elapsed_seconds_since(stats_now, aggregate_row.oldest_leased_at)
             oldest_running_age_seconds = 0.0
             if aggregate_row.oldest_running_at is not None:
-                oldest_running_age_seconds = max(
-                    0.0,
-                    (stats_now - _coerce_utc_datetime(aggregate_row.oldest_running_at)).total_seconds(),
-                )
+                oldest_running_age_seconds = _elapsed_seconds_since(stats_now, aggregate_row.oldest_running_at)
 
             return ComputeQueueStats(
                 pending_count=int(aggregate_row.pending_count or 0),
@@ -1146,7 +1137,7 @@ class ComputeJobStore:
 
         age_seconds = None
         if active_since is not None:
-            age_seconds = max(0.0, (now - _coerce_utc_datetime(active_since)).total_seconds())
+            age_seconds = _elapsed_seconds_since(now, active_since)
 
         return ComputeQueueInspectionItem(
             calculation_id=row.calculation_id,

@@ -1,6 +1,11 @@
 from datetime import UTC, datetime, timedelta, timezone
 
-from app.services.durable_store_time import coerce_utc_datetime, format_timestamp, normalize_filter_datetime
+from app.services.durable_store_time import (
+    coerce_utc_datetime,
+    elapsed_seconds_since,
+    format_timestamp,
+    normalize_filter_datetime,
+)
 
 
 def test_durable_store_time_formats_naive_and_offset_timestamps_as_utc():
@@ -19,3 +24,10 @@ def test_durable_store_time_normalizes_sqlite_filter_to_naive_utc():
     assert sqlite_value == datetime(2026, 3, 15, 0, 0, 0)
     assert sqlite_value.tzinfo is None
     assert postgres_value == datetime(2026, 3, 15, 0, 0, 0, tzinfo=UTC)
+
+
+def test_durable_store_time_clamps_elapsed_seconds_for_future_timestamps():
+    now = datetime(2026, 3, 15, 0, 0, 0, tzinfo=UTC)
+
+    assert elapsed_seconds_since(now, datetime(2026, 3, 14, 23, 59, 0)) == 60.0
+    assert elapsed_seconds_since(now, datetime(2026, 3, 15, 0, 1, 0, tzinfo=UTC)) == 0.0

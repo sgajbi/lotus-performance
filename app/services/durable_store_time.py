@@ -18,6 +18,10 @@ def normalize_filter_datetime(value: datetime | None, *, dialect_name: str) -> d
     return normalized
 
 
+def elapsed_seconds_since(now_utc: datetime, timestamp_utc: datetime) -> float:
+    return max(0.0, (coerce_utc_datetime(now_utc) - coerce_utc_datetime(timestamp_utc)).total_seconds())
+
+
 def format_timestamp(value: datetime | None) -> str | None:
     if value is None:
         return None
