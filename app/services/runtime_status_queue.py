@@ -24,10 +24,20 @@ from app.services.runtime_status_degradation import compute_queue_degradation_de
 from app.services.runtime_status_domain import RuntimeDegradationDetail, RuntimeQueueStatus
 
 RecoveryEventT = TypeVar("RecoveryEventT", ComputeRecoveryEvent, LineageRecoveryEvent, covariant=True)
+InspectionAnchorsT = TypeVar(
+    "InspectionAnchorsT",
+    ComputeQueueInspectionAnchors,
+    LineageQueueInspectionAnchors,
+    covariant=True,
+)
 
 
 class RecentRecoveryLister(Protocol[RecoveryEventT]):
     def __call__(self, *, limit: int) -> object: ...
+
+
+class QueueInspectionAnchorReader(Protocol[InspectionAnchorsT]):
+    def __call__(self) -> InspectionAnchorsT: ...
 
 
 def build_compute_queue_status(durability_status: DurabilityHealthStatus, *, settings) -> RuntimeQueueStatus:
@@ -112,15 +122,23 @@ def unavailable_runtime_queue_status(*, reason: str) -> RuntimeQueueStatus:
 
 
 def safe_compute_queue_inspection_anchors() -> ComputeQueueInspectionAnchors | None:
-    try:
-        return compute_job_store.get_queue_inspection_anchors()
-    except Exception:
-        return None
+    return safe_queue_inspection_anchors(
+        read_anchors=compute_job_store.get_queue_inspection_anchors,
+    )
 
 
 def safe_lineage_queue_inspection_anchors() -> LineageQueueInspectionAnchors | None:
+    return safe_queue_inspection_anchors(
+        read_anchors=lineage_metadata_store.get_queue_inspection_anchors,
+    )
+
+
+def safe_queue_inspection_anchors(
+    *,
+    read_anchors: QueueInspectionAnchorReader[InspectionAnchorsT],
+) -> InspectionAnchorsT | None:
     try:
-        return lineage_metadata_store.get_queue_inspection_anchors()
+        return read_anchors()
     except Exception:
         return None
 

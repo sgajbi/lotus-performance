@@ -9,6 +9,7 @@ from app.services.runtime_status_queue import (
     build_lineage_queue_status,
     recent_recovery_limit,
     runtime_queue_status_from_degradation,
+    safe_compute_queue_inspection_anchors,
     safe_compute_recent_recoveries,
     safe_lineage_queue_inspection_anchors,
     safe_lineage_recent_recoveries,
@@ -284,3 +285,12 @@ def test_safe_lineage_inspection_anchor_returns_none_on_error(mocker):
     )
 
     assert safe_lineage_queue_inspection_anchors() is None
+
+
+def test_safe_compute_inspection_anchor_returns_none_on_error(mocker):
+    mocker.patch(
+        "app.services.runtime_status_queue.compute_job_store.get_queue_inspection_anchors",
+        side_effect=RuntimeError("boom"),
+    )
+
+    assert safe_compute_queue_inspection_anchors() is None
