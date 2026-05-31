@@ -1,7 +1,10 @@
 from pathlib import Path
 
 from app.services import runtime_status_operator_action
-from app.services.operator_action_lease_service import ReclaimedOperatorActionLeaseEvent
+from app.services.operator_action_lease_service import (
+    OPERATOR_ACTION_LEASE_INVALID_REASON,
+    ReclaimedOperatorActionLeaseEvent,
+)
 from app.services.runtime_status_domain import OperatorActionStatus, RecentOperatorActionReclaim
 
 
@@ -24,7 +27,7 @@ def test_runtime_status_operator_action_status_handles_exceptions_and_unavailabl
             (),
             {
                 "status": "unavailable",
-                "reason": "operator_action_lease_invalid",
+                "reason": OPERATOR_ACTION_LEASE_INVALID_REASON,
                 "active_leases": (),
                 "latest_reclaimed_lease": None,
                 "recent_reclaimed_leases": (),
@@ -36,7 +39,7 @@ def test_runtime_status_operator_action_status_handles_exceptions_and_unavailabl
         action_name="runtime_retention_cleanup",
     )
     assert unavailable_snapshot.status == "unavailable"
-    assert unavailable_snapshot.reason == "operator_action_lease_invalid"
+    assert unavailable_snapshot.reason == OPERATOR_ACTION_LEASE_INVALID_REASON
 
 
 def test_unavailable_operator_action_status_clears_operator_evidence():

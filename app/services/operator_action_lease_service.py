@@ -11,6 +11,11 @@ from typing import Iterator
 
 from fastapi import HTTPException, status
 
+OPERATOR_ACTION_LEASE_DIRECTORY_UNREADABLE_REASON = "operator_action_lease_directory_unreadable"
+OPERATOR_ACTION_LEASE_INVALID_REASON = "operator_action_lease_invalid"
+OPERATOR_ACTION_RECLAIM_EVENT_INVALID_REASON = "operator_action_reclaim_event_invalid"
+OPERATOR_ACTION_RECLAIM_HISTORY_INVALID_REASON = "operator_action_reclaim_history_invalid"
+
 
 @dataclass(frozen=True)
 class OperatorActionLeaseMetadata:
@@ -172,7 +177,7 @@ def build_operator_action_lease_snapshot(
     except OSError:
         return OperatorActionLeaseSnapshot(
             status="unavailable",
-            reason="operator_action_lease_directory_unreadable",
+            reason=OPERATOR_ACTION_LEASE_DIRECTORY_UNREADABLE_REASON,
             active_leases=(),
             latest_reclaimed_lease=None,
             recent_reclaimed_leases=(),
@@ -180,7 +185,7 @@ def build_operator_action_lease_snapshot(
     if any(lease is _INVALID_LEASE for lease in leases):
         return OperatorActionLeaseSnapshot(
             status="unavailable",
-            reason="operator_action_lease_invalid",
+            reason=OPERATOR_ACTION_LEASE_INVALID_REASON,
             active_leases=(),
             latest_reclaimed_lease=None,
             recent_reclaimed_leases=(),
@@ -189,7 +194,7 @@ def build_operator_action_lease_snapshot(
     if latest_reclaimed_lease_candidate is _INVALID_LEASE:
         return OperatorActionLeaseSnapshot(
             status="unavailable",
-            reason="operator_action_reclaim_event_invalid",
+            reason=OPERATOR_ACTION_RECLAIM_EVENT_INVALID_REASON,
             active_leases=(),
             latest_reclaimed_lease=None,
             recent_reclaimed_leases=(),
@@ -198,7 +203,7 @@ def build_operator_action_lease_snapshot(
     if recent_reclaimed_leases_candidate is _INVALID_LEASE:
         return OperatorActionLeaseSnapshot(
             status="unavailable",
-            reason="operator_action_reclaim_history_invalid",
+            reason=OPERATOR_ACTION_RECLAIM_HISTORY_INVALID_REASON,
             active_leases=(),
             latest_reclaimed_lease=None,
             recent_reclaimed_leases=(),

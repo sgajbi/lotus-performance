@@ -5,6 +5,10 @@ import pytest
 from fastapi import HTTPException
 
 from app.services.operator_action_lease_service import (
+    OPERATOR_ACTION_LEASE_DIRECTORY_UNREADABLE_REASON,
+    OPERATOR_ACTION_LEASE_INVALID_REASON,
+    OPERATOR_ACTION_RECLAIM_EVENT_INVALID_REASON,
+    OPERATOR_ACTION_RECLAIM_HISTORY_INVALID_REASON,
     OperatorActionLeaseMetadata,
     _parse_reclaimed_event_payload,
     _parse_utc,
@@ -200,7 +204,7 @@ def test_operator_action_lease_snapshot_reports_invalid_payload(tmp_path):
     )
 
     assert snapshot.status == "unavailable"
-    assert snapshot.reason == "operator_action_lease_invalid"
+    assert snapshot.reason == OPERATOR_ACTION_LEASE_INVALID_REASON
     assert snapshot.active_leases == ()
 
 
@@ -295,7 +299,7 @@ def test_operator_action_lease_snapshot_reports_invalid_reclaim_payload(tmp_path
     )
 
     assert snapshot.status == "unavailable"
-    assert snapshot.reason == "operator_action_reclaim_event_invalid"
+    assert snapshot.reason == OPERATOR_ACTION_RECLAIM_EVENT_INVALID_REASON
 
 
 def test_operator_action_lease_snapshot_reports_invalid_reclaim_history_payload(tmp_path):
@@ -310,7 +314,7 @@ def test_operator_action_lease_snapshot_reports_invalid_reclaim_history_payload(
     )
 
     assert snapshot.status == "unavailable"
-    assert snapshot.reason == "operator_action_reclaim_history_invalid"
+    assert snapshot.reason == OPERATOR_ACTION_RECLAIM_HISTORY_INVALID_REASON
 
 
 @pytest.mark.parametrize(
@@ -381,7 +385,7 @@ def test_build_operator_action_lease_snapshot_reports_unreadable_directory(monke
     snapshot = build_operator_action_lease_snapshot(artifact_directory=artifact_dir, action_name="recovery_drill")
 
     assert snapshot.status == "unavailable"
-    assert snapshot.reason == "operator_action_lease_directory_unreadable"
+    assert snapshot.reason == OPERATOR_ACTION_LEASE_DIRECTORY_UNREADABLE_REASON
 
 
 def test_read_reclaim_files_reject_invalid_json_and_shapes(tmp_path):
