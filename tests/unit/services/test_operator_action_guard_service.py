@@ -7,8 +7,6 @@ from app.services.operator_action_guard_service import (
     _find_latest_recovery_drill_entry,
     _find_latest_runtime_retention_entry,
     _parse_utc_timestamp,
-    _resolve_latest_evidence_file_name,
-    _resolve_latest_generated_at_utc,
     enforce_recovery_drill_manual_run_cooldown,
     enforce_runtime_retention_apply_preview,
     enforce_runtime_retention_manual_run_cooldown,
@@ -414,8 +412,4 @@ def test_find_latest_helpers_and_resolvers_cover_mismatch_paths():
         )
         is None
     )
-    assert _resolve_latest_generated_at_utc([]) is None
-    assert _resolve_latest_generated_at_utc([object()]) is None
-    assert _resolve_latest_evidence_file_name([]) is None
-    assert _resolve_latest_evidence_file_name([object()]) is None
     assert _parse_utc_timestamp("2026-03-15T00:00:00").tzinfo == UTC

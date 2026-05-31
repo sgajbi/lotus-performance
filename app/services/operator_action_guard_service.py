@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
@@ -16,15 +15,6 @@ from app.services.runtime_retention_history_service import (
     RuntimeRetentionHistorySnapshot,
 )
 from app.services.runtime_status_time import parse_utc_datetime
-
-
-@dataclass(frozen=True)
-class ManualActionCooldown:
-    action_name: str
-    detail_code: str
-    latest_generated_at_utc: str
-    latest_evidence_file_name: str
-    retry_after_seconds: int
 
 
 def enforce_runtime_retention_manual_run_cooldown(
@@ -128,20 +118,6 @@ def enforce_recovery_drill_manual_run_cooldown(
         cooldown_seconds=cooldown_seconds,
         now_utc=now_utc,
     )
-
-
-def _resolve_latest_generated_at_utc(entries: list[object]) -> str | None:
-    if not entries:
-        return None
-    value = getattr(entries[0], "generated_at_utc", None)
-    return value if isinstance(value, str) else None
-
-
-def _resolve_latest_evidence_file_name(entries: list[object]) -> str | None:
-    if not entries:
-        return None
-    value = getattr(entries[0], "evidence_file_name", None)
-    return value if isinstance(value, str) else None
 
 
 def _find_latest_runtime_retention_entry(
