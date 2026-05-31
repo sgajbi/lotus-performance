@@ -378,6 +378,10 @@ def test_page_rows_rejects_invalid_page_token_inputs() -> None:
 def test_parse_retrieval_metadata_defaults_when_missing() -> None:
     assert _parse_retrieval_metadata({}) == {"chunk_count": 0, "page_count": 0}
     assert _parse_retrieval_metadata({"retrieval_metadata": None}) == {"chunk_count": 0, "page_count": 0}
+    assert _parse_retrieval_metadata({"retrieval_metadata": {"chunk_count": "2", "page_count": 3.0}}) == {
+        "chunk_count": 2,
+        "page_count": 3,
+    }
 
 
 @pytest.mark.asyncio
