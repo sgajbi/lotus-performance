@@ -12,6 +12,7 @@ from app.services.queue_metric_builders import (
     lineage_queue_payload_metrics,
     lineage_storage_capacity_metrics,
     lineage_storage_pressure_breach_metric,
+    lineage_storage_pressure_threshold_metric,
     operator_action_lease_metrics,
     policy_threshold_metric,
     reason_labeled_metric,
@@ -322,6 +323,26 @@ def test_lineage_storage_capacity_metrics_preserve_metric_contracts():
         "free": 350,
     }
     assert metric_samples["lotus_performance_lineage_storage_free_ratio"][0].value == 0.35
+
+
+def test_lineage_storage_pressure_threshold_metric_uses_governed_threshold_labels():
+    policy = LineageQueueDegradationPolicy(
+        retry_backlog_count=2,
+        terminal_failure_count=1,
+        pending_age_seconds=30.0,
+        leased_age_seconds=10.0,
+        storage_min_free_bytes=250,
+        storage_min_free_ratio=0.2,
+    )
+
+    metric = lineage_storage_pressure_threshold_metric(policy=policy)
+
+    samples = {sample.labels["threshold"]: sample.value for sample in metric.samples}
+    assert metric.name == "lotus_performance_lineage_storage_pressure_threshold"
+    assert samples == {
+        "min_free_bytes": 250,
+        "min_free_ratio": 0.2,
+    }
 
 
 def test_recovery_drill_degradation_breach_metric_uses_latest_history_and_action_policy(monkeypatch):

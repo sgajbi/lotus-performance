@@ -24,6 +24,7 @@ from app.services.queue_metric_builders import (
     lineage_queue_payload_metrics,
     lineage_storage_capacity_metrics,
     lineage_storage_pressure_breach_metric,
+    lineage_storage_pressure_threshold_metric,
     operator_action_lease_metrics,
     policy_threshold_metric,
     recovery_drill_degradation_breach_metric,
@@ -333,15 +334,7 @@ class DurableQueueCollector:
                 policy=lineage_queue_policy,
             )
 
-        yield labeled_metric(
-            metric_name="lotus_performance_lineage_storage_pressure_threshold",
-            description="Configured proactive lineage storage pressure thresholds.",
-            label_name="threshold",
-            samples=(
-                ("min_free_bytes", lineage_queue_policy.storage_min_free_bytes),
-                ("min_free_ratio", lineage_queue_policy.storage_min_free_ratio),
-            ),
-        )
+        yield lineage_storage_pressure_threshold_metric(policy=lineage_queue_policy)
 
         yield policy_threshold_metric(
             metric_name="lotus_performance_recovery_drill_policy_threshold",
