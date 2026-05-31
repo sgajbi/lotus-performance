@@ -165,6 +165,19 @@ def test_runtime_retention_manual_replay_rejects_different_operator_or_tenant(tm
         )
         is None
     )
+    assert (
+        resolve_runtime_retention_manual_replay(
+            snapshot,
+            artifact_directory=artifact_dir,
+            operator_id="ops-user",
+            tenant_id="tenant-a",
+            correlation_id="corr-2",
+            apply=False,
+            retention_days=None,
+            job_id="ticket-7",
+        )
+        is None
+    )
 
 
 def test_recovery_drill_manual_replay_returns_matching_evidence(tmp_path):
@@ -294,6 +307,17 @@ def test_recovery_drill_manual_replay_rejects_different_operator_or_tenant(tmp_p
             operator_id="ops-user",
             tenant_id="tenant-b",
             correlation_id="corr-1",
+            backup_identifier="backup-123",
+        )
+        is None
+    )
+    assert (
+        resolve_recovery_drill_manual_replay(
+            snapshot,
+            artifact_directory=artifact_dir,
+            operator_id="ops-user",
+            tenant_id="tenant-a",
+            correlation_id="corr-2",
             backup_identifier="backup-123",
         )
         is None

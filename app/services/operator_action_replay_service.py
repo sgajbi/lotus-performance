@@ -4,7 +4,7 @@ import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from app.services.operator_action_evidence_paths import resolve_evidence_file_path
 from app.services.recovery_drill_history_service import RecoveryDrillHistorySnapshot
@@ -20,6 +20,12 @@ logger = logging.getLogger(__name__)
 class ActionReplayResult:
     payload: dict[str, Any]
     evidence_file_name: str
+
+
+class _OperatorReplayIdentity(Protocol):
+    operator_id: str
+    tenant_id: str | None
+    correlation_id: str | None
 
 
 def resolve_runtime_retention_manual_replay(
@@ -65,11 +71,14 @@ def resolve_recovery_drill_manual_replay(
     if not correlation_id:
         return None
     for entry in snapshot.entries:
-        if entry.operator_id != operator_id:
+        if not _operator_replay_identity_matches(
+            entry,
+            operator_id=operator_id,
+            tenant_id=tenant_id,
+            correlation_id=correlation_id,
+        ):
             continue
-        if entry.tenant_id != tenant_id:
-            continue
-        if entry.correlation_id != correlation_id or entry.backup_identifier != backup_identifier:
+        if entry.backup_identifier != backup_identifier:
             continue
         payload = _load_payload(artifact_directory=artifact_directory, evidence_file_name=entry.evidence_file_name)
         if payload is None:
@@ -89,11 +98,12 @@ def _runtime_retention_entry_matches(
     job_id: str | None,
 ) -> bool:
     expected_cleanup_mode = "apply" if apply else "dry_run"
-    if entry.operator_id != operator_id:
-        return False
-    if entry.tenant_id != tenant_id:
-        return False
-    if entry.correlation_id != correlation_id:
+    if not _operator_replay_identity_matches(
+        entry,
+        operator_id=operator_id,
+        tenant_id=tenant_id,
+        correlation_id=correlation_id,
+    ):
         return False
     if entry.cleanup_mode != expected_cleanup_mode:
         return False
@@ -102,6 +112,16 @@ def _runtime_retention_entry_matches(
     if entry.job_id != job_id:
         return False
     return True
+
+
+def _operator_replay_identity_matches(
+    entry: _OperatorReplayIdentity,
+    *,
+    operator_id: str,
+    tenant_id: str | None,
+    correlation_id: str,
+) -> bool:
+    return entry.operator_id == operator_id and entry.tenant_id == tenant_id and entry.correlation_id == correlation_id
 
 
 def _load_payload(*, artifact_directory: Path, evidence_file_name: str) -> dict[str, Any] | None:
