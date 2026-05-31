@@ -11,6 +11,8 @@ from typing import Iterator
 
 from fastapi import HTTPException, status
 
+from app.services.runtime_status_time import parse_utc_datetime
+
 OPERATOR_ACTION_LEASE_DIRECTORY_UNREADABLE_REASON = "operator_action_lease_directory_unreadable"
 OPERATOR_ACTION_LEASE_INVALID_REASON = "operator_action_lease_invalid"
 OPERATOR_ACTION_RECLAIM_EVENT_INVALID_REASON = "operator_action_reclaim_event_invalid"
@@ -416,10 +418,7 @@ def _parse_reclaimed_event_payload(
 
 
 def _parse_utc(timestamp_utc: str) -> datetime:
-    parsed = datetime.fromisoformat(timestamp_utc.replace("Z", "+00:00"))
-    if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=UTC)
-    return parsed.astimezone(UTC)
+    return parse_utc_datetime(timestamp_utc)
 
 
 def _reclaim_stale_lock(

@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
+from app.services.runtime_status_time import parse_utc_datetime
+
 
 @dataclass(frozen=True)
 class GeneratedAtBounds:
@@ -39,4 +41,4 @@ def generated_at_within_bounds(generated_at_utc: str, *, bounds: GeneratedAtBoun
 def parse_generated_at_filter(value: str | None) -> datetime | None:
     if value is None:
         return None
-    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return parse_utc_datetime(value)

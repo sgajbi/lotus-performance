@@ -14,6 +14,7 @@ from app.services.runtime_retention_history_service import (
     RuntimeRetentionHistoryEntry,
     RuntimeRetentionHistorySnapshot,
 )
+from app.services.runtime_status_time import parse_utc_datetime
 
 
 @dataclass(frozen=True)
@@ -221,7 +222,4 @@ def _enforce_manual_action_cooldown(
 
 
 def _parse_utc_timestamp(value: str) -> datetime:
-    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=UTC)
-    return parsed.astimezone(UTC)
+    return parse_utc_datetime(value)
