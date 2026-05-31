@@ -15,7 +15,7 @@ from app.models.benchmark_exposure_context import (
     BenchmarkExposureRow,
 )
 from app.services.stateful_input_service import StatefulInputService
-from app.services.stateful_retrieval_metadata import parse_retrieval_metadata
+from app.services.stateful_retrieval_metadata import parse_zero_default_retrieval_metadata
 from app.services.stateful_upstream_errors import raise_for_stateful_source_unavailable
 from core.errors import HTTP_422_UNPROCESSABLE
 
@@ -283,10 +283,5 @@ def _page_rows(
 
 
 def _parse_retrieval_metadata(payload: dict[str, Any]) -> dict[str, int]:
-    metadata = parse_retrieval_metadata(
-        payload,
-        default_chunk_count=0,
-        default_page_count=0,
-        coerce_numeric_counts=True,
-    )
+    metadata = parse_zero_default_retrieval_metadata(payload)
     return {"chunk_count": metadata.chunk_count, "page_count": metadata.page_count}

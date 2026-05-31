@@ -40,7 +40,7 @@ from app.services.portfolio_source_service import (
 from app.services.stateful_benchmark_input_service import build_stateful_benchmark_input
 from app.services.stateful_input_service import RetrievalMetadata
 from app.services.stateful_performance_input_service import retrieve_stateful_portfolio_input
-from app.services.stateful_retrieval_metadata import parse_retrieval_metadata
+from app.services.stateful_retrieval_metadata import parse_zero_default_retrieval_metadata
 from app.services.valuation_points_service import portfolio_timeseries_to_valuation_points
 from common.enums import Frequency, PeriodType
 from core.errors import HTTP_422_UNPROCESSABLE
@@ -64,14 +64,7 @@ class ResolvedStatefulReturnsSeriesRequest:
 
 
 def _zero_default_retrieval_metadata(payload: dict[str, Any] | None) -> RetrievalMetadata:
-    if payload is None:
-        return RetrievalMetadata(chunk_count=0, page_count=0)
-    return parse_retrieval_metadata(
-        payload,
-        default_chunk_count=0,
-        default_page_count=0,
-        coerce_numeric_counts=True,
-    )
+    return parse_zero_default_retrieval_metadata(payload)
 
 
 def _source_unavailable_detail(message: str) -> dict[str, str]:

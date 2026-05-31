@@ -33,6 +33,17 @@ def parse_retrieval_metadata(
     )
 
 
+def parse_zero_default_retrieval_metadata(payload: Mapping[str, object] | None) -> RetrievalMetadata:
+    if payload is None:
+        return RetrievalMetadata(chunk_count=0, page_count=0)
+    return parse_retrieval_metadata(
+        payload,
+        default_chunk_count=0,
+        default_page_count=0,
+        coerce_numeric_counts=True,
+    )
+
+
 def _metadata_count(
     value: object,
     *,
