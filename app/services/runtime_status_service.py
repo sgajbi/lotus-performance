@@ -6,17 +6,20 @@ from pathlib import Path
 from app.core.config import get_settings
 from app.services.compute_job_store import (
     ComputeQueueInspectionAnchors,
+    ComputeQueueStats,
     ComputeRecoveryEvent,
     compute_job_store,
 )
 from app.services.durability_health_service import (
     DurabilityHealthStatus,
+    LineageStorageCapacitySnapshot,
     check_durable_metadata_store_ready,
     check_lineage_storage_ready,
     get_lineage_storage_capacity,
 )
 from app.services.lineage_metadata_store import (
     LineageQueueInspectionAnchors,
+    LineageQueueStats,
     LineageRecoveryEvent,
     lineage_metadata_store,
 )
@@ -138,25 +141,11 @@ def _build_compute_queue_status(durability_status: DurabilityHealthStatus, *, se
         inspection_anchors = _safe_compute_queue_inspection_anchors()
         recent_recoveries = _safe_compute_recent_recoveries(settings=settings)
         degradation_details = _compute_queue_degradation_details(stats, settings=settings)
-        degradation_reasons = tuple(detail.reason for detail in degradation_details)
-        if degradation_reasons:
-            return RuntimeQueueStatus(
-                status="degraded",
-                reason=degradation_reasons[0],
-                degradation_reasons=degradation_reasons,
-                degradation_details=degradation_details,
-                stats=stats,
-                inspection_anchors=inspection_anchors,
-                recent_recoveries=recent_recoveries,
-            )
-        return RuntimeQueueStatus(
-            status="available",
-            reason=None,
-            degradation_reasons=(),
-            degradation_details=(),
+        return _runtime_queue_status_from_degradation(
             stats=stats,
             inspection_anchors=inspection_anchors,
             recent_recoveries=recent_recoveries,
+            degradation_details=degradation_details,
         )
     except Exception as exc:
         return _unavailable_runtime_queue_status(reason=type(exc).__name__)
@@ -183,30 +172,36 @@ def _build_lineage_queue_status(durability_status: DurabilityHealthStatus, *, se
             storage_capacity=storage_capacity,
             settings=settings,
         )
-        degradation_reasons = tuple(detail.reason for detail in degradation_details)
-        if degradation_reasons:
-            return RuntimeQueueStatus(
-                status="degraded",
-                reason=degradation_reasons[0],
-                degradation_reasons=degradation_reasons,
-                degradation_details=degradation_details,
-                stats=stats,
-                inspection_anchors=inspection_anchors,
-                recent_recoveries=recent_recoveries,
-                storage_capacity=storage_capacity,
-            )
-        return RuntimeQueueStatus(
-            status="available",
-            reason=None,
-            degradation_reasons=(),
-            degradation_details=(),
+        return _runtime_queue_status_from_degradation(
             stats=stats,
             inspection_anchors=inspection_anchors,
             recent_recoveries=recent_recoveries,
+            degradation_details=degradation_details,
             storage_capacity=storage_capacity,
         )
     except Exception as exc:
         return _unavailable_runtime_queue_status(reason=type(exc).__name__)
+
+
+def _runtime_queue_status_from_degradation(
+    *,
+    stats: ComputeQueueStats | LineageQueueStats,
+    inspection_anchors: ComputeQueueInspectionAnchors | LineageQueueInspectionAnchors | None,
+    recent_recoveries: tuple[ComputeRecoveryEvent | LineageRecoveryEvent, ...],
+    degradation_details: tuple[RuntimeDegradationDetail, ...],
+    storage_capacity: LineageStorageCapacitySnapshot | None = None,
+) -> RuntimeQueueStatus:
+    degradation_reasons = tuple(detail.reason for detail in degradation_details)
+    return RuntimeQueueStatus(
+        status="degraded" if degradation_reasons else "available",
+        reason=degradation_reasons[0] if degradation_reasons else None,
+        degradation_reasons=degradation_reasons,
+        degradation_details=degradation_details,
+        stats=stats,
+        inspection_anchors=inspection_anchors,
+        recent_recoveries=recent_recoveries,
+        storage_capacity=storage_capacity,
+    )
 
 
 def _unavailable_runtime_queue_status(*, reason: str) -> RuntimeQueueStatus:

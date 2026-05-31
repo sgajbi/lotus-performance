@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from decimal import Decimal
 
 import pytest
 
@@ -2567,6 +2568,52 @@ def test_runtime_status_unavailable_queue_helper_clears_queue_evidence():
     assert status.inspection_anchors is None
     assert status.recent_recoveries == ()
     assert status.storage_capacity is None
+
+
+def test_runtime_status_queue_degradation_helper_maps_available_and_degraded_states():
+    stats = ComputeQueueStats(
+        pending_count=0,
+        leased_count=0,
+        running_count=0,
+        failed_count=0,
+        complete_count=0,
+        retry_backlog_count=0,
+        lease_expired_count=0,
+        terminal_failure_count=0,
+        oldest_pending_age_seconds=0.0,
+        oldest_leased_age_seconds=0.0,
+        oldest_running_age_seconds=0.0,
+    )
+
+    available = runtime_status_service._runtime_queue_status_from_degradation(
+        stats=stats,
+        inspection_anchors=None,
+        recent_recoveries=(),
+        degradation_details=(),
+    )
+    degraded = runtime_status_service._runtime_queue_status_from_degradation(
+        stats=stats,
+        inspection_anchors=None,
+        recent_recoveries=(),
+        degradation_details=(
+            runtime_status_service.RuntimeDegradationDetail(
+                reason="compute_pending_age_exceeded",
+                observed_value=Decimal("120"),
+                threshold_value=Decimal("60"),
+            ),
+        ),
+    )
+
+    assert available.status == "available"
+    assert available.reason is None
+    assert available.degradation_reasons == ()
+    assert available.degradation_details == ()
+    assert available.stats is stats
+    assert degraded.status == "degraded"
+    assert degraded.reason == "compute_pending_age_exceeded"
+    assert degraded.degradation_reasons == ("compute_pending_age_exceeded",)
+    assert degraded.degradation_details[0].observed_value == Decimal("120")
+    assert degraded.stats is stats
 
 
 def test_runtime_status_safe_lineage_inspection_anchor_returns_none_on_error(mocker):
