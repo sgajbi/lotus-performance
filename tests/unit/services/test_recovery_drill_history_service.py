@@ -3,14 +3,20 @@ from pathlib import Path
 
 import pytest
 
-from app.services.recovery_drill_history_service import build_recovery_drill_history_snapshot
+from app.services.recovery_drill_history_service import (
+    RECOVERY_DRILL_ARTIFACT_DIRECTORY_MISSING_REASON,
+    RECOVERY_DRILL_MANIFEST_INVALID_REASON,
+    RECOVERY_DRILL_MANIFEST_MISSING_REASON,
+    RECOVERY_DRILL_MANIFEST_UNREADABLE_REASON,
+    build_recovery_drill_history_snapshot,
+)
 
 
 def test_recovery_drill_history_snapshot_reports_missing_directory(tmp_path):
     snapshot = build_recovery_drill_history_snapshot(artifact_directory=tmp_path / "missing")
 
     assert snapshot.status == "unavailable"
-    assert snapshot.reason == "recovery_drill_artifact_directory_missing"
+    assert snapshot.reason == RECOVERY_DRILL_ARTIFACT_DIRECTORY_MISSING_REASON
     assert snapshot.entries == []
 
 
@@ -70,7 +76,7 @@ def test_recovery_drill_history_snapshot_reports_invalid_manifest(tmp_path):
     snapshot = build_recovery_drill_history_snapshot(artifact_directory=artifact_dir)
 
     assert snapshot.status == "unavailable"
-    assert snapshot.reason == "recovery_drill_manifest_invalid"
+    assert snapshot.reason == RECOVERY_DRILL_MANIFEST_INVALID_REASON
     assert snapshot.entries == []
 
 
@@ -89,7 +95,7 @@ def test_recovery_drill_history_snapshot_reports_invalid_manifest_shape(tmp_path
     snapshot = build_recovery_drill_history_snapshot(artifact_directory=artifact_dir)
 
     assert snapshot.status == "unavailable"
-    assert snapshot.reason == "recovery_drill_manifest_invalid"
+    assert snapshot.reason == RECOVERY_DRILL_MANIFEST_INVALID_REASON
     assert snapshot.entries == []
 
 
@@ -100,7 +106,7 @@ def test_recovery_drill_history_snapshot_reports_missing_manifest(tmp_path):
     snapshot = build_recovery_drill_history_snapshot(artifact_directory=artifact_dir)
 
     assert snapshot.status == "unavailable"
-    assert snapshot.reason == "recovery_drill_manifest_missing"
+    assert snapshot.reason == RECOVERY_DRILL_MANIFEST_MISSING_REASON
     assert snapshot.entries == []
 
 
@@ -114,7 +120,7 @@ def test_recovery_drill_history_snapshot_reports_unreadable_manifest(tmp_path, m
     snapshot = build_recovery_drill_history_snapshot(artifact_directory=artifact_dir)
 
     assert snapshot.status == "unavailable"
-    assert snapshot.reason == "recovery_drill_manifest_unreadable"
+    assert snapshot.reason == RECOVERY_DRILL_MANIFEST_UNREADABLE_REASON
 
 
 @pytest.mark.parametrize(
@@ -223,7 +229,7 @@ def test_recovery_drill_history_snapshot_rejects_additional_invalid_manifest_sha
     snapshot = build_recovery_drill_history_snapshot(artifact_directory=artifact_dir)
 
     assert snapshot.status == "unavailable"
-    assert snapshot.reason == "recovery_drill_manifest_invalid"
+    assert snapshot.reason == RECOVERY_DRILL_MANIFEST_INVALID_REASON
 
 
 def test_recovery_drill_history_snapshot_applies_filters_and_limit(tmp_path):

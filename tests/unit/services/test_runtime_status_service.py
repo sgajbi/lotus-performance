@@ -5,7 +5,11 @@ import pytest
 from app.services.compute_job_store import ComputeQueueInspectionAnchors, ComputeQueueStats, ComputeRecoveryEvent
 from app.services.durability_health_service import DurabilityHealthStatus
 from app.services.lineage_metadata_store import LineageQueueInspectionAnchors, LineageQueueStats, LineageRecoveryEvent
-from app.services.recovery_drill_history_service import RecoveryDrillHistoryEntry, RecoveryDrillHistorySnapshot
+from app.services.recovery_drill_history_service import (
+    RECOVERY_DRILL_ARTIFACT_DIRECTORY_MISSING_REASON,
+    RecoveryDrillHistoryEntry,
+    RecoveryDrillHistorySnapshot,
+)
 from app.services.runtime_retention_history_service import RuntimeRetentionHistoryEntry, RuntimeRetentionHistorySnapshot
 from app.services.runtime_retention_service import RuntimeRetentionCleanupSummary
 from app.services.runtime_status_service import build_runtime_status_snapshot
@@ -2403,7 +2407,7 @@ def test_runtime_status_snapshot_degrades_when_missing_recovery_history_exceeds_
             returned_entries=0,
             next_offset=None,
             applied_filters={},
-            reason="recovery_drill_artifact_directory_missing",
+            reason=RECOVERY_DRILL_ARTIFACT_DIRECTORY_MISSING_REASON,
         ),
     )
 

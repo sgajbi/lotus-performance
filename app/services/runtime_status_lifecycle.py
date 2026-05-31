@@ -4,6 +4,8 @@ from pathlib import Path
 from typing import TypedDict
 
 from app.services.recovery_drill_history_service import (
+    RECOVERY_DRILL_ARTIFACT_DIRECTORY_MISSING_REASON,
+    RECOVERY_DRILL_MANIFEST_MISSING_REASON,
     RecoveryDrillHistoryEntry,
     build_recovery_drill_history_snapshot,
 )
@@ -70,8 +72,8 @@ def build_recovery_drill_status(*, settings, policy: RecoveryDrillDegradationPol
 
     if snapshot.status != "available":
         if snapshot.reason in {
-            "recovery_drill_artifact_directory_missing",
-            "recovery_drill_manifest_missing",
+            RECOVERY_DRILL_ARTIFACT_DIRECTORY_MISSING_REASON,
+            RECOVERY_DRILL_MANIFEST_MISSING_REASON,
         }:
             return missing_recovery_drill_status(
                 threshold=policy.max_age_seconds,

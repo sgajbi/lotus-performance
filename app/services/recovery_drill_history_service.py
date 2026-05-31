@@ -10,6 +10,11 @@ from app.core.config import get_settings
 from app.services.operator_action_evidence_paths import is_safe_evidence_file_name
 from app.services.operator_action_history_pagination import paginate_history_entries
 
+RECOVERY_DRILL_ARTIFACT_DIRECTORY_MISSING_REASON = "recovery_drill_artifact_directory_missing"
+RECOVERY_DRILL_MANIFEST_INVALID_REASON = "recovery_drill_manifest_invalid"
+RECOVERY_DRILL_MANIFEST_MISSING_REASON = "recovery_drill_manifest_missing"
+RECOVERY_DRILL_MANIFEST_UNREADABLE_REASON = "recovery_drill_manifest_unreadable"
+
 
 @dataclass(frozen=True)
 class RecoveryDrillHistoryEntry:
@@ -66,14 +71,14 @@ def build_recovery_drill_history_snapshot(
         return _unavailable_snapshot(
             directory=directory,
             applied_filters=applied_filters,
-            reason="recovery_drill_artifact_directory_missing",
+            reason=RECOVERY_DRILL_ARTIFACT_DIRECTORY_MISSING_REASON,
         )
 
     if not manifest_path.exists():
         return _unavailable_snapshot(
             directory=directory,
             applied_filters=applied_filters,
-            reason="recovery_drill_manifest_missing",
+            reason=RECOVERY_DRILL_MANIFEST_MISSING_REASON,
         )
 
     try:
@@ -82,20 +87,20 @@ def build_recovery_drill_history_snapshot(
         return _unavailable_snapshot(
             directory=directory,
             applied_filters=applied_filters,
-            reason="recovery_drill_manifest_unreadable",
+            reason=RECOVERY_DRILL_MANIFEST_UNREADABLE_REASON,
         )
     except json.JSONDecodeError:
         return _unavailable_snapshot(
             directory=directory,
             applied_filters=applied_filters,
-            reason="recovery_drill_manifest_invalid",
+            reason=RECOVERY_DRILL_MANIFEST_INVALID_REASON,
         )
     manifest_payload = _validate_manifest_payload(payload)
     if manifest_payload is None:
         return _unavailable_snapshot(
             directory=directory,
             applied_filters=applied_filters,
-            reason="recovery_drill_manifest_invalid",
+            reason=RECOVERY_DRILL_MANIFEST_INVALID_REASON,
         )
     all_entries = [
         RecoveryDrillHistoryEntry(

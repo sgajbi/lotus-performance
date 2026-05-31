@@ -2,7 +2,11 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 
-from app.services.recovery_drill_history_service import RecoveryDrillHistoryEntry, RecoveryDrillHistorySnapshot
+from app.services.recovery_drill_history_service import (
+    RECOVERY_DRILL_MANIFEST_MISSING_REASON,
+    RecoveryDrillHistoryEntry,
+    RecoveryDrillHistorySnapshot,
+)
 from app.services.runtime_retention_history_service import RuntimeRetentionHistoryEntry, RuntimeRetentionHistorySnapshot
 from app.services.runtime_retention_service import RuntimeRetentionCleanupSummary
 from app.services.runtime_status_domain import (
@@ -197,7 +201,7 @@ def test_build_recovery_drill_status_returns_missing_when_artifacts_are_absent(m
         "app.services.runtime_status_lifecycle.build_recovery_drill_history_snapshot",
         return_value=_recovery_drill_snapshot(
             status="unavailable",
-            reason="recovery_drill_manifest_missing",
+            reason=RECOVERY_DRILL_MANIFEST_MISSING_REASON,
         ),
     )
 
