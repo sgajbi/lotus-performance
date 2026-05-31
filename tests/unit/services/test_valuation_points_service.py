@@ -86,3 +86,7 @@ def test_portfolio_timeseries_to_valuation_points_rejects_empty_valid_observatio
         portfolio_timeseries_to_valuation_points(observations=[{"valuation_date": None}])
 
     assert exc.value.status_code == 422
+    assert exc.value.detail == {
+        "code": "INSUFFICIENT_DATA",
+        "message": "No valid valuation observations after canonical normalization.",
+    }
