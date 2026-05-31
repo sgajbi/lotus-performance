@@ -522,27 +522,14 @@ def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
                 threshold_value=_as_decimal_number(threshold),
             )
         )
-    if (
-        active_run_age_threshold > 0
-        and active_run_status.status == "active"
-        and active_run_status.oldest_active_run_age_seconds is not None
-        and active_run_status.oldest_active_run_age_seconds >= active_run_age_threshold
-    ):
-        degradation_details.append(
-            RuntimeDegradationDetail(
-                reason="recovery_drill_active_run_age_exceeded",
-                observed_value=_as_decimal_number(active_run_status.oldest_active_run_age_seconds),
-                threshold_value=_as_decimal_number(active_run_age_threshold),
-            )
-        )
-    if reclaim_threshold > 0 and active_run_status.reclaimed_run_count >= reclaim_threshold:
-        degradation_details.append(
-            RuntimeDegradationDetail(
-                reason="recovery_drill_reclaim_pressure_exceeded",
-                observed_value=_as_decimal_number(active_run_status.reclaimed_run_count),
-                threshold_value=_as_decimal_number(reclaim_threshold),
-            )
-        )
+    _append_operator_action_degradation_details(
+        degradation_details,
+        active_run_status=active_run_status,
+        active_run_age_threshold=active_run_age_threshold,
+        active_run_reason="recovery_drill_active_run_age_exceeded",
+        reclaim_threshold=reclaim_threshold,
+        reclaim_reason="recovery_drill_reclaim_pressure_exceeded",
+    )
     reasons: tuple[str, ...] = tuple(detail.reason for detail in degradation_details)
     return RecoveryDrillStatus(
         status="degraded" if reasons else "available",
@@ -722,27 +709,14 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
                 threshold_value=_as_decimal_number(threshold),
             )
         )
-    if (
-        active_run_age_threshold > 0
-        and active_run_status.status == "active"
-        and active_run_status.oldest_active_run_age_seconds is not None
-        and active_run_status.oldest_active_run_age_seconds >= active_run_age_threshold
-    ):
-        degradation_details.append(
-            RuntimeDegradationDetail(
-                reason="runtime_retention_active_run_age_exceeded",
-                observed_value=_as_decimal_number(active_run_status.oldest_active_run_age_seconds),
-                threshold_value=_as_decimal_number(active_run_age_threshold),
-            )
-        )
-    if reclaim_threshold > 0 and active_run_status.reclaimed_run_count >= reclaim_threshold:
-        degradation_details.append(
-            RuntimeDegradationDetail(
-                reason="runtime_retention_reclaim_pressure_exceeded",
-                observed_value=_as_decimal_number(active_run_status.reclaimed_run_count),
-                threshold_value=_as_decimal_number(reclaim_threshold),
-            )
-        )
+    _append_operator_action_degradation_details(
+        degradation_details,
+        active_run_status=active_run_status,
+        active_run_age_threshold=active_run_age_threshold,
+        active_run_reason="runtime_retention_active_run_age_exceeded",
+        reclaim_threshold=reclaim_threshold,
+        reclaim_reason="runtime_retention_reclaim_pressure_exceeded",
+    )
     reasons: tuple[str, ...] = tuple(detail.reason for detail in degradation_details)
     return RuntimeRetentionStatus(
         status="degraded" if reasons else "available",
@@ -912,6 +886,30 @@ def _append_degradation_detail_if_breached(
             observed_value=observed_decimal,
             threshold_value=threshold_decimal,
         )
+    )
+
+
+def _append_operator_action_degradation_details(
+    details: list[RuntimeDegradationDetail],
+    *,
+    active_run_status: OperatorActionStatus,
+    active_run_age_threshold: float,
+    active_run_reason: str,
+    reclaim_threshold: int,
+    reclaim_reason: str,
+) -> None:
+    if active_run_status.status == "active" and active_run_status.oldest_active_run_age_seconds is not None:
+        _append_degradation_detail_if_breached(
+            details,
+            reason=active_run_reason,
+            observed_value=active_run_status.oldest_active_run_age_seconds,
+            threshold_value=active_run_age_threshold,
+        )
+    _append_degradation_detail_if_breached(
+        details,
+        reason=reclaim_reason,
+        observed_value=active_run_status.reclaimed_run_count,
+        threshold_value=reclaim_threshold,
     )
 
 

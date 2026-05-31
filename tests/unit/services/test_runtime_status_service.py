@@ -2687,3 +2687,43 @@ def test_runtime_status_degradation_detail_helper_uses_governed_threshold_semant
     assert details[0].reason == "at_threshold"
     assert details[0].observed_value == runtime_status_service._as_decimal_number(10)
     assert details[0].threshold_value == runtime_status_service._as_decimal_number(10)
+
+
+def test_runtime_status_operator_action_degradation_helper_reuses_threshold_semantics():
+    details: list[runtime_status_service.RuntimeDegradationDetail] = []
+    active_run_status = runtime_status_service.OperatorActionStatus(
+        status="active",
+        reason=None,
+        active_run_count=1,
+        oldest_active_run_operator_id="ops-user",
+        oldest_active_run_tenant_id=None,
+        oldest_active_run_governed_target="runtime-retention",
+        oldest_active_run_acquired_at_utc="2026-03-15T00:00:00Z",
+        oldest_active_run_age_seconds=120.0,
+        latest_reclaimed_run_operator_id="ops-user",
+        latest_reclaimed_run_tenant_id=None,
+        latest_reclaimed_run_governed_target="runtime-retention",
+        latest_reclaimed_run_acquired_at_utc="2026-03-15T00:00:00Z",
+        latest_reclaimed_run_reclaimed_at_utc="2026-03-15T00:10:00Z",
+        latest_reclaimed_run_age_seconds=60.0,
+        reclaimed_run_count=3,
+        recent_reclaimed_runs=(),
+    )
+
+    runtime_status_service._append_operator_action_degradation_details(
+        details,
+        active_run_status=active_run_status,
+        active_run_age_threshold=60.0,
+        active_run_reason="runtime_retention_active_run_age_exceeded",
+        reclaim_threshold=3,
+        reclaim_reason="runtime_retention_reclaim_pressure_exceeded",
+    )
+
+    assert tuple(detail.reason for detail in details) == (
+        "runtime_retention_active_run_age_exceeded",
+        "runtime_retention_reclaim_pressure_exceeded",
+    )
+    assert details[0].observed_value == runtime_status_service._as_decimal_number(120.0)
+    assert details[0].threshold_value == runtime_status_service._as_decimal_number(60.0)
+    assert details[1].observed_value == runtime_status_service._as_decimal_number(3)
+    assert details[1].threshold_value == runtime_status_service._as_decimal_number(3)
