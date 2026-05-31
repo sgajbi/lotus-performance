@@ -55,43 +55,9 @@ def build_operator_action_status(*, artifact_directory: Path, action_name: str) 
             action_name=action_name,
         )
     except Exception as exc:
-        return OperatorActionStatus(
-            status="unavailable",
-            reason=type(exc).__name__,
-            active_run_count=0,
-            oldest_active_run_operator_id=None,
-            oldest_active_run_tenant_id=None,
-            oldest_active_run_governed_target=None,
-            oldest_active_run_acquired_at_utc=None,
-            oldest_active_run_age_seconds=None,
-            latest_reclaimed_run_operator_id=None,
-            latest_reclaimed_run_tenant_id=None,
-            latest_reclaimed_run_governed_target=None,
-            latest_reclaimed_run_acquired_at_utc=None,
-            latest_reclaimed_run_reclaimed_at_utc=None,
-            latest_reclaimed_run_age_seconds=None,
-            reclaimed_run_count=0,
-            recent_reclaimed_runs=(),
-        )
+        return _unavailable_operator_action_status(reason=type(exc).__name__)
     if snapshot.status != "available":
-        return OperatorActionStatus(
-            status="unavailable",
-            reason=snapshot.reason,
-            active_run_count=0,
-            oldest_active_run_operator_id=None,
-            oldest_active_run_tenant_id=None,
-            oldest_active_run_governed_target=None,
-            oldest_active_run_acquired_at_utc=None,
-            oldest_active_run_age_seconds=None,
-            latest_reclaimed_run_operator_id=None,
-            latest_reclaimed_run_tenant_id=None,
-            latest_reclaimed_run_governed_target=None,
-            latest_reclaimed_run_acquired_at_utc=None,
-            latest_reclaimed_run_reclaimed_at_utc=None,
-            latest_reclaimed_run_age_seconds=None,
-            reclaimed_run_count=0,
-            recent_reclaimed_runs=(),
-        )
+        return _unavailable_operator_action_status(reason=snapshot.reason)
     latest_reclaimed_run = snapshot.latest_reclaimed_lease
     recent_reclaimed_runs = build_recent_operator_action_reclaims(snapshot=snapshot)
     latest_reclaimed_run_age_seconds = None
@@ -148,6 +114,27 @@ def build_operator_action_status(*, artifact_directory: Path, action_name: str) 
         latest_reclaimed_run_age_seconds=latest_reclaimed_run_age_seconds,
         reclaimed_run_count=0 if latest_reclaimed_run is None else latest_reclaimed_run.reclaim_count,
         recent_reclaimed_runs=recent_reclaimed_runs,
+    )
+
+
+def _unavailable_operator_action_status(*, reason: str | None) -> OperatorActionStatus:
+    return OperatorActionStatus(
+        status="unavailable",
+        reason=reason,
+        active_run_count=0,
+        oldest_active_run_operator_id=None,
+        oldest_active_run_tenant_id=None,
+        oldest_active_run_governed_target=None,
+        oldest_active_run_acquired_at_utc=None,
+        oldest_active_run_age_seconds=None,
+        latest_reclaimed_run_operator_id=None,
+        latest_reclaimed_run_tenant_id=None,
+        latest_reclaimed_run_governed_target=None,
+        latest_reclaimed_run_acquired_at_utc=None,
+        latest_reclaimed_run_reclaimed_at_utc=None,
+        latest_reclaimed_run_age_seconds=None,
+        reclaimed_run_count=0,
+        recent_reclaimed_runs=(),
     )
 
 

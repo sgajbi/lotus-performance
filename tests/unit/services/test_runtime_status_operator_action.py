@@ -38,6 +38,18 @@ def test_runtime_status_operator_action_status_handles_exceptions_and_unavailabl
     assert unavailable_snapshot.reason == "operator_action_lease_invalid"
 
 
+def test_unavailable_operator_action_status_clears_operator_evidence():
+    status = runtime_status_operator_action._unavailable_operator_action_status(reason="lease_store_unavailable")
+
+    assert status.status == "unavailable"
+    assert status.reason == "lease_store_unavailable"
+    assert status.active_run_count == 0
+    assert status.oldest_active_run_operator_id is None
+    assert status.latest_reclaimed_run_operator_id is None
+    assert status.reclaimed_run_count == 0
+    assert status.recent_reclaimed_runs == ()
+
+
 def test_runtime_status_operator_action_status_normalizes_naive_timestamps(mocker):
     mocker.patch(
         "app.services.runtime_status_operator_action.build_operator_action_lease_snapshot",
