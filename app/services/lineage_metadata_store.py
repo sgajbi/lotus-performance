@@ -11,6 +11,7 @@ from uuid import UUID
 from sqlalchemy import DateTime, Index, Integer, String, Text, case, create_engine, exists, func, inspect, select, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
+from app.services.durable_store_pagination import next_offset_or_none
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
 from app.services.durable_store_time import (
     coerce_utc_datetime as _coerce_utc_datetime,
@@ -492,7 +493,7 @@ class LineageMetadataStore:
                 ).scalar_one()
                 or 0
             )
-            next_offset = offset + len(events) if offset + len(events) < total_count else None
+            next_offset = next_offset_or_none(offset=offset, item_count=len(events), total_count=total_count)
             next_cursor_recovered_before = None
             next_cursor_calculation_id_before = None
             if next_offset is not None and events:
@@ -587,7 +588,7 @@ class LineageMetadataStore:
             rows = session.execute(statement).all()
             items = [self._to_inspection_item(record, payload, now=inspection_now) for record, payload in rows]
             total_count = int(session.execute(count_statement).scalar_one() or 0)
-            next_offset = offset + len(items) if offset + len(items) < total_count else None
+            next_offset = next_offset_or_none(offset=offset, item_count=len(items), total_count=total_count)
             return LineageQueueInspectionPage(total_count=total_count, next_offset=next_offset, items=items)
 
     def _build_pending_payload_stats_statement(self, *, now: datetime):

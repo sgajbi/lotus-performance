@@ -13,6 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.core.config import get_settings
+from app.services.durable_store_pagination import next_offset_or_none
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
 from app.services.durable_store_time import (
     elapsed_seconds_since as _elapsed_seconds_since,
@@ -607,7 +608,7 @@ class ComputeJobStore:
                 ).scalar_one()
                 or 0
             )
-            next_offset = offset + len(events) if offset + len(events) < total_count else None
+            next_offset = next_offset_or_none(offset=offset, item_count=len(events), total_count=total_count)
             next_cursor_recovered_before = None
             next_cursor_calculation_id_before = None
             if next_offset is not None and events:
@@ -696,7 +697,7 @@ class ComputeJobStore:
             rows = session.execute(statement).scalars().all()
             items = [self._to_inspection_item(row, now=inspection_now) for row in rows]
             total_count = int(session.execute(count_statement).scalar_one() or 0)
-            next_offset = offset + len(items) if offset + len(items) < total_count else None
+            next_offset = next_offset_or_none(offset=offset, item_count=len(items), total_count=total_count)
             return ComputeQueueInspectionPage(total_count=total_count, next_offset=next_offset, items=items)
 
     def _build_queue_stats_statement(self, *, now: datetime):
