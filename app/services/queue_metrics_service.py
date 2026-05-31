@@ -24,6 +24,7 @@ from app.services.queue_metric_builders import (
     operator_action_lease_metrics,
     policy_threshold_metric,
     reason_labeled_metric,
+    recovery_drill_degradation_breach_metric,
     single_sample_metric,
     snapshot_available,
 )
@@ -466,35 +467,11 @@ class DurableQueueCollector:
                 value=latest_age_seconds,
             )
 
-            yield reason_labeled_metric(
-                metric_name="lotus_performance_recovery_drill_degradation_breach",
-                description=(
-                    "Whether retained durable recovery-drill history currently breaches a recovery assurance policy."
-                ),
-                samples=(
-                    ("recovery_drill_latest_not_passed", 1 if latest.status != "passed" else 0),
-                    (
-                        "recovery_drill_age_exceeded",
-                        threshold_breach_flag(
-                            threshold_value=recovery_drill_policy.max_age_seconds,
-                            observed_value=latest_age_seconds,
-                        ),
-                    ),
-                    (
-                        "recovery_drill_active_run_age_exceeded",
-                        threshold_breach_flag(
-                            threshold_value=recovery_drill_policy.active_run_age_seconds,
-                            observed_value=active_lease_age_seconds_or_zero(recovery_drill_action_snapshot),
-                        ),
-                    ),
-                    (
-                        "recovery_drill_reclaim_pressure_exceeded",
-                        threshold_breach_flag(
-                            threshold_value=recovery_drill_policy.reclaim_count,
-                            observed_value=latest_reclaim_count_or_zero(recovery_drill_action_snapshot),
-                        ),
-                    ),
-                ),
+            yield recovery_drill_degradation_breach_metric(
+                latest=latest,
+                latest_age_seconds=latest_age_seconds,
+                action_snapshot=recovery_drill_action_snapshot,
+                policy=recovery_drill_policy,
             )
 
         if (

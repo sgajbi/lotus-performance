@@ -10,10 +10,15 @@ from app.services.queue_metric_builders import (
     operator_action_lease_metrics,
     policy_threshold_metric,
     reason_labeled_metric,
+    recovery_drill_degradation_breach_metric,
     single_sample_metric,
     snapshot_available,
 )
-from app.services.runtime_status_domain import ComputeQueueDegradationPolicy, LineageQueueDegradationPolicy
+from app.services.runtime_status_domain import (
+    ComputeQueueDegradationPolicy,
+    LineageQueueDegradationPolicy,
+    RecoveryDrillDegradationPolicy,
+)
 
 
 def test_availability_metric_emits_unlabelled_binary_sample():
@@ -179,6 +184,41 @@ def test_lineage_storage_pressure_breach_metric_uses_policy_thresholds():
     assert samples == {
         "lineage_storage_free_bytes_below_threshold": 1,
         "lineage_storage_free_ratio_below_threshold": 1,
+    }
+
+
+def test_recovery_drill_degradation_breach_metric_uses_latest_history_and_action_policy(monkeypatch):
+    monkeypatch.setattr("app.services.queue_metric_builders.age_seconds_since", lambda timestamp_utc: 120.0)
+    latest = type("RecoveryEntry", (), {"status": "failed"})()
+    action_snapshot = type(
+        "ActionSnapshot",
+        (),
+        {
+            "status": "available",
+            "active_leases": (type("Lease", (), {"acquired_at_utc": "2026-05-31T10:00:00Z"})(),),
+            "latest_reclaimed_lease": type("Reclaim", (), {"reclaim_count": 2})(),
+        },
+    )()
+    policy = RecoveryDrillDegradationPolicy(
+        max_age_seconds=60.0,
+        active_run_age_seconds=30.0,
+        reclaim_count=1,
+    )
+
+    metric = recovery_drill_degradation_breach_metric(
+        latest=latest,
+        latest_age_seconds=120.0,
+        action_snapshot=action_snapshot,
+        policy=policy,
+    )
+
+    samples = {sample.labels["reason"]: sample.value for sample in metric.samples}
+    assert metric.name == "lotus_performance_recovery_drill_degradation_breach"
+    assert samples == {
+        "recovery_drill_latest_not_passed": 1,
+        "recovery_drill_age_exceeded": 1,
+        "recovery_drill_active_run_age_exceeded": 1,
+        "recovery_drill_reclaim_pressure_exceeded": 1,
     }
 
 

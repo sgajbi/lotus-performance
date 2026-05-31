@@ -6,7 +6,11 @@ from typing import Any, Iterable
 from prometheus_client.core import GaugeMetricFamily
 
 from app.services.runtime_degradation_policy import threshold_breach_flag
-from app.services.runtime_status_domain import ComputeQueueDegradationPolicy, LineageQueueDegradationPolicy
+from app.services.runtime_status_domain import (
+    ComputeQueueDegradationPolicy,
+    LineageQueueDegradationPolicy,
+    RecoveryDrillDegradationPolicy,
+)
 from app.services.runtime_status_time import age_seconds_since
 
 
@@ -222,6 +226,43 @@ def lineage_storage_pressure_breach_metric(
                     observed_value=capacity.free_ratio,
                     threshold_value=policy.storage_min_free_ratio,
                     comparison="at_or_below",
+                ),
+            ),
+        ),
+    )
+
+
+def recovery_drill_degradation_breach_metric(
+    *,
+    latest: Any,
+    latest_age_seconds: float,
+    action_snapshot: Any,
+    policy: RecoveryDrillDegradationPolicy,
+) -> GaugeMetricFamily:
+    return reason_labeled_metric(
+        metric_name="lotus_performance_recovery_drill_degradation_breach",
+        description="Whether retained durable recovery-drill history currently breaches a recovery assurance policy.",
+        samples=(
+            ("recovery_drill_latest_not_passed", 1 if latest.status != "passed" else 0),
+            (
+                "recovery_drill_age_exceeded",
+                threshold_breach_flag(
+                    threshold_value=policy.max_age_seconds,
+                    observed_value=latest_age_seconds,
+                ),
+            ),
+            (
+                "recovery_drill_active_run_age_exceeded",
+                threshold_breach_flag(
+                    threshold_value=policy.active_run_age_seconds,
+                    observed_value=active_lease_age_seconds_or_zero(action_snapshot),
+                ),
+            ),
+            (
+                "recovery_drill_reclaim_pressure_exceeded",
+                threshold_breach_flag(
+                    threshold_value=policy.reclaim_count,
+                    observed_value=latest_reclaim_count_or_zero(action_snapshot),
                 ),
             ),
         ),
