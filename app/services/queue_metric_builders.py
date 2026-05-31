@@ -113,6 +113,18 @@ def reason_labeled_metric(
     return metric
 
 
+def active_lease_age_seconds_or_zero(snapshot: Any) -> float:
+    if not snapshot_available(snapshot) or not snapshot.active_leases:
+        return 0.0
+    return age_seconds_since(snapshot.active_leases[0].acquired_at_utc)
+
+
+def latest_reclaim_count_or_zero(snapshot: Any) -> int:
+    if not snapshot_available(snapshot) or snapshot.latest_reclaimed_lease is None:
+        return 0
+    return snapshot.latest_reclaimed_lease.reclaim_count
+
+
 def availability_metric(*, metric_name: str, description: str, is_available: bool) -> GaugeMetricFamily:
     metric = GaugeMetricFamily(metric_name, description)
     metric.add_metric([], 1 if is_available else 0)

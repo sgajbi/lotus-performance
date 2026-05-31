@@ -12,7 +12,9 @@ from app.services.operator_action_lease_service import build_operator_action_lea
 from app.services.queue_metric_builders import (
     RECOVERY_DRILL_ACTION_METRICS,
     RUNTIME_RETENTION_ACTION_METRICS,
+    active_lease_age_seconds_or_zero,
     availability_metric,
+    latest_reclaim_count_or_zero,
     operator_action_lease_metrics,
     policy_threshold_metric,
     reason_labeled_metric,
@@ -640,13 +642,7 @@ class DurableQueueCollector:
                                 "RUNTIME_STATUS_RECOVERY_DRILL_ACTIVE_RUN_AGE_DEGRADE_SECONDS",
                                 0.0,
                             ),
-                            observed_value=(
-                                0.0
-                                if recovery_drill_action_snapshot is None
-                                or recovery_drill_action_snapshot.status != "available"
-                                or not recovery_drill_action_snapshot.active_leases
-                                else age_seconds_since(recovery_drill_action_snapshot.active_leases[0].acquired_at_utc)
-                            ),
+                            observed_value=active_lease_age_seconds_or_zero(recovery_drill_action_snapshot),
                         ),
                     ),
                     (
@@ -657,13 +653,7 @@ class DurableQueueCollector:
                                 "RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT",
                                 0,
                             ),
-                            observed_value=(
-                                0
-                                if recovery_drill_action_snapshot is None
-                                or recovery_drill_action_snapshot.status != "available"
-                                or recovery_drill_action_snapshot.latest_reclaimed_lease is None
-                                else recovery_drill_action_snapshot.latest_reclaimed_lease.reclaim_count
-                            ),
+                            observed_value=latest_reclaim_count_or_zero(recovery_drill_action_snapshot),
                         ),
                     ),
                 ),
@@ -711,15 +701,7 @@ class DurableQueueCollector:
                                 "RUNTIME_STATUS_RUNTIME_RETENTION_ACTIVE_RUN_AGE_DEGRADE_SECONDS",
                                 0.0,
                             ),
-                            observed_value=(
-                                0.0
-                                if runtime_retention_action_snapshot is None
-                                or runtime_retention_action_snapshot.status != "available"
-                                or not runtime_retention_action_snapshot.active_leases
-                                else age_seconds_since(
-                                    runtime_retention_action_snapshot.active_leases[0].acquired_at_utc
-                                )
-                            ),
+                            observed_value=active_lease_age_seconds_or_zero(runtime_retention_action_snapshot),
                         ),
                     ),
                     (
@@ -730,13 +712,7 @@ class DurableQueueCollector:
                                 "RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT",
                                 0,
                             ),
-                            observed_value=(
-                                0
-                                if runtime_retention_action_snapshot is None
-                                or runtime_retention_action_snapshot.status != "available"
-                                or runtime_retention_action_snapshot.latest_reclaimed_lease is None
-                                else runtime_retention_action_snapshot.latest_reclaimed_lease.reclaim_count
-                            ),
+                            observed_value=latest_reclaim_count_or_zero(runtime_retention_action_snapshot),
                         ),
                     ),
                 ),

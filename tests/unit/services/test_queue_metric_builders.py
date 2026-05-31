@@ -1,6 +1,8 @@
 from app.services.queue_metric_builders import (
     RECOVERY_DRILL_ACTION_METRICS,
+    active_lease_age_seconds_or_zero,
     availability_metric,
+    latest_reclaim_count_or_zero,
     operator_action_lease_metrics,
     policy_threshold_metric,
     reason_labeled_metric,
@@ -54,6 +56,40 @@ def test_reason_labeled_metric_uses_governed_reason_labels():
         "age_exceeded": 1,
         "retry_backlog_exceeded": 0,
     }
+
+
+def test_active_lease_age_seconds_or_zero_uses_available_active_lease(monkeypatch):
+    monkeypatch.setattr("app.services.queue_metric_builders.age_seconds_since", lambda timestamp_utc: 42.0)
+    snapshot = type(
+        "Snapshot",
+        (),
+        {
+            "status": "available",
+            "active_leases": (type("Lease", (), {"acquired_at_utc": "2026-05-31T10:00:00Z"})(),),
+        },
+    )()
+
+    assert active_lease_age_seconds_or_zero(snapshot) == 42
+    assert active_lease_age_seconds_or_zero(type("Snapshot", (), {"status": "available", "active_leases": ()})()) == 0
+    assert active_lease_age_seconds_or_zero(None) == 0
+
+
+def test_latest_reclaim_count_or_zero_uses_available_reclaimed_lease():
+    snapshot = type(
+        "Snapshot",
+        (),
+        {
+            "status": "available",
+            "latest_reclaimed_lease": type("Reclaim", (), {"reclaim_count": 3})(),
+        },
+    )()
+
+    assert latest_reclaim_count_or_zero(snapshot) == 3
+    assert (
+        latest_reclaim_count_or_zero(type("Snapshot", (), {"status": "available", "latest_reclaimed_lease": None})())
+        == 0
+    )
+    assert latest_reclaim_count_or_zero(None) == 0
 
 
 def test_operator_action_lease_metrics_emit_active_and_reclaim_samples(monkeypatch):
