@@ -28,6 +28,7 @@ from app.services.recovery_drill_history_service import build_recovery_drill_his
 from app.services.runtime_degradation_policy import threshold_breach_flag
 from app.services.runtime_retention_history_service import build_runtime_retention_history_snapshot
 from app.services.runtime_retention_service import run_runtime_retention_cleanup
+from app.services.runtime_status_policy import build_recovery_drill_policy, build_runtime_retention_policy
 from app.services.runtime_status_time import age_seconds_since
 
 TMetricSource = TypeVar("TMetricSource")
@@ -203,6 +204,8 @@ class DurableQueueCollector:
 
     def collect(self):
         settings = get_settings()
+        recovery_drill_policy = build_recovery_drill_policy(settings=settings)
+        runtime_retention_policy = build_runtime_retention_policy(settings=settings)
         compute_stats, compute_available = _load_metric_source(compute_job_store.get_queue_stats)
         lineage_stats, lineage_available = _load_metric_source(lineage_metadata_store.get_pending_payload_stats)
         lineage_storage_capacity, lineage_storage_capacity_available = _load_metric_source(get_lineage_storage_capacity)
@@ -550,13 +553,9 @@ class DurableQueueCollector:
         yield policy_threshold_metric(
             metric_name="lotus_performance_recovery_drill_policy_threshold",
             description="Configured recovery-drill degradation thresholds.",
-            max_age_seconds=getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS", 0.0),
-            active_run_age_seconds=getattr(
-                settings,
-                "RUNTIME_STATUS_RECOVERY_DRILL_ACTIVE_RUN_AGE_DEGRADE_SECONDS",
-                0.0,
-            ),
-            reclaim_count=getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT", 0),
+            max_age_seconds=recovery_drill_policy.max_age_seconds,
+            active_run_age_seconds=recovery_drill_policy.active_run_age_seconds,
+            reclaim_count=recovery_drill_policy.reclaim_count,
         )
 
         yield from operator_action_lease_metrics(
@@ -567,13 +566,9 @@ class DurableQueueCollector:
         yield policy_threshold_metric(
             metric_name="lotus_performance_runtime_retention_policy_threshold",
             description="Configured runtime-retention degradation thresholds.",
-            max_age_seconds=getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS", 0.0),
-            active_run_age_seconds=getattr(
-                settings,
-                "RUNTIME_STATUS_RUNTIME_RETENTION_ACTIVE_RUN_AGE_DEGRADE_SECONDS",
-                0.0,
-            ),
-            reclaim_count=getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT", 0),
+            max_age_seconds=runtime_retention_policy.max_age_seconds,
+            active_run_age_seconds=runtime_retention_policy.active_run_age_seconds,
+            reclaim_count=runtime_retention_policy.reclaim_count,
         )
 
         yield from operator_action_lease_metrics(
@@ -605,29 +600,21 @@ class DurableQueueCollector:
                     (
                         "recovery_drill_age_exceeded",
                         threshold_breach_flag(
-                            threshold_value=getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS", 0.0),
+                            threshold_value=recovery_drill_policy.max_age_seconds,
                             observed_value=latest_age_seconds,
                         ),
                     ),
                     (
                         "recovery_drill_active_run_age_exceeded",
                         threshold_breach_flag(
-                            threshold_value=getattr(
-                                settings,
-                                "RUNTIME_STATUS_RECOVERY_DRILL_ACTIVE_RUN_AGE_DEGRADE_SECONDS",
-                                0.0,
-                            ),
+                            threshold_value=recovery_drill_policy.active_run_age_seconds,
                             observed_value=active_lease_age_seconds_or_zero(recovery_drill_action_snapshot),
                         ),
                     ),
                     (
                         "recovery_drill_reclaim_pressure_exceeded",
                         threshold_breach_flag(
-                            threshold_value=getattr(
-                                settings,
-                                "RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT",
-                                0,
-                            ),
+                            threshold_value=recovery_drill_policy.reclaim_count,
                             observed_value=latest_reclaim_count_or_zero(recovery_drill_action_snapshot),
                         ),
                     ),
@@ -659,33 +646,21 @@ class DurableQueueCollector:
                     (
                         "runtime_retention_age_exceeded",
                         threshold_breach_flag(
-                            threshold_value=getattr(
-                                settings,
-                                "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS",
-                                0.0,
-                            ),
+                            threshold_value=runtime_retention_policy.max_age_seconds,
                             observed_value=latest_age_seconds,
                         ),
                     ),
                     (
                         "runtime_retention_active_run_age_exceeded",
                         threshold_breach_flag(
-                            threshold_value=getattr(
-                                settings,
-                                "RUNTIME_STATUS_RUNTIME_RETENTION_ACTIVE_RUN_AGE_DEGRADE_SECONDS",
-                                0.0,
-                            ),
+                            threshold_value=runtime_retention_policy.active_run_age_seconds,
                             observed_value=active_lease_age_seconds_or_zero(runtime_retention_action_snapshot),
                         ),
                     ),
                     (
                         "runtime_retention_reclaim_pressure_exceeded",
                         threshold_breach_flag(
-                            threshold_value=getattr(
-                                settings,
-                                "RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT",
-                                0,
-                            ),
+                            threshold_value=runtime_retention_policy.reclaim_count,
                             observed_value=latest_reclaim_count_or_zero(runtime_retention_action_snapshot),
                         ),
                     ),
