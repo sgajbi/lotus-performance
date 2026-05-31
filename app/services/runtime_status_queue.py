@@ -23,6 +23,7 @@ from app.services.lineage_metadata_store import (
 from app.services.runtime_status_degradation import compute_queue_degradation_details, lineage_queue_degradation_details
 from app.services.runtime_status_domain import RuntimeDegradationDetail, RuntimeQueueStatus
 from app.services.runtime_unavailability import (
+    LINEAGE_STORAGE_CAPACITY_UNREADABLE_REASON,
     durable_metadata_unavailable_reason,
     lineage_storage_unavailable_reason,
 )
@@ -71,7 +72,7 @@ def build_lineage_queue_status(durability_status: DurabilityHealthStatus, *, set
     try:
         storage_capacity = get_lineage_storage_capacity()
     except Exception:
-        return unavailable_runtime_queue_status(reason="lineage_storage_capacity_unreadable")
+        return unavailable_runtime_queue_status(reason=LINEAGE_STORAGE_CAPACITY_UNREADABLE_REASON)
     try:
         stats = lineage_metadata_store.get_pending_payload_stats()
         inspection_anchors = safe_lineage_queue_inspection_anchors()

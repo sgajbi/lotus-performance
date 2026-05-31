@@ -9,6 +9,7 @@ from app.services.recovery_drill_history_service import RecoveryDrillHistoryEntr
 from app.services.runtime_retention_history_service import RuntimeRetentionHistoryEntry, RuntimeRetentionHistorySnapshot
 from app.services.runtime_retention_service import RuntimeRetentionCleanupSummary
 from app.services.runtime_status_service import build_runtime_status_snapshot
+from app.services.runtime_unavailability import LINEAGE_STORAGE_CAPACITY_UNREADABLE_REASON
 
 
 @pytest.fixture(autouse=True)
@@ -1535,9 +1536,9 @@ def test_runtime_status_snapshot_reports_unavailable_when_lineage_storage_capaci
     snapshot = build_runtime_status_snapshot(is_draining=False)
 
     assert snapshot.runtime_status == "degraded"
-    assert snapshot.runtime_degradation_reasons == ("lineage_queue:lineage_storage_capacity_unreadable",)
+    assert snapshot.runtime_degradation_reasons == (f"lineage_queue:{LINEAGE_STORAGE_CAPACITY_UNREADABLE_REASON}",)
     assert snapshot.lineage_queue.status == "unavailable"
-    assert snapshot.lineage_queue.reason == "lineage_storage_capacity_unreadable"
+    assert snapshot.lineage_queue.reason == LINEAGE_STORAGE_CAPACITY_UNREADABLE_REASON
 
 
 def test_runtime_status_snapshot_reports_unavailable_when_lineage_queue_read_fails(mocker):

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from app.services.runtime_unavailability import LINEAGE_STORAGE_CAPACITY_UNREADABLE_REASON
+
 _REMEDIATION_HINTS: dict[str, str] = {
     "durable_metadata_store_unreachable": (
         "Verify the durable metadata database is reachable from the service and that the configured "
@@ -23,7 +25,7 @@ _REMEDIATION_HINTS: dict[str, str] = {
         "Check free space, mount health, and write permissions on the lineage storage directory; the service could "
         "not complete a write/delete probe."
     ),
-    "lineage_storage_capacity_unreadable": (
+    LINEAGE_STORAGE_CAPACITY_UNREADABLE_REASON: (
         "Inspect the lineage storage mount and filesystem health; the service could not read storage-capacity "
         "metrics needed for proactive saturation monitoring."
     ),
