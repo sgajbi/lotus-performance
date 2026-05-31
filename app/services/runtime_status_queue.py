@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Iterable, Protocol, TypeVar, cast
+
 from app.services.compute_job_store import (
     ComputeQueueInspectionAnchors,
     ComputeQueueStats,
@@ -20,6 +22,12 @@ from app.services.lineage_metadata_store import (
 )
 from app.services.runtime_status_degradation import compute_queue_degradation_details, lineage_queue_degradation_details
 from app.services.runtime_status_domain import RuntimeDegradationDetail, RuntimeQueueStatus
+
+RecoveryEventT = TypeVar("RecoveryEventT", ComputeRecoveryEvent, LineageRecoveryEvent, covariant=True)
+
+
+class RecentRecoveryLister(Protocol[RecoveryEventT]):
+    def __call__(self, *, limit: int) -> object: ...
 
 
 def build_compute_queue_status(durability_status: DurabilityHealthStatus, *, settings) -> RuntimeQueueStatus:
@@ -118,23 +126,30 @@ def safe_lineage_queue_inspection_anchors() -> LineageQueueInspectionAnchors | N
 
 
 def safe_compute_recent_recoveries(*, settings) -> tuple[ComputeRecoveryEvent, ...]:
-    try:
-        limit = recent_recovery_limit(settings=settings)
-        if limit == 0:
-            return ()
-        page = compute_job_store.list_recent_recoveries(limit=limit)
-        return tuple(getattr(page, "items", page))
-    except Exception:
-        return ()
+    return safe_recent_recoveries(
+        settings=settings,
+        list_recent_recoveries=compute_job_store.list_recent_recoveries,
+    )
 
 
 def safe_lineage_recent_recoveries(*, settings) -> tuple[LineageRecoveryEvent, ...]:
+    return safe_recent_recoveries(
+        settings=settings,
+        list_recent_recoveries=lineage_metadata_store.list_recent_recoveries,
+    )
+
+
+def safe_recent_recoveries(
+    *,
+    settings,
+    list_recent_recoveries: RecentRecoveryLister[RecoveryEventT],
+) -> tuple[RecoveryEventT, ...]:
     try:
         limit = recent_recovery_limit(settings=settings)
         if limit == 0:
             return ()
-        page = lineage_metadata_store.list_recent_recoveries(limit=limit)
-        return tuple(getattr(page, "items", page))
+        page = list_recent_recoveries(limit=limit)
+        return tuple(cast(Iterable[RecoveryEventT], getattr(page, "items", page)))
     except Exception:
         return ()
 
