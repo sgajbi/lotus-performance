@@ -199,6 +199,35 @@ def lineage_queue_degradation_breach_metric(
     )
 
 
+def lineage_storage_pressure_breach_metric(
+    *,
+    capacity: Any,
+    policy: LineageQueueDegradationPolicy,
+) -> GaugeMetricFamily:
+    return reason_labeled_metric(
+        metric_name="lotus_performance_lineage_storage_pressure_breach",
+        description="Whether lineage storage currently breaches a proactive saturation threshold.",
+        samples=(
+            (
+                "lineage_storage_free_bytes_below_threshold",
+                threshold_breach_flag(
+                    observed_value=capacity.free_bytes,
+                    threshold_value=policy.storage_min_free_bytes,
+                    comparison="at_or_below",
+                ),
+            ),
+            (
+                "lineage_storage_free_ratio_below_threshold",
+                threshold_breach_flag(
+                    observed_value=capacity.free_ratio,
+                    threshold_value=policy.storage_min_free_ratio,
+                    comparison="at_or_below",
+                ),
+            ),
+        ),
+    )
+
+
 def labeled_metric(
     *,
     metric_name: str,

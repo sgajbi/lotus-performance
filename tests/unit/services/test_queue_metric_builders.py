@@ -6,6 +6,7 @@ from app.services.queue_metric_builders import (
     labeled_metric,
     latest_reclaim_count_or_zero,
     lineage_queue_degradation_breach_metric,
+    lineage_storage_pressure_breach_metric,
     operator_action_lease_metrics,
     policy_threshold_metric,
     reason_labeled_metric,
@@ -150,6 +151,34 @@ def test_lineage_queue_degradation_breach_metric_uses_policy_thresholds():
         "lineage_terminal_failure_exceeded": 1,
         "lineage_pending_age_exceeded": 1,
         "lineage_leased_age_exceeded": 1,
+    }
+
+
+def test_lineage_storage_pressure_breach_metric_uses_policy_thresholds():
+    capacity = type(
+        "Capacity",
+        (),
+        {
+            "free_bytes": 100,
+            "free_ratio": 0.1,
+        },
+    )()
+    policy = LineageQueueDegradationPolicy(
+        retry_backlog_count=2,
+        terminal_failure_count=1,
+        pending_age_seconds=30.0,
+        leased_age_seconds=10.0,
+        storage_min_free_bytes=250,
+        storage_min_free_ratio=0.2,
+    )
+
+    metric = lineage_storage_pressure_breach_metric(capacity=capacity, policy=policy)
+
+    samples = {sample.labels["reason"]: sample.value for sample in metric.samples}
+    assert metric.name == "lotus_performance_lineage_storage_pressure_breach"
+    assert samples == {
+        "lineage_storage_free_bytes_below_threshold": 1,
+        "lineage_storage_free_ratio_below_threshold": 1,
     }
 
 

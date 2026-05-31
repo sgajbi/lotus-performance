@@ -20,6 +20,7 @@ from app.services.queue_metric_builders import (
     labeled_metric,
     latest_reclaim_count_or_zero,
     lineage_queue_degradation_breach_metric,
+    lineage_storage_pressure_breach_metric,
     operator_action_lease_metrics,
     policy_threshold_metric,
     reason_labeled_metric,
@@ -410,27 +411,9 @@ class DurableQueueCollector:
                 value=lineage_storage_capacity.free_ratio,
             )
 
-            yield reason_labeled_metric(
-                metric_name="lotus_performance_lineage_storage_pressure_breach",
-                description="Whether lineage storage currently breaches a proactive saturation threshold.",
-                samples=(
-                    (
-                        "lineage_storage_free_bytes_below_threshold",
-                        threshold_breach_flag(
-                            observed_value=lineage_storage_capacity.free_bytes,
-                            threshold_value=lineage_queue_policy.storage_min_free_bytes,
-                            comparison="at_or_below",
-                        ),
-                    ),
-                    (
-                        "lineage_storage_free_ratio_below_threshold",
-                        threshold_breach_flag(
-                            observed_value=lineage_storage_capacity.free_ratio,
-                            threshold_value=lineage_queue_policy.storage_min_free_ratio,
-                            comparison="at_or_below",
-                        ),
-                    ),
-                ),
+            yield lineage_storage_pressure_breach_metric(
+                capacity=lineage_storage_capacity,
+                policy=lineage_queue_policy,
             )
 
         yield labeled_metric(
