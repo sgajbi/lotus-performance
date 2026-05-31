@@ -38,9 +38,9 @@ from app.services.contribution_service import (
     _calculate_reset_aware_period_portfolio_return,
     _calculate_reset_characterization_counts,
     _calculate_reset_relative_day_counts,
-    _count_carino_invalid_domain_days,
     build_position_contributions,
 )
+from app.services.contribution_smoothing import _count_carino_invalid_domain_days
 
 
 def test_contribution_as_numeric_returns_default_for_non_numeric():
