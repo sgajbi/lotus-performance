@@ -213,29 +213,7 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
     if failed_check_families:
         evidence_summary["failed_check_families"] = failed_check_families
     if not completed_check_families and not findings:
-        findings.append(
-            TWRInspectionFinding(
-                code="INSPECTION_CHECKS_PENDING_IMPLEMENTATION",
-                severity="warning",
-                category="inspection_runtime",
-                owner_repo="lotus-performance",
-                summary="Inspection runtime skeleton is active, but supportability checks are not implemented yet.",
-                explanation=(
-                    "RFC-045 slice 1 establishes the durable inspection contract, async runtime path, "
-                    "and artifact plumbing. Calculation-consistency, source-quality, plausibility, "
-                    "and reconciliation checks are deferred to later slices."
-                ),
-                recommended_action=(
-                    "Treat this inspection as a runtime-contract proof only and wait for later slices "
-                    "before relying on verdicts for operational supportability."
-                ),
-                evidence={
-                    "implemented_slice": "slice_1_contract_runtime_skeleton",
-                    "completed_check_families": [],
-                    "pending_check_families": list(_ALL_CHECK_FAMILIES),
-                },
-            )
-        )
+        findings.append(_build_no_check_family_executed_finding())
     pending_check_families = [family for family in _ALL_CHECK_FAMILIES if family not in completed_check_families]
     verdict = _synthesize_verdict(
         findings=findings,
@@ -415,6 +393,29 @@ def _build_check_failure_finding(
             "stage": stage,
             "error_type": type(error).__name__,
             "error_message": str(error),
+        },
+    )
+
+
+def _build_no_check_family_executed_finding() -> TWRInspectionFinding:
+    return TWRInspectionFinding(
+        code="INSPECTION_NO_CHECK_FAMILY_EXECUTED",
+        severity="warning",
+        category="inspection_runtime",
+        owner_repo="lotus-performance",
+        summary="No TWR inspection check family executed for the resolved subject.",
+        explanation=(
+            "The inspector could resolve the subject envelope, but no inspectable TWR request payload or persisted "
+            "calculation artifacts were available to run calculation, source-quality, reconciliation, or "
+            "source-economics checks."
+        ),
+        recommended_action=(
+            "Verify that the inspection request includes a valid TWR request payload or that the inspected "
+            "calculation has retained request and response artifacts, then rerun the inspection."
+        ),
+        evidence={
+            "completed_check_families": [],
+            "pending_check_families": list(_ALL_CHECK_FAMILIES),
         },
     )
 
