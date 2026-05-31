@@ -11,6 +11,7 @@ from uuid import UUID
 from sqlalchemy import DateTime, Index, Integer, String, Text, case, create_engine, exists, func, inspect, select, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
+from app.services.durable_store_inspection import build_inspection_query_context
 from app.services.durable_store_pagination import next_offset_or_none, recovery_cursor_or_none
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
 from app.services.durable_store_time import (
@@ -514,75 +515,77 @@ class LineageMetadataStore:
         calculation_id_contains: str | None = None,
         now: datetime | None = None,
     ) -> LineageQueueInspectionPage:
-        inspection_now = now or datetime.now(timezone.utc)
-        normalized_status_filter = status_filter.lower()
-        min_age_threshold = inspection_now - timedelta(seconds=min_age_seconds) if min_age_seconds > 0 else None
+        inspection_context = build_inspection_query_context(
+            status_filter=status_filter,
+            min_age_seconds=min_age_seconds,
+            now=now,
+        )
 
         with self._session() as session:
-            if normalized_status_filter == "active":
+            if inspection_context.status_filter == "active":
                 count_statement = self._build_active_inspection_count_statement(
-                    now=inspection_now,
+                    now=inspection_context.now,
                     calculation_type=calculation_type,
                     calculation_id_contains=calculation_id_contains,
-                    min_age_threshold=min_age_threshold,
+                    min_age_threshold=inspection_context.min_age_threshold,
                 )
                 statement = self._build_active_inspection_items_statement(
-                    now=inspection_now,
+                    now=inspection_context.now,
                     limit=limit,
                     offset=offset,
                     calculation_type=calculation_type,
                     calculation_id_contains=calculation_id_contains,
-                    min_age_threshold=min_age_threshold,
+                    min_age_threshold=inspection_context.min_age_threshold,
                 )
-            elif normalized_status_filter == "failed":
+            elif inspection_context.status_filter == "failed":
                 count_statement = self._build_failed_inspection_count_statement(
-                    now=inspection_now,
+                    now=inspection_context.now,
                     calculation_type=calculation_type,
                     calculation_id_contains=calculation_id_contains,
-                    min_age_threshold=min_age_threshold,
+                    min_age_threshold=inspection_context.min_age_threshold,
                 )
                 statement = self._build_failed_inspection_items_statement(
-                    now=inspection_now,
+                    now=inspection_context.now,
                     limit=limit,
                     offset=offset,
                     calculation_type=calculation_type,
                     calculation_id_contains=calculation_id_contains,
-                    min_age_threshold=min_age_threshold,
+                    min_age_threshold=inspection_context.min_age_threshold,
                 )
-            elif normalized_status_filter == "all":
+            elif inspection_context.status_filter == "all":
                 count_statement = self._build_all_inspection_count_statement(
-                    now=inspection_now,
+                    now=inspection_context.now,
                     calculation_type=calculation_type,
                     calculation_id_contains=calculation_id_contains,
-                    min_age_threshold=min_age_threshold,
+                    min_age_threshold=inspection_context.min_age_threshold,
                 )
                 statement = self._build_all_inspection_items_statement(
-                    now=inspection_now,
+                    now=inspection_context.now,
                     limit=limit,
                     offset=offset,
                     calculation_type=calculation_type,
                     calculation_id_contains=calculation_id_contains,
-                    min_age_threshold=min_age_threshold,
+                    min_age_threshold=inspection_context.min_age_threshold,
                 )
-            elif normalized_status_filter == "reclaimable":
+            elif inspection_context.status_filter == "reclaimable":
                 count_statement = self._build_reclaimable_inspection_count_statement(
-                    now=inspection_now,
+                    now=inspection_context.now,
                     calculation_type=calculation_type,
                     calculation_id_contains=calculation_id_contains,
-                    min_age_threshold=min_age_threshold,
+                    min_age_threshold=inspection_context.min_age_threshold,
                 )
                 statement = self._build_reclaimable_inspection_items_statement(
-                    now=inspection_now,
+                    now=inspection_context.now,
                     limit=limit,
                     offset=offset,
                     calculation_type=calculation_type,
                     calculation_id_contains=calculation_id_contains,
-                    min_age_threshold=min_age_threshold,
+                    min_age_threshold=inspection_context.min_age_threshold,
                 )
             else:
                 raise ValueError(f"Unsupported status filter: {status_filter}")
             rows = session.execute(statement).all()
-            items = [self._to_inspection_item(record, payload, now=inspection_now) for record, payload in rows]
+            items = [self._to_inspection_item(record, payload, now=inspection_context.now) for record, payload in rows]
             total_count = int(session.execute(count_statement).scalar_one() or 0)
             next_offset = next_offset_or_none(offset=offset, item_count=len(items), total_count=total_count)
             return LineageQueueInspectionPage(total_count=total_count, next_offset=next_offset, items=items)
