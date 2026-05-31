@@ -11,7 +11,7 @@ from uuid import UUID
 from sqlalchemy import DateTime, Index, Integer, String, Text, case, create_engine, exists, func, inspect, select, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
-from app.services.durable_store_inspection import build_inspection_query_context
+from app.services.durable_store_inspection import apply_min_age_filter, build_inspection_query_context
 from app.services.durable_store_pagination import next_offset_or_none, recovery_cursor_or_none
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
 from app.services.durable_store_time import (
@@ -810,9 +810,11 @@ class LineageMetadataStore:
         )
 
     def _apply_min_age_filter(self, statement, *, now: datetime, min_age_threshold: datetime | None):
-        if min_age_threshold is None:
-            return statement
-        return statement.where(self._build_active_since_expression(now=now) <= min_age_threshold)
+        return apply_min_age_filter(
+            statement,
+            active_since=self._build_active_since_expression(now=now),
+            min_age_threshold=min_age_threshold,
+        )
 
     def _build_active_inspection_count_statement(
         self,

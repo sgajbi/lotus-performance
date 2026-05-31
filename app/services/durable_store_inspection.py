@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -25,3 +26,9 @@ def build_inspection_query_context(
         now=inspection_now,
         min_age_threshold=min_age_threshold,
     )
+
+
+def apply_min_age_filter(statement: Any, *, active_since: Any, min_age_threshold: datetime | None) -> Any:
+    if min_age_threshold is None:
+        return statement
+    return statement.where(active_since <= min_age_threshold)
