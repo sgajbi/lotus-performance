@@ -314,8 +314,7 @@ async def _load_component_price_series(
         ]
     )
     component_price_series: dict[str, dict[str, Any]] = {}
-    total_chunk_count = 0
-    total_page_count = 0
+    retrieval_metadata_total = RetrievalMetadata(chunk_count=0, page_count=0)
     for index_id, (series_status, series_payload) in zip(component_ids, responses):
         if series_status == status.HTTP_404_NOT_FOUND:
             raise HTTPException(
@@ -343,14 +342,9 @@ async def _load_component_price_series(
             "points": series_points,
             "series_currency": _infer_series_currency(index_id=index_id, points=series_points),
         }
-        retrieval_metadata = _parse_retrieval_metadata(series_payload)
-        total_chunk_count += retrieval_metadata.chunk_count
-        total_page_count += retrieval_metadata.page_count
+        retrieval_metadata_total = _add_retrieval_metadata(retrieval_metadata_total, series_payload)
 
-    return component_price_series, RetrievalMetadata(
-        chunk_count=total_chunk_count,
-        page_count=total_page_count,
-    )
+    return component_price_series, retrieval_metadata_total
 
 
 def _infer_series_currency(*, index_id: str, points: list[dict[str, Any]]) -> str:
@@ -383,8 +377,7 @@ async def _load_fx_maps_for_components(
             pairs.add((component_currency, benchmark_currency))
 
     fx_maps: dict[tuple[str, str], dict[date, Decimal]] = {}
-    total_chunk_count = 0
-    total_page_count = 0
+    retrieval_metadata_total = RetrievalMetadata(chunk_count=0, page_count=0)
     for from_currency, to_currency in sorted(pairs):
         fx_status, fx_payload = await stateful_input_service.get_fx_rates(
             from_currency=from_currency,
@@ -411,13 +404,8 @@ async def _load_fx_maps_for_components(
             and isinstance(point.get("series_date"), str)
             and point.get("fx_rate") is not None
         }
-        retrieval_metadata = _parse_retrieval_metadata(fx_payload)
-        total_chunk_count += retrieval_metadata.chunk_count
-        total_page_count += retrieval_metadata.page_count
-    return fx_maps, RetrievalMetadata(
-        chunk_count=total_chunk_count,
-        page_count=total_page_count,
-    )
+        retrieval_metadata_total = _add_retrieval_metadata(retrieval_metadata_total, fx_payload)
+    return fx_maps, retrieval_metadata_total
 
 
 def _build_component_observations(
@@ -601,4 +589,12 @@ def _parse_retrieval_metadata(payload: dict[str, Any]) -> RetrievalMetadata:
         default_chunk_count=0,
         default_page_count=0,
         coerce_numeric_counts=True,
+    )
+
+
+def _add_retrieval_metadata(total: RetrievalMetadata, payload: dict[str, Any]) -> RetrievalMetadata:
+    metadata = _parse_retrieval_metadata(payload)
+    return RetrievalMetadata(
+        chunk_count=total.chunk_count + metadata.chunk_count,
+        page_count=total.page_count + metadata.page_count,
     )
