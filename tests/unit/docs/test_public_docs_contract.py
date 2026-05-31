@@ -664,6 +664,7 @@ def test_engine_config_docs_describe_current_calendar_contract():
 
 def test_contribution_guide_uses_current_request_shape():
     guide = _read("docs/guides/contribution.md")
+    guide_flat = " ".join(guide.split())
     api_reference = _read("docs/guides/api_reference.md")
     readme = _read("README.md")
 
@@ -676,6 +677,8 @@ def test_contribution_guide_uses_current_request_shape():
     assert "position_contributions[].average_weight" in guide
     assert "levels[].rows[].weight_avg" in guide
     assert "position_contributions` remains the first-class output" in guide
+    assert "`lookthrough` is accepted as a compatibility request block only" in guide
+    assert "does not decompose fund or structured-product holdings" in guide_flat
     assert "app.models.contribution_analytics_requests.ContributionAnalyticsRequest" in api_reference
     assert (
         "stateful mode sources portfolio and position timeseries from lotus-core query-control-plane" in api_reference
@@ -683,6 +686,7 @@ def test_contribution_guide_uses_current_request_shape():
     assert (
         "position-level `average_weight` and grouped `weight_avg` are both emitted in percentage units" in api_reference
     )
+    assert "fund or structured-product decomposition is not performed inside lotus-performance" in api_reference
     assert 'input_mode: "stateless" | "stateful"' in readme
     assert "lotus-performance stamps source consumer identity server-side" in readme
 

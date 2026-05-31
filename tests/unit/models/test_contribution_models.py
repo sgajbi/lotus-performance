@@ -99,6 +99,16 @@ def test_contribution_request_multi_level_happy_path(minimal_contribution_reques
         pytest.fail(f"Validation failed unexpectedly for multi-level request: {e}")
 
 
+def test_contribution_lookthrough_schema_states_current_boundary():
+    schema = ContributionRequest.model_json_schema()
+    lookthrough_schema = schema["$defs"]["Lookthrough"]
+
+    assert (
+        "does not decompose fund or structured-product holdings"
+        in lookthrough_schema["properties"]["fallback_policy"]["description"]
+    )
+
+
 def test_contribution_request_invalid_weighting_scheme(minimal_contribution_request_payload):
     """
     Tests that the model raises a validation error for an invalid weighting_scheme.
