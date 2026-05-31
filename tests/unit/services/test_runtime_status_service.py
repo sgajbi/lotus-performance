@@ -148,7 +148,7 @@ def test_runtime_status_snapshot_reports_ready_with_queue_stats(mocker):
         return_value=type("StorageStatus", (), {"is_ready": True, "reason": None})(),
     )
     mocker.patch(
-        "app.services.runtime_status_service.compute_job_store.get_queue_stats",
+        "app.services.runtime_status_queue.compute_job_store.get_queue_stats",
         return_value=ComputeQueueStats(
             pending_count=2,
             leased_count=1,
@@ -164,7 +164,7 @@ def test_runtime_status_snapshot_reports_ready_with_queue_stats(mocker):
         ),
     )
     mocker.patch(
-        "app.services.runtime_status_service.compute_job_store.get_queue_inspection_anchors",
+        "app.services.runtime_status_queue.compute_job_store.get_queue_inspection_anchors",
         return_value=ComputeQueueInspectionAnchors(
             oldest_pending_calculation_id="calc-pending",
             oldest_leased_calculation_id="calc-leased",
@@ -174,7 +174,7 @@ def test_runtime_status_snapshot_reports_ready_with_queue_stats(mocker):
         ),
     )
     mocker.patch(
-        "app.services.runtime_status_service.compute_job_store.list_recent_recoveries",
+        "app.services.runtime_status_queue.compute_job_store.list_recent_recoveries",
         return_value=[
             ComputeRecoveryEvent(
                 calculation_id="calc-recovered",
@@ -328,7 +328,7 @@ def test_runtime_status_snapshot_reports_active_governed_actions(mocker):
         return_value=type("StorageStatus", (), {"is_ready": True, "reason": None})(),
     )
     mocker.patch(
-        "app.services.runtime_status_service.compute_job_store.get_queue_stats",
+        "app.services.runtime_status_queue.compute_job_store.get_queue_stats",
         return_value=ComputeQueueStats(
             pending_count=0,
             leased_count=0,
@@ -520,7 +520,7 @@ def test_runtime_status_snapshot_degrades_when_runtime_retention_is_stale_or_not
         return_value=type("StorageStatus", (), {"is_ready": True, "reason": None})(),
     )
     mocker.patch(
-        "app.services.runtime_status_service.compute_job_store.get_queue_stats",
+        "app.services.runtime_status_queue.compute_job_store.get_queue_stats",
         return_value=ComputeQueueStats(
             pending_count=0,
             leased_count=0,
@@ -663,7 +663,7 @@ def test_runtime_status_snapshot_degrades_when_governed_action_reclaim_pressure_
         return_value=type("StorageStatus", (), {"is_ready": True, "reason": None})(),
     )
     mocker.patch(
-        "app.services.runtime_status_service.compute_job_store.get_queue_stats",
+        "app.services.runtime_status_queue.compute_job_store.get_queue_stats",
         return_value=ComputeQueueStats(
             pending_count=0,
             leased_count=0,
@@ -792,7 +792,7 @@ def test_runtime_status_snapshot_degrades_when_governed_active_run_age_accumulat
         return_value=type("StorageStatus", (), {"is_ready": True, "reason": None})(),
     )
     mocker.patch(
-        "app.services.runtime_status_service.compute_job_store.get_queue_stats",
+        "app.services.runtime_status_queue.compute_job_store.get_queue_stats",
         return_value=ComputeQueueStats(
             pending_count=0,
             leased_count=0,
@@ -917,7 +917,7 @@ def test_runtime_status_snapshot_reports_unavailable_runtime_retention_preview(m
         return_value=type("StorageStatus", (), {"is_ready": True, "reason": None})(),
     )
     mocker.patch(
-        "app.services.runtime_status_service.compute_job_store.get_queue_stats",
+        "app.services.runtime_status_queue.compute_job_store.get_queue_stats",
         return_value=ComputeQueueStats(
             pending_count=0,
             leased_count=0,
@@ -1024,7 +1024,7 @@ def test_runtime_status_snapshot_reports_unavailable_when_recovery_history_snaps
         return_value=type("StorageStatus", (), {"is_ready": True, "reason": None})(),
     )
     mocker.patch(
-        "app.services.runtime_status_service.compute_job_store.get_queue_stats",
+        "app.services.runtime_status_queue.compute_job_store.get_queue_stats",
         return_value=ComputeQueueStats(
             pending_count=0,
             leased_count=0,
@@ -1110,7 +1110,7 @@ def test_runtime_status_snapshot_reports_draining_when_app_is_draining(mocker):
         return_value=type("StorageStatus", (), {"is_ready": True, "reason": None})(),
     )
     mocker.patch(
-        "app.services.runtime_status_service.compute_job_store.get_queue_stats",
+        "app.services.runtime_status_queue.compute_job_store.get_queue_stats",
         return_value=ComputeQueueStats(
             pending_count=0,
             leased_count=0,
@@ -1253,7 +1253,7 @@ def test_runtime_status_snapshot_reports_degraded_when_queue_read_fails(mocker):
         return_value=type("StorageStatus", (), {"is_ready": True, "reason": None})(),
     )
     mocker.patch(
-        "app.services.runtime_status_service.compute_job_store.get_queue_stats",
+        "app.services.runtime_status_queue.compute_job_store.get_queue_stats",
         side_effect=RuntimeError("db timeout"),
     )
     mocker.patch(
@@ -1308,7 +1308,7 @@ def test_runtime_status_snapshot_reports_unavailable_when_lineage_storage_is_una
         return_value=type("StorageStatus", (), {"is_ready": True, "reason": None})(),
     )
     mocker.patch(
-        "app.services.runtime_status_service.compute_job_store.get_queue_stats",
+        "app.services.runtime_status_queue.compute_job_store.get_queue_stats",
         return_value=ComputeQueueStats(
             pending_count=0,
             leased_count=0,
@@ -1401,7 +1401,7 @@ def test_runtime_status_snapshot_degrades_when_lineage_storage_free_space_is_low
         )(),
     )
     mocker.patch(
-        "app.services.runtime_status_service.compute_job_store.get_queue_stats",
+        "app.services.runtime_status_queue.compute_job_store.get_queue_stats",
         return_value=ComputeQueueStats(
             pending_count=0,
             leased_count=0,
@@ -1498,7 +1498,7 @@ def test_runtime_status_snapshot_reports_unavailable_when_lineage_storage_capaci
         side_effect=OSError("disk usage unavailable"),
     )
     mocker.patch(
-        "app.services.runtime_status_service.compute_job_store.get_queue_stats",
+        "app.services.runtime_status_queue.compute_job_store.get_queue_stats",
         return_value=ComputeQueueStats(
             pending_count=0,
             leased_count=0,
@@ -1569,7 +1569,7 @@ def test_runtime_status_snapshot_reports_unavailable_when_lineage_queue_read_fai
         return_value=type("StorageStatus", (), {"is_ready": True, "reason": None})(),
     )
     mocker.patch(
-        "app.services.runtime_status_service.compute_job_store.get_queue_stats",
+        "app.services.runtime_status_queue.compute_job_store.get_queue_stats",
         return_value=ComputeQueueStats(
             pending_count=0,
             leased_count=0,
@@ -1585,7 +1585,7 @@ def test_runtime_status_snapshot_reports_unavailable_when_lineage_queue_read_fai
         ),
     )
     mocker.patch(
-        "app.services.runtime_status_service.compute_job_store.get_queue_inspection_anchors",
+        "app.services.runtime_status_queue.compute_job_store.get_queue_inspection_anchors",
         side_effect=RuntimeError("compute anchor unavailable"),
     )
     mocker.patch(
@@ -1654,7 +1654,7 @@ def test_runtime_status_snapshot_degrades_when_compute_age_threshold_is_exceeded
         return_value=type("StorageStatus", (), {"is_ready": True, "reason": None})(),
     )
     mocker.patch(
-        "app.services.runtime_status_service.compute_job_store.get_queue_stats",
+        "app.services.runtime_status_queue.compute_job_store.get_queue_stats",
         return_value=ComputeQueueStats(
             pending_count=0,
             leased_count=0,
@@ -1721,7 +1721,7 @@ def test_runtime_status_snapshot_degrades_when_lineage_age_threshold_is_exceeded
         return_value=type("StorageStatus", (), {"is_ready": True, "reason": None})(),
     )
     mocker.patch(
-        "app.services.runtime_status_service.compute_job_store.get_queue_stats",
+        "app.services.runtime_status_queue.compute_job_store.get_queue_stats",
         return_value=ComputeQueueStats(
             pending_count=0,
             leased_count=0,
@@ -1788,7 +1788,7 @@ def test_runtime_status_snapshot_degrades_when_compute_failure_pressure_threshol
         return_value=type("StorageStatus", (), {"is_ready": True, "reason": None})(),
     )
     mocker.patch(
-        "app.services.runtime_status_service.compute_job_store.get_queue_stats",
+        "app.services.runtime_status_queue.compute_job_store.get_queue_stats",
         return_value=ComputeQueueStats(
             pending_count=2,
             leased_count=0,
@@ -1856,7 +1856,7 @@ def test_runtime_status_snapshot_degrades_when_lineage_failure_pressure_threshol
         return_value=type("StorageStatus", (), {"is_ready": True, "reason": None})(),
     )
     mocker.patch(
-        "app.services.runtime_status_service.compute_job_store.get_queue_stats",
+        "app.services.runtime_status_queue.compute_job_store.get_queue_stats",
         return_value=ComputeQueueStats(
             pending_count=0,
             leased_count=0,
@@ -1925,7 +1925,7 @@ def test_runtime_status_snapshot_reports_all_active_degradation_reasons(mocker):
         return_value=type("StorageStatus", (), {"is_ready": True, "reason": None})(),
     )
     mocker.patch(
-        "app.services.runtime_status_service.compute_job_store.get_queue_stats",
+        "app.services.runtime_status_queue.compute_job_store.get_queue_stats",
         return_value=ComputeQueueStats(
             pending_count=1,
             leased_count=1,
@@ -2049,7 +2049,7 @@ def test_runtime_status_snapshot_degrades_when_lineage_leased_age_threshold_is_e
         return_value=type("StorageStatus", (), {"is_ready": True, "reason": None})(),
     )
     mocker.patch(
-        "app.services.runtime_status_service.compute_job_store.get_queue_stats",
+        "app.services.runtime_status_queue.compute_job_store.get_queue_stats",
         return_value=ComputeQueueStats(
             pending_count=0,
             leased_count=0,
@@ -2113,7 +2113,7 @@ def test_runtime_status_snapshot_degrades_when_recovery_drill_is_stale(mocker):
         return_value=type("StorageStatus", (), {"is_ready": True, "reason": None})(),
     )
     mocker.patch(
-        "app.services.runtime_status_service.compute_job_store.get_queue_stats",
+        "app.services.runtime_status_queue.compute_job_store.get_queue_stats",
         return_value=ComputeQueueStats(
             pending_count=0,
             leased_count=0,
@@ -2205,7 +2205,7 @@ def test_runtime_status_snapshot_degrades_when_latest_recovery_drill_failed(mock
         return_value=type("StorageStatus", (), {"is_ready": True, "reason": None})(),
     )
     mocker.patch(
-        "app.services.runtime_status_service.compute_job_store.get_queue_stats",
+        "app.services.runtime_status_queue.compute_job_store.get_queue_stats",
         return_value=ComputeQueueStats(
             pending_count=0,
             leased_count=0,
@@ -2293,7 +2293,7 @@ def test_runtime_status_snapshot_reports_unavailable_when_recovery_history_read_
         return_value=type("StorageStatus", (), {"is_ready": True, "reason": None})(),
     )
     mocker.patch(
-        "app.services.runtime_status_service.compute_job_store.get_queue_stats",
+        "app.services.runtime_status_queue.compute_job_store.get_queue_stats",
         return_value=ComputeQueueStats(
             pending_count=0,
             leased_count=0,
@@ -2361,7 +2361,7 @@ def test_runtime_status_snapshot_degrades_when_missing_recovery_history_exceeds_
         return_value=type("StorageStatus", (), {"is_ready": True, "reason": None})(),
     )
     mocker.patch(
-        "app.services.runtime_status_service.compute_job_store.get_queue_stats",
+        "app.services.runtime_status_queue.compute_job_store.get_queue_stats",
         return_value=ComputeQueueStats(
             pending_count=0,
             leased_count=0,
@@ -2444,7 +2444,7 @@ def test_runtime_status_snapshot_degrades_when_recovery_drill_history_is_require
         return_value=type("StorageStatus", (), {"is_ready": True, "reason": None})(),
     )
     mocker.patch(
-        "app.services.runtime_status_service.compute_job_store.get_queue_stats",
+        "app.services.runtime_status_queue.compute_job_store.get_queue_stats",
         return_value=ComputeQueueStats(
             pending_count=0,
             leased_count=0,

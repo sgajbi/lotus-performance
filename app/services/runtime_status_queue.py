@@ -6,14 +6,33 @@ from app.services.compute_job_store import (
     ComputeRecoveryEvent,
     compute_job_store,
 )
-from app.services.durability_health_service import LineageStorageCapacitySnapshot
+from app.services.durability_health_service import DurabilityHealthStatus, LineageStorageCapacitySnapshot
 from app.services.lineage_metadata_store import (
     LineageQueueInspectionAnchors,
     LineageQueueStats,
     LineageRecoveryEvent,
     lineage_metadata_store,
 )
+from app.services.runtime_status_degradation import compute_queue_degradation_details
 from app.services.runtime_status_domain import RuntimeDegradationDetail, RuntimeQueueStatus
+
+
+def build_compute_queue_status(durability_status: DurabilityHealthStatus, *, settings) -> RuntimeQueueStatus:
+    if not durability_status.is_ready:
+        return unavailable_runtime_queue_status(reason=durability_status.reason or "durable_metadata_store_unreachable")
+    try:
+        stats = compute_job_store.get_queue_stats()
+        inspection_anchors = safe_compute_queue_inspection_anchors()
+        recent_recoveries = safe_compute_recent_recoveries(settings=settings)
+        degradation_details = compute_queue_degradation_details(stats, settings=settings)
+        return runtime_queue_status_from_degradation(
+            stats=stats,
+            inspection_anchors=inspection_anchors,
+            recent_recoveries=recent_recoveries,
+            degradation_details=degradation_details,
+        )
+    except Exception as exc:
+        return unavailable_runtime_queue_status(reason=type(exc).__name__)
 
 
 def runtime_queue_status_from_degradation(

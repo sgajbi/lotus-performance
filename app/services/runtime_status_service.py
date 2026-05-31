@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from app.core.config import get_settings
-from app.services.compute_job_store import compute_job_store
 from app.services.durability_health_service import (
     DurabilityHealthStatus,
     check_durable_metadata_store_ready,
@@ -22,9 +21,6 @@ from app.services.runtime_status_degradation import (
 )
 from app.services.runtime_status_degradation import (
     collect_runtime_degradation_reasons as _collect_runtime_degradation_reasons,
-)
-from app.services.runtime_status_degradation import (
-    compute_queue_degradation_details as _compute_queue_degradation_details,
 )
 from app.services.runtime_status_degradation import (
     lineage_queue_degradation_details as _lineage_queue_degradation_details,
@@ -76,13 +72,10 @@ from app.services.runtime_status_policy import (
     build_recovery_drill_policy,
     build_runtime_retention_policy,
 )
+from app.services.runtime_status_queue import build_compute_queue_status as _build_compute_queue_status
 from app.services.runtime_status_queue import (
     runtime_queue_status_from_degradation as _runtime_queue_status_from_degradation,
 )
-from app.services.runtime_status_queue import (
-    safe_compute_queue_inspection_anchors as _safe_compute_queue_inspection_anchors,
-)
-from app.services.runtime_status_queue import safe_compute_recent_recoveries as _safe_compute_recent_recoveries
 from app.services.runtime_status_queue import (
     safe_lineage_queue_inspection_anchors as _safe_lineage_queue_inspection_anchors,
 )
@@ -144,26 +137,6 @@ def build_runtime_status_snapshot(*, is_draining: bool) -> RuntimeStatusSnapshot
         recovery_drill_policy=recovery_drill_policy,
         runtime_retention_policy=runtime_retention_policy,
     )
-
-
-def _build_compute_queue_status(durability_status: DurabilityHealthStatus, *, settings) -> RuntimeQueueStatus:
-    if not durability_status.is_ready:
-        return _unavailable_runtime_queue_status(
-            reason=durability_status.reason or "durable_metadata_store_unreachable"
-        )
-    try:
-        stats = compute_job_store.get_queue_stats()
-        inspection_anchors = _safe_compute_queue_inspection_anchors()
-        recent_recoveries = _safe_compute_recent_recoveries(settings=settings)
-        degradation_details = _compute_queue_degradation_details(stats, settings=settings)
-        return _runtime_queue_status_from_degradation(
-            stats=stats,
-            inspection_anchors=inspection_anchors,
-            recent_recoveries=recent_recoveries,
-            degradation_details=degradation_details,
-        )
-    except Exception as exc:
-        return _unavailable_runtime_queue_status(reason=type(exc).__name__)
 
 
 def _build_lineage_queue_status(durability_status: DurabilityHealthStatus, *, settings) -> RuntimeQueueStatus:
