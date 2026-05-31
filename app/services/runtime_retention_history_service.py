@@ -201,35 +201,9 @@ def _validate_manifest_payload(payload: Any) -> dict[str, Any] | None:
 
     validated_entries: list[dict[str, str | int | None]] = []
     for entry in header.entries:
-        if not isinstance(entry, dict):
+        validated_entry = _validate_manifest_entry(entry)
+        if validated_entry is None:
             return None
-        str_keys = ("evidence_file_name", "generated_at_utc", "operator_id", "cleanup_mode", "status")
-        int_keys = (
-            "retention_days",
-            "prunable_execution_count",
-            "prunable_compute_job_count",
-            "prunable_async_result_count",
-            "prunable_lineage_record_count",
-            "prunable_lineage_artifact_count",
-        )
-        trigger_mode = entry.get("trigger_mode", "manual")
-        entry_strings = validate_history_entry_strings(
-            entry,
-            required_keys=str_keys,
-            optional_keys=("tenant_id", "correlation_id", "job_id"),
-        )
-        if entry_strings is None:
-            return None
-        if not isinstance(trigger_mode, str):
-            return None
-        if any(not isinstance(entry.get(key), int) for key in int_keys):
-            return None
-        validated_entry: dict[str, str | int | None] = {key: entry_strings[key] for key in str_keys}
-        validated_entry.update({key: entry[key] for key in int_keys})
-        validated_entry["trigger_mode"] = trigger_mode
-        validated_entry["tenant_id"] = entry_strings["tenant_id"]
-        validated_entry["correlation_id"] = entry_strings["correlation_id"]
-        validated_entry["job_id"] = entry_strings["job_id"]
         validated_entries.append(validated_entry)
 
     return {
@@ -239,6 +213,40 @@ def _validate_manifest_payload(payload: Any) -> dict[str, Any] | None:
         "retention_max_age_days": header.retention_max_age_days,
         "entries": validated_entries,
     }
+
+
+def _validate_manifest_entry(entry: Any) -> dict[str, str | int | None] | None:
+    if not isinstance(entry, dict):
+        return None
+    str_keys = ("evidence_file_name", "generated_at_utc", "operator_id", "cleanup_mode", "status")
+    int_keys = (
+        "retention_days",
+        "prunable_execution_count",
+        "prunable_compute_job_count",
+        "prunable_async_result_count",
+        "prunable_lineage_record_count",
+        "prunable_lineage_artifact_count",
+    )
+    trigger_mode = entry.get("trigger_mode", "manual")
+    entry_strings = validate_history_entry_strings(
+        entry,
+        required_keys=str_keys,
+        optional_keys=("tenant_id", "correlation_id", "job_id"),
+    )
+    if entry_strings is None:
+        return None
+    if not isinstance(trigger_mode, str):
+        return None
+    if any(not isinstance(entry.get(key), int) for key in int_keys):
+        return None
+
+    validated_entry: dict[str, str | int | None] = {key: entry_strings[key] for key in str_keys}
+    validated_entry.update({key: entry[key] for key in int_keys})
+    validated_entry["trigger_mode"] = trigger_mode
+    validated_entry["tenant_id"] = entry_strings["tenant_id"]
+    validated_entry["correlation_id"] = entry_strings["correlation_id"]
+    validated_entry["job_id"] = entry_strings["job_id"]
+    return validated_entry
 
 
 def _filter_entries(

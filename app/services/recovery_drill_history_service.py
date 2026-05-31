@@ -176,26 +176,10 @@ def _validate_manifest_payload(payload: Any) -> dict[str, Any] | None:
 
     validated_entries: list[dict[str, str | None]] = []
     for entry in header.entries:
-        if not isinstance(entry, dict):
+        validated_entry = _validate_manifest_entry(entry)
+        if validated_entry is None:
             return None
-        entry_strings = validate_history_entry_strings(
-            entry,
-            required_keys=("evidence_file_name", "generated_at_utc", "operator_id", "backup_identifier", "status"),
-            optional_keys=("tenant_id", "correlation_id"),
-        )
-        if entry_strings is None:
-            return None
-        validated_entries.append(
-            {
-                "evidence_file_name": entry_strings["evidence_file_name"],
-                "generated_at_utc": entry_strings["generated_at_utc"],
-                "operator_id": entry_strings["operator_id"],
-                "tenant_id": entry_strings["tenant_id"],
-                "correlation_id": entry_strings["correlation_id"],
-                "backup_identifier": entry_strings["backup_identifier"],
-                "status": entry_strings["status"],
-            }
-        )
+        validated_entries.append(validated_entry)
 
     return {
         "latest_file_name": header.latest_file_name,
@@ -203,6 +187,27 @@ def _validate_manifest_payload(payload: Any) -> dict[str, Any] | None:
         "retention_limit": header.retention_limit,
         "retention_max_age_days": header.retention_max_age_days,
         "entries": validated_entries,
+    }
+
+
+def _validate_manifest_entry(entry: Any) -> dict[str, str | None] | None:
+    if not isinstance(entry, dict):
+        return None
+    entry_strings = validate_history_entry_strings(
+        entry,
+        required_keys=("evidence_file_name", "generated_at_utc", "operator_id", "backup_identifier", "status"),
+        optional_keys=("tenant_id", "correlation_id"),
+    )
+    if entry_strings is None:
+        return None
+    return {
+        "evidence_file_name": entry_strings["evidence_file_name"],
+        "generated_at_utc": entry_strings["generated_at_utc"],
+        "operator_id": entry_strings["operator_id"],
+        "tenant_id": entry_strings["tenant_id"],
+        "correlation_id": entry_strings["correlation_id"],
+        "backup_identifier": entry_strings["backup_identifier"],
+        "status": entry_strings["status"],
     }
 
 
