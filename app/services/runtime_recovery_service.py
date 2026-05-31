@@ -59,14 +59,9 @@ def build_runtime_recovery_snapshot(
     durability_status = check_durable_metadata_schema_ready()
 
     if not durability_status.is_ready:
-        unavailable_queue = RuntimeRecoveryQueueState(
+        unavailable_queue = _queue_state(
             status="unavailable",
             reason=durability_status.reason or "durable_metadata_store_unreachable",
-            total_count=0,
-            returned_count=0,
-            next_offset=None,
-            next_cursor_recovered_before=None,
-            next_cursor_calculation_id_before=None,
         )
         return RuntimeRecoverySnapshot(
             generated_at=generated_at,
