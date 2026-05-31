@@ -56,6 +56,9 @@ from app.services.runtime_status_lifecycle import (
     missing_runtime_retention_status as _build_missing_runtime_retention_status,
 )
 from app.services.runtime_status_lifecycle import (
+    recovery_drill_status_from_latest as _recovery_drill_status_from_latest,
+)
+from app.services.runtime_status_lifecycle import (
     unavailable_recovery_drill_status as _build_unavailable_recovery_drill_status,
 )
 from app.services.runtime_status_lifecycle import (
@@ -247,17 +250,10 @@ def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
         reclaim_threshold=reclaim_threshold,
         reclaim_reason="recovery_drill_reclaim_pressure_exceeded",
     )
-    status, reason, reasons = _lifecycle_status_from_degradation_details(tuple(degradation_details))
-    return RecoveryDrillStatus(
-        status=status,
-        reason=reason,
-        **_operator_action_status_fields(active_run_status),
-        latest_generated_at_utc=latest.generated_at_utc,
-        latest_status=latest.status,
-        latest_operator_id=latest.operator_id,
-        latest_backup_identifier=latest.backup_identifier,
+    return _recovery_drill_status_from_latest(
+        latest=latest,
         latest_age_seconds=latest_age_seconds,
-        degradation_reasons=reasons,
+        active_run_status=active_run_status,
         degradation_details=tuple(degradation_details),
     )
 

@@ -1,8 +1,12 @@
+from decimal import Decimal
+
+from app.services.recovery_drill_history_service import RecoveryDrillHistoryEntry
 from app.services.runtime_retention_service import RuntimeRetentionCleanupSummary
-from app.services.runtime_status_domain import OperatorActionStatus
+from app.services.runtime_status_domain import OperatorActionStatus, RuntimeDegradationDetail
 from app.services.runtime_status_lifecycle import (
     missing_recovery_drill_status,
     missing_runtime_retention_status,
+    recovery_drill_status_from_latest,
     unavailable_recovery_drill_status,
     unavailable_runtime_retention_status,
 )
@@ -27,6 +31,39 @@ def _operator_action_status(*, active_run_count: int = 0, reclaimed_run_count: i
         reclaimed_run_count=reclaimed_run_count,
         recent_reclaimed_runs=(),
     )
+
+
+def test_recovery_drill_status_from_latest_preserves_latest_evidence_and_degradation():
+    latest = RecoveryDrillHistoryEntry(
+        evidence_file_name="latest.json",
+        generated_at_utc="2026-05-31T00:00:00Z",
+        operator_id="ops-user",
+        backup_identifier="backup-123",
+        status="failed",
+    )
+    degradation_detail = RuntimeDegradationDetail(
+        reason="recovery_drill_latest_not_passed",
+        observed_value=Decimal("0"),
+        threshold_value=Decimal("0"),
+    )
+
+    status = recovery_drill_status_from_latest(
+        latest=latest,
+        latest_age_seconds=120.0,
+        active_run_status=_operator_action_status(active_run_count=1),
+        degradation_details=(degradation_detail,),
+    )
+
+    assert status.status == "degraded"
+    assert status.reason == "recovery_drill_latest_not_passed"
+    assert status.latest_generated_at_utc == "2026-05-31T00:00:00Z"
+    assert status.latest_status == "failed"
+    assert status.latest_operator_id == "ops-user"
+    assert status.latest_backup_identifier == "backup-123"
+    assert status.latest_age_seconds == 120.0
+    assert status.active_run_count == 1
+    assert status.degradation_reasons == ("recovery_drill_latest_not_passed",)
+    assert status.degradation_details == (degradation_detail,)
 
 
 def test_unavailable_recovery_drill_status_preserves_action_context():

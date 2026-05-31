@@ -1,10 +1,41 @@
 from __future__ import annotations
 
+from app.services.recovery_drill_history_service import RecoveryDrillHistoryEntry
 from app.services.runtime_retention_service import RuntimeRetentionCleanupSummary
-from app.services.runtime_status_degradation import missing_history_degradation
-from app.services.runtime_status_domain import OperatorActionStatus, RecoveryDrillStatus, RuntimeRetentionStatus
+from app.services.runtime_status_degradation import (
+    lifecycle_status_from_degradation_details,
+    missing_history_degradation,
+)
+from app.services.runtime_status_domain import (
+    OperatorActionStatus,
+    RecoveryDrillStatus,
+    RuntimeDegradationDetail,
+    RuntimeRetentionStatus,
+)
 from app.services.runtime_status_operator_action import operator_action_status_fields
 from app.services.runtime_status_retention_preview import runtime_retention_preview_fields
+
+
+def recovery_drill_status_from_latest(
+    *,
+    latest: RecoveryDrillHistoryEntry,
+    latest_age_seconds: float,
+    active_run_status: OperatorActionStatus,
+    degradation_details: tuple[RuntimeDegradationDetail, ...],
+) -> RecoveryDrillStatus:
+    status, reason, reasons = lifecycle_status_from_degradation_details(degradation_details)
+    return RecoveryDrillStatus(
+        status=status,
+        reason=reason,
+        **operator_action_status_fields(active_run_status),
+        latest_generated_at_utc=latest.generated_at_utc,
+        latest_status=latest.status,
+        latest_operator_id=latest.operator_id,
+        latest_backup_identifier=latest.backup_identifier,
+        latest_age_seconds=latest_age_seconds,
+        degradation_reasons=reasons,
+        degradation_details=degradation_details,
+    )
 
 
 def unavailable_recovery_drill_status(
