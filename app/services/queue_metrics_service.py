@@ -14,6 +14,7 @@ from app.services.queue_metric_builders import (
     RUNTIME_RETENTION_ACTION_METRICS,
     active_lease_age_seconds_or_zero,
     availability_metric,
+    labeled_metric,
     latest_reclaim_count_or_zero,
     operator_action_lease_metrics,
     policy_threshold_metric,
@@ -249,14 +250,15 @@ class DurableQueueCollector:
             runtime_retention_preview = None
             runtime_retention_preview_available = False
 
-        availability = GaugeMetricFamily(
-            "lotus_performance_durable_queue_store_availability",
-            "Availability of durable queue metric sources by store.",
-            labels=["store"],
+        yield labeled_metric(
+            metric_name="lotus_performance_durable_queue_store_availability",
+            description="Availability of durable queue metric sources by store.",
+            label_name="store",
+            samples=(
+                ("compute", 1 if compute_available else 0),
+                ("lineage", 1 if lineage_available else 0),
+            ),
         )
-        availability.add_metric(["compute"], 1 if compute_available else 0)
-        availability.add_metric(["lineage"], 1 if lineage_available else 0)
-        yield availability
 
         yield availability_metric(
             metric_name="lotus_performance_lineage_storage_capacity_availability",
@@ -295,48 +297,45 @@ class DurableQueueCollector:
         )
 
         if runtime_retention_preview is not None:
-            runtime_retention_prunable = GaugeMetricFamily(
-                "lotus_performance_runtime_retention_prunable_items",
-                "Current runtime-retention items that would be pruned by a dry-run cleanup.",
-                labels=["category"],
+            yield labeled_metric(
+                metric_name="lotus_performance_runtime_retention_prunable_items",
+                description="Current runtime-retention items that would be pruned by a dry-run cleanup.",
+                label_name="category",
+                samples=(
+                    ("execution", runtime_retention_preview.prunable_execution_count),
+                    ("compute_job", runtime_retention_preview.prunable_compute_job_count),
+                    ("async_result", runtime_retention_preview.prunable_async_result_count),
+                    ("lineage_record", runtime_retention_preview.prunable_lineage_record_count),
+                    ("lineage_artifact", runtime_retention_preview.prunable_lineage_artifact_count),
+                ),
             )
-            runtime_retention_prunable.add_metric(["execution"], runtime_retention_preview.prunable_execution_count)
-            runtime_retention_prunable.add_metric(["compute_job"], runtime_retention_preview.prunable_compute_job_count)
-            runtime_retention_prunable.add_metric(
-                ["async_result"], runtime_retention_preview.prunable_async_result_count
-            )
-            runtime_retention_prunable.add_metric(
-                ["lineage_record"], runtime_retention_preview.prunable_lineage_record_count
-            )
-            runtime_retention_prunable.add_metric(
-                ["lineage_artifact"], runtime_retention_preview.prunable_lineage_artifact_count
-            )
-            yield runtime_retention_prunable
 
         if compute_stats is not None:
-            compute_jobs = GaugeMetricFamily(
-                "lotus_performance_compute_queue_jobs",
-                "Durable compute job counts by status.",
-                labels=["status"],
+            yield labeled_metric(
+                metric_name="lotus_performance_compute_queue_jobs",
+                description="Durable compute job counts by status.",
+                label_name="status",
+                samples=(
+                    ("pending", compute_stats.pending_count),
+                    ("leased", compute_stats.leased_count),
+                    ("running", compute_stats.running_count),
+                    ("failed", compute_stats.failed_count),
+                    ("complete", compute_stats.complete_count),
+                ),
             )
-            compute_jobs.add_metric(["pending"], compute_stats.pending_count)
-            compute_jobs.add_metric(["leased"], compute_stats.leased_count)
-            compute_jobs.add_metric(["running"], compute_stats.running_count)
-            compute_jobs.add_metric(["failed"], compute_stats.failed_count)
-            compute_jobs.add_metric(["complete"], compute_stats.complete_count)
-            yield compute_jobs
 
         if compute_stats is not None:
-            compute_failure_pressure = GaugeMetricFamily(
-                "lotus_performance_compute_queue_failure_pressure_jobs",
-                "Durable compute job counts for retry backlog and failure-pressure categories.",
-                labels=["category"],
+            yield labeled_metric(
+                metric_name="lotus_performance_compute_queue_failure_pressure_jobs",
+                description="Durable compute job counts for retry backlog and failure-pressure categories.",
+                label_name="category",
+                samples=(
+                    ("retry_backlog", compute_stats.retry_backlog_count),
+                    ("lease_expired", compute_stats.lease_expired_count),
+                    ("reclaimable", compute_stats.reclaimable_count),
+                    ("terminal_failure", compute_stats.terminal_failure_count),
+                ),
             )
-            compute_failure_pressure.add_metric(["retry_backlog"], compute_stats.retry_backlog_count)
-            compute_failure_pressure.add_metric(["lease_expired"], compute_stats.lease_expired_count)
-            compute_failure_pressure.add_metric(["reclaimable"], compute_stats.reclaimable_count)
-            compute_failure_pressure.add_metric(["terminal_failure"], compute_stats.terminal_failure_count)
-            yield compute_failure_pressure
 
         if compute_stats is not None:
             compute_oldest_pending = GaugeMetricFamily(
@@ -444,15 +443,16 @@ class DurableQueueCollector:
             yield lineage_pending
 
         if lineage_stats is not None:
-            lineage_failure_pressure = GaugeMetricFamily(
-                "lotus_performance_lineage_queue_failure_pressure_payloads",
-                "Lineage payload counts for retry backlog and terminal failure categories.",
-                labels=["category"],
+            yield labeled_metric(
+                metric_name="lotus_performance_lineage_queue_failure_pressure_payloads",
+                description="Lineage payload counts for retry backlog and terminal failure categories.",
+                label_name="category",
+                samples=(
+                    ("retry_backlog", lineage_stats.retry_backlog_count),
+                    ("reclaimable", lineage_stats.reclaimable_count),
+                    ("terminal_failure", lineage_stats.terminal_failure_count),
+                ),
             )
-            lineage_failure_pressure.add_metric(["retry_backlog"], lineage_stats.retry_backlog_count)
-            lineage_failure_pressure.add_metric(["reclaimable"], lineage_stats.reclaimable_count)
-            lineage_failure_pressure.add_metric(["terminal_failure"], lineage_stats.terminal_failure_count)
-            yield lineage_failure_pressure
 
         if lineage_stats is not None:
             lineage_oldest_pending = GaugeMetricFamily(
@@ -514,15 +514,16 @@ class DurableQueueCollector:
             )
 
         if lineage_storage_capacity is not None:
-            lineage_storage_bytes = GaugeMetricFamily(
-                "lotus_performance_lineage_storage_capacity_bytes",
-                "Lineage storage capacity by segment.",
-                labels=["segment"],
+            yield labeled_metric(
+                metric_name="lotus_performance_lineage_storage_capacity_bytes",
+                description="Lineage storage capacity by segment.",
+                label_name="segment",
+                samples=(
+                    ("total", lineage_storage_capacity.total_bytes),
+                    ("used", lineage_storage_capacity.used_bytes),
+                    ("free", lineage_storage_capacity.free_bytes),
+                ),
             )
-            lineage_storage_bytes.add_metric(["total"], lineage_storage_capacity.total_bytes)
-            lineage_storage_bytes.add_metric(["used"], lineage_storage_capacity.used_bytes)
-            lineage_storage_bytes.add_metric(["free"], lineage_storage_capacity.free_bytes)
-            yield lineage_storage_bytes
 
             lineage_storage_free_ratio = GaugeMetricFamily(
                 "lotus_performance_lineage_storage_free_ratio",
@@ -556,20 +557,15 @@ class DurableQueueCollector:
                 ),
             )
 
-        lineage_storage_thresholds = GaugeMetricFamily(
-            "lotus_performance_lineage_storage_pressure_threshold",
-            "Configured proactive lineage storage pressure thresholds.",
-            labels=["threshold"],
+        yield labeled_metric(
+            metric_name="lotus_performance_lineage_storage_pressure_threshold",
+            description="Configured proactive lineage storage pressure thresholds.",
+            label_name="threshold",
+            samples=(
+                ("min_free_bytes", getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES", 0)),
+                ("min_free_ratio", getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO", 0.0)),
+            ),
         )
-        lineage_storage_thresholds.add_metric(
-            ["min_free_bytes"],
-            getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES", 0),
-        )
-        lineage_storage_thresholds.add_metric(
-            ["min_free_ratio"],
-            getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO", 0.0),
-        )
-        yield lineage_storage_thresholds
 
         yield policy_threshold_metric(
             metric_name="lotus_performance_recovery_drill_policy_threshold",

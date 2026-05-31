@@ -101,16 +101,31 @@ def policy_threshold_metric(
     return metric
 
 
+def labeled_metric(
+    *,
+    metric_name: str,
+    description: str,
+    label_name: str,
+    samples: Iterable[tuple[str, float]],
+) -> GaugeMetricFamily:
+    metric = GaugeMetricFamily(metric_name, description, labels=[label_name])
+    for label_value, value in samples:
+        metric.add_metric([label_value], value)
+    return metric
+
+
 def reason_labeled_metric(
     *,
     metric_name: str,
     description: str,
     samples: Iterable[tuple[str, float]],
 ) -> GaugeMetricFamily:
-    metric = GaugeMetricFamily(metric_name, description, labels=["reason"])
-    for reason, value in samples:
-        metric.add_metric([reason], value)
-    return metric
+    return labeled_metric(
+        metric_name=metric_name,
+        description=description,
+        label_name="reason",
+        samples=samples,
+    )
 
 
 def active_lease_age_seconds_or_zero(snapshot: Any) -> float:

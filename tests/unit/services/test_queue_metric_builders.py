@@ -2,6 +2,7 @@ from app.services.queue_metric_builders import (
     RECOVERY_DRILL_ACTION_METRICS,
     active_lease_age_seconds_or_zero,
     availability_metric,
+    labeled_metric,
     latest_reclaim_count_or_zero,
     operator_action_lease_metrics,
     policy_threshold_metric,
@@ -38,6 +39,21 @@ def test_policy_threshold_metric_uses_governed_threshold_labels():
         "max_age_seconds": 3600.0,
         "active_run_age_seconds": 1800.0,
         "reclaim_count": 3,
+    }
+
+
+def test_labeled_metric_uses_supplied_label_name_and_values():
+    metric = labeled_metric(
+        metric_name="category_metric",
+        description="category metric",
+        label_name="category",
+        samples=(("retry_backlog", 2), ("terminal_failure", 1)),
+    )
+
+    samples = {sample.labels["category"]: sample.value for sample in metric.samples}
+    assert samples == {
+        "retry_backlog": 2,
+        "terminal_failure": 1,
     }
 
 
