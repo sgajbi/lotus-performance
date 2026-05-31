@@ -2646,6 +2646,12 @@ def test_runtime_status_operator_action_status_normalizes_naive_timestamps(mocke
 
 def test_runtime_status_parse_reclaimed_at_and_collect_reasons_cover_runtime_retention_unavailable():
     assert runtime_status_service._parse_reclaimed_at_utc("2026-03-15T00:00:00").tzinfo == UTC
+    assert (
+        runtime_status_service._parse_utc_datetime("2026-03-15T08:00:00+08:00")
+        .isoformat()
+        .startswith("2026-03-15T00:00:00")
+    )
+    assert runtime_status_service._age_seconds_since("2999-01-01T00:00:00Z") == 0.0
 
     reasons = runtime_status_service._collect_runtime_degradation_reasons(
         compute_queue=type("Queue", (), {"status": "available", "reason": None, "degradation_reasons": ()})(),

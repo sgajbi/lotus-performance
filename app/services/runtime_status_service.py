@@ -503,8 +503,7 @@ def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
         return _build_missing_recovery_drill_status(threshold=threshold, active_run_status=active_run_status)
 
     latest = snapshot.entries[0]
-    latest_generated_at = datetime.fromisoformat(latest.generated_at_utc.replace("Z", "+00:00"))
-    latest_age_seconds = max(0.0, (datetime.now(UTC) - latest_generated_at).total_seconds())
+    latest_age_seconds = _age_seconds_since(latest.generated_at_utc)
     degradation_details: list[RuntimeDegradationDetail] = []
     if latest.status != "passed":
         degradation_details.append(
@@ -688,8 +687,7 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
         )
 
     latest = snapshot.entries[0]
-    latest_generated_at = datetime.fromisoformat(latest.generated_at_utc.replace("Z", "+00:00"))
-    latest_age_seconds = max(0.0, (datetime.now(UTC) - latest_generated_at).total_seconds())
+    latest_age_seconds = _age_seconds_since(latest.generated_at_utc)
     degradation_details: list[RuntimeDegradationDetail] = []
     if latest.cleanup_mode != "apply":
         degradation_details.append(
@@ -1097,12 +1095,7 @@ def _build_operator_action_status(*, artifact_directory, action_name: str) -> Op
     recent_reclaimed_runs = _build_recent_operator_action_reclaims(snapshot=snapshot)
     latest_reclaimed_run_age_seconds = None
     if latest_reclaimed_run is not None:
-        reclaimed_at = datetime.fromisoformat(latest_reclaimed_run.reclaimed_at_utc.replace("Z", "+00:00"))
-        if reclaimed_at.tzinfo is None:
-            reclaimed_at = reclaimed_at.replace(tzinfo=UTC)
-        else:
-            reclaimed_at = reclaimed_at.astimezone(UTC)
-        latest_reclaimed_run_age_seconds = max(0.0, (datetime.now(UTC) - reclaimed_at).total_seconds())
+        latest_reclaimed_run_age_seconds = _age_seconds_since(latest_reclaimed_run.reclaimed_at_utc)
     if not snapshot.active_leases:
         return OperatorActionStatus(
             status="available",
@@ -1131,11 +1124,6 @@ def _build_operator_action_status(*, artifact_directory, action_name: str) -> Op
             recent_reclaimed_runs=recent_reclaimed_runs,
         )
     oldest = snapshot.active_leases[0]
-    acquired_at = datetime.fromisoformat(oldest.acquired_at_utc.replace("Z", "+00:00"))
-    if acquired_at.tzinfo is None:
-        acquired_at = acquired_at.replace(tzinfo=UTC)
-    else:
-        acquired_at = acquired_at.astimezone(UTC)
     return OperatorActionStatus(
         status="active",
         reason=None,
@@ -1144,7 +1132,7 @@ def _build_operator_action_status(*, artifact_directory, action_name: str) -> Op
         oldest_active_run_tenant_id=oldest.tenant_id,
         oldest_active_run_governed_target=oldest.governed_target,
         oldest_active_run_acquired_at_utc=oldest.acquired_at_utc,
-        oldest_active_run_age_seconds=max(0.0, (datetime.now(UTC) - acquired_at).total_seconds()),
+        oldest_active_run_age_seconds=_age_seconds_since(oldest.acquired_at_utc),
         latest_reclaimed_run_operator_id=None if latest_reclaimed_run is None else latest_reclaimed_run.operator_id,
         latest_reclaimed_run_tenant_id=None if latest_reclaimed_run is None else latest_reclaimed_run.tenant_id,
         latest_reclaimed_run_governed_target=(
@@ -1171,10 +1159,7 @@ def _build_recent_operator_action_reclaims(*, snapshot) -> tuple[RecentOperatorA
             governed_target=event.governed_target,
             acquired_at_utc=event.acquired_at_utc,
             reclaimed_at_utc=event.reclaimed_at_utc,
-            reclaimed_age_seconds=max(
-                0.0,
-                (datetime.now(UTC) - _parse_reclaimed_at_utc(event.reclaimed_at_utc)).total_seconds(),
-            ),
+            reclaimed_age_seconds=_age_seconds_since(event.reclaimed_at_utc),
             reclaim_count=event.reclaim_count,
         )
         for event in events[:5]
@@ -1182,10 +1167,18 @@ def _build_recent_operator_action_reclaims(*, snapshot) -> tuple[RecentOperatorA
 
 
 def _parse_reclaimed_at_utc(timestamp_utc: str) -> datetime:
-    reclaimed_at = datetime.fromisoformat(timestamp_utc.replace("Z", "+00:00"))
-    if reclaimed_at.tzinfo is None:
-        return reclaimed_at.replace(tzinfo=UTC)
-    return reclaimed_at.astimezone(UTC)
+    return _parse_utc_datetime(timestamp_utc)
+
+
+def _age_seconds_since(timestamp_utc: str) -> float:
+    return max(0.0, (datetime.now(UTC) - _parse_utc_datetime(timestamp_utc)).total_seconds())
+
+
+def _parse_utc_datetime(timestamp_utc: str) -> datetime:
+    parsed = datetime.fromisoformat(timestamp_utc.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
 def _collect_runtime_degradation_reasons(
