@@ -603,7 +603,7 @@ def test_queue_metrics_collector_emits_governed_action_lease_metrics(monkeypatch
             },
         )(),
     )
-    monkeypatch.setattr("app.services.queue_metrics_service.age_seconds_since", lambda timestamp_utc: 42.0)
+    monkeypatch.setattr("app.services.queue_metric_builders.age_seconds_since", lambda timestamp_utc: 42.0)
 
     metrics = list(DurableQueueCollector().collect())
 

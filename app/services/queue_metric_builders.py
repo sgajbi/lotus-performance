@@ -1,0 +1,111 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
+
+from prometheus_client.core import GaugeMetricFamily
+
+from app.services.runtime_status_time import age_seconds_since
+
+
+@dataclass(frozen=True)
+class OperatorActionMetricSpec:
+    active_metric_name: str
+    active_description: str
+    oldest_active_age_metric_name: str
+    oldest_active_age_description: str
+    reclaimed_age_metric_name: str
+    reclaimed_age_description: str
+    reclaimed_count_metric_name: str
+    reclaimed_count_description: str
+
+
+RECOVERY_DRILL_ACTION_METRICS = OperatorActionMetricSpec(
+    active_metric_name="lotus_performance_recovery_drill_active_actions",
+    active_description="Number of active governed recovery-drill runs currently holding an in-flight lease.",
+    oldest_active_age_metric_name="lotus_performance_recovery_drill_oldest_active_action_age_seconds",
+    oldest_active_age_description="Age in seconds of the oldest active governed recovery-drill run.",
+    reclaimed_age_metric_name="lotus_performance_recovery_drill_latest_reclaimed_action_age_seconds",
+    reclaimed_age_description="Age in seconds since the latest stale governed recovery-drill lease reclaim.",
+    reclaimed_count_metric_name="lotus_performance_recovery_drill_reclaimed_actions",
+    reclaimed_count_description=(
+        "Count of stale governed recovery-drill leases reclaimed and retained in the current control-plane counter."
+    ),
+)
+
+RUNTIME_RETENTION_ACTION_METRICS = OperatorActionMetricSpec(
+    active_metric_name="lotus_performance_runtime_retention_active_actions",
+    active_description="Number of active governed runtime-retention cleanups currently holding an in-flight lease.",
+    oldest_active_age_metric_name="lotus_performance_runtime_retention_oldest_active_action_age_seconds",
+    oldest_active_age_description="Age in seconds of the oldest active governed runtime-retention cleanup.",
+    reclaimed_age_metric_name="lotus_performance_runtime_retention_latest_reclaimed_action_age_seconds",
+    reclaimed_age_description="Age in seconds since the latest stale governed runtime-retention lease reclaim.",
+    reclaimed_count_metric_name="lotus_performance_runtime_retention_reclaimed_actions",
+    reclaimed_count_description=(
+        "Count of stale governed runtime-retention leases reclaimed and retained in the current control-plane counter."
+    ),
+)
+
+
+def operator_action_lease_metrics(
+    *,
+    snapshot: Any,
+    spec: OperatorActionMetricSpec,
+) -> tuple[GaugeMetricFamily, ...]:
+    if snapshot is None or snapshot.status != "available":
+        return ()
+
+    metrics: list[GaugeMetricFamily] = []
+    active_actions = GaugeMetricFamily(spec.active_metric_name, spec.active_description)
+    active_actions.add_metric([], len(snapshot.active_leases))
+    metrics.append(active_actions)
+
+    if snapshot.active_leases:
+        oldest_active_action_age = GaugeMetricFamily(
+            spec.oldest_active_age_metric_name,
+            spec.oldest_active_age_description,
+        )
+        oldest_active_action_age.add_metric([], age_seconds_since(snapshot.active_leases[0].acquired_at_utc))
+        metrics.append(oldest_active_action_age)
+
+    if snapshot.latest_reclaimed_lease is not None:
+        latest_reclaimed_action_age = GaugeMetricFamily(
+            spec.reclaimed_age_metric_name,
+            spec.reclaimed_age_description,
+        )
+        latest_reclaimed_action_age.add_metric(
+            [],
+            age_seconds_since(snapshot.latest_reclaimed_lease.reclaimed_at_utc),
+        )
+        metrics.append(latest_reclaimed_action_age)
+
+        reclaimed_actions = GaugeMetricFamily(spec.reclaimed_count_metric_name, spec.reclaimed_count_description)
+        reclaimed_actions.add_metric([], snapshot.latest_reclaimed_lease.reclaim_count)
+        metrics.append(reclaimed_actions)
+
+    return tuple(metrics)
+
+
+def policy_threshold_metric(
+    *,
+    metric_name: str,
+    description: str,
+    max_age_seconds: float,
+    active_run_age_seconds: float,
+    reclaim_count: int,
+) -> GaugeMetricFamily:
+    metric = GaugeMetricFamily(metric_name, description, labels=["threshold"])
+    metric.add_metric(["max_age_seconds"], max_age_seconds)
+    metric.add_metric(["active_run_age_seconds"], active_run_age_seconds)
+    metric.add_metric(["reclaim_count"], reclaim_count)
+    return metric
+
+
+def availability_metric(*, metric_name: str, description: str, is_available: bool) -> GaugeMetricFamily:
+    metric = GaugeMetricFamily(metric_name, description)
+    metric.add_metric([], 1 if is_available else 0)
+    return metric
+
+
+def snapshot_available(snapshot: Any) -> bool:
+    return snapshot is not None and snapshot.status == "available"

@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 from prometheus_client.core import GaugeMetricFamily
 
@@ -11,114 +9,19 @@ from app.services.compute_job_store import compute_job_store
 from app.services.durability_health_service import get_lineage_storage_capacity
 from app.services.lineage_metadata_store import lineage_metadata_store
 from app.services.operator_action_lease_service import build_operator_action_lease_snapshot
+from app.services.queue_metric_builders import (
+    RECOVERY_DRILL_ACTION_METRICS,
+    RUNTIME_RETENTION_ACTION_METRICS,
+    availability_metric,
+    operator_action_lease_metrics,
+    policy_threshold_metric,
+    snapshot_available,
+)
 from app.services.recovery_drill_history_service import build_recovery_drill_history_snapshot
 from app.services.runtime_degradation_policy import threshold_breach_flag
 from app.services.runtime_retention_history_service import build_runtime_retention_history_snapshot
 from app.services.runtime_retention_service import run_runtime_retention_cleanup
 from app.services.runtime_status_time import age_seconds_since
-
-
-@dataclass(frozen=True)
-class OperatorActionMetricSpec:
-    active_metric_name: str
-    active_description: str
-    oldest_active_age_metric_name: str
-    oldest_active_age_description: str
-    reclaimed_age_metric_name: str
-    reclaimed_age_description: str
-    reclaimed_count_metric_name: str
-    reclaimed_count_description: str
-
-
-RECOVERY_DRILL_ACTION_METRICS = OperatorActionMetricSpec(
-    active_metric_name="lotus_performance_recovery_drill_active_actions",
-    active_description="Number of active governed recovery-drill runs currently holding an in-flight lease.",
-    oldest_active_age_metric_name="lotus_performance_recovery_drill_oldest_active_action_age_seconds",
-    oldest_active_age_description="Age in seconds of the oldest active governed recovery-drill run.",
-    reclaimed_age_metric_name="lotus_performance_recovery_drill_latest_reclaimed_action_age_seconds",
-    reclaimed_age_description="Age in seconds since the latest stale governed recovery-drill lease reclaim.",
-    reclaimed_count_metric_name="lotus_performance_recovery_drill_reclaimed_actions",
-    reclaimed_count_description=(
-        "Count of stale governed recovery-drill leases reclaimed and retained in the current control-plane counter."
-    ),
-)
-
-RUNTIME_RETENTION_ACTION_METRICS = OperatorActionMetricSpec(
-    active_metric_name="lotus_performance_runtime_retention_active_actions",
-    active_description="Number of active governed runtime-retention cleanups currently holding an in-flight lease.",
-    oldest_active_age_metric_name="lotus_performance_runtime_retention_oldest_active_action_age_seconds",
-    oldest_active_age_description="Age in seconds of the oldest active governed runtime-retention cleanup.",
-    reclaimed_age_metric_name="lotus_performance_runtime_retention_latest_reclaimed_action_age_seconds",
-    reclaimed_age_description="Age in seconds since the latest stale governed runtime-retention lease reclaim.",
-    reclaimed_count_metric_name="lotus_performance_runtime_retention_reclaimed_actions",
-    reclaimed_count_description=(
-        "Count of stale governed runtime-retention leases reclaimed and retained in the current control-plane counter."
-    ),
-)
-
-
-def _operator_action_lease_metrics(
-    *,
-    snapshot: Any,
-    spec: OperatorActionMetricSpec,
-) -> tuple[GaugeMetricFamily, ...]:
-    if snapshot is None or snapshot.status != "available":
-        return ()
-
-    metrics: list[GaugeMetricFamily] = []
-    active_actions = GaugeMetricFamily(spec.active_metric_name, spec.active_description)
-    active_actions.add_metric([], len(snapshot.active_leases))
-    metrics.append(active_actions)
-
-    if snapshot.active_leases:
-        oldest_active_action_age = GaugeMetricFamily(
-            spec.oldest_active_age_metric_name,
-            spec.oldest_active_age_description,
-        )
-        oldest_active_action_age.add_metric([], age_seconds_since(snapshot.active_leases[0].acquired_at_utc))
-        metrics.append(oldest_active_action_age)
-
-    if snapshot.latest_reclaimed_lease is not None:
-        latest_reclaimed_action_age = GaugeMetricFamily(
-            spec.reclaimed_age_metric_name,
-            spec.reclaimed_age_description,
-        )
-        latest_reclaimed_action_age.add_metric(
-            [],
-            age_seconds_since(snapshot.latest_reclaimed_lease.reclaimed_at_utc),
-        )
-        metrics.append(latest_reclaimed_action_age)
-
-        reclaimed_actions = GaugeMetricFamily(spec.reclaimed_count_metric_name, spec.reclaimed_count_description)
-        reclaimed_actions.add_metric([], snapshot.latest_reclaimed_lease.reclaim_count)
-        metrics.append(reclaimed_actions)
-
-    return tuple(metrics)
-
-
-def _policy_threshold_metric(
-    *,
-    metric_name: str,
-    description: str,
-    max_age_seconds: float,
-    active_run_age_seconds: float,
-    reclaim_count: int,
-) -> GaugeMetricFamily:
-    metric = GaugeMetricFamily(metric_name, description, labels=["threshold"])
-    metric.add_metric(["max_age_seconds"], max_age_seconds)
-    metric.add_metric(["active_run_age_seconds"], active_run_age_seconds)
-    metric.add_metric(["reclaim_count"], reclaim_count)
-    return metric
-
-
-def _availability_metric(*, metric_name: str, description: str, is_available: bool) -> GaugeMetricFamily:
-    metric = GaugeMetricFamily(metric_name, description)
-    metric.add_metric([], 1 if is_available else 0)
-    return metric
-
-
-def _snapshot_available(snapshot: Any) -> bool:
-    return snapshot is not None and snapshot.status == "available"
 
 
 class DurableQueueCollector:
@@ -352,37 +255,37 @@ class DurableQueueCollector:
         availability.add_metric(["lineage"], 1 if lineage_available else 0)
         yield availability
 
-        yield _availability_metric(
+        yield availability_metric(
             metric_name="lotus_performance_lineage_storage_capacity_availability",
             description="Availability of lineage storage capacity metrics.",
             is_available=lineage_storage_capacity_available,
         )
 
-        yield _availability_metric(
+        yield availability_metric(
             metric_name="lotus_performance_recovery_drill_availability",
             description="Availability of retained durable recovery-drill history.",
-            is_available=recovery_drill_available and _snapshot_available(recovery_drill_snapshot),
+            is_available=recovery_drill_available and snapshot_available(recovery_drill_snapshot),
         )
 
-        yield _availability_metric(
+        yield availability_metric(
             metric_name="lotus_performance_recovery_drill_action_availability",
             description="Availability of governed in-flight recovery-drill action lease visibility.",
-            is_available=_snapshot_available(recovery_drill_action_snapshot),
+            is_available=snapshot_available(recovery_drill_action_snapshot),
         )
 
-        yield _availability_metric(
+        yield availability_metric(
             metric_name="lotus_performance_runtime_retention_availability",
             description="Availability of retained runtime-retention cleanup history.",
-            is_available=runtime_retention_available and _snapshot_available(runtime_retention_snapshot),
+            is_available=runtime_retention_available and snapshot_available(runtime_retention_snapshot),
         )
 
-        yield _availability_metric(
+        yield availability_metric(
             metric_name="lotus_performance_runtime_retention_action_availability",
             description="Availability of governed in-flight runtime-retention cleanup lease visibility.",
-            is_available=_snapshot_available(runtime_retention_action_snapshot),
+            is_available=snapshot_available(runtime_retention_action_snapshot),
         )
 
-        yield _availability_metric(
+        yield availability_metric(
             metric_name="lotus_performance_runtime_retention_preview_availability",
             description="Availability of the live runtime-retention preview under the current policy.",
             is_available=runtime_retention_preview_available,
@@ -625,7 +528,7 @@ class DurableQueueCollector:
         )
         yield lineage_storage_thresholds
 
-        yield _policy_threshold_metric(
+        yield policy_threshold_metric(
             metric_name="lotus_performance_recovery_drill_policy_threshold",
             description="Configured recovery-drill degradation thresholds.",
             max_age_seconds=getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS", 0.0),
@@ -637,12 +540,12 @@ class DurableQueueCollector:
             reclaim_count=getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT", 0),
         )
 
-        yield from _operator_action_lease_metrics(
+        yield from operator_action_lease_metrics(
             snapshot=recovery_drill_action_snapshot,
             spec=RECOVERY_DRILL_ACTION_METRICS,
         )
 
-        yield _policy_threshold_metric(
+        yield policy_threshold_metric(
             metric_name="lotus_performance_runtime_retention_policy_threshold",
             description="Configured runtime-retention degradation thresholds.",
             max_age_seconds=getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS", 0.0),
@@ -654,7 +557,7 @@ class DurableQueueCollector:
             reclaim_count=getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT", 0),
         )
 
-        yield from _operator_action_lease_metrics(
+        yield from operator_action_lease_metrics(
             snapshot=runtime_retention_action_snapshot,
             spec=RUNTIME_RETENTION_ACTION_METRICS,
         )
