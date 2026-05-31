@@ -92,6 +92,7 @@ def test_runtime_status_docs_reflect_certified_operator_contract():
     assert "No duplicate lotus-performance runtime-status endpoint" in certification
     assert "app.services.runtime_status_lifecycle" in certification
     assert "app.services.runtime_status_queue" in certification
+    assert "Compute and lineage queue component assembly" in certification
 
 
 def test_runtime_work_items_docs_reflect_certified_operator_contract():
