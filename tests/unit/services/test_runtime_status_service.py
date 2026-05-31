@@ -2659,3 +2659,31 @@ def test_runtime_status_parse_reclaimed_at_and_collect_reasons_cover_runtime_ret
     )
 
     assert reasons == ("runtime_retention:runtime_retention_manifest_missing",)
+
+
+def test_runtime_status_degradation_detail_helper_uses_governed_threshold_semantics():
+    details: list[runtime_status_service.RuntimeDegradationDetail] = []
+
+    runtime_status_service._append_degradation_detail_if_breached(
+        details,
+        reason="disabled_threshold",
+        observed_value=100,
+        threshold_value=0,
+    )
+    runtime_status_service._append_degradation_detail_if_breached(
+        details,
+        reason="below_threshold",
+        observed_value=9,
+        threshold_value=10,
+    )
+    runtime_status_service._append_degradation_detail_if_breached(
+        details,
+        reason="at_threshold",
+        observed_value=10,
+        threshold_value=10,
+    )
+
+    assert len(details) == 1
+    assert details[0].reason == "at_threshold"
+    assert details[0].observed_value == runtime_status_service._as_decimal_number(10)
+    assert details[0].threshold_value == runtime_status_service._as_decimal_number(10)

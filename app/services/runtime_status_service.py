@@ -147,7 +147,7 @@ class RuntimeRetentionStatus:
     latest_cleanup_mode: str | None
     latest_retention_days: int | None
     latest_age_seconds: float | None
-    degradation_reasons: tuple["str", ...]
+    degradation_reasons: tuple[str, ...]
     degradation_details: tuple["RuntimeDegradationDetail", ...]
 
 
@@ -790,72 +790,42 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
 
 def _compute_queue_degradation_details(stats: ComputeQueueStats, *, settings) -> tuple[RuntimeDegradationDetail, ...]:
     details: list[RuntimeDegradationDetail] = []
-    if (
-        settings.RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT > 0
-        and stats.retry_backlog_count >= settings.RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT
-    ):
-        details.append(
-            RuntimeDegradationDetail(
-                reason="compute_retry_backlog_exceeded",
-                observed_value=_as_decimal_number(stats.retry_backlog_count),
-                threshold_value=_as_decimal_number(settings.RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT),
-            )
-        )
-    if (
-        settings.RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT > 0
-        and stats.terminal_failure_count >= settings.RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT
-    ):
-        details.append(
-            RuntimeDegradationDetail(
-                reason="compute_terminal_failure_exceeded",
-                observed_value=_as_decimal_number(stats.terminal_failure_count),
-                threshold_value=_as_decimal_number(settings.RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT),
-            )
-        )
-    if (
-        settings.RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT > 0
-        and stats.lease_expired_count >= settings.RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT
-    ):
-        details.append(
-            RuntimeDegradationDetail(
-                reason="compute_lease_expiry_pressure_exceeded",
-                observed_value=_as_decimal_number(stats.lease_expired_count),
-                threshold_value=_as_decimal_number(settings.RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT),
-            )
-        )
-    if (
-        settings.RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS > 0
-        and stats.oldest_pending_age_seconds >= settings.RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS
-    ):
-        details.append(
-            RuntimeDegradationDetail(
-                reason="compute_pending_age_exceeded",
-                observed_value=_as_decimal_number(stats.oldest_pending_age_seconds),
-                threshold_value=_as_decimal_number(settings.RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS),
-            )
-        )
-    if (
-        settings.RUNTIME_STATUS_COMPUTE_LEASED_AGE_DEGRADE_SECONDS > 0
-        and stats.oldest_leased_age_seconds >= settings.RUNTIME_STATUS_COMPUTE_LEASED_AGE_DEGRADE_SECONDS
-    ):
-        details.append(
-            RuntimeDegradationDetail(
-                reason="compute_leased_age_exceeded",
-                observed_value=_as_decimal_number(stats.oldest_leased_age_seconds),
-                threshold_value=_as_decimal_number(settings.RUNTIME_STATUS_COMPUTE_LEASED_AGE_DEGRADE_SECONDS),
-            )
-        )
-    if (
-        settings.RUNTIME_STATUS_COMPUTE_RUNNING_AGE_DEGRADE_SECONDS > 0
-        and stats.oldest_running_age_seconds >= settings.RUNTIME_STATUS_COMPUTE_RUNNING_AGE_DEGRADE_SECONDS
-    ):
-        details.append(
-            RuntimeDegradationDetail(
-                reason="compute_running_age_exceeded",
-                observed_value=_as_decimal_number(stats.oldest_running_age_seconds),
-                threshold_value=_as_decimal_number(settings.RUNTIME_STATUS_COMPUTE_RUNNING_AGE_DEGRADE_SECONDS),
-            )
-        )
+    _append_degradation_detail_if_breached(
+        details,
+        reason="compute_retry_backlog_exceeded",
+        observed_value=stats.retry_backlog_count,
+        threshold_value=settings.RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT,
+    )
+    _append_degradation_detail_if_breached(
+        details,
+        reason="compute_terminal_failure_exceeded",
+        observed_value=stats.terminal_failure_count,
+        threshold_value=settings.RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT,
+    )
+    _append_degradation_detail_if_breached(
+        details,
+        reason="compute_lease_expiry_pressure_exceeded",
+        observed_value=stats.lease_expired_count,
+        threshold_value=settings.RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT,
+    )
+    _append_degradation_detail_if_breached(
+        details,
+        reason="compute_pending_age_exceeded",
+        observed_value=stats.oldest_pending_age_seconds,
+        threshold_value=settings.RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS,
+    )
+    _append_degradation_detail_if_breached(
+        details,
+        reason="compute_leased_age_exceeded",
+        observed_value=stats.oldest_leased_age_seconds,
+        threshold_value=settings.RUNTIME_STATUS_COMPUTE_LEASED_AGE_DEGRADE_SECONDS,
+    )
+    _append_degradation_detail_if_breached(
+        details,
+        reason="compute_running_age_exceeded",
+        observed_value=stats.oldest_running_age_seconds,
+        threshold_value=settings.RUNTIME_STATUS_COMPUTE_RUNNING_AGE_DEGRADE_SECONDS,
+    )
     return tuple(details)
 
 
@@ -872,47 +842,36 @@ def _lineage_queue_degradation_details(
         settings, "RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT", 0
     )
     lineage_pending_age_degrade_seconds = getattr(settings, "RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS", 0.0)
-    if lineage_leased_age_degrade_seconds > 0 and stats.oldest_leased_age_seconds >= lineage_leased_age_degrade_seconds:
-        details.append(
-            RuntimeDegradationDetail(
-                reason="lineage_leased_age_exceeded",
-                observed_value=_as_decimal_number(stats.oldest_leased_age_seconds),
-                threshold_value=_as_decimal_number(lineage_leased_age_degrade_seconds),
-            )
-        )
-    if lineage_retry_backlog_degrade_count > 0 and stats.retry_backlog_count >= lineage_retry_backlog_degrade_count:
-        details.append(
-            RuntimeDegradationDetail(
-                reason="lineage_retry_backlog_exceeded",
-                observed_value=_as_decimal_number(stats.retry_backlog_count),
-                threshold_value=_as_decimal_number(lineage_retry_backlog_degrade_count),
-            )
-        )
-    if (
-        lineage_terminal_failure_degrade_count > 0
-        and stats.terminal_failure_count >= lineage_terminal_failure_degrade_count
-    ):
-        details.append(
-            RuntimeDegradationDetail(
-                reason="lineage_terminal_failure_exceeded",
-                observed_value=_as_decimal_number(stats.terminal_failure_count),
-                threshold_value=_as_decimal_number(lineage_terminal_failure_degrade_count),
-            )
-        )
-    if (
-        lineage_pending_age_degrade_seconds > 0
-        and stats.oldest_pending_age_seconds >= lineage_pending_age_degrade_seconds
-    ):
-        details.append(
-            RuntimeDegradationDetail(
-                reason="lineage_pending_age_exceeded",
-                observed_value=_as_decimal_number(stats.oldest_pending_age_seconds),
-                threshold_value=_as_decimal_number(lineage_pending_age_degrade_seconds),
-            )
-        )
+    _append_degradation_detail_if_breached(
+        details,
+        reason="lineage_leased_age_exceeded",
+        observed_value=stats.oldest_leased_age_seconds,
+        threshold_value=lineage_leased_age_degrade_seconds,
+    )
+    _append_degradation_detail_if_breached(
+        details,
+        reason="lineage_retry_backlog_exceeded",
+        observed_value=stats.retry_backlog_count,
+        threshold_value=lineage_retry_backlog_degrade_count,
+    )
+    _append_degradation_detail_if_breached(
+        details,
+        reason="lineage_terminal_failure_exceeded",
+        observed_value=stats.terminal_failure_count,
+        threshold_value=lineage_terminal_failure_degrade_count,
+    )
+    _append_degradation_detail_if_breached(
+        details,
+        reason="lineage_pending_age_exceeded",
+        observed_value=stats.oldest_pending_age_seconds,
+        threshold_value=lineage_pending_age_degrade_seconds,
+    )
     lineage_storage_min_free_bytes = getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES", 0)
     lineage_storage_min_free_ratio = getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO", 0.0)
-    if lineage_storage_min_free_bytes > 0 and storage_capacity.free_bytes <= lineage_storage_min_free_bytes:
+    if (
+        _threshold_is_configured(lineage_storage_min_free_bytes)
+        and storage_capacity.free_bytes <= lineage_storage_min_free_bytes
+    ):
         details.append(
             RuntimeDegradationDetail(
                 reason="lineage_storage_free_bytes_below_threshold",
@@ -920,7 +879,10 @@ def _lineage_queue_degradation_details(
                 threshold_value=_as_decimal_number(lineage_storage_min_free_bytes),
             )
         )
-    if lineage_storage_min_free_ratio > 0 and storage_capacity.free_ratio <= lineage_storage_min_free_ratio:
+    if (
+        _threshold_is_configured(lineage_storage_min_free_ratio)
+        and storage_capacity.free_ratio <= lineage_storage_min_free_ratio
+    ):
         details.append(
             RuntimeDegradationDetail(
                 reason="lineage_storage_free_ratio_below_threshold",
@@ -929,6 +891,30 @@ def _lineage_queue_degradation_details(
             )
         )
     return tuple(details)
+
+
+def _append_degradation_detail_if_breached(
+    details: list[RuntimeDegradationDetail],
+    *,
+    reason: str,
+    observed_value: object,
+    threshold_value: object,
+) -> None:
+    observed_decimal = _as_decimal_number(observed_value)
+    threshold_decimal = _as_decimal_number(threshold_value)
+    if threshold_decimal <= 0 or observed_decimal < threshold_decimal:
+        return
+    details.append(
+        RuntimeDegradationDetail(
+            reason=reason,
+            observed_value=observed_decimal,
+            threshold_value=threshold_decimal,
+        )
+    )
+
+
+def _threshold_is_configured(threshold_value: object) -> bool:
+    return _as_decimal_number(threshold_value) > 0
 
 
 def _as_decimal_number(value: object) -> Decimal:
