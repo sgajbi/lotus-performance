@@ -1,4 +1,6 @@
 from app.services.operator_action_history_manifest import (
+    HistoryManifestHeader,
+    build_history_manifest_payload,
     validate_history_entry_strings,
     validate_history_manifest_header,
 )
@@ -106,3 +108,22 @@ def test_validate_history_entry_strings_rejects_bad_required_or_optional_values(
         )
         is None
     )
+
+
+def test_build_history_manifest_payload_projects_header_and_entries():
+    header = HistoryManifestHeader(
+        latest_file_name="latest.json",
+        retained_file_names=["latest.json"],
+        retention_limit=30,
+        retention_max_age_days=90,
+        entries=[{"raw": "entry"}],
+    )
+    entries = [{"evidence_file_name": "latest.json"}]
+
+    assert build_history_manifest_payload(header=header, entries=entries) == {
+        "latest_file_name": "latest.json",
+        "retained_file_names": ["latest.json"],
+        "retention_limit": 30,
+        "retention_max_age_days": 90,
+        "entries": entries,
+    }

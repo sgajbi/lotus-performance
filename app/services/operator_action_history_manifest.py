@@ -16,6 +16,7 @@ class HistoryManifestHeader:
 
 
 HistoryEntryStrings = dict[str, str | None]
+HistoryManifestPayload = dict[str, Any]
 
 
 def validate_history_manifest_header(payload: Any) -> HistoryManifestHeader | None:
@@ -70,4 +71,18 @@ def validate_history_entry_strings(
     return {
         **{key: entry[key] for key in required_keys},
         **{key: entry.get(key) for key in optional_keys},
+    }
+
+
+def build_history_manifest_payload(
+    *,
+    header: HistoryManifestHeader,
+    entries: list[dict[str, Any]],
+) -> HistoryManifestPayload:
+    return {
+        "latest_file_name": header.latest_file_name,
+        "retained_file_names": header.retained_file_names,
+        "retention_limit": header.retention_limit,
+        "retention_max_age_days": header.retention_max_age_days,
+        "entries": entries,
     }

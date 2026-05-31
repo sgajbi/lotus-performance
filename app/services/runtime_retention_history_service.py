@@ -11,6 +11,7 @@ from app.services.operator_action_history_filters import (
     filter_history_entries,
 )
 from app.services.operator_action_history_manifest import (
+    build_history_manifest_payload,
     validate_history_entry_strings,
     validate_history_manifest_header,
 )
@@ -206,13 +207,7 @@ def _validate_manifest_payload(payload: Any) -> dict[str, Any] | None:
             return None
         validated_entries.append(validated_entry)
 
-    return {
-        "latest_file_name": header.latest_file_name,
-        "retained_file_names": header.retained_file_names,
-        "retention_limit": header.retention_limit,
-        "retention_max_age_days": header.retention_max_age_days,
-        "entries": validated_entries,
-    }
+    return build_history_manifest_payload(header=header, entries=validated_entries)
 
 
 def _validate_manifest_entry(entry: Any) -> dict[str, str | int | None] | None:
