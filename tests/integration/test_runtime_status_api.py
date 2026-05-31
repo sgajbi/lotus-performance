@@ -23,7 +23,7 @@ def _isolate_runtime_assurance_history(mocker):
         shutil.rmtree(settings.LINEAGE_STORAGE_PATH)
     os.makedirs(settings.LINEAGE_STORAGE_PATH, exist_ok=True)
     mocker.patch(
-        "app.services.runtime_status_service.build_operator_action_lease_snapshot",
+        "app.services.runtime_status_operator_action.build_operator_action_lease_snapshot",
         side_effect=lambda **kwargs: type(
             "LeaseSnapshot",
             (),
@@ -197,7 +197,7 @@ def test_runtime_status_reports_durable_queue_state():
 
 def test_runtime_status_reports_active_governed_action_visibility(mocker):
     mocker.patch(
-        "app.services.runtime_status_service.build_operator_action_lease_snapshot",
+        "app.services.runtime_status_operator_action.build_operator_action_lease_snapshot",
         side_effect=[
             type(
                 "LeaseSnapshot",
@@ -324,7 +324,7 @@ def test_runtime_status_reports_governed_action_reclaim_pressure_degradation(moc
     settings.RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT = 2
     settings.RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT = 3
     mocker.patch(
-        "app.services.runtime_status_service.build_operator_action_lease_snapshot",
+        "app.services.runtime_status_operator_action.build_operator_action_lease_snapshot",
         side_effect=[
             type(
                 "LeaseSnapshot",
@@ -395,7 +395,7 @@ def test_runtime_status_reports_governed_active_run_age_degradation(mocker):
     settings.RUNTIME_STATUS_RECOVERY_DRILL_ACTIVE_RUN_AGE_DEGRADE_SECONDS = 60.0
     settings.RUNTIME_STATUS_RUNTIME_RETENTION_ACTIVE_RUN_AGE_DEGRADE_SECONDS = 120.0
     mocker.patch(
-        "app.services.runtime_status_service.build_operator_action_lease_snapshot",
+        "app.services.runtime_status_operator_action.build_operator_action_lease_snapshot",
         side_effect=[
             type(
                 "LeaseSnapshot",
