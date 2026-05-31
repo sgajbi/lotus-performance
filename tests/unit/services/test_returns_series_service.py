@@ -198,6 +198,13 @@ def test_insufficient_data_detail_preserves_returns_series_error_envelope():
     }
 
 
+def test_invalid_request_detail_preserves_returns_series_error_envelope():
+    assert returns_series_service._invalid_request_detail("Bad request.") == {
+        "code": "INVALID_REQUEST",
+        "message": "Bad request.",
+    }
+
+
 @pytest.mark.asyncio
 async def test_calculate_returns_series_requires_open_date(monkeypatch, tmp_path):
     request = _build_stateful_request()

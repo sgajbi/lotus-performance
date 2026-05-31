@@ -81,6 +81,10 @@ def _insufficient_data_detail(message: str) -> dict[str, str]:
     return {"code": "INSUFFICIENT_DATA", "message": message}
 
 
+def _invalid_request_detail(message: str) -> dict[str, str]:
+    return {"code": "INVALID_REQUEST", "message": message}
+
+
 def period_start(as_of_date: date, period: ReturnsRelativePeriod, year: int | None) -> date:
     as_of = pd.Timestamp(as_of_date)
     if period == ReturnsRelativePeriod.MTD:
@@ -114,7 +118,7 @@ def resolve_window(request: ReturnsSeriesRequest) -> ResolvedWindow:
     if request.window.period is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": "INVALID_REQUEST", "message": "window.period is required when mode=RELATIVE"},
+            detail=_invalid_request_detail("window.period is required when mode=RELATIVE"),
         )
     start_date = period_start(request.as_of_date, request.window.period, request.window.year)
     return ResolvedWindow(
@@ -135,7 +139,7 @@ def to_dataframe(points: Iterable[ReturnPoint], *, series_type: str) -> pd.DataF
     if df["date"].duplicated().any():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": "INVALID_REQUEST", "message": f"{series_type} series contains duplicate dates."},
+            detail=_invalid_request_detail(f"{series_type} series contains duplicate dates."),
         )
     df["date"] = pd.to_datetime(df["date"])
     return df.sort_values("date")
@@ -478,7 +482,7 @@ def _benchmark_daily_returns_to_dataframe(daily_returns_df: pd.DataFrame) -> pd.
     if benchmark_df["date"].duplicated().any():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": "INVALID_REQUEST", "message": "benchmark series contains duplicate dates."},
+            detail=_invalid_request_detail("benchmark series contains duplicate dates."),
         )
     return benchmark_df
 
@@ -571,7 +575,7 @@ async def _calculate_returns_series(
         if stateless_input is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail={"code": "INVALID_REQUEST", "message": "stateless_input is required in stateless mode."},
+                detail=_invalid_request_detail("stateless_input is required in stateless mode."),
             )
         portfolio_df = resample_returns(
             filter_window(
@@ -806,7 +810,7 @@ async def resolve_stateful_returns_series_request(
     if stateful_input is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": "INVALID_REQUEST", "message": "stateful_input is required in stateful mode."},
+            detail=_invalid_request_detail("stateful_input is required in stateful mode."),
         )
 
     execution_registry.start_stage(request.calculation_id, "retrieval")
@@ -953,10 +957,7 @@ async def resolve_stateful_returns_series_request(
         if not request.reporting_currency:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail={
-                    "code": "INVALID_REQUEST",
-                    "message": "reporting_currency is required for risk-free series in stateful mode.",
-                },
+                detail=_invalid_request_detail("reporting_currency is required for risk-free series in stateful mode."),
             )
         risk_free_status, risk_free_payload = await stateful_input_service.get_risk_free_series(
             currency=request.reporting_currency,
