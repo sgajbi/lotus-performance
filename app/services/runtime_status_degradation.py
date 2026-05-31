@@ -231,6 +231,29 @@ def lifecycle_status_from_degradation_details(
     )
 
 
+def runtime_status_from_component_statuses(
+    *,
+    is_draining: bool,
+    durable_metadata_status: str,
+    compute_queue: RuntimeQueueStatus,
+    lineage_queue: RuntimeQueueStatus,
+    recovery_drill: RecoveryDrillStatus,
+    runtime_retention: RuntimeRetentionStatus,
+) -> str:
+    if is_draining:
+        return "draining"
+    if durable_metadata_status != "ready":
+        return durable_metadata_status
+    if (
+        compute_queue.status != "available"
+        or lineage_queue.status != "available"
+        or recovery_drill.status != "available"
+        or runtime_retention.status != "available"
+    ):
+        return "degraded"
+    return "ready"
+
+
 def collect_runtime_degradation_reasons(
     *,
     compute_queue: RuntimeQueueStatus,

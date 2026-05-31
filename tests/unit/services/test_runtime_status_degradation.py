@@ -53,6 +53,50 @@ def test_lifecycle_status_from_degradation_details_maps_available_and_degraded_s
     assert degraded_reasons == ("runtime_retention_latest_not_applied",)
 
 
+def test_runtime_status_from_component_statuses_preserves_draining_and_durable_states():
+    degraded_component = cast(RuntimeQueueStatus, type("Queue", (), {"status": "degraded"})())
+    available_queue = cast(RuntimeQueueStatus, type("Queue", (), {"status": "available"})())
+    available_recovery = cast(RecoveryDrillStatus, type("Recovery", (), {"status": "available"})())
+    available_retention = cast(RuntimeRetentionStatus, type("Retention", (), {"status": "available"})())
+
+    draining_status = runtime_status_degradation.runtime_status_from_component_statuses(
+        is_draining=True,
+        durable_metadata_status="ready",
+        compute_queue=degraded_component,
+        lineage_queue=available_queue,
+        recovery_drill=available_recovery,
+        runtime_retention=available_retention,
+    )
+    unavailable_status = runtime_status_degradation.runtime_status_from_component_statuses(
+        is_draining=False,
+        durable_metadata_status="unavailable",
+        compute_queue=available_queue,
+        lineage_queue=available_queue,
+        recovery_drill=available_recovery,
+        runtime_retention=available_retention,
+    )
+
+    assert draining_status == "draining"
+    assert unavailable_status == "unavailable"
+
+
+def test_runtime_status_from_component_statuses_degrades_ready_runtime_when_component_not_available():
+    available_queue = cast(RuntimeQueueStatus, type("Queue", (), {"status": "available"})())
+    available_recovery = cast(RecoveryDrillStatus, type("Recovery", (), {"status": "available"})())
+    unavailable_retention = cast(RuntimeRetentionStatus, type("Retention", (), {"status": "unavailable"})())
+
+    status = runtime_status_degradation.runtime_status_from_component_statuses(
+        is_draining=False,
+        durable_metadata_status="ready",
+        compute_queue=available_queue,
+        lineage_queue=available_queue,
+        recovery_drill=available_recovery,
+        runtime_retention=unavailable_retention,
+    )
+
+    assert status == "degraded"
+
+
 def test_runtime_status_collect_reasons_covers_runtime_retention_unavailable():
     reasons = runtime_status_degradation.collect_runtime_degradation_reasons(
         compute_queue=cast(

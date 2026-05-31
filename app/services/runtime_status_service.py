@@ -30,6 +30,9 @@ from app.services.runtime_status_degradation import (
 from app.services.runtime_status_degradation import (
     lineage_queue_degradation_details as _lineage_queue_degradation_details,
 )
+from app.services.runtime_status_degradation import (
+    runtime_status_from_component_statuses as _runtime_status_from_component_statuses,
+)
 from app.services.runtime_status_domain import (
     RecoveryDrillStatus,
     RuntimeQueueStatus,
@@ -94,11 +97,18 @@ def build_runtime_status_snapshot(*, is_draining: bool) -> RuntimeStatusSnapshot
     recovery_drill_policy = build_recovery_drill_policy(settings=settings)
     runtime_retention_policy = build_runtime_retention_policy(settings=settings)
 
-    runtime_status = "draining" if is_draining else durability_status.status
     compute_queue = _build_compute_queue_status(durability_status, settings=settings)
     lineage_queue = _build_lineage_queue_status(durability_status, settings=settings)
     recovery_drill = _build_recovery_drill_status(settings=settings)
     runtime_retention = _build_runtime_retention_status(settings=settings)
+    runtime_status = _runtime_status_from_component_statuses(
+        is_draining=is_draining,
+        durable_metadata_status=durability_status.status,
+        compute_queue=compute_queue,
+        lineage_queue=lineage_queue,
+        recovery_drill=recovery_drill,
+        runtime_retention=runtime_retention,
+    )
     runtime_degradation_reasons = _collect_runtime_degradation_reasons(
         compute_queue=compute_queue,
         lineage_queue=lineage_queue,
@@ -111,14 +121,6 @@ def build_runtime_status_snapshot(*, is_draining: bool) -> RuntimeStatusSnapshot
         recovery_drill=recovery_drill,
         runtime_retention=runtime_retention,
     )
-
-    if runtime_status == "ready" and (
-        compute_queue.status != "available"
-        or lineage_queue.status != "available"
-        or recovery_drill.status != "available"
-        or runtime_retention.status != "available"
-    ):
-        runtime_status = "degraded"
 
     return RuntimeStatusSnapshot(
         generated_at=generated_at,
