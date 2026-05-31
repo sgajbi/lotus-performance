@@ -6,6 +6,7 @@ from app.services.queue_metric_builders import (
     compute_queue_failure_pressure_metric,
     compute_queue_job_count_metric,
     compute_queue_oldest_age_metrics,
+    durable_queue_store_availability_metric,
     labeled_metric,
     latest_reclaim_count_or_zero,
     lineage_queue_degradation_breach_metric,
@@ -51,6 +52,17 @@ def test_snapshot_available_requires_available_status():
     assert snapshot_available(type("Snapshot", (), {"status": "available"})()) is True
     assert snapshot_available(type("Snapshot", (), {"status": "unavailable"})()) is False
     assert snapshot_available(None) is False
+
+
+def test_durable_queue_store_availability_metric_uses_store_labels():
+    metric = durable_queue_store_availability_metric(compute_available=True, lineage_available=False)
+
+    samples = {sample.labels["store"]: sample.value for sample in metric.samples}
+    assert metric.name == "lotus_performance_durable_queue_store_availability"
+    assert samples == {
+        "compute": 1,
+        "lineage": 0,
+    }
 
 
 def test_policy_threshold_metric_uses_governed_threshold_labels():

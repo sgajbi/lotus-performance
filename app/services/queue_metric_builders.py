@@ -54,6 +54,18 @@ RUNTIME_RETENTION_ACTION_METRICS = OperatorActionMetricSpec(
 )
 
 
+def durable_queue_store_availability_metric(*, compute_available: bool, lineage_available: bool) -> GaugeMetricFamily:
+    return labeled_metric(
+        metric_name="lotus_performance_durable_queue_store_availability",
+        description="Availability of durable queue metric sources by store.",
+        label_name="store",
+        samples=(
+            ("compute", 1 if compute_available else 0),
+            ("lineage", 1 if lineage_available else 0),
+        ),
+    )
+
+
 def operator_action_lease_metrics(
     *,
     snapshot: Any,

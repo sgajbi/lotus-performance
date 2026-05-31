@@ -19,7 +19,7 @@ from app.services.queue_metric_builders import (
     compute_queue_failure_pressure_metric,
     compute_queue_job_count_metric,
     compute_queue_oldest_age_metrics,
-    labeled_metric,
+    durable_queue_store_availability_metric,
     lineage_queue_degradation_breach_metric,
     lineage_queue_payload_metrics,
     lineage_storage_capacity_metrics,
@@ -255,14 +255,9 @@ class DurableQueueCollector:
             lambda: run_runtime_retention_cleanup(dry_run=True)
         )
 
-        yield labeled_metric(
-            metric_name="lotus_performance_durable_queue_store_availability",
-            description="Availability of durable queue metric sources by store.",
-            label_name="store",
-            samples=(
-                ("compute", 1 if compute_available else 0),
-                ("lineage", 1 if lineage_available else 0),
-            ),
+        yield durable_queue_store_availability_metric(
+            compute_available=compute_available,
+            lineage_available=lineage_available,
         )
 
         yield availability_metric(
