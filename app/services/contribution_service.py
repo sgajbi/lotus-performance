@@ -15,6 +15,7 @@ from app.services.calculation_supportability_service import (
     build_calculation_supportability,
     record_supportability_metric,
 )
+from app.services.contribution_audit import AverageWeightShadowAuditState
 from app.services.contribution_diagnostics import (
     _build_portfolio_engine_diagnostics,
     _calculate_grouped_return_reset_alignment_counts,
@@ -31,11 +32,9 @@ from app.services.contribution_methodology import (
     _as_numeric,
     _calculate_average_weight_sum_residual_bp,
     _calculate_average_weight_sum_residual_bp_from_ratio_series,
-    _calculate_promotion_ready_rate_bp,
     _calculate_reset_aware_average_weight_shadow,
     _classify_average_weight_methodology_status,
     _classify_average_weight_shadow_cutover_blockers,
-    _classify_average_weight_shadow_period,
     _is_average_weight_shadow_cutover_candidate,
     _normalize_reset_aware_average_weight_mode,
     _numeric_series_or_default,
@@ -109,23 +108,10 @@ def calculate_contribution(
             daily_contributions_df[PortfolioColumns.PERF_DATE.value]
         ).dt.date
         average_weight_sum_residual_bp = 0
+        average_weight_audit_state = AverageWeightShadowAuditState()
 
         if request.hierarchy:
             results_by_period = {}
-            average_weight_shadow_delta_positions = 0
-            average_weight_shadow_delta_max_bp = 0
-            average_weight_shadow_delta_sum_bp = 0
-            average_weight_shadow_noise_periods = 0
-            average_weight_shadow_warning_periods = 0
-            average_weight_shadow_material_periods = 0
-            average_weight_shadow_cutover_candidate_periods = 0
-            average_weight_shadow_promoted_periods = 0
-            average_weight_shadow_blocked_periods = 0
-            average_weight_shadow_blocked_by_weight_residual_periods = 0
-            average_weight_shadow_blocked_by_flow_balance_periods = 0
-            average_weight_shadow_blocked_by_reset_alignment_periods = 0
-            average_weight_shadow_blocked_by_timeseries_delta_periods = 0
-            timeseries_total_delta_periods = 0
             for period in resolved_periods:
                 period_slice_df = daily_contributions_df[
                     (daily_contributions_df[PortfolioColumns.PERF_DATE.value] >= period.start_date)
@@ -160,19 +146,11 @@ def calculate_contribution(
                     period_slice_df,
                     portfolio_period_slice_df,
                 )
-                average_weight_shadow_delta_positions += period_delta_positions
-                average_weight_shadow_delta_max_bp = max(
-                    average_weight_shadow_delta_max_bp,
-                    period_max_shadow_delta_bp,
+                average_weight_audit_state.record_shadow_observation(
+                    delta_positions=period_delta_positions,
+                    max_shadow_delta_bp=period_max_shadow_delta_bp,
+                    sum_shadow_delta_bp=period_sum_shadow_delta_bp,
                 )
-                average_weight_shadow_delta_sum_bp += period_sum_shadow_delta_bp
-                shadow_period_bucket = _classify_average_weight_shadow_period(period_max_shadow_delta_bp)
-                if shadow_period_bucket == "noise":
-                    average_weight_shadow_noise_periods += 1
-                elif shadow_period_bucket == "warning":
-                    average_weight_shadow_warning_periods += 1
-                elif shadow_period_bucket == "material":
-                    average_weight_shadow_material_periods += 1
 
                 period_position_reset_dates = set(
                     pd.to_datetime(
@@ -267,7 +245,7 @@ def calculate_contribution(
                     daily_timeseries_total = sum(point.total_contribution for point in daily_series)
                     if abs(daily_timeseries_total - period_total_contribution) > 1e-9:
                         period_timeseries_total_delta_periods = 1
-                        timeseries_total_delta_periods += 1
+                        average_weight_audit_state.record_timeseries_total_delta()
                 hierarchy_period_cutover_blockers = _classify_average_weight_shadow_cutover_blockers(
                     max_shadow_delta_bp=period_max_shadow_delta_bp,
                     average_weight_sum_residual_bp=period_average_weight_sum_residual_bp,
@@ -293,18 +271,11 @@ def calculate_contribution(
                     timeseries_total_delta_periods=period_timeseries_total_delta_periods,
                 )
                 if period_is_cutover_candidate:
-                    average_weight_shadow_cutover_candidate_periods += 1
                     hierarchy_period_cutover_blockers = set()
-                elif hierarchy_period_cutover_blockers:
-                    average_weight_shadow_blocked_periods += 1
-                if "weight_residual" in hierarchy_period_cutover_blockers:
-                    average_weight_shadow_blocked_by_weight_residual_periods += 1
-                if "flow_balance" in hierarchy_period_cutover_blockers:
-                    average_weight_shadow_blocked_by_flow_balance_periods += 1
-                if "reset_alignment" in hierarchy_period_cutover_blockers:
-                    average_weight_shadow_blocked_by_reset_alignment_periods += 1
-                if "timeseries_reconciliation" in hierarchy_period_cutover_blockers:
-                    average_weight_shadow_blocked_by_timeseries_delta_periods += 1
+                hierarchy_period_cutover_blockers = average_weight_audit_state.record_cutover_assessment(
+                    is_cutover_candidate=period_is_cutover_candidate,
+                    blocker_reason_codes=hierarchy_period_cutover_blockers,
+                )
                 period_methodology_status = AverageWeightMethodologyStatus(
                     status=_classify_average_weight_methodology_status(
                         max_shadow_delta_bp=period_max_shadow_delta_bp,
@@ -331,20 +302,6 @@ def calculate_contribution(
                 )
         else:
             results_by_period = {}
-            average_weight_shadow_delta_positions = 0
-            average_weight_shadow_delta_max_bp = 0
-            average_weight_shadow_delta_sum_bp = 0
-            average_weight_shadow_noise_periods = 0
-            average_weight_shadow_warning_periods = 0
-            average_weight_shadow_material_periods = 0
-            average_weight_shadow_cutover_candidate_periods = 0
-            average_weight_shadow_promoted_periods = 0
-            average_weight_shadow_blocked_periods = 0
-            average_weight_shadow_blocked_by_weight_residual_periods = 0
-            average_weight_shadow_blocked_by_flow_balance_periods = 0
-            average_weight_shadow_blocked_by_reset_alignment_periods = 0
-            average_weight_shadow_blocked_by_timeseries_delta_periods = 0
-            timeseries_total_delta_periods = 0
             for period in resolved_periods:
                 period_slice_df = daily_contributions_df[
                     (daily_contributions_df[PortfolioColumns.PERF_DATE.value] >= period.start_date)
@@ -374,19 +331,11 @@ def calculate_contribution(
                     period_slice_df,
                     portfolio_period_slice_df,
                 )
-                average_weight_shadow_delta_positions += period_delta_positions
-                average_weight_shadow_delta_max_bp = max(
-                    average_weight_shadow_delta_max_bp,
-                    period_max_shadow_delta_bp,
+                average_weight_audit_state.record_shadow_observation(
+                    delta_positions=period_delta_positions,
+                    max_shadow_delta_bp=period_max_shadow_delta_bp,
+                    sum_shadow_delta_bp=period_sum_shadow_delta_bp,
                 )
-                average_weight_shadow_delta_sum_bp += period_sum_shadow_delta_bp
-                shadow_period_bucket = _classify_average_weight_shadow_period(period_max_shadow_delta_bp)
-                if shadow_period_bucket == "noise":
-                    average_weight_shadow_noise_periods += 1
-                elif shadow_period_bucket == "warning":
-                    average_weight_shadow_warning_periods += 1
-                elif shadow_period_bucket == "material":
-                    average_weight_shadow_material_periods += 1
 
                 period_position_reset_dates = set(
                     pd.to_datetime(
@@ -430,8 +379,6 @@ def calculate_contribution(
                 selected_average_weight_column = (
                     "reset_aware_average_weight_shadow" if use_reset_aware_average_weight else "average_weight"
                 )
-                if use_reset_aware_average_weight:
-                    average_weight_shadow_promoted_periods += 1
 
                 totals = (
                     period_slice_df.groupby("position_id")
@@ -505,7 +452,7 @@ def calculate_contribution(
                     daily_timeseries_total = sum(point.total_contribution for point in daily_series)
                     if abs(daily_timeseries_total - period_total_contribution) > 1e-9:
                         period_timeseries_total_delta_periods = 1
-                        timeseries_total_delta_periods += 1
+                        average_weight_audit_state.record_timeseries_total_delta()
                 period_cutover_blockers: set[str] = set()
                 if _is_average_weight_shadow_cutover_candidate(
                     max_shadow_delta_bp=period_max_shadow_delta_bp,
@@ -519,7 +466,6 @@ def calculate_contribution(
                     ),
                     timeseries_total_delta_periods=period_timeseries_total_delta_periods,
                 ):
-                    average_weight_shadow_cutover_candidate_periods += 1
                     period_is_cutover_candidate = True
                 else:
                     period_is_cutover_candidate = False
@@ -535,16 +481,11 @@ def calculate_contribution(
                         ),
                         timeseries_total_delta_periods=period_timeseries_total_delta_periods,
                     )
-                    if period_cutover_blockers:
-                        average_weight_shadow_blocked_periods += 1
-                    if "weight_residual" in period_cutover_blockers:
-                        average_weight_shadow_blocked_by_weight_residual_periods += 1
-                    if "flow_balance" in period_cutover_blockers:
-                        average_weight_shadow_blocked_by_flow_balance_periods += 1
-                    if "reset_alignment" in period_cutover_blockers:
-                        average_weight_shadow_blocked_by_reset_alignment_periods += 1
-                    if "timeseries_reconciliation" in period_cutover_blockers:
-                        average_weight_shadow_blocked_by_timeseries_delta_periods += 1
+                period_cutover_blockers = average_weight_audit_state.record_cutover_assessment(
+                    is_cutover_candidate=period_is_cutover_candidate,
+                    blocker_reason_codes=period_cutover_blockers,
+                    is_promoted=use_reset_aware_average_weight,
+                )
                 period_methodology_status = AverageWeightMethodologyStatus(
                     status=_classify_average_weight_methodology_status(
                         max_shadow_delta_bp=period_max_shadow_delta_bp,
@@ -606,137 +547,20 @@ def calculate_contribution(
     )
     reset_alignment_counts = _calculate_grouped_return_reset_alignment_counts(instruments_df, portfolio_results_df)
     position_flow_balance_counts = _calculate_position_flow_balance_counts(instruments_df, portfolio_results_df)
-    average_weight_shadow_promotion_ready_rate_bp = _calculate_promotion_ready_rate_bp(
-        ready_periods=average_weight_shadow_cutover_candidate_periods,
-        material_periods=average_weight_shadow_material_periods,
+    average_weight_audit_state.append_diagnostic_notes(
+        diagnostics,
+        average_weight_sum_residual_bp=average_weight_sum_residual_bp,
+        carino_invalid_domain_days=carino_invalid_domain_days,
+        reset_alignment_counts=reset_alignment_counts,
+        position_flow_balance_counts=position_flow_balance_counts,
     )
-    if average_weight_shadow_delta_max_bp >= 500:
-        diagnostics.notes.append(
-            "Reset-aware average-weight shadow differs from the active mean-weight output for "
-            f"{average_weight_shadow_delta_positions} position-period rows."
-        )
-        diagnostics.notes.append(
-            "Reset-aware average-weight shadow differs materially from the active average-weight "
-            f"output, with a maximum delta of {average_weight_shadow_delta_max_bp} basis points."
-        )
-    elif average_weight_shadow_delta_positions > 0:
-        diagnostics.notes.append(
-            "Reset-aware average-weight shadow differs from the active mean-weight output for "
-            f"{average_weight_shadow_delta_positions} position-period rows. The maximum delta was "
-            f"{average_weight_shadow_delta_max_bp} basis points, which is still under characterization."
-        )
-    if average_weight_shadow_cutover_candidate_periods > 0:
-        diagnostics.notes.append(
-            "Some periods show material reset-aware average-weight pressure while the surrounding "
-            "bookkeeping remains clean. Those periods are strong candidates for a future denominator "
-            f"cutover study ({average_weight_shadow_cutover_candidate_periods} periods)."
-        )
-    if average_weight_shadow_material_periods > 0:
-        diagnostics.notes.append(
-            "Reset-aware average-weight rollout readiness is currently "
-            f"{average_weight_shadow_promotion_ready_rate_bp} basis points of material-shadow periods "
-            f"({average_weight_shadow_cutover_candidate_periods} of {average_weight_shadow_material_periods})."
-        )
-    if average_weight_shadow_promoted_periods > 0:
-        diagnostics.notes.append(
-            "Reset-aware average-weight promotion was applied for "
-            f"{average_weight_shadow_promoted_periods} periods under the controlled rollout mode."
-        )
-    if average_weight_shadow_blocked_periods > 0:
-        diagnostics.notes.append(
-            "Some material reset-aware average-weight periods remained shadow-only because one or "
-            "more rollout guardrails were not yet clean "
-            f"({average_weight_shadow_blocked_periods} periods)."
-        )
-    if average_weight_shadow_blocked_by_weight_residual_periods > 0:
-        diagnostics.notes.append(
-            "Some material reset-aware average-weight periods were kept shadow-only because emitted "
-            "position weights did not sum cleanly to 100%."
-        )
-    if average_weight_shadow_blocked_by_flow_balance_periods > 0:
-        diagnostics.notes.append(
-            "Some material reset-aware average-weight periods were kept shadow-only because "
-            "position-level stock and cash legs did not cancel cleanly."
-        )
-    if average_weight_shadow_blocked_by_reset_alignment_periods > 0:
-        diagnostics.notes.append(
-            "Some material reset-aware average-weight periods were kept shadow-only because "
-            "portfolio and position reset boundaries were not aligned."
-        )
-    if average_weight_shadow_blocked_by_timeseries_delta_periods > 0:
-        diagnostics.notes.append(
-            "Some material reset-aware average-weight periods were kept shadow-only because emitted "
-            "daily contribution series still drifted from the residual-adjusted period total."
-        )
-    if average_weight_sum_residual_bp > 1:
-        diagnostics.notes.append(
-            "Emitted position average weights do not sum to 100% exactly; the maximum residual was "
-            f"{average_weight_sum_residual_bp} basis points."
-        )
-    if carino_invalid_domain_days > 0:
-        diagnostics.notes.append(
-            "Carino smoothing fell back to raw daily contribution arithmetic on "
-            f"{carino_invalid_domain_days} portfolio days because the linked gross return factor "
-            "left the valid logarithmic domain."
-        )
-    if (
-        reset_alignment_counts["portfolio_reset_without_position_reset_days"] > 0
-        or reset_alignment_counts["position_reset_without_portfolio_reset_days"] > 0
-    ):
-        diagnostics.notes.append(
-            "Portfolio and position reset boundaries differ on some contribution dates; "
-            "grouped-return alignment remains under characterization."
-        )
-    if position_flow_balance_counts["position_flow_residual_max_bp"] > 10:
-        diagnostics.notes.append(
-            "Summed position-level cash flows show a materially non-flow-neutral scoped slice on "
-            f"{position_flow_balance_counts['position_flow_residual_days']} dates. This means the visible "
-            "position set is not carrying both offsetting legs inside the current scope, so contribution "
-            "is being explained on a partial flow story rather than a fully self-cancelling internal book. "
-            f"The maximum residual was {position_flow_balance_counts['position_flow_residual_max_bp']} basis points "
-            "of portfolio capital."
-        )
-    elif position_flow_balance_counts["position_flow_residual_days"] > 0:
-        diagnostics.notes.append(
-            "Summed position-level cash flows did not net to zero on "
-            f"{position_flow_balance_counts['position_flow_residual_days']} dates. This looks like a small "
-            "non-flow-neutral scoped slice rather than a material flow imbalance, but it should still be "
-            f"reviewed. The maximum residual was {position_flow_balance_counts['position_flow_residual_max_bp']} "
-            "basis points of portfolio capital."
-        )
-    if timeseries_total_delta_periods > 0:
-        diagnostics.notes.append(
-            "Some emitted daily contribution series remain raw path outputs and do not sum to the "
-            "residual-adjusted period total for reset-heavy slices."
-        )
     audit = Audit(
         counts={
             "input_positions": len(request.positions_data),
-            "average_weight_shadow_delta_positions": average_weight_shadow_delta_positions,
-            "average_weight_shadow_delta_max_bp": average_weight_shadow_delta_max_bp,
-            "average_weight_shadow_delta_sum_bp": average_weight_shadow_delta_sum_bp,
-            "average_weight_shadow_noise_periods": average_weight_shadow_noise_periods,
-            "average_weight_shadow_warning_periods": average_weight_shadow_warning_periods,
-            "average_weight_shadow_material_periods": average_weight_shadow_material_periods,
-            "average_weight_shadow_cutover_candidate_periods": average_weight_shadow_cutover_candidate_periods,
-            "average_weight_shadow_promotion_ready_rate_bp": average_weight_shadow_promotion_ready_rate_bp,
-            "average_weight_shadow_promoted_periods": average_weight_shadow_promoted_periods,
-            "average_weight_shadow_blocked_periods": average_weight_shadow_blocked_periods,
-            "average_weight_shadow_blocked_by_weight_residual_periods": (
-                average_weight_shadow_blocked_by_weight_residual_periods
+            **average_weight_audit_state.to_audit_counts(
+                average_weight_sum_residual_bp=average_weight_sum_residual_bp,
+                carino_invalid_domain_days=carino_invalid_domain_days,
             ),
-            "average_weight_shadow_blocked_by_flow_balance_periods": (
-                average_weight_shadow_blocked_by_flow_balance_periods
-            ),
-            "average_weight_shadow_blocked_by_reset_alignment_periods": (
-                average_weight_shadow_blocked_by_reset_alignment_periods
-            ),
-            "average_weight_shadow_blocked_by_timeseries_delta_periods": (
-                average_weight_shadow_blocked_by_timeseries_delta_periods
-            ),
-            "average_weight_sum_residual_bp": average_weight_sum_residual_bp,
-            "carino_invalid_domain_days": carino_invalid_domain_days,
-            "timeseries_total_delta_periods": timeseries_total_delta_periods,
             **reset_alignment_counts,
             **position_flow_balance_counts,
         }

@@ -14,6 +14,7 @@ from app.api.endpoints.contribution import (
 )
 from app.models.contribution_analytics_requests import ContributionAnalyticsRequest
 from app.models.contribution_requests import ContributionRequest
+from app.services.contribution_audit import AverageWeightShadowAuditState
 from app.services.contribution_diagnostics import (
     _build_portfolio_engine_diagnostics,
     _calculate_grouped_return_reset_alignment_counts,
@@ -45,10 +46,57 @@ from app.services.contribution_series import (
     _build_residual_adjusted_position_timeseries,
 )
 from app.services.contribution_smoothing import _count_carino_invalid_domain_days
+from core.envelope import Diagnostics
 
 
 def test_contribution_as_numeric_returns_default_for_non_numeric():
     assert _as_numeric("not-a-number", default=3) == 3
+
+
+def test_average_weight_shadow_audit_state_records_counts_and_diagnostic_notes():
+    audit_state = AverageWeightShadowAuditState()
+
+    audit_state.record_shadow_observation(
+        delta_positions=2,
+        max_shadow_delta_bp=600,
+        sum_shadow_delta_bp=700,
+    )
+    emitted_blockers = audit_state.record_cutover_assessment(
+        is_cutover_candidate=False,
+        blocker_reason_codes={"weight_residual", "timeseries_reconciliation"},
+    )
+    audit_state.record_timeseries_total_delta()
+
+    diagnostics = Diagnostics(
+        nip_days=0,
+        reset_days=0,
+        effective_period_start=pd.Timestamp("2025-01-01").date(),
+    )
+    audit_state.append_diagnostic_notes(
+        diagnostics,
+        average_weight_sum_residual_bp=2,
+        carino_invalid_domain_days=1,
+        reset_alignment_counts={
+            "portfolio_reset_without_position_reset_days": 1,
+            "position_reset_without_portfolio_reset_days": 0,
+        },
+        position_flow_balance_counts={
+            "position_flow_residual_days": 1,
+            "position_flow_residual_max_bp": 11,
+        },
+    )
+    counts = audit_state.to_audit_counts(
+        average_weight_sum_residual_bp=2,
+        carino_invalid_domain_days=1,
+    )
+
+    assert emitted_blockers == {"weight_residual", "timeseries_reconciliation"}
+    assert counts["average_weight_shadow_delta_positions"] == 2
+    assert counts["average_weight_shadow_material_periods"] == 1
+    assert counts["average_weight_shadow_blocked_periods"] == 1
+    assert counts["timeseries_total_delta_periods"] == 1
+    assert any("rollout readiness" in note for note in diagnostics.notes)
+    assert any("daily contribution series" in note for note in diagnostics.notes)
 
 
 def test_contribution_reset_helpers_cover_empty_and_zero_paths(mocker):
