@@ -475,18 +475,10 @@ class LineageMetadataStore:
             ).all()
             events: list[LineageRecoveryEvent] = []
             for record, payload in rows:
-                recovered_at_utc = _format_timestamp(record.timestamp_utc)
-                if recovered_at_utc is None:
+                event = self._to_recovery_event(record=record, payload=payload)
+                if event is None:
                     continue
-                events.append(
-                    LineageRecoveryEvent(
-                        calculation_id=record.calculation_id,
-                        calculation_type=record.calculation_type,
-                        recovery_kind="retryable_materialization_failure",
-                        recovered_at_utc=recovered_at_utc,
-                        attempt_count=payload.attempt_count,
-                    )
-                )
+                events.append(event)
             total_count = int(
                 session.execute(
                     self._build_recent_recoveries_count_statement(
@@ -1111,6 +1103,23 @@ class LineageMetadataStore:
             worker_id=payload.worker_id,
             leased_at_utc=_format_timestamp(payload.leased_at_utc),
             lease_expires_at_utc=_format_timestamp(payload.lease_expires_at_utc),
+        )
+
+    def _to_recovery_event(
+        self,
+        *,
+        record: LineageRecordModel,
+        payload: LineagePayloadModel,
+    ) -> LineageRecoveryEvent | None:
+        recovered_at_utc = _format_timestamp(record.timestamp_utc)
+        if recovered_at_utc is None:
+            return None
+        return LineageRecoveryEvent(
+            calculation_id=record.calculation_id,
+            calculation_type=record.calculation_type,
+            recovery_kind="retryable_materialization_failure",
+            recovered_at_utc=recovered_at_utc,
+            attempt_count=payload.attempt_count,
         )
 
     def _to_inspection_item(
