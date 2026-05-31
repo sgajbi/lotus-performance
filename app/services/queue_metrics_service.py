@@ -25,6 +25,7 @@ from app.services.queue_metric_builders import (
     recovery_drill_latest_age_metric,
     runtime_retention_degradation_breach_metric,
     runtime_retention_latest_age_metric,
+    runtime_retention_prunable_items_metric,
     single_sample_metric,
     snapshot_available,
 )
@@ -296,18 +297,7 @@ class DurableQueueCollector:
         )
 
         if runtime_retention_preview is not None:
-            yield labeled_metric(
-                metric_name="lotus_performance_runtime_retention_prunable_items",
-                description="Current runtime-retention items that would be pruned by a dry-run cleanup.",
-                label_name="category",
-                samples=(
-                    ("execution", runtime_retention_preview.prunable_execution_count),
-                    ("compute_job", runtime_retention_preview.prunable_compute_job_count),
-                    ("async_result", runtime_retention_preview.prunable_async_result_count),
-                    ("lineage_record", runtime_retention_preview.prunable_lineage_record_count),
-                    ("lineage_artifact", runtime_retention_preview.prunable_lineage_artifact_count),
-                ),
-            )
+            yield runtime_retention_prunable_items_metric(preview=runtime_retention_preview)
 
         if compute_stats is not None:
             yield labeled_metric(

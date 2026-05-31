@@ -323,6 +323,21 @@ def runtime_retention_latest_age_metric(*, latest_age_seconds: float) -> GaugeMe
     )
 
 
+def runtime_retention_prunable_items_metric(*, preview: Any) -> GaugeMetricFamily:
+    return labeled_metric(
+        metric_name="lotus_performance_runtime_retention_prunable_items",
+        description="Current runtime-retention items that would be pruned by a dry-run cleanup.",
+        label_name="category",
+        samples=(
+            ("execution", preview.prunable_execution_count),
+            ("compute_job", preview.prunable_compute_job_count),
+            ("async_result", preview.prunable_async_result_count),
+            ("lineage_record", preview.prunable_lineage_record_count),
+            ("lineage_artifact", preview.prunable_lineage_artifact_count),
+        ),
+    )
+
+
 def labeled_metric(
     *,
     metric_name: str,

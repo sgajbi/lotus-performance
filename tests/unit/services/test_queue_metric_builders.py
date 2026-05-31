@@ -14,6 +14,7 @@ from app.services.queue_metric_builders import (
     recovery_drill_latest_age_metric,
     runtime_retention_degradation_breach_metric,
     runtime_retention_latest_age_metric,
+    runtime_retention_prunable_items_metric,
     single_sample_metric,
     snapshot_available,
 )
@@ -269,6 +270,32 @@ def test_lifecycle_latest_age_metrics_preserve_metric_contracts():
     assert recovery_metric.samples[0].value == 120.0
     assert retention_metric.name == "lotus_performance_runtime_retention_latest_age_seconds"
     assert retention_metric.samples[0].value == 240.0
+
+
+def test_runtime_retention_prunable_items_metric_uses_governed_categories():
+    preview = type(
+        "Preview",
+        (),
+        {
+            "prunable_execution_count": 5,
+            "prunable_compute_job_count": 4,
+            "prunable_async_result_count": 3,
+            "prunable_lineage_record_count": 2,
+            "prunable_lineage_artifact_count": 1,
+        },
+    )()
+
+    metric = runtime_retention_prunable_items_metric(preview=preview)
+
+    samples = {sample.labels["category"]: sample.value for sample in metric.samples}
+    assert metric.name == "lotus_performance_runtime_retention_prunable_items"
+    assert samples == {
+        "execution": 5,
+        "compute_job": 4,
+        "async_result": 3,
+        "lineage_record": 2,
+        "lineage_artifact": 1,
+    }
 
 
 def test_active_lease_age_seconds_or_zero_uses_available_active_lease(monkeypatch):
