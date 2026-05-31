@@ -14,6 +14,15 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sess
 
 from app.core.config import get_settings
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
+from app.services.durable_store_time import (
+    coerce_utc_datetime as _coerce_utc_datetime,
+)
+from app.services.durable_store_time import (
+    format_timestamp as _format_timestamp,
+)
+from app.services.durable_store_time import (
+    normalize_filter_datetime as _normalize_filter_datetime,
+)
 
 
 class ComputeJobStatus(StrEnum):
@@ -160,27 +169,6 @@ class ComputeRecoveryEventPage:
 class ComputeJobRegistrationResult:
     status: ComputeJobRegistrationStatus
     existing_status: ComputeJobStatus | None = None
-
-
-def _format_timestamp(value: datetime | None) -> str | None:
-    if value is None:
-        return None
-    return _coerce_utc_datetime(value).isoformat().replace("+00:00", "Z")
-
-
-def _coerce_utc_datetime(value: datetime) -> datetime:
-    if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
-
-
-def _normalize_filter_datetime(value: datetime | None, *, dialect_name: str) -> datetime | None:
-    if value is None:
-        return None
-    normalized = _coerce_utc_datetime(value)
-    if dialect_name == "sqlite":
-        return normalized.replace(tzinfo=None)
-    return normalized
 
 
 class ComputeJobStore:
