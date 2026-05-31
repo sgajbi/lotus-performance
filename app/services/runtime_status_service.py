@@ -38,18 +38,20 @@ from app.services.runtime_retention_history_service import (
 )
 from app.services.runtime_retention_service import run_runtime_retention_cleanup
 from app.services.runtime_status_domain import (
-    ComputeQueueDegradationPolicy,
-    LineageQueueDegradationPolicy,
     OperatorActionStatus,
     RecentOperatorActionReclaim,
-    RecoveryDrillDegradationPolicy,
     RecoveryDrillStatus,
     RuntimeDegradationDetail,
     RuntimeQueueStatus,
-    RuntimeRetentionDegradationPolicy,
     RuntimeRetentionPreviewFields,
     RuntimeRetentionStatus,
     RuntimeStatusSnapshot,
+)
+from app.services.runtime_status_policy import (
+    build_compute_queue_policy,
+    build_lineage_queue_policy,
+    build_recovery_drill_policy,
+    build_runtime_retention_policy,
 )
 
 
@@ -57,10 +59,10 @@ def build_runtime_status_snapshot(*, is_draining: bool) -> RuntimeStatusSnapshot
     generated_at = datetime.now(UTC)
     durability_status = check_durable_metadata_store_ready()
     settings = get_settings()
-    compute_queue_policy = _build_compute_queue_policy(settings=settings)
-    lineage_queue_policy = _build_lineage_queue_policy(settings=settings)
-    recovery_drill_policy = _build_recovery_drill_policy(settings=settings)
-    runtime_retention_policy = _build_runtime_retention_policy(settings=settings)
+    compute_queue_policy = build_compute_queue_policy(settings=settings)
+    lineage_queue_policy = build_lineage_queue_policy(settings=settings)
+    recovery_drill_policy = build_recovery_drill_policy(settings=settings)
+    runtime_retention_policy = build_runtime_retention_policy(settings=settings)
 
     runtime_status = "draining" if is_draining else durability_status.status
     compute_queue = _build_compute_queue_status(durability_status, settings=settings)
@@ -1066,50 +1068,4 @@ def _collect_runtime_degradation_details(
         + lineage_queue.degradation_details
         + recovery_drill.degradation_details
         + runtime_retention.degradation_details
-    )
-
-
-def _build_compute_queue_policy(*, settings) -> ComputeQueueDegradationPolicy:
-    return ComputeQueueDegradationPolicy(
-        pending_age_seconds=settings.RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS,
-        leased_age_seconds=settings.RUNTIME_STATUS_COMPUTE_LEASED_AGE_DEGRADE_SECONDS,
-        running_age_seconds=settings.RUNTIME_STATUS_COMPUTE_RUNNING_AGE_DEGRADE_SECONDS,
-        retry_backlog_count=settings.RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT,
-        lease_expiry_count=settings.RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT,
-        terminal_failure_count=settings.RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT,
-    )
-
-
-def _build_lineage_queue_policy(*, settings) -> LineageQueueDegradationPolicy:
-    return LineageQueueDegradationPolicy(
-        pending_age_seconds=getattr(settings, "RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS", 0.0),
-        leased_age_seconds=getattr(settings, "RUNTIME_STATUS_LINEAGE_LEASED_AGE_DEGRADE_SECONDS", 0.0),
-        retry_backlog_count=getattr(settings, "RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT", 0),
-        terminal_failure_count=getattr(settings, "RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT", 0),
-        storage_min_free_bytes=getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES", 0),
-        storage_min_free_ratio=getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO", 0.0),
-    )
-
-
-def _build_recovery_drill_policy(*, settings) -> RecoveryDrillDegradationPolicy:
-    return RecoveryDrillDegradationPolicy(
-        max_age_seconds=getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS", 0.0),
-        active_run_age_seconds=getattr(
-            settings,
-            "RUNTIME_STATUS_RECOVERY_DRILL_ACTIVE_RUN_AGE_DEGRADE_SECONDS",
-            0.0,
-        ),
-        reclaim_count=getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT", 0),
-    )
-
-
-def _build_runtime_retention_policy(*, settings) -> RuntimeRetentionDegradationPolicy:
-    return RuntimeRetentionDegradationPolicy(
-        max_age_seconds=getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS", 0.0),
-        active_run_age_seconds=getattr(
-            settings,
-            "RUNTIME_STATUS_RUNTIME_RETENTION_ACTIVE_RUN_AGE_DEGRADE_SECONDS",
-            0.0,
-        ),
-        reclaim_count=getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT", 0),
     )
