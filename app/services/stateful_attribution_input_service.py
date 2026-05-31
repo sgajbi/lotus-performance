@@ -23,7 +23,7 @@ from app.services.stateful_position_row_service import (
     PositionValueBasis,
     split_position_cash_flows_in_value_basis,
 )
-from app.services.stateful_upstream_errors import stateful_control_plane_unavailable_detail
+from app.services.stateful_upstream_errors import raise_for_stateful_control_plane_unavailable
 from app.services.valuation_points_service import portfolio_timeseries_to_valuation_points
 from engine.benchmarks import calculate_benchmark_returns
 
@@ -98,14 +98,10 @@ async def retrieve_stateful_attribution_source_input(
         include_cash_flows=include_cash_flows,
         filters=filters,
     )
-    if upstream_status >= status.HTTP_400_BAD_REQUEST:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=stateful_control_plane_unavailable_detail(
-                source_label="stateful position timeseries source",
-                upstream_status=upstream_status,
-            ),
-        )
+    raise_for_stateful_control_plane_unavailable(
+        source_label="stateful position timeseries source",
+        upstream_status=upstream_status,
+    )
     position_rows = _parse_position_rows(upstream_payload)
 
     benchmark_id = benchmark_id_override
