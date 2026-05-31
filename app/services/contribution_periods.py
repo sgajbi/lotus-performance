@@ -5,7 +5,11 @@ from datetime import date
 
 import pandas as pd
 
-from app.services.contribution_methodology import _numeric_series_or_default
+from app.services.contribution_diagnostics import _calculate_position_flow_balance_counts
+from app.services.contribution_methodology import (
+    _calculate_reset_aware_average_weight_shadow,
+    _numeric_series_or_default,
+)
 from engine.schema import PortfolioColumns
 
 
@@ -13,6 +17,25 @@ from engine.schema import PortfolioColumns
 class ContributionPeriodFrames:
     period_slice_df: pd.DataFrame
     portfolio_period_slice_df: pd.DataFrame
+
+
+@dataclass(frozen=True)
+class ContributionPeriodMethodologyContext:
+    average_weight_shadow_df: pd.DataFrame
+    delta_positions: int
+    max_shadow_delta_bp: int
+    sum_shadow_delta_bp: int
+    position_reset_dates: set[date]
+    portfolio_reset_dates: set[date]
+    position_flow_balance_counts: dict[str, int]
+
+    @property
+    def portfolio_reset_without_position_reset_days(self) -> int:
+        return len(self.portfolio_reset_dates - self.position_reset_dates)
+
+    @property
+    def position_reset_without_portfolio_reset_days(self) -> int:
+        return len(self.position_reset_dates - self.portfolio_reset_dates)
 
 
 def _slice_contribution_period_frames(
@@ -32,6 +55,35 @@ def _slice_contribution_period_frames(
         portfolio_period_slice_df=portfolio_results_df[
             (portfolio_date_series >= start_date) & (portfolio_date_series <= end_date)
         ],
+    )
+
+
+def _build_contribution_period_methodology_context(
+    *,
+    period_slice_df: pd.DataFrame,
+    portfolio_period_slice_df: pd.DataFrame,
+) -> ContributionPeriodMethodologyContext:
+    (
+        average_weight_shadow_df,
+        delta_positions,
+        max_shadow_delta_bp,
+        sum_shadow_delta_bp,
+    ) = _calculate_reset_aware_average_weight_shadow(
+        period_slice_df,
+        portfolio_period_slice_df,
+    )
+
+    return ContributionPeriodMethodologyContext(
+        average_weight_shadow_df=average_weight_shadow_df,
+        delta_positions=delta_positions,
+        max_shadow_delta_bp=max_shadow_delta_bp,
+        sum_shadow_delta_bp=sum_shadow_delta_bp,
+        position_reset_dates=_extract_reset_dates(period_slice_df),
+        portfolio_reset_dates=_extract_reset_dates(portfolio_period_slice_df),
+        position_flow_balance_counts=_calculate_position_flow_balance_counts(
+            period_slice_df,
+            portfolio_period_slice_df,
+        ),
     )
 
 

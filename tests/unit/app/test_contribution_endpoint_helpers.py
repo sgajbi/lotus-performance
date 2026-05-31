@@ -34,7 +34,11 @@ from app.services.contribution_methodology import (
     _is_average_weight_shadow_cutover_candidate,
     _normalize_reset_aware_average_weight_mode,
 )
-from app.services.contribution_periods import _extract_reset_dates, _slice_contribution_period_frames
+from app.services.contribution_periods import (
+    _build_contribution_period_methodology_context,
+    _extract_reset_dates,
+    _slice_contribution_period_frames,
+)
 from app.services.contribution_returns import (
     _calculate_position_total_return_pct,
     _calculate_reset_aware_period_portfolio_return,
@@ -136,6 +140,50 @@ def test_contribution_period_helpers_slice_frames_and_extract_reset_dates():
     assert period_frames.period_slice_df is not daily_contributions_df
     assert _extract_reset_dates(period_frames.period_slice_df) == {pd.Timestamp("2025-01-02").date()}
     assert _extract_reset_dates(period_frames.portfolio_period_slice_df) == {pd.Timestamp("2025-01-03").date()}
+
+
+def test_contribution_period_methodology_context_builds_shadow_and_alignment_evidence():
+    period_slice_df = pd.DataFrame(
+        {
+            "position_id": ["A", "A"],
+            "perf_date": [
+                pd.Timestamp("2025-01-01").date(),
+                pd.Timestamp("2025-01-02").date(),
+            ],
+            "daily_weight": [0.50, 0.25],
+            "perf_reset": [1, 0],
+            "bod_cf": [0.0, 0.0],
+            "eod_cf": [0.0, 0.0],
+        }
+    )
+    portfolio_period_slice_df = pd.DataFrame(
+        {
+            "perf_date": [
+                pd.Timestamp("2025-01-01").date(),
+                pd.Timestamp("2025-01-02").date(),
+            ],
+            "perf_reset": [0, 1],
+            "nip": [0, 0],
+            "bod_cf": [0.0, 0.0],
+            "eod_cf": [0.0, 0.0],
+            "begin_mv": [100.0, 100.0],
+        }
+    )
+
+    context = _build_contribution_period_methodology_context(
+        period_slice_df=period_slice_df,
+        portfolio_period_slice_df=portfolio_period_slice_df,
+    )
+
+    assert context.delta_positions == 1
+    assert context.max_shadow_delta_bp == 1250
+    assert context.position_reset_dates == {pd.Timestamp("2025-01-01").date()}
+    assert context.portfolio_reset_dates == {pd.Timestamp("2025-01-02").date()}
+    assert context.portfolio_reset_without_position_reset_days == 1
+    assert context.position_reset_without_portfolio_reset_days == 1
+    assert context.position_flow_balance_counts["position_flow_residual_days"] == 0
+    assert context.average_weight_shadow_df.loc[0, "average_weight"] == pytest.approx(0.375)
+    assert context.average_weight_shadow_df.loc[0, "reset_aware_average_weight_shadow"] == pytest.approx(0.25)
 
 
 def test_contribution_reset_helpers_cover_empty_and_zero_paths(mocker):
