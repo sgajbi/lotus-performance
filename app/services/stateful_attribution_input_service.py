@@ -119,10 +119,7 @@ async def retrieve_stateful_attribution_source_input(
                 detail="Stateful attribution input requires a benchmark assignment or explicit stateful_input.benchmark_id.",
             )
         if assignment_status >= status.HTTP_400_BAD_REQUEST:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"benchmark assignment source unavailable ({assignment_status}).",
-            )
+            _raise_source_unavailable(source_label="benchmark assignment", upstream_status=assignment_status)
         benchmark_id_raw = assignment_payload.get("benchmark_id")
         if not isinstance(benchmark_id_raw, str) or not benchmark_id_raw:
             raise HTTPException(
@@ -150,10 +147,7 @@ async def retrieve_stateful_attribution_source_input(
         calculation_id=calculation_id,
     )
     if index_status >= status.HTTP_400_BAD_REQUEST:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"index catalog source unavailable ({index_status}).",
-        )
+        _raise_source_unavailable(source_label="index catalog", upstream_status=index_status)
     index_records = _parse_index_catalog(index_payload)
 
     return StatefulAttributionSourceInput(
@@ -843,6 +837,13 @@ def _parse_position_rows(payload: dict[str, object]) -> list[dict[str, object]]:
 def _parse_index_catalog(payload: dict[str, object]) -> list[dict[str, object]]:
     records_raw = payload.get("records")
     return [record for record in records_raw if isinstance(record, dict)] if isinstance(records_raw, list) else []
+
+
+def _raise_source_unavailable(*, source_label: str, upstream_status: int) -> None:
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail=f"{source_label} source unavailable ({upstream_status}).",
+    )
 
 
 def _validate_stateful_both_currency_support(
