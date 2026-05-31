@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import TypedDict
 
@@ -42,6 +43,8 @@ RECOVERY_DRILL_HISTORY_UNAVAILABLE_REASON = "recovery_drill_history_unavailable"
 RUNTIME_RETENTION_HISTORY_UNAVAILABLE_REASON = "runtime_retention_history_unavailable"
 RUNTIME_RETENTION_PREVIEW_UNAVAILABLE_REASON = "runtime_retention_preview_unavailable"
 
+logger = logging.getLogger(__name__)
+
 
 class RuntimeRetentionCurrentPreviewFields(TypedDict):
     preview_status: str
@@ -67,6 +70,10 @@ def build_recovery_drill_status(*, settings, policy: RecoveryDrillDegradationPol
     try:
         snapshot = build_recovery_drill_history_snapshot(limit=1)
     except Exception as exc:
+        logger.warning(
+            "Runtime status recovery-drill history snapshot unavailable.",
+            exc_info=True,
+        )
         return unavailable_recovery_drill_status(
             reason=type(exc).__name__,
             active_run_status=active_run_status,
@@ -126,6 +133,10 @@ def build_runtime_retention_status(*, settings, policy: RuntimeRetentionDegradat
     try:
         snapshot = build_runtime_retention_history_snapshot(limit=1)
     except Exception as exc:
+        logger.warning(
+            "Runtime status runtime-retention history snapshot unavailable.",
+            exc_info=True,
+        )
         return unavailable_runtime_retention_status(
             reason=type(exc).__name__,
             active_run_status=active_run_status,

@@ -216,7 +216,7 @@ def test_build_recovery_drill_status_returns_missing_when_artifacts_are_absent(m
     assert status.degradation_reasons == (RECOVERY_DRILL_HISTORY_UNAVAILABLE_REASON,)
 
 
-def test_build_recovery_drill_status_returns_unavailable_when_history_read_fails(mocker):
+def test_build_recovery_drill_status_returns_unavailable_when_history_read_fails(mocker, caplog):
     mocker.patch(
         "app.services.runtime_status_lifecycle.build_operator_action_status",
         return_value=_operator_action_status(active_run_count=1),
@@ -226,11 +226,13 @@ def test_build_recovery_drill_status_returns_unavailable_when_history_read_fails
         side_effect=RuntimeError("history read failed"),
     )
 
-    status = build_recovery_drill_status(settings=type("Settings", (), {})(), policy=_recovery_drill_policy())
+    with caplog.at_level("WARNING", logger="app.services.runtime_status_lifecycle"):
+        status = build_recovery_drill_status(settings=type("Settings", (), {})(), policy=_recovery_drill_policy())
 
     assert status.status == "unavailable"
     assert status.reason == "RuntimeError"
     assert status.active_run_count == 1
+    assert "Runtime status recovery-drill history snapshot unavailable." in caplog.text
 
 
 def test_build_runtime_retention_status_projects_latest_history_and_preview(mocker):
@@ -305,7 +307,7 @@ def test_build_runtime_retention_status_returns_missing_with_preview_when_artifa
     assert status.degradation_reasons == (RUNTIME_RETENTION_HISTORY_UNAVAILABLE_REASON,)
 
 
-def test_build_runtime_retention_status_returns_unavailable_when_history_read_fails(mocker):
+def test_build_runtime_retention_status_returns_unavailable_when_history_read_fails(mocker, caplog):
     mocker.patch(
         "app.services.runtime_status_lifecycle.build_operator_action_status",
         return_value=_operator_action_status(active_run_count=1),
@@ -315,13 +317,15 @@ def test_build_runtime_retention_status_returns_unavailable_when_history_read_fa
         side_effect=RuntimeError("history read failed"),
     )
 
-    status = build_runtime_retention_status(settings=type("Settings", (), {})(), policy=_runtime_retention_policy())
+    with caplog.at_level("WARNING", logger="app.services.runtime_status_lifecycle"):
+        status = build_runtime_retention_status(settings=type("Settings", (), {})(), policy=_runtime_retention_policy())
 
     assert status.status == "unavailable"
     assert status.reason == "RuntimeError"
     assert status.active_run_count == 1
     assert status.preview_status == "unavailable"
     assert status.preview_reason == RUNTIME_RETENTION_PREVIEW_UNAVAILABLE_REASON
+    assert "Runtime status runtime-retention history snapshot unavailable." in caplog.text
 
 
 def test_recovery_drill_status_from_latest_preserves_latest_evidence_and_degradation():
