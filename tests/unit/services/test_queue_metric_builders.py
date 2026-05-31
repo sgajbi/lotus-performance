@@ -11,7 +11,9 @@ from app.services.queue_metric_builders import (
     policy_threshold_metric,
     reason_labeled_metric,
     recovery_drill_degradation_breach_metric,
+    recovery_drill_latest_age_metric,
     runtime_retention_degradation_breach_metric,
+    runtime_retention_latest_age_metric,
     single_sample_metric,
     snapshot_available,
 )
@@ -257,6 +259,16 @@ def test_runtime_retention_degradation_breach_metric_uses_latest_history_and_act
         "runtime_retention_active_run_age_exceeded": 1,
         "runtime_retention_reclaim_pressure_exceeded": 1,
     }
+
+
+def test_lifecycle_latest_age_metrics_preserve_metric_contracts():
+    recovery_metric = recovery_drill_latest_age_metric(latest_age_seconds=120.0)
+    retention_metric = runtime_retention_latest_age_metric(latest_age_seconds=240.0)
+
+    assert recovery_metric.name == "lotus_performance_recovery_drill_latest_age_seconds"
+    assert recovery_metric.samples[0].value == 120.0
+    assert retention_metric.name == "lotus_performance_runtime_retention_latest_age_seconds"
+    assert retention_metric.samples[0].value == 240.0
 
 
 def test_active_lease_age_seconds_or_zero_uses_available_active_lease(monkeypatch):

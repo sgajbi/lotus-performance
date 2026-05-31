@@ -22,7 +22,9 @@ from app.services.queue_metric_builders import (
     operator_action_lease_metrics,
     policy_threshold_metric,
     recovery_drill_degradation_breach_metric,
+    recovery_drill_latest_age_metric,
     runtime_retention_degradation_breach_metric,
+    runtime_retention_latest_age_metric,
     single_sample_metric,
     snapshot_available,
 )
@@ -458,11 +460,7 @@ class DurableQueueCollector:
             latest = recovery_drill_snapshot.entries[0]
             latest_age_seconds = age_seconds_since(latest.generated_at_utc)
 
-            yield single_sample_metric(
-                metric_name="lotus_performance_recovery_drill_latest_age_seconds",
-                description="Age in seconds of the latest retained durable recovery drill.",
-                value=latest_age_seconds,
-            )
+            yield recovery_drill_latest_age_metric(latest_age_seconds=latest_age_seconds)
 
             yield recovery_drill_degradation_breach_metric(
                 latest=latest,
@@ -479,11 +477,7 @@ class DurableQueueCollector:
             latest = runtime_retention_snapshot.entries[0]
             latest_age_seconds = age_seconds_since(latest.generated_at_utc)
 
-            yield single_sample_metric(
-                metric_name="lotus_performance_runtime_retention_latest_age_seconds",
-                description="Age in seconds of the latest retained runtime-retention cleanup.",
-                value=latest_age_seconds,
-            )
+            yield runtime_retention_latest_age_metric(latest_age_seconds=latest_age_seconds)
 
             yield runtime_retention_degradation_breach_metric(
                 latest=latest,

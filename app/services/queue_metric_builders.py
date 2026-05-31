@@ -307,6 +307,22 @@ def runtime_retention_degradation_breach_metric(
     )
 
 
+def recovery_drill_latest_age_metric(*, latest_age_seconds: float) -> GaugeMetricFamily:
+    return single_sample_metric(
+        metric_name="lotus_performance_recovery_drill_latest_age_seconds",
+        description="Age in seconds of the latest retained durable recovery drill.",
+        value=latest_age_seconds,
+    )
+
+
+def runtime_retention_latest_age_metric(*, latest_age_seconds: float) -> GaugeMetricFamily:
+    return single_sample_metric(
+        metric_name="lotus_performance_runtime_retention_latest_age_seconds",
+        description="Age in seconds of the latest retained runtime-retention cleanup.",
+        value=latest_age_seconds,
+    )
+
+
 def labeled_metric(
     *,
     metric_name: str,
