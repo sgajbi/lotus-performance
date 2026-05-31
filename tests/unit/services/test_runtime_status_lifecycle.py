@@ -19,6 +19,7 @@ from app.services.runtime_status_lifecycle import (
     recovery_drill_degradation_details,
     recovery_drill_operator_action_status,
     recovery_drill_status_from_latest,
+    runtime_retention_current_preview_status_fields,
     runtime_retention_degradation_details,
     runtime_retention_operator_action_status,
     runtime_retention_status_from_latest,
@@ -413,6 +414,25 @@ def test_missing_runtime_retention_status_degrades_when_threshold_present():
     assert status.status == "degraded"
     assert status.reason == "runtime_retention_history_unavailable"
     assert status.degradation_reasons == ("runtime_retention_history_unavailable",)
+    assert status.current_retention_days is None
+
+
+def test_runtime_retention_current_preview_status_fields_project_summary():
+    fields = runtime_retention_current_preview_status_fields(
+        preview_status="available",
+        preview_reason=None,
+        preview_summary=_runtime_retention_preview_summary(),
+    )
+
+    assert fields["preview_status"] == "available"
+    assert fields["preview_reason"] is None
+    assert fields["current_cutoff_utc"] == "2026-04-16T00:00:00Z"
+    assert fields["current_retention_days"] == 45
+    assert fields["current_prunable_execution_count"] == 7
+    assert fields["current_prunable_compute_job_count"] == 8
+    assert fields["current_prunable_async_result_count"] == 9
+    assert fields["current_prunable_lineage_record_count"] == 10
+    assert fields["current_prunable_lineage_artifact_count"] == 11
 
 
 def test_runtime_retention_status_from_latest_preserves_preview_and_degradation():
