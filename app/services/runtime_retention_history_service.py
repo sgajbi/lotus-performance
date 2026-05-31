@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -11,7 +10,9 @@ from app.services.operator_action_history_filters import (
     filter_history_entries,
 )
 from app.services.operator_action_history_manifest import (
+    HistoryManifestReadReasons,
     build_history_manifest_payload,
+    read_history_manifest_payload,
     validate_history_entry_strings,
     validate_history_manifest_header,
 )
@@ -21,6 +22,12 @@ RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON = "runtime_retention_artifac
 RUNTIME_RETENTION_MANIFEST_INVALID_REASON = "runtime_retention_manifest_invalid"
 RUNTIME_RETENTION_MANIFEST_MISSING_REASON = "runtime_retention_manifest_missing"
 RUNTIME_RETENTION_MANIFEST_UNREADABLE_REASON = "runtime_retention_manifest_unreadable"
+RUNTIME_RETENTION_MANIFEST_READ_REASONS = HistoryManifestReadReasons(
+    directory_missing=RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON,
+    manifest_missing=RUNTIME_RETENTION_MANIFEST_MISSING_REASON,
+    manifest_unreadable=RUNTIME_RETENTION_MANIFEST_UNREADABLE_REASON,
+    manifest_invalid=RUNTIME_RETENTION_MANIFEST_INVALID_REASON,
+)
 
 
 @dataclass(frozen=True)
@@ -73,7 +80,6 @@ def build_runtime_retention_history_snapshot(
     generated_before: str | None = None,
 ) -> RuntimeRetentionHistorySnapshot:
     directory = artifact_directory or get_settings().RUNTIME_RETENTION_ARTIFACT_PATH
-    manifest_path = directory / "manifest.json"
     applied_filters = _build_applied_filters(
         limit=limit,
         offset=offset,
@@ -86,36 +92,15 @@ def build_runtime_retention_history_snapshot(
         generated_before=generated_before,
     )
 
-    if not directory.exists():
+    manifest_read = read_history_manifest_payload(directory=directory, reasons=RUNTIME_RETENTION_MANIFEST_READ_REASONS)
+    if manifest_read.reason is not None:
         return _unavailable_snapshot(
             directory=directory,
             applied_filters=applied_filters,
-            reason=RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON,
+            reason=manifest_read.reason,
         )
 
-    if not manifest_path.exists():
-        return _unavailable_snapshot(
-            directory=directory,
-            applied_filters=applied_filters,
-            reason=RUNTIME_RETENTION_MANIFEST_MISSING_REASON,
-        )
-
-    try:
-        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except OSError:
-        return _unavailable_snapshot(
-            directory=directory,
-            applied_filters=applied_filters,
-            reason=RUNTIME_RETENTION_MANIFEST_UNREADABLE_REASON,
-        )
-    except json.JSONDecodeError:
-        return _unavailable_snapshot(
-            directory=directory,
-            applied_filters=applied_filters,
-            reason=RUNTIME_RETENTION_MANIFEST_INVALID_REASON,
-        )
-
-    manifest_payload = _validate_manifest_payload(payload)
+    manifest_payload = _validate_manifest_payload(manifest_read.payload)
     if manifest_payload is None:
         return _unavailable_snapshot(
             directory=directory,

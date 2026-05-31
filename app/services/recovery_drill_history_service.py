@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -11,7 +10,9 @@ from app.services.operator_action_history_filters import (
     filter_history_entries,
 )
 from app.services.operator_action_history_manifest import (
+    HistoryManifestReadReasons,
     build_history_manifest_payload,
+    read_history_manifest_payload,
     validate_history_entry_strings,
     validate_history_manifest_header,
 )
@@ -21,6 +22,12 @@ RECOVERY_DRILL_ARTIFACT_DIRECTORY_MISSING_REASON = "recovery_drill_artifact_dire
 RECOVERY_DRILL_MANIFEST_INVALID_REASON = "recovery_drill_manifest_invalid"
 RECOVERY_DRILL_MANIFEST_MISSING_REASON = "recovery_drill_manifest_missing"
 RECOVERY_DRILL_MANIFEST_UNREADABLE_REASON = "recovery_drill_manifest_unreadable"
+RECOVERY_DRILL_MANIFEST_READ_REASONS = HistoryManifestReadReasons(
+    directory_missing=RECOVERY_DRILL_ARTIFACT_DIRECTORY_MISSING_REASON,
+    manifest_missing=RECOVERY_DRILL_MANIFEST_MISSING_REASON,
+    manifest_unreadable=RECOVERY_DRILL_MANIFEST_UNREADABLE_REASON,
+    manifest_invalid=RECOVERY_DRILL_MANIFEST_INVALID_REASON,
+)
 
 
 @dataclass(frozen=True)
@@ -63,7 +70,6 @@ def build_recovery_drill_history_snapshot(
     generated_before: str | None = None,
 ) -> RecoveryDrillHistorySnapshot:
     directory = artifact_directory or get_settings().RECOVERY_DRILL_ARTIFACT_PATH
-    manifest_path = directory / "manifest.json"
     applied_filters = _build_applied_filters(
         limit=limit,
         offset=offset,
@@ -74,35 +80,15 @@ def build_recovery_drill_history_snapshot(
         generated_before=generated_before,
     )
 
-    if not directory.exists():
+    manifest_read = read_history_manifest_payload(directory=directory, reasons=RECOVERY_DRILL_MANIFEST_READ_REASONS)
+    if manifest_read.reason is not None:
         return _unavailable_snapshot(
             directory=directory,
             applied_filters=applied_filters,
-            reason=RECOVERY_DRILL_ARTIFACT_DIRECTORY_MISSING_REASON,
+            reason=manifest_read.reason,
         )
 
-    if not manifest_path.exists():
-        return _unavailable_snapshot(
-            directory=directory,
-            applied_filters=applied_filters,
-            reason=RECOVERY_DRILL_MANIFEST_MISSING_REASON,
-        )
-
-    try:
-        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except OSError:
-        return _unavailable_snapshot(
-            directory=directory,
-            applied_filters=applied_filters,
-            reason=RECOVERY_DRILL_MANIFEST_UNREADABLE_REASON,
-        )
-    except json.JSONDecodeError:
-        return _unavailable_snapshot(
-            directory=directory,
-            applied_filters=applied_filters,
-            reason=RECOVERY_DRILL_MANIFEST_INVALID_REASON,
-        )
-    manifest_payload = _validate_manifest_payload(payload)
+    manifest_payload = _validate_manifest_payload(manifest_read.payload)
     if manifest_payload is None:
         return _unavailable_snapshot(
             directory=directory,

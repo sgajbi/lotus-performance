@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from app.services.operator_action_evidence_paths import is_safe_evidence_file_name
@@ -15,8 +17,44 @@ class HistoryManifestHeader:
     entries: list[Any]
 
 
+@dataclass(frozen=True)
+class HistoryManifestReadReasons:
+    directory_missing: str
+    manifest_missing: str
+    manifest_unreadable: str
+    manifest_invalid: str
+
+
+@dataclass(frozen=True)
+class HistoryManifestReadResult:
+    payload: Any
+    reason: str | None = None
+
+
 HistoryEntryStrings = dict[str, str | None]
 HistoryManifestPayload = dict[str, Any]
+
+
+def read_history_manifest_payload(
+    *,
+    directory: Path,
+    reasons: HistoryManifestReadReasons,
+) -> HistoryManifestReadResult:
+    manifest_path = directory / "manifest.json"
+    if not directory.exists():
+        return HistoryManifestReadResult(payload=None, reason=reasons.directory_missing)
+
+    if not manifest_path.exists():
+        return HistoryManifestReadResult(payload=None, reason=reasons.manifest_missing)
+
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except OSError:
+        return HistoryManifestReadResult(payload=None, reason=reasons.manifest_unreadable)
+    except json.JSONDecodeError:
+        return HistoryManifestReadResult(payload=None, reason=reasons.manifest_invalid)
+
+    return HistoryManifestReadResult(payload=payload)
 
 
 def validate_history_manifest_header(payload: Any) -> HistoryManifestHeader | None:

@@ -1,9 +1,70 @@
 from app.services.operator_action_history_manifest import (
     HistoryManifestHeader,
+    HistoryManifestReadReasons,
     build_history_manifest_payload,
+    read_history_manifest_payload,
     validate_history_entry_strings,
     validate_history_manifest_header,
 )
+
+
+def _read_reasons() -> HistoryManifestReadReasons:
+    return HistoryManifestReadReasons(
+        directory_missing="directory_missing",
+        manifest_missing="manifest_missing",
+        manifest_unreadable="manifest_unreadable",
+        manifest_invalid="manifest_invalid",
+    )
+
+
+def test_read_history_manifest_payload_maps_missing_directory(tmp_path):
+    result = read_history_manifest_payload(
+        directory=tmp_path / "missing",
+        reasons=_read_reasons(),
+    )
+
+    assert result.payload is None
+    assert result.reason == "directory_missing"
+
+
+def test_read_history_manifest_payload_maps_missing_manifest(tmp_path):
+    result = read_history_manifest_payload(directory=tmp_path, reasons=_read_reasons())
+
+    assert result.payload is None
+    assert result.reason == "manifest_missing"
+
+
+def test_read_history_manifest_payload_maps_unreadable_manifest(tmp_path, monkeypatch):
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text("{}", encoding="utf-8")
+
+    def _raise_os_error(*args, **kwargs):  # noqa: ARG001
+        raise OSError("denied")
+
+    monkeypatch.setattr(manifest_path.__class__, "read_text", _raise_os_error)
+
+    result = read_history_manifest_payload(directory=tmp_path, reasons=_read_reasons())
+
+    assert result.payload is None
+    assert result.reason == "manifest_unreadable"
+
+
+def test_read_history_manifest_payload_maps_invalid_json(tmp_path):
+    (tmp_path / "manifest.json").write_text("{", encoding="utf-8")
+
+    result = read_history_manifest_payload(directory=tmp_path, reasons=_read_reasons())
+
+    assert result.payload is None
+    assert result.reason == "manifest_invalid"
+
+
+def test_read_history_manifest_payload_returns_payload(tmp_path):
+    (tmp_path / "manifest.json").write_text('{"entries": []}', encoding="utf-8")
+
+    result = read_history_manifest_payload(directory=tmp_path, reasons=_read_reasons())
+
+    assert result.payload == {"entries": []}
+    assert result.reason is None
 
 
 def test_validate_history_manifest_header_accepts_safe_payload():
