@@ -139,3 +139,27 @@ def test_operator_action_lease_metrics_emit_active_and_reclaim_samples(monkeypat
     assert metric_samples["lotus_performance_recovery_drill_oldest_active_action_age_seconds"] == 42
     assert metric_samples["lotus_performance_recovery_drill_latest_reclaimed_action_age_seconds"] == 42
     assert metric_samples["lotus_performance_recovery_drill_reclaimed_actions"] == 2
+
+
+def test_operator_action_lease_metrics_suppress_unavailable_snapshots():
+    unavailable_snapshot = type("Snapshot", (), {"status": "unavailable"})()
+
+    assert operator_action_lease_metrics(snapshot=None, spec=RECOVERY_DRILL_ACTION_METRICS) == ()
+    assert operator_action_lease_metrics(snapshot=unavailable_snapshot, spec=RECOVERY_DRILL_ACTION_METRICS) == ()
+
+
+def test_operator_action_lease_metrics_emit_active_zero_without_optional_age_or_reclaim():
+    snapshot = type(
+        "Snapshot",
+        (),
+        {
+            "status": "available",
+            "active_leases": (),
+            "latest_reclaimed_lease": None,
+        },
+    )()
+
+    metrics = operator_action_lease_metrics(snapshot=snapshot, spec=RECOVERY_DRILL_ACTION_METRICS)
+
+    assert [metric.name for metric in metrics] == ["lotus_performance_recovery_drill_active_actions"]
+    assert metrics[0].samples[0].value == 0
