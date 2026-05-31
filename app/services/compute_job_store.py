@@ -51,6 +51,17 @@ class ComputeJobRegistrationStatus(StrEnum):
     CONFLICT = "conflict"
 
 
+COMPUTE_ACTIVE_INSPECTION_STATUSES = (
+    ComputeJobStatus.PENDING.value,
+    ComputeJobStatus.LEASED.value,
+    ComputeJobStatus.RUNNING.value,
+)
+COMPUTE_RECLAIMABLE_INSPECTION_STATUSES = (
+    ComputeJobStatus.LEASED.value,
+    ComputeJobStatus.RUNNING.value,
+)
+
+
 class Base(DeclarativeBase):
     pass
 
@@ -923,15 +934,7 @@ class ComputeJobStore:
         active_since = self._build_active_since_expression()
         statement = (
             select(ComputeJobModel)
-            .where(
-                ComputeJobModel.job_status.in_(
-                    [
-                        ComputeJobStatus.PENDING.value,
-                        ComputeJobStatus.LEASED.value,
-                        ComputeJobStatus.RUNNING.value,
-                    ]
-                )
-            )
+            .where(ComputeJobModel.job_status.in_(COMPUTE_ACTIVE_INSPECTION_STATUSES))
             .order_by(active_since.asc(), ComputeJobModel.created_at_utc.asc())
             .offset(offset)
             .limit(limit)
@@ -996,15 +999,7 @@ class ComputeJobStore:
         statement = (
             select(func.count())
             .select_from(ComputeJobModel)
-            .where(
-                ComputeJobModel.job_status.in_(
-                    [
-                        ComputeJobStatus.PENDING.value,
-                        ComputeJobStatus.LEASED.value,
-                        ComputeJobStatus.RUNNING.value,
-                    ]
-                )
-            )
+            .where(ComputeJobModel.job_status.in_(COMPUTE_ACTIVE_INSPECTION_STATUSES))
         )
         return self._apply_calculation_filters(
             self._apply_min_age_filter(statement, min_age_threshold=min_age_threshold),
@@ -1057,7 +1052,7 @@ class ComputeJobStore:
         statement = (
             select(ComputeJobModel)
             .where(
-                ComputeJobModel.job_status.in_([ComputeJobStatus.LEASED.value, ComputeJobStatus.RUNNING.value])
+                ComputeJobModel.job_status.in_(COMPUTE_RECLAIMABLE_INSPECTION_STATUSES)
                 & ComputeJobModel.lease_expires_at_utc.is_not(None)
                 & (ComputeJobModel.lease_expires_at_utc < now)
             )
@@ -1083,7 +1078,7 @@ class ComputeJobStore:
             select(func.count())
             .select_from(ComputeJobModel)
             .where(
-                ComputeJobModel.job_status.in_([ComputeJobStatus.LEASED.value, ComputeJobStatus.RUNNING.value])
+                ComputeJobModel.job_status.in_(COMPUTE_RECLAIMABLE_INSPECTION_STATUSES)
                 & ComputeJobModel.lease_expires_at_utc.is_not(None)
                 & (ComputeJobModel.lease_expires_at_utc < now)
             )
