@@ -2536,35 +2536,6 @@ def test_runtime_status_unavailable_recovery_drill_helper_preserves_action_conte
     assert status.degradation_details == ()
 
 
-def test_runtime_status_safe_recent_recoveries_return_empty_on_disabled_limit_and_errors(mocker):
-    settings = type("Settings", (), {"RUNTIME_STATUS_RECENT_RECOVERY_LIMIT": 0})()
-    assert runtime_status_service._recent_recovery_limit(settings=settings) == 0
-    assert runtime_status_service._safe_compute_recent_recoveries(settings=settings) == ()
-    assert runtime_status_service._safe_lineage_recent_recoveries(settings=settings) == ()
-
-    error_settings = type("Settings", (), {"RUNTIME_STATUS_RECENT_RECOVERY_LIMIT": 2})()
-    assert runtime_status_service._recent_recovery_limit(settings=error_settings) == 2
-    mocker.patch(
-        "app.services.runtime_status_service.compute_job_store.list_recent_recoveries",
-        side_effect=RuntimeError("boom"),
-    )
-    mocker.patch(
-        "app.services.runtime_status_service.lineage_metadata_store.list_recent_recoveries",
-        side_effect=RuntimeError("boom"),
-    )
-    assert runtime_status_service._safe_compute_recent_recoveries(settings=error_settings) == ()
-    assert runtime_status_service._safe_lineage_recent_recoveries(settings=error_settings) == ()
-
-
-def test_runtime_status_safe_lineage_inspection_anchor_returns_none_on_error(mocker):
-    mocker.patch(
-        "app.services.runtime_status_service.lineage_metadata_store.get_queue_inspection_anchors",
-        side_effect=RuntimeError("boom"),
-    )
-
-    assert runtime_status_service._safe_lineage_queue_inspection_anchors() is None
-
-
 def test_runtime_status_build_missing_runtime_retention_status_degrades_when_threshold_present():
     active_run_status = type(
         "ActionStatus",

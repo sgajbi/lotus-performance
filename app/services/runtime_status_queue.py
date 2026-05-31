@@ -4,12 +4,14 @@ from app.services.compute_job_store import (
     ComputeQueueInspectionAnchors,
     ComputeQueueStats,
     ComputeRecoveryEvent,
+    compute_job_store,
 )
 from app.services.durability_health_service import LineageStorageCapacitySnapshot
 from app.services.lineage_metadata_store import (
     LineageQueueInspectionAnchors,
     LineageQueueStats,
     LineageRecoveryEvent,
+    lineage_metadata_store,
 )
 from app.services.runtime_status_domain import RuntimeDegradationDetail, RuntimeQueueStatus
 
@@ -45,3 +47,43 @@ def unavailable_runtime_queue_status(*, reason: str) -> RuntimeQueueStatus:
         inspection_anchors=None,
         recent_recoveries=(),
     )
+
+
+def safe_compute_queue_inspection_anchors() -> ComputeQueueInspectionAnchors | None:
+    try:
+        return compute_job_store.get_queue_inspection_anchors()
+    except Exception:
+        return None
+
+
+def safe_lineage_queue_inspection_anchors() -> LineageQueueInspectionAnchors | None:
+    try:
+        return lineage_metadata_store.get_queue_inspection_anchors()
+    except Exception:
+        return None
+
+
+def safe_compute_recent_recoveries(*, settings) -> tuple[ComputeRecoveryEvent, ...]:
+    try:
+        limit = recent_recovery_limit(settings=settings)
+        if limit == 0:
+            return ()
+        page = compute_job_store.list_recent_recoveries(limit=limit)
+        return tuple(getattr(page, "items", page))
+    except Exception:
+        return ()
+
+
+def safe_lineage_recent_recoveries(*, settings) -> tuple[LineageRecoveryEvent, ...]:
+    try:
+        limit = recent_recovery_limit(settings=settings)
+        if limit == 0:
+            return ()
+        page = lineage_metadata_store.list_recent_recoveries(limit=limit)
+        return tuple(getattr(page, "items", page))
+    except Exception:
+        return ()
+
+
+def recent_recovery_limit(*, settings) -> int:
+    return max(0, int(getattr(settings, "RUNTIME_STATUS_RECENT_RECOVERY_LIMIT", 5)))
