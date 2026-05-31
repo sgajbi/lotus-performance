@@ -268,7 +268,7 @@ def _safe_lineage_queue_inspection_anchors() -> LineageQueueInspectionAnchors | 
 
 def _safe_compute_recent_recoveries(*, settings) -> tuple[ComputeRecoveryEvent, ...]:
     try:
-        limit = max(0, int(getattr(settings, "RUNTIME_STATUS_RECENT_RECOVERY_LIMIT", 5)))
+        limit = _recent_recovery_limit(settings=settings)
         if limit == 0:
             return ()
         page = compute_job_store.list_recent_recoveries(limit=limit)
@@ -279,13 +279,17 @@ def _safe_compute_recent_recoveries(*, settings) -> tuple[ComputeRecoveryEvent, 
 
 def _safe_lineage_recent_recoveries(*, settings) -> tuple[LineageRecoveryEvent, ...]:
     try:
-        limit = max(0, int(getattr(settings, "RUNTIME_STATUS_RECENT_RECOVERY_LIMIT", 5)))
+        limit = _recent_recovery_limit(settings=settings)
         if limit == 0:
             return ()
         page = lineage_metadata_store.list_recent_recoveries(limit=limit)
         return tuple(getattr(page, "items", page))
     except Exception:
         return ()
+
+
+def _recent_recovery_limit(*, settings) -> int:
+    return max(0, int(getattr(settings, "RUNTIME_STATUS_RECENT_RECOVERY_LIMIT", 5)))
 
 
 def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
