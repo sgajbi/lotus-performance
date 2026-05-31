@@ -22,6 +22,7 @@ from app.services.lineage_metadata_store import (
 )
 from app.services.runtime_status_degradation import compute_queue_degradation_details, lineage_queue_degradation_details
 from app.services.runtime_status_domain import RuntimeDegradationDetail, RuntimeQueueStatus
+from app.services.runtime_unavailability import durable_metadata_unavailable_reason
 
 RecoveryEventT = TypeVar("RecoveryEventT", ComputeRecoveryEvent, LineageRecoveryEvent, covariant=True)
 InspectionAnchorsT = TypeVar(
@@ -42,7 +43,7 @@ class QueueInspectionAnchorReader(Protocol[InspectionAnchorsT]):
 
 def build_compute_queue_status(durability_status: DurabilityHealthStatus, *, settings) -> RuntimeQueueStatus:
     if not durability_status.is_ready:
-        return unavailable_runtime_queue_status(reason=durability_status.reason or "durable_metadata_store_unreachable")
+        return unavailable_runtime_queue_status(reason=durable_metadata_unavailable_reason(durability_status))
     try:
         stats = compute_job_store.get_queue_stats()
         inspection_anchors = safe_compute_queue_inspection_anchors()
@@ -60,7 +61,7 @@ def build_compute_queue_status(durability_status: DurabilityHealthStatus, *, set
 
 def build_lineage_queue_status(durability_status: DurabilityHealthStatus, *, settings) -> RuntimeQueueStatus:
     if not durability_status.is_ready:
-        return unavailable_runtime_queue_status(reason=durability_status.reason or "durable_metadata_store_unreachable")
+        return unavailable_runtime_queue_status(reason=durable_metadata_unavailable_reason(durability_status))
     lineage_storage_status = check_lineage_storage_ready()
     if not lineage_storage_status.is_ready:
         return unavailable_runtime_queue_status(reason=lineage_storage_status.reason or "lineage_storage_unavailable")

@@ -9,6 +9,7 @@ from app.services.durability_health_service import (
     check_durable_metadata_schema_ready,
 )
 from app.services.lineage_metadata_store import LineageQueueInspectionItem, lineage_metadata_store
+from app.services.runtime_unavailability import durable_metadata_unavailable_reason
 
 
 @dataclass(frozen=True)
@@ -55,7 +56,7 @@ def build_runtime_work_item_snapshot(
     if not durability_status.is_ready:
         unavailable_queue = _queue_state(
             status="unavailable",
-            reason=durability_status.reason or "durable_metadata_store_unreachable",
+            reason=durable_metadata_unavailable_reason(durability_status),
         )
         return RuntimeWorkItemSnapshot(
             generated_at=generated_at,
