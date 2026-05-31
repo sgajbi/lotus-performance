@@ -73,6 +73,10 @@ def _zero_default_retrieval_metadata(payload: dict[str, Any] | None) -> Retrieva
     )
 
 
+def _source_unavailable_detail(message: str) -> dict[str, str]:
+    return {"code": "SOURCE_UNAVAILABLE", "message": message}
+
+
 def period_start(as_of_date: date, period: ReturnsRelativePeriod, year: int | None) -> date:
     as_of = pd.Timestamp(as_of_date)
     if period == ReturnsRelativePeriod.MTD:
@@ -822,10 +826,7 @@ async def resolve_stateful_returns_series_request(
         if exc.status_code == status.HTTP_503_SERVICE_UNAVAILABLE:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail={
-                    "code": "SOURCE_UNAVAILABLE",
-                    "message": str(exc.detail),
-                },
+                detail=_source_unavailable_detail(str(exc.detail)),
             ) from exc
         raise HTTPException(
             status_code=HTTP_422_UNPROCESSABLE,
@@ -856,10 +857,7 @@ async def resolve_stateful_returns_series_request(
         if assignment_status >= status.HTTP_400_BAD_REQUEST:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail={
-                    "code": "SOURCE_UNAVAILABLE",
-                    "message": f"Benchmark assignment source unavailable ({assignment_status}).",
-                },
+                detail=_source_unavailable_detail(f"Benchmark assignment source unavailable ({assignment_status})."),
             )
         benchmark_id_raw = assignment_payload.get("benchmark_id")
         benchmark_id = str(benchmark_id_raw) if benchmark_id_raw else None
@@ -898,10 +896,9 @@ async def resolve_stateful_returns_series_request(
             if benchmark_status >= status.HTTP_400_BAD_REQUEST:
                 raise HTTPException(
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail={
-                        "code": "SOURCE_UNAVAILABLE",
-                        "message": f"Benchmark return-series source unavailable ({benchmark_status}).",
-                    },
+                    detail=_source_unavailable_detail(
+                        f"Benchmark return-series source unavailable ({benchmark_status})."
+                    ),
                 )
             benchmark_points = benchmark_payload.get("points")
             if not isinstance(benchmark_points, list):
@@ -980,10 +977,7 @@ async def resolve_stateful_returns_series_request(
         if risk_free_status >= status.HTTP_400_BAD_REQUEST:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail={
-                    "code": "SOURCE_UNAVAILABLE",
-                    "message": f"Risk-free series source unavailable ({risk_free_status}).",
-                },
+                detail=_source_unavailable_detail(f"Risk-free series source unavailable ({risk_free_status})."),
             )
         risk_free_points = risk_free_payload.get("points")
         if not isinstance(risk_free_points, list):
