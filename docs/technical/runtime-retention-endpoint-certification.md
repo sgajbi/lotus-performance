@@ -66,6 +66,15 @@ History responses include:
 - summarized retained cleanup entries with operator, tenant, correlation, trigger mode, job id,
   cleanup mode, status, retention window, and prunable counts
 
+Implementation ownership is split so shared operator-action history semantics stay reviewable:
+
+| Module | Ownership |
+| --- | --- |
+| `app.services.runtime_retention_history_service` | Runtime-retention history snapshot assembly, cleanup-specific manifest entry validation, filtering by operator/trigger/job/mode/outcome, and unavailable-history projection. |
+| `app.services.operator_action_history_manifest` | Shared retained-history manifest header validation for safe evidence file names, retention metadata, retained file names, entries list shape, and latest-file consistency. |
+| `app.services.operator_action_history_filters` | Shared generated-at bounds, applied-filter echo construction, and inclusive time-window matching used by governed operator-action histories. |
+| `app.services.operator_action_history_pagination` | Shared offset/limit pagination and next-offset projection for retained operator-action histories. |
+
 Run responses include:
 
 - contract identity and source service
@@ -122,7 +131,7 @@ schemas carry descriptions and examples for every field.
 
 Current test posture is production-grade for this endpoint family:
 
-- service tests cover manifest validation, malformed artifacts, filters, paging, and time windows
+- service tests cover manifest validation, malformed artifacts, shared filter helpers, paging, and time windows
 - execution tests cover preview/apply behavior and prunable count calculation
 - integration tests cover unavailable history, retained history, filtered history, run identity,
   replay, cooldown, preview-before-apply, stale lease, and response evidence behavior
@@ -133,10 +142,10 @@ Current test posture is production-grade for this endpoint family:
 Focused validation for this certification slice:
 
 ```bash
-python -m pytest tests/unit/app/test_runtime_retention_openapi_contract.py tests/unit/models/test_runtime_retention_history_models.py tests/unit/services/test_runtime_retention_history_service.py tests/integration/test_runtime_retention_history_api.py tests/integration/test_runtime_retention_run_api.py tests/unit/docs/test_public_docs_contract.py -q
+python -m pytest tests/unit/app/test_runtime_retention_openapi_contract.py tests/unit/models/test_runtime_retention_history_models.py tests/unit/services/test_operator_action_history_manifest.py tests/unit/services/test_operator_action_history_filters.py tests/unit/services/test_operator_action_history_pagination.py tests/unit/services/test_runtime_retention_history_service.py tests/integration/test_runtime_retention_history_api.py tests/integration/test_runtime_retention_run_api.py tests/unit/docs/test_public_docs_contract.py -q
 python scripts/openapi_quality_gate.py
 python scripts/api_vocabulary_inventory.py --validate-only
-python -m ruff check app/api/endpoints/runtime_retention_history.py app/models/runtime_retention_history.py app/services/runtime_retention_history_service.py tests/unit/app/test_runtime_retention_openapi_contract.py tests/unit/models/test_runtime_retention_history_models.py tests/unit/services/test_runtime_retention_history_service.py tests/integration/test_runtime_retention_history_api.py tests/integration/test_runtime_retention_run_api.py tests/unit/docs/test_public_docs_contract.py
-python -m ruff format --check app/api/endpoints/runtime_retention_history.py app/models/runtime_retention_history.py app/services/runtime_retention_history_service.py tests/unit/app/test_runtime_retention_openapi_contract.py tests/unit/models/test_runtime_retention_history_models.py tests/unit/services/test_runtime_retention_history_service.py tests/integration/test_runtime_retention_history_api.py tests/integration/test_runtime_retention_run_api.py tests/unit/docs/test_public_docs_contract.py
-python -m mypy --config-file mypy.ini app/api/endpoints/runtime_retention_history.py app/models/runtime_retention_history.py app/services/runtime_retention_history_service.py
+python -m ruff check app/api/endpoints/runtime_retention_history.py app/models/runtime_retention_history.py app/services/operator_action_history_manifest.py app/services/operator_action_history_filters.py app/services/operator_action_history_pagination.py app/services/runtime_retention_history_service.py tests/unit/app/test_runtime_retention_openapi_contract.py tests/unit/models/test_runtime_retention_history_models.py tests/unit/services/test_operator_action_history_manifest.py tests/unit/services/test_operator_action_history_filters.py tests/unit/services/test_operator_action_history_pagination.py tests/unit/services/test_runtime_retention_history_service.py tests/integration/test_runtime_retention_history_api.py tests/integration/test_runtime_retention_run_api.py tests/unit/docs/test_public_docs_contract.py
+python -m ruff format --check app/api/endpoints/runtime_retention_history.py app/models/runtime_retention_history.py app/services/operator_action_history_manifest.py app/services/operator_action_history_filters.py app/services/operator_action_history_pagination.py app/services/runtime_retention_history_service.py tests/unit/app/test_runtime_retention_openapi_contract.py tests/unit/models/test_runtime_retention_history_models.py tests/unit/services/test_operator_action_history_manifest.py tests/unit/services/test_operator_action_history_filters.py tests/unit/services/test_operator_action_history_pagination.py tests/unit/services/test_runtime_retention_history_service.py tests/integration/test_runtime_retention_history_api.py tests/integration/test_runtime_retention_run_api.py tests/unit/docs/test_public_docs_contract.py
+python -m mypy --config-file mypy.ini app/api/endpoints/runtime_retention_history.py app/models/runtime_retention_history.py app/services/operator_action_history_manifest.py app/services/operator_action_history_filters.py app/services/operator_action_history_pagination.py app/services/runtime_retention_history_service.py
 ```

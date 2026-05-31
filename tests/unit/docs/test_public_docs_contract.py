@@ -154,6 +154,8 @@ def test_recovery_drills_docs_reflect_certified_operator_contract():
     assert "Downstream Consumers" in certification
     assert "Test Pyramid Assessment" in certification
     assert "No duplicate lotus-performance recovery-drill endpoint" in certification
+    assert "app.services.operator_action_history_manifest" in certification
+    assert "app.services.operator_action_history_filters" in certification
 
 
 def test_runtime_retention_docs_reflect_certified_operator_contract():
@@ -173,6 +175,8 @@ def test_runtime_retention_docs_reflect_certified_operator_contract():
     assert "Downstream Consumers" in certification
     assert "Test Pyramid Assessment" in certification
     assert "No duplicate lotus-performance runtime-retention endpoint" in certification
+    assert "app.services.operator_action_history_manifest" in certification
+    assert "app.services.operator_action_history_filters" in certification
 
 
 def test_platform_surfaces_docs_reflect_certified_operational_contract():
