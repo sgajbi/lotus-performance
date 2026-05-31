@@ -114,6 +114,34 @@ def test_execution_registry_records_upstream_snapshots(tmp_path):
     assert snapshot.paging_metadata == {"page_token": "n1"}
 
 
+def test_execution_registry_preserves_empty_upstream_snapshot_paging_metadata(tmp_path):
+    registry = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    registry.create_schema()
+    calculation_id = uuid4()
+    registry.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        portfolio_id="PORT-EMPTY-PAGING",
+    )
+
+    registry.record_upstream_snapshot(
+        calculation_id=calculation_id,
+        snapshot_id="snap-empty-paging",
+        upstream_endpoint="portfolio_timeseries",
+        source_identifier="PORT-EMPTY-PAGING",
+        as_of_date="2026-02-27",
+        request_fingerprint="req-empty",
+        response_fingerprint="resp-empty",
+        retrieval_status="200",
+        paging_metadata={},
+    )
+
+    snapshots = registry.list_upstream_snapshots(calculation_id)
+
+    assert len(snapshots) == 1
+    assert snapshots[0].paging_metadata == {}
+
+
 def test_execution_registry_ignores_duplicate_upstream_snapshots(tmp_path):
     registry = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
     registry.create_schema()
