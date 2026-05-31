@@ -21,6 +21,7 @@ from app.services.queue_metric_builders import (
     compute_queue_oldest_age_metrics,
     labeled_metric,
     lineage_queue_degradation_breach_metric,
+    lineage_queue_payload_metrics,
     lineage_storage_pressure_breach_metric,
     operator_action_lease_metrics,
     policy_threshold_metric,
@@ -317,30 +318,7 @@ class DurableQueueCollector:
             )
 
         if lineage_stats is not None:
-            yield single_sample_metric(
-                metric_name="lotus_performance_lineage_queue_pending_payloads",
-                description="Number of pending lineage payloads awaiting materialization.",
-                value=lineage_stats.pending_payload_count,
-            )
-
-        if lineage_stats is not None:
-            yield labeled_metric(
-                metric_name="lotus_performance_lineage_queue_failure_pressure_payloads",
-                description="Lineage payload counts for retry backlog and terminal failure categories.",
-                label_name="category",
-                samples=(
-                    ("retry_backlog", lineage_stats.retry_backlog_count),
-                    ("reclaimable", lineage_stats.reclaimable_count),
-                    ("terminal_failure", lineage_stats.terminal_failure_count),
-                ),
-            )
-
-        if lineage_stats is not None:
-            yield single_sample_metric(
-                metric_name="lotus_performance_lineage_queue_oldest_pending_age_seconds",
-                description="Age in seconds of the oldest pending lineage payload.",
-                value=lineage_stats.oldest_pending_age_seconds,
-            )
+            yield from lineage_queue_payload_metrics(stats=lineage_stats)
 
             yield lineage_queue_degradation_breach_metric(
                 stats=lineage_stats,

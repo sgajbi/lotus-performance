@@ -253,6 +253,31 @@ def lineage_queue_degradation_breach_metric(
     )
 
 
+def lineage_queue_payload_metrics(*, stats: Any) -> tuple[GaugeMetricFamily, ...]:
+    return (
+        single_sample_metric(
+            metric_name="lotus_performance_lineage_queue_pending_payloads",
+            description="Number of pending lineage payloads awaiting materialization.",
+            value=stats.pending_payload_count,
+        ),
+        labeled_metric(
+            metric_name="lotus_performance_lineage_queue_failure_pressure_payloads",
+            description="Lineage payload counts for retry backlog and terminal failure categories.",
+            label_name="category",
+            samples=(
+                ("retry_backlog", stats.retry_backlog_count),
+                ("reclaimable", stats.reclaimable_count),
+                ("terminal_failure", stats.terminal_failure_count),
+            ),
+        ),
+        single_sample_metric(
+            metric_name="lotus_performance_lineage_queue_oldest_pending_age_seconds",
+            description="Age in seconds of the oldest pending lineage payload.",
+            value=stats.oldest_pending_age_seconds,
+        ),
+    )
+
+
 def lineage_storage_pressure_breach_metric(
     *,
     capacity: Any,

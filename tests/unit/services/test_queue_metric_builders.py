@@ -9,6 +9,7 @@ from app.services.queue_metric_builders import (
     labeled_metric,
     latest_reclaim_count_or_zero,
     lineage_queue_degradation_breach_metric,
+    lineage_queue_payload_metrics,
     lineage_storage_pressure_breach_metric,
     operator_action_lease_metrics,
     policy_threshold_metric,
@@ -236,6 +237,35 @@ def test_lineage_queue_degradation_breach_metric_uses_policy_thresholds():
         "lineage_pending_age_exceeded": 1,
         "lineage_leased_age_exceeded": 1,
     }
+
+
+def test_lineage_queue_payload_metrics_preserve_metric_contracts():
+    stats = type(
+        "LineageStats",
+        (),
+        {
+            "pending_payload_count": 6,
+            "retry_backlog_count": 2,
+            "reclaimable_count": 1,
+            "terminal_failure_count": 1,
+            "oldest_pending_age_seconds": 7.5,
+        },
+    )()
+
+    metrics = lineage_queue_payload_metrics(stats=stats)
+    metric_samples = {metric.name: metric.samples for metric in metrics}
+
+    assert metric_samples["lotus_performance_lineage_queue_pending_payloads"][0].value == 6
+    failure_samples = {
+        sample.labels["category"]: sample.value
+        for sample in metric_samples["lotus_performance_lineage_queue_failure_pressure_payloads"]
+    }
+    assert failure_samples == {
+        "retry_backlog": 2,
+        "reclaimable": 1,
+        "terminal_failure": 1,
+    }
+    assert metric_samples["lotus_performance_lineage_queue_oldest_pending_age_seconds"][0].value == 7.5
 
 
 def test_lineage_storage_pressure_breach_metric_uses_policy_thresholds():
