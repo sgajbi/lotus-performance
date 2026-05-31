@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from prometheus_client.core import GaugeMetricFamily
 
@@ -14,6 +16,84 @@ from app.services.runtime_degradation_policy import threshold_breach_flag
 from app.services.runtime_retention_history_service import build_runtime_retention_history_snapshot
 from app.services.runtime_retention_service import run_runtime_retention_cleanup
 from app.services.runtime_status_time import age_seconds_since
+
+
+@dataclass(frozen=True)
+class OperatorActionMetricSpec:
+    active_metric_name: str
+    active_description: str
+    oldest_active_age_metric_name: str
+    oldest_active_age_description: str
+    reclaimed_age_metric_name: str
+    reclaimed_age_description: str
+    reclaimed_count_metric_name: str
+    reclaimed_count_description: str
+
+
+RECOVERY_DRILL_ACTION_METRICS = OperatorActionMetricSpec(
+    active_metric_name="lotus_performance_recovery_drill_active_actions",
+    active_description="Number of active governed recovery-drill runs currently holding an in-flight lease.",
+    oldest_active_age_metric_name="lotus_performance_recovery_drill_oldest_active_action_age_seconds",
+    oldest_active_age_description="Age in seconds of the oldest active governed recovery-drill run.",
+    reclaimed_age_metric_name="lotus_performance_recovery_drill_latest_reclaimed_action_age_seconds",
+    reclaimed_age_description="Age in seconds since the latest stale governed recovery-drill lease reclaim.",
+    reclaimed_count_metric_name="lotus_performance_recovery_drill_reclaimed_actions",
+    reclaimed_count_description=(
+        "Count of stale governed recovery-drill leases reclaimed and retained in the current control-plane counter."
+    ),
+)
+
+RUNTIME_RETENTION_ACTION_METRICS = OperatorActionMetricSpec(
+    active_metric_name="lotus_performance_runtime_retention_active_actions",
+    active_description="Number of active governed runtime-retention cleanups currently holding an in-flight lease.",
+    oldest_active_age_metric_name="lotus_performance_runtime_retention_oldest_active_action_age_seconds",
+    oldest_active_age_description="Age in seconds of the oldest active governed runtime-retention cleanup.",
+    reclaimed_age_metric_name="lotus_performance_runtime_retention_latest_reclaimed_action_age_seconds",
+    reclaimed_age_description="Age in seconds since the latest stale governed runtime-retention lease reclaim.",
+    reclaimed_count_metric_name="lotus_performance_runtime_retention_reclaimed_actions",
+    reclaimed_count_description=(
+        "Count of stale governed runtime-retention leases reclaimed and retained in the current control-plane counter."
+    ),
+)
+
+
+def _operator_action_lease_metrics(
+    *,
+    snapshot: Any,
+    spec: OperatorActionMetricSpec,
+) -> tuple[GaugeMetricFamily, ...]:
+    if snapshot is None or snapshot.status != "available":
+        return ()
+
+    metrics: list[GaugeMetricFamily] = []
+    active_actions = GaugeMetricFamily(spec.active_metric_name, spec.active_description)
+    active_actions.add_metric([], len(snapshot.active_leases))
+    metrics.append(active_actions)
+
+    if snapshot.active_leases:
+        oldest_active_action_age = GaugeMetricFamily(
+            spec.oldest_active_age_metric_name,
+            spec.oldest_active_age_description,
+        )
+        oldest_active_action_age.add_metric([], age_seconds_since(snapshot.active_leases[0].acquired_at_utc))
+        metrics.append(oldest_active_action_age)
+
+    if snapshot.latest_reclaimed_lease is not None:
+        latest_reclaimed_action_age = GaugeMetricFamily(
+            spec.reclaimed_age_metric_name,
+            spec.reclaimed_age_description,
+        )
+        latest_reclaimed_action_age.add_metric(
+            [],
+            age_seconds_since(snapshot.latest_reclaimed_lease.reclaimed_at_utc),
+        )
+        metrics.append(latest_reclaimed_action_age)
+
+        reclaimed_actions = GaugeMetricFamily(spec.reclaimed_count_metric_name, spec.reclaimed_count_description)
+        reclaimed_actions.add_metric([], snapshot.latest_reclaimed_lease.reclaim_count)
+        metrics.append(reclaimed_actions)
+
+    return tuple(metrics)
 
 
 class DurableQueueCollector:
@@ -569,42 +649,10 @@ class DurableQueueCollector:
         )
         yield recovery_drill_thresholds
 
-        if recovery_drill_action_snapshot is not None and recovery_drill_action_snapshot.status == "available":
-            recovery_drill_active_actions = GaugeMetricFamily(
-                "lotus_performance_recovery_drill_active_actions",
-                "Number of active governed recovery-drill runs currently holding an in-flight lease.",
-            )
-            recovery_drill_active_actions.add_metric([], len(recovery_drill_action_snapshot.active_leases))
-            yield recovery_drill_active_actions
-            if recovery_drill_action_snapshot.active_leases:
-                recovery_drill_oldest_active_action_age = GaugeMetricFamily(
-                    "lotus_performance_recovery_drill_oldest_active_action_age_seconds",
-                    "Age in seconds of the oldest active governed recovery-drill run.",
-                )
-                recovery_drill_oldest_active_action_age.add_metric(
-                    [],
-                    age_seconds_since(recovery_drill_action_snapshot.active_leases[0].acquired_at_utc),
-                )
-                yield recovery_drill_oldest_active_action_age
-            if recovery_drill_action_snapshot.latest_reclaimed_lease is not None:
-                recovery_drill_latest_reclaimed_action_age = GaugeMetricFamily(
-                    "lotus_performance_recovery_drill_latest_reclaimed_action_age_seconds",
-                    "Age in seconds since the latest stale governed recovery-drill lease reclaim.",
-                )
-                recovery_drill_latest_reclaimed_action_age.add_metric(
-                    [],
-                    age_seconds_since(recovery_drill_action_snapshot.latest_reclaimed_lease.reclaimed_at_utc),
-                )
-                yield recovery_drill_latest_reclaimed_action_age
-                recovery_drill_reclaimed_actions = GaugeMetricFamily(
-                    "lotus_performance_recovery_drill_reclaimed_actions",
-                    "Count of stale governed recovery-drill leases reclaimed and retained in the current control-plane counter.",
-                )
-                recovery_drill_reclaimed_actions.add_metric(
-                    [],
-                    recovery_drill_action_snapshot.latest_reclaimed_lease.reclaim_count,
-                )
-                yield recovery_drill_reclaimed_actions
+        yield from _operator_action_lease_metrics(
+            snapshot=recovery_drill_action_snapshot,
+            spec=RECOVERY_DRILL_ACTION_METRICS,
+        )
 
         runtime_retention_thresholds = GaugeMetricFamily(
             "lotus_performance_runtime_retention_policy_threshold",
@@ -625,42 +673,10 @@ class DurableQueueCollector:
         )
         yield runtime_retention_thresholds
 
-        if runtime_retention_action_snapshot is not None and runtime_retention_action_snapshot.status == "available":
-            runtime_retention_active_actions = GaugeMetricFamily(
-                "lotus_performance_runtime_retention_active_actions",
-                "Number of active governed runtime-retention cleanups currently holding an in-flight lease.",
-            )
-            runtime_retention_active_actions.add_metric([], len(runtime_retention_action_snapshot.active_leases))
-            yield runtime_retention_active_actions
-            if runtime_retention_action_snapshot.active_leases:
-                runtime_retention_oldest_active_action_age = GaugeMetricFamily(
-                    "lotus_performance_runtime_retention_oldest_active_action_age_seconds",
-                    "Age in seconds of the oldest active governed runtime-retention cleanup.",
-                )
-                runtime_retention_oldest_active_action_age.add_metric(
-                    [],
-                    age_seconds_since(runtime_retention_action_snapshot.active_leases[0].acquired_at_utc),
-                )
-                yield runtime_retention_oldest_active_action_age
-            if runtime_retention_action_snapshot.latest_reclaimed_lease is not None:
-                runtime_retention_latest_reclaimed_action_age = GaugeMetricFamily(
-                    "lotus_performance_runtime_retention_latest_reclaimed_action_age_seconds",
-                    "Age in seconds since the latest stale governed runtime-retention lease reclaim.",
-                )
-                runtime_retention_latest_reclaimed_action_age.add_metric(
-                    [],
-                    age_seconds_since(runtime_retention_action_snapshot.latest_reclaimed_lease.reclaimed_at_utc),
-                )
-                yield runtime_retention_latest_reclaimed_action_age
-                runtime_retention_reclaimed_actions = GaugeMetricFamily(
-                    "lotus_performance_runtime_retention_reclaimed_actions",
-                    "Count of stale governed runtime-retention leases reclaimed and retained in the current control-plane counter.",
-                )
-                runtime_retention_reclaimed_actions.add_metric(
-                    [],
-                    runtime_retention_action_snapshot.latest_reclaimed_lease.reclaim_count,
-                )
-                yield runtime_retention_reclaimed_actions
+        yield from _operator_action_lease_metrics(
+            snapshot=runtime_retention_action_snapshot,
+            spec=RUNTIME_RETENTION_ACTION_METRICS,
+        )
 
         if (
             recovery_drill_snapshot is not None
