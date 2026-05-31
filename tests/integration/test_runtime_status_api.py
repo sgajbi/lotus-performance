@@ -37,7 +37,7 @@ def _isolate_runtime_assurance_history(mocker):
         )(),
     )
     mocker.patch(
-        "app.services.runtime_status_service.build_recovery_drill_history_snapshot",
+        "app.services.runtime_status_lifecycle.build_recovery_drill_history_snapshot",
         return_value=RecoveryDrillHistorySnapshot(
             status="available",
             artifact_directory="artifacts/durable-recovery-drill",
@@ -591,7 +591,7 @@ def test_runtime_status_reports_unavailable_durable_store(mocker):
 
 def test_runtime_status_reports_unavailable_recovery_history_snapshot(mocker):
     mocker.patch(
-        "app.services.runtime_status_service.build_recovery_drill_history_snapshot",
+        "app.services.runtime_status_lifecycle.build_recovery_drill_history_snapshot",
         return_value=RecoveryDrillHistorySnapshot(
             status="unavailable",
             artifact_directory="artifacts/durable-recovery-drill",
@@ -1060,7 +1060,7 @@ def test_runtime_status_reports_recovery_drill_failure_and_age_policy(mocker):
     settings.RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS = 300.0
 
     mocker.patch(
-        "app.services.runtime_status_service.build_recovery_drill_history_snapshot",
+        "app.services.runtime_status_lifecycle.build_recovery_drill_history_snapshot",
         return_value=RecoveryDrillHistorySnapshot(
             status="available",
             artifact_directory="artifacts/durable-recovery-drill",

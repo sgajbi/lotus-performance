@@ -1,11 +1,17 @@
+from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 
-from app.services.recovery_drill_history_service import RecoveryDrillHistoryEntry
+from app.services.recovery_drill_history_service import RecoveryDrillHistoryEntry, RecoveryDrillHistorySnapshot
 from app.services.runtime_retention_history_service import RuntimeRetentionHistoryEntry
 from app.services.runtime_retention_service import RuntimeRetentionCleanupSummary
-from app.services.runtime_status_domain import OperatorActionStatus, RuntimeDegradationDetail
+from app.services.runtime_status_domain import (
+    OperatorActionStatus,
+    RecoveryDrillDegradationPolicy,
+    RuntimeDegradationDetail,
+)
 from app.services.runtime_status_lifecycle import (
+    build_recovery_drill_status,
     missing_recovery_drill_status,
     missing_runtime_retention_status,
     recovery_drill_degradation_details,
@@ -45,6 +51,37 @@ def _operator_action_status(
     )
 
 
+def _recovery_drill_policy(max_age_seconds: float = 300.0) -> RecoveryDrillDegradationPolicy:
+    return RecoveryDrillDegradationPolicy(
+        max_age_seconds=max_age_seconds,
+        active_run_age_seconds=30.0,
+        reclaim_count=1,
+    )
+
+
+def _recovery_drill_snapshot(
+    *,
+    status: str = "available",
+    entries: list[RecoveryDrillHistoryEntry] | None = None,
+    reason: str | None = None,
+) -> RecoveryDrillHistorySnapshot:
+    return RecoveryDrillHistorySnapshot(
+        status=status,
+        artifact_directory="artifacts/durable-recovery-drill",
+        latest_file_name="latest.json" if entries else None,
+        retained_file_names=["latest.json"] if entries else [],
+        retention_limit=30,
+        retention_max_age_days=90,
+        entries=entries or [],
+        total_entries=len(entries or []),
+        matched_entries=len(entries or []),
+        returned_entries=len(entries or []),
+        next_offset=None,
+        applied_filters={},
+        reason=reason,
+    )
+
+
 def test_lifecycle_operator_action_status_helpers_use_governed_defaults(mocker):
     captured_calls: list[tuple[Path, str]] = []
     returned_status = _operator_action_status()
@@ -68,6 +105,74 @@ def test_lifecycle_operator_action_status_helpers_use_governed_defaults(mocker):
         (Path("artifacts/durable-recovery-drill"), "recovery_drill"),
         (Path("artifacts/runtime-retention-cleanup"), "runtime_retention_cleanup"),
     ]
+
+
+def test_build_recovery_drill_status_projects_latest_history_entry(mocker):
+    mocker.patch(
+        "app.services.runtime_status_lifecycle.build_operator_action_status",
+        return_value=_operator_action_status(),
+    )
+    mocker.patch(
+        "app.services.runtime_status_lifecycle.build_recovery_drill_history_snapshot",
+        return_value=_recovery_drill_snapshot(
+            entries=[
+                RecoveryDrillHistoryEntry(
+                    evidence_file_name="latest.json",
+                    generated_at_utc=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                    operator_id="ops-user",
+                    backup_identifier="backup-123",
+                    status="passed",
+                )
+            ],
+        ),
+    )
+
+    status = build_recovery_drill_status(settings=type("Settings", (), {})(), policy=_recovery_drill_policy())
+
+    assert status.status == "available"
+    assert status.reason is None
+    assert status.latest_status == "passed"
+    assert status.latest_operator_id == "ops-user"
+    assert status.latest_backup_identifier == "backup-123"
+    assert status.latest_age_seconds is not None
+    assert status.degradation_reasons == ()
+
+
+def test_build_recovery_drill_status_returns_missing_when_artifacts_are_absent(mocker):
+    mocker.patch(
+        "app.services.runtime_status_lifecycle.build_operator_action_status",
+        return_value=_operator_action_status(),
+    )
+    mocker.patch(
+        "app.services.runtime_status_lifecycle.build_recovery_drill_history_snapshot",
+        return_value=_recovery_drill_snapshot(
+            status="unavailable",
+            reason="recovery_drill_manifest_missing",
+        ),
+    )
+
+    status = build_recovery_drill_status(settings=type("Settings", (), {})(), policy=_recovery_drill_policy())
+
+    assert status.status == "degraded"
+    assert status.reason == "recovery_drill_history_unavailable"
+    assert status.degradation_reasons == ("recovery_drill_history_unavailable",)
+
+
+def test_build_recovery_drill_status_returns_unavailable_when_history_read_fails(mocker):
+    mocker.patch(
+        "app.services.runtime_status_lifecycle.build_operator_action_status",
+        return_value=_operator_action_status(active_run_count=1),
+    )
+    mocker.patch(
+        "app.services.runtime_status_lifecycle.build_recovery_drill_history_snapshot",
+        side_effect=RuntimeError("history read failed"),
+    )
+
+    status = build_recovery_drill_status(settings=type("Settings", (), {})(), policy=_recovery_drill_policy())
+
+    assert status.status == "unavailable"
+    assert status.reason == "RuntimeError"
+    assert status.active_run_count == 1
 
 
 def test_recovery_drill_status_from_latest_preserves_latest_evidence_and_degradation():

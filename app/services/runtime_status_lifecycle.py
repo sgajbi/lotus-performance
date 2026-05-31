@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from app.services.recovery_drill_history_service import RecoveryDrillHistoryEntry
+from app.services.recovery_drill_history_service import (
+    RecoveryDrillHistoryEntry,
+    build_recovery_drill_history_snapshot,
+)
 from app.services.runtime_retention_history_service import RuntimeRetentionHistoryEntry
 from app.services.runtime_retention_service import RuntimeRetentionCleanupSummary
 from app.services.runtime_status_degradation import (
@@ -14,18 +17,68 @@ from app.services.runtime_status_degradation import (
 )
 from app.services.runtime_status_domain import (
     OperatorActionStatus,
+    RecoveryDrillDegradationPolicy,
     RecoveryDrillStatus,
     RuntimeDegradationDetail,
     RuntimeRetentionStatus,
 )
 from app.services.runtime_status_operator_action import build_operator_action_status, operator_action_status_fields
 from app.services.runtime_status_retention_preview import runtime_retention_preview_fields
+from app.services.runtime_status_time import age_seconds_since
 
 
 def recovery_drill_operator_action_status(*, settings) -> OperatorActionStatus:
     return build_operator_action_status(
         artifact_directory=getattr(settings, "RECOVERY_DRILL_ARTIFACT_PATH", Path("artifacts/durable-recovery-drill")),
         action_name="recovery_drill",
+    )
+
+
+def build_recovery_drill_status(*, settings, policy: RecoveryDrillDegradationPolicy) -> RecoveryDrillStatus:
+    active_run_status = recovery_drill_operator_action_status(settings=settings)
+    try:
+        snapshot = build_recovery_drill_history_snapshot(limit=1)
+    except Exception as exc:
+        return unavailable_recovery_drill_status(
+            reason=type(exc).__name__,
+            active_run_status=active_run_status,
+        )
+
+    if snapshot.status != "available":
+        if snapshot.reason in {
+            "recovery_drill_artifact_directory_missing",
+            "recovery_drill_manifest_missing",
+        }:
+            return missing_recovery_drill_status(
+                threshold=policy.max_age_seconds,
+                active_run_status=active_run_status,
+            )
+        return unavailable_recovery_drill_status(
+            reason=snapshot.reason or snapshot.status,
+            active_run_status=active_run_status,
+        )
+
+    if not snapshot.entries:
+        return missing_recovery_drill_status(
+            threshold=policy.max_age_seconds,
+            active_run_status=active_run_status,
+        )
+
+    latest = snapshot.entries[0]
+    latest_age_seconds = age_seconds_since(latest.generated_at_utc)
+    degradation_details = recovery_drill_degradation_details(
+        latest=latest,
+        latest_age_seconds=latest_age_seconds,
+        threshold=policy.max_age_seconds,
+        active_run_status=active_run_status,
+        active_run_age_threshold=policy.active_run_age_seconds,
+        reclaim_threshold=policy.reclaim_count,
+    )
+    return recovery_drill_status_from_latest(
+        latest=latest,
+        latest_age_seconds=latest_age_seconds,
+        active_run_status=active_run_status,
+        degradation_details=degradation_details,
     )
 
 
