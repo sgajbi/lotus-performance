@@ -34,6 +34,16 @@ the governed surface and required capability metadata.
 
 The response model is `app.models.runtime_status.RuntimeStatusResponse`.
 
+Implementation ownership is split so support-critical semantics have one reviewable home:
+
+| Module | Ownership |
+| --- | --- |
+| `app.services.runtime_status_service` | Snapshot orchestration across durable metadata, queues, recovery-drill, runtime-retention, and response policy objects. |
+| `app.services.runtime_status_queue` | Queue unavailable-state projection, queue degradation-state projection, inspection anchors, and bounded recent recovery evidence. |
+| `app.services.runtime_status_lifecycle` | Recovery-drill and runtime-retention action sources, missing/unavailable fallbacks, success projections, and lifecycle-specific degradation rules. |
+| `app.services.runtime_status_degradation` | Shared threshold-breach helpers, aggregate runtime status projection, aggregate degradation reasons, and detailed degradation evidence collection. |
+| `app.services.runtime_status_policy` | Live policy-threshold extraction for compute queue, lineage queue, recovery-drill, and runtime-retention response fields. |
+
 Top-level output families:
 
 | Field | Meaning |
@@ -127,7 +137,7 @@ Swagger now documents:
 | Layer | Coverage | Assessment |
 | --- | --- | --- |
 | Model/schema | `tests/unit/models/test_runtime_status_models.py` verifies serialization of queue stats, anchors, recovery events, storage capacity, policies, and unavailable queues. | Strong. |
-| Service/unit | `tests/unit/services/test_runtime_status_service.py` covers ready, draining, unavailable, queue failure, storage failure/capacity pressure, recovery-drill, runtime-retention, active-run, reclaim, and policy degradation states. | Strong. |
+| Service/unit | `tests/unit/services/test_runtime_status_service.py`, `tests/unit/services/test_runtime_status_queue.py`, `tests/unit/services/test_runtime_status_lifecycle.py`, `tests/unit/services/test_runtime_status_degradation.py`, and `tests/unit/services/test_runtime_status_policy.py` cover ready, draining, unavailable, queue failure, storage failure/capacity pressure, recovery-drill, runtime-retention, active-run, reclaim, status projection, and policy degradation states. | Strong. |
 | Integration route tests | `tests/integration/test_runtime_status_api.py` exercises the public endpoint across durable queue state, degradation reasons, governed action visibility, storage pressure, and unavailable states. | Strong. |
 | Docs/OpenAPI | `tests/unit/app/test_runtime_status_openapi_contract.py` and public docs regression lock endpoint purpose, schema families, and sample shape. OpenAPI and vocabulary gates validate contract metadata. | Strong after this pass. |
 | Downstream | No direct downstream runtime-status caller found. Runbooks and operator docs use this as the strategic snapshot endpoint. | Adequate. |
@@ -138,9 +148,10 @@ Focused validation for this certification slice:
 
 ```bash
 python -m pytest tests/unit/app/test_runtime_status_openapi_contract.py tests/unit/models/test_runtime_status_models.py tests/unit/services/test_runtime_status_service.py tests/integration/test_runtime_status_api.py tests/unit/docs/test_public_docs_contract.py -q
+python -m pytest tests/unit/services/test_runtime_status_queue.py tests/unit/services/test_runtime_status_lifecycle.py tests/unit/services/test_runtime_status_degradation.py tests/unit/services/test_runtime_status_policy.py -q
 python scripts/openapi_quality_gate.py
 python scripts/api_vocabulary_inventory.py --validate-only
-python -m ruff check app/api/endpoints/runtime_status.py app/models/runtime_status.py tests/unit/app/test_runtime_status_openapi_contract.py tests/unit/models/test_runtime_status_models.py tests/unit/services/test_runtime_status_service.py tests/integration/test_runtime_status_api.py tests/unit/docs/test_public_docs_contract.py
-python -m ruff format --check app/api/endpoints/runtime_status.py app/models/runtime_status.py tests/unit/app/test_runtime_status_openapi_contract.py tests/unit/models/test_runtime_status_models.py tests/unit/services/test_runtime_status_service.py tests/integration/test_runtime_status_api.py tests/unit/docs/test_public_docs_contract.py
-python -m mypy --config-file mypy.ini app/api/endpoints/runtime_status.py app/models/runtime_status.py app/services/runtime_status_service.py
+python -m ruff check app/api/endpoints/runtime_status.py app/models/runtime_status.py app/services/runtime_status_service.py app/services/runtime_status_queue.py app/services/runtime_status_lifecycle.py app/services/runtime_status_degradation.py app/services/runtime_status_policy.py tests/unit/app/test_runtime_status_openapi_contract.py tests/unit/models/test_runtime_status_models.py tests/unit/services/test_runtime_status_service.py tests/unit/services/test_runtime_status_queue.py tests/unit/services/test_runtime_status_lifecycle.py tests/unit/services/test_runtime_status_degradation.py tests/unit/services/test_runtime_status_policy.py tests/integration/test_runtime_status_api.py tests/unit/docs/test_public_docs_contract.py
+python -m ruff format --check app/api/endpoints/runtime_status.py app/models/runtime_status.py app/services/runtime_status_service.py app/services/runtime_status_queue.py app/services/runtime_status_lifecycle.py app/services/runtime_status_degradation.py app/services/runtime_status_policy.py tests/unit/app/test_runtime_status_openapi_contract.py tests/unit/models/test_runtime_status_models.py tests/unit/services/test_runtime_status_service.py tests/unit/services/test_runtime_status_queue.py tests/unit/services/test_runtime_status_lifecycle.py tests/unit/services/test_runtime_status_degradation.py tests/unit/services/test_runtime_status_policy.py tests/integration/test_runtime_status_api.py tests/unit/docs/test_public_docs_contract.py
+python -m mypy --config-file mypy.ini app/api/endpoints/runtime_status.py app/models/runtime_status.py app/services/runtime_status_service.py app/services/runtime_status_queue.py app/services/runtime_status_lifecycle.py app/services/runtime_status_degradation.py app/services/runtime_status_policy.py
 ```

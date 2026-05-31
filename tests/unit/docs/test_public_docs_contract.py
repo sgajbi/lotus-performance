@@ -90,6 +90,8 @@ def test_runtime_status_docs_reflect_certified_operator_contract():
     assert "Downstream Consumers" in certification
     assert "Test Pyramid Assessment" in certification
     assert "No duplicate lotus-performance runtime-status endpoint" in certification
+    assert "app.services.runtime_status_lifecycle" in certification
+    assert "app.services.runtime_status_queue" in certification
 
 
 def test_runtime_work_items_docs_reflect_certified_operator_contract():
