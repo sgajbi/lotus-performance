@@ -32,17 +32,17 @@ from app.services.contribution_methodology import (
     _is_average_weight_shadow_cutover_candidate,
     _normalize_reset_aware_average_weight_mode,
 )
+from app.services.contribution_returns import (
+    _calculate_position_total_return_pct,
+    _calculate_reset_aware_period_portfolio_return,
+    build_position_contributions,
+)
 from app.services.contribution_series import (
     _build_daily_contribution_series,
     _build_hierarchy_from_adjusted_position_series,
     _build_position_contribution_series,
     _build_residual_adjusted_daily_contribution_series,
     _build_residual_adjusted_position_timeseries,
-)
-from app.services.contribution_service import (
-    _calculate_position_total_return_pct,
-    _calculate_reset_aware_period_portfolio_return,
-    build_position_contributions,
 )
 from app.services.contribution_smoothing import _count_carino_invalid_domain_days
 
@@ -91,7 +91,7 @@ def test_contribution_reset_helpers_cover_empty_and_zero_paths(mocker):
     assert diagnostics.nip_days == 0
     assert diagnostics.reset_days == 0
 
-    mocker.patch("app.services.contribution_service.run_engine_for_valuation_points", return_value=pd.DataFrame())
+    mocker.patch("app.services.contribution_returns.run_engine_for_valuation_points", return_value=pd.DataFrame())
     position_data = request.positions_data[0]
     assert (
         _calculate_position_total_return_pct(
@@ -397,7 +397,7 @@ def test_build_position_contributions_sorts_and_truncates_top_n(mocker):
             "positions_data": [{"position_id": "A", "valuation_points": []}],
         }
     )
-    mocker.patch("app.services.contribution_service.run_engine_for_valuation_points", return_value=pd.DataFrame())
+    mocker.patch("app.services.contribution_returns.run_engine_for_valuation_points", return_value=pd.DataFrame())
 
     contributions = build_position_contributions(
         totals_df=pd.DataFrame(
