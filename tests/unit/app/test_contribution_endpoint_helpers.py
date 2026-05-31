@@ -39,6 +39,7 @@ from app.services.contribution_returns import (
     _calculate_position_total_return_pct,
     _calculate_reset_aware_period_portfolio_return,
     build_position_contributions,
+    build_residual_adjusted_position_totals,
 )
 from app.services.contribution_series import (
     _build_daily_contribution_series,
@@ -502,6 +503,38 @@ def test_build_position_contributions_sorts_and_truncates_top_n(mocker):
     assert len(contributions) == 1
     assert contributions[0].position_id == "B"
     assert contributions[0].total_return == 0.0
+
+
+def test_build_residual_adjusted_position_totals_allocates_carino_residual_by_selected_weight():
+    period_slice_df = pd.DataFrame(
+        {
+            "position_id": ["A", "B"],
+            "smoothed_contribution": [0.01, 0.02],
+            "smoothed_local_contribution": [0.008, 0.018],
+        }
+    )
+    average_weight_df = pd.DataFrame(
+        {
+            "position_id": ["A", "B"],
+            "average_weight": [0.25, 0.75],
+            "reset_aware_average_weight_shadow": [0.50, 0.50],
+        }
+    )
+
+    totals_result = build_residual_adjusted_position_totals(
+        period_slice_df=period_slice_df,
+        average_weight_df=average_weight_df,
+        total_portfolio_return=0.04,
+        smoothing_method="CARINO",
+        average_weight_columns=["average_weight", "reset_aware_average_weight_shadow"],
+        residual_allocation_weight_column="selected_average_weight",
+        selected_average_weight_source_column="reset_aware_average_weight_shadow",
+    )
+
+    assert totals_result.residual_allocation_applied
+    assert totals_result.totals_df["selected_average_weight"].tolist() == [0.50, 0.50]
+    assert totals_result.totals_df["total_contribution"].tolist() == pytest.approx([0.015, 0.025])
+    assert totals_result.totals_df["fx_contribution"].tolist() == pytest.approx([0.007, 0.007])
 
 
 def test_residual_adjusted_position_timeseries_handles_missing_targets_and_missing_weight_signal():

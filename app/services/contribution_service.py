@@ -29,7 +29,6 @@ from app.services.contribution_evidence import (
 from app.services.contribution_methodology import (
     RESET_AWARE_AVERAGE_WEIGHT_MODE_CANDIDATE_PERIODS,
     RESET_AWARE_AVERAGE_WEIGHT_MODE_OFF,
-    _as_numeric,
     _assess_average_weight_shadow_cutover,
     _calculate_average_weight_sum_residual_bp,
     _calculate_average_weight_sum_residual_bp_from_ratio_series,
@@ -44,6 +43,7 @@ from app.services.contribution_periods import (
 from app.services.contribution_returns import (
     _calculate_reset_aware_period_portfolio_return,
     build_position_contributions,
+    build_residual_adjusted_position_totals,
 )
 from app.services.contribution_series import (
     _build_hierarchy_from_adjusted_position_series,
@@ -154,33 +154,16 @@ def calculate_contribution(
                     period_slice_df,
                     portfolio_period_slice_df,
                 )
-                position_totals = (
-                    period_slice_df.groupby("position_id")
-                    .agg(
-                        total_contribution=("smoothed_contribution", "sum"),
-                        local_contribution=("smoothed_local_contribution", "sum"),
-                    )
-                    .reset_index()
-                    .merge(
-                        average_weight_shadow_df[["position_id", "average_weight"]],
-                        on="position_id",
-                        how="left",
-                    )
-                )
-                sum_of_contributions = _as_numeric(position_totals["total_contribution"].sum())
-                residual = total_portfolio_return - sum_of_contributions
-                total_avg_weight = _as_numeric(position_totals["average_weight"].sum())
-                residual_allocation_applied = False
-                if total_avg_weight > 0 and request.smoothing.method == "CARINO":
-                    residual_allocation_applied = abs(residual) > 1e-12
-                    position_totals["total_contribution"] += residual * (
-                        position_totals["average_weight"] / total_avg_weight
-                    )
-                position_totals["fx_contribution"] = (
-                    position_totals["total_contribution"] - position_totals["local_contribution"]
+                position_totals_result = build_residual_adjusted_position_totals(
+                    period_slice_df=period_slice_df,
+                    average_weight_df=average_weight_shadow_df,
+                    total_portfolio_return=total_portfolio_return,
+                    smoothing_method=request.smoothing.method,
+                    average_weight_columns=["average_weight"],
+                    residual_allocation_weight_column="average_weight",
                 )
                 position_contributions = build_position_contributions(
-                    totals_df=position_totals,
+                    totals_df=position_totals_result.totals_df,
                     request=request,
                     period_start_date=period.start_date,
                     period_end_date=period.end_date,
@@ -218,7 +201,7 @@ def calculate_contribution(
                     smoothing_method=request.smoothing.method,
                     linked_return=total_portfolio_return,
                     final_contribution=period_total_contribution / 100,
-                    residual_allocation_applied=residual_allocation_applied,
+                    residual_allocation_applied=position_totals_result.residual_allocation_applied,
                     residual_allocation_basis="average_weight",
                 )
                 period_timeseries_total_delta_periods = 0
@@ -327,39 +310,24 @@ def calculate_contribution(
                     "reset_aware_average_weight_shadow" if use_reset_aware_average_weight else "average_weight"
                 )
 
-                totals = (
-                    period_slice_df.groupby("position_id")
-                    .agg(
-                        total_contribution=("smoothed_contribution", "sum"),
-                        local_contribution=("smoothed_local_contribution", "sum"),
-                    )
-                    .reset_index()
-                ).merge(
-                    average_weight_shadow_df[["position_id", "average_weight", "reset_aware_average_weight_shadow"]],
-                    on="position_id",
-                    how="left",
-                )
-                totals["selected_average_weight"] = totals[selected_average_weight_column]
-
                 total_portfolio_return = _calculate_reset_aware_period_portfolio_return(
                     request,
                     period.start_date,
                     period.end_date,
                     period.name,
                 )
-                sum_of_contributions = _as_numeric(totals["total_contribution"].sum())
-                residual = total_portfolio_return - sum_of_contributions
-                total_avg_weight = _as_numeric(totals["selected_average_weight"].sum())
-
-                residual_allocation_applied = False
-                if total_avg_weight > 0 and request.smoothing.method == "CARINO":
-                    residual_allocation_applied = abs(residual) > 1e-12
-                    totals["total_contribution"] += residual * (totals["selected_average_weight"] / total_avg_weight)
-
-                totals["fx_contribution"] = totals["total_contribution"] - totals["local_contribution"]
+                position_totals_result = build_residual_adjusted_position_totals(
+                    period_slice_df=period_slice_df,
+                    average_weight_df=average_weight_shadow_df,
+                    total_portfolio_return=total_portfolio_return,
+                    smoothing_method=request.smoothing.method,
+                    average_weight_columns=["average_weight", "reset_aware_average_weight_shadow"],
+                    residual_allocation_weight_column="selected_average_weight",
+                    selected_average_weight_source_column=selected_average_weight_column,
+                )
 
                 position_contributions = build_position_contributions(
-                    totals_df=totals,
+                    totals_df=position_totals_result.totals_df,
                     request=request,
                     period_start_date=period.start_date,
                     period_end_date=period.end_date,
@@ -392,7 +360,7 @@ def calculate_contribution(
                     smoothing_method=request.smoothing.method,
                     linked_return=total_portfolio_return,
                     final_contribution=period_total_contribution / 100,
-                    residual_allocation_applied=residual_allocation_applied,
+                    residual_allocation_applied=position_totals_result.residual_allocation_applied,
                     residual_allocation_basis=selected_average_weight_column,
                 )
                 if daily_series is not None:

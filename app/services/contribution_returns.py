@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 import pandas as pd
@@ -10,6 +11,12 @@ from app.services.contribution_methodology import _as_numeric
 from engine.config import EngineConfig, PrecisionMode
 from engine.runtime import run_engine_for_valuation_points
 from engine.schema import PortfolioColumns
+
+
+@dataclass(frozen=True)
+class PositionContributionTotals:
+    totals_df: pd.DataFrame
+    residual_allocation_applied: bool
 
 
 def _calculate_reset_aware_period_portfolio_return(
@@ -97,6 +104,51 @@ def _calculate_position_total_return_pct(
         return 0.0
 
     return _as_numeric(period_results_df[PortfolioColumns.FINAL_CUM_ROR.value].iloc[-1])
+
+
+def build_residual_adjusted_position_totals(
+    *,
+    period_slice_df: pd.DataFrame,
+    average_weight_df: pd.DataFrame,
+    total_portfolio_return: Any,
+    smoothing_method: str,
+    average_weight_columns: list[str],
+    residual_allocation_weight_column: str,
+    selected_average_weight_source_column: str | None = None,
+) -> PositionContributionTotals:
+    """Builds residual-adjusted contribution totals before response DTO mapping."""
+    position_totals = (
+        period_slice_df.groupby("position_id")
+        .agg(
+            total_contribution=("smoothed_contribution", "sum"),
+            local_contribution=("smoothed_local_contribution", "sum"),
+        )
+        .reset_index()
+        .merge(
+            average_weight_df[["position_id", *average_weight_columns]],
+            on="position_id",
+            how="left",
+        )
+    )
+    if selected_average_weight_source_column is not None:
+        position_totals[residual_allocation_weight_column] = position_totals[selected_average_weight_source_column]
+
+    sum_of_contributions = _as_numeric(position_totals["total_contribution"].sum())
+    residual = total_portfolio_return - sum_of_contributions
+    total_average_weight = _as_numeric(position_totals[residual_allocation_weight_column].sum())
+
+    residual_allocation_applied = False
+    if total_average_weight > 0 and smoothing_method == "CARINO":
+        residual_allocation_applied = abs(residual) > 1e-12
+        position_totals["total_contribution"] += residual * (
+            position_totals[residual_allocation_weight_column] / total_average_weight
+        )
+
+    position_totals["fx_contribution"] = position_totals["total_contribution"] - position_totals["local_contribution"]
+    return PositionContributionTotals(
+        totals_df=position_totals,
+        residual_allocation_applied=residual_allocation_applied,
+    )
 
 
 def build_position_contributions(
