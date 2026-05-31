@@ -505,14 +505,11 @@ def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
     latest = snapshot.entries[0]
     latest_age_seconds = _age_seconds_since(latest.generated_at_utc)
     degradation_details: list[RuntimeDegradationDetail] = []
-    if latest.status != "passed":
-        degradation_details.append(
-            RuntimeDegradationDetail(
-                reason="recovery_drill_latest_not_passed",
-                observed_value=_as_decimal_number(0),
-                threshold_value=_as_decimal_number(0),
-            )
-        )
+    _append_lifecycle_state_degradation_detail(
+        degradation_details,
+        is_healthy=latest.status == "passed",
+        reason="recovery_drill_latest_not_passed",
+    )
     _append_latest_history_age_degradation_detail(
         degradation_details,
         reason="recovery_drill_age_exceeded",
@@ -689,14 +686,11 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
     latest = snapshot.entries[0]
     latest_age_seconds = _age_seconds_since(latest.generated_at_utc)
     degradation_details: list[RuntimeDegradationDetail] = []
-    if latest.cleanup_mode != "apply":
-        degradation_details.append(
-            RuntimeDegradationDetail(
-                reason="runtime_retention_latest_not_applied",
-                observed_value=_as_decimal_number(0),
-                threshold_value=_as_decimal_number(0),
-            )
-        )
+    _append_lifecycle_state_degradation_detail(
+        degradation_details,
+        is_healthy=latest.cleanup_mode == "apply",
+        reason="runtime_retention_latest_not_applied",
+    )
     _append_latest_history_age_degradation_detail(
         degradation_details,
         reason="runtime_retention_age_exceeded",
@@ -919,6 +913,23 @@ def _append_latest_history_age_degradation_detail(
         reason=reason,
         observed_value=latest_age_seconds,
         threshold_value=threshold,
+    )
+
+
+def _append_lifecycle_state_degradation_detail(
+    details: list[RuntimeDegradationDetail],
+    *,
+    is_healthy: bool,
+    reason: str,
+) -> None:
+    if is_healthy:
+        return
+    details.append(
+        RuntimeDegradationDetail(
+            reason=reason,
+            observed_value=_as_decimal_number(0),
+            threshold_value=_as_decimal_number(0),
+        )
     )
 
 

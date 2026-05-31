@@ -2755,3 +2755,23 @@ def test_runtime_status_latest_history_age_degradation_helper_uses_governed_thre
     assert details[0].reason == "runtime_retention_age_exceeded"
     assert details[0].observed_value == runtime_status_service._as_decimal_number(60.0)
     assert details[0].threshold_value == runtime_status_service._as_decimal_number(60.0)
+
+
+def test_runtime_status_lifecycle_state_degradation_helper_uses_zero_threshold_detail():
+    details: list[runtime_status_service.RuntimeDegradationDetail] = []
+
+    runtime_status_service._append_lifecycle_state_degradation_detail(
+        details,
+        is_healthy=True,
+        reason="runtime_retention_latest_not_applied",
+    )
+    runtime_status_service._append_lifecycle_state_degradation_detail(
+        details,
+        is_healthy=False,
+        reason="runtime_retention_latest_not_applied",
+    )
+
+    assert len(details) == 1
+    assert details[0].reason == "runtime_retention_latest_not_applied"
+    assert details[0].observed_value == runtime_status_service._as_decimal_number(0)
+    assert details[0].threshold_value == runtime_status_service._as_decimal_number(0)
