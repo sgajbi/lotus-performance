@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -655,7 +656,7 @@ def test_parse_reclaimed_event_payload_rejects_remaining_invalid_shapes(payload)
     )
 
 
-def test_reclaim_stale_lock_handles_invalid_json_and_failed_reclaim_write(monkeypatch, tmp_path):
+def test_reclaim_stale_lock_handles_invalid_json_and_failed_reclaim_write(monkeypatch, tmp_path, caplog):
     lock_path = tmp_path / "bad.lock"
     lock_path.write_text("{bad", encoding="utf-8")
     assert (
@@ -685,6 +686,7 @@ def test_reclaim_stale_lock_handles_invalid_json_and_failed_reclaim_write(monkey
         "app.services.operator_action_lease_service._write_latest_reclaimed_lease",
         lambda **kwargs: (_ for _ in ()).throw(OSError("boom")),
     )
+    caplog.set_level(logging.WARNING, logger="app.services.operator_action_lease_service")
     assert (
         _reclaim_stale_lock(
             lock_path=valid_lock,
@@ -694,3 +696,4 @@ def test_reclaim_stale_lock_handles_invalid_json_and_failed_reclaim_write(monkey
         )
         is True
     )
+    assert "operator_action_reclaim_evidence_write_failed" in caplog.text

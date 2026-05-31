@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from contextlib import contextmanager
@@ -17,6 +18,8 @@ OPERATOR_ACTION_LEASE_DIRECTORY_UNREADABLE_REASON = "operator_action_lease_direc
 OPERATOR_ACTION_LEASE_INVALID_REASON = "operator_action_lease_invalid"
 OPERATOR_ACTION_RECLAIM_EVENT_INVALID_REASON = "operator_action_reclaim_event_invalid"
 OPERATOR_ACTION_RECLAIM_HISTORY_INVALID_REASON = "operator_action_reclaim_history_invalid"
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -472,5 +475,9 @@ def _reclaim_stale_lock(
             ),
         )
     except OSError:
-        pass
+        logger.warning(
+            "operator_action_reclaim_evidence_write_failed",
+            extra={"action_key": action_key, "action_name": action_name},
+            exc_info=True,
+        )
     return True
