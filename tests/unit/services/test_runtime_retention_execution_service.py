@@ -72,10 +72,11 @@ def test_runtime_retention_execution_prunes_stale_history_by_limit_and_age(tmp_p
     monkeypatch.setattr("app.services.runtime_retention_execution_service.datetime", _FrozenDateTime)
     stale_payload = {"generated_at_utc": "2026-01-01T00:00:00Z"}
     for name in ("2026-03-15t00-00-00z.json", "2026-03-14t00-00-00z.json", "2026-03-13t00-00-00z.json"):
+        payload_evidence_file_name = "../outside.json" if name == "2026-03-15t00-00-00z.json" else name
         (output_dir / name).write_text(
             json.dumps(
                 {
-                    "evidence_file_name": name,
+                    "evidence_file_name": payload_evidence_file_name,
                     "generated_at_utc": "2026-03-15T00:00:00Z",
                     "operator_id": "ops",
                     "tenant_id": None,
@@ -125,6 +126,7 @@ def test_runtime_retention_execution_prunes_stale_history_by_limit_and_age(tmp_p
 
     manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["retained_file_names"] == ["2026-03-16t00-00-00z.json", "2026-03-15t00-00-00z.json"]
+    assert manifest["entries"][1]["evidence_file_name"] == "2026-03-15t00-00-00z.json"
     assert not (output_dir / "2026-03-14t00-00-00z.json").exists()
     assert not (output_dir / "2026-01-01t00-00-00z.json").exists()
 

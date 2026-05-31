@@ -181,7 +181,7 @@ def _prune_old_evidence(*, output_dir: Path, retention_max_age_days: int) -> Non
 def _load_manifest_entry(path: Path) -> RuntimeRetentionManifestEntry:
     payload = json.loads(path.read_text(encoding="utf-8"))
     return RuntimeRetentionManifestEntry(
-        evidence_file_name=str(payload["evidence_file_name"]),
+        evidence_file_name=path.name,
         generated_at_utc=str(payload["generated_at_utc"]),
         operator_id=str(payload["operator_id"]),
         tenant_id=None if payload.get("tenant_id") is None else str(payload["tenant_id"]),
