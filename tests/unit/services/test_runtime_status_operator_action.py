@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from app.services import runtime_status_operator_action
+from app.services.operator_action_lease_service import ReclaimedOperatorActionLeaseEvent
 from app.services.runtime_status_domain import OperatorActionStatus, RecentOperatorActionReclaim
 
 
@@ -48,6 +49,42 @@ def test_unavailable_operator_action_status_clears_operator_evidence():
     assert status.latest_reclaimed_run_operator_id is None
     assert status.reclaimed_run_count == 0
     assert status.recent_reclaimed_runs == ()
+
+
+def test_latest_reclaimed_run_status_fields_clear_absent_reclaim():
+    fields = runtime_status_operator_action.latest_reclaimed_run_status_fields(None)
+
+    assert fields["latest_reclaimed_run_operator_id"] is None
+    assert fields["latest_reclaimed_run_tenant_id"] is None
+    assert fields["latest_reclaimed_run_governed_target"] is None
+    assert fields["latest_reclaimed_run_acquired_at_utc"] is None
+    assert fields["latest_reclaimed_run_reclaimed_at_utc"] is None
+    assert fields["latest_reclaimed_run_age_seconds"] is None
+    assert fields["reclaimed_run_count"] == 0
+
+
+def test_latest_reclaimed_run_status_fields_project_reclaim_evidence():
+    fields = runtime_status_operator_action.latest_reclaimed_run_status_fields(
+        ReclaimedOperatorActionLeaseEvent(
+            action_key="runtime-retention-ops-user",
+            action_name="runtime_retention_cleanup",
+            operator_id="ops-user",
+            tenant_id="tenant-a",
+            governed_target="runtime-retention",
+            acquired_at_utc="2026-05-31T09:00:00Z",
+            reclaimed_at_utc="2026-05-31T09:30:00Z",
+            stale_after_seconds=900.0,
+            reclaim_count=3,
+        )
+    )
+
+    assert fields["latest_reclaimed_run_operator_id"] == "ops-user"
+    assert fields["latest_reclaimed_run_tenant_id"] == "tenant-a"
+    assert fields["latest_reclaimed_run_governed_target"] == "runtime-retention"
+    assert fields["latest_reclaimed_run_acquired_at_utc"] == "2026-05-31T09:00:00Z"
+    assert fields["latest_reclaimed_run_reclaimed_at_utc"] == "2026-05-31T09:30:00Z"
+    assert fields["latest_reclaimed_run_age_seconds"] is not None
+    assert fields["reclaimed_run_count"] == 3
 
 
 def test_runtime_status_operator_action_status_normalizes_naive_timestamps(mocker):

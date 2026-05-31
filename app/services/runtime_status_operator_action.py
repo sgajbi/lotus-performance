@@ -3,7 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TypedDict
 
-from app.services.operator_action_lease_service import OperatorActionLeaseSnapshot, build_operator_action_lease_snapshot
+from app.services.operator_action_lease_service import (
+    OperatorActionLeaseSnapshot,
+    ReclaimedOperatorActionLeaseEvent,
+    build_operator_action_lease_snapshot,
+)
 from app.services.runtime_status_domain import OperatorActionStatus, RecentOperatorActionReclaim
 from app.services.runtime_status_time import age_seconds_since
 
@@ -25,6 +29,16 @@ class OperatorActionStatusFields(TypedDict):
     latest_reclaimed_run_age_seconds: float | None
     reclaimed_run_count: int
     recent_reclaimed_runs: tuple[RecentOperatorActionReclaim, ...]
+
+
+class LatestReclaimedRunStatusFields(TypedDict):
+    latest_reclaimed_run_operator_id: str | None
+    latest_reclaimed_run_tenant_id: str | None
+    latest_reclaimed_run_governed_target: str | None
+    latest_reclaimed_run_acquired_at_utc: str | None
+    latest_reclaimed_run_reclaimed_at_utc: str | None
+    latest_reclaimed_run_age_seconds: float | None
+    reclaimed_run_count: int
 
 
 def operator_action_status_fields(active_run_status: OperatorActionStatus) -> OperatorActionStatusFields:
@@ -60,9 +74,7 @@ def build_operator_action_status(*, artifact_directory: Path, action_name: str) 
         return _unavailable_operator_action_status(reason=snapshot.reason)
     latest_reclaimed_run = snapshot.latest_reclaimed_lease
     recent_reclaimed_runs = build_recent_operator_action_reclaims(snapshot=snapshot)
-    latest_reclaimed_run_age_seconds = None
-    if latest_reclaimed_run is not None:
-        latest_reclaimed_run_age_seconds = age_seconds_since(latest_reclaimed_run.reclaimed_at_utc)
+    latest_reclaimed_fields = latest_reclaimed_run_status_fields(latest_reclaimed_run)
     if not snapshot.active_leases:
         return OperatorActionStatus(
             status="available",
@@ -73,21 +85,7 @@ def build_operator_action_status(*, artifact_directory: Path, action_name: str) 
             oldest_active_run_governed_target=None,
             oldest_active_run_acquired_at_utc=None,
             oldest_active_run_age_seconds=None,
-            latest_reclaimed_run_operator_id=(
-                None if latest_reclaimed_run is None else latest_reclaimed_run.operator_id
-            ),
-            latest_reclaimed_run_tenant_id=None if latest_reclaimed_run is None else latest_reclaimed_run.tenant_id,
-            latest_reclaimed_run_governed_target=(
-                None if latest_reclaimed_run is None else latest_reclaimed_run.governed_target
-            ),
-            latest_reclaimed_run_acquired_at_utc=(
-                None if latest_reclaimed_run is None else latest_reclaimed_run.acquired_at_utc
-            ),
-            latest_reclaimed_run_reclaimed_at_utc=(
-                None if latest_reclaimed_run is None else latest_reclaimed_run.reclaimed_at_utc
-            ),
-            latest_reclaimed_run_age_seconds=latest_reclaimed_run_age_seconds,
-            reclaimed_run_count=0 if latest_reclaimed_run is None else latest_reclaimed_run.reclaim_count,
+            **latest_reclaimed_fields,
             recent_reclaimed_runs=recent_reclaimed_runs,
         )
     oldest = snapshot.active_leases[0]
@@ -100,19 +98,7 @@ def build_operator_action_status(*, artifact_directory: Path, action_name: str) 
         oldest_active_run_governed_target=oldest.governed_target,
         oldest_active_run_acquired_at_utc=oldest.acquired_at_utc,
         oldest_active_run_age_seconds=age_seconds_since(oldest.acquired_at_utc),
-        latest_reclaimed_run_operator_id=None if latest_reclaimed_run is None else latest_reclaimed_run.operator_id,
-        latest_reclaimed_run_tenant_id=None if latest_reclaimed_run is None else latest_reclaimed_run.tenant_id,
-        latest_reclaimed_run_governed_target=(
-            None if latest_reclaimed_run is None else latest_reclaimed_run.governed_target
-        ),
-        latest_reclaimed_run_acquired_at_utc=(
-            None if latest_reclaimed_run is None else latest_reclaimed_run.acquired_at_utc
-        ),
-        latest_reclaimed_run_reclaimed_at_utc=(
-            None if latest_reclaimed_run is None else latest_reclaimed_run.reclaimed_at_utc
-        ),
-        latest_reclaimed_run_age_seconds=latest_reclaimed_run_age_seconds,
-        reclaimed_run_count=0 if latest_reclaimed_run is None else latest_reclaimed_run.reclaim_count,
+        **latest_reclaimed_fields,
         recent_reclaimed_runs=recent_reclaimed_runs,
     )
 
@@ -155,3 +141,27 @@ def build_recent_operator_action_reclaims(
         )
         for event in events[:5]
     )
+
+
+def latest_reclaimed_run_status_fields(
+    latest_reclaimed_run: ReclaimedOperatorActionLeaseEvent | None,
+) -> LatestReclaimedRunStatusFields:
+    if latest_reclaimed_run is None:
+        return {
+            "latest_reclaimed_run_operator_id": None,
+            "latest_reclaimed_run_tenant_id": None,
+            "latest_reclaimed_run_governed_target": None,
+            "latest_reclaimed_run_acquired_at_utc": None,
+            "latest_reclaimed_run_reclaimed_at_utc": None,
+            "latest_reclaimed_run_age_seconds": None,
+            "reclaimed_run_count": 0,
+        }
+    return {
+        "latest_reclaimed_run_operator_id": latest_reclaimed_run.operator_id,
+        "latest_reclaimed_run_tenant_id": latest_reclaimed_run.tenant_id,
+        "latest_reclaimed_run_governed_target": latest_reclaimed_run.governed_target,
+        "latest_reclaimed_run_acquired_at_utc": latest_reclaimed_run.acquired_at_utc,
+        "latest_reclaimed_run_reclaimed_at_utc": latest_reclaimed_run.reclaimed_at_utc,
+        "latest_reclaimed_run_age_seconds": age_seconds_since(latest_reclaimed_run.reclaimed_at_utc),
+        "reclaimed_run_count": latest_reclaimed_run.reclaim_count,
+    }
