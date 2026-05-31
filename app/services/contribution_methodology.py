@@ -5,7 +5,7 @@ from typing import Any
 
 import pandas as pd
 
-from app.models.contribution_responses import PositionContribution
+from app.models.contribution_responses import AverageWeightMethodologyStatus, PositionContribution
 from engine.schema import PortfolioColumns
 
 RESET_AWARE_AVERAGE_WEIGHT_MODE_OFF = "OFF"
@@ -198,6 +198,29 @@ def _classify_average_weight_methodology_status(
     if blocker_reason_codes:
         return "BLOCKED"
     return "UNDER_REVIEW"
+
+
+def _build_average_weight_methodology_status(
+    *,
+    max_shadow_delta_bp: int,
+    is_cutover_candidate: bool,
+    is_promoted: bool,
+    blocker_reason_codes: set[str],
+) -> AverageWeightMethodologyStatus:
+    """Maps reset-aware average-weight rollout state into the response DTO."""
+    return AverageWeightMethodologyStatus(
+        status=_classify_average_weight_methodology_status(
+            max_shadow_delta_bp=max_shadow_delta_bp,
+            is_cutover_candidate=is_cutover_candidate,
+            is_promoted=is_promoted,
+            blocker_reason_codes=blocker_reason_codes,
+        ),
+        max_shadow_delta_bp=max_shadow_delta_bp,
+        is_material_shadow=max_shadow_delta_bp >= 500,
+        is_cutover_candidate=is_cutover_candidate,
+        is_promoted=is_promoted,
+        blocker_reason_codes=sorted(blocker_reason_codes),
+    )
 
 
 def _is_average_weight_shadow_cutover_candidate(

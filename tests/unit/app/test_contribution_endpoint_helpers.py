@@ -24,6 +24,7 @@ from app.services.contribution_diagnostics import (
 )
 from app.services.contribution_methodology import (
     _assess_average_weight_shadow_cutover,
+    _build_average_weight_methodology_status,
     _calculate_average_weight_sum_residual_bp,
     _calculate_average_weight_sum_residual_bp_from_ratio_series,
     _calculate_promotion_ready_rate_bp,
@@ -706,6 +707,15 @@ def test_average_weight_shadow_helper_classifies_materiality_and_cutover_readine
         )
         == "NO_MATERIAL_SHADOW"
     )
+    response_status = _build_average_weight_methodology_status(
+        max_shadow_delta_bp=600,
+        is_cutover_candidate=False,
+        is_promoted=False,
+        blocker_reason_codes={"timeseries_reconciliation", "flow_balance"},
+    )
+    assert response_status.status == "BLOCKED"
+    assert response_status.is_material_shadow
+    assert response_status.blocker_reason_codes == ["flow_balance", "timeseries_reconciliation"]
 
 
 def test_build_hierarchy_from_adjusted_position_series_handles_empty_and_unclassified_paths():
