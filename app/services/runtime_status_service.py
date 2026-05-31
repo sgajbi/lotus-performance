@@ -37,9 +37,6 @@ from app.services.runtime_status_degradation import (
     compute_queue_degradation_details as _compute_queue_degradation_details,
 )
 from app.services.runtime_status_degradation import (
-    lifecycle_status_from_degradation_details as _lifecycle_status_from_degradation_details,
-)
-from app.services.runtime_status_degradation import (
     lineage_queue_degradation_details as _lineage_queue_degradation_details,
 )
 from app.services.runtime_status_domain import (
@@ -59,13 +56,15 @@ from app.services.runtime_status_lifecycle import (
     recovery_drill_status_from_latest as _recovery_drill_status_from_latest,
 )
 from app.services.runtime_status_lifecycle import (
+    runtime_retention_status_from_latest as _runtime_retention_status_from_latest,
+)
+from app.services.runtime_status_lifecycle import (
     unavailable_recovery_drill_status as _build_unavailable_recovery_drill_status,
 )
 from app.services.runtime_status_lifecycle import (
     unavailable_runtime_retention_status as _build_unavailable_runtime_retention_status,
 )
 from app.services.runtime_status_operator_action import build_operator_action_status as _build_operator_action_status
-from app.services.runtime_status_operator_action import operator_action_status_fields as _operator_action_status_fields
 from app.services.runtime_status_policy import (
     build_compute_queue_policy,
     build_lineage_queue_policy,
@@ -86,9 +85,6 @@ from app.services.runtime_status_queue import safe_lineage_recent_recoveries as 
 from app.services.runtime_status_queue import unavailable_runtime_queue_status as _unavailable_runtime_queue_status
 from app.services.runtime_status_retention_preview import (
     build_runtime_retention_preview as _build_runtime_retention_preview,
-)
-from app.services.runtime_status_retention_preview import (
-    runtime_retention_preview_fields as _runtime_retention_preview_fields,
 )
 from app.services.runtime_status_time import age_seconds_since as _age_seconds_since
 
@@ -335,33 +331,12 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
         reclaim_threshold=reclaim_threshold,
         reclaim_reason="runtime_retention_reclaim_pressure_exceeded",
     )
-    status, reason, reasons = _lifecycle_status_from_degradation_details(tuple(degradation_details))
-    preview_fields = _runtime_retention_preview_fields(
+    return _runtime_retention_status_from_latest(
+        latest=latest,
+        latest_age_seconds=latest_age_seconds,
+        active_run_status=active_run_status,
         preview_status=preview_status,
         preview_reason=preview_reason,
         preview_summary=preview_summary,
-    )
-    return RuntimeRetentionStatus(
-        status=status,
-        reason=reason,
-        **_operator_action_status_fields(active_run_status),
-        preview_status=preview_fields.status,
-        preview_reason=preview_fields.reason,
-        current_cutoff_utc=preview_fields.cutoff_utc,
-        current_retention_days=preview_fields.retention_days,
-        current_prunable_execution_count=preview_fields.prunable_execution_count,
-        current_prunable_compute_job_count=preview_fields.prunable_compute_job_count,
-        current_prunable_async_result_count=preview_fields.prunable_async_result_count,
-        current_prunable_lineage_record_count=preview_fields.prunable_lineage_record_count,
-        current_prunable_lineage_artifact_count=preview_fields.prunable_lineage_artifact_count,
-        latest_generated_at_utc=latest.generated_at_utc,
-        latest_status=latest.status,
-        latest_operator_id=latest.operator_id,
-        latest_trigger_mode=latest.trigger_mode,
-        latest_job_id=latest.job_id,
-        latest_cleanup_mode=latest.cleanup_mode,
-        latest_retention_days=latest.retention_days,
-        latest_age_seconds=latest_age_seconds,
-        degradation_reasons=reasons,
         degradation_details=tuple(degradation_details),
     )

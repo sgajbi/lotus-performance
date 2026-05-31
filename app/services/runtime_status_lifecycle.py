@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.services.recovery_drill_history_service import RecoveryDrillHistoryEntry
+from app.services.runtime_retention_history_service import RuntimeRetentionHistoryEntry
 from app.services.runtime_retention_service import RuntimeRetentionCleanupSummary
 from app.services.runtime_status_degradation import (
     lifecycle_status_from_degradation_details,
@@ -116,6 +117,48 @@ def unavailable_runtime_retention_status(
         latest_age_seconds=None,
         degradation_reasons=(),
         degradation_details=(),
+    )
+
+
+def runtime_retention_status_from_latest(
+    *,
+    latest: RuntimeRetentionHistoryEntry,
+    latest_age_seconds: float,
+    active_run_status: OperatorActionStatus,
+    preview_status: str,
+    preview_reason: str | None,
+    preview_summary: RuntimeRetentionCleanupSummary | None,
+    degradation_details: tuple[RuntimeDegradationDetail, ...],
+) -> RuntimeRetentionStatus:
+    status, reason, reasons = lifecycle_status_from_degradation_details(degradation_details)
+    preview_fields = runtime_retention_preview_fields(
+        preview_status=preview_status,
+        preview_reason=preview_reason,
+        preview_summary=preview_summary,
+    )
+    return RuntimeRetentionStatus(
+        status=status,
+        reason=reason,
+        **operator_action_status_fields(active_run_status),
+        preview_status=preview_fields.status,
+        preview_reason=preview_fields.reason,
+        current_cutoff_utc=preview_fields.cutoff_utc,
+        current_retention_days=preview_fields.retention_days,
+        current_prunable_execution_count=preview_fields.prunable_execution_count,
+        current_prunable_compute_job_count=preview_fields.prunable_compute_job_count,
+        current_prunable_async_result_count=preview_fields.prunable_async_result_count,
+        current_prunable_lineage_record_count=preview_fields.prunable_lineage_record_count,
+        current_prunable_lineage_artifact_count=preview_fields.prunable_lineage_artifact_count,
+        latest_generated_at_utc=latest.generated_at_utc,
+        latest_status=latest.status,
+        latest_operator_id=latest.operator_id,
+        latest_trigger_mode=latest.trigger_mode,
+        latest_job_id=latest.job_id,
+        latest_cleanup_mode=latest.cleanup_mode,
+        latest_retention_days=latest.retention_days,
+        latest_age_seconds=latest_age_seconds,
+        degradation_reasons=reasons,
+        degradation_details=degradation_details,
     )
 
 

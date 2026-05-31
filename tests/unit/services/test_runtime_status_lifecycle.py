@@ -1,12 +1,14 @@
 from decimal import Decimal
 
 from app.services.recovery_drill_history_service import RecoveryDrillHistoryEntry
+from app.services.runtime_retention_history_service import RuntimeRetentionHistoryEntry
 from app.services.runtime_retention_service import RuntimeRetentionCleanupSummary
 from app.services.runtime_status_domain import OperatorActionStatus, RuntimeDegradationDetail
 from app.services.runtime_status_lifecycle import (
     missing_recovery_drill_status,
     missing_runtime_retention_status,
     recovery_drill_status_from_latest,
+    runtime_retention_status_from_latest,
     unavailable_recovery_drill_status,
     unavailable_runtime_retention_status,
 )
@@ -108,6 +110,66 @@ def test_missing_runtime_retention_status_degrades_when_threshold_present():
     assert status.status == "degraded"
     assert status.reason == "runtime_retention_history_unavailable"
     assert status.degradation_reasons == ("runtime_retention_history_unavailable",)
+
+
+def test_runtime_retention_status_from_latest_preserves_preview_and_degradation():
+    latest = RuntimeRetentionHistoryEntry(
+        evidence_file_name="latest.json",
+        generated_at_utc="2026-05-31T00:00:00Z",
+        operator_id="ops-user",
+        trigger_mode="scheduled",
+        job_id="retention-nightly",
+        cleanup_mode="dry_run",
+        status="previewed",
+        retention_days=30,
+        prunable_execution_count=2,
+        prunable_compute_job_count=3,
+        prunable_async_result_count=4,
+        prunable_lineage_record_count=5,
+        prunable_lineage_artifact_count=6,
+    )
+    preview_summary = RuntimeRetentionCleanupSummary(
+        dry_run=True,
+        retention_days=45,
+        cutoff_utc="2026-04-16T00:00:00Z",
+        prunable_execution_count=7,
+        prunable_compute_job_count=8,
+        prunable_async_result_count=9,
+        prunable_lineage_record_count=10,
+        prunable_lineage_artifact_count=11,
+    )
+    degradation_detail = RuntimeDegradationDetail(
+        reason="runtime_retention_latest_not_applied",
+        observed_value=Decimal("0"),
+        threshold_value=Decimal("0"),
+    )
+
+    status = runtime_retention_status_from_latest(
+        latest=latest,
+        latest_age_seconds=240.0,
+        active_run_status=_operator_action_status(active_run_count=1),
+        preview_status="available",
+        preview_reason=None,
+        preview_summary=preview_summary,
+        degradation_details=(degradation_detail,),
+    )
+
+    assert status.status == "degraded"
+    assert status.reason == "runtime_retention_latest_not_applied"
+    assert status.preview_status == "available"
+    assert status.current_cutoff_utc == "2026-04-16T00:00:00Z"
+    assert status.current_retention_days == 45
+    assert status.current_prunable_execution_count == 7
+    assert status.latest_generated_at_utc == "2026-05-31T00:00:00Z"
+    assert status.latest_status == "previewed"
+    assert status.latest_trigger_mode == "scheduled"
+    assert status.latest_job_id == "retention-nightly"
+    assert status.latest_cleanup_mode == "dry_run"
+    assert status.latest_retention_days == 30
+    assert status.latest_age_seconds == 240.0
+    assert status.active_run_count == 1
+    assert status.degradation_reasons == ("runtime_retention_latest_not_applied",)
+    assert status.degradation_details == (degradation_detail,)
 
 
 def test_unavailable_runtime_retention_status_preserves_preview_and_action_context():
