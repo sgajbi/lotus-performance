@@ -49,8 +49,23 @@ def run_runtime_retention_cleanup(
     if not dry_run:
         _delete_prunable_items(cutoff=cutoff, prunable_items=prunable_items)
 
-    return RuntimeRetentionCleanupSummary(
+    return _build_cleanup_summary(
         retention_days=effective_retention_days,
+        cutoff=cutoff,
+        dry_run=dry_run,
+        prunable_items=prunable_items,
+    )
+
+
+def _build_cleanup_summary(
+    *,
+    retention_days: int,
+    cutoff: datetime,
+    dry_run: bool,
+    prunable_items: RuntimeRetentionPrunableItems,
+) -> RuntimeRetentionCleanupSummary:
+    return RuntimeRetentionCleanupSummary(
+        retention_days=retention_days,
         cutoff_utc=cutoff.isoformat().replace("+00:00", "Z"),
         dry_run=dry_run,
         prunable_execution_count=len(prunable_items.execution_ids),
