@@ -157,6 +157,19 @@ class RuntimeRetentionStatus:
 
 
 @dataclass(frozen=True)
+class RuntimeRetentionPreviewFields:
+    status: str
+    reason: str | None
+    cutoff_utc: str | None
+    retention_days: int | None
+    prunable_execution_count: int | None
+    prunable_compute_job_count: int | None
+    prunable_async_result_count: int | None
+    prunable_lineage_record_count: int | None
+    prunable_lineage_artifact_count: int | None
+
+
+@dataclass(frozen=True)
 class RuntimeRetentionDegradationPolicy:
     max_age_seconds: float
     active_run_age_seconds: float
@@ -620,6 +633,11 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
         reclaim_reason="runtime_retention_reclaim_pressure_exceeded",
     )
     reasons: tuple[str, ...] = tuple(detail.reason for detail in degradation_details)
+    preview_fields = _runtime_retention_preview_fields(
+        preview_status=preview_status,
+        preview_reason=preview_reason,
+        preview_summary=preview_summary,
+    )
     return RuntimeRetentionStatus(
         status="degraded" if reasons else "available",
         reason=reasons[0] if reasons else None,
@@ -639,23 +657,15 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
         latest_reclaimed_run_age_seconds=active_run_status.latest_reclaimed_run_age_seconds,
         reclaimed_run_count=active_run_status.reclaimed_run_count,
         recent_reclaimed_runs=active_run_status.recent_reclaimed_runs,
-        preview_status=preview_status,
-        preview_reason=preview_reason,
-        current_cutoff_utc=None if preview_summary is None else preview_summary.cutoff_utc,
-        current_retention_days=None if preview_summary is None else preview_summary.retention_days,
-        current_prunable_execution_count=None if preview_summary is None else preview_summary.prunable_execution_count,
-        current_prunable_compute_job_count=(
-            None if preview_summary is None else preview_summary.prunable_compute_job_count
-        ),
-        current_prunable_async_result_count=(
-            None if preview_summary is None else preview_summary.prunable_async_result_count
-        ),
-        current_prunable_lineage_record_count=(
-            None if preview_summary is None else preview_summary.prunable_lineage_record_count
-        ),
-        current_prunable_lineage_artifact_count=(
-            None if preview_summary is None else preview_summary.prunable_lineage_artifact_count
-        ),
+        preview_status=preview_fields.status,
+        preview_reason=preview_fields.reason,
+        current_cutoff_utc=preview_fields.cutoff_utc,
+        current_retention_days=preview_fields.retention_days,
+        current_prunable_execution_count=preview_fields.prunable_execution_count,
+        current_prunable_compute_job_count=preview_fields.prunable_compute_job_count,
+        current_prunable_async_result_count=preview_fields.prunable_async_result_count,
+        current_prunable_lineage_record_count=preview_fields.prunable_lineage_record_count,
+        current_prunable_lineage_artifact_count=preview_fields.prunable_lineage_artifact_count,
         latest_generated_at_utc=latest.generated_at_utc,
         latest_status=latest.status,
         latest_operator_id=latest.operator_id,
@@ -677,6 +687,11 @@ def _build_unavailable_runtime_retention_status(
     preview_reason: str | None,
     preview_summary,
 ) -> RuntimeRetentionStatus:
+    preview_fields = _runtime_retention_preview_fields(
+        preview_status=preview_status,
+        preview_reason=preview_reason,
+        preview_summary=preview_summary,
+    )
     return RuntimeRetentionStatus(
         status="unavailable",
         reason=reason,
@@ -696,23 +711,15 @@ def _build_unavailable_runtime_retention_status(
         latest_reclaimed_run_age_seconds=active_run_status.latest_reclaimed_run_age_seconds,
         reclaimed_run_count=active_run_status.reclaimed_run_count,
         recent_reclaimed_runs=active_run_status.recent_reclaimed_runs,
-        preview_status=preview_status,
-        preview_reason=preview_reason,
-        current_cutoff_utc=None if preview_summary is None else preview_summary.cutoff_utc,
-        current_retention_days=None if preview_summary is None else preview_summary.retention_days,
-        current_prunable_execution_count=None if preview_summary is None else preview_summary.prunable_execution_count,
-        current_prunable_compute_job_count=(
-            None if preview_summary is None else preview_summary.prunable_compute_job_count
-        ),
-        current_prunable_async_result_count=(
-            None if preview_summary is None else preview_summary.prunable_async_result_count
-        ),
-        current_prunable_lineage_record_count=(
-            None if preview_summary is None else preview_summary.prunable_lineage_record_count
-        ),
-        current_prunable_lineage_artifact_count=(
-            None if preview_summary is None else preview_summary.prunable_lineage_artifact_count
-        ),
+        preview_status=preview_fields.status,
+        preview_reason=preview_fields.reason,
+        current_cutoff_utc=preview_fields.cutoff_utc,
+        current_retention_days=preview_fields.retention_days,
+        current_prunable_execution_count=preview_fields.prunable_execution_count,
+        current_prunable_compute_job_count=preview_fields.prunable_compute_job_count,
+        current_prunable_async_result_count=preview_fields.prunable_async_result_count,
+        current_prunable_lineage_record_count=preview_fields.prunable_lineage_record_count,
+        current_prunable_lineage_artifact_count=preview_fields.prunable_lineage_artifact_count,
         latest_generated_at_utc=None,
         latest_status=None,
         latest_operator_id=None,
@@ -958,6 +965,11 @@ def _build_missing_runtime_retention_status(
         threshold=threshold,
         reason="runtime_retention_history_unavailable",
     )
+    preview_fields = _runtime_retention_preview_fields(
+        preview_status=preview_status,
+        preview_reason=preview_reason,
+        preview_summary=preview_summary,
+    )
     return RuntimeRetentionStatus(
         status="available" if not missing_history_reasons else "degraded",
         reason=None if not missing_history_reasons else missing_history_reasons[0],
@@ -977,23 +989,15 @@ def _build_missing_runtime_retention_status(
         latest_reclaimed_run_age_seconds=active_run_status.latest_reclaimed_run_age_seconds,
         reclaimed_run_count=active_run_status.reclaimed_run_count,
         recent_reclaimed_runs=active_run_status.recent_reclaimed_runs,
-        preview_status=preview_status,
-        preview_reason=preview_reason,
-        current_cutoff_utc=None if preview_summary is None else preview_summary.cutoff_utc,
-        current_retention_days=None if preview_summary is None else preview_summary.retention_days,
-        current_prunable_execution_count=None if preview_summary is None else preview_summary.prunable_execution_count,
-        current_prunable_compute_job_count=(
-            None if preview_summary is None else preview_summary.prunable_compute_job_count
-        ),
-        current_prunable_async_result_count=(
-            None if preview_summary is None else preview_summary.prunable_async_result_count
-        ),
-        current_prunable_lineage_record_count=(
-            None if preview_summary is None else preview_summary.prunable_lineage_record_count
-        ),
-        current_prunable_lineage_artifact_count=(
-            None if preview_summary is None else preview_summary.prunable_lineage_artifact_count
-        ),
+        preview_status=preview_fields.status,
+        preview_reason=preview_fields.reason,
+        current_cutoff_utc=preview_fields.cutoff_utc,
+        current_retention_days=preview_fields.retention_days,
+        current_prunable_execution_count=preview_fields.prunable_execution_count,
+        current_prunable_compute_job_count=preview_fields.prunable_compute_job_count,
+        current_prunable_async_result_count=preview_fields.prunable_async_result_count,
+        current_prunable_lineage_record_count=preview_fields.prunable_lineage_record_count,
+        current_prunable_lineage_artifact_count=preview_fields.prunable_lineage_artifact_count,
         latest_generated_at_utc=None,
         latest_status=None,
         latest_operator_id=None,
@@ -1023,6 +1027,29 @@ def _missing_history_degradation(
                 threshold_value=_as_decimal_number(threshold),
             ),
         ),
+    )
+
+
+def _runtime_retention_preview_fields(
+    *,
+    preview_status: str,
+    preview_reason: str | None,
+    preview_summary,
+) -> RuntimeRetentionPreviewFields:
+    return RuntimeRetentionPreviewFields(
+        status=preview_status,
+        reason=preview_reason,
+        cutoff_utc=None if preview_summary is None else preview_summary.cutoff_utc,
+        retention_days=None if preview_summary is None else preview_summary.retention_days,
+        prunable_execution_count=None if preview_summary is None else preview_summary.prunable_execution_count,
+        prunable_compute_job_count=None if preview_summary is None else preview_summary.prunable_compute_job_count,
+        prunable_async_result_count=None if preview_summary is None else preview_summary.prunable_async_result_count,
+        prunable_lineage_record_count=None
+        if preview_summary is None
+        else preview_summary.prunable_lineage_record_count,
+        prunable_lineage_artifact_count=None
+        if preview_summary is None
+        else preview_summary.prunable_lineage_artifact_count,
     )
 
 

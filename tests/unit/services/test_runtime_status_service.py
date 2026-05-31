@@ -2655,6 +2655,35 @@ def test_runtime_status_unavailable_runtime_retention_helper_preserves_preview_a
     assert status.degradation_details == ()
 
 
+def test_runtime_status_runtime_retention_preview_fields_map_summary_counts():
+    preview_summary = RuntimeRetentionCleanupSummary(
+        dry_run=True,
+        retention_days=45,
+        cutoff_utc="2026-04-16T00:00:00Z",
+        prunable_execution_count=2,
+        prunable_compute_job_count=3,
+        prunable_async_result_count=4,
+        prunable_lineage_record_count=5,
+        prunable_lineage_artifact_count=6,
+    )
+
+    fields = runtime_status_service._runtime_retention_preview_fields(
+        preview_status="available",
+        preview_reason=None,
+        preview_summary=preview_summary,
+    )
+
+    assert fields.status == "available"
+    assert fields.reason is None
+    assert fields.cutoff_utc == "2026-04-16T00:00:00Z"
+    assert fields.retention_days == 45
+    assert fields.prunable_execution_count == 2
+    assert fields.prunable_compute_job_count == 3
+    assert fields.prunable_async_result_count == 4
+    assert fields.prunable_lineage_record_count == 5
+    assert fields.prunable_lineage_artifact_count == 6
+
+
 def test_runtime_status_missing_history_degradation_helper_respects_threshold():
     assert runtime_status_service._missing_history_degradation(
         threshold=0.0,
