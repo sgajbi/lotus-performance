@@ -1,14 +1,16 @@
 from __future__ import annotations
 
-from app.services.runtime_retention_service import run_runtime_retention_cleanup
+from app.services.runtime_retention_service import RuntimeRetentionCleanupSummary, run_runtime_retention_cleanup
 from app.services.runtime_status_domain import RuntimeRetentionPreviewFields
+
+RuntimeRetentionPreviewResult = tuple[str, str | None, RuntimeRetentionCleanupSummary | None]
 
 
 def runtime_retention_preview_fields(
     *,
     preview_status: str,
     preview_reason: str | None,
-    preview_summary,
+    preview_summary: RuntimeRetentionCleanupSummary | None,
 ) -> RuntimeRetentionPreviewFields:
     return RuntimeRetentionPreviewFields(
         status=preview_status,
@@ -27,7 +29,7 @@ def runtime_retention_preview_fields(
     )
 
 
-def build_runtime_retention_preview():
+def build_runtime_retention_preview() -> RuntimeRetentionPreviewResult:
     try:
         summary = run_runtime_retention_cleanup(dry_run=True)
         return "available", None, summary

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from app.services.operator_action_lease_service import build_operator_action_lease_snapshot
+from pathlib import Path
+
+from app.services.operator_action_lease_service import OperatorActionLeaseSnapshot, build_operator_action_lease_snapshot
 from app.services.runtime_status_domain import OperatorActionStatus, RecentOperatorActionReclaim
 from app.services.runtime_status_time import age_seconds_since
 
 
-def build_operator_action_status(*, artifact_directory, action_name: str) -> OperatorActionStatus:
+def build_operator_action_status(*, artifact_directory: Path, action_name: str) -> OperatorActionStatus:
     try:
         snapshot = build_operator_action_lease_snapshot(
             artifact_directory=artifact_directory,
@@ -108,7 +110,10 @@ def build_operator_action_status(*, artifact_directory, action_name: str) -> Ope
     )
 
 
-def build_recent_operator_action_reclaims(*, snapshot) -> tuple[RecentOperatorActionReclaim, ...]:
+def build_recent_operator_action_reclaims(
+    *,
+    snapshot: OperatorActionLeaseSnapshot,
+) -> tuple[RecentOperatorActionReclaim, ...]:
     events = tuple(getattr(snapshot, "recent_reclaimed_leases", ()))
     return tuple(
         RecentOperatorActionReclaim(

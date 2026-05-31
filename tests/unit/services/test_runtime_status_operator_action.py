@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from app.services import runtime_status_operator_action
 
 
@@ -7,7 +9,7 @@ def test_runtime_status_operator_action_status_handles_exceptions_and_unavailabl
         side_effect=RuntimeError("boom"),
     )
     unavailable = runtime_status_operator_action.build_operator_action_status(
-        artifact_directory="artifacts/runtime-retention-cleanup",
+        artifact_directory=Path("artifacts/runtime-retention-cleanup"),
         action_name="runtime_retention_cleanup",
     )
     assert unavailable.status == "unavailable"
@@ -28,7 +30,7 @@ def test_runtime_status_operator_action_status_handles_exceptions_and_unavailabl
         )(),
     )
     unavailable_snapshot = runtime_status_operator_action.build_operator_action_status(
-        artifact_directory="artifacts/runtime-retention-cleanup",
+        artifact_directory=Path("artifacts/runtime-retention-cleanup"),
         action_name="runtime_retention_cleanup",
     )
     assert unavailable_snapshot.status == "unavailable"
@@ -74,7 +76,7 @@ def test_runtime_status_operator_action_status_normalizes_naive_timestamps(mocke
     )
 
     status = runtime_status_operator_action.build_operator_action_status(
-        artifact_directory="artifacts/durable-recovery-drill",
+        artifact_directory=Path("artifacts/durable-recovery-drill"),
         action_name="recovery_drill",
     )
 
