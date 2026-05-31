@@ -5,6 +5,9 @@ from datetime import datetime
 
 from app.services.runtime_status_time import parse_utc_datetime
 
+AppliedHistoryFilters = dict[str, str | int]
+OptionalHistoryFilter = tuple[str, str | int | None]
+
 
 @dataclass(frozen=True)
 class GeneratedAtBounds:
@@ -42,3 +45,26 @@ def parse_generated_at_filter(value: str | None) -> datetime | None:
     if value is None:
         return None
     return parse_utc_datetime(value)
+
+
+def build_applied_history_filters(
+    *,
+    limit: int | None,
+    offset: int,
+    optional_filters: tuple[OptionalHistoryFilter, ...],
+    generated_after: str | None,
+    generated_before: str | None,
+) -> AppliedHistoryFilters:
+    filters: AppliedHistoryFilters = {}
+    if limit is not None:
+        filters["limit"] = limit
+    if offset > 0:
+        filters["offset"] = offset
+    for key, value in optional_filters:
+        if value is not None:
+            filters[key] = value
+    if generated_after is not None:
+        filters["generated_after"] = generated_after
+    if generated_before is not None:
+        filters["generated_before"] = generated_before
+    return filters

@@ -7,7 +7,11 @@ from typing import Any
 
 from app.core.config import get_settings
 from app.services.operator_action_evidence_paths import is_safe_evidence_file_name
-from app.services.operator_action_history_filters import generated_at_within_bounds, parse_generated_at_bounds
+from app.services.operator_action_history_filters import (
+    build_applied_history_filters,
+    generated_at_within_bounds,
+    parse_generated_at_bounds,
+)
 from app.services.operator_action_history_pagination import paginate_history_entries
 
 RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON = "runtime_retention_artifact_directory_missing"
@@ -304,23 +308,16 @@ def _build_applied_filters(
     generated_after: str | None,
     generated_before: str | None,
 ) -> dict[str, str | int]:
-    filters: dict[str, str | int] = {}
-    if limit is not None:
-        filters["limit"] = limit
-    if offset > 0:
-        filters["offset"] = offset
-    if operator_id is not None:
-        filters["operator_id"] = operator_id
-    if trigger_mode is not None:
-        filters["trigger_mode"] = trigger_mode
-    if job_id is not None:
-        filters["job_id"] = job_id
-    if cleanup_mode is not None:
-        filters["cleanup_mode"] = cleanup_mode
-    if status_filter is not None:
-        filters["status"] = status_filter
-    if generated_after is not None:
-        filters["generated_after"] = generated_after
-    if generated_before is not None:
-        filters["generated_before"] = generated_before
-    return filters
+    return build_applied_history_filters(
+        limit=limit,
+        offset=offset,
+        optional_filters=(
+            ("operator_id", operator_id),
+            ("trigger_mode", trigger_mode),
+            ("job_id", job_id),
+            ("cleanup_mode", cleanup_mode),
+            ("status", status_filter),
+        ),
+        generated_after=generated_after,
+        generated_before=generated_before,
+    )

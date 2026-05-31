@@ -7,7 +7,11 @@ from typing import Any
 
 from app.core.config import get_settings
 from app.services.operator_action_evidence_paths import is_safe_evidence_file_name
-from app.services.operator_action_history_filters import generated_at_within_bounds, parse_generated_at_bounds
+from app.services.operator_action_history_filters import (
+    build_applied_history_filters,
+    generated_at_within_bounds,
+    parse_generated_at_bounds,
+)
 from app.services.operator_action_history_pagination import paginate_history_entries
 
 RECOVERY_DRILL_ARTIFACT_DIRECTORY_MISSING_REASON = "recovery_drill_artifact_directory_missing"
@@ -270,19 +274,14 @@ def _build_applied_filters(
     generated_after: str | None,
     generated_before: str | None,
 ) -> dict[str, str | int]:
-    filters: dict[str, str | int] = {}
-    if limit is not None:
-        filters["limit"] = limit
-    if offset > 0:
-        filters["offset"] = offset
-    if operator_id is not None:
-        filters["operator_id"] = operator_id
-    if backup_identifier is not None:
-        filters["backup_identifier"] = backup_identifier
-    if status_filter is not None:
-        filters["status"] = status_filter
-    if generated_after is not None:
-        filters["generated_after"] = generated_after
-    if generated_before is not None:
-        filters["generated_before"] = generated_before
-    return filters
+    return build_applied_history_filters(
+        limit=limit,
+        offset=offset,
+        optional_filters=(
+            ("operator_id", operator_id),
+            ("backup_identifier", backup_identifier),
+            ("status", status_filter),
+        ),
+        generated_after=generated_after,
+        generated_before=generated_before,
+    )
