@@ -88,7 +88,7 @@ def _isolate_runtime_assurance_history(mocker):
         ),
     )
     mocker.patch(
-        "app.services.runtime_status_service.run_runtime_retention_cleanup",
+        "app.services.runtime_status_retention_preview.run_runtime_retention_cleanup",
         return_value=RuntimeRetentionCleanupSummary(
             dry_run=True,
             retention_days=30,
@@ -598,7 +598,7 @@ def test_runtime_status_snapshot_degrades_when_runtime_retention_is_stale_or_not
         ),
     )
     mocker.patch(
-        "app.services.runtime_status_service.run_runtime_retention_cleanup",
+        "app.services.runtime_status_retention_preview.run_runtime_retention_cleanup",
         return_value=RuntimeRetentionCleanupSummary(
             retention_days=30,
             cutoff_utc="2026-02-13T00:00:00Z",
@@ -979,7 +979,7 @@ def test_runtime_status_snapshot_reports_unavailable_runtime_retention_preview(m
         ),
     )
     mocker.patch(
-        "app.services.runtime_status_service.run_runtime_retention_cleanup",
+        "app.services.runtime_status_retention_preview.run_runtime_retention_cleanup",
         side_effect=RuntimeError("preview-failed"),
     )
 
@@ -1154,7 +1154,7 @@ def test_runtime_status_snapshot_reports_draining_when_app_is_draining(mocker):
         ),
     )
     mocker.patch(
-        "app.services.runtime_status_service.run_runtime_retention_cleanup",
+        "app.services.runtime_status_retention_preview.run_runtime_retention_cleanup",
         return_value=RuntimeRetentionCleanupSummary(
             retention_days=30,
             cutoff_utc="2026-02-13T00:00:00Z",
@@ -2652,32 +2652,3 @@ def test_runtime_status_unavailable_runtime_retention_helper_preserves_preview_a
     assert status.latest_generated_at_utc is None
     assert status.degradation_reasons == ()
     assert status.degradation_details == ()
-
-
-def test_runtime_status_runtime_retention_preview_fields_map_summary_counts():
-    preview_summary = RuntimeRetentionCleanupSummary(
-        dry_run=True,
-        retention_days=45,
-        cutoff_utc="2026-04-16T00:00:00Z",
-        prunable_execution_count=2,
-        prunable_compute_job_count=3,
-        prunable_async_result_count=4,
-        prunable_lineage_record_count=5,
-        prunable_lineage_artifact_count=6,
-    )
-
-    fields = runtime_status_service._runtime_retention_preview_fields(
-        preview_status="available",
-        preview_reason=None,
-        preview_summary=preview_summary,
-    )
-
-    assert fields.status == "available"
-    assert fields.reason is None
-    assert fields.cutoff_utc == "2026-04-16T00:00:00Z"
-    assert fields.retention_days == 45
-    assert fields.prunable_execution_count == 2
-    assert fields.prunable_compute_job_count == 3
-    assert fields.prunable_async_result_count == 4
-    assert fields.prunable_lineage_record_count == 5
-    assert fields.prunable_lineage_artifact_count == 6

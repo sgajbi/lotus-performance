@@ -96,7 +96,7 @@ def _isolate_runtime_assurance_history(mocker):
         ),
     )
     mocker.patch(
-        "app.services.runtime_status_service.run_runtime_retention_cleanup",
+        "app.services.runtime_status_retention_preview.run_runtime_retention_cleanup",
         return_value=RuntimeRetentionCleanupSummary(
             dry_run=True,
             retention_days=30,
@@ -502,7 +502,7 @@ def test_runtime_status_reports_runtime_retention_failure_and_age_policy(mocker)
         ),
     )
     mocker.patch(
-        "app.services.runtime_status_service.run_runtime_retention_cleanup",
+        "app.services.runtime_status_retention_preview.run_runtime_retention_cleanup",
         return_value=type(
             "RuntimeRetentionPreview",
             (),

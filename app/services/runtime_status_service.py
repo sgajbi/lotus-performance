@@ -26,7 +26,6 @@ from app.services.recovery_drill_history_service import (
 from app.services.runtime_retention_history_service import (
     build_runtime_retention_history_snapshot,
 )
-from app.services.runtime_retention_service import run_runtime_retention_cleanup
 from app.services.runtime_status_degradation import (
     append_latest_history_age_degradation_detail as _append_latest_history_age_degradation_detail,
 )
@@ -56,7 +55,6 @@ from app.services.runtime_status_domain import (
     RecoveryDrillStatus,
     RuntimeDegradationDetail,
     RuntimeQueueStatus,
-    RuntimeRetentionPreviewFields,
     RuntimeRetentionStatus,
     RuntimeStatusSnapshot,
 )
@@ -66,6 +64,12 @@ from app.services.runtime_status_policy import (
     build_lineage_queue_policy,
     build_recovery_drill_policy,
     build_runtime_retention_policy,
+)
+from app.services.runtime_status_retention_preview import (
+    build_runtime_retention_preview as _build_runtime_retention_preview,
+)
+from app.services.runtime_status_retention_preview import (
+    runtime_retention_preview_fields as _runtime_retention_preview_fields,
 )
 from app.services.runtime_status_time import age_seconds_since as _age_seconds_since
 
@@ -672,34 +676,3 @@ def _build_missing_runtime_retention_status(
         degradation_reasons=missing_history_reasons,
         degradation_details=details,
     )
-
-
-def _runtime_retention_preview_fields(
-    *,
-    preview_status: str,
-    preview_reason: str | None,
-    preview_summary,
-) -> RuntimeRetentionPreviewFields:
-    return RuntimeRetentionPreviewFields(
-        status=preview_status,
-        reason=preview_reason,
-        cutoff_utc=None if preview_summary is None else preview_summary.cutoff_utc,
-        retention_days=None if preview_summary is None else preview_summary.retention_days,
-        prunable_execution_count=None if preview_summary is None else preview_summary.prunable_execution_count,
-        prunable_compute_job_count=None if preview_summary is None else preview_summary.prunable_compute_job_count,
-        prunable_async_result_count=None if preview_summary is None else preview_summary.prunable_async_result_count,
-        prunable_lineage_record_count=None
-        if preview_summary is None
-        else preview_summary.prunable_lineage_record_count,
-        prunable_lineage_artifact_count=None
-        if preview_summary is None
-        else preview_summary.prunable_lineage_artifact_count,
-    )
-
-
-def _build_runtime_retention_preview():
-    try:
-        summary = run_runtime_retention_cleanup(dry_run=True)
-        return "available", None, summary
-    except Exception as exc:
-        return "unavailable", type(exc).__name__, None
