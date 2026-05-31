@@ -189,6 +189,8 @@ def test_platform_surfaces_docs_reflect_certified_operational_contract():
     assert "lotus_performance_compute_queue_degradation_breach" in complete_reference
     assert "GET /metrics" in certification
     assert "GET /health/ready" in certification
+    assert "app.services.queue_metric_builders" in certification
+    assert "source-to-builder wiring" in certification
     assert "Test Pyramid Assessment" in certification
     assert "no duplicate lotus-performance health or metrics endpoint" in certification.lower()
 
