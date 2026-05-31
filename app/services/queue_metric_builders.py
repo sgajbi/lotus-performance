@@ -6,7 +6,7 @@ from typing import Any, Iterable
 from prometheus_client.core import GaugeMetricFamily
 
 from app.services.runtime_degradation_policy import threshold_breach_flag
-from app.services.runtime_status_domain import ComputeQueueDegradationPolicy
+from app.services.runtime_status_domain import ComputeQueueDegradationPolicy, LineageQueueDegradationPolicy
 from app.services.runtime_status_time import age_seconds_since
 
 
@@ -152,6 +152,47 @@ def compute_queue_degradation_breach_metric(
                 threshold_breach_flag(
                     threshold_value=policy.running_age_seconds,
                     observed_value=stats.oldest_running_age_seconds,
+                ),
+            ),
+        ),
+    )
+
+
+def lineage_queue_degradation_breach_metric(
+    *,
+    stats: Any,
+    policy: LineageQueueDegradationPolicy,
+) -> GaugeMetricFamily:
+    return reason_labeled_metric(
+        metric_name="lotus_performance_lineage_queue_degradation_breach",
+        description="Whether the lineage queue currently breaches a configured runtime degradation threshold.",
+        samples=(
+            (
+                "lineage_retry_backlog_exceeded",
+                threshold_breach_flag(
+                    threshold_value=policy.retry_backlog_count,
+                    observed_value=stats.retry_backlog_count,
+                ),
+            ),
+            (
+                "lineage_terminal_failure_exceeded",
+                threshold_breach_flag(
+                    threshold_value=policy.terminal_failure_count,
+                    observed_value=stats.terminal_failure_count,
+                ),
+            ),
+            (
+                "lineage_pending_age_exceeded",
+                threshold_breach_flag(
+                    threshold_value=policy.pending_age_seconds,
+                    observed_value=stats.oldest_pending_age_seconds,
+                ),
+            ),
+            (
+                "lineage_leased_age_exceeded",
+                threshold_breach_flag(
+                    threshold_value=policy.leased_age_seconds,
+                    observed_value=getattr(stats, "oldest_leased_age_seconds", 0.0),
                 ),
             ),
         ),

@@ -5,13 +5,14 @@ from app.services.queue_metric_builders import (
     compute_queue_degradation_breach_metric,
     labeled_metric,
     latest_reclaim_count_or_zero,
+    lineage_queue_degradation_breach_metric,
     operator_action_lease_metrics,
     policy_threshold_metric,
     reason_labeled_metric,
     single_sample_metric,
     snapshot_available,
 )
-from app.services.runtime_status_domain import ComputeQueueDegradationPolicy
+from app.services.runtime_status_domain import ComputeQueueDegradationPolicy, LineageQueueDegradationPolicy
 
 
 def test_availability_metric_emits_unlabelled_binary_sample():
@@ -117,6 +118,38 @@ def test_compute_queue_degradation_breach_metric_uses_policy_thresholds():
         "compute_pending_age_exceeded": 1,
         "compute_leased_age_exceeded": 1,
         "compute_running_age_exceeded": 1,
+    }
+
+
+def test_lineage_queue_degradation_breach_metric_uses_policy_thresholds():
+    stats = type(
+        "LineageStats",
+        (),
+        {
+            "retry_backlog_count": 3,
+            "terminal_failure_count": 2,
+            "oldest_pending_age_seconds": 45.0,
+            "oldest_leased_age_seconds": 20.0,
+        },
+    )()
+    policy = LineageQueueDegradationPolicy(
+        retry_backlog_count=2,
+        terminal_failure_count=1,
+        pending_age_seconds=30.0,
+        leased_age_seconds=10.0,
+        storage_min_free_bytes=100,
+        storage_min_free_ratio=0.2,
+    )
+
+    metric = lineage_queue_degradation_breach_metric(stats=stats, policy=policy)
+
+    samples = {sample.labels["reason"]: sample.value for sample in metric.samples}
+    assert metric.name == "lotus_performance_lineage_queue_degradation_breach"
+    assert samples == {
+        "lineage_retry_backlog_exceeded": 1,
+        "lineage_terminal_failure_exceeded": 1,
+        "lineage_pending_age_exceeded": 1,
+        "lineage_leased_age_exceeded": 1,
     }
 
 

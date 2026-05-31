@@ -19,6 +19,7 @@ from app.services.queue_metric_builders import (
     compute_queue_degradation_breach_metric,
     labeled_metric,
     latest_reclaim_count_or_zero,
+    lineage_queue_degradation_breach_metric,
     operator_action_lease_metrics,
     policy_threshold_metric,
     reason_labeled_metric,
@@ -386,39 +387,9 @@ class DurableQueueCollector:
                 value=lineage_stats.oldest_pending_age_seconds,
             )
 
-            yield reason_labeled_metric(
-                metric_name="lotus_performance_lineage_queue_degradation_breach",
-                description="Whether the lineage queue currently breaches a configured runtime degradation threshold.",
-                samples=(
-                    (
-                        "lineage_retry_backlog_exceeded",
-                        threshold_breach_flag(
-                            threshold_value=lineage_queue_policy.retry_backlog_count,
-                            observed_value=lineage_stats.retry_backlog_count,
-                        ),
-                    ),
-                    (
-                        "lineage_terminal_failure_exceeded",
-                        threshold_breach_flag(
-                            threshold_value=lineage_queue_policy.terminal_failure_count,
-                            observed_value=lineage_stats.terminal_failure_count,
-                        ),
-                    ),
-                    (
-                        "lineage_pending_age_exceeded",
-                        threshold_breach_flag(
-                            threshold_value=lineage_queue_policy.pending_age_seconds,
-                            observed_value=lineage_stats.oldest_pending_age_seconds,
-                        ),
-                    ),
-                    (
-                        "lineage_leased_age_exceeded",
-                        threshold_breach_flag(
-                            threshold_value=lineage_queue_policy.leased_age_seconds,
-                            observed_value=getattr(lineage_stats, "oldest_leased_age_seconds", 0.0),
-                        ),
-                    ),
-                ),
+            yield lineage_queue_degradation_breach_metric(
+                stats=lineage_stats,
+                policy=lineage_queue_policy,
             )
 
         if lineage_storage_capacity is not None:
