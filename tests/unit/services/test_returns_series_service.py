@@ -205,6 +205,13 @@ def test_invalid_request_detail_preserves_returns_series_error_envelope():
     }
 
 
+def test_upstream_contract_violation_detail_preserves_returns_series_error_envelope():
+    assert returns_series_service._upstream_contract_violation_detail("Bad upstream shape.") == {
+        "code": "CONTRACT_VIOLATION_UPSTREAM",
+        "message": "Bad upstream shape.",
+    }
+
+
 @pytest.mark.asyncio
 async def test_calculate_returns_series_requires_open_date(monkeypatch, tmp_path):
     request = _build_stateful_request()

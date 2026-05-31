@@ -85,6 +85,10 @@ def _invalid_request_detail(message: str) -> dict[str, str]:
     return {"code": "INVALID_REQUEST", "message": message}
 
 
+def _upstream_contract_violation_detail(message: str) -> dict[str, str]:
+    return {"code": "CONTRACT_VIOLATION_UPSTREAM", "message": message}
+
+
 def period_start(as_of_date: date, period: ReturnsRelativePeriod, year: int | None) -> date:
     as_of = pd.Timestamp(as_of_date)
     if period == ReturnsRelativePeriod.MTD:
@@ -869,10 +873,7 @@ async def resolve_stateful_returns_series_request(
         if not benchmark_id:
             raise HTTPException(
                 status_code=HTTP_422_UNPROCESSABLE,
-                detail={
-                    "code": "CONTRACT_VIOLATION_UPSTREAM",
-                    "message": "Benchmark assignment payload missing benchmark_id.",
-                },
+                detail=_upstream_contract_violation_detail("Benchmark assignment payload missing benchmark_id."),
             )
         resolved_benchmark_id = benchmark_id
 
@@ -909,10 +910,7 @@ async def resolve_stateful_returns_series_request(
             if not isinstance(benchmark_points, list):
                 raise HTTPException(
                     status_code=HTTP_422_UNPROCESSABLE,
-                    detail={
-                        "code": "CONTRACT_VIOLATION_UPSTREAM",
-                        "message": "Benchmark return-series payload missing points list.",
-                    },
+                    detail=_upstream_contract_violation_detail("Benchmark return-series payload missing points list."),
                 )
             benchmark_retrieval_metadata = _zero_default_retrieval_metadata(benchmark_payload)
             benchmark_source_details = {
@@ -985,10 +983,7 @@ async def resolve_stateful_returns_series_request(
         if not isinstance(risk_free_points, list):
             raise HTTPException(
                 status_code=HTTP_422_UNPROCESSABLE,
-                detail={
-                    "code": "CONTRACT_VIOLATION_UPSTREAM",
-                    "message": "Risk-free series payload missing points list.",
-                },
+                detail=_upstream_contract_violation_detail("Risk-free series payload missing points list."),
             )
 
     execution_registry.complete_stage(
