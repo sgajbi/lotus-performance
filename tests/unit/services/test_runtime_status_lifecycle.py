@@ -7,6 +7,7 @@ from app.services.runtime_status_domain import OperatorActionStatus, RuntimeDegr
 from app.services.runtime_status_lifecycle import (
     missing_recovery_drill_status,
     missing_runtime_retention_status,
+    recovery_drill_degradation_details,
     recovery_drill_status_from_latest,
     runtime_retention_status_from_latest,
     unavailable_recovery_drill_status,
@@ -14,9 +15,14 @@ from app.services.runtime_status_lifecycle import (
 )
 
 
-def _operator_action_status(*, active_run_count: int = 0, reclaimed_run_count: int = 0) -> OperatorActionStatus:
+def _operator_action_status(
+    *,
+    status: str = "available",
+    active_run_count: int = 0,
+    reclaimed_run_count: int = 0,
+) -> OperatorActionStatus:
     return OperatorActionStatus(
-        status="available",
+        status=status,
         reason=None,
         active_run_count=active_run_count,
         oldest_active_run_operator_id="ops-user" if active_run_count else None,
@@ -66,6 +72,32 @@ def test_recovery_drill_status_from_latest_preserves_latest_evidence_and_degrada
     assert status.active_run_count == 1
     assert status.degradation_reasons == ("recovery_drill_latest_not_passed",)
     assert status.degradation_details == (degradation_detail,)
+
+
+def test_recovery_drill_degradation_details_collects_status_age_and_action_pressure():
+    latest = RecoveryDrillHistoryEntry(
+        evidence_file_name="latest.json",
+        generated_at_utc="2026-05-31T00:00:00Z",
+        operator_id="ops-user",
+        backup_identifier="backup-123",
+        status="failed",
+    )
+
+    details = recovery_drill_degradation_details(
+        latest=latest,
+        latest_age_seconds=600.0,
+        threshold=300.0,
+        active_run_status=_operator_action_status(status="active", active_run_count=1, reclaimed_run_count=2),
+        active_run_age_threshold=30.0,
+        reclaim_threshold=1,
+    )
+
+    assert tuple(detail.reason for detail in details) == (
+        "recovery_drill_latest_not_passed",
+        "recovery_drill_age_exceeded",
+        "recovery_drill_active_run_age_exceeded",
+        "recovery_drill_reclaim_pressure_exceeded",
+    )
 
 
 def test_unavailable_recovery_drill_status_preserves_action_context():

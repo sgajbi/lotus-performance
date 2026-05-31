@@ -53,6 +53,9 @@ from app.services.runtime_status_lifecycle import (
     missing_runtime_retention_status as _build_missing_runtime_retention_status,
 )
 from app.services.runtime_status_lifecycle import (
+    recovery_drill_degradation_details as _recovery_drill_degradation_details,
+)
+from app.services.runtime_status_lifecycle import (
     recovery_drill_status_from_latest as _recovery_drill_status_from_latest,
 )
 from app.services.runtime_status_lifecycle import (
@@ -226,31 +229,19 @@ def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
 
     latest = snapshot.entries[0]
     latest_age_seconds = _age_seconds_since(latest.generated_at_utc)
-    degradation_details: list[RuntimeDegradationDetail] = []
-    _append_lifecycle_state_degradation_detail(
-        degradation_details,
-        is_healthy=latest.status == "passed",
-        reason="recovery_drill_latest_not_passed",
-    )
-    _append_latest_history_age_degradation_detail(
-        degradation_details,
-        reason="recovery_drill_age_exceeded",
+    degradation_details = _recovery_drill_degradation_details(
+        latest=latest,
         latest_age_seconds=latest_age_seconds,
         threshold=threshold,
-    )
-    _append_operator_action_degradation_details(
-        degradation_details,
         active_run_status=active_run_status,
         active_run_age_threshold=active_run_age_threshold,
-        active_run_reason="recovery_drill_active_run_age_exceeded",
         reclaim_threshold=reclaim_threshold,
-        reclaim_reason="recovery_drill_reclaim_pressure_exceeded",
     )
     return _recovery_drill_status_from_latest(
         latest=latest,
         latest_age_seconds=latest_age_seconds,
         active_run_status=active_run_status,
-        degradation_details=tuple(degradation_details),
+        degradation_details=degradation_details,
     )
 
 

@@ -4,6 +4,9 @@ from app.services.recovery_drill_history_service import RecoveryDrillHistoryEntr
 from app.services.runtime_retention_history_service import RuntimeRetentionHistoryEntry
 from app.services.runtime_retention_service import RuntimeRetentionCleanupSummary
 from app.services.runtime_status_degradation import (
+    append_latest_history_age_degradation_detail,
+    append_lifecycle_state_degradation_detail,
+    append_operator_action_degradation_details,
     lifecycle_status_from_degradation_details,
     missing_history_degradation,
 )
@@ -37,6 +40,38 @@ def recovery_drill_status_from_latest(
         degradation_reasons=reasons,
         degradation_details=degradation_details,
     )
+
+
+def recovery_drill_degradation_details(
+    *,
+    latest: RecoveryDrillHistoryEntry,
+    latest_age_seconds: float,
+    threshold: float,
+    active_run_status: OperatorActionStatus,
+    active_run_age_threshold: float,
+    reclaim_threshold: int,
+) -> tuple[RuntimeDegradationDetail, ...]:
+    details: list[RuntimeDegradationDetail] = []
+    append_lifecycle_state_degradation_detail(
+        details,
+        is_healthy=latest.status == "passed",
+        reason="recovery_drill_latest_not_passed",
+    )
+    append_latest_history_age_degradation_detail(
+        details,
+        reason="recovery_drill_age_exceeded",
+        latest_age_seconds=latest_age_seconds,
+        threshold=threshold,
+    )
+    append_operator_action_degradation_details(
+        details,
+        active_run_status=active_run_status,
+        active_run_age_threshold=active_run_age_threshold,
+        active_run_reason="recovery_drill_active_run_age_exceeded",
+        reclaim_threshold=reclaim_threshold,
+        reclaim_reason="recovery_drill_reclaim_pressure_exceeded",
+    )
+    return tuple(details)
 
 
 def unavailable_recovery_drill_status(
