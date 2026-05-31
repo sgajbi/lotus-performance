@@ -729,7 +729,7 @@ class LineageMetadataStore:
             .limit(limit)
         )
         return self._apply_recovery_time_filters(
-            self._apply_inspection_filters(
+            self._apply_calculation_filters(
                 statement,
                 calculation_type=calculation_type,
                 calculation_id_contains=calculation_id_contains,
@@ -757,7 +757,7 @@ class LineageMetadataStore:
             .where((LineageRecordModel.status == LineageStatus.PENDING.value) & (LineagePayloadModel.attempt_count > 0))
         )
         return self._apply_recovery_time_filters(
-            self._apply_inspection_filters(
+            self._apply_calculation_filters(
                 statement,
                 calculation_type=calculation_type,
                 calculation_id_contains=calculation_id_contains,
@@ -791,7 +791,7 @@ class LineageMetadataStore:
             statement = statement.where(cursor_filter)
         return statement
 
-    def _apply_inspection_filters(
+    def _apply_calculation_filters(
         self, statement, *, calculation_type: str | None, calculation_id_contains: str | None
     ):
         if calculation_type is not None:
@@ -836,7 +836,7 @@ class LineageMetadataStore:
             .join(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
             .where(LineageRecordModel.status == LineageStatus.PENDING.value)
         )
-        return self._apply_inspection_filters(
+        return self._apply_calculation_filters(
             self._apply_min_age_filter(statement, now=now, min_age_threshold=min_age_threshold),
             calculation_type=calculation_type,
             calculation_id_contains=calculation_id_contains,
@@ -856,7 +856,7 @@ class LineageMetadataStore:
             .outerjoin(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
             .where(LineageRecordModel.status == LineageStatus.FAILED.value)
         )
-        return self._apply_inspection_filters(
+        return self._apply_calculation_filters(
             self._apply_min_age_filter(statement, now=now, min_age_threshold=min_age_threshold),
             calculation_type=calculation_type,
             calculation_id_contains=calculation_id_contains,
@@ -875,7 +875,7 @@ class LineageMetadataStore:
             .select_from(LineageRecordModel)
             .outerjoin(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
         )
-        return self._apply_inspection_filters(
+        return self._apply_calculation_filters(
             self._apply_min_age_filter(statement, now=now, min_age_threshold=min_age_threshold),
             calculation_type=calculation_type,
             calculation_id_contains=calculation_id_contains,
@@ -899,7 +899,7 @@ class LineageMetadataStore:
                 & (LineagePayloadModel.lease_expires_at_utc < now)
             )
         )
-        return self._apply_inspection_filters(
+        return self._apply_calculation_filters(
             self._apply_min_age_filter(statement, now=now, min_age_threshold=min_age_threshold),
             calculation_type=calculation_type,
             calculation_id_contains=calculation_id_contains,
@@ -924,7 +924,7 @@ class LineageMetadataStore:
             .offset(offset)
             .limit(limit)
         )
-        return self._apply_inspection_filters(
+        return self._apply_calculation_filters(
             self._apply_min_age_filter(statement, now=now, min_age_threshold=min_age_threshold),
             calculation_type=calculation_type,
             calculation_id_contains=calculation_id_contains,
@@ -948,7 +948,7 @@ class LineageMetadataStore:
             .offset(offset)
             .limit(limit)
         )
-        return self._apply_inspection_filters(
+        return self._apply_calculation_filters(
             self._apply_min_age_filter(statement, now=now, min_age_threshold=min_age_threshold),
             calculation_type=calculation_type,
             calculation_id_contains=calculation_id_contains,
@@ -972,7 +972,7 @@ class LineageMetadataStore:
             .offset(offset)
             .limit(limit)
         )
-        return self._apply_inspection_filters(
+        return self._apply_calculation_filters(
             self._apply_min_age_filter(statement, now=now, min_age_threshold=min_age_threshold),
             calculation_type=calculation_type,
             calculation_id_contains=calculation_id_contains,
@@ -1000,7 +1000,7 @@ class LineageMetadataStore:
             .offset(offset)
             .limit(limit)
         )
-        return self._apply_inspection_filters(
+        return self._apply_calculation_filters(
             self._apply_min_age_filter(statement, now=now, min_age_threshold=min_age_threshold),
             calculation_type=calculation_type,
             calculation_id_contains=calculation_id_contains,
