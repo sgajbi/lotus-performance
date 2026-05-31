@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Iterable, Protocol, TypeVar, cast
 
 from app.services.compute_job_store import (
@@ -27,6 +28,8 @@ from app.services.runtime_unavailability import (
     durable_metadata_unavailable_reason,
     lineage_storage_unavailable_reason,
 )
+
+logger = logging.getLogger(__name__)
 
 RecoveryEventT = TypeVar("RecoveryEventT", ComputeRecoveryEvent, LineageRecoveryEvent, covariant=True)
 InspectionAnchorsT = TypeVar(
@@ -129,22 +132,30 @@ def unavailable_runtime_queue_status(*, reason: str) -> RuntimeQueueStatus:
 def safe_compute_queue_inspection_anchors() -> ComputeQueueInspectionAnchors | None:
     return safe_queue_inspection_anchors(
         read_anchors=compute_job_store.get_queue_inspection_anchors,
+        source_label="compute",
     )
 
 
 def safe_lineage_queue_inspection_anchors() -> LineageQueueInspectionAnchors | None:
     return safe_queue_inspection_anchors(
         read_anchors=lineage_metadata_store.get_queue_inspection_anchors,
+        source_label="lineage",
     )
 
 
 def safe_queue_inspection_anchors(
     *,
     read_anchors: QueueInspectionAnchorReader[InspectionAnchorsT],
+    source_label: str,
 ) -> InspectionAnchorsT | None:
     try:
         return read_anchors()
     except Exception:
+        logger.warning(
+            "Runtime status %s queue inspection anchors unavailable.",
+            source_label,
+            exc_info=True,
+        )
         return None
 
 
@@ -152,6 +163,7 @@ def safe_compute_recent_recoveries(*, settings) -> tuple[ComputeRecoveryEvent, .
     return safe_recent_recoveries(
         settings=settings,
         list_recent_recoveries=compute_job_store.list_recent_recoveries,
+        source_label="compute",
     )
 
 
@@ -159,6 +171,7 @@ def safe_lineage_recent_recoveries(*, settings) -> tuple[LineageRecoveryEvent, .
     return safe_recent_recoveries(
         settings=settings,
         list_recent_recoveries=lineage_metadata_store.list_recent_recoveries,
+        source_label="lineage",
     )
 
 
@@ -166,6 +179,7 @@ def safe_recent_recoveries(
     *,
     settings,
     list_recent_recoveries: RecentRecoveryLister[RecoveryEventT],
+    source_label: str,
 ) -> tuple[RecoveryEventT, ...]:
     try:
         limit = recent_recovery_limit(settings=settings)
@@ -174,6 +188,11 @@ def safe_recent_recoveries(
         page = list_recent_recoveries(limit=limit)
         return tuple(cast(Iterable[RecoveryEventT], getattr(page, "items", page)))
     except Exception:
+        logger.warning(
+            "Runtime status %s recent recovery evidence unavailable.",
+            source_label,
+            exc_info=True,
+        )
         return ()
 
 

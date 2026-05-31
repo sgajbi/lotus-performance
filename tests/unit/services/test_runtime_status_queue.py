@@ -228,7 +228,7 @@ def test_build_lineage_queue_status_collects_stats_capacity_and_recovery_evidenc
     assert status.recent_recoveries == (recovery_event,)
 
 
-def test_safe_recent_recoveries_return_empty_on_disabled_limit_and_errors(mocker):
+def test_safe_recent_recoveries_return_empty_on_disabled_limit_and_errors(mocker, caplog):
     settings = type("Settings", (), {"RUNTIME_STATUS_RECENT_RECOVERY_LIMIT": 0})()
     assert recent_recovery_limit(settings=settings) == 0
     assert safe_compute_recent_recoveries(settings=settings) == ()
@@ -244,8 +244,12 @@ def test_safe_recent_recoveries_return_empty_on_disabled_limit_and_errors(mocker
         "app.services.runtime_status_queue.lineage_metadata_store.list_recent_recoveries",
         side_effect=RuntimeError("boom"),
     )
-    assert safe_compute_recent_recoveries(settings=error_settings) == ()
-    assert safe_lineage_recent_recoveries(settings=error_settings) == ()
+    with caplog.at_level("WARNING", logger="app.services.runtime_status_queue"):
+        assert safe_compute_recent_recoveries(settings=error_settings) == ()
+        assert safe_lineage_recent_recoveries(settings=error_settings) == ()
+
+    assert "Runtime status compute recent recovery evidence unavailable." in caplog.text
+    assert "Runtime status lineage recent recovery evidence unavailable." in caplog.text
 
 
 def test_safe_recent_recoveries_normalize_paged_items(mocker):
@@ -278,19 +282,25 @@ def test_safe_recent_recoveries_normalize_paged_items(mocker):
     assert safe_lineage_recent_recoveries(settings=settings) == (lineage_event,)
 
 
-def test_safe_lineage_inspection_anchor_returns_none_on_error(mocker):
+def test_safe_lineage_inspection_anchor_returns_none_on_error(mocker, caplog):
     mocker.patch(
         "app.services.runtime_status_queue.lineage_metadata_store.get_queue_inspection_anchors",
         side_effect=RuntimeError("boom"),
     )
 
-    assert safe_lineage_queue_inspection_anchors() is None
+    with caplog.at_level("WARNING", logger="app.services.runtime_status_queue"):
+        assert safe_lineage_queue_inspection_anchors() is None
+
+    assert "Runtime status lineage queue inspection anchors unavailable." in caplog.text
 
 
-def test_safe_compute_inspection_anchor_returns_none_on_error(mocker):
+def test_safe_compute_inspection_anchor_returns_none_on_error(mocker, caplog):
     mocker.patch(
         "app.services.runtime_status_queue.compute_job_store.get_queue_inspection_anchors",
         side_effect=RuntimeError("boom"),
     )
 
-    assert safe_compute_queue_inspection_anchors() is None
+    with caplog.at_level("WARNING", logger="app.services.runtime_status_queue"):
+        assert safe_compute_queue_inspection_anchors() is None
+
+    assert "Runtime status compute queue inspection anchors unavailable." in caplog.text
