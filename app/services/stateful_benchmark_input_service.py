@@ -313,9 +313,10 @@ async def _load_component_price_series(
                 detail=f"No index price series found for benchmark component {index_id}.",
             )
         if series_status >= status.HTTP_400_BAD_REQUEST:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"index price-series source unavailable for benchmark component {index_id} ({series_status}).",
+            _raise_source_unavailable(
+                source_label="index price-series",
+                upstream_status=series_status,
+                context=f"for benchmark component {index_id}",
             )
         points_raw = series_payload.get("points")
         if not isinstance(points_raw, list):
@@ -378,9 +379,10 @@ async def _load_fx_maps_for_components(
             calculation_id=calculation_id,
         )
         if fx_status >= status.HTTP_400_BAD_REQUEST:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"fx rate source unavailable for {from_currency}/{to_currency} ({fx_status}).",
+            _raise_source_unavailable(
+                source_label="fx rate",
+                upstream_status=fx_status,
+                context=f"for {from_currency}/{to_currency}",
             )
         points_raw = fx_payload.get("points")
         if not isinstance(points_raw, list):
@@ -583,10 +585,11 @@ def _parse_retrieval_metadata(payload: dict[str, Any]) -> RetrievalMetadata:
     )
 
 
-def _raise_source_unavailable(*, source_label: str, upstream_status: int) -> None:
+def _raise_source_unavailable(*, source_label: str, upstream_status: int, context: str | None = None) -> None:
+    context_detail = f" {context}" if context else ""
     raise HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        detail=f"{source_label} source unavailable ({upstream_status}).",
+        detail=f"{source_label} source unavailable{context_detail} ({upstream_status}).",
     )
 
 
