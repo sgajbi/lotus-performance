@@ -8,6 +8,7 @@ from typing import Any
 
 from app.core.config import get_settings
 from app.services.operator_action_evidence_paths import is_safe_evidence_file_name
+from app.services.operator_action_history_pagination import paginate_history_entries
 
 
 @dataclass(frozen=True)
@@ -116,12 +117,7 @@ def build_recovery_drill_history_snapshot(
         generated_after=generated_after,
         generated_before=generated_before,
     )
-    paged_entries = filtered_entries[offset:]
-    if limit is not None:
-        paged_entries = paged_entries[:limit]
-    next_offset = None
-    if limit is not None and offset + len(paged_entries) < len(filtered_entries):
-        next_offset = offset + len(paged_entries)
+    page = paginate_history_entries(filtered_entries, limit=limit, offset=offset)
     return RecoveryDrillHistorySnapshot(
         status="available",
         artifact_directory=str(directory),
@@ -129,11 +125,11 @@ def build_recovery_drill_history_snapshot(
         retained_file_names=manifest_payload["retained_file_names"],
         retention_limit=manifest_payload["retention_limit"],
         retention_max_age_days=manifest_payload["retention_max_age_days"],
-        entries=paged_entries,
+        entries=page.entries,
         total_entries=len(all_entries),
         matched_entries=len(filtered_entries),
-        returned_entries=len(paged_entries),
-        next_offset=next_offset,
+        returned_entries=len(page.entries),
+        next_offset=page.next_offset,
         applied_filters=applied_filters,
         reason=None,
     )
