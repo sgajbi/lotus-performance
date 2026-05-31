@@ -37,7 +37,9 @@ from app.services.portfolio_source_service import (
     build_stateful_input_service,
 )
 from app.services.stateful_benchmark_input_service import build_stateful_benchmark_input
+from app.services.stateful_input_service import RetrievalMetadata
 from app.services.stateful_performance_input_service import retrieve_stateful_portfolio_input
+from app.services.stateful_retrieval_metadata import parse_retrieval_metadata
 from app.services.valuation_points_service import portfolio_timeseries_to_valuation_points
 from common.enums import Frequency, PeriodType
 from core.errors import HTTP_422_UNPROCESSABLE
@@ -58,6 +60,17 @@ class ResolvedStatefulReturnsSeriesRequest:
     resolved_benchmark_id: str | None
     resolved_benchmark_return_source: str | None
     benchmark_work_units: int
+
+
+def _zero_default_retrieval_metadata(payload: dict[str, Any] | None) -> RetrievalMetadata:
+    if payload is None:
+        return RetrievalMetadata(chunk_count=0, page_count=0)
+    return parse_retrieval_metadata(
+        payload,
+        default_chunk_count=0,
+        default_page_count=0,
+        coerce_numeric_counts=True,
+    )
 
 
 def period_start(as_of_date: date, period: ReturnsRelativePeriod, year: int | None) -> date:
@@ -899,10 +912,11 @@ async def resolve_stateful_returns_series_request(
                         "message": "Benchmark return-series payload missing points list.",
                     },
                 )
+            benchmark_retrieval_metadata = _zero_default_retrieval_metadata(benchmark_payload)
             benchmark_source_details = {
                 "benchmark_points": len(benchmark_points),
-                "benchmark_chunk_count": int(benchmark_payload.get("retrieval_metadata", {}).get("chunk_count", 0)),
-                "benchmark_page_count": int(benchmark_payload.get("retrieval_metadata", {}).get("page_count", 0)),
+                "benchmark_chunk_count": benchmark_retrieval_metadata.chunk_count,
+                "benchmark_page_count": benchmark_retrieval_metadata.page_count,
             }
             benchmark_work_units = len(benchmark_points)
         else:
@@ -993,11 +1007,9 @@ async def resolve_stateful_returns_series_request(
             "portfolio_page_count": portfolio_source.retrieval_metadata.page_count,
             "benchmark_chunk_count": benchmark_source_details.get("benchmark_chunk_count", 0),
             "benchmark_page_count": benchmark_source_details.get("benchmark_page_count", 0),
-            "risk_free_chunk_count": (
-                int(risk_free_payload.get("retrieval_metadata", {}).get("chunk_count", 0))
-                if risk_free_points is not None and risk_free_payload is not None
-                else 0
-            ),
+            "risk_free_chunk_count": _zero_default_retrieval_metadata(risk_free_payload).chunk_count
+            if risk_free_points is not None
+            else 0,
         },
     )
 
