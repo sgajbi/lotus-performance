@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from pathlib import Path
 
 from prometheus_client.core import GaugeMetricFamily
@@ -14,6 +13,7 @@ from app.services.recovery_drill_history_service import build_recovery_drill_his
 from app.services.runtime_degradation_policy import threshold_breach_flag
 from app.services.runtime_retention_history_service import build_runtime_retention_history_snapshot
 from app.services.runtime_retention_service import run_runtime_retention_cleanup
+from app.services.runtime_status_time import age_seconds_since
 
 
 class DurableQueueCollector:
@@ -583,7 +583,7 @@ class DurableQueueCollector:
                 )
                 recovery_drill_oldest_active_action_age.add_metric(
                     [],
-                    _age_seconds(recovery_drill_action_snapshot.active_leases[0].acquired_at_utc),
+                    age_seconds_since(recovery_drill_action_snapshot.active_leases[0].acquired_at_utc),
                 )
                 yield recovery_drill_oldest_active_action_age
             if recovery_drill_action_snapshot.latest_reclaimed_lease is not None:
@@ -593,7 +593,7 @@ class DurableQueueCollector:
                 )
                 recovery_drill_latest_reclaimed_action_age.add_metric(
                     [],
-                    _age_seconds(recovery_drill_action_snapshot.latest_reclaimed_lease.reclaimed_at_utc),
+                    age_seconds_since(recovery_drill_action_snapshot.latest_reclaimed_lease.reclaimed_at_utc),
                 )
                 yield recovery_drill_latest_reclaimed_action_age
                 recovery_drill_reclaimed_actions = GaugeMetricFamily(
@@ -639,7 +639,7 @@ class DurableQueueCollector:
                 )
                 runtime_retention_oldest_active_action_age.add_metric(
                     [],
-                    _age_seconds(runtime_retention_action_snapshot.active_leases[0].acquired_at_utc),
+                    age_seconds_since(runtime_retention_action_snapshot.active_leases[0].acquired_at_utc),
                 )
                 yield runtime_retention_oldest_active_action_age
             if runtime_retention_action_snapshot.latest_reclaimed_lease is not None:
@@ -649,7 +649,7 @@ class DurableQueueCollector:
                 )
                 runtime_retention_latest_reclaimed_action_age.add_metric(
                     [],
-                    _age_seconds(runtime_retention_action_snapshot.latest_reclaimed_lease.reclaimed_at_utc),
+                    age_seconds_since(runtime_retention_action_snapshot.latest_reclaimed_lease.reclaimed_at_utc),
                 )
                 yield runtime_retention_latest_reclaimed_action_age
                 runtime_retention_reclaimed_actions = GaugeMetricFamily(
@@ -668,7 +668,7 @@ class DurableQueueCollector:
             and recovery_drill_snapshot.entries
         ):
             latest = recovery_drill_snapshot.entries[0]
-            latest_age_seconds = _age_seconds(latest.generated_at_utc)
+            latest_age_seconds = age_seconds_since(latest.generated_at_utc)
 
             recovery_drill_age = GaugeMetricFamily(
                 "lotus_performance_recovery_drill_latest_age_seconds",
@@ -706,7 +706,7 @@ class DurableQueueCollector:
                         if recovery_drill_action_snapshot is None
                         or recovery_drill_action_snapshot.status != "available"
                         or not recovery_drill_action_snapshot.active_leases
-                        else _age_seconds(recovery_drill_action_snapshot.active_leases[0].acquired_at_utc)
+                        else age_seconds_since(recovery_drill_action_snapshot.active_leases[0].acquired_at_utc)
                     ),
                 ),
             )
@@ -731,7 +731,7 @@ class DurableQueueCollector:
             and runtime_retention_snapshot.entries
         ):
             latest = runtime_retention_snapshot.entries[0]
-            latest_age_seconds = _age_seconds(latest.generated_at_utc)
+            latest_age_seconds = age_seconds_since(latest.generated_at_utc)
 
             runtime_retention_age = GaugeMetricFamily(
                 "lotus_performance_runtime_retention_latest_age_seconds",
@@ -769,7 +769,7 @@ class DurableQueueCollector:
                         if runtime_retention_action_snapshot is None
                         or runtime_retention_action_snapshot.status != "available"
                         or not runtime_retention_action_snapshot.active_leases
-                        else _age_seconds(runtime_retention_action_snapshot.active_leases[0].acquired_at_utc)
+                        else age_seconds_since(runtime_retention_action_snapshot.active_leases[0].acquired_at_utc)
                     ),
                 ),
             )
@@ -787,8 +787,3 @@ class DurableQueueCollector:
                 ),
             )
             yield runtime_retention_breach
-
-
-def _age_seconds(timestamp_utc: str) -> float:
-    generated_at = datetime.fromisoformat(timestamp_utc.replace("Z", "+00:00"))
-    return max(0.0, (datetime.now(UTC) - generated_at).total_seconds())

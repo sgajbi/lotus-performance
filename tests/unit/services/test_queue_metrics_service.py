@@ -139,7 +139,6 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
             },
         )(),
     )
-
     metrics = list(DurableQueueCollector().collect())
     metric_names = {metric.name for metric in metrics}
 
@@ -446,7 +445,6 @@ def test_queue_metrics_collector_emits_governed_action_reclaim_pressure_breaches
             },
         )(),
     )
-
     metrics = list(DurableQueueCollector().collect())
 
     recovery_breach_metric = next(
@@ -597,6 +595,7 @@ def test_queue_metrics_collector_emits_governed_action_lease_metrics(monkeypatch
             },
         )(),
     )
+    monkeypatch.setattr("app.services.queue_metrics_service.age_seconds_since", lambda timestamp_utc: 42.0)
 
     metrics = list(DurableQueueCollector().collect())
 
@@ -609,7 +608,7 @@ def test_queue_metrics_collector_emits_governed_action_lease_metrics(monkeypatch
         for metric in metrics
         if metric.name == "lotus_performance_recovery_drill_latest_reclaimed_action_age_seconds"
     )
-    assert recovery_reclaimed.samples[0].value >= 0
+    assert recovery_reclaimed.samples[0].value == 42
     recovery_reclaimed_count = next(
         metric for metric in metrics if metric.name == "lotus_performance_recovery_drill_reclaimed_actions"
     )
@@ -623,7 +622,7 @@ def test_queue_metrics_collector_emits_governed_action_lease_metrics(monkeypatch
         for metric in metrics
         if metric.name == "lotus_performance_runtime_retention_latest_reclaimed_action_age_seconds"
     )
-    assert runtime_retention_reclaimed.samples[0].value >= 0
+    assert runtime_retention_reclaimed.samples[0].value == 42
     runtime_retention_reclaimed_count = next(
         metric for metric in metrics if metric.name == "lotus_performance_runtime_retention_reclaimed_actions"
     )
