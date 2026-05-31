@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from uuid import UUID
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException
 
 from app.core.config import Settings
 from app.models.source_quality import PerformanceSourceQualityEvidence
@@ -14,7 +14,7 @@ from app.services.portfolio_source_service import (
 )
 from app.services.source_quality_evidence import build_portfolio_source_quality_evidence
 from app.services.stateful_input_service import RetrievalMetadata, StatefulInputService
-from app.services.stateful_upstream_errors import stateful_control_plane_unavailable_detail
+from app.services.stateful_upstream_errors import raise_for_stateful_control_plane_unavailable
 from app.services.valuation_points_service import portfolio_timeseries_to_valuation_points
 from core.errors import HTTP_422_UNPROCESSABLE
 
@@ -71,14 +71,10 @@ async def retrieve_stateful_portfolio_input(
             reporting_currency=reporting_currency,
             consumer_system=consumer_system,
         )
-    if upstream_status >= status.HTTP_400_BAD_REQUEST:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=stateful_control_plane_unavailable_detail(
-                source_label="stateful portfolio timeseries source",
-                upstream_status=upstream_status,
-            ),
-        )
+    raise_for_stateful_control_plane_unavailable(
+        source_label="stateful portfolio timeseries source",
+        upstream_status=upstream_status,
+    )
 
     try:
         portfolio_source = parse_stateful_portfolio_timeseries_payload(

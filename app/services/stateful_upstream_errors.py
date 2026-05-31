@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from fastapi import HTTPException, status
+
 
 def stateful_control_plane_unavailable_detail(*, source_label: str, upstream_status: int) -> str:
     detail = f"{source_label} unavailable ({upstream_status})."
@@ -9,3 +11,15 @@ def stateful_control_plane_unavailable_detail(*, source_label: str, upstream_sta
             "not query-service; likely wrong core control-plane base URL or stale container env."
         )
     return detail
+
+
+def raise_for_stateful_control_plane_unavailable(*, source_label: str, upstream_status: int) -> None:
+    if upstream_status < status.HTTP_400_BAD_REQUEST:
+        return
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail=stateful_control_plane_unavailable_detail(
+            source_label=source_label,
+            upstream_status=upstream_status,
+        ),
+    )
