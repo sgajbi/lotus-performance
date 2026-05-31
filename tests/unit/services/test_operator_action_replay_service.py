@@ -1,4 +1,7 @@
+import logging
+
 from app.services.operator_action_replay_service import (
+    _load_payload,
     resolve_recovery_drill_manual_replay,
     resolve_runtime_retention_manual_replay,
 )
@@ -359,6 +362,37 @@ def test_runtime_retention_manual_replay_handles_missing_correlation_and_unreada
         )
         is None
     )
+
+
+def test_operator_action_replay_payload_loader_logs_unreadable_invalid_and_non_object_payloads(
+    tmp_path, monkeypatch, caplog
+):
+    artifact_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
+    artifact_dir.mkdir(parents=True)
+    unreadable_path = artifact_dir / "unreadable.json"
+    unreadable_path.write_text("{}", encoding="utf-8")
+    invalid_path = artifact_dir / "invalid.json"
+    invalid_path.write_text("{", encoding="utf-8")
+    list_path = artifact_dir / "list.json"
+    list_path.write_text("[1, 2]", encoding="utf-8")
+
+    def _raise_os_error(self, *args, **kwargs):
+        if self == unreadable_path:
+            raise OSError("payload unreadable")
+        return original_read_text(self, *args, **kwargs)
+
+    original_read_text = type(unreadable_path).read_text
+    monkeypatch.setattr(type(unreadable_path), "read_text", _raise_os_error)
+
+    with caplog.at_level(logging.WARNING, logger="app.services.operator_action_replay_service"):
+        assert _load_payload(artifact_directory=artifact_dir, evidence_file_name="unreadable.json") is None
+        assert _load_payload(artifact_directory=artifact_dir, evidence_file_name="invalid.json") is None
+        assert _load_payload(artifact_directory=artifact_dir, evidence_file_name="list.json") is None
+
+    assert "Operator action replay evidence unreadable: unreadable.json" in caplog.text
+    assert "OSError: payload unreadable" in caplog.text
+    assert "Operator action replay evidence invalid JSON: invalid.json" in caplog.text
+    assert "Operator action replay evidence ignored because payload is not an object: list.json" in caplog.text
 
 
 def test_runtime_retention_manual_replay_rejects_evidence_outside_artifact_directory(tmp_path):

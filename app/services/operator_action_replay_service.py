@@ -110,9 +110,18 @@ def _load_payload(*, artifact_directory: Path, evidence_file_name: str) -> dict[
         return None
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except OSError:
+        logger.warning("Operator action replay evidence unreadable: %s", evidence_file_name, exc_info=True)
         return None
-    return payload if isinstance(payload, dict) else None
+    except json.JSONDecodeError:
+        logger.warning("Operator action replay evidence invalid JSON: %s", evidence_file_name, exc_info=True)
+        return None
+    if not isinstance(payload, dict):
+        logger.warning(
+            "Operator action replay evidence ignored because payload is not an object: %s", evidence_file_name
+        )
+        return None
+    return payload
 
 
 def _evidence_file_path(*, artifact_directory: Path, evidence_file_name: str) -> Path | None:
