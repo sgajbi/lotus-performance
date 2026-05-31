@@ -11,7 +11,7 @@ from uuid import UUID
 from sqlalchemy import DateTime, Index, Integer, String, Text, case, create_engine, exists, func, inspect, select, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
-from app.services.durable_store_pagination import next_offset_or_none
+from app.services.durable_store_pagination import next_offset_or_none, recovery_cursor_or_none
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
 from app.services.durable_store_time import (
     coerce_utc_datetime as _coerce_utc_datetime,
@@ -494,16 +494,12 @@ class LineageMetadataStore:
                 or 0
             )
             next_offset = next_offset_or_none(offset=offset, item_count=len(events), total_count=total_count)
-            next_cursor_recovered_before = None
-            next_cursor_calculation_id_before = None
-            if next_offset is not None and events:
-                next_cursor_recovered_before = events[-1].recovered_at_utc
-                next_cursor_calculation_id_before = events[-1].calculation_id
+            cursor = recovery_cursor_or_none(next_offset=next_offset, items=events)
             return LineageRecoveryEventPage(
                 total_count=total_count,
                 next_offset=next_offset,
-                next_cursor_recovered_before=next_cursor_recovered_before,
-                next_cursor_calculation_id_before=next_cursor_calculation_id_before,
+                next_cursor_recovered_before=cursor.recovered_before,
+                next_cursor_calculation_id_before=cursor.calculation_id_before,
                 items=events,
             )
 

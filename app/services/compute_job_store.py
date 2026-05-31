@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.core.config import get_settings
-from app.services.durable_store_pagination import next_offset_or_none
+from app.services.durable_store_pagination import next_offset_or_none, recovery_cursor_or_none
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
 from app.services.durable_store_time import (
     elapsed_seconds_since as _elapsed_seconds_since,
@@ -609,16 +609,12 @@ class ComputeJobStore:
                 or 0
             )
             next_offset = next_offset_or_none(offset=offset, item_count=len(events), total_count=total_count)
-            next_cursor_recovered_before = None
-            next_cursor_calculation_id_before = None
-            if next_offset is not None and events:
-                next_cursor_recovered_before = events[-1].recovered_at_utc
-                next_cursor_calculation_id_before = events[-1].calculation_id
+            cursor = recovery_cursor_or_none(next_offset=next_offset, items=events)
             return ComputeRecoveryEventPage(
                 total_count=total_count,
                 next_offset=next_offset,
-                next_cursor_recovered_before=next_cursor_recovered_before,
-                next_cursor_calculation_id_before=next_cursor_calculation_id_before,
+                next_cursor_recovered_before=cursor.recovered_before,
+                next_cursor_calculation_id_before=cursor.calculation_id_before,
                 items=events,
             )
 
