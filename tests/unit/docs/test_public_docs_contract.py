@@ -652,6 +652,16 @@ def test_standalone_guide_uses_current_engine_api():
     assert "google.com/search" not in guide
 
 
+def test_engine_config_docs_describe_current_calendar_contract():
+    engine_config = _read("docs/technical/engine_config.md")
+    engine_config_flat = " ".join(engine_config.split())
+
+    assert "placeholder" not in engine_config.lower()
+    assert "Optional exchange-calendar identifier preserved in the request" in engine_config
+    assert "venue-specific holiday calendars are not applied" in engine_config_flat
+    assert not engine_config.rstrip().endswith("````")
+
+
 def test_contribution_guide_uses_current_request_shape():
     guide = _read("docs/guides/contribution.md")
     api_reference = _read("docs/guides/api_reference.md")

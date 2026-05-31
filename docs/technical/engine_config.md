@@ -55,7 +55,10 @@ These parameters are part of the unified API envelope and influence engine behav
 -   **`type`**:
     -   `BUSINESS`: Calculation assumes business days (e.g., 252 days per year for annualization).
     -   `NATURAL`: Calculation assumes all calendar days.
--   **`trading_calendar`**: A placeholder for future enhancements to support specific exchange calendars (e.g., `NYSE`).
+-   **`trading_calendar`**: Optional exchange-calendar identifier preserved in the request,
+    diagnostics, and reproducibility metadata (e.g., `NYSE`). The current calculation engine uses
+    `type` and annualization settings for day-count behavior; venue-specific holiday calendars are
+    not applied unless a caller has provided an implementation-backed calendar integration.
 
 ### Annualization
 
@@ -82,4 +85,3 @@ All engine calculations are designed to emit diagnostic and audit information, w
 -   **Audit**:
     -   `sum_of_parts_vs_total_bp`: For contribution and attribution, this shows the residual between the sum of component effects and the total portfolio effect, measured in basis points.
     -   `counts`: Key metrics about the input data, such as the number of rows processed or positions analyzed.
-````
