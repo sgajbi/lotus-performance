@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from pathlib import Path
 
 from app.core.config import get_settings
 from app.services.compute_job_store import compute_job_store
@@ -49,10 +48,16 @@ from app.services.runtime_status_lifecycle import (
     recovery_drill_degradation_details as _recovery_drill_degradation_details,
 )
 from app.services.runtime_status_lifecycle import (
+    recovery_drill_operator_action_status as _recovery_drill_operator_action_status,
+)
+from app.services.runtime_status_lifecycle import (
     recovery_drill_status_from_latest as _recovery_drill_status_from_latest,
 )
 from app.services.runtime_status_lifecycle import (
     runtime_retention_degradation_details as _runtime_retention_degradation_details,
+)
+from app.services.runtime_status_lifecycle import (
+    runtime_retention_operator_action_status as _runtime_retention_operator_action_status,
 )
 from app.services.runtime_status_lifecycle import (
     runtime_retention_status_from_latest as _runtime_retention_status_from_latest,
@@ -63,7 +68,6 @@ from app.services.runtime_status_lifecycle import (
 from app.services.runtime_status_lifecycle import (
     unavailable_runtime_retention_status as _build_unavailable_runtime_retention_status,
 )
-from app.services.runtime_status_operator_action import build_operator_action_status as _build_operator_action_status
 from app.services.runtime_status_policy import (
     build_compute_queue_policy,
     build_lineage_queue_policy,
@@ -196,10 +200,7 @@ def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
     threshold = getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS", 0.0)
     active_run_age_threshold = getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_ACTIVE_RUN_AGE_DEGRADE_SECONDS", 0.0)
     reclaim_threshold = getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT", 0)
-    active_run_status = _build_operator_action_status(
-        artifact_directory=getattr(settings, "RECOVERY_DRILL_ARTIFACT_PATH", Path("artifacts/durable-recovery-drill")),
-        action_name="recovery_drill",
-    )
+    active_run_status = _recovery_drill_operator_action_status(settings=settings)
     try:
         snapshot = build_recovery_drill_history_snapshot(limit=1)
     except Exception as exc:
@@ -248,12 +249,7 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
         0.0,
     )
     reclaim_threshold = getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT", 0)
-    active_run_status = _build_operator_action_status(
-        artifact_directory=getattr(
-            settings, "RUNTIME_RETENTION_ARTIFACT_PATH", Path("artifacts/runtime-retention-cleanup")
-        ),
-        action_name="runtime_retention_cleanup",
-    )
+    active_run_status = _runtime_retention_operator_action_status(settings=settings)
     try:
         snapshot = build_runtime_retention_history_snapshot(limit=1)
     except Exception as exc:

@@ -1,4 +1,5 @@
 from decimal import Decimal
+from pathlib import Path
 
 from app.services.recovery_drill_history_service import RecoveryDrillHistoryEntry
 from app.services.runtime_retention_history_service import RuntimeRetentionHistoryEntry
@@ -8,8 +9,10 @@ from app.services.runtime_status_lifecycle import (
     missing_recovery_drill_status,
     missing_runtime_retention_status,
     recovery_drill_degradation_details,
+    recovery_drill_operator_action_status,
     recovery_drill_status_from_latest,
     runtime_retention_degradation_details,
+    runtime_retention_operator_action_status,
     runtime_retention_status_from_latest,
     unavailable_recovery_drill_status,
     unavailable_runtime_retention_status,
@@ -40,6 +43,31 @@ def _operator_action_status(
         reclaimed_run_count=reclaimed_run_count,
         recent_reclaimed_runs=(),
     )
+
+
+def test_lifecycle_operator_action_status_helpers_use_governed_defaults(mocker):
+    captured_calls: list[tuple[Path, str]] = []
+    returned_status = _operator_action_status()
+
+    def fake_build_operator_action_status(*, artifact_directory: Path, action_name: str):
+        captured_calls.append((artifact_directory, action_name))
+        return returned_status
+
+    mocker.patch(
+        "app.services.runtime_status_lifecycle.build_operator_action_status",
+        side_effect=fake_build_operator_action_status,
+    )
+    settings = type("Settings", (), {})()
+
+    recovery_status = recovery_drill_operator_action_status(settings=settings)
+    retention_status = runtime_retention_operator_action_status(settings=settings)
+
+    assert recovery_status is returned_status
+    assert retention_status is returned_status
+    assert captured_calls == [
+        (Path("artifacts/durable-recovery-drill"), "recovery_drill"),
+        (Path("artifacts/runtime-retention-cleanup"), "runtime_retention_cleanup"),
+    ]
 
 
 def test_recovery_drill_status_from_latest_preserves_latest_evidence_and_degradation():

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from app.services.recovery_drill_history_service import RecoveryDrillHistoryEntry
 from app.services.runtime_retention_history_service import RuntimeRetentionHistoryEntry
 from app.services.runtime_retention_service import RuntimeRetentionCleanupSummary
@@ -16,8 +18,26 @@ from app.services.runtime_status_domain import (
     RuntimeDegradationDetail,
     RuntimeRetentionStatus,
 )
-from app.services.runtime_status_operator_action import operator_action_status_fields
+from app.services.runtime_status_operator_action import build_operator_action_status, operator_action_status_fields
 from app.services.runtime_status_retention_preview import runtime_retention_preview_fields
+
+
+def recovery_drill_operator_action_status(*, settings) -> OperatorActionStatus:
+    return build_operator_action_status(
+        artifact_directory=getattr(settings, "RECOVERY_DRILL_ARTIFACT_PATH", Path("artifacts/durable-recovery-drill")),
+        action_name="recovery_drill",
+    )
+
+
+def runtime_retention_operator_action_status(*, settings) -> OperatorActionStatus:
+    return build_operator_action_status(
+        artifact_directory=getattr(
+            settings,
+            "RUNTIME_RETENTION_ARTIFACT_PATH",
+            Path("artifacts/runtime-retention-cleanup"),
+        ),
+        action_name="runtime_retention_cleanup",
+    )
 
 
 def recovery_drill_status_from_latest(
