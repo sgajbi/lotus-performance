@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from app.services.operator_action_evidence_paths import is_safe_evidence_file_name
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -52,8 +55,10 @@ def read_history_manifest_payload(
     try:
         payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     except OSError:
+        logger.warning("Operator action history manifest unreadable at %s.", manifest_path, exc_info=True)
         return HistoryManifestReadResult(payload=None, reason=reasons.manifest_unreadable)
     except json.JSONDecodeError:
+        logger.warning("Operator action history manifest invalid at %s.", manifest_path, exc_info=True)
         return HistoryManifestReadResult(payload=None, reason=reasons.manifest_invalid)
 
     return HistoryManifestReadResult(payload=payload)

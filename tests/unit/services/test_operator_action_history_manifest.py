@@ -1,3 +1,5 @@
+import logging
+
 from app.services.operator_action_history_manifest import (
     HistoryManifestHeader,
     HistoryManifestReadReasons,
@@ -35,7 +37,7 @@ def test_read_history_manifest_payload_maps_missing_manifest(tmp_path):
     assert result.reason == "manifest_missing"
 
 
-def test_read_history_manifest_payload_maps_unreadable_manifest(tmp_path, monkeypatch):
+def test_read_history_manifest_payload_maps_unreadable_manifest(tmp_path, monkeypatch, caplog):
     manifest_path = tmp_path / "manifest.json"
     manifest_path.write_text("{}", encoding="utf-8")
 
@@ -44,19 +46,26 @@ def test_read_history_manifest_payload_maps_unreadable_manifest(tmp_path, monkey
 
     monkeypatch.setattr(manifest_path.__class__, "read_text", _raise_os_error)
 
-    result = read_history_manifest_payload(directory=tmp_path, reasons=_read_reasons())
+    with caplog.at_level(logging.WARNING, logger="app.services.operator_action_history_manifest"):
+        result = read_history_manifest_payload(directory=tmp_path, reasons=_read_reasons())
 
     assert result.payload is None
     assert result.reason == "manifest_unreadable"
+    assert f"Operator action history manifest unreadable at {manifest_path}" in caplog.text
+    assert "OSError: denied" in caplog.text
 
 
-def test_read_history_manifest_payload_maps_invalid_json(tmp_path):
-    (tmp_path / "manifest.json").write_text("{", encoding="utf-8")
+def test_read_history_manifest_payload_maps_invalid_json(tmp_path, caplog):
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text("{", encoding="utf-8")
 
-    result = read_history_manifest_payload(directory=tmp_path, reasons=_read_reasons())
+    with caplog.at_level(logging.WARNING, logger="app.services.operator_action_history_manifest"):
+        result = read_history_manifest_payload(directory=tmp_path, reasons=_read_reasons())
 
     assert result.payload is None
     assert result.reason == "manifest_invalid"
+    assert f"Operator action history manifest invalid at {manifest_path}" in caplog.text
+    assert "json.decoder.JSONDecodeError" in caplog.text
 
 
 def test_read_history_manifest_payload_returns_payload(tmp_path):
