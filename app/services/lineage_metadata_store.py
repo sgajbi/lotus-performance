@@ -44,6 +44,12 @@ class LineageStatus(StrEnum):
     FAILED = "failed"
 
 
+LINEAGE_TERMINAL_STATUSES = (
+    LineageStatus.COMPLETE.value,
+    LineageStatus.FAILED.value,
+)
+
+
 class Base(DeclarativeBase):
     pass
 
@@ -270,7 +276,7 @@ class LineageMetadataStore:
             )
             statement = (
                 select(LineageRecordModel.calculation_id)
-                .where(LineageRecordModel.status.in_([LineageStatus.COMPLETE.value, LineageStatus.FAILED.value]))
+                .where(LineageRecordModel.status.in_(LINEAGE_TERMINAL_STATUSES))
                 .where(LineageRecordModel.timestamp_utc <= cutoff)
                 .order_by(LineageRecordModel.timestamp_utc.asc(), LineageRecordModel.calculation_id.asc())
             )

@@ -60,6 +60,10 @@ COMPUTE_RECLAIMABLE_INSPECTION_STATUSES = (
     ComputeJobStatus.LEASED.value,
     ComputeJobStatus.RUNNING.value,
 )
+COMPUTE_TERMINAL_JOB_STATUSES = (
+    ComputeJobStatus.COMPLETE.value,
+    ComputeJobStatus.FAILED.value,
+)
 
 
 class Base(DeclarativeBase):
@@ -228,9 +232,7 @@ class ComputeJobStore:
             rows = (
                 session.execute(
                     select(ComputeJobModel)
-                    .where(
-                        ComputeJobModel.job_status.in_([ComputeJobStatus.COMPLETE.value, ComputeJobStatus.FAILED.value])
-                    )
+                    .where(ComputeJobModel.job_status.in_(COMPUTE_TERMINAL_JOB_STATUSES))
                     .where(ComputeJobModel.completed_at_utc.is_not(None))
                     .where(ComputeJobModel.completed_at_utc <= cutoff)
                 )
