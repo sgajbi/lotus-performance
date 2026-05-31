@@ -53,6 +53,7 @@ from app.services.runtime_status_policy import (
     build_recovery_drill_policy,
     build_runtime_retention_policy,
 )
+from app.services.runtime_status_time import age_seconds_since as _age_seconds_since
 
 
 def build_runtime_status_snapshot(*, is_draining: bool) -> RuntimeStatusSnapshot:
@@ -1008,21 +1009,6 @@ def _build_recent_operator_action_reclaims(*, snapshot) -> tuple[RecentOperatorA
         )
         for event in events[:5]
     )
-
-
-def _parse_reclaimed_at_utc(timestamp_utc: str) -> datetime:
-    return _parse_utc_datetime(timestamp_utc)
-
-
-def _age_seconds_since(timestamp_utc: str) -> float:
-    return max(0.0, (datetime.now(UTC) - _parse_utc_datetime(timestamp_utc)).total_seconds())
-
-
-def _parse_utc_datetime(timestamp_utc: str) -> datetime:
-    parsed = datetime.fromisoformat(timestamp_utc.replace("Z", "+00:00"))
-    if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=UTC)
-    return parsed.astimezone(UTC)
 
 
 def _collect_runtime_degradation_reasons(
