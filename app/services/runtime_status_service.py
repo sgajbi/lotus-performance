@@ -33,8 +33,10 @@ from app.services.runtime_status_degradation import (
     runtime_status_from_component_statuses as _runtime_status_from_component_statuses,
 )
 from app.services.runtime_status_domain import (
+    RecoveryDrillDegradationPolicy,
     RecoveryDrillStatus,
     RuntimeQueueStatus,
+    RuntimeRetentionDegradationPolicy,
     RuntimeRetentionStatus,
     RuntimeStatusSnapshot,
 )
@@ -103,8 +105,8 @@ def build_runtime_status_snapshot(*, is_draining: bool) -> RuntimeStatusSnapshot
 
     compute_queue = _build_compute_queue_status(durability_status, settings=settings)
     lineage_queue = _build_lineage_queue_status(durability_status, settings=settings)
-    recovery_drill = _build_recovery_drill_status(settings=settings)
-    runtime_retention = _build_runtime_retention_status(settings=settings)
+    recovery_drill = _build_recovery_drill_status(settings=settings, policy=recovery_drill_policy)
+    runtime_retention = _build_runtime_retention_status(settings=settings, policy=runtime_retention_policy)
     runtime_status = _runtime_status_from_component_statuses(
         is_draining=is_draining,
         durable_metadata_status=durability_status.status,
@@ -196,10 +198,7 @@ def _build_lineage_queue_status(durability_status: DurabilityHealthStatus, *, se
         return _unavailable_runtime_queue_status(reason=type(exc).__name__)
 
 
-def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
-    threshold = getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS", 0.0)
-    active_run_age_threshold = getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_ACTIVE_RUN_AGE_DEGRADE_SECONDS", 0.0)
-    reclaim_threshold = getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT", 0)
+def _build_recovery_drill_status(*, settings, policy: RecoveryDrillDegradationPolicy) -> RecoveryDrillStatus:
     active_run_status = _recovery_drill_operator_action_status(settings=settings)
     try:
         snapshot = build_recovery_drill_history_snapshot(limit=1)
@@ -214,24 +213,30 @@ def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
             "recovery_drill_artifact_directory_missing",
             "recovery_drill_manifest_missing",
         }:
-            return _build_missing_recovery_drill_status(threshold=threshold, active_run_status=active_run_status)
+            return _build_missing_recovery_drill_status(
+                threshold=policy.max_age_seconds,
+                active_run_status=active_run_status,
+            )
         return _build_unavailable_recovery_drill_status(
             reason=snapshot.reason or snapshot.status,
             active_run_status=active_run_status,
         )
 
     if not snapshot.entries:
-        return _build_missing_recovery_drill_status(threshold=threshold, active_run_status=active_run_status)
+        return _build_missing_recovery_drill_status(
+            threshold=policy.max_age_seconds,
+            active_run_status=active_run_status,
+        )
 
     latest = snapshot.entries[0]
     latest_age_seconds = _age_seconds_since(latest.generated_at_utc)
     degradation_details = _recovery_drill_degradation_details(
         latest=latest,
         latest_age_seconds=latest_age_seconds,
-        threshold=threshold,
+        threshold=policy.max_age_seconds,
         active_run_status=active_run_status,
-        active_run_age_threshold=active_run_age_threshold,
-        reclaim_threshold=reclaim_threshold,
+        active_run_age_threshold=policy.active_run_age_seconds,
+        reclaim_threshold=policy.reclaim_count,
     )
     return _recovery_drill_status_from_latest(
         latest=latest,
@@ -241,14 +246,7 @@ def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
     )
 
 
-def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
-    threshold = getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS", 0.0)
-    active_run_age_threshold = getattr(
-        settings,
-        "RUNTIME_STATUS_RUNTIME_RETENTION_ACTIVE_RUN_AGE_DEGRADE_SECONDS",
-        0.0,
-    )
-    reclaim_threshold = getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT", 0)
+def _build_runtime_retention_status(*, settings, policy: RuntimeRetentionDegradationPolicy) -> RuntimeRetentionStatus:
     active_run_status = _runtime_retention_operator_action_status(settings=settings)
     try:
         snapshot = build_runtime_retention_history_snapshot(limit=1)
@@ -268,7 +266,7 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
             "runtime_retention_manifest_missing",
         }:
             return _build_missing_runtime_retention_status(
-                threshold=threshold,
+                threshold=policy.max_age_seconds,
                 active_run_status=active_run_status,
                 preview_status=preview_status,
                 preview_reason=preview_reason,
@@ -284,7 +282,7 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
 
     if not snapshot.entries:
         return _build_missing_runtime_retention_status(
-            threshold=threshold,
+            threshold=policy.max_age_seconds,
             active_run_status=active_run_status,
             preview_status=preview_status,
             preview_reason=preview_reason,
@@ -296,10 +294,10 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
     degradation_details = _runtime_retention_degradation_details(
         latest=latest,
         latest_age_seconds=latest_age_seconds,
-        threshold=threshold,
+        threshold=policy.max_age_seconds,
         active_run_status=active_run_status,
-        active_run_age_threshold=active_run_age_threshold,
-        reclaim_threshold=reclaim_threshold,
+        active_run_age_threshold=policy.active_run_age_seconds,
+        reclaim_threshold=policy.reclaim_count,
     )
     return _runtime_retention_status_from_latest(
         latest=latest,
