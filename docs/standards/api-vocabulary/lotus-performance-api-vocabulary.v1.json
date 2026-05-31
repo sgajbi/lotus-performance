@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-05-22T01:45:33.261162+00:00",
+  "generatedAt": "2026-05-31T23:03:24.936327+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -2155,7 +2155,7 @@
       "semanticId": "lotus.fallback_policy",
       "canonicalTerm": "fallback_policy",
       "preferredName": "fallback_policy",
-      "description": "Reserved fallback policy for future look-through decomposition gaps.",
+      "description": "Reserved fallback policy accepted for compatibility with the look-through request block. The current engine does not decompose fund or structured-product holdings; callers should supply already-visible position rows from lotus-core.",
       "example": "error",
       "type": "string",
       "locations": [
