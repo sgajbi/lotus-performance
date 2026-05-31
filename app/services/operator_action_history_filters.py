@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
+from typing import TypeVar
 
 from app.services.runtime_status_time import parse_utc_datetime
 
 AppliedHistoryFilters = dict[str, str | int]
 OptionalHistoryFilter = tuple[str, str | int | None]
+HistoryEntryT = TypeVar("HistoryEntryT")
+HistoryExactFilter = tuple[str | None, Callable[[HistoryEntryT], str | None]]
 
 
 @dataclass(frozen=True)
@@ -68,3 +72,29 @@ def build_applied_history_filters(
     if generated_before is not None:
         filters["generated_before"] = generated_before
     return filters
+
+
+def filter_history_entries(
+    entries: list[HistoryEntryT],
+    *,
+    exact_filters: tuple[HistoryExactFilter[HistoryEntryT], ...],
+    generated_after: str | None,
+    generated_before: str | None,
+    get_generated_at_utc: Callable[[HistoryEntryT], str],
+) -> list[HistoryEntryT]:
+    filtered = entries
+    for expected_value, read_value in exact_filters:
+        if expected_value is not None:
+            filtered = [entry for entry in filtered if read_value(entry) == expected_value]
+
+    generated_at_bounds = parse_generated_at_bounds(
+        generated_after=generated_after,
+        generated_before=generated_before,
+    )
+    if generated_at_bounds.has_bounds:
+        filtered = [
+            entry
+            for entry in filtered
+            if generated_at_within_bounds(get_generated_at_utc(entry), bounds=generated_at_bounds)
+        ]
+    return filtered

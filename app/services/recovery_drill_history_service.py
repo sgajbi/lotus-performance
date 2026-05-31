@@ -8,8 +8,7 @@ from typing import Any
 from app.core.config import get_settings
 from app.services.operator_action_history_filters import (
     build_applied_history_filters,
-    generated_at_within_bounds,
-    parse_generated_at_bounds,
+    filter_history_entries,
 )
 from app.services.operator_action_history_manifest import (
     validate_history_entry_strings,
@@ -216,24 +215,17 @@ def _filter_entries(
     generated_after: str | None,
     generated_before: str | None,
 ) -> list[RecoveryDrillHistoryEntry]:
-    filtered = entries
-    if operator_id is not None:
-        filtered = [entry for entry in filtered if entry.operator_id == operator_id]
-    if backup_identifier is not None:
-        filtered = [entry for entry in filtered if entry.backup_identifier == backup_identifier]
-    if status_filter is not None:
-        filtered = [entry for entry in filtered if entry.status == status_filter]
-    generated_at_bounds = parse_generated_at_bounds(
+    return filter_history_entries(
+        entries,
+        exact_filters=(
+            (operator_id, lambda entry: entry.operator_id),
+            (backup_identifier, lambda entry: entry.backup_identifier),
+            (status_filter, lambda entry: entry.status),
+        ),
         generated_after=generated_after,
         generated_before=generated_before,
+        get_generated_at_utc=lambda entry: entry.generated_at_utc,
     )
-    if generated_at_bounds.has_bounds:
-        filtered = [
-            entry
-            for entry in filtered
-            if generated_at_within_bounds(entry.generated_at_utc, bounds=generated_at_bounds)
-        ]
-    return filtered
 
 
 def _build_applied_filters(
