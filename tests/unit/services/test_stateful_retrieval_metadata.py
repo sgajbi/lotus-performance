@@ -1,0 +1,20 @@
+from app.services.stateful_input_service import RetrievalMetadata
+from app.services.stateful_retrieval_metadata import parse_retrieval_metadata
+
+
+def test_parse_retrieval_metadata_defaults_missing_payload_to_one_chunk_and_page():
+    assert parse_retrieval_metadata({}) == RetrievalMetadata(chunk_count=1, page_count=1)
+
+
+def test_parse_retrieval_metadata_preserves_positive_integer_counts():
+    assert parse_retrieval_metadata({"retrieval_metadata": {"chunk_count": 2, "page_count": 3}}) == RetrievalMetadata(
+        chunk_count=2, page_count=3
+    )
+
+
+def test_parse_retrieval_metadata_uses_configured_defaults_for_invalid_counts():
+    assert parse_retrieval_metadata(
+        {"retrieval_metadata": {"chunk_count": 0, "page_count": "3"}},
+        default_chunk_count=0,
+        default_page_count=0,
+    ) == RetrievalMetadata(chunk_count=0, page_count=0)

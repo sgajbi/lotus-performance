@@ -14,6 +14,7 @@ from app.services.portfolio_source_service import (
 )
 from app.services.source_quality_evidence import build_portfolio_source_quality_evidence
 from app.services.stateful_input_service import RetrievalMetadata, StatefulInputService
+from app.services.stateful_retrieval_metadata import parse_retrieval_metadata as _parse_retrieval_metadata
 from app.services.stateful_upstream_errors import raise_for_stateful_control_plane_unavailable
 from app.services.valuation_points_service import portfolio_timeseries_to_valuation_points
 from core.errors import HTTP_422_UNPROCESSABLE
@@ -128,16 +129,4 @@ def build_stateful_portfolio_valuation_input(
             source_owner="lotus-core",
             source_product="PortfolioTimeseriesInput",
         ),
-    )
-
-
-def _parse_retrieval_metadata(payload: dict[str, object]) -> RetrievalMetadata:
-    metadata_raw = payload.get("retrieval_metadata")
-    if not isinstance(metadata_raw, dict):
-        return RetrievalMetadata(chunk_count=1, page_count=1)
-    chunk_count = metadata_raw.get("chunk_count")
-    page_count = metadata_raw.get("page_count")
-    return RetrievalMetadata(
-        chunk_count=int(chunk_count) if isinstance(chunk_count, int) and chunk_count > 0 else 1,
-        page_count=int(page_count) if isinstance(page_count, int) and page_count > 0 else 1,
     )

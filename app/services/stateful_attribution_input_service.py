@@ -23,6 +23,7 @@ from app.services.stateful_position_row_service import (
     PositionValueBasis,
     split_position_cash_flows_in_value_basis,
 )
+from app.services.stateful_retrieval_metadata import parse_retrieval_metadata as _parse_retrieval_metadata
 from app.services.stateful_upstream_errors import raise_for_stateful_control_plane_unavailable
 from app.services.valuation_points_service import portfolio_timeseries_to_valuation_points
 from engine.benchmarks import calculate_benchmark_returns
@@ -879,15 +880,3 @@ def _validate_stateful_both_currency_support(
                 "include currencies different from report_ccy."
             ),
         )
-
-
-def _parse_retrieval_metadata(payload: dict[str, object]) -> RetrievalMetadata:
-    metadata_raw = payload.get("retrieval_metadata")
-    if not isinstance(metadata_raw, dict):
-        return RetrievalMetadata(chunk_count=1, page_count=1)
-    chunk_count = metadata_raw.get("chunk_count")
-    page_count = metadata_raw.get("page_count")
-    return RetrievalMetadata(
-        chunk_count=int(chunk_count) if isinstance(chunk_count, int) and chunk_count > 0 else 1,
-        page_count=int(page_count) if isinstance(page_count, int) and page_count > 0 else 1,
-    )
