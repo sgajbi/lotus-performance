@@ -1,3 +1,4 @@
+import logging
 from uuid import uuid4
 
 import pytest
@@ -191,7 +192,7 @@ def test_register_async_submission_cleans_up_new_execution_on_job_conflict(mocke
     delete_execution.assert_called_once_with(calculation_id)
 
 
-def test_register_async_submission_cleans_up_new_execution_when_job_registration_raises(mocker):
+def test_register_async_submission_cleans_up_new_execution_when_job_registration_raises(mocker, caplog):
     calculation_id = uuid4()
     mocker.patch(
         "app.services.submission_fencing_service.execution_registry.register_execution",
@@ -204,20 +205,60 @@ def test_register_async_submission_cleans_up_new_execution_when_job_registration
         side_effect=RuntimeError("queue unavailable"),
     )
 
-    with pytest.raises(RuntimeError, match="queue unavailable"):
-        register_async_submission_or_raise(
-            calculation_id=calculation_id,
-            analytics_type="Contribution",
-            portfolio_id="P1",
-            requested_window={"requested_periods": ["ITD"]},
-            input_fingerprint="fingerprint",
-            calculation_hash="hash",
-            request_payload={"calculation_id": str(calculation_id)},
-            offload_reason="large_input",
-            accepted_response_factory=_accepted_response_factory,
-        )
+    with caplog.at_level(logging.WARNING, logger="app.services.submission_fencing_service"):
+        with pytest.raises(RuntimeError, match="queue unavailable"):
+            register_async_submission_or_raise(
+                calculation_id=calculation_id,
+                analytics_type="Contribution",
+                portfolio_id="P1",
+                requested_window={"requested_periods": ["ITD"]},
+                input_fingerprint="fingerprint",
+                calculation_hash="hash",
+                request_payload={"calculation_id": str(calculation_id)},
+                offload_reason="large_input",
+                accepted_response_factory=_accepted_response_factory,
+            )
 
     delete_execution.assert_called_once_with(calculation_id)
+    assert f"Async compute job registration failed for calculation_id={calculation_id}" in caplog.text
+    assert "analytics_type=Contribution" in caplog.text
+    assert "RuntimeError: queue unavailable" in caplog.text
+
+
+def test_register_async_submission_preserves_job_error_when_cleanup_fails(mocker, caplog):
+    calculation_id = uuid4()
+    mocker.patch(
+        "app.services.submission_fencing_service.execution_registry.register_execution",
+        return_value=ExecutionRegistrationResult(status=ExecutionRegistrationStatus.CREATED),
+    )
+    mocker.patch("app.services.submission_fencing_service.execution_registry.start_stage")
+    mocker.patch(
+        "app.services.submission_fencing_service.execution_registry.delete_execution",
+        side_effect=RuntimeError("cleanup unavailable"),
+    )
+    mocker.patch(
+        "app.services.submission_fencing_service.compute_job_store.register_job",
+        side_effect=RuntimeError("queue unavailable"),
+    )
+
+    with caplog.at_level(logging.WARNING, logger="app.services.submission_fencing_service"):
+        with pytest.raises(RuntimeError, match="queue unavailable"):
+            register_async_submission_or_raise(
+                calculation_id=calculation_id,
+                analytics_type="Contribution",
+                portfolio_id="P1",
+                requested_window={"requested_periods": ["ITD"]},
+                input_fingerprint="fingerprint",
+                calculation_hash="hash",
+                request_payload={"calculation_id": str(calculation_id)},
+                offload_reason="large_input",
+                accepted_response_factory=_accepted_response_factory,
+            )
+
+    assert f"Async compute job registration failed for calculation_id={calculation_id}" in caplog.text
+    assert f"Async execution registration cleanup failed for calculation_id={calculation_id}" in caplog.text
+    assert "RuntimeError: queue unavailable" in caplog.text
+    assert "RuntimeError: cleanup unavailable" in caplog.text
 
 
 def test_promote_existing_execution_defers_execution_mutation_until_job_registration_succeeds(mocker):

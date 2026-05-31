@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from typing import Any
 from uuid import UUID
@@ -16,6 +17,8 @@ from app.services.execution_registry import (
     ExecutionRegistrationStatus,
     execution_registry,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def register_sync_execution_or_raise(
@@ -87,8 +90,22 @@ def register_async_submission_or_raise(
             request_payload=request_payload,
         )
     except Exception:
+        logger.warning(
+            "Async compute job registration failed for calculation_id=%s analytics_type=%s.",
+            calculation_id,
+            analytics_type,
+            exc_info=True,
+        )
         if created_execution:
-            execution_registry.delete_execution(calculation_id)
+            try:
+                execution_registry.delete_execution(calculation_id)
+            except Exception:
+                logger.warning(
+                    "Async execution registration cleanup failed for calculation_id=%s analytics_type=%s.",
+                    calculation_id,
+                    analytics_type,
+                    exc_info=True,
+                )
         raise
     if job_registration.status == ComputeJobRegistrationStatus.CONFLICT:
         if created_execution:
