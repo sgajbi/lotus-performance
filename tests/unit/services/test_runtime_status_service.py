@@ -2600,6 +2600,61 @@ def test_runtime_status_build_missing_runtime_retention_status_degrades_when_thr
     assert status.degradation_reasons == ("runtime_retention_history_unavailable",)
 
 
+def test_runtime_status_unavailable_runtime_retention_helper_preserves_preview_and_action_context():
+    active_run_status = runtime_status_service.OperatorActionStatus(
+        status="available",
+        reason=None,
+        active_run_count=1,
+        oldest_active_run_operator_id="ops-user",
+        oldest_active_run_tenant_id="tenant-a",
+        oldest_active_run_governed_target="runtime-retention-cleanup",
+        oldest_active_run_acquired_at_utc="2026-05-31T00:00:00Z",
+        oldest_active_run_age_seconds=45.0,
+        latest_reclaimed_run_operator_id=None,
+        latest_reclaimed_run_tenant_id=None,
+        latest_reclaimed_run_governed_target=None,
+        latest_reclaimed_run_acquired_at_utc=None,
+        latest_reclaimed_run_reclaimed_at_utc=None,
+        latest_reclaimed_run_age_seconds=None,
+        reclaimed_run_count=0,
+        recent_reclaimed_runs=(),
+    )
+    preview_summary = RuntimeRetentionCleanupSummary(
+        dry_run=True,
+        retention_days=30,
+        cutoff_utc="2026-05-01T00:00:00Z",
+        prunable_execution_count=2,
+        prunable_compute_job_count=3,
+        prunable_async_result_count=4,
+        prunable_lineage_record_count=5,
+        prunable_lineage_artifact_count=6,
+    )
+
+    status = runtime_status_service._build_unavailable_runtime_retention_status(
+        reason="history_snapshot_unavailable",
+        active_run_status=active_run_status,
+        preview_status="available",
+        preview_reason=None,
+        preview_summary=preview_summary,
+    )
+
+    assert status.status == "unavailable"
+    assert status.reason == "history_snapshot_unavailable"
+    assert status.active_run_count == 1
+    assert status.oldest_active_run_operator_id == "ops-user"
+    assert status.preview_status == "available"
+    assert status.current_cutoff_utc == "2026-05-01T00:00:00Z"
+    assert status.current_retention_days == 30
+    assert status.current_prunable_execution_count == 2
+    assert status.current_prunable_compute_job_count == 3
+    assert status.current_prunable_async_result_count == 4
+    assert status.current_prunable_lineage_record_count == 5
+    assert status.current_prunable_lineage_artifact_count == 6
+    assert status.latest_generated_at_utc is None
+    assert status.degradation_reasons == ()
+    assert status.degradation_details == ()
+
+
 def test_runtime_status_missing_history_degradation_helper_respects_threshold():
     assert runtime_status_service._missing_history_degradation(
         threshold=0.0,

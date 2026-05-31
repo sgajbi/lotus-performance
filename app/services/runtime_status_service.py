@@ -559,44 +559,12 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
     try:
         snapshot = build_runtime_retention_history_snapshot(limit=1)
     except Exception as exc:
-        return RuntimeRetentionStatus(
-            status="unavailable",
+        return _build_unavailable_runtime_retention_status(
             reason=type(exc).__name__,
-            active_run_status=active_run_status.status,
-            active_run_reason=active_run_status.reason,
-            active_run_count=active_run_status.active_run_count,
-            oldest_active_run_operator_id=active_run_status.oldest_active_run_operator_id,
-            oldest_active_run_tenant_id=active_run_status.oldest_active_run_tenant_id,
-            oldest_active_run_governed_target=active_run_status.oldest_active_run_governed_target,
-            oldest_active_run_acquired_at_utc=active_run_status.oldest_active_run_acquired_at_utc,
-            oldest_active_run_age_seconds=active_run_status.oldest_active_run_age_seconds,
-            latest_reclaimed_run_operator_id=active_run_status.latest_reclaimed_run_operator_id,
-            latest_reclaimed_run_tenant_id=active_run_status.latest_reclaimed_run_tenant_id,
-            latest_reclaimed_run_governed_target=active_run_status.latest_reclaimed_run_governed_target,
-            latest_reclaimed_run_acquired_at_utc=active_run_status.latest_reclaimed_run_acquired_at_utc,
-            latest_reclaimed_run_reclaimed_at_utc=active_run_status.latest_reclaimed_run_reclaimed_at_utc,
-            latest_reclaimed_run_age_seconds=active_run_status.latest_reclaimed_run_age_seconds,
-            reclaimed_run_count=active_run_status.reclaimed_run_count,
-            recent_reclaimed_runs=active_run_status.recent_reclaimed_runs,
+            active_run_status=active_run_status,
             preview_status="unavailable",
             preview_reason="runtime_retention_preview_unavailable",
-            current_cutoff_utc=None,
-            current_retention_days=None,
-            current_prunable_execution_count=None,
-            current_prunable_compute_job_count=None,
-            current_prunable_async_result_count=None,
-            current_prunable_lineage_record_count=None,
-            current_prunable_lineage_artifact_count=None,
-            latest_generated_at_utc=None,
-            latest_status=None,
-            latest_operator_id=None,
-            latest_trigger_mode=None,
-            latest_job_id=None,
-            latest_cleanup_mode=None,
-            latest_retention_days=None,
-            latest_age_seconds=None,
-            degradation_reasons=(),
-            degradation_details=(),
+            preview_summary=None,
         )
     preview_status, preview_reason, preview_summary = _build_runtime_retention_preview()
 
@@ -612,54 +580,12 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
                 preview_reason=preview_reason,
                 preview_summary=preview_summary,
             )
-        return RuntimeRetentionStatus(
-            status="unavailable",
+        return _build_unavailable_runtime_retention_status(
             reason=snapshot.reason or snapshot.status,
-            active_run_status=active_run_status.status,
-            active_run_reason=active_run_status.reason,
-            active_run_count=active_run_status.active_run_count,
-            oldest_active_run_operator_id=active_run_status.oldest_active_run_operator_id,
-            oldest_active_run_tenant_id=active_run_status.oldest_active_run_tenant_id,
-            oldest_active_run_governed_target=active_run_status.oldest_active_run_governed_target,
-            oldest_active_run_acquired_at_utc=active_run_status.oldest_active_run_acquired_at_utc,
-            oldest_active_run_age_seconds=active_run_status.oldest_active_run_age_seconds,
-            latest_reclaimed_run_operator_id=active_run_status.latest_reclaimed_run_operator_id,
-            latest_reclaimed_run_tenant_id=active_run_status.latest_reclaimed_run_tenant_id,
-            latest_reclaimed_run_governed_target=active_run_status.latest_reclaimed_run_governed_target,
-            latest_reclaimed_run_acquired_at_utc=active_run_status.latest_reclaimed_run_acquired_at_utc,
-            latest_reclaimed_run_reclaimed_at_utc=active_run_status.latest_reclaimed_run_reclaimed_at_utc,
-            latest_reclaimed_run_age_seconds=active_run_status.latest_reclaimed_run_age_seconds,
-            reclaimed_run_count=active_run_status.reclaimed_run_count,
-            recent_reclaimed_runs=active_run_status.recent_reclaimed_runs,
+            active_run_status=active_run_status,
             preview_status=preview_status,
             preview_reason=preview_reason,
-            current_cutoff_utc=None if preview_summary is None else preview_summary.cutoff_utc,
-            current_retention_days=None if preview_summary is None else preview_summary.retention_days,
-            current_prunable_execution_count=(
-                None if preview_summary is None else preview_summary.prunable_execution_count
-            ),
-            current_prunable_compute_job_count=(
-                None if preview_summary is None else preview_summary.prunable_compute_job_count
-            ),
-            current_prunable_async_result_count=(
-                None if preview_summary is None else preview_summary.prunable_async_result_count
-            ),
-            current_prunable_lineage_record_count=(
-                None if preview_summary is None else preview_summary.prunable_lineage_record_count
-            ),
-            current_prunable_lineage_artifact_count=(
-                None if preview_summary is None else preview_summary.prunable_lineage_artifact_count
-            ),
-            latest_generated_at_utc=None,
-            latest_status=None,
-            latest_operator_id=None,
-            latest_trigger_mode=None,
-            latest_job_id=None,
-            latest_cleanup_mode=None,
-            latest_retention_days=None,
-            latest_age_seconds=None,
-            degradation_reasons=(),
-            degradation_details=(),
+            preview_summary=preview_summary,
         )
 
     if not snapshot.entries:
@@ -740,6 +666,63 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
         latest_age_seconds=latest_age_seconds,
         degradation_reasons=reasons,
         degradation_details=tuple(degradation_details),
+    )
+
+
+def _build_unavailable_runtime_retention_status(
+    *,
+    reason: str,
+    active_run_status: OperatorActionStatus,
+    preview_status: str,
+    preview_reason: str | None,
+    preview_summary,
+) -> RuntimeRetentionStatus:
+    return RuntimeRetentionStatus(
+        status="unavailable",
+        reason=reason,
+        active_run_status=active_run_status.status,
+        active_run_reason=active_run_status.reason,
+        active_run_count=active_run_status.active_run_count,
+        oldest_active_run_operator_id=active_run_status.oldest_active_run_operator_id,
+        oldest_active_run_tenant_id=active_run_status.oldest_active_run_tenant_id,
+        oldest_active_run_governed_target=active_run_status.oldest_active_run_governed_target,
+        oldest_active_run_acquired_at_utc=active_run_status.oldest_active_run_acquired_at_utc,
+        oldest_active_run_age_seconds=active_run_status.oldest_active_run_age_seconds,
+        latest_reclaimed_run_operator_id=active_run_status.latest_reclaimed_run_operator_id,
+        latest_reclaimed_run_tenant_id=active_run_status.latest_reclaimed_run_tenant_id,
+        latest_reclaimed_run_governed_target=active_run_status.latest_reclaimed_run_governed_target,
+        latest_reclaimed_run_acquired_at_utc=active_run_status.latest_reclaimed_run_acquired_at_utc,
+        latest_reclaimed_run_reclaimed_at_utc=active_run_status.latest_reclaimed_run_reclaimed_at_utc,
+        latest_reclaimed_run_age_seconds=active_run_status.latest_reclaimed_run_age_seconds,
+        reclaimed_run_count=active_run_status.reclaimed_run_count,
+        recent_reclaimed_runs=active_run_status.recent_reclaimed_runs,
+        preview_status=preview_status,
+        preview_reason=preview_reason,
+        current_cutoff_utc=None if preview_summary is None else preview_summary.cutoff_utc,
+        current_retention_days=None if preview_summary is None else preview_summary.retention_days,
+        current_prunable_execution_count=None if preview_summary is None else preview_summary.prunable_execution_count,
+        current_prunable_compute_job_count=(
+            None if preview_summary is None else preview_summary.prunable_compute_job_count
+        ),
+        current_prunable_async_result_count=(
+            None if preview_summary is None else preview_summary.prunable_async_result_count
+        ),
+        current_prunable_lineage_record_count=(
+            None if preview_summary is None else preview_summary.prunable_lineage_record_count
+        ),
+        current_prunable_lineage_artifact_count=(
+            None if preview_summary is None else preview_summary.prunable_lineage_artifact_count
+        ),
+        latest_generated_at_utc=None,
+        latest_status=None,
+        latest_operator_id=None,
+        latest_trigger_mode=None,
+        latest_job_id=None,
+        latest_cleanup_mode=None,
+        latest_retention_days=None,
+        latest_age_seconds=None,
+        degradation_reasons=(),
+        degradation_details=(),
     )
 
 
