@@ -29,6 +29,30 @@ def test_runtime_status_missing_history_degradation_helper_respects_threshold():
     assert details[0].threshold_value == Decimal("300.0")
 
 
+def test_lifecycle_status_from_degradation_details_maps_available_and_degraded_states():
+    available_status, available_reason, available_reasons = (
+        runtime_status_degradation.lifecycle_status_from_degradation_details(())
+    )
+    degraded_status, degraded_reason, degraded_reasons = (
+        runtime_status_degradation.lifecycle_status_from_degradation_details(
+            (
+                RuntimeDegradationDetail(
+                    reason="runtime_retention_latest_not_applied",
+                    observed_value=Decimal("0"),
+                    threshold_value=Decimal("0"),
+                ),
+            )
+        )
+    )
+
+    assert available_status == "available"
+    assert available_reason is None
+    assert available_reasons == ()
+    assert degraded_status == "degraded"
+    assert degraded_reason == "runtime_retention_latest_not_applied"
+    assert degraded_reasons == ("runtime_retention_latest_not_applied",)
+
+
 def test_runtime_status_collect_reasons_covers_runtime_retention_unavailable():
     reasons = runtime_status_degradation.collect_runtime_degradation_reasons(
         compute_queue=cast(

@@ -37,6 +37,9 @@ from app.services.runtime_status_degradation import (
     compute_queue_degradation_details as _compute_queue_degradation_details,
 )
 from app.services.runtime_status_degradation import (
+    lifecycle_status_from_degradation_details as _lifecycle_status_from_degradation_details,
+)
+from app.services.runtime_status_degradation import (
     lineage_queue_degradation_details as _lineage_queue_degradation_details,
 )
 from app.services.runtime_status_degradation import (
@@ -236,10 +239,10 @@ def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
         reclaim_threshold=reclaim_threshold,
         reclaim_reason="recovery_drill_reclaim_pressure_exceeded",
     )
-    reasons: tuple[str, ...] = tuple(detail.reason for detail in degradation_details)
+    status, reason, reasons = _lifecycle_status_from_degradation_details(tuple(degradation_details))
     return RecoveryDrillStatus(
-        status="degraded" if reasons else "available",
-        reason=reasons[0] if reasons else None,
+        status=status,
+        reason=reason,
         **_operator_action_status_fields(active_run_status),
         latest_generated_at_utc=latest.generated_at_utc,
         latest_status=latest.status,
@@ -347,15 +350,15 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
         reclaim_threshold=reclaim_threshold,
         reclaim_reason="runtime_retention_reclaim_pressure_exceeded",
     )
-    reasons: tuple[str, ...] = tuple(detail.reason for detail in degradation_details)
+    status, reason, reasons = _lifecycle_status_from_degradation_details(tuple(degradation_details))
     preview_fields = _runtime_retention_preview_fields(
         preview_status=preview_status,
         preview_reason=preview_reason,
         preview_summary=preview_summary,
     )
     return RuntimeRetentionStatus(
-        status="degraded" if reasons else "available",
-        reason=reasons[0] if reasons else None,
+        status=status,
+        reason=reason,
         **_operator_action_status_fields(active_run_status),
         preview_status=preview_fields.status,
         preview_reason=preview_fields.reason,

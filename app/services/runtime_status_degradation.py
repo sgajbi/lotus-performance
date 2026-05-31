@@ -220,6 +220,17 @@ def missing_history_degradation(
     )
 
 
+def lifecycle_status_from_degradation_details(
+    degradation_details: tuple[RuntimeDegradationDetail, ...],
+) -> tuple[str, str | None, tuple[str, ...]]:
+    reasons = tuple(detail.reason for detail in degradation_details)
+    return (
+        "degraded" if reasons else "available",
+        reasons[0] if reasons else None,
+        reasons,
+    )
+
+
 def collect_runtime_degradation_reasons(
     *,
     compute_queue: RuntimeQueueStatus,
