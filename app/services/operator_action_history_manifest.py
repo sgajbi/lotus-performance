@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -33,6 +34,7 @@ class HistoryManifestReadResult:
 
 HistoryEntryStrings = dict[str, str | None]
 HistoryManifestPayload = dict[str, Any]
+HistoryEntryValidator = Callable[[Any], dict[str, Any] | None]
 
 
 def read_history_manifest_payload(
@@ -91,6 +93,25 @@ def validate_history_manifest_header(payload: Any) -> HistoryManifestHeader | No
         retention_max_age_days=retention_max_age_days,
         entries=entries,
     )
+
+
+def validate_history_manifest_payload(
+    payload: Any,
+    *,
+    validate_entry: HistoryEntryValidator,
+) -> HistoryManifestPayload | None:
+    header = validate_history_manifest_header(payload)
+    if header is None:
+        return None
+
+    validated_entries: list[dict[str, Any]] = []
+    for entry in header.entries:
+        validated_entry = validate_entry(entry)
+        if validated_entry is None:
+            return None
+        validated_entries.append(validated_entry)
+
+    return build_history_manifest_payload(header=header, entries=validated_entries)
 
 
 def validate_history_entry_strings(

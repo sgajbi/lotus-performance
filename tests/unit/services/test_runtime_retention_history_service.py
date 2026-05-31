@@ -2,12 +2,13 @@ import json
 
 import pytest
 
+from app.services.operator_action_history_manifest import validate_history_manifest_payload
 from app.services.runtime_retention_history_service import (
     RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON,
     RUNTIME_RETENTION_MANIFEST_INVALID_REASON,
     RUNTIME_RETENTION_MANIFEST_UNREADABLE_REASON,
     _build_applied_filters,
-    _validate_manifest_payload,
+    _validate_manifest_entry,
     build_runtime_retention_history_snapshot,
 )
 
@@ -382,7 +383,7 @@ def test_runtime_retention_history_applies_generated_before_and_offset_filters(t
     ],
 )
 def test_runtime_retention_history_manifest_validator_rejects_invalid_payloads(payload, reason):
-    assert _validate_manifest_payload(payload) is None, reason
+    assert validate_history_manifest_payload(payload, validate_entry=_validate_manifest_entry) is None, reason
 
 
 def test_runtime_retention_history_build_applied_filters_omits_empty_values():

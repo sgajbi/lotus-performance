@@ -11,10 +11,9 @@ from app.services.operator_action_history_filters import (
 )
 from app.services.operator_action_history_manifest import (
     HistoryManifestReadReasons,
-    build_history_manifest_payload,
     read_history_manifest_payload,
     validate_history_entry_strings,
-    validate_history_manifest_header,
+    validate_history_manifest_payload,
 )
 from app.services.operator_action_history_pagination import paginate_history_entries
 
@@ -100,7 +99,10 @@ def build_runtime_retention_history_snapshot(
             reason=manifest_read.reason,
         )
 
-    manifest_payload = _validate_manifest_payload(manifest_read.payload)
+    manifest_payload = validate_history_manifest_payload(
+        manifest_read.payload,
+        validate_entry=_validate_manifest_entry,
+    )
     if manifest_payload is None:
         return _unavailable_snapshot(
             directory=directory,
@@ -178,21 +180,6 @@ def _unavailable_snapshot(
         applied_filters=applied_filters,
         reason=reason,
     )
-
-
-def _validate_manifest_payload(payload: Any) -> dict[str, Any] | None:
-    header = validate_history_manifest_header(payload)
-    if header is None:
-        return None
-
-    validated_entries: list[dict[str, str | int | None]] = []
-    for entry in header.entries:
-        validated_entry = _validate_manifest_entry(entry)
-        if validated_entry is None:
-            return None
-        validated_entries.append(validated_entry)
-
-    return build_history_manifest_payload(header=header, entries=validated_entries)
 
 
 def _validate_manifest_entry(entry: Any) -> dict[str, str | int | None] | None:

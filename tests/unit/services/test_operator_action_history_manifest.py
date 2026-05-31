@@ -5,6 +5,7 @@ from app.services.operator_action_history_manifest import (
     read_history_manifest_payload,
     validate_history_entry_strings,
     validate_history_manifest_header,
+    validate_history_manifest_payload,
 )
 
 
@@ -117,6 +118,44 @@ def test_validate_history_manifest_header_rejects_mismatched_latest_file():
                 "retained_file_names": ["latest.json"],
                 "entries": [],
             }
+        )
+        is None
+    )
+
+
+def test_validate_history_manifest_payload_projects_validated_entries():
+    payload = {
+        "latest_file_name": "latest.json",
+        "retained_file_names": ["latest.json"],
+        "retention_limit": 30,
+        "retention_max_age_days": 90,
+        "entries": [{"evidence_file_name": "latest.json", "status": "passed"}],
+    }
+
+    result = validate_history_manifest_payload(
+        payload,
+        validate_entry=lambda entry: {"status": entry["status"]} if isinstance(entry, dict) else None,
+    )
+
+    assert result == {
+        "latest_file_name": "latest.json",
+        "retained_file_names": ["latest.json"],
+        "retention_limit": 30,
+        "retention_max_age_days": 90,
+        "entries": [{"status": "passed"}],
+    }
+
+
+def test_validate_history_manifest_payload_rejects_bad_header_or_entry():
+    assert validate_history_manifest_payload(None, validate_entry=lambda entry: {}) is None
+    assert (
+        validate_history_manifest_payload(
+            {
+                "latest_file_name": None,
+                "retained_file_names": [],
+                "entries": [{"evidence_file_name": "bad.json"}],
+            },
+            validate_entry=lambda entry: None,
         )
         is None
     )
