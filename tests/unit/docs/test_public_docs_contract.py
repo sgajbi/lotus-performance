@@ -25,6 +25,24 @@ def test_readme_uses_current_twr_contract_terms():
     assert "google.com/search" not in readme
 
 
+def test_readme_enterprise_readiness_evidence_is_grounded():
+    readme = _read("README.md")
+    readme_flat = " ".join(readme.split())
+
+    assert "Enterprise Readiness Evidence" in readme
+    assert "implementation-backed analytics service" in readme_flat
+    assert "`lotus-core` owns source data" in readme_flat
+    assert "`lotus-performance` owns performance methodology" in readme_flat
+    assert (
+        "runtime status, work-item, recovery, recovery-drill, retention, health, readiness, and metrics" in readme_flat
+    )
+    assert "domain-data-product declarations" in readme
+    assert "OpenAPI quality gates" in readme_flat
+    assert "no-alias governance" in readme
+    assert "This is not a blanket production certification for every client environment." in readme
+    assert "target deployment, entitlement model, SLOs" in readme_flat
+
+
 def test_user_guide_documents_async_execution_surfaces():
     guide = _read("docs/Portfolio Performance Analytics - A User Guide.md")
 
