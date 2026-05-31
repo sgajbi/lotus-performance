@@ -6,13 +6,15 @@ from pathlib import Path
 from typing import Any
 
 from app.core.config import get_settings
-from app.services.operator_action_evidence_paths import is_safe_evidence_file_name
 from app.services.operator_action_history_filters import (
     build_applied_history_filters,
     generated_at_within_bounds,
     parse_generated_at_bounds,
 )
-from app.services.operator_action_history_manifest import validate_history_manifest_header
+from app.services.operator_action_history_manifest import (
+    validate_history_entry_strings,
+    validate_history_manifest_header,
+)
 from app.services.operator_action_history_pagination import paginate_history_entries
 
 RECOVERY_DRILL_ARTIFACT_DIRECTORY_MISSING_REASON = "recovery_drill_artifact_directory_missing"
@@ -177,30 +179,22 @@ def _validate_manifest_payload(payload: Any) -> dict[str, Any] | None:
     for entry in header.entries:
         if not isinstance(entry, dict):
             return None
-        required = (
-            entry.get("evidence_file_name"),
-            entry.get("generated_at_utc"),
-            entry.get("operator_id"),
-            entry.get("backup_identifier"),
-            entry.get("status"),
+        entry_strings = validate_history_entry_strings(
+            entry,
+            required_keys=("evidence_file_name", "generated_at_utc", "operator_id", "backup_identifier", "status"),
+            optional_keys=("tenant_id", "correlation_id"),
         )
-        if any(not isinstance(value, str) for value in required):
-            return None
-        if not is_safe_evidence_file_name(entry["evidence_file_name"]):
-            return None
-        if entry.get("tenant_id") is not None and not isinstance(entry.get("tenant_id"), str):
-            return None
-        if entry.get("correlation_id") is not None and not isinstance(entry.get("correlation_id"), str):
+        if entry_strings is None:
             return None
         validated_entries.append(
             {
-                "evidence_file_name": entry["evidence_file_name"],
-                "generated_at_utc": entry["generated_at_utc"],
-                "operator_id": entry["operator_id"],
-                "tenant_id": entry.get("tenant_id"),
-                "correlation_id": entry.get("correlation_id"),
-                "backup_identifier": entry["backup_identifier"],
-                "status": entry["status"],
+                "evidence_file_name": entry_strings["evidence_file_name"],
+                "generated_at_utc": entry_strings["generated_at_utc"],
+                "operator_id": entry_strings["operator_id"],
+                "tenant_id": entry_strings["tenant_id"],
+                "correlation_id": entry_strings["correlation_id"],
+                "backup_identifier": entry_strings["backup_identifier"],
+                "status": entry_strings["status"],
             }
         )
 

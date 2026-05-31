@@ -6,13 +6,15 @@ from pathlib import Path
 from typing import Any
 
 from app.core.config import get_settings
-from app.services.operator_action_evidence_paths import is_safe_evidence_file_name
 from app.services.operator_action_history_filters import (
     build_applied_history_filters,
     generated_at_within_bounds,
     parse_generated_at_bounds,
 )
-from app.services.operator_action_history_manifest import validate_history_manifest_header
+from app.services.operator_action_history_manifest import (
+    validate_history_entry_strings,
+    validate_history_manifest_header,
+)
 from app.services.operator_action_history_pagination import paginate_history_entries
 
 RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON = "runtime_retention_artifact_directory_missing"
@@ -203,7 +205,6 @@ def _validate_manifest_payload(payload: Any) -> dict[str, Any] | None:
         if not isinstance(entry, dict):
             return None
         str_keys = ("evidence_file_name", "generated_at_utc", "operator_id", "cleanup_mode", "status")
-        optional_str_keys = ("tenant_id", "correlation_id", "job_id")
         int_keys = (
             "retention_days",
             "prunable_execution_count",
@@ -213,21 +214,23 @@ def _validate_manifest_payload(payload: Any) -> dict[str, Any] | None:
             "prunable_lineage_artifact_count",
         )
         trigger_mode = entry.get("trigger_mode", "manual")
-        if any(not isinstance(entry.get(key), str) for key in str_keys):
-            return None
-        if not is_safe_evidence_file_name(entry["evidence_file_name"]):
+        entry_strings = validate_history_entry_strings(
+            entry,
+            required_keys=str_keys,
+            optional_keys=("tenant_id", "correlation_id", "job_id"),
+        )
+        if entry_strings is None:
             return None
         if not isinstance(trigger_mode, str):
             return None
-        if any(entry.get(key) is not None and not isinstance(entry.get(key), str) for key in optional_str_keys):
-            return None
         if any(not isinstance(entry.get(key), int) for key in int_keys):
             return None
-        validated_entry = {key: entry[key] for key in (*str_keys, *int_keys)}
+        validated_entry: dict[str, str | int | None] = {key: entry_strings[key] for key in str_keys}
+        validated_entry.update({key: entry[key] for key in int_keys})
         validated_entry["trigger_mode"] = trigger_mode
-        validated_entry["tenant_id"] = entry.get("tenant_id")
-        validated_entry["correlation_id"] = entry.get("correlation_id")
-        validated_entry["job_id"] = entry.get("job_id")
+        validated_entry["tenant_id"] = entry_strings["tenant_id"]
+        validated_entry["correlation_id"] = entry_strings["correlation_id"]
+        validated_entry["job_id"] = entry_strings["job_id"]
         validated_entries.append(validated_entry)
 
     return {

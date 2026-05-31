@@ -15,6 +15,9 @@ class HistoryManifestHeader:
     entries: list[Any]
 
 
+HistoryEntryStrings = dict[str, str | None]
+
+
 def validate_history_manifest_header(payload: Any) -> HistoryManifestHeader | None:
     if not isinstance(payload, dict):
         return None
@@ -49,3 +52,22 @@ def validate_history_manifest_header(payload: Any) -> HistoryManifestHeader | No
         retention_max_age_days=retention_max_age_days,
         entries=entries,
     )
+
+
+def validate_history_entry_strings(
+    entry: dict[str, Any],
+    *,
+    required_keys: tuple[str, ...],
+    optional_keys: tuple[str, ...],
+) -> HistoryEntryStrings | None:
+    if any(not isinstance(entry.get(key), str) for key in required_keys):
+        return None
+    evidence_file_name = entry.get("evidence_file_name")
+    if not isinstance(evidence_file_name, str) or not is_safe_evidence_file_name(evidence_file_name):
+        return None
+    if any(entry.get(key) is not None and not isinstance(entry.get(key), str) for key in optional_keys):
+        return None
+    return {
+        **{key: entry[key] for key in required_keys},
+        **{key: entry.get(key) for key in optional_keys},
+    }
