@@ -278,6 +278,26 @@ def lineage_queue_payload_metrics(*, stats: Any) -> tuple[GaugeMetricFamily, ...
     )
 
 
+def lineage_storage_capacity_metrics(*, capacity: Any) -> tuple[GaugeMetricFamily, ...]:
+    return (
+        labeled_metric(
+            metric_name="lotus_performance_lineage_storage_capacity_bytes",
+            description="Lineage storage capacity by segment.",
+            label_name="segment",
+            samples=(
+                ("total", capacity.total_bytes),
+                ("used", capacity.used_bytes),
+                ("free", capacity.free_bytes),
+            ),
+        ),
+        single_sample_metric(
+            metric_name="lotus_performance_lineage_storage_free_ratio",
+            description="Fraction of free lineage storage capacity currently remaining.",
+            value=capacity.free_ratio,
+        ),
+    )
+
+
 def lineage_storage_pressure_breach_metric(
     *,
     capacity: Any,

@@ -10,6 +10,7 @@ from app.services.queue_metric_builders import (
     latest_reclaim_count_or_zero,
     lineage_queue_degradation_breach_metric,
     lineage_queue_payload_metrics,
+    lineage_storage_capacity_metrics,
     lineage_storage_pressure_breach_metric,
     operator_action_lease_metrics,
     policy_threshold_metric,
@@ -294,6 +295,33 @@ def test_lineage_storage_pressure_breach_metric_uses_policy_thresholds():
         "lineage_storage_free_bytes_below_threshold": 1,
         "lineage_storage_free_ratio_below_threshold": 1,
     }
+
+
+def test_lineage_storage_capacity_metrics_preserve_metric_contracts():
+    capacity = type(
+        "Capacity",
+        (),
+        {
+            "total_bytes": 1000,
+            "used_bytes": 650,
+            "free_bytes": 350,
+            "free_ratio": 0.35,
+        },
+    )()
+
+    metrics = lineage_storage_capacity_metrics(capacity=capacity)
+    metric_samples = {metric.name: metric.samples for metric in metrics}
+    capacity_samples = {
+        sample.labels["segment"]: sample.value
+        for sample in metric_samples["lotus_performance_lineage_storage_capacity_bytes"]
+    }
+
+    assert capacity_samples == {
+        "total": 1000,
+        "used": 650,
+        "free": 350,
+    }
+    assert metric_samples["lotus_performance_lineage_storage_free_ratio"][0].value == 0.35
 
 
 def test_recovery_drill_degradation_breach_metric_uses_latest_history_and_action_policy(monkeypatch):

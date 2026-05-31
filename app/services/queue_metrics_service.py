@@ -22,6 +22,7 @@ from app.services.queue_metric_builders import (
     labeled_metric,
     lineage_queue_degradation_breach_metric,
     lineage_queue_payload_metrics,
+    lineage_storage_capacity_metrics,
     lineage_storage_pressure_breach_metric,
     operator_action_lease_metrics,
     policy_threshold_metric,
@@ -30,7 +31,6 @@ from app.services.queue_metric_builders import (
     runtime_retention_degradation_breach_metric,
     runtime_retention_latest_age_metric,
     runtime_retention_prunable_items_metric,
-    single_sample_metric,
     snapshot_available,
 )
 from app.services.recovery_drill_history_service import build_recovery_drill_history_snapshot
@@ -326,22 +326,7 @@ class DurableQueueCollector:
             )
 
         if lineage_storage_capacity is not None:
-            yield labeled_metric(
-                metric_name="lotus_performance_lineage_storage_capacity_bytes",
-                description="Lineage storage capacity by segment.",
-                label_name="segment",
-                samples=(
-                    ("total", lineage_storage_capacity.total_bytes),
-                    ("used", lineage_storage_capacity.used_bytes),
-                    ("free", lineage_storage_capacity.free_bytes),
-                ),
-            )
-
-            yield single_sample_metric(
-                metric_name="lotus_performance_lineage_storage_free_ratio",
-                description="Fraction of free lineage storage capacity currently remaining.",
-                value=lineage_storage_capacity.free_ratio,
-            )
+            yield from lineage_storage_capacity_metrics(capacity=lineage_storage_capacity)
 
             yield lineage_storage_pressure_breach_metric(
                 capacity=lineage_storage_capacity,
