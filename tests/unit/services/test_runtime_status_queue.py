@@ -1,11 +1,12 @@
 from decimal import Decimal
 
 from app.services.compute_job_store import ComputeQueueStats, ComputeRecoveryEvent
-from app.services.durability_health_service import DurabilityHealthStatus
-from app.services.lineage_metadata_store import LineageRecoveryEvent
+from app.services.durability_health_service import DurabilityHealthStatus, LineageStorageCapacitySnapshot
+from app.services.lineage_metadata_store import LineageQueueStats, LineageRecoveryEvent
 from app.services.runtime_status_domain import RuntimeDegradationDetail
 from app.services.runtime_status_queue import (
     build_compute_queue_status,
+    build_lineage_queue_status,
     recent_recovery_limit,
     runtime_queue_status_from_degradation,
     safe_compute_recent_recoveries,
@@ -140,6 +141,89 @@ def test_build_compute_queue_status_collects_stats_and_recovery_evidence(mocker)
 
     assert status.status == "available"
     assert status.stats is stats
+    assert status.recent_recoveries == (recovery_event,)
+
+
+def test_build_lineage_queue_status_maps_unavailable_storage_without_queue_reads(mocker):
+    stats_reader = mocker.patch("app.services.runtime_status_queue.lineage_metadata_store.get_pending_payload_stats")
+    mocker.patch(
+        "app.services.runtime_status_queue.check_lineage_storage_ready",
+        return_value=DurabilityHealthStatus(
+            is_ready=False,
+            status="unavailable",
+            reason="lineage_storage_unavailable",
+        ),
+    )
+
+    status = build_lineage_queue_status(
+        DurabilityHealthStatus(is_ready=True, status="ready", reason=None),
+        settings=type("Settings", (), {})(),
+    )
+
+    assert status.status == "unavailable"
+    assert status.reason == "lineage_storage_unavailable"
+    assert status.stats is None
+    stats_reader.assert_not_called()
+
+
+def test_build_lineage_queue_status_collects_stats_capacity_and_recovery_evidence(mocker):
+    settings = type(
+        "Settings",
+        (),
+        {
+            "RUNTIME_STATUS_RECENT_RECOVERY_LIMIT": 2,
+            "RUNTIME_STATUS_LINEAGE_LEASED_AGE_DEGRADE_SECONDS": 0.0,
+            "RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT": 0,
+            "RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT": 0,
+            "RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS": 0.0,
+            "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES": 0,
+            "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO": 0.0,
+        },
+    )()
+    stats = LineageQueueStats(
+        pending_payload_count=0,
+        leased_payload_count=0,
+        retry_backlog_count=0,
+        terminal_failure_count=0,
+        oldest_pending_age_seconds=0.0,
+        oldest_leased_age_seconds=0.0,
+    )
+    storage_capacity = LineageStorageCapacitySnapshot(
+        total_bytes=1000,
+        used_bytes=700,
+        free_bytes=300,
+        free_ratio=0.3,
+        used_ratio=0.7,
+    )
+    recovery_event = LineageRecoveryEvent(
+        calculation_id="lineage-recovered",
+        calculation_type="TWR",
+        recovery_kind="retryable_materialization_failure",
+        recovered_at_utc="2026-03-14T00:00:01Z",
+        attempt_count=2,
+    )
+    mocker.patch(
+        "app.services.runtime_status_queue.check_lineage_storage_ready",
+        return_value=DurabilityHealthStatus(is_ready=True, status="ready", reason=None),
+    )
+    mocker.patch("app.services.runtime_status_queue.get_lineage_storage_capacity", return_value=storage_capacity)
+    mocker.patch(
+        "app.services.runtime_status_queue.lineage_metadata_store.get_pending_payload_stats",
+        return_value=stats,
+    )
+    mocker.patch(
+        "app.services.runtime_status_queue.lineage_metadata_store.list_recent_recoveries",
+        return_value=[recovery_event],
+    )
+
+    status = build_lineage_queue_status(
+        DurabilityHealthStatus(is_ready=True, status="ready", reason=None),
+        settings=settings,
+    )
+
+    assert status.status == "available"
+    assert status.stats is stats
+    assert status.storage_capacity is storage_capacity
     assert status.recent_recoveries == (recovery_event,)
 
 

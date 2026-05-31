@@ -4,12 +4,8 @@ from datetime import UTC, datetime
 
 from app.core.config import get_settings
 from app.services.durability_health_service import (
-    DurabilityHealthStatus,
     check_durable_metadata_store_ready,
-    check_lineage_storage_ready,
-    get_lineage_storage_capacity,
 )
-from app.services.lineage_metadata_store import lineage_metadata_store
 from app.services.recovery_drill_history_service import (
     build_recovery_drill_history_snapshot,
 )
@@ -23,15 +19,11 @@ from app.services.runtime_status_degradation import (
     collect_runtime_degradation_reasons as _collect_runtime_degradation_reasons,
 )
 from app.services.runtime_status_degradation import (
-    lineage_queue_degradation_details as _lineage_queue_degradation_details,
-)
-from app.services.runtime_status_degradation import (
     runtime_status_from_component_statuses as _runtime_status_from_component_statuses,
 )
 from app.services.runtime_status_domain import (
     RecoveryDrillDegradationPolicy,
     RecoveryDrillStatus,
-    RuntimeQueueStatus,
     RuntimeRetentionDegradationPolicy,
     RuntimeRetentionStatus,
     RuntimeStatusSnapshot,
@@ -73,14 +65,7 @@ from app.services.runtime_status_policy import (
     build_runtime_retention_policy,
 )
 from app.services.runtime_status_queue import build_compute_queue_status as _build_compute_queue_status
-from app.services.runtime_status_queue import (
-    runtime_queue_status_from_degradation as _runtime_queue_status_from_degradation,
-)
-from app.services.runtime_status_queue import (
-    safe_lineage_queue_inspection_anchors as _safe_lineage_queue_inspection_anchors,
-)
-from app.services.runtime_status_queue import safe_lineage_recent_recoveries as _safe_lineage_recent_recoveries
-from app.services.runtime_status_queue import unavailable_runtime_queue_status as _unavailable_runtime_queue_status
+from app.services.runtime_status_queue import build_lineage_queue_status as _build_lineage_queue_status
 from app.services.runtime_status_retention_preview import (
     build_runtime_retention_preview as _build_runtime_retention_preview,
 )
@@ -137,38 +122,6 @@ def build_runtime_status_snapshot(*, is_draining: bool) -> RuntimeStatusSnapshot
         recovery_drill_policy=recovery_drill_policy,
         runtime_retention_policy=runtime_retention_policy,
     )
-
-
-def _build_lineage_queue_status(durability_status: DurabilityHealthStatus, *, settings) -> RuntimeQueueStatus:
-    if not durability_status.is_ready:
-        return _unavailable_runtime_queue_status(
-            reason=durability_status.reason or "durable_metadata_store_unreachable"
-        )
-    lineage_storage_status = check_lineage_storage_ready()
-    if not lineage_storage_status.is_ready:
-        return _unavailable_runtime_queue_status(reason=lineage_storage_status.reason or "lineage_storage_unavailable")
-    try:
-        storage_capacity = get_lineage_storage_capacity()
-    except Exception:
-        return _unavailable_runtime_queue_status(reason="lineage_storage_capacity_unreadable")
-    try:
-        stats = lineage_metadata_store.get_pending_payload_stats()
-        inspection_anchors = _safe_lineage_queue_inspection_anchors()
-        recent_recoveries = _safe_lineage_recent_recoveries(settings=settings)
-        degradation_details = _lineage_queue_degradation_details(
-            stats,
-            storage_capacity=storage_capacity,
-            settings=settings,
-        )
-        return _runtime_queue_status_from_degradation(
-            stats=stats,
-            inspection_anchors=inspection_anchors,
-            recent_recoveries=recent_recoveries,
-            degradation_details=degradation_details,
-            storage_capacity=storage_capacity,
-        )
-    except Exception as exc:
-        return _unavailable_runtime_queue_status(reason=type(exc).__name__)
 
 
 def _build_recovery_drill_status(*, settings, policy: RecoveryDrillDegradationPolicy) -> RecoveryDrillStatus:

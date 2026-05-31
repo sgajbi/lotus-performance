@@ -623,7 +623,7 @@ def test_runtime_status_reports_unavailable_recovery_history_snapshot(mocker):
 
 def test_runtime_status_reports_unavailable_lineage_storage(mocker):
     mocker.patch(
-        "app.services.runtime_status_service.check_lineage_storage_ready",
+        "app.services.runtime_status_queue.check_lineage_storage_ready",
         return_value=type("StorageStatus", (), {"is_ready": False, "reason": "lineage_storage_path_missing"})(),
     )
 
@@ -642,7 +642,7 @@ def test_runtime_status_reports_unavailable_lineage_storage(mocker):
 
 def test_runtime_status_reports_degraded_lineage_storage_capacity_pressure(mocker):
     mocker.patch(
-        "app.services.runtime_status_service.get_lineage_storage_capacity",
+        "app.services.runtime_status_queue.get_lineage_storage_capacity",
         return_value=type(
             "Capacity",
             (),

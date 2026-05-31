@@ -6,14 +6,19 @@ from app.services.compute_job_store import (
     ComputeRecoveryEvent,
     compute_job_store,
 )
-from app.services.durability_health_service import DurabilityHealthStatus, LineageStorageCapacitySnapshot
+from app.services.durability_health_service import (
+    DurabilityHealthStatus,
+    LineageStorageCapacitySnapshot,
+    check_lineage_storage_ready,
+    get_lineage_storage_capacity,
+)
 from app.services.lineage_metadata_store import (
     LineageQueueInspectionAnchors,
     LineageQueueStats,
     LineageRecoveryEvent,
     lineage_metadata_store,
 )
-from app.services.runtime_status_degradation import compute_queue_degradation_details
+from app.services.runtime_status_degradation import compute_queue_degradation_details, lineage_queue_degradation_details
 from app.services.runtime_status_domain import RuntimeDegradationDetail, RuntimeQueueStatus
 
 
@@ -30,6 +35,36 @@ def build_compute_queue_status(durability_status: DurabilityHealthStatus, *, set
             inspection_anchors=inspection_anchors,
             recent_recoveries=recent_recoveries,
             degradation_details=degradation_details,
+        )
+    except Exception as exc:
+        return unavailable_runtime_queue_status(reason=type(exc).__name__)
+
+
+def build_lineage_queue_status(durability_status: DurabilityHealthStatus, *, settings) -> RuntimeQueueStatus:
+    if not durability_status.is_ready:
+        return unavailable_runtime_queue_status(reason=durability_status.reason or "durable_metadata_store_unreachable")
+    lineage_storage_status = check_lineage_storage_ready()
+    if not lineage_storage_status.is_ready:
+        return unavailable_runtime_queue_status(reason=lineage_storage_status.reason or "lineage_storage_unavailable")
+    try:
+        storage_capacity = get_lineage_storage_capacity()
+    except Exception:
+        return unavailable_runtime_queue_status(reason="lineage_storage_capacity_unreadable")
+    try:
+        stats = lineage_metadata_store.get_pending_payload_stats()
+        inspection_anchors = safe_lineage_queue_inspection_anchors()
+        recent_recoveries = safe_lineage_recent_recoveries(settings=settings)
+        degradation_details = lineage_queue_degradation_details(
+            stats,
+            storage_capacity=storage_capacity,
+            settings=settings,
+        )
+        return runtime_queue_status_from_degradation(
+            stats=stats,
+            inspection_anchors=inspection_anchors,
+            recent_recoveries=recent_recoveries,
+            degradation_details=degradation_details,
+            storage_capacity=storage_capacity,
         )
     except Exception as exc:
         return unavailable_runtime_queue_status(reason=type(exc).__name__)
