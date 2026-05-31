@@ -77,6 +77,10 @@ def _source_unavailable_detail(message: str) -> dict[str, str]:
     return {"code": "SOURCE_UNAVAILABLE", "message": message}
 
 
+def _resource_not_found_detail(message: str) -> dict[str, str]:
+    return {"code": "RESOURCE_NOT_FOUND", "message": message}
+
+
 def _insufficient_data_detail(message: str) -> dict[str, str]:
     return {"code": "INSUFFICIENT_DATA", "message": message}
 
@@ -858,10 +862,7 @@ async def resolve_stateful_returns_series_request(
         if assignment_status == status.HTTP_404_NOT_FOUND:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail={
-                    "code": "RESOURCE_NOT_FOUND",
-                    "message": "No benchmark assignment found for portfolio.",
-                },
+                detail=_resource_not_found_detail("No benchmark assignment found for portfolio."),
             )
         if assignment_status >= status.HTTP_400_BAD_REQUEST:
             raise HTTPException(
@@ -894,10 +895,7 @@ async def resolve_stateful_returns_series_request(
             if benchmark_status == status.HTTP_404_NOT_FOUND:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail={
-                        "code": "RESOURCE_NOT_FOUND",
-                        "message": f"No benchmark return series for {benchmark_id}.",
-                    },
+                    detail=_resource_not_found_detail(f"No benchmark return series for {benchmark_id}."),
                 )
             if benchmark_status >= status.HTTP_400_BAD_REQUEST:
                 raise HTTPException(
@@ -969,10 +967,7 @@ async def resolve_stateful_returns_series_request(
         if risk_free_status == status.HTTP_404_NOT_FOUND:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail={
-                    "code": "RESOURCE_NOT_FOUND",
-                    "message": f"No risk-free series found for {request.reporting_currency}.",
-                },
+                detail=_resource_not_found_detail(f"No risk-free series found for {request.reporting_currency}."),
             )
         if risk_free_status >= status.HTTP_400_BAD_REQUEST:
             raise HTTPException(
