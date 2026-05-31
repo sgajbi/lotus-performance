@@ -14,6 +14,17 @@ from app.api.endpoints.contribution import (
 )
 from app.models.contribution_analytics_requests import ContributionAnalyticsRequest
 from app.models.contribution_requests import ContributionRequest
+from app.services.contribution_methodology import (
+    _calculate_average_weight_sum_residual_bp,
+    _calculate_average_weight_sum_residual_bp_from_ratio_series,
+    _calculate_promotion_ready_rate_bp,
+    _calculate_reset_aware_average_weight_shadow,
+    _classify_average_weight_methodology_status,
+    _classify_average_weight_shadow_cutover_blockers,
+    _classify_average_weight_shadow_period,
+    _is_average_weight_shadow_cutover_candidate,
+    _normalize_reset_aware_average_weight_mode,
+)
 from app.services.contribution_service import (
     _build_daily_contribution_series,
     _build_hierarchy_from_adjusted_position_series,
@@ -21,22 +32,13 @@ from app.services.contribution_service import (
     _build_position_contribution_series,
     _build_residual_adjusted_daily_contribution_series,
     _build_residual_adjusted_position_timeseries,
-    _calculate_average_weight_sum_residual_bp,
-    _calculate_average_weight_sum_residual_bp_from_ratio_series,
     _calculate_grouped_return_reset_alignment_counts,
     _calculate_position_flow_balance_counts,
     _calculate_position_total_return_pct,
-    _calculate_promotion_ready_rate_bp,
-    _calculate_reset_aware_average_weight_shadow,
     _calculate_reset_aware_period_portfolio_return,
     _calculate_reset_characterization_counts,
     _calculate_reset_relative_day_counts,
-    _classify_average_weight_methodology_status,
-    _classify_average_weight_shadow_cutover_blockers,
-    _classify_average_weight_shadow_period,
     _count_carino_invalid_domain_days,
-    _is_average_weight_shadow_cutover_candidate,
-    _normalize_reset_aware_average_weight_mode,
     build_position_contributions,
 )
 
