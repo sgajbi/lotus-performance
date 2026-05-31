@@ -31,14 +31,16 @@ def test_runtime_status_runtime_retention_preview_fields_map_summary_counts():
     assert fields.prunable_lineage_artifact_count == 6
 
 
-def test_runtime_status_runtime_retention_preview_reports_unavailable_dependency(mocker):
+def test_runtime_status_runtime_retention_preview_reports_unavailable_dependency(mocker, caplog):
     mocker.patch(
         "app.services.runtime_status_retention_preview.run_runtime_retention_cleanup",
         side_effect=RuntimeError("boom"),
     )
 
-    status, reason, summary = runtime_status_retention_preview.build_runtime_retention_preview()
+    with caplog.at_level("WARNING", logger="app.services.runtime_status_retention_preview"):
+        status, reason, summary = runtime_status_retention_preview.build_runtime_retention_preview()
 
     assert status == "unavailable"
     assert reason == "RuntimeError"
     assert summary is None
+    assert "Runtime retention preview unavailable while running dry-run cleanup." in caplog.text

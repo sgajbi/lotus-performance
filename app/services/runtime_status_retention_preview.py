@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import logging
+
 from app.services.runtime_retention_service import RuntimeRetentionCleanupSummary, run_runtime_retention_cleanup
 from app.services.runtime_status_domain import RuntimeRetentionPreviewFields
 
 RuntimeRetentionPreviewResult = tuple[str, str | None, RuntimeRetentionCleanupSummary | None]
+
+logger = logging.getLogger(__name__)
 
 
 def runtime_retention_preview_fields(
@@ -34,4 +38,8 @@ def build_runtime_retention_preview() -> RuntimeRetentionPreviewResult:
         summary = run_runtime_retention_cleanup(dry_run=True)
         return "available", None, summary
     except Exception as exc:
+        logger.warning(
+            "Runtime retention preview unavailable while running dry-run cleanup.",
+            exc_info=True,
+        )
         return "unavailable", type(exc).__name__, None
