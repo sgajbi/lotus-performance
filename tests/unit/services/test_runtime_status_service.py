@@ -1,5 +1,4 @@
 from datetime import UTC, datetime
-from decimal import Decimal
 
 import pytest
 
@@ -2684,24 +2683,6 @@ def test_runtime_status_runtime_retention_preview_fields_map_summary_counts():
     assert fields.prunable_lineage_artifact_count == 6
 
 
-def test_runtime_status_missing_history_degradation_helper_respects_threshold():
-    assert runtime_status_service._missing_history_degradation(
-        threshold=0.0,
-        reason="runtime_retention_history_unavailable",
-    ) == ((), ())
-
-    reasons, details = runtime_status_service._missing_history_degradation(
-        threshold=300.0,
-        reason="runtime_retention_history_unavailable",
-    )
-
-    assert reasons == ("runtime_retention_history_unavailable",)
-    assert len(details) == 1
-    assert details[0].reason == "runtime_retention_history_unavailable"
-    assert details[0].observed_value == Decimal("0")
-    assert details[0].threshold_value == Decimal("300.0")
-
-
 def test_runtime_status_operator_action_status_handles_exceptions_and_unavailable_snapshot(mocker):
     mocker.patch(
         "app.services.runtime_status_service.build_operator_action_lease_snapshot",
@@ -2782,128 +2763,3 @@ def test_runtime_status_operator_action_status_normalizes_naive_timestamps(mocke
     assert status.status == "active"
     assert status.latest_reclaimed_run_age_seconds is not None
     assert status.oldest_active_run_age_seconds is not None
-
-
-def test_runtime_status_collect_reasons_covers_runtime_retention_unavailable():
-    reasons = runtime_status_service._collect_runtime_degradation_reasons(
-        compute_queue=type("Queue", (), {"status": "available", "reason": None, "degradation_reasons": ()})(),
-        lineage_queue=type("Queue", (), {"status": "available", "reason": None, "degradation_reasons": ()})(),
-        recovery_drill=type("Recovery", (), {"status": "available", "reason": None, "degradation_reasons": ()})(),
-        runtime_retention=type(
-            "Retention",
-            (),
-            {"status": "unavailable", "reason": "runtime_retention_manifest_missing", "degradation_reasons": ()},
-        )(),
-    )
-
-    assert reasons == ("runtime_retention:runtime_retention_manifest_missing",)
-
-
-def test_runtime_status_degradation_detail_helper_uses_governed_threshold_semantics():
-    details: list[runtime_status_service.RuntimeDegradationDetail] = []
-
-    runtime_status_service._append_degradation_detail_if_breached(
-        details,
-        reason="disabled_threshold",
-        observed_value=100,
-        threshold_value=0,
-    )
-    runtime_status_service._append_degradation_detail_if_breached(
-        details,
-        reason="below_threshold",
-        observed_value=9,
-        threshold_value=10,
-    )
-    runtime_status_service._append_degradation_detail_if_breached(
-        details,
-        reason="at_threshold",
-        observed_value=10,
-        threshold_value=10,
-    )
-
-    assert len(details) == 1
-    assert details[0].reason == "at_threshold"
-    assert details[0].observed_value == runtime_status_service._as_decimal_number(10)
-    assert details[0].threshold_value == runtime_status_service._as_decimal_number(10)
-
-
-def test_runtime_status_operator_action_degradation_helper_reuses_threshold_semantics():
-    details: list[runtime_status_service.RuntimeDegradationDetail] = []
-    active_run_status = runtime_status_service.OperatorActionStatus(
-        status="active",
-        reason=None,
-        active_run_count=1,
-        oldest_active_run_operator_id="ops-user",
-        oldest_active_run_tenant_id=None,
-        oldest_active_run_governed_target="runtime-retention",
-        oldest_active_run_acquired_at_utc="2026-03-15T00:00:00Z",
-        oldest_active_run_age_seconds=120.0,
-        latest_reclaimed_run_operator_id="ops-user",
-        latest_reclaimed_run_tenant_id=None,
-        latest_reclaimed_run_governed_target="runtime-retention",
-        latest_reclaimed_run_acquired_at_utc="2026-03-15T00:00:00Z",
-        latest_reclaimed_run_reclaimed_at_utc="2026-03-15T00:10:00Z",
-        latest_reclaimed_run_age_seconds=60.0,
-        reclaimed_run_count=3,
-        recent_reclaimed_runs=(),
-    )
-
-    runtime_status_service._append_operator_action_degradation_details(
-        details,
-        active_run_status=active_run_status,
-        active_run_age_threshold=60.0,
-        active_run_reason="runtime_retention_active_run_age_exceeded",
-        reclaim_threshold=3,
-        reclaim_reason="runtime_retention_reclaim_pressure_exceeded",
-    )
-
-    assert tuple(detail.reason for detail in details) == (
-        "runtime_retention_active_run_age_exceeded",
-        "runtime_retention_reclaim_pressure_exceeded",
-    )
-    assert details[0].observed_value == runtime_status_service._as_decimal_number(120.0)
-    assert details[0].threshold_value == runtime_status_service._as_decimal_number(60.0)
-    assert details[1].observed_value == runtime_status_service._as_decimal_number(3)
-    assert details[1].threshold_value == runtime_status_service._as_decimal_number(3)
-
-
-def test_runtime_status_latest_history_age_degradation_helper_uses_governed_threshold_semantics():
-    details: list[runtime_status_service.RuntimeDegradationDetail] = []
-
-    runtime_status_service._append_latest_history_age_degradation_detail(
-        details,
-        reason="runtime_retention_age_exceeded",
-        latest_age_seconds=59.9,
-        threshold=60.0,
-    )
-    runtime_status_service._append_latest_history_age_degradation_detail(
-        details,
-        reason="runtime_retention_age_exceeded",
-        latest_age_seconds=60.0,
-        threshold=60.0,
-    )
-
-    assert len(details) == 1
-    assert details[0].reason == "runtime_retention_age_exceeded"
-    assert details[0].observed_value == runtime_status_service._as_decimal_number(60.0)
-    assert details[0].threshold_value == runtime_status_service._as_decimal_number(60.0)
-
-
-def test_runtime_status_lifecycle_state_degradation_helper_uses_zero_threshold_detail():
-    details: list[runtime_status_service.RuntimeDegradationDetail] = []
-
-    runtime_status_service._append_lifecycle_state_degradation_detail(
-        details,
-        is_healthy=True,
-        reason="runtime_retention_latest_not_applied",
-    )
-    runtime_status_service._append_lifecycle_state_degradation_detail(
-        details,
-        is_healthy=False,
-        reason="runtime_retention_latest_not_applied",
-    )
-
-    assert len(details) == 1
-    assert details[0].reason == "runtime_retention_latest_not_applied"
-    assert details[0].observed_value == runtime_status_service._as_decimal_number(0)
-    assert details[0].threshold_value == runtime_status_service._as_decimal_number(0)

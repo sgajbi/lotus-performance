@@ -1,26 +1,22 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from decimal import Decimal
 from pathlib import Path
 
 from app.core.config import get_settings
 from app.services.compute_job_store import (
     ComputeQueueInspectionAnchors,
-    ComputeQueueStats,
     ComputeRecoveryEvent,
     compute_job_store,
 )
 from app.services.durability_health_service import (
     DurabilityHealthStatus,
-    LineageStorageCapacitySnapshot,
     check_durable_metadata_store_ready,
     check_lineage_storage_ready,
     get_lineage_storage_capacity,
 )
 from app.services.lineage_metadata_store import (
     LineageQueueInspectionAnchors,
-    LineageQueueStats,
     LineageRecoveryEvent,
     lineage_metadata_store,
 )
@@ -28,15 +24,34 @@ from app.services.operator_action_lease_service import build_operator_action_lea
 from app.services.recovery_drill_history_service import (
     build_recovery_drill_history_snapshot,
 )
-from app.services.runtime_degradation_policy import (
-    ThresholdComparison,
-    as_decimal_number,
-    threshold_breach_values,
-)
 from app.services.runtime_retention_history_service import (
     build_runtime_retention_history_snapshot,
 )
 from app.services.runtime_retention_service import run_runtime_retention_cleanup
+from app.services.runtime_status_degradation import (
+    append_latest_history_age_degradation_detail as _append_latest_history_age_degradation_detail,
+)
+from app.services.runtime_status_degradation import (
+    append_lifecycle_state_degradation_detail as _append_lifecycle_state_degradation_detail,
+)
+from app.services.runtime_status_degradation import (
+    append_operator_action_degradation_details as _append_operator_action_degradation_details,
+)
+from app.services.runtime_status_degradation import (
+    collect_runtime_degradation_details as _collect_runtime_degradation_details,
+)
+from app.services.runtime_status_degradation import (
+    collect_runtime_degradation_reasons as _collect_runtime_degradation_reasons,
+)
+from app.services.runtime_status_degradation import (
+    compute_queue_degradation_details as _compute_queue_degradation_details,
+)
+from app.services.runtime_status_degradation import (
+    lineage_queue_degradation_details as _lineage_queue_degradation_details,
+)
+from app.services.runtime_status_degradation import (
+    missing_history_degradation as _missing_history_degradation,
+)
 from app.services.runtime_status_domain import (
     OperatorActionStatus,
     RecentOperatorActionReclaim,
@@ -564,188 +579,6 @@ def _build_unavailable_runtime_retention_status(
     )
 
 
-def _compute_queue_degradation_details(stats: ComputeQueueStats, *, settings) -> tuple[RuntimeDegradationDetail, ...]:
-    details: list[RuntimeDegradationDetail] = []
-    _append_degradation_detail_if_breached(
-        details,
-        reason="compute_retry_backlog_exceeded",
-        observed_value=stats.retry_backlog_count,
-        threshold_value=settings.RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT,
-    )
-    _append_degradation_detail_if_breached(
-        details,
-        reason="compute_terminal_failure_exceeded",
-        observed_value=stats.terminal_failure_count,
-        threshold_value=settings.RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT,
-    )
-    _append_degradation_detail_if_breached(
-        details,
-        reason="compute_lease_expiry_pressure_exceeded",
-        observed_value=stats.lease_expired_count,
-        threshold_value=settings.RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT,
-    )
-    _append_degradation_detail_if_breached(
-        details,
-        reason="compute_pending_age_exceeded",
-        observed_value=stats.oldest_pending_age_seconds,
-        threshold_value=settings.RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS,
-    )
-    _append_degradation_detail_if_breached(
-        details,
-        reason="compute_leased_age_exceeded",
-        observed_value=stats.oldest_leased_age_seconds,
-        threshold_value=settings.RUNTIME_STATUS_COMPUTE_LEASED_AGE_DEGRADE_SECONDS,
-    )
-    _append_degradation_detail_if_breached(
-        details,
-        reason="compute_running_age_exceeded",
-        observed_value=stats.oldest_running_age_seconds,
-        threshold_value=settings.RUNTIME_STATUS_COMPUTE_RUNNING_AGE_DEGRADE_SECONDS,
-    )
-    return tuple(details)
-
-
-def _lineage_queue_degradation_details(
-    stats: LineageQueueStats,
-    *,
-    storage_capacity: LineageStorageCapacitySnapshot,
-    settings,
-) -> tuple[RuntimeDegradationDetail, ...]:
-    details: list[RuntimeDegradationDetail] = []
-    lineage_leased_age_degrade_seconds = getattr(settings, "RUNTIME_STATUS_LINEAGE_LEASED_AGE_DEGRADE_SECONDS", 0.0)
-    lineage_retry_backlog_degrade_count = getattr(settings, "RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT", 0)
-    lineage_terminal_failure_degrade_count = getattr(
-        settings, "RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT", 0
-    )
-    lineage_pending_age_degrade_seconds = getattr(settings, "RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS", 0.0)
-    _append_degradation_detail_if_breached(
-        details,
-        reason="lineage_leased_age_exceeded",
-        observed_value=stats.oldest_leased_age_seconds,
-        threshold_value=lineage_leased_age_degrade_seconds,
-    )
-    _append_degradation_detail_if_breached(
-        details,
-        reason="lineage_retry_backlog_exceeded",
-        observed_value=stats.retry_backlog_count,
-        threshold_value=lineage_retry_backlog_degrade_count,
-    )
-    _append_degradation_detail_if_breached(
-        details,
-        reason="lineage_terminal_failure_exceeded",
-        observed_value=stats.terminal_failure_count,
-        threshold_value=lineage_terminal_failure_degrade_count,
-    )
-    _append_degradation_detail_if_breached(
-        details,
-        reason="lineage_pending_age_exceeded",
-        observed_value=stats.oldest_pending_age_seconds,
-        threshold_value=lineage_pending_age_degrade_seconds,
-    )
-    lineage_storage_min_free_bytes = getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES", 0)
-    lineage_storage_min_free_ratio = getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO", 0.0)
-    _append_degradation_detail_if_breached(
-        details,
-        reason="lineage_storage_free_bytes_below_threshold",
-        observed_value=storage_capacity.free_bytes,
-        threshold_value=lineage_storage_min_free_bytes,
-        comparison="at_or_below",
-    )
-    _append_degradation_detail_if_breached(
-        details,
-        reason="lineage_storage_free_ratio_below_threshold",
-        observed_value=storage_capacity.free_ratio,
-        threshold_value=lineage_storage_min_free_ratio,
-        comparison="at_or_below",
-    )
-    return tuple(details)
-
-
-def _append_degradation_detail_if_breached(
-    details: list[RuntimeDegradationDetail],
-    *,
-    reason: str,
-    observed_value: object,
-    threshold_value: object,
-    comparison: ThresholdComparison = "at_or_above",
-) -> None:
-    breached_values = threshold_breach_values(
-        observed_value=observed_value,
-        threshold_value=threshold_value,
-        comparison=comparison,
-    )
-    if breached_values is None:
-        return
-    observed_decimal, threshold_decimal = breached_values
-    details.append(
-        RuntimeDegradationDetail(
-            reason=reason,
-            observed_value=observed_decimal,
-            threshold_value=threshold_decimal,
-        )
-    )
-
-
-def _append_operator_action_degradation_details(
-    details: list[RuntimeDegradationDetail],
-    *,
-    active_run_status: OperatorActionStatus,
-    active_run_age_threshold: float,
-    active_run_reason: str,
-    reclaim_threshold: int,
-    reclaim_reason: str,
-) -> None:
-    if active_run_status.status == "active" and active_run_status.oldest_active_run_age_seconds is not None:
-        _append_degradation_detail_if_breached(
-            details,
-            reason=active_run_reason,
-            observed_value=active_run_status.oldest_active_run_age_seconds,
-            threshold_value=active_run_age_threshold,
-        )
-    _append_degradation_detail_if_breached(
-        details,
-        reason=reclaim_reason,
-        observed_value=active_run_status.reclaimed_run_count,
-        threshold_value=reclaim_threshold,
-    )
-
-
-def _append_latest_history_age_degradation_detail(
-    details: list[RuntimeDegradationDetail],
-    *,
-    reason: str,
-    latest_age_seconds: float,
-    threshold: float,
-) -> None:
-    _append_degradation_detail_if_breached(
-        details,
-        reason=reason,
-        observed_value=latest_age_seconds,
-        threshold_value=threshold,
-    )
-
-
-def _append_lifecycle_state_degradation_detail(
-    details: list[RuntimeDegradationDetail],
-    *,
-    is_healthy: bool,
-    reason: str,
-) -> None:
-    if is_healthy:
-        return
-    details.append(
-        RuntimeDegradationDetail(
-            reason=reason,
-            observed_value=_as_decimal_number(0),
-            threshold_value=_as_decimal_number(0),
-        )
-    )
-
-
-def _as_decimal_number(value: object) -> Decimal:
-    return as_decimal_number(value)
-
-
 def _build_missing_recovery_drill_status(
     *,
     threshold: float,
@@ -839,25 +672,6 @@ def _build_missing_runtime_retention_status(
         latest_age_seconds=None,
         degradation_reasons=missing_history_reasons,
         degradation_details=details,
-    )
-
-
-def _missing_history_degradation(
-    *,
-    threshold: float,
-    reason: str,
-) -> tuple[tuple[str, ...], tuple[RuntimeDegradationDetail, ...]]:
-    if threshold <= 0:
-        return (), ()
-    return (
-        (reason,),
-        (
-            RuntimeDegradationDetail(
-                reason=reason,
-                observed_value=_as_decimal_number(0),
-                threshold_value=_as_decimal_number(threshold),
-            ),
-        ),
     )
 
 
@@ -1008,50 +822,4 @@ def _build_recent_operator_action_reclaims(*, snapshot) -> tuple[RecentOperatorA
             reclaim_count=event.reclaim_count,
         )
         for event in events[:5]
-    )
-
-
-def _collect_runtime_degradation_reasons(
-    *,
-    compute_queue: RuntimeQueueStatus,
-    lineage_queue: RuntimeQueueStatus,
-    recovery_drill: RecoveryDrillStatus,
-    runtime_retention: RuntimeRetentionStatus,
-) -> tuple[str, ...]:
-    reasons: list[str] = []
-
-    for prefix, queue_status in (
-        ("compute_queue", compute_queue),
-        ("lineage_queue", lineage_queue),
-    ):
-        if queue_status.status == "degraded":
-            reasons.extend(f"{prefix}:{reason}" for reason in queue_status.degradation_reasons)
-        elif queue_status.status == "unavailable" and queue_status.reason is not None:
-            reasons.append(f"{prefix}:{queue_status.reason}")
-
-    if recovery_drill.status == "degraded":
-        reasons.extend(f"recovery_drill:{reason}" for reason in recovery_drill.degradation_reasons)
-    elif recovery_drill.status == "unavailable" and recovery_drill.reason is not None:
-        reasons.append(f"recovery_drill:{recovery_drill.reason}")
-
-    if runtime_retention.status == "degraded":
-        reasons.extend(f"runtime_retention:{reason}" for reason in runtime_retention.degradation_reasons)
-    elif runtime_retention.status == "unavailable" and runtime_retention.reason is not None:
-        reasons.append(f"runtime_retention:{runtime_retention.reason}")
-
-    return tuple(reasons)
-
-
-def _collect_runtime_degradation_details(
-    *,
-    compute_queue: RuntimeQueueStatus,
-    lineage_queue: RuntimeQueueStatus,
-    recovery_drill: RecoveryDrillStatus,
-    runtime_retention: RuntimeRetentionStatus,
-) -> tuple[RuntimeDegradationDetail, ...]:
-    return (
-        compute_queue.degradation_details
-        + lineage_queue.degradation_details
-        + recovery_drill.degradation_details
-        + runtime_retention.degradation_details
     )
