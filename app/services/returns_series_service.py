@@ -77,6 +77,10 @@ def _source_unavailable_detail(message: str) -> dict[str, str]:
     return {"code": "SOURCE_UNAVAILABLE", "message": message}
 
 
+def _insufficient_data_detail(message: str) -> dict[str, str]:
+    return {"code": "INSUFFICIENT_DATA", "message": message}
+
+
 def period_start(as_of_date: date, period: ReturnsRelativePeriod, year: int | None) -> date:
     as_of = pd.Timestamp(as_of_date)
     if period == ReturnsRelativePeriod.MTD:
@@ -126,7 +130,7 @@ def to_dataframe(points: Iterable[ReturnPoint], *, series_type: str) -> pd.DataF
     if df.empty:
         raise HTTPException(
             status_code=HTTP_422_UNPROCESSABLE,
-            detail={"code": "INSUFFICIENT_DATA", "message": f"{series_type} series is empty."},
+            detail=_insufficient_data_detail(f"{series_type} series is empty."),
         )
     if df["date"].duplicated().any():
         raise HTTPException(
@@ -143,7 +147,7 @@ def filter_window(df: pd.DataFrame, *, resolved_window: ResolvedWindow) -> pd.Da
     if window_df.empty:
         raise HTTPException(
             status_code=HTTP_422_UNPROCESSABLE,
-            detail={"code": "INSUFFICIENT_DATA", "message": "No observations in resolved window."},
+            detail=_insufficient_data_detail("No observations in resolved window."),
         )
     return window_df
 
@@ -377,7 +381,7 @@ def daily_ror_from_portfolio_timeseries(
     if daily_results_df.empty:
         raise HTTPException(
             status_code=HTTP_422_UNPROCESSABLE,
-            detail={"code": "INSUFFICIENT_DATA", "message": "No portfolio return observations in resolved window."},
+            detail=_insufficient_data_detail("No portfolio return observations in resolved window."),
         )
     output_df = pd.DataFrame(
         {
@@ -392,10 +396,7 @@ def daily_ror_from_portfolio_timeseries(
     if output_df.empty:
         raise HTTPException(
             status_code=HTTP_422_UNPROCESSABLE,
-            detail={
-                "code": "INSUFFICIENT_DATA",
-                "message": "No valid portfolio return observations after normalization.",
-            },
+            detail=_insufficient_data_detail("No valid portfolio return observations after normalization."),
         )
     return output_df
 
@@ -469,7 +470,7 @@ def _benchmark_daily_returns_to_dataframe(daily_returns_df: pd.DataFrame) -> pd.
     if daily_returns_df.empty:
         raise HTTPException(
             status_code=HTTP_422_UNPROCESSABLE,
-            detail={"code": "INSUFFICIENT_DATA", "message": "Benchmark series is empty."},
+            detail=_insufficient_data_detail("Benchmark series is empty."),
         )
     benchmark_df = daily_returns_df[["date", "benchmark_return"]].copy()
     benchmark_df["date"] = pd.to_datetime(benchmark_df["date"])

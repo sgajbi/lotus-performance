@@ -191,6 +191,13 @@ def test_zero_default_retrieval_metadata_preserves_source_count_coercion():
     assert metadata.page_count == 3
 
 
+def test_insufficient_data_detail_preserves_returns_series_error_envelope():
+    assert returns_series_service._insufficient_data_detail("No observations.") == {
+        "code": "INSUFFICIENT_DATA",
+        "message": "No observations.",
+    }
+
+
 @pytest.mark.asyncio
 async def test_calculate_returns_series_requires_open_date(monkeypatch, tmp_path):
     request = _build_stateful_request()
