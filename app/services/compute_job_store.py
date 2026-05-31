@@ -1121,13 +1121,7 @@ class ComputeJobStore:
         )
 
     def _to_inspection_item(self, row: ComputeJobModel, *, now: datetime) -> ComputeQueueInspectionItem:
-        active_since = row.created_at_utc
-        if row.job_status == ComputeJobStatus.LEASED.value:
-            active_since = row.leased_at_utc or row.created_at_utc
-        elif row.job_status == ComputeJobStatus.RUNNING.value:
-            active_since = row.started_at_utc or row.leased_at_utc or row.created_at_utc
-        elif row.job_status == ComputeJobStatus.FAILED.value:
-            active_since = row.completed_at_utc or row.created_at_utc
+        active_since = self._inspection_active_since(row)
 
         age_seconds = None
         if active_since is not None:
@@ -1144,6 +1138,16 @@ class ComputeJobStore:
             error_type=row.error_type,
             error_message=row.error_message,
         )
+
+    @staticmethod
+    def _inspection_active_since(row: ComputeJobModel) -> datetime | None:
+        if row.job_status == ComputeJobStatus.LEASED.value:
+            return row.leased_at_utc or row.created_at_utc
+        if row.job_status == ComputeJobStatus.RUNNING.value:
+            return row.started_at_utc or row.leased_at_utc or row.created_at_utc
+        if row.job_status == ComputeJobStatus.FAILED.value:
+            return row.completed_at_utc or row.created_at_utc
+        return row.created_at_utc
 
     def _to_recovery_event(self, row: ComputeJobModel) -> ComputeRecoveryEvent | None:
         recovered_at_utc = _format_timestamp(row.last_error_at_utc)
