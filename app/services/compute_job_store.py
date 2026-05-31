@@ -803,7 +803,13 @@ class ComputeJobStore:
             .label("latest_recovered_calculation_id"),
         )
 
-    def _apply_recovery_filters(self, statement, *, analytics_type: str | None, calculation_id_contains: str | None):
+    def _apply_calculation_filters(
+        self,
+        statement,
+        *,
+        analytics_type: str | None,
+        calculation_id_contains: str | None,
+    ):
         if analytics_type is not None:
             statement = statement.where(ComputeJobModel.analytics_type == analytics_type)
         if calculation_id_contains:
@@ -857,7 +863,7 @@ class ComputeJobStore:
             .limit(limit)
         )
         return self._apply_recovery_time_filters(
-            self._apply_recovery_filters(
+            self._apply_calculation_filters(
                 statement,
                 analytics_type=analytics_type,
                 calculation_id_contains=calculation_id_contains,
@@ -888,7 +894,7 @@ class ComputeJobStore:
             )
         )
         return self._apply_recovery_time_filters(
-            self._apply_recovery_filters(
+            self._apply_calculation_filters(
                 statement,
                 analytics_type=analytics_type,
                 calculation_id_contains=calculation_id_contains,
@@ -898,13 +904,6 @@ class ComputeJobStore:
             cursor_recovered_before=cursor_recovered_before,
             cursor_calculation_id_before=cursor_calculation_id_before,
         )
-
-    def _apply_inspection_filters(self, statement, *, analytics_type: str | None, calculation_id_contains: str | None):
-        if analytics_type is not None:
-            statement = statement.where(ComputeJobModel.analytics_type == analytics_type)
-        if calculation_id_contains:
-            statement = statement.where(ComputeJobModel.calculation_id.contains(calculation_id_contains))
-        return statement
 
     @staticmethod
     def _build_active_since_expression():
@@ -947,7 +946,7 @@ class ComputeJobStore:
             .offset(offset)
             .limit(limit)
         )
-        return self._apply_inspection_filters(
+        return self._apply_calculation_filters(
             self._apply_min_age_filter(statement, min_age_threshold=min_age_threshold),
             analytics_type=analytics_type,
             calculation_id_contains=calculation_id_contains,
@@ -969,7 +968,7 @@ class ComputeJobStore:
             .offset(offset)
             .limit(limit)
         )
-        return self._apply_inspection_filters(
+        return self._apply_calculation_filters(
             self._apply_min_age_filter(statement, min_age_threshold=min_age_threshold),
             analytics_type=analytics_type,
             calculation_id_contains=calculation_id_contains,
@@ -991,7 +990,7 @@ class ComputeJobStore:
             .offset(offset)
             .limit(limit)
         )
-        return self._apply_inspection_filters(
+        return self._apply_calculation_filters(
             self._apply_min_age_filter(statement, min_age_threshold=min_age_threshold),
             analytics_type=analytics_type,
             calculation_id_contains=calculation_id_contains,
@@ -1017,7 +1016,7 @@ class ComputeJobStore:
                 )
             )
         )
-        return self._apply_inspection_filters(
+        return self._apply_calculation_filters(
             self._apply_min_age_filter(statement, min_age_threshold=min_age_threshold),
             analytics_type=analytics_type,
             calculation_id_contains=calculation_id_contains,
@@ -1035,7 +1034,7 @@ class ComputeJobStore:
             .select_from(ComputeJobModel)
             .where(ComputeJobModel.job_status == ComputeJobStatus.FAILED.value)
         )
-        return self._apply_inspection_filters(
+        return self._apply_calculation_filters(
             self._apply_min_age_filter(statement, min_age_threshold=min_age_threshold),
             analytics_type=analytics_type,
             calculation_id_contains=calculation_id_contains,
@@ -1049,7 +1048,7 @@ class ComputeJobStore:
         min_age_threshold: datetime | None,
     ):
         statement = select(func.count()).select_from(ComputeJobModel)
-        return self._apply_inspection_filters(
+        return self._apply_calculation_filters(
             self._apply_min_age_filter(statement, min_age_threshold=min_age_threshold),
             analytics_type=analytics_type,
             calculation_id_contains=calculation_id_contains,
@@ -1076,7 +1075,7 @@ class ComputeJobStore:
             .offset(offset)
             .limit(limit)
         )
-        return self._apply_inspection_filters(
+        return self._apply_calculation_filters(
             self._apply_min_age_filter(statement, min_age_threshold=min_age_threshold),
             analytics_type=analytics_type,
             calculation_id_contains=calculation_id_contains,
@@ -1099,7 +1098,7 @@ class ComputeJobStore:
                 & (ComputeJobModel.lease_expires_at_utc < now)
             )
         )
-        return self._apply_inspection_filters(
+        return self._apply_calculation_filters(
             self._apply_min_age_filter(statement, min_age_threshold=min_age_threshold),
             analytics_type=analytics_type,
             calculation_id_contains=calculation_id_contains,
