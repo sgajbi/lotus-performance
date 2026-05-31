@@ -6,7 +6,6 @@ import tempfile
 from datetime import datetime, timezone
 from io import StringIO
 from pathlib import PurePath
-from typing import Dict
 from uuid import UUID
 
 import pandas as pd
@@ -45,7 +44,7 @@ class LineageService:
         if os.path.isdir(self.storage_path):
             return
         os.makedirs(self.storage_path, exist_ok=True)
-        logger.info(f"Created lineage storage directory at: {self.storage_path}")
+        logger.info("Created lineage storage directory at: %s", self.storage_path)
 
     def enqueue_capture(
         self,
@@ -53,7 +52,7 @@ class LineageService:
         calculation_type: str,
         request_model: BaseModel,
         response_model: BaseModel,
-        calculation_details: Dict[str, pd.DataFrame],
+        calculation_details: dict[str, pd.DataFrame],
     ) -> None:
         serialized_details = self._serialize_details(calculation_details)
         self._metadata_store.enqueue_lineage_payload(
@@ -125,18 +124,19 @@ class LineageService:
                     exc_info=True,
                 )
 
-            logger.info(f"Successfully captured lineage data for calculation_id: {calculation_id}")
+            logger.info("Successfully captured lineage data for calculation_id: %s", calculation_id)
             return True
 
         except Exception as e:
-            # Add robust logging to make silent errors visible in the server console
             logger.error(
-                f"FATAL: Failed to capture lineage data for calculation_id: {calculation_id}. Reason: {e}",
+                "FATAL: Failed to capture lineage data for calculation_id: %s. Reason: %s",
+                calculation_id,
+                e,
                 exc_info=True,
             )
             return False
 
-    def _serialize_details(self, calculation_details: Dict[str, pd.DataFrame]) -> dict[str, str]:
+    def _serialize_details(self, calculation_details: dict[str, pd.DataFrame]) -> dict[str, str]:
         serialized: dict[str, str] = {}
         for filename, df in calculation_details.items():
             safe_filename = self._validate_artifact_filename(filename)
