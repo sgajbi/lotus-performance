@@ -10,6 +10,8 @@ from app.services.recovery_drill_history_service import (
     build_recovery_drill_history_snapshot,
 )
 from app.services.runtime_retention_history_service import (
+    RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON,
+    RUNTIME_RETENTION_MANIFEST_MISSING_REASON,
     RuntimeRetentionHistoryEntry,
     build_runtime_retention_history_snapshot,
 )
@@ -135,8 +137,8 @@ def build_runtime_retention_status(*, settings, policy: RuntimeRetentionDegradat
 
     if snapshot.status != "available":
         if snapshot.reason in {
-            "runtime_retention_artifact_directory_missing",
-            "runtime_retention_manifest_missing",
+            RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON,
+            RUNTIME_RETENTION_MANIFEST_MISSING_REASON,
         }:
             return missing_runtime_retention_status(
                 threshold=policy.max_age_seconds,

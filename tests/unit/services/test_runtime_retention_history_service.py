@@ -3,6 +3,9 @@ import json
 import pytest
 
 from app.services.runtime_retention_history_service import (
+    RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON,
+    RUNTIME_RETENTION_MANIFEST_INVALID_REASON,
+    RUNTIME_RETENTION_MANIFEST_UNREADABLE_REASON,
     _build_applied_filters,
     _validate_manifest_payload,
     build_runtime_retention_history_snapshot,
@@ -13,7 +16,7 @@ def test_runtime_retention_history_reports_unavailable_when_manifest_missing(tmp
     snapshot = build_runtime_retention_history_snapshot(artifact_directory=tmp_path / "missing")
 
     assert snapshot.status == "unavailable"
-    assert snapshot.reason == "runtime_retention_artifact_directory_missing"
+    assert snapshot.reason == RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON
 
 
 def test_runtime_retention_history_reports_unavailable_when_manifest_invalid(tmp_path):
@@ -24,7 +27,7 @@ def test_runtime_retention_history_reports_unavailable_when_manifest_invalid(tmp
     snapshot = build_runtime_retention_history_snapshot(artifact_directory=artifact_dir)
 
     assert snapshot.status == "unavailable"
-    assert snapshot.reason == "runtime_retention_manifest_invalid"
+    assert snapshot.reason == RUNTIME_RETENTION_MANIFEST_INVALID_REASON
 
 
 def test_runtime_retention_history_reports_unavailable_when_manifest_unreadable(tmp_path, monkeypatch):
@@ -48,7 +51,7 @@ def test_runtime_retention_history_reports_unavailable_when_manifest_unreadable(
     snapshot = build_runtime_retention_history_snapshot(artifact_directory=artifact_dir)
 
     assert snapshot.status == "unavailable"
-    assert snapshot.reason == "runtime_retention_manifest_unreadable"
+    assert snapshot.reason == RUNTIME_RETENTION_MANIFEST_UNREADABLE_REASON
 
 
 def test_runtime_retention_history_applies_filters_and_paging(tmp_path):

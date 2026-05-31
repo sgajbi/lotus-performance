@@ -7,7 +7,11 @@ from app.services.recovery_drill_history_service import (
     RecoveryDrillHistoryEntry,
     RecoveryDrillHistorySnapshot,
 )
-from app.services.runtime_retention_history_service import RuntimeRetentionHistoryEntry, RuntimeRetentionHistorySnapshot
+from app.services.runtime_retention_history_service import (
+    RUNTIME_RETENTION_MANIFEST_MISSING_REASON,
+    RuntimeRetentionHistoryEntry,
+    RuntimeRetentionHistorySnapshot,
+)
 from app.services.runtime_retention_service import RuntimeRetentionCleanupSummary
 from app.services.runtime_status_domain import (
     OperatorActionStatus,
@@ -284,7 +288,7 @@ def test_build_runtime_retention_status_returns_missing_with_preview_when_artifa
         "app.services.runtime_status_lifecycle.build_runtime_retention_history_snapshot",
         return_value=_runtime_retention_snapshot(
             status="unavailable",
-            reason="runtime_retention_manifest_missing",
+            reason=RUNTIME_RETENTION_MANIFEST_MISSING_REASON,
         ),
     )
     mocker.patch(

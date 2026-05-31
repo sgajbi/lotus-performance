@@ -10,6 +10,11 @@ from app.core.config import get_settings
 from app.services.operator_action_evidence_paths import is_safe_evidence_file_name
 from app.services.operator_action_history_pagination import paginate_history_entries
 
+RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON = "runtime_retention_artifact_directory_missing"
+RUNTIME_RETENTION_MANIFEST_INVALID_REASON = "runtime_retention_manifest_invalid"
+RUNTIME_RETENTION_MANIFEST_MISSING_REASON = "runtime_retention_manifest_missing"
+RUNTIME_RETENTION_MANIFEST_UNREADABLE_REASON = "runtime_retention_manifest_unreadable"
+
 
 @dataclass(frozen=True)
 class RuntimeRetentionHistoryEntry:
@@ -78,14 +83,14 @@ def build_runtime_retention_history_snapshot(
         return _unavailable_snapshot(
             directory=directory,
             applied_filters=applied_filters,
-            reason="runtime_retention_artifact_directory_missing",
+            reason=RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON,
         )
 
     if not manifest_path.exists():
         return _unavailable_snapshot(
             directory=directory,
             applied_filters=applied_filters,
-            reason="runtime_retention_manifest_missing",
+            reason=RUNTIME_RETENTION_MANIFEST_MISSING_REASON,
         )
 
     try:
@@ -94,13 +99,13 @@ def build_runtime_retention_history_snapshot(
         return _unavailable_snapshot(
             directory=directory,
             applied_filters=applied_filters,
-            reason="runtime_retention_manifest_unreadable",
+            reason=RUNTIME_RETENTION_MANIFEST_UNREADABLE_REASON,
         )
     except json.JSONDecodeError:
         return _unavailable_snapshot(
             directory=directory,
             applied_filters=applied_filters,
-            reason="runtime_retention_manifest_invalid",
+            reason=RUNTIME_RETENTION_MANIFEST_INVALID_REASON,
         )
 
     manifest_payload = _validate_manifest_payload(payload)
@@ -108,7 +113,7 @@ def build_runtime_retention_history_snapshot(
         return _unavailable_snapshot(
             directory=directory,
             applied_filters=applied_filters,
-            reason="runtime_retention_manifest_invalid",
+            reason=RUNTIME_RETENTION_MANIFEST_INVALID_REASON,
         )
 
     all_entries = [
