@@ -264,6 +264,20 @@ def test_twr_documentation_map_and_wiki_navigation_are_present():
     assert "lotus-performance:TimeWeightedReturnAnalytics:v1" in mesh_data_products
 
 
+def test_architecture_wiki_explains_runtime_and_non_functional_posture():
+    wiki_architecture = _read("wiki/Architecture.md")
+
+    assert "Application wiring" in wiki_architecture
+    assert "Request Lifecycle" in wiki_architecture
+    assert "Non-Functional Architecture" in wiki_architecture
+    assert "performance-compute-executor" in wiki_architecture
+    assert "performance-lineage-worker" in wiki_architecture
+    assert "OpenAPI, API vocabulary, no-alias guard" in wiki_architecture
+    assert "`lotus-performance` owns performance methodology" in wiki_architecture
+    assert "`lotus-core` owns source" in wiki_architecture
+    assert "runtime-control surfaces are operator contracts" in wiki_architecture
+
+
 def test_attribution_documentation_map_and_wiki_navigation_are_present():
     map_doc = _read("docs/technical/attribution-documentation-map.md")
     methodology_index = _read("docs/technical/methodology_index.md")
