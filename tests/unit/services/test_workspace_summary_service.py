@@ -15,6 +15,7 @@ from app.services.workspace_summary_service import (
     _build_economic_context,
     _build_mwr_cash_flows,
     _date_from_boundary,
+    _decimal_or_zero,
     _resolve_stateful_portfolio_start_date,
     _resolve_workspace_benchmark_input,
     _resolve_workspace_portfolio_input,
@@ -277,6 +278,12 @@ def test_resolve_stateful_portfolio_start_date_rejects_invalid_reference_payload
 
     with pytest.raises(HTTPException, match="Invalid portfolio_open_date"):
         _resolve_stateful_portfolio_start_date(request=request, settings=SimpleNamespace())
+
+
+def test_workspace_summary_decimal_or_zero_handles_nullable_pandas_values():
+    assert _decimal_or_zero(pd.NA) == Decimal("0")
+    assert _decimal_or_zero(float("nan")) == Decimal("0")
+    assert _decimal_or_zero(Decimal("12.34")) == Decimal("12.34")
 
 
 def test_resolve_workspace_benchmark_input_rejects_missing_assignment(mocker):

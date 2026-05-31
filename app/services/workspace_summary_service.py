@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, localcontext
+from typing import Any, cast
 
 import pandas as pd
 from fastapi import HTTPException, status
@@ -1017,14 +1018,16 @@ def _to_workspace_return_value(value) -> WorkspaceReturnValue:
 
 
 def _decimal_or_zero(value: object) -> Decimal:
-    if value is None:
+    if value is None or _is_missing_decimal_value(value):
         return Decimal("0")
-    try:
-        if value != value:
-            return Decimal("0")
-    except TypeError:
-        pass
     return to_decimal(value)
+
+
+def _is_missing_decimal_value(value: object) -> bool:
+    try:
+        return bool(pd.isna(cast(Any, value)))
+    except (TypeError, ValueError):
+        return False
 
 
 def _sum_decimal_column(frame: pd.DataFrame, column_name: str) -> Decimal:
