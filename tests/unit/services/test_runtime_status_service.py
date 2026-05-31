@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from decimal import Decimal
 
 import pytest
 
@@ -2560,6 +2561,24 @@ def test_runtime_status_build_missing_runtime_retention_status_degrades_when_thr
 
     assert status.status == "degraded"
     assert status.degradation_reasons == ("runtime_retention_history_unavailable",)
+
+
+def test_runtime_status_missing_history_degradation_helper_respects_threshold():
+    assert runtime_status_service._missing_history_degradation(
+        threshold=0.0,
+        reason="runtime_retention_history_unavailable",
+    ) == ((), ())
+
+    reasons, details = runtime_status_service._missing_history_degradation(
+        threshold=300.0,
+        reason="runtime_retention_history_unavailable",
+    )
+
+    assert reasons == ("runtime_retention_history_unavailable",)
+    assert len(details) == 1
+    assert details[0].reason == "runtime_retention_history_unavailable"
+    assert details[0].observed_value == Decimal("0")
+    assert details[0].threshold_value == Decimal("300.0")
 
 
 def test_runtime_status_operator_action_status_handles_exceptions_and_unavailable_snapshot(mocker):

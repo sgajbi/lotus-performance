@@ -942,17 +942,10 @@ def _build_missing_recovery_drill_status(
     threshold: float,
     active_run_status: OperatorActionStatus,
 ) -> RecoveryDrillStatus:
-    details: tuple[RuntimeDegradationDetail, ...] = ()
-    missing_history_reasons: tuple[str, ...] = ()
-    if threshold > 0:
-        missing_history_reasons = ("recovery_drill_history_unavailable",)
-        details = (
-            RuntimeDegradationDetail(
-                reason="recovery_drill_history_unavailable",
-                observed_value=_as_decimal_number(0),
-                threshold_value=_as_decimal_number(threshold),
-            ),
-        )
+    missing_history_reasons, details = _missing_history_degradation(
+        threshold=threshold,
+        reason="recovery_drill_history_unavailable",
+    )
     return RecoveryDrillStatus(
         status="available" if not missing_history_reasons else "degraded",
         reason=None if not missing_history_reasons else missing_history_reasons[0],
@@ -990,17 +983,10 @@ def _build_missing_runtime_retention_status(
     preview_reason: str | None,
     preview_summary,
 ) -> RuntimeRetentionStatus:
-    details: tuple[RuntimeDegradationDetail, ...] = ()
-    missing_history_reasons: tuple[str, ...] = ()
-    if threshold > 0:
-        missing_history_reasons = ("runtime_retention_history_unavailable",)
-        details = (
-            RuntimeDegradationDetail(
-                reason="runtime_retention_history_unavailable",
-                observed_value=_as_decimal_number(0),
-                threshold_value=_as_decimal_number(threshold),
-            ),
-        )
+    missing_history_reasons, details = _missing_history_degradation(
+        threshold=threshold,
+        reason="runtime_retention_history_unavailable",
+    )
     return RuntimeRetentionStatus(
         status="available" if not missing_history_reasons else "degraded",
         reason=None if not missing_history_reasons else missing_history_reasons[0],
@@ -1047,6 +1033,25 @@ def _build_missing_runtime_retention_status(
         latest_age_seconds=None,
         degradation_reasons=missing_history_reasons,
         degradation_details=details,
+    )
+
+
+def _missing_history_degradation(
+    *,
+    threshold: float,
+    reason: str,
+) -> tuple[tuple[str, ...], tuple[RuntimeDegradationDetail, ...]]:
+    if threshold <= 0:
+        return (), ()
+    return (
+        (reason,),
+        (
+            RuntimeDegradationDetail(
+                reason=reason,
+                observed_value=_as_decimal_number(0),
+                threshold_value=_as_decimal_number(threshold),
+            ),
+        ),
     )
 
 
