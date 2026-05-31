@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
 
+from app.services.operator_action_identity import operator_action_actor_matches
 from app.services.recovery_drill_history_service import (
     RecoveryDrillHistoryEntry,
     RecoveryDrillHistorySnapshot,
@@ -154,9 +155,7 @@ def _find_latest_runtime_retention_entry(
 ) -> RuntimeRetentionHistoryEntry | None:
     expected_cleanup_mode = "apply" if apply else "dry_run"
     for entry in snapshot.entries:
-        if entry.operator_id != operator_id:
-            continue
-        if entry.tenant_id != tenant_id:
+        if not operator_action_actor_matches(entry, operator_id=operator_id, tenant_id=tenant_id):
             continue
         if entry.cleanup_mode != expected_cleanup_mode:
             continue
@@ -176,9 +175,7 @@ def _find_latest_recovery_drill_entry(
     backup_identifier: str,
 ) -> RecoveryDrillHistoryEntry | None:
     for entry in snapshot.entries:
-        if entry.operator_id != operator_id:
-            continue
-        if entry.tenant_id != tenant_id:
+        if not operator_action_actor_matches(entry, operator_id=operator_id, tenant_id=tenant_id):
             continue
         if entry.backup_identifier != backup_identifier:
             continue
