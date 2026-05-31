@@ -22,7 +22,10 @@ from app.services.lineage_metadata_store import (
 )
 from app.services.runtime_status_degradation import compute_queue_degradation_details, lineage_queue_degradation_details
 from app.services.runtime_status_domain import RuntimeDegradationDetail, RuntimeQueueStatus
-from app.services.runtime_unavailability import durable_metadata_unavailable_reason
+from app.services.runtime_unavailability import (
+    durable_metadata_unavailable_reason,
+    lineage_storage_unavailable_reason,
+)
 
 RecoveryEventT = TypeVar("RecoveryEventT", ComputeRecoveryEvent, LineageRecoveryEvent, covariant=True)
 InspectionAnchorsT = TypeVar(
@@ -64,7 +67,7 @@ def build_lineage_queue_status(durability_status: DurabilityHealthStatus, *, set
         return unavailable_runtime_queue_status(reason=durable_metadata_unavailable_reason(durability_status))
     lineage_storage_status = check_lineage_storage_ready()
     if not lineage_storage_status.is_ready:
-        return unavailable_runtime_queue_status(reason=lineage_storage_status.reason or "lineage_storage_unavailable")
+        return unavailable_runtime_queue_status(reason=lineage_storage_unavailable_reason(lineage_storage_status))
     try:
         storage_capacity = get_lineage_storage_capacity()
     except Exception:
