@@ -25,13 +25,15 @@ from app.services.contribution_methodology import (
     _is_average_weight_shadow_cutover_candidate,
     _normalize_reset_aware_average_weight_mode,
 )
-from app.services.contribution_service import (
+from app.services.contribution_series import (
     _build_daily_contribution_series,
     _build_hierarchy_from_adjusted_position_series,
-    _build_portfolio_engine_diagnostics,
     _build_position_contribution_series,
     _build_residual_adjusted_daily_contribution_series,
     _build_residual_adjusted_position_timeseries,
+)
+from app.services.contribution_service import (
+    _build_portfolio_engine_diagnostics,
     _calculate_grouped_return_reset_alignment_counts,
     _calculate_position_flow_balance_counts,
     _calculate_position_total_return_pct,
