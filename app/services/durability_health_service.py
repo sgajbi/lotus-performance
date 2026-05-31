@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import shutil
 import tempfile
@@ -17,6 +18,8 @@ REQUIRED_DURABLE_TABLES = (
     "lineage_records",
     "lineage_payloads",
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -50,6 +53,7 @@ def check_durable_metadata_schema_ready() -> DurabilityHealthStatus:
     try:
         execution_registry.ping()
     except Exception:
+        logger.warning("Durable metadata store readiness ping failed.", exc_info=True)
         return _unavailable_status("durable_metadata_store_unreachable")
     available_tables = set(execution_registry.list_table_names())
     if any(table_name not in available_tables for table_name in REQUIRED_DURABLE_TABLES):
@@ -122,6 +126,7 @@ def _probe_lineage_storage_write(storage_path: str) -> bool:
         temp_path = None
         return True
     except OSError:
+        logger.warning("Lineage storage write probe failed.", exc_info=True)
         return False
     finally:
         if fd is not None:
