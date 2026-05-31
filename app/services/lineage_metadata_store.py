@@ -11,7 +11,14 @@ from uuid import UUID
 from sqlalchemy import DateTime, Index, Integer, String, Text, case, create_engine, exists, func, inspect, select, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
-from app.services.durable_store_inspection import apply_min_age_filter, build_inspection_query_context
+from app.services.durable_store_inspection import (
+    INSPECTION_STATUS_ACTIVE,
+    INSPECTION_STATUS_ALL,
+    INSPECTION_STATUS_FAILED,
+    INSPECTION_STATUS_RECLAIMABLE,
+    apply_min_age_filter,
+    build_inspection_query_context,
+)
 from app.services.durable_store_pagination import next_offset_or_none, recovery_cursor_or_none
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
 from app.services.durable_store_time import (
@@ -522,7 +529,7 @@ class LineageMetadataStore:
         )
 
         with self._session() as session:
-            if inspection_context.status_filter == "active":
+            if inspection_context.status_filter == INSPECTION_STATUS_ACTIVE:
                 count_statement = self._build_active_inspection_count_statement(
                     now=inspection_context.now,
                     calculation_type=calculation_type,
@@ -537,7 +544,7 @@ class LineageMetadataStore:
                     calculation_id_contains=calculation_id_contains,
                     min_age_threshold=inspection_context.min_age_threshold,
                 )
-            elif inspection_context.status_filter == "failed":
+            elif inspection_context.status_filter == INSPECTION_STATUS_FAILED:
                 count_statement = self._build_failed_inspection_count_statement(
                     now=inspection_context.now,
                     calculation_type=calculation_type,
@@ -552,7 +559,7 @@ class LineageMetadataStore:
                     calculation_id_contains=calculation_id_contains,
                     min_age_threshold=inspection_context.min_age_threshold,
                 )
-            elif inspection_context.status_filter == "all":
+            elif inspection_context.status_filter == INSPECTION_STATUS_ALL:
                 count_statement = self._build_all_inspection_count_statement(
                     now=inspection_context.now,
                     calculation_type=calculation_type,
@@ -567,7 +574,7 @@ class LineageMetadataStore:
                     calculation_id_contains=calculation_id_contains,
                     min_age_threshold=inspection_context.min_age_threshold,
                 )
-            elif inspection_context.status_filter == "reclaimable":
+            elif inspection_context.status_filter == INSPECTION_STATUS_RECLAIMABLE:
                 count_statement = self._build_reclaimable_inspection_count_statement(
                     now=inspection_context.now,
                     calculation_type=calculation_type,

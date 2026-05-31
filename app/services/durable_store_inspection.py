@@ -4,6 +4,19 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+INSPECTION_STATUS_ACTIVE = "active"
+INSPECTION_STATUS_FAILED = "failed"
+INSPECTION_STATUS_ALL = "all"
+INSPECTION_STATUS_RECLAIMABLE = "reclaimable"
+SUPPORTED_INSPECTION_STATUS_FILTERS = frozenset(
+    {
+        INSPECTION_STATUS_ACTIVE,
+        INSPECTION_STATUS_FAILED,
+        INSPECTION_STATUS_ALL,
+        INSPECTION_STATUS_RECLAIMABLE,
+    }
+)
+
 
 @dataclass(frozen=True)
 class InspectionQueryContext:
@@ -20,6 +33,8 @@ def build_inspection_query_context(
 ) -> InspectionQueryContext:
     inspection_now = now or datetime.now(timezone.utc)
     normalized_status_filter = status_filter.lower()
+    if normalized_status_filter not in SUPPORTED_INSPECTION_STATUS_FILTERS:
+        raise ValueError(f"Unsupported status filter: {status_filter}")
     min_age_threshold = inspection_now - timedelta(seconds=min_age_seconds) if min_age_seconds > 0 else None
     return InspectionQueryContext(
         status_filter=normalized_status_filter,

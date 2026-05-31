@@ -1,8 +1,26 @@
 from datetime import datetime, timezone
 
+import pytest
 from sqlalchemy import column, select
 
-from app.services.durable_store_inspection import apply_min_age_filter, build_inspection_query_context
+from app.services.durable_store_inspection import (
+    INSPECTION_STATUS_ACTIVE,
+    INSPECTION_STATUS_ALL,
+    INSPECTION_STATUS_FAILED,
+    INSPECTION_STATUS_RECLAIMABLE,
+    SUPPORTED_INSPECTION_STATUS_FILTERS,
+    apply_min_age_filter,
+    build_inspection_query_context,
+)
+
+
+def test_supported_inspection_status_filters_are_explicit():
+    assert SUPPORTED_INSPECTION_STATUS_FILTERS == {
+        INSPECTION_STATUS_ACTIVE,
+        INSPECTION_STATUS_FAILED,
+        INSPECTION_STATUS_ALL,
+        INSPECTION_STATUS_RECLAIMABLE,
+    }
 
 
 def test_build_inspection_query_context_normalizes_status_and_age_threshold():
@@ -23,6 +41,11 @@ def test_build_inspection_query_context_omits_non_positive_age_threshold():
 
     assert zero_context.min_age_threshold is None
     assert negative_context.min_age_threshold is None
+
+
+def test_build_inspection_query_context_rejects_unsupported_status():
+    with pytest.raises(ValueError, match="Unsupported status filter: waiting"):
+        build_inspection_query_context(status_filter="waiting", min_age_seconds=0.0)
 
 
 def test_apply_min_age_filter_adds_active_since_predicate_when_threshold_exists():
