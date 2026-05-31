@@ -3,6 +3,7 @@ from app.services.queue_metric_builders import (
     availability_metric,
     operator_action_lease_metrics,
     policy_threshold_metric,
+    reason_labeled_metric,
     snapshot_available,
 )
 
@@ -35,6 +36,23 @@ def test_policy_threshold_metric_uses_governed_threshold_labels():
         "max_age_seconds": 3600.0,
         "active_run_age_seconds": 1800.0,
         "reclaim_count": 3,
+    }
+
+
+def test_reason_labeled_metric_uses_governed_reason_labels():
+    metric = reason_labeled_metric(
+        metric_name="degradation_breach",
+        description="degradation breach",
+        samples=(
+            ("age_exceeded", 1),
+            ("retry_backlog_exceeded", 0),
+        ),
+    )
+
+    samples = {sample.labels["reason"]: sample.value for sample in metric.samples}
+    assert samples == {
+        "age_exceeded": 1,
+        "retry_backlog_exceeded": 0,
     }
 
 

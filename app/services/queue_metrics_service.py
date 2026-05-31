@@ -15,6 +15,7 @@ from app.services.queue_metric_builders import (
     availability_metric,
     operator_action_lease_metrics,
     policy_threshold_metric,
+    reason_labeled_metric,
     snapshot_available,
 )
 from app.services.recovery_drill_history_service import build_recovery_drill_history_snapshot
@@ -359,54 +360,78 @@ class DurableQueueCollector:
             compute_oldest_running.add_metric([], compute_stats.oldest_running_age_seconds)
             yield compute_oldest_running
 
-            compute_breach = GaugeMetricFamily(
-                "lotus_performance_compute_queue_degradation_breach",
-                "Whether the compute queue currently breaches a configured runtime degradation threshold.",
-                labels=["reason"],
-            )
-            compute_breach.add_metric(
-                ["compute_retry_backlog_exceeded"],
-                threshold_breach_flag(
-                    threshold_value=getattr(settings, "RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT", 0),
-                    observed_value=compute_stats.retry_backlog_count,
+            yield reason_labeled_metric(
+                metric_name="lotus_performance_compute_queue_degradation_breach",
+                description="Whether the compute queue currently breaches a configured runtime degradation threshold.",
+                samples=(
+                    (
+                        "compute_retry_backlog_exceeded",
+                        threshold_breach_flag(
+                            threshold_value=getattr(
+                                settings,
+                                "RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT",
+                                0,
+                            ),
+                            observed_value=compute_stats.retry_backlog_count,
+                        ),
+                    ),
+                    (
+                        "compute_terminal_failure_exceeded",
+                        threshold_breach_flag(
+                            threshold_value=getattr(
+                                settings,
+                                "RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT",
+                                0,
+                            ),
+                            observed_value=compute_stats.terminal_failure_count,
+                        ),
+                    ),
+                    (
+                        "compute_lease_expiry_pressure_exceeded",
+                        threshold_breach_flag(
+                            threshold_value=getattr(
+                                settings,
+                                "RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT",
+                                0,
+                            ),
+                            observed_value=compute_stats.lease_expired_count,
+                        ),
+                    ),
+                    (
+                        "compute_pending_age_exceeded",
+                        threshold_breach_flag(
+                            threshold_value=getattr(
+                                settings,
+                                "RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS",
+                                0.0,
+                            ),
+                            observed_value=compute_stats.oldest_pending_age_seconds,
+                        ),
+                    ),
+                    (
+                        "compute_leased_age_exceeded",
+                        threshold_breach_flag(
+                            threshold_value=getattr(
+                                settings,
+                                "RUNTIME_STATUS_COMPUTE_LEASED_AGE_DEGRADE_SECONDS",
+                                0.0,
+                            ),
+                            observed_value=compute_stats.oldest_leased_age_seconds,
+                        ),
+                    ),
+                    (
+                        "compute_running_age_exceeded",
+                        threshold_breach_flag(
+                            threshold_value=getattr(
+                                settings,
+                                "RUNTIME_STATUS_COMPUTE_RUNNING_AGE_DEGRADE_SECONDS",
+                                0.0,
+                            ),
+                            observed_value=compute_stats.oldest_running_age_seconds,
+                        ),
+                    ),
                 ),
             )
-            compute_breach.add_metric(
-                ["compute_terminal_failure_exceeded"],
-                threshold_breach_flag(
-                    threshold_value=getattr(settings, "RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT", 0),
-                    observed_value=compute_stats.terminal_failure_count,
-                ),
-            )
-            compute_breach.add_metric(
-                ["compute_lease_expiry_pressure_exceeded"],
-                threshold_breach_flag(
-                    threshold_value=getattr(settings, "RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT", 0),
-                    observed_value=compute_stats.lease_expired_count,
-                ),
-            )
-            compute_breach.add_metric(
-                ["compute_pending_age_exceeded"],
-                threshold_breach_flag(
-                    threshold_value=getattr(settings, "RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS", 0.0),
-                    observed_value=compute_stats.oldest_pending_age_seconds,
-                ),
-            )
-            compute_breach.add_metric(
-                ["compute_leased_age_exceeded"],
-                threshold_breach_flag(
-                    threshold_value=getattr(settings, "RUNTIME_STATUS_COMPUTE_LEASED_AGE_DEGRADE_SECONDS", 0.0),
-                    observed_value=compute_stats.oldest_leased_age_seconds,
-                ),
-            )
-            compute_breach.add_metric(
-                ["compute_running_age_exceeded"],
-                threshold_breach_flag(
-                    threshold_value=getattr(settings, "RUNTIME_STATUS_COMPUTE_RUNNING_AGE_DEGRADE_SECONDS", 0.0),
-                    observed_value=compute_stats.oldest_running_age_seconds,
-                ),
-            )
-            yield compute_breach
 
         if lineage_stats is not None:
             lineage_pending = GaugeMetricFamily(
@@ -435,40 +460,56 @@ class DurableQueueCollector:
             lineage_oldest_pending.add_metric([], lineage_stats.oldest_pending_age_seconds)
             yield lineage_oldest_pending
 
-            lineage_breach = GaugeMetricFamily(
-                "lotus_performance_lineage_queue_degradation_breach",
-                "Whether the lineage queue currently breaches a configured runtime degradation threshold.",
-                labels=["reason"],
-            )
-            lineage_breach.add_metric(
-                ["lineage_retry_backlog_exceeded"],
-                threshold_breach_flag(
-                    threshold_value=getattr(settings, "RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT", 0),
-                    observed_value=lineage_stats.retry_backlog_count,
+            yield reason_labeled_metric(
+                metric_name="lotus_performance_lineage_queue_degradation_breach",
+                description="Whether the lineage queue currently breaches a configured runtime degradation threshold.",
+                samples=(
+                    (
+                        "lineage_retry_backlog_exceeded",
+                        threshold_breach_flag(
+                            threshold_value=getattr(
+                                settings,
+                                "RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT",
+                                0,
+                            ),
+                            observed_value=lineage_stats.retry_backlog_count,
+                        ),
+                    ),
+                    (
+                        "lineage_terminal_failure_exceeded",
+                        threshold_breach_flag(
+                            threshold_value=getattr(
+                                settings,
+                                "RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT",
+                                0,
+                            ),
+                            observed_value=lineage_stats.terminal_failure_count,
+                        ),
+                    ),
+                    (
+                        "lineage_pending_age_exceeded",
+                        threshold_breach_flag(
+                            threshold_value=getattr(
+                                settings,
+                                "RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS",
+                                0.0,
+                            ),
+                            observed_value=lineage_stats.oldest_pending_age_seconds,
+                        ),
+                    ),
+                    (
+                        "lineage_leased_age_exceeded",
+                        threshold_breach_flag(
+                            threshold_value=getattr(
+                                settings,
+                                "RUNTIME_STATUS_LINEAGE_LEASED_AGE_DEGRADE_SECONDS",
+                                0.0,
+                            ),
+                            observed_value=getattr(lineage_stats, "oldest_leased_age_seconds", 0.0),
+                        ),
+                    ),
                 ),
             )
-            lineage_breach.add_metric(
-                ["lineage_terminal_failure_exceeded"],
-                threshold_breach_flag(
-                    threshold_value=getattr(settings, "RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT", 0),
-                    observed_value=lineage_stats.terminal_failure_count,
-                ),
-            )
-            lineage_breach.add_metric(
-                ["lineage_pending_age_exceeded"],
-                threshold_breach_flag(
-                    threshold_value=getattr(settings, "RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS", 0.0),
-                    observed_value=lineage_stats.oldest_pending_age_seconds,
-                ),
-            )
-            lineage_breach.add_metric(
-                ["lineage_leased_age_exceeded"],
-                threshold_breach_flag(
-                    threshold_value=getattr(settings, "RUNTIME_STATUS_LINEAGE_LEASED_AGE_DEGRADE_SECONDS", 0.0),
-                    observed_value=getattr(lineage_stats, "oldest_leased_age_seconds", 0.0),
-                ),
-            )
-            yield lineage_breach
 
         if lineage_storage_capacity is not None:
             lineage_storage_bytes = GaugeMetricFamily(
@@ -488,30 +529,30 @@ class DurableQueueCollector:
             lineage_storage_free_ratio.add_metric([], lineage_storage_capacity.free_ratio)
             yield lineage_storage_free_ratio
 
-            lineage_storage_breach = GaugeMetricFamily(
-                "lotus_performance_lineage_storage_pressure_breach",
-                "Whether lineage storage currently breaches a proactive saturation threshold.",
-                labels=["reason"],
-            )
             min_free_bytes = getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES", 0)
             min_free_ratio = getattr(settings, "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO", 0.0)
-            lineage_storage_breach.add_metric(
-                ["lineage_storage_free_bytes_below_threshold"],
-                threshold_breach_flag(
-                    observed_value=lineage_storage_capacity.free_bytes,
-                    threshold_value=min_free_bytes,
-                    comparison="at_or_below",
+            yield reason_labeled_metric(
+                metric_name="lotus_performance_lineage_storage_pressure_breach",
+                description="Whether lineage storage currently breaches a proactive saturation threshold.",
+                samples=(
+                    (
+                        "lineage_storage_free_bytes_below_threshold",
+                        threshold_breach_flag(
+                            observed_value=lineage_storage_capacity.free_bytes,
+                            threshold_value=min_free_bytes,
+                            comparison="at_or_below",
+                        ),
+                    ),
+                    (
+                        "lineage_storage_free_ratio_below_threshold",
+                        threshold_breach_flag(
+                            observed_value=lineage_storage_capacity.free_ratio,
+                            threshold_value=min_free_ratio,
+                            comparison="at_or_below",
+                        ),
+                    ),
                 ),
             )
-            lineage_storage_breach.add_metric(
-                ["lineage_storage_free_ratio_below_threshold"],
-                threshold_breach_flag(
-                    observed_value=lineage_storage_capacity.free_ratio,
-                    threshold_value=min_free_ratio,
-                    comparison="at_or_below",
-                ),
-            )
-            yield lineage_storage_breach
 
         lineage_storage_thresholds = GaugeMetricFamily(
             "lotus_performance_lineage_storage_pressure_threshold",
@@ -577,53 +618,56 @@ class DurableQueueCollector:
             recovery_drill_age.add_metric([], latest_age_seconds)
             yield recovery_drill_age
 
-            recovery_drill_breach = GaugeMetricFamily(
-                "lotus_performance_recovery_drill_degradation_breach",
-                "Whether retained durable recovery-drill history currently breaches a recovery assurance policy.",
-                labels=["reason"],
-            )
-            recovery_drill_breach.add_metric(
-                ["recovery_drill_latest_not_passed"],
-                1 if latest.status != "passed" else 0,
-            )
-            recovery_drill_breach.add_metric(
-                ["recovery_drill_age_exceeded"],
-                threshold_breach_flag(
-                    threshold_value=getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS", 0.0),
-                    observed_value=latest_age_seconds,
+            yield reason_labeled_metric(
+                metric_name="lotus_performance_recovery_drill_degradation_breach",
+                description=(
+                    "Whether retained durable recovery-drill history currently breaches a recovery assurance policy."
+                ),
+                samples=(
+                    ("recovery_drill_latest_not_passed", 1 if latest.status != "passed" else 0),
+                    (
+                        "recovery_drill_age_exceeded",
+                        threshold_breach_flag(
+                            threshold_value=getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS", 0.0),
+                            observed_value=latest_age_seconds,
+                        ),
+                    ),
+                    (
+                        "recovery_drill_active_run_age_exceeded",
+                        threshold_breach_flag(
+                            threshold_value=getattr(
+                                settings,
+                                "RUNTIME_STATUS_RECOVERY_DRILL_ACTIVE_RUN_AGE_DEGRADE_SECONDS",
+                                0.0,
+                            ),
+                            observed_value=(
+                                0.0
+                                if recovery_drill_action_snapshot is None
+                                or recovery_drill_action_snapshot.status != "available"
+                                or not recovery_drill_action_snapshot.active_leases
+                                else age_seconds_since(recovery_drill_action_snapshot.active_leases[0].acquired_at_utc)
+                            ),
+                        ),
+                    ),
+                    (
+                        "recovery_drill_reclaim_pressure_exceeded",
+                        threshold_breach_flag(
+                            threshold_value=getattr(
+                                settings,
+                                "RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT",
+                                0,
+                            ),
+                            observed_value=(
+                                0
+                                if recovery_drill_action_snapshot is None
+                                or recovery_drill_action_snapshot.status != "available"
+                                or recovery_drill_action_snapshot.latest_reclaimed_lease is None
+                                else recovery_drill_action_snapshot.latest_reclaimed_lease.reclaim_count
+                            ),
+                        ),
+                    ),
                 ),
             )
-            recovery_drill_breach.add_metric(
-                ["recovery_drill_active_run_age_exceeded"],
-                threshold_breach_flag(
-                    threshold_value=getattr(
-                        settings,
-                        "RUNTIME_STATUS_RECOVERY_DRILL_ACTIVE_RUN_AGE_DEGRADE_SECONDS",
-                        0.0,
-                    ),
-                    observed_value=(
-                        0.0
-                        if recovery_drill_action_snapshot is None
-                        or recovery_drill_action_snapshot.status != "available"
-                        or not recovery_drill_action_snapshot.active_leases
-                        else age_seconds_since(recovery_drill_action_snapshot.active_leases[0].acquired_at_utc)
-                    ),
-                ),
-            )
-            recovery_drill_breach.add_metric(
-                ["recovery_drill_reclaim_pressure_exceeded"],
-                threshold_breach_flag(
-                    threshold_value=getattr(settings, "RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT", 0),
-                    observed_value=(
-                        0
-                        if recovery_drill_action_snapshot is None
-                        or recovery_drill_action_snapshot.status != "available"
-                        or recovery_drill_action_snapshot.latest_reclaimed_lease is None
-                        else recovery_drill_action_snapshot.latest_reclaimed_lease.reclaim_count
-                    ),
-                ),
-            )
-            yield recovery_drill_breach
 
         if (
             runtime_retention_snapshot is not None
@@ -640,50 +684,60 @@ class DurableQueueCollector:
             runtime_retention_age.add_metric([], latest_age_seconds)
             yield runtime_retention_age
 
-            runtime_retention_breach = GaugeMetricFamily(
-                "lotus_performance_runtime_retention_degradation_breach",
-                "Whether retained runtime-retention cleanup history currently breaches a lifecycle-governance policy.",
-                labels=["reason"],
-            )
-            runtime_retention_breach.add_metric(
-                ["runtime_retention_latest_not_applied"],
-                1 if latest.cleanup_mode != "apply" else 0,
-            )
-            runtime_retention_breach.add_metric(
-                ["runtime_retention_age_exceeded"],
-                threshold_breach_flag(
-                    threshold_value=getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS", 0.0),
-                    observed_value=latest_age_seconds,
+            yield reason_labeled_metric(
+                metric_name="lotus_performance_runtime_retention_degradation_breach",
+                description=(
+                    "Whether retained runtime-retention cleanup history currently breaches "
+                    "a lifecycle-governance policy."
+                ),
+                samples=(
+                    ("runtime_retention_latest_not_applied", 1 if latest.cleanup_mode != "apply" else 0),
+                    (
+                        "runtime_retention_age_exceeded",
+                        threshold_breach_flag(
+                            threshold_value=getattr(
+                                settings,
+                                "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS",
+                                0.0,
+                            ),
+                            observed_value=latest_age_seconds,
+                        ),
+                    ),
+                    (
+                        "runtime_retention_active_run_age_exceeded",
+                        threshold_breach_flag(
+                            threshold_value=getattr(
+                                settings,
+                                "RUNTIME_STATUS_RUNTIME_RETENTION_ACTIVE_RUN_AGE_DEGRADE_SECONDS",
+                                0.0,
+                            ),
+                            observed_value=(
+                                0.0
+                                if runtime_retention_action_snapshot is None
+                                or runtime_retention_action_snapshot.status != "available"
+                                or not runtime_retention_action_snapshot.active_leases
+                                else age_seconds_since(
+                                    runtime_retention_action_snapshot.active_leases[0].acquired_at_utc
+                                )
+                            ),
+                        ),
+                    ),
+                    (
+                        "runtime_retention_reclaim_pressure_exceeded",
+                        threshold_breach_flag(
+                            threshold_value=getattr(
+                                settings,
+                                "RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT",
+                                0,
+                            ),
+                            observed_value=(
+                                0
+                                if runtime_retention_action_snapshot is None
+                                or runtime_retention_action_snapshot.status != "available"
+                                or runtime_retention_action_snapshot.latest_reclaimed_lease is None
+                                else runtime_retention_action_snapshot.latest_reclaimed_lease.reclaim_count
+                            ),
+                        ),
+                    ),
                 ),
             )
-            runtime_retention_breach.add_metric(
-                ["runtime_retention_active_run_age_exceeded"],
-                threshold_breach_flag(
-                    threshold_value=getattr(
-                        settings,
-                        "RUNTIME_STATUS_RUNTIME_RETENTION_ACTIVE_RUN_AGE_DEGRADE_SECONDS",
-                        0.0,
-                    ),
-                    observed_value=(
-                        0.0
-                        if runtime_retention_action_snapshot is None
-                        or runtime_retention_action_snapshot.status != "available"
-                        or not runtime_retention_action_snapshot.active_leases
-                        else age_seconds_since(runtime_retention_action_snapshot.active_leases[0].acquired_at_utc)
-                    ),
-                ),
-            )
-            runtime_retention_breach.add_metric(
-                ["runtime_retention_reclaim_pressure_exceeded"],
-                threshold_breach_flag(
-                    threshold_value=getattr(settings, "RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT", 0),
-                    observed_value=(
-                        0
-                        if runtime_retention_action_snapshot is None
-                        or runtime_retention_action_snapshot.status != "available"
-                        or runtime_retention_action_snapshot.latest_reclaimed_lease is None
-                        else runtime_retention_action_snapshot.latest_reclaimed_lease.reclaim_count
-                    ),
-                ),
-            )
-            yield runtime_retention_breach

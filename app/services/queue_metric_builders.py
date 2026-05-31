@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Iterable
 
 from prometheus_client.core import GaugeMetricFamily
 
@@ -98,6 +98,18 @@ def policy_threshold_metric(
     metric.add_metric(["max_age_seconds"], max_age_seconds)
     metric.add_metric(["active_run_age_seconds"], active_run_age_seconds)
     metric.add_metric(["reclaim_count"], reclaim_count)
+    return metric
+
+
+def reason_labeled_metric(
+    *,
+    metric_name: str,
+    description: str,
+    samples: Iterable[tuple[str, float]],
+) -> GaugeMetricFamily:
+    metric = GaugeMetricFamily(metric_name, description, labels=["reason"])
+    for reason, value in samples:
+        metric.add_metric([reason], value)
     return metric
 
 
