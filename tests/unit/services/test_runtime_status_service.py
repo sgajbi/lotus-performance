@@ -2500,6 +2500,43 @@ def test_runtime_status_snapshot_degrades_when_recovery_drill_history_is_require
     assert snapshot.recovery_drill.latest_generated_at_utc is None
 
 
+def test_runtime_status_unavailable_recovery_drill_helper_preserves_action_context():
+    active_run_status = runtime_status_service.OperatorActionStatus(
+        status="available",
+        reason=None,
+        active_run_count=1,
+        oldest_active_run_operator_id="ops-user",
+        oldest_active_run_tenant_id="tenant-a",
+        oldest_active_run_governed_target="durable-recovery-drill",
+        oldest_active_run_acquired_at_utc="2026-05-31T00:00:00Z",
+        oldest_active_run_age_seconds=45.0,
+        latest_reclaimed_run_operator_id="ops-prior",
+        latest_reclaimed_run_tenant_id="tenant-b",
+        latest_reclaimed_run_governed_target="durable-recovery-drill",
+        latest_reclaimed_run_acquired_at_utc="2026-05-30T23:00:00Z",
+        latest_reclaimed_run_reclaimed_at_utc="2026-05-30T23:30:00Z",
+        latest_reclaimed_run_age_seconds=1800.0,
+        reclaimed_run_count=2,
+        recent_reclaimed_runs=(),
+    )
+
+    status = runtime_status_service._build_unavailable_recovery_drill_status(
+        reason="RuntimeError",
+        active_run_status=active_run_status,
+    )
+
+    assert status.status == "unavailable"
+    assert status.reason == "RuntimeError"
+    assert status.active_run_count == 1
+    assert status.oldest_active_run_operator_id == "ops-user"
+    assert status.oldest_active_run_age_seconds == 45.0
+    assert status.latest_reclaimed_run_operator_id == "ops-prior"
+    assert status.reclaimed_run_count == 2
+    assert status.latest_generated_at_utc is None
+    assert status.degradation_reasons == ()
+    assert status.degradation_details == ()
+
+
 def test_runtime_status_safe_recent_recoveries_return_empty_on_disabled_limit_and_errors(mocker):
     settings = type("Settings", (), {"RUNTIME_STATUS_RECENT_RECOVERY_LIMIT": 0})()
     assert runtime_status_service._safe_compute_recent_recoveries(settings=settings) == ()

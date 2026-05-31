@@ -437,32 +437,9 @@ def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
     try:
         snapshot = build_recovery_drill_history_snapshot(limit=1)
     except Exception as exc:
-        return RecoveryDrillStatus(
-            status="unavailable",
+        return _build_unavailable_recovery_drill_status(
             reason=type(exc).__name__,
-            active_run_status=active_run_status.status,
-            active_run_reason=active_run_status.reason,
-            active_run_count=active_run_status.active_run_count,
-            oldest_active_run_operator_id=active_run_status.oldest_active_run_operator_id,
-            oldest_active_run_tenant_id=active_run_status.oldest_active_run_tenant_id,
-            oldest_active_run_governed_target=active_run_status.oldest_active_run_governed_target,
-            oldest_active_run_acquired_at_utc=active_run_status.oldest_active_run_acquired_at_utc,
-            oldest_active_run_age_seconds=active_run_status.oldest_active_run_age_seconds,
-            latest_reclaimed_run_operator_id=active_run_status.latest_reclaimed_run_operator_id,
-            latest_reclaimed_run_tenant_id=active_run_status.latest_reclaimed_run_tenant_id,
-            latest_reclaimed_run_governed_target=active_run_status.latest_reclaimed_run_governed_target,
-            latest_reclaimed_run_acquired_at_utc=active_run_status.latest_reclaimed_run_acquired_at_utc,
-            latest_reclaimed_run_reclaimed_at_utc=active_run_status.latest_reclaimed_run_reclaimed_at_utc,
-            latest_reclaimed_run_age_seconds=active_run_status.latest_reclaimed_run_age_seconds,
-            reclaimed_run_count=active_run_status.reclaimed_run_count,
-            recent_reclaimed_runs=active_run_status.recent_reclaimed_runs,
-            latest_generated_at_utc=None,
-            latest_status=None,
-            latest_operator_id=None,
-            latest_backup_identifier=None,
-            latest_age_seconds=None,
-            degradation_reasons=(),
-            degradation_details=(),
+            active_run_status=active_run_status,
         )
 
     if snapshot.status != "available":
@@ -471,32 +448,9 @@ def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
             "recovery_drill_manifest_missing",
         }:
             return _build_missing_recovery_drill_status(threshold=threshold, active_run_status=active_run_status)
-        return RecoveryDrillStatus(
-            status="unavailable",
+        return _build_unavailable_recovery_drill_status(
             reason=snapshot.reason or snapshot.status,
-            active_run_status=active_run_status.status,
-            active_run_reason=active_run_status.reason,
-            active_run_count=active_run_status.active_run_count,
-            oldest_active_run_operator_id=active_run_status.oldest_active_run_operator_id,
-            oldest_active_run_tenant_id=active_run_status.oldest_active_run_tenant_id,
-            oldest_active_run_governed_target=active_run_status.oldest_active_run_governed_target,
-            oldest_active_run_acquired_at_utc=active_run_status.oldest_active_run_acquired_at_utc,
-            oldest_active_run_age_seconds=active_run_status.oldest_active_run_age_seconds,
-            latest_reclaimed_run_operator_id=active_run_status.latest_reclaimed_run_operator_id,
-            latest_reclaimed_run_tenant_id=active_run_status.latest_reclaimed_run_tenant_id,
-            latest_reclaimed_run_governed_target=active_run_status.latest_reclaimed_run_governed_target,
-            latest_reclaimed_run_acquired_at_utc=active_run_status.latest_reclaimed_run_acquired_at_utc,
-            latest_reclaimed_run_reclaimed_at_utc=active_run_status.latest_reclaimed_run_reclaimed_at_utc,
-            latest_reclaimed_run_age_seconds=active_run_status.latest_reclaimed_run_age_seconds,
-            reclaimed_run_count=active_run_status.reclaimed_run_count,
-            recent_reclaimed_runs=active_run_status.recent_reclaimed_runs,
-            latest_generated_at_utc=None,
-            latest_status=None,
-            latest_operator_id=None,
-            latest_backup_identifier=None,
-            latest_age_seconds=None,
-            degradation_reasons=(),
-            degradation_details=(),
+            active_run_status=active_run_status,
         )
 
     if not snapshot.entries:
@@ -551,6 +505,40 @@ def _build_recovery_drill_status(*, settings) -> RecoveryDrillStatus:
         latest_age_seconds=latest_age_seconds,
         degradation_reasons=reasons,
         degradation_details=tuple(degradation_details),
+    )
+
+
+def _build_unavailable_recovery_drill_status(
+    *,
+    reason: str,
+    active_run_status: OperatorActionStatus,
+) -> RecoveryDrillStatus:
+    return RecoveryDrillStatus(
+        status="unavailable",
+        reason=reason,
+        active_run_status=active_run_status.status,
+        active_run_reason=active_run_status.reason,
+        active_run_count=active_run_status.active_run_count,
+        oldest_active_run_operator_id=active_run_status.oldest_active_run_operator_id,
+        oldest_active_run_tenant_id=active_run_status.oldest_active_run_tenant_id,
+        oldest_active_run_governed_target=active_run_status.oldest_active_run_governed_target,
+        oldest_active_run_acquired_at_utc=active_run_status.oldest_active_run_acquired_at_utc,
+        oldest_active_run_age_seconds=active_run_status.oldest_active_run_age_seconds,
+        latest_reclaimed_run_operator_id=active_run_status.latest_reclaimed_run_operator_id,
+        latest_reclaimed_run_tenant_id=active_run_status.latest_reclaimed_run_tenant_id,
+        latest_reclaimed_run_governed_target=active_run_status.latest_reclaimed_run_governed_target,
+        latest_reclaimed_run_acquired_at_utc=active_run_status.latest_reclaimed_run_acquired_at_utc,
+        latest_reclaimed_run_reclaimed_at_utc=active_run_status.latest_reclaimed_run_reclaimed_at_utc,
+        latest_reclaimed_run_age_seconds=active_run_status.latest_reclaimed_run_age_seconds,
+        reclaimed_run_count=active_run_status.reclaimed_run_count,
+        recent_reclaimed_runs=active_run_status.recent_reclaimed_runs,
+        latest_generated_at_utc=None,
+        latest_status=None,
+        latest_operator_id=None,
+        latest_backup_identifier=None,
+        latest_age_seconds=None,
+        degradation_reasons=(),
+        degradation_details=(),
     )
 
 
