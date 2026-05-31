@@ -1,4 +1,18 @@
-from app.services.queue_metrics_service import DurableQueueCollector
+from app.services.queue_metrics_service import DurableQueueCollector, _load_metric_source
+
+
+def test_load_metric_source_returns_value_and_availability():
+    source, available = _load_metric_source(lambda: "metric-source")
+
+    assert source == "metric-source"
+    assert available is True
+
+
+def test_load_metric_source_suppresses_source_failures():
+    source, available = _load_metric_source(lambda: (_ for _ in ()).throw(RuntimeError("source unavailable")))
+
+    assert source is None
+    assert available is False
 
 
 def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
