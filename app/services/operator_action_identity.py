@@ -4,12 +4,16 @@ from typing import Protocol
 
 
 class OperatorActionActorIdentity(Protocol):
-    operator_id: str
-    tenant_id: str | None
+    @property
+    def operator_id(self) -> str: ...
+
+    @property
+    def tenant_id(self) -> str | None: ...
 
 
 class OperatorActionCorrelationIdentity(OperatorActionActorIdentity, Protocol):
-    correlation_id: str | None
+    @property
+    def correlation_id(self) -> str | None: ...
 
 
 def operator_action_actor_matches(
