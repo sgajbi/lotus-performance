@@ -8,6 +8,7 @@ from app.core.config import Settings, get_settings
 from app.models.inspection_requests import TWRInspectionProfile
 from app.models.inspection_responses import TWRInspectionFinding
 from app.models.requests import PerformanceRequest
+from app.services.inspection.source_availability import raise_inspection_source_unavailable
 from app.services.portfolio_source_service import build_stateful_input_service
 
 _ABSOLUTE_GAP_TOLERANCE = Decimal("0.01")
@@ -70,7 +71,11 @@ async def _fetch_position_timeseries(
         calculation_id=None,
     )
     if status_code >= 400:
-        raise RuntimeError(f"Position timeseries source unavailable for reconciliation ({status_code}).")
+        raise_inspection_source_unavailable(
+            source_label="Position timeseries",
+            inspection_label="reconciliation",
+            status_code=status_code,
+        )
     return payload
 
 
