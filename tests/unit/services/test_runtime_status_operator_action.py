@@ -8,17 +8,22 @@ from app.services.operator_action_lease_service import (
 from app.services.runtime_status_domain import OperatorActionStatus, RecentOperatorActionReclaim
 
 
-def test_runtime_status_operator_action_status_handles_exceptions_and_unavailable_snapshot(mocker):
+def test_runtime_status_operator_action_status_handles_exceptions_and_unavailable_snapshot(mocker, caplog):
     mocker.patch(
         "app.services.runtime_status_operator_action.build_operator_action_lease_snapshot",
         side_effect=RuntimeError("boom"),
     )
-    unavailable = runtime_status_operator_action.build_operator_action_status(
-        artifact_directory=Path("artifacts/runtime-retention-cleanup"),
-        action_name="runtime_retention_cleanup",
-    )
+    with caplog.at_level("WARNING", logger="app.services.runtime_status_operator_action"):
+        unavailable = runtime_status_operator_action.build_operator_action_status(
+            artifact_directory=Path("artifacts/runtime-retention-cleanup"),
+            action_name="runtime_retention_cleanup",
+        )
     assert unavailable.status == "unavailable"
     assert unavailable.reason == "RuntimeError"
+    assert (
+        "Runtime status operator-action lease snapshot unavailable for action_name=runtime_retention_cleanup."
+        in caplog.text
+    )
 
     mocker.patch(
         "app.services.runtime_status_operator_action.build_operator_action_lease_snapshot",

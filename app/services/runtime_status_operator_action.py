@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import TypedDict
 
@@ -10,6 +11,8 @@ from app.services.operator_action_lease_service import (
 )
 from app.services.runtime_status_domain import OperatorActionStatus, RecentOperatorActionReclaim
 from app.services.runtime_status_time import age_seconds_since
+
+logger = logging.getLogger(__name__)
 
 
 class OperatorActionStatusFields(TypedDict):
@@ -69,6 +72,11 @@ def build_operator_action_status(*, artifact_directory: Path, action_name: str) 
             action_name=action_name,
         )
     except Exception as exc:
+        logger.warning(
+            "Runtime status operator-action lease snapshot unavailable for action_name=%s.",
+            action_name,
+            exc_info=True,
+        )
         return _unavailable_operator_action_status(reason=type(exc).__name__)
     if snapshot.status != "available":
         return _unavailable_operator_action_status(reason=snapshot.reason)
