@@ -14,22 +14,19 @@ from app.services.operator_action_lease_service import build_operator_action_lea
 from app.services.queue_metric_builders import (
     RECOVERY_DRILL_ACTION_METRICS,
     RUNTIME_RETENTION_ACTION_METRICS,
-    active_lease_age_seconds_or_zero,
     availability_metric,
     compute_queue_degradation_breach_metric,
     labeled_metric,
-    latest_reclaim_count_or_zero,
     lineage_queue_degradation_breach_metric,
     lineage_storage_pressure_breach_metric,
     operator_action_lease_metrics,
     policy_threshold_metric,
-    reason_labeled_metric,
     recovery_drill_degradation_breach_metric,
+    runtime_retention_degradation_breach_metric,
     single_sample_metric,
     snapshot_available,
 )
 from app.services.recovery_drill_history_service import build_recovery_drill_history_snapshot
-from app.services.runtime_degradation_policy import threshold_breach_flag
 from app.services.runtime_retention_history_service import build_runtime_retention_history_snapshot
 from app.services.runtime_retention_service import run_runtime_retention_cleanup
 from app.services.runtime_status_policy import (
@@ -488,34 +485,9 @@ class DurableQueueCollector:
                 value=latest_age_seconds,
             )
 
-            yield reason_labeled_metric(
-                metric_name="lotus_performance_runtime_retention_degradation_breach",
-                description=(
-                    "Whether retained runtime-retention cleanup history currently breaches "
-                    "a lifecycle-governance policy."
-                ),
-                samples=(
-                    ("runtime_retention_latest_not_applied", 1 if latest.cleanup_mode != "apply" else 0),
-                    (
-                        "runtime_retention_age_exceeded",
-                        threshold_breach_flag(
-                            threshold_value=runtime_retention_policy.max_age_seconds,
-                            observed_value=latest_age_seconds,
-                        ),
-                    ),
-                    (
-                        "runtime_retention_active_run_age_exceeded",
-                        threshold_breach_flag(
-                            threshold_value=runtime_retention_policy.active_run_age_seconds,
-                            observed_value=active_lease_age_seconds_or_zero(runtime_retention_action_snapshot),
-                        ),
-                    ),
-                    (
-                        "runtime_retention_reclaim_pressure_exceeded",
-                        threshold_breach_flag(
-                            threshold_value=runtime_retention_policy.reclaim_count,
-                            observed_value=latest_reclaim_count_or_zero(runtime_retention_action_snapshot),
-                        ),
-                    ),
-                ),
+            yield runtime_retention_degradation_breach_metric(
+                latest=latest,
+                latest_age_seconds=latest_age_seconds,
+                action_snapshot=runtime_retention_action_snapshot,
+                policy=runtime_retention_policy,
             )

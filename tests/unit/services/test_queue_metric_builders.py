@@ -11,6 +11,7 @@ from app.services.queue_metric_builders import (
     policy_threshold_metric,
     reason_labeled_metric,
     recovery_drill_degradation_breach_metric,
+    runtime_retention_degradation_breach_metric,
     single_sample_metric,
     snapshot_available,
 )
@@ -18,6 +19,7 @@ from app.services.runtime_status_domain import (
     ComputeQueueDegradationPolicy,
     LineageQueueDegradationPolicy,
     RecoveryDrillDegradationPolicy,
+    RuntimeRetentionDegradationPolicy,
 )
 
 
@@ -219,6 +221,41 @@ def test_recovery_drill_degradation_breach_metric_uses_latest_history_and_action
         "recovery_drill_age_exceeded": 1,
         "recovery_drill_active_run_age_exceeded": 1,
         "recovery_drill_reclaim_pressure_exceeded": 1,
+    }
+
+
+def test_runtime_retention_degradation_breach_metric_uses_latest_history_and_action_policy(monkeypatch):
+    monkeypatch.setattr("app.services.queue_metric_builders.age_seconds_since", lambda timestamp_utc: 240.0)
+    latest = type("RuntimeRetentionEntry", (), {"cleanup_mode": "dry_run"})()
+    action_snapshot = type(
+        "ActionSnapshot",
+        (),
+        {
+            "status": "available",
+            "active_leases": (type("Lease", (), {"acquired_at_utc": "2026-05-31T10:00:00Z"})(),),
+            "latest_reclaimed_lease": type("Reclaim", (), {"reclaim_count": 2})(),
+        },
+    )()
+    policy = RuntimeRetentionDegradationPolicy(
+        max_age_seconds=60.0,
+        active_run_age_seconds=30.0,
+        reclaim_count=1,
+    )
+
+    metric = runtime_retention_degradation_breach_metric(
+        latest=latest,
+        latest_age_seconds=240.0,
+        action_snapshot=action_snapshot,
+        policy=policy,
+    )
+
+    samples = {sample.labels["reason"]: sample.value for sample in metric.samples}
+    assert metric.name == "lotus_performance_runtime_retention_degradation_breach"
+    assert samples == {
+        "runtime_retention_latest_not_applied": 1,
+        "runtime_retention_age_exceeded": 1,
+        "runtime_retention_active_run_age_exceeded": 1,
+        "runtime_retention_reclaim_pressure_exceeded": 1,
     }
 
 

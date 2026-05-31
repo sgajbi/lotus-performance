@@ -10,6 +10,7 @@ from app.services.runtime_status_domain import (
     ComputeQueueDegradationPolicy,
     LineageQueueDegradationPolicy,
     RecoveryDrillDegradationPolicy,
+    RuntimeRetentionDegradationPolicy,
 )
 from app.services.runtime_status_time import age_seconds_since
 
@@ -260,6 +261,43 @@ def recovery_drill_degradation_breach_metric(
             ),
             (
                 "recovery_drill_reclaim_pressure_exceeded",
+                threshold_breach_flag(
+                    threshold_value=policy.reclaim_count,
+                    observed_value=latest_reclaim_count_or_zero(action_snapshot),
+                ),
+            ),
+        ),
+    )
+
+
+def runtime_retention_degradation_breach_metric(
+    *,
+    latest: Any,
+    latest_age_seconds: float,
+    action_snapshot: Any,
+    policy: RuntimeRetentionDegradationPolicy,
+) -> GaugeMetricFamily:
+    return reason_labeled_metric(
+        metric_name="lotus_performance_runtime_retention_degradation_breach",
+        description="Whether retained runtime-retention cleanup history currently breaches a lifecycle-governance policy.",
+        samples=(
+            ("runtime_retention_latest_not_applied", 1 if latest.cleanup_mode != "apply" else 0),
+            (
+                "runtime_retention_age_exceeded",
+                threshold_breach_flag(
+                    threshold_value=policy.max_age_seconds,
+                    observed_value=latest_age_seconds,
+                ),
+            ),
+            (
+                "runtime_retention_active_run_age_exceeded",
+                threshold_breach_flag(
+                    threshold_value=policy.active_run_age_seconds,
+                    observed_value=active_lease_age_seconds_or_zero(action_snapshot),
+                ),
+            ),
+            (
+                "runtime_retention_reclaim_pressure_exceeded",
                 threshold_breach_flag(
                     threshold_value=policy.reclaim_count,
                     observed_value=latest_reclaim_count_or_zero(action_snapshot),
