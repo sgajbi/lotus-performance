@@ -19,15 +19,6 @@ from app.services.runtime_retention_history_service import (
     build_runtime_retention_history_snapshot,
 )
 from app.services.runtime_status_degradation import (
-    append_latest_history_age_degradation_detail as _append_latest_history_age_degradation_detail,
-)
-from app.services.runtime_status_degradation import (
-    append_lifecycle_state_degradation_detail as _append_lifecycle_state_degradation_detail,
-)
-from app.services.runtime_status_degradation import (
-    append_operator_action_degradation_details as _append_operator_action_degradation_details,
-)
-from app.services.runtime_status_degradation import (
     collect_runtime_degradation_details as _collect_runtime_degradation_details,
 )
 from app.services.runtime_status_degradation import (
@@ -41,7 +32,6 @@ from app.services.runtime_status_degradation import (
 )
 from app.services.runtime_status_domain import (
     RecoveryDrillStatus,
-    RuntimeDegradationDetail,
     RuntimeQueueStatus,
     RuntimeRetentionStatus,
     RuntimeStatusSnapshot,
@@ -57,6 +47,9 @@ from app.services.runtime_status_lifecycle import (
 )
 from app.services.runtime_status_lifecycle import (
     recovery_drill_status_from_latest as _recovery_drill_status_from_latest,
+)
+from app.services.runtime_status_lifecycle import (
+    runtime_retention_degradation_details as _runtime_retention_degradation_details,
 )
 from app.services.runtime_status_lifecycle import (
     runtime_retention_status_from_latest as _runtime_retention_status_from_latest,
@@ -302,25 +295,13 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
 
     latest = snapshot.entries[0]
     latest_age_seconds = _age_seconds_since(latest.generated_at_utc)
-    degradation_details: list[RuntimeDegradationDetail] = []
-    _append_lifecycle_state_degradation_detail(
-        degradation_details,
-        is_healthy=latest.cleanup_mode == "apply",
-        reason="runtime_retention_latest_not_applied",
-    )
-    _append_latest_history_age_degradation_detail(
-        degradation_details,
-        reason="runtime_retention_age_exceeded",
+    degradation_details = _runtime_retention_degradation_details(
+        latest=latest,
         latest_age_seconds=latest_age_seconds,
         threshold=threshold,
-    )
-    _append_operator_action_degradation_details(
-        degradation_details,
         active_run_status=active_run_status,
         active_run_age_threshold=active_run_age_threshold,
-        active_run_reason="runtime_retention_active_run_age_exceeded",
         reclaim_threshold=reclaim_threshold,
-        reclaim_reason="runtime_retention_reclaim_pressure_exceeded",
     )
     return _runtime_retention_status_from_latest(
         latest=latest,
@@ -329,5 +310,5 @@ def _build_runtime_retention_status(*, settings) -> RuntimeRetentionStatus:
         preview_status=preview_status,
         preview_reason=preview_reason,
         preview_summary=preview_summary,
-        degradation_details=tuple(degradation_details),
+        degradation_details=degradation_details,
     )

@@ -197,6 +197,38 @@ def runtime_retention_status_from_latest(
     )
 
 
+def runtime_retention_degradation_details(
+    *,
+    latest: RuntimeRetentionHistoryEntry,
+    latest_age_seconds: float,
+    threshold: float,
+    active_run_status: OperatorActionStatus,
+    active_run_age_threshold: float,
+    reclaim_threshold: int,
+) -> tuple[RuntimeDegradationDetail, ...]:
+    details: list[RuntimeDegradationDetail] = []
+    append_lifecycle_state_degradation_detail(
+        details,
+        is_healthy=latest.cleanup_mode == "apply",
+        reason="runtime_retention_latest_not_applied",
+    )
+    append_latest_history_age_degradation_detail(
+        details,
+        reason="runtime_retention_age_exceeded",
+        latest_age_seconds=latest_age_seconds,
+        threshold=threshold,
+    )
+    append_operator_action_degradation_details(
+        details,
+        active_run_status=active_run_status,
+        active_run_age_threshold=active_run_age_threshold,
+        active_run_reason="runtime_retention_active_run_age_exceeded",
+        reclaim_threshold=reclaim_threshold,
+        reclaim_reason="runtime_retention_reclaim_pressure_exceeded",
+    )
+    return tuple(details)
+
+
 def missing_runtime_retention_status(
     *,
     threshold: float,

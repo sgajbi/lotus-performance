@@ -9,6 +9,7 @@ from app.services.runtime_status_lifecycle import (
     missing_runtime_retention_status,
     recovery_drill_degradation_details,
     recovery_drill_status_from_latest,
+    runtime_retention_degradation_details,
     runtime_retention_status_from_latest,
     unavailable_recovery_drill_status,
     unavailable_runtime_retention_status,
@@ -202,6 +203,40 @@ def test_runtime_retention_status_from_latest_preserves_preview_and_degradation(
     assert status.active_run_count == 1
     assert status.degradation_reasons == ("runtime_retention_latest_not_applied",)
     assert status.degradation_details == (degradation_detail,)
+
+
+def test_runtime_retention_degradation_details_collects_status_age_and_action_pressure():
+    latest = RuntimeRetentionHistoryEntry(
+        evidence_file_name="latest.json",
+        generated_at_utc="2026-05-31T00:00:00Z",
+        operator_id="ops-user",
+        trigger_mode="scheduled",
+        job_id="retention-nightly",
+        cleanup_mode="dry_run",
+        status="previewed",
+        retention_days=30,
+        prunable_execution_count=2,
+        prunable_compute_job_count=3,
+        prunable_async_result_count=4,
+        prunable_lineage_record_count=5,
+        prunable_lineage_artifact_count=6,
+    )
+
+    details = runtime_retention_degradation_details(
+        latest=latest,
+        latest_age_seconds=600.0,
+        threshold=300.0,
+        active_run_status=_operator_action_status(status="active", active_run_count=1, reclaimed_run_count=2),
+        active_run_age_threshold=30.0,
+        reclaim_threshold=1,
+    )
+
+    assert tuple(detail.reason for detail in details) == (
+        "runtime_retention_latest_not_applied",
+        "runtime_retention_age_exceeded",
+        "runtime_retention_active_run_age_exceeded",
+        "runtime_retention_reclaim_pressure_exceeded",
+    )
 
 
 def test_unavailable_runtime_retention_status_preserves_preview_and_action_context():
