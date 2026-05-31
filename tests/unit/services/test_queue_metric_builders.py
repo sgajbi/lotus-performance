@@ -3,6 +3,7 @@ from app.services.queue_metric_builders import (
     active_lease_age_seconds_or_zero,
     availability_metric,
     compute_queue_degradation_breach_metric,
+    compute_queue_failure_pressure_metric,
     compute_queue_job_count_metric,
     labeled_metric,
     latest_reclaim_count_or_zero,
@@ -120,6 +121,30 @@ def test_compute_queue_job_count_metric_uses_governed_status_labels():
         "running": 3,
         "failed": 4,
         "complete": 5,
+    }
+
+
+def test_compute_queue_failure_pressure_metric_uses_governed_category_labels():
+    stats = type(
+        "ComputeStats",
+        (),
+        {
+            "retry_backlog_count": 6,
+            "lease_expired_count": 7,
+            "reclaimable_count": 2,
+            "terminal_failure_count": 8,
+        },
+    )()
+
+    metric = compute_queue_failure_pressure_metric(stats=stats)
+
+    samples = {sample.labels["category"]: sample.value for sample in metric.samples}
+    assert metric.name == "lotus_performance_compute_queue_failure_pressure_jobs"
+    assert samples == {
+        "retry_backlog": 6,
+        "lease_expired": 7,
+        "reclaimable": 2,
+        "terminal_failure": 8,
     }
 
 

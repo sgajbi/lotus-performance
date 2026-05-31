@@ -178,6 +178,20 @@ def compute_queue_job_count_metric(*, stats: Any) -> GaugeMetricFamily:
     )
 
 
+def compute_queue_failure_pressure_metric(*, stats: Any) -> GaugeMetricFamily:
+    return labeled_metric(
+        metric_name="lotus_performance_compute_queue_failure_pressure_jobs",
+        description="Durable compute job counts for retry backlog and failure-pressure categories.",
+        label_name="category",
+        samples=(
+            ("retry_backlog", stats.retry_backlog_count),
+            ("lease_expired", stats.lease_expired_count),
+            ("reclaimable", stats.reclaimable_count),
+            ("terminal_failure", stats.terminal_failure_count),
+        ),
+    )
+
+
 def lineage_queue_degradation_breach_metric(
     *,
     stats: Any,

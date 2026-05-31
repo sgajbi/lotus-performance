@@ -16,6 +16,7 @@ from app.services.queue_metric_builders import (
     RUNTIME_RETENTION_ACTION_METRICS,
     availability_metric,
     compute_queue_degradation_breach_metric,
+    compute_queue_failure_pressure_metric,
     compute_queue_job_count_metric,
     labeled_metric,
     lineage_queue_degradation_breach_metric,
@@ -304,17 +305,7 @@ class DurableQueueCollector:
             yield compute_queue_job_count_metric(stats=compute_stats)
 
         if compute_stats is not None:
-            yield labeled_metric(
-                metric_name="lotus_performance_compute_queue_failure_pressure_jobs",
-                description="Durable compute job counts for retry backlog and failure-pressure categories.",
-                label_name="category",
-                samples=(
-                    ("retry_backlog", compute_stats.retry_backlog_count),
-                    ("lease_expired", compute_stats.lease_expired_count),
-                    ("reclaimable", compute_stats.reclaimable_count),
-                    ("terminal_failure", compute_stats.terminal_failure_count),
-                ),
-            )
+            yield compute_queue_failure_pressure_metric(stats=compute_stats)
 
         if compute_stats is not None:
             yield single_sample_metric(
