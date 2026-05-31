@@ -5,6 +5,8 @@ from typing import Any, Iterable
 
 from prometheus_client.core import GaugeMetricFamily
 
+from app.services.runtime_degradation_policy import threshold_breach_flag
+from app.services.runtime_status_domain import ComputeQueueDegradationPolicy
 from app.services.runtime_status_time import age_seconds_since
 
 
@@ -99,6 +101,61 @@ def policy_threshold_metric(
     metric.add_metric(["active_run_age_seconds"], active_run_age_seconds)
     metric.add_metric(["reclaim_count"], reclaim_count)
     return metric
+
+
+def compute_queue_degradation_breach_metric(
+    *,
+    stats: Any,
+    policy: ComputeQueueDegradationPolicy,
+) -> GaugeMetricFamily:
+    return reason_labeled_metric(
+        metric_name="lotus_performance_compute_queue_degradation_breach",
+        description="Whether the compute queue currently breaches a configured runtime degradation threshold.",
+        samples=(
+            (
+                "compute_retry_backlog_exceeded",
+                threshold_breach_flag(
+                    threshold_value=policy.retry_backlog_count,
+                    observed_value=stats.retry_backlog_count,
+                ),
+            ),
+            (
+                "compute_terminal_failure_exceeded",
+                threshold_breach_flag(
+                    threshold_value=policy.terminal_failure_count,
+                    observed_value=stats.terminal_failure_count,
+                ),
+            ),
+            (
+                "compute_lease_expiry_pressure_exceeded",
+                threshold_breach_flag(
+                    threshold_value=policy.lease_expiry_count,
+                    observed_value=stats.lease_expired_count,
+                ),
+            ),
+            (
+                "compute_pending_age_exceeded",
+                threshold_breach_flag(
+                    threshold_value=policy.pending_age_seconds,
+                    observed_value=stats.oldest_pending_age_seconds,
+                ),
+            ),
+            (
+                "compute_leased_age_exceeded",
+                threshold_breach_flag(
+                    threshold_value=policy.leased_age_seconds,
+                    observed_value=stats.oldest_leased_age_seconds,
+                ),
+            ),
+            (
+                "compute_running_age_exceeded",
+                threshold_breach_flag(
+                    threshold_value=policy.running_age_seconds,
+                    observed_value=stats.oldest_running_age_seconds,
+                ),
+            ),
+        ),
+    )
 
 
 def labeled_metric(

@@ -2,6 +2,7 @@ from app.services.queue_metric_builders import (
     RECOVERY_DRILL_ACTION_METRICS,
     active_lease_age_seconds_or_zero,
     availability_metric,
+    compute_queue_degradation_breach_metric,
     labeled_metric,
     latest_reclaim_count_or_zero,
     operator_action_lease_metrics,
@@ -10,6 +11,7 @@ from app.services.queue_metric_builders import (
     single_sample_metric,
     snapshot_available,
 )
+from app.services.runtime_status_domain import ComputeQueueDegradationPolicy
 
 
 def test_availability_metric_emits_unlabelled_binary_sample():
@@ -79,6 +81,42 @@ def test_reason_labeled_metric_uses_governed_reason_labels():
     assert samples == {
         "age_exceeded": 1,
         "retry_backlog_exceeded": 0,
+    }
+
+
+def test_compute_queue_degradation_breach_metric_uses_policy_thresholds():
+    stats = type(
+        "ComputeStats",
+        (),
+        {
+            "retry_backlog_count": 3,
+            "terminal_failure_count": 2,
+            "lease_expired_count": 2,
+            "oldest_pending_age_seconds": 45.0,
+            "oldest_leased_age_seconds": 20.0,
+            "oldest_running_age_seconds": 15.0,
+        },
+    )()
+    policy = ComputeQueueDegradationPolicy(
+        retry_backlog_count=2,
+        terminal_failure_count=1,
+        lease_expiry_count=1,
+        pending_age_seconds=30.0,
+        leased_age_seconds=10.0,
+        running_age_seconds=10.0,
+    )
+
+    metric = compute_queue_degradation_breach_metric(stats=stats, policy=policy)
+
+    samples = {sample.labels["reason"]: sample.value for sample in metric.samples}
+    assert metric.name == "lotus_performance_compute_queue_degradation_breach"
+    assert samples == {
+        "compute_retry_backlog_exceeded": 1,
+        "compute_terminal_failure_exceeded": 1,
+        "compute_lease_expiry_pressure_exceeded": 1,
+        "compute_pending_age_exceeded": 1,
+        "compute_leased_age_exceeded": 1,
+        "compute_running_age_exceeded": 1,
     }
 
 

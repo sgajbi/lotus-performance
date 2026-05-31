@@ -16,6 +16,7 @@ from app.services.queue_metric_builders import (
     RUNTIME_RETENTION_ACTION_METRICS,
     active_lease_age_seconds_or_zero,
     availability_metric,
+    compute_queue_degradation_breach_metric,
     labeled_metric,
     latest_reclaim_count_or_zero,
     operator_action_lease_metrics,
@@ -354,53 +355,9 @@ class DurableQueueCollector:
                 value=compute_stats.oldest_running_age_seconds,
             )
 
-            yield reason_labeled_metric(
-                metric_name="lotus_performance_compute_queue_degradation_breach",
-                description="Whether the compute queue currently breaches a configured runtime degradation threshold.",
-                samples=(
-                    (
-                        "compute_retry_backlog_exceeded",
-                        threshold_breach_flag(
-                            threshold_value=compute_queue_policy.retry_backlog_count,
-                            observed_value=compute_stats.retry_backlog_count,
-                        ),
-                    ),
-                    (
-                        "compute_terminal_failure_exceeded",
-                        threshold_breach_flag(
-                            threshold_value=compute_queue_policy.terminal_failure_count,
-                            observed_value=compute_stats.terminal_failure_count,
-                        ),
-                    ),
-                    (
-                        "compute_lease_expiry_pressure_exceeded",
-                        threshold_breach_flag(
-                            threshold_value=compute_queue_policy.lease_expiry_count,
-                            observed_value=compute_stats.lease_expired_count,
-                        ),
-                    ),
-                    (
-                        "compute_pending_age_exceeded",
-                        threshold_breach_flag(
-                            threshold_value=compute_queue_policy.pending_age_seconds,
-                            observed_value=compute_stats.oldest_pending_age_seconds,
-                        ),
-                    ),
-                    (
-                        "compute_leased_age_exceeded",
-                        threshold_breach_flag(
-                            threshold_value=compute_queue_policy.leased_age_seconds,
-                            observed_value=compute_stats.oldest_leased_age_seconds,
-                        ),
-                    ),
-                    (
-                        "compute_running_age_exceeded",
-                        threshold_breach_flag(
-                            threshold_value=compute_queue_policy.running_age_seconds,
-                            observed_value=compute_stats.oldest_running_age_seconds,
-                        ),
-                    ),
-                ),
+            yield compute_queue_degradation_breach_metric(
+                stats=compute_stats,
+                policy=compute_queue_policy,
             )
 
         if lineage_stats is not None:
