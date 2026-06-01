@@ -14,7 +14,9 @@ from app.enterprise_readiness import (
     _AUDIT_PAYLOAD_SERVICE_KEY,
     _AUDIT_PAYLOAD_TENANT_ID_KEY,
     _AUDIT_PAYLOAD_TIMESTAMP_UTC_KEY,
+    _AUTHORIZATION_HEADER,
     _AUTHORIZATION_POLICY_DENIED_DETAIL,
+    _CAPABILITIES_HEADER,
     _ENTERPRISE_AUDIT_EVENT_NAME,
     _ENTERPRISE_AUDIT_EXTRA_KEY,
     _ENTERPRISE_POLICY_VERSION_HEADER,
@@ -22,6 +24,7 @@ from app.enterprise_readiness import (
     _REDACTED_VALUE,
     _RESPONSE_DETAIL_KEY,
     _RESPONSE_REASON_KEY,
+    _SERVICE_IDENTITY_HEADER,
     _allowed_audit_metadata,
     _apply_enterprise_policy_header,
     _audit_correlation_id,
@@ -203,7 +206,7 @@ def test_normalized_headers_and_capabilities_trim_values():
     normalized = _normalized_headers({"X-Capabilities": " analytics.read, operations.runtime.read ", 1: " value "})
     assert normalized == {
         "1": "value",
-        "x-capabilities": "analytics.read, operations.runtime.read",
+        _CAPABILITIES_HEADER: "analytics.read, operations.runtime.read",
     }
     assert _header_capabilities(normalized) == {"analytics.read", "operations.runtime.read"}
 
@@ -231,9 +234,9 @@ def test_missing_required_headers_reports_sorted_blank_or_missing_fields():
 @pytest.mark.parametrize(
     ("headers", "expected"),
     [
-        ({"X-Service-Identity": "lotus-performance"}, True),
-        ({"Authorization": "Bearer token"}, True),
-        ({"X-Service-Identity": " ", "Authorization": ""}, False),
+        ({_SERVICE_IDENTITY_HEADER: "lotus-performance"}, True),
+        ({_AUTHORIZATION_HEADER: "Bearer token"}, True),
+        ({_SERVICE_IDENTITY_HEADER: " ", _AUTHORIZATION_HEADER: ""}, False),
         ({}, False),
     ],
 )

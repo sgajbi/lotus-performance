@@ -27,6 +27,9 @@ _RESPONSE_REASON_KEY = "reason"
 _AUTHORIZATION_POLICY_DENIED_DETAIL = "authorization_policy_denied"
 _PAYLOAD_TOO_LARGE_DETAIL = "payload_too_large"
 _REDACTED_VALUE = "***REDACTED***"
+_CAPABILITIES_HEADER = "x-capabilities"
+_SERVICE_IDENTITY_HEADER = "x-service-identity"
+_AUTHORIZATION_HEADER = "authorization"
 _WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 _REQUIRED_HEADERS = {"x-actor-id", "x-tenant-id", "x-role", "x-correlation-id"}
 _DEFAULT_CAPABILITY_RULES = {
@@ -225,7 +228,7 @@ def _normalized_headers(headers: Mapping[str, Any]) -> dict[str, str]:
 
 
 def _header_capabilities(normalized_headers: Mapping[str, str]) -> set[str]:
-    return {part.strip() for part in normalized_headers.get("x-capabilities", "").split(",") if part.strip()}
+    return {part.strip() for part in normalized_headers.get(_CAPABILITIES_HEADER, "").split(",") if part.strip()}
 
 
 def _has_required_capability(normalized_headers: Mapping[str, str], required_capability: str | None) -> bool:
@@ -237,7 +240,7 @@ def _missing_required_headers(normalized_headers: Mapping[str, str]) -> list[str
 
 
 def _has_service_identity(normalized_headers: Mapping[str, str]) -> bool:
-    return bool(normalized_headers.get("x-service-identity") or normalized_headers.get("authorization"))
+    return bool(normalized_headers.get(_SERVICE_IDENTITY_HEADER) or normalized_headers.get(_AUTHORIZATION_HEADER))
 
 
 def _audit_identity_from_headers(headers: Mapping[str, Any]) -> dict[str, str]:
