@@ -24,6 +24,8 @@ from app.enterprise_readiness import (
     _AUTHORIZATION_HEADER,
     _AUTHORIZATION_POLICY_DENIED_DETAIL,
     _CAPABILITIES_HEADER,
+    _CAPABILITY_OPERATIONS_RUNTIME_MANAGE,
+    _CAPABILITY_OPERATIONS_RUNTIME_READ,
     _CONTENT_LENGTH_HEADER,
     _CORRELATION_ID_HEADER,
     _DEFAULT_MAX_WRITE_PAYLOAD_BYTES,
@@ -263,10 +265,13 @@ def test_required_capability_returns_none_when_no_matching_rule(monkeypatch):
 
 
 def test_required_capability_matches_exact_or_child_paths_only():
-    assert _required_capability("POST", "/integration/runtime-retention-cleanups/run") == "operations.runtime.manage"
+    assert (
+        _required_capability("POST", "/integration/runtime-retention-cleanups/run")
+        == _CAPABILITY_OPERATIONS_RUNTIME_MANAGE
+    )
     assert (
         _required_capability("POST", "/integration/runtime-retention-cleanups/run/details")
-        == "operations.runtime.manage"
+        == _CAPABILITY_OPERATIONS_RUNTIME_MANAGE
     )
     assert _required_capability("POST", "/integration/runtime-retention-cleanups/run-extra") is None
 
@@ -293,8 +298,8 @@ def test_has_required_capability_accepts_absent_requirement_and_exact_token():
     normalized = _normalized_headers({"X-Capabilities": " analytics.read, operations.runtime.read "})
 
     assert _has_required_capability(normalized, None)
-    assert _has_required_capability(normalized, "operations.runtime.read")
-    assert not _has_required_capability(normalized, "operations.runtime.manage")
+    assert _has_required_capability(normalized, _CAPABILITY_OPERATIONS_RUNTIME_READ)
+    assert not _has_required_capability(normalized, _CAPABILITY_OPERATIONS_RUNTIME_MANAGE)
 
 
 def test_missing_required_headers_reports_sorted_blank_or_missing_fields():
@@ -456,7 +461,7 @@ def test_allowed_audit_metadata_classifies_write_surfaces():
     ) == {
         _AUDIT_METADATA_STATUS_CODE_KEY: 200,
         _AUDIT_METADATA_ACCESS_MODE_KEY: _AUDIT_ACCESS_MODE_WRITE,
-        _AUDIT_METADATA_REQUIRED_CAPABILITY_KEY: "operations.runtime.manage",
+        _AUDIT_METADATA_REQUIRED_CAPABILITY_KEY: _CAPABILITY_OPERATIONS_RUNTIME_MANAGE,
         _AUDIT_METADATA_GOVERNED_SURFACE_KEY: "/integration/recovery-drills/run",
     }
 
@@ -469,7 +474,7 @@ def test_allowed_audit_metadata_requires_privileged_read_enforcement(monkeypatch
     assert _allowed_audit_metadata(method="GET", path="/integration/runtime-status", status_code=200) == {
         _AUDIT_METADATA_STATUS_CODE_KEY: 200,
         _AUDIT_METADATA_ACCESS_MODE_KEY: _AUDIT_ACCESS_MODE_PRIVILEGED_READ,
-        _AUDIT_METADATA_REQUIRED_CAPABILITY_KEY: "operations.runtime.read",
+        _AUDIT_METADATA_REQUIRED_CAPABILITY_KEY: _CAPABILITY_OPERATIONS_RUNTIME_READ,
         _AUDIT_METADATA_GOVERNED_SURFACE_KEY: "/integration/runtime-status",
     }
 
@@ -515,8 +520,8 @@ def test_authorization_reason_helpers_use_governed_reason_tokens():
     assert _missing_headers_reason([_ACTOR_ID_HEADER, _ROLE_HEADER]) == (
         f"{_MISSING_HEADERS_REASON}:{_ACTOR_ID_HEADER},{_ROLE_HEADER}"
     )
-    assert _missing_capability_reason("operations.runtime.manage") == (
-        f"{_MISSING_CAPABILITY_REASON}:operations.runtime.manage"
+    assert _missing_capability_reason(_CAPABILITY_OPERATIONS_RUNTIME_MANAGE) == (
+        f"{_MISSING_CAPABILITY_REASON}:{_CAPABILITY_OPERATIONS_RUNTIME_MANAGE}"
     )
 
 
@@ -697,7 +702,7 @@ def test_load_privileged_read_rules_merges_defaults_and_env(monkeypatch):
         json.dumps({" GET /integration/custom-status ": " operations.custom.read "}),
     )
     rules = load_privileged_read_rules()
-    assert rules["GET /integration/runtime-status"] == "operations.runtime.read"
+    assert rules["GET /integration/runtime-status"] == _CAPABILITY_OPERATIONS_RUNTIME_READ
     assert rules["GET /integration/custom-status"] == "operations.custom.read"
 
 
@@ -709,12 +714,12 @@ def test_load_capability_rule_family_preserves_defaults_and_valid_overrides(monk
 
     rules = _load_capability_rule_family(
         env_name="ENTERPRISE_TEST_RULES_JSON",
-        defaults={"POST /integration/recovery-drills/run": "operations.runtime.manage"},
+        defaults={"POST /integration/recovery-drills/run": _CAPABILITY_OPERATIONS_RUNTIME_MANAGE},
     )
 
     assert rules == {
         "POST /analytics": "analytics.write",
-        "POST /integration/recovery-drills/run": "operations.runtime.manage",
+        "POST /integration/recovery-drills/run": _CAPABILITY_OPERATIONS_RUNTIME_MANAGE,
     }
 
 
@@ -733,7 +738,7 @@ def test_capability_rule_loader_ignores_blank_and_non_string_overrides(monkeypat
 
     rules = load_capability_rules()
 
-    assert rules["POST /integration/runtime-retention-cleanups/run"] == "operations.runtime.manage"
+    assert rules["POST /integration/runtime-retention-cleanups/run"] == _CAPABILITY_OPERATIONS_RUNTIME_MANAGE
     assert " " not in rules
     assert rules["POST /analytics"] == "analytics.write"
 
@@ -746,7 +751,7 @@ def test_privileged_read_rule_loader_ignores_blank_default_override(monkeypatch)
 
     rules = load_privileged_read_rules()
 
-    assert rules["GET /integration/runtime-status"] == "operations.runtime.read"
+    assert rules["GET /integration/runtime-status"] == _CAPABILITY_OPERATIONS_RUNTIME_READ
     assert "GET /integration/custom-status" not in rules
 
 

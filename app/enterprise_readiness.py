@@ -69,18 +69,20 @@ _ENV_ENABLED_VALUES = frozenset({"1", "true", "yes", "on"})
 _EMPTY_JSON_OBJECT = "{}"
 _DEFAULT_MAX_WRITE_PAYLOAD_BYTES = 1_048_576
 _DEFAULT_SECRET_ROTATION_DAYS = 90
+_CAPABILITY_OPERATIONS_RUNTIME_MANAGE = "operations.runtime.manage"
+_CAPABILITY_OPERATIONS_RUNTIME_READ = "operations.runtime.read"
 _WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 _REQUIRED_HEADERS = {_ACTOR_ID_HEADER, _TENANT_ID_HEADER, _ROLE_HEADER, _CORRELATION_ID_HEADER}
 _DEFAULT_CAPABILITY_RULES = {
-    "POST /integration/runtime-retention-cleanups/run": "operations.runtime.manage",
-    "POST /integration/recovery-drills/run": "operations.runtime.manage",
+    "POST /integration/runtime-retention-cleanups/run": _CAPABILITY_OPERATIONS_RUNTIME_MANAGE,
+    "POST /integration/recovery-drills/run": _CAPABILITY_OPERATIONS_RUNTIME_MANAGE,
 }
 _DEFAULT_PRIVILEGED_READ_RULES = {
-    "GET /integration/runtime-status": "operations.runtime.read",
-    "GET /integration/runtime-work-items": "operations.runtime.read",
-    "GET /integration/runtime-recoveries": "operations.runtime.read",
-    "GET /integration/recovery-drills": "operations.runtime.read",
-    "GET /integration/runtime-retention-cleanups": "operations.runtime.read",
+    "GET /integration/runtime-status": _CAPABILITY_OPERATIONS_RUNTIME_READ,
+    "GET /integration/runtime-work-items": _CAPABILITY_OPERATIONS_RUNTIME_READ,
+    "GET /integration/runtime-recoveries": _CAPABILITY_OPERATIONS_RUNTIME_READ,
+    "GET /integration/recovery-drills": _CAPABILITY_OPERATIONS_RUNTIME_READ,
+    "GET /integration/runtime-retention-cleanups": _CAPABILITY_OPERATIONS_RUNTIME_READ,
 }
 _REDACT_FIELDS = {
     "password",
