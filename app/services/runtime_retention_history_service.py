@@ -217,6 +217,9 @@ def _validate_manifest_entry(entry: Any) -> dict[str, str | int | None] | None:
         return None
     if not isinstance(trigger_mode, str):
         return None
+    job_id = entry_strings["job_id"]
+    if job_id is not None and not job_id.strip():
+        return None
     if any(not isinstance(entry.get(key), int) for key in int_keys):
         return None
 
@@ -225,7 +228,7 @@ def _validate_manifest_entry(entry: Any) -> dict[str, str | int | None] | None:
     validated_entry["trigger_mode"] = trigger_mode
     validated_entry["tenant_id"] = entry_strings["tenant_id"]
     validated_entry["correlation_id"] = entry_strings["correlation_id"]
-    validated_entry["job_id"] = entry_strings["job_id"]
+    validated_entry["job_id"] = job_id
     return validated_entry
 
 

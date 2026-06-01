@@ -424,6 +424,29 @@ def test_runtime_retention_history_applies_generated_before_and_offset_filters(t
             },
             "invalid generated timestamp",
         ),
+        (
+            {
+                "latest_file_name": None,
+                "retained_file_names": ["ok"],
+                "entries": [
+                    {
+                        "evidence_file_name": "evidence.json",
+                        "generated_at_utc": "2026-03-15T00:00:00Z",
+                        "operator_id": "c",
+                        "cleanup_mode": "d",
+                        "status": "ok",
+                        "job_id": "   ",
+                        "retention_days": 1,
+                        "prunable_execution_count": 1,
+                        "prunable_compute_job_count": 1,
+                        "prunable_async_result_count": 1,
+                        "prunable_lineage_record_count": 1,
+                        "prunable_lineage_artifact_count": 1,
+                    }
+                ],
+            },
+            "blank job id",
+        ),
     ],
 )
 def test_runtime_retention_history_manifest_validator_rejects_invalid_payloads(payload, reason):

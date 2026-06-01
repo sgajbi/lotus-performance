@@ -181,13 +181,16 @@ def _validate_manifest_entry(entry: Any) -> dict[str, str | None] | None:
         parse_utc_datetime(generated_at_utc)
     except ValueError:
         return None
+    backup_identifier = entry_strings["backup_identifier"]
+    if not isinstance(backup_identifier, str) or not backup_identifier.strip():
+        return None
     return {
         "evidence_file_name": entry_strings["evidence_file_name"],
         "generated_at_utc": entry_strings["generated_at_utc"],
         "operator_id": entry_strings["operator_id"],
         "tenant_id": entry_strings["tenant_id"],
         "correlation_id": entry_strings["correlation_id"],
-        "backup_identifier": entry_strings["backup_identifier"],
+        "backup_identifier": backup_identifier,
         "status": entry_strings["status"],
     }
 
