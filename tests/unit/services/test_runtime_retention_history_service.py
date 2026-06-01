@@ -96,7 +96,7 @@ def test_runtime_retention_history_applies_filters_and_paging(tmp_path):
                 "operator_id": "ops-user",
                 "tenant_id": "tenant-a",
                 "correlation_id": "corr-1",
-                "trigger_mode": "scheduled",
+                "trigger_mode": " scheduled ",
                 "job_id": "retention-nightly",
                 "cleanup_mode": "apply",
                 "status": "applied",
@@ -176,6 +176,59 @@ def test_runtime_retention_history_applies_filters_and_paging(tmp_path):
     assert snapshot.entries[0].correlation_id == "corr-1"
     assert snapshot.entries[0].trigger_mode == "scheduled"
     assert snapshot.entries[0].job_id == "retention-nightly"
+
+
+def test_runtime_retention_history_normalizes_manifest_entry_strings(tmp_path):
+    artifact_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
+    artifact_dir.mkdir(parents=True)
+    manifest = {
+        "latest_file_name": "2026-03-15t00-00-00z.json",
+        "retained_file_names": ["2026-03-15t00-00-00z.json"],
+        "retention_limit": 30,
+        "retention_max_age_days": 90,
+        "entries": [
+            {
+                "evidence_file_name": "2026-03-15t00-00-00z.json",
+                "generated_at_utc": " 2026-03-15T00:00:00Z ",
+                "operator_id": " ops-user ",
+                "tenant_id": " tenant-a ",
+                "correlation_id": " ",
+                "trigger_mode": "scheduled",
+                "job_id": " retention-nightly ",
+                "cleanup_mode": " apply ",
+                "status": " applied ",
+                "retention_days": 45,
+                "prunable_execution_count": 1,
+                "prunable_compute_job_count": 1,
+                "prunable_async_result_count": 1,
+                "prunable_lineage_record_count": 1,
+                "prunable_lineage_artifact_count": 1,
+            }
+        ],
+    }
+    (artifact_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    snapshot = build_runtime_retention_history_snapshot(
+        artifact_directory=artifact_dir,
+        operator_id="ops-user",
+        trigger_mode="scheduled",
+        job_id="retention-nightly",
+        cleanup_mode="apply",
+        status_filter="applied",
+    )
+
+    assert snapshot.status == "available"
+    assert snapshot.total_entries == 1
+    assert snapshot.matched_entries == 1
+    assert snapshot.returned_entries == 1
+    assert snapshot.entries[0].generated_at_utc == "2026-03-15T00:00:00Z"
+    assert snapshot.entries[0].operator_id == "ops-user"
+    assert snapshot.entries[0].tenant_id == "tenant-a"
+    assert snapshot.entries[0].correlation_id is None
+    assert snapshot.entries[0].trigger_mode == "scheduled"
+    assert snapshot.entries[0].job_id == "retention-nightly"
+    assert snapshot.entries[0].cleanup_mode == "apply"
+    assert snapshot.entries[0].status == "applied"
 
 
 def test_runtime_retention_history_applies_generated_before_and_offset_filters(tmp_path):
@@ -446,29 +499,6 @@ def test_runtime_retention_history_applies_generated_before_and_offset_filters(t
                 ],
             },
             "invalid generated timestamp",
-        ),
-        (
-            {
-                "latest_file_name": None,
-                "retained_file_names": ["ok"],
-                "entries": [
-                    {
-                        "evidence_file_name": "evidence.json",
-                        "generated_at_utc": "2026-03-15T00:00:00Z",
-                        "operator_id": "c",
-                        "cleanup_mode": "d",
-                        "status": "ok",
-                        "job_id": "   ",
-                        "retention_days": 1,
-                        "prunable_execution_count": 1,
-                        "prunable_compute_job_count": 1,
-                        "prunable_async_result_count": 1,
-                        "prunable_lineage_record_count": 1,
-                        "prunable_lineage_artifact_count": 1,
-                    }
-                ],
-            },
-            "blank job id",
         ),
     ],
 )

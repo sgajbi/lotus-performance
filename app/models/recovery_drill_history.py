@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.services.recovery_drill_history_service import RecoveryDrillHistorySnapshot
 
@@ -25,6 +25,11 @@ class RecoveryDrillRunRequest(BaseModel):
         pattern=r".*\S.*",
         description="Backup or restore-set identifier to validate with this recovery drill.",
     )
+
+    @field_validator("backup_identifier")
+    @classmethod
+    def normalize_backup_identifier(cls, value: str) -> str:
+        return value.strip()
 
 
 class RecoveryDrillRunResponse(BaseModel):

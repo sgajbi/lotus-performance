@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from app.services.operator_action_identity import (
     operator_action_actor_matches,
     operator_action_correlation_matches,
+    operator_action_optional_identity_matches,
+    operator_action_required_identity_matches,
 )
 
 
@@ -60,3 +62,14 @@ def test_operator_action_correlation_matches_canonicalized_identities():
         tenant_id="tenant-a",
         correlation_id=" ",
     )
+
+
+def test_operator_action_required_identity_matches_canonicalized_values():
+    assert operator_action_required_identity_matches("backup-123", " backup-123 ")
+    assert not operator_action_required_identity_matches("backup-123", " ")
+
+
+def test_operator_action_optional_identity_matches_canonicalized_values():
+    assert operator_action_optional_identity_matches("ticket-7", " ticket-7 ")
+    assert operator_action_optional_identity_matches(None, " ")
+    assert not operator_action_optional_identity_matches("ticket-7", None)

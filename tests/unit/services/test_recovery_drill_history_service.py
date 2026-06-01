@@ -69,6 +69,47 @@ def test_recovery_drill_history_snapshot_reads_manifest(tmp_path):
     assert snapshot.entries[0].correlation_id == "corr-1"
 
 
+def test_recovery_drill_history_snapshot_normalizes_manifest_entry_strings(tmp_path):
+    artifact_dir = tmp_path / "artifacts" / "durable-recovery-drill"
+    artifact_dir.mkdir(parents=True)
+    manifest = {
+        "latest_file_name": "2026-03-14t00-00-00.json",
+        "retained_file_names": ["2026-03-14t00-00-00.json"],
+        "retention_limit": 30,
+        "retention_max_age_days": 90,
+        "entries": [
+            {
+                "evidence_file_name": "2026-03-14t00-00-00.json",
+                "generated_at_utc": " 2026-03-14T00:00:00Z ",
+                "operator_id": " ops-user ",
+                "tenant_id": " tenant-a ",
+                "correlation_id": " ",
+                "backup_identifier": " backup-123 ",
+                "status": " passed ",
+            }
+        ],
+    }
+    (artifact_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    snapshot = build_recovery_drill_history_snapshot(
+        artifact_directory=artifact_dir,
+        operator_id="ops-user",
+        backup_identifier="backup-123",
+        status_filter="passed",
+    )
+
+    assert snapshot.status == "available"
+    assert snapshot.total_entries == 1
+    assert snapshot.matched_entries == 1
+    assert snapshot.returned_entries == 1
+    assert snapshot.entries[0].generated_at_utc == "2026-03-14T00:00:00Z"
+    assert snapshot.entries[0].operator_id == "ops-user"
+    assert snapshot.entries[0].tenant_id == "tenant-a"
+    assert snapshot.entries[0].correlation_id is None
+    assert snapshot.entries[0].backup_identifier == "backup-123"
+    assert snapshot.entries[0].status == "passed"
+
+
 def test_recovery_drill_history_snapshot_reports_invalid_manifest(tmp_path):
     artifact_dir = tmp_path / "artifacts" / "durable-recovery-drill"
     artifact_dir.mkdir(parents=True)

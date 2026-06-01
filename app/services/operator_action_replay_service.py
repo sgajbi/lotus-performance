@@ -7,7 +7,11 @@ from pathlib import Path
 from typing import Any
 
 from app.services.operator_action_evidence_paths import resolve_evidence_file_path
-from app.services.operator_action_identity import operator_action_correlation_matches
+from app.services.operator_action_identity import (
+    operator_action_correlation_matches,
+    operator_action_optional_identity_matches,
+    operator_action_required_identity_matches,
+)
 from app.services.recovery_drill_history_service import RecoveryDrillHistoryEntry, RecoveryDrillHistorySnapshot
 from app.services.runtime_retention_history_service import (
     RuntimeRetentionHistoryEntry,
@@ -79,7 +83,7 @@ def resolve_recovery_drill_manual_replay(
             correlation_id=correlation_id,
         ):
             continue
-        if entry.backup_identifier != backup_identifier:
+        if not operator_action_required_identity_matches(entry.backup_identifier, backup_identifier):
             continue
         payload = _load_payload(artifact_directory=artifact_directory, evidence_file_name=entry.evidence_file_name)
         if payload is None:
@@ -116,7 +120,7 @@ def _runtime_retention_entry_matches(
         return False
     if retention_days is not None and entry.retention_days != retention_days:
         return False
-    if entry.job_id != job_id:
+    if not operator_action_optional_identity_matches(entry.job_id, job_id):
         return False
     return True
 
@@ -194,7 +198,7 @@ def _recovery_drill_payload_matches_entry(
         and _optional_str_fields_valid(payload, ("tenant_id", "correlation_id"))
         and _required_int_fields_present(payload, ("compute_job_processed_count", "processed_payload_count"))
         and isinstance(owned_tables_present, list)
-        and all(isinstance(item, str) for item in owned_tables_present)
+        and all(isinstance(item, str) and item.strip() for item in owned_tables_present)
         and type(payload.get("materialized_artifact_exists")) is bool
         and payload["evidence_file_name"] == entry.evidence_file_name
         and payload["generated_at_utc"] == entry.generated_at_utc
@@ -207,7 +211,7 @@ def _recovery_drill_payload_matches_entry(
 
 
 def _required_str_fields_present(payload: dict[str, Any], keys: tuple[str, ...]) -> bool:
-    return all(isinstance(payload.get(key), str) for key in keys)
+    return all(isinstance(payload.get(key), str) and payload[key].strip() for key in keys)
 
 
 def _optional_str_fields_valid(payload: dict[str, Any], keys: tuple[str, ...]) -> bool:

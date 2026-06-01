@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.services.runtime_retention_history_service import RuntimeRetentionHistorySnapshot
 
@@ -95,6 +95,13 @@ class RuntimeRetentionCleanupRunRequest(BaseModel):
         pattern=r".*\S.*",
         description="Optional operator-supplied job or ticket identifier to retain with this cleanup execution evidence.",
     )
+
+    @field_validator("job_id")
+    @classmethod
+    def normalize_job_id(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return value.strip()
 
 
 class RuntimeRetentionCleanupRunResponse(BaseModel):

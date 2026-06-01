@@ -21,9 +21,16 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from app.services import operator_action_evidence_strings as _evidence_strings  # noqa: E402
+
 if TYPE_CHECKING:
     from app.services.execution_registry import ExecutionRegistry
     from app.services.lineage_metadata_store import LineageMetadataStore
+
+_normalize_optional_evidence_identifier = _evidence_strings.normalize_optional_evidence_identifier
+_normalize_required_evidence_identifier = _evidence_strings.normalize_required_evidence_identifier
+_optional_evidence_string = _evidence_strings.optional_evidence_string
+_required_evidence_string = _evidence_strings.required_evidence_string
 
 REQUIRED_TABLES = (
     "analytics_execution",
@@ -261,20 +268,6 @@ def run_recovery_drill(
             lineage_store._engine.dispose()
 
 
-def _normalize_required_evidence_identifier(value: str, *, field_name: str) -> str:
-    normalized = value.strip()
-    if not normalized:
-        raise ValueError(f"{field_name} must not be blank")
-    return normalized
-
-
-def _normalize_optional_evidence_identifier(value: str | None) -> str | None:
-    if value is None:
-        return None
-    normalized = value.strip()
-    return normalized or None
-
-
 def _create_legacy_lineage_schema(lineage_store: "LineageMetadataStore") -> None:
     with lineage_store._engine.begin() as connection:
         connection.exec_driver_sql(
@@ -454,22 +447,6 @@ def _load_manifest_entry(path: Path) -> RecoveryDrillManifestEntry | None:
     except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
         logger.warning("Recovery drill evidence ignored during manifest rebuild: %s", path, exc_info=True)
         return None
-
-
-def _required_evidence_string(payload: dict[str, Any], key: str) -> str:
-    value = payload[key]
-    if not isinstance(value, str) or not value.strip():
-        raise ValueError(f"{key} must be a nonblank string")
-    return value
-
-
-def _optional_evidence_string(payload: dict[str, Any], key: str) -> str | None:
-    value = payload.get(key)
-    if value is None:
-        return None
-    if not isinstance(value, str):
-        raise ValueError(f"{key} must be a string when present")
-    return value
 
 
 def _read_recovery_drill_evidence_payload(path: Path) -> dict[str, Any]:

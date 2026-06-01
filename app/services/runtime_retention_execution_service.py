@@ -11,12 +11,18 @@ from pathlib import Path
 from typing import Any
 
 from app.core.config import get_settings
+from app.services import operator_action_evidence_strings as _evidence_strings
 from app.services.runtime_retention_service import (
     run_runtime_retention_cleanup,
 )
 from app.services.runtime_status_time import parse_utc_datetime
 
 logger = logging.getLogger(__name__)
+
+_normalize_optional_evidence_identifier = _evidence_strings.normalize_optional_evidence_identifier
+_normalize_required_evidence_identifier = _evidence_strings.normalize_required_evidence_identifier
+_optional_evidence_string = _evidence_strings.optional_evidence_string
+_required_evidence_string = _evidence_strings.required_evidence_string
 
 
 @dataclass(frozen=True)
@@ -124,20 +130,6 @@ def execute_runtime_retention_cleanup(
     return evidence
 
 
-def _normalize_required_evidence_identifier(value: str, *, field_name: str) -> str:
-    normalized = value.strip()
-    if not normalized:
-        raise ValueError(f"{field_name} must not be blank")
-    return normalized
-
-
-def _normalize_optional_evidence_identifier(value: str | None) -> str | None:
-    if value is None:
-        return None
-    normalized = value.strip()
-    return normalized or None
-
-
 def _build_evidence_file_name(generated_at_utc: str) -> str:
     sanitized = re.sub(r"[^0-9A-Za-z]+", "-", generated_at_utc).strip("-").lower()
     return f"{sanitized}.json"
@@ -232,22 +224,6 @@ def _load_manifest_entry(path: Path) -> RuntimeRetentionManifestEntry | None:
     except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
         logger.warning("Runtime retention evidence ignored during manifest rebuild: %s", path, exc_info=True)
         return None
-
-
-def _required_evidence_string(payload: dict[str, Any], key: str) -> str:
-    value = payload[key]
-    if not isinstance(value, str) or not value.strip():
-        raise ValueError(f"{key} must be a nonblank string")
-    return value
-
-
-def _optional_evidence_string(payload: dict[str, Any], key: str) -> str | None:
-    value = payload.get(key)
-    if value is None:
-        return None
-    if not isinstance(value, str):
-        raise ValueError(f"{key} must be a string when present")
-    return value.strip() or None
 
 
 def _read_runtime_retention_evidence_payload(path: Path) -> dict[str, Any]:

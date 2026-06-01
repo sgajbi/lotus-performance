@@ -39,7 +39,7 @@ def test_runtime_retention_run_api_persists_actor_identity_and_job_id(tmp_path, 
                 "X-Tenant-Id": "tenant-a",
                 "X-Correlation-Id": "corr-42",
             },
-            json={"apply": False, "retention_days": 45, "job_id": "ops-ticket-42"},
+            json={"apply": False, "retention_days": 45, "job_id": " ops-ticket-42 "},
         )
 
     assert response.status_code == 200

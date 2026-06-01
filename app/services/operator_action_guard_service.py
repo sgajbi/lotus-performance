@@ -5,7 +5,11 @@ from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
 
-from app.services.operator_action_identity import operator_action_actor_matches
+from app.services.operator_action_identity import (
+    operator_action_actor_matches,
+    operator_action_optional_identity_matches,
+    operator_action_required_identity_matches,
+)
 from app.services.recovery_drill_history_service import (
     RecoveryDrillHistoryEntry,
     RecoveryDrillHistorySnapshot,
@@ -137,7 +141,7 @@ def _find_latest_runtime_retention_entry(
             continue
         if entry.retention_days != retention_days:
             continue
-        if entry.job_id != job_id:
+        if not operator_action_optional_identity_matches(entry.job_id, job_id):
             continue
         return entry
     return None
@@ -153,7 +157,7 @@ def _find_latest_recovery_drill_entry(
     for entry in snapshot.entries:
         if not operator_action_actor_matches(entry, operator_id=operator_id, tenant_id=tenant_id):
             continue
-        if entry.backup_identifier != backup_identifier:
+        if not operator_action_required_identity_matches(entry.backup_identifier, backup_identifier):
             continue
         return entry
     return None
