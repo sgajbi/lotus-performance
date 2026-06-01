@@ -34,6 +34,18 @@ def test_recovery_drill_history_api_rejects_invalid_time_filter():
     }
 
 
+def test_recovery_drill_history_api_rejects_blank_string_filters():
+    with TestClient(app) as client:
+        response = client.get(
+            "/integration/recovery-drills",
+            params={"operator_id": " ", "backup_identifier": "  ", "status": " "},
+        )
+
+    assert response.status_code == 422
+    fields = {item["loc"][-1] for item in response.json()["detail"]}
+    assert {"operator_id", "backup_identifier", "status"} <= fields
+
+
 def test_recovery_drill_history_api_reports_unavailable_when_manifest_is_invalid(tmp_path, monkeypatch):
     artifact_dir = tmp_path / "artifacts" / "durable-recovery-drill"
     artifact_dir.mkdir(parents=True)
@@ -174,9 +186,9 @@ def test_recovery_drill_history_api_applies_filters_and_limit(tmp_path, monkeypa
             "/integration/recovery-drills",
             params={
                 "limit": 1,
-                "operator_id": "ops-user",
-                "backup_identifier": "backup-123",
-                "status": "passed",
+                "operator_id": " ops-user ",
+                "backup_identifier": " backup-123 ",
+                "status": " passed ",
             },
         )
 

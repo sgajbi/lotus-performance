@@ -46,9 +46,11 @@ def test_execute_runtime_retention_cleanup_persists_scheduled_evidence(tmp_path,
 
     evidence = execute_runtime_retention_cleanup(
         apply=False,
-        operator_id="runtime-retention-automation",
-        trigger_mode="scheduled",
-        job_id="retention-nightly",
+        operator_id=" runtime-retention-automation ",
+        tenant_id=" ",
+        correlation_id=" corr-1 ",
+        trigger_mode=" scheduled ",
+        job_id=" retention-nightly ",
     )
 
     latest = json.loads((output_dir / "latest.json").read_text(encoding="utf-8"))
@@ -56,9 +58,90 @@ def test_execute_runtime_retention_cleanup_persists_scheduled_evidence(tmp_path,
     assert evidence.trigger_mode == "scheduled"
     assert evidence.job_id == "retention-nightly"
     assert evidence.cleanup_mode == "dry_run"
+    assert evidence.operator_id == "runtime-retention-automation"
+    assert evidence.tenant_id is None
+    assert evidence.correlation_id == "corr-1"
     assert latest["operator_id"] == "runtime-retention-automation"
+    assert latest["tenant_id"] is None
+    assert latest["correlation_id"] == "corr-1"
     assert latest["trigger_mode"] == "scheduled"
     assert latest["job_id"] == "retention-nightly"
+
+
+def test_execute_runtime_retention_cleanup_rejects_blank_trigger_mode(tmp_path, monkeypatch):
+    output_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
+    cleanup_called = False
+    monkeypatch.setattr(
+        "app.services.runtime_retention_execution_service.get_settings",
+        lambda: type(
+            "Settings",
+            (),
+            {
+                "RUNTIME_RETENTION_ARTIFACT_PATH": output_dir,
+                "RUNTIME_RETENTION_HISTORY_LIMIT": 30,
+                "RUNTIME_RETENTION_HISTORY_MAX_AGE_DAYS": 90,
+            },
+        )(),
+    )
+
+    def _run_runtime_retention_cleanup(retention_days, dry_run):
+        nonlocal cleanup_called
+        cleanup_called = True
+        raise AssertionError("cleanup should not run for invalid evidence identity")
+
+    monkeypatch.setattr(
+        "app.services.runtime_retention_execution_service.run_runtime_retention_cleanup",
+        _run_runtime_retention_cleanup,
+    )
+
+    with pytest.raises(ValueError, match="trigger_mode must not be blank"):
+        execute_runtime_retention_cleanup(
+            apply=False,
+            operator_id="runtime-retention-automation",
+            trigger_mode=" ",
+            job_id="retention-nightly",
+        )
+
+    assert not cleanup_called
+    assert not output_dir.exists()
+
+
+def test_execute_runtime_retention_cleanup_rejects_blank_operator_id(tmp_path, monkeypatch):
+    output_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
+    cleanup_called = False
+    monkeypatch.setattr(
+        "app.services.runtime_retention_execution_service.get_settings",
+        lambda: type(
+            "Settings",
+            (),
+            {
+                "RUNTIME_RETENTION_ARTIFACT_PATH": output_dir,
+                "RUNTIME_RETENTION_HISTORY_LIMIT": 30,
+                "RUNTIME_RETENTION_HISTORY_MAX_AGE_DAYS": 90,
+            },
+        )(),
+    )
+
+    def _run_runtime_retention_cleanup(retention_days, dry_run):
+        nonlocal cleanup_called
+        cleanup_called = True
+        raise AssertionError("cleanup should not run for invalid evidence identity")
+
+    monkeypatch.setattr(
+        "app.services.runtime_retention_execution_service.run_runtime_retention_cleanup",
+        _run_runtime_retention_cleanup,
+    )
+
+    with pytest.raises(ValueError, match="operator_id must not be blank"):
+        execute_runtime_retention_cleanup(
+            apply=False,
+            operator_id=" ",
+            trigger_mode="manual",
+            job_id="retention-nightly",
+        )
+
+    assert not cleanup_called
+    assert not output_dir.exists()
 
 
 def test_runtime_retention_execution_prunes_stale_history_by_limit_and_age(tmp_path, monkeypatch):
@@ -200,6 +283,68 @@ def test_runtime_retention_execution_skips_invalid_manifest_entry_payloads(tmp_p
     assert len(manifest["entries"]) == 1
     assert manifest["entries"][0]["evidence_file_name"] == "2026-03-16t00-00-00z.json"
     assert malformed.exists()
+    assert "Runtime retention evidence ignored during manifest rebuild" in caplog.text
+    assert "2026-03-15t00-00-00z.json" in caplog.text
+
+
+def test_runtime_retention_execution_skips_invalid_manifest_entry_shapes(tmp_path, caplog):
+    output_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
+    output_dir.mkdir(parents=True)
+    invalid_shape = output_dir / "2026-03-15t00-00-00z.json"
+    invalid_shape.write_text(
+        json.dumps(
+            {
+                "evidence_file_name": "2026-03-15t00-00-00z.json",
+                "generated_at_utc": "2026-03-15T00:00:00Z",
+                "operator_id": 123,
+                "tenant_id": None,
+                "correlation_id": None,
+                "trigger_mode": "manual",
+                "job_id": None,
+                "cleanup_mode": "dry_run",
+                "status": "planned",
+                "retention_days": 30,
+                "prunable_execution_count": 1,
+                "prunable_compute_job_count": 1,
+                "prunable_async_result_count": 1,
+                "prunable_lineage_record_count": 1,
+                "prunable_lineage_artifact_count": 1,
+            }
+        ),
+        encoding="utf-8",
+    )
+    evidence = RuntimeRetentionCleanupEvidence(
+        cleanup_name="runtime_retention_cleanup",
+        generated_at_utc="2026-03-16T00:00:00Z",
+        evidence_file_name="2026-03-16t00-00-00z.json",
+        operator_id="ops",
+        tenant_id=None,
+        correlation_id=None,
+        trigger_mode="manual",
+        job_id=None,
+        cleanup_mode="dry_run",
+        status="planned",
+        retention_days=30,
+        cutoff_utc="2026-02-15T00:00:00Z",
+        prunable_execution_count=1,
+        prunable_compute_job_count=1,
+        prunable_async_result_count=1,
+        prunable_lineage_record_count=1,
+        prunable_lineage_artifact_count=1,
+    )
+
+    with caplog.at_level(logging.WARNING, logger="app.services.runtime_retention_execution_service"):
+        _persist_evidence_history(
+            output_dir=output_dir,
+            evidence=evidence,
+            retention_limit=5,
+            retention_max_age_days=90,
+        )
+
+    manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["latest_file_name"] == "2026-03-16t00-00-00z.json"
+    assert manifest["retained_file_names"] == ["2026-03-16t00-00-00z.json"]
+    assert invalid_shape.exists()
     assert "Runtime retention evidence ignored during manifest rebuild" in caplog.text
     assert "2026-03-15t00-00-00z.json" in caplog.text
 

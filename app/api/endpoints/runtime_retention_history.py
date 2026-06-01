@@ -53,21 +53,43 @@ async def get_runtime_retention_history(
     ] = 0,
     operator_id: Annotated[
         str | None,
-        Query(description="Filter retained runtime-retention cleanup history by operator or automation identity."),
+        Query(
+            description="Filter retained runtime-retention cleanup history by operator or automation identity.",
+            min_length=1,
+            pattern=r".*\S.*",
+        ),
     ] = None,
     trigger_mode: Annotated[
         str | None,
-        Query(description="Filter retained runtime-retention cleanup history by manual or scheduled trigger mode."),
+        Query(
+            description="Filter retained runtime-retention cleanup history by manual or scheduled trigger mode.",
+            min_length=1,
+            pattern=r".*\S.*",
+        ),
     ] = None,
     job_id: Annotated[
         str | None,
-        Query(description="Filter retained runtime-retention cleanup history by scheduler or automation job identity."),
+        Query(
+            description="Filter retained runtime-retention cleanup history by scheduler or automation job identity.",
+            min_length=1,
+            pattern=r".*\S.*",
+        ),
     ] = None,
     cleanup_mode: Annotated[
-        str | None, Query(description="Filter retained runtime-retention cleanup history by cleanup mode.")
+        str | None,
+        Query(
+            description="Filter retained runtime-retention cleanup history by cleanup mode.",
+            min_length=1,
+            pattern=r".*\S.*",
+        ),
     ] = None,
     status: Annotated[
-        str | None, Query(description="Filter retained runtime-retention cleanup history by execution outcome status.")
+        str | None,
+        Query(
+            description="Filter retained runtime-retention cleanup history by execution outcome status.",
+            min_length=1,
+            pattern=r".*\S.*",
+        ),
     ] = None,
     generated_after: Annotated[
         str | None,

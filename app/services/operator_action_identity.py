@@ -22,7 +22,9 @@ def operator_action_actor_matches(
     operator_id: str,
     tenant_id: str | None,
 ) -> bool:
-    return entry.operator_id == operator_id and entry.tenant_id == tenant_id
+    return _normalize_required_identity(entry.operator_id) == _normalize_required_identity(
+        operator_id
+    ) and _normalize_optional_identity(entry.tenant_id) == _normalize_optional_identity(tenant_id)
 
 
 def operator_action_correlation_matches(
@@ -32,7 +34,17 @@ def operator_action_correlation_matches(
     tenant_id: str | None,
     correlation_id: str,
 ) -> bool:
-    return (
-        operator_action_actor_matches(entry, operator_id=operator_id, tenant_id=tenant_id)
-        and entry.correlation_id == correlation_id
-    )
+    return operator_action_actor_matches(
+        entry, operator_id=operator_id, tenant_id=tenant_id
+    ) and _normalize_optional_identity(entry.correlation_id) == _normalize_required_identity(correlation_id)
+
+
+def _normalize_required_identity(value: str) -> str:
+    return value.strip()
+
+
+def _normalize_optional_identity(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized or None

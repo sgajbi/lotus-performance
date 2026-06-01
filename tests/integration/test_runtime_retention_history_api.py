@@ -51,6 +51,24 @@ def test_runtime_retention_history_api_rejects_inverted_time_window():
     }
 
 
+def test_runtime_retention_history_api_rejects_blank_string_filters():
+    with TestClient(app) as client:
+        response = client.get(
+            "/integration/runtime-retention-cleanups",
+            params={
+                "operator_id": " ",
+                "trigger_mode": "  ",
+                "job_id": " ",
+                "cleanup_mode": "  ",
+                "status": " ",
+            },
+        )
+
+    assert response.status_code == 422
+    fields = {item["loc"][-1] for item in response.json()["detail"]}
+    assert {"operator_id", "trigger_mode", "job_id", "cleanup_mode", "status"} <= fields
+
+
 def test_runtime_retention_history_api_returns_filtered_manifest(tmp_path, monkeypatch):
     artifact_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
     artifact_dir.mkdir(parents=True)
@@ -102,10 +120,10 @@ def test_runtime_retention_history_api_returns_filtered_manifest(tmp_path, monke
         response = client.get(
             "/integration/runtime-retention-cleanups",
             params={
-                "cleanup_mode": "apply",
-                "trigger_mode": "scheduled",
-                "job_id": "retention-nightly",
-                "status": "applied",
+                "cleanup_mode": " apply ",
+                "trigger_mode": " scheduled ",
+                "job_id": " retention-nightly ",
+                "status": " applied ",
                 "limit": 1,
             },
         )

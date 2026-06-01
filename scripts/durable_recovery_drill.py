@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import re
 import sys
@@ -10,7 +11,7 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import TYPE_CHECKING, Callable, Coroutine
+from typing import TYPE_CHECKING, Any, Callable, Coroutine
 from uuid import UUID, uuid4
 
 import pandas as pd
@@ -33,6 +34,8 @@ REQUIRED_TABLES = (
     "lineage_records",
     "lineage_payloads",
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _get_settings():
@@ -102,6 +105,14 @@ def run_recovery_drill(
     retention_limit: int = 30,
     retention_max_age_days: int = 90,
 ) -> RecoveryDrillEvidence:
+    normalized_operator_id = _normalize_required_evidence_identifier(operator_id, field_name="operator_id")
+    normalized_tenant_id = _normalize_optional_evidence_identifier(tenant_id)
+    normalized_correlation_id = _normalize_optional_evidence_identifier(correlation_id)
+    normalized_backup_identifier = _normalize_required_evidence_identifier(
+        backup_identifier,
+        field_name="backup_identifier",
+    )
+
     from app.models.returns_series import ReturnsSeriesRequest
     from app.services.async_result_store import AsyncResultStore
     from app.services.compute_job_store import ComputeJobStore
@@ -202,10 +213,10 @@ def run_recovery_drill(
                 drill_name="durable_metadata_restore_recovery",
                 generated_at_utc=generated_at_utc,
                 evidence_file_name=_build_evidence_file_name(generated_at_utc),
-                operator_id=operator_id,
-                tenant_id=tenant_id,
-                correlation_id=correlation_id,
-                backup_identifier=backup_identifier,
+                operator_id=normalized_operator_id,
+                tenant_id=normalized_tenant_id,
+                correlation_id=normalized_correlation_id,
+                backup_identifier=normalized_backup_identifier,
                 database_path=str(database_path),
                 restored_schema_mode="legacy_lineage_schema_upgraded_in_place",
                 owned_tables_present=_fetch_owned_tables(lineage_store),
@@ -248,6 +259,20 @@ def run_recovery_drill(
             compute_store._engine.dispose()
             async_result_store._engine.dispose()
             lineage_store._engine.dispose()
+
+
+def _normalize_required_evidence_identifier(value: str, *, field_name: str) -> str:
+    normalized = value.strip()
+    if not normalized:
+        raise ValueError(f"{field_name} must not be blank")
+    return normalized
+
+
+def _normalize_optional_evidence_identifier(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized or None
 
 
 def _create_legacy_lineage_schema(lineage_store: "LineageMetadataStore") -> None:
@@ -365,18 +390,9 @@ def _write_manifest(
     for evidence_path in sorted(
         path for path in output_dir.glob("*.json") if path.name not in {"latest.json", "manifest.json"}
     ):
-        payload = json.loads(evidence_path.read_text(encoding="utf-8"))
-        entries.append(
-            RecoveryDrillManifestEntry(
-                evidence_file_name=payload["evidence_file_name"],
-                generated_at_utc=payload["generated_at_utc"],
-                operator_id=payload["operator_id"],
-                tenant_id=payload.get("tenant_id"),
-                correlation_id=payload.get("correlation_id"),
-                backup_identifier=payload["backup_identifier"],
-                status=payload["status"],
-            )
-        )
+        entry = _load_manifest_entry(evidence_path)
+        if entry is not None:
+            entries.append(entry)
     manifest = RecoveryDrillManifest(
         latest_file_name=latest_file_name,
         retained_file_names=[entry.evidence_file_name for entry in entries],
@@ -412,11 +428,55 @@ def _filter_fresh_history(*, historical_files: list[Path], retention_max_age_day
     cutoff = datetime.now(UTC) - timedelta(days=retention_max_age_days)
     fresh_files: list[Path] = []
     for path in historical_files:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-        generated_at = datetime.fromisoformat(payload["generated_at_utc"])
+        try:
+            payload = _read_recovery_drill_evidence_payload(path)
+            generated_at = datetime.fromisoformat(payload["generated_at_utc"])
+        except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
+            logger.warning("Recovery drill evidence ignored during age pruning: %s", path, exc_info=True)
+            continue
         if generated_at >= cutoff:
             fresh_files.append(path)
     return fresh_files
+
+
+def _load_manifest_entry(path: Path) -> RecoveryDrillManifestEntry | None:
+    try:
+        payload = _read_recovery_drill_evidence_payload(path)
+        return RecoveryDrillManifestEntry(
+            evidence_file_name=_required_evidence_string(payload, "evidence_file_name"),
+            generated_at_utc=_required_evidence_string(payload, "generated_at_utc"),
+            operator_id=_required_evidence_string(payload, "operator_id"),
+            tenant_id=_optional_evidence_string(payload, "tenant_id"),
+            correlation_id=_optional_evidence_string(payload, "correlation_id"),
+            backup_identifier=_required_evidence_string(payload, "backup_identifier"),
+            status=_required_evidence_string(payload, "status"),
+        )
+    except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
+        logger.warning("Recovery drill evidence ignored during manifest rebuild: %s", path, exc_info=True)
+        return None
+
+
+def _required_evidence_string(payload: dict[str, Any], key: str) -> str:
+    value = payload[key]
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{key} must be a nonblank string")
+    return value
+
+
+def _optional_evidence_string(payload: dict[str, Any], key: str) -> str | None:
+    value = payload.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError(f"{key} must be a string when present")
+    return value
+
+
+def _read_recovery_drill_evidence_payload(path: Path) -> dict[str, Any]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise TypeError("recovery drill evidence payload must be an object")
+    return payload
 
 
 def main() -> int:

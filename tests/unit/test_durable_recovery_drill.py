@@ -1,9 +1,16 @@
 import json
+import logging
 from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from scripts.durable_recovery_drill import REQUIRED_TABLES, _write_text_atomic, run_recovery_drill
+from scripts.durable_recovery_drill import (
+    REQUIRED_TABLES,
+    RecoveryDrillEvidence,
+    _persist_evidence_history,
+    _write_text_atomic,
+    run_recovery_drill,
+)
 
 
 def test_run_recovery_drill_emits_passing_evidence_and_writes_artifact_history(tmp_path):
@@ -13,8 +20,10 @@ def test_run_recovery_drill_emits_passing_evidence_and_writes_artifact_history(t
     evidence = run_recovery_drill(
         output_path=output_path,
         output_dir=output_dir,
-        operator_id="test-operator",
-        backup_identifier="backup-001",
+        operator_id=" test-operator ",
+        tenant_id=" ",
+        correlation_id=" ",
+        backup_identifier=" backup-001 ",
         retention_limit=2,
         retention_max_age_days=30,
     )
@@ -56,6 +65,24 @@ def test_run_recovery_drill_emits_passing_evidence_and_writes_artifact_history(t
     assert manifest["retention_limit"] == 2
     assert manifest["retention_max_age_days"] == 30
     assert manifest["retained_file_names"] == [evidence.evidence_file_name]
+
+
+def test_run_recovery_drill_rejects_blank_backup_identifier_before_writing_artifacts(tmp_path):
+    output_path = tmp_path / "manual" / "durable-recovery-drill.json"
+    output_dir = tmp_path / "artifacts" / "durable-recovery-drill"
+
+    with pytest.raises(ValueError, match="backup_identifier must not be blank"):
+        run_recovery_drill(
+            output_path=output_path,
+            output_dir=output_dir,
+            operator_id="test-operator",
+            backup_identifier=" ",
+            retention_limit=2,
+            retention_max_age_days=30,
+        )
+
+    assert not output_path.exists()
+    assert not output_dir.exists()
 
 
 def test_run_recovery_drill_prunes_history_to_retention_limit(tmp_path):
@@ -137,6 +164,102 @@ def test_run_recovery_drill_prunes_history_older_than_max_age(tmp_path):
     assert "stale.json" not in retained
     assert retained == [current.evidence_file_name]
     assert manifest["retained_file_names"] == [current.evidence_file_name]
+
+
+def test_recovery_drill_history_skips_invalid_retained_artifacts(tmp_path, caplog):
+    output_dir = tmp_path / "artifacts" / "durable-recovery-drill"
+    output_dir.mkdir(parents=True)
+    malformed = output_dir / "2026-03-14t00-00-00z.json"
+    malformed.write_text("{not-json", encoding="utf-8")
+    non_object = output_dir / "2026-03-13t00-00-00z.json"
+    non_object.write_text("[]", encoding="utf-8")
+    generated_at_utc = datetime.now(UTC).isoformat()
+    evidence = RecoveryDrillEvidence(
+        drill_name="durable_metadata_restore_recovery",
+        generated_at_utc=generated_at_utc,
+        evidence_file_name="current.json",
+        operator_id="test-operator",
+        tenant_id=None,
+        correlation_id=None,
+        backup_identifier="backup-001",
+        database_path="recovery-drill.db",
+        restored_schema_mode="legacy_lineage_schema_upgraded_in_place",
+        owned_tables_present=list(REQUIRED_TABLES),
+        compute_job_processed_count=1,
+        compute_async_result_status="complete",
+        compute_execution_status="complete",
+        processed_payload_count=1,
+        materialized_artifact_path="details.csv",
+        materialized_artifact_exists=True,
+        status="passed",
+    )
+
+    with caplog.at_level(logging.WARNING, logger="scripts.durable_recovery_drill"):
+        _persist_evidence_history(
+            output_dir=output_dir,
+            evidence=evidence,
+            retention_limit=5,
+            retention_max_age_days=30,
+        )
+
+    manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["latest_file_name"] == evidence.evidence_file_name
+    assert manifest["retained_file_names"] == [evidence.evidence_file_name]
+    assert not malformed.exists()
+    assert not non_object.exists()
+    assert "Recovery drill evidence ignored during age pruning" in caplog.text
+
+
+def test_recovery_drill_manifest_rebuild_skips_invalid_entry_shapes(tmp_path, caplog):
+    output_dir = tmp_path / "artifacts" / "durable-recovery-drill"
+    output_dir.mkdir(parents=True)
+    invalid_shape = output_dir / "invalid-shape.json"
+    invalid_shape.write_text(
+        json.dumps(
+            {
+                "evidence_file_name": "invalid-shape.json",
+                "generated_at_utc": datetime.now(UTC).isoformat(),
+                "operator_id": 123,
+                "tenant_id": None,
+                "correlation_id": None,
+                "backup_identifier": "backup-legacy",
+                "status": "passed",
+            }
+        ),
+        encoding="utf-8",
+    )
+    evidence = RecoveryDrillEvidence(
+        drill_name="durable_metadata_restore_recovery",
+        generated_at_utc=datetime.now(UTC).isoformat(),
+        evidence_file_name="current.json",
+        operator_id="test-operator",
+        tenant_id=None,
+        correlation_id=None,
+        backup_identifier="backup-001",
+        database_path="recovery-drill.db",
+        restored_schema_mode="legacy_lineage_schema_upgraded_in_place",
+        owned_tables_present=list(REQUIRED_TABLES),
+        compute_job_processed_count=1,
+        compute_async_result_status="complete",
+        compute_execution_status="complete",
+        processed_payload_count=1,
+        materialized_artifact_path="details.csv",
+        materialized_artifact_exists=True,
+        status="passed",
+    )
+
+    with caplog.at_level(logging.WARNING, logger="scripts.durable_recovery_drill"):
+        _persist_evidence_history(
+            output_dir=output_dir,
+            evidence=evidence,
+            retention_limit=5,
+            retention_max_age_days=30,
+        )
+
+    manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["retained_file_names"] == [evidence.evidence_file_name]
+    assert invalid_shape.exists()
+    assert "Recovery drill evidence ignored during manifest rebuild" in caplog.text
 
 
 def test_write_text_atomic_does_not_leave_partial_target(tmp_path, mocker):

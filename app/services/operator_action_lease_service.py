@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterator
+from typing import Iterator, cast
 
 from fastapi import HTTPException, status
 
@@ -71,13 +71,16 @@ def build_runtime_retention_action_key(
     retention_days: int,
     job_id: str | None,
 ) -> str:
+    normalized_operator_id = _normalize_required_lease_string(operator_id, field_name="operator_id")
+    normalized_tenant_id = _normalize_optional_lease_string(tenant_id)
+    normalized_job_id = _normalize_optional_lease_string(job_id)
     return _sanitize_key(
         "runtime-retention",
-        operator_id,
-        tenant_id or "no-tenant",
+        normalized_operator_id,
+        normalized_tenant_id or "no-tenant",
         "apply" if apply else "dry-run",
         str(retention_days),
-        job_id or "no-job",
+        normalized_job_id or "no-job",
     )
 
 
@@ -87,11 +90,17 @@ def build_recovery_drill_action_key(
     tenant_id: str | None,
     backup_identifier: str,
 ) -> str:
+    normalized_operator_id = _normalize_required_lease_string(operator_id, field_name="operator_id")
+    normalized_tenant_id = _normalize_optional_lease_string(tenant_id)
+    normalized_backup_identifier = _normalize_required_lease_string(
+        backup_identifier,
+        field_name="backup_identifier",
+    )
     return _sanitize_key(
         "recovery-drill",
-        operator_id,
-        tenant_id or "no-tenant",
-        backup_identifier,
+        normalized_operator_id,
+        normalized_tenant_id or "no-tenant",
+        normalized_backup_identifier,
     )
 
 
@@ -104,10 +113,12 @@ def operator_action_lease(
     stale_after_seconds: float,
     now_utc: datetime | None = None,
 ) -> Iterator[None]:
+    normalized_action_key = _normalize_required_lease_string(action_key, field_name="action_key")
+    normalized_metadata = _normalize_lease_metadata(metadata)
     locks_dir = artifact_directory / ".action-locks"
     locks_dir.mkdir(parents=True, exist_ok=True)
-    lock_path = locks_dir / f"{action_key}.lock"
-    payload = json.dumps(asdict(metadata), indent=2)
+    lock_path = locks_dir / f"{normalized_action_key}.lock"
+    payload = json.dumps(asdict(normalized_metadata), indent=2)
     flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
 
     try:
@@ -116,18 +127,18 @@ def operator_action_lease(
         if _reclaim_stale_lock(
             lock_path=lock_path,
             stale_after_seconds=stale_after_seconds,
-            action_key=action_key,
+            action_key=normalized_action_key,
             now_utc=now_utc,
         ):
             fd = os.open(str(lock_path), flags)
         else:
             detail: dict[str, object] = {
-                "code": f"{metadata.action_name}_already_running",
+                "code": f"{normalized_metadata.action_name}_already_running",
                 "message": (
-                    f"A governed {metadata.action_name} for this same risk unit is already running. "
+                    f"A governed {normalized_metadata.action_name} for this same risk unit is already running. "
                     "Wait for the active action to complete before retrying."
                 ),
-                "action_key": action_key,
+                "action_key": normalized_action_key,
             }
             active_lease = _read_active_operator_action_lease(lock_path=lock_path)
             if isinstance(active_lease, ActiveOperatorActionLease):
@@ -242,6 +253,18 @@ _INVALID_LEASE = _InvalidLease()
 _RECLAIM_HISTORY_LIMIT = 20
 
 
+def _normalize_lease_metadata(metadata: OperatorActionLeaseMetadata) -> OperatorActionLeaseMetadata:
+    acquired_at_utc = _normalize_required_lease_string(metadata.acquired_at_utc, field_name="acquired_at_utc")
+    _parse_utc(acquired_at_utc)
+    return OperatorActionLeaseMetadata(
+        action_name=_normalize_required_lease_string(metadata.action_name, field_name="action_name"),
+        operator_id=_normalize_required_lease_string(metadata.operator_id, field_name="operator_id"),
+        tenant_id=_normalize_optional_lease_string(metadata.tenant_id),
+        governed_target=_normalize_required_lease_string(metadata.governed_target, field_name="governed_target"),
+        acquired_at_utc=acquired_at_utc,
+    )
+
+
 def _read_active_operator_action_lease(*, lock_path: Path) -> ActiveOperatorActionLease | _InvalidLease | None:
     payload = _read_json_payload(lock_path)
     if payload is _INVALID_LEASE:
@@ -253,27 +276,32 @@ def _read_active_operator_action_lease(*, lock_path: Path) -> ActiveOperatorActi
     tenant_id = payload.get("tenant_id")
     governed_target = payload.get("governed_target")
     acquired_at_utc = payload.get("acquired_at_utc")
-    if not isinstance(action_name, str):
+    if not _is_required_lease_string(action_name):
         return _INVALID_LEASE
-    if not isinstance(operator_id, str):
+    if not _is_required_lease_string(operator_id):
         return _INVALID_LEASE
-    if tenant_id is not None and not isinstance(tenant_id, str):
+    if not _is_optional_lease_string(tenant_id):
         return _INVALID_LEASE
-    if not isinstance(governed_target, str):
+    if not _is_required_lease_string(governed_target):
         return _INVALID_LEASE
-    if not isinstance(acquired_at_utc, str):
+    if not _is_required_lease_string(acquired_at_utc):
         return _INVALID_LEASE
+    action_name_value = cast(str, action_name)
+    operator_id_value = cast(str, operator_id)
+    tenant_id_value = cast(str | None, tenant_id)
+    governed_target_value = cast(str, governed_target)
+    acquired_at_utc_value = cast(str, acquired_at_utc)
     try:
-        _parse_utc(acquired_at_utc)
+        _parse_utc(acquired_at_utc_value)
     except ValueError:
         return _INVALID_LEASE
     return ActiveOperatorActionLease(
         action_key=lock_path.stem,
-        action_name=action_name,
-        operator_id=operator_id,
-        tenant_id=tenant_id,
-        governed_target=governed_target,
-        acquired_at_utc=acquired_at_utc,
+        action_name=action_name_value,
+        operator_id=operator_id_value,
+        tenant_id=tenant_id_value,
+        governed_target=governed_target_value,
+        acquired_at_utc=acquired_at_utc_value,
     )
 
 
@@ -375,7 +403,7 @@ def _parse_reclaimed_event_payload(
     if not isinstance(payload, dict):
         return _INVALID_LEASE
     candidate_action_name = payload.get("action_name")
-    if not isinstance(candidate_action_name, str):
+    if not _is_required_lease_string(candidate_action_name):
         return _INVALID_LEASE
     if action_name is not None and candidate_action_name != action_name:
         return None
@@ -387,38 +415,67 @@ def _parse_reclaimed_event_payload(
     stale_after_seconds = payload.get("stale_after_seconds")
     reclaim_count = payload.get("reclaim_count", 1)
     action_key = payload.get("action_key")
-    if not isinstance(operator_id, str):
+    if not _is_required_lease_string(operator_id):
         return _INVALID_LEASE
-    if tenant_id is not None and not isinstance(tenant_id, str):
+    if not _is_optional_lease_string(tenant_id):
         return _INVALID_LEASE
-    if not isinstance(governed_target, str):
+    if not _is_required_lease_string(governed_target):
         return _INVALID_LEASE
-    if not isinstance(acquired_at_utc, str):
+    if not _is_required_lease_string(acquired_at_utc):
         return _INVALID_LEASE
-    if not isinstance(reclaimed_at_utc, str):
+    if not _is_required_lease_string(reclaimed_at_utc):
         return _INVALID_LEASE
     if not isinstance(stale_after_seconds, (int, float)):
         return _INVALID_LEASE
     if not isinstance(reclaim_count, int):
         return _INVALID_LEASE
-    if not isinstance(action_key, str):
+    if not _is_required_lease_string(action_key):
         return _INVALID_LEASE
+    candidate_action_name_value = cast(str, candidate_action_name)
+    operator_id_value = cast(str, operator_id)
+    tenant_id_value = cast(str | None, tenant_id)
+    governed_target_value = cast(str, governed_target)
+    acquired_at_utc_value = cast(str, acquired_at_utc)
+    reclaimed_at_utc_value = cast(str, reclaimed_at_utc)
+    action_key_value = cast(str, action_key)
     try:
-        _parse_utc(acquired_at_utc)
-        _parse_utc(reclaimed_at_utc)
+        _parse_utc(acquired_at_utc_value)
+        _parse_utc(reclaimed_at_utc_value)
     except ValueError:
         return _INVALID_LEASE
     return ReclaimedOperatorActionLeaseEvent(
-        action_key=action_key,
-        action_name=candidate_action_name,
-        operator_id=operator_id,
-        tenant_id=tenant_id,
-        governed_target=governed_target,
-        acquired_at_utc=acquired_at_utc,
-        reclaimed_at_utc=reclaimed_at_utc,
+        action_key=action_key_value,
+        action_name=candidate_action_name_value,
+        operator_id=operator_id_value,
+        tenant_id=tenant_id_value,
+        governed_target=governed_target_value,
+        acquired_at_utc=acquired_at_utc_value,
+        reclaimed_at_utc=reclaimed_at_utc_value,
         stale_after_seconds=float(stale_after_seconds),
         reclaim_count=reclaim_count,
     )
+
+
+def _is_required_lease_string(value: object) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _is_optional_lease_string(value: object) -> bool:
+    return value is None or _is_required_lease_string(value)
+
+
+def _normalize_required_lease_string(value: str, *, field_name: str) -> str:
+    normalized = value.strip()
+    if not normalized:
+        raise ValueError(f"{field_name} must not be blank")
+    return normalized
+
+
+def _normalize_optional_lease_string(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized or None
 
 
 def _parse_utc(timestamp_utc: str) -> datetime:
