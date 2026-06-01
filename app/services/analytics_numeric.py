@@ -1,0 +1,24 @@
+from __future__ import annotations
+
+from typing import Any
+
+import pandas as pd
+from pandas.api.types import is_scalar
+
+
+def numeric_value(value: Any, default: Any = 0) -> Any:
+    """Coerce a scalar numeric-like value, returning the default for invalid inputs."""
+    try:
+        numeric = pd.to_numeric(value, errors="coerce")
+    except (TypeError, ValueError):
+        return default
+    if not is_scalar(numeric) or pd.isna(numeric):
+        return default
+    return numeric
+
+
+def numeric_series_or_default(df: pd.DataFrame, column_name: str, default: Any = 0) -> pd.Series:
+    """Return a numeric Series for a column, or a default-filled fallback aligned to the frame index."""
+    if column_name not in df.columns:
+        return pd.Series(default, index=df.index)
+    return pd.to_numeric(df[column_name], errors="coerce").fillna(default)

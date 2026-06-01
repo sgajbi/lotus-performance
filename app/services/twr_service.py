@@ -22,6 +22,7 @@ from app.models.responses import (
     TWRBenchmarkContext,
 )
 from app.models.twr_requests import TWRInputMode
+from app.services.analytics_numeric import numeric_value
 from app.services.analytics_observation_dates import (
     normalize_observation_date,
     observation_date_series,
@@ -43,11 +44,7 @@ from engine.schema import PortfolioColumns
 
 
 def _as_numeric(value: object, default=0):
-    try:
-        numeric = float(str(value))
-    except (TypeError, ValueError):
-        return default
-    return numeric
+    return numeric_value(value, default=default)
 
 
 def _get_total_cum_ror(row: pd.Series | None, prefix: str = "") -> float:

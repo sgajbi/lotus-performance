@@ -6,6 +6,7 @@ from typing import Any
 import pandas as pd
 
 from app.models.contribution_responses import AverageWeightMethodologyStatus, PositionContribution
+from app.services.analytics_numeric import numeric_series_or_default, numeric_value
 from app.services.analytics_observation_dates import observation_date_series
 from engine.schema import PortfolioColumns
 
@@ -32,17 +33,11 @@ def _to_percentage_point_basis_points(percentage_point_delta: Any) -> int:
 
 
 def _as_numeric(value: Any, default: Any = 0) -> Any:
-    numeric = pd.to_numeric(value, errors="coerce")
-    if pd.isna(numeric):
-        return default
-    return numeric
+    return numeric_value(value, default=default)
 
 
 def _numeric_series_or_default(df: pd.DataFrame, column_name: str) -> pd.Series:
-    """Returns a numeric Series for a column, or a zero-filled fallback aligned to the frame index."""
-    if column_name not in df.columns:
-        return pd.Series(0, index=df.index)
-    return pd.to_numeric(df[column_name], errors="coerce").fillna(0)
+    return numeric_series_or_default(df, column_name)
 
 
 def _calculate_reset_aware_average_weight_shadow(
