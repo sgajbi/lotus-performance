@@ -91,6 +91,8 @@ class RuntimeRetentionCleanupRunRequest(BaseModel):
     )
     job_id: str | None = Field(
         default=None,
+        min_length=1,
+        pattern=r".*\S.*",
         description="Optional operator-supplied job or ticket identifier to retain with this cleanup execution evidence.",
     )
 
