@@ -207,7 +207,7 @@ def _recovery_drill_payload_matches_entry(
 
 
 def _required_str_fields_present(payload: dict[str, Any], keys: tuple[str, ...]) -> bool:
-    return all(isinstance(payload.get(key), str) for key in keys)
+    return all(isinstance(payload.get(key), str) and payload[key].strip() for key in keys)
 
 
 def _optional_str_fields_valid(payload: dict[str, Any], keys: tuple[str, ...]) -> bool:
