@@ -267,7 +267,7 @@ def _authorization_denied_response(
     emit_audit_event(
         action=f"DENY {method} {path}",
         **audit_identity,
-        metadata={_RESPONSE_REASON_KEY: reason},
+        metadata=_authorization_denial_metadata(reason),
     )
     return JSONResponse(
         status_code=403,
@@ -276,6 +276,10 @@ def _authorization_denied_response(
             _RESPONSE_REASON_KEY: reason,
         },
     )
+
+
+def _authorization_denial_metadata(reason: str | None) -> dict[str, str | None]:
+    return {_RESPONSE_REASON_KEY: reason}
 
 
 def _emit_allowed_audit_event(

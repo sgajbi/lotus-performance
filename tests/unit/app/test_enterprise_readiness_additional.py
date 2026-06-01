@@ -16,6 +16,7 @@ from app.enterprise_readiness import (
     _apply_enterprise_policy_header,
     _audit_event_payload,
     _audit_identity_from_headers,
+    _authorization_denial_metadata,
     _authorization_denied_response,
     _authorize_enterprise_request,
     _content_length,
@@ -360,6 +361,13 @@ def test_authorization_denied_response_emits_audit_and_structured_reason(mocker)
         correlation_id="corr-1",
         metadata={_RESPONSE_REASON_KEY: "missing_capability:operations.runtime.manage"},
     )
+
+
+def test_authorization_denial_metadata_uses_governed_reason_key():
+    assert _authorization_denial_metadata("missing_service_identity") == {
+        _RESPONSE_REASON_KEY: "missing_service_identity",
+    }
+    assert _authorization_denial_metadata(None) == {_RESPONSE_REASON_KEY: None}
 
 
 def test_emit_allowed_audit_event_uses_method_path_action_and_identity(mocker):
