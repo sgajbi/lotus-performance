@@ -8,7 +8,6 @@ from fastapi import HTTPException
 from app.models.benchmark_analytics_requests import BenchmarkReturnSource
 from app.services.stateful_benchmark_input_service import (
     BenchmarkCompositionSegment,
-    _add_retrieval_metadata,
     _build_component_observations,
     _build_normalized_component_series,
     _load_component_price_series,
@@ -820,7 +819,3 @@ def test_normalization_and_metadata_helpers_cover_direct_contracts():
     assert _parse_retrieval_metadata(
         {"retrieval_metadata": {"chunk_count": "2", "page_count": 3.0}}
     ) == RetrievalMetadata(chunk_count=2, page_count=3)
-    assert _add_retrieval_metadata(
-        RetrievalMetadata(chunk_count=1, page_count=2),
-        {"retrieval_metadata": {"chunk_count": "3", "page_count": 4.0}},
-    ) == RetrievalMetadata(chunk_count=4, page_count=6)
