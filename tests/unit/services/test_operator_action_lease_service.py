@@ -350,6 +350,14 @@ def test_operator_action_lease_snapshot_reports_invalid_reclaim_history_payload(
         (
             {
                 "action_name": "recovery_drill",
+                "operator_id": "   ",
+                "governed_target": "x",
+                "acquired_at_utc": "2026-03-15T00:00:00Z",
+            },
+        ),
+        (
+            {
+                "action_name": "recovery_drill",
                 "operator_id": "ops-user",
                 "governed_target": 1,
                 "acquired_at_utc": "2026-03-15T00:00:00Z",
@@ -434,6 +442,21 @@ def test_parse_reclaimed_event_payload_rejects_invalid_fields_and_filters_other_
     }
     assert (
         _parse_reclaimed_event_payload(payload=invalid, action_name="recovery_drill").__class__.__name__
+        == "_InvalidLease"
+    )
+    blank_operator = {
+        "action_key": "key",
+        "action_name": "recovery_drill",
+        "operator_id": " ",
+        "tenant_id": None,
+        "governed_target": "backup-1",
+        "acquired_at_utc": "2026-03-15T00:00:00Z",
+        "reclaimed_at_utc": "2026-03-15T01:00:00Z",
+        "stale_after_seconds": 30.0,
+        "reclaim_count": 1,
+    }
+    assert (
+        _parse_reclaimed_event_payload(payload=blank_operator, action_name="recovery_drill").__class__.__name__
         == "_InvalidLease"
     )
 

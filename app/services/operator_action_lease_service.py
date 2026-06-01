@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterator
+from typing import Iterator, cast
 
 from fastapi import HTTPException, status
 
@@ -253,27 +253,32 @@ def _read_active_operator_action_lease(*, lock_path: Path) -> ActiveOperatorActi
     tenant_id = payload.get("tenant_id")
     governed_target = payload.get("governed_target")
     acquired_at_utc = payload.get("acquired_at_utc")
-    if not isinstance(action_name, str):
+    if not _is_required_lease_string(action_name):
         return _INVALID_LEASE
-    if not isinstance(operator_id, str):
+    if not _is_required_lease_string(operator_id):
         return _INVALID_LEASE
-    if tenant_id is not None and not isinstance(tenant_id, str):
+    if not _is_optional_lease_string(tenant_id):
         return _INVALID_LEASE
-    if not isinstance(governed_target, str):
+    if not _is_required_lease_string(governed_target):
         return _INVALID_LEASE
-    if not isinstance(acquired_at_utc, str):
+    if not _is_required_lease_string(acquired_at_utc):
         return _INVALID_LEASE
+    action_name_value = cast(str, action_name)
+    operator_id_value = cast(str, operator_id)
+    tenant_id_value = cast(str | None, tenant_id)
+    governed_target_value = cast(str, governed_target)
+    acquired_at_utc_value = cast(str, acquired_at_utc)
     try:
-        _parse_utc(acquired_at_utc)
+        _parse_utc(acquired_at_utc_value)
     except ValueError:
         return _INVALID_LEASE
     return ActiveOperatorActionLease(
         action_key=lock_path.stem,
-        action_name=action_name,
-        operator_id=operator_id,
-        tenant_id=tenant_id,
-        governed_target=governed_target,
-        acquired_at_utc=acquired_at_utc,
+        action_name=action_name_value,
+        operator_id=operator_id_value,
+        tenant_id=tenant_id_value,
+        governed_target=governed_target_value,
+        acquired_at_utc=acquired_at_utc_value,
     )
 
 
@@ -375,7 +380,7 @@ def _parse_reclaimed_event_payload(
     if not isinstance(payload, dict):
         return _INVALID_LEASE
     candidate_action_name = payload.get("action_name")
-    if not isinstance(candidate_action_name, str):
+    if not _is_required_lease_string(candidate_action_name):
         return _INVALID_LEASE
     if action_name is not None and candidate_action_name != action_name:
         return None
@@ -387,38 +392,53 @@ def _parse_reclaimed_event_payload(
     stale_after_seconds = payload.get("stale_after_seconds")
     reclaim_count = payload.get("reclaim_count", 1)
     action_key = payload.get("action_key")
-    if not isinstance(operator_id, str):
+    if not _is_required_lease_string(operator_id):
         return _INVALID_LEASE
-    if tenant_id is not None and not isinstance(tenant_id, str):
+    if not _is_optional_lease_string(tenant_id):
         return _INVALID_LEASE
-    if not isinstance(governed_target, str):
+    if not _is_required_lease_string(governed_target):
         return _INVALID_LEASE
-    if not isinstance(acquired_at_utc, str):
+    if not _is_required_lease_string(acquired_at_utc):
         return _INVALID_LEASE
-    if not isinstance(reclaimed_at_utc, str):
+    if not _is_required_lease_string(reclaimed_at_utc):
         return _INVALID_LEASE
     if not isinstance(stale_after_seconds, (int, float)):
         return _INVALID_LEASE
     if not isinstance(reclaim_count, int):
         return _INVALID_LEASE
-    if not isinstance(action_key, str):
+    if not _is_required_lease_string(action_key):
         return _INVALID_LEASE
+    candidate_action_name_value = cast(str, candidate_action_name)
+    operator_id_value = cast(str, operator_id)
+    tenant_id_value = cast(str | None, tenant_id)
+    governed_target_value = cast(str, governed_target)
+    acquired_at_utc_value = cast(str, acquired_at_utc)
+    reclaimed_at_utc_value = cast(str, reclaimed_at_utc)
+    action_key_value = cast(str, action_key)
     try:
-        _parse_utc(acquired_at_utc)
-        _parse_utc(reclaimed_at_utc)
+        _parse_utc(acquired_at_utc_value)
+        _parse_utc(reclaimed_at_utc_value)
     except ValueError:
         return _INVALID_LEASE
     return ReclaimedOperatorActionLeaseEvent(
-        action_key=action_key,
-        action_name=candidate_action_name,
-        operator_id=operator_id,
-        tenant_id=tenant_id,
-        governed_target=governed_target,
-        acquired_at_utc=acquired_at_utc,
-        reclaimed_at_utc=reclaimed_at_utc,
+        action_key=action_key_value,
+        action_name=candidate_action_name_value,
+        operator_id=operator_id_value,
+        tenant_id=tenant_id_value,
+        governed_target=governed_target_value,
+        acquired_at_utc=acquired_at_utc_value,
+        reclaimed_at_utc=reclaimed_at_utc_value,
         stale_after_seconds=float(stale_after_seconds),
         reclaim_count=reclaim_count,
     )
+
+
+def _is_required_lease_string(value: object) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _is_optional_lease_string(value: object) -> bool:
+    return value is None or _is_required_lease_string(value)
 
 
 def _parse_utc(timestamp_utc: str) -> datetime:
