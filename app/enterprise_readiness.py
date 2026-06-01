@@ -412,8 +412,12 @@ def _audit_event_payload(
         "correlation_id": _audit_correlation_id(correlation_id),
         "timestamp_utc": _audit_timestamp_utc(),
         "policy_version": enterprise_policy_version(),
-        "metadata": redact_sensitive(metadata),
+        "metadata": _audit_metadata(metadata),
     }
+
+
+def _audit_metadata(metadata: dict[str, Any]) -> Any:
+    return redact_sensitive(metadata)
 
 
 def _audit_correlation_id(correlation_id: str | None) -> str:

@@ -17,6 +17,7 @@ from app.enterprise_readiness import (
     _audit_correlation_id,
     _audit_event_payload,
     _audit_identity_from_headers,
+    _audit_metadata,
     _audit_timestamp_utc,
     _authorization_denial_metadata,
     _authorization_denied_response,
@@ -263,6 +264,20 @@ def test_audit_event_payload_redacts_metadata_and_includes_policy_version(monkey
 )
 def test_audit_correlation_id_normalizes_missing_value(correlation_id, expected):
     assert _audit_correlation_id(correlation_id) == expected
+
+
+def test_audit_metadata_redacts_sensitive_nested_values():
+    assert _audit_metadata(
+        {
+            "safe": "ok",
+            "nested": {"authorization": "Bearer secret"},
+            "items": [{"token": "secret"}],
+        }
+    ) == {
+        "safe": "ok",
+        "nested": {"authorization": "***REDACTED***"},
+        "items": [{"token": "***REDACTED***"}],
+    }
 
 
 def test_audit_timestamp_utc_uses_timezone_aware_iso_timestamp():
