@@ -21,6 +21,7 @@ from app.enterprise_readiness import (
     _is_privileged_read_method,
     _is_write_method,
     _load_capability_rule_family,
+    _max_write_payload_bytes,
     _missing_required_headers,
     _normalized_headers,
     _primary_key_configured,
@@ -131,6 +132,20 @@ def test_primary_key_configured_requires_non_blank_value(monkeypatch, configured
     monkeypatch.setenv("ENTERPRISE_PRIMARY_KEY_ID", configured)
 
     assert _primary_key_configured() is expected
+
+
+@pytest.mark.parametrize(
+    ("configured", "expected"),
+    [
+        ("512", 512),
+        ("invalid", 1_048_576),
+        ("", 1_048_576),
+    ],
+)
+def test_max_write_payload_bytes_uses_configured_int_or_default(monkeypatch, configured, expected):
+    monkeypatch.setenv("ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES", configured)
+
+    assert _max_write_payload_bytes() == expected
 
 
 def test_required_capability_returns_none_when_no_matching_rule(monkeypatch):

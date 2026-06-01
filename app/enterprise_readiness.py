@@ -62,6 +62,10 @@ def _primary_key_configured() -> bool:
     return bool(os.getenv("ENTERPRISE_PRIMARY_KEY_ID", "").strip())
 
 
+def _max_write_payload_bytes() -> int:
+    return _env_int("ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES", 1_048_576)
+
+
 def _load_json_map(name: str) -> dict[str, Any]:
     raw = os.getenv(name, "{}")
     try:
@@ -417,11 +421,10 @@ def build_enterprise_audit_middleware() -> Callable[
 ]:
     # Enforce enterprise audit and authorization policy on governed surfaces.
     async def middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
-        max_write_payload_bytes = _env_int("ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES", 1_048_576)
         if _write_payload_too_large(
             method=request.method,
             headers=request.headers,
-            max_write_payload_bytes=max_write_payload_bytes,
+            max_write_payload_bytes=_max_write_payload_bytes(),
         ):
             return JSONResponse(status_code=413, content={"detail": "payload_too_large"})
 
