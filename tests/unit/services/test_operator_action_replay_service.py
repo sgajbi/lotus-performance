@@ -304,7 +304,7 @@ def test_recovery_drill_manual_replay_returns_matching_evidence(tmp_path):
         operator_id="ops-user",
         tenant_id="tenant-a",
         correlation_id="corr-1",
-        backup_identifier="backup-123",
+        backup_identifier=" backup-123 ",
     )
 
     assert replay is not None

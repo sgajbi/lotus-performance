@@ -39,6 +39,10 @@ def operator_action_correlation_matches(
     ) and _normalize_optional_identity(entry.correlation_id) == _normalize_required_identity(correlation_id)
 
 
+def operator_action_required_identity_matches(entry_value: str, candidate_value: str) -> bool:
+    return _normalize_required_identity(entry_value) == _normalize_required_identity(candidate_value)
+
+
 def _normalize_required_identity(value: str) -> str:
     return value.strip()
 

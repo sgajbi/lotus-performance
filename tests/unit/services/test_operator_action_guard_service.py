@@ -104,6 +104,44 @@ def test_recovery_drill_manual_run_cooldown_allows_when_prior_run_is_outside_win
     )
 
 
+def test_recovery_drill_manual_run_cooldown_matches_canonicalized_backup_identifier():
+    snapshot = RecoveryDrillHistorySnapshot(
+        status="available",
+        artifact_directory="artifacts/durable-recovery-drill",
+        latest_file_name="2026-03-15t00-00-00z.json",
+        retained_file_names=["2026-03-15t00-00-00z.json"],
+        retention_limit=30,
+        retention_max_age_days=90,
+        entries=[
+            RecoveryDrillHistoryEntry(
+                evidence_file_name="2026-03-15t00-00-00z.json",
+                generated_at_utc="2026-03-15T00:00:00Z",
+                operator_id="ops-user",
+                backup_identifier="backup-123",
+                status="passed",
+            )
+        ],
+        total_entries=1,
+        matched_entries=1,
+        returned_entries=1,
+        next_offset=None,
+        applied_filters={"limit": 1},
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        enforce_recovery_drill_manual_run_cooldown(
+            snapshot,
+            operator_id="ops-user",
+            tenant_id=None,
+            backup_identifier=" backup-123 ",
+            cooldown_seconds=300.0,
+            now_utc=datetime(2026, 3, 15, 0, 2, 0, tzinfo=UTC),
+        )
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail["code"] == "recovery_drill_manual_run_cooldown_active"
+
+
 def test_runtime_retention_apply_preview_requires_recent_matching_dry_run():
     snapshot = RuntimeRetentionHistorySnapshot(
         status="available",

@@ -7,7 +7,10 @@ from pathlib import Path
 from typing import Any
 
 from app.services.operator_action_evidence_paths import resolve_evidence_file_path
-from app.services.operator_action_identity import operator_action_correlation_matches
+from app.services.operator_action_identity import (
+    operator_action_correlation_matches,
+    operator_action_required_identity_matches,
+)
 from app.services.recovery_drill_history_service import RecoveryDrillHistoryEntry, RecoveryDrillHistorySnapshot
 from app.services.runtime_retention_history_service import (
     RuntimeRetentionHistoryEntry,
@@ -79,7 +82,7 @@ def resolve_recovery_drill_manual_replay(
             correlation_id=correlation_id,
         ):
             continue
-        if entry.backup_identifier != backup_identifier:
+        if not operator_action_required_identity_matches(entry.backup_identifier, backup_identifier):
             continue
         payload = _load_payload(artifact_directory=artifact_directory, evidence_file_name=entry.evidence_file_name)
         if payload is None:
