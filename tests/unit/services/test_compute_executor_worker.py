@@ -20,7 +20,11 @@ from app.services import (
     returns_series_service,
     twr_service,
 )
-from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
+from app.services.analytics_workflow_types import (
+    ANALYTICS_WORKFLOW_BENCHMARK,
+    ANALYTICS_WORKFLOW_TWR,
+    ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
+)
 from app.services.async_result_store import AsyncResultStatus, AsyncResultStore
 from app.services.compute_job_store import ComputeJobStatus, ComputeJobStore
 from app.services.execution_registry import ExecutionRegistry
@@ -205,14 +209,14 @@ def test_compute_executor_worker_processes_resolved_benchmark_job(tmp_path, monk
 
     execution_store.create_execution(
         calculation_id=calculation_id,
-        analytics_type="BENCHMARK",
+        analytics_type=ANALYTICS_WORKFLOW_BENCHMARK,
         portfolio_id="BMK_1",
         execution_mode="async",
         requested_window={},
     )
     job_store.enqueue_job(
         calculation_id=calculation_id,
-        analytics_type="BENCHMARK",
+        analytics_type=ANALYTICS_WORKFLOW_BENCHMARK,
         request_payload={
             "resolved_request": resolved_request.model_dump(mode="json"),
             "source_input_mode": "stateful",
@@ -284,14 +288,14 @@ def test_compute_executor_worker_processes_resolved_twr_job(tmp_path, monkeypatc
 
     execution_store.create_execution(
         calculation_id=calculation_id,
-        analytics_type="TWR",
+        analytics_type=ANALYTICS_WORKFLOW_TWR,
         portfolio_id="P1",
         execution_mode="async",
         requested_window={},
     )
     job_store.enqueue_job(
         calculation_id=calculation_id,
-        analytics_type="TWR",
+        analytics_type=ANALYTICS_WORKFLOW_TWR,
         request_payload={
             "resolved_request": resolved_request.model_dump(mode="json"),
             "source_input_mode": "stateful",
