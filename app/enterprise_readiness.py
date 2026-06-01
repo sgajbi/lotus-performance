@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable, Callable, Mapping
 
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
@@ -52,6 +52,13 @@ def _env_int(name: str, default: int) -> int:
         return int(os.getenv(name, str(default)))
     except ValueError:
         return default
+
+
+def _normalized_header(headers: Mapping[str, str], name: str, default: str = "") -> str:
+    value = headers.get(name)
+    if value is None:
+        return default
+    return str(value).strip() or default
 
 
 def enterprise_policy_version() -> str:
@@ -132,7 +139,7 @@ def _authorize_with_required_capability(
     headers: dict[str, str],
     required_capability: str | None,
 ) -> tuple[bool, str | None]:
-    normalized = {str(k).lower(): str(v) for k, v in headers.items()}
+    normalized = {str(k).lower(): str(v).strip() for k, v in headers.items()}
     missing = sorted(header for header in _REQUIRED_HEADERS if not normalized.get(header))
     if missing:
         return False, f"missing_headers:{','.join(missing)}"
@@ -234,10 +241,10 @@ def build_enterprise_audit_middleware() -> Callable[
         if not authorized:
             emit_audit_event(
                 action=f"DENY {request.method} {request.url.path}",
-                actor_id=request.headers.get("X-Actor-Id", "unknown"),
-                tenant_id=request.headers.get("X-Tenant-Id", "default"),
-                role=request.headers.get("X-Role", "unknown"),
-                correlation_id=request.headers.get("X-Correlation-Id"),
+                actor_id=_normalized_header(request.headers, "X-Actor-Id", "unknown"),
+                tenant_id=_normalized_header(request.headers, "X-Tenant-Id", "default"),
+                role=_normalized_header(request.headers, "X-Role", "unknown"),
+                correlation_id=_normalized_header(request.headers, "X-Correlation-Id"),
                 metadata={"reason": reason},
             )
             return JSONResponse(status_code=403, content={"detail": "authorization_policy_denied", "reason": reason})
@@ -246,10 +253,10 @@ def build_enterprise_audit_middleware() -> Callable[
         if not authorized:
             emit_audit_event(
                 action=f"DENY {request.method} {request.url.path}",
-                actor_id=request.headers.get("X-Actor-Id", "unknown"),
-                tenant_id=request.headers.get("X-Tenant-Id", "default"),
-                role=request.headers.get("X-Role", "unknown"),
-                correlation_id=request.headers.get("X-Correlation-Id"),
+                actor_id=_normalized_header(request.headers, "X-Actor-Id", "unknown"),
+                tenant_id=_normalized_header(request.headers, "X-Tenant-Id", "default"),
+                role=_normalized_header(request.headers, "X-Role", "unknown"),
+                correlation_id=_normalized_header(request.headers, "X-Correlation-Id"),
                 metadata={"reason": reason},
             )
             return JSONResponse(status_code=403, content={"detail": "authorization_policy_denied", "reason": reason})
@@ -266,10 +273,10 @@ def build_enterprise_audit_middleware() -> Callable[
         ):
             emit_audit_event(
                 action=f"{request.method} {request.url.path}",
-                actor_id=request.headers.get("X-Actor-Id", "unknown"),
-                tenant_id=request.headers.get("X-Tenant-Id", "default"),
-                role=request.headers.get("X-Role", "unknown"),
-                correlation_id=request.headers.get("X-Correlation-Id"),
+                actor_id=_normalized_header(request.headers, "X-Actor-Id", "unknown"),
+                tenant_id=_normalized_header(request.headers, "X-Tenant-Id", "default"),
+                role=_normalized_header(request.headers, "X-Role", "unknown"),
+                correlation_id=_normalized_header(request.headers, "X-Correlation-Id"),
                 metadata={
                     "status_code": response.status_code,
                     "access_mode": "privileged_read" if request.method.upper() == "GET" else "write",

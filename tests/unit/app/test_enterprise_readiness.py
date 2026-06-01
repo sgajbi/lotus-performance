@@ -37,6 +37,22 @@ def test_authorize_write_request_enforces_required_headers_when_enabled(monkeypa
     assert reason.startswith("missing_headers:")
 
 
+def test_authorize_write_request_rejects_blank_required_headers(monkeypatch):
+    monkeypatch.setenv("ENTERPRISE_ENFORCE_AUTHZ", "true")
+    headers = {
+        "X-Actor-Id": " ",
+        "X-Tenant-Id": "t1",
+        "X-Role": "\t",
+        "X-Correlation-Id": "c1",
+        "X-Service-Identity": "lotus-performance",
+    }
+
+    allowed, reason = authorize_write_request("POST", "/analytics", headers)
+
+    assert allowed is False
+    assert reason == "missing_headers:x-actor-id,x-role"
+
+
 def test_authorize_write_request_enforces_capability_rules(monkeypatch):
     monkeypatch.setenv("ENTERPRISE_ENFORCE_AUTHZ", "true")
     monkeypatch.setenv(
@@ -186,10 +202,40 @@ async def test_middleware_denies_missing_service_identity(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_middleware_accepts_invalid_content_length_and_sets_policy_header(monkeypatch):
+async def test_middleware_normalizes_blank_denied_audit_identity(monkeypatch, mocker):
+    monkeypatch.setenv("ENTERPRISE_ENFORCE_AUTHZ", "true")
+    middleware = build_enterprise_audit_middleware()
+    emit = mocker.patch("app.enterprise_readiness.emit_audit_event")
+    scope = {
+        "type": "http",
+        "method": "POST",
+        "path": "/analytics",
+        "headers": [
+            (b"x-actor-id", b"   "),
+            (b"x-tenant-id", b"tenant-a"),
+            (b"x-role", b"\t"),
+            (b"x-correlation-id", b" c1 "),
+            (b"x-service-identity", b"lotus-performance"),
+        ],
+    }
+    request = Request(scope)
+
+    response = await middleware(request, lambda req: None)  # pragma: no cover
+
+    assert response.status_code == 403
+    assert emit.call_args.kwargs["actor_id"] == "unknown"
+    assert emit.call_args.kwargs["tenant_id"] == "tenant-a"
+    assert emit.call_args.kwargs["role"] == "unknown"
+    assert emit.call_args.kwargs["correlation_id"] == "c1"
+    assert emit.call_args.kwargs["metadata"]["reason"] == "missing_headers:x-actor-id,x-role"
+
+
+@pytest.mark.asyncio
+async def test_middleware_accepts_invalid_content_length_and_sets_policy_header(monkeypatch, mocker):
     monkeypatch.setenv("ENTERPRISE_ENFORCE_AUTHZ", "false")
     monkeypatch.setenv("ENTERPRISE_POLICY_VERSION", "2.0.0")
     middleware = build_enterprise_audit_middleware()
+    emit = mocker.patch("app.enterprise_readiness.emit_audit_event")
 
     async def _call_next(_request):
         from fastapi.responses import JSONResponse
@@ -200,12 +246,22 @@ async def test_middleware_accepts_invalid_content_length_and_sets_policy_header(
         "type": "http",
         "method": "POST",
         "path": "/analytics",
-        "headers": [(b"content-length", b"abc")],
+        "headers": [
+            (b"content-length", b"abc"),
+            (b"x-actor-id", b" a1 "),
+            (b"x-tenant-id", b" t1 "),
+            (b"x-role", b" operator "),
+            (b"x-correlation-id", b"  "),
+        ],
     }
     request = Request(scope)
     response = await middleware(request, _call_next)
     assert response.status_code == 200
     assert response.headers["X-Enterprise-Policy-Version"] == "2.0.0"
+    assert emit.call_args.kwargs["actor_id"] == "a1"
+    assert emit.call_args.kwargs["tenant_id"] == "t1"
+    assert emit.call_args.kwargs["role"] == "operator"
+    assert emit.call_args.kwargs["correlation_id"] == ""
 
 
 @pytest.mark.asyncio
@@ -255,6 +311,10 @@ async def test_middleware_audits_allowed_privileged_read_with_governed_surface_m
 
     assert response.status_code == 200
     emit.assert_called_once()
+    assert emit.call_args.kwargs["actor_id"] == "a1"
+    assert emit.call_args.kwargs["tenant_id"] == "t1"
+    assert emit.call_args.kwargs["role"] == "operator"
+    assert emit.call_args.kwargs["correlation_id"] == "c1"
     assert emit.call_args.kwargs["metadata"]["access_mode"] == "privileged_read"
     assert emit.call_args.kwargs["metadata"]["required_capability"] == "operations.runtime.read"
     assert emit.call_args.kwargs["metadata"]["governed_surface"] == "/integration/runtime-status"
@@ -277,10 +337,10 @@ async def test_middleware_audits_allowed_governed_write_with_capability_metadata
         "method": "POST",
         "path": "/integration/runtime-retention-cleanups/run",
         "headers": [
-            (b"x-actor-id", b"a1"),
-            (b"x-tenant-id", b"t1"),
-            (b"x-role", b"operator"),
-            (b"x-correlation-id", b"c1"),
+            (b"x-actor-id", b" a1 "),
+            (b"x-tenant-id", b" t1 "),
+            (b"x-role", b" operator "),
+            (b"x-correlation-id", b" c1 "),
             (b"x-service-identity", b"lotus-performance"),
             (b"x-capabilities", b"operations.runtime.manage"),
         ],
@@ -291,6 +351,10 @@ async def test_middleware_audits_allowed_governed_write_with_capability_metadata
 
     assert response.status_code == 200
     emit.assert_called_once()
+    assert emit.call_args.kwargs["actor_id"] == "a1"
+    assert emit.call_args.kwargs["tenant_id"] == "t1"
+    assert emit.call_args.kwargs["role"] == "operator"
+    assert emit.call_args.kwargs["correlation_id"] == "c1"
     assert emit.call_args.kwargs["metadata"]["access_mode"] == "write"
     assert emit.call_args.kwargs["metadata"]["required_capability"] == "operations.runtime.manage"
     assert emit.call_args.kwargs["metadata"]["governed_surface"] == "/integration/runtime-retention-cleanups/run"
