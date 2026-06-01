@@ -32,6 +32,7 @@ from app.models.returns_series import (
     SeriesGap,
 )
 from app.observability import correlation_id_var, request_id_var, trace_id_var
+from app.services.analytics_observation_dates import observation_timestamp_series
 from app.services.error_details import (
     insufficient_data_detail,
     invalid_request_detail,
@@ -129,8 +130,7 @@ def to_dataframe(points: Iterable[ReturnPoint], *, series_type: str) -> pd.DataF
 
 
 def _return_timestamp_series(values: Iterable[object]) -> pd.Series:
-    index = values.index if isinstance(values, pd.Series) else None
-    return pd.to_datetime(pd.Series(values, index=index), utc=True).dt.tz_localize(None)
+    return observation_timestamp_series(values)
 
 
 def filter_window(df: pd.DataFrame, *, resolved_window: ResolvedWindow) -> pd.DataFrame:
