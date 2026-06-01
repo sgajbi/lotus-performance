@@ -107,12 +107,16 @@ _REDACT_FIELDS = {
 }
 
 
+def _normalized_http_method(method: str) -> str:
+    return method.upper()
+
+
 def _is_write_method(method: str) -> bool:
-    return method.upper() in _WRITE_METHODS
+    return _normalized_http_method(method) in _WRITE_METHODS
 
 
 def _is_privileged_read_method(method: str) -> bool:
-    return method.upper() == _HTTP_METHOD_GET
+    return _normalized_http_method(method) == _HTTP_METHOD_GET
 
 
 def _env_enabled(name: str, default: str = "true") -> bool:
@@ -234,7 +238,7 @@ def _path_matches_rule(path: str, rule_path: str) -> bool:
 
 
 def _capability_rule_path_for_method(*, rule_key: str, method: str) -> str | None:
-    prefix = f"{method.upper()} "
+    prefix = f"{_normalized_http_method(method)} "
     if not rule_key.upper().startswith(prefix):
         return None
     return rule_key[len(prefix) :]

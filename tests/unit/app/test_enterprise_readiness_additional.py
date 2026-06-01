@@ -100,6 +100,7 @@ from app.enterprise_readiness import (
     _missing_headers_reason,
     _missing_required_headers,
     _normalized_headers,
+    _normalized_http_method,
     _parse_int_or_default,
     _payload_too_large_response,
     _primary_key_configured,
@@ -158,6 +159,10 @@ def test_governed_http_method_tokens_drive_enterprise_method_predicates():
     assert _is_privileged_read_method(_HTTP_METHOD_GET)
     for method in {_HTTP_METHOD_POST, _HTTP_METHOD_PUT, _HTTP_METHOD_PATCH, _HTTP_METHOD_DELETE}:
         assert _is_write_method(method)
+
+
+def test_normalized_http_method_canonicalizes_case():
+    assert _normalized_http_method("patch") == _HTTP_METHOD_PATCH
 
 
 def test_env_enabled_uses_governed_enabled_tokens_and_disabled_default(monkeypatch):
