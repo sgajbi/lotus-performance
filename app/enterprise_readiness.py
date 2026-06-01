@@ -163,6 +163,14 @@ def _required_privileged_read_capability(method: str, path: str) -> str | None:
     return _required_capability_from_rules(method=method, path=path, rules=load_privileged_read_rules())
 
 
+def _normalized_headers(headers: Mapping[str, Any]) -> dict[str, str]:
+    return {str(key).lower(): str(value).strip() for key, value in headers.items()}
+
+
+def _header_capabilities(normalized_headers: Mapping[str, str]) -> set[str]:
+    return {part.strip() for part in normalized_headers.get("x-capabilities", "").split(",") if part.strip()}
+
+
 def _authorize_with_required_capability(
     *,
     method: str,
@@ -170,7 +178,7 @@ def _authorize_with_required_capability(
     headers: dict[str, str],
     required_capability: str | None,
 ) -> tuple[bool, str | None]:
-    normalized = {str(k).lower(): str(v).strip() for k, v in headers.items()}
+    normalized = _normalized_headers(headers)
     missing = sorted(header for header in _REQUIRED_HEADERS if not normalized.get(header))
     if missing:
         return False, f"missing_headers:{','.join(missing)}"
@@ -179,8 +187,7 @@ def _authorize_with_required_capability(
         return False, "missing_service_identity"
 
     if required_capability:
-        capabilities = {part.strip() for part in normalized.get("x-capabilities", "").split(",") if part.strip()}
-        if required_capability not in capabilities:
+        if required_capability not in _header_capabilities(normalized):
             return False, f"missing_capability:{required_capability}"
 
     return True, None

@@ -3,7 +3,9 @@ import json
 import pytest
 
 from app.enterprise_readiness import (
+    _header_capabilities,
     _load_capability_rule_family,
+    _normalized_headers,
     _required_capability,
     _required_capability_from_rules,
     authorize_privileged_read_request,
@@ -47,6 +49,15 @@ def test_required_capability_from_rules_is_shared_for_authz_rule_families():
         == "operations.runtime.read"
     )
     assert _required_capability_from_rules(method="POST", path="/integration/runtime-status", rules=rules) is None
+
+
+def test_normalized_headers_and_capabilities_trim_values():
+    normalized = _normalized_headers({"X-Capabilities": " analytics.read, operations.runtime.read ", 1: " value "})
+    assert normalized == {
+        "1": "value",
+        "x-capabilities": "analytics.read, operations.runtime.read",
+    }
+    assert _header_capabilities(normalized) == {"analytics.read", "operations.runtime.read"}
 
 
 def test_authorize_write_request_allows_when_no_capability_rule_matches(monkeypatch):
