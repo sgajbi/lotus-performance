@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException
 
 from app.core.config import Settings
 from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest, MWRInputMode
 from app.models.mwr_requests import MoneyWeightedReturnRequest
 from app.services.execution_registry import execution_registry
+from app.services.input_mode_validation import require_stateful_input
 from app.services.mwr_fx_evidence_service import build_source_preconverted_mwr_currency_evidence
 from app.services.stateful_mwr_input_service import MWRCurrencyEvidence, build_stateful_mwr_input_for_window
 from app.services.stateful_performance_input_service import retrieve_stateful_portfolio_input
@@ -35,12 +36,7 @@ async def resolve_mwr_request(
             currency_evidence=build_source_preconverted_mwr_currency_evidence(mwr_request),
         )
 
-    stateful_input = request.stateful_input
-    if stateful_input is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="stateful_input is required when input_mode=stateful",
-        )
+    stateful_input = require_stateful_input(request.stateful_input)
 
     execution_registry.start_stage(request.calculation_id, "retrieval")
     try:

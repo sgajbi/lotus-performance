@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException
 
 from app.core.config import Settings
 from app.models.contribution_analytics_requests import (
@@ -11,6 +11,7 @@ from app.models.contribution_analytics_requests import (
 )
 from app.models.contribution_requests import ContributionRequest
 from app.services.execution_registry import execution_registry
+from app.services.input_mode_validation import require_stateful_input
 from app.services.portfolio_source_service import build_stateful_input_service
 from app.services.stateful_contribution_input_service import (
     build_stateful_contribution_input,
@@ -41,12 +42,7 @@ async def resolve_contribution_request(
             position_count=len(contribution_request.positions_data),
         )
 
-    stateful_input = request.stateful_input
-    if stateful_input is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="stateful_input is required when input_mode=stateful",
-        )
+    stateful_input = require_stateful_input(request.stateful_input)
 
     stateful_input_service = build_stateful_input_service(settings=settings)
     execution_registry.start_stage(request.calculation_id, "retrieval")
