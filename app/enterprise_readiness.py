@@ -87,6 +87,25 @@ def _dict_value(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
+def _feature_flag_enabled(
+    *,
+    flags: dict[str, Any],
+    feature_key: str,
+    tenant_id: str,
+    role: str,
+) -> bool:
+    feature = _dict_value(flags.get(feature_key))
+    tenant = _dict_value(feature.get(tenant_id))
+    value = tenant.get(role)
+    if isinstance(value, bool):
+        return value
+    fallback = tenant.get("*")
+    if isinstance(fallback, bool):
+        return fallback
+    global_default = _dict_value(feature.get("*")).get("*")
+    return bool(global_default) if isinstance(global_default, bool) else False
+
+
 def _normalized_capability_rule_overrides(configured: dict[str, Any]) -> dict[str, str]:
     rules: dict[str, str] = {}
     for key, value in configured.items():
@@ -126,17 +145,12 @@ def load_privileged_read_rules() -> dict[str, str]:
 
 
 def is_feature_enabled(feature_key: str, tenant_id: str, role: str) -> bool:
-    flags = load_feature_flags()
-    feature = _dict_value(flags.get(feature_key))
-    tenant = _dict_value(feature.get(tenant_id))
-    value = tenant.get(role)
-    if isinstance(value, bool):
-        return value
-    fallback = tenant.get("*")
-    if isinstance(fallback, bool):
-        return fallback
-    global_default = _dict_value(feature.get("*")).get("*")
-    return bool(global_default) if isinstance(global_default, bool) else False
+    return _feature_flag_enabled(
+        flags=load_feature_flags(),
+        feature_key=feature_key,
+        tenant_id=tenant_id,
+        role=role,
+    )
 
 
 def _required_capability_from_rules(*, method: str, path: str, rules: dict[str, str]) -> str | None:

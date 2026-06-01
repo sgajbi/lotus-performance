@@ -7,6 +7,7 @@ from app.enterprise_readiness import (
     _audit_identity_from_headers,
     _authorization_denied_response,
     _content_length,
+    _feature_flag_enabled,
     _header_capabilities,
     _load_capability_rule_family,
     _normalized_headers,
@@ -155,6 +156,43 @@ def test_authorization_denied_response_emits_audit_and_structured_reason(mocker)
 )
 def test_content_length_parses_invalid_values_as_zero(headers, expected):
     assert _content_length(headers) == expected
+
+
+def test_feature_flag_enabled_applies_role_tenant_and_global_fallbacks():
+    flags = {
+        "analytics.risk": {
+            "tenant-a": {"advisor": True, "*": False},
+            "tenant-b": {"*": True},
+            "*": {"*": False},
+        }
+    }
+
+    assert _feature_flag_enabled(flags=flags, feature_key="analytics.risk", tenant_id="tenant-a", role="advisor")
+    assert not _feature_flag_enabled(flags=flags, feature_key="analytics.risk", tenant_id="tenant-a", role="viewer")
+    assert _feature_flag_enabled(flags=flags, feature_key="analytics.risk", tenant_id="tenant-b", role="viewer")
+    assert not _feature_flag_enabled(flags=flags, feature_key="analytics.risk", tenant_id="tenant-c", role="viewer")
+
+
+def test_feature_flag_enabled_fails_closed_for_malformed_blocks():
+    flags = {
+        "analytics.risk": True,
+        "analytics.performance": {"tenant-a": "enabled"},
+        "analytics.reporting": {"tenant-a": {"advisor": "yes"}, "*": "enabled"},
+    }
+
+    assert not _feature_flag_enabled(flags=flags, feature_key="analytics.risk", tenant_id="tenant-a", role="advisor")
+    assert not _feature_flag_enabled(
+        flags=flags,
+        feature_key="analytics.performance",
+        tenant_id="tenant-a",
+        role="advisor",
+    )
+    assert not _feature_flag_enabled(
+        flags=flags,
+        feature_key="analytics.reporting",
+        tenant_id="tenant-a",
+        role="advisor",
+    )
 
 
 def test_authorize_write_request_allows_when_no_capability_rule_matches(monkeypatch):
