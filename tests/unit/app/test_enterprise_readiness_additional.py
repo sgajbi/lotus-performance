@@ -12,6 +12,7 @@ from app.enterprise_readiness import (
     _feature_flag_enabled,
     _header_capabilities,
     _load_capability_rule_family,
+    _missing_required_headers,
     _normalized_headers,
     _required_capability,
     _required_capability_from_rules,
@@ -66,6 +67,18 @@ def test_normalized_headers_and_capabilities_trim_values():
         "x-capabilities": "analytics.read, operations.runtime.read",
     }
     assert _header_capabilities(normalized) == {"analytics.read", "operations.runtime.read"}
+
+
+def test_missing_required_headers_reports_sorted_blank_or_missing_fields():
+    normalized = _normalized_headers(
+        {
+            "X-Actor-Id": " ",
+            "X-Tenant-Id": "tenant-a",
+            "X-Correlation-Id": "corr-1",
+        }
+    )
+
+    assert _missing_required_headers(normalized) == ["x-actor-id", "x-role"]
 
 
 def test_audit_identity_from_headers_normalizes_case_and_defaults():

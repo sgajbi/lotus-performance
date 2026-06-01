@@ -183,6 +183,10 @@ def _header_capabilities(normalized_headers: Mapping[str, str]) -> set[str]:
     return {part.strip() for part in normalized_headers.get("x-capabilities", "").split(",") if part.strip()}
 
 
+def _missing_required_headers(normalized_headers: Mapping[str, str]) -> list[str]:
+    return sorted(header for header in _REQUIRED_HEADERS if not normalized_headers.get(header))
+
+
 def _audit_identity_from_headers(headers: Mapping[str, Any]) -> dict[str, str]:
     normalized = _normalized_headers(headers)
     return {
@@ -251,7 +255,7 @@ def _authorize_with_required_capability(
     required_capability: str | None,
 ) -> tuple[bool, str | None]:
     normalized = _normalized_headers(headers)
-    missing = sorted(header for header in _REQUIRED_HEADERS if not normalized.get(header))
+    missing = _missing_required_headers(normalized)
     if missing:
         return False, f"missing_headers:{','.join(missing)}"
 
