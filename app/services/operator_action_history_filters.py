@@ -104,5 +104,5 @@ def filter_history_entries(
 
 def _normalize_optional_history_filter(value: str | int | None) -> str | int | None:
     if isinstance(value, str):
-        return value.strip()
+        return value.strip() or None
     return value

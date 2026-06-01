@@ -83,7 +83,7 @@ def test_build_applied_history_filters_omits_empty_common_values():
         build_applied_history_filters(
             limit=None,
             offset=0,
-            optional_filters=(("operator_id", None),),
+            optional_filters=(("operator_id", None), ("status", " ")),
             generated_after=None,
             generated_before=None,
         )
@@ -127,3 +127,20 @@ def test_filter_history_entries_trims_expected_string_filters():
     )
 
     assert filtered == [entries[0]]
+
+
+def test_filter_history_entries_ignores_blank_expected_string_filters():
+    entries = [
+        _HistoryEntry(operator_id="ops-a", status="passed", generated_at_utc="2026-03-15T00:00:00Z"),
+        _HistoryEntry(operator_id="ops-b", status="failed", generated_at_utc="2026-03-15T12:00:00Z"),
+    ]
+
+    filtered = filter_history_entries(
+        entries,
+        exact_filters=((" ", lambda entry: entry.operator_id),),
+        generated_after=None,
+        generated_before=None,
+        get_generated_at_utc=lambda entry: entry.generated_at_utc,
+    )
+
+    assert filtered == entries
