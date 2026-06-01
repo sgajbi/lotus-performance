@@ -52,6 +52,18 @@ def _latest_attribution_observation_date(request: AttributionRequest):
     return latest_observation_date(dates)
 
 
+def _slice_attribution_effects_by_period(
+    effects_df: pd.DataFrame,
+    *,
+    start_date,
+    end_date,
+) -> pd.DataFrame:
+    effect_dates = effects_df.index.get_level_values("date")
+    start_timestamp = pd.Timestamp(start_date)
+    end_timestamp = pd.Timestamp(end_date)
+    return effects_df[(effect_dates >= start_timestamp) & (effect_dates <= end_timestamp)].copy()
+
+
 def calculate_attribution(
     request: AttributionRequest,
     *,
@@ -91,10 +103,11 @@ def calculate_attribution(
 
         results_by_period = {}
         for period in resolved_periods:
-            period_slice_df = effects_df[
-                (effects_df.index.get_level_values("date") >= pd.to_datetime(period.start_date))
-                & (effects_df.index.get_level_values("date") <= pd.to_datetime(period.end_date))
-            ].copy()
+            period_slice_df = _slice_attribution_effects_by_period(
+                effects_df,
+                start_date=period.start_date,
+                end_date=period.end_date,
+            )
 
             if period_slice_df.empty:
                 continue
