@@ -18,7 +18,15 @@ from app.models.responses import PerformanceResponse
 from app.models.twr_requests import TWRResolvedExecutionRequest
 from app.services.durable_store_time import format_timestamp
 from app.services.execution_registry import execution_registry
-from app.services.execution_stage_names import EXECUTION_STAGE_ARTIFACT_MATERIALIZATION
+from app.services.execution_stage_names import (
+    EXECUTION_STAGE_ARTIFACT_MATERIALIZATION,
+    EXECUTION_STAGE_FINDING_SYNTHESIS,
+    EXECUTION_STAGE_MATH_RECONCILIATION,
+    EXECUTION_STAGE_SOURCE_ECONOMICS_ASSESSMENT,
+    EXECUTION_STAGE_SOURCE_QUALITY_ASSESSMENT,
+    EXECUTION_STAGE_SOURCE_STATE_RECONCILIATION,
+    EXECUTION_STAGE_SUBJECT_RESOLUTION,
+)
 from app.services.inspection.artifact_service import enqueue_twr_inspection_artifacts
 from app.services.inspection.calculation_consistency import run_twr_calculation_consistency_checks
 from app.services.inspection.reconciliation import run_reconciliation_checks
@@ -45,15 +53,15 @@ _ALL_CHECK_FAMILIES = [
 
 def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
     execution_registry.mark_running(request.inspection_id)
-    execution_registry.start_stage(request.inspection_id, "subject_resolution")
+    execution_registry.start_stage(request.inspection_id, EXECUTION_STAGE_SUBJECT_RESOLUTION)
     try:
         subject = resolve_twr_inspection_subject(request)
     except Exception as exc:
-        execution_registry.fail_stage(request.inspection_id, "subject_resolution", str(exc))
+        execution_registry.fail_stage(request.inspection_id, EXECUTION_STAGE_SUBJECT_RESOLUTION, str(exc))
         raise
     execution_registry.complete_stage(
         request.inspection_id,
-        "subject_resolution",
+        EXECUTION_STAGE_SUBJECT_RESOLUTION,
         details={
             "subject_type": request.subject_type.value,
             "portfolio_id": subject.portfolio_id,
@@ -74,7 +82,7 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
     performance_request = None
     resolved_execution_request = None
     if subject.subject_calculation_id is not None:
-        execution_registry.start_stage(request.inspection_id, "math_reconciliation")
+        execution_registry.start_stage(request.inspection_id, EXECUTION_STAGE_MATH_RECONCILIATION)
         try:
             existing_artifacts = load_existing_twr_calculation_artifacts(subject.subject_calculation_id)
             resolved_execution_request = extract_resolved_execution_request_from_payload(
@@ -96,13 +104,13 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
                 findings=consistency_findings,
                 failed_check_families=failed_check_families,
                 families=["calculation_consistency"],
-                stage="math_reconciliation",
+                stage=EXECUTION_STAGE_MATH_RECONCILIATION,
                 error=exc,
             )
         else:
             execution_registry.complete_stage(
                 request.inspection_id,
-                "math_reconciliation",
+                EXECUTION_STAGE_MATH_RECONCILIATION,
                 details=consistency_result.evidence_summary,
             )
             consistency_findings = consistency_result.findings
@@ -113,7 +121,7 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
 
     source_quality_findings: list[TWRInspectionFinding] = []
     if performance_request is not None:
-        execution_registry.start_stage(request.inspection_id, "source_quality_assessment")
+        execution_registry.start_stage(request.inspection_id, EXECUTION_STAGE_SOURCE_QUALITY_ASSESSMENT)
         try:
             source_quality_result = run_source_quality_checks(
                 performance_request=performance_request,
@@ -125,13 +133,13 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
                 findings=source_quality_findings,
                 failed_check_families=failed_check_families,
                 families=["source_quality", "economic_plausibility"],
-                stage="source_quality_assessment",
+                stage=EXECUTION_STAGE_SOURCE_QUALITY_ASSESSMENT,
                 error=exc,
             )
         else:
             execution_registry.complete_stage(
                 request.inspection_id,
-                "source_quality_assessment",
+                EXECUTION_STAGE_SOURCE_QUALITY_ASSESSMENT,
                 details=source_quality_result.evidence_summary,
             )
             source_quality_findings = source_quality_result.findings
@@ -144,7 +152,7 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
 
     reconciliation_findings: list[TWRInspectionFinding] = []
     if resolved_execution_request is not None and subject.portfolio_id is not None:
-        execution_registry.start_stage(request.inspection_id, "source_state_reconciliation")
+        execution_registry.start_stage(request.inspection_id, EXECUTION_STAGE_SOURCE_STATE_RECONCILIATION)
         try:
             reconciliation_result = run_reconciliation_checks(
                 performance_request=resolved_execution_request.portfolio,
@@ -157,13 +165,13 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
                 findings=reconciliation_findings,
                 failed_check_families=failed_check_families,
                 families=["reconciliation"],
-                stage="source_state_reconciliation",
+                stage=EXECUTION_STAGE_SOURCE_STATE_RECONCILIATION,
                 error=exc,
             )
         else:
             execution_registry.complete_stage(
                 request.inspection_id,
-                "source_state_reconciliation",
+                EXECUTION_STAGE_SOURCE_STATE_RECONCILIATION,
                 details=reconciliation_result.evidence_summary,
             )
             reconciliation_findings = reconciliation_result.findings
@@ -176,7 +184,7 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
 
     source_economics_findings: list[TWRInspectionFinding] = []
     if resolved_execution_request is not None and subject.portfolio_id is not None:
-        execution_registry.start_stage(request.inspection_id, "source_economics_assessment")
+        execution_registry.start_stage(request.inspection_id, EXECUTION_STAGE_SOURCE_ECONOMICS_ASSESSMENT)
         try:
             source_economics_result = run_source_economics_checks(
                 performance_request=resolved_execution_request.portfolio,
@@ -188,13 +196,13 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
                 findings=source_economics_findings,
                 failed_check_families=failed_check_families,
                 families=["cashflow_classification"],
-                stage="source_economics_assessment",
+                stage=EXECUTION_STAGE_SOURCE_ECONOMICS_ASSESSMENT,
                 error=exc,
             )
         else:
             execution_registry.complete_stage(
                 request.inspection_id,
-                "source_economics_assessment",
+                EXECUTION_STAGE_SOURCE_ECONOMICS_ASSESSMENT,
                 details=source_economics_result.evidence_summary,
             )
             source_economics_findings = source_economics_result.findings
@@ -205,7 +213,7 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
                 indent=2,
             )
 
-    execution_registry.start_stage(request.inspection_id, "finding_synthesis")
+    execution_registry.start_stage(request.inspection_id, EXECUTION_STAGE_FINDING_SYNTHESIS)
     findings = [
         *consistency_findings,
         *source_quality_findings,
@@ -310,7 +318,7 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
     )
     execution_registry.complete_stage(
         request.inspection_id,
-        "finding_synthesis",
+        EXECUTION_STAGE_FINDING_SYNTHESIS,
         details={
             "verdict": response.verdict.value,
             "finding_count": len(response.findings),

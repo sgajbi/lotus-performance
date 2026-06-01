@@ -16,7 +16,13 @@ from app.models.inspection_requests import (
 from app.models.inspection_responses import TWRInspectionVerdict
 from app.models.requests import Analysis, DailyInputData, PerformanceRequest
 from app.models.twr_requests import TWRAnalyticsRequest
-from app.services.execution_stage_names import EXECUTION_STAGE_ARTIFACT_MATERIALIZATION
+from app.services.execution_stage_names import (
+    EXECUTION_STAGE_ARTIFACT_MATERIALIZATION,
+    EXECUTION_STAGE_MATH_RECONCILIATION,
+    EXECUTION_STAGE_SOURCE_ECONOMICS_ASSESSMENT,
+    EXECUTION_STAGE_SOURCE_QUALITY_ASSESSMENT,
+    EXECUTION_STAGE_SOURCE_STATE_RECONCILIATION,
+)
 from app.services.inspection.calculation_consistency import CalculationConsistencyCheckResult
 from app.services.inspection.subject_resolution import ResolvedTWRInspectionSubject
 from common.enums import Frequency, PeriodType
@@ -68,13 +74,15 @@ def test_twr_inspection_preserves_runtime_finding_when_only_check_family_fails(f
     assert response.verdict == TWRInspectionVerdict.INSPECTION_FAILED
     assert response.check_coverage.completed_check_families == []
     assert response.evidence_summary["failed_check_families"] == ["source_quality", "economic_plausibility"]
-    assert ("source_quality_assessment", "source quality dependency unavailable") in fake_registry.failed_stages
+    assert (EXECUTION_STAGE_SOURCE_QUALITY_ASSESSMENT, "source quality dependency unavailable") in (
+        fake_registry.failed_stages
+    )
 
     finding = response.findings[0]
     assert finding.code == "INSPECTION_CHECK_FAMILY_FAILED"
     assert finding.category == "inspection_runtime"
     assert finding.evidence["check_families"] == ["source_quality", "economic_plausibility"]
-    assert finding.evidence["stage"] == "source_quality_assessment"
+    assert finding.evidence["stage"] == EXECUTION_STAGE_SOURCE_QUALITY_ASSESSMENT
     assert finding.evidence["error_type"] == "RuntimeError"
 
 
@@ -136,8 +144,8 @@ def test_twr_inspection_keeps_completed_evidence_when_later_check_family_fails(f
     assert response.check_coverage.completed_check_families == ["calculation_consistency"]
     assert response.evidence_summary["period_count"] == 1
     assert response.evidence_summary["failed_check_families"] == ["source_quality", "economic_plausibility"]
-    assert "math_reconciliation" in fake_registry.completed_stages
-    assert ("source_quality_assessment", "source quality source timed out") in fake_registry.failed_stages
+    assert EXECUTION_STAGE_MATH_RECONCILIATION in fake_registry.completed_stages
+    assert (EXECUTION_STAGE_SOURCE_QUALITY_ASSESSMENT, "source quality source timed out") in fake_registry.failed_stages
     assert [finding.code for finding in response.findings] == ["INSPECTION_CHECK_FAMILY_FAILED"]
 
 
@@ -169,7 +177,7 @@ def test_twr_inspection_records_math_failure_for_missing_existing_artifacts(fake
 
     assert response.verdict == TWRInspectionVerdict.INSPECTION_FAILED
     assert response.evidence_summary["failed_check_families"] == ["calculation_consistency"]
-    assert ("math_reconciliation", "'missing response'") in fake_registry.failed_stages
+    assert (EXECUTION_STAGE_MATH_RECONCILIATION, "'missing response'") in fake_registry.failed_stages
 
 
 def test_twr_inspection_preserves_source_quality_when_stateful_reconciliation_checks_fail(
@@ -234,8 +242,8 @@ def test_twr_inspection_preserves_source_quality_when_stateful_reconciliation_ch
 
     assert response.verdict == TWRInspectionVerdict.SUPPORTABLE_WITH_WARNINGS
     assert response.evidence_summary["failed_check_families"] == ["reconciliation", "cashflow_classification"]
-    assert ("source_state_reconciliation", "position source down") in fake_registry.failed_stages
-    assert ("source_economics_assessment", "portfolio source down") in fake_registry.failed_stages
+    assert (EXECUTION_STAGE_SOURCE_STATE_RECONCILIATION, "position source down") in fake_registry.failed_stages
+    assert (EXECUTION_STAGE_SOURCE_ECONOMICS_ASSESSMENT, "portfolio source down") in fake_registry.failed_stages
 
 
 def test_twr_inspection_marks_artifact_materialization_failure(fake_registry, monkeypatch):
