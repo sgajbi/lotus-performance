@@ -7,13 +7,17 @@ import pandas as pd
 import pytest
 from fastapi import HTTPException
 
+from app.models.benchmark_analytics_requests import BenchmarkInputMode
+from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.requests import DailyInputData
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
 from app.services.workspace_summary_service import (
+    ResolvedWorkspaceBenchmarkInput,
     WorkspaceTWRArtifacts,
     _annualize_percentage,
     _build_economic_context,
     _build_mwr_cash_flows,
+    _build_workspace_benchmark_daily_df,
     _date_from_boundary,
     _decimal_or_zero,
     _resolve_stateful_portfolio_start_date,
@@ -507,3 +511,32 @@ def test_date_from_boundary_rejects_unsupported_boundary_values():
 
 def test_date_from_boundary_accepts_pandas_timestamp():
     assert _date_from_boundary(pd.Timestamp("2026-01-02")) == date(2026, 1, 2)
+
+
+def test_build_workspace_benchmark_daily_df_uses_observation_date_series():
+    benchmark_request = BenchmarkPerformanceRequest.model_validate(
+        {
+            "benchmark_id": "BMK_VENDOR",
+            "benchmark_start_date": "2026-03-30",
+            "report_end_date": "2026-03-31",
+            "benchmark_currency": "USD",
+            "return_source": "vendor_series",
+            "benchmark_return_points": [
+                {"perf_date": "2026-03-30", "benchmark_return": 0.01},
+                {"perf_date": "2026-03-31", "benchmark_return": 0.02},
+            ],
+            "analyses": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
+            "report_start_date": "2026-03-30",
+        }
+    )
+    benchmark_input = ResolvedWorkspaceBenchmarkInput(
+        benchmark_request=benchmark_request,
+        input_mode=BenchmarkInputMode.STATELESS,
+        benchmark_id="BMK_VENDOR",
+        source_details={},
+    )
+
+    daily_df = _build_workspace_benchmark_daily_df(benchmark_input)
+
+    assert daily_df is not None
+    assert daily_df["date"].tolist() == [date(2026, 3, 30), date(2026, 3, 31)]

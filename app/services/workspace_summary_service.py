@@ -35,6 +35,7 @@ from app.models.workspace_summary_responses import (
     WorkspaceSummaryResponse,
 )
 from app.precision_policy import to_decimal
+from app.services.analytics_observation_dates import observation_date_series
 from app.services.execution_lifecycle_service import complete_execution_with_lineage
 from app.services.execution_registry import execution_registry
 from app.services.portfolio_source_service import build_stateful_input_service
@@ -983,7 +984,7 @@ def _build_workspace_benchmark_daily_df(
             ]
         )
     if not daily_df.empty:
-        daily_df["date"] = pd.to_datetime(daily_df["date"]).dt.date
+        daily_df["date"] = observation_date_series(daily_df["date"])
     return daily_df
 
 
