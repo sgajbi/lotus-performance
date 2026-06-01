@@ -82,14 +82,16 @@ def build_runtime_retention_history_snapshot(
     generated_before: str | None = None,
 ) -> RuntimeRetentionHistorySnapshot:
     directory = artifact_directory or get_settings().RUNTIME_RETENTION_ARTIFACT_PATH
-    applied_filters = _build_applied_filters(
+    applied_filters = build_applied_history_filters(
         limit=limit,
         offset=offset,
-        operator_id=operator_id,
-        trigger_mode=trigger_mode,
-        job_id=job_id,
-        cleanup_mode=cleanup_mode,
-        status_filter=status_filter,
+        optional_filters=(
+            ("operator_id", operator_id),
+            ("trigger_mode", trigger_mode),
+            ("job_id", job_id),
+            ("cleanup_mode", cleanup_mode),
+            ("status", status_filter),
+        ),
         generated_after=generated_after,
         generated_before=generated_before,
     )
@@ -252,31 +254,4 @@ def _filter_entries(
         generated_after=generated_after,
         generated_before=generated_before,
         get_generated_at_utc=lambda entry: entry.generated_at_utc,
-    )
-
-
-def _build_applied_filters(
-    *,
-    limit: int | None,
-    offset: int,
-    operator_id: str | None,
-    trigger_mode: str | None,
-    job_id: str | None,
-    cleanup_mode: str | None,
-    status_filter: str | None,
-    generated_after: str | None,
-    generated_before: str | None,
-) -> dict[str, str | int]:
-    return build_applied_history_filters(
-        limit=limit,
-        offset=offset,
-        optional_filters=(
-            ("operator_id", operator_id),
-            ("trigger_mode", trigger_mode),
-            ("job_id", job_id),
-            ("cleanup_mode", cleanup_mode),
-            ("status", status_filter),
-        ),
-        generated_after=generated_after,
-        generated_before=generated_before,
     )

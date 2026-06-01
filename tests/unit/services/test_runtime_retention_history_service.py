@@ -8,7 +8,6 @@ from app.services.runtime_retention_history_service import (
     RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON,
     RUNTIME_RETENTION_MANIFEST_INVALID_REASON,
     RUNTIME_RETENTION_MANIFEST_UNREADABLE_REASON,
-    _build_applied_filters,
     _validate_manifest_entry,
     build_runtime_retention_history_snapshot,
 )
@@ -526,20 +525,3 @@ def test_runtime_retention_history_applies_generated_before_and_offset_filters(t
 )
 def test_runtime_retention_history_manifest_validator_rejects_invalid_payloads(payload, reason):
     assert validate_history_manifest_payload(payload, validate_entry=_validate_manifest_entry) is None, reason
-
-
-def test_runtime_retention_history_build_applied_filters_omits_empty_values():
-    assert (
-        _build_applied_filters(
-            limit=None,
-            offset=0,
-            operator_id=None,
-            trigger_mode=None,
-            job_id=None,
-            cleanup_mode=None,
-            status_filter=None,
-            generated_after=None,
-            generated_before=None,
-        )
-        == {}
-    )
