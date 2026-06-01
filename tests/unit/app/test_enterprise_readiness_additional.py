@@ -6,6 +6,7 @@ from app.enterprise_readiness import (
     _allowed_audit_metadata,
     _audit_identity_from_headers,
     _authorization_denied_response,
+    _content_length,
     _header_capabilities,
     _load_capability_rule_family,
     _normalized_headers,
@@ -141,6 +142,19 @@ def test_authorization_denied_response_emits_audit_and_structured_reason(mocker)
         correlation_id="corr-1",
         metadata={"reason": "missing_capability:operations.runtime.manage"},
     )
+
+
+@pytest.mark.parametrize(
+    ("headers", "expected"),
+    [
+        ({}, 0),
+        ({"content-length": "42"}, 42),
+        ({"content-length": "invalid"}, 0),
+        ({"content-length": None}, 0),
+    ],
+)
+def test_content_length_parses_invalid_values_as_zero(headers, expected):
+    assert _content_length(headers) == expected
 
 
 def test_authorize_write_request_allows_when_no_capability_rule_matches(monkeypatch):

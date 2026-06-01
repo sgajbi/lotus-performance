@@ -208,6 +208,13 @@ def _authorization_denied_response(
     return JSONResponse(status_code=403, content={"detail": "authorization_policy_denied", "reason": reason})
 
 
+def _content_length(headers: Mapping[str, Any]) -> int:
+    try:
+        return int(headers.get("content-length", "0"))
+    except (TypeError, ValueError):
+        return 0
+
+
 def _authorize_with_required_capability(
     *,
     method: str,
@@ -305,10 +312,7 @@ def build_enterprise_audit_middleware() -> Callable[
     # Enforce enterprise audit and authorization policy on governed surfaces.
     async def middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         max_write_payload_bytes = _env_int("ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES", 1_048_576)
-        try:
-            content_length = int(request.headers.get("content-length", "0"))
-        except ValueError:
-            content_length = 0
+        content_length = _content_length(request.headers)
         if request.method in _WRITE_METHODS and content_length > max_write_payload_bytes:
             return JSONResponse(status_code=413, content={"detail": "payload_too_large"})
 
