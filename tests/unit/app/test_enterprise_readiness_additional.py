@@ -57,6 +57,8 @@ from app.enterprise_readiness import (
     _MISSING_HEADERS_REASON,
     _MISSING_POLICY_VERSION_ISSUE,
     _MISSING_PRIMARY_KEY_ID_ISSUE,
+    _PATH_RUNTIME_RETENTION_CLEANUP_RUN,
+    _PATH_RUNTIME_STATUS,
     _PAYLOAD_TOO_LARGE_DETAIL,
     _REDACTED_VALUE,
     _RESPONSE_DETAIL_KEY,
@@ -286,28 +288,22 @@ def test_required_capability_returns_none_when_no_matching_rule(monkeypatch):
 
 
 def test_required_capability_matches_exact_or_child_paths_only():
+    assert _required_capability("POST", _PATH_RUNTIME_RETENTION_CLEANUP_RUN) == _CAPABILITY_OPERATIONS_RUNTIME_MANAGE
     assert (
-        _required_capability("POST", _RULE_RUNTIME_RETENTION_CLEANUP_RUN_WRITE.removeprefix("POST "))
-        == _CAPABILITY_OPERATIONS_RUNTIME_MANAGE
-    )
-    assert (
-        _required_capability("POST", f"{_RULE_RUNTIME_RETENTION_CLEANUP_RUN_WRITE.removeprefix('POST ')}/details")
+        _required_capability("POST", f"{_PATH_RUNTIME_RETENTION_CLEANUP_RUN}/details")
         == _CAPABILITY_OPERATIONS_RUNTIME_MANAGE
     )
     assert _required_capability("POST", "/integration/runtime-retention-cleanups/run-extra") is None
 
 
 def test_capability_rule_path_for_method_extracts_matching_rule_path():
-    assert (
-        _capability_rule_path_for_method(rule_key=_RULE_RUNTIME_STATUS_READ, method="get")
-        == "/integration/runtime-status"
-    )
+    assert _capability_rule_path_for_method(rule_key=_RULE_RUNTIME_STATUS_READ, method="get") == _PATH_RUNTIME_STATUS
 
 
 def test_capability_rule_path_uses_governed_method_path_separator():
-    rule_key = f"{_HTTP_METHOD_GET}{_CAPABILITY_RULE_METHOD_PATH_SEPARATOR}/integration/runtime-status"
+    rule_key = f"{_HTTP_METHOD_GET}{_CAPABILITY_RULE_METHOD_PATH_SEPARATOR}{_PATH_RUNTIME_STATUS}"
 
-    assert _capability_rule_path_for_method(rule_key=rule_key, method=_HTTP_METHOD_GET) == "/integration/runtime-status"
+    assert _capability_rule_path_for_method(rule_key=rule_key, method=_HTTP_METHOD_GET) == _PATH_RUNTIME_STATUS
 
 
 def test_capability_rule_path_for_method_ignores_other_methods():
