@@ -13,8 +13,10 @@ def test_run_recovery_drill_emits_passing_evidence_and_writes_artifact_history(t
     evidence = run_recovery_drill(
         output_path=output_path,
         output_dir=output_dir,
-        operator_id="test-operator",
-        backup_identifier="backup-001",
+        operator_id=" test-operator ",
+        tenant_id=" ",
+        correlation_id=" ",
+        backup_identifier=" backup-001 ",
         retention_limit=2,
         retention_max_age_days=30,
     )
@@ -56,6 +58,24 @@ def test_run_recovery_drill_emits_passing_evidence_and_writes_artifact_history(t
     assert manifest["retention_limit"] == 2
     assert manifest["retention_max_age_days"] == 30
     assert manifest["retained_file_names"] == [evidence.evidence_file_name]
+
+
+def test_run_recovery_drill_rejects_blank_backup_identifier_before_writing_artifacts(tmp_path):
+    output_path = tmp_path / "manual" / "durable-recovery-drill.json"
+    output_dir = tmp_path / "artifacts" / "durable-recovery-drill"
+
+    with pytest.raises(ValueError, match="backup_identifier must not be blank"):
+        run_recovery_drill(
+            output_path=output_path,
+            output_dir=output_dir,
+            operator_id="test-operator",
+            backup_identifier=" ",
+            retention_limit=2,
+            retention_max_age_days=30,
+        )
+
+    assert not output_path.exists()
+    assert not output_dir.exists()
 
 
 def test_run_recovery_drill_prunes_history_to_retention_limit(tmp_path):

@@ -102,6 +102,14 @@ def run_recovery_drill(
     retention_limit: int = 30,
     retention_max_age_days: int = 90,
 ) -> RecoveryDrillEvidence:
+    normalized_operator_id = _normalize_required_evidence_identifier(operator_id, field_name="operator_id")
+    normalized_tenant_id = _normalize_optional_evidence_identifier(tenant_id)
+    normalized_correlation_id = _normalize_optional_evidence_identifier(correlation_id)
+    normalized_backup_identifier = _normalize_required_evidence_identifier(
+        backup_identifier,
+        field_name="backup_identifier",
+    )
+
     from app.models.returns_series import ReturnsSeriesRequest
     from app.services.async_result_store import AsyncResultStore
     from app.services.compute_job_store import ComputeJobStore
@@ -202,10 +210,10 @@ def run_recovery_drill(
                 drill_name="durable_metadata_restore_recovery",
                 generated_at_utc=generated_at_utc,
                 evidence_file_name=_build_evidence_file_name(generated_at_utc),
-                operator_id=operator_id,
-                tenant_id=tenant_id,
-                correlation_id=correlation_id,
-                backup_identifier=backup_identifier,
+                operator_id=normalized_operator_id,
+                tenant_id=normalized_tenant_id,
+                correlation_id=normalized_correlation_id,
+                backup_identifier=normalized_backup_identifier,
                 database_path=str(database_path),
                 restored_schema_mode="legacy_lineage_schema_upgraded_in_place",
                 owned_tables_present=_fetch_owned_tables(lineage_store),
@@ -248,6 +256,20 @@ def run_recovery_drill(
             compute_store._engine.dispose()
             async_result_store._engine.dispose()
             lineage_store._engine.dispose()
+
+
+def _normalize_required_evidence_identifier(value: str, *, field_name: str) -> str:
+    normalized = value.strip()
+    if not normalized:
+        raise ValueError(f"{field_name} must not be blank")
+    return normalized
+
+
+def _normalize_optional_evidence_identifier(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized or None
 
 
 def _create_legacy_lineage_schema(lineage_store: "LineageMetadataStore") -> None:
