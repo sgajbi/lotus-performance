@@ -198,7 +198,11 @@ def test_benchmark_calculation_helpers_cover_breakdown_and_scaling_edges():
 def test_benchmark_breakdowns_label_weekly_quarterly_and_yearly_periods():
     df = pd.DataFrame(
         {
-            "date": [date(2025, 1, 3), date(2025, 3, 31), date(2025, 12, 31)],
+            "date": [
+                pd.Timestamp("2025-01-03T10:00:00Z"),
+                "2025-03-31",
+                pd.Timestamp("2025-12-31T10:00:00Z"),
+            ],
             "benchmark_return": [0.01, 0.02, 0.03],
             "benchmark_return_local": [0.01, 0.02, 0.03],
             "benchmark_return_fx": [0.0, 0.0, 0.0],

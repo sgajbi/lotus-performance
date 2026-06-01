@@ -20,7 +20,7 @@ from app.models.responses import (
     ComparativeReturnValue,
     ComparativeSummary,
 )
-from app.services.analytics_observation_dates import observation_date_series
+from app.services.analytics_observation_dates import observation_date_series, observation_timestamp_series
 from common.enums import Frequency
 from core.periods import resolve_periods
 from engine.benchmarks import benchmark_return_points_to_dataframe, calculate_benchmark_returns
@@ -151,14 +151,16 @@ def _build_benchmark_breakdowns(
     frequencies: list[Frequency],
 ) -> ComparativeBreakdown:
     breakdowns: ComparativeBreakdown = {}
-    sorted_period_df = period_daily_df.sort_values("date").reset_index(drop=True)
+    sorted_period_df = period_daily_df.copy()
+    sorted_period_df["date"] = observation_date_series(sorted_period_df["date"])
+    sorted_period_df = sorted_period_df.sort_values("date").reset_index(drop=True)
     for frequency in frequencies:
         items: list[ComparativeBreakdownItem] = []
         if frequency == Frequency.DAILY:
             grouped_rows = [(row["date"], pd.DataFrame([row])) for _, row in sorted_period_df.iterrows()]
         else:
             local_df = sorted_period_df.copy()
-            local_df["date"] = pd.to_datetime(local_df["date"])
+            local_df["date"] = observation_timestamp_series(local_df["date"])
             indexed = local_df.set_index(local_df["date"])
             freq_map = {
                 Frequency.WEEKLY: "W-FRI",
