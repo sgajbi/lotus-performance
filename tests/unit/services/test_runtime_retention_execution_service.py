@@ -148,13 +148,17 @@ def test_runtime_retention_execution_skips_invalid_old_evidence_payloads(tmp_pat
     output_dir.mkdir(parents=True)
     malformed = output_dir / "bad.json"
     malformed.write_text("{not-json", encoding="utf-8")
+    non_object = output_dir / "array.json"
+    non_object.write_text("[]", encoding="utf-8")
 
     with caplog.at_level(logging.WARNING, logger="app.services.runtime_retention_execution_service"):
         _prune_old_evidence(output_dir=output_dir, retention_max_age_days=90)
 
     assert malformed.exists()
+    assert non_object.exists()
     assert "Runtime retention evidence ignored during age pruning" in caplog.text
     assert "bad.json" in caplog.text
+    assert "array.json" in caplog.text
 
 
 def test_runtime_retention_execution_skips_invalid_manifest_entry_payloads(tmp_path, caplog):
