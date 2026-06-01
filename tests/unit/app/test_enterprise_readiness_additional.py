@@ -23,6 +23,7 @@ from app.enterprise_readiness import (
     _load_capability_rule_family,
     _missing_required_headers,
     _normalized_headers,
+    _primary_key_configured,
     _privileged_read_authz_enabled,
     _required_capability,
     _required_capability_from_rules,
@@ -115,6 +116,21 @@ def test_runtime_config_enforcement_enabled_uses_governed_env_switch(monkeypatch
     monkeypatch.setenv("ENTERPRISE_ENFORCE_RUNTIME_CONFIG", configured)
 
     assert _runtime_config_enforcement_enabled() is expected
+
+
+@pytest.mark.parametrize(
+    ("configured", "expected"),
+    [
+        ("primary-key-1", True),
+        (" primary-key-1 ", True),
+        (" ", False),
+        ("", False),
+    ],
+)
+def test_primary_key_configured_requires_non_blank_value(monkeypatch, configured, expected):
+    monkeypatch.setenv("ENTERPRISE_PRIMARY_KEY_ID", configured)
+
+    assert _primary_key_configured() is expected
 
 
 def test_required_capability_returns_none_when_no_matching_rule(monkeypatch):
