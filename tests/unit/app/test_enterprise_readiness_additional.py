@@ -26,6 +26,7 @@ from app.enterprise_readiness import (
     _privileged_read_authz_enabled,
     _required_capability,
     _required_capability_from_rules,
+    _runtime_config_enforcement_enabled,
     _write_authz_enabled,
     _write_payload_too_large,
     authorize_privileged_read_request,
@@ -99,6 +100,21 @@ def test_write_authz_enabled_uses_governed_env_switch(monkeypatch, configured, e
     monkeypatch.setenv("ENTERPRISE_ENFORCE_AUTHZ", configured)
 
     assert _write_authz_enabled() is expected
+
+
+@pytest.mark.parametrize(
+    ("configured", "expected"),
+    [
+        ("true", True),
+        ("on", True),
+        ("false", False),
+        ("", False),
+    ],
+)
+def test_runtime_config_enforcement_enabled_uses_governed_env_switch(monkeypatch, configured, expected):
+    monkeypatch.setenv("ENTERPRISE_ENFORCE_RUNTIME_CONFIG", configured)
+
+    assert _runtime_config_enforcement_enabled() is expected
 
 
 def test_required_capability_returns_none_when_no_matching_rule(monkeypatch):

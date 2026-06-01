@@ -54,6 +54,10 @@ def _write_authz_enabled() -> bool:
     return _env_enabled("ENTERPRISE_ENFORCE_AUTHZ", "false")
 
 
+def _runtime_config_enforcement_enabled() -> bool:
+    return _env_enabled("ENTERPRISE_ENFORCE_RUNTIME_CONFIG", "false")
+
+
 def _load_json_map(name: str) -> dict[str, Any]:
     raw = os.getenv(name, "{}")
     try:
@@ -95,7 +99,7 @@ def _enterprise_runtime_config_issues() -> list[str]:
 
 def validate_enterprise_runtime_config() -> list[str]:
     issues = _enterprise_runtime_config_issues()
-    if issues and _env_enabled("ENTERPRISE_ENFORCE_RUNTIME_CONFIG", "false"):
+    if issues and _runtime_config_enforcement_enabled():
         raise RuntimeError(f"enterprise_runtime_config_invalid:{','.join(issues)}")
     return issues
 
