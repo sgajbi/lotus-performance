@@ -177,8 +177,12 @@ def _load_json_map(name: str) -> dict[str, Any]:
     try:
         parsed = json.loads(raw)
     except json.JSONDecodeError:
-        return {}
-    return parsed if isinstance(parsed, dict) else {}
+        return _empty_json_map()
+    return parsed if isinstance(parsed, dict) else _empty_json_map()
+
+
+def _empty_json_map() -> dict[str, Any]:
+    return {}
 
 
 def _env_int(name: str, default: int) -> int:

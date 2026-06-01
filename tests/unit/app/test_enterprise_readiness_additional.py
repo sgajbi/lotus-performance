@@ -93,6 +93,7 @@ from app.enterprise_readiness import (
     _content_length,
     _denied_request_action,
     _emit_allowed_audit_event,
+    _empty_json_map,
     _enterprise_runtime_config_issues,
     _env_enabled,
     _env_value,
@@ -214,6 +215,13 @@ def test_load_json_map_fails_closed_for_missing_invalid_or_non_object_json(monke
 
     monkeypatch.setenv(env_name, '{"policy": true}')
     assert _load_json_map(env_name) == {"policy": True}
+
+
+def test_empty_json_map_returns_fresh_empty_mapping():
+    empty_map = _empty_json_map()
+    empty_map["policy"] = True
+
+    assert _empty_json_map() == {}
 
 
 @pytest.mark.parametrize(
