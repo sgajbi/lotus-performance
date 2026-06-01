@@ -154,10 +154,10 @@ def _runtime_retention_payload_matches_entry(
         and payload["evidence_file_name"] == entry.evidence_file_name
         and payload["generated_at_utc"] == entry.generated_at_utc
         and payload["operator_id"] == entry.operator_id
-        and payload["tenant_id"] == entry.tenant_id
-        and payload["correlation_id"] == entry.correlation_id
+        and payload.get("tenant_id") == entry.tenant_id
+        and payload.get("correlation_id") == entry.correlation_id
         and payload["trigger_mode"] == entry.trigger_mode
-        and payload["job_id"] == entry.job_id
+        and payload.get("job_id") == entry.job_id
         and payload["cleanup_mode"] == entry.cleanup_mode
         and payload["status"] == entry.status
         and payload["retention_days"] == entry.retention_days
@@ -199,8 +199,8 @@ def _recovery_drill_payload_matches_entry(
         and payload["evidence_file_name"] == entry.evidence_file_name
         and payload["generated_at_utc"] == entry.generated_at_utc
         and payload["operator_id"] == entry.operator_id
-        and payload["tenant_id"] == entry.tenant_id
-        and payload["correlation_id"] == entry.correlation_id
+        and payload.get("tenant_id") == entry.tenant_id
+        and payload.get("correlation_id") == entry.correlation_id
         and payload["backup_identifier"] == entry.backup_identifier
         and payload["status"] == entry.status
     )
