@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from app.models.inspection_requests import TWRInspectionRequest, TWRInspectionSubjectType
+from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR
 from app.services.execution_registry import ExecutionRecord, execution_registry
 
 
@@ -21,7 +22,7 @@ def resolve_twr_inspection_subject(request: TWRInspectionRequest) -> ResolvedTWR
         execution = execution_registry.get_execution(request.subject_calculation_id)
         if execution is None:
             raise KeyError(f"TWR calculation execution not found: {request.subject_calculation_id}")
-        if execution.analytics_type != "TWR":
+        if execution.analytics_type != ANALYTICS_WORKFLOW_TWR:
             raise ValueError(
                 f"Inspection subject must reference a TWR calculation, not {execution.analytics_type}: "
                 f"{request.subject_calculation_id}"
