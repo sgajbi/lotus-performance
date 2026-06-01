@@ -39,6 +39,11 @@ def test_build_active_return_points_uses_aligned_arithmetic_difference():
     assert [str(point.return_value) for point in active_points] == ["0.004000000000", "-0.003000000000"]
 
 
+def test_daily_return_percentage_to_ratio_uses_shared_numeric_fallback():
+    assert returns_series_service._daily_return_percentage_to_ratio("1.25") == Decimal("0.0125")
+    assert returns_series_service._daily_return_percentage_to_ratio("not-a-number") is None
+
+
 def test_to_dataframe_normalizes_mixed_date_like_return_points_to_timestamps():
     df = returns_series_service.to_dataframe(
         [

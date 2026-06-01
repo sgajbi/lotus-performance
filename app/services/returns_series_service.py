@@ -32,6 +32,7 @@ from app.models.returns_series import (
     SeriesGap,
 )
 from app.observability import correlation_id_var, request_id_var, trace_id_var
+from app.services.analytics_numeric import numeric_value
 from app.services.analytics_observation_dates import observation_timestamp_series
 from app.services.error_details import (
     insufficient_data_detail,
@@ -131,6 +132,13 @@ def to_dataframe(points: Iterable[ReturnPoint], *, series_type: str) -> pd.DataF
 
 def _return_timestamp_series(values: Iterable[object]) -> pd.Series:
     return observation_timestamp_series(values)
+
+
+def _daily_return_percentage_to_ratio(value: object) -> Decimal | None:
+    numeric = numeric_value(value, default=None)
+    if numeric is None:
+        return None
+    return Decimal(str(numeric)) / Decimal("100")
 
 
 def filter_window(df: pd.DataFrame, *, resolved_window: ResolvedWindow) -> pd.DataFrame:
@@ -379,8 +387,7 @@ def daily_ror_from_portfolio_timeseries(
         {
             "date": _return_timestamp_series(daily_results_df[PortfolioColumns.PERF_DATE.value]),
             "return_value": [
-                (Decimal(str(value)) / Decimal("100") if not pd.isna(pd.to_numeric(value, errors="coerce")) else None)
-                for value in daily_results_df[PortfolioColumns.DAILY_ROR.value]
+                _daily_return_percentage_to_ratio(value) for value in daily_results_df[PortfolioColumns.DAILY_ROR.value]
             ],
         }
     )
