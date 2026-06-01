@@ -14,6 +14,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sess
 
 from app.services.durable_store_json import load_json_object_or_none
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
+from app.services.durable_store_time import format_timestamp, normalize_filter_datetime
 
 logger = logging.getLogger(__name__)
 
@@ -55,23 +56,6 @@ class AsyncResultRecord:
     updated_at_utc: str
 
 
-def _coerce_utc_datetime(value: datetime) -> datetime:
-    if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
-
-
-def _format_timestamp(value: datetime) -> str:
-    return _coerce_utc_datetime(value).isoformat().replace("+00:00", "Z")
-
-
-def _normalize_filter_datetime(value: datetime, *, dialect_name: str) -> datetime:
-    normalized = _coerce_utc_datetime(value)
-    if dialect_name == "sqlite":
-        return normalized.replace(tzinfo=None)
-    return normalized
-
-
 class AsyncResultStore:
     def __init__(self, database_url: str):
         connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
@@ -100,7 +84,7 @@ class AsyncResultStore:
     def prune_results_older_than(self, older_than: datetime, *, dry_run: bool = False) -> int:
         with self._session() as session:
             dialect_name = session.bind.dialect.name if session.bind is not None else ""
-            cutoff = _normalize_filter_datetime(older_than, dialect_name=dialect_name)
+            cutoff = normalize_filter_datetime(older_than, dialect_name=dialect_name)
             statement = select(AsyncResultModel).where(AsyncResultModel.updated_at_utc <= cutoff)
             rows = session.execute(statement).scalars().all()
             if dry_run:
@@ -170,8 +154,8 @@ class AsyncResultStore:
                 response_payload=response_payload,
                 error_message=error_message,
                 error_type=error_type,
-                created_at_utc=_format_timestamp(row.created_at_utc),
-                updated_at_utc=_format_timestamp(row.updated_at_utc),
+                created_at_utc=format_timestamp(row.created_at_utc) or "",
+                updated_at_utc=format_timestamp(row.updated_at_utc) or "",
             )
 
 
