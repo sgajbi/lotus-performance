@@ -359,7 +359,11 @@ def _write_reclaim_history(*, locks_dir: Path, event: ReclaimedOperatorActionLea
 def _read_json_payload(path: Path) -> object | _InvalidLease:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except OSError:
+        logger.warning("Operator action lease evidence unreadable: %s", path, exc_info=True)
+        return _INVALID_LEASE
+    except json.JSONDecodeError:
+        logger.warning("Operator action lease evidence invalid JSON: %s", path, exc_info=True)
         return _INVALID_LEASE
 
 

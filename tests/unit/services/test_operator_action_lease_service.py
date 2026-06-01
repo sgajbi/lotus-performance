@@ -389,20 +389,25 @@ def test_build_operator_action_lease_snapshot_reports_unreadable_directory(monke
     assert snapshot.reason == OPERATOR_ACTION_LEASE_DIRECTORY_UNREADABLE_REASON
 
 
-def test_read_reclaim_files_reject_invalid_json_and_shapes(tmp_path):
+def test_read_reclaim_files_reject_invalid_json_and_shapes(tmp_path, caplog):
     locks_dir = tmp_path / ".action-locks"
     locks_dir.mkdir(parents=True)
     (locks_dir / "latest-reclaim.json").write_text("{bad", encoding="utf-8")
     (locks_dir / "reclaim-history.json").write_text("{bad", encoding="utf-8")
 
-    assert (
-        _read_latest_reclaimed_lease(locks_dir=locks_dir, action_name="recovery_drill").__class__.__name__
-        == "_InvalidLease"
-    )
-    assert (
-        _read_recent_reclaimed_leases(locks_dir=locks_dir, action_name="recovery_drill").__class__.__name__
-        == "_InvalidLease"
-    )
+    with caplog.at_level(logging.WARNING, logger="app.services.operator_action_lease_service"):
+        assert (
+            _read_latest_reclaimed_lease(locks_dir=locks_dir, action_name="recovery_drill").__class__.__name__
+            == "_InvalidLease"
+        )
+        assert (
+            _read_recent_reclaimed_leases(locks_dir=locks_dir, action_name="recovery_drill").__class__.__name__
+            == "_InvalidLease"
+        )
+
+    assert "Operator action lease evidence invalid JSON" in caplog.text
+    assert "latest-reclaim.json" in caplog.text
+    assert "reclaim-history.json" in caplog.text
 
 
 def test_parse_reclaimed_event_payload_rejects_invalid_fields_and_filters_other_action():
