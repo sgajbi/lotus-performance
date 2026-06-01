@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any
-
 import pandas as pd
 from fastapi import HTTPException, status
 
@@ -9,6 +7,7 @@ from app.core.config import get_settings
 from app.models.attribution_analytics_requests import AttributionInputMode
 from app.models.attribution_requests import AttributionRequest
 from app.models.attribution_responses import AttributionResponse
+from app.services.analytics_observation_dates import latest_observation_date
 from app.services.calculation_supportability_service import (
     build_calculation_supportability,
     record_supportability_metric,
@@ -41,7 +40,7 @@ def _count_attribution_input_rows(request: AttributionRequest) -> int:
 
 
 def _latest_attribution_observation_date(request: AttributionRequest):
-    dates: list[Any] = []
+    dates: list[object] = []
     if request.portfolio_data is not None:
         dates.extend(point.perf_date for point in request.portfolio_data.valuation_points)
     for instrument in request.instruments_data or []:
@@ -50,7 +49,7 @@ def _latest_attribution_observation_date(request: AttributionRequest):
         dates.extend(observation.get("date") for observation in group.observations if observation.get("date"))
     for group in request.benchmark_groups_data:
         dates.extend(observation.date for observation in group.observations)
-    return max(pd.Timestamp(point).date() for point in dates) if dates else None
+    return latest_observation_date(dates)
 
 
 def calculate_attribution(

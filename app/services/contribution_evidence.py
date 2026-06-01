@@ -6,6 +6,7 @@ from typing import Any
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.models.contribution_requests import ContributionRequest
+from app.services.analytics_observation_dates import latest_observation_date
 from app.services.execution_registry import UpstreamSnapshotRecord, execution_registry
 
 logger = logging.getLogger(__name__)
@@ -33,4 +34,4 @@ def _latest_contribution_observation_date(request: ContributionRequest):
     dates = [point.perf_date for point in request.portfolio_data.valuation_points]
     for position in request.positions_data:
         dates.extend(point.perf_date for point in position.valuation_points)
-    return max(dates) if dates else None
+    return latest_observation_date(dates)
