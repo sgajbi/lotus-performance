@@ -133,6 +133,31 @@ def test_validate_history_manifest_header_rejects_mismatched_latest_file():
     )
 
 
+def test_validate_history_manifest_header_rejects_bool_retention_fields():
+    assert (
+        validate_history_manifest_header(
+            {
+                "latest_file_name": None,
+                "retained_file_names": [],
+                "retention_limit": True,
+                "entries": [],
+            }
+        )
+        is None
+    )
+    assert (
+        validate_history_manifest_header(
+            {
+                "latest_file_name": None,
+                "retained_file_names": [],
+                "retention_max_age_days": False,
+                "entries": [],
+            }
+        )
+        is None
+    )
+
+
 def test_validate_history_manifest_payload_projects_validated_entries():
     payload = {
         "latest_file_name": "latest.json",

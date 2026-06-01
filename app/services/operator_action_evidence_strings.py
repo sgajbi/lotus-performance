@@ -23,6 +23,10 @@ def required_evidence_int_fields_present(payload: dict[str, Any], keys: tuple[st
     return all(type(payload.get(key)) is int for key in keys)
 
 
+def optional_evidence_int_fields_valid(payload: dict[str, Any], keys: tuple[str, ...]) -> bool:
+    return all(payload.get(key) is None or type(payload.get(key)) is int for key in keys)
+
+
 def required_evidence_bool_fields_present(payload: dict[str, Any], keys: tuple[str, ...]) -> bool:
     return all(type(payload.get(key)) is bool for key in keys)
 

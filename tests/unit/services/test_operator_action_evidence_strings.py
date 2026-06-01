@@ -6,6 +6,7 @@ from app.services.operator_action_evidence_strings import (
     is_required_evidence_string_list,
     normalize_optional_evidence_identifier,
     normalize_required_evidence_identifier,
+    optional_evidence_int_fields_valid,
     optional_evidence_string,
     optional_evidence_string_fields_valid,
     required_evidence_bool_fields_present,
@@ -43,10 +44,12 @@ def test_evidence_field_predicates_validate_string_int_and_bool_sets():
     assert required_evidence_string_fields_present(payload, ("operator_id",))
     assert optional_evidence_string_fields_valid(payload, ("tenant_id",))
     assert required_evidence_int_fields_present(payload, ("retention_days",))
+    assert optional_evidence_int_fields_valid(payload, ("missing_optional_int",))
     assert required_evidence_bool_fields_present(payload, ("apply",))
     assert not required_evidence_string_fields_present({"operator_id": " "}, ("operator_id",))
     assert not optional_evidence_string_fields_valid({"tenant_id": " "}, ("tenant_id",))
     assert not required_evidence_int_fields_present({"retention_days": True}, ("retention_days",))
+    assert not optional_evidence_int_fields_valid({"retention_days": True}, ("retention_days",))
     assert not required_evidence_bool_fields_present({"apply": 1}, ("apply",))
 
 
