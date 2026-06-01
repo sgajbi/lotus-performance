@@ -3,6 +3,7 @@ import json
 import pytest
 
 from app.enterprise_readiness import (
+    _audit_identity_from_headers,
     _header_capabilities,
     _load_capability_rule_family,
     _normalized_headers,
@@ -58,6 +59,24 @@ def test_normalized_headers_and_capabilities_trim_values():
         "x-capabilities": "analytics.read, operations.runtime.read",
     }
     assert _header_capabilities(normalized) == {"analytics.read", "operations.runtime.read"}
+
+
+def test_audit_identity_from_headers_normalizes_case_and_defaults():
+    identity = _audit_identity_from_headers(
+        {
+            "X-Actor-Id": " actor-1 ",
+            "X-Tenant-Id": " ",
+            "X-Role": " operator ",
+            "X-Correlation-Id": " corr-1 ",
+        }
+    )
+
+    assert identity == {
+        "actor_id": "actor-1",
+        "tenant_id": "default",
+        "role": "operator",
+        "correlation_id": "corr-1",
+    }
 
 
 def test_authorize_write_request_allows_when_no_capability_rule_matches(monkeypatch):

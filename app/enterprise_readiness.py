@@ -54,13 +54,6 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
-def _normalized_header(headers: Mapping[str, str], name: str, default: str = "") -> str:
-    value = headers.get(name)
-    if value is None:
-        return default
-    return str(value).strip() or default
-
-
 def _configured_enterprise_policy_version() -> str:
     return os.getenv("ENTERPRISE_POLICY_VERSION", "1.0.0")
 
@@ -171,6 +164,16 @@ def _header_capabilities(normalized_headers: Mapping[str, str]) -> set[str]:
     return {part.strip() for part in normalized_headers.get("x-capabilities", "").split(",") if part.strip()}
 
 
+def _audit_identity_from_headers(headers: Mapping[str, Any]) -> dict[str, str]:
+    normalized = _normalized_headers(headers)
+    return {
+        "actor_id": normalized.get("x-actor-id") or "unknown",
+        "tenant_id": normalized.get("x-tenant-id") or "default",
+        "role": normalized.get("x-role") or "unknown",
+        "correlation_id": normalized.get("x-correlation-id", ""),
+    }
+
+
 def _authorize_with_required_capability(
     *,
     method: str,
@@ -275,14 +278,12 @@ def build_enterprise_audit_middleware() -> Callable[
         if request.method in _WRITE_METHODS and content_length > max_write_payload_bytes:
             return JSONResponse(status_code=413, content={"detail": "payload_too_large"})
 
+        audit_identity = _audit_identity_from_headers(request.headers)
         authorized, reason = authorize_write_request(request.method, request.url.path, dict(request.headers))
         if not authorized:
             emit_audit_event(
                 action=f"DENY {request.method} {request.url.path}",
-                actor_id=_normalized_header(request.headers, "X-Actor-Id", "unknown"),
-                tenant_id=_normalized_header(request.headers, "X-Tenant-Id", "default"),
-                role=_normalized_header(request.headers, "X-Role", "unknown"),
-                correlation_id=_normalized_header(request.headers, "X-Correlation-Id"),
+                **audit_identity,
                 metadata={"reason": reason},
             )
             return JSONResponse(status_code=403, content={"detail": "authorization_policy_denied", "reason": reason})
@@ -291,10 +292,7 @@ def build_enterprise_audit_middleware() -> Callable[
         if not authorized:
             emit_audit_event(
                 action=f"DENY {request.method} {request.url.path}",
-                actor_id=_normalized_header(request.headers, "X-Actor-Id", "unknown"),
-                tenant_id=_normalized_header(request.headers, "X-Tenant-Id", "default"),
-                role=_normalized_header(request.headers, "X-Role", "unknown"),
-                correlation_id=_normalized_header(request.headers, "X-Correlation-Id"),
+                **audit_identity,
                 metadata={"reason": reason},
             )
             return JSONResponse(status_code=403, content={"detail": "authorization_policy_denied", "reason": reason})
@@ -311,10 +309,7 @@ def build_enterprise_audit_middleware() -> Callable[
         ):
             emit_audit_event(
                 action=f"{request.method} {request.url.path}",
-                actor_id=_normalized_header(request.headers, "X-Actor-Id", "unknown"),
-                tenant_id=_normalized_header(request.headers, "X-Tenant-Id", "default"),
-                role=_normalized_header(request.headers, "X-Role", "unknown"),
-                correlation_id=_normalized_header(request.headers, "X-Correlation-Id"),
+                **audit_identity,
                 metadata={
                     "status_code": response.status_code,
                     "access_mode": "privileged_read" if request.method.upper() == "GET" else "write",
