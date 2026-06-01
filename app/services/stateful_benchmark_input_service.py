@@ -193,7 +193,7 @@ async def _build_stateful_vendor_series_input(
         and isinstance(point.get("series_date"), str)
         and point.get("benchmark_return") is not None
     ]
-    retrieval_metadata = _parse_retrieval_metadata(return_payload)
+    retrieval_metadata = parse_zero_default_retrieval_metadata(return_payload)
     return StatefulBenchmarkNormalizedInput(
         benchmark_currency=benchmark_currency,
         component_observations=[],
@@ -587,7 +587,3 @@ def _normalize_price_to_benchmark_currency(
             detail=f"Missing FX rate for {component_currency}/{benchmark_currency} on {price_date}.",
         )
     return price * fx_map[price_date]
-
-
-def _parse_retrieval_metadata(payload: dict[str, Any]) -> RetrievalMetadata:
-    return parse_zero_default_retrieval_metadata(payload)
