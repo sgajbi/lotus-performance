@@ -11,6 +11,7 @@ from sqlalchemy import Date, Index, String, Text, create_engine, select, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.models.composites import CompositeDefinition, CompositeMemberReturnFact, CompositeMembership
+from app.services.durable_store_json import load_json_object_or_none
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
 
 logger = logging.getLogger(__name__)
@@ -312,15 +313,14 @@ composite_metadata_store = RuntimeStoreProxy(get_composite_metadata_store)
 
 
 def _load_json_object(raw_payload: str, *, row_identifier: str, payload_name: str) -> dict[str, Any] | None:
-    try:
-        payload = json.loads(raw_payload)
-    except json.JSONDecodeError:
-        logger.warning("%s invalid JSON for row=%s.", payload_name, row_identifier)
-        return None
-    if not isinstance(payload, dict):
-        logger.warning("%s is not an object for row=%s.", payload_name, row_identifier)
-        return None
-    return payload
+    return load_json_object_or_none(
+        raw_payload,
+        logger=logger,
+        payload_name=payload_name,
+        identity_name="row",
+        identity_value=row_identifier,
+        empty_is_absent=False,
+    )
 
 
 def _load_reason_codes(raw_payload: str, *, row_identifier: str) -> list[str]:
