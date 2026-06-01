@@ -15,6 +15,7 @@ from app.enterprise_readiness import (
     _emit_allowed_audit_event,
     _enterprise_runtime_config_issues,
     _feature_flag_enabled,
+    _has_required_capability,
     _has_service_identity,
     _header_capabilities,
     _load_capability_rule_family,
@@ -73,6 +74,14 @@ def test_normalized_headers_and_capabilities_trim_values():
         "x-capabilities": "analytics.read, operations.runtime.read",
     }
     assert _header_capabilities(normalized) == {"analytics.read", "operations.runtime.read"}
+
+
+def test_has_required_capability_accepts_absent_requirement_and_exact_token():
+    normalized = _normalized_headers({"X-Capabilities": " analytics.read, operations.runtime.read "})
+
+    assert _has_required_capability(normalized, None)
+    assert _has_required_capability(normalized, "operations.runtime.read")
+    assert not _has_required_capability(normalized, "operations.runtime.manage")
 
 
 def test_missing_required_headers_reports_sorted_blank_or_missing_fields():
