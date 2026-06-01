@@ -5,6 +5,7 @@ import pytest
 from fastapi import Response
 
 from app.enterprise_readiness import (
+    _ENTERPRISE_POLICY_VERSION_HEADER,
     _allowed_audit_metadata,
     _apply_enterprise_policy_header,
     _audit_event_payload,
@@ -246,7 +247,7 @@ def test_apply_enterprise_policy_header_sets_normalized_policy_version(monkeypat
     returned = _apply_enterprise_policy_header(response)
 
     assert returned is response
-    assert response.headers["X-Enterprise-Policy-Version"] == "2.2.0"
+    assert response.headers[_ENTERPRISE_POLICY_VERSION_HEADER] == "2.2.0"
 
 
 def test_audit_identity_from_headers_normalizes_case_and_defaults():

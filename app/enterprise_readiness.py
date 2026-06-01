@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 logger = logging.getLogger("enterprise_readiness")
 
 _SERVICE_NAME = "lotus-performance"
+_ENTERPRISE_POLICY_VERSION_HEADER = "X-Enterprise-Policy-Version"
 _WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 _REQUIRED_HEADERS = {"x-actor-id", "x-tenant-id", "x-role", "x-correlation-id"}
 _DEFAULT_CAPABILITY_RULES = {
@@ -388,7 +389,7 @@ def _audit_event_payload(
 
 
 def _apply_enterprise_policy_header(response: Response) -> Response:
-    response.headers["X-Enterprise-Policy-Version"] = enterprise_policy_version()
+    response.headers[_ENTERPRISE_POLICY_VERSION_HEADER] = enterprise_policy_version()
     return response
 
 
