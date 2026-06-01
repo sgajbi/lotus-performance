@@ -9,10 +9,6 @@ from app.services.source_cashflow_taxonomy import classify_cashflow_type
 from core.errors import HTTP_422_UNPROCESSABLE
 
 
-def _insufficient_data_detail(message: str) -> dict[str, str]:
-    return insufficient_data_detail(message)
-
-
 def portfolio_timeseries_to_valuation_points(*, observations: list[dict[str, object]]) -> list[dict[str, object]]:
     valuation_points: list[dict[str, object]] = []
     for point in observations:
@@ -57,6 +53,6 @@ def portfolio_timeseries_to_valuation_points(*, observations: list[dict[str, obj
     if not valuation_points:
         raise HTTPException(
             status_code=HTTP_422_UNPROCESSABLE,
-            detail=_insufficient_data_detail("No valid valuation observations after canonical normalization."),
+            detail=insufficient_data_detail("No valid valuation observations after canonical normalization."),
         )
     return valuation_points

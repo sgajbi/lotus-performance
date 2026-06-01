@@ -73,26 +73,6 @@ def _zero_default_retrieval_metadata(payload: dict[str, Any] | None) -> Retrieva
     return parse_zero_default_retrieval_metadata(payload)
 
 
-def _source_unavailable_detail(message: str) -> dict[str, str]:
-    return source_unavailable_detail(message)
-
-
-def _resource_not_found_detail(message: str) -> dict[str, str]:
-    return resource_not_found_detail(message)
-
-
-def _insufficient_data_detail(message: str) -> dict[str, str]:
-    return insufficient_data_detail(message)
-
-
-def _invalid_request_detail(message: str) -> dict[str, str]:
-    return invalid_request_detail(message)
-
-
-def _upstream_contract_violation_detail(message: str) -> dict[str, str]:
-    return upstream_contract_violation_detail(message)
-
-
 def period_start(as_of_date: date, period: ReturnsRelativePeriod, year: int | None) -> date:
     as_of = pd.Timestamp(as_of_date)
     if period == ReturnsRelativePeriod.MTD:
@@ -126,7 +106,7 @@ def resolve_window(request: ReturnsSeriesRequest) -> ResolvedWindow:
     if request.window.period is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_invalid_request_detail("window.period is required when mode=RELATIVE"),
+            detail=invalid_request_detail("window.period is required when mode=RELATIVE"),
         )
     start_date = period_start(request.as_of_date, request.window.period, request.window.year)
     return ResolvedWindow(
@@ -142,12 +122,12 @@ def to_dataframe(points: Iterable[ReturnPoint], *, series_type: str) -> pd.DataF
     if df.empty:
         raise HTTPException(
             status_code=HTTP_422_UNPROCESSABLE,
-            detail=_insufficient_data_detail(f"{series_type} series is empty."),
+            detail=insufficient_data_detail(f"{series_type} series is empty."),
         )
     if df["date"].duplicated().any():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_invalid_request_detail(f"{series_type} series contains duplicate dates."),
+            detail=invalid_request_detail(f"{series_type} series contains duplicate dates."),
         )
     df["date"] = pd.to_datetime(df["date"])
     return df.sort_values("date")
@@ -159,7 +139,7 @@ def filter_window(df: pd.DataFrame, *, resolved_window: ResolvedWindow) -> pd.Da
     if window_df.empty:
         raise HTTPException(
             status_code=HTTP_422_UNPROCESSABLE,
-            detail=_insufficient_data_detail("No observations in resolved window."),
+            detail=insufficient_data_detail("No observations in resolved window."),
         )
     return window_df
 
@@ -393,7 +373,7 @@ def daily_ror_from_portfolio_timeseries(
     if daily_results_df.empty:
         raise HTTPException(
             status_code=HTTP_422_UNPROCESSABLE,
-            detail=_insufficient_data_detail("No portfolio return observations in resolved window."),
+            detail=insufficient_data_detail("No portfolio return observations in resolved window."),
         )
     output_df = pd.DataFrame(
         {
@@ -408,7 +388,7 @@ def daily_ror_from_portfolio_timeseries(
     if output_df.empty:
         raise HTTPException(
             status_code=HTTP_422_UNPROCESSABLE,
-            detail=_insufficient_data_detail("No valid portfolio return observations after normalization."),
+            detail=insufficient_data_detail("No valid portfolio return observations after normalization."),
         )
     return output_df
 
@@ -482,7 +462,7 @@ def _benchmark_daily_returns_to_dataframe(daily_returns_df: pd.DataFrame) -> pd.
     if daily_returns_df.empty:
         raise HTTPException(
             status_code=HTTP_422_UNPROCESSABLE,
-            detail=_insufficient_data_detail("Benchmark series is empty."),
+            detail=insufficient_data_detail("Benchmark series is empty."),
         )
     benchmark_df = daily_returns_df[["date", "benchmark_return"]].copy()
     benchmark_df["date"] = pd.to_datetime(benchmark_df["date"])
@@ -490,7 +470,7 @@ def _benchmark_daily_returns_to_dataframe(daily_returns_df: pd.DataFrame) -> pd.
     if benchmark_df["date"].duplicated().any():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_invalid_request_detail("benchmark series contains duplicate dates."),
+            detail=invalid_request_detail("benchmark series contains duplicate dates."),
         )
     return benchmark_df
 
@@ -583,7 +563,7 @@ async def _calculate_returns_series(
         if stateless_input is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_invalid_request_detail("stateless_input is required in stateless mode."),
+                detail=invalid_request_detail("stateless_input is required in stateless mode."),
             )
         portfolio_df = resample_returns(
             filter_window(
@@ -635,7 +615,7 @@ async def _calculate_returns_series(
             if not common_dates:
                 raise HTTPException(
                     status_code=HTTP_422_UNPROCESSABLE,
-                    detail=_insufficient_data_detail("No overlapping dates across selected series."),
+                    detail=insufficient_data_detail("No overlapping dates across selected series."),
                 )
             portfolio_df = portfolio_df[portfolio_df["date"].isin(common_dates)].sort_values("date")
             if benchmark_df is not None:
@@ -699,7 +679,7 @@ async def _calculate_returns_series(
         if request.data_policy.missing_data_policy == MissingDataPolicy.FAIL_FAST and missing_points > 0:
             raise HTTPException(
                 status_code=HTTP_422_UNPROCESSABLE,
-                detail=_insufficient_data_detail(f"Missing {missing_points} required points under FAIL_FAST policy."),
+                detail=insufficient_data_detail(f"Missing {missing_points} required points under FAIL_FAST policy."),
             )
 
         warnings: list[str] = []
@@ -815,7 +795,7 @@ async def resolve_stateful_returns_series_request(
     if stateful_input is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_invalid_request_detail("stateful_input is required in stateful mode."),
+            detail=invalid_request_detail("stateful_input is required in stateful mode."),
         )
 
     execution_registry.start_stage(request.calculation_id, "retrieval")
@@ -836,11 +816,11 @@ async def resolve_stateful_returns_series_request(
         if exc.status_code == status.HTTP_503_SERVICE_UNAVAILABLE:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=_source_unavailable_detail(str(exc.detail)),
+                detail=source_unavailable_detail(str(exc.detail)),
             ) from exc
         raise HTTPException(
             status_code=HTTP_422_UNPROCESSABLE,
-            detail=_insufficient_data_detail(str(exc.detail)),
+            detail=insufficient_data_detail(str(exc.detail)),
         ) from exc
 
     observations = portfolio_source.observations
@@ -856,19 +836,19 @@ async def resolve_stateful_returns_series_request(
         if assignment_status == status.HTTP_404_NOT_FOUND:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=_resource_not_found_detail("No benchmark assignment found for portfolio."),
+                detail=resource_not_found_detail("No benchmark assignment found for portfolio."),
             )
         if assignment_status >= status.HTTP_400_BAD_REQUEST:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=_source_unavailable_detail(f"Benchmark assignment source unavailable ({assignment_status})."),
+                detail=source_unavailable_detail(f"Benchmark assignment source unavailable ({assignment_status})."),
             )
         benchmark_id_raw = assignment_payload.get("benchmark_id")
         benchmark_id = str(benchmark_id_raw) if benchmark_id_raw else None
         if not benchmark_id:
             raise HTTPException(
                 status_code=HTTP_422_UNPROCESSABLE,
-                detail=_upstream_contract_violation_detail("Benchmark assignment payload missing benchmark_id."),
+                detail=upstream_contract_violation_detail("Benchmark assignment payload missing benchmark_id."),
             )
         resolved_benchmark_id = benchmark_id
 
@@ -889,12 +869,12 @@ async def resolve_stateful_returns_series_request(
             if benchmark_status == status.HTTP_404_NOT_FOUND:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail=_resource_not_found_detail(f"No benchmark return series for {benchmark_id}."),
+                    detail=resource_not_found_detail(f"No benchmark return series for {benchmark_id}."),
                 )
             if benchmark_status >= status.HTTP_400_BAD_REQUEST:
                 raise HTTPException(
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail=_source_unavailable_detail(
+                    detail=source_unavailable_detail(
                         f"Benchmark return-series source unavailable ({benchmark_status})."
                     ),
                 )
@@ -902,7 +882,7 @@ async def resolve_stateful_returns_series_request(
             if not isinstance(benchmark_points, list):
                 raise HTTPException(
                     status_code=HTTP_422_UNPROCESSABLE,
-                    detail=_upstream_contract_violation_detail("Benchmark return-series payload missing points list."),
+                    detail=upstream_contract_violation_detail("Benchmark return-series payload missing points list."),
                 )
             benchmark_retrieval_metadata = _zero_default_retrieval_metadata(benchmark_payload)
             benchmark_source_details = {
@@ -947,7 +927,7 @@ async def resolve_stateful_returns_series_request(
         if not request.reporting_currency:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_invalid_request_detail("reporting_currency is required for risk-free series in stateful mode."),
+                detail=invalid_request_detail("reporting_currency is required for risk-free series in stateful mode."),
             )
         risk_free_status, risk_free_payload = await stateful_input_service.get_risk_free_series(
             currency=request.reporting_currency,
@@ -961,18 +941,18 @@ async def resolve_stateful_returns_series_request(
         if risk_free_status == status.HTTP_404_NOT_FOUND:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=_resource_not_found_detail(f"No risk-free series found for {request.reporting_currency}."),
+                detail=resource_not_found_detail(f"No risk-free series found for {request.reporting_currency}."),
             )
         if risk_free_status >= status.HTTP_400_BAD_REQUEST:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=_source_unavailable_detail(f"Risk-free series source unavailable ({risk_free_status})."),
+                detail=source_unavailable_detail(f"Risk-free series source unavailable ({risk_free_status})."),
             )
         risk_free_points = risk_free_payload.get("points")
         if not isinstance(risk_free_points, list):
             raise HTTPException(
                 status_code=HTTP_422_UNPROCESSABLE,
-                detail=_upstream_contract_violation_detail("Risk-free series payload missing points list."),
+                detail=upstream_contract_violation_detail("Risk-free series payload missing points list."),
             )
 
     execution_registry.complete_stage(
