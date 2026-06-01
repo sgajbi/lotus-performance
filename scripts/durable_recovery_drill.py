@@ -443,17 +443,33 @@ def _load_manifest_entry(path: Path) -> RecoveryDrillManifestEntry | None:
     try:
         payload = _read_recovery_drill_evidence_payload(path)
         return RecoveryDrillManifestEntry(
-            evidence_file_name=payload["evidence_file_name"],
-            generated_at_utc=payload["generated_at_utc"],
-            operator_id=payload["operator_id"],
-            tenant_id=payload.get("tenant_id"),
-            correlation_id=payload.get("correlation_id"),
-            backup_identifier=payload["backup_identifier"],
-            status=payload["status"],
+            evidence_file_name=_required_evidence_string(payload, "evidence_file_name"),
+            generated_at_utc=_required_evidence_string(payload, "generated_at_utc"),
+            operator_id=_required_evidence_string(payload, "operator_id"),
+            tenant_id=_optional_evidence_string(payload, "tenant_id"),
+            correlation_id=_optional_evidence_string(payload, "correlation_id"),
+            backup_identifier=_required_evidence_string(payload, "backup_identifier"),
+            status=_required_evidence_string(payload, "status"),
         )
-    except (OSError, json.JSONDecodeError, KeyError, TypeError):
+    except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
         logger.warning("Recovery drill evidence ignored during manifest rebuild: %s", path, exc_info=True)
         return None
+
+
+def _required_evidence_string(payload: dict[str, Any], key: str) -> str:
+    value = payload[key]
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{key} must be a nonblank string")
+    return value
+
+
+def _optional_evidence_string(payload: dict[str, Any], key: str) -> str | None:
+    value = payload.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError(f"{key} must be a string when present")
+    return value
 
 
 def _read_recovery_drill_evidence_payload(path: Path) -> dict[str, Any]:

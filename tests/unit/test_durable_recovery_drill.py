@@ -210,6 +210,58 @@ def test_recovery_drill_history_skips_invalid_retained_artifacts(tmp_path, caplo
     assert "Recovery drill evidence ignored during age pruning" in caplog.text
 
 
+def test_recovery_drill_manifest_rebuild_skips_invalid_entry_shapes(tmp_path, caplog):
+    output_dir = tmp_path / "artifacts" / "durable-recovery-drill"
+    output_dir.mkdir(parents=True)
+    invalid_shape = output_dir / "invalid-shape.json"
+    invalid_shape.write_text(
+        json.dumps(
+            {
+                "evidence_file_name": "invalid-shape.json",
+                "generated_at_utc": datetime.now(UTC).isoformat(),
+                "operator_id": 123,
+                "tenant_id": None,
+                "correlation_id": None,
+                "backup_identifier": "backup-legacy",
+                "status": "passed",
+            }
+        ),
+        encoding="utf-8",
+    )
+    evidence = RecoveryDrillEvidence(
+        drill_name="durable_metadata_restore_recovery",
+        generated_at_utc=datetime.now(UTC).isoformat(),
+        evidence_file_name="current.json",
+        operator_id="test-operator",
+        tenant_id=None,
+        correlation_id=None,
+        backup_identifier="backup-001",
+        database_path="recovery-drill.db",
+        restored_schema_mode="legacy_lineage_schema_upgraded_in_place",
+        owned_tables_present=list(REQUIRED_TABLES),
+        compute_job_processed_count=1,
+        compute_async_result_status="complete",
+        compute_execution_status="complete",
+        processed_payload_count=1,
+        materialized_artifact_path="details.csv",
+        materialized_artifact_exists=True,
+        status="passed",
+    )
+
+    with caplog.at_level(logging.WARNING, logger="scripts.durable_recovery_drill"):
+        _persist_evidence_history(
+            output_dir=output_dir,
+            evidence=evidence,
+            retention_limit=5,
+            retention_max_age_days=30,
+        )
+
+    manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["retained_file_names"] == [evidence.evidence_file_name]
+    assert invalid_shape.exists()
+    assert "Recovery drill evidence ignored during manifest rebuild" in caplog.text
+
+
 def test_write_text_atomic_does_not_leave_partial_target(tmp_path, mocker):
     target_path = tmp_path / "manifest.json"
 
