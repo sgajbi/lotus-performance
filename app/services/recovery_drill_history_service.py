@@ -182,8 +182,6 @@ def _validate_manifest_entry(entry: Any) -> dict[str, str | None] | None:
     except ValueError:
         return None
     backup_identifier = entry_strings["backup_identifier"]
-    if not isinstance(backup_identifier, str) or not backup_identifier.strip():
-        return None
     return {
         "evidence_file_name": entry_strings["evidence_file_name"],
         "generated_at_utc": entry_strings["generated_at_utc"],
