@@ -488,6 +488,8 @@ async def get_integration_capabilities(
     ),
     tenant_id: str = Query(
         "default",
+        min_length=1,
+        pattern=r".*\S.*",
         description="Tenant or policy scope. Use snake_case query name `tenant_id`.",
         examples=["default"],
     ),

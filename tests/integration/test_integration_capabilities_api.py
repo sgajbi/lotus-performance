@@ -231,6 +231,15 @@ def test_integration_capabilities_honors_canonical_query_controls():
     assert body["tenant_id"] == "tenant-risk"
 
 
+def test_integration_capabilities_rejects_blank_tenant_scope():
+    with TestClient(app) as client:
+        response = client.get("/integration/capabilities?consumer_system=lotus-gateway&tenant_id=%20%20")
+
+    assert response.status_code == 422
+    detail = response.json()["detail"][0]
+    assert detail["loc"] == ["query", "tenant_id"]
+
+
 def test_integration_capabilities_limit_guardrails():
     with TestClient(app) as client:
         response = client.get(
