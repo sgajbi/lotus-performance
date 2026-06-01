@@ -13,6 +13,7 @@ from sqlalchemy import DateTime, ForeignKey, Index, String, Text, create_engine,
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
+from app.services.durable_store_json import load_json_object_or_none
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
 
 logger = logging.getLogger(__name__)
@@ -668,22 +669,10 @@ execution_registry = RuntimeStoreProxy(get_execution_registry)
 
 
 def _load_json_object(raw_payload: str | None, *, calculation_id: str, payload_name: str) -> dict[str, Any] | None:
-    if not raw_payload:
-        return None
-    try:
-        payload = json.loads(raw_payload)
-    except json.JSONDecodeError:
-        logger.warning(
-            "Execution registry %s invalid JSON for calculation_id=%s.",
-            payload_name,
-            calculation_id,
-        )
-        return None
-    if not isinstance(payload, dict):
-        logger.warning(
-            "Execution registry %s is not an object for calculation_id=%s.",
-            payload_name,
-            calculation_id,
-        )
-        return None
-    return payload
+    return load_json_object_or_none(
+        raw_payload,
+        logger=logger,
+        payload_name=f"Execution registry {payload_name}",
+        identity_name="calculation_id",
+        identity_value=calculation_id,
+    )
