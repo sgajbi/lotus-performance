@@ -52,23 +52,23 @@ def operator_action_optional_identity_matches(entry_value: str | None, candidate
     return _optional_identity_matches(entry_value, candidate_value)
 
 
-def _normalize_required_identity(value: str) -> str:
-    return normalize_required_evidence_identifier(value, field_name="operator_action_identity")
-
-
-def _normalize_optional_identity(value: str | None) -> str | None:
-    return normalize_optional_evidence_identifier(value)
-
-
 def _required_identity_matches(entry_value: str, candidate_value: str) -> bool:
     try:
-        return _normalize_required_identity(entry_value) == _normalize_required_identity(candidate_value)
+        return normalize_required_evidence_identifier(
+            entry_value,
+            field_name="operator_action_identity",
+        ) == normalize_required_evidence_identifier(
+            candidate_value,
+            field_name="operator_action_identity",
+        )
     except ValueError:
         return False
 
 
 def _optional_identity_matches(entry_value: str | None, candidate_value: str | None) -> bool:
     try:
-        return _normalize_optional_identity(entry_value) == _normalize_optional_identity(candidate_value)
+        return normalize_optional_evidence_identifier(entry_value) == normalize_optional_evidence_identifier(
+            candidate_value
+        )
     except ValueError:
         return False

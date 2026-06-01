@@ -12,7 +12,10 @@ from fastapi import HTTPException, status
 from app.models.benchmark_analytics_requests import BenchmarkReturnSource
 from app.models.benchmark_requests import BenchmarkComponentObservation, BenchmarkReturnPoint
 from app.services.stateful_input_service import RetrievalMetadata, StatefulInputService
-from app.services.stateful_retrieval_metadata import parse_zero_default_retrieval_metadata
+from app.services.stateful_retrieval_metadata import (
+    add_zero_default_retrieval_metadata,
+    parse_zero_default_retrieval_metadata,
+)
 from app.services.stateful_upstream_errors import raise_for_stateful_source_unavailable
 from core.errors import HTTP_422_UNPROCESSABLE
 
@@ -190,7 +193,7 @@ async def _build_stateful_vendor_series_input(
         and isinstance(point.get("series_date"), str)
         and point.get("benchmark_return") is not None
     ]
-    retrieval_metadata = _parse_retrieval_metadata(return_payload)
+    retrieval_metadata = parse_zero_default_retrieval_metadata(return_payload)
     return StatefulBenchmarkNormalizedInput(
         benchmark_currency=benchmark_currency,
         component_observations=[],
@@ -344,7 +347,7 @@ async def _load_component_price_series(
             "points": series_points,
             "series_currency": _infer_series_currency(index_id=index_id, points=series_points),
         }
-        retrieval_metadata_total = _add_retrieval_metadata(retrieval_metadata_total, series_payload)
+        retrieval_metadata_total = add_zero_default_retrieval_metadata(retrieval_metadata_total, series_payload)
 
     return component_price_series, retrieval_metadata_total
 
@@ -407,7 +410,7 @@ async def _load_fx_maps_for_components(
             and isinstance(point.get("series_date"), str)
             and point.get("fx_rate") is not None
         }
-        retrieval_metadata_total = _add_retrieval_metadata(retrieval_metadata_total, fx_payload)
+        retrieval_metadata_total = add_zero_default_retrieval_metadata(retrieval_metadata_total, fx_payload)
     return fx_maps, retrieval_metadata_total
 
 
@@ -584,15 +587,3 @@ def _normalize_price_to_benchmark_currency(
             detail=f"Missing FX rate for {component_currency}/{benchmark_currency} on {price_date}.",
         )
     return price * fx_map[price_date]
-
-
-def _parse_retrieval_metadata(payload: dict[str, Any]) -> RetrievalMetadata:
-    return parse_zero_default_retrieval_metadata(payload)
-
-
-def _add_retrieval_metadata(total: RetrievalMetadata, payload: dict[str, Any]) -> RetrievalMetadata:
-    metadata = _parse_retrieval_metadata(payload)
-    return RetrievalMetadata(
-        chunk_count=total.chunk_count + metadata.chunk_count,
-        page_count=total.page_count + metadata.page_count,
-    )

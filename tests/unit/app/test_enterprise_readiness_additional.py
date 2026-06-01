@@ -4,6 +4,19 @@ from datetime import datetime
 import pytest
 from fastapi import Response
 
+from app import (
+    enterprise_audit_emission,
+    enterprise_audit_events,
+    enterprise_audit_middleware,
+    enterprise_audit_redaction,
+    enterprise_authorization,
+    enterprise_capability_rules,
+    enterprise_feature_flags,
+    enterprise_payload_limits,
+    enterprise_request_context,
+    enterprise_response_envelopes,
+    enterprise_runtime_config,
+)
 from app.enterprise_readiness import (
     _ACTOR_ID_HEADER,
     _AUDIT_ACCESS_MODE_PRIVILEGED_READ,
@@ -30,6 +43,9 @@ from app.enterprise_readiness import (
     _CORRELATION_ID_HEADER,
     _DEFAULT_MAX_WRITE_PAYLOAD_BYTES,
     _DEFAULT_TENANT_ID,
+    _DIAGNOSTIC_LIST_SEPARATOR,
+    _EMPTY_AUDIT_CORRELATION_ID,
+    _EMPTY_ENV_VALUE,
     _EMPTY_JSON_OBJECT,
     _ENTERPRISE_AUDIT_EVENT_NAME,
     _ENTERPRISE_AUDIT_EXTRA_KEY,
@@ -45,6 +61,7 @@ from app.enterprise_readiness import (
     _ENV_ENTERPRISE_PRIVILEGED_READ_RULES_JSON,
     _ENV_ENTERPRISE_SECRET_ROTATION_DAYS,
     _ENV_SWITCH_DISABLED_DEFAULT,
+    _HEADER_CAPABILITY_SEPARATOR,
     _HTTP_METHOD_DELETE,
     _HTTP_METHOD_GET,
     _HTTP_METHOD_PATCH,
@@ -66,6 +83,7 @@ from app.enterprise_readiness import (
     _RULE_RECOVERY_DRILL_RUN_WRITE,
     _RULE_RUNTIME_RETENTION_CLEANUP_RUN_WRITE,
     _RULE_RUNTIME_STATUS_READ,
+    _RUNTIME_CONFIG_INVALID_PREFIX,
     _SECRET_ROTATION_DAYS_OUT_OF_RANGE_ISSUE,
     _SERVICE_IDENTITY_HEADER,
     _TENANT_ID_HEADER,
@@ -83,13 +101,16 @@ from app.enterprise_readiness import (
     _authorization_denied,
     _authorization_denied_response,
     _authorize_enterprise_request,
+    _build_enterprise_audit_middleware,
     _capability_rule_key,
     _capability_rule_path_for_method,
     _content_length,
     _denied_request_action,
     _emit_allowed_audit_event,
+    _empty_json_map,
     _enterprise_runtime_config_issues,
     _env_enabled,
+    _env_value,
     _feature_flag_enabled,
     _governed_surface_for_capability,
     _has_required_capability,
@@ -103,16 +124,23 @@ from app.enterprise_readiness import (
     _missing_capability_reason,
     _missing_headers_reason,
     _missing_required_headers,
+    _normalized_enterprise_policy_version,
     _normalized_headers,
     _normalized_http_method,
+    _normalized_redaction_field,
     _parse_int_or_default,
     _payload_too_large_response,
     _primary_key_configured,
     _privileged_read_authz_enabled,
+    _redacted_mapping,
+    _redacted_mapping_value,
+    _redacted_sequence,
     _request_action,
     _required_capability,
     _required_capability_from_rules,
     _runtime_config_enforcement_enabled,
+    _runtime_config_invalid_message,
+    _should_redact_field,
     _write_authz_enabled,
     _write_payload_too_large,
     authorize_privileged_read_request,
@@ -120,6 +148,7 @@ from app.enterprise_readiness import (
     emit_audit_event,
     load_capability_rules,
     load_privileged_read_rules,
+    redact_sensitive,
     validate_enterprise_runtime_config,
 )
 
@@ -129,7 +158,7 @@ def test_validate_enterprise_runtime_config_raises_when_enforcement_enabled(monk
     monkeypatch.setenv(_ENV_ENTERPRISE_SECRET_ROTATION_DAYS, "120")
     monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_RUNTIME_CONFIG, "true")
 
-    with pytest.raises(RuntimeError, match="enterprise_runtime_config_invalid"):
+    with pytest.raises(RuntimeError, match=_RUNTIME_CONFIG_INVALID_PREFIX):
         validate_enterprise_runtime_config()
 
 
@@ -179,6 +208,80 @@ def test_env_enabled_uses_governed_enabled_tokens_and_disabled_default(monkeypat
     assert _env_enabled(env_name, _ENV_SWITCH_DISABLED_DEFAULT) is False
 
 
+def test_env_value_uses_configured_value_or_default(monkeypatch):
+    env_name = "ENTERPRISE_TEST_VALUE"
+    monkeypatch.setenv(env_name, "configured")
+    assert _env_value(env_name, "fallback") == "configured"
+
+    monkeypatch.delenv(env_name, raising=False)
+    assert _env_value(env_name, "fallback") == "fallback"
+
+
+def test_enterprise_readiness_reexports_runtime_config_boundary():
+    assert _env_value is enterprise_runtime_config._env_value
+    assert validate_enterprise_runtime_config is enterprise_runtime_config.validate_enterprise_runtime_config
+
+
+def test_enterprise_readiness_reexports_feature_flag_boundary():
+    assert _feature_flag_enabled is enterprise_feature_flags._feature_flag_enabled
+
+
+def test_enterprise_readiness_reexports_capability_rule_boundary():
+    assert _required_capability is enterprise_capability_rules._required_capability
+    assert load_capability_rules is enterprise_capability_rules.load_capability_rules
+
+
+def test_enterprise_readiness_reexports_request_context_boundary():
+    assert _normalized_headers is enterprise_request_context._normalized_headers
+    assert _audit_identity_from_headers is enterprise_request_context._audit_identity_from_headers
+
+
+def test_enterprise_readiness_reexports_audit_redaction_boundary():
+    assert redact_sensitive is enterprise_audit_redaction.redact_sensitive
+    assert _redacted_mapping is enterprise_audit_redaction._redacted_mapping
+
+
+def test_enterprise_readiness_reexports_payload_limits_boundary():
+    assert _write_payload_too_large is enterprise_payload_limits._write_payload_too_large
+    assert _payload_too_large_response is enterprise_payload_limits._payload_too_large_response
+
+
+def test_enterprise_readiness_reexports_audit_events_boundary():
+    assert _audit_event_payload is enterprise_audit_events._audit_event_payload
+    assert _apply_enterprise_policy_header is enterprise_audit_events._apply_enterprise_policy_header
+
+
+def test_enterprise_readiness_reexports_authorization_boundary():
+    assert authorize_write_request is enterprise_authorization.authorize_write_request
+    assert _allowed_audit_metadata is enterprise_authorization._allowed_audit_metadata
+
+
+def test_enterprise_readiness_reexports_response_envelope_boundary():
+    assert _RESPONSE_DETAIL_KEY is enterprise_response_envelopes._RESPONSE_DETAIL_KEY
+    assert _RESPONSE_REASON_KEY is enterprise_response_envelopes._RESPONSE_REASON_KEY
+
+
+def test_enterprise_readiness_delegates_audit_emission_boundary(mocker):
+    emit = mocker.patch.object(enterprise_audit_emission, "emit_audit_event")
+
+    emit_audit_event(
+        action="POST /analytics",
+        actor_id="actor-1",
+        tenant_id="tenant-1",
+        role="operator",
+        correlation_id="corr-1",
+        metadata={"safe": "ok"},
+    )
+
+    emit.assert_called_once()
+    assert emit.call_args.kwargs["logger"].name == "enterprise_readiness"
+    assert emit.call_args.kwargs["action"] == "POST /analytics"
+
+
+def test_enterprise_readiness_reexports_audit_middleware_boundary():
+    assert _build_enterprise_audit_middleware is enterprise_audit_middleware.build_enterprise_audit_middleware
+
+
 def test_load_json_map_fails_closed_for_missing_invalid_or_non_object_json(monkeypatch):
     env_name = "ENTERPRISE_TEST_JSON"
     monkeypatch.delenv(env_name, raising=False)
@@ -194,6 +297,13 @@ def test_load_json_map_fails_closed_for_missing_invalid_or_non_object_json(monke
     assert _load_json_map(env_name) == {"policy": True}
 
 
+def test_empty_json_map_returns_fresh_empty_mapping():
+    empty_map = _empty_json_map()
+    empty_map["policy"] = True
+
+    assert _empty_json_map() == {}
+
+
 @pytest.mark.parametrize(
     ("configured", "default", "expected"),
     [
@@ -204,6 +314,19 @@ def test_load_json_map_fails_closed_for_missing_invalid_or_non_object_json(monke
 )
 def test_parse_int_or_default_uses_valid_integer_or_fallback(configured, default, expected):
     assert _parse_int_or_default(configured, default) == expected
+
+
+def test_runtime_config_invalid_message_uses_governed_prefix():
+    issues = [_MISSING_POLICY_VERSION_ISSUE, _MISSING_PRIMARY_KEY_ID_ISSUE]
+    assert _runtime_config_invalid_message(issues) == (
+        f"{_RUNTIME_CONFIG_INVALID_PREFIX}:{_DIAGNOSTIC_LIST_SEPARATOR.join(issues)}"
+    )
+
+
+def test_normalized_enterprise_policy_version_trims_configured_value(monkeypatch):
+    monkeypatch.setenv(_ENV_ENTERPRISE_POLICY_VERSION, " 2.0.0 ")
+
+    assert _normalized_enterprise_policy_version() == "2.0.0"
 
 
 @pytest.mark.parametrize(
@@ -257,11 +380,15 @@ def test_runtime_config_enforcement_enabled_uses_governed_env_switch(monkeypatch
         ("primary-key-1", True),
         (" primary-key-1 ", True),
         (" ", False),
-        ("", False),
+        (_EMPTY_ENV_VALUE, False),
+        (None, False),
     ],
 )
 def test_primary_key_configured_requires_non_blank_value(monkeypatch, configured, expected):
-    monkeypatch.setenv(_ENV_ENTERPRISE_PRIMARY_KEY_ID, configured)
+    if configured is None:
+        monkeypatch.delenv(_ENV_ENTERPRISE_PRIMARY_KEY_ID, raising=False)
+    else:
+        monkeypatch.setenv(_ENV_ENTERPRISE_PRIMARY_KEY_ID, configured)
 
     assert _primary_key_configured() is expected
 
@@ -325,7 +452,12 @@ def test_required_capability_from_rules_is_shared_for_authz_rule_families():
 
 
 def test_normalized_headers_and_capabilities_trim_values():
-    normalized = _normalized_headers({"X-Capabilities": " analytics.read, operations.runtime.read ", 1: " value "})
+    normalized = _normalized_headers(
+        {
+            "X-Capabilities": f" analytics.read{_HEADER_CAPABILITY_SEPARATOR} operations.runtime.read ",
+            1: " value ",
+        }
+    )
     assert normalized == {
         "1": "value",
         _CAPABILITIES_HEADER: "analytics.read, operations.runtime.read",
@@ -394,7 +526,7 @@ def test_audit_event_payload_redacts_metadata_and_includes_policy_version(monkey
     assert payload[_AUDIT_PAYLOAD_ACTOR_ID_KEY] == "actor-1"
     assert payload[_AUDIT_PAYLOAD_TENANT_ID_KEY] == "tenant-1"
     assert payload[_AUDIT_PAYLOAD_ROLE_KEY] == "operator"
-    assert payload[_AUDIT_PAYLOAD_CORRELATION_ID_KEY] == ""
+    assert payload[_AUDIT_PAYLOAD_CORRELATION_ID_KEY] == _EMPTY_AUDIT_CORRELATION_ID
     assert payload[_AUDIT_PAYLOAD_POLICY_VERSION_KEY] == "2.1.0"
     assert payload[_AUDIT_PAYLOAD_METADATA_KEY] == {"token": _REDACTED_VALUE, "safe": "ok"}
     assert datetime.fromisoformat(payload[_AUDIT_PAYLOAD_TIMESTAMP_UTC_KEY]).tzinfo is not None
@@ -404,8 +536,8 @@ def test_audit_event_payload_redacts_metadata_and_includes_policy_version(monkey
     ("correlation_id", "expected"),
     [
         ("corr-1", "corr-1"),
-        (None, ""),
-        ("", ""),
+        (None, _EMPTY_AUDIT_CORRELATION_ID),
+        ("", _EMPTY_AUDIT_CORRELATION_ID),
     ],
 )
 def test_audit_correlation_id_normalizes_missing_value(correlation_id, expected):
@@ -424,6 +556,33 @@ def test_audit_metadata_redacts_sensitive_nested_values():
         "nested": {"authorization": _REDACTED_VALUE},
         "items": [{"token": _REDACTED_VALUE}],
     }
+
+
+def test_redaction_field_predicates_normalize_keys():
+    assert _normalized_redaction_field("Token") == "token"
+    assert _should_redact_field("Authorization")
+    assert not _should_redact_field("safe")
+
+
+def test_redacted_mapping_value_masks_sensitive_fields_and_recurses_safe_values():
+    assert _redacted_mapping_value(field="token", value="secret") == _REDACTED_VALUE
+    assert _redacted_mapping_value(field="safe", value={"authorization": "Bearer secret"}) == {
+        "authorization": _REDACTED_VALUE
+    }
+
+
+def test_redacted_mapping_preserves_keys_and_recurses_values():
+    assert _redacted_mapping({1: {"token": "secret"}, "safe": "ok"}) == {
+        1: {"token": _REDACTED_VALUE},
+        "safe": "ok",
+    }
+
+
+def test_redacted_sequence_recurses_sensitive_items():
+    assert _redacted_sequence([{"token": "secret"}, "safe"]) == [
+        {"token": _REDACTED_VALUE},
+        "safe",
+    ]
 
 
 def test_audit_timestamp_utc_uses_timezone_aware_iso_timestamp():
@@ -493,7 +652,7 @@ def test_audit_identity_from_headers_uses_governed_missing_value_fallbacks():
         _AUDIT_PAYLOAD_ACTOR_ID_KEY: _UNKNOWN_ACTOR_ID,
         _AUDIT_PAYLOAD_TENANT_ID_KEY: _DEFAULT_TENANT_ID,
         _AUDIT_PAYLOAD_ROLE_KEY: _UNKNOWN_ROLE,
-        _AUDIT_PAYLOAD_CORRELATION_ID_KEY: "",
+        _AUDIT_PAYLOAD_CORRELATION_ID_KEY: _EMPTY_AUDIT_CORRELATION_ID,
     }
 
 
@@ -568,7 +727,7 @@ def test_authorization_denial_metadata_uses_governed_reason_key():
 
 def test_authorization_reason_helpers_use_governed_reason_tokens():
     assert _missing_headers_reason([_ACTOR_ID_HEADER, _ROLE_HEADER]) == (
-        f"{_MISSING_HEADERS_REASON}:{_ACTOR_ID_HEADER},{_ROLE_HEADER}"
+        f"{_MISSING_HEADERS_REASON}:{_DIAGNOSTIC_LIST_SEPARATOR.join([_ACTOR_ID_HEADER, _ROLE_HEADER])}"
     )
     assert _missing_capability_reason(_CAPABILITY_OPERATIONS_RUNTIME_MANAGE) == (
         f"{_MISSING_CAPABILITY_REASON}:{_CAPABILITY_OPERATIONS_RUNTIME_MANAGE}"

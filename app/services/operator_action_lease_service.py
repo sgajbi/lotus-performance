@@ -8,12 +8,20 @@ from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterator, cast
+from typing import Any, Iterator, cast
 
 from fastapi import HTTPException, status
 
-from app.services import operator_action_evidence_strings as _evidence_strings
 from app.services.durable_store_json import read_json_file
+from app.services.durable_store_time import format_timestamp
+from app.services.operator_action_evidence_strings import (
+    is_optional_evidence_string,
+    is_required_evidence_int,
+    is_required_evidence_number,
+    is_required_evidence_string,
+    normalize_optional_evidence_identifier,
+    normalize_required_evidence_identifier,
+)
 from app.services.runtime_status_time import parse_utc_datetime
 
 OPERATOR_ACTION_LEASE_DIRECTORY_UNREADABLE_REASON = "operator_action_lease_directory_unreadable"
@@ -22,13 +30,6 @@ OPERATOR_ACTION_RECLAIM_EVENT_INVALID_REASON = "operator_action_reclaim_event_in
 OPERATOR_ACTION_RECLAIM_HISTORY_INVALID_REASON = "operator_action_reclaim_history_invalid"
 
 logger = logging.getLogger(__name__)
-
-_is_optional_lease_string = _evidence_strings.is_optional_evidence_string
-_is_required_lease_int = _evidence_strings.is_required_evidence_int
-_is_required_lease_number = _evidence_strings.is_required_evidence_number
-_is_required_lease_string = _evidence_strings.is_required_evidence_string
-_normalize_optional_lease_string = _evidence_strings.normalize_optional_evidence_identifier
-_normalize_required_lease_string = _evidence_strings.normalize_required_evidence_identifier
 
 
 @dataclass(frozen=True)
@@ -80,9 +81,9 @@ def build_runtime_retention_action_key(
     retention_days: int,
     job_id: str | None,
 ) -> str:
-    normalized_operator_id = _normalize_required_lease_string(operator_id, field_name="operator_id")
-    normalized_tenant_id = _normalize_optional_lease_string(tenant_id)
-    normalized_job_id = _normalize_optional_lease_string(job_id)
+    normalized_operator_id = normalize_required_evidence_identifier(operator_id, field_name="operator_id")
+    normalized_tenant_id = normalize_optional_evidence_identifier(tenant_id)
+    normalized_job_id = normalize_optional_evidence_identifier(job_id)
     return _sanitize_key(
         "runtime-retention",
         normalized_operator_id,
@@ -99,9 +100,9 @@ def build_recovery_drill_action_key(
     tenant_id: str | None,
     backup_identifier: str,
 ) -> str:
-    normalized_operator_id = _normalize_required_lease_string(operator_id, field_name="operator_id")
-    normalized_tenant_id = _normalize_optional_lease_string(tenant_id)
-    normalized_backup_identifier = _normalize_required_lease_string(
+    normalized_operator_id = normalize_required_evidence_identifier(operator_id, field_name="operator_id")
+    normalized_tenant_id = normalize_optional_evidence_identifier(tenant_id)
+    normalized_backup_identifier = normalize_required_evidence_identifier(
         backup_identifier,
         field_name="backup_identifier",
     )
@@ -122,7 +123,7 @@ def operator_action_lease(
     stale_after_seconds: float,
     now_utc: datetime | None = None,
 ) -> Iterator[None]:
-    normalized_action_key = _normalize_required_lease_string(action_key, field_name="action_key")
+    normalized_action_key = normalize_required_evidence_identifier(action_key, field_name="action_key")
     normalized_metadata = _normalize_lease_metadata(metadata)
     locks_dir = artifact_directory / ".action-locks"
     locks_dir.mkdir(parents=True, exist_ok=True)
@@ -263,13 +264,16 @@ _RECLAIM_HISTORY_LIMIT = 20
 
 
 def _normalize_lease_metadata(metadata: OperatorActionLeaseMetadata) -> OperatorActionLeaseMetadata:
-    acquired_at_utc = _normalize_required_lease_string(metadata.acquired_at_utc, field_name="acquired_at_utc")
+    acquired_at_utc = normalize_required_evidence_identifier(metadata.acquired_at_utc, field_name="acquired_at_utc")
     _parse_utc(acquired_at_utc)
     return OperatorActionLeaseMetadata(
-        action_name=_normalize_required_lease_string(metadata.action_name, field_name="action_name"),
-        operator_id=_normalize_required_lease_string(metadata.operator_id, field_name="operator_id"),
-        tenant_id=_normalize_optional_lease_string(metadata.tenant_id),
-        governed_target=_normalize_required_lease_string(metadata.governed_target, field_name="governed_target"),
+        action_name=normalize_required_evidence_identifier(metadata.action_name, field_name="action_name"),
+        operator_id=normalize_required_evidence_identifier(metadata.operator_id, field_name="operator_id"),
+        tenant_id=normalize_optional_evidence_identifier(metadata.tenant_id),
+        governed_target=normalize_required_evidence_identifier(
+            metadata.governed_target,
+            field_name="governed_target",
+        ),
         acquired_at_utc=acquired_at_utc,
     )
 
@@ -285,15 +289,15 @@ def _read_active_operator_action_lease(*, lock_path: Path) -> ActiveOperatorActi
     tenant_id = payload.get("tenant_id")
     governed_target = payload.get("governed_target")
     acquired_at_utc = payload.get("acquired_at_utc")
-    if not _is_required_lease_string(action_name):
+    if not is_required_evidence_string(action_name):
         return _INVALID_LEASE
-    if not _is_required_lease_string(operator_id):
+    if not is_required_evidence_string(operator_id):
         return _INVALID_LEASE
-    if not _is_optional_lease_string(tenant_id):
+    if not is_optional_evidence_string(tenant_id):
         return _INVALID_LEASE
-    if not _is_required_lease_string(governed_target):
+    if not is_required_evidence_string(governed_target):
         return _INVALID_LEASE
-    if not _is_required_lease_string(acquired_at_utc):
+    if not is_required_evidence_string(acquired_at_utc):
         return _INVALID_LEASE
     action_name_value = cast(str, action_name)
     operator_id_value = cast(str, operator_id)
@@ -412,7 +416,7 @@ def _parse_reclaimed_event_payload(
     if not isinstance(payload, dict):
         return _INVALID_LEASE
     candidate_action_name = payload.get("action_name")
-    if not _is_required_lease_string(candidate_action_name):
+    if not is_required_evidence_string(candidate_action_name):
         return _INVALID_LEASE
     if action_name is not None and candidate_action_name != action_name:
         return None
@@ -424,21 +428,21 @@ def _parse_reclaimed_event_payload(
     stale_after_seconds = payload.get("stale_after_seconds")
     reclaim_count = payload.get("reclaim_count", 1)
     action_key = payload.get("action_key")
-    if not _is_required_lease_string(operator_id):
+    if not is_required_evidence_string(operator_id):
         return _INVALID_LEASE
-    if not _is_optional_lease_string(tenant_id):
+    if not is_optional_evidence_string(tenant_id):
         return _INVALID_LEASE
-    if not _is_required_lease_string(governed_target):
+    if not is_required_evidence_string(governed_target):
         return _INVALID_LEASE
-    if not _is_required_lease_string(acquired_at_utc):
+    if not is_required_evidence_string(acquired_at_utc):
         return _INVALID_LEASE
-    if not _is_required_lease_string(reclaimed_at_utc):
+    if not is_required_evidence_string(reclaimed_at_utc):
         return _INVALID_LEASE
-    if not _is_required_lease_number(stale_after_seconds):
+    if not is_required_evidence_number(stale_after_seconds):
         return _INVALID_LEASE
-    if not _is_required_lease_int(reclaim_count):
+    if not is_required_evidence_int(reclaim_count):
         return _INVALID_LEASE
-    if not _is_required_lease_string(action_key):
+    if not is_required_evidence_string(action_key):
         return _INVALID_LEASE
     candidate_action_name_value = cast(str, candidate_action_name)
     operator_id_value = cast(str, operator_id)
@@ -446,6 +450,7 @@ def _parse_reclaimed_event_payload(
     governed_target_value = cast(str, governed_target)
     acquired_at_utc_value = cast(str, acquired_at_utc)
     reclaimed_at_utc_value = cast(str, reclaimed_at_utc)
+    stale_after_seconds = cast(Any, stale_after_seconds)
     action_key_value = cast(str, action_key)
     try:
         _parse_utc(acquired_at_utc_value)
@@ -496,7 +501,7 @@ def _reclaim_stale_lock(
                 tenant_id=active_lease.tenant_id,
                 governed_target=active_lease.governed_target,
                 acquired_at_utc=active_lease.acquired_at_utc,
-                reclaimed_at_utc=current_time.isoformat().replace("+00:00", "Z"),
+                reclaimed_at_utc=format_timestamp(current_time) or "",
                 stale_after_seconds=stale_after_seconds,
                 reclaim_count=0,
             ),

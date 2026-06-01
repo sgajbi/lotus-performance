@@ -9,6 +9,7 @@ from pathlib import Path
 from app.core.config import get_settings
 from app.services.async_result_store import async_result_store
 from app.services.compute_job_store import compute_job_store
+from app.services.durable_store_time import format_timestamp
 from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import lineage_metadata_store
 
@@ -69,7 +70,7 @@ def _build_cleanup_summary(
 ) -> RuntimeRetentionCleanupSummary:
     return RuntimeRetentionCleanupSummary(
         retention_days=retention_days,
-        cutoff_utc=cutoff.isoformat().replace("+00:00", "Z"),
+        cutoff_utc=format_timestamp(cutoff) or "",
         dry_run=dry_run,
         prunable_execution_count=len(prunable_items.execution_ids),
         prunable_compute_job_count=prunable_items.compute_job_count,

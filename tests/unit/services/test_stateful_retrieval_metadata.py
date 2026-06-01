@@ -1,5 +1,9 @@
 from app.services.stateful_input_service import RetrievalMetadata
-from app.services.stateful_retrieval_metadata import parse_retrieval_metadata, parse_zero_default_retrieval_metadata
+from app.services.stateful_retrieval_metadata import (
+    add_zero_default_retrieval_metadata,
+    parse_retrieval_metadata,
+    parse_zero_default_retrieval_metadata,
+)
 
 
 def test_parse_retrieval_metadata_defaults_missing_payload_to_one_chunk_and_page():
@@ -18,6 +22,13 @@ def test_parse_retrieval_metadata_uses_configured_defaults_for_invalid_counts():
         default_chunk_count=0,
         default_page_count=0,
     ) == RetrievalMetadata(chunk_count=0, page_count=0)
+
+
+def test_parse_retrieval_metadata_defaults_invalid_counts_to_one():
+    assert parse_retrieval_metadata({"retrieval_metadata": {"chunk_count": 0, "page_count": "3"}}) == RetrievalMetadata(
+        chunk_count=1,
+        page_count=1,
+    )
 
 
 def test_parse_retrieval_metadata_defaults_boolean_counts():
@@ -46,3 +57,10 @@ def test_parse_zero_default_retrieval_metadata_defaults_missing_payload_to_zero(
     assert parse_zero_default_retrieval_metadata(
         {"retrieval_metadata": {"chunk_count": "2", "page_count": 3.0}}
     ) == RetrievalMetadata(chunk_count=2, page_count=3)
+
+
+def test_add_zero_default_retrieval_metadata_accumulates_payload_counts():
+    assert add_zero_default_retrieval_metadata(
+        RetrievalMetadata(chunk_count=1, page_count=2),
+        {"retrieval_metadata": {"chunk_count": "3", "page_count": 4.0}},
+    ) == RetrievalMetadata(chunk_count=4, page_count=6)

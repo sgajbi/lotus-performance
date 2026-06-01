@@ -16,7 +16,6 @@ from app.services.stateful_attribution_input_service import (
     _normalize_group_value,
     _parse_index_catalog,
     _parse_position_rows,
-    _parse_retrieval_metadata,
     _position_meta_from_row,
     _position_row_to_base_weight_point,
     _position_row_to_daily_point,
@@ -958,7 +957,6 @@ def test_stateful_attribution_parsers_filter_invalid_rows():
     }
     assert _parse_position_rows({"rows": [{"position_id": "POS_1"}, "bad"]}) == [{"position_id": "POS_1"}]
     assert _parse_index_catalog({"records": [{"index_id": "IDX_1"}, "bad"]}) == [{"index_id": "IDX_1"}]
-    assert _parse_retrieval_metadata({}) == RetrievalMetadata(chunk_count=1, page_count=1)
 
 
 def test_stateful_attribution_normalizes_group_values():

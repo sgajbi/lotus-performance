@@ -44,6 +44,17 @@ def parse_zero_default_retrieval_metadata(payload: Mapping[str, object] | None) 
     )
 
 
+def add_zero_default_retrieval_metadata(
+    total: RetrievalMetadata,
+    payload: Mapping[str, object] | None,
+) -> RetrievalMetadata:
+    metadata = parse_zero_default_retrieval_metadata(payload)
+    return RetrievalMetadata(
+        chunk_count=total.chunk_count + metadata.chunk_count,
+        page_count=total.page_count + metadata.page_count,
+    )
+
+
 def _metadata_count(
     value: object,
     *,

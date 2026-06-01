@@ -77,7 +77,7 @@ async def build_benchmark_exposure_context(
         page_size=request.page.page_size,
         page_token=request.page.page_token,
     )
-    market_retrieval = _parse_retrieval_metadata(market_payload)
+    market_retrieval = parse_zero_default_retrieval_metadata(market_payload)
     index_catalog_count = 1 if classification_map else 0
 
     return BenchmarkExposureContextResponse(
@@ -95,8 +95,8 @@ async def build_benchmark_exposure_context(
             calculation_run_id=request.calculation_id,
             generated_at=datetime.now(UTC),
             retrieval_metadata={
-                "benchmark_market_series_chunk_count": market_retrieval.get("chunk_count", 0),
-                "benchmark_market_series_page_count": market_retrieval.get("page_count", 0),
+                "benchmark_market_series_chunk_count": market_retrieval.chunk_count,
+                "benchmark_market_series_page_count": market_retrieval.page_count,
                 "index_catalog_page_count": index_catalog_count,
             },
         ),
@@ -274,8 +274,3 @@ def _page_rows(
         negative_token_detail="page.page_token must be non-negative.",
     )
     return page.items, page.next_page_token
-
-
-def _parse_retrieval_metadata(payload: dict[str, Any]) -> dict[str, int]:
-    metadata = parse_zero_default_retrieval_metadata(payload)
-    return {"chunk_count": metadata.chunk_count, "page_count": metadata.page_count}

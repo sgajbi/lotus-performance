@@ -11,19 +11,19 @@ from pathlib import Path
 from typing import Any
 
 from app.core.config import get_settings
-from app.services import operator_action_evidence_strings as _evidence_strings
 from app.services.durable_store_json import read_json_object_file
+from app.services.operator_action_evidence_strings import (
+    normalize_optional_evidence_identifier,
+    normalize_required_evidence_identifier,
+    optional_evidence_string,
+    required_evidence_string,
+)
 from app.services.runtime_retention_service import (
     run_runtime_retention_cleanup,
 )
 from app.services.runtime_status_time import parse_utc_datetime
 
 logger = logging.getLogger(__name__)
-
-_normalize_optional_evidence_identifier = _evidence_strings.normalize_optional_evidence_identifier
-_normalize_required_evidence_identifier = _evidence_strings.normalize_required_evidence_identifier
-_optional_evidence_string = _evidence_strings.optional_evidence_string
-_required_evidence_string = _evidence_strings.required_evidence_string
 
 
 @dataclass(frozen=True)
@@ -89,11 +89,11 @@ def execute_runtime_retention_cleanup(
     retention_max_age_days: int | None = None,
 ) -> RuntimeRetentionCleanupEvidence:
     settings = get_settings()
-    normalized_operator_id = _normalize_required_evidence_identifier(operator_id, field_name="operator_id")
-    normalized_tenant_id = _normalize_optional_evidence_identifier(tenant_id)
-    normalized_correlation_id = _normalize_optional_evidence_identifier(correlation_id)
-    normalized_trigger_mode = _normalize_required_evidence_identifier(trigger_mode, field_name="trigger_mode")
-    normalized_job_id = _normalize_optional_evidence_identifier(job_id)
+    normalized_operator_id = normalize_required_evidence_identifier(operator_id, field_name="operator_id")
+    normalized_tenant_id = normalize_optional_evidence_identifier(tenant_id)
+    normalized_correlation_id = normalize_optional_evidence_identifier(correlation_id)
+    normalized_trigger_mode = normalize_required_evidence_identifier(trigger_mode, field_name="trigger_mode")
+    normalized_job_id = normalize_optional_evidence_identifier(job_id)
     summary = run_runtime_retention_cleanup(
         retention_days=retention_days,
         dry_run=not apply,
@@ -207,14 +207,14 @@ def _load_manifest_entry(path: Path) -> RuntimeRetentionManifestEntry | None:
         payload = _read_runtime_retention_evidence_payload(path)
         return RuntimeRetentionManifestEntry(
             evidence_file_name=path.name,
-            generated_at_utc=_required_evidence_string(payload, "generated_at_utc"),
-            operator_id=_required_evidence_string(payload, "operator_id"),
-            tenant_id=_optional_evidence_string(payload, "tenant_id"),
-            correlation_id=_optional_evidence_string(payload, "correlation_id"),
-            trigger_mode=_optional_evidence_string(payload, "trigger_mode") or "manual",
-            job_id=_optional_evidence_string(payload, "job_id"),
-            cleanup_mode=_required_evidence_string(payload, "cleanup_mode"),
-            status=_required_evidence_string(payload, "status"),
+            generated_at_utc=required_evidence_string(payload, "generated_at_utc"),
+            operator_id=required_evidence_string(payload, "operator_id"),
+            tenant_id=optional_evidence_string(payload, "tenant_id"),
+            correlation_id=optional_evidence_string(payload, "correlation_id"),
+            trigger_mode=optional_evidence_string(payload, "trigger_mode") or "manual",
+            job_id=optional_evidence_string(payload, "job_id"),
+            cleanup_mode=required_evidence_string(payload, "cleanup_mode"),
+            status=required_evidence_string(payload, "status"),
             retention_days=int(payload["retention_days"]),
             prunable_execution_count=int(payload["prunable_execution_count"]),
             prunable_compute_job_count=int(payload["prunable_compute_job_count"]),
