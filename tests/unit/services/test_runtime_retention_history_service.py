@@ -96,7 +96,7 @@ def test_runtime_retention_history_applies_filters_and_paging(tmp_path):
                 "operator_id": "ops-user",
                 "tenant_id": "tenant-a",
                 "correlation_id": "corr-1",
-                "trigger_mode": "scheduled",
+                "trigger_mode": " scheduled ",
                 "job_id": "retention-nightly",
                 "cleanup_mode": "apply",
                 "status": "applied",
@@ -225,6 +225,7 @@ def test_runtime_retention_history_normalizes_manifest_entry_strings(tmp_path):
     assert snapshot.entries[0].operator_id == "ops-user"
     assert snapshot.entries[0].tenant_id == "tenant-a"
     assert snapshot.entries[0].correlation_id is None
+    assert snapshot.entries[0].trigger_mode == "scheduled"
     assert snapshot.entries[0].job_id == "retention-nightly"
     assert snapshot.entries[0].cleanup_mode == "apply"
     assert snapshot.entries[0].status == "applied"
