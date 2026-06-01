@@ -528,16 +528,20 @@ def _redacted_mapping_value(*, field: Any, value: Any) -> Any:
     return _REDACTED_VALUE if _should_redact_field(field) else redact_sensitive(value)
 
 
+def _redacted_mapping(values: dict[Any, Any]) -> dict[Any, Any]:
+    output: dict[Any, Any] = {}
+    for key, item in values.items():
+        output[key] = _redacted_mapping_value(field=key, value=item)
+    return output
+
+
 def _redacted_sequence(values: list[Any]) -> list[Any]:
     return [redact_sensitive(item) for item in values]
 
 
 def redact_sensitive(value: Any) -> Any:
     if isinstance(value, dict):
-        output: dict[str, Any] = {}
-        for key, item in value.items():
-            output[key] = _redacted_mapping_value(field=key, value=item)
-        return output
+        return _redacted_mapping(value)
     if isinstance(value, list):
         return _redacted_sequence(value)
     return value

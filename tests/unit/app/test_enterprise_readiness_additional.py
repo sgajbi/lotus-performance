@@ -113,6 +113,7 @@ from app.enterprise_readiness import (
     _payload_too_large_response,
     _primary_key_configured,
     _privileged_read_authz_enabled,
+    _redacted_mapping,
     _redacted_mapping_value,
     _redacted_sequence,
     _request_action,
@@ -456,6 +457,13 @@ def test_redacted_mapping_value_masks_sensitive_fields_and_recurses_safe_values(
     assert _redacted_mapping_value(field="token", value="secret") == _REDACTED_VALUE
     assert _redacted_mapping_value(field="safe", value={"authorization": "Bearer secret"}) == {
         "authorization": _REDACTED_VALUE
+    }
+
+
+def test_redacted_mapping_preserves_keys_and_recurses_values():
+    assert _redacted_mapping({1: {"token": "secret"}, "safe": "ok"}) == {
+        1: {"token": _REDACTED_VALUE},
+        "safe": "ok",
     }
 
 
