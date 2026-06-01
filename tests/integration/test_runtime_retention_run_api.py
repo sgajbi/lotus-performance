@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
@@ -12,6 +13,18 @@ def test_runtime_retention_run_api_rejects_missing_operator_identity():
 
     assert response.status_code == 400
     assert response.json() == {"detail": "missing_operator_identity"}
+
+
+@pytest.mark.parametrize("job_id", ["", "   "])
+def test_runtime_retention_run_api_rejects_blank_job_id(job_id):
+    with TestClient(app) as client:
+        response = client.post(
+            "/integration/runtime-retention-cleanups/run",
+            json={"apply": False, "job_id": job_id},
+        )
+
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["loc"] == ["body", "job_id"]
 
 
 def test_runtime_retention_run_api_persists_actor_identity_and_job_id(tmp_path, monkeypatch):

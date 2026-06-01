@@ -54,6 +54,17 @@ _MWR_ALLOWED_REASON_CODES = frozenset(
 )
 
 
+def _nonblank_value(value: str | None) -> str | None:
+    if value is None:
+        return None
+    stripped = value.strip()
+    return stripped or None
+
+
+def _nonblank_header(request: Request, name: str) -> str | None:
+    return _nonblank_value(request.headers.get(name))
+
+
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         payload = {
@@ -83,30 +94,32 @@ def setup_logging(log_level: str = "INFO") -> None:
 
 
 def resolve_correlation_id(request: Request) -> str:
-    incoming = request.headers.get("X-Correlation-Id") or request.headers.get("X-Correlation-ID")
+    incoming = _nonblank_header(request, "X-Correlation-Id") or _nonblank_header(request, "X-Correlation-ID")
     return incoming if incoming else f"corr_{uuid4().hex[:12]}"
 
 
 def resolve_request_id(request: Request) -> str:
-    incoming = request.headers.get("X-Request-Id")
+    incoming = _nonblank_header(request, "X-Request-Id")
     return incoming if incoming else f"req_{uuid4().hex[:12]}"
 
 
 def resolve_trace_id(request: Request) -> str:
-    traceparent = request.headers.get("traceparent")
+    traceparent = _nonblank_header(request, "traceparent")
     if traceparent:
         parts = traceparent.split("-")
         if len(parts) >= 4 and len(parts[1]) == 32:
             return parts[1]
-    incoming = request.headers.get("X-Trace-Id")
+    incoming = _nonblank_header(request, "X-Trace-Id")
     return incoming if incoming else uuid4().hex
 
 
 def propagation_headers(correlation_id: str | None = None) -> dict[str, str]:
-    trace_id = trace_id_var.get() or uuid4().hex
+    trace_id = _nonblank_value(trace_id_var.get()) or uuid4().hex
     return {
-        "X-Correlation-Id": correlation_id or correlation_id_var.get() or f"corr_{uuid4().hex[:12]}",
-        "X-Request-Id": request_id_var.get() or f"req_{uuid4().hex[:12]}",
+        "X-Correlation-Id": _nonblank_value(correlation_id)
+        or _nonblank_value(correlation_id_var.get())
+        or f"corr_{uuid4().hex[:12]}",
+        "X-Request-Id": _nonblank_value(request_id_var.get()) or f"req_{uuid4().hex[:12]}",
         "X-Trace-Id": trace_id,
         "traceparent": f"00-{trace_id}-0000000000000001-01",
     }

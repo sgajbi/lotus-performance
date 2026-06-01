@@ -11,11 +11,13 @@ from app.services.operator_action_history_filters import (
 )
 from app.services.operator_action_history_manifest import (
     HistoryManifestReadReasons,
+    log_invalid_history_manifest_payload,
     read_history_manifest_payload,
     validate_history_entry_strings,
     validate_history_manifest_payload,
 )
 from app.services.operator_action_history_pagination import paginate_history_entries
+from app.services.runtime_status_time import parse_utc_datetime
 
 RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON = "runtime_retention_artifact_directory_missing"
 RUNTIME_RETENTION_MANIFEST_INVALID_REASON = "runtime_retention_manifest_invalid"
@@ -104,6 +106,10 @@ def build_runtime_retention_history_snapshot(
         validate_entry=_validate_manifest_entry,
     )
     if manifest_payload is None:
+        log_invalid_history_manifest_payload(
+            manifest_path=directory / "manifest.json",
+            history_name="Runtime retention",
+        )
         return _unavailable_snapshot(
             directory=directory,
             applied_filters=applied_filters,
@@ -202,7 +208,17 @@ def _validate_manifest_entry(entry: Any) -> dict[str, str | int | None] | None:
     )
     if entry_strings is None:
         return None
+    generated_at_utc = entry_strings["generated_at_utc"]
+    if not isinstance(generated_at_utc, str):
+        return None
+    try:
+        parse_utc_datetime(generated_at_utc)
+    except ValueError:
+        return None
     if not isinstance(trigger_mode, str):
+        return None
+    job_id = entry_strings["job_id"]
+    if job_id is not None and not job_id.strip():
         return None
     if any(not isinstance(entry.get(key), int) for key in int_keys):
         return None
@@ -212,7 +228,7 @@ def _validate_manifest_entry(entry: Any) -> dict[str, str | int | None] | None:
     validated_entry["trigger_mode"] = trigger_mode
     validated_entry["tenant_id"] = entry_strings["tenant_id"]
     validated_entry["correlation_id"] = entry_strings["correlation_id"]
-    validated_entry["job_id"] = entry_strings["job_id"]
+    validated_entry["job_id"] = job_id
     return validated_entry
 
 

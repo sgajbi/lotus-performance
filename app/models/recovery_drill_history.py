@@ -20,7 +20,11 @@ class RecoveryDrillHistoryEntryResponse(BaseModel):
 
 
 class RecoveryDrillRunRequest(BaseModel):
-    backup_identifier: str = Field(description="Backup or restore-set identifier to validate with this recovery drill.")
+    backup_identifier: str = Field(
+        min_length=1,
+        pattern=r".*\S.*",
+        description="Backup or restore-set identifier to validate with this recovery drill.",
+    )
 
 
 class RecoveryDrillRunResponse(BaseModel):

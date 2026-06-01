@@ -3,10 +3,11 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 
 from app.models.runtime_recoveries import RuntimeRecoveriesResponse, build_runtime_recoveries_response
 from app.services.runtime_recovery_service import build_runtime_recovery_snapshot
+from core.errors import HTTP_422_UNPROCESSABLE
 
 router = APIRouter(tags=["Integration"])
 
@@ -53,21 +54,47 @@ async def get_runtime_recoveries(
     ),
     cursor_calculation_id_before: str | None = Query(
         default=None,
+        min_length=1,
+        pattern=r".*\S.*",
         description="Optional cursor calculation handle paired with the cursor recovery timestamp for seek pagination.",
     ),
     compute_analytics_type: str | None = Query(
         default=None,
+        min_length=1,
+        pattern=r".*\S.*",
         description="Optional compute analytics-type filter, such as ReturnsSeries or Attribution.",
     ),
     lineage_calculation_type: str | None = Query(
         default=None,
+        min_length=1,
+        pattern=r".*\S.*",
         description="Optional lineage calculation-type filter, such as TWR or Attribution.",
     ),
     calculation_id_contains: str | None = Query(
         default=None,
+        min_length=1,
+        pattern=r".*\S.*",
         description="Optional substring filter applied to calculation identifiers in the selected queues.",
     ),
 ) -> RuntimeRecoveriesResponse:
+    if recovered_after is not None and recovered_before is not None and recovered_after > recovered_before:
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail={
+                "code": "invalid_recovery_time_window",
+                "fields": ["recovered_after", "recovered_before"],
+                "message": "recovered_after must be less than or equal to recovered_before.",
+            },
+        )
+    if cursor_calculation_id_before is not None and cursor_recovered_before is None:
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail={
+                "code": "incomplete_recovery_cursor",
+                "fields": ["cursor_recovered_before", "cursor_calculation_id_before"],
+                "message": "cursor_calculation_id_before requires cursor_recovered_before.",
+            },
+        )
     snapshot = build_runtime_recovery_snapshot(
         queue_filter=queue,
         limit=limit,

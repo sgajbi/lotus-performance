@@ -11,11 +11,13 @@ from app.services.operator_action_history_filters import (
 )
 from app.services.operator_action_history_manifest import (
     HistoryManifestReadReasons,
+    log_invalid_history_manifest_payload,
     read_history_manifest_payload,
     validate_history_entry_strings,
     validate_history_manifest_payload,
 )
 from app.services.operator_action_history_pagination import paginate_history_entries
+from app.services.runtime_status_time import parse_utc_datetime
 
 RECOVERY_DRILL_ARTIFACT_DIRECTORY_MISSING_REASON = "recovery_drill_artifact_directory_missing"
 RECOVERY_DRILL_MANIFEST_INVALID_REASON = "recovery_drill_manifest_invalid"
@@ -92,6 +94,10 @@ def build_recovery_drill_history_snapshot(
         validate_entry=_validate_manifest_entry,
     )
     if manifest_payload is None:
+        log_invalid_history_manifest_payload(
+            manifest_path=directory / "manifest.json",
+            history_name="Recovery drill",
+        )
         return _unavailable_snapshot(
             directory=directory,
             applied_filters=applied_filters,
@@ -168,13 +174,23 @@ def _validate_manifest_entry(entry: Any) -> dict[str, str | None] | None:
     )
     if entry_strings is None:
         return None
+    generated_at_utc = entry_strings["generated_at_utc"]
+    if not isinstance(generated_at_utc, str):
+        return None
+    try:
+        parse_utc_datetime(generated_at_utc)
+    except ValueError:
+        return None
+    backup_identifier = entry_strings["backup_identifier"]
+    if not isinstance(backup_identifier, str) or not backup_identifier.strip():
+        return None
     return {
         "evidence_file_name": entry_strings["evidence_file_name"],
         "generated_at_utc": entry_strings["generated_at_utc"],
         "operator_id": entry_strings["operator_id"],
         "tenant_id": entry_strings["tenant_id"],
         "correlation_id": entry_strings["correlation_id"],
-        "backup_identifier": entry_strings["backup_identifier"],
+        "backup_identifier": backup_identifier,
         "status": entry_strings["status"],
     }
 

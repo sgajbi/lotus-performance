@@ -70,3 +70,8 @@ def test_runtime_retention_schemas_document_all_request_and_output_fields():
     assert "Terminal execution records" in run_properties["prunable_execution_count"]["description"]
     assert "Async results selected" in run_properties["prunable_async_result_count"]["description"]
     assert "Lineage artifact directories" in run_properties["prunable_lineage_artifact_count"]["description"]
+
+    request_properties = schemas["RuntimeRetentionCleanupRunRequest"]["properties"]
+    job_id_schema = request_properties["job_id"]["anyOf"][0]
+    assert job_id_schema["minLength"] == 1
+    assert job_id_schema["pattern"] == r".*\S.*"

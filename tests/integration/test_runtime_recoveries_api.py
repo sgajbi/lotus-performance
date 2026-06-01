@@ -185,6 +185,43 @@ def test_runtime_recoveries_exposes_result_path_for_benchmark_lineage_events():
         lineage_metadata_store.clear_all_records()
 
 
+def test_runtime_recoveries_rejects_blank_string_filters():
+    with TestClient(app) as client:
+        response = client.get(
+            "/integration/runtime-recoveries",
+            params={"lineage_calculation_type": " ", "cursor_calculation_id_before": "  "},
+        )
+
+    assert response.status_code == 422
+    fields = {item["loc"][-1] for item in response.json()["detail"]}
+    assert {"lineage_calculation_type", "cursor_calculation_id_before"} <= fields
+
+
+def test_runtime_recoveries_rejects_inverted_time_window():
+    with TestClient(app) as client:
+        response = client.get(
+            "/integration/runtime-recoveries",
+            params={
+                "recovered_after": "2026-03-14T12:00:00Z",
+                "recovered_before": "2026-03-14T00:00:00Z",
+            },
+        )
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "invalid_recovery_time_window"
+
+
+def test_runtime_recoveries_rejects_incomplete_cursor():
+    with TestClient(app) as client:
+        response = client.get(
+            "/integration/runtime-recoveries",
+            params={"cursor_calculation_id_before": "calc-1"},
+        )
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "incomplete_recovery_cursor"
+
+
 def test_runtime_recoveries_supports_seek_cursor_pagination():
     compute_job_store.create_schema()
     lineage_metadata_store.create_schema()

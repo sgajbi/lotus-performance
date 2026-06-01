@@ -25,29 +25,40 @@ def _request_with_headers(headers: dict[str, str]) -> Request:
 
 
 def test_resolve_correlation_id_primary_and_alias():
-    assert resolve_correlation_id(_request_with_headers({"X-Correlation-Id": "corr-1"})) == "corr-1"
-    assert resolve_correlation_id(_request_with_headers({"X-Correlation-ID": "corr-2"})) == "corr-2"
+    assert resolve_correlation_id(_request_with_headers({"X-Correlation-Id": " corr-1 "})) == "corr-1"
+    assert resolve_correlation_id(_request_with_headers({"X-Correlation-ID": " corr-2 "})) == "corr-2"
 
 
-def test_resolve_request_id_generates_when_missing():
-    value = resolve_request_id(_request_with_headers({}))
+def test_resolve_correlation_id_generates_when_blank():
+    value = resolve_correlation_id(_request_with_headers({"X-Correlation-Id": "  "}))
+    assert value.startswith("corr_")
+
+
+def test_resolve_request_id_trims_and_generates_when_missing_or_blank():
+    assert resolve_request_id(_request_with_headers({"X-Request-Id": " req-1 "})) == "req-1"
+    value = resolve_request_id(_request_with_headers({"X-Request-Id": "  "}))
     assert value.startswith("req_")
 
 
 def test_resolve_trace_id_prefers_traceparent_then_header_then_generated():
-    traceparent_value = "00-0123456789abcdef0123456789abcdef-0000000000000001-01"
+    traceparent_value = " 00-0123456789abcdef0123456789abcdef-0000000000000001-01 "
     assert resolve_trace_id(_request_with_headers({"traceparent": traceparent_value})) == (
         "0123456789abcdef0123456789abcdef"
     )
-    assert resolve_trace_id(_request_with_headers({"traceparent": "invalid", "X-Trace-Id": "trace-1"})) == ("trace-1")
-    generated = resolve_trace_id(_request_with_headers({"traceparent": "invalid"}))
+    assert resolve_trace_id(_request_with_headers({"traceparent": "invalid", "X-Trace-Id": " trace-1 "})) == "trace-1"
+    generated = resolve_trace_id(_request_with_headers({"traceparent": "invalid", "X-Trace-Id": "  "}))
     assert len(generated) == 32
 
 
 def test_propagation_headers_use_context_values():
-    correlation_id_var.set("corr-ctx")
-    request_id_var.set("req-ctx")
-    trace_id_var.set("0123456789abcdef0123456789abcdef")
+    correlation_id_var.set(" corr-ctx ")
+    request_id_var.set(" req-ctx ")
+    trace_id_var.set(" 0123456789abcdef0123456789abcdef ")
+    headers = propagation_headers(correlation_id=" corr-override ")
+    assert headers["X-Correlation-Id"] == "corr-override"
+    assert headers["X-Request-Id"] == "req-ctx"
+    assert headers["traceparent"] == "00-0123456789abcdef0123456789abcdef-0000000000000001-01"
+
     headers = propagation_headers()
     assert headers["X-Correlation-Id"] == "corr-ctx"
     assert headers["X-Request-Id"] == "req-ctx"
@@ -55,9 +66,9 @@ def test_propagation_headers_use_context_values():
 
 
 def test_propagation_headers_generates_when_context_absent():
-    correlation_id_var.set("")
-    request_id_var.set("")
-    trace_id_var.set("")
+    correlation_id_var.set(" ")
+    request_id_var.set(" ")
+    trace_id_var.set(" ")
     headers = propagation_headers()
     assert headers["X-Correlation-Id"].startswith("corr_")
     assert headers["X-Request-Id"].startswith("req_")

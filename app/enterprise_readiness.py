@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable, Callable, Mapping
 
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
@@ -54,13 +54,24 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
-def enterprise_policy_version() -> str:
+def _normalized_header(headers: Mapping[str, str], name: str, default: str = "") -> str:
+    value = headers.get(name)
+    if value is None:
+        return default
+    return str(value).strip() or default
+
+
+def _configured_enterprise_policy_version() -> str:
     return os.getenv("ENTERPRISE_POLICY_VERSION", "1.0.0")
+
+
+def enterprise_policy_version() -> str:
+    return _configured_enterprise_policy_version().strip() or "1.0.0"
 
 
 def validate_enterprise_runtime_config() -> list[str]:
     issues: list[str] = []
-    if not enterprise_policy_version().strip():
+    if not _configured_enterprise_policy_version().strip():
         issues.append("missing_policy_version")
 
     rotation_days = _env_int("ENTERPRISE_SECRET_ROTATION_DAYS", 90)
@@ -79,31 +90,52 @@ def load_feature_flags() -> dict[str, dict[str, dict[str, bool]]]:
     return _load_json_map("ENTERPRISE_FEATURE_FLAGS_JSON")
 
 
+def _dict_value(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _normalized_capability_rule_overrides(configured: dict[str, Any]) -> dict[str, str]:
+    rules: dict[str, str] = {}
+    for key, value in configured.items():
+        if not isinstance(key, str) or not isinstance(value, str):
+            continue
+        rule_key = key.strip()
+        capability = value.strip()
+        if rule_key and capability:
+            rules[rule_key] = capability
+    return rules
+
+
+def _path_matches_rule(path: str, rule_path: str) -> bool:
+    normalized_rule_path = rule_path.rstrip("/") or "/"
+    return path == normalized_rule_path or path.startswith(f"{normalized_rule_path}/")
+
+
 def load_capability_rules() -> dict[str, str]:
     rules = dict(_DEFAULT_CAPABILITY_RULES)
     configured = _load_json_map("ENTERPRISE_CAPABILITY_RULES_JSON")
-    rules.update({str(key): str(value) for key, value in configured.items() if isinstance(key, str)})
+    rules.update(_normalized_capability_rule_overrides(configured))
     return rules
 
 
 def load_privileged_read_rules() -> dict[str, str]:
     rules = dict(_DEFAULT_PRIVILEGED_READ_RULES)
     configured = _load_json_map("ENTERPRISE_PRIVILEGED_READ_RULES_JSON")
-    rules.update({str(key): str(value) for key, value in configured.items() if isinstance(key, str)})
+    rules.update(_normalized_capability_rule_overrides(configured))
     return rules
 
 
 def is_feature_enabled(feature_key: str, tenant_id: str, role: str) -> bool:
     flags = load_feature_flags()
-    feature = flags.get(feature_key, {})
-    tenant = feature.get(tenant_id, {})
+    feature = _dict_value(flags.get(feature_key))
+    tenant = _dict_value(feature.get(tenant_id))
     value = tenant.get(role)
     if isinstance(value, bool):
         return value
     fallback = tenant.get("*")
     if isinstance(fallback, bool):
         return fallback
-    global_default = feature.get("*", {}).get("*")
+    global_default = _dict_value(feature.get("*")).get("*")
     return bool(global_default) if isinstance(global_default, bool) else False
 
 
@@ -111,7 +143,7 @@ def _required_capability(method: str, path: str) -> str | None:
     method = method.upper()
     for key, capability in load_capability_rules().items():
         prefix = f"{method} "
-        if key.upper().startswith(prefix) and path.startswith(key[len(prefix) :]):
+        if key.upper().startswith(prefix) and _path_matches_rule(path, key[len(prefix) :]):
             return capability
     return None
 
@@ -120,7 +152,7 @@ def _required_privileged_read_capability(method: str, path: str) -> str | None:
     method = method.upper()
     for key, capability in load_privileged_read_rules().items():
         prefix = f"{method} "
-        if key.upper().startswith(prefix) and path.startswith(key[len(prefix) :]):
+        if key.upper().startswith(prefix) and _path_matches_rule(path, key[len(prefix) :]):
             return capability
     return None
 
@@ -132,7 +164,7 @@ def _authorize_with_required_capability(
     headers: dict[str, str],
     required_capability: str | None,
 ) -> tuple[bool, str | None]:
-    normalized = {str(k).lower(): str(v) for k, v in headers.items()}
+    normalized = {str(k).lower(): str(v).strip() for k, v in headers.items()}
     missing = sorted(header for header in _REQUIRED_HEADERS if not normalized.get(header))
     if missing:
         return False, f"missing_headers:{','.join(missing)}"
@@ -234,10 +266,10 @@ def build_enterprise_audit_middleware() -> Callable[
         if not authorized:
             emit_audit_event(
                 action=f"DENY {request.method} {request.url.path}",
-                actor_id=request.headers.get("X-Actor-Id", "unknown"),
-                tenant_id=request.headers.get("X-Tenant-Id", "default"),
-                role=request.headers.get("X-Role", "unknown"),
-                correlation_id=request.headers.get("X-Correlation-Id"),
+                actor_id=_normalized_header(request.headers, "X-Actor-Id", "unknown"),
+                tenant_id=_normalized_header(request.headers, "X-Tenant-Id", "default"),
+                role=_normalized_header(request.headers, "X-Role", "unknown"),
+                correlation_id=_normalized_header(request.headers, "X-Correlation-Id"),
                 metadata={"reason": reason},
             )
             return JSONResponse(status_code=403, content={"detail": "authorization_policy_denied", "reason": reason})
@@ -246,10 +278,10 @@ def build_enterprise_audit_middleware() -> Callable[
         if not authorized:
             emit_audit_event(
                 action=f"DENY {request.method} {request.url.path}",
-                actor_id=request.headers.get("X-Actor-Id", "unknown"),
-                tenant_id=request.headers.get("X-Tenant-Id", "default"),
-                role=request.headers.get("X-Role", "unknown"),
-                correlation_id=request.headers.get("X-Correlation-Id"),
+                actor_id=_normalized_header(request.headers, "X-Actor-Id", "unknown"),
+                tenant_id=_normalized_header(request.headers, "X-Tenant-Id", "default"),
+                role=_normalized_header(request.headers, "X-Role", "unknown"),
+                correlation_id=_normalized_header(request.headers, "X-Correlation-Id"),
                 metadata={"reason": reason},
             )
             return JSONResponse(status_code=403, content={"detail": "authorization_policy_denied", "reason": reason})
@@ -266,10 +298,10 @@ def build_enterprise_audit_middleware() -> Callable[
         ):
             emit_audit_event(
                 action=f"{request.method} {request.url.path}",
-                actor_id=request.headers.get("X-Actor-Id", "unknown"),
-                tenant_id=request.headers.get("X-Tenant-Id", "default"),
-                role=request.headers.get("X-Role", "unknown"),
-                correlation_id=request.headers.get("X-Correlation-Id"),
+                actor_id=_normalized_header(request.headers, "X-Actor-Id", "unknown"),
+                tenant_id=_normalized_header(request.headers, "X-Tenant-Id", "default"),
+                role=_normalized_header(request.headers, "X-Role", "unknown"),
+                correlation_id=_normalized_header(request.headers, "X-Correlation-Id"),
                 metadata={
                     "status_code": response.status_code,
                     "access_mode": "privileged_read" if request.method.upper() == "GET" else "write",
