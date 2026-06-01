@@ -19,6 +19,21 @@ def test_recovery_drill_history_api_reports_unavailable_when_manifest_missing(tm
     assert body["reason"] == "recovery_drill_artifact_directory_missing"
 
 
+def test_recovery_drill_history_api_rejects_invalid_time_filter():
+    with TestClient(app) as client:
+        response = client.get(
+            "/integration/recovery-drills",
+            params={"generated_before": "not-a-timestamp"},
+        )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == {
+        "code": "invalid_utc_timestamp_filter",
+        "field": "generated_before",
+        "message": "generated_before must be an ISO-8601 UTC timestamp.",
+    }
+
+
 def test_recovery_drill_history_api_reports_unavailable_when_manifest_is_invalid(tmp_path, monkeypatch):
     artifact_dir = tmp_path / "artifacts" / "durable-recovery-drill"
     artifact_dir.mkdir(parents=True)

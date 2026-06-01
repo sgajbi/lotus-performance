@@ -18,6 +18,21 @@ def test_runtime_retention_history_api_reports_unavailable_when_manifest_missing
     assert body["reason"] == "runtime_retention_artifact_directory_missing"
 
 
+def test_runtime_retention_history_api_rejects_invalid_time_filter():
+    with TestClient(app) as client:
+        response = client.get(
+            "/integration/runtime-retention-cleanups",
+            params={"generated_after": "not-a-timestamp"},
+        )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == {
+        "code": "invalid_utc_timestamp_filter",
+        "field": "generated_after",
+        "message": "generated_after must be an ISO-8601 UTC timestamp.",
+    }
+
+
 def test_runtime_retention_history_api_returns_filtered_manifest(tmp_path, monkeypatch):
     artifact_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
     artifact_dir.mkdir(parents=True)
