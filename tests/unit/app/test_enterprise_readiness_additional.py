@@ -30,6 +30,7 @@ from app.enterprise_readiness import (
     _CORRELATION_ID_HEADER,
     _DEFAULT_MAX_WRITE_PAYLOAD_BYTES,
     _DEFAULT_TENANT_ID,
+    _DIAGNOSTIC_LIST_SEPARATOR,
     _EMPTY_JSON_OBJECT,
     _ENTERPRISE_AUDIT_EVENT_NAME,
     _ENTERPRISE_AUDIT_EXTRA_KEY,
@@ -209,8 +210,9 @@ def test_parse_int_or_default_uses_valid_integer_or_fallback(configured, default
 
 
 def test_runtime_config_invalid_message_uses_governed_prefix():
-    assert _runtime_config_invalid_message([_MISSING_POLICY_VERSION_ISSUE]) == (
-        f"{_RUNTIME_CONFIG_INVALID_PREFIX}:{_MISSING_POLICY_VERSION_ISSUE}"
+    issues = [_MISSING_POLICY_VERSION_ISSUE, _MISSING_PRIMARY_KEY_ID_ISSUE]
+    assert _runtime_config_invalid_message(issues) == (
+        f"{_RUNTIME_CONFIG_INVALID_PREFIX}:{_DIAGNOSTIC_LIST_SEPARATOR.join(issues)}"
     )
 
 
@@ -576,7 +578,7 @@ def test_authorization_denial_metadata_uses_governed_reason_key():
 
 def test_authorization_reason_helpers_use_governed_reason_tokens():
     assert _missing_headers_reason([_ACTOR_ID_HEADER, _ROLE_HEADER]) == (
-        f"{_MISSING_HEADERS_REASON}:{_ACTOR_ID_HEADER},{_ROLE_HEADER}"
+        f"{_MISSING_HEADERS_REASON}:{_DIAGNOSTIC_LIST_SEPARATOR.join([_ACTOR_ID_HEADER, _ROLE_HEADER])}"
     )
     assert _missing_capability_reason(_CAPABILITY_OPERATIONS_RUNTIME_MANAGE) == (
         f"{_MISSING_CAPABILITY_REASON}:{_CAPABILITY_OPERATIONS_RUNTIME_MANAGE}"
