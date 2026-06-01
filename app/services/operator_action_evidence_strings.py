@@ -27,6 +27,10 @@ def required_evidence_bool_fields_present(payload: dict[str, Any], keys: tuple[s
     return all(type(payload.get(key)) is bool for key in keys)
 
 
+def is_required_evidence_string_list(value: object) -> TypeGuard[list[str]]:
+    return isinstance(value, list) and all(is_required_evidence_string(item) for item in value)
+
+
 def normalize_required_evidence_identifier(value: str, *, field_name: str) -> str:
     normalized = value.strip()
     if not normalized:

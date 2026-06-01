@@ -23,6 +23,7 @@ from app.services.runtime_retention_history_service import (
 logger = logging.getLogger(__name__)
 
 _is_required_replay_string = _evidence_strings.is_required_evidence_string
+_is_required_replay_string_list = _evidence_strings.is_required_evidence_string_list
 _required_str_fields_present = _evidence_strings.required_evidence_string_fields_present
 _optional_str_fields_valid = _evidence_strings.optional_evidence_string_fields_valid
 _required_int_fields_present = _evidence_strings.required_evidence_int_fields_present
@@ -185,7 +186,6 @@ def _recovery_drill_payload_matches_entry(
     payload: dict[str, Any],
     entry: RecoveryDrillHistoryEntry,
 ) -> bool:
-    owned_tables_present = payload.get("owned_tables_present")
     return (
         _required_str_fields_present(
             payload,
@@ -205,8 +205,7 @@ def _recovery_drill_payload_matches_entry(
         )
         and _optional_str_fields_valid(payload, ("tenant_id", "correlation_id"))
         and _required_int_fields_present(payload, ("compute_job_processed_count", "processed_payload_count"))
-        and isinstance(owned_tables_present, list)
-        and all(_is_required_replay_string(item) for item in owned_tables_present)
+        and _is_required_replay_string_list(payload.get("owned_tables_present"))
         and _required_bool_fields_present(payload, ("materialized_artifact_exists",))
         and payload["evidence_file_name"] == entry.evidence_file_name
         and payload["generated_at_utc"] == entry.generated_at_utc

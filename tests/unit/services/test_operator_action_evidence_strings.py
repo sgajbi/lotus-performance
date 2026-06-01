@@ -3,6 +3,7 @@ import pytest
 from app.services.operator_action_evidence_strings import (
     is_optional_evidence_string,
     is_required_evidence_string,
+    is_required_evidence_string_list,
     normalize_optional_evidence_identifier,
     normalize_required_evidence_identifier,
     optional_evidence_string,
@@ -47,6 +48,13 @@ def test_evidence_field_predicates_validate_string_int_and_bool_sets():
     assert not optional_evidence_string_fields_valid({"tenant_id": " "}, ("tenant_id",))
     assert not required_evidence_int_fields_present({"retention_days": True}, ("retention_days",))
     assert not required_evidence_bool_fields_present({"apply": 1}, ("apply",))
+
+
+def test_required_evidence_string_list_predicate_rejects_blank_or_non_string_items():
+    assert is_required_evidence_string_list(["analytics_execution", "lineage_payloads"])
+    assert not is_required_evidence_string_list(["analytics_execution", " "])
+    assert not is_required_evidence_string_list(["analytics_execution", 123])
+    assert not is_required_evidence_string_list("analytics_execution")
 
 
 def test_normalize_optional_evidence_identifier_trims_blank_to_absent():
