@@ -14,6 +14,7 @@ from app.enterprise_readiness import (
     _normalized_headers,
     _required_capability,
     _required_capability_from_rules,
+    _write_payload_too_large,
     authorize_privileged_read_request,
     authorize_write_request,
     load_capability_rules,
@@ -157,6 +158,19 @@ def test_authorization_denied_response_emits_audit_and_structured_reason(mocker)
 )
 def test_content_length_parses_invalid_values_as_zero(headers, expected):
     assert _content_length(headers) == expected
+
+
+@pytest.mark.parametrize(
+    ("method", "headers", "expected"),
+    [
+        ("POST", {"content-length": "11"}, True),
+        ("PATCH", {"content-length": "10"}, False),
+        ("GET", {"content-length": "11"}, False),
+        ("POST", {"content-length": "invalid"}, False),
+    ],
+)
+def test_write_payload_too_large_applies_only_to_write_methods(method, headers, expected):
+    assert _write_payload_too_large(method=method, headers=headers, max_write_payload_bytes=10) is expected
 
 
 def test_feature_flag_enabled_applies_role_tenant_and_global_fallbacks():

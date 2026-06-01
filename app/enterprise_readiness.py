@@ -234,6 +234,15 @@ def _content_length(headers: Mapping[str, Any]) -> int:
         return 0
 
 
+def _write_payload_too_large(
+    *,
+    method: str,
+    headers: Mapping[str, Any],
+    max_write_payload_bytes: int,
+) -> bool:
+    return method in _WRITE_METHODS and _content_length(headers) > max_write_payload_bytes
+
+
 def _authorize_with_required_capability(
     *,
     method: str,
@@ -331,8 +340,11 @@ def build_enterprise_audit_middleware() -> Callable[
     # Enforce enterprise audit and authorization policy on governed surfaces.
     async def middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         max_write_payload_bytes = _env_int("ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES", 1_048_576)
-        content_length = _content_length(request.headers)
-        if request.method in _WRITE_METHODS and content_length > max_write_payload_bytes:
+        if _write_payload_too_large(
+            method=request.method,
+            headers=request.headers,
+            max_write_payload_bytes=max_write_payload_bytes,
+        ):
             return JSONResponse(status_code=413, content={"detail": "payload_too_large"})
 
         audit_identity = _audit_identity_from_headers(request.headers)
