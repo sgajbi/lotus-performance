@@ -129,19 +129,12 @@ def operator_action_lease(
                 ),
                 "action_key": action_key,
             }
-            try:
-                existing = json.loads(lock_path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                existing = None
-            if isinstance(existing, dict):
-                active_operator_id = existing.get("operator_id")
-                active_tenant_id = existing.get("tenant_id")
-                governed_target = existing.get("governed_target")
-                acquired_at_utc = existing.get("acquired_at_utc")
-                detail["active_operator_id"] = active_operator_id if isinstance(active_operator_id, str) else None
-                detail["active_tenant_id"] = active_tenant_id if isinstance(active_tenant_id, str) else None
-                detail["governed_target"] = governed_target if isinstance(governed_target, str) else None
-                detail["active_acquired_at_utc"] = acquired_at_utc if isinstance(acquired_at_utc, str) else None
+            active_lease = _read_active_operator_action_lease(lock_path=lock_path)
+            if isinstance(active_lease, ActiveOperatorActionLease):
+                detail["active_operator_id"] = active_lease.operator_id
+                detail["active_tenant_id"] = active_lease.tenant_id
+                detail["governed_target"] = active_lease.governed_target
+                detail["active_acquired_at_utc"] = active_lease.acquired_at_utc
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail) from None
 
     try:
