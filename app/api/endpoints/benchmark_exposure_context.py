@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, status
 
 from app.core.config import get_settings
 from app.models.benchmark_exposure_context import BenchmarkExposureContextRequest, BenchmarkExposureContextResponse
+from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_BENCHMARK_EXPOSURE_CONTEXT
 from app.services.benchmark_exposure_context_service import build_benchmark_exposure_context
 from app.services.execution_lifecycle_service import record_execution_failure
 from app.services.execution_registry import execution_registry
@@ -30,7 +31,7 @@ async def get_benchmark_exposure_context(
     stateful_input_service = build_stateful_input_service(settings=get_settings())
     register_sync_execution_or_raise(
         calculation_id=request.calculation_id,
-        analytics_type="BENCHMARK_EXPOSURE_CONTEXT",
+        analytics_type=ANALYTICS_WORKFLOW_BENCHMARK_EXPOSURE_CONTEXT,
         portfolio_id=request.portfolio_id,
         requested_window={
             "as_of_date": str(request.as_of_date),

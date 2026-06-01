@@ -1,5 +1,6 @@
 from app.services.analytics_workflow_types import (
     ANALYTICS_WORKFLOW_BENCHMARK,
+    ANALYTICS_WORKFLOW_BENCHMARK_EXPOSURE_CONTEXT,
     ANALYTICS_WORKFLOW_MWR,
     ANALYTICS_WORKFLOW_TWR,
     ANALYTICS_WORKFLOW_TWR_INSPECTION,
@@ -9,6 +10,10 @@ from app.services.analytics_workflow_types import (
 
 def test_benchmark_workflow_type_is_canonical():
     assert ANALYTICS_WORKFLOW_BENCHMARK == "BENCHMARK"
+
+
+def test_benchmark_exposure_context_workflow_type_is_canonical():
+    assert ANALYTICS_WORKFLOW_BENCHMARK_EXPOSURE_CONTEXT == "BENCHMARK_EXPOSURE_CONTEXT"
 
 
 def test_mwr_workflow_type_is_canonical():
