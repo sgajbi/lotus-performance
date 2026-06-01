@@ -174,6 +174,25 @@ def _audit_identity_from_headers(headers: Mapping[str, Any]) -> dict[str, str]:
     }
 
 
+def _allowed_audit_metadata(*, method: str, path: str, status_code: int) -> dict[str, Any] | None:
+    method_upper = method.upper()
+    write_capability = _required_capability(method, path)
+    privileged_read_capability = _required_privileged_read_capability(method, path)
+    required_capability = privileged_read_capability if method_upper == "GET" else write_capability
+    if method_upper not in _WRITE_METHODS and not (
+        method_upper == "GET"
+        and _env_enabled("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "false")
+        and privileged_read_capability is not None
+    ):
+        return None
+    return {
+        "status_code": status_code,
+        "access_mode": "privileged_read" if method_upper == "GET" else "write",
+        "required_capability": required_capability,
+        "governed_surface": path if required_capability is not None else None,
+    }
+
+
 def _authorize_with_required_capability(
     *,
     method: str,
@@ -299,23 +318,16 @@ def build_enterprise_audit_middleware() -> Callable[
 
         response = await call_next(request)
         response.headers["X-Enterprise-Policy-Version"] = enterprise_policy_version()
-        write_capability = _required_capability(request.method, request.url.path)
-        privileged_read_capability = _required_privileged_read_capability(request.method, request.url.path)
-        required_capability = privileged_read_capability if request.method.upper() == "GET" else write_capability
-        if request.method in _WRITE_METHODS or (
-            request.method.upper() == "GET"
-            and _env_enabled("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "false")
-            and privileged_read_capability is not None
-        ):
+        allowed_audit_metadata = _allowed_audit_metadata(
+            method=request.method,
+            path=request.url.path,
+            status_code=response.status_code,
+        )
+        if allowed_audit_metadata is not None:
             emit_audit_event(
                 action=f"{request.method} {request.url.path}",
                 **audit_identity,
-                metadata={
-                    "status_code": response.status_code,
-                    "access_mode": "privileged_read" if request.method.upper() == "GET" else "write",
-                    "required_capability": required_capability,
-                    "governed_surface": request.url.path if required_capability is not None else None,
-                },
+                metadata=allowed_audit_metadata,
             )
         return response
 
