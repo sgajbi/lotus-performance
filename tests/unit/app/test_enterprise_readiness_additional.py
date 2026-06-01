@@ -31,12 +31,14 @@ from app.enterprise_readiness import (
     _ENTERPRISE_AUDIT_EVENT_NAME,
     _ENTERPRISE_AUDIT_EXTRA_KEY,
     _ENTERPRISE_POLICY_VERSION_HEADER,
+    _ENV_ENTERPRISE_CAPABILITY_RULES_JSON,
     _ENV_ENTERPRISE_ENFORCE_AUTHZ,
     _ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ,
     _ENV_ENTERPRISE_ENFORCE_RUNTIME_CONFIG,
     _ENV_ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES,
     _ENV_ENTERPRISE_POLICY_VERSION,
     _ENV_ENTERPRISE_PRIMARY_KEY_ID,
+    _ENV_ENTERPRISE_PRIVILEGED_READ_RULES_JSON,
     _ENV_ENTERPRISE_SECRET_ROTATION_DAYS,
     _HTTP_STATUS_FORBIDDEN,
     _HTTP_STATUS_PAYLOAD_TOO_LARGE,
@@ -211,7 +213,7 @@ def test_max_write_payload_bytes_uses_configured_int_or_default(monkeypatch, con
 
 def test_required_capability_returns_none_when_no_matching_rule(monkeypatch):
     monkeypatch.setenv(
-        "ENTERPRISE_CAPABILITY_RULES_JSON",
+        _ENV_ENTERPRISE_CAPABILITY_RULES_JSON,
         json.dumps({"POST /analytics": "analytics.write"}),
     )
     assert _required_capability("POST", "/different/path") is None
@@ -631,7 +633,7 @@ def test_authorize_enterprise_request_applies_privileged_read_after_write_allows
 def test_authorize_write_request_allows_when_no_capability_rule_matches(monkeypatch):
     monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "true")
     monkeypatch.setenv(
-        "ENTERPRISE_CAPABILITY_RULES_JSON",
+        _ENV_ENTERPRISE_CAPABILITY_RULES_JSON,
         json.dumps({"POST /analytics": "analytics.write"}),
     )
     headers = {
@@ -648,7 +650,7 @@ def test_authorize_write_request_allows_when_no_capability_rule_matches(monkeypa
 
 def test_load_privileged_read_rules_merges_defaults_and_env(monkeypatch):
     monkeypatch.setenv(
-        "ENTERPRISE_PRIVILEGED_READ_RULES_JSON",
+        _ENV_ENTERPRISE_PRIVILEGED_READ_RULES_JSON,
         json.dumps({" GET /integration/custom-status ": " operations.custom.read "}),
     )
     rules = load_privileged_read_rules()
@@ -675,7 +677,7 @@ def test_load_capability_rule_family_preserves_defaults_and_valid_overrides(monk
 
 def test_capability_rule_loader_ignores_blank_and_non_string_overrides(monkeypatch):
     monkeypatch.setenv(
-        "ENTERPRISE_CAPABILITY_RULES_JSON",
+        _ENV_ENTERPRISE_CAPABILITY_RULES_JSON,
         json.dumps(
             {
                 "POST /integration/runtime-retention-cleanups/run": " ",
@@ -695,7 +697,7 @@ def test_capability_rule_loader_ignores_blank_and_non_string_overrides(monkeypat
 
 def test_privileged_read_rule_loader_ignores_blank_default_override(monkeypatch):
     monkeypatch.setenv(
-        "ENTERPRISE_PRIVILEGED_READ_RULES_JSON",
+        _ENV_ENTERPRISE_PRIVILEGED_READ_RULES_JSON,
         json.dumps({"GET /integration/runtime-status": " ", "GET /integration/custom-status": False}),
     )
 

@@ -61,6 +61,9 @@ _ENV_ENTERPRISE_PRIMARY_KEY_ID = "ENTERPRISE_PRIMARY_KEY_ID"
 _ENV_ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES = "ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES"
 _ENV_ENTERPRISE_POLICY_VERSION = "ENTERPRISE_POLICY_VERSION"
 _ENV_ENTERPRISE_SECRET_ROTATION_DAYS = "ENTERPRISE_SECRET_ROTATION_DAYS"
+_ENV_ENTERPRISE_FEATURE_FLAGS_JSON = "ENTERPRISE_FEATURE_FLAGS_JSON"
+_ENV_ENTERPRISE_CAPABILITY_RULES_JSON = "ENTERPRISE_CAPABILITY_RULES_JSON"
+_ENV_ENTERPRISE_PRIVILEGED_READ_RULES_JSON = "ENTERPRISE_PRIVILEGED_READ_RULES_JSON"
 _DEFAULT_MAX_WRITE_PAYLOAD_BYTES = 1_048_576
 _DEFAULT_SECRET_ROTATION_DAYS = 90
 _WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
@@ -166,7 +169,7 @@ def validate_enterprise_runtime_config() -> list[str]:
 
 
 def load_feature_flags() -> dict[str, dict[str, dict[str, bool]]]:
-    return _load_json_map("ENTERPRISE_FEATURE_FLAGS_JSON")
+    return _load_json_map(_ENV_ENTERPRISE_FEATURE_FLAGS_JSON)
 
 
 def _dict_value(value: Any) -> dict[str, Any]:
@@ -218,14 +221,14 @@ def _load_capability_rule_family(*, env_name: str, defaults: dict[str, str]) -> 
 
 def load_capability_rules() -> dict[str, str]:
     return _load_capability_rule_family(
-        env_name="ENTERPRISE_CAPABILITY_RULES_JSON",
+        env_name=_ENV_ENTERPRISE_CAPABILITY_RULES_JSON,
         defaults=_DEFAULT_CAPABILITY_RULES,
     )
 
 
 def load_privileged_read_rules() -> dict[str, str]:
     return _load_capability_rule_family(
-        env_name="ENTERPRISE_PRIVILEGED_READ_RULES_JSON",
+        env_name=_ENV_ENTERPRISE_PRIVILEGED_READ_RULES_JSON,
         defaults=_DEFAULT_PRIVILEGED_READ_RULES,
     )
 

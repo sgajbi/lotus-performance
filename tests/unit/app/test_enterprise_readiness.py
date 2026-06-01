@@ -5,8 +5,10 @@ from fastapi import Request
 
 from app.enterprise_readiness import (
     _DEFAULT_ENTERPRISE_POLICY_VERSION,
+    _ENV_ENTERPRISE_CAPABILITY_RULES_JSON,
     _ENV_ENTERPRISE_ENFORCE_AUTHZ,
     _ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ,
+    _ENV_ENTERPRISE_FEATURE_FLAGS_JSON,
     _ENV_ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES,
     _ENV_ENTERPRISE_POLICY_VERSION,
     _ENV_ENTERPRISE_PRIMARY_KEY_ID,
@@ -30,7 +32,7 @@ from app.enterprise_readiness import (
 
 def test_feature_flags_resolution(monkeypatch):
     monkeypatch.setenv(
-        "ENTERPRISE_FEATURE_FLAGS_JSON",
+        _ENV_ENTERPRISE_FEATURE_FLAGS_JSON,
         json.dumps({"analytics.risk": {"tenant-x": {"analyst": True, "*": False}}}),
     )
     assert is_feature_enabled("analytics.risk", "tenant-x", "analyst") is True
@@ -39,7 +41,7 @@ def test_feature_flags_resolution(monkeypatch):
 
 def test_feature_flags_fail_closed_for_malformed_nested_values(monkeypatch):
     monkeypatch.setenv(
-        "ENTERPRISE_FEATURE_FLAGS_JSON",
+        _ENV_ENTERPRISE_FEATURE_FLAGS_JSON,
         json.dumps(
             {
                 "analytics.risk": True,
@@ -95,7 +97,7 @@ def test_authorize_write_request_rejects_blank_required_headers(monkeypatch):
 def test_authorize_write_request_enforces_capability_rules(monkeypatch):
     monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "true")
     monkeypatch.setenv(
-        "ENTERPRISE_CAPABILITY_RULES_JSON",
+        _ENV_ENTERPRISE_CAPABILITY_RULES_JSON,
         json.dumps({"POST /analytics": "analytics.write"}),
     )
     headers = {
@@ -187,7 +189,7 @@ def test_validate_enterprise_runtime_config_reports_rotation_issue(monkeypatch):
 
 
 def test_invalid_json_and_invalid_int_env_defaults(monkeypatch):
-    monkeypatch.setenv("ENTERPRISE_FEATURE_FLAGS_JSON", "{bad")
+    monkeypatch.setenv(_ENV_ENTERPRISE_FEATURE_FLAGS_JSON, "{bad")
     monkeypatch.setenv(_ENV_ENTERPRISE_SECRET_ROTATION_DAYS, "not-a-number")
     assert is_feature_enabled("analytics.risk", "tenant-x", "analyst") is False
     issues = validate_enterprise_runtime_config()
