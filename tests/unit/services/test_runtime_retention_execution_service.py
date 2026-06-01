@@ -157,6 +157,49 @@ def test_runtime_retention_execution_skips_invalid_old_evidence_payloads(tmp_pat
     assert "bad.json" in caplog.text
 
 
+def test_runtime_retention_execution_skips_invalid_manifest_entry_payloads(tmp_path, caplog):
+    output_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
+    output_dir.mkdir(parents=True)
+    malformed = output_dir / "2026-03-15t00-00-00z.json"
+    malformed.write_text("{not-json", encoding="utf-8")
+    evidence = RuntimeRetentionCleanupEvidence(
+        cleanup_name="runtime_retention_cleanup",
+        generated_at_utc="2026-03-16T00:00:00Z",
+        evidence_file_name="2026-03-16t00-00-00z.json",
+        operator_id="ops",
+        tenant_id=None,
+        correlation_id=None,
+        trigger_mode="manual",
+        job_id=None,
+        cleanup_mode="dry_run",
+        status="planned",
+        retention_days=30,
+        cutoff_utc="2026-02-15T00:00:00Z",
+        prunable_execution_count=1,
+        prunable_compute_job_count=1,
+        prunable_async_result_count=1,
+        prunable_lineage_record_count=1,
+        prunable_lineage_artifact_count=1,
+    )
+
+    with caplog.at_level(logging.WARNING, logger="app.services.runtime_retention_execution_service"):
+        _persist_evidence_history(
+            output_dir=output_dir,
+            evidence=evidence,
+            retention_limit=5,
+            retention_max_age_days=90,
+        )
+
+    manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["latest_file_name"] == "2026-03-16t00-00-00z.json"
+    assert manifest["retained_file_names"] == ["2026-03-16t00-00-00z.json"]
+    assert len(manifest["entries"]) == 1
+    assert manifest["entries"][0]["evidence_file_name"] == "2026-03-16t00-00-00z.json"
+    assert malformed.exists()
+    assert "Runtime retention evidence ignored during manifest rebuild" in caplog.text
+    assert "2026-03-15t00-00-00z.json" in caplog.text
+
+
 def test_runtime_retention_execution_atomic_write_cleans_up_temp_file_on_replace_failure(tmp_path, monkeypatch):
     output_path = tmp_path / "artifacts" / "runtime-retention-cleanup" / "latest.json"
     original_replace = type(output_path).replace

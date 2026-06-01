@@ -149,13 +149,19 @@ def _persist_evidence_history(
             stale_path.unlink(missing_ok=True)
         retained_paths = retained_paths[:retention_limit]
 
-    retained_file_names = [path.name for path in retained_paths]
+    entries: list[RuntimeRetentionManifestEntry] = []
+    retained_file_names: list[str] = []
+    for path in retained_paths:
+        entry = _load_manifest_entry(path)
+        if entry is None:
+            continue
+        entries.append(entry)
+        retained_file_names.append(path.name)
     latest_file_name = (
         evidence.evidence_file_name
         if evidence.evidence_file_name in retained_file_names
         else (retained_file_names[0] if retained_file_names else evidence.evidence_file_name)
     )
-    entries = [_load_manifest_entry(path) for path in retained_paths]
     manifest = RuntimeRetentionManifest(
         latest_file_name=latest_file_name,
         retained_file_names=retained_file_names,
@@ -183,25 +189,29 @@ def _prune_old_evidence(*, output_dir: Path, retention_max_age_days: int) -> Non
             path.unlink(missing_ok=True)
 
 
-def _load_manifest_entry(path: Path) -> RuntimeRetentionManifestEntry:
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    return RuntimeRetentionManifestEntry(
-        evidence_file_name=path.name,
-        generated_at_utc=str(payload["generated_at_utc"]),
-        operator_id=str(payload["operator_id"]),
-        tenant_id=None if payload.get("tenant_id") is None else str(payload["tenant_id"]),
-        correlation_id=None if payload.get("correlation_id") is None else str(payload["correlation_id"]),
-        trigger_mode=str(payload.get("trigger_mode", "manual")),
-        job_id=None if payload.get("job_id") is None else str(payload["job_id"]),
-        cleanup_mode=str(payload["cleanup_mode"]),
-        status=str(payload["status"]),
-        retention_days=int(payload["retention_days"]),
-        prunable_execution_count=int(payload["prunable_execution_count"]),
-        prunable_compute_job_count=int(payload["prunable_compute_job_count"]),
-        prunable_async_result_count=int(payload["prunable_async_result_count"]),
-        prunable_lineage_record_count=int(payload["prunable_lineage_record_count"]),
-        prunable_lineage_artifact_count=int(payload["prunable_lineage_artifact_count"]),
-    )
+def _load_manifest_entry(path: Path) -> RuntimeRetentionManifestEntry | None:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        return RuntimeRetentionManifestEntry(
+            evidence_file_name=path.name,
+            generated_at_utc=str(payload["generated_at_utc"]),
+            operator_id=str(payload["operator_id"]),
+            tenant_id=None if payload.get("tenant_id") is None else str(payload["tenant_id"]),
+            correlation_id=None if payload.get("correlation_id") is None else str(payload["correlation_id"]),
+            trigger_mode=str(payload.get("trigger_mode", "manual")),
+            job_id=None if payload.get("job_id") is None else str(payload["job_id"]),
+            cleanup_mode=str(payload["cleanup_mode"]),
+            status=str(payload["status"]),
+            retention_days=int(payload["retention_days"]),
+            prunable_execution_count=int(payload["prunable_execution_count"]),
+            prunable_compute_job_count=int(payload["prunable_compute_job_count"]),
+            prunable_async_result_count=int(payload["prunable_async_result_count"]),
+            prunable_lineage_record_count=int(payload["prunable_lineage_record_count"]),
+            prunable_lineage_artifact_count=int(payload["prunable_lineage_artifact_count"]),
+        )
+    except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
+        logger.warning("Runtime retention evidence ignored during manifest rebuild: %s", path, exc_info=True)
+        return None
 
 
 def _write_text_atomic(path: Path, content: str) -> None:
