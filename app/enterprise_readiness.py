@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable, Mapping
+from typing import Any, Awaitable, Callable
 
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from app import enterprise_audit_redaction as _audit_redaction
 from app import enterprise_capability_rules as _capability_rules
 from app import enterprise_feature_flags as _feature_flags
+from app import enterprise_payload_limits as _payload_limits
 from app import enterprise_request_context as _request_context
 from app import enterprise_runtime_config as _runtime_config
 
@@ -122,6 +123,14 @@ _redacted_mapping_value = _audit_redaction._redacted_mapping_value
 _redacted_sequence = _audit_redaction._redacted_sequence
 _should_redact_field = _audit_redaction._should_redact_field
 redact_sensitive = _audit_redaction.redact_sensitive
+_CONTENT_LENGTH_HEADER = _payload_limits._CONTENT_LENGTH_HEADER
+_HTTP_STATUS_PAYLOAD_TOO_LARGE = _payload_limits._HTTP_STATUS_PAYLOAD_TOO_LARGE
+_MISSING_CONTENT_LENGTH = _payload_limits._MISSING_CONTENT_LENGTH
+_PAYLOAD_TOO_LARGE_DETAIL = _payload_limits._PAYLOAD_TOO_LARGE_DETAIL
+_RESPONSE_DETAIL_KEY = _payload_limits._RESPONSE_DETAIL_KEY
+_content_length = _payload_limits._content_length
+_payload_too_large_response = _payload_limits._payload_too_large_response
+_write_payload_too_large = _payload_limits._write_payload_too_large
 
 logger = logging.getLogger("enterprise_readiness")
 
@@ -140,17 +149,12 @@ _AUDIT_METADATA_REQUIRED_CAPABILITY_KEY = "required_capability"
 _AUDIT_METADATA_GOVERNED_SURFACE_KEY = "governed_surface"
 _AUDIT_ACCESS_MODE_WRITE = "write"
 _AUDIT_ACCESS_MODE_PRIVILEGED_READ = "privileged_read"
-_RESPONSE_DETAIL_KEY = "detail"
 _RESPONSE_REASON_KEY = "reason"
 _AUTHORIZATION_POLICY_DENIED_DETAIL = "authorization_policy_denied"
-_PAYLOAD_TOO_LARGE_DETAIL = "payload_too_large"
 _HTTP_STATUS_FORBIDDEN = 403
-_HTTP_STATUS_PAYLOAD_TOO_LARGE = 413
 _MISSING_HEADERS_REASON = "missing_headers"
 _MISSING_SERVICE_IDENTITY_REASON = "missing_service_identity"
 _MISSING_CAPABILITY_REASON = "missing_capability"
-_CONTENT_LENGTH_HEADER = "content-length"
-_MISSING_CONTENT_LENGTH = "0"
 
 
 def _governed_surface_for_capability(*, path: str, required_capability: str | None) -> str | None:
@@ -223,26 +227,6 @@ def _emit_allowed_audit_event(
         action=_request_action(method=method, path=path),
         **audit_identity,
         metadata=metadata,
-    )
-
-
-def _content_length(headers: Mapping[str, Any]) -> int:
-    return _parse_int_or_default(headers.get(_CONTENT_LENGTH_HEADER, _MISSING_CONTENT_LENGTH), 0)
-
-
-def _write_payload_too_large(
-    *,
-    method: str,
-    headers: Mapping[str, Any],
-    max_write_payload_bytes: int,
-) -> bool:
-    return _is_write_method(method) and _content_length(headers) > max_write_payload_bytes
-
-
-def _payload_too_large_response() -> JSONResponse:
-    return JSONResponse(
-        status_code=_HTTP_STATUS_PAYLOAD_TOO_LARGE,
-        content={_RESPONSE_DETAIL_KEY: _PAYLOAD_TOO_LARGE_DETAIL},
     )
 
 

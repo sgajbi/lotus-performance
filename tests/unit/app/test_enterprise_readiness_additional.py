@@ -8,6 +8,7 @@ from app import (
     enterprise_audit_redaction,
     enterprise_capability_rules,
     enterprise_feature_flags,
+    enterprise_payload_limits,
     enterprise_request_context,
     enterprise_runtime_config,
 )
@@ -232,6 +233,11 @@ def test_enterprise_readiness_reexports_request_context_boundary():
 def test_enterprise_readiness_reexports_audit_redaction_boundary():
     assert redact_sensitive is enterprise_audit_redaction.redact_sensitive
     assert _redacted_mapping is enterprise_audit_redaction._redacted_mapping
+
+
+def test_enterprise_readiness_reexports_payload_limits_boundary():
+    assert _write_payload_too_large is enterprise_payload_limits._write_payload_too_large
+    assert _payload_too_large_response is enterprise_payload_limits._payload_too_large_response
 
 
 def test_load_json_map_fails_closed_for_missing_invalid_or_non_object_json(monkeypatch):
