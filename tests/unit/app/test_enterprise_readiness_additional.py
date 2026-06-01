@@ -7,6 +7,7 @@ from app.enterprise_readiness import (
     _audit_identity_from_headers,
     _authorization_denied_response,
     _content_length,
+    _enterprise_runtime_config_issues,
     _feature_flag_enabled,
     _header_capabilities,
     _load_capability_rule_family,
@@ -193,6 +194,25 @@ def test_feature_flag_enabled_fails_closed_for_malformed_blocks():
         tenant_id="tenant-a",
         role="advisor",
     )
+
+
+def test_enterprise_runtime_config_issues_reports_policy_rotation_and_key(monkeypatch):
+    monkeypatch.setenv("ENTERPRISE_POLICY_VERSION", " ")
+    monkeypatch.setenv("ENTERPRISE_SECRET_ROTATION_DAYS", "91")
+    monkeypatch.setenv("ENTERPRISE_ENFORCE_AUTHZ", "true")
+    monkeypatch.delenv("ENTERPRISE_PRIMARY_KEY_ID", raising=False)
+
+    assert _enterprise_runtime_config_issues() == [
+        "missing_policy_version",
+        "secret_rotation_days_out_of_range",
+        "missing_primary_key_id",
+    ]
+
+
+def test_enterprise_runtime_config_issues_uses_default_for_invalid_rotation_days(monkeypatch):
+    monkeypatch.setenv("ENTERPRISE_SECRET_ROTATION_DAYS", "invalid")
+
+    assert "secret_rotation_days_out_of_range" not in _enterprise_runtime_config_issues()
 
 
 def test_authorize_write_request_allows_when_no_capability_rule_matches(monkeypatch):
