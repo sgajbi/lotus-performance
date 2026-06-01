@@ -76,13 +76,24 @@ _HTTP_METHOD_GET = "GET"
 _HTTP_METHOD_PATCH = "PATCH"
 _HTTP_METHOD_POST = "POST"
 _HTTP_METHOD_PUT = "PUT"
-_RULE_RUNTIME_RETENTION_CLEANUP_RUN_WRITE = f"{_HTTP_METHOD_POST} /integration/runtime-retention-cleanups/run"
-_RULE_RECOVERY_DRILL_RUN_WRITE = f"{_HTTP_METHOD_POST} /integration/recovery-drills/run"
-_RULE_RUNTIME_STATUS_READ = f"{_HTTP_METHOD_GET} /integration/runtime-status"
-_RULE_RUNTIME_WORK_ITEMS_READ = f"{_HTTP_METHOD_GET} /integration/runtime-work-items"
-_RULE_RUNTIME_RECOVERIES_READ = f"{_HTTP_METHOD_GET} /integration/runtime-recoveries"
-_RULE_RECOVERY_DRILLS_READ = f"{_HTTP_METHOD_GET} /integration/recovery-drills"
-_RULE_RUNTIME_RETENTION_CLEANUPS_READ = f"{_HTTP_METHOD_GET} /integration/runtime-retention-cleanups"
+_CAPABILITY_RULE_METHOD_PATH_SEPARATOR = " "
+_RULE_RUNTIME_RETENTION_CLEANUP_RUN_WRITE = (
+    f"{_HTTP_METHOD_POST}{_CAPABILITY_RULE_METHOD_PATH_SEPARATOR}/integration/runtime-retention-cleanups/run"
+)
+_RULE_RECOVERY_DRILL_RUN_WRITE = (
+    f"{_HTTP_METHOD_POST}{_CAPABILITY_RULE_METHOD_PATH_SEPARATOR}/integration/recovery-drills/run"
+)
+_RULE_RUNTIME_STATUS_READ = f"{_HTTP_METHOD_GET}{_CAPABILITY_RULE_METHOD_PATH_SEPARATOR}/integration/runtime-status"
+_RULE_RUNTIME_WORK_ITEMS_READ = (
+    f"{_HTTP_METHOD_GET}{_CAPABILITY_RULE_METHOD_PATH_SEPARATOR}/integration/runtime-work-items"
+)
+_RULE_RUNTIME_RECOVERIES_READ = (
+    f"{_HTTP_METHOD_GET}{_CAPABILITY_RULE_METHOD_PATH_SEPARATOR}/integration/runtime-recoveries"
+)
+_RULE_RECOVERY_DRILLS_READ = f"{_HTTP_METHOD_GET}{_CAPABILITY_RULE_METHOD_PATH_SEPARATOR}/integration/recovery-drills"
+_RULE_RUNTIME_RETENTION_CLEANUPS_READ = (
+    f"{_HTTP_METHOD_GET}{_CAPABILITY_RULE_METHOD_PATH_SEPARATOR}/integration/runtime-retention-cleanups"
+)
 _WRITE_METHODS = {_HTTP_METHOD_POST, _HTTP_METHOD_PUT, _HTTP_METHOD_PATCH, _HTTP_METHOD_DELETE}
 _REQUIRED_HEADERS = {_ACTOR_ID_HEADER, _TENANT_ID_HEADER, _ROLE_HEADER, _CORRELATION_ID_HEADER}
 _DEFAULT_CAPABILITY_RULES = {
@@ -238,7 +249,7 @@ def _path_matches_rule(path: str, rule_path: str) -> bool:
 
 
 def _capability_rule_path_for_method(*, rule_key: str, method: str) -> str | None:
-    prefix = f"{_normalized_http_method(method)} "
+    prefix = f"{_normalized_http_method(method)}{_CAPABILITY_RULE_METHOD_PATH_SEPARATOR}"
     if not rule_key.upper().startswith(prefix):
         return None
     return rule_key[len(prefix) :]

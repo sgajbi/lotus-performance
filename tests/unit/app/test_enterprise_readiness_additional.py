@@ -26,6 +26,7 @@ from app.enterprise_readiness import (
     _CAPABILITIES_HEADER,
     _CAPABILITY_OPERATIONS_RUNTIME_MANAGE,
     _CAPABILITY_OPERATIONS_RUNTIME_READ,
+    _CAPABILITY_RULE_METHOD_PATH_SEPARATOR,
     _CONTENT_LENGTH_HEADER,
     _CORRELATION_ID_HEADER,
     _DEFAULT_MAX_WRITE_PAYLOAD_BYTES,
@@ -301,6 +302,12 @@ def test_capability_rule_path_for_method_extracts_matching_rule_path():
         _capability_rule_path_for_method(rule_key=_RULE_RUNTIME_STATUS_READ, method="get")
         == "/integration/runtime-status"
     )
+
+
+def test_capability_rule_path_uses_governed_method_path_separator():
+    rule_key = f"{_HTTP_METHOD_GET}{_CAPABILITY_RULE_METHOD_PATH_SEPARATOR}/integration/runtime-status"
+
+    assert _capability_rule_path_for_method(rule_key=rule_key, method=_HTTP_METHOD_GET) == "/integration/runtime-status"
 
 
 def test_capability_rule_path_for_method_ignores_other_methods():
