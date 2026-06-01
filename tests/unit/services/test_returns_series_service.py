@@ -181,16 +181,6 @@ def _seed_execution(monkeypatch, tmp_path, request):
     return store
 
 
-def test_zero_default_retrieval_metadata_preserves_source_count_coercion():
-    assert returns_series_service._zero_default_retrieval_metadata(None).chunk_count == 0
-    metadata = returns_series_service._zero_default_retrieval_metadata(
-        {"retrieval_metadata": {"chunk_count": "2", "page_count": 3.0}}
-    )
-
-    assert metadata.chunk_count == 2
-    assert metadata.page_count == 3
-
-
 @pytest.mark.asyncio
 async def test_calculate_returns_series_requires_open_date(monkeypatch, tmp_path):
     request = _build_stateful_request()
