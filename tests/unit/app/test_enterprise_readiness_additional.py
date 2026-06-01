@@ -5,6 +5,7 @@ import pytest
 from fastapi import Response
 
 from app import (
+    enterprise_audit_emission,
     enterprise_audit_events,
     enterprise_audit_redaction,
     enterprise_authorization,
@@ -256,6 +257,23 @@ def test_enterprise_readiness_reexports_authorization_boundary():
 def test_enterprise_readiness_reexports_response_envelope_boundary():
     assert _RESPONSE_DETAIL_KEY is enterprise_response_envelopes._RESPONSE_DETAIL_KEY
     assert _RESPONSE_REASON_KEY is enterprise_response_envelopes._RESPONSE_REASON_KEY
+
+
+def test_enterprise_readiness_delegates_audit_emission_boundary(mocker):
+    emit = mocker.patch.object(enterprise_audit_emission, "emit_audit_event")
+
+    emit_audit_event(
+        action="POST /analytics",
+        actor_id="actor-1",
+        tenant_id="tenant-1",
+        role="operator",
+        correlation_id="corr-1",
+        metadata={"safe": "ok"},
+    )
+
+    emit.assert_called_once()
+    assert emit.call_args.kwargs["logger"].name == "enterprise_readiness"
+    assert emit.call_args.kwargs["action"] == "POST /analytics"
 
 
 def test_load_json_map_fails_closed_for_missing_invalid_or_non_object_json(monkeypatch):
