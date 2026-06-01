@@ -28,6 +28,7 @@ from app.enterprise_readiness import (
     _CORRELATION_ID_HEADER,
     _DEFAULT_MAX_WRITE_PAYLOAD_BYTES,
     _DEFAULT_TENANT_ID,
+    _EMPTY_JSON_OBJECT,
     _ENTERPRISE_AUDIT_EVENT_NAME,
     _ENTERPRISE_AUDIT_EXTRA_KEY,
     _ENTERPRISE_POLICY_VERSION_HEADER,
@@ -82,6 +83,7 @@ from app.enterprise_readiness import (
     _is_privileged_read_method,
     _is_write_method,
     _load_capability_rule_family,
+    _load_json_map,
     _max_write_payload_bytes,
     _missing_capability_reason,
     _missing_headers_reason,
@@ -148,6 +150,21 @@ def test_env_enabled_uses_governed_enabled_tokens_and_disabled_default(monkeypat
 
     monkeypatch.delenv(env_name, raising=False)
     assert _env_enabled(env_name, _ENV_SWITCH_DISABLED_DEFAULT) is False
+
+
+def test_load_json_map_fails_closed_for_missing_invalid_or_non_object_json(monkeypatch):
+    env_name = "ENTERPRISE_TEST_JSON"
+    monkeypatch.delenv(env_name, raising=False)
+    assert _load_json_map(env_name) == json.loads(_EMPTY_JSON_OBJECT)
+
+    monkeypatch.setenv(env_name, "{bad")
+    assert _load_json_map(env_name) == {}
+
+    monkeypatch.setenv(env_name, "[]")
+    assert _load_json_map(env_name) == {}
+
+    monkeypatch.setenv(env_name, '{"policy": true}')
+    assert _load_json_map(env_name) == {"policy": True}
 
 
 @pytest.mark.parametrize(

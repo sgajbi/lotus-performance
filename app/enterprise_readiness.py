@@ -66,6 +66,7 @@ _ENV_ENTERPRISE_CAPABILITY_RULES_JSON = "ENTERPRISE_CAPABILITY_RULES_JSON"
 _ENV_ENTERPRISE_PRIVILEGED_READ_RULES_JSON = "ENTERPRISE_PRIVILEGED_READ_RULES_JSON"
 _ENV_SWITCH_DISABLED_DEFAULT = "false"
 _ENV_ENABLED_VALUES = frozenset({"1", "true", "yes", "on"})
+_EMPTY_JSON_OBJECT = "{}"
 _DEFAULT_MAX_WRITE_PAYLOAD_BYTES = 1_048_576
 _DEFAULT_SECRET_ROTATION_DAYS = 90
 _WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
@@ -125,7 +126,7 @@ def _max_write_payload_bytes() -> int:
 
 
 def _load_json_map(name: str) -> dict[str, Any]:
-    raw = os.getenv(name, "{}")
+    raw = os.getenv(name, _EMPTY_JSON_OBJECT)
     try:
         parsed = json.loads(raw)
     except json.JSONDecodeError:
