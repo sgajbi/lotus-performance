@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import time
 from dataclasses import dataclass
+from typing import Any
 from uuid import UUID
 
 from pydantic import ValidationError
@@ -15,6 +17,8 @@ from app.models.twr_requests import TWRAnalyticsRequest, TWRResolvedExecutionReq
 from app.services.async_result_store import async_result_store
 from app.services.compute_job_store import compute_job_store
 from app.services.lineage_metadata_store import lineage_metadata_store
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -30,10 +34,16 @@ _REQUEST_PAYLOAD_POLL_INTERVAL_SECONDS = 0.5
 def load_existing_twr_calculation_artifacts(calculation_id: UUID) -> ExistingTWRCalculationArtifacts:
     payload = lineage_metadata_store.get_payload(calculation_id)
     if payload is not None:
-        return ExistingTWRCalculationArtifacts(
-            response_model=PerformanceResponse.model_validate(json.loads(payload.response_json)),
-            request_payload=json.loads(payload.request_json),
+        response_payload = _load_json_object(
+            payload.response_json,
+            calculation_id=calculation_id,
+            payload_name="lineage response",
         )
+        if response_payload is not None:
+            return ExistingTWRCalculationArtifacts(
+                response_model=PerformanceResponse.model_validate(response_payload),
+                request_payload=_load_request_payload(calculation_id),
+            )
 
     async_result = async_result_store.get_result(calculation_id)
     if async_result is not None and async_result.response_payload is not None:
@@ -102,7 +112,13 @@ def _load_request_payload(calculation_id: UUID, *, wait_seconds: float = 0.0) ->
     while True:
         payload = lineage_metadata_store.get_payload(calculation_id)
         if payload is not None:
-            return json.loads(payload.request_json)
+            request_payload = _load_json_object(
+                payload.request_json,
+                calculation_id=calculation_id,
+                payload_name="lineage request",
+            )
+            if request_payload is not None:
+                return request_payload
 
         request_path = os.path.join(get_settings().LINEAGE_STORAGE_PATH, str(calculation_id), "request.json")
         if os.path.exists(request_path):
@@ -115,3 +131,23 @@ def _load_request_payload(calculation_id: UUID, *, wait_seconds: float = 0.0) ->
             break
         time.sleep(_REQUEST_PAYLOAD_POLL_INTERVAL_SECONDS)
     return None
+
+
+def _load_json_object(raw_payload: str, *, calculation_id: UUID, payload_name: str) -> dict[str, Any] | None:
+    try:
+        payload = json.loads(raw_payload)
+    except json.JSONDecodeError:
+        logger.warning(
+            "Skipping invalid %s JSON while materializing TWR inspection subject for calculation_id=%s.",
+            payload_name,
+            calculation_id,
+        )
+        return None
+    if not isinstance(payload, dict):
+        logger.warning(
+            "Skipping non-object %s JSON while materializing TWR inspection subject for calculation_id=%s.",
+            payload_name,
+            calculation_id,
+        )
+        return None
+    return payload
