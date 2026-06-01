@@ -1,4 +1,5 @@
 import json
+import logging
 
 import pytest
 
@@ -29,6 +30,27 @@ def test_runtime_retention_history_reports_unavailable_when_manifest_invalid(tmp
 
     assert snapshot.status == "unavailable"
     assert snapshot.reason == RUNTIME_RETENTION_MANIFEST_INVALID_REASON
+
+
+def test_runtime_retention_history_reports_unavailable_and_logs_invalid_manifest_shape(tmp_path, caplog):
+    artifact_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
+    artifact_dir.mkdir(parents=True)
+    manifest = {
+        "latest_file_name": "2026-03-15t00-00-00z.json",
+        "retained_file_names": ["2026-03-15t00-00-00z.json"],
+        "retention_limit": 30,
+        "retention_max_age_days": 90,
+        "entries": [{"generated_at_utc": "2026-03-15T00:00:00Z"}],
+    }
+    (artifact_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    with caplog.at_level(logging.WARNING, logger="app.services.operator_action_history_manifest"):
+        snapshot = build_runtime_retention_history_snapshot(artifact_directory=artifact_dir)
+
+    assert snapshot.status == "unavailable"
+    assert snapshot.reason == RUNTIME_RETENTION_MANIFEST_INVALID_REASON
+    assert "Runtime retention history manifest payload invalid" in caplog.text
+    assert "manifest.json" in caplog.text
 
 
 def test_runtime_retention_history_reports_unavailable_when_manifest_unreadable(tmp_path, monkeypatch):

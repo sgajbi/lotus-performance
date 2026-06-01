@@ -11,6 +11,7 @@ from app.services.operator_action_history_filters import (
 )
 from app.services.operator_action_history_manifest import (
     HistoryManifestReadReasons,
+    log_invalid_history_manifest_payload,
     read_history_manifest_payload,
     validate_history_entry_strings,
     validate_history_manifest_payload,
@@ -104,6 +105,10 @@ def build_runtime_retention_history_snapshot(
         validate_entry=_validate_manifest_entry,
     )
     if manifest_payload is None:
+        log_invalid_history_manifest_payload(
+            manifest_path=directory / "manifest.json",
+            history_name="Runtime retention",
+        )
         return _unavailable_snapshot(
             directory=directory,
             applied_filters=applied_filters,

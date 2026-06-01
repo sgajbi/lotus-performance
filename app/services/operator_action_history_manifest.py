@@ -119,6 +119,10 @@ def validate_history_manifest_payload(
     return build_history_manifest_payload(header=header, entries=validated_entries)
 
 
+def log_invalid_history_manifest_payload(*, manifest_path: Path, history_name: str) -> None:
+    logger.warning("%s history manifest payload invalid at %s.", history_name, manifest_path)
+
+
 def validate_history_entry_strings(
     entry: dict[str, Any],
     *,

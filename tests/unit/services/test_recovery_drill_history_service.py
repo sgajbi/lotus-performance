@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 
 import pytest
@@ -80,7 +81,7 @@ def test_recovery_drill_history_snapshot_reports_invalid_manifest(tmp_path):
     assert snapshot.entries == []
 
 
-def test_recovery_drill_history_snapshot_reports_invalid_manifest_shape(tmp_path):
+def test_recovery_drill_history_snapshot_reports_invalid_manifest_shape(tmp_path, caplog):
     artifact_dir = tmp_path / "artifacts" / "durable-recovery-drill"
     artifact_dir.mkdir(parents=True)
     manifest = {
@@ -92,11 +93,14 @@ def test_recovery_drill_history_snapshot_reports_invalid_manifest_shape(tmp_path
     }
     (artifact_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
 
-    snapshot = build_recovery_drill_history_snapshot(artifact_directory=artifact_dir)
+    with caplog.at_level(logging.WARNING, logger="app.services.operator_action_history_manifest"):
+        snapshot = build_recovery_drill_history_snapshot(artifact_directory=artifact_dir)
 
     assert snapshot.status == "unavailable"
     assert snapshot.reason == RECOVERY_DRILL_MANIFEST_INVALID_REASON
     assert snapshot.entries == []
+    assert "Recovery drill history manifest payload invalid" in caplog.text
+    assert "manifest.json" in caplog.text
 
 
 def test_recovery_drill_history_snapshot_reports_missing_manifest(tmp_path):
