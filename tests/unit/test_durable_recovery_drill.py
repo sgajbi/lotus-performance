@@ -1,9 +1,16 @@
 import json
+import logging
 from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from scripts.durable_recovery_drill import REQUIRED_TABLES, _write_text_atomic, run_recovery_drill
+from scripts.durable_recovery_drill import (
+    REQUIRED_TABLES,
+    RecoveryDrillEvidence,
+    _persist_evidence_history,
+    _write_text_atomic,
+    run_recovery_drill,
+)
 
 
 def test_run_recovery_drill_emits_passing_evidence_and_writes_artifact_history(tmp_path):
@@ -157,6 +164,50 @@ def test_run_recovery_drill_prunes_history_older_than_max_age(tmp_path):
     assert "stale.json" not in retained
     assert retained == [current.evidence_file_name]
     assert manifest["retained_file_names"] == [current.evidence_file_name]
+
+
+def test_recovery_drill_history_skips_invalid_retained_artifacts(tmp_path, caplog):
+    output_dir = tmp_path / "artifacts" / "durable-recovery-drill"
+    output_dir.mkdir(parents=True)
+    malformed = output_dir / "2026-03-14t00-00-00z.json"
+    malformed.write_text("{not-json", encoding="utf-8")
+    non_object = output_dir / "2026-03-13t00-00-00z.json"
+    non_object.write_text("[]", encoding="utf-8")
+    generated_at_utc = datetime.now(UTC).isoformat()
+    evidence = RecoveryDrillEvidence(
+        drill_name="durable_metadata_restore_recovery",
+        generated_at_utc=generated_at_utc,
+        evidence_file_name="current.json",
+        operator_id="test-operator",
+        tenant_id=None,
+        correlation_id=None,
+        backup_identifier="backup-001",
+        database_path="recovery-drill.db",
+        restored_schema_mode="legacy_lineage_schema_upgraded_in_place",
+        owned_tables_present=list(REQUIRED_TABLES),
+        compute_job_processed_count=1,
+        compute_async_result_status="complete",
+        compute_execution_status="complete",
+        processed_payload_count=1,
+        materialized_artifact_path="details.csv",
+        materialized_artifact_exists=True,
+        status="passed",
+    )
+
+    with caplog.at_level(logging.WARNING, logger="scripts.durable_recovery_drill"):
+        _persist_evidence_history(
+            output_dir=output_dir,
+            evidence=evidence,
+            retention_limit=5,
+            retention_max_age_days=30,
+        )
+
+    manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["latest_file_name"] == evidence.evidence_file_name
+    assert manifest["retained_file_names"] == [evidence.evidence_file_name]
+    assert not malformed.exists()
+    assert not non_object.exists()
+    assert "Recovery drill evidence ignored during age pruning" in caplog.text
 
 
 def test_write_text_atomic_does_not_leave_partial_target(tmp_path, mocker):

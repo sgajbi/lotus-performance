@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import re
 import sys
@@ -10,7 +11,7 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import TYPE_CHECKING, Callable, Coroutine
+from typing import TYPE_CHECKING, Any, Callable, Coroutine
 from uuid import UUID, uuid4
 
 import pandas as pd
@@ -33,6 +34,8 @@ REQUIRED_TABLES = (
     "lineage_records",
     "lineage_payloads",
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _get_settings():
@@ -387,18 +390,9 @@ def _write_manifest(
     for evidence_path in sorted(
         path for path in output_dir.glob("*.json") if path.name not in {"latest.json", "manifest.json"}
     ):
-        payload = json.loads(evidence_path.read_text(encoding="utf-8"))
-        entries.append(
-            RecoveryDrillManifestEntry(
-                evidence_file_name=payload["evidence_file_name"],
-                generated_at_utc=payload["generated_at_utc"],
-                operator_id=payload["operator_id"],
-                tenant_id=payload.get("tenant_id"),
-                correlation_id=payload.get("correlation_id"),
-                backup_identifier=payload["backup_identifier"],
-                status=payload["status"],
-            )
-        )
+        entry = _load_manifest_entry(evidence_path)
+        if entry is not None:
+            entries.append(entry)
     manifest = RecoveryDrillManifest(
         latest_file_name=latest_file_name,
         retained_file_names=[entry.evidence_file_name for entry in entries],
@@ -434,11 +428,39 @@ def _filter_fresh_history(*, historical_files: list[Path], retention_max_age_day
     cutoff = datetime.now(UTC) - timedelta(days=retention_max_age_days)
     fresh_files: list[Path] = []
     for path in historical_files:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-        generated_at = datetime.fromisoformat(payload["generated_at_utc"])
+        try:
+            payload = _read_recovery_drill_evidence_payload(path)
+            generated_at = datetime.fromisoformat(payload["generated_at_utc"])
+        except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
+            logger.warning("Recovery drill evidence ignored during age pruning: %s", path, exc_info=True)
+            continue
         if generated_at >= cutoff:
             fresh_files.append(path)
     return fresh_files
+
+
+def _load_manifest_entry(path: Path) -> RecoveryDrillManifestEntry | None:
+    try:
+        payload = _read_recovery_drill_evidence_payload(path)
+        return RecoveryDrillManifestEntry(
+            evidence_file_name=payload["evidence_file_name"],
+            generated_at_utc=payload["generated_at_utc"],
+            operator_id=payload["operator_id"],
+            tenant_id=payload.get("tenant_id"),
+            correlation_id=payload.get("correlation_id"),
+            backup_identifier=payload["backup_identifier"],
+            status=payload["status"],
+        )
+    except (OSError, json.JSONDecodeError, KeyError, TypeError):
+        logger.warning("Recovery drill evidence ignored during manifest rebuild: %s", path, exc_info=True)
+        return None
+
+
+def _read_recovery_drill_evidence_payload(path: Path) -> dict[str, Any]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise TypeError("recovery drill evidence payload must be an object")
+    return payload
 
 
 def main() -> int:
