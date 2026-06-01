@@ -58,3 +58,20 @@ def test_load_json_object_or_none_ignores_absent_payload(caplog):
 
     assert payload is None
     assert caplog.text == ""
+
+
+def test_load_json_object_or_none_can_treat_empty_payload_as_invalid(caplog):
+    logger = logging.getLogger("tests.durable_store_json")
+
+    with caplog.at_level(logging.WARNING, logger="tests.durable_store_json"):
+        payload = load_json_object_or_none(
+            "",
+            logger=logger,
+            payload_name="Required payload",
+            identity_name="calculation_id",
+            identity_value="calc-1",
+            empty_is_absent=False,
+        )
+
+    assert payload is None
+    assert "Required payload invalid JSON for calculation_id=calc-1." in caplog.text

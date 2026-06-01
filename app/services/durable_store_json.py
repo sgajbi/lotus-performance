@@ -12,8 +12,9 @@ def load_json_object_or_none(
     payload_name: str,
     identity_name: str,
     identity_value: str,
+    empty_is_absent: bool = True,
 ) -> dict[str, Any] | None:
-    if not raw_payload:
+    if raw_payload is None or (empty_is_absent and raw_payload == ""):
         return None
     try:
         payload = json.loads(raw_payload)

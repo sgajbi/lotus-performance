@@ -22,6 +22,7 @@ from app.services.durable_store_inspection import (
     apply_min_age_filter,
     build_inspection_query_context,
 )
+from app.services.durable_store_json import load_json_object_or_none
 from app.services.durable_store_pagination import next_offset_or_none, recovery_cursor_or_none
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
 from app.services.durable_store_time import (
@@ -1197,29 +1198,24 @@ compute_job_store = RuntimeStoreProxy(get_compute_job_store)
 
 
 def _load_request_payload(row: ComputeJobModel) -> dict[str, Any] | None:
-    try:
-        payload = json.loads(row.request_json)
-    except json.JSONDecodeError:
-        logger.warning("Compute job request payload invalid JSON for calculation_id=%s.", row.calculation_id)
-        return None
-    if not isinstance(payload, dict):
-        logger.warning("Compute job request payload is not an object for calculation_id=%s.", row.calculation_id)
-        return None
-    return payload
+    return load_json_object_or_none(
+        row.request_json,
+        logger=logger,
+        payload_name="Compute job request payload",
+        identity_name="calculation_id",
+        identity_value=row.calculation_id,
+        empty_is_absent=False,
+    )
 
 
 def _load_response_payload(row: ComputeJobModel) -> dict[str, Any] | None:
-    if not row.response_json:
-        return None
-    try:
-        payload = json.loads(row.response_json)
-    except json.JSONDecodeError:
-        logger.warning("Compute job response payload invalid JSON for calculation_id=%s.", row.calculation_id)
-        return None
-    if not isinstance(payload, dict):
-        logger.warning("Compute job response payload is not an object for calculation_id=%s.", row.calculation_id)
-        return None
-    return payload
+    return load_json_object_or_none(
+        row.response_json,
+        logger=logger,
+        payload_name="Compute job response payload",
+        identity_name="calculation_id",
+        identity_value=row.calculation_id,
+    )
 
 
 def _mark_invalid_request_payload(row: ComputeJobModel, *, now: datetime) -> None:
