@@ -108,6 +108,7 @@ from app.enterprise_readiness import (
     _missing_required_headers,
     _normalized_headers,
     _normalized_http_method,
+    _normalized_redaction_field,
     _parse_int_or_default,
     _payload_too_large_response,
     _primary_key_configured,
@@ -117,6 +118,7 @@ from app.enterprise_readiness import (
     _required_capability_from_rules,
     _runtime_config_enforcement_enabled,
     _runtime_config_invalid_message,
+    _should_redact_field,
     _write_authz_enabled,
     _write_payload_too_large,
     authorize_privileged_read_request,
@@ -440,6 +442,12 @@ def test_audit_metadata_redacts_sensitive_nested_values():
         "nested": {"authorization": _REDACTED_VALUE},
         "items": [{"token": _REDACTED_VALUE}],
     }
+
+
+def test_redaction_field_predicates_normalize_keys():
+    assert _normalized_redaction_field("Token") == "token"
+    assert _should_redact_field("Authorization")
+    assert not _should_redact_field("safe")
 
 
 def test_audit_timestamp_utc_uses_timezone_aware_iso_timestamp():

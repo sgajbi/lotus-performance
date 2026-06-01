@@ -516,11 +516,19 @@ def _authorize_enterprise_request(*, method: str, path: str, headers: dict[str, 
     return authorize_privileged_read_request(method, path, headers)
 
 
+def _normalized_redaction_field(field: Any) -> str:
+    return str(field).lower()
+
+
+def _should_redact_field(field: Any) -> bool:
+    return _normalized_redaction_field(field) in _REDACT_FIELDS
+
+
 def redact_sensitive(value: Any) -> Any:
     if isinstance(value, dict):
         output: dict[str, Any] = {}
         for key, item in value.items():
-            if str(key).lower() in _REDACT_FIELDS:
+            if _should_redact_field(key):
                 output[key] = _REDACTED_VALUE
             else:
                 output[key] = redact_sensitive(item)
