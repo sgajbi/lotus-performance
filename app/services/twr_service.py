@@ -35,6 +35,7 @@ from app.services.calculation_supportability_service import (
 )
 from app.services.execution_lifecycle_service import complete_execution_with_lineage
 from app.services.execution_registry import execution_registry
+from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
 from common.enums import Frequency
 from core.envelope import Audit, Diagnostics, Meta
 from core.periods import resolve_periods
@@ -510,7 +511,7 @@ def calculate_twr_response(
         if isinstance(benchmark_return_source, BenchmarkReturnSource)
         else BenchmarkReturnSource(str(benchmark_return_source))
     )
-    execution_registry.start_stage(performance_request.calculation_id, "execution")
+    execution_registry.start_stage(performance_request.calculation_id, EXECUTION_STAGE_EXECUTION)
 
     daily_results_df: pd.DataFrame | None = None
     benchmark_artifacts = None
@@ -538,7 +539,7 @@ def calculate_twr_response(
             calculate_benchmark_artifacts(benchmark_request) if benchmark_request is not None else None
         )
     except Exception as exc:
-        execution_registry.fail_stage(performance_request.calculation_id, "execution", str(exc))
+        execution_registry.fail_stage(performance_request.calculation_id, EXECUTION_STAGE_EXECUTION, str(exc))
         raise
 
     results_by_period: dict[str, SinglePeriodPerformanceResult] = {}

@@ -38,6 +38,7 @@ from app.precision_policy import to_decimal
 from app.services.analytics_observation_dates import observation_date_series
 from app.services.execution_lifecycle_service import complete_execution_with_lineage
 from app.services.execution_registry import execution_registry
+from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
 from app.services.portfolio_source_service import build_stateful_input_service
 from app.services.service_identity import LOTUS_PERFORMANCE_CONSUMER_SYSTEM
 from app.services.stateful_benchmark_input_service import build_stateful_benchmark_input
@@ -97,7 +98,7 @@ def calculate_workspace_summary(
 ) -> WorkspaceSummaryResponse:
     active_settings = settings or get_settings()
     input_fingerprint, calculation_hash = generate_canonical_hash(request, active_settings.APP_VERSION)
-    execution_registry.start_stage(request.calculation_id, "execution")
+    execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_EXECUTION)
     resolved_periods, portfolio_input, benchmark_input, net_artifacts, gross_artifacts = _resolve_workspace_inputs(
         request=request,
         settings=active_settings,

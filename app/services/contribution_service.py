@@ -58,6 +58,7 @@ from app.services.execution_lifecycle_service import (
     record_execution_failure,
 )
 from app.services.execution_registry import execution_registry
+from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
 from core.envelope import Audit, Meta
 from core.periods import resolve_periods
 from engine.contribution import (
@@ -79,7 +80,7 @@ def calculate_contribution(
         getattr(active_settings, "CONTRIBUTION_RESET_AWARE_AVERAGE_WEIGHT_MODE", RESET_AWARE_AVERAGE_WEIGHT_MODE_OFF)
     )
     execution_registry.mark_running(request.calculation_id)
-    execution_registry.start_stage(request.calculation_id, "execution")
+    execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_EXECUTION)
 
     periods_to_resolve = [analysis.period for analysis in request.analyses]
     inception_date = (

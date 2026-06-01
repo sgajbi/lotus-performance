@@ -42,6 +42,7 @@ from app.services.error_details import (
     upstream_contract_violation_detail,
 )
 from app.services.execution_registry import execution_registry
+from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
 from app.services.portfolio_source_service import (
     build_stateful_input_service,
 )
@@ -611,8 +612,8 @@ async def _calculate_returns_series(
                 calendar_policy=request.data_policy.calendar_policy,
             )
 
-        active_stage = "execution"
-        execution_registry.start_stage(request.calculation_id, "execution")
+        active_stage = EXECUTION_STAGE_EXECUTION
+        execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_EXECUTION)
         if request.data_policy.missing_data_policy == MissingDataPolicy.STRICT_INTERSECTION:
             common_dates = set(portfolio_df["date"])
             if benchmark_df is not None:
