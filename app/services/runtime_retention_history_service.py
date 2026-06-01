@@ -208,8 +208,11 @@ def _validate_manifest_entry(entry: Any) -> dict[str, str | int | None] | None:
     )
     if entry_strings is None:
         return None
+    generated_at_utc = entry_strings["generated_at_utc"]
+    if not isinstance(generated_at_utc, str):
+        return None
     try:
-        parse_utc_datetime(entry_strings["generated_at_utc"])
+        parse_utc_datetime(generated_at_utc)
     except ValueError:
         return None
     if not isinstance(trigger_mode, str):
