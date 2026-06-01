@@ -5,6 +5,7 @@ from typing import Any, Awaitable, Callable, Mapping
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
 
+from app import enterprise_audit_redaction as _audit_redaction
 from app import enterprise_capability_rules as _capability_rules
 from app import enterprise_feature_flags as _feature_flags
 from app import enterprise_request_context as _request_context
@@ -113,6 +114,14 @@ _has_service_identity = _request_context._has_service_identity
 _header_capabilities = _request_context._header_capabilities
 _missing_required_headers = _request_context._missing_required_headers
 _normalized_headers = _request_context._normalized_headers
+_REDACTED_VALUE = _audit_redaction._REDACTED_VALUE
+_REDACT_FIELDS = _audit_redaction._REDACT_FIELDS
+_normalized_redaction_field = _audit_redaction._normalized_redaction_field
+_redacted_mapping = _audit_redaction._redacted_mapping
+_redacted_mapping_value = _audit_redaction._redacted_mapping_value
+_redacted_sequence = _audit_redaction._redacted_sequence
+_should_redact_field = _audit_redaction._should_redact_field
+redact_sensitive = _audit_redaction.redact_sensitive
 
 logger = logging.getLogger("enterprise_readiness")
 
@@ -137,21 +146,11 @@ _AUTHORIZATION_POLICY_DENIED_DETAIL = "authorization_policy_denied"
 _PAYLOAD_TOO_LARGE_DETAIL = "payload_too_large"
 _HTTP_STATUS_FORBIDDEN = 403
 _HTTP_STATUS_PAYLOAD_TOO_LARGE = 413
-_REDACTED_VALUE = "***REDACTED***"
 _MISSING_HEADERS_REASON = "missing_headers"
 _MISSING_SERVICE_IDENTITY_REASON = "missing_service_identity"
 _MISSING_CAPABILITY_REASON = "missing_capability"
 _CONTENT_LENGTH_HEADER = "content-length"
 _MISSING_CONTENT_LENGTH = "0"
-_REDACT_FIELDS = {
-    "password",
-    "secret",
-    "token",
-    "authorization",
-    "ssn",
-    "account_number",
-    "client_email",
-}
 
 
 def _governed_surface_for_capability(*, path: str, required_capability: str | None) -> str | None:
@@ -317,37 +316,6 @@ def _authorize_enterprise_request(*, method: str, path: str, headers: dict[str, 
     if not authorized:
         return authorized, reason
     return authorize_privileged_read_request(method, path, headers)
-
-
-def _normalized_redaction_field(field: Any) -> str:
-    return str(field).lower()
-
-
-def _should_redact_field(field: Any) -> bool:
-    return _normalized_redaction_field(field) in _REDACT_FIELDS
-
-
-def _redacted_mapping_value(*, field: Any, value: Any) -> Any:
-    return _REDACTED_VALUE if _should_redact_field(field) else redact_sensitive(value)
-
-
-def _redacted_mapping(values: dict[Any, Any]) -> dict[Any, Any]:
-    output: dict[Any, Any] = {}
-    for key, item in values.items():
-        output[key] = _redacted_mapping_value(field=key, value=item)
-    return output
-
-
-def _redacted_sequence(values: list[Any]) -> list[Any]:
-    return [redact_sensitive(item) for item in values]
-
-
-def redact_sensitive(value: Any) -> Any:
-    if isinstance(value, dict):
-        return _redacted_mapping(value)
-    if isinstance(value, list):
-        return _redacted_sequence(value)
-    return value
 
 
 def _audit_event_payload(

@@ -5,6 +5,7 @@ import pytest
 from fastapi import Response
 
 from app import (
+    enterprise_audit_redaction,
     enterprise_capability_rules,
     enterprise_feature_flags,
     enterprise_request_context,
@@ -140,6 +141,7 @@ from app.enterprise_readiness import (
     emit_audit_event,
     load_capability_rules,
     load_privileged_read_rules,
+    redact_sensitive,
     validate_enterprise_runtime_config,
 )
 
@@ -225,6 +227,11 @@ def test_enterprise_readiness_reexports_capability_rule_boundary():
 def test_enterprise_readiness_reexports_request_context_boundary():
     assert _normalized_headers is enterprise_request_context._normalized_headers
     assert _audit_identity_from_headers is enterprise_request_context._audit_identity_from_headers
+
+
+def test_enterprise_readiness_reexports_audit_redaction_boundary():
+    assert redact_sensitive is enterprise_audit_redaction.redact_sensitive
+    assert _redacted_mapping is enterprise_audit_redaction._redacted_mapping
 
 
 def test_load_json_map_fails_closed_for_missing_invalid_or_non_object_json(monkeypatch):
