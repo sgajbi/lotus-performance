@@ -243,9 +243,8 @@ _RECLAIM_HISTORY_LIMIT = 20
 
 
 def _read_active_operator_action_lease(*, lock_path: Path) -> ActiveOperatorActionLease | _InvalidLease | None:
-    try:
-        payload = json.loads(lock_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    payload = _read_json_payload(lock_path)
+    if payload is _INVALID_LEASE:
         return _INVALID_LEASE
     if not isinstance(payload, dict):
         return _INVALID_LEASE
@@ -286,9 +285,8 @@ def _read_latest_reclaimed_lease(
     latest_reclaim_path = locks_dir / "latest-reclaim.json"
     if not latest_reclaim_path.exists():
         return None
-    try:
-        payload = json.loads(latest_reclaim_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    payload = _read_json_payload(latest_reclaim_path)
+    if payload is _INVALID_LEASE:
         return _INVALID_LEASE
     return _parse_reclaimed_event_payload(payload=payload, action_name=action_name)
 
@@ -328,9 +326,8 @@ def _read_recent_reclaimed_leases(
     reclaim_history_path = locks_dir / "reclaim-history.json"
     if not reclaim_history_path.exists():
         return ()
-    try:
-        payload = json.loads(reclaim_history_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    payload = _read_json_payload(reclaim_history_path)
+    if payload is _INVALID_LEASE:
         return _INVALID_LEASE
     if not isinstance(payload, list):
         return _INVALID_LEASE
@@ -357,6 +354,13 @@ def _write_reclaim_history(*, locks_dir: Path, event: ReclaimedOperatorActionLea
         handle.flush()
         os.fsync(handle.fileno())
     os.replace(temp_path, reclaim_history_path)
+
+
+def _read_json_payload(path: Path) -> object | _InvalidLease:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return _INVALID_LEASE
 
 
 def _parse_reclaimed_event_payload(
