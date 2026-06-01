@@ -13,8 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PATHS = ("app", "engine", "core", "adapters")
 DEFAULT_MIN_CONFIDENCE = 60
 _FINDING_PATTERN = re.compile(
-    r"^(?P<path>.+):(?P<line>\d+): unused (?P<kind>\w+) "
-    r"'(?P<name>[^']+)' \((?P<confidence>\d+)% confidence\)$"
+    r"^(?P<path>.+):(?P<line>\d+): unused (?P<kind>\w+) " r"'(?P<name>[^']+)' \((?P<confidence>\d+)% confidence\)$"
 )
 
 

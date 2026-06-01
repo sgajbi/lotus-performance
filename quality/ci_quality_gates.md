@@ -61,7 +61,7 @@ No gate should move from one phase to the next until it has:
 | Complexity and maintainability | Measured in `quality/complexity_inventory.md` through `scripts/python_complexity_inventory.py` and `radon` | Keep report-only until a stable baseline, false-positive policy, and remediation guidance exist. |
 | Function-size hotspots | Measured in `quality/function_size_inventory.md` through a repo-native standard-library scanner | Use as refactor-planning evidence; do not block CI until stable thresholds and exclusions are agreed. |
 | Dead-code detection | Measured in `quality/dead_code_inventory.md` through `scripts/python_dead_code_inventory.py` and `vulture`; 60% findings are dominated by framework/model false positives, while 80% findings are zero | Add reviewed allowlist before considering any regression-blocking gate. |
-| Dependency hygiene | Not yet measured; `deptry` not configured | Add report-only unused/missing dependency inventory before blocking. |
+| Dependency hygiene | Measured in `quality/dependency_hygiene_report.md` through `scripts/python_dependency_hygiene_inventory.py` and `deptry` | Align direct runtime imports with direct dependency declarations, then review runtime-only declarations before blocking. |
 | Python security scanning | Not yet measured through `bandit` | Add report-only Bandit run and compare with existing dependency-health security audit. |
 | OpenAPI Spectral linting | Not configured; no `.spectral.yaml` present | Decide whether Spectral adds value beyond the existing OpenAPI gate before adding it. |
 | Architecture boundaries | Not configured; no `.importlinter` contract present | Start with report-only import-boundary contracts for routers, services, domain, and adapters. |
@@ -84,10 +84,10 @@ No gate should move from one phase to the next until it has:
 
 The next hardening commits should stay small and add proof in this order:
 
-1. add report-only dependency-hygiene inventory,
-2. add architecture-boundary report-only checks for router, service, domain, and adapter imports,
-3. add API completeness inventory for descriptions, examples, and RFC 7807 responses,
-4. reduce measured complexity, function-size, and reviewed dead-code hotspots through bounded slices,
+1. add architecture-boundary report-only checks for router, service, domain, and adapter imports,
+2. add API completeness inventory for descriptions, examples, and RFC 7807 responses,
+3. reduce measured complexity, function-size, and reviewed dead-code hotspots through bounded slices,
+4. align direct runtime imports with direct dependency declarations,
 5. update `quality/refactor_health_report.md` as each dimension moves from `not-yet-measured` to `measured`.
 
 ## Non-Goals For This Slice
