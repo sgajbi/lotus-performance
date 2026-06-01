@@ -352,7 +352,10 @@ def _audit_identity_from_headers(headers: Mapping[str, Any]) -> dict[str, str]:
         _AUDIT_PAYLOAD_ACTOR_ID_KEY: normalized.get(_ACTOR_ID_HEADER) or _UNKNOWN_ACTOR_ID,
         _AUDIT_PAYLOAD_TENANT_ID_KEY: normalized.get(_TENANT_ID_HEADER) or _DEFAULT_TENANT_ID,
         _AUDIT_PAYLOAD_ROLE_KEY: normalized.get(_ROLE_HEADER) or _UNKNOWN_ROLE,
-        _AUDIT_PAYLOAD_CORRELATION_ID_KEY: normalized.get(_CORRELATION_ID_HEADER, ""),
+        _AUDIT_PAYLOAD_CORRELATION_ID_KEY: normalized.get(
+            _CORRELATION_ID_HEADER,
+            _EMPTY_AUDIT_CORRELATION_ID,
+        ),
     }
 
 

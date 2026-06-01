@@ -416,7 +416,7 @@ def test_audit_event_payload_redacts_metadata_and_includes_policy_version(monkey
     assert payload[_AUDIT_PAYLOAD_ACTOR_ID_KEY] == "actor-1"
     assert payload[_AUDIT_PAYLOAD_TENANT_ID_KEY] == "tenant-1"
     assert payload[_AUDIT_PAYLOAD_ROLE_KEY] == "operator"
-    assert payload[_AUDIT_PAYLOAD_CORRELATION_ID_KEY] == ""
+    assert payload[_AUDIT_PAYLOAD_CORRELATION_ID_KEY] == _EMPTY_AUDIT_CORRELATION_ID
     assert payload[_AUDIT_PAYLOAD_POLICY_VERSION_KEY] == "2.1.0"
     assert payload[_AUDIT_PAYLOAD_METADATA_KEY] == {"token": _REDACTED_VALUE, "safe": "ok"}
     assert datetime.fromisoformat(payload[_AUDIT_PAYLOAD_TIMESTAMP_UTC_KEY]).tzinfo is not None
@@ -542,7 +542,7 @@ def test_audit_identity_from_headers_uses_governed_missing_value_fallbacks():
         _AUDIT_PAYLOAD_ACTOR_ID_KEY: _UNKNOWN_ACTOR_ID,
         _AUDIT_PAYLOAD_TENANT_ID_KEY: _DEFAULT_TENANT_ID,
         _AUDIT_PAYLOAD_ROLE_KEY: _UNKNOWN_ROLE,
-        _AUDIT_PAYLOAD_CORRELATION_ID_KEY: "",
+        _AUDIT_PAYLOAD_CORRELATION_ID_KEY: _EMPTY_AUDIT_CORRELATION_ID,
     }
 
 
