@@ -410,10 +410,14 @@ def _audit_event_payload(
         "tenant_id": tenant_id,
         "role": role,
         "correlation_id": correlation_id or "",
-        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "timestamp_utc": _audit_timestamp_utc(),
         "policy_version": enterprise_policy_version(),
         "metadata": redact_sensitive(metadata),
     }
+
+
+def _audit_timestamp_utc() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _apply_enterprise_policy_header(response: Response) -> Response:

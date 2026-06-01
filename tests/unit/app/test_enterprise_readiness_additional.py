@@ -16,6 +16,7 @@ from app.enterprise_readiness import (
     _apply_enterprise_policy_header,
     _audit_event_payload,
     _audit_identity_from_headers,
+    _audit_timestamp_utc,
     _authorization_denial_metadata,
     _authorization_denied_response,
     _authorize_enterprise_request,
@@ -249,6 +250,13 @@ def test_audit_event_payload_redacts_metadata_and_includes_policy_version(monkey
     assert payload["policy_version"] == "2.1.0"
     assert payload["metadata"] == {"token": "***REDACTED***", "safe": "ok"}
     assert datetime.fromisoformat(payload["timestamp_utc"]).tzinfo is not None
+
+
+def test_audit_timestamp_utc_uses_timezone_aware_iso_timestamp():
+    timestamp = datetime.fromisoformat(_audit_timestamp_utc())
+
+    assert timestamp.tzinfo is not None
+    assert timestamp.utcoffset() is not None
 
 
 def test_emit_audit_event_uses_governed_logger_event_name(mocker):
