@@ -46,6 +46,10 @@ def _env_enabled(name: str, default: str = "true") -> bool:
     return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _privileged_read_authz_enabled() -> bool:
+    return _env_enabled("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "false")
+
+
 def _load_json_map(name: str) -> dict[str, Any]:
     raw = os.getenv(name, "{}")
     try:
@@ -219,9 +223,7 @@ def _allowed_audit_metadata(*, method: str, path: str, status_code: int) -> dict
     is_privileged_read = _is_privileged_read_method(method)
     required_capability = privileged_read_capability if is_privileged_read else write_capability
     if not _is_write_method(method) and not (
-        is_privileged_read
-        and _env_enabled("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "false")
-        and privileged_read_capability is not None
+        is_privileged_read and _privileged_read_authz_enabled() and privileged_read_capability is not None
     ):
         return None
     return {
@@ -311,7 +313,7 @@ def authorize_write_request(method: str, path: str, headers: dict[str, str]) -> 
 
 
 def authorize_privileged_read_request(method: str, path: str, headers: dict[str, str]) -> tuple[bool, str | None]:
-    if not _is_privileged_read_method(method) or not _env_enabled("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "false"):
+    if not _is_privileged_read_method(method) or not _privileged_read_authz_enabled():
         return True, None
 
     required_capability = _required_privileged_read_capability(method, path)
