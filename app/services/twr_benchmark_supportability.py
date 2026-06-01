@@ -9,6 +9,7 @@ import pandas as pd
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.requests import PerformanceRequest
 from app.models.responses import TWRBenchmarkSupportabilityEvidence
+from app.services.analytics_observation_dates import observation_date_set
 from engine.schema import PortfolioColumns
 
 _DATE_SAMPLE_LIMIT = 5
@@ -72,7 +73,7 @@ def build_twr_benchmark_supportability_evidence(
 def _date_set(df: pd.DataFrame, column: str) -> set[date]:
     if column not in df.columns or df.empty:
         return set()
-    return set(pd.to_datetime(df[column]).dt.date)
+    return observation_date_set(df[column])
 
 
 def _benchmark_currency_state(

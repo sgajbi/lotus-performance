@@ -12,5 +12,9 @@ def latest_observation_date(values: Iterable[Any]) -> date | None:
     return max(normalized_dates) if normalized_dates else None
 
 
+def observation_date_set(values: Iterable[Any]) -> set[date]:
+    return {normalize_observation_date(value) for value in values if value is not None}
+
+
 def normalize_observation_date(value: Any) -> date:
     return pd.Timestamp(value).date()
