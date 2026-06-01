@@ -6,6 +6,7 @@ from app.enterprise_readiness import (
     _required_capability,
     authorize_privileged_read_request,
     authorize_write_request,
+    load_capability_rules,
     load_privileged_read_rules,
     validate_enterprise_runtime_config,
 )
@@ -49,11 +50,43 @@ def test_authorize_write_request_allows_when_no_capability_rule_matches(monkeypa
 def test_load_privileged_read_rules_merges_defaults_and_env(monkeypatch):
     monkeypatch.setenv(
         "ENTERPRISE_PRIVILEGED_READ_RULES_JSON",
-        json.dumps({"GET /integration/custom-status": "operations.custom.read"}),
+        json.dumps({" GET /integration/custom-status ": " operations.custom.read "}),
     )
     rules = load_privileged_read_rules()
     assert rules["GET /integration/runtime-status"] == "operations.runtime.read"
     assert rules["GET /integration/custom-status"] == "operations.custom.read"
+
+
+def test_capability_rule_loader_ignores_blank_and_non_string_overrides(monkeypatch):
+    monkeypatch.setenv(
+        "ENTERPRISE_CAPABILITY_RULES_JSON",
+        json.dumps(
+            {
+                "POST /integration/runtime-retention-cleanups/run": " ",
+                " ": "operations.invalid",
+                "POST /analytics": 123,
+                " POST /analytics ": " analytics.write ",
+            }
+        ),
+    )
+
+    rules = load_capability_rules()
+
+    assert rules["POST /integration/runtime-retention-cleanups/run"] == "operations.runtime.manage"
+    assert " " not in rules
+    assert rules["POST /analytics"] == "analytics.write"
+
+
+def test_privileged_read_rule_loader_ignores_blank_default_override(monkeypatch):
+    monkeypatch.setenv(
+        "ENTERPRISE_PRIVILEGED_READ_RULES_JSON",
+        json.dumps({"GET /integration/runtime-status": " ", "GET /integration/custom-status": False}),
+    )
+
+    rules = load_privileged_read_rules()
+
+    assert rules["GET /integration/runtime-status"] == "operations.runtime.read"
+    assert "GET /integration/custom-status" not in rules
 
 
 def test_authorize_privileged_read_request_allows_unmatched_paths(monkeypatch):

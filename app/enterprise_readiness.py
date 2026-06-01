@@ -86,17 +86,29 @@ def load_feature_flags() -> dict[str, dict[str, dict[str, bool]]]:
     return _load_json_map("ENTERPRISE_FEATURE_FLAGS_JSON")
 
 
+def _normalized_capability_rule_overrides(configured: dict[str, Any]) -> dict[str, str]:
+    rules: dict[str, str] = {}
+    for key, value in configured.items():
+        if not isinstance(key, str) or not isinstance(value, str):
+            continue
+        rule_key = key.strip()
+        capability = value.strip()
+        if rule_key and capability:
+            rules[rule_key] = capability
+    return rules
+
+
 def load_capability_rules() -> dict[str, str]:
     rules = dict(_DEFAULT_CAPABILITY_RULES)
     configured = _load_json_map("ENTERPRISE_CAPABILITY_RULES_JSON")
-    rules.update({str(key): str(value) for key, value in configured.items() if isinstance(key, str)})
+    rules.update(_normalized_capability_rule_overrides(configured))
     return rules
 
 
 def load_privileged_read_rules() -> dict[str, str]:
     rules = dict(_DEFAULT_PRIVILEGED_READ_RULES)
     configured = _load_json_map("ENTERPRISE_PRIVILEGED_READ_RULES_JSON")
-    rules.update({str(key): str(value) for key, value in configured.items() if isinstance(key, str)})
+    rules.update(_normalized_capability_rule_overrides(configured))
     return rules
 
 
