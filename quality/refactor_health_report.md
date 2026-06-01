@@ -38,7 +38,7 @@ link the commit, command, or CI artifact that proves the change.
 | Max cyclomatic complexity | unknown | unknown | not-yet-measured | `radon` not installed |
 | High-complexity functions | unknown | unknown | not-yet-measured | `radon`/`xenon` not configured |
 | Average maintainability index | unknown | unknown | not-yet-measured | `radon` not installed |
-| Largest functions by LOC | unknown | unknown | not-yet-measured | function-size scanner not configured |
+| Largest functions by LOC | unknown | 509 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py` |
 
 ## Architecture
 
