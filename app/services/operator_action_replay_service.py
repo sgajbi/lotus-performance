@@ -6,9 +6,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from app.services import operator_action_evidence_strings as _evidence_strings
 from app.services.durable_store_json import read_json_object_file
 from app.services.operator_action_evidence_paths import resolve_evidence_file_path
+from app.services.operator_action_evidence_strings import (
+    is_required_evidence_string_list,
+    optional_evidence_string_fields_valid,
+    required_evidence_bool_fields_present,
+    required_evidence_int_fields_present,
+    required_evidence_string_fields_present,
+)
 from app.services.operator_action_identity import (
     operator_action_correlation_matches,
     operator_action_optional_identity_matches,
@@ -21,13 +27,6 @@ from app.services.runtime_retention_history_service import (
 )
 
 logger = logging.getLogger(__name__)
-
-_is_required_replay_string = _evidence_strings.is_required_evidence_string
-_is_required_replay_string_list = _evidence_strings.is_required_evidence_string_list
-_required_str_fields_present = _evidence_strings.required_evidence_string_fields_present
-_optional_str_fields_valid = _evidence_strings.optional_evidence_string_fields_valid
-_required_int_fields_present = _evidence_strings.required_evidence_int_fields_present
-_required_bool_fields_present = _evidence_strings.required_evidence_bool_fields_present
 
 
 @dataclass(frozen=True)
@@ -139,7 +138,7 @@ def _runtime_retention_payload_matches_entry(
     entry: RuntimeRetentionHistoryEntry,
 ) -> bool:
     return (
-        _required_str_fields_present(
+        required_evidence_string_fields_present(
             payload,
             (
                 "cleanup_name",
@@ -152,8 +151,8 @@ def _runtime_retention_payload_matches_entry(
                 "cutoff_utc",
             ),
         )
-        and _optional_str_fields_valid(payload, ("tenant_id", "correlation_id", "job_id"))
-        and _required_int_fields_present(
+        and optional_evidence_string_fields_valid(payload, ("tenant_id", "correlation_id", "job_id"))
+        and required_evidence_int_fields_present(
             payload,
             (
                 "retention_days",
@@ -187,7 +186,7 @@ def _recovery_drill_payload_matches_entry(
     entry: RecoveryDrillHistoryEntry,
 ) -> bool:
     return (
-        _required_str_fields_present(
+        required_evidence_string_fields_present(
             payload,
             (
                 "drill_name",
@@ -203,10 +202,10 @@ def _recovery_drill_payload_matches_entry(
                 "materialized_artifact_path",
             ),
         )
-        and _optional_str_fields_valid(payload, ("tenant_id", "correlation_id"))
-        and _required_int_fields_present(payload, ("compute_job_processed_count", "processed_payload_count"))
-        and _is_required_replay_string_list(payload.get("owned_tables_present"))
-        and _required_bool_fields_present(payload, ("materialized_artifact_exists",))
+        and optional_evidence_string_fields_valid(payload, ("tenant_id", "correlation_id"))
+        and required_evidence_int_fields_present(payload, ("compute_job_processed_count", "processed_payload_count"))
+        and is_required_evidence_string_list(payload.get("owned_tables_present"))
+        and required_evidence_bool_fields_present(payload, ("materialized_artifact_exists",))
         and payload["evidence_file_name"] == entry.evidence_file_name
         and payload["generated_at_utc"] == entry.generated_at_utc
         and payload["operator_id"] == entry.operator_id
