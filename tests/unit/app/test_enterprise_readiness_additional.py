@@ -46,6 +46,7 @@ from app.enterprise_readiness import (
     _ENV_ENTERPRISE_PRIVILEGED_READ_RULES_JSON,
     _ENV_ENTERPRISE_SECRET_ROTATION_DAYS,
     _ENV_SWITCH_DISABLED_DEFAULT,
+    _HEADER_CAPABILITY_SEPARATOR,
     _HTTP_METHOD_DELETE,
     _HTTP_METHOD_GET,
     _HTTP_METHOD_PATCH,
@@ -335,7 +336,12 @@ def test_required_capability_from_rules_is_shared_for_authz_rule_families():
 
 
 def test_normalized_headers_and_capabilities_trim_values():
-    normalized = _normalized_headers({"X-Capabilities": " analytics.read, operations.runtime.read ", 1: " value "})
+    normalized = _normalized_headers(
+        {
+            "X-Capabilities": f" analytics.read{_HEADER_CAPABILITY_SEPARATOR} operations.runtime.read ",
+            1: " value ",
+        }
+    )
     assert normalized == {
         "1": "value",
         _CAPABILITIES_HEADER: "analytics.read, operations.runtime.read",

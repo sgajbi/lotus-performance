@@ -49,6 +49,7 @@ _SERVICE_IDENTITY_HEADER = "x-service-identity"
 _AUTHORIZATION_HEADER = "authorization"
 _CONTENT_LENGTH_HEADER = "content-length"
 _MISSING_CONTENT_LENGTH = "0"
+_HEADER_CAPABILITY_SEPARATOR = ","
 _ACTOR_ID_HEADER = "x-actor-id"
 _TENANT_ID_HEADER = "x-tenant-id"
 _ROLE_HEADER = "x-role"
@@ -321,7 +322,11 @@ def _normalized_headers(headers: Mapping[str, Any]) -> dict[str, str]:
 
 
 def _header_capabilities(normalized_headers: Mapping[str, str]) -> set[str]:
-    return {part.strip() for part in normalized_headers.get(_CAPABILITIES_HEADER, "").split(",") if part.strip()}
+    return {
+        part.strip()
+        for part in normalized_headers.get(_CAPABILITIES_HEADER, "").split(_HEADER_CAPABILITY_SEPARATOR)
+        if part.strip()
+    }
 
 
 def _has_required_capability(normalized_headers: Mapping[str, str], required_capability: str | None) -> bool:
