@@ -3,6 +3,7 @@ import logging
 from app.services.durable_store_json import (
     load_json_object_or_none,
     load_json_string_list_or_default,
+    read_json_file,
     read_json_object_file,
 )
 
@@ -142,3 +143,10 @@ def test_read_json_object_file_rejects_non_object_payload(tmp_path):
         assert str(exc) == "payload must be an object"
     else:
         raise AssertionError("expected non-object payload to raise TypeError")
+
+
+def test_read_json_file_returns_any_json_payload(tmp_path):
+    payload_path = tmp_path / "payload.json"
+    payload_path.write_text('["event-a"]', encoding="utf-8")
+
+    assert read_json_file(payload_path) == ["event-a"]

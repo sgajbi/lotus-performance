@@ -48,10 +48,14 @@ def load_json_string_list_or_default(
     return payload
 
 
+def read_json_file(path: Path) -> Any:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def read_json_object_file(
     path: Path, *, object_error_message: str = "JSON payload must be an object"
 ) -> dict[str, Any]:
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload = read_json_file(path)
     if not isinstance(payload, dict):
         raise TypeError(object_error_message)
     return payload

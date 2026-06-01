@@ -13,6 +13,7 @@ from typing import Iterator, cast
 from fastapi import HTTPException, status
 
 from app.services import operator_action_evidence_strings as _evidence_strings
+from app.services.durable_store_json import read_json_file
 from app.services.runtime_status_time import parse_utc_datetime
 
 OPERATOR_ACTION_LEASE_DIRECTORY_UNREADABLE_REASON = "operator_action_lease_directory_unreadable"
@@ -392,7 +393,7 @@ def _write_reclaim_history(*, locks_dir: Path, event: ReclaimedOperatorActionLea
 
 def _read_json_payload(path: Path) -> object | _InvalidLease:
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return read_json_file(path)
     except OSError:
         logger.warning("Operator action lease evidence unreadable: %s", path, exc_info=True)
         return _INVALID_LEASE

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from app.services.durable_store_json import read_json_file
 from app.services.operator_action_evidence_paths import is_safe_evidence_file_name
 from app.services.operator_action_evidence_strings import optional_evidence_string, required_evidence_string
 
@@ -54,7 +55,7 @@ def read_history_manifest_payload(
         return HistoryManifestReadResult(payload=None, reason=reasons.manifest_missing)
 
     try:
-        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        payload = read_json_file(manifest_path)
     except OSError:
         logger.warning("Operator action history manifest unreadable at %s.", manifest_path, exc_info=True)
         return HistoryManifestReadResult(payload=None, reason=reasons.manifest_unreadable)
