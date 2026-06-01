@@ -393,16 +393,16 @@ def test_calculate_grouped_return_reset_alignment_counts_detects_misaligned_rese
     instruments_df = pd.DataFrame(
         {
             "position_id": ["A", "A"],
-            "perf_date": [pd.Timestamp("2025-01-01").date(), pd.Timestamp("2025-01-03").date()],
+            "perf_date": [pd.Timestamp("2025-01-01T10:00:00Z"), "2025-01-03"],
             "perf_reset": [0, 1],
         }
     )
     portfolio_results_df = pd.DataFrame(
         {
             "perf_date": [
-                pd.Timestamp("2025-01-01").date(),
-                pd.Timestamp("2025-01-02").date(),
-                pd.Timestamp("2025-01-03").date(),
+                "2025-01-01",
+                pd.Timestamp("2025-01-02T10:00:00Z"),
+                "2025-01-03",
             ],
             "perf_reset": [0, 1, 0],
         }
@@ -422,9 +422,9 @@ def test_calculate_position_flow_balance_counts_sizes_non_flow_neutral_days():
     instruments_df = pd.DataFrame(
         {
             "perf_date": [
-                pd.Timestamp("2025-01-01").date(),
-                pd.Timestamp("2025-01-01").date(),
-                pd.Timestamp("2025-01-02").date(),
+                pd.Timestamp("2025-01-01T10:00:00Z"),
+                "2025-01-01",
+                pd.Timestamp("2025-01-02T11:00:00Z"),
             ],
             "bod_cf": [100, -90, 0],
             "eod_cf": [0, 0, 10],
@@ -432,7 +432,7 @@ def test_calculate_position_flow_balance_counts_sizes_non_flow_neutral_days():
     )
     portfolio_results_df = pd.DataFrame(
         {
-            "perf_date": [pd.Timestamp("2025-01-01").date(), pd.Timestamp("2025-01-02").date()],
+            "perf_date": ["2025-01-01", pd.Timestamp("2025-01-02T12:00:00Z")],
             "begin_mv": [1000, 1000],
             "bod_cf": [0, 0],
             "eod_cf": [0, 0],

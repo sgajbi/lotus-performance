@@ -4,6 +4,7 @@ from typing import Any
 
 import pandas as pd
 
+from app.services.analytics_observation_dates import observation_date_series, observation_date_set
 from app.services.contribution_methodology import _numeric_series_or_default, _to_basis_points
 from core.envelope import Diagnostics
 from engine.diagnostics import EngineDiagnostics
@@ -157,22 +158,18 @@ def _calculate_grouped_return_reset_alignment_counts(
     if PortfolioColumns.PERF_RESET.value not in instruments_df.columns:
         position_reset_dates: set[Any] = set()
     else:
-        position_reset_dates = set(
-            pd.to_datetime(
-                instruments_df.loc[
-                    _numeric_series_or_default(instruments_df, PortfolioColumns.PERF_RESET.value) == 1,
-                    PortfolioColumns.PERF_DATE.value,
-                ]
-            ).dt.date
-        )
-
-    portfolio_reset_dates = set(
-        pd.to_datetime(
-            portfolio_results_df.loc[
-                _numeric_series_or_default(portfolio_results_df, PortfolioColumns.PERF_RESET.value) == 1,
+        position_reset_dates = observation_date_set(
+            instruments_df.loc[
+                _numeric_series_or_default(instruments_df, PortfolioColumns.PERF_RESET.value) == 1,
                 PortfolioColumns.PERF_DATE.value,
             ]
-        ).dt.date
+        )
+
+    portfolio_reset_dates = observation_date_set(
+        portfolio_results_df.loc[
+            _numeric_series_or_default(portfolio_results_df, PortfolioColumns.PERF_RESET.value) == 1,
+            PortfolioColumns.PERF_DATE.value,
+        ]
     )
 
     return {
@@ -220,9 +217,9 @@ def _calculate_position_flow_balance_counts(
     position_flow_by_day = (
         pd.DataFrame(
             {
-                PortfolioColumns.PERF_DATE.value: pd.to_datetime(
+                PortfolioColumns.PERF_DATE.value: observation_date_series(
                     instruments_df[PortfolioColumns.PERF_DATE.value]
-                ).dt.date,
+                ),
                 "position_flow": _numeric_series_or_default(instruments_df, PortfolioColumns.BOD_CF.value)
                 + _numeric_series_or_default(instruments_df, PortfolioColumns.EOD_CF.value),
             }
@@ -242,9 +239,9 @@ def _calculate_position_flow_balance_counts(
     portfolio_flow_by_day = (
         pd.DataFrame(
             {
-                PortfolioColumns.PERF_DATE.value: pd.to_datetime(
+                PortfolioColumns.PERF_DATE.value: observation_date_series(
                     portfolio_results_df[PortfolioColumns.PERF_DATE.value]
-                ).dt.date,
+                ),
                 "portfolio_flow": _numeric_series_or_default(portfolio_results_df, PortfolioColumns.BOD_CF.value)
                 + _numeric_series_or_default(portfolio_results_df, PortfolioColumns.EOD_CF.value),
             }
@@ -257,9 +254,9 @@ def _calculate_position_flow_balance_counts(
     portfolio_capital_by_day = (
         pd.DataFrame(
             {
-                PortfolioColumns.PERF_DATE.value: pd.to_datetime(
+                PortfolioColumns.PERF_DATE.value: observation_date_series(
                     portfolio_results_df[PortfolioColumns.PERF_DATE.value]
-                ).dt.date,
+                ),
                 "capital_base": _numeric_series_or_default(portfolio_results_df, PortfolioColumns.BEGIN_MV.value).abs()
                 + _numeric_series_or_default(portfolio_results_df, PortfolioColumns.BOD_CF.value).abs(),
             }
