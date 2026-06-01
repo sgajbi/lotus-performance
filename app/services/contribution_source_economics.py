@@ -175,7 +175,7 @@ def _cash_flow_type_counts(request: ContributionRequest) -> Counter[str]:
         if not isinstance(raw_counts, dict):
             continue
         for key, value in raw_counts.items():
-            if isinstance(key, str) and isinstance(value, int) and value > 0:
+            if isinstance(key, str) and type(value) is int and value > 0:
                 counts[key] += value
     return counts
 

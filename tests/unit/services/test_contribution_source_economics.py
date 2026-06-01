@@ -88,6 +88,29 @@ def test_source_economics_evidence_preserves_source_rich_stateful_contract():
     assert "income_pnl" in evidence.unsupported_economics
 
 
+def test_source_economics_evidence_ignores_boolean_cash_flow_type_counts():
+    request = _request_with_position_meta(
+        {
+            "_source_economics": {
+                "cash_flow_type_counts": {
+                    "external_flow": 2,
+                    "fee": True,
+                }
+            },
+        }
+    )
+
+    evidence = build_contribution_source_economics_evidence(
+        request=request,
+        input_mode=ContributionInputMode.STATEFUL,
+        upstream_snapshots=[_snapshot("position_timeseries")],
+    )
+
+    assert evidence.cash_flow_type_counts == {"external_flow": 2}
+    assert "external_flows" in evidence.available_economics
+    assert "fees" not in evidence.available_economics
+
+
 def test_source_economics_evidence_reports_source_limited_stateful_contract():
     request = _request_with_position_meta(
         {
