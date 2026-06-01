@@ -1,6 +1,14 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TypeGuard
+
+
+def is_required_evidence_string(value: object) -> TypeGuard[str]:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def is_optional_evidence_string(value: object) -> TypeGuard[str | None]:
+    return value is None or is_required_evidence_string(value)
 
 
 def normalize_required_evidence_identifier(value: str, *, field_name: str) -> str:
@@ -19,7 +27,7 @@ def normalize_optional_evidence_identifier(value: str | None) -> str | None:
 
 def required_evidence_string(payload: dict[str, Any], key: str) -> str:
     value = payload[key]
-    if not isinstance(value, str) or not value.strip():
+    if not is_required_evidence_string(value):
         raise ValueError(f"{key} must be a nonblank string")
     return value.strip()
 

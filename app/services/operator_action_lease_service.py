@@ -12,6 +12,7 @@ from typing import Iterator, cast
 
 from fastapi import HTTPException, status
 
+from app.services import operator_action_evidence_strings as _evidence_strings
 from app.services.runtime_status_time import parse_utc_datetime
 
 OPERATOR_ACTION_LEASE_DIRECTORY_UNREADABLE_REASON = "operator_action_lease_directory_unreadable"
@@ -20,6 +21,11 @@ OPERATOR_ACTION_RECLAIM_EVENT_INVALID_REASON = "operator_action_reclaim_event_in
 OPERATOR_ACTION_RECLAIM_HISTORY_INVALID_REASON = "operator_action_reclaim_history_invalid"
 
 logger = logging.getLogger(__name__)
+
+_is_optional_lease_string = _evidence_strings.is_optional_evidence_string
+_is_required_lease_string = _evidence_strings.is_required_evidence_string
+_normalize_optional_lease_string = _evidence_strings.normalize_optional_evidence_identifier
+_normalize_required_lease_string = _evidence_strings.normalize_required_evidence_identifier
 
 
 @dataclass(frozen=True)
@@ -454,28 +460,6 @@ def _parse_reclaimed_event_payload(
         stale_after_seconds=float(stale_after_seconds),
         reclaim_count=reclaim_count,
     )
-
-
-def _is_required_lease_string(value: object) -> bool:
-    return isinstance(value, str) and bool(value.strip())
-
-
-def _is_optional_lease_string(value: object) -> bool:
-    return value is None or _is_required_lease_string(value)
-
-
-def _normalize_required_lease_string(value: str, *, field_name: str) -> str:
-    normalized = value.strip()
-    if not normalized:
-        raise ValueError(f"{field_name} must not be blank")
-    return normalized
-
-
-def _normalize_optional_lease_string(value: str | None) -> str | None:
-    if value is None:
-        return None
-    normalized = value.strip()
-    return normalized or None
 
 
 def _parse_utc(timestamp_utc: str) -> datetime:

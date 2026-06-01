@@ -1,6 +1,8 @@
 import pytest
 
 from app.services.operator_action_evidence_strings import (
+    is_optional_evidence_string,
+    is_required_evidence_string,
     normalize_optional_evidence_identifier,
     normalize_required_evidence_identifier,
     optional_evidence_string,
@@ -13,6 +15,16 @@ def test_normalize_required_evidence_identifier_trims_and_rejects_blank():
 
     with pytest.raises(ValueError, match="operator_id must not be blank"):
         normalize_required_evidence_identifier(" ", field_name="operator_id")
+
+
+def test_evidence_string_predicates_require_nonblank_strings():
+    assert is_required_evidence_string(" ops-user ")
+    assert not is_required_evidence_string(" ")
+    assert not is_required_evidence_string(123)
+    assert is_optional_evidence_string(None)
+    assert is_optional_evidence_string(" tenant-a ")
+    assert not is_optional_evidence_string(" ")
+    assert not is_optional_evidence_string(123)
 
 
 def test_normalize_optional_evidence_identifier_trims_blank_to_absent():
