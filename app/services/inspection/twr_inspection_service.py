@@ -18,6 +18,7 @@ from app.models.responses import PerformanceResponse
 from app.models.twr_requests import TWRResolvedExecutionRequest
 from app.services.durable_store_time import format_timestamp
 from app.services.execution_registry import execution_registry
+from app.services.execution_stage_names import EXECUTION_STAGE_ARTIFACT_MATERIALIZATION
 from app.services.inspection.artifact_service import enqueue_twr_inspection_artifacts
 from app.services.inspection.calculation_consistency import run_twr_calculation_consistency_checks
 from app.services.inspection.reconciliation import run_reconciliation_checks
@@ -317,7 +318,7 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
         },
     )
 
-    execution_registry.start_stage(request.inspection_id, "artifact_materialization")
+    execution_registry.start_stage(request.inspection_id, EXECUTION_STAGE_ARTIFACT_MATERIALIZATION)
     try:
         enqueue_twr_inspection_artifacts(
             inspection_id=request.inspection_id,
@@ -326,7 +327,7 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
             artifact_payloads=artifact_payloads,
         )
     except Exception as exc:
-        execution_registry.fail_stage(request.inspection_id, "artifact_materialization", str(exc))
+        execution_registry.fail_stage(request.inspection_id, EXECUTION_STAGE_ARTIFACT_MATERIALIZATION, str(exc))
         raise
     execution_registry.mark_complete(request.inspection_id)
     return response

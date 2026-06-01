@@ -14,6 +14,10 @@ from pydantic import BaseModel
 from app.core.config import get_settings
 from app.services.durable_store_time import format_timestamp
 from app.services.execution_registry import ExecutionRegistry, execution_registry
+from app.services.execution_stage_names import (
+    EXECUTION_STAGE_ARTIFACT_MATERIALIZATION,
+    EXECUTION_STAGE_LINEAGE_MATERIALIZATION,
+)
 from app.services.lineage_metadata_store import LineageMetadataStore, lineage_metadata_store
 
 logger = logging.getLogger(__name__)
@@ -21,8 +25,8 @@ logger = logging.getLogger(__name__)
 
 def resolve_artifact_stage_name(*, calculation_type: str) -> str:
     if calculation_type == "TWR_INSPECTION":
-        return "artifact_materialization"
-    return "lineage_materialization"
+        return EXECUTION_STAGE_ARTIFACT_MATERIALIZATION
+    return EXECUTION_STAGE_LINEAGE_MATERIALIZATION
 
 
 class LineageService:

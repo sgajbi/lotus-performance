@@ -16,6 +16,7 @@ from app.models.inspection_requests import (
 from app.models.inspection_responses import TWRInspectionVerdict
 from app.models.requests import Analysis, DailyInputData, PerformanceRequest
 from app.models.twr_requests import TWRAnalyticsRequest
+from app.services.execution_stage_names import EXECUTION_STAGE_ARTIFACT_MATERIALIZATION
 from app.services.inspection.calculation_consistency import CalculationConsistencyCheckResult
 from app.services.inspection.subject_resolution import ResolvedTWRInspectionSubject
 from common.enums import Frequency, PeriodType
@@ -257,7 +258,7 @@ def test_twr_inspection_marks_artifact_materialization_failure(fake_registry, mo
             )
         )
 
-    assert ("artifact_materialization", "artifact store offline") in fake_registry.failed_stages
+    assert (EXECUTION_STAGE_ARTIFACT_MATERIALIZATION, "artifact store offline") in fake_registry.failed_stages
 
 
 def test_twr_inspection_reports_no_check_family_when_subject_has_no_inspectable_payload(fake_registry, monkeypatch):

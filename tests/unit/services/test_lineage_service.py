@@ -7,12 +7,21 @@ import pandas as pd
 import pytest
 from pydantic import BaseModel
 
+from app.services.execution_stage_names import (
+    EXECUTION_STAGE_ARTIFACT_MATERIALIZATION,
+    EXECUTION_STAGE_LINEAGE_MATERIALIZATION,
+)
 from app.services.lineage_metadata_store import LineageMetadataStore, LineageStatus
-from app.services.lineage_service import LineageService
+from app.services.lineage_service import LineageService, resolve_artifact_stage_name
 
 
 class MockModel(BaseModel):
     key: str
+
+
+def test_resolve_artifact_stage_name_uses_canonical_stage_names():
+    assert resolve_artifact_stage_name(calculation_type="TWR_INSPECTION") == EXECUTION_STAGE_ARTIFACT_MATERIALIZATION
+    assert resolve_artifact_stage_name(calculation_type="TWR") == EXECUTION_STAGE_LINEAGE_MATERIALIZATION
 
 
 def test_lineage_service_enqueue_and_materialize(tmp_path):
