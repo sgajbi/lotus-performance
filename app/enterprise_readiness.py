@@ -13,6 +13,15 @@ _SERVICE_NAME = "lotus-performance"
 _ENTERPRISE_AUDIT_EVENT_NAME = "enterprise_audit_event"
 _ENTERPRISE_AUDIT_EXTRA_KEY = "audit"
 _ENTERPRISE_POLICY_VERSION_HEADER = "X-Enterprise-Policy-Version"
+_AUDIT_PAYLOAD_SERVICE_KEY = "service"
+_AUDIT_PAYLOAD_ACTION_KEY = "action"
+_AUDIT_PAYLOAD_ACTOR_ID_KEY = "actor_id"
+_AUDIT_PAYLOAD_TENANT_ID_KEY = "tenant_id"
+_AUDIT_PAYLOAD_ROLE_KEY = "role"
+_AUDIT_PAYLOAD_CORRELATION_ID_KEY = "correlation_id"
+_AUDIT_PAYLOAD_TIMESTAMP_UTC_KEY = "timestamp_utc"
+_AUDIT_PAYLOAD_POLICY_VERSION_KEY = "policy_version"
+_AUDIT_PAYLOAD_METADATA_KEY = "metadata"
 _RESPONSE_DETAIL_KEY = "detail"
 _RESPONSE_REASON_KEY = "reason"
 _AUTHORIZATION_POLICY_DENIED_DETAIL = "authorization_policy_denied"
@@ -405,15 +414,15 @@ def _audit_event_payload(
     metadata: dict[str, Any],
 ) -> dict[str, Any]:
     return {
-        "service": _SERVICE_NAME,
-        "action": action,
-        "actor_id": actor_id,
-        "tenant_id": tenant_id,
-        "role": role,
-        "correlation_id": _audit_correlation_id(correlation_id),
-        "timestamp_utc": _audit_timestamp_utc(),
-        "policy_version": enterprise_policy_version(),
-        "metadata": _audit_metadata(metadata),
+        _AUDIT_PAYLOAD_SERVICE_KEY: _SERVICE_NAME,
+        _AUDIT_PAYLOAD_ACTION_KEY: action,
+        _AUDIT_PAYLOAD_ACTOR_ID_KEY: actor_id,
+        _AUDIT_PAYLOAD_TENANT_ID_KEY: tenant_id,
+        _AUDIT_PAYLOAD_ROLE_KEY: role,
+        _AUDIT_PAYLOAD_CORRELATION_ID_KEY: _audit_correlation_id(correlation_id),
+        _AUDIT_PAYLOAD_TIMESTAMP_UTC_KEY: _audit_timestamp_utc(),
+        _AUDIT_PAYLOAD_POLICY_VERSION_KEY: enterprise_policy_version(),
+        _AUDIT_PAYLOAD_METADATA_KEY: _audit_metadata(metadata),
     }
 
 

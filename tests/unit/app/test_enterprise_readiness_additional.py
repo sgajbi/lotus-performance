@@ -5,6 +5,15 @@ import pytest
 from fastapi import Response
 
 from app.enterprise_readiness import (
+    _AUDIT_PAYLOAD_ACTION_KEY,
+    _AUDIT_PAYLOAD_ACTOR_ID_KEY,
+    _AUDIT_PAYLOAD_CORRELATION_ID_KEY,
+    _AUDIT_PAYLOAD_METADATA_KEY,
+    _AUDIT_PAYLOAD_POLICY_VERSION_KEY,
+    _AUDIT_PAYLOAD_ROLE_KEY,
+    _AUDIT_PAYLOAD_SERVICE_KEY,
+    _AUDIT_PAYLOAD_TENANT_ID_KEY,
+    _AUDIT_PAYLOAD_TIMESTAMP_UTC_KEY,
     _AUTHORIZATION_POLICY_DENIED_DETAIL,
     _ENTERPRISE_AUDIT_EVENT_NAME,
     _ENTERPRISE_AUDIT_EXTRA_KEY,
@@ -244,15 +253,15 @@ def test_audit_event_payload_redacts_metadata_and_includes_policy_version(monkey
         metadata={"token": "secret", "safe": "ok"},
     )
 
-    assert payload["service"] == "lotus-performance"
-    assert payload["action"] == "POST /analytics"
-    assert payload["actor_id"] == "actor-1"
-    assert payload["tenant_id"] == "tenant-1"
-    assert payload["role"] == "operator"
-    assert payload["correlation_id"] == ""
-    assert payload["policy_version"] == "2.1.0"
-    assert payload["metadata"] == {"token": _REDACTED_VALUE, "safe": "ok"}
-    assert datetime.fromisoformat(payload["timestamp_utc"]).tzinfo is not None
+    assert payload[_AUDIT_PAYLOAD_SERVICE_KEY] == "lotus-performance"
+    assert payload[_AUDIT_PAYLOAD_ACTION_KEY] == "POST /analytics"
+    assert payload[_AUDIT_PAYLOAD_ACTOR_ID_KEY] == "actor-1"
+    assert payload[_AUDIT_PAYLOAD_TENANT_ID_KEY] == "tenant-1"
+    assert payload[_AUDIT_PAYLOAD_ROLE_KEY] == "operator"
+    assert payload[_AUDIT_PAYLOAD_CORRELATION_ID_KEY] == ""
+    assert payload[_AUDIT_PAYLOAD_POLICY_VERSION_KEY] == "2.1.0"
+    assert payload[_AUDIT_PAYLOAD_METADATA_KEY] == {"token": _REDACTED_VALUE, "safe": "ok"}
+    assert datetime.fromisoformat(payload[_AUDIT_PAYLOAD_TIMESTAMP_UTC_KEY]).tzinfo is not None
 
 
 @pytest.mark.parametrize(
@@ -302,7 +311,10 @@ def test_emit_audit_event_uses_governed_logger_event_name(mocker):
 
     logger_info.assert_called_once()
     assert logger_info.call_args.args == (_ENTERPRISE_AUDIT_EVENT_NAME,)
-    assert logger_info.call_args.kwargs["extra"][_ENTERPRISE_AUDIT_EXTRA_KEY]["action"] == "POST /analytics"
+    assert (
+        logger_info.call_args.kwargs["extra"][_ENTERPRISE_AUDIT_EXTRA_KEY][_AUDIT_PAYLOAD_ACTION_KEY]
+        == "POST /analytics"
+    )
 
 
 def test_payload_too_large_response_uses_governed_response_envelope():
