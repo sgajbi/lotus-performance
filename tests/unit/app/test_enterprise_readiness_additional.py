@@ -66,6 +66,7 @@ from app.enterprise_readiness import (
     _RULE_RECOVERY_DRILL_RUN_WRITE,
     _RULE_RUNTIME_RETENTION_CLEANUP_RUN_WRITE,
     _RULE_RUNTIME_STATUS_READ,
+    _RUNTIME_CONFIG_INVALID_PREFIX,
     _SECRET_ROTATION_DAYS_OUT_OF_RANGE_ISSUE,
     _SERVICE_IDENTITY_HEADER,
     _TENANT_ID_HEADER,
@@ -113,6 +114,7 @@ from app.enterprise_readiness import (
     _required_capability,
     _required_capability_from_rules,
     _runtime_config_enforcement_enabled,
+    _runtime_config_invalid_message,
     _write_authz_enabled,
     _write_payload_too_large,
     authorize_privileged_read_request,
@@ -129,7 +131,7 @@ def test_validate_enterprise_runtime_config_raises_when_enforcement_enabled(monk
     monkeypatch.setenv(_ENV_ENTERPRISE_SECRET_ROTATION_DAYS, "120")
     monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_RUNTIME_CONFIG, "true")
 
-    with pytest.raises(RuntimeError, match="enterprise_runtime_config_invalid"):
+    with pytest.raises(RuntimeError, match=_RUNTIME_CONFIG_INVALID_PREFIX):
         validate_enterprise_runtime_config()
 
 
@@ -204,6 +206,12 @@ def test_load_json_map_fails_closed_for_missing_invalid_or_non_object_json(monke
 )
 def test_parse_int_or_default_uses_valid_integer_or_fallback(configured, default, expected):
     assert _parse_int_or_default(configured, default) == expected
+
+
+def test_runtime_config_invalid_message_uses_governed_prefix():
+    assert _runtime_config_invalid_message([_MISSING_POLICY_VERSION_ISSUE]) == (
+        f"{_RUNTIME_CONFIG_INVALID_PREFIX}:{_MISSING_POLICY_VERSION_ISSUE}"
+    )
 
 
 @pytest.mark.parametrize(

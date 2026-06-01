@@ -42,6 +42,7 @@ _MISSING_CAPABILITY_REASON = "missing_capability"
 _MISSING_POLICY_VERSION_ISSUE = "missing_policy_version"
 _SECRET_ROTATION_DAYS_OUT_OF_RANGE_ISSUE = "secret_rotation_days_out_of_range"
 _MISSING_PRIMARY_KEY_ID_ISSUE = "missing_primary_key_id"
+_RUNTIME_CONFIG_INVALID_PREFIX = "enterprise_runtime_config_invalid"
 _CAPABILITIES_HEADER = "x-capabilities"
 _SERVICE_IDENTITY_HEADER = "x-service-identity"
 _AUTHORIZATION_HEADER = "authorization"
@@ -206,10 +207,14 @@ def _enterprise_runtime_config_issues() -> list[str]:
     return issues
 
 
+def _runtime_config_invalid_message(issues: list[str]) -> str:
+    return f"{_RUNTIME_CONFIG_INVALID_PREFIX}:{','.join(issues)}"
+
+
 def validate_enterprise_runtime_config() -> list[str]:
     issues = _enterprise_runtime_config_issues()
     if issues and _runtime_config_enforcement_enabled():
-        raise RuntimeError(f"enterprise_runtime_config_invalid:{','.join(issues)}")
+        raise RuntimeError(_runtime_config_invalid_message(issues))
     return issues
 
 
