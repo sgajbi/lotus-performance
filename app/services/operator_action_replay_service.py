@@ -203,7 +203,7 @@ def _recovery_drill_payload_matches_entry(
         and _required_int_fields_present(payload, ("compute_job_processed_count", "processed_payload_count"))
         and isinstance(owned_tables_present, list)
         and all(_is_required_replay_string(item) for item in owned_tables_present)
-        and type(payload.get("materialized_artifact_exists")) is bool
+        and _required_bool_fields_present(payload, ("materialized_artifact_exists",))
         and payload["evidence_file_name"] == entry.evidence_file_name
         and payload["generated_at_utc"] == entry.generated_at_utc
         and payload["operator_id"] == entry.operator_id
@@ -224,6 +224,10 @@ def _optional_str_fields_valid(payload: dict[str, Any], keys: tuple[str, ...]) -
 
 def _required_int_fields_present(payload: dict[str, Any], keys: tuple[str, ...]) -> bool:
     return all(type(payload.get(key)) is int for key in keys)
+
+
+def _required_bool_fields_present(payload: dict[str, Any], keys: tuple[str, ...]) -> bool:
+    return all(type(payload.get(key)) is bool for key in keys)
 
 
 def _load_payload(*, artifact_directory: Path, evidence_file_name: str) -> dict[str, Any] | None:

@@ -431,6 +431,66 @@ def test_recovery_drill_manual_replay_rejects_blank_owned_table_payload_item(tmp
     assert replay is None
 
 
+def test_recovery_drill_manual_replay_rejects_non_boolean_artifact_exists(tmp_path):
+    artifact_dir = tmp_path / "artifacts" / "durable-recovery-drill"
+    artifact_dir.mkdir(parents=True)
+    payload = {
+        "drill_name": "durable_metadata_restore_recovery",
+        "generated_at_utc": "2026-03-15T00:00:00Z",
+        "evidence_file_name": "2026-03-15t00-00-00.json",
+        "operator_id": "ops-user",
+        "tenant_id": "tenant-a",
+        "correlation_id": "corr-1",
+        "backup_identifier": "backup-123",
+        "database_path": "tmp/recovery.db",
+        "restored_schema_mode": "legacy_lineage_schema_upgraded_in_place",
+        "owned_tables_present": ["analytics_execution"],
+        "compute_job_processed_count": 1,
+        "compute_async_result_status": "complete",
+        "compute_execution_status": "complete",
+        "processed_payload_count": 1,
+        "materialized_artifact_path": "tmp/details.csv",
+        "materialized_artifact_exists": "true",
+        "status": "passed",
+    }
+    (artifact_dir / payload["evidence_file_name"]).write_text(__import__("json").dumps(payload), encoding="utf-8")
+    snapshot = RecoveryDrillHistorySnapshot(
+        status="available",
+        artifact_directory=str(artifact_dir),
+        latest_file_name=payload["evidence_file_name"],
+        retained_file_names=[payload["evidence_file_name"]],
+        retention_limit=30,
+        retention_max_age_days=90,
+        entries=[
+            RecoveryDrillHistoryEntry(
+                evidence_file_name=payload["evidence_file_name"],
+                generated_at_utc=payload["generated_at_utc"],
+                operator_id="ops-user",
+                tenant_id="tenant-a",
+                correlation_id="corr-1",
+                backup_identifier="backup-123",
+                status="passed",
+            )
+        ],
+        total_entries=1,
+        matched_entries=1,
+        returned_entries=1,
+        next_offset=None,
+        applied_filters={"limit": 10},
+    )
+
+    replay = resolve_recovery_drill_manual_replay(
+        snapshot,
+        artifact_directory=artifact_dir,
+        operator_id="ops-user",
+        tenant_id="tenant-a",
+        correlation_id="corr-1",
+        backup_identifier="backup-123",
+    )
+
+    assert replay is None
+
+
 def test_recovery_drill_manual_replay_rejects_different_operator_or_tenant(tmp_path):
     artifact_dir = tmp_path / "artifacts" / "durable-recovery-drill"
     artifact_dir.mkdir(parents=True)
