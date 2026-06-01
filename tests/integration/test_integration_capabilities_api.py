@@ -150,7 +150,7 @@ def test_integration_capabilities_default_contract():
 def test_integration_capabilities_env_override(monkeypatch):
     monkeypatch.setenv("PA_CAP_ATTRIBUTION_ENABLED", "false")
     monkeypatch.setenv("PLATFORM_INPUT_MODE_STATELESS_ENABLED", "false")
-    monkeypatch.setenv("PA_POLICY_VERSION", "tenant-a-v4")
+    monkeypatch.setenv("PA_POLICY_VERSION", " tenant-a-v4 ")
     with TestClient(app) as client:
         response = client.get("/integration/capabilities?consumer_system=lotus-manage&tenant_id=tenant-a")
 
@@ -180,6 +180,25 @@ def test_integration_capabilities_env_override(monkeypatch):
         == "/performance/workspace-summary/results/{calculation_id}"
     )
     assert {item["key"] for item in surfaces["workspace_summary"]["options"]} == {"benchmark_mode"}
+
+
+def test_integration_capabilities_blank_env_values_keep_defaults(monkeypatch):
+    monkeypatch.setenv("PA_CAP_TWR_ENABLED", " ")
+    monkeypatch.setenv("PLATFORM_INPUT_MODE_STATEFUL_ENABLED", " ")
+    monkeypatch.setenv("PA_POLICY_VERSION", " ")
+
+    with TestClient(app) as client:
+        response = client.get("/integration/capabilities?consumer_system=lotus-gateway&tenant_id=default")
+
+    assert response.status_code == 200
+    body = response.json()
+    features = {item["key"]: item["enabled"] for item in body["features"]}
+    surfaces = {item["key"]: item for item in body["analytics_surfaces"]}
+
+    assert body["policy_version"] == "tenant-default-v1"
+    assert body["supported_input_modes"] == ["stateful", "stateless"]
+    assert features["performance.analytics.twr"] is True
+    assert surfaces["twr"]["supported_input_modes"] == ["stateful", "stateless"]
 
 
 def test_integration_capabilities_keeps_supportability_enabled_when_twr_is_disabled(monkeypatch):

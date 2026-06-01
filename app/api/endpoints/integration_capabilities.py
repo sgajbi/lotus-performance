@@ -459,7 +459,17 @@ def _env_bool(name: str, default: bool) -> bool:
     value = os.getenv(name)
     if value is None:
         return default
-    return value.strip().lower() in {"1", "true", "yes", "on"}
+    normalized = value.strip().lower()
+    if not normalized:
+        return default
+    return normalized in {"1", "true", "yes", "on"}
+
+
+def _env_nonblank(name: str, default: str) -> str:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip() or default
 
 
 @router.get(
@@ -838,7 +848,7 @@ async def get_integration_capabilities(
         tenant_id=tenant_id,
         generated_at=datetime.now(UTC),
         as_of_date=date.today(),
-        policy_version=os.getenv("PA_POLICY_VERSION", "tenant-default-v1"),
+        policy_version=_env_nonblank("PA_POLICY_VERSION", "tenant-default-v1"),
         supported_input_modes=supported_input_modes,
         analytics_surfaces=analytics_surfaces,
         features=features[:feature_limit],
