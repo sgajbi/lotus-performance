@@ -7,6 +7,7 @@ from fastapi import Response
 from app import (
     enterprise_audit_events,
     enterprise_audit_redaction,
+    enterprise_authorization,
     enterprise_capability_rules,
     enterprise_feature_flags,
     enterprise_payload_limits,
@@ -244,6 +245,11 @@ def test_enterprise_readiness_reexports_payload_limits_boundary():
 def test_enterprise_readiness_reexports_audit_events_boundary():
     assert _audit_event_payload is enterprise_audit_events._audit_event_payload
     assert _apply_enterprise_policy_header is enterprise_audit_events._apply_enterprise_policy_header
+
+
+def test_enterprise_readiness_reexports_authorization_boundary():
+    assert authorize_write_request is enterprise_authorization.authorize_write_request
+    assert _allowed_audit_metadata is enterprise_authorization._allowed_audit_metadata
 
 
 def test_load_json_map_fails_closed_for_missing_invalid_or_non_object_json(monkeypatch):
