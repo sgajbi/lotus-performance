@@ -79,7 +79,7 @@ def test_workspace_summary_stateful_retrieval_uses_longest_requested_window(mock
         return_value=WorkspaceTWRArtifacts(
             daily_results_df=pd.DataFrame(
                 {
-                    "perf_date": [pd.Timestamp("2026-05-30").date(), pd.Timestamp("2026-06-30").date()],
+                    "perf_date": [pd.Timestamp("2026-05-30T10:00:00Z"), "2026-06-30"],
                     "daily_ror": [1.0, 0.990099],
                     "perf_reset": [False, False],
                     "final_cum_ror": [1.0, 2.0],
@@ -195,7 +195,7 @@ def test_workspace_summary_stateful_linked_benchmark_resolves_assignment_once(mo
         return_value=WorkspaceTWRArtifacts(
             daily_results_df=pd.DataFrame(
                 {
-                    "perf_date": [pd.Timestamp("2026-01-02").date()],
+                    "perf_date": [pd.Timestamp("2026-01-02T10:00:00Z")],
                     "daily_ror": [1.0],
                     "perf_reset": [False],
                     "final_cum_ror": [1.0],

@@ -475,9 +475,9 @@ def _calculate_workspace_twr_artifacts(
     engine_config = create_engine_config(performance_request, master_start_date, request.report_end_date)
     engine_df = create_engine_dataframe([point.model_dump(mode="python") for point in valuation_points])
     daily_results_df, engine_diagnostics = run_calculations(engine_df, engine_config)
-    daily_results_df[PortfolioColumns.PERF_DATE.value] = pd.to_datetime(
+    daily_results_df[PortfolioColumns.PERF_DATE.value] = observation_date_series(
         daily_results_df[PortfolioColumns.PERF_DATE.value]
-    ).dt.date
+    )
     return WorkspaceTWRArtifacts(
         daily_results_df=daily_results_df,
         diagnostics=Diagnostics(**build_performance_diagnostics(engine_diagnostics).model_dump(mode="python")),
@@ -498,9 +498,11 @@ def _build_workspace_summary_response(
 ) -> WorkspaceSummaryResponse:
     requested_frequencies = {item.period.value: item.frequencies for item in request.periods}
     valuation_df = pd.DataFrame([point.model_dump(mode="python") for point in portfolio_input.valuation_points])
-    valuation_df[PortfolioColumns.PERF_DATE.value] = pd.to_datetime(
+    valuation_df[PortfolioColumns.PERF_DATE.value] = observation_date_series(
         valuation_df[PortfolioColumns.PERF_DATE.value]
-    ).dt.date
+    )
+    net_daily_results_df = _normalize_workspace_daily_results_df(net_artifacts.daily_results_df)
+    gross_daily_results_df = _normalize_workspace_daily_results_df(gross_artifacts.daily_results_df)
     benchmark_daily_df = _build_workspace_benchmark_daily_df(benchmark_input)
     results_by_period: dict[str, WorkspacePeriodSummaryResult] = {}
 
@@ -514,13 +516,13 @@ def _build_workspace_summary_response(
         if portfolio_slice.empty:
             continue
         net_daily_slice = _slice_by_date(
-            net_artifacts.daily_results_df,
+            net_daily_results_df,
             date_column=PortfolioColumns.PERF_DATE.value,
             start_date=resolved_period.start_date,
             end_date=resolved_period.end_date,
         )
         gross_daily_slice = _slice_by_date(
-            gross_artifacts.daily_results_df,
+            gross_daily_results_df,
             date_column=PortfolioColumns.PERF_DATE.value,
             start_date=resolved_period.start_date,
             end_date=resolved_period.end_date,
@@ -529,14 +531,14 @@ def _build_workspace_summary_response(
         net_summary = _build_workspace_performance_block(
             portfolio_slice=portfolio_slice,
             period_daily_slice=net_daily_slice,
-            full_daily_df=net_artifacts.daily_results_df,
+            full_daily_df=net_daily_results_df,
             frequencies=frequencies,
             annualization=request.annualization,
         )
         gross_summary = _build_workspace_performance_block(
             portfolio_slice=portfolio_slice,
             period_daily_slice=gross_daily_slice,
-            full_daily_df=gross_artifacts.daily_results_df,
+            full_daily_df=gross_daily_results_df,
             frequencies=frequencies,
             annualization=request.annualization,
         )
@@ -986,6 +988,15 @@ def _build_workspace_benchmark_daily_df(
     if not daily_df.empty:
         daily_df["date"] = observation_date_series(daily_df["date"])
     return daily_df
+
+
+def _normalize_workspace_daily_results_df(daily_results_df: pd.DataFrame) -> pd.DataFrame:
+    normalized_df = daily_results_df.copy()
+    if not normalized_df.empty:
+        normalized_df[PortfolioColumns.PERF_DATE.value] = observation_date_series(
+            normalized_df[PortfolioColumns.PERF_DATE.value]
+        )
+    return normalized_df
 
 
 def _slice_by_date(
