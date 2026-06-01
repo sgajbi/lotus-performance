@@ -69,7 +69,7 @@ def test_recovery_drill_run_api_persists_enterprise_context(tmp_path, monkeypatc
                 "X-Tenant-Id": "tenant-a",
                 "X-Correlation-Id": "corr-1",
             },
-            json={"backup_identifier": "backup-123"},
+            json={"backup_identifier": " backup-123 "},
         )
 
     assert response.status_code == 200
