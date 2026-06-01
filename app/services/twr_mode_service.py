@@ -11,6 +11,7 @@ from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.requests import PerformanceRequest
 from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode
 from app.services.execution_registry import execution_registry
+from app.services.execution_stage_names import EXECUTION_STAGE_NORMALIZATION, EXECUTION_STAGE_RETRIEVAL
 from app.services.portfolio_source_service import build_stateful_input_service
 from app.services.service_identity import LOTUS_PERFORMANCE_CONSUMER_SYSTEM
 from app.services.stateful_benchmark_input_service import build_stateful_benchmark_input
@@ -62,7 +63,7 @@ async def resolve_twr_request(
             resolved_benchmark_id=_get_requested_benchmark_id(request),
         )
 
-    execution_registry.start_stage(request.calculation_id, "retrieval")
+    execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL)
     retrieval_details: dict[str, object] = {}
     portfolio_input = None
     benchmark_resolution = None
@@ -122,14 +123,14 @@ async def resolve_twr_request(
 
         execution_registry.complete_stage(
             request.calculation_id,
-            "retrieval",
+            EXECUTION_STAGE_RETRIEVAL,
             details=retrieval_details,
         )
     except HTTPException as exc:
-        execution_registry.fail_stage(request.calculation_id, "retrieval", str(exc.detail))
+        execution_registry.fail_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL, str(exc.detail))
         raise
 
-    execution_registry.start_stage(request.calculation_id, "normalization")
+    execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_NORMALIZATION)
     try:
         resolved_input = (
             build_stateful_portfolio_valuation_input(
@@ -157,13 +158,13 @@ async def resolve_twr_request(
             normalization_details["benchmark_return_points"] = len(benchmark_request.benchmark_return_points)
         execution_registry.complete_stage(
             request.calculation_id,
-            "normalization",
+            EXECUTION_STAGE_NORMALIZATION,
             details=normalization_details,
         )
     except Exception as exc:
         execution_registry.fail_stage(
             request.calculation_id,
-            "normalization",
+            EXECUTION_STAGE_NORMALIZATION,
             str(exc),
         )
         raise

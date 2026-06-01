@@ -42,7 +42,11 @@ from app.services.error_details import (
     upstream_contract_violation_detail,
 )
 from app.services.execution_registry import execution_registry
-from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
+from app.services.execution_stage_names import (
+    EXECUTION_STAGE_EXECUTION,
+    EXECUTION_STAGE_NORMALIZATION,
+    EXECUTION_STAGE_RETRIEVAL,
+)
 from app.services.portfolio_source_service import (
     build_stateful_input_service,
 )
@@ -806,7 +810,7 @@ async def resolve_stateful_returns_series_request(
             detail=invalid_request_detail("stateful_input is required in stateful mode."),
         )
 
-    execution_registry.start_stage(request.calculation_id, "retrieval")
+    execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL)
     stateful_input_service = build_stateful_input_service(settings=active_settings)
     try:
         portfolio_source = await retrieve_stateful_portfolio_input(
@@ -965,7 +969,7 @@ async def resolve_stateful_returns_series_request(
 
     execution_registry.complete_stage(
         request.calculation_id,
-        "retrieval",
+        EXECUTION_STAGE_RETRIEVAL,
         details={
             "portfolio_observations": len(observations),
             "benchmark_points": benchmark_source_details.get("benchmark_points", len(benchmark_points or [])),
@@ -981,7 +985,7 @@ async def resolve_stateful_returns_series_request(
         },
     )
 
-    execution_registry.start_stage(request.calculation_id, "normalization")
+    execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_NORMALIZATION)
     portfolio_df = resample_returns(
         daily_ror_from_portfolio_timeseries(
             observations=observations,
@@ -1015,7 +1019,7 @@ async def resolve_stateful_returns_series_request(
         )
     execution_registry.complete_stage(
         request.calculation_id,
-        "normalization",
+        EXECUTION_STAGE_NORMALIZATION,
         details={
             "portfolio_points": len(portfolio_df),
             "benchmark_points": len(benchmark_df) if benchmark_df is not None else 0,

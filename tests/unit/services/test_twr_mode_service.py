@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from app.models.benchmark_analytics_requests import BenchmarkInputMode
 from app.models.twr_requests import TWRAnalyticsRequest
 from app.services.execution_registry import execution_registry
+from app.services.execution_stage_names import EXECUTION_STAGE_NORMALIZATION
 from app.services.twr_mode_service import (
     _build_resolved_twr_benchmark_request,
     _resolve_default_stateful_benchmark_input,
@@ -274,7 +275,7 @@ async def test_resolve_twr_request_fails_normalization_stage_for_invalid_observa
     execution = execution_registry.get_execution(request.calculation_id)
     assert execution is not None
     stages = {stage.stage_name: stage for stage in execution.stages}
-    assert stages["normalization"].status.value == "failed"
+    assert stages[EXECUTION_STAGE_NORMALIZATION].status.value == "failed"
 
 
 @pytest.mark.asyncio
