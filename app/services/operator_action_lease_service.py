@@ -71,13 +71,16 @@ def build_runtime_retention_action_key(
     retention_days: int,
     job_id: str | None,
 ) -> str:
+    normalized_operator_id = _normalize_required_lease_string(operator_id, field_name="operator_id")
+    normalized_tenant_id = _normalize_optional_lease_string(tenant_id)
+    normalized_job_id = _normalize_optional_lease_string(job_id)
     return _sanitize_key(
         "runtime-retention",
-        operator_id,
-        tenant_id or "no-tenant",
+        normalized_operator_id,
+        normalized_tenant_id or "no-tenant",
         "apply" if apply else "dry-run",
         str(retention_days),
-        job_id or "no-job",
+        normalized_job_id or "no-job",
     )
 
 
@@ -87,11 +90,17 @@ def build_recovery_drill_action_key(
     tenant_id: str | None,
     backup_identifier: str,
 ) -> str:
+    normalized_operator_id = _normalize_required_lease_string(operator_id, field_name="operator_id")
+    normalized_tenant_id = _normalize_optional_lease_string(tenant_id)
+    normalized_backup_identifier = _normalize_required_lease_string(
+        backup_identifier,
+        field_name="backup_identifier",
+    )
     return _sanitize_key(
         "recovery-drill",
-        operator_id,
-        tenant_id or "no-tenant",
-        backup_identifier,
+        normalized_operator_id,
+        normalized_tenant_id or "no-tenant",
+        normalized_backup_identifier,
     )
 
 

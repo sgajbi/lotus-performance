@@ -62,6 +62,44 @@ def test_operator_action_lease_rejects_concurrent_same_key(tmp_path):
     assert exc_info.value.detail["active_operator_id"] == "ops-user"
 
 
+def test_operator_action_key_builders_normalize_optional_identity_parts():
+    assert (
+        build_runtime_retention_action_key(
+            operator_id=" ops-user ",
+            tenant_id=" ",
+            apply=False,
+            retention_days=30,
+            job_id=" ticket-7 ",
+        )
+        == "runtime-retention-ops-user-no-tenant-dry-run-30-ticket-7"
+    )
+    assert (
+        build_recovery_drill_action_key(
+            operator_id=" ops-user ",
+            tenant_id=" tenant-a ",
+            backup_identifier=" backup-123 ",
+        )
+        == "recovery-drill-ops-user-tenant-a-backup-123"
+    )
+
+
+def test_operator_action_key_builders_reject_blank_required_parts():
+    with pytest.raises(ValueError, match="operator_id must not be blank"):
+        build_runtime_retention_action_key(
+            operator_id=" ",
+            tenant_id=None,
+            apply=False,
+            retention_days=30,
+            job_id=None,
+        )
+    with pytest.raises(ValueError, match="backup_identifier must not be blank"):
+        build_recovery_drill_action_key(
+            operator_id="ops-user",
+            tenant_id=None,
+            backup_identifier=" ",
+        )
+
+
 def test_operator_action_lease_cleans_up_lock_file(tmp_path):
     artifact_dir = tmp_path / "artifacts"
     action_key = build_recovery_drill_action_key(
