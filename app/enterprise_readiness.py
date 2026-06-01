@@ -16,6 +16,7 @@ _ENTERPRISE_POLICY_VERSION_HEADER = "X-Enterprise-Policy-Version"
 _RESPONSE_DETAIL_KEY = "detail"
 _RESPONSE_REASON_KEY = "reason"
 _AUTHORIZATION_POLICY_DENIED_DETAIL = "authorization_policy_denied"
+_PAYLOAD_TOO_LARGE_DETAIL = "payload_too_large"
 _WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 _REQUIRED_HEADERS = {"x-actor-id", "x-tenant-id", "x-role", "x-correlation-id"}
 _DEFAULT_CAPABILITY_RULES = {
@@ -438,7 +439,7 @@ def build_enterprise_audit_middleware() -> Callable[
             headers=request.headers,
             max_write_payload_bytes=_max_write_payload_bytes(),
         ):
-            return JSONResponse(status_code=413, content={"detail": "payload_too_large"})
+            return JSONResponse(status_code=413, content={_RESPONSE_DETAIL_KEY: _PAYLOAD_TOO_LARGE_DETAIL})
 
         audit_identity = _audit_identity_from_headers(request.headers)
         authorized, reason = _authorize_enterprise_request(

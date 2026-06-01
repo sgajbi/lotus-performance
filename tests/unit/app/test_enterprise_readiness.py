@@ -4,6 +4,8 @@ import pytest
 from fastapi import Request
 
 from app.enterprise_readiness import (
+    _PAYLOAD_TOO_LARGE_DETAIL,
+    _RESPONSE_DETAIL_KEY,
     authorize_privileged_read_request,
     authorize_write_request,
     build_enterprise_audit_middleware,
@@ -209,6 +211,7 @@ async def test_middleware_blocks_oversized_payload(monkeypatch):
     request = Request(scope)
     response = await middleware(request, lambda req: None)  # pragma: no cover
     assert response.status_code == 413
+    assert json.loads(response.body) == {_RESPONSE_DETAIL_KEY: _PAYLOAD_TOO_LARGE_DETAIL}
 
 
 @pytest.mark.asyncio
