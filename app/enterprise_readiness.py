@@ -23,6 +23,7 @@ _AUDIT_PAYLOAD_CORRELATION_ID_KEY = "correlation_id"
 _AUDIT_PAYLOAD_TIMESTAMP_UTC_KEY = "timestamp_utc"
 _AUDIT_PAYLOAD_POLICY_VERSION_KEY = "policy_version"
 _AUDIT_PAYLOAD_METADATA_KEY = "metadata"
+_EMPTY_AUDIT_CORRELATION_ID = ""
 _AUDIT_METADATA_STATUS_CODE_KEY = "status_code"
 _AUDIT_METADATA_ACCESS_MODE_KEY = "access_mode"
 _AUDIT_METADATA_REQUIRED_CAPABILITY_KEY = "required_capability"
@@ -574,7 +575,7 @@ def _audit_metadata(metadata: dict[str, Any]) -> Any:
 
 
 def _audit_correlation_id(correlation_id: str | None) -> str:
-    return correlation_id or ""
+    return correlation_id or _EMPTY_AUDIT_CORRELATION_ID
 
 
 def _audit_timestamp_utc() -> str:

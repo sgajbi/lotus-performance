@@ -31,6 +31,7 @@ from app.enterprise_readiness import (
     _DEFAULT_MAX_WRITE_PAYLOAD_BYTES,
     _DEFAULT_TENANT_ID,
     _DIAGNOSTIC_LIST_SEPARATOR,
+    _EMPTY_AUDIT_CORRELATION_ID,
     _EMPTY_JSON_OBJECT,
     _ENTERPRISE_AUDIT_EVENT_NAME,
     _ENTERPRISE_AUDIT_EXTRA_KEY,
@@ -425,8 +426,8 @@ def test_audit_event_payload_redacts_metadata_and_includes_policy_version(monkey
     ("correlation_id", "expected"),
     [
         ("corr-1", "corr-1"),
-        (None, ""),
-        ("", ""),
+        (None, _EMPTY_AUDIT_CORRELATION_ID),
+        ("", _EMPTY_AUDIT_CORRELATION_ID),
     ],
 )
 def test_audit_correlation_id_normalizes_missing_value(correlation_id, expected):
