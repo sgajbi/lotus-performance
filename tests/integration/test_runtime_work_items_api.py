@@ -378,6 +378,18 @@ def test_runtime_work_items_supports_targeted_type_and_calculation_filters():
         lineage_metadata_store.clear_all_records()
 
 
+def test_runtime_work_items_rejects_blank_string_filters():
+    with TestClient(app) as client:
+        response = client.get(
+            "/integration/runtime-work-items",
+            params={"compute_analytics_type": "  ", "calculation_id_contains": " "},
+        )
+
+    assert response.status_code == 422
+    fields = {item["loc"][-1] for item in response.json()["detail"]}
+    assert {"compute_analytics_type", "calculation_id_contains"} <= fields
+
+
 def test_runtime_work_items_supports_reclaimable_filter():
     compute_job_store.create_schema()
     lineage_metadata_store.create_schema()

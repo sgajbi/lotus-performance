@@ -53,18 +53,26 @@ async def get_runtime_recoveries(
     ),
     cursor_calculation_id_before: str | None = Query(
         default=None,
+        min_length=1,
+        pattern=r".*\S.*",
         description="Optional cursor calculation handle paired with the cursor recovery timestamp for seek pagination.",
     ),
     compute_analytics_type: str | None = Query(
         default=None,
+        min_length=1,
+        pattern=r".*\S.*",
         description="Optional compute analytics-type filter, such as ReturnsSeries or Attribution.",
     ),
     lineage_calculation_type: str | None = Query(
         default=None,
+        min_length=1,
+        pattern=r".*\S.*",
         description="Optional lineage calculation-type filter, such as TWR or Attribution.",
     ),
     calculation_id_contains: str | None = Query(
         default=None,
+        min_length=1,
+        pattern=r".*\S.*",
         description="Optional substring filter applied to calculation identifiers in the selected queues.",
     ),
 ) -> RuntimeRecoveriesResponse:
