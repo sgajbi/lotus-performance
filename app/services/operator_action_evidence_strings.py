@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from numbers import Real
 from typing import Any, TypeGuard
+
+_NUMBER_EVIDENCE_TYPES = (int, type(0.0))
 
 
 def is_required_evidence_string(value: object) -> TypeGuard[str]:
@@ -13,6 +16,10 @@ def is_optional_evidence_string(value: object) -> TypeGuard[str | None]:
 
 def is_required_evidence_int(value: object) -> TypeGuard[int]:
     return type(value) is int
+
+
+def is_required_evidence_number(value: object) -> TypeGuard[Real]:
+    return type(value) in _NUMBER_EVIDENCE_TYPES
 
 
 def required_evidence_string_fields_present(payload: dict[str, Any], keys: tuple[str, ...]) -> bool:

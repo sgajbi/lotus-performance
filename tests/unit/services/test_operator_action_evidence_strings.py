@@ -3,6 +3,7 @@ import pytest
 from app.services.operator_action_evidence_strings import (
     is_optional_evidence_string,
     is_required_evidence_int,
+    is_required_evidence_number,
     is_required_evidence_string,
     is_required_evidence_string_list,
     normalize_optional_evidence_identifier,
@@ -39,6 +40,13 @@ def test_evidence_int_predicate_rejects_bool_subclass_values():
     assert not is_required_evidence_int(True)
     assert not is_required_evidence_int(30.0)
     assert not is_required_evidence_int("30")
+
+
+def test_evidence_number_predicate_rejects_bool_subclass_values():
+    assert is_required_evidence_number(30)
+    assert is_required_evidence_number(30.0)
+    assert not is_required_evidence_number(True)
+    assert not is_required_evidence_number("30")
 
 
 def test_evidence_field_predicates_validate_string_int_and_bool_sets():

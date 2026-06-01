@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 _is_optional_lease_string = _evidence_strings.is_optional_evidence_string
 _is_required_lease_int = _evidence_strings.is_required_evidence_int
+_is_required_lease_number = _evidence_strings.is_required_evidence_number
 _is_required_lease_string = _evidence_strings.is_required_evidence_string
 _normalize_optional_lease_string = _evidence_strings.normalize_optional_evidence_identifier
 _normalize_required_lease_string = _evidence_strings.normalize_required_evidence_identifier
@@ -433,7 +434,7 @@ def _parse_reclaimed_event_payload(
         return _INVALID_LEASE
     if not _is_required_lease_string(reclaimed_at_utc):
         return _INVALID_LEASE
-    if not isinstance(stale_after_seconds, (int, float)):
+    if not _is_required_lease_number(stale_after_seconds):
         return _INVALID_LEASE
     if not _is_required_lease_int(reclaim_count):
         return _INVALID_LEASE
