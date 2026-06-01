@@ -102,6 +102,11 @@ def _normalized_capability_rule_overrides(configured: dict[str, Any]) -> dict[st
     return rules
 
 
+def _path_matches_rule(path: str, rule_path: str) -> bool:
+    normalized_rule_path = rule_path.rstrip("/") or "/"
+    return path == normalized_rule_path or path.startswith(f"{normalized_rule_path}/")
+
+
 def load_capability_rules() -> dict[str, str]:
     rules = dict(_DEFAULT_CAPABILITY_RULES)
     configured = _load_json_map("ENTERPRISE_CAPABILITY_RULES_JSON")
@@ -134,7 +139,7 @@ def _required_capability(method: str, path: str) -> str | None:
     method = method.upper()
     for key, capability in load_capability_rules().items():
         prefix = f"{method} "
-        if key.upper().startswith(prefix) and path.startswith(key[len(prefix) :]):
+        if key.upper().startswith(prefix) and _path_matches_rule(path, key[len(prefix) :]):
             return capability
     return None
 
@@ -143,7 +148,7 @@ def _required_privileged_read_capability(method: str, path: str) -> str | None:
     method = method.upper()
     for key, capability in load_privileged_read_rules().items():
         prefix = f"{method} "
-        if key.upper().startswith(prefix) and path.startswith(key[len(prefix) :]):
+        if key.upper().startswith(prefix) and _path_matches_rule(path, key[len(prefix) :]):
             return capability
     return None
 

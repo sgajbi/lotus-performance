@@ -29,6 +29,15 @@ def test_required_capability_returns_none_when_no_matching_rule(monkeypatch):
     assert _required_capability("POST", "/different/path") is None
 
 
+def test_required_capability_matches_exact_or_child_paths_only():
+    assert _required_capability("POST", "/integration/runtime-retention-cleanups/run") == "operations.runtime.manage"
+    assert (
+        _required_capability("POST", "/integration/runtime-retention-cleanups/run/details")
+        == "operations.runtime.manage"
+    )
+    assert _required_capability("POST", "/integration/runtime-retention-cleanups/run-extra") is None
+
+
 def test_authorize_write_request_allows_when_no_capability_rule_matches(monkeypatch):
     monkeypatch.setenv("ENTERPRISE_ENFORCE_AUTHZ", "true")
     monkeypatch.setenv(
@@ -92,5 +101,12 @@ def test_privileged_read_rule_loader_ignores_blank_default_override(monkeypatch)
 def test_authorize_privileged_read_request_allows_unmatched_paths(monkeypatch):
     monkeypatch.setenv("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "true")
     allowed, reason = authorize_privileged_read_request("GET", "/integration/capabilities", {})
+    assert allowed is True
+    assert reason is None
+
+
+def test_privileged_read_authorization_does_not_match_adjacent_prefix(monkeypatch):
+    monkeypatch.setenv("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "true")
+    allowed, reason = authorize_privileged_read_request("GET", "/integration/runtime-status-extra", {})
     assert allowed is True
     assert reason is None
