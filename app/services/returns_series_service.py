@@ -32,7 +32,13 @@ from app.models.returns_series import (
     SeriesGap,
 )
 from app.observability import correlation_id_var, request_id_var, trace_id_var
-from app.services.error_details import coded_error_detail
+from app.services.error_details import (
+    insufficient_data_detail,
+    invalid_request_detail,
+    resource_not_found_detail,
+    source_unavailable_detail,
+    upstream_contract_violation_detail,
+)
 from app.services.execution_registry import execution_registry
 from app.services.portfolio_source_service import (
     build_stateful_input_service,
@@ -68,23 +74,23 @@ def _zero_default_retrieval_metadata(payload: dict[str, Any] | None) -> Retrieva
 
 
 def _source_unavailable_detail(message: str) -> dict[str, str]:
-    return coded_error_detail(code="SOURCE_UNAVAILABLE", message=message)
+    return source_unavailable_detail(message)
 
 
 def _resource_not_found_detail(message: str) -> dict[str, str]:
-    return coded_error_detail(code="RESOURCE_NOT_FOUND", message=message)
+    return resource_not_found_detail(message)
 
 
 def _insufficient_data_detail(message: str) -> dict[str, str]:
-    return coded_error_detail(code="INSUFFICIENT_DATA", message=message)
+    return insufficient_data_detail(message)
 
 
 def _invalid_request_detail(message: str) -> dict[str, str]:
-    return coded_error_detail(code="INVALID_REQUEST", message=message)
+    return invalid_request_detail(message)
 
 
 def _upstream_contract_violation_detail(message: str) -> dict[str, str]:
-    return coded_error_detail(code="CONTRACT_VIOLATION_UPSTREAM", message=message)
+    return upstream_contract_violation_detail(message)
 
 
 def period_start(as_of_date: date, period: ReturnsRelativePeriod, year: int | None) -> date:

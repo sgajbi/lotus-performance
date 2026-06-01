@@ -4,13 +4,13 @@ from decimal import Decimal
 
 from fastapi import HTTPException
 
-from app.services.error_details import coded_error_detail
+from app.services.error_details import insufficient_data_detail
 from app.services.source_cashflow_taxonomy import classify_cashflow_type
 from core.errors import HTTP_422_UNPROCESSABLE
 
 
 def _insufficient_data_detail(message: str) -> dict[str, str]:
-    return coded_error_detail(code="INSUFFICIENT_DATA", message=message)
+    return insufficient_data_detail(message)
 
 
 def portfolio_timeseries_to_valuation_points(*, observations: list[dict[str, object]]) -> list[dict[str, object]]:
