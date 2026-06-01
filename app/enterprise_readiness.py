@@ -265,7 +265,7 @@ def _authorization_denied_response(
     audit_identity: dict[str, str],
 ) -> JSONResponse:
     emit_audit_event(
-        action=f"DENY {method} {path}",
+        action=_denied_request_action(method=method, path=path),
         **audit_identity,
         metadata=_authorization_denial_metadata(reason),
     )
@@ -282,6 +282,14 @@ def _authorization_denial_metadata(reason: str | None) -> dict[str, str | None]:
     return {_RESPONSE_REASON_KEY: reason}
 
 
+def _request_action(*, method: str, path: str) -> str:
+    return f"{method} {path}"
+
+
+def _denied_request_action(*, method: str, path: str) -> str:
+    return f"DENY {_request_action(method=method, path=path)}"
+
+
 def _emit_allowed_audit_event(
     *,
     method: str,
@@ -290,7 +298,7 @@ def _emit_allowed_audit_event(
     metadata: dict[str, Any],
 ) -> None:
     emit_audit_event(
-        action=f"{method} {path}",
+        action=_request_action(method=method, path=path),
         **audit_identity,
         metadata=metadata,
     )

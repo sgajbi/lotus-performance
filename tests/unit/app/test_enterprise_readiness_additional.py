@@ -20,6 +20,7 @@ from app.enterprise_readiness import (
     _authorization_denied_response,
     _authorize_enterprise_request,
     _content_length,
+    _denied_request_action,
     _emit_allowed_audit_event,
     _enterprise_runtime_config_issues,
     _feature_flag_enabled,
@@ -35,6 +36,7 @@ from app.enterprise_readiness import (
     _payload_too_large_response,
     _primary_key_configured,
     _privileged_read_authz_enabled,
+    _request_action,
     _required_capability,
     _required_capability_from_rules,
     _runtime_config_enforcement_enabled,
@@ -368,6 +370,15 @@ def test_authorization_denial_metadata_uses_governed_reason_key():
         _RESPONSE_REASON_KEY: "missing_service_identity",
     }
     assert _authorization_denial_metadata(None) == {_RESPONSE_REASON_KEY: None}
+
+
+def test_request_action_helpers_format_governed_audit_actions():
+    assert _request_action(method="POST", path="/integration/recovery-drills/run") == (
+        "POST /integration/recovery-drills/run"
+    )
+    assert _denied_request_action(method="POST", path="/integration/recovery-drills/run") == (
+        "DENY POST /integration/recovery-drills/run"
+    )
 
 
 def test_emit_allowed_audit_event_uses_method_path_action_and_identity(mocker):
