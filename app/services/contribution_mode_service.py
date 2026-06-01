@@ -11,6 +11,7 @@ from app.models.contribution_analytics_requests import (
 )
 from app.models.contribution_requests import ContributionRequest
 from app.services.execution_registry import execution_registry
+from app.services.execution_stage_names import EXECUTION_STAGE_NORMALIZATION, EXECUTION_STAGE_RETRIEVAL
 from app.services.input_mode_validation import require_stateful_input
 from app.services.portfolio_source_service import build_stateful_input_service
 from app.services.service_identity import LOTUS_PERFORMANCE_CONSUMER_SYSTEM
@@ -44,7 +45,7 @@ async def resolve_contribution_request(
     stateful_input = require_stateful_input(request.stateful_input)
 
     stateful_input_service = build_stateful_input_service(settings=settings)
-    execution_registry.start_stage(request.calculation_id, "retrieval")
+    execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL)
     try:
         source_input = await retrieve_stateful_contribution_source_input(
             settings=settings,
@@ -62,7 +63,7 @@ async def resolve_contribution_request(
         )
         execution_registry.complete_stage(
             request.calculation_id,
-            "retrieval",
+            EXECUTION_STAGE_RETRIEVAL,
             details={
                 "portfolio_observations": len(source_input.portfolio_input.observations),
                 "position_rows": len(source_input.position_rows),
@@ -73,10 +74,10 @@ async def resolve_contribution_request(
             },
         )
     except HTTPException as exc:
-        execution_registry.fail_stage(request.calculation_id, "retrieval", str(exc.detail))
+        execution_registry.fail_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL, str(exc.detail))
         raise
 
-    execution_registry.start_stage(request.calculation_id, "normalization")
+    execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_NORMALIZATION)
     try:
         normalized_input = build_stateful_contribution_input(
             source_input=source_input,
@@ -87,14 +88,14 @@ async def resolve_contribution_request(
         )
         execution_registry.complete_stage(
             request.calculation_id,
-            "normalization",
+            EXECUTION_STAGE_NORMALIZATION,
             details={
                 "portfolio_points": len(normalized_input.portfolio_data.valuation_points),
                 "positions": len(normalized_input.positions_data),
             },
         )
     except Exception as exc:
-        execution_registry.fail_stage(request.calculation_id, "normalization", str(exc))
+        execution_registry.fail_stage(request.calculation_id, EXECUTION_STAGE_NORMALIZATION, str(exc))
         raise
 
     return ResolvedContributionRequest(

@@ -11,6 +11,7 @@ from app.models.benchmark_analytics_requests import (
 )
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.services.execution_registry import execution_registry
+from app.services.execution_stage_names import EXECUTION_STAGE_NORMALIZATION, EXECUTION_STAGE_RETRIEVAL
 from app.services.input_mode_validation import require_stateful_input, require_stateless_input
 from app.services.portfolio_source_service import build_stateful_input_service
 from app.services.stateful_benchmark_input_service import build_stateful_benchmark_input
@@ -59,7 +60,7 @@ async def resolve_benchmark_request(
 
     require_stateful_input(request.stateful_input)
 
-    execution_registry.start_stage(request.calculation_id, "retrieval")
+    execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL)
     stateful_input_service = build_stateful_input_service(settings=settings)
     try:
         normalized_input = await build_stateful_benchmark_input(
@@ -73,14 +74,14 @@ async def resolve_benchmark_request(
         )
         execution_registry.complete_stage(
             request.calculation_id,
-            "retrieval",
+            EXECUTION_STAGE_RETRIEVAL,
             details=normalized_input.source_details,
         )
     except HTTPException as exc:
-        execution_registry.fail_stage(request.calculation_id, "retrieval", str(exc.detail))
+        execution_registry.fail_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL, str(exc.detail))
         raise
 
-    execution_registry.start_stage(request.calculation_id, "normalization")
+    execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_NORMALIZATION)
     try:
         benchmark_request = request.to_benchmark_performance_request(
             benchmark_currency=normalized_input.benchmark_currency,
@@ -93,14 +94,14 @@ async def resolve_benchmark_request(
         )
         execution_registry.complete_stage(
             request.calculation_id,
-            "normalization",
+            EXECUTION_STAGE_NORMALIZATION,
             details={
                 "component_observations": len(normalized_input.component_observations),
                 "benchmark_return_points": len(normalized_input.benchmark_return_points),
             },
         )
     except Exception as exc:
-        execution_registry.fail_stage(request.calculation_id, "normalization", str(exc))
+        execution_registry.fail_stage(request.calculation_id, EXECUTION_STAGE_NORMALIZATION, str(exc))
         raise
 
     return ResolvedBenchmarkRequest(

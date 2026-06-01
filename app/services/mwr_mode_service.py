@@ -8,6 +8,7 @@ from app.core.config import Settings
 from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest, MWRInputMode
 from app.models.mwr_requests import MoneyWeightedReturnRequest
 from app.services.execution_registry import execution_registry
+from app.services.execution_stage_names import EXECUTION_STAGE_NORMALIZATION, EXECUTION_STAGE_RETRIEVAL
 from app.services.input_mode_validation import require_stateful_input
 from app.services.mwr_fx_evidence_service import build_source_preconverted_mwr_currency_evidence
 from app.services.service_identity import LOTUS_PERFORMANCE_CONSUMER_SYSTEM
@@ -37,7 +38,7 @@ async def resolve_mwr_request(
 
     stateful_input = require_stateful_input(request.stateful_input)
 
-    execution_registry.start_stage(request.calculation_id, "retrieval")
+    execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL)
     try:
         source_input = await retrieve_stateful_portfolio_input(
             settings=settings,
@@ -51,7 +52,7 @@ async def resolve_mwr_request(
         )
         execution_registry.complete_stage(
             request.calculation_id,
-            "retrieval",
+            EXECUTION_STAGE_RETRIEVAL,
             details={
                 "portfolio_observations": len(source_input.observations),
                 "portfolio_chunk_count": source_input.retrieval_metadata.chunk_count,
@@ -59,10 +60,10 @@ async def resolve_mwr_request(
             },
         )
     except HTTPException as exc:
-        execution_registry.fail_stage(request.calculation_id, "retrieval", str(exc.detail))
+        execution_registry.fail_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL, str(exc.detail))
         raise
 
-    execution_registry.start_stage(request.calculation_id, "normalization")
+    execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_NORMALIZATION)
     try:
         normalized_input = build_stateful_mwr_input_for_window(
             source_input=source_input,
@@ -70,11 +71,11 @@ async def resolve_mwr_request(
         )
         execution_registry.complete_stage(
             request.calculation_id,
-            "normalization",
+            EXECUTION_STAGE_NORMALIZATION,
             details={"cashflows": len(normalized_input.cash_flows)},
         )
     except Exception as exc:
-        execution_registry.fail_stage(request.calculation_id, "normalization", str(exc))
+        execution_registry.fail_stage(request.calculation_id, EXECUTION_STAGE_NORMALIZATION, str(exc))
         raise
 
     return ResolvedMWRRequest(
