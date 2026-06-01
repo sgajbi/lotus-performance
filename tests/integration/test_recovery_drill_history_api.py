@@ -186,9 +186,9 @@ def test_recovery_drill_history_api_applies_filters_and_limit(tmp_path, monkeypa
             "/integration/recovery-drills",
             params={
                 "limit": 1,
-                "operator_id": "ops-user",
-                "backup_identifier": "backup-123",
-                "status": "passed",
+                "operator_id": " ops-user ",
+                "backup_identifier": " backup-123 ",
+                "status": " passed ",
             },
         )
 

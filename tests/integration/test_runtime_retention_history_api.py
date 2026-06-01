@@ -120,10 +120,10 @@ def test_runtime_retention_history_api_returns_filtered_manifest(tmp_path, monke
         response = client.get(
             "/integration/runtime-retention-cleanups",
             params={
-                "cleanup_mode": "apply",
-                "trigger_mode": "scheduled",
-                "job_id": "retention-nightly",
-                "status": "applied",
+                "cleanup_mode": " apply ",
+                "trigger_mode": " scheduled ",
+                "job_id": " retention-nightly ",
+                "status": " applied ",
                 "limit": 1,
             },
         )
