@@ -17,6 +17,7 @@ from app.services.operator_action_history_manifest import (
     validate_history_manifest_payload,
 )
 from app.services.operator_action_history_pagination import paginate_history_entries
+from app.services.runtime_status_time import parse_utc_datetime
 
 RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON = "runtime_retention_artifact_directory_missing"
 RUNTIME_RETENTION_MANIFEST_INVALID_REASON = "runtime_retention_manifest_invalid"
@@ -206,6 +207,10 @@ def _validate_manifest_entry(entry: Any) -> dict[str, str | int | None] | None:
         optional_keys=("tenant_id", "correlation_id", "job_id"),
     )
     if entry_strings is None:
+        return None
+    try:
+        parse_utc_datetime(entry_strings["generated_at_utc"])
+    except ValueError:
         return None
     if not isinstance(trigger_mode, str):
         return None
