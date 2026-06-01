@@ -24,19 +24,11 @@ from app.services.durable_store_json import load_json_object_or_none
 from app.services.durable_store_pagination import next_offset_or_none, recovery_cursor_or_none
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
 from app.services.durable_store_time import (
-    coerce_utc_datetime as _coerce_utc_datetime,
-)
-from app.services.durable_store_time import (
-    elapsed_seconds_since as _elapsed_seconds_since,
-)
-from app.services.durable_store_time import (
-    elapsed_seconds_since_or_zero as _elapsed_seconds_since_or_zero,
-)
-from app.services.durable_store_time import (
-    format_timestamp as _format_timestamp,
-)
-from app.services.durable_store_time import (
-    normalize_filter_datetime as _normalize_filter_datetime,
+    coerce_utc_datetime,
+    elapsed_seconds_since,
+    elapsed_seconds_since_or_zero,
+    format_timestamp,
+    normalize_filter_datetime,
 )
 
 logger = logging.getLogger(__name__)
@@ -264,7 +256,7 @@ class LineageMetadataStore:
                 calculation_id=UUID(row.calculation_id),
                 calculation_type=row.calculation_type,
                 status=LineageStatus(row.status),
-                timestamp_utc=_format_timestamp(row.timestamp_utc) or "",
+                timestamp_utc=format_timestamp(row.timestamp_utc) or "",
                 artifact_names=[name for name in row.artifact_names.splitlines() if name],
                 error_message=row.error_message,
             )
@@ -276,7 +268,7 @@ class LineageMetadataStore:
 
     def list_terminal_calculation_ids_older_than(self, older_than: datetime) -> list[str]:
         with self._session() as session:
-            cutoff = _normalize_filter_datetime(
+            cutoff = normalize_filter_datetime(
                 older_than,
                 dialect_name=session.bind.dialect.name if session.bind is not None else "",
             )
@@ -431,11 +423,11 @@ class LineageMetadataStore:
                 leased_payload_count=int(aggregate_row.leased_payload_count or 0),
                 retry_backlog_count=int(aggregate_row.retry_backlog_count or 0),
                 terminal_failure_count=int(aggregate_row.terminal_failure_count or 0),
-                oldest_pending_age_seconds=_elapsed_seconds_since_or_zero(
+                oldest_pending_age_seconds=elapsed_seconds_since_or_zero(
                     stats_now,
                     aggregate_row.oldest_pending_created_at,
                 ),
-                oldest_leased_age_seconds=_elapsed_seconds_since_or_zero(stats_now, aggregate_row.oldest_leased_at),
+                oldest_leased_age_seconds=elapsed_seconds_since_or_zero(stats_now, aggregate_row.oldest_leased_at),
                 reclaimable_count=int(aggregate_row.reclaimable_count or 0),
             )
 
@@ -465,9 +457,9 @@ class LineageMetadataStore:
     ) -> LineageRecoveryEventPage:
         with self._session() as session:
             dialect_name = session.bind.dialect.name if session.bind is not None else ""
-            normalized_recovered_after = _normalize_filter_datetime(recovered_after, dialect_name=dialect_name)
-            normalized_recovered_before = _normalize_filter_datetime(recovered_before, dialect_name=dialect_name)
-            normalized_cursor_recovered_before = _normalize_filter_datetime(
+            normalized_recovered_after = normalize_filter_datetime(recovered_after, dialect_name=dialect_name)
+            normalized_recovered_before = normalize_filter_datetime(recovered_before, dialect_name=dialect_name)
+            normalized_cursor_recovered_before = normalize_filter_datetime(
                 cursor_recovered_before,
                 dialect_name=dialect_name,
             )
@@ -1103,8 +1095,8 @@ class LineageMetadataStore:
                     details=details,
                     attempt_count=int(row["attempt_count"]),
                     worker_id=None if row["worker_id"] is None else str(row["worker_id"]),
-                    leased_at_utc=_format_timestamp(row["leased_at_utc"]),
-                    lease_expires_at_utc=_format_timestamp(row["lease_expires_at_utc"]),
+                    leased_at_utc=format_timestamp(row["leased_at_utc"]),
+                    lease_expires_at_utc=format_timestamp(row["lease_expires_at_utc"]),
                 )
             )
         return leased
@@ -1123,8 +1115,8 @@ class LineageMetadataStore:
             details={} if loaded_details is None else loaded_details,
             attempt_count=payload.attempt_count,
             worker_id=payload.worker_id,
-            leased_at_utc=_format_timestamp(payload.leased_at_utc),
-            lease_expires_at_utc=_format_timestamp(payload.lease_expires_at_utc),
+            leased_at_utc=format_timestamp(payload.leased_at_utc),
+            lease_expires_at_utc=format_timestamp(payload.lease_expires_at_utc),
         )
 
     def _to_recovery_event(
@@ -1133,7 +1125,7 @@ class LineageMetadataStore:
         record: LineageRecordModel,
         payload: LineagePayloadModel,
     ) -> LineageRecoveryEvent | None:
-        recovered_at_utc = _format_timestamp(record.timestamp_utc)
+        recovered_at_utc = format_timestamp(record.timestamp_utc)
         if recovered_at_utc is None:
             return None
         return LineageRecoveryEvent(
@@ -1155,13 +1147,13 @@ class LineageMetadataStore:
 
         age_seconds = None
         if timing.active_since is not None:
-            age_seconds = _elapsed_seconds_since(now, timing.active_since)
+            age_seconds = elapsed_seconds_since(now, timing.active_since)
 
         return LineageQueueInspectionItem(
             calculation_id=record.calculation_id,
             calculation_type=record.calculation_type,
             status=timing.status,
-            active_since_utc=_format_timestamp(timing.active_since),
+            active_since_utc=format_timestamp(timing.active_since),
             age_seconds=age_seconds,
             attempt_count=0 if payload is None else payload.attempt_count,
             error_message=record.error_message,
@@ -1187,7 +1179,7 @@ class LineageMetadataStore:
             )
 
         lease_expires_at = payload.lease_expires_at_utc
-        normalized_lease_expires_at = None if lease_expires_at is None else _coerce_utc_datetime(lease_expires_at)
+        normalized_lease_expires_at = None if lease_expires_at is None else coerce_utc_datetime(lease_expires_at)
         is_active_lease = payload.leased_at_utc is not None and (
             normalized_lease_expires_at is None or normalized_lease_expires_at >= now
         )
