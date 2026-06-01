@@ -12,6 +12,7 @@ from uuid import UUID
 from sqlalchemy import DateTime, String, Text, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
+from app.services.durable_store_json import load_json_object_or_none
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
 
 logger = logging.getLogger(__name__)
@@ -175,17 +176,13 @@ class AsyncResultStore:
 
 
 def _load_response_payload(row: AsyncResultModel) -> dict[str, Any] | None:
-    if not row.response_json:
-        return None
-    try:
-        payload = json.loads(row.response_json)
-    except json.JSONDecodeError:
-        logger.warning("Async result response payload invalid JSON for calculation_id=%s.", row.calculation_id)
-        return None
-    if not isinstance(payload, dict):
-        logger.warning("Async result response payload is not an object for calculation_id=%s.", row.calculation_id)
-        return None
-    return payload
+    return load_json_object_or_none(
+        row.response_json,
+        logger=logger,
+        payload_name="Async result response payload",
+        identity_name="calculation_id",
+        identity_value=row.calculation_id,
+    )
 
 
 _store_cache: dict[str, AsyncResultStore] = {}
