@@ -8,6 +8,7 @@ import tempfile
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 from app.core.config import get_settings
 from app.services.runtime_retention_service import (
@@ -207,17 +208,17 @@ def _prune_old_evidence(*, output_dir: Path, retention_max_age_days: int) -> Non
 
 def _load_manifest_entry(path: Path) -> RuntimeRetentionManifestEntry | None:
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload = _read_runtime_retention_evidence_payload(path)
         return RuntimeRetentionManifestEntry(
             evidence_file_name=path.name,
-            generated_at_utc=str(payload["generated_at_utc"]),
-            operator_id=str(payload["operator_id"]),
-            tenant_id=None if payload.get("tenant_id") is None else str(payload["tenant_id"]),
-            correlation_id=None if payload.get("correlation_id") is None else str(payload["correlation_id"]),
-            trigger_mode=str(payload.get("trigger_mode", "manual")),
-            job_id=None if payload.get("job_id") is None else str(payload["job_id"]),
-            cleanup_mode=str(payload["cleanup_mode"]),
-            status=str(payload["status"]),
+            generated_at_utc=_required_evidence_string(payload, "generated_at_utc"),
+            operator_id=_required_evidence_string(payload, "operator_id"),
+            tenant_id=_optional_evidence_string(payload, "tenant_id"),
+            correlation_id=_optional_evidence_string(payload, "correlation_id"),
+            trigger_mode=_optional_evidence_string(payload, "trigger_mode") or "manual",
+            job_id=_optional_evidence_string(payload, "job_id"),
+            cleanup_mode=_required_evidence_string(payload, "cleanup_mode"),
+            status=_required_evidence_string(payload, "status"),
             retention_days=int(payload["retention_days"]),
             prunable_execution_count=int(payload["prunable_execution_count"]),
             prunable_compute_job_count=int(payload["prunable_compute_job_count"]),
@@ -228,6 +229,29 @@ def _load_manifest_entry(path: Path) -> RuntimeRetentionManifestEntry | None:
     except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
         logger.warning("Runtime retention evidence ignored during manifest rebuild: %s", path, exc_info=True)
         return None
+
+
+def _required_evidence_string(payload: dict[str, Any], key: str) -> str:
+    value = payload[key]
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{key} must be a nonblank string")
+    return value
+
+
+def _optional_evidence_string(payload: dict[str, Any], key: str) -> str | None:
+    value = payload.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError(f"{key} must be a string when present")
+    return value.strip() or None
+
+
+def _read_runtime_retention_evidence_payload(path: Path) -> dict[str, Any]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise TypeError("runtime retention evidence payload must be an object")
+    return payload
 
 
 def _write_text_atomic(path: Path, content: str) -> None:
