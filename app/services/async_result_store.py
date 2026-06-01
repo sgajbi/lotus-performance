@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -12,6 +13,11 @@ from sqlalchemy import DateTime, String, Text, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
+
+logger = logging.getLogger(__name__)
+
+INVALID_ASYNC_RESULT_PAYLOAD_ERROR_TYPE = "InvalidAsyncResultPayload"
+INVALID_ASYNC_RESULT_PAYLOAD_MESSAGE = "Stored async result response payload is invalid."
 
 
 class AsyncResultStatus(StrEnum):
@@ -148,16 +154,38 @@ class AsyncResultStore:
             row = session.get(AsyncResultModel, str(calculation_id))
             if row is None:
                 return None
+            response_payload = _load_response_payload(row)
+            result_status = AsyncResultStatus(row.result_status)
+            error_message = row.error_message
+            error_type = row.error_type
+            if row.response_json and response_payload is None:
+                result_status = AsyncResultStatus.FAILED
+                error_message = error_message or INVALID_ASYNC_RESULT_PAYLOAD_MESSAGE
+                error_type = error_type or INVALID_ASYNC_RESULT_PAYLOAD_ERROR_TYPE
             return AsyncResultRecord(
                 calculation_id=UUID(row.calculation_id),
                 analytics_type=row.analytics_type,
-                result_status=AsyncResultStatus(row.result_status),
-                response_payload=json.loads(row.response_json) if row.response_json else None,
-                error_message=row.error_message,
-                error_type=row.error_type,
+                result_status=result_status,
+                response_payload=response_payload,
+                error_message=error_message,
+                error_type=error_type,
                 created_at_utc=_format_timestamp(row.created_at_utc),
                 updated_at_utc=_format_timestamp(row.updated_at_utc),
             )
+
+
+def _load_response_payload(row: AsyncResultModel) -> dict[str, Any] | None:
+    if not row.response_json:
+        return None
+    try:
+        payload = json.loads(row.response_json)
+    except json.JSONDecodeError:
+        logger.warning("Async result response payload invalid JSON for calculation_id=%s.", row.calculation_id)
+        return None
+    if not isinstance(payload, dict):
+        logger.warning("Async result response payload is not an object for calculation_id=%s.", row.calculation_id)
+        return None
+    return payload
 
 
 _store_cache: dict[str, AsyncResultStore] = {}

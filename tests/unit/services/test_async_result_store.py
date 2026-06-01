@@ -1,7 +1,13 @@
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from app.services.async_result_store import AsyncResultModel, AsyncResultStatus, AsyncResultStore
+from app.services.async_result_store import (
+    INVALID_ASYNC_RESULT_PAYLOAD_ERROR_TYPE,
+    INVALID_ASYNC_RESULT_PAYLOAD_MESSAGE,
+    AsyncResultModel,
+    AsyncResultStatus,
+    AsyncResultStore,
+)
 
 
 def test_async_result_store_records_success_and_failure(tmp_path):
@@ -59,6 +65,67 @@ def test_async_result_store_formats_sqlite_timestamps_as_utc(tmp_path):
     assert result is not None
     assert result.created_at_utc == "2026-03-14T12:00:00Z"
     assert result.updated_at_utc == "2026-03-14T12:30:00Z"
+
+
+def test_async_result_store_fails_closed_on_invalid_response_json(tmp_path, caplog):
+    store = AsyncResultStore(f"sqlite:///{tmp_path / 'async_results.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+    created_at = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+
+    with store._session() as session:
+        session.merge(
+            AsyncResultModel(
+                calculation_id=str(calculation_id),
+                analytics_type="ReturnsSeries",
+                result_status=AsyncResultStatus.COMPLETE.value,
+                response_json="{not-json",
+                error_message=None,
+                error_type=None,
+                created_at_utc=created_at,
+                updated_at_utc=created_at,
+            )
+        )
+
+    with caplog.at_level("WARNING", logger="app.services.async_result_store"):
+        result = store.get_result(calculation_id)
+
+    assert result is not None
+    assert result.result_status == AsyncResultStatus.FAILED
+    assert result.response_payload is None
+    assert result.error_message == INVALID_ASYNC_RESULT_PAYLOAD_MESSAGE
+    assert result.error_type == INVALID_ASYNC_RESULT_PAYLOAD_ERROR_TYPE
+    assert f"calculation_id={calculation_id}" in caplog.text
+
+
+def test_async_result_store_fails_closed_on_non_object_response_json(tmp_path, caplog):
+    store = AsyncResultStore(f"sqlite:///{tmp_path / 'async_results.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+    created_at = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+
+    with store._session() as session:
+        session.merge(
+            AsyncResultModel(
+                calculation_id=str(calculation_id),
+                analytics_type="ReturnsSeries",
+                result_status=AsyncResultStatus.COMPLETE.value,
+                response_json="[1, 2, 3]",
+                error_message=None,
+                error_type=None,
+                created_at_utc=created_at,
+                updated_at_utc=created_at,
+            )
+        )
+
+    with caplog.at_level("WARNING", logger="app.services.async_result_store"):
+        result = store.get_result(calculation_id)
+
+    assert result is not None
+    assert result.result_status == AsyncResultStatus.FAILED
+    assert result.response_payload is None
+    assert result.error_type == INVALID_ASYNC_RESULT_PAYLOAD_ERROR_TYPE
+    assert f"calculation_id={calculation_id}" in caplog.text
 
 
 def test_async_result_store_prunes_results_older_than_cutoff(tmp_path):
