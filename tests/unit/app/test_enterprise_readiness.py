@@ -4,6 +4,7 @@ import pytest
 from fastapi import Request
 
 from app.enterprise_readiness import (
+    _DEFAULT_ENTERPRISE_POLICY_VERSION,
     _HTTP_STATUS_FORBIDDEN,
     _HTTP_STATUS_PAYLOAD_TOO_LARGE,
     _MISSING_POLICY_VERSION_ISSUE,
@@ -194,7 +195,7 @@ def test_validate_runtime_config_flags_missing_policy_and_key(monkeypatch):
     issues = validate_enterprise_runtime_config()
     assert _MISSING_POLICY_VERSION_ISSUE in issues
     assert _MISSING_PRIMARY_KEY_ID_ISSUE in issues
-    assert enterprise_policy_version() == "1.0.0"
+    assert enterprise_policy_version() == _DEFAULT_ENTERPRISE_POLICY_VERSION
 
 
 def test_enterprise_policy_version_trims_configured_value(monkeypatch):

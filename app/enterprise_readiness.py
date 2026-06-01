@@ -13,6 +13,7 @@ _SERVICE_NAME = "lotus-performance"
 _ENTERPRISE_AUDIT_EVENT_NAME = "enterprise_audit_event"
 _ENTERPRISE_AUDIT_EXTRA_KEY = "audit"
 _ENTERPRISE_POLICY_VERSION_HEADER = "X-Enterprise-Policy-Version"
+_DEFAULT_ENTERPRISE_POLICY_VERSION = "1.0.0"
 _AUDIT_PAYLOAD_SERVICE_KEY = "service"
 _AUDIT_PAYLOAD_ACTION_KEY = "action"
 _AUDIT_PAYLOAD_ACTOR_ID_KEY = "actor_id"
@@ -126,11 +127,11 @@ def _env_int(name: str, default: int) -> int:
 
 
 def _configured_enterprise_policy_version() -> str:
-    return os.getenv("ENTERPRISE_POLICY_VERSION", "1.0.0")
+    return os.getenv("ENTERPRISE_POLICY_VERSION", _DEFAULT_ENTERPRISE_POLICY_VERSION)
 
 
 def enterprise_policy_version() -> str:
-    return _configured_enterprise_policy_version().strip() or "1.0.0"
+    return _configured_enterprise_policy_version().strip() or _DEFAULT_ENTERPRISE_POLICY_VERSION
 
 
 def _enterprise_runtime_config_issues() -> list[str]:
