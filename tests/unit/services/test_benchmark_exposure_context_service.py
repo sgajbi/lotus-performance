@@ -15,7 +15,6 @@ from app.services.benchmark_exposure_context_service import (
     _build_exposure_rows,
     _group_identity,
     _page_rows,
-    _parse_retrieval_metadata,
     build_benchmark_exposure_context,
 )
 
@@ -373,15 +372,6 @@ def test_page_rows_rejects_invalid_page_token_inputs() -> None:
 
     with pytest.raises(HTTPException, match="must be non-negative"):
         _page_rows(rows=rows, page_size=10, page_token="-1")
-
-
-def test_parse_retrieval_metadata_defaults_when_missing() -> None:
-    assert _parse_retrieval_metadata({}) == {"chunk_count": 0, "page_count": 0}
-    assert _parse_retrieval_metadata({"retrieval_metadata": None}) == {"chunk_count": 0, "page_count": 0}
-    assert _parse_retrieval_metadata({"retrieval_metadata": {"chunk_count": "2", "page_count": 3.0}}) == {
-        "chunk_count": 2,
-        "page_count": 3,
-    }
 
 
 @pytest.mark.asyncio
