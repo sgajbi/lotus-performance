@@ -192,7 +192,7 @@ def _prune_old_evidence(*, output_dir: Path, retention_max_age_days: int) -> Non
         if path.name in {"latest.json", "manifest.json"}:
             continue
         try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
+            payload = _read_runtime_retention_evidence_payload(path)
             generated_at_utc = parse_utc_datetime(str(payload["generated_at_utc"]))
         except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
             logger.warning("Runtime retention evidence ignored during age pruning: %s", path, exc_info=True)
