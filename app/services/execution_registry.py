@@ -15,6 +15,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, rela
 
 from app.services.durable_store_json import load_json_object_or_none
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
+from app.services.durable_store_time import format_timestamp, normalize_filter_datetime
 
 logger = logging.getLogger(__name__)
 
@@ -159,25 +160,6 @@ def _serialize_paging_metadata(paging_metadata: dict[str, Any] | None) -> str | 
     return json.dumps(paging_metadata, sort_keys=True) if paging_metadata is not None else None
 
 
-def _coerce_utc_datetime(value: datetime) -> datetime:
-    if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
-
-
-def _format_timestamp(value: datetime | None) -> str | None:
-    if value is None:
-        return None
-    return _coerce_utc_datetime(value).isoformat().replace("+00:00", "Z")
-
-
-def _normalize_filter_datetime(value: datetime, *, dialect_name: str) -> datetime:
-    normalized = _coerce_utc_datetime(value)
-    if dialect_name == "sqlite":
-        return normalized.replace(tzinfo=None)
-    return normalized
-
-
 class ExecutionRegistry:
     def __init__(self, database_url: str):
         connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
@@ -224,7 +206,7 @@ class ExecutionRegistry:
     def list_terminal_execution_ids_older_than(self, older_than: datetime) -> list[str]:
         with self._session() as session:
             dialect_name = session.bind.dialect.name if session.bind is not None else ""
-            cutoff = _normalize_filter_datetime(older_than, dialect_name=dialect_name)
+            cutoff = normalize_filter_datetime(older_than, dialect_name=dialect_name)
             statement = (
                 select(AnalyticsExecutionModel.calculation_id)
                 .where(
@@ -460,8 +442,8 @@ class ExecutionRegistry:
                 ExecutionStageRecord(
                     stage_name=stage.stage_name,
                     status=ExecutionStageStatus(stage.status),
-                    started_at_utc=_format_timestamp(stage.started_at_utc),
-                    completed_at_utc=_format_timestamp(stage.completed_at_utc),
+                    started_at_utc=format_timestamp(stage.started_at_utc),
+                    completed_at_utc=format_timestamp(stage.completed_at_utc),
                     details=_load_json_object(
                         stage.details_json,
                         calculation_id=execution.calculation_id,
@@ -486,9 +468,9 @@ class ExecutionRegistry:
                 input_fingerprint=execution.input_fingerprint,
                 calculation_hash=execution.calculation_hash,
                 error_message=execution.error_message,
-                created_at_utc=_format_timestamp(execution.created_at_utc) or "",
-                started_at_utc=_format_timestamp(execution.started_at_utc),
-                completed_at_utc=_format_timestamp(execution.completed_at_utc),
+                created_at_utc=format_timestamp(execution.created_at_utc) or "",
+                started_at_utc=format_timestamp(execution.started_at_utc),
+                completed_at_utc=format_timestamp(execution.completed_at_utc),
                 stages=stage_records,
                 upstream_snapshots=self.list_upstream_snapshots(calculation_id),
             )
@@ -591,7 +573,7 @@ class ExecutionRegistry:
                         calculation_id=row.calculation_id,
                         payload_name=f"upstream snapshot {row.snapshot_id} paging metadata",
                     ),
-                    created_at_utc=_format_timestamp(row.created_at_utc) or "",
+                    created_at_utc=format_timestamp(row.created_at_utc) or "",
                 )
                 for row in rows
             ]
