@@ -50,6 +50,10 @@ def _privileged_read_authz_enabled() -> bool:
     return _env_enabled("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "false")
 
 
+def _write_authz_enabled() -> bool:
+    return _env_enabled("ENTERPRISE_ENFORCE_AUTHZ", "false")
+
+
 def _load_json_map(name: str) -> dict[str, Any]:
     raw = os.getenv(name, "{}")
     try:
@@ -83,7 +87,7 @@ def _enterprise_runtime_config_issues() -> list[str]:
     if rotation_days <= 0 or rotation_days > 90:
         issues.append("secret_rotation_days_out_of_range")
 
-    if _env_enabled("ENTERPRISE_ENFORCE_AUTHZ", "false") and not os.getenv("ENTERPRISE_PRIMARY_KEY_ID", "").strip():
+    if _write_authz_enabled() and not os.getenv("ENTERPRISE_PRIMARY_KEY_ID", "").strip():
         issues.append("missing_primary_key_id")
 
     return issues
@@ -301,7 +305,7 @@ def _authorize_with_required_capability(
 
 
 def authorize_write_request(method: str, path: str, headers: dict[str, str]) -> tuple[bool, str | None]:
-    if not _is_write_method(method) or not _env_enabled("ENTERPRISE_ENFORCE_AUTHZ", "false"):
+    if not _is_write_method(method) or not _write_authz_enabled():
         return True, None
 
     return _authorize_with_required_capability(
