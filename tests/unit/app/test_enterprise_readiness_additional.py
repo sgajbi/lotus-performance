@@ -56,6 +56,9 @@ from app.enterprise_readiness import (
     _RESPONSE_DETAIL_KEY,
     _RESPONSE_REASON_KEY,
     _ROLE_HEADER,
+    _RULE_RECOVERY_DRILL_RUN_WRITE,
+    _RULE_RUNTIME_RETENTION_CLEANUP_RUN_WRITE,
+    _RULE_RUNTIME_STATUS_READ,
     _SECRET_ROTATION_DAYS_OUT_OF_RANGE_ISSUE,
     _SERVICE_IDENTITY_HEADER,
     _TENANT_ID_HEADER,
@@ -266,21 +269,21 @@ def test_required_capability_returns_none_when_no_matching_rule(monkeypatch):
 
 def test_required_capability_matches_exact_or_child_paths_only():
     assert (
-        _required_capability("POST", "/integration/runtime-retention-cleanups/run")
+        _required_capability("POST", _RULE_RUNTIME_RETENTION_CLEANUP_RUN_WRITE.removeprefix("POST "))
         == _CAPABILITY_OPERATIONS_RUNTIME_MANAGE
     )
     assert (
-        _required_capability("POST", "/integration/runtime-retention-cleanups/run/details")
+        _required_capability("POST", f"{_RULE_RUNTIME_RETENTION_CLEANUP_RUN_WRITE.removeprefix('POST ')}/details")
         == _CAPABILITY_OPERATIONS_RUNTIME_MANAGE
     )
     assert _required_capability("POST", "/integration/runtime-retention-cleanups/run-extra") is None
 
 
 def test_required_capability_from_rules_is_shared_for_authz_rule_families():
-    rules = {"GET /integration/runtime-status": "operations.runtime.read"}
+    rules = {_RULE_RUNTIME_STATUS_READ: _CAPABILITY_OPERATIONS_RUNTIME_READ}
     assert (
         _required_capability_from_rules(method="get", path="/integration/runtime-status/details", rules=rules)
-        == "operations.runtime.read"
+        == _CAPABILITY_OPERATIONS_RUNTIME_READ
     )
     assert _required_capability_from_rules(method="POST", path="/integration/runtime-status", rules=rules) is None
 
@@ -714,12 +717,12 @@ def test_load_capability_rule_family_preserves_defaults_and_valid_overrides(monk
 
     rules = _load_capability_rule_family(
         env_name="ENTERPRISE_TEST_RULES_JSON",
-        defaults={"POST /integration/recovery-drills/run": _CAPABILITY_OPERATIONS_RUNTIME_MANAGE},
+        defaults={_RULE_RECOVERY_DRILL_RUN_WRITE: _CAPABILITY_OPERATIONS_RUNTIME_MANAGE},
     )
 
     assert rules == {
         "POST /analytics": "analytics.write",
-        "POST /integration/recovery-drills/run": _CAPABILITY_OPERATIONS_RUNTIME_MANAGE,
+        _RULE_RECOVERY_DRILL_RUN_WRITE: _CAPABILITY_OPERATIONS_RUNTIME_MANAGE,
     }
 
 
@@ -738,7 +741,7 @@ def test_capability_rule_loader_ignores_blank_and_non_string_overrides(monkeypat
 
     rules = load_capability_rules()
 
-    assert rules["POST /integration/runtime-retention-cleanups/run"] == _CAPABILITY_OPERATIONS_RUNTIME_MANAGE
+    assert rules[_RULE_RUNTIME_RETENTION_CLEANUP_RUN_WRITE] == _CAPABILITY_OPERATIONS_RUNTIME_MANAGE
     assert " " not in rules
     assert rules["POST /analytics"] == "analytics.write"
 
@@ -751,7 +754,7 @@ def test_privileged_read_rule_loader_ignores_blank_default_override(monkeypatch)
 
     rules = load_privileged_read_rules()
 
-    assert rules["GET /integration/runtime-status"] == _CAPABILITY_OPERATIONS_RUNTIME_READ
+    assert rules[_RULE_RUNTIME_STATUS_READ] == _CAPABILITY_OPERATIONS_RUNTIME_READ
     assert "GET /integration/custom-status" not in rules
 
 
