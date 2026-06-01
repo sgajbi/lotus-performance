@@ -231,6 +231,28 @@ def test_runtime_retention_history_normalizes_manifest_entry_strings(tmp_path):
     assert snapshot.entries[0].status == "applied"
 
 
+def test_runtime_retention_history_rejects_boolean_integer_metrics():
+    assert (
+        _validate_manifest_entry(
+            {
+                "evidence_file_name": "2026-03-15t00-00-00z.json",
+                "generated_at_utc": "2026-03-15T00:00:00Z",
+                "operator_id": "ops-user",
+                "trigger_mode": "scheduled",
+                "cleanup_mode": "apply",
+                "status": "applied",
+                "retention_days": True,
+                "prunable_execution_count": 1,
+                "prunable_compute_job_count": 1,
+                "prunable_async_result_count": 1,
+                "prunable_lineage_record_count": 1,
+                "prunable_lineage_artifact_count": 1,
+            }
+        )
+        is None
+    )
+
+
 def test_runtime_retention_history_applies_generated_before_and_offset_filters(tmp_path):
     artifact_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
     artifact_dir.mkdir(parents=True)

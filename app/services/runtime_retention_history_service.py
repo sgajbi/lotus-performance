@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from app.core.config import get_settings
+from app.services.operator_action_evidence_strings import required_evidence_int_fields_present
 from app.services.operator_action_history_filters import (
     build_applied_history_filters,
     filter_history_entries,
@@ -216,7 +217,7 @@ def _validate_manifest_entry(entry: Any) -> dict[str, str | int | None] | None:
     if not trigger_mode:
         return None
     job_id = entry_strings["job_id"]
-    if any(not isinstance(entry.get(key), int) for key in int_keys):
+    if not required_evidence_int_fields_present(entry, int_keys):
         return None
 
     validated_entry: dict[str, str | int | None] = {key: entry_strings[key] for key in str_keys}
