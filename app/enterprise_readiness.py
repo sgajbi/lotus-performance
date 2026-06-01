@@ -1,10 +1,10 @@
 import logging
-from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable
 
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
 
+from app import enterprise_audit_events as _audit_events
 from app import enterprise_audit_redaction as _audit_redaction
 from app import enterprise_capability_rules as _capability_rules
 from app import enterprise_feature_flags as _feature_flags
@@ -131,24 +131,29 @@ _RESPONSE_DETAIL_KEY = _payload_limits._RESPONSE_DETAIL_KEY
 _content_length = _payload_limits._content_length
 _payload_too_large_response = _payload_limits._payload_too_large_response
 _write_payload_too_large = _payload_limits._write_payload_too_large
+_AUDIT_ACCESS_MODE_PRIVILEGED_READ = _audit_events._AUDIT_ACCESS_MODE_PRIVILEGED_READ
+_AUDIT_ACCESS_MODE_WRITE = _audit_events._AUDIT_ACCESS_MODE_WRITE
+_AUDIT_METADATA_ACCESS_MODE_KEY = _audit_events._AUDIT_METADATA_ACCESS_MODE_KEY
+_AUDIT_METADATA_GOVERNED_SURFACE_KEY = _audit_events._AUDIT_METADATA_GOVERNED_SURFACE_KEY
+_AUDIT_METADATA_REQUIRED_CAPABILITY_KEY = _audit_events._AUDIT_METADATA_REQUIRED_CAPABILITY_KEY
+_AUDIT_METADATA_STATUS_CODE_KEY = _audit_events._AUDIT_METADATA_STATUS_CODE_KEY
+_AUDIT_PAYLOAD_ACTION_KEY = _audit_events._AUDIT_PAYLOAD_ACTION_KEY
+_AUDIT_PAYLOAD_METADATA_KEY = _audit_events._AUDIT_PAYLOAD_METADATA_KEY
+_AUDIT_PAYLOAD_POLICY_VERSION_KEY = _audit_events._AUDIT_PAYLOAD_POLICY_VERSION_KEY
+_AUDIT_PAYLOAD_SERVICE_KEY = _audit_events._AUDIT_PAYLOAD_SERVICE_KEY
+_AUDIT_PAYLOAD_TIMESTAMP_UTC_KEY = _audit_events._AUDIT_PAYLOAD_TIMESTAMP_UTC_KEY
+_ENTERPRISE_AUDIT_EVENT_NAME = _audit_events._ENTERPRISE_AUDIT_EVENT_NAME
+_ENTERPRISE_AUDIT_EXTRA_KEY = _audit_events._ENTERPRISE_AUDIT_EXTRA_KEY
+_ENTERPRISE_POLICY_VERSION_HEADER = _audit_events._ENTERPRISE_POLICY_VERSION_HEADER
+_SERVICE_NAME = _audit_events._SERVICE_NAME
+_apply_enterprise_policy_header = _audit_events._apply_enterprise_policy_header
+_audit_correlation_id = _audit_events._audit_correlation_id
+_audit_event_payload = _audit_events._audit_event_payload
+_audit_metadata = _audit_events._audit_metadata
+_audit_timestamp_utc = _audit_events._audit_timestamp_utc
 
 logger = logging.getLogger("enterprise_readiness")
 
-_SERVICE_NAME = "lotus-performance"
-_ENTERPRISE_AUDIT_EVENT_NAME = "enterprise_audit_event"
-_ENTERPRISE_AUDIT_EXTRA_KEY = "audit"
-_ENTERPRISE_POLICY_VERSION_HEADER = "X-Enterprise-Policy-Version"
-_AUDIT_PAYLOAD_SERVICE_KEY = "service"
-_AUDIT_PAYLOAD_ACTION_KEY = "action"
-_AUDIT_PAYLOAD_TIMESTAMP_UTC_KEY = "timestamp_utc"
-_AUDIT_PAYLOAD_POLICY_VERSION_KEY = "policy_version"
-_AUDIT_PAYLOAD_METADATA_KEY = "metadata"
-_AUDIT_METADATA_STATUS_CODE_KEY = "status_code"
-_AUDIT_METADATA_ACCESS_MODE_KEY = "access_mode"
-_AUDIT_METADATA_REQUIRED_CAPABILITY_KEY = "required_capability"
-_AUDIT_METADATA_GOVERNED_SURFACE_KEY = "governed_surface"
-_AUDIT_ACCESS_MODE_WRITE = "write"
-_AUDIT_ACCESS_MODE_PRIVILEGED_READ = "privileged_read"
 _RESPONSE_REASON_KEY = "reason"
 _AUTHORIZATION_POLICY_DENIED_DETAIL = "authorization_policy_denied"
 _HTTP_STATUS_FORBIDDEN = 403
@@ -300,45 +305,6 @@ def _authorize_enterprise_request(*, method: str, path: str, headers: dict[str, 
     if not authorized:
         return authorized, reason
     return authorize_privileged_read_request(method, path, headers)
-
-
-def _audit_event_payload(
-    *,
-    action: str,
-    actor_id: str,
-    tenant_id: str,
-    role: str,
-    correlation_id: str | None,
-    metadata: dict[str, Any],
-) -> dict[str, Any]:
-    return {
-        _AUDIT_PAYLOAD_SERVICE_KEY: _SERVICE_NAME,
-        _AUDIT_PAYLOAD_ACTION_KEY: action,
-        _AUDIT_PAYLOAD_ACTOR_ID_KEY: actor_id,
-        _AUDIT_PAYLOAD_TENANT_ID_KEY: tenant_id,
-        _AUDIT_PAYLOAD_ROLE_KEY: role,
-        _AUDIT_PAYLOAD_CORRELATION_ID_KEY: _audit_correlation_id(correlation_id),
-        _AUDIT_PAYLOAD_TIMESTAMP_UTC_KEY: _audit_timestamp_utc(),
-        _AUDIT_PAYLOAD_POLICY_VERSION_KEY: enterprise_policy_version(),
-        _AUDIT_PAYLOAD_METADATA_KEY: _audit_metadata(metadata),
-    }
-
-
-def _audit_metadata(metadata: dict[str, Any]) -> Any:
-    return redact_sensitive(metadata)
-
-
-def _audit_correlation_id(correlation_id: str | None) -> str:
-    return correlation_id or _EMPTY_AUDIT_CORRELATION_ID
-
-
-def _audit_timestamp_utc() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
-def _apply_enterprise_policy_header(response: Response) -> Response:
-    response.headers[_ENTERPRISE_POLICY_VERSION_HEADER] = enterprise_policy_version()
-    return response
 
 
 def emit_audit_event(

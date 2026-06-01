@@ -5,6 +5,7 @@ import pytest
 from fastapi import Response
 
 from app import (
+    enterprise_audit_events,
     enterprise_audit_redaction,
     enterprise_capability_rules,
     enterprise_feature_flags,
@@ -238,6 +239,11 @@ def test_enterprise_readiness_reexports_audit_redaction_boundary():
 def test_enterprise_readiness_reexports_payload_limits_boundary():
     assert _write_payload_too_large is enterprise_payload_limits._write_payload_too_large
     assert _payload_too_large_response is enterprise_payload_limits._payload_too_large_response
+
+
+def test_enterprise_readiness_reexports_audit_events_boundary():
+    assert _audit_event_payload is enterprise_audit_events._audit_event_payload
+    assert _apply_enterprise_policy_header is enterprise_audit_events._apply_enterprise_policy_header
 
 
 def test_load_json_map_fails_closed_for_missing_invalid_or_non_object_json(monkeypatch):
