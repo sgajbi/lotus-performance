@@ -26,16 +26,10 @@ from app.services.durable_store_json import load_json_object_or_none
 from app.services.durable_store_pagination import next_offset_or_none, recovery_cursor_or_none
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
 from app.services.durable_store_time import (
-    elapsed_seconds_since as _elapsed_seconds_since,
-)
-from app.services.durable_store_time import (
-    elapsed_seconds_since_or_zero as _elapsed_seconds_since_or_zero,
-)
-from app.services.durable_store_time import (
-    format_timestamp as _format_timestamp,
-)
-from app.services.durable_store_time import (
-    normalize_filter_datetime as _normalize_filter_datetime,
+    elapsed_seconds_since,
+    elapsed_seconds_since_or_zero,
+    format_timestamp,
+    normalize_filter_datetime,
 )
 
 logger = logging.getLogger(__name__)
@@ -234,7 +228,7 @@ class ComputeJobStore:
 
     def prune_terminal_jobs_older_than(self, older_than: datetime, *, dry_run: bool = False) -> int:
         with self._session() as session:
-            cutoff = _normalize_filter_datetime(
+            cutoff = normalize_filter_datetime(
                 older_than,
                 dialect_name=session.bind.dialect.name if session.bind is not None else "",
             )
@@ -552,12 +546,12 @@ class ComputeJobStore:
                 retry_backlog_count=int(aggregate_row.retry_backlog_count or 0),
                 lease_expired_count=int(aggregate_row.lease_expired_count or 0),
                 terminal_failure_count=int(aggregate_row.terminal_failure_count or 0),
-                oldest_pending_age_seconds=_elapsed_seconds_since_or_zero(
+                oldest_pending_age_seconds=elapsed_seconds_since_or_zero(
                     stats_now,
                     aggregate_row.oldest_pending_created_at,
                 ),
-                oldest_leased_age_seconds=_elapsed_seconds_since_or_zero(stats_now, aggregate_row.oldest_leased_at),
-                oldest_running_age_seconds=_elapsed_seconds_since_or_zero(stats_now, aggregate_row.oldest_running_at),
+                oldest_leased_age_seconds=elapsed_seconds_since_or_zero(stats_now, aggregate_row.oldest_leased_at),
+                oldest_running_age_seconds=elapsed_seconds_since_or_zero(stats_now, aggregate_row.oldest_running_at),
                 reclaimable_count=int(aggregate_row.reclaimable_count or 0),
             )
 
@@ -586,9 +580,9 @@ class ComputeJobStore:
     ) -> ComputeRecoveryEventPage:
         with self._session() as session:
             dialect_name = session.bind.dialect.name if session.bind is not None else ""
-            normalized_recovered_after = _normalize_filter_datetime(recovered_after, dialect_name=dialect_name)
-            normalized_recovered_before = _normalize_filter_datetime(recovered_before, dialect_name=dialect_name)
-            normalized_cursor_recovered_before = _normalize_filter_datetime(
+            normalized_recovered_after = normalize_filter_datetime(recovered_after, dialect_name=dialect_name)
+            normalized_recovered_before = normalize_filter_datetime(recovered_before, dialect_name=dialect_name)
+            normalized_cursor_recovered_before = normalize_filter_datetime(
                 cursor_recovered_before,
                 dialect_name=dialect_name,
             )
@@ -1135,12 +1129,12 @@ class ComputeJobStore:
             attempt_count=row.attempt_count,
             max_attempts=row.max_attempts,
             worker_id=row.worker_id,
-            leased_at_utc=_format_timestamp(row.leased_at_utc),
-            lease_expires_at_utc=_format_timestamp(row.lease_expires_at_utc),
-            last_error_at_utc=_format_timestamp(row.last_error_at_utc),
-            created_at_utc=_format_timestamp(row.created_at_utc) or "",
-            started_at_utc=_format_timestamp(row.started_at_utc),
-            completed_at_utc=_format_timestamp(row.completed_at_utc),
+            leased_at_utc=format_timestamp(row.leased_at_utc),
+            lease_expires_at_utc=format_timestamp(row.lease_expires_at_utc),
+            last_error_at_utc=format_timestamp(row.last_error_at_utc),
+            created_at_utc=format_timestamp(row.created_at_utc) or "",
+            started_at_utc=format_timestamp(row.started_at_utc),
+            completed_at_utc=format_timestamp(row.completed_at_utc),
         )
 
     def _to_inspection_item(self, row: ComputeJobModel, *, now: datetime) -> ComputeQueueInspectionItem:
@@ -1148,13 +1142,13 @@ class ComputeJobStore:
 
         age_seconds = None
         if active_since is not None:
-            age_seconds = _elapsed_seconds_since(now, active_since)
+            age_seconds = elapsed_seconds_since(now, active_since)
 
         return ComputeQueueInspectionItem(
             calculation_id=row.calculation_id,
             analytics_type=row.analytics_type,
             status=row.job_status,
-            active_since_utc=_format_timestamp(active_since),
+            active_since_utc=format_timestamp(active_since),
             age_seconds=age_seconds,
             attempt_count=row.attempt_count,
             max_attempts=row.max_attempts,
@@ -1173,7 +1167,7 @@ class ComputeJobStore:
         return row.created_at_utc
 
     def _to_recovery_event(self, row: ComputeJobModel) -> ComputeRecoveryEvent | None:
-        recovered_at_utc = _format_timestamp(row.last_error_at_utc)
+        recovered_at_utc = format_timestamp(row.last_error_at_utc)
         if recovered_at_utc is None:
             return None
         recovery_kind = "stale_lease_recovered" if row.error_type == "LeaseExpired" else "retryable_failure"
