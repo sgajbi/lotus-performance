@@ -114,6 +114,7 @@ from app.enterprise_readiness import (
     _primary_key_configured,
     _privileged_read_authz_enabled,
     _redacted_mapping_value,
+    _redacted_sequence,
     _request_action,
     _required_capability,
     _required_capability_from_rules,
@@ -456,6 +457,13 @@ def test_redacted_mapping_value_masks_sensitive_fields_and_recurses_safe_values(
     assert _redacted_mapping_value(field="safe", value={"authorization": "Bearer secret"}) == {
         "authorization": _REDACTED_VALUE
     }
+
+
+def test_redacted_sequence_recurses_sensitive_items():
+    assert _redacted_sequence([{"token": "secret"}, "safe"]) == [
+        {"token": _REDACTED_VALUE},
+        "safe",
+    ]
 
 
 def test_audit_timestamp_utc_uses_timezone_aware_iso_timestamp():

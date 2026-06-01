@@ -528,6 +528,10 @@ def _redacted_mapping_value(*, field: Any, value: Any) -> Any:
     return _REDACTED_VALUE if _should_redact_field(field) else redact_sensitive(value)
 
 
+def _redacted_sequence(values: list[Any]) -> list[Any]:
+    return [redact_sensitive(item) for item in values]
+
+
 def redact_sensitive(value: Any) -> Any:
     if isinstance(value, dict):
         output: dict[str, Any] = {}
@@ -535,7 +539,7 @@ def redact_sensitive(value: Any) -> Any:
             output[key] = _redacted_mapping_value(field=key, value=item)
         return output
     if isinstance(value, list):
-        return [redact_sensitive(item) for item in value]
+        return _redacted_sequence(value)
     return value
 
 
