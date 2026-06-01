@@ -91,6 +91,56 @@ def test_operator_action_lease_cleans_up_lock_file(tmp_path):
     assert not (artifact_dir / ".action-locks" / f"{action_key}.lock").exists()
 
 
+def test_operator_action_lease_normalizes_written_metadata(tmp_path):
+    artifact_dir = tmp_path / "artifacts"
+    metadata = OperatorActionLeaseMetadata(
+        action_name=" recovery_drill ",
+        operator_id=" ops-user ",
+        tenant_id=" ",
+        governed_target=" backup-123 ",
+        acquired_at_utc=" 2026-03-15T00:00:00Z ",
+    )
+
+    with operator_action_lease(
+        artifact_directory=artifact_dir,
+        action_key=" recovery-drill-ops-user-backup-123 ",
+        metadata=metadata,
+        stale_after_seconds=3600.0,
+    ):
+        lock_path = artifact_dir / ".action-locks" / "recovery-drill-ops-user-backup-123.lock"
+        payload = json.loads(lock_path.read_text(encoding="utf-8"))
+
+    assert payload == {
+        "action_name": "recovery_drill",
+        "operator_id": "ops-user",
+        "tenant_id": None,
+        "governed_target": "backup-123",
+        "acquired_at_utc": "2026-03-15T00:00:00Z",
+    }
+
+
+def test_operator_action_lease_rejects_blank_metadata_before_writing(tmp_path):
+    artifact_dir = tmp_path / "artifacts"
+    metadata = OperatorActionLeaseMetadata(
+        action_name="recovery_drill",
+        operator_id=" ",
+        tenant_id=None,
+        governed_target="backup-123",
+        acquired_at_utc="2026-03-15T00:00:00Z",
+    )
+
+    with pytest.raises(ValueError, match="operator_id must not be blank"):
+        with operator_action_lease(
+            artifact_directory=artifact_dir,
+            action_key="recovery-drill-ops-user-backup-123",
+            metadata=metadata,
+            stale_after_seconds=3600.0,
+        ):
+            pass
+
+    assert not (artifact_dir / ".action-locks").exists()
+
+
 def test_operator_action_lease_reclaims_stale_lock(tmp_path):
     artifact_dir = tmp_path / "artifacts"
     action_key = build_recovery_drill_action_key(
