@@ -355,19 +355,19 @@ def test_audit_identity_from_headers_normalizes_case_and_defaults():
     )
 
     assert identity == {
-        "actor_id": "actor-1",
-        "tenant_id": _DEFAULT_TENANT_ID,
-        "role": "operator",
-        "correlation_id": "corr-1",
+        _AUDIT_PAYLOAD_ACTOR_ID_KEY: "actor-1",
+        _AUDIT_PAYLOAD_TENANT_ID_KEY: _DEFAULT_TENANT_ID,
+        _AUDIT_PAYLOAD_ROLE_KEY: "operator",
+        _AUDIT_PAYLOAD_CORRELATION_ID_KEY: "corr-1",
     }
 
 
 def test_audit_identity_from_headers_uses_governed_missing_value_fallbacks():
     assert _audit_identity_from_headers({}) == {
-        "actor_id": _UNKNOWN_ACTOR_ID,
-        "tenant_id": _DEFAULT_TENANT_ID,
-        "role": _UNKNOWN_ROLE,
-        "correlation_id": "",
+        _AUDIT_PAYLOAD_ACTOR_ID_KEY: _UNKNOWN_ACTOR_ID,
+        _AUDIT_PAYLOAD_TENANT_ID_KEY: _DEFAULT_TENANT_ID,
+        _AUDIT_PAYLOAD_ROLE_KEY: _UNKNOWN_ROLE,
+        _AUDIT_PAYLOAD_CORRELATION_ID_KEY: "",
     }
 
 
