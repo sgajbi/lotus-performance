@@ -111,18 +111,25 @@ def _path_matches_rule(path: str, rule_path: str) -> bool:
     return path == normalized_rule_path or path.startswith(f"{normalized_rule_path}/")
 
 
-def load_capability_rules() -> dict[str, str]:
-    rules = dict(_DEFAULT_CAPABILITY_RULES)
-    configured = _load_json_map("ENTERPRISE_CAPABILITY_RULES_JSON")
+def _load_capability_rule_family(*, env_name: str, defaults: dict[str, str]) -> dict[str, str]:
+    rules = dict(defaults)
+    configured = _load_json_map(env_name)
     rules.update(_normalized_capability_rule_overrides(configured))
     return rules
+
+
+def load_capability_rules() -> dict[str, str]:
+    return _load_capability_rule_family(
+        env_name="ENTERPRISE_CAPABILITY_RULES_JSON",
+        defaults=_DEFAULT_CAPABILITY_RULES,
+    )
 
 
 def load_privileged_read_rules() -> dict[str, str]:
-    rules = dict(_DEFAULT_PRIVILEGED_READ_RULES)
-    configured = _load_json_map("ENTERPRISE_PRIVILEGED_READ_RULES_JSON")
-    rules.update(_normalized_capability_rule_overrides(configured))
-    return rules
+    return _load_capability_rule_family(
+        env_name="ENTERPRISE_PRIVILEGED_READ_RULES_JSON",
+        defaults=_DEFAULT_PRIVILEGED_READ_RULES,
+    )
 
 
 def is_feature_enabled(feature_key: str, tenant_id: str, role: str) -> bool:

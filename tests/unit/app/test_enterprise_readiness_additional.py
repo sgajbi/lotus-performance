@@ -3,6 +3,7 @@ import json
 import pytest
 
 from app.enterprise_readiness import (
+    _load_capability_rule_family,
     _required_capability,
     _required_capability_from_rules,
     authorize_privileged_read_request,
@@ -74,6 +75,23 @@ def test_load_privileged_read_rules_merges_defaults_and_env(monkeypatch):
     rules = load_privileged_read_rules()
     assert rules["GET /integration/runtime-status"] == "operations.runtime.read"
     assert rules["GET /integration/custom-status"] == "operations.custom.read"
+
+
+def test_load_capability_rule_family_preserves_defaults_and_valid_overrides(monkeypatch):
+    monkeypatch.setenv(
+        "ENTERPRISE_TEST_RULES_JSON",
+        json.dumps({" POST /analytics ": " analytics.write ", "GET /ignored": False}),
+    )
+
+    rules = _load_capability_rule_family(
+        env_name="ENTERPRISE_TEST_RULES_JSON",
+        defaults={"POST /integration/recovery-drills/run": "operations.runtime.manage"},
+    )
+
+    assert rules == {
+        "POST /analytics": "analytics.write",
+        "POST /integration/recovery-drills/run": "operations.runtime.manage",
+    }
 
 
 def test_capability_rule_loader_ignores_blank_and_non_string_overrides(monkeypatch):
