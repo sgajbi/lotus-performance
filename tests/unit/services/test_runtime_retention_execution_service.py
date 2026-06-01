@@ -46,7 +46,9 @@ def test_execute_runtime_retention_cleanup_persists_scheduled_evidence(tmp_path,
 
     evidence = execute_runtime_retention_cleanup(
         apply=False,
-        operator_id="runtime-retention-automation",
+        operator_id=" runtime-retention-automation ",
+        tenant_id=" ",
+        correlation_id=" corr-1 ",
         trigger_mode=" scheduled ",
         job_id=" retention-nightly ",
     )
@@ -56,7 +58,12 @@ def test_execute_runtime_retention_cleanup_persists_scheduled_evidence(tmp_path,
     assert evidence.trigger_mode == "scheduled"
     assert evidence.job_id == "retention-nightly"
     assert evidence.cleanup_mode == "dry_run"
+    assert evidence.operator_id == "runtime-retention-automation"
+    assert evidence.tenant_id is None
+    assert evidence.correlation_id == "corr-1"
     assert latest["operator_id"] == "runtime-retention-automation"
+    assert latest["tenant_id"] is None
+    assert latest["correlation_id"] == "corr-1"
     assert latest["trigger_mode"] == "scheduled"
     assert latest["job_id"] == "retention-nightly"
 
@@ -92,6 +99,44 @@ def test_execute_runtime_retention_cleanup_rejects_blank_trigger_mode(tmp_path, 
             apply=False,
             operator_id="runtime-retention-automation",
             trigger_mode=" ",
+            job_id="retention-nightly",
+        )
+
+    assert not cleanup_called
+    assert not output_dir.exists()
+
+
+def test_execute_runtime_retention_cleanup_rejects_blank_operator_id(tmp_path, monkeypatch):
+    output_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
+    cleanup_called = False
+    monkeypatch.setattr(
+        "app.services.runtime_retention_execution_service.get_settings",
+        lambda: type(
+            "Settings",
+            (),
+            {
+                "RUNTIME_RETENTION_ARTIFACT_PATH": output_dir,
+                "RUNTIME_RETENTION_HISTORY_LIMIT": 30,
+                "RUNTIME_RETENTION_HISTORY_MAX_AGE_DAYS": 90,
+            },
+        )(),
+    )
+
+    def _run_runtime_retention_cleanup(retention_days, dry_run):
+        nonlocal cleanup_called
+        cleanup_called = True
+        raise AssertionError("cleanup should not run for invalid evidence identity")
+
+    monkeypatch.setattr(
+        "app.services.runtime_retention_execution_service.run_runtime_retention_cleanup",
+        _run_runtime_retention_cleanup,
+    )
+
+    with pytest.raises(ValueError, match="operator_id must not be blank"):
+        execute_runtime_retention_cleanup(
+            apply=False,
+            operator_id=" ",
+            trigger_mode="manual",
             job_id="retention-nightly",
         )
 

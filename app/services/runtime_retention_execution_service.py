@@ -82,6 +82,9 @@ def execute_runtime_retention_cleanup(
     retention_max_age_days: int | None = None,
 ) -> RuntimeRetentionCleanupEvidence:
     settings = get_settings()
+    normalized_operator_id = _normalize_required_evidence_identifier(operator_id, field_name="operator_id")
+    normalized_tenant_id = _normalize_optional_evidence_identifier(tenant_id)
+    normalized_correlation_id = _normalize_optional_evidence_identifier(correlation_id)
     normalized_trigger_mode = _normalize_required_evidence_identifier(trigger_mode, field_name="trigger_mode")
     normalized_job_id = _normalize_optional_evidence_identifier(job_id)
     summary = run_runtime_retention_cleanup(
@@ -93,9 +96,9 @@ def execute_runtime_retention_cleanup(
         cleanup_name="runtime_retention_cleanup",
         generated_at_utc=generated_at_utc,
         evidence_file_name=_build_evidence_file_name(generated_at_utc),
-        operator_id=operator_id,
-        tenant_id=tenant_id,
-        correlation_id=correlation_id,
+        operator_id=normalized_operator_id,
+        tenant_id=normalized_tenant_id,
+        correlation_id=normalized_correlation_id,
         trigger_mode=normalized_trigger_mode,
         job_id=normalized_job_id,
         cleanup_mode="apply" if apply else "dry_run",
