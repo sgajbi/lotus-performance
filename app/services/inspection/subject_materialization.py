@@ -16,6 +16,7 @@ from app.models.responses import PerformanceResponse
 from app.models.twr_requests import TWRAnalyticsRequest, TWRResolvedExecutionRequest
 from app.services.async_result_store import async_result_store
 from app.services.compute_job_store import compute_job_store
+from app.services.durable_store_json import load_json_object_or_none
 from app.services.lineage_metadata_store import lineage_metadata_store
 
 logger = logging.getLogger(__name__)
@@ -134,20 +135,11 @@ def _load_request_payload(calculation_id: UUID, *, wait_seconds: float = 0.0) ->
 
 
 def _load_json_object(raw_payload: str, *, calculation_id: UUID, payload_name: str) -> dict[str, Any] | None:
-    try:
-        payload = json.loads(raw_payload)
-    except json.JSONDecodeError:
-        logger.warning(
-            "Skipping invalid %s JSON while materializing TWR inspection subject for calculation_id=%s.",
-            payload_name,
-            calculation_id,
-        )
-        return None
-    if not isinstance(payload, dict):
-        logger.warning(
-            "Skipping non-object %s JSON while materializing TWR inspection subject for calculation_id=%s.",
-            payload_name,
-            calculation_id,
-        )
-        return None
-    return payload
+    return load_json_object_or_none(
+        raw_payload,
+        logger=logger,
+        payload_name=f"TWR inspection subject {payload_name} payload",
+        identity_name="calculation_id",
+        identity_value=str(calculation_id),
+        empty_is_absent=False,
+    )
