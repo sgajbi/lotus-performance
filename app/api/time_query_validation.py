@@ -27,11 +27,6 @@ def validate_utc_query_timestamp_window(
     return generated_after, generated_before
 
 
-def validate_optional_utc_query_timestamp(value: str | None, *, field_name: str) -> str | None:
-    _parse_optional_utc_query_timestamp(value, field_name=field_name)
-    return value
-
-
 def _parse_optional_utc_query_timestamp(value: str | None, *, field_name: str) -> datetime | None:
     if value is None:
         return None
