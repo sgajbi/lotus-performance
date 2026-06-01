@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from app.services import operator_action_evidence_strings as _evidence_strings
 from app.services.operator_action_evidence_paths import resolve_evidence_file_path
 from app.services.operator_action_identity import (
     operator_action_correlation_matches,
@@ -19,6 +20,9 @@ from app.services.runtime_retention_history_service import (
 )
 
 logger = logging.getLogger(__name__)
+
+_is_required_replay_string = _evidence_strings.is_required_evidence_string
+_is_optional_replay_string = _evidence_strings.is_optional_evidence_string
 
 
 @dataclass(frozen=True)
@@ -211,11 +215,11 @@ def _recovery_drill_payload_matches_entry(
 
 
 def _required_str_fields_present(payload: dict[str, Any], keys: tuple[str, ...]) -> bool:
-    return all(isinstance(payload.get(key), str) and payload[key].strip() for key in keys)
+    return all(_is_required_replay_string(payload.get(key)) for key in keys)
 
 
 def _optional_str_fields_valid(payload: dict[str, Any], keys: tuple[str, ...]) -> bool:
-    return all(payload.get(key) is None or isinstance(payload.get(key), str) for key in keys)
+    return all(_is_optional_replay_string(payload.get(key)) for key in keys)
 
 
 def _required_int_fields_present(payload: dict[str, Any], keys: tuple[str, ...]) -> bool:
