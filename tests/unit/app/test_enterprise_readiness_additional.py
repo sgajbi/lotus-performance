@@ -32,6 +32,7 @@ from app.enterprise_readiness import (
     _DEFAULT_TENANT_ID,
     _DIAGNOSTIC_LIST_SEPARATOR,
     _EMPTY_AUDIT_CORRELATION_ID,
+    _EMPTY_ENV_VALUE,
     _EMPTY_JSON_OBJECT,
     _ENTERPRISE_AUDIT_EVENT_NAME,
     _ENTERPRISE_AUDIT_EXTRA_KEY,
@@ -274,11 +275,15 @@ def test_runtime_config_enforcement_enabled_uses_governed_env_switch(monkeypatch
         ("primary-key-1", True),
         (" primary-key-1 ", True),
         (" ", False),
-        ("", False),
+        (_EMPTY_ENV_VALUE, False),
+        (None, False),
     ],
 )
 def test_primary_key_configured_requires_non_blank_value(monkeypatch, configured, expected):
-    monkeypatch.setenv(_ENV_ENTERPRISE_PRIMARY_KEY_ID, configured)
+    if configured is None:
+        monkeypatch.delenv(_ENV_ENTERPRISE_PRIMARY_KEY_ID, raising=False)
+    else:
+        monkeypatch.setenv(_ENV_ENTERPRISE_PRIMARY_KEY_ID, configured)
 
     assert _primary_key_configured() is expected
 

@@ -70,6 +70,7 @@ _ENV_ENTERPRISE_CAPABILITY_RULES_JSON = "ENTERPRISE_CAPABILITY_RULES_JSON"
 _ENV_ENTERPRISE_PRIVILEGED_READ_RULES_JSON = "ENTERPRISE_PRIVILEGED_READ_RULES_JSON"
 _ENV_SWITCH_DISABLED_DEFAULT = "false"
 _ENV_ENABLED_VALUES = frozenset({"1", "true", "yes", "on"})
+_EMPTY_ENV_VALUE = ""
 _EMPTY_JSON_OBJECT = "{}"
 _DEFAULT_MAX_WRITE_PAYLOAD_BYTES = 1_048_576
 _DEFAULT_SECRET_ROTATION_DAYS = 90
@@ -160,7 +161,7 @@ def _runtime_config_enforcement_enabled() -> bool:
 
 
 def _primary_key_configured() -> bool:
-    return bool(os.getenv(_ENV_ENTERPRISE_PRIMARY_KEY_ID, "").strip())
+    return bool(os.getenv(_ENV_ENTERPRISE_PRIMARY_KEY_ID, _EMPTY_ENV_VALUE).strip())
 
 
 def _max_write_payload_bytes() -> int:
