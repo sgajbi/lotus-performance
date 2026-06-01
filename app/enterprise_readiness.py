@@ -30,8 +30,12 @@ _REDACTED_VALUE = "***REDACTED***"
 _CAPABILITIES_HEADER = "x-capabilities"
 _SERVICE_IDENTITY_HEADER = "x-service-identity"
 _AUTHORIZATION_HEADER = "authorization"
+_ACTOR_ID_HEADER = "x-actor-id"
+_TENANT_ID_HEADER = "x-tenant-id"
+_ROLE_HEADER = "x-role"
+_CORRELATION_ID_HEADER = "x-correlation-id"
 _WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
-_REQUIRED_HEADERS = {"x-actor-id", "x-tenant-id", "x-role", "x-correlation-id"}
+_REQUIRED_HEADERS = {_ACTOR_ID_HEADER, _TENANT_ID_HEADER, _ROLE_HEADER, _CORRELATION_ID_HEADER}
 _DEFAULT_CAPABILITY_RULES = {
     "POST /integration/runtime-retention-cleanups/run": "operations.runtime.manage",
     "POST /integration/recovery-drills/run": "operations.runtime.manage",
@@ -246,10 +250,10 @@ def _has_service_identity(normalized_headers: Mapping[str, str]) -> bool:
 def _audit_identity_from_headers(headers: Mapping[str, Any]) -> dict[str, str]:
     normalized = _normalized_headers(headers)
     return {
-        "actor_id": normalized.get("x-actor-id") or "unknown",
-        "tenant_id": normalized.get("x-tenant-id") or "default",
-        "role": normalized.get("x-role") or "unknown",
-        "correlation_id": normalized.get("x-correlation-id", ""),
+        "actor_id": normalized.get(_ACTOR_ID_HEADER) or "unknown",
+        "tenant_id": normalized.get(_TENANT_ID_HEADER) or "default",
+        "role": normalized.get(_ROLE_HEADER) or "unknown",
+        "correlation_id": normalized.get(_CORRELATION_ID_HEADER, ""),
     }
 
 

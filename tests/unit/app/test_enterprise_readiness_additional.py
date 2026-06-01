@@ -5,6 +5,7 @@ import pytest
 from fastapi import Response
 
 from app.enterprise_readiness import (
+    _ACTOR_ID_HEADER,
     _AUDIT_PAYLOAD_ACTION_KEY,
     _AUDIT_PAYLOAD_ACTOR_ID_KEY,
     _AUDIT_PAYLOAD_CORRELATION_ID_KEY,
@@ -17,6 +18,7 @@ from app.enterprise_readiness import (
     _AUTHORIZATION_HEADER,
     _AUTHORIZATION_POLICY_DENIED_DETAIL,
     _CAPABILITIES_HEADER,
+    _CORRELATION_ID_HEADER,
     _ENTERPRISE_AUDIT_EVENT_NAME,
     _ENTERPRISE_AUDIT_EXTRA_KEY,
     _ENTERPRISE_POLICY_VERSION_HEADER,
@@ -24,7 +26,9 @@ from app.enterprise_readiness import (
     _REDACTED_VALUE,
     _RESPONSE_DETAIL_KEY,
     _RESPONSE_REASON_KEY,
+    _ROLE_HEADER,
     _SERVICE_IDENTITY_HEADER,
+    _TENANT_ID_HEADER,
     _allowed_audit_metadata,
     _apply_enterprise_policy_header,
     _audit_correlation_id,
@@ -228,7 +232,7 @@ def test_missing_required_headers_reports_sorted_blank_or_missing_fields():
         }
     )
 
-    assert _missing_required_headers(normalized) == ["x-actor-id", "x-role"]
+    assert _missing_required_headers(normalized) == [_ACTOR_ID_HEADER, _ROLE_HEADER]
 
 
 @pytest.mark.parametrize(
@@ -340,10 +344,10 @@ def test_apply_enterprise_policy_header_sets_normalized_policy_version(monkeypat
 def test_audit_identity_from_headers_normalizes_case_and_defaults():
     identity = _audit_identity_from_headers(
         {
-            "X-Actor-Id": " actor-1 ",
-            "X-Tenant-Id": " ",
-            "X-Role": " operator ",
-            "X-Correlation-Id": " corr-1 ",
+            _ACTOR_ID_HEADER: " actor-1 ",
+            _TENANT_ID_HEADER: " ",
+            _ROLE_HEADER: " operator ",
+            _CORRELATION_ID_HEADER: " corr-1 ",
         }
     )
 
