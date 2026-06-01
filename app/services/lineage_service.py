@@ -12,6 +12,7 @@ import pandas as pd
 from pydantic import BaseModel
 
 from app.core.config import get_settings
+from app.services.durable_store_time import format_timestamp
 from app.services.execution_registry import ExecutionRegistry, execution_registry
 from app.services.lineage_metadata_store import LineageMetadataStore, lineage_metadata_store
 
@@ -98,7 +99,7 @@ class LineageService:
                 json.dumps(
                     {
                         "calculation_type": calculation_type,
-                        "timestamp_utc": self._format_utc_timestamp(completion_timestamp),
+                        "timestamp_utc": format_timestamp(completion_timestamp) or "",
                         "status": "complete",
                         "artifact_names": sorted(artifact_names),
                     },
@@ -174,11 +175,6 @@ class LineageService:
         ):
             raise ValueError(f"Unsafe lineage artifact filename: {filename}")
         return candidate
-
-    @staticmethod
-    def _format_utc_timestamp(value: datetime) -> str:
-        normalized = value.astimezone(timezone.utc)
-        return normalized.isoformat().replace("+00:00", "Z")
 
     def create_pending_record(self, calculation_id: UUID, calculation_type: str) -> None:
         self._metadata_store.create_pending_record(calculation_id=calculation_id, calculation_type=calculation_type)
