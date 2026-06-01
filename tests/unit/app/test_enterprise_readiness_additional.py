@@ -89,6 +89,7 @@ from app.enterprise_readiness import (
     _missing_headers_reason,
     _missing_required_headers,
     _normalized_headers,
+    _parse_int_or_default,
     _payload_too_large_response,
     _primary_key_configured,
     _privileged_read_authz_enabled,
@@ -165,6 +166,18 @@ def test_load_json_map_fails_closed_for_missing_invalid_or_non_object_json(monke
 
     monkeypatch.setenv(env_name, '{"policy": true}')
     assert _load_json_map(env_name) == {"policy": True}
+
+
+@pytest.mark.parametrize(
+    ("configured", "default", "expected"),
+    [
+        ("42", 0, 42),
+        ("invalid", 7, 7),
+        (None, 9, 9),
+    ],
+)
+def test_parse_int_or_default_uses_valid_integer_or_fallback(configured, default, expected):
+    assert _parse_int_or_default(configured, default) == expected
 
 
 @pytest.mark.parametrize(

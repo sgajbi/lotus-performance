@@ -135,9 +135,13 @@ def _load_json_map(name: str) -> dict[str, Any]:
 
 
 def _env_int(name: str, default: int) -> int:
+    return _parse_int_or_default(os.getenv(name, str(default)), default)
+
+
+def _parse_int_or_default(value: Any, default: int) -> int:
     try:
-        return int(os.getenv(name, str(default)))
-    except ValueError:
+        return int(value)
+    except (TypeError, ValueError):
         return default
 
 
@@ -359,10 +363,7 @@ def _emit_allowed_audit_event(
 
 
 def _content_length(headers: Mapping[str, Any]) -> int:
-    try:
-        return int(headers.get(_CONTENT_LENGTH_HEADER, _MISSING_CONTENT_LENGTH))
-    except (TypeError, ValueError):
-        return 0
+    return _parse_int_or_default(headers.get(_CONTENT_LENGTH_HEADER, _MISSING_CONTENT_LENGTH), 0)
 
 
 def _write_payload_too_large(
