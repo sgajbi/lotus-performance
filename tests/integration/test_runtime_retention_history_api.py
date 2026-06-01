@@ -33,6 +33,24 @@ def test_runtime_retention_history_api_rejects_invalid_time_filter():
     }
 
 
+def test_runtime_retention_history_api_rejects_inverted_time_window():
+    with TestClient(app) as client:
+        response = client.get(
+            "/integration/runtime-retention-cleanups",
+            params={
+                "generated_after": "2026-03-16T00:00:00Z",
+                "generated_before": "2026-03-15T00:00:00Z",
+            },
+        )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == {
+        "code": "invalid_utc_timestamp_filter_window",
+        "fields": ["generated_after", "generated_before"],
+        "message": "generated_after must be less than or equal to generated_before.",
+    }
+
+
 def test_runtime_retention_history_api_returns_filtered_manifest(tmp_path, monkeypatch):
     artifact_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
     artifact_dir.mkdir(parents=True)

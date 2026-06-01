@@ -7,7 +7,7 @@ from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
 
 from app.api.operator_context import resolve_operator_request_context
-from app.api.time_query_validation import validate_optional_utc_query_timestamp
+from app.api.time_query_validation import validate_utc_query_timestamp_window
 from app.core.config import get_settings
 from app.models.recovery_drill_history import (
     RecoveryDrillHistoryResponse,
@@ -69,8 +69,10 @@ async def get_recovery_drill_history(
         ),
     ] = None,
 ) -> RecoveryDrillHistoryResponse:
-    generated_after = validate_optional_utc_query_timestamp(generated_after, field_name="generated_after")
-    generated_before = validate_optional_utc_query_timestamp(generated_before, field_name="generated_before")
+    generated_after, generated_before = validate_utc_query_timestamp_window(
+        generated_after=generated_after,
+        generated_before=generated_before,
+    )
     snapshot = build_recovery_drill_history_snapshot(
         limit=limit,
         offset=offset,
