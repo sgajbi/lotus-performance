@@ -173,11 +173,11 @@ def test_validate_history_manifest_payload_rejects_bad_header_or_entry():
 def test_validate_history_entry_strings_accepts_required_and_optional_values():
     assert validate_history_entry_strings(
         {
-            "evidence_file_name": "evidence.json",
-            "generated_at_utc": "2026-03-15T00:00:00Z",
-            "operator_id": "ops-user",
-            "tenant_id": None,
-            "status": "passed",
+            "evidence_file_name": " evidence.json ",
+            "generated_at_utc": " 2026-03-15T00:00:00Z ",
+            "operator_id": " ops-user ",
+            "tenant_id": " ",
+            "status": " passed ",
         },
         required_keys=("evidence_file_name", "generated_at_utc", "operator_id", "status"),
         optional_keys=("tenant_id", "correlation_id"),
