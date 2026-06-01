@@ -11,6 +11,7 @@ from app.models.contribution_responses import (
     PositionContributionSeries,
     PositionDailyContribution,
 )
+from app.services.analytics_numeric import numeric_series
 from app.services.analytics_observation_dates import observation_date_series, observation_date_set
 from app.services.contribution_methodology import _as_numeric
 from engine.schema import PortfolioColumns
@@ -84,14 +85,14 @@ def _build_residual_adjusted_position_timeseries(
         residual_delta = target_total - raw_total
 
         if "daily_weight" in position_slice.columns:
-            allocation_weights = pd.to_numeric(position_slice["daily_weight"], errors="coerce").abs().fillna(0.0)
+            allocation_weights = numeric_series(position_slice["daily_weight"], default=0.0).abs()
         else:
             allocation_weights = pd.Series(0.0, index=position_slice.index)
         if allocation_weights.sum() <= 0:
             allocation_weights = pd.Series(1.0, index=position_slice.index)
 
         normalized_weights = allocation_weights / allocation_weights.sum()
-        adjusted_contributions = pd.to_numeric(position_slice["smoothed_contribution"], errors="coerce").fillna(0.0) + (
+        adjusted_contributions = numeric_series(position_slice["smoothed_contribution"], default=0.0) + (
             normalized_weights * residual_delta
         )
 
