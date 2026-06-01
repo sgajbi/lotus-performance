@@ -2,9 +2,11 @@ import json
 from datetime import datetime
 
 import pytest
+from fastapi import Response
 
 from app.enterprise_readiness import (
     _allowed_audit_metadata,
+    _apply_enterprise_policy_header,
     _audit_event_payload,
     _audit_identity_from_headers,
     _authorization_denied_response,
@@ -118,6 +120,16 @@ def test_audit_event_payload_redacts_metadata_and_includes_policy_version(monkey
     assert payload["policy_version"] == "2.1.0"
     assert payload["metadata"] == {"token": "***REDACTED***", "safe": "ok"}
     assert datetime.fromisoformat(payload["timestamp_utc"]).tzinfo is not None
+
+
+def test_apply_enterprise_policy_header_sets_normalized_policy_version(monkeypatch):
+    monkeypatch.setenv("ENTERPRISE_POLICY_VERSION", " 2.2.0 ")
+    response = Response()
+
+    returned = _apply_enterprise_policy_header(response)
+
+    assert returned is response
+    assert response.headers["X-Enterprise-Policy-Version"] == "2.2.0"
 
 
 def test_audit_identity_from_headers_normalizes_case_and_defaults():

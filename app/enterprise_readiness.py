@@ -344,6 +344,11 @@ def _audit_event_payload(
     }
 
 
+def _apply_enterprise_policy_header(response: Response) -> Response:
+    response.headers["X-Enterprise-Policy-Version"] = enterprise_policy_version()
+    return response
+
+
 def emit_audit_event(
     *,
     action: str,
@@ -396,7 +401,7 @@ def build_enterprise_audit_middleware() -> Callable[
             )
 
         response = await call_next(request)
-        response.headers["X-Enterprise-Policy-Version"] = enterprise_policy_version()
+        _apply_enterprise_policy_header(response)
         allowed_audit_metadata = _allowed_audit_metadata(
             method=request.method,
             path=request.url.path,
