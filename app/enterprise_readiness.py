@@ -11,6 +11,7 @@ from app import enterprise_capability_rules as _capability_rules
 from app import enterprise_feature_flags as _feature_flags
 from app import enterprise_payload_limits as _payload_limits
 from app import enterprise_request_context as _request_context
+from app import enterprise_response_envelopes as _response_envelopes
 from app import enterprise_runtime_config as _runtime_config
 
 _DEFAULT_ENTERPRISE_POLICY_VERSION = _runtime_config._DEFAULT_ENTERPRISE_POLICY_VERSION
@@ -125,10 +126,7 @@ _redacted_sequence = _audit_redaction._redacted_sequence
 _should_redact_field = _audit_redaction._should_redact_field
 redact_sensitive = _audit_redaction.redact_sensitive
 _CONTENT_LENGTH_HEADER = _payload_limits._CONTENT_LENGTH_HEADER
-_HTTP_STATUS_PAYLOAD_TOO_LARGE = _payload_limits._HTTP_STATUS_PAYLOAD_TOO_LARGE
 _MISSING_CONTENT_LENGTH = _payload_limits._MISSING_CONTENT_LENGTH
-_PAYLOAD_TOO_LARGE_DETAIL = _payload_limits._PAYLOAD_TOO_LARGE_DETAIL
-_RESPONSE_DETAIL_KEY = _payload_limits._RESPONSE_DETAIL_KEY
 _content_length = _payload_limits._content_length
 _payload_too_large_response = _payload_limits._payload_too_large_response
 _write_payload_too_large = _payload_limits._write_payload_too_large
@@ -155,7 +153,6 @@ _audit_timestamp_utc = _audit_events._audit_timestamp_utc
 _MISSING_CAPABILITY_REASON = _authorization._MISSING_CAPABILITY_REASON
 _MISSING_HEADERS_REASON = _authorization._MISSING_HEADERS_REASON
 _MISSING_SERVICE_IDENTITY_REASON = _authorization._MISSING_SERVICE_IDENTITY_REASON
-_RESPONSE_REASON_KEY = _authorization._RESPONSE_REASON_KEY
 _allowed_audit_metadata = _authorization._allowed_audit_metadata
 _authorization_allowed = _authorization._authorization_allowed
 _authorization_denial_metadata = _authorization._authorization_denial_metadata
@@ -169,11 +166,15 @@ _missing_headers_reason = _authorization._missing_headers_reason
 _request_action = _authorization._request_action
 authorize_privileged_read_request = _authorization.authorize_privileged_read_request
 authorize_write_request = _authorization.authorize_write_request
+_AUTHORIZATION_POLICY_DENIED_DETAIL = _response_envelopes._AUTHORIZATION_POLICY_DENIED_DETAIL
+_HTTP_STATUS_FORBIDDEN = _response_envelopes._HTTP_STATUS_FORBIDDEN
+_HTTP_STATUS_PAYLOAD_TOO_LARGE = _response_envelopes._HTTP_STATUS_PAYLOAD_TOO_LARGE
+_PAYLOAD_TOO_LARGE_DETAIL = _response_envelopes._PAYLOAD_TOO_LARGE_DETAIL
+_RESPONSE_DETAIL_KEY = _response_envelopes._RESPONSE_DETAIL_KEY
+_RESPONSE_REASON_KEY = _response_envelopes._RESPONSE_REASON_KEY
+_authorization_denied_response_envelope = _response_envelopes._authorization_denied_response_envelope
 
 logger = logging.getLogger("enterprise_readiness")
-
-_AUTHORIZATION_POLICY_DENIED_DETAIL = "authorization_policy_denied"
-_HTTP_STATUS_FORBIDDEN = 403
 
 
 def _authorization_denied_response(
@@ -188,13 +189,7 @@ def _authorization_denied_response(
         **audit_identity,
         metadata=_authorization_denial_metadata(reason),
     )
-    return JSONResponse(
-        status_code=_HTTP_STATUS_FORBIDDEN,
-        content={
-            _RESPONSE_DETAIL_KEY: _AUTHORIZATION_POLICY_DENIED_DETAIL,
-            _RESPONSE_REASON_KEY: reason,
-        },
-    )
+    return _authorization_denied_response_envelope(reason)
 
 
 def _emit_allowed_audit_event(

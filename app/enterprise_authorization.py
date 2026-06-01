@@ -20,13 +20,13 @@ from app.enterprise_request_context import (
     _missing_required_headers,
     _normalized_headers,
 )
+from app.enterprise_response_envelopes import _RESPONSE_REASON_KEY
 from app.enterprise_runtime_config import (
     _DIAGNOSTIC_LIST_SEPARATOR,
     _privileged_read_authz_enabled,
     _write_authz_enabled,
 )
 
-_RESPONSE_REASON_KEY = "reason"
 _MISSING_HEADERS_REASON = "missing_headers"
 _MISSING_SERVICE_IDENTITY_REASON = "missing_service_identity"
 _MISSING_CAPABILITY_REASON = "missing_capability"

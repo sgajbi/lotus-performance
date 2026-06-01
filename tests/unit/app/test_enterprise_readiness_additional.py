@@ -12,6 +12,7 @@ from app import (
     enterprise_feature_flags,
     enterprise_payload_limits,
     enterprise_request_context,
+    enterprise_response_envelopes,
     enterprise_runtime_config,
 )
 from app.enterprise_readiness import (
@@ -250,6 +251,11 @@ def test_enterprise_readiness_reexports_audit_events_boundary():
 def test_enterprise_readiness_reexports_authorization_boundary():
     assert authorize_write_request is enterprise_authorization.authorize_write_request
     assert _allowed_audit_metadata is enterprise_authorization._allowed_audit_metadata
+
+
+def test_enterprise_readiness_reexports_response_envelope_boundary():
+    assert _RESPONSE_DETAIL_KEY is enterprise_response_envelopes._RESPONSE_DETAIL_KEY
+    assert _RESPONSE_REASON_KEY is enterprise_response_envelopes._RESPONSE_REASON_KEY
 
 
 def test_load_json_map_fails_closed_for_missing_invalid_or_non_object_json(monkeypatch):
