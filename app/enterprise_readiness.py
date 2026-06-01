@@ -11,6 +11,7 @@ logger = logging.getLogger("enterprise_readiness")
 
 _SERVICE_NAME = "lotus-performance"
 _ENTERPRISE_AUDIT_EVENT_NAME = "enterprise_audit_event"
+_ENTERPRISE_AUDIT_EXTRA_KEY = "audit"
 _ENTERPRISE_POLICY_VERSION_HEADER = "X-Enterprise-Policy-Version"
 _WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 _REQUIRED_HEADERS = {"x-actor-id", "x-tenant-id", "x-role", "x-correlation-id"}
@@ -406,7 +407,7 @@ def emit_audit_event(
     logger.info(
         _ENTERPRISE_AUDIT_EVENT_NAME,
         extra={
-            "audit": _audit_event_payload(
+            _ENTERPRISE_AUDIT_EXTRA_KEY: _audit_event_payload(
                 action=action,
                 actor_id=actor_id,
                 tenant_id=tenant_id,

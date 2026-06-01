@@ -6,6 +6,7 @@ from fastapi import Response
 
 from app.enterprise_readiness import (
     _ENTERPRISE_AUDIT_EVENT_NAME,
+    _ENTERPRISE_AUDIT_EXTRA_KEY,
     _ENTERPRISE_POLICY_VERSION_HEADER,
     _allowed_audit_metadata,
     _apply_enterprise_policy_header,
@@ -256,7 +257,7 @@ def test_emit_audit_event_uses_governed_logger_event_name(mocker):
 
     logger_info.assert_called_once()
     assert logger_info.call_args.args == (_ENTERPRISE_AUDIT_EVENT_NAME,)
-    assert logger_info.call_args.kwargs["extra"]["audit"]["action"] == "POST /analytics"
+    assert logger_info.call_args.kwargs["extra"][_ENTERPRISE_AUDIT_EXTRA_KEY]["action"] == "POST /analytics"
 
 
 def test_apply_enterprise_policy_header_sets_normalized_policy_version(monkeypatch):
