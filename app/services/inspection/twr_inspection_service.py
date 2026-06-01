@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from uuid import UUID
 
 from app.models.inspection_requests import TWRInspectionRequest
@@ -16,6 +16,7 @@ from app.models.inspection_responses import (
 from app.models.requests import PerformanceRequest
 from app.models.responses import PerformanceResponse
 from app.models.twr_requests import TWRResolvedExecutionRequest
+from app.services.durable_store_time import format_timestamp
 from app.services.execution_registry import execution_registry
 from app.services.inspection.artifact_service import enqueue_twr_inspection_artifacts
 from app.services.inspection.calculation_consistency import run_twr_calculation_consistency_checks
@@ -280,7 +281,7 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
             ),
         },
         workflow_pack_run=None,
-        generated_at_utc=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        generated_at_utc=format_timestamp(datetime.now(UTC)) or "",
     )
     support_brief_result = generate_twr_inspection_support_brief(inspection=response)
     evidence_summary["support_brief_generation_status"] = support_brief_result.generation_status
