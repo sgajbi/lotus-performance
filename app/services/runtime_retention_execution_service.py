@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import tempfile
@@ -13,6 +14,8 @@ from app.services.runtime_retention_service import (
     run_runtime_retention_cleanup,
 )
 from app.services.runtime_status_time import parse_utc_datetime
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -174,6 +177,7 @@ def _prune_old_evidence(*, output_dir: Path, retention_max_age_days: int) -> Non
             payload = json.loads(path.read_text(encoding="utf-8"))
             generated_at_utc = parse_utc_datetime(str(payload["generated_at_utc"]))
         except (OSError, json.JSONDecodeError, KeyError, ValueError):
+            logger.warning("Runtime retention evidence ignored during age pruning: %s", path, exc_info=True)
             continue
         if generated_at_utc < cutoff:
             path.unlink(missing_ok=True)
