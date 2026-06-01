@@ -4,7 +4,12 @@ from datetime import datetime
 import pytest
 from fastapi import Response
 
-from app import enterprise_capability_rules, enterprise_feature_flags, enterprise_runtime_config
+from app import (
+    enterprise_capability_rules,
+    enterprise_feature_flags,
+    enterprise_request_context,
+    enterprise_runtime_config,
+)
 from app.enterprise_readiness import (
     _ACTOR_ID_HEADER,
     _AUDIT_ACCESS_MODE_PRIVILEGED_READ,
@@ -215,6 +220,11 @@ def test_enterprise_readiness_reexports_feature_flag_boundary():
 def test_enterprise_readiness_reexports_capability_rule_boundary():
     assert _required_capability is enterprise_capability_rules._required_capability
     assert load_capability_rules is enterprise_capability_rules.load_capability_rules
+
+
+def test_enterprise_readiness_reexports_request_context_boundary():
+    assert _normalized_headers is enterprise_request_context._normalized_headers
+    assert _audit_identity_from_headers is enterprise_request_context._audit_identity_from_headers
 
 
 def test_load_json_map_fails_closed_for_missing_invalid_or_non_object_json(monkeypatch):

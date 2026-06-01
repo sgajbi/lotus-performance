@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 
 from app import enterprise_capability_rules as _capability_rules
 from app import enterprise_feature_flags as _feature_flags
+from app import enterprise_request_context as _request_context
 from app import enterprise_runtime_config as _runtime_config
 
 _DEFAULT_ENTERPRISE_POLICY_VERSION = _runtime_config._DEFAULT_ENTERPRISE_POLICY_VERSION
@@ -89,6 +90,29 @@ _required_capability_from_rules = _capability_rules._required_capability_from_ru
 _required_privileged_read_capability = _capability_rules._required_privileged_read_capability
 load_capability_rules = _capability_rules.load_capability_rules
 load_privileged_read_rules = _capability_rules.load_privileged_read_rules
+_ACTOR_ID_HEADER = _request_context._ACTOR_ID_HEADER
+_AUDIT_PAYLOAD_ACTOR_ID_KEY = _request_context._AUDIT_PAYLOAD_ACTOR_ID_KEY
+_AUDIT_PAYLOAD_CORRELATION_ID_KEY = _request_context._AUDIT_PAYLOAD_CORRELATION_ID_KEY
+_AUDIT_PAYLOAD_ROLE_KEY = _request_context._AUDIT_PAYLOAD_ROLE_KEY
+_AUDIT_PAYLOAD_TENANT_ID_KEY = _request_context._AUDIT_PAYLOAD_TENANT_ID_KEY
+_AUTHORIZATION_HEADER = _request_context._AUTHORIZATION_HEADER
+_CAPABILITIES_HEADER = _request_context._CAPABILITIES_HEADER
+_CORRELATION_ID_HEADER = _request_context._CORRELATION_ID_HEADER
+_DEFAULT_TENANT_ID = _request_context._DEFAULT_TENANT_ID
+_EMPTY_AUDIT_CORRELATION_ID = _request_context._EMPTY_AUDIT_CORRELATION_ID
+_HEADER_CAPABILITY_SEPARATOR = _request_context._HEADER_CAPABILITY_SEPARATOR
+_REQUIRED_HEADERS = _request_context._REQUIRED_HEADERS
+_ROLE_HEADER = _request_context._ROLE_HEADER
+_SERVICE_IDENTITY_HEADER = _request_context._SERVICE_IDENTITY_HEADER
+_TENANT_ID_HEADER = _request_context._TENANT_ID_HEADER
+_UNKNOWN_ACTOR_ID = _request_context._UNKNOWN_ACTOR_ID
+_UNKNOWN_ROLE = _request_context._UNKNOWN_ROLE
+_audit_identity_from_headers = _request_context._audit_identity_from_headers
+_has_required_capability = _request_context._has_required_capability
+_has_service_identity = _request_context._has_service_identity
+_header_capabilities = _request_context._header_capabilities
+_missing_required_headers = _request_context._missing_required_headers
+_normalized_headers = _request_context._normalized_headers
 
 logger = logging.getLogger("enterprise_readiness")
 
@@ -98,14 +122,9 @@ _ENTERPRISE_AUDIT_EXTRA_KEY = "audit"
 _ENTERPRISE_POLICY_VERSION_HEADER = "X-Enterprise-Policy-Version"
 _AUDIT_PAYLOAD_SERVICE_KEY = "service"
 _AUDIT_PAYLOAD_ACTION_KEY = "action"
-_AUDIT_PAYLOAD_ACTOR_ID_KEY = "actor_id"
-_AUDIT_PAYLOAD_TENANT_ID_KEY = "tenant_id"
-_AUDIT_PAYLOAD_ROLE_KEY = "role"
-_AUDIT_PAYLOAD_CORRELATION_ID_KEY = "correlation_id"
 _AUDIT_PAYLOAD_TIMESTAMP_UTC_KEY = "timestamp_utc"
 _AUDIT_PAYLOAD_POLICY_VERSION_KEY = "policy_version"
 _AUDIT_PAYLOAD_METADATA_KEY = "metadata"
-_EMPTY_AUDIT_CORRELATION_ID = ""
 _AUDIT_METADATA_STATUS_CODE_KEY = "status_code"
 _AUDIT_METADATA_ACCESS_MODE_KEY = "access_mode"
 _AUDIT_METADATA_REQUIRED_CAPABILITY_KEY = "required_capability"
@@ -122,20 +141,8 @@ _REDACTED_VALUE = "***REDACTED***"
 _MISSING_HEADERS_REASON = "missing_headers"
 _MISSING_SERVICE_IDENTITY_REASON = "missing_service_identity"
 _MISSING_CAPABILITY_REASON = "missing_capability"
-_CAPABILITIES_HEADER = "x-capabilities"
-_SERVICE_IDENTITY_HEADER = "x-service-identity"
-_AUTHORIZATION_HEADER = "authorization"
 _CONTENT_LENGTH_HEADER = "content-length"
 _MISSING_CONTENT_LENGTH = "0"
-_HEADER_CAPABILITY_SEPARATOR = ","
-_ACTOR_ID_HEADER = "x-actor-id"
-_TENANT_ID_HEADER = "x-tenant-id"
-_ROLE_HEADER = "x-role"
-_CORRELATION_ID_HEADER = "x-correlation-id"
-_UNKNOWN_ACTOR_ID = "unknown"
-_DEFAULT_TENANT_ID = "default"
-_UNKNOWN_ROLE = "unknown"
-_REQUIRED_HEADERS = {_ACTOR_ID_HEADER, _TENANT_ID_HEADER, _ROLE_HEADER, _CORRELATION_ID_HEADER}
 _REDACT_FIELDS = {
     "password",
     "secret",
@@ -147,45 +154,8 @@ _REDACT_FIELDS = {
 }
 
 
-def _normalized_headers(headers: Mapping[str, Any]) -> dict[str, str]:
-    return {str(key).lower(): str(value).strip() for key, value in headers.items()}
-
-
-def _header_capabilities(normalized_headers: Mapping[str, str]) -> set[str]:
-    return {
-        part.strip()
-        for part in normalized_headers.get(_CAPABILITIES_HEADER, "").split(_HEADER_CAPABILITY_SEPARATOR)
-        if part.strip()
-    }
-
-
-def _has_required_capability(normalized_headers: Mapping[str, str], required_capability: str | None) -> bool:
-    return required_capability is None or required_capability in _header_capabilities(normalized_headers)
-
-
 def _governed_surface_for_capability(*, path: str, required_capability: str | None) -> str | None:
     return path if required_capability is not None else None
-
-
-def _missing_required_headers(normalized_headers: Mapping[str, str]) -> list[str]:
-    return sorted(header for header in _REQUIRED_HEADERS if not normalized_headers.get(header))
-
-
-def _has_service_identity(normalized_headers: Mapping[str, str]) -> bool:
-    return bool(normalized_headers.get(_SERVICE_IDENTITY_HEADER) or normalized_headers.get(_AUTHORIZATION_HEADER))
-
-
-def _audit_identity_from_headers(headers: Mapping[str, Any]) -> dict[str, str]:
-    normalized = _normalized_headers(headers)
-    return {
-        _AUDIT_PAYLOAD_ACTOR_ID_KEY: normalized.get(_ACTOR_ID_HEADER) or _UNKNOWN_ACTOR_ID,
-        _AUDIT_PAYLOAD_TENANT_ID_KEY: normalized.get(_TENANT_ID_HEADER) or _DEFAULT_TENANT_ID,
-        _AUDIT_PAYLOAD_ROLE_KEY: normalized.get(_ROLE_HEADER) or _UNKNOWN_ROLE,
-        _AUDIT_PAYLOAD_CORRELATION_ID_KEY: normalized.get(
-            _CORRELATION_ID_HEADER,
-            _EMPTY_AUDIT_CORRELATION_ID,
-        ),
-    }
 
 
 def _allowed_audit_metadata(*, method: str, path: str, status_code: int) -> dict[str, Any] | None:
