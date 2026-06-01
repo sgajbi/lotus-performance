@@ -11,6 +11,22 @@ def is_optional_evidence_string(value: object) -> TypeGuard[str | None]:
     return value is None or is_required_evidence_string(value)
 
 
+def required_evidence_string_fields_present(payload: dict[str, Any], keys: tuple[str, ...]) -> bool:
+    return all(is_required_evidence_string(payload.get(key)) for key in keys)
+
+
+def optional_evidence_string_fields_valid(payload: dict[str, Any], keys: tuple[str, ...]) -> bool:
+    return all(is_optional_evidence_string(payload.get(key)) for key in keys)
+
+
+def required_evidence_int_fields_present(payload: dict[str, Any], keys: tuple[str, ...]) -> bool:
+    return all(type(payload.get(key)) is int for key in keys)
+
+
+def required_evidence_bool_fields_present(payload: dict[str, Any], keys: tuple[str, ...]) -> bool:
+    return all(type(payload.get(key)) is bool for key in keys)
+
+
 def normalize_required_evidence_identifier(value: str, *, field_name: str) -> str:
     normalized = value.strip()
     if not normalized:

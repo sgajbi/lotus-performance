@@ -23,7 +23,10 @@ from app.services.runtime_retention_history_service import (
 logger = logging.getLogger(__name__)
 
 _is_required_replay_string = _evidence_strings.is_required_evidence_string
-_is_optional_replay_string = _evidence_strings.is_optional_evidence_string
+_required_str_fields_present = _evidence_strings.required_evidence_string_fields_present
+_optional_str_fields_valid = _evidence_strings.optional_evidence_string_fields_valid
+_required_int_fields_present = _evidence_strings.required_evidence_int_fields_present
+_required_bool_fields_present = _evidence_strings.required_evidence_bool_fields_present
 
 
 @dataclass(frozen=True)
@@ -213,22 +216,6 @@ def _recovery_drill_payload_matches_entry(
         and payload["backup_identifier"] == entry.backup_identifier
         and payload["status"] == entry.status
     )
-
-
-def _required_str_fields_present(payload: dict[str, Any], keys: tuple[str, ...]) -> bool:
-    return all(_is_required_replay_string(payload.get(key)) for key in keys)
-
-
-def _optional_str_fields_valid(payload: dict[str, Any], keys: tuple[str, ...]) -> bool:
-    return all(_is_optional_replay_string(payload.get(key)) for key in keys)
-
-
-def _required_int_fields_present(payload: dict[str, Any], keys: tuple[str, ...]) -> bool:
-    return all(type(payload.get(key)) is int for key in keys)
-
-
-def _required_bool_fields_present(payload: dict[str, Any], keys: tuple[str, ...]) -> bool:
-    return all(type(payload.get(key)) is bool for key in keys)
 
 
 def _load_payload(*, artifact_directory: Path, evidence_file_name: str) -> dict[str, Any] | None:

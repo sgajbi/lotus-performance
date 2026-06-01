@@ -6,7 +6,11 @@ from app.services.operator_action_evidence_strings import (
     normalize_optional_evidence_identifier,
     normalize_required_evidence_identifier,
     optional_evidence_string,
+    optional_evidence_string_fields_valid,
+    required_evidence_bool_fields_present,
+    required_evidence_int_fields_present,
     required_evidence_string,
+    required_evidence_string_fields_present,
 )
 
 
@@ -25,6 +29,24 @@ def test_evidence_string_predicates_require_nonblank_strings():
     assert is_optional_evidence_string(" tenant-a ")
     assert not is_optional_evidence_string(" ")
     assert not is_optional_evidence_string(123)
+
+
+def test_evidence_field_predicates_validate_string_int_and_bool_sets():
+    payload = {
+        "operator_id": "ops-user",
+        "tenant_id": None,
+        "retention_days": 30,
+        "apply": False,
+    }
+
+    assert required_evidence_string_fields_present(payload, ("operator_id",))
+    assert optional_evidence_string_fields_valid(payload, ("tenant_id",))
+    assert required_evidence_int_fields_present(payload, ("retention_days",))
+    assert required_evidence_bool_fields_present(payload, ("apply",))
+    assert not required_evidence_string_fields_present({"operator_id": " "}, ("operator_id",))
+    assert not optional_evidence_string_fields_valid({"tenant_id": " "}, ("tenant_id",))
+    assert not required_evidence_int_fields_present({"retention_days": True}, ("retention_days",))
+    assert not required_evidence_bool_fields_present({"apply": 1}, ("apply",))
 
 
 def test_normalize_optional_evidence_identifier_trims_blank_to_absent():
