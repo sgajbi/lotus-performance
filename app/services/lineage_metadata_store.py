@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -19,6 +20,7 @@ from app.services.durable_store_inspection import (
     apply_min_age_filter,
     build_inspection_query_context,
 )
+from app.services.durable_store_json import load_json_object_or_none
 from app.services.durable_store_pagination import next_offset_or_none, recovery_cursor_or_none
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
 from app.services.durable_store_time import (
@@ -36,6 +38,10 @@ from app.services.durable_store_time import (
 from app.services.durable_store_time import (
     normalize_filter_datetime as _normalize_filter_datetime,
 )
+
+logger = logging.getLogger(__name__)
+
+INVALID_LINEAGE_PAYLOAD_DETAILS_MESSAGE = "Stored lineage payload details are invalid."
 
 
 class LineageStatus(StrEnum):
@@ -350,20 +356,14 @@ class LineageMetadataStore:
                 .limit(limit)
             )
             rows = session.execute(statement).all()
-            return [
-                LineagePayload(
-                    calculation_id=UUID(payload.calculation_id),
-                    calculation_type=payload.calculation_type,
-                    request_json=payload.request_json,
-                    response_json=payload.response_json,
-                    details=json.loads(payload.details_json),
-                    attempt_count=payload.attempt_count,
-                    worker_id=payload.worker_id,
-                    leased_at_utc=_format_timestamp(payload.leased_at_utc),
-                    lease_expires_at_utc=_format_timestamp(payload.lease_expires_at_utc),
-                )
-                for payload, _ in rows
-            ]
+            pending: list[LineagePayload] = []
+            for payload, _ in rows:
+                details = _load_payload_details(payload.details_json, calculation_id=payload.calculation_id)
+                if details is None:
+                    _mark_invalid_payload_details(session, payload.calculation_id, now=datetime.now(timezone.utc))
+                    continue
+                pending.append(self._to_payload(payload, details=details))
+            return pending
 
     def lease_pending_payloads(self, *, worker_id: str, limit: int, lease_seconds: int) -> list[LineagePayload]:
         now = datetime.now(timezone.utc)
@@ -386,11 +386,15 @@ class LineageMetadataStore:
             rows = session.execute(statement).scalars().all()
             leased: list[LineagePayload] = []
             for row in rows:
+                details = _load_payload_details(row.details_json, calculation_id=row.calculation_id)
+                if details is None:
+                    _mark_invalid_payload_details(session, row.calculation_id, now=now)
+                    continue
                 row.worker_id = worker_id
                 row.leased_at_utc = now
                 row.lease_expires_at_utc = lease_expiry
                 row.attempt_count += 1
-                leased.append(self._to_payload(row))
+                leased.append(self._to_payload(row, details=details))
             return leased
 
     def increment_attempt_count(self, calculation_id: UUID) -> None:
@@ -405,17 +409,11 @@ class LineageMetadataStore:
             payload = session.get(LineagePayloadModel, str(calculation_id))
             if payload is None:
                 return None
-            return LineagePayload(
-                calculation_id=UUID(payload.calculation_id),
-                calculation_type=payload.calculation_type,
-                request_json=payload.request_json,
-                response_json=payload.response_json,
-                details=json.loads(payload.details_json),
-                attempt_count=payload.attempt_count,
-                worker_id=payload.worker_id,
-                leased_at_utc=_format_timestamp(payload.leased_at_utc),
-                lease_expires_at_utc=_format_timestamp(payload.lease_expires_at_utc),
-            )
+            details = _load_payload_details(payload.details_json, calculation_id=payload.calculation_id)
+            if details is None:
+                _mark_invalid_payload_details(session, payload.calculation_id, now=datetime.now(timezone.utc))
+                return None
+            return self._to_payload(payload, details=details)
 
     def delete_payload(self, calculation_id: UUID) -> None:
         with self._session() as session:
@@ -1089,28 +1087,40 @@ class LineageMetadataStore:
                 "limit": limit,
             },
         ).mappings()
-        return [
-            LineagePayload(
-                calculation_id=UUID(str(row["calculation_id"])),
-                calculation_type=str(row["calculation_type"]),
-                request_json=str(row["request_json"]),
-                response_json=str(row["response_json"]),
-                details=json.loads(str(row["details_json"])),
-                attempt_count=int(row["attempt_count"]),
-                worker_id=None if row["worker_id"] is None else str(row["worker_id"]),
-                leased_at_utc=_format_timestamp(row["leased_at_utc"]),
-                lease_expires_at_utc=_format_timestamp(row["lease_expires_at_utc"]),
+        leased: list[LineagePayload] = []
+        for row in rows:
+            calculation_id = str(row["calculation_id"])
+            details = _load_payload_details(str(row["details_json"]), calculation_id=calculation_id)
+            if details is None:
+                _mark_invalid_payload_details(session, calculation_id, now=now)
+                continue
+            leased.append(
+                LineagePayload(
+                    calculation_id=UUID(str(row["calculation_id"])),
+                    calculation_type=str(row["calculation_type"]),
+                    request_json=str(row["request_json"]),
+                    response_json=str(row["response_json"]),
+                    details=details,
+                    attempt_count=int(row["attempt_count"]),
+                    worker_id=None if row["worker_id"] is None else str(row["worker_id"]),
+                    leased_at_utc=_format_timestamp(row["leased_at_utc"]),
+                    lease_expires_at_utc=_format_timestamp(row["lease_expires_at_utc"]),
+                )
             )
-            for row in rows
-        ]
+        return leased
 
-    def _to_payload(self, payload: LineagePayloadModel) -> LineagePayload:
+    def _to_payload(self, payload: LineagePayloadModel, *, details: dict[str, str] | None = None) -> LineagePayload:
+        loaded_details = (
+            details
+            if details is not None
+            else _load_payload_details(payload.details_json, calculation_id=payload.calculation_id)
+        )
         return LineagePayload(
             calculation_id=UUID(payload.calculation_id),
             calculation_type=payload.calculation_type,
             request_json=payload.request_json,
             response_json=payload.response_json,
-            details=json.loads(payload.details_json),
+            details={} if loaded_details is None else loaded_details,
             attempt_count=payload.attempt_count,
             worker_id=payload.worker_id,
             leased_at_utc=_format_timestamp(payload.leased_at_utc),
@@ -1221,3 +1231,33 @@ def get_lineage_metadata_store(*, database_url: str | None = None) -> LineageMet
 
 
 lineage_metadata_store = RuntimeStoreProxy(get_lineage_metadata_store)
+
+
+def _load_payload_details(details_json: str, *, calculation_id: str) -> dict[str, str] | None:
+    payload = load_json_object_or_none(
+        details_json,
+        logger=logger,
+        payload_name="Lineage payload details",
+        identity_name="calculation_id",
+        identity_value=calculation_id,
+        empty_is_absent=False,
+    )
+    if payload is None:
+        return None
+    if not all(isinstance(key, str) and isinstance(value, str) for key, value in payload.items()):
+        logger.warning("Lineage payload details are not a string object for calculation_id=%s.", calculation_id)
+        return None
+    return payload
+
+
+def _mark_invalid_payload_details(session: Session, calculation_id: str, *, now: datetime) -> None:
+    record = session.get(LineageRecordModel, calculation_id)
+    if record is not None:
+        record.status = LineageStatus.FAILED.value
+        record.timestamp_utc = now
+        record.error_message = INVALID_LINEAGE_PAYLOAD_DETAILS_MESSAGE
+    payload = session.get(LineagePayloadModel, calculation_id)
+    if payload is not None:
+        payload.worker_id = None
+        payload.leased_at_utc = None
+        payload.lease_expires_at_utc = None

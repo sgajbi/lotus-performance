@@ -12,6 +12,7 @@ from typing import Any
 
 from app.core.config import get_settings
 from app.services import operator_action_evidence_strings as _evidence_strings
+from app.services.durable_store_json import read_json_object_file
 from app.services.runtime_retention_service import (
     run_runtime_retention_cleanup,
 )
@@ -192,7 +193,7 @@ def _prune_old_evidence(*, output_dir: Path, retention_max_age_days: int) -> Non
         if path.name in {"latest.json", "manifest.json"}:
             continue
         try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
+            payload = _read_runtime_retention_evidence_payload(path)
             generated_at_utc = parse_utc_datetime(str(payload["generated_at_utc"]))
         except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
             logger.warning("Runtime retention evidence ignored during age pruning: %s", path, exc_info=True)
@@ -227,10 +228,7 @@ def _load_manifest_entry(path: Path) -> RuntimeRetentionManifestEntry | None:
 
 
 def _read_runtime_retention_evidence_payload(path: Path) -> dict[str, Any]:
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(payload, dict):
-        raise TypeError("runtime retention evidence payload must be an object")
-    return payload
+    return read_json_object_file(path, object_error_message="runtime retention evidence payload must be an object")
 
 
 def _write_text_atomic(path: Path, content: str) -> None:

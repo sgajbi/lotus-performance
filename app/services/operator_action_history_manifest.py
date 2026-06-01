@@ -7,7 +7,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from app.services.durable_store_json import read_json_file
 from app.services.operator_action_evidence_paths import is_safe_evidence_file_name
+from app.services.operator_action_evidence_strings import (
+    optional_evidence_int_fields_valid,
+    optional_evidence_string,
+    required_evidence_string,
+)
+from app.services.runtime_status_time import parse_utc_datetime
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +60,7 @@ def read_history_manifest_payload(
         return HistoryManifestReadResult(payload=None, reason=reasons.manifest_missing)
 
     try:
-        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        payload = read_json_file(manifest_path)
     except OSError:
         logger.warning("Operator action history manifest unreadable at %s.", manifest_path, exc_info=True)
         return HistoryManifestReadResult(payload=None, reason=reasons.manifest_unreadable)
@@ -82,9 +89,7 @@ def validate_history_manifest_header(payload: Any) -> HistoryManifestHeader | No
         not isinstance(item, str) or not is_safe_evidence_file_name(item) for item in retained_file_names
     ):
         return None
-    if retention_limit is not None and not isinstance(retention_limit, int):
-        return None
-    if retention_max_age_days is not None and not isinstance(retention_max_age_days, int):
+    if not optional_evidence_int_fields_valid(payload, ("retention_limit", "retention_max_age_days")):
         return None
     if not isinstance(entries, list):
         return None
@@ -131,10 +136,10 @@ def validate_history_entry_strings(
 ) -> HistoryEntryStrings | None:
     required_strings: dict[str, str] = {}
     for key in required_keys:
-        normalized_value = _normalize_required_history_string(entry.get(key))
-        if normalized_value is None:
+        try:
+            required_strings[key] = required_evidence_string(entry, key)
+        except (KeyError, ValueError):
             return None
-        required_strings[key] = normalized_value
 
     evidence_file_name = required_strings.get("evidence_file_name")
     if evidence_file_name is None or not is_safe_evidence_file_name(evidence_file_name):
@@ -142,10 +147,10 @@ def validate_history_entry_strings(
 
     optional_strings: dict[str, str | None] = {}
     for key in optional_keys:
-        is_valid, normalized_value = _normalize_optional_history_string(entry.get(key))
-        if not is_valid:
+        try:
+            optional_strings[key] = optional_evidence_string(entry, key)
+        except ValueError:
             return None
-        optional_strings[key] = normalized_value
 
     return {
         **required_strings,
@@ -153,19 +158,15 @@ def validate_history_entry_strings(
     }
 
 
-def _normalize_required_history_string(value: Any) -> str | None:
-    if not isinstance(value, str):
+def validate_history_entry_generated_at_utc(entry_strings: HistoryEntryStrings) -> str | None:
+    generated_at_utc = entry_strings.get("generated_at_utc")
+    if not isinstance(generated_at_utc, str):
         return None
-    normalized = value.strip()
-    return normalized or None
-
-
-def _normalize_optional_history_string(value: Any) -> tuple[bool, str | None]:
-    if value is None:
-        return True, None
-    if not isinstance(value, str):
-        return False, None
-    return True, value.strip() or None
+    try:
+        parse_utc_datetime(generated_at_utc)
+    except ValueError:
+        return None
+    return generated_at_utc
 
 
 def build_history_manifest_payload(

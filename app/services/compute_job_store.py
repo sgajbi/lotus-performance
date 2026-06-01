@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -21,6 +22,7 @@ from app.services.durable_store_inspection import (
     apply_min_age_filter,
     build_inspection_query_context,
 )
+from app.services.durable_store_json import load_json_object_or_none
 from app.services.durable_store_pagination import next_offset_or_none, recovery_cursor_or_none
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
 from app.services.durable_store_time import (
@@ -35,6 +37,13 @@ from app.services.durable_store_time import (
 from app.services.durable_store_time import (
     normalize_filter_datetime as _normalize_filter_datetime,
 )
+
+logger = logging.getLogger(__name__)
+
+INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_ERROR_TYPE = "InvalidComputeJobRequestPayload"
+INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_MESSAGE = "Stored compute job request payload is invalid."
+INVALID_COMPUTE_JOB_RESPONSE_PAYLOAD_ERROR_TYPE = "InvalidComputeJobResponsePayload"
+INVALID_COMPUTE_JOB_RESPONSE_PAYLOAD_MESSAGE = "Stored compute job response payload is invalid."
 
 
 class ComputeJobStatus(StrEnum):
@@ -362,6 +371,9 @@ class ComputeJobStore:
             rows = session.execute(statement).scalars().all()
             leased: list[ComputeJobRecord] = []
             for row in rows:
+                if _load_request_payload(row) is None:
+                    _mark_invalid_request_payload(row, now=now)
+                    continue
                 row.job_status = ComputeJobStatus.LEASED.value
                 row.worker_id = worker_id
                 row.leased_at_utc = now
@@ -1098,14 +1110,28 @@ class ComputeJobStore:
         return row
 
     def _to_record(self, row: ComputeJobModel) -> ComputeJobRecord:
+        request_payload = _load_request_payload(row)
+        response_payload = _load_response_payload(row)
+        job_status = ComputeJobStatus(row.job_status)
+        error_message = row.error_message
+        error_type = row.error_type
+        if request_payload is None:
+            job_status = ComputeJobStatus.FAILED
+            error_message = error_message or INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_MESSAGE
+            error_type = error_type or INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_ERROR_TYPE
+            request_payload = {}
+        if row.response_json and response_payload is None:
+            job_status = ComputeJobStatus.FAILED
+            error_message = error_message or INVALID_COMPUTE_JOB_RESPONSE_PAYLOAD_MESSAGE
+            error_type = error_type or INVALID_COMPUTE_JOB_RESPONSE_PAYLOAD_ERROR_TYPE
         return ComputeJobRecord(
             calculation_id=UUID(row.calculation_id),
             analytics_type=row.analytics_type,
-            job_status=ComputeJobStatus(row.job_status),
-            request_payload=json.loads(row.request_json),
-            response_payload=json.loads(row.response_json) if row.response_json else None,
-            error_message=row.error_message,
-            error_type=row.error_type,
+            job_status=job_status,
+            request_payload=request_payload,
+            response_payload=response_payload,
+            error_message=error_message,
+            error_type=error_type,
             attempt_count=row.attempt_count,
             max_attempts=row.max_attempts,
             worker_id=row.worker_id,
@@ -1169,3 +1195,35 @@ def get_compute_job_store(*, database_url: str | None = None) -> ComputeJobStore
 
 
 compute_job_store = RuntimeStoreProxy(get_compute_job_store)
+
+
+def _load_request_payload(row: ComputeJobModel) -> dict[str, Any] | None:
+    return load_json_object_or_none(
+        row.request_json,
+        logger=logger,
+        payload_name="Compute job request payload",
+        identity_name="calculation_id",
+        identity_value=row.calculation_id,
+        empty_is_absent=False,
+    )
+
+
+def _load_response_payload(row: ComputeJobModel) -> dict[str, Any] | None:
+    return load_json_object_or_none(
+        row.response_json,
+        logger=logger,
+        payload_name="Compute job response payload",
+        identity_name="calculation_id",
+        identity_value=row.calculation_id,
+    )
+
+
+def _mark_invalid_request_payload(row: ComputeJobModel, *, now: datetime) -> None:
+    row.job_status = ComputeJobStatus.FAILED.value
+    row.error_message = row.error_message or INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_MESSAGE
+    row.error_type = row.error_type or INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_ERROR_TYPE
+    row.worker_id = None
+    row.leased_at_utc = None
+    row.lease_expires_at_utc = None
+    row.last_error_at_utc = now
+    row.completed_at_utc = now

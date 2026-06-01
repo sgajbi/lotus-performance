@@ -50,10 +50,10 @@ def _metadata_count(
     default_value: int,
     coerce_numeric_counts: bool,
 ) -> int:
-    if isinstance(value, int) and value > 0:
+    if type(value) is int and value > 0:
         return value
     if coerce_numeric_counts and isinstance(value, str):
         return int(value)
-    if coerce_numeric_counts and isinstance(value, Real):
+    if coerce_numeric_counts and isinstance(value, Real) and not isinstance(value, bool):
         return int(Decimal(str(value)))
     return default_value

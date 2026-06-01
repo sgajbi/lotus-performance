@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TypeVar
 
+from app.services.operator_action_evidence_strings import normalize_optional_evidence_identifier
 from app.services.runtime_status_time import parse_utc_datetime
 
 AppliedHistoryFilters = dict[str, str | int]
@@ -104,5 +105,5 @@ def filter_history_entries(
 
 def _normalize_optional_history_filter(value: str | int | None) -> str | int | None:
     if isinstance(value, str):
-        return value.strip() or None
+        return normalize_optional_evidence_identifier(value)
     return value

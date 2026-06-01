@@ -5,6 +5,7 @@ import pytest
 from sqlalchemy import inspect
 
 from app.services.execution_registry import (
+    AnalyticsUpstreamSnapshotModel,
     ExecutionRegistrationStatus,
     ExecutionRegistry,
     ExecutionStageStatus,
@@ -42,6 +43,34 @@ def test_execution_registry_records_lifecycle_and_stages(tmp_path):
     assert record.stages[0].status == ExecutionStageStatus.COMPLETE
     assert record.stages[0].details == {"rows": 2}
     assert record.stages[1].details == {"artifact_names": ["a.json"]}
+
+
+def test_execution_registry_bounds_malformed_execution_json_fields(tmp_path, caplog):
+    registry = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    registry.create_schema()
+    calculation_id = uuid4()
+
+    registry.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="TWR",
+        portfolio_id="PORT-MALFORMED",
+        requested_window={"report_end_date": "2026-03-31"},
+    )
+    registry.start_stage(calculation_id, "execution")
+    registry.complete_stage(calculation_id, "execution", details={"rows": 2})
+    with registry._session() as session:
+        execution = registry._get_execution_model(session, calculation_id)
+        stage = registry._get_stage_model(session, calculation_id, "execution")
+        execution.requested_window_json = "{not-json"
+        stage.details_json = "[1, 2, 3]"
+
+    with caplog.at_level("WARNING", logger="app.services.execution_registry"):
+        record = registry.get_execution(calculation_id)
+
+    assert record is not None
+    assert record.requested_window == {}
+    assert record.stages[0].details is None
+    assert f"calculation_id={calculation_id}" in caplog.text
 
 
 def test_execution_registry_marks_failures(tmp_path):
@@ -140,6 +169,39 @@ def test_execution_registry_preserves_empty_upstream_snapshot_paging_metadata(tm
 
     assert len(snapshots) == 1
     assert snapshots[0].paging_metadata == {}
+
+
+def test_execution_registry_bounds_malformed_upstream_snapshot_paging_metadata(tmp_path, caplog):
+    registry = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    registry.create_schema()
+    calculation_id = uuid4()
+    registry.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        portfolio_id="PORT-MALFORMED-PAGING",
+    )
+    registry.record_upstream_snapshot(
+        calculation_id=calculation_id,
+        snapshot_id="snap-invalid-paging",
+        upstream_endpoint="portfolio_timeseries",
+        source_identifier="PORT-MALFORMED-PAGING",
+        as_of_date="2026-02-27",
+        request_fingerprint="req-invalid",
+        response_fingerprint="resp-invalid",
+        retrieval_status="200",
+        paging_metadata={"page_token": "n1"},
+    )
+    with registry._session() as session:
+        snapshot = session.get(AnalyticsUpstreamSnapshotModel, "snap-invalid-paging")
+        assert snapshot is not None
+        snapshot.paging_metadata_json = "{not-json"
+
+    with caplog.at_level("WARNING", logger="app.services.execution_registry"):
+        snapshots = registry.list_upstream_snapshots(calculation_id)
+
+    assert len(snapshots) == 1
+    assert snapshots[0].paging_metadata is None
+    assert f"calculation_id={calculation_id}" in caplog.text
 
 
 def test_execution_registry_ignores_duplicate_upstream_snapshots(tmp_path):

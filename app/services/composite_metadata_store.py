@@ -1,16 +1,22 @@
 from __future__ import annotations
 
 import json
+import logging
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date as dt_date
-from typing import Iterator
+from typing import Any, Iterator
 
 from sqlalchemy import Date, Index, String, Text, create_engine, select, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.models.composites import CompositeDefinition, CompositeMemberReturnFact, CompositeMembership
+from app.services.durable_store_json import load_json_object_or_none, load_json_string_list_or_default
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
+
+logger = logging.getLogger(__name__)
+
+INVALID_COMPOSITE_REASON_CODES_PAYLOAD = "invalid_reason_codes_payload"
 
 
 class Base(DeclarativeBase):
@@ -159,6 +165,13 @@ class CompositeMetadataStore:
             row = session.get(CompositeDefinitionModel, composite_id)
             if row is None:
                 return None
+            source_authority = _load_json_object(
+                row.source_authority_json,
+                row_identifier=row.composite_id,
+                payload_name="composite source authority",
+            )
+            if source_authority is None:
+                return None
             return CompositeDefinition.model_validate(
                 {
                     "composite_id": row.composite_id,
@@ -168,7 +181,7 @@ class CompositeMetadataStore:
                     "inception_date": row.inception_date,
                     "termination_date": row.termination_date,
                     "calculation_method": row.calculation_method,
-                    "source_authority": json.loads(row.source_authority_json),
+                    "source_authority": source_authority,
                 }
             )
 
@@ -274,7 +287,7 @@ class CompositeMetadataStore:
                         "source_fingerprint": row.source_fingerprint,
                         "restatement_version": row.restatement_version,
                         "status": row.status,
-                        "reason_codes": json.loads(row.reason_codes_json),
+                        "reason_codes": _load_reason_codes(row.reason_codes_json, row_identifier=row.fact_key),
                     }
                 )
                 for row in rows
@@ -297,3 +310,25 @@ def get_composite_metadata_store(*, database_url: str | None = None) -> Composit
 
 
 composite_metadata_store = RuntimeStoreProxy(get_composite_metadata_store)
+
+
+def _load_json_object(raw_payload: str, *, row_identifier: str, payload_name: str) -> dict[str, Any] | None:
+    return load_json_object_or_none(
+        raw_payload,
+        logger=logger,
+        payload_name=payload_name,
+        identity_name="row",
+        identity_value=row_identifier,
+        empty_is_absent=False,
+    )
+
+
+def _load_reason_codes(raw_payload: str, *, row_identifier: str) -> list[str]:
+    return load_json_string_list_or_default(
+        raw_payload,
+        logger=logger,
+        payload_name="Composite member return reason codes",
+        identity_name="row",
+        identity_value=row_identifier,
+        default_value=[INVALID_COMPOSITE_REASON_CODES_PAYLOAD],
+    )

@@ -6,6 +6,11 @@ from sqlalchemy import event, inspect
 from sqlalchemy.dialects import postgresql
 
 from app.services.compute_job_store import (
+    INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_ERROR_TYPE,
+    INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_MESSAGE,
+    INVALID_COMPUTE_JOB_RESPONSE_PAYLOAD_ERROR_TYPE,
+    INVALID_COMPUTE_JOB_RESPONSE_PAYLOAD_MESSAGE,
+    ComputeJobModel,
     ComputeJobRegistrationStatus,
     ComputeJobStatus,
     ComputeJobStore,
@@ -42,6 +47,143 @@ def test_compute_job_store_lifecycle(tmp_path):
     assert complete is not None
     assert complete.job_status == ComputeJobStatus.COMPLETE
     assert complete.response_payload == {"calculation_id": str(calculation_id)}
+
+
+def test_compute_job_store_fails_closed_on_invalid_response_json(tmp_path, caplog):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+    now = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+
+    store.enqueue_job(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        request_payload={"portfolio_id": "P1"},
+    )
+    with store._session() as session:
+        row = session.get(ComputeJobModel, str(calculation_id))
+        assert row is not None
+        row.job_status = ComputeJobStatus.COMPLETE.value
+        row.response_json = "{not-json"
+        row.completed_at_utc = now
+
+    with caplog.at_level("WARNING", logger="app.services.compute_job_store"):
+        record = store.get_job(calculation_id)
+
+    assert record is not None
+    assert record.job_status == ComputeJobStatus.FAILED
+    assert record.response_payload is None
+    assert record.error_message == INVALID_COMPUTE_JOB_RESPONSE_PAYLOAD_MESSAGE
+    assert record.error_type == INVALID_COMPUTE_JOB_RESPONSE_PAYLOAD_ERROR_TYPE
+    assert f"calculation_id={calculation_id}" in caplog.text
+
+
+def test_compute_job_store_fails_closed_on_invalid_request_json(tmp_path, caplog):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+
+    store.enqueue_job(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        request_payload={"portfolio_id": "P1"},
+    )
+    with store._session() as session:
+        row = session.get(ComputeJobModel, str(calculation_id))
+        assert row is not None
+        row.request_json = "{not-json"
+
+    with caplog.at_level("WARNING", logger="app.services.compute_job_store"):
+        record = store.get_job(calculation_id)
+
+    assert record is not None
+    assert record.job_status == ComputeJobStatus.FAILED
+    assert record.request_payload == {}
+    assert record.error_message == INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_MESSAGE
+    assert record.error_type == INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_ERROR_TYPE
+    assert f"calculation_id={calculation_id}" in caplog.text
+
+
+def test_compute_job_store_fails_closed_on_non_object_request_json(tmp_path, caplog):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+
+    store.enqueue_job(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        request_payload={"portfolio_id": "P1"},
+    )
+    with store._session() as session:
+        row = session.get(ComputeJobModel, str(calculation_id))
+        assert row is not None
+        row.request_json = "[1, 2, 3]"
+
+    with caplog.at_level("WARNING", logger="app.services.compute_job_store"):
+        record = store.get_job(calculation_id)
+
+    assert record is not None
+    assert record.job_status == ComputeJobStatus.FAILED
+    assert record.request_payload == {}
+    assert record.error_type == INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_ERROR_TYPE
+    assert f"calculation_id={calculation_id}" in caplog.text
+
+
+def test_compute_job_store_marks_invalid_request_payload_failed_during_lease(tmp_path, caplog):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+
+    store.enqueue_job(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        request_payload={"portfolio_id": "P1"},
+    )
+    with store._session() as session:
+        row = session.get(ComputeJobModel, str(calculation_id))
+        assert row is not None
+        row.request_json = "{not-json"
+
+    with caplog.at_level("WARNING", logger="app.services.compute_job_store"):
+        leased = store.lease_pending_jobs(worker_id="worker-a", limit=10, lease_seconds=30)
+
+    assert leased == []
+    failed = store.get_job(calculation_id)
+    assert failed is not None
+    assert failed.job_status == ComputeJobStatus.FAILED
+    assert failed.worker_id is None
+    assert failed.error_message == INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_MESSAGE
+    assert failed.error_type == INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_ERROR_TYPE
+    assert failed.completed_at_utc is not None
+    assert f"calculation_id={calculation_id}" in caplog.text
+
+
+def test_compute_job_store_fails_closed_on_non_object_response_json(tmp_path, caplog):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+    now = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+
+    store.enqueue_job(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        request_payload={"portfolio_id": "P1"},
+    )
+    with store._session() as session:
+        row = session.get(ComputeJobModel, str(calculation_id))
+        assert row is not None
+        row.job_status = ComputeJobStatus.COMPLETE.value
+        row.response_json = "[1, 2, 3]"
+        row.completed_at_utc = now
+
+    with caplog.at_level("WARNING", logger="app.services.compute_job_store"):
+        record = store.get_job(calculation_id)
+
+    assert record is not None
+    assert record.job_status == ComputeJobStatus.FAILED
+    assert record.response_payload is None
+    assert record.error_type == INVALID_COMPUTE_JOB_RESPONSE_PAYLOAD_ERROR_TYPE
+    assert f"calculation_id={calculation_id}" in caplog.text
 
 
 def test_compute_job_store_failure_and_filters(tmp_path):

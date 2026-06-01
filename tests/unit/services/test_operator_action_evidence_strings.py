@@ -1,10 +1,20 @@
 import pytest
 
 from app.services.operator_action_evidence_strings import (
+    is_optional_evidence_string,
+    is_required_evidence_int,
+    is_required_evidence_number,
+    is_required_evidence_string,
+    is_required_evidence_string_list,
     normalize_optional_evidence_identifier,
     normalize_required_evidence_identifier,
+    optional_evidence_int_fields_valid,
     optional_evidence_string,
+    optional_evidence_string_fields_valid,
+    required_evidence_bool_fields_present,
+    required_evidence_int_fields_present,
     required_evidence_string,
+    required_evidence_string_fields_present,
 )
 
 
@@ -13,6 +23,57 @@ def test_normalize_required_evidence_identifier_trims_and_rejects_blank():
 
     with pytest.raises(ValueError, match="operator_id must not be blank"):
         normalize_required_evidence_identifier(" ", field_name="operator_id")
+
+
+def test_evidence_string_predicates_require_nonblank_strings():
+    assert is_required_evidence_string(" ops-user ")
+    assert not is_required_evidence_string(" ")
+    assert not is_required_evidence_string(123)
+    assert is_optional_evidence_string(None)
+    assert is_optional_evidence_string(" tenant-a ")
+    assert not is_optional_evidence_string(" ")
+    assert not is_optional_evidence_string(123)
+
+
+def test_evidence_int_predicate_rejects_bool_subclass_values():
+    assert is_required_evidence_int(30)
+    assert not is_required_evidence_int(True)
+    assert not is_required_evidence_int(30.0)
+    assert not is_required_evidence_int("30")
+
+
+def test_evidence_number_predicate_rejects_bool_subclass_values():
+    assert is_required_evidence_number(30)
+    assert is_required_evidence_number(30.0)
+    assert not is_required_evidence_number(True)
+    assert not is_required_evidence_number("30")
+
+
+def test_evidence_field_predicates_validate_string_int_and_bool_sets():
+    payload = {
+        "operator_id": "ops-user",
+        "tenant_id": None,
+        "retention_days": 30,
+        "apply": False,
+    }
+
+    assert required_evidence_string_fields_present(payload, ("operator_id",))
+    assert optional_evidence_string_fields_valid(payload, ("tenant_id",))
+    assert required_evidence_int_fields_present(payload, ("retention_days",))
+    assert optional_evidence_int_fields_valid(payload, ("missing_optional_int",))
+    assert required_evidence_bool_fields_present(payload, ("apply",))
+    assert not required_evidence_string_fields_present({"operator_id": " "}, ("operator_id",))
+    assert not optional_evidence_string_fields_valid({"tenant_id": " "}, ("tenant_id",))
+    assert not required_evidence_int_fields_present({"retention_days": True}, ("retention_days",))
+    assert not optional_evidence_int_fields_valid({"retention_days": True}, ("retention_days",))
+    assert not required_evidence_bool_fields_present({"apply": 1}, ("apply",))
+
+
+def test_required_evidence_string_list_predicate_rejects_blank_or_non_string_items():
+    assert is_required_evidence_string_list(["analytics_execution", "lineage_payloads"])
+    assert not is_required_evidence_string_list(["analytics_execution", " "])
+    assert not is_required_evidence_string_list(["analytics_execution", 123])
+    assert not is_required_evidence_string_list("analytics_execution")
 
 
 def test_normalize_optional_evidence_identifier_trims_blank_to_absent():

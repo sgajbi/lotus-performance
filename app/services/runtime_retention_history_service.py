@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from app.core.config import get_settings
+from app.services.operator_action_evidence_strings import required_evidence_int_fields_present
 from app.services.operator_action_history_filters import (
     build_applied_history_filters,
     filter_history_entries,
@@ -13,11 +14,11 @@ from app.services.operator_action_history_manifest import (
     HistoryManifestReadReasons,
     log_invalid_history_manifest_payload,
     read_history_manifest_payload,
+    validate_history_entry_generated_at_utc,
     validate_history_entry_strings,
     validate_history_manifest_payload,
 )
 from app.services.operator_action_history_pagination import paginate_history_entries
-from app.services.runtime_status_time import parse_utc_datetime
 
 RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON = "runtime_retention_artifact_directory_missing"
 RUNTIME_RETENTION_MANIFEST_INVALID_REASON = "runtime_retention_manifest_invalid"
@@ -208,12 +209,7 @@ def _validate_manifest_entry(entry: Any) -> dict[str, str | int | None] | None:
     )
     if entry_strings is None:
         return None
-    generated_at_utc = entry_strings["generated_at_utc"]
-    if not isinstance(generated_at_utc, str):
-        return None
-    try:
-        parse_utc_datetime(generated_at_utc)
-    except ValueError:
+    if validate_history_entry_generated_at_utc(entry_strings) is None:
         return None
     if not isinstance(trigger_mode, str):
         return None
@@ -221,9 +217,7 @@ def _validate_manifest_entry(entry: Any) -> dict[str, str | int | None] | None:
     if not trigger_mode:
         return None
     job_id = entry_strings["job_id"]
-    if job_id is not None and not job_id.strip():
-        return None
-    if any(not isinstance(entry.get(key), int) for key in int_keys):
+    if not required_evidence_int_fields_present(entry, int_keys):
         return None
 
     validated_entry: dict[str, str | int | None] = {key: entry_strings[key] for key in str_keys}

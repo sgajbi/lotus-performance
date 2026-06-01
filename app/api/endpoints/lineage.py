@@ -1,6 +1,7 @@
 # app/api/endpoints/lineage.py
 import json
 import os
+from pathlib import Path as FilePath
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Path, Request, status
@@ -9,6 +10,7 @@ from pydantic import ValidationError
 
 from app.core.config import get_settings
 from app.models.lineage_responses import ArtifactLink, LineageManifest, LineageResponse
+from app.services.durable_store_json import read_json_file
 from app.services.lineage_metadata_store import LineageStatus, lineage_metadata_store
 from app.services.lineage_service import LineageService
 
@@ -23,8 +25,7 @@ def _resolve_lineage_artifact_path(*, calculation_id: UUID, artifact_name: str) 
 
 def _load_and_validate_manifest(*, manifest_path: str, record) -> LineageManifest:
     try:
-        with open(manifest_path, "r", encoding="utf-8") as f:
-            manifest_payload = json.load(f)
+        manifest_payload = read_json_file(FilePath(manifest_path))
     except OSError:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

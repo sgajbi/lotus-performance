@@ -1,6 +1,49 @@
 from __future__ import annotations
 
-from typing import Any
+from numbers import Real
+from typing import Any, TypeGuard
+
+_NUMBER_EVIDENCE_TYPES = (int, type(0.0))
+
+
+def is_required_evidence_string(value: object) -> TypeGuard[str]:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def is_optional_evidence_string(value: object) -> TypeGuard[str | None]:
+    return value is None or is_required_evidence_string(value)
+
+
+def is_required_evidence_int(value: object) -> TypeGuard[int]:
+    return type(value) is int
+
+
+def is_required_evidence_number(value: object) -> TypeGuard[Real]:
+    return type(value) in _NUMBER_EVIDENCE_TYPES
+
+
+def required_evidence_string_fields_present(payload: dict[str, Any], keys: tuple[str, ...]) -> bool:
+    return all(is_required_evidence_string(payload.get(key)) for key in keys)
+
+
+def optional_evidence_string_fields_valid(payload: dict[str, Any], keys: tuple[str, ...]) -> bool:
+    return all(is_optional_evidence_string(payload.get(key)) for key in keys)
+
+
+def required_evidence_int_fields_present(payload: dict[str, Any], keys: tuple[str, ...]) -> bool:
+    return all(is_required_evidence_int(payload.get(key)) for key in keys)
+
+
+def optional_evidence_int_fields_valid(payload: dict[str, Any], keys: tuple[str, ...]) -> bool:
+    return all(payload.get(key) is None or is_required_evidence_int(payload.get(key)) for key in keys)
+
+
+def required_evidence_bool_fields_present(payload: dict[str, Any], keys: tuple[str, ...]) -> bool:
+    return all(type(payload.get(key)) is bool for key in keys)
+
+
+def is_required_evidence_string_list(value: object) -> TypeGuard[list[str]]:
+    return isinstance(value, list) and all(is_required_evidence_string(item) for item in value)
 
 
 def normalize_required_evidence_identifier(value: str, *, field_name: str) -> str:
@@ -19,7 +62,7 @@ def normalize_optional_evidence_identifier(value: str | None) -> str | None:
 
 def required_evidence_string(payload: dict[str, Any], key: str) -> str:
     value = payload[key]
-    if not isinstance(value, str) or not value.strip():
+    if not is_required_evidence_string(value):
         raise ValueError(f"{key} must be a nonblank string")
     return value.strip()
 

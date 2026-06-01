@@ -3,7 +3,12 @@ from __future__ import annotations
 from datetime import date
 
 from app.models.composites import CompositeDefinition, CompositeMemberReturnFact, CompositeMembership
-from app.services.composite_metadata_store import CompositeMetadataStore
+from app.services.composite_metadata_store import (
+    INVALID_COMPOSITE_REASON_CODES_PAYLOAD,
+    CompositeDefinitionModel,
+    CompositeMemberReturnFactModel,
+    CompositeMetadataStore,
+)
 
 
 def _store(tmp_path) -> CompositeMetadataStore:
@@ -120,3 +125,59 @@ def test_composite_metadata_store_upserts_member_return_facts_by_composite_portf
 
     assert facts == [restated_fact]
     assert store.count_records().member_return_facts == 1
+
+
+def test_composite_metadata_store_bounds_malformed_definition_source_authority(tmp_path, caplog):
+    store = _store(tmp_path)
+    definition = _definition()
+    store.upsert_definition(definition)
+    with store._session() as session:
+        row = session.get(CompositeDefinitionModel, definition.composite_id)
+        assert row is not None
+        row.source_authority_json = "{not-json"
+
+    with caplog.at_level("WARNING", logger="app.services.composite_metadata_store"):
+        stored_definition = store.get_definition(definition.composite_id)
+
+    assert stored_definition is None
+    assert f"row={definition.composite_id}" in caplog.text
+
+
+def test_composite_metadata_store_bounds_malformed_member_return_reason_codes(tmp_path, caplog):
+    store = _store(tmp_path)
+    fact = CompositeMemberReturnFact.model_validate(
+        {
+            "composite_id": "PB_GLOBAL_BALANCED_USD",
+            "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+            "period_start": "2026-01-01",
+            "period_end": "2026-01-31",
+            "return_value": "0.0100",
+            "beginning_market_value": "1000000.00",
+            "ending_market_value": "1010000.00",
+            "reporting_currency": "USD",
+            "calculation_id": "initial-calculation",
+            "source_snapshot_id": "initial-snapshot",
+            "source_fingerprint": "sha256:initial-snapshot",
+            "status": "DEGRADED",
+            "reason_codes": ["missing_final_valuation"],
+        }
+    )
+    store.upsert_member_return_fact(fact)
+    with store._session() as session:
+        row = session.get(
+            CompositeMemberReturnFactModel,
+            "PB_GLOBAL_BALANCED_USD|PB_SG_GLOBAL_BAL_001|2026-01-01|2026-01-31",
+        )
+        assert row is not None
+        row.reason_codes_json = "{not-json"
+
+    with caplog.at_level("WARNING", logger="app.services.composite_metadata_store"):
+        facts = store.list_member_return_facts(
+            composite_id="PB_GLOBAL_BALANCED_USD",
+            period_start=date(2026, 1, 1),
+            period_end=date(2026, 1, 31),
+        )
+
+    assert len(facts) == 1
+    assert facts[0].reason_codes == [INVALID_COMPOSITE_REASON_CODES_PAYLOAD]
+    assert "row=PB_GLOBAL_BALANCED_USD|PB_SG_GLOBAL_BAL_001|2026-01-01|2026-01-31" in caplog.text

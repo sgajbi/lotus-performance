@@ -5,6 +5,7 @@ from sqlalchemy import event, inspect
 from sqlalchemy.dialects import postgresql
 
 from app.services.lineage_metadata_store import (
+    INVALID_LINEAGE_PAYLOAD_DETAILS_MESSAGE,
     LineageMetadataStore,
     LineagePayloadModel,
     LineageRecordModel,
@@ -186,6 +187,64 @@ def test_lineage_metadata_store_payload_queue_roundtrip(tmp_path):
 
     store.delete_payload(calculation_id)
     assert store.list_pending_payloads(limit=10) == []
+
+
+def test_lineage_metadata_store_marks_invalid_payload_details_failed_on_get(tmp_path, caplog):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+
+    store.enqueue_lineage_payload(
+        calculation_id=calculation_id,
+        calculation_type="TWR",
+        request_json="{}",
+        response_json="{}",
+        details={"details.json": "{}"},
+    )
+    with store._session() as session:
+        payload = session.get(LineagePayloadModel, str(calculation_id))
+        assert payload is not None
+        payload.details_json = "{not-json"
+
+    with caplog.at_level("WARNING", logger="app.services.lineage_metadata_store"):
+        payload = store.get_payload(calculation_id)
+
+    assert payload is None
+    record = store.get_record(calculation_id)
+    assert record is not None
+    assert record.status == LineageStatus.FAILED
+    assert record.error_message == INVALID_LINEAGE_PAYLOAD_DETAILS_MESSAGE
+    assert f"calculation_id={calculation_id}" in caplog.text
+
+
+def test_lineage_metadata_store_marks_non_string_payload_details_failed_during_lease(tmp_path, caplog):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+
+    store.enqueue_lineage_payload(
+        calculation_id=calculation_id,
+        calculation_type="TWR",
+        request_json="{}",
+        response_json="{}",
+        details={"details.json": "{}"},
+    )
+    with store._session() as session:
+        payload = session.get(LineagePayloadModel, str(calculation_id))
+        assert payload is not None
+        payload.details_json = '{"details.json": 1}'
+
+    with caplog.at_level("WARNING", logger="app.services.lineage_metadata_store"):
+        leased = store.lease_pending_payloads(worker_id="lineage-worker-1", limit=10, lease_seconds=60)
+
+    assert leased == []
+    record = store.get_record(calculation_id)
+    assert record is not None
+    assert record.status == LineageStatus.FAILED
+    assert record.error_message == INVALID_LINEAGE_PAYLOAD_DETAILS_MESSAGE
+    payload = store.get_payload(calculation_id)
+    assert payload is None
+    assert f"calculation_id={calculation_id}" in caplog.text
 
 
 def test_lineage_metadata_store_raises_when_incrementing_missing_payload(tmp_path):

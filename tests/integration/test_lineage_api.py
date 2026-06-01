@@ -222,7 +222,7 @@ def test_get_lineage_internal_error_returns_500(client, mocker):
     with open(manifest_path, "w") as f:
         f.write('{"calculation_type":"TWR","timestamp_utc":"2026-01-01T00:00:00Z"}')
 
-    mocker.patch("app.api.endpoints.lineage.json.load", side_effect=Exception("manifest parse failure"))
+    mocker.patch("app.api.endpoints.lineage.read_json_file", side_effect=Exception("manifest parse failure"))
     response = client.get(f"/performance/lineage/{calculation_id}")
     assert response.status_code == 500
     assert "Failed to retrieve lineage artifacts" in response.json()["detail"]

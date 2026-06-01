@@ -127,6 +127,66 @@ def test_load_existing_twr_calculation_artifacts_reads_compute_job_request_paylo
     assert artifacts.request_payload == request_payload
 
 
+def test_load_existing_twr_calculation_artifacts_skips_invalid_lineage_response_json(monkeypatch, tmp_path, caplog):
+    calculation_id = uuid4()
+    response_payload = _performance_response_payload(calculation_id=str(calculation_id))
+    request_payload = {"resolved_request": _resolved_request_payload()}
+
+    monkeypatch.setattr(
+        materialization, "get_settings", lambda: type("Settings", (), {"LINEAGE_STORAGE_PATH": str(tmp_path)})()
+    )
+    monkeypatch.setattr(
+        materialization.lineage_metadata_store,
+        "get_payload",
+        lambda _calculation_id: SimpleNamespace(request_json=json.dumps(request_payload), response_json="{not-json"),
+    )
+    monkeypatch.setattr(
+        materialization.async_result_store,
+        "get_result",
+        lambda _calculation_id: SimpleNamespace(response_payload=response_payload),
+    )
+    monkeypatch.setattr(
+        materialization.compute_job_store,
+        "get_job",
+        lambda _calculation_id: SimpleNamespace(request_payload=request_payload),
+    )
+
+    with caplog.at_level("WARNING", logger="app.services.inspection.subject_materialization"):
+        artifacts = load_existing_twr_calculation_artifacts(calculation_id)
+
+    assert artifacts.response_model.calculation_id == calculation_id
+    assert artifacts.request_payload == request_payload
+    assert f"calculation_id={calculation_id}" in caplog.text
+
+
+def test_load_existing_twr_calculation_artifacts_skips_invalid_lineage_request_json(monkeypatch, tmp_path, caplog):
+    calculation_id = uuid4()
+    response_payload = _performance_response_payload(calculation_id=str(calculation_id))
+    request_payload = {"resolved_request": _resolved_request_payload()}
+
+    monkeypatch.setattr(
+        materialization, "get_settings", lambda: type("Settings", (), {"LINEAGE_STORAGE_PATH": str(tmp_path)})()
+    )
+    monkeypatch.setattr(
+        materialization.lineage_metadata_store,
+        "get_payload",
+        lambda _calculation_id: SimpleNamespace(request_json="{not-json", response_json=json.dumps(response_payload)),
+    )
+    monkeypatch.setattr(materialization.async_result_store, "get_result", lambda _calculation_id: None)
+    monkeypatch.setattr(
+        materialization.compute_job_store,
+        "get_job",
+        lambda _calculation_id: SimpleNamespace(request_payload=request_payload),
+    )
+
+    with caplog.at_level("WARNING", logger="app.services.inspection.subject_materialization"):
+        artifacts = load_existing_twr_calculation_artifacts(calculation_id)
+
+    assert artifacts.response_model.calculation_id == calculation_id
+    assert artifacts.request_payload == request_payload
+    assert f"calculation_id={calculation_id}" in caplog.text
+
+
 def test_load_existing_twr_calculation_artifacts_raises_when_no_response_source(monkeypatch, tmp_path):
     calculation_id = uuid4()
     monkeypatch.setattr(

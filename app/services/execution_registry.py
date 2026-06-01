@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -12,7 +13,10 @@ from sqlalchemy import DateTime, ForeignKey, Index, String, Text, create_engine,
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
+from app.services.durable_store_json import load_json_object_or_none
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
+
+logger = logging.getLogger(__name__)
 
 
 class ExecutionStatus(StrEnum):
@@ -458,7 +462,11 @@ class ExecutionRegistry:
                     status=ExecutionStageStatus(stage.status),
                     started_at_utc=_format_timestamp(stage.started_at_utc),
                     completed_at_utc=_format_timestamp(stage.completed_at_utc),
-                    details=json.loads(stage.details_json) if stage.details_json else None,
+                    details=_load_json_object(
+                        stage.details_json,
+                        calculation_id=execution.calculation_id,
+                        payload_name=f"stage {stage.stage_name} details",
+                    ),
                     error_message=stage.error_message,
                 )
                 for stage in sorted(execution.stages, key=lambda item: item.stage_name)
@@ -469,7 +477,12 @@ class ExecutionRegistry:
                 portfolio_id=execution.portfolio_id,
                 execution_mode=execution.execution_mode,
                 status=ExecutionStatus(execution.status),
-                requested_window=json.loads(execution.requested_window_json),
+                requested_window=_load_json_object(
+                    execution.requested_window_json,
+                    calculation_id=execution.calculation_id,
+                    payload_name="requested window",
+                )
+                or {},
                 input_fingerprint=execution.input_fingerprint,
                 calculation_hash=execution.calculation_hash,
                 error_message=execution.error_message,
@@ -573,7 +586,11 @@ class ExecutionRegistry:
                     request_fingerprint=row.request_fingerprint,
                     response_fingerprint=row.response_fingerprint,
                     retrieval_status=row.retrieval_status,
-                    paging_metadata=json.loads(row.paging_metadata_json) if row.paging_metadata_json else None,
+                    paging_metadata=_load_json_object(
+                        row.paging_metadata_json,
+                        calculation_id=row.calculation_id,
+                        payload_name=f"upstream snapshot {row.snapshot_id} paging metadata",
+                    ),
                     created_at_utc=_format_timestamp(row.created_at_utc) or "",
                 )
                 for row in rows
@@ -649,3 +666,13 @@ def get_execution_registry(*, database_url: str | None = None) -> ExecutionRegis
 
 
 execution_registry = RuntimeStoreProxy(get_execution_registry)
+
+
+def _load_json_object(raw_payload: str | None, *, calculation_id: str, payload_name: str) -> dict[str, Any] | None:
+    return load_json_object_or_none(
+        raw_payload,
+        logger=logger,
+        payload_name=f"Execution registry {payload_name}",
+        identity_name="calculation_id",
+        identity_value=calculation_id,
+    )
