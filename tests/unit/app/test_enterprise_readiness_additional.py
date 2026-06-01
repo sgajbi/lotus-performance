@@ -7,6 +7,7 @@ from fastapi import Response
 from app import (
     enterprise_audit_emission,
     enterprise_audit_events,
+    enterprise_audit_middleware,
     enterprise_audit_redaction,
     enterprise_authorization,
     enterprise_capability_rules,
@@ -100,6 +101,7 @@ from app.enterprise_readiness import (
     _authorization_denied,
     _authorization_denied_response,
     _authorize_enterprise_request,
+    _build_enterprise_audit_middleware,
     _capability_rule_key,
     _capability_rule_path_for_method,
     _content_length,
@@ -274,6 +276,10 @@ def test_enterprise_readiness_delegates_audit_emission_boundary(mocker):
     emit.assert_called_once()
     assert emit.call_args.kwargs["logger"].name == "enterprise_readiness"
     assert emit.call_args.kwargs["action"] == "POST /analytics"
+
+
+def test_enterprise_readiness_reexports_audit_middleware_boundary():
+    assert _build_enterprise_audit_middleware is enterprise_audit_middleware.build_enterprise_audit_middleware
 
 
 def test_load_json_map_fails_closed_for_missing_invalid_or_non_object_json(monkeypatch):

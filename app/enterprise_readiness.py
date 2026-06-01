@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 
 from app import enterprise_audit_emission as _audit_emission
 from app import enterprise_audit_events as _audit_events
+from app import enterprise_audit_middleware as _audit_middleware
 from app import enterprise_audit_redaction as _audit_redaction
 from app import enterprise_authorization as _authorization
 from app import enterprise_capability_rules as _capability_rules
@@ -174,6 +175,7 @@ _PAYLOAD_TOO_LARGE_DETAIL = _response_envelopes._PAYLOAD_TOO_LARGE_DETAIL
 _RESPONSE_DETAIL_KEY = _response_envelopes._RESPONSE_DETAIL_KEY
 _RESPONSE_REASON_KEY = _response_envelopes._RESPONSE_REASON_KEY
 _authorization_denied_response_envelope = _response_envelopes._authorization_denied_response_envelope
+_build_enterprise_audit_middleware = _audit_middleware.build_enterprise_audit_middleware
 
 logger = logging.getLogger("enterprise_readiness")
 
@@ -185,12 +187,13 @@ def _authorization_denied_response(
     reason: str | None,
     audit_identity: dict[str, str],
 ) -> JSONResponse:
-    emit_audit_event(
-        action=_denied_request_action(method=method, path=path),
-        **audit_identity,
-        metadata=_authorization_denial_metadata(reason),
+    return _audit_middleware._authorization_denied_response(
+        method=method,
+        path=path,
+        reason=reason,
+        audit_identity=audit_identity,
+        emit_audit_event=emit_audit_event,
     )
-    return _authorization_denied_response_envelope(reason)
 
 
 def _emit_allowed_audit_event(
@@ -200,10 +203,12 @@ def _emit_allowed_audit_event(
     audit_identity: dict[str, str],
     metadata: dict[str, Any],
 ) -> None:
-    emit_audit_event(
-        action=_request_action(method=method, path=path),
-        **audit_identity,
+    _audit_middleware._emit_allowed_audit_event(
+        method=method,
+        path=path,
+        audit_identity=audit_identity,
         metadata=metadata,
+        emit_audit_event=emit_audit_event,
     )
 
 
@@ -227,46 +232,26 @@ def emit_audit_event(
     )
 
 
+def _emit_audit_event_from_readiness(
+    *,
+    action: str,
+    actor_id: str,
+    tenant_id: str,
+    role: str,
+    correlation_id: str | None,
+    metadata: dict[str, Any],
+) -> None:
+    emit_audit_event(
+        action=action,
+        actor_id=actor_id,
+        tenant_id=tenant_id,
+        role=role,
+        correlation_id=correlation_id,
+        metadata=metadata,
+    )
+
+
 def build_enterprise_audit_middleware() -> Callable[
     [Request, Callable[[Request], Awaitable[Response]]], Awaitable[Response]
 ]:
-    # Enforce enterprise audit and authorization policy on governed surfaces.
-    async def middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
-        if _write_payload_too_large(
-            method=request.method,
-            headers=request.headers,
-            max_write_payload_bytes=_max_write_payload_bytes(),
-        ):
-            return _payload_too_large_response()
-
-        audit_identity = _audit_identity_from_headers(request.headers)
-        authorized, reason = _authorize_enterprise_request(
-            method=request.method,
-            path=request.url.path,
-            headers=dict(request.headers),
-        )
-        if not authorized:
-            return _authorization_denied_response(
-                method=request.method,
-                path=request.url.path,
-                reason=reason,
-                audit_identity=audit_identity,
-            )
-
-        response = await call_next(request)
-        _apply_enterprise_policy_header(response)
-        allowed_audit_metadata = _allowed_audit_metadata(
-            method=request.method,
-            path=request.url.path,
-            status_code=response.status_code,
-        )
-        if allowed_audit_metadata is not None:
-            _emit_allowed_audit_event(
-                method=request.method,
-                path=request.url.path,
-                audit_identity=audit_identity,
-                metadata=allowed_audit_metadata,
-            )
-        return response
-
-    return middleware
+    return _build_enterprise_audit_middleware(emit_audit_event=_emit_audit_event_from_readiness)
