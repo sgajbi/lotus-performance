@@ -13,6 +13,9 @@ _SERVICE_NAME = "lotus-performance"
 _ENTERPRISE_AUDIT_EVENT_NAME = "enterprise_audit_event"
 _ENTERPRISE_AUDIT_EXTRA_KEY = "audit"
 _ENTERPRISE_POLICY_VERSION_HEADER = "X-Enterprise-Policy-Version"
+_RESPONSE_DETAIL_KEY = "detail"
+_RESPONSE_REASON_KEY = "reason"
+_AUTHORIZATION_POLICY_DENIED_DETAIL = "authorization_policy_denied"
 _WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 _REQUIRED_HEADERS = {"x-actor-id", "x-tenant-id", "x-role", "x-correlation-id"}
 _DEFAULT_CAPABILITY_RULES = {
@@ -263,9 +266,15 @@ def _authorization_denied_response(
     emit_audit_event(
         action=f"DENY {method} {path}",
         **audit_identity,
-        metadata={"reason": reason},
+        metadata={_RESPONSE_REASON_KEY: reason},
     )
-    return JSONResponse(status_code=403, content={"detail": "authorization_policy_denied", "reason": reason})
+    return JSONResponse(
+        status_code=403,
+        content={
+            _RESPONSE_DETAIL_KEY: _AUTHORIZATION_POLICY_DENIED_DETAIL,
+            _RESPONSE_REASON_KEY: reason,
+        },
+    )
 
 
 def _emit_allowed_audit_event(

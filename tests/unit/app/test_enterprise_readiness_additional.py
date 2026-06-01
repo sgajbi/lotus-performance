@@ -5,9 +5,12 @@ import pytest
 from fastapi import Response
 
 from app.enterprise_readiness import (
+    _AUTHORIZATION_POLICY_DENIED_DETAIL,
     _ENTERPRISE_AUDIT_EVENT_NAME,
     _ENTERPRISE_AUDIT_EXTRA_KEY,
     _ENTERPRISE_POLICY_VERSION_HEADER,
+    _RESPONSE_DETAIL_KEY,
+    _RESPONSE_REASON_KEY,
     _allowed_audit_metadata,
     _apply_enterprise_policy_header,
     _audit_event_payload,
@@ -337,8 +340,8 @@ def test_authorization_denied_response_emits_audit_and_structured_reason(mocker)
 
     assert response.status_code == 403
     assert json.loads(response.body) == {
-        "detail": "authorization_policy_denied",
-        "reason": "missing_capability:operations.runtime.manage",
+        _RESPONSE_DETAIL_KEY: _AUTHORIZATION_POLICY_DENIED_DETAIL,
+        _RESPONSE_REASON_KEY: "missing_capability:operations.runtime.manage",
     }
     emit.assert_called_once_with(
         action="DENY POST /integration/recovery-drills/run",
@@ -346,7 +349,7 @@ def test_authorization_denied_response_emits_audit_and_structured_reason(mocker)
         tenant_id="tenant-1",
         role="operator",
         correlation_id="corr-1",
-        metadata={"reason": "missing_capability:operations.runtime.manage"},
+        metadata={_RESPONSE_REASON_KEY: "missing_capability:operations.runtime.manage"},
     )
 
 
