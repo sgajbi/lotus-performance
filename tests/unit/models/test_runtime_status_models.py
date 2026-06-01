@@ -4,7 +4,7 @@ from app.models.runtime_status import build_runtime_status_response
 from app.services.compute_job_store import ComputeQueueInspectionAnchors, ComputeQueueStats
 from app.services.durability_health_service import DurabilityHealthStatus, LineageStorageCapacitySnapshot
 from app.services.lineage_metadata_store import LineageQueueInspectionAnchors, LineageQueueStats
-from app.services.runtime_status_service import (
+from app.services.runtime_status_domain import (
     ComputeQueueDegradationPolicy,
     LineageQueueDegradationPolicy,
     RecoveryDrillDegradationPolicy,

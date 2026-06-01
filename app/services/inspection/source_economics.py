@@ -9,6 +9,7 @@ from numbers import Real
 from app.core.config import Settings, get_settings
 from app.models.inspection_responses import TWRInspectionFinding
 from app.models.requests import PerformanceRequest
+from app.services.inspection.source_availability import raise_inspection_source_unavailable
 from app.services.inspection.source_economics_collector import (
     SourceEconomicsSamples,
     collect_source_economics_samples,
@@ -140,7 +141,11 @@ async def _fetch_portfolio_timeseries(
         calculation_id=None,
     )
     if status_code >= 400:
-        raise RuntimeError(f"Portfolio timeseries source unavailable for source-economics inspection ({status_code}).")
+        raise_inspection_source_unavailable(
+            source_label="Portfolio timeseries",
+            inspection_label="source-economics",
+            status_code=status_code,
+        )
     return payload
 
 

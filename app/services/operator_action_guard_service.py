@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
 
+from app.services.operator_action_identity import operator_action_actor_matches
 from app.services.recovery_drill_history_service import (
     RecoveryDrillHistoryEntry,
     RecoveryDrillHistorySnapshot,
@@ -14,15 +14,7 @@ from app.services.runtime_retention_history_service import (
     RuntimeRetentionHistoryEntry,
     RuntimeRetentionHistorySnapshot,
 )
-
-
-@dataclass(frozen=True)
-class ManualActionCooldown:
-    action_name: str
-    detail_code: str
-    latest_generated_at_utc: str
-    latest_evidence_file_name: str
-    retry_after_seconds: int
+from app.services.runtime_status_time import parse_utc_datetime
 
 
 def enforce_runtime_retention_manual_run_cooldown(
@@ -128,20 +120,6 @@ def enforce_recovery_drill_manual_run_cooldown(
     )
 
 
-def _resolve_latest_generated_at_utc(entries: list[object]) -> str | None:
-    if not entries:
-        return None
-    value = getattr(entries[0], "generated_at_utc", None)
-    return value if isinstance(value, str) else None
-
-
-def _resolve_latest_evidence_file_name(entries: list[object]) -> str | None:
-    if not entries:
-        return None
-    value = getattr(entries[0], "evidence_file_name", None)
-    return value if isinstance(value, str) else None
-
-
 def _find_latest_runtime_retention_entry(
     snapshot: RuntimeRetentionHistorySnapshot,
     *,
@@ -153,9 +131,7 @@ def _find_latest_runtime_retention_entry(
 ) -> RuntimeRetentionHistoryEntry | None:
     expected_cleanup_mode = "apply" if apply else "dry_run"
     for entry in snapshot.entries:
-        if entry.operator_id != operator_id:
-            continue
-        if entry.tenant_id != tenant_id:
+        if not operator_action_actor_matches(entry, operator_id=operator_id, tenant_id=tenant_id):
             continue
         if entry.cleanup_mode != expected_cleanup_mode:
             continue
@@ -175,9 +151,7 @@ def _find_latest_recovery_drill_entry(
     backup_identifier: str,
 ) -> RecoveryDrillHistoryEntry | None:
     for entry in snapshot.entries:
-        if entry.operator_id != operator_id:
-            continue
-        if entry.tenant_id != tenant_id:
+        if not operator_action_actor_matches(entry, operator_id=operator_id, tenant_id=tenant_id):
             continue
         if entry.backup_identifier != backup_identifier:
             continue
@@ -221,7 +195,4 @@ def _enforce_manual_action_cooldown(
 
 
 def _parse_utc_timestamp(value: str) -> datetime:
-    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=UTC)
-    return parsed.astimezone(UTC)
+    return parse_utc_datetime(value)

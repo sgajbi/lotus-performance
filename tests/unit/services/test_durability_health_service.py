@@ -1,3 +1,5 @@
+import logging
+
 from app.services import durability_health_service
 
 
@@ -47,7 +49,7 @@ def test_durable_metadata_schema_health_reports_ready_without_lineage_storage(mo
     assert status.reason is None
 
 
-def test_durability_health_service_reports_unavailable_on_ping_failure(monkeypatch):
+def test_durability_health_service_reports_unavailable_on_ping_failure(monkeypatch, caplog):
     def _boom():
         raise RuntimeError("db down")
 
@@ -66,11 +68,14 @@ def test_durability_health_service_reports_unavailable_on_ping_failure(monkeypat
         lambda: durability_health_service.DurabilityHealthStatus(is_ready=True, status="ready", reason=None),
     )
 
-    status = durability_health_service.check_durable_metadata_store_ready()
+    with caplog.at_level(logging.WARNING, logger="app.services.durability_health_service"):
+        status = durability_health_service.check_durable_metadata_store_ready()
 
     assert status.is_ready is False
     assert status.status == "unavailable"
     assert status.reason == "durable_metadata_store_unreachable"
+    assert "Durable metadata store readiness ping failed." in caplog.text
+    assert "RuntimeError: db down" in caplog.text
 
 
 def test_durability_health_service_reports_unavailable_on_missing_required_schema(monkeypatch):
@@ -222,6 +227,20 @@ def test_lineage_storage_health_write_probe_cleans_up_temp_file(tmp_path):
 
     assert ready is True
     assert list(storage_path.iterdir()) == []
+
+
+def test_lineage_storage_health_write_probe_logs_os_errors(monkeypatch, tmp_path, caplog):
+    def _raise_os_error(*args, **kwargs):
+        raise OSError("disk unavailable")
+
+    monkeypatch.setattr(durability_health_service.tempfile, "mkstemp", _raise_os_error)
+
+    with caplog.at_level(logging.WARNING, logger="app.services.durability_health_service"):
+        ready = durability_health_service._probe_lineage_storage_write(str(tmp_path))
+
+    assert ready is False
+    assert "Lineage storage write probe failed." in caplog.text
+    assert "OSError: disk unavailable" in caplog.text
 
 
 def test_get_lineage_storage_capacity_returns_free_space_snapshot(monkeypatch, tmp_path):

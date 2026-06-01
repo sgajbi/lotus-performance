@@ -260,6 +260,32 @@ def test_twr_inspection_marks_artifact_materialization_failure(fake_registry, mo
     assert ("artifact_materialization", "artifact store offline") in fake_registry.failed_stages
 
 
+def test_twr_inspection_reports_no_check_family_when_subject_has_no_inspectable_payload(fake_registry, monkeypatch):
+    monkeypatch.setattr(
+        service,
+        "resolve_twr_inspection_subject",
+        lambda _request: ResolvedTWRInspectionSubject(
+            subject_type=TWRInspectionSubjectType.TWR_REQUEST,
+            subject_calculation_id=None,
+            portfolio_id="PB_SG_GLOBAL_BAL_001",
+            related_execution=None,
+            request_payload=None,
+        ),
+    )
+
+    response = service.run_twr_inspection(
+        TWRInspectionRequest(
+            subject_type=TWRInspectionSubjectType.TWR_REQUEST,
+            request=_build_twr_request(),
+        )
+    )
+
+    assert response.verdict == TWRInspectionVerdict.SUPPORTABLE_WITH_WARNINGS
+    assert response.check_coverage.completed_check_families == []
+    assert response.findings[0].code == "INSPECTION_NO_CHECK_FAMILY_EXECUTED"
+    assert "runtime skeleton" not in response.findings[0].summary
+
+
 def test_twr_inspection_verdict_and_window_helpers_cover_clean_and_unscoped_paths():
     assert (
         service._synthesize_verdict(

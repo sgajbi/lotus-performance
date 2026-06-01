@@ -11,13 +11,43 @@ from uuid import UUID
 from sqlalchemy import DateTime, Index, Integer, String, Text, case, create_engine, exists, func, inspect, select, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
+from app.services.durable_store_inspection import (
+    INSPECTION_STATUS_ACTIVE,
+    INSPECTION_STATUS_ALL,
+    INSPECTION_STATUS_FAILED,
+    INSPECTION_STATUS_RECLAIMABLE,
+    apply_min_age_filter,
+    build_inspection_query_context,
+)
+from app.services.durable_store_pagination import next_offset_or_none, recovery_cursor_or_none
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
+from app.services.durable_store_time import (
+    coerce_utc_datetime as _coerce_utc_datetime,
+)
+from app.services.durable_store_time import (
+    elapsed_seconds_since as _elapsed_seconds_since,
+)
+from app.services.durable_store_time import (
+    elapsed_seconds_since_or_zero as _elapsed_seconds_since_or_zero,
+)
+from app.services.durable_store_time import (
+    format_timestamp as _format_timestamp,
+)
+from app.services.durable_store_time import (
+    normalize_filter_datetime as _normalize_filter_datetime,
+)
 
 
 class LineageStatus(StrEnum):
     PENDING = "pending"
     COMPLETE = "complete"
     FAILED = "failed"
+
+
+LINEAGE_TERMINAL_STATUSES = (
+    LineageStatus.COMPLETE.value,
+    LineageStatus.FAILED.value,
+)
 
 
 class Base(DeclarativeBase):
@@ -109,6 +139,12 @@ class LineageQueueInspectionItem:
 
 
 @dataclass(frozen=True)
+class LineageQueueInspectionTiming:
+    status: str
+    active_since: datetime | None
+
+
+@dataclass(frozen=True)
 class LineageQueueInspectionPage:
     total_count: int
     next_offset: int | None
@@ -131,27 +167,6 @@ class LineageRecoveryEventPage:
     next_cursor_recovered_before: str | None
     next_cursor_calculation_id_before: str | None
     items: list[LineageRecoveryEvent]
-
-
-def _coerce_utc_datetime(value: datetime) -> datetime:
-    if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
-
-
-def _normalize_filter_datetime(value: datetime | None, *, dialect_name: str) -> datetime | None:
-    if value is None:
-        return None
-    normalized = _coerce_utc_datetime(value)
-    if dialect_name == "sqlite":
-        return normalized.replace(tzinfo=None)
-    return normalized
-
-
-def _format_timestamp(value: datetime | None) -> str | None:
-    if value is None:
-        return None
-    return _coerce_utc_datetime(value).isoformat().replace("+00:00", "Z")
 
 
 class LineageMetadataStore:
@@ -261,7 +276,7 @@ class LineageMetadataStore:
             )
             statement = (
                 select(LineageRecordModel.calculation_id)
-                .where(LineageRecordModel.status.in_([LineageStatus.COMPLETE.value, LineageStatus.FAILED.value]))
+                .where(LineageRecordModel.status.in_(LINEAGE_TERMINAL_STATUSES))
                 .where(LineageRecordModel.timestamp_utc <= cutoff)
                 .order_by(LineageRecordModel.timestamp_utc.asc(), LineageRecordModel.calculation_id.asc())
             )
@@ -413,26 +428,16 @@ class LineageMetadataStore:
         with self._session() as session:
             aggregate_row = session.execute(self._build_pending_payload_stats_statement(now=stats_now)).one()
 
-            oldest_pending_age_seconds = 0.0
-            if aggregate_row.oldest_pending_created_at is not None:
-                oldest_pending_age_seconds = max(
-                    0.0,
-                    (stats_now - _coerce_utc_datetime(aggregate_row.oldest_pending_created_at)).total_seconds(),
-                )
-            oldest_leased_age_seconds = 0.0
-            if aggregate_row.oldest_leased_at is not None:
-                oldest_leased_age_seconds = max(
-                    0.0,
-                    (stats_now - _coerce_utc_datetime(aggregate_row.oldest_leased_at)).total_seconds(),
-                )
-
             return LineageQueueStats(
                 pending_payload_count=int(aggregate_row.pending_payload_count or 0),
                 leased_payload_count=int(aggregate_row.leased_payload_count or 0),
                 retry_backlog_count=int(aggregate_row.retry_backlog_count or 0),
                 terminal_failure_count=int(aggregate_row.terminal_failure_count or 0),
-                oldest_pending_age_seconds=oldest_pending_age_seconds,
-                oldest_leased_age_seconds=oldest_leased_age_seconds,
+                oldest_pending_age_seconds=_elapsed_seconds_since_or_zero(
+                    stats_now,
+                    aggregate_row.oldest_pending_created_at,
+                ),
+                oldest_leased_age_seconds=_elapsed_seconds_since_or_zero(stats_now, aggregate_row.oldest_leased_at),
                 reclaimable_count=int(aggregate_row.reclaimable_count or 0),
             )
 
@@ -482,18 +487,10 @@ class LineageMetadataStore:
             ).all()
             events: list[LineageRecoveryEvent] = []
             for record, payload in rows:
-                recovered_at_utc = _format_timestamp(record.timestamp_utc)
-                if recovered_at_utc is None:
+                event = self._to_recovery_event(record=record, payload=payload)
+                if event is None:
                     continue
-                events.append(
-                    LineageRecoveryEvent(
-                        calculation_id=record.calculation_id,
-                        calculation_type=record.calculation_type,
-                        recovery_kind="retryable_materialization_failure",
-                        recovered_at_utc=recovered_at_utc,
-                        attempt_count=payload.attempt_count,
-                    )
-                )
+                events.append(event)
             total_count = int(
                 session.execute(
                     self._build_recent_recoveries_count_statement(
@@ -507,17 +504,13 @@ class LineageMetadataStore:
                 ).scalar_one()
                 or 0
             )
-            next_offset = offset + len(events) if offset + len(events) < total_count else None
-            next_cursor_recovered_before = None
-            next_cursor_calculation_id_before = None
-            if next_offset is not None and events:
-                next_cursor_recovered_before = events[-1].recovered_at_utc
-                next_cursor_calculation_id_before = events[-1].calculation_id
+            next_offset = next_offset_or_none(offset=offset, item_count=len(events), total_count=total_count)
+            cursor = recovery_cursor_or_none(next_offset=next_offset, items=events)
             return LineageRecoveryEventPage(
                 total_count=total_count,
                 next_offset=next_offset,
-                next_cursor_recovered_before=next_cursor_recovered_before,
-                next_cursor_calculation_id_before=next_cursor_calculation_id_before,
+                next_cursor_recovered_before=cursor.recovered_before,
+                next_cursor_calculation_id_before=cursor.calculation_id_before,
                 items=events,
             )
 
@@ -532,77 +525,79 @@ class LineageMetadataStore:
         calculation_id_contains: str | None = None,
         now: datetime | None = None,
     ) -> LineageQueueInspectionPage:
-        inspection_now = now or datetime.now(timezone.utc)
-        normalized_status_filter = status_filter.lower()
-        min_age_threshold = inspection_now - timedelta(seconds=min_age_seconds) if min_age_seconds > 0 else None
+        inspection_context = build_inspection_query_context(
+            status_filter=status_filter,
+            min_age_seconds=min_age_seconds,
+            now=now,
+        )
 
         with self._session() as session:
-            if normalized_status_filter == "active":
+            if inspection_context.status_filter == INSPECTION_STATUS_ACTIVE:
                 count_statement = self._build_active_inspection_count_statement(
-                    now=inspection_now,
+                    now=inspection_context.now,
                     calculation_type=calculation_type,
                     calculation_id_contains=calculation_id_contains,
-                    min_age_threshold=min_age_threshold,
+                    min_age_threshold=inspection_context.min_age_threshold,
                 )
                 statement = self._build_active_inspection_items_statement(
-                    now=inspection_now,
+                    now=inspection_context.now,
                     limit=limit,
                     offset=offset,
                     calculation_type=calculation_type,
                     calculation_id_contains=calculation_id_contains,
-                    min_age_threshold=min_age_threshold,
+                    min_age_threshold=inspection_context.min_age_threshold,
                 )
-            elif normalized_status_filter == "failed":
+            elif inspection_context.status_filter == INSPECTION_STATUS_FAILED:
                 count_statement = self._build_failed_inspection_count_statement(
-                    now=inspection_now,
+                    now=inspection_context.now,
                     calculation_type=calculation_type,
                     calculation_id_contains=calculation_id_contains,
-                    min_age_threshold=min_age_threshold,
+                    min_age_threshold=inspection_context.min_age_threshold,
                 )
                 statement = self._build_failed_inspection_items_statement(
-                    now=inspection_now,
+                    now=inspection_context.now,
                     limit=limit,
                     offset=offset,
                     calculation_type=calculation_type,
                     calculation_id_contains=calculation_id_contains,
-                    min_age_threshold=min_age_threshold,
+                    min_age_threshold=inspection_context.min_age_threshold,
                 )
-            elif normalized_status_filter == "all":
+            elif inspection_context.status_filter == INSPECTION_STATUS_ALL:
                 count_statement = self._build_all_inspection_count_statement(
-                    now=inspection_now,
+                    now=inspection_context.now,
                     calculation_type=calculation_type,
                     calculation_id_contains=calculation_id_contains,
-                    min_age_threshold=min_age_threshold,
+                    min_age_threshold=inspection_context.min_age_threshold,
                 )
                 statement = self._build_all_inspection_items_statement(
-                    now=inspection_now,
+                    now=inspection_context.now,
                     limit=limit,
                     offset=offset,
                     calculation_type=calculation_type,
                     calculation_id_contains=calculation_id_contains,
-                    min_age_threshold=min_age_threshold,
+                    min_age_threshold=inspection_context.min_age_threshold,
                 )
-            elif normalized_status_filter == "reclaimable":
+            elif inspection_context.status_filter == INSPECTION_STATUS_RECLAIMABLE:
                 count_statement = self._build_reclaimable_inspection_count_statement(
-                    now=inspection_now,
+                    now=inspection_context.now,
                     calculation_type=calculation_type,
                     calculation_id_contains=calculation_id_contains,
-                    min_age_threshold=min_age_threshold,
+                    min_age_threshold=inspection_context.min_age_threshold,
                 )
                 statement = self._build_reclaimable_inspection_items_statement(
-                    now=inspection_now,
+                    now=inspection_context.now,
                     limit=limit,
                     offset=offset,
                     calculation_type=calculation_type,
                     calculation_id_contains=calculation_id_contains,
-                    min_age_threshold=min_age_threshold,
+                    min_age_threshold=inspection_context.min_age_threshold,
                 )
             else:
                 raise ValueError(f"Unsupported status filter: {status_filter}")
             rows = session.execute(statement).all()
-            items = [self._to_inspection_item(record, payload, now=inspection_now) for record, payload in rows]
+            items = [self._to_inspection_item(record, payload, now=inspection_context.now) for record, payload in rows]
             total_count = int(session.execute(count_statement).scalar_one() or 0)
-            next_offset = offset + len(items) if offset + len(items) < total_count else None
+            next_offset = next_offset_or_none(offset=offset, item_count=len(items), total_count=total_count)
             return LineageQueueInspectionPage(total_count=total_count, next_offset=next_offset, items=items)
 
     def _build_pending_payload_stats_statement(self, *, now: datetime):
@@ -738,7 +733,7 @@ class LineageMetadataStore:
             .limit(limit)
         )
         return self._apply_recovery_time_filters(
-            self._apply_inspection_filters(
+            self._apply_calculation_filters(
                 statement,
                 calculation_type=calculation_type,
                 calculation_id_contains=calculation_id_contains,
@@ -766,7 +761,7 @@ class LineageMetadataStore:
             .where((LineageRecordModel.status == LineageStatus.PENDING.value) & (LineagePayloadModel.attempt_count > 0))
         )
         return self._apply_recovery_time_filters(
-            self._apply_inspection_filters(
+            self._apply_calculation_filters(
                 statement,
                 calculation_type=calculation_type,
                 calculation_id_contains=calculation_id_contains,
@@ -800,7 +795,7 @@ class LineageMetadataStore:
             statement = statement.where(cursor_filter)
         return statement
 
-    def _apply_inspection_filters(
+    def _apply_calculation_filters(
         self, statement, *, calculation_type: str | None, calculation_id_contains: str | None
     ):
         if calculation_type is not None:
@@ -825,9 +820,11 @@ class LineageMetadataStore:
         )
 
     def _apply_min_age_filter(self, statement, *, now: datetime, min_age_threshold: datetime | None):
-        if min_age_threshold is None:
-            return statement
-        return statement.where(self._build_active_since_expression(now=now) <= min_age_threshold)
+        return apply_min_age_filter(
+            statement,
+            active_since=self._build_active_since_expression(now=now),
+            min_age_threshold=min_age_threshold,
+        )
 
     def _build_active_inspection_count_statement(
         self,
@@ -843,7 +840,7 @@ class LineageMetadataStore:
             .join(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
             .where(LineageRecordModel.status == LineageStatus.PENDING.value)
         )
-        return self._apply_inspection_filters(
+        return self._apply_calculation_filters(
             self._apply_min_age_filter(statement, now=now, min_age_threshold=min_age_threshold),
             calculation_type=calculation_type,
             calculation_id_contains=calculation_id_contains,
@@ -863,7 +860,7 @@ class LineageMetadataStore:
             .outerjoin(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
             .where(LineageRecordModel.status == LineageStatus.FAILED.value)
         )
-        return self._apply_inspection_filters(
+        return self._apply_calculation_filters(
             self._apply_min_age_filter(statement, now=now, min_age_threshold=min_age_threshold),
             calculation_type=calculation_type,
             calculation_id_contains=calculation_id_contains,
@@ -882,7 +879,7 @@ class LineageMetadataStore:
             .select_from(LineageRecordModel)
             .outerjoin(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
         )
-        return self._apply_inspection_filters(
+        return self._apply_calculation_filters(
             self._apply_min_age_filter(statement, now=now, min_age_threshold=min_age_threshold),
             calculation_type=calculation_type,
             calculation_id_contains=calculation_id_contains,
@@ -906,7 +903,7 @@ class LineageMetadataStore:
                 & (LineagePayloadModel.lease_expires_at_utc < now)
             )
         )
-        return self._apply_inspection_filters(
+        return self._apply_calculation_filters(
             self._apply_min_age_filter(statement, now=now, min_age_threshold=min_age_threshold),
             calculation_type=calculation_type,
             calculation_id_contains=calculation_id_contains,
@@ -931,7 +928,7 @@ class LineageMetadataStore:
             .offset(offset)
             .limit(limit)
         )
-        return self._apply_inspection_filters(
+        return self._apply_calculation_filters(
             self._apply_min_age_filter(statement, now=now, min_age_threshold=min_age_threshold),
             calculation_type=calculation_type,
             calculation_id_contains=calculation_id_contains,
@@ -955,7 +952,7 @@ class LineageMetadataStore:
             .offset(offset)
             .limit(limit)
         )
-        return self._apply_inspection_filters(
+        return self._apply_calculation_filters(
             self._apply_min_age_filter(statement, now=now, min_age_threshold=min_age_threshold),
             calculation_type=calculation_type,
             calculation_id_contains=calculation_id_contains,
@@ -979,7 +976,7 @@ class LineageMetadataStore:
             .offset(offset)
             .limit(limit)
         )
-        return self._apply_inspection_filters(
+        return self._apply_calculation_filters(
             self._apply_min_age_filter(statement, now=now, min_age_threshold=min_age_threshold),
             calculation_type=calculation_type,
             calculation_id_contains=calculation_id_contains,
@@ -1007,7 +1004,7 @@ class LineageMetadataStore:
             .offset(offset)
             .limit(limit)
         )
-        return self._apply_inspection_filters(
+        return self._apply_calculation_filters(
             self._apply_min_age_filter(statement, now=now, min_age_threshold=min_age_threshold),
             calculation_type=calculation_type,
             calculation_id_contains=calculation_id_contains,
@@ -1120,6 +1117,23 @@ class LineageMetadataStore:
             lease_expires_at_utc=_format_timestamp(payload.lease_expires_at_utc),
         )
 
+    def _to_recovery_event(
+        self,
+        *,
+        record: LineageRecordModel,
+        payload: LineagePayloadModel,
+    ) -> LineageRecoveryEvent | None:
+        recovered_at_utc = _format_timestamp(record.timestamp_utc)
+        if recovered_at_utc is None:
+            return None
+        return LineageRecoveryEvent(
+            calculation_id=record.calculation_id,
+            calculation_type=record.calculation_type,
+            recovery_kind="retryable_materialization_failure",
+            recovered_at_utc=recovered_at_utc,
+            attempt_count=payload.attempt_count,
+        )
+
     def _to_inspection_item(
         self,
         record: LineageRecordModel,
@@ -1127,37 +1141,52 @@ class LineageMetadataStore:
         *,
         now: datetime,
     ) -> LineageQueueInspectionItem:
-        leased_at = None if payload is None else payload.leased_at_utc
-        lease_expires_at = None if payload is None else payload.lease_expires_at_utc
-        normalized_lease_expires_at = None if lease_expires_at is None else _coerce_utc_datetime(lease_expires_at)
-        is_leased = (
-            record.status == LineageStatus.PENDING.value
-            and payload is not None
-            and leased_at is not None
-            and (normalized_lease_expires_at is None or normalized_lease_expires_at >= now)
-        )
-        if record.status == LineageStatus.FAILED.value:
-            active_since = record.timestamp_utc
-            status = LineageStatus.FAILED.value
-        elif is_leased:
-            active_since = leased_at
-            status = "leased"
-        else:
-            active_since = payload.created_at_utc if payload is not None else record.timestamp_utc
-            status = LineageStatus.PENDING.value
+        timing = self._inspection_timing(record=record, payload=payload, now=now)
 
         age_seconds = None
-        if active_since is not None:
-            age_seconds = max(0.0, (now - _coerce_utc_datetime(active_since)).total_seconds())
+        if timing.active_since is not None:
+            age_seconds = _elapsed_seconds_since(now, timing.active_since)
 
         return LineageQueueInspectionItem(
             calculation_id=record.calculation_id,
             calculation_type=record.calculation_type,
-            status=status,
-            active_since_utc=_format_timestamp(active_since),
+            status=timing.status,
+            active_since_utc=_format_timestamp(timing.active_since),
             age_seconds=age_seconds,
             attempt_count=0 if payload is None else payload.attempt_count,
             error_message=record.error_message,
+        )
+
+    @staticmethod
+    def _inspection_timing(
+        *,
+        record: LineageRecordModel,
+        payload: LineagePayloadModel | None,
+        now: datetime,
+    ) -> LineageQueueInspectionTiming:
+        if record.status == LineageStatus.FAILED.value:
+            return LineageQueueInspectionTiming(
+                status=LineageStatus.FAILED.value,
+                active_since=record.timestamp_utc,
+            )
+
+        if payload is None:
+            return LineageQueueInspectionTiming(
+                status=LineageStatus.PENDING.value,
+                active_since=record.timestamp_utc,
+            )
+
+        lease_expires_at = payload.lease_expires_at_utc
+        normalized_lease_expires_at = None if lease_expires_at is None else _coerce_utc_datetime(lease_expires_at)
+        is_active_lease = payload.leased_at_utc is not None and (
+            normalized_lease_expires_at is None or normalized_lease_expires_at >= now
+        )
+        if record.status == LineageStatus.PENDING.value and is_active_lease:
+            return LineageQueueInspectionTiming(status="leased", active_since=payload.leased_at_utc)
+
+        return LineageQueueInspectionTiming(
+            status=LineageStatus.PENDING.value,
+            active_since=payload.created_at_utc,
         )
 
     def _ensure_payload_lease_columns(self) -> None:

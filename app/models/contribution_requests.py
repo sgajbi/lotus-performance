@@ -139,7 +139,11 @@ class Lookthrough(BaseModel):
     )
     fallback_policy: Literal["error", "unclassified", "scale_to_1"] = Field(
         default="error",
-        description="Reserved fallback policy for future look-through decomposition gaps.",
+        description=(
+            "Reserved fallback policy accepted for compatibility with the look-through request block. "
+            "The current engine does not decompose fund or structured-product holdings; callers should "
+            "supply already-visible position rows from lotus-core."
+        ),
         examples=["error"],
     )
 

@@ -38,6 +38,31 @@ does not delegate performance conclusions to `lotus-core`.
 5. OpenAPI, API vocabulary, domain-product validation, migration, security, and Docker parity are
    part of the real merge gate.
 
+## Enterprise Readiness Evidence
+
+Enterprise buyers should evaluate `lotus-performance` as an implementation-backed analytics
+service, not as a calculation demo. The current bank-readiness evidence includes:
+
+- source-boundary discipline:
+  `lotus-core` owns source data while `lotus-performance` owns performance methodology and emitted
+  analytics contracts
+- supportability metadata:
+  calculation responses carry supportability, warning, reason-code, benchmark-context, currency,
+  and lineage posture where the workflow supports it
+- operational control plane:
+  runtime status, work-item, recovery, recovery-drill, retention, health, readiness, and metrics
+  surfaces expose real runtime posture for operators
+- governed product contracts:
+  domain-data-product declarations, trust telemetry fixtures, OpenAPI quality gates, API
+  vocabulary checks, and no-alias governance are part of repo-native validation
+- release evidence:
+  `make check`, `make ci`, and `make ci-local` map local proof to the Lotus multi-lane delivery
+  model
+
+This is not a blanket production certification for every client environment. Final bank-buyable
+readiness still requires the target deployment, entitlement model, SLOs, observability integration,
+security review, data entitlements, and operating runbooks to be validated for that client context.
+
 ## Architecture At A Glance
 
 The current runtime is a four-service topology:

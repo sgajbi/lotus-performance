@@ -264,6 +264,22 @@ def test_plan_chunks_splits_window_deterministically():
     ]
 
 
+def test_total_retrieval_page_count_defaults_missing_metadata_and_coerces_numeric_counts():
+    service = StatefulInputService(core_service=_CoreServiceStub())
+
+    assert (
+        service._total_retrieval_page_count(
+            [
+                (200, {"retrieval_metadata": {"page_count": "2"}}),
+                (200, {"retrieval_metadata": {"page_count": 3.0}}),
+                (200, {"retrieval_metadata": None}),
+                (200, {}),
+            ]
+        )
+        == 5
+    )
+
+
 @pytest.mark.asyncio
 async def test_get_portfolio_timeseries_merges_chunked_and_paginated_observations():
     core_service = _CoreServiceStub()

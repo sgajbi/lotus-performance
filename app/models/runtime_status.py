@@ -11,7 +11,7 @@ from app.services.lineage_metadata_store import LineageQueueInspectionAnchors, L
 from app.services.remediation_hint_service import get_remediation_hint
 
 if TYPE_CHECKING:
-    from app.services.runtime_status_service import RuntimeStatusSnapshot
+    from app.services.runtime_status_domain import RuntimeStatusSnapshot
 
 
 DegradationNumeric = Annotated[Decimal, PlainSerializer(lambda v: float(v))]

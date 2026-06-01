@@ -151,6 +151,10 @@ class ExecutionRegistrationResult:
     existing_execution_mode: str | None = None
 
 
+def _serialize_paging_metadata(paging_metadata: dict[str, Any] | None) -> str | None:
+    return json.dumps(paging_metadata, sort_keys=True) if paging_metadata is not None else None
+
+
 def _coerce_utc_datetime(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=timezone.utc)
@@ -503,9 +507,7 @@ class ExecutionRegistry:
                             request_fingerprint=request_fingerprint,
                             response_fingerprint=response_fingerprint,
                             retrieval_status=retrieval_status,
-                            paging_metadata_json=json.dumps(paging_metadata, sort_keys=True)
-                            if paging_metadata
-                            else None,
+                            paging_metadata_json=_serialize_paging_metadata(paging_metadata),
                             created_at_utc=datetime.now(timezone.utc),
                         )
                     )
@@ -548,11 +550,7 @@ class ExecutionRegistry:
                                 request_fingerprint=snapshot["request_fingerprint"],
                                 response_fingerprint=snapshot["response_fingerprint"],
                                 retrieval_status=snapshot["retrieval_status"],
-                                paging_metadata_json=(
-                                    json.dumps(snapshot["paging_metadata"], sort_keys=True)
-                                    if snapshot.get("paging_metadata") is not None
-                                    else None
-                                ),
+                                paging_metadata_json=_serialize_paging_metadata(snapshot.get("paging_metadata")),
                                 created_at_utc=created_at,
                             )
                         )

@@ -12,6 +12,7 @@ from app.core.config import get_settings
 from app.services.runtime_retention_service import (
     run_runtime_retention_cleanup,
 )
+from app.services.runtime_status_time import parse_utc_datetime
 
 
 @dataclass(frozen=True)
@@ -171,7 +172,7 @@ def _prune_old_evidence(*, output_dir: Path, retention_max_age_days: int) -> Non
             continue
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
-            generated_at_utc = datetime.fromisoformat(str(payload["generated_at_utc"]).replace("Z", "+00:00"))
+            generated_at_utc = parse_utc_datetime(str(payload["generated_at_utc"]))
         except (OSError, json.JSONDecodeError, KeyError, ValueError):
             continue
         if generated_at_utc < cutoff:
@@ -181,7 +182,7 @@ def _prune_old_evidence(*, output_dir: Path, retention_max_age_days: int) -> Non
 def _load_manifest_entry(path: Path) -> RuntimeRetentionManifestEntry:
     payload = json.loads(path.read_text(encoding="utf-8"))
     return RuntimeRetentionManifestEntry(
-        evidence_file_name=str(payload["evidence_file_name"]),
+        evidence_file_name=path.name,
         generated_at_utc=str(payload["generated_at_utc"]),
         operator_id=str(payload["operator_id"]),
         tenant_id=None if payload.get("tenant_id") is None else str(payload["tenant_id"]),

@@ -9,6 +9,7 @@ from app.services.durability_health_service import (
     check_durable_metadata_schema_ready,
 )
 from app.services.lineage_metadata_store import LineageQueueInspectionItem, lineage_metadata_store
+from app.services.runtime_unavailability import durable_metadata_unavailable_reason
 
 
 @dataclass(frozen=True)
@@ -53,6 +54,10 @@ def build_runtime_work_item_snapshot(
     durability_status = check_durable_metadata_schema_ready()
 
     if not durability_status.is_ready:
+        unavailable_queue = _queue_state(
+            status="unavailable",
+            reason=durable_metadata_unavailable_reason(durability_status),
+        )
         return RuntimeWorkItemSnapshot(
             generated_at=generated_at,
             queue_filter=queue_filter,
@@ -64,20 +69,8 @@ def build_runtime_work_item_snapshot(
             lineage_calculation_type=lineage_calculation_type,
             calculation_id_contains=calculation_id_contains,
             durable_metadata_store=durability_status,
-            compute_queue=RuntimeWorkItemQueueState(
-                status="unavailable",
-                reason=durability_status.reason or "durable_metadata_store_unreachable",
-                total_count=0,
-                returned_count=0,
-                next_offset=None,
-            ),
-            lineage_queue=RuntimeWorkItemQueueState(
-                status="unavailable",
-                reason=durability_status.reason or "durable_metadata_store_unreachable",
-                total_count=0,
-                returned_count=0,
-                next_offset=None,
-            ),
+            compute_queue=unavailable_queue,
+            lineage_queue=unavailable_queue,
             compute_items=[],
             lineage_items=[],
         )
@@ -136,9 +129,7 @@ def _safe_compute_items(
     generated_at: datetime,
 ) -> tuple[RuntimeWorkItemQueueState, list[ComputeQueueInspectionItem]]:
     if not include_queue:
-        return RuntimeWorkItemQueueState(
-            status="excluded", reason=None, total_count=0, returned_count=0, next_offset=None
-        ), []
+        return _queue_state(status="excluded"), []
     try:
         page = compute_job_store.list_inspection_items(
             status_filter=status_filter,
@@ -150,9 +141,8 @@ def _safe_compute_items(
             now=generated_at,
         )
         return (
-            RuntimeWorkItemQueueState(
+            _queue_state(
                 status="available",
-                reason=None,
                 total_count=page.total_count,
                 returned_count=len(page.items),
                 next_offset=page.next_offset,
@@ -160,13 +150,7 @@ def _safe_compute_items(
             page.items,
         )
     except Exception as exc:
-        return RuntimeWorkItemQueueState(
-            status="unavailable",
-            reason=type(exc).__name__,
-            total_count=0,
-            returned_count=0,
-            next_offset=None,
-        ), []
+        return _queue_state(status="unavailable", reason=type(exc).__name__), []
 
 
 def _safe_lineage_items(
@@ -181,9 +165,7 @@ def _safe_lineage_items(
     generated_at: datetime,
 ) -> tuple[RuntimeWorkItemQueueState, list[LineageQueueInspectionItem]]:
     if not include_queue:
-        return RuntimeWorkItemQueueState(
-            status="excluded", reason=None, total_count=0, returned_count=0, next_offset=None
-        ), []
+        return _queue_state(status="excluded"), []
     try:
         page = lineage_metadata_store.list_inspection_items(
             status_filter=status_filter,
@@ -195,9 +177,8 @@ def _safe_lineage_items(
             now=generated_at,
         )
         return (
-            RuntimeWorkItemQueueState(
+            _queue_state(
                 status="available",
-                reason=None,
                 total_count=page.total_count,
                 returned_count=len(page.items),
                 next_offset=page.next_offset,
@@ -205,10 +186,21 @@ def _safe_lineage_items(
             page.items,
         )
     except Exception as exc:
-        return RuntimeWorkItemQueueState(
-            status="unavailable",
-            reason=type(exc).__name__,
-            total_count=0,
-            returned_count=0,
-            next_offset=None,
-        ), []
+        return _queue_state(status="unavailable", reason=type(exc).__name__), []
+
+
+def _queue_state(
+    *,
+    status: str,
+    reason: str | None = None,
+    total_count: int = 0,
+    returned_count: int = 0,
+    next_offset: int | None = None,
+) -> RuntimeWorkItemQueueState:
+    return RuntimeWorkItemQueueState(
+        status=status,
+        reason=reason,
+        total_count=total_count,
+        returned_count=returned_count,
+        next_offset=next_offset,
+    )

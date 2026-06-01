@@ -33,7 +33,7 @@ Optional controls include:
 - `weighting_scheme`
 - `smoothing`
 - `emit`
-- `lookthrough`
+- `lookthrough` compatibility fields
 - multi-currency controls
 
 Inside the current contract:
@@ -44,6 +44,9 @@ Inside the current contract:
 - stateful mode preserves source-economics posture in `source_economics_evidence`, including
   source contracts, cash-flow type counts, available economics, unsupported component-P&L families,
   and upstream snapshot posture
+- `lookthrough` is accepted as a compatibility request block only; lotus-performance does not
+  decompose fund or structured-product holdings and expects lotus-core to provide already-visible
+  position rows for the requested scope
 
 Older examples using nested `daily_data` or request-level `period_type` are not current.
 

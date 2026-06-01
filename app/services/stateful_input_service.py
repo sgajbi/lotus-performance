@@ -106,11 +106,7 @@ class StatefulInputService:
             ],
             date_key="valuation_date",
         )
-        total_page_count = sum(
-            int(payload.get("retrieval_metadata", {}).get("page_count", 0))
-            for _, payload in responses
-            if isinstance(payload, dict)
-        )
+        total_page_count = self._total_retrieval_page_count(responses)
         return 200, {
             "portfolio_open_date": min(open_dates) if open_dates else None,
             "portfolio_currency": _single_value_or_none(portfolio_currencies),
@@ -168,11 +164,7 @@ class StatefulInputService:
             ],
             key_fields=("valuation_date", "position_id"),
         )
-        total_page_count = sum(
-            int(payload.get("retrieval_metadata", {}).get("page_count", 0))
-            for _, payload in responses
-            if isinstance(payload, dict)
-        )
+        total_page_count = self._total_retrieval_page_count(responses)
         return 200, {
             "rows": rows,
             "retrieval_metadata": {
@@ -1017,6 +1009,9 @@ class StatefulInputService:
                 return status_code, payload
         return None
 
+    def _total_retrieval_page_count(self, responses: list[tuple[int, dict[str, Any]]]) -> int:
+        return sum(_retrieval_page_count(payload) for _, payload in responses)
+
     def _next_page_token(self, payload: dict[str, Any]) -> str | None:
         next_page_token = payload.get("next_page_token")
         if isinstance(next_page_token, str) and next_page_token:
@@ -1146,3 +1141,10 @@ class StatefulInputService:
 
 def _single_value_or_none(values: set[str]) -> str | None:
     return next(iter(values)) if len(values) == 1 else None
+
+
+def _retrieval_page_count(payload: dict[str, Any]) -> int:
+    metadata = payload.get("retrieval_metadata")
+    if not isinstance(metadata, dict):
+        return 0
+    return int(metadata.get("page_count", 0) or 0)

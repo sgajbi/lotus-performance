@@ -14,7 +14,10 @@ from app.models.benchmark_exposure_context import (
     BenchmarkExposurePageResponse,
     BenchmarkExposureRow,
 )
+from app.services.offset_pagination import slice_offset_page
 from app.services.stateful_input_service import StatefulInputService
+from app.services.stateful_retrieval_metadata import parse_zero_default_retrieval_metadata
+from app.services.stateful_upstream_errors import raise_for_stateful_source_unavailable
 from core.errors import HTTP_422_UNPROCESSABLE
 
 
@@ -50,10 +53,7 @@ async def build_benchmark_exposure_context(
             detail=f"No benchmark market-series found for benchmark_id={benchmark_id}.",
         )
     if market_status >= status.HTTP_400_BAD_REQUEST:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"benchmark market-series source unavailable ({market_status}).",
-        )
+        raise_for_stateful_source_unavailable(source_label="benchmark market-series", upstream_status=market_status)
 
     component_series = _parse_component_series(market_payload)
     classification_map = await _classification_map_for_request(
@@ -122,10 +122,7 @@ async def _resolve_benchmark_id(
             detail="benchmark exposure context requires a benchmark assignment or explicit benchmark_id.",
         )
     if assignment_status >= status.HTTP_400_BAD_REQUEST:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"benchmark assignment source unavailable ({assignment_status}).",
-        )
+        raise_for_stateful_source_unavailable(source_label="benchmark assignment", upstream_status=assignment_status)
     benchmark_id = assignment_payload.get("benchmark_id")
     if not isinstance(benchmark_id, str) or not benchmark_id:
         raise HTTPException(
@@ -159,10 +156,7 @@ async def _classification_map_for_request(
         index_ids=index_ids,
     )
     if catalog_status >= status.HTTP_400_BAD_REQUEST:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"index catalog source unavailable ({catalog_status}).",
-        )
+        raise_for_stateful_source_unavailable(source_label="index catalog", upstream_status=catalog_status)
     records = catalog_payload.get("records")
     if not isinstance(records, list):
         raise HTTPException(
@@ -272,28 +266,16 @@ def _page_rows(
     page_size: int,
     page_token: str | None,
 ) -> tuple[list[BenchmarkExposureRow], str | None]:
-    try:
-        start = int(page_token) if page_token else 0
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail="page.page_token must be a numeric offset token returned by lotus-performance.",
-        ) from exc
-    if start < 0:
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail="page.page_token must be non-negative.",
-        )
-    end = start + page_size
-    next_page_token = str(end) if end < len(rows) else None
-    return rows[start:end], next_page_token
+    page = slice_offset_page(
+        rows,
+        page_size=page_size,
+        page_token=page_token,
+        invalid_token_detail="page.page_token must be a numeric offset token returned by lotus-performance.",
+        negative_token_detail="page.page_token must be non-negative.",
+    )
+    return page.items, page.next_page_token
 
 
 def _parse_retrieval_metadata(payload: dict[str, Any]) -> dict[str, int]:
-    raw = payload.get("retrieval_metadata")
-    if not isinstance(raw, dict):
-        return {"chunk_count": 0, "page_count": 0}
-    return {
-        "chunk_count": int(raw.get("chunk_count", 0) or 0),
-        "page_count": int(raw.get("page_count", 0) or 0),
-    }
+    metadata = parse_zero_default_retrieval_metadata(payload)
+    return {"chunk_count": metadata.chunk_count, "page_count": metadata.page_count}

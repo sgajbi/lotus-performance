@@ -3,9 +3,10 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
 
+from app.api.operator_context import resolve_operator_request_context
 from app.core.config import get_settings
 from app.models.recovery_drill_history import (
     RecoveryDrillHistoryResponse,
@@ -25,26 +26,6 @@ from app.services.recovery_drill_history_service import build_recovery_drill_his
 from scripts.durable_recovery_drill import run_recovery_drill as execute_recovery_drill
 
 router = APIRouter(tags=["Integration"])
-
-
-def _resolve_operator_identity(request: Request) -> str:
-    actor_id = request.headers.get("X-Actor-Id", "").strip()
-    if actor_id:
-        return actor_id
-    service_identity = request.headers.get("X-Service-Identity", "").strip()
-    if service_identity:
-        return service_identity
-    raise HTTPException(status_code=400, detail="missing_operator_identity")
-
-
-def _resolve_tenant_id(request: Request) -> str | None:
-    tenant_id = request.headers.get("X-Tenant-Id", "").strip()
-    return tenant_id or None
-
-
-def _resolve_correlation_id(request: Request) -> str | None:
-    correlation_id = request.headers.get("X-Correlation-Id", "").strip()
-    return correlation_id or None
 
 
 @router.get(
@@ -115,16 +96,14 @@ async def run_recovery_drill(
     recovery_request: RecoveryDrillRunRequest,
 ) -> RecoveryDrillRunResponse:
     settings = get_settings()
-    operator_id = _resolve_operator_identity(request)
-    tenant_id = _resolve_tenant_id(request)
-    correlation_id = _resolve_correlation_id(request)
+    operator_context = resolve_operator_request_context(request)
     history_snapshot = build_recovery_drill_history_snapshot(limit=10)
     replay = resolve_recovery_drill_manual_replay(
         history_snapshot,
         artifact_directory=settings.RECOVERY_DRILL_ARTIFACT_PATH,
-        operator_id=operator_id,
-        tenant_id=tenant_id,
-        correlation_id=correlation_id,
+        operator_id=operator_context.operator_id,
+        tenant_id=operator_context.tenant_id,
+        correlation_id=operator_context.correlation_id,
         backup_identifier=recovery_request.backup_identifier,
     )
     if replay is not None:
@@ -135,14 +114,14 @@ async def run_recovery_drill(
         )
     enforce_recovery_drill_manual_run_cooldown(
         history_snapshot,
-        operator_id=operator_id,
-        tenant_id=tenant_id,
+        operator_id=operator_context.operator_id,
+        tenant_id=operator_context.tenant_id,
         backup_identifier=recovery_request.backup_identifier,
         cooldown_seconds=settings.RECOVERY_DRILL_MANUAL_RUN_COOLDOWN_SECONDS,
     )
     action_key = build_recovery_drill_action_key(
-        operator_id=operator_id,
-        tenant_id=tenant_id,
+        operator_id=operator_context.operator_id,
+        tenant_id=operator_context.tenant_id,
         backup_identifier=recovery_request.backup_identifier,
     )
     with operator_action_lease(
@@ -150,8 +129,8 @@ async def run_recovery_drill(
         action_key=action_key,
         metadata=OperatorActionLeaseMetadata(
             action_name="recovery_drill",
-            operator_id=operator_id,
-            tenant_id=tenant_id,
+            operator_id=operator_context.operator_id,
+            tenant_id=operator_context.tenant_id,
             governed_target=recovery_request.backup_identifier,
             acquired_at_utc=datetime.now(UTC).isoformat(),
         ),
@@ -159,9 +138,9 @@ async def run_recovery_drill(
     ):
         evidence = execute_recovery_drill(
             output_dir=settings.RECOVERY_DRILL_ARTIFACT_PATH,
-            operator_id=operator_id,
-            tenant_id=tenant_id,
-            correlation_id=correlation_id,
+            operator_id=operator_context.operator_id,
+            tenant_id=operator_context.tenant_id,
+            correlation_id=operator_context.correlation_id,
             backup_identifier=recovery_request.backup_identifier,
         )
     return build_recovery_drill_run_response(

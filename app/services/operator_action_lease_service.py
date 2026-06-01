@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from contextlib import contextmanager
@@ -10,6 +11,15 @@ from pathlib import Path
 from typing import Iterator
 
 from fastapi import HTTPException, status
+
+from app.services.runtime_status_time import parse_utc_datetime
+
+OPERATOR_ACTION_LEASE_DIRECTORY_UNREADABLE_REASON = "operator_action_lease_directory_unreadable"
+OPERATOR_ACTION_LEASE_INVALID_REASON = "operator_action_lease_invalid"
+OPERATOR_ACTION_RECLAIM_EVENT_INVALID_REASON = "operator_action_reclaim_event_invalid"
+OPERATOR_ACTION_RECLAIM_HISTORY_INVALID_REASON = "operator_action_reclaim_history_invalid"
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -119,19 +129,12 @@ def operator_action_lease(
                 ),
                 "action_key": action_key,
             }
-            try:
-                existing = json.loads(lock_path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                existing = None
-            if isinstance(existing, dict):
-                active_operator_id = existing.get("operator_id")
-                active_tenant_id = existing.get("tenant_id")
-                governed_target = existing.get("governed_target")
-                acquired_at_utc = existing.get("acquired_at_utc")
-                detail["active_operator_id"] = active_operator_id if isinstance(active_operator_id, str) else None
-                detail["active_tenant_id"] = active_tenant_id if isinstance(active_tenant_id, str) else None
-                detail["governed_target"] = governed_target if isinstance(governed_target, str) else None
-                detail["active_acquired_at_utc"] = acquired_at_utc if isinstance(acquired_at_utc, str) else None
+            active_lease = _read_active_operator_action_lease(lock_path=lock_path)
+            if isinstance(active_lease, ActiveOperatorActionLease):
+                detail["active_operator_id"] = active_lease.operator_id
+                detail["active_tenant_id"] = active_lease.tenant_id
+                detail["governed_target"] = active_lease.governed_target
+                detail["active_acquired_at_utc"] = active_lease.acquired_at_utc
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail) from None
 
     try:
@@ -172,7 +175,7 @@ def build_operator_action_lease_snapshot(
     except OSError:
         return OperatorActionLeaseSnapshot(
             status="unavailable",
-            reason="operator_action_lease_directory_unreadable",
+            reason=OPERATOR_ACTION_LEASE_DIRECTORY_UNREADABLE_REASON,
             active_leases=(),
             latest_reclaimed_lease=None,
             recent_reclaimed_leases=(),
@@ -180,7 +183,7 @@ def build_operator_action_lease_snapshot(
     if any(lease is _INVALID_LEASE for lease in leases):
         return OperatorActionLeaseSnapshot(
             status="unavailable",
-            reason="operator_action_lease_invalid",
+            reason=OPERATOR_ACTION_LEASE_INVALID_REASON,
             active_leases=(),
             latest_reclaimed_lease=None,
             recent_reclaimed_leases=(),
@@ -189,7 +192,7 @@ def build_operator_action_lease_snapshot(
     if latest_reclaimed_lease_candidate is _INVALID_LEASE:
         return OperatorActionLeaseSnapshot(
             status="unavailable",
-            reason="operator_action_reclaim_event_invalid",
+            reason=OPERATOR_ACTION_RECLAIM_EVENT_INVALID_REASON,
             active_leases=(),
             latest_reclaimed_lease=None,
             recent_reclaimed_leases=(),
@@ -198,7 +201,7 @@ def build_operator_action_lease_snapshot(
     if recent_reclaimed_leases_candidate is _INVALID_LEASE:
         return OperatorActionLeaseSnapshot(
             status="unavailable",
-            reason="operator_action_reclaim_history_invalid",
+            reason=OPERATOR_ACTION_RECLAIM_HISTORY_INVALID_REASON,
             active_leases=(),
             latest_reclaimed_lease=None,
             recent_reclaimed_leases=(),
@@ -240,9 +243,8 @@ _RECLAIM_HISTORY_LIMIT = 20
 
 
 def _read_active_operator_action_lease(*, lock_path: Path) -> ActiveOperatorActionLease | _InvalidLease | None:
-    try:
-        payload = json.loads(lock_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    payload = _read_json_payload(lock_path)
+    if payload is _INVALID_LEASE:
         return _INVALID_LEASE
     if not isinstance(payload, dict):
         return _INVALID_LEASE
@@ -283,9 +285,8 @@ def _read_latest_reclaimed_lease(
     latest_reclaim_path = locks_dir / "latest-reclaim.json"
     if not latest_reclaim_path.exists():
         return None
-    try:
-        payload = json.loads(latest_reclaim_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    payload = _read_json_payload(latest_reclaim_path)
+    if payload is _INVALID_LEASE:
         return _INVALID_LEASE
     return _parse_reclaimed_event_payload(payload=payload, action_name=action_name)
 
@@ -325,9 +326,8 @@ def _read_recent_reclaimed_leases(
     reclaim_history_path = locks_dir / "reclaim-history.json"
     if not reclaim_history_path.exists():
         return ()
-    try:
-        payload = json.loads(reclaim_history_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    payload = _read_json_payload(reclaim_history_path)
+    if payload is _INVALID_LEASE:
         return _INVALID_LEASE
     if not isinstance(payload, list):
         return _INVALID_LEASE
@@ -354,6 +354,17 @@ def _write_reclaim_history(*, locks_dir: Path, event: ReclaimedOperatorActionLea
         handle.flush()
         os.fsync(handle.fileno())
     os.replace(temp_path, reclaim_history_path)
+
+
+def _read_json_payload(path: Path) -> object | _InvalidLease:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except OSError:
+        logger.warning("Operator action lease evidence unreadable: %s", path, exc_info=True)
+        return _INVALID_LEASE
+    except json.JSONDecodeError:
+        logger.warning("Operator action lease evidence invalid JSON: %s", path, exc_info=True)
+        return _INVALID_LEASE
 
 
 def _parse_reclaimed_event_payload(
@@ -411,10 +422,7 @@ def _parse_reclaimed_event_payload(
 
 
 def _parse_utc(timestamp_utc: str) -> datetime:
-    parsed = datetime.fromisoformat(timestamp_utc.replace("Z", "+00:00"))
-    if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=UTC)
-    return parsed.astimezone(UTC)
+    return parse_utc_datetime(timestamp_utc)
 
 
 def _reclaim_stale_lock(
@@ -426,29 +434,11 @@ def _reclaim_stale_lock(
 ) -> bool:
     if stale_after_seconds <= 0:
         return False
-    try:
-        payload = json.loads(lock_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return False
-    if not isinstance(payload, dict):
-        return False
-    action_name = payload.get("action_name")
-    operator_id = payload.get("operator_id")
-    tenant_id = payload.get("tenant_id")
-    governed_target = payload.get("governed_target")
-    acquired_at_utc = payload.get("acquired_at_utc")
-    if not isinstance(action_name, str):
-        return False
-    if not isinstance(operator_id, str):
-        return False
-    if tenant_id is not None and not isinstance(tenant_id, str):
-        return False
-    if not isinstance(governed_target, str):
-        return False
-    if not isinstance(acquired_at_utc, str):
+    active_lease = _read_active_operator_action_lease(lock_path=lock_path)
+    if not isinstance(active_lease, ActiveOperatorActionLease):
         return False
     current_time = now_utc or datetime.now(UTC)
-    acquired_at = _parse_utc(acquired_at_utc)
+    acquired_at = _parse_utc(active_lease.acquired_at_utc)
     if (current_time - acquired_at).total_seconds() <= stale_after_seconds:
         return False
     lock_path.unlink(missing_ok=True)
@@ -457,16 +447,20 @@ def _reclaim_stale_lock(
             locks_dir=lock_path.parent,
             event=ReclaimedOperatorActionLeaseEvent(
                 action_key=action_key,
-                action_name=action_name,
-                operator_id=operator_id,
-                tenant_id=tenant_id,
-                governed_target=governed_target,
-                acquired_at_utc=acquired_at_utc,
+                action_name=active_lease.action_name,
+                operator_id=active_lease.operator_id,
+                tenant_id=active_lease.tenant_id,
+                governed_target=active_lease.governed_target,
+                acquired_at_utc=active_lease.acquired_at_utc,
                 reclaimed_at_utc=current_time.isoformat().replace("+00:00", "Z"),
                 stale_after_seconds=stale_after_seconds,
                 reclaim_count=0,
             ),
         )
     except OSError:
-        pass
+        logger.warning(
+            "operator_action_reclaim_evidence_write_failed",
+            extra={"action_key": action_key, "action_name": active_lease.action_name},
+            exc_info=True,
+        )
     return True

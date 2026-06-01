@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, localcontext
+from typing import Any, cast
 
 import pandas as pd
 from fastapi import HTTPException, status
@@ -42,7 +43,10 @@ from app.services.stateful_performance_input_service import (
     build_stateful_portfolio_valuation_input,
     retrieve_stateful_portfolio_input,
 )
-from app.services.stateful_upstream_errors import stateful_control_plane_unavailable_detail
+from app.services.stateful_upstream_errors import (
+    raise_for_stateful_control_plane_unavailable,
+    raise_for_stateful_source_unavailable,
+)
 from app.services.stateless_benchmark_input_service import normalize_stateless_component_observations
 from app.services.twr_service import (
     _build_relative_return_value,
@@ -359,9 +363,9 @@ def _resolve_workspace_benchmark_input(
                 detail=f"No benchmark assignment found for portfolio_id={request.portfolio_id}.",
             )
         if assignment_status >= status.HTTP_400_BAD_REQUEST:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"benchmark assignment source unavailable ({assignment_status}).",
+            raise_for_stateful_source_unavailable(
+                source_label="benchmark assignment",
+                upstream_status=assignment_status,
             )
         benchmark_id_raw = assignment_payload.get("benchmark_id")
         if not isinstance(benchmark_id_raw, str) or not benchmark_id_raw:
@@ -419,14 +423,10 @@ def _resolve_stateful_portfolio_start_date(*, request: WorkspaceSummaryRequest, 
             as_of_date=request.report_end_date,
         )
     )
-    if upstream_status >= status.HTTP_400_BAD_REQUEST:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=stateful_control_plane_unavailable_detail(
-                source_label="stateful portfolio reference source",
-                upstream_status=upstream_status,
-            ),
-        )
+    raise_for_stateful_control_plane_unavailable(
+        source_label="stateful portfolio reference source",
+        upstream_status=upstream_status,
+    )
     portfolio_open_date = upstream_payload.get("portfolio_open_date")
     if not isinstance(portfolio_open_date, str):
         raise HTTPException(
@@ -1018,14 +1018,16 @@ def _to_workspace_return_value(value) -> WorkspaceReturnValue:
 
 
 def _decimal_or_zero(value: object) -> Decimal:
-    if value is None:
+    if value is None or _is_missing_decimal_value(value):
         return Decimal("0")
-    try:
-        if value != value:
-            return Decimal("0")
-    except TypeError:
-        pass
     return to_decimal(value)
+
+
+def _is_missing_decimal_value(value: object) -> bool:
+    try:
+        return bool(pd.isna(cast(Any, value)))
+    except (TypeError, ValueError):
+        return False
 
 
 def _sum_decimal_column(frame: pd.DataFrame, column_name: str) -> Decimal:

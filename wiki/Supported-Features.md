@@ -4,6 +4,39 @@ This page lists implementation-backed `lotus-performance` capabilities. It is pr
 business users, engineers, operations, sales, pre-sales, and demo preparation. It is not a roadmap
 claim list.
 
+## How To Use This Page
+
+Use this page as the current-state product evidence map:
+
+- business users can see which performance analytics capabilities are implemented and where each
+  capability stops
+- operations can see which non-functional supportability controls are backed by runtime surfaces
+  and tests
+- sales and pre-sales can build demo stories around implemented supportability, lineage, and
+  governed data-product posture without overclaiming target-state work
+- engineers can trace each claim back to routes, contracts, docs, and repo-native validation gates
+
+Every supported claim below must remain tied to code, contracts, tests, or governed docs. If a
+capability is planned but not implemented, it belongs in [Roadmap](Roadmap), not this page.
+
+## Current-State Capability Flow
+
+```mermaid
+flowchart LR
+    Core[lotus-core source data and analytics inputs] --> Normalize[lotus-performance source normalization]
+    Normalize --> Engines[performance engines: TWR / MWR / contribution / attribution / composites]
+    Engines --> Evidence[calculation evidence, supportability, diagnostics, lineage]
+    Evidence --> API[performance and integration APIs]
+    API --> Gateway[lotus-gateway]
+    Gateway --> Workbench[lotus-workbench]
+    API --> Risk[lotus-risk and analytics consumers]
+    Evidence --> Ops[operations, audit, support, and demo evidence]
+```
+
+The product value is not only the calculated number. The supported product is the calculated number
+plus the evidence that explains source quality, methodology posture, fallback state, lineage,
+runtime health, and downstream-consumption boundaries.
+
 ## Feature Matrix
 
 | Capability | Supported scope | Primary route or surface | Evidence and boundary |
@@ -21,6 +54,50 @@ claim list.
 | Workspace summary | Interaction-efficient performance summary for product surfaces | `POST /performance/workspace-summary` | Product-oriented summary contract for Gateway and Workbench. It should consume performance-owned calculations, not rebuild them. |
 | Execution and lineage | Async polling, result retrieval, lineage metadata, artifacts | `/performance/executions/*`, `/performance/lineage/*` | Durable evidence path for reproducibility, operations, and support. |
 | Runtime operations | Health, readiness, metrics, runtime status, recovery, retention | `/health`, `/metrics`, `/integration/runtime-status`, recovery and retention routes | Supports enterprise operational posture and CI/runtime diagnostics. |
+
+## Non-Functional Capability Matrix
+
+| Non-functional capability | Implemented current state | Primary evidence surfaces | Audience value |
+| --- | --- | --- | --- |
+| OpenAPI and Swagger quality | OpenAPI is generated through FastAPI and enriched before publication; `make check` runs the OpenAPI quality gate. | `/docs`, `/openapi.json`, `scripts/openapi_quality_gate.py`, `tests/unit/app/*_openapi_contract.py` | Engineers and client technical reviewers can inspect the live contract instead of relying on static slideware. |
+| API vocabulary governance | Public API vocabulary drift is checked as part of the local fast gate. | `scripts/api_vocabulary_inventory.py --validate-only`, `docs/api-vocabulary-inventory.json` | Product and engineering teams can keep naming consistent across performance, gateway, and workbench surfaces. |
+| No-alias governance | Compatibility aliases are guarded so stale request shapes do not silently become new product contracts. | `scripts/no_alias_contract_guard.py`, README request-shape notes, endpoint helper tests | Sales and delivery teams can demo current request shapes confidently and avoid legacy examples. |
+| Async execution | Long-running analytics can return `202 Accepted`, persist work, and expose result retrieval through endpoint-specific result routes. | `/performance/executions/{calculation_id}`, result routes such as `/performance/twr/results/{calculation_id}` and `/integration/returns/series/results/{calculation_id}` | Operations and support can explain progress, completion, and failure without rerunning calculations blindly. |
+| Lineage and reproducibility | Calculation requests and responses are captured with lineage metadata and materialized artifacts where supported. | `/performance/lineage/{calculation_id}`, `/performance/lineage/{calculation_id}/artifacts/{artifact_name}`, lineage worker, lineage metadata store | Audit, support, and client-facing teams can trace what was calculated and what evidence backed the answer. |
+| Runtime health and readiness | Health, liveness, readiness, metrics, runtime status, work-item, recovery, drill, and retention surfaces are implemented. | `/health`, `/health/live`, `/health/ready`, `/metrics`, `/integration/runtime-status`, runtime work-item/recovery/retention endpoints | Operations can monitor service posture and separate application readiness from queued or degraded background work. |
+| Durable execution controls | Execution registry, compute job store, async result store, and lineage store are bootstrapped through app lifespan. | `main.py`, `app/services/compute_job_store.py`, `app/services/async_result_store.py`, runtime certification docs | Engineers can reason about restart, recovery, and support paths instead of treating async execution as transient memory. |
+| Data-product governance | Performance outputs are declared as domain data products with producer/consumer posture and trust telemetry where applicable. | `contracts/domain-data-products/lotus-performance-products.v1.json`, `contracts/trust-telemetry/`, `scripts/validate_domain_data_product_contracts.py` | Business, data, and platform teams can distinguish governed product outputs from internal implementation details. |
+| Observability and audit middleware | Application startup wires observability and enterprise audit middleware. | `main.py`, `app/observability.py`, `app/enterprise_readiness.py`, `tests/unit/test_observability.py`, enterprise-readiness tests | Operations and security stakeholders can see that diagnostics and audit posture are part of runtime wiring. |
+| Monetary-float discipline | Monetary float usage is guarded by a repo-native scanner and allowlist. | `scripts/check_monetary_float_usage.py`, `make monetary-float-guard` | Engineering and client assurance teams can see that numeric safety is actively governed rather than left to convention. |
+| Validation lane discipline | Fast local and PR-grade gates cover lint, formatting, typecheck, contracts, docs, security, migrations, Docker, and tests. | `make check`, `make ci`, `make ci-local`, `Makefile`, `README.md`, [Validation and CI](Validation-and-CI) | Delivery and client-project teams can connect feature claims to repeatable release evidence. |
+
+## Demo And Presentation Guidance
+
+Use these implementation-backed stories in client demos and presentations:
+
+1. Evidence-backed performance numbers
+   show TWR, MWR, contribution, attribution, or composite outputs together with supportability,
+   reason codes, warnings, benchmark context, and lineage. Do not present the numeric result alone
+   when evidence is available.
+2. Source-owned methodology boundaries
+   explain that `lotus-performance` owns performance methodology while `lotus-core` owns source
+   data. Gateway and Workbench present the emitted contracts; they do not reconstruct returns,
+   attribution, contribution, or composite weights downstream.
+3. Operational maturity
+   include async execution, polling, lineage retrieval, runtime status, recovery, drills, retention,
+   and metrics when the audience cares about production operations or managed-service support.
+4. Governed data mesh posture
+   highlight the domain data-product declarations and trust telemetry for supported analytics.
+   These are implementation-backed data-product claims, not marketing labels.
+5. Clear limitation language
+   keep unsupported areas explicit: portfolio TWR is not group/sleeve/composite TWR; composite TWR
+   is only through the composite endpoint; attribution does not currently claim fixed-income
+   factor, derivative, sleeve, composite, fee/tax/income breakout, benchmark-version, or
+   classification-version attribution.
+
+Avoid demo claims that imply production support for target-state features listed only in
+[Roadmap](Roadmap). For demo screenshots, prefer flows that preserve supportability and lineage
+evidence end to end through Gateway or Workbench.
 
 ## Composite Performance Supported Detail
 

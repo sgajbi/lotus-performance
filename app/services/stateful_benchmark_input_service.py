@@ -12,6 +12,8 @@ from fastapi import HTTPException, status
 from app.models.benchmark_analytics_requests import BenchmarkReturnSource
 from app.models.benchmark_requests import BenchmarkComponentObservation, BenchmarkReturnPoint
 from app.services.stateful_input_service import RetrievalMetadata, StatefulInputService
+from app.services.stateful_retrieval_metadata import parse_zero_default_retrieval_metadata
+from app.services.stateful_upstream_errors import raise_for_stateful_source_unavailable
 from core.errors import HTTP_422_UNPROCESSABLE
 
 
@@ -53,9 +55,9 @@ async def build_stateful_benchmark_input(
                 detail=f"No benchmark definition found for benchmark_id={benchmark_id}.",
             )
         if definition_status >= status.HTTP_400_BAD_REQUEST:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"benchmark definition source unavailable ({definition_status}).",
+            raise_for_stateful_source_unavailable(
+                source_label="benchmark definition",
+                upstream_status=definition_status,
             )
 
         benchmark_currency_raw = definition_payload.get("benchmark_currency")
@@ -87,9 +89,9 @@ async def build_stateful_benchmark_input(
             detail=f"No benchmark composition window found for benchmark_id={benchmark_id}.",
         )
     if composition_status >= status.HTTP_400_BAD_REQUEST:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"benchmark composition-window source unavailable ({composition_status}).",
+        raise_for_stateful_source_unavailable(
+            source_label="benchmark composition-window",
+            upstream_status=composition_status,
         )
 
     benchmark_currency, component_segments = _parse_composition_window(
@@ -167,9 +169,9 @@ async def _build_stateful_vendor_series_input(
             detail=f"No benchmark return series found for benchmark_id={benchmark_id}.",
         )
     if return_status >= status.HTTP_400_BAD_REQUEST:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"benchmark return-series source unavailable ({return_status}).",
+        raise_for_stateful_source_unavailable(
+            source_label="benchmark return-series",
+            upstream_status=return_status,
         )
 
     points_raw = return_payload.get("points")
@@ -313,8 +315,7 @@ async def _load_component_price_series(
         ]
     )
     component_price_series: dict[str, dict[str, Any]] = {}
-    total_chunk_count = 0
-    total_page_count = 0
+    retrieval_metadata_total = RetrievalMetadata(chunk_count=0, page_count=0)
     for index_id, (series_status, series_payload) in zip(component_ids, responses):
         if series_status == status.HTTP_404_NOT_FOUND:
             raise HTTPException(
@@ -322,9 +323,10 @@ async def _load_component_price_series(
                 detail=f"No index price series found for benchmark component {index_id}.",
             )
         if series_status >= status.HTTP_400_BAD_REQUEST:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"index price-series source unavailable for benchmark component {index_id} ({series_status}).",
+            raise_for_stateful_source_unavailable(
+                source_label="index price-series",
+                upstream_status=series_status,
+                context=f"for benchmark component {index_id}",
             )
         points_raw = series_payload.get("points")
         if not isinstance(points_raw, list):
@@ -342,14 +344,9 @@ async def _load_component_price_series(
             "points": series_points,
             "series_currency": _infer_series_currency(index_id=index_id, points=series_points),
         }
-        retrieval_metadata = _parse_retrieval_metadata(series_payload)
-        total_chunk_count += retrieval_metadata.chunk_count
-        total_page_count += retrieval_metadata.page_count
+        retrieval_metadata_total = _add_retrieval_metadata(retrieval_metadata_total, series_payload)
 
-    return component_price_series, RetrievalMetadata(
-        chunk_count=total_chunk_count,
-        page_count=total_page_count,
-    )
+    return component_price_series, retrieval_metadata_total
 
 
 def _infer_series_currency(*, index_id: str, points: list[dict[str, Any]]) -> str:
@@ -382,8 +379,7 @@ async def _load_fx_maps_for_components(
             pairs.add((component_currency, benchmark_currency))
 
     fx_maps: dict[tuple[str, str], dict[date, Decimal]] = {}
-    total_chunk_count = 0
-    total_page_count = 0
+    retrieval_metadata_total = RetrievalMetadata(chunk_count=0, page_count=0)
     for from_currency, to_currency in sorted(pairs):
         fx_status, fx_payload = await stateful_input_service.get_fx_rates(
             from_currency=from_currency,
@@ -393,9 +389,10 @@ async def _load_fx_maps_for_components(
             calculation_id=calculation_id,
         )
         if fx_status >= status.HTTP_400_BAD_REQUEST:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"fx rate source unavailable for {from_currency}/{to_currency} ({fx_status}).",
+            raise_for_stateful_source_unavailable(
+                source_label="fx rate",
+                upstream_status=fx_status,
+                context=f"for {from_currency}/{to_currency}",
             )
         points_raw = fx_payload.get("points")
         if not isinstance(points_raw, list):
@@ -410,13 +407,8 @@ async def _load_fx_maps_for_components(
             and isinstance(point.get("series_date"), str)
             and point.get("fx_rate") is not None
         }
-        retrieval_metadata = _parse_retrieval_metadata(fx_payload)
-        total_chunk_count += retrieval_metadata.chunk_count
-        total_page_count += retrieval_metadata.page_count
-    return fx_maps, RetrievalMetadata(
-        chunk_count=total_chunk_count,
-        page_count=total_page_count,
-    )
+        retrieval_metadata_total = _add_retrieval_metadata(retrieval_metadata_total, fx_payload)
+    return fx_maps, retrieval_metadata_total
 
 
 def _build_component_observations(
@@ -595,12 +587,12 @@ def _normalize_price_to_benchmark_currency(
 
 
 def _parse_retrieval_metadata(payload: dict[str, Any]) -> RetrievalMetadata:
-    metadata = payload.get("retrieval_metadata")
-    if not isinstance(metadata, dict):
-        return RetrievalMetadata(chunk_count=0, page_count=0)
-    chunk_count = metadata.get("chunk_count", 0)
-    page_count = metadata.get("page_count", 0)
+    return parse_zero_default_retrieval_metadata(payload)
+
+
+def _add_retrieval_metadata(total: RetrievalMetadata, payload: dict[str, Any]) -> RetrievalMetadata:
+    metadata = _parse_retrieval_metadata(payload)
     return RetrievalMetadata(
-        chunk_count=int(chunk_count) if isinstance(chunk_count, (int, float, str)) else 0,
-        page_count=int(page_count) if isinstance(page_count, (int, float, str)) else 0,
+        chunk_count=total.chunk_count + metadata.chunk_count,
+        page_count=total.page_count + metadata.page_count,
     )

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import shutil
 import tempfile
@@ -17,6 +18,8 @@ REQUIRED_DURABLE_TABLES = (
     "lineage_records",
     "lineage_payloads",
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -42,7 +45,7 @@ def check_durable_metadata_store_ready() -> DurabilityHealthStatus:
     lineage_storage_status = check_lineage_storage_ready()
     if not lineage_storage_status.is_ready:
         return lineage_storage_status
-    return DurabilityHealthStatus(is_ready=True, status="ready")
+    return _ready_status()
 
 
 def check_durable_metadata_schema_ready() -> DurabilityHealthStatus:
@@ -50,50 +53,27 @@ def check_durable_metadata_schema_ready() -> DurabilityHealthStatus:
     try:
         execution_registry.ping()
     except Exception:
-        return DurabilityHealthStatus(
-            is_ready=False,
-            status="unavailable",
-            reason="durable_metadata_store_unreachable",
-        )
+        logger.warning("Durable metadata store readiness ping failed.", exc_info=True)
+        return _unavailable_status("durable_metadata_store_unreachable")
     available_tables = set(execution_registry.list_table_names())
     if any(table_name not in available_tables for table_name in REQUIRED_DURABLE_TABLES):
-        return DurabilityHealthStatus(
-            is_ready=False,
-            status="unavailable",
-            reason="durable_metadata_schema_incomplete",
-        )
-    return DurabilityHealthStatus(is_ready=True, status="ready")
+        return _unavailable_status("durable_metadata_schema_incomplete")
+    return _ready_status()
 
 
 def check_lineage_storage_ready() -> DurabilityHealthStatus:
     settings = get_settings()
     storage_path = getattr(settings, "LINEAGE_STORAGE_PATH", None)
     if not storage_path or not os.path.exists(storage_path):
-        return DurabilityHealthStatus(
-            is_ready=False,
-            status="unavailable",
-            reason="lineage_storage_path_missing",
-        )
+        return _unavailable_status("lineage_storage_path_missing")
     if not os.path.isdir(storage_path):
-        return DurabilityHealthStatus(
-            is_ready=False,
-            status="unavailable",
-            reason="lineage_storage_path_invalid",
-        )
+        return _unavailable_status("lineage_storage_path_invalid")
     if not os.access(storage_path, os.R_OK | os.W_OK | os.X_OK):
-        return DurabilityHealthStatus(
-            is_ready=False,
-            status="unavailable",
-            reason="lineage_storage_path_unreadable",
-        )
+        return _unavailable_status("lineage_storage_path_unreadable")
     if getattr(settings, "LINEAGE_STORAGE_HEALTHCHECK_WRITE_PROBE_ENABLED", True):
         if not _probe_lineage_storage_write(str(storage_path)):
-            return DurabilityHealthStatus(
-                is_ready=False,
-                status="unavailable",
-                reason="lineage_storage_write_probe_failed",
-            )
-    return DurabilityHealthStatus(is_ready=True, status="ready")
+            return _unavailable_status("lineage_storage_write_probe_failed")
+    return _ready_status()
 
 
 def get_lineage_storage_capacity() -> LineageStorageCapacitySnapshot:
@@ -120,6 +100,14 @@ def get_lineage_storage_capacity() -> LineageStorageCapacitySnapshot:
     )
 
 
+def _ready_status() -> DurabilityHealthStatus:
+    return DurabilityHealthStatus(is_ready=True, status="ready")
+
+
+def _unavailable_status(reason: str) -> DurabilityHealthStatus:
+    return DurabilityHealthStatus(is_ready=False, status="unavailable", reason=reason)
+
+
 def _probe_lineage_storage_write(storage_path: str) -> bool:
     fd: int | None = None
     temp_path: str | None = None
@@ -138,6 +126,7 @@ def _probe_lineage_storage_write(storage_path: str) -> bool:
         temp_path = None
         return True
     except OSError:
+        logger.warning("Lineage storage write probe failed.", exc_info=True)
         return False
     finally:
         if fd is not None:

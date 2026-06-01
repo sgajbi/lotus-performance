@@ -6,6 +6,8 @@ import time
 from dataclasses import dataclass
 from uuid import UUID
 
+from pydantic import ValidationError
+
 from app.core.config import get_settings
 from app.models.requests import PerformanceRequest
 from app.models.responses import PerformanceResponse
@@ -67,14 +69,14 @@ def extract_performance_request_from_payload(request_payload: dict | None) -> Pe
     try:
         resolved_request = TWRResolvedExecutionRequest.model_validate(resolved_payload)
         return resolved_request.portfolio
-    except Exception:
+    except ValidationError:
         pass
     try:
         analytics_request = TWRAnalyticsRequest.model_validate(request_payload)
         if analytics_request.input_mode.value != "stateless":
             return None
         return analytics_request.to_stateless_performance_request()
-    except Exception:
+    except (ValidationError, ValueError):
         return None
 
 
@@ -86,7 +88,7 @@ def extract_resolved_execution_request_from_payload(
     resolved_payload = _resolved_request_payload_from_lineage_payload(request_payload)
     try:
         return TWRResolvedExecutionRequest.model_validate(resolved_payload)
-    except Exception:
+    except ValidationError:
         return None
 
 

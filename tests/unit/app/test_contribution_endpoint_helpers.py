@@ -14,35 +14,177 @@ from app.api.endpoints.contribution import (
 )
 from app.models.contribution_analytics_requests import ContributionAnalyticsRequest
 from app.models.contribution_requests import ContributionRequest
-from app.services.contribution_service import (
-    _build_daily_contribution_series,
-    _build_hierarchy_from_adjusted_position_series,
+from app.services.contribution_audit import AverageWeightShadowAuditState
+from app.services.contribution_diagnostics import (
     _build_portfolio_engine_diagnostics,
-    _build_position_contribution_series,
-    _build_residual_adjusted_daily_contribution_series,
-    _build_residual_adjusted_position_timeseries,
-    _calculate_average_weight_sum_residual_bp,
-    _calculate_average_weight_sum_residual_bp_from_ratio_series,
     _calculate_grouped_return_reset_alignment_counts,
     _calculate_position_flow_balance_counts,
-    _calculate_position_total_return_pct,
-    _calculate_promotion_ready_rate_bp,
-    _calculate_reset_aware_average_weight_shadow,
-    _calculate_reset_aware_period_portfolio_return,
     _calculate_reset_characterization_counts,
     _calculate_reset_relative_day_counts,
+)
+from app.services.contribution_methodology import (
+    _assess_average_weight_shadow_cutover,
+    _build_average_weight_methodology_status,
+    _calculate_average_weight_sum_residual_bp,
+    _calculate_average_weight_sum_residual_bp_from_ratio_series,
+    _calculate_promotion_ready_rate_bp,
+    _calculate_reset_aware_average_weight_shadow,
     _classify_average_weight_methodology_status,
     _classify_average_weight_shadow_cutover_blockers,
     _classify_average_weight_shadow_period,
-    _count_carino_invalid_domain_days,
     _is_average_weight_shadow_cutover_candidate,
     _normalize_reset_aware_average_weight_mode,
-    build_position_contributions,
 )
+from app.services.contribution_periods import (
+    _build_contribution_period_methodology_context,
+    _extract_reset_dates,
+    _slice_contribution_period_frames,
+)
+from app.services.contribution_returns import (
+    _calculate_position_total_return_pct,
+    _calculate_reset_aware_period_portfolio_return,
+    build_position_contributions,
+    build_residual_adjusted_position_totals,
+)
+from app.services.contribution_series import (
+    _build_daily_contribution_series,
+    _build_hierarchy_from_adjusted_position_series,
+    _build_position_contribution_series,
+    _build_residual_adjusted_daily_contribution_series,
+    _build_residual_adjusted_position_timeseries,
+)
+from app.services.contribution_smoothing import _count_carino_invalid_domain_days
+from core.envelope import Diagnostics
 
 
 def test_contribution_as_numeric_returns_default_for_non_numeric():
     assert _as_numeric("not-a-number", default=3) == 3
+
+
+def test_average_weight_shadow_audit_state_records_counts_and_diagnostic_notes():
+    audit_state = AverageWeightShadowAuditState()
+
+    audit_state.record_shadow_observation(
+        delta_positions=2,
+        max_shadow_delta_bp=600,
+        sum_shadow_delta_bp=700,
+    )
+    emitted_blockers = audit_state.record_cutover_assessment(
+        is_cutover_candidate=False,
+        blocker_reason_codes={"weight_residual", "timeseries_reconciliation"},
+    )
+    audit_state.record_timeseries_total_delta()
+
+    diagnostics = Diagnostics(
+        nip_days=0,
+        reset_days=0,
+        effective_period_start=pd.Timestamp("2025-01-01").date(),
+    )
+    audit_state.append_diagnostic_notes(
+        diagnostics,
+        average_weight_sum_residual_bp=2,
+        carino_invalid_domain_days=1,
+        reset_alignment_counts={
+            "portfolio_reset_without_position_reset_days": 1,
+            "position_reset_without_portfolio_reset_days": 0,
+        },
+        position_flow_balance_counts={
+            "position_flow_residual_days": 1,
+            "position_flow_residual_max_bp": 11,
+        },
+    )
+    counts = audit_state.to_audit_counts(
+        average_weight_sum_residual_bp=2,
+        carino_invalid_domain_days=1,
+    )
+
+    assert emitted_blockers == {"weight_residual", "timeseries_reconciliation"}
+    assert counts["average_weight_shadow_delta_positions"] == 2
+    assert counts["average_weight_shadow_material_periods"] == 1
+    assert counts["average_weight_shadow_blocked_periods"] == 1
+    assert counts["timeseries_total_delta_periods"] == 1
+    assert any("rollout readiness" in note for note in diagnostics.notes)
+    assert any("daily contribution series" in note for note in diagnostics.notes)
+
+
+def test_contribution_period_helpers_slice_frames_and_extract_reset_dates():
+    daily_contributions_df = pd.DataFrame(
+        {
+            "position_id": ["A", "A", "A"],
+            "perf_date": [
+                pd.Timestamp("2025-01-01").date(),
+                pd.Timestamp("2025-01-02").date(),
+                pd.Timestamp("2025-01-03").date(),
+            ],
+            "perf_reset": [0, 1, 0],
+        }
+    )
+    portfolio_results_df = pd.DataFrame(
+        {
+            "perf_date": [
+                pd.Timestamp("2025-01-01"),
+                pd.Timestamp("2025-01-02"),
+                pd.Timestamp("2025-01-03"),
+            ],
+            "perf_reset": [1, 0, 1],
+        }
+    )
+
+    period_frames = _slice_contribution_period_frames(
+        daily_contributions_df=daily_contributions_df,
+        portfolio_results_df=portfolio_results_df,
+        start_date=pd.Timestamp("2025-01-02").date(),
+        end_date=pd.Timestamp("2025-01-03").date(),
+    )
+
+    assert period_frames.period_slice_df["position_id"].tolist() == ["A", "A"]
+    assert period_frames.period_slice_df is not daily_contributions_df
+    assert _extract_reset_dates(period_frames.period_slice_df) == {pd.Timestamp("2025-01-02").date()}
+    assert _extract_reset_dates(period_frames.portfolio_period_slice_df) == {pd.Timestamp("2025-01-03").date()}
+
+
+def test_contribution_period_methodology_context_builds_shadow_and_alignment_evidence():
+    period_slice_df = pd.DataFrame(
+        {
+            "position_id": ["A", "A"],
+            "perf_date": [
+                pd.Timestamp("2025-01-01").date(),
+                pd.Timestamp("2025-01-02").date(),
+            ],
+            "daily_weight": [0.50, 0.25],
+            "perf_reset": [1, 0],
+            "bod_cf": [0.0, 0.0],
+            "eod_cf": [0.0, 0.0],
+        }
+    )
+    portfolio_period_slice_df = pd.DataFrame(
+        {
+            "perf_date": [
+                pd.Timestamp("2025-01-01").date(),
+                pd.Timestamp("2025-01-02").date(),
+            ],
+            "perf_reset": [0, 1],
+            "nip": [0, 0],
+            "bod_cf": [0.0, 0.0],
+            "eod_cf": [0.0, 0.0],
+            "begin_mv": [100.0, 100.0],
+        }
+    )
+
+    context = _build_contribution_period_methodology_context(
+        period_slice_df=period_slice_df,
+        portfolio_period_slice_df=portfolio_period_slice_df,
+    )
+
+    assert context.delta_positions == 1
+    assert context.max_shadow_delta_bp == 1250
+    assert context.position_reset_dates == {pd.Timestamp("2025-01-01").date()}
+    assert context.portfolio_reset_dates == {pd.Timestamp("2025-01-02").date()}
+    assert context.portfolio_reset_without_position_reset_days == 1
+    assert context.position_reset_without_portfolio_reset_days == 1
+    assert context.position_flow_balance_counts["position_flow_residual_days"] == 0
+    assert context.average_weight_shadow_df.loc[0, "average_weight"] == pytest.approx(0.375)
+    assert context.average_weight_shadow_df.loc[0, "reset_aware_average_weight_shadow"] == pytest.approx(0.25)
 
 
 def test_contribution_reset_helpers_cover_empty_and_zero_paths(mocker):
@@ -85,7 +227,7 @@ def test_contribution_reset_helpers_cover_empty_and_zero_paths(mocker):
     assert diagnostics.nip_days == 0
     assert diagnostics.reset_days == 0
 
-    mocker.patch("app.services.contribution_service.run_engine_for_valuation_points", return_value=pd.DataFrame())
+    mocker.patch("app.services.contribution_returns.run_engine_for_valuation_points", return_value=pd.DataFrame())
     position_data = request.positions_data[0]
     assert (
         _calculate_position_total_return_pct(
@@ -391,7 +533,7 @@ def test_build_position_contributions_sorts_and_truncates_top_n(mocker):
             "positions_data": [{"position_id": "A", "valuation_points": []}],
         }
     )
-    mocker.patch("app.services.contribution_service.run_engine_for_valuation_points", return_value=pd.DataFrame())
+    mocker.patch("app.services.contribution_returns.run_engine_for_valuation_points", return_value=pd.DataFrame())
 
     contributions = build_position_contributions(
         totals_df=pd.DataFrame(
@@ -410,6 +552,38 @@ def test_build_position_contributions_sorts_and_truncates_top_n(mocker):
     assert len(contributions) == 1
     assert contributions[0].position_id == "B"
     assert contributions[0].total_return == 0.0
+
+
+def test_build_residual_adjusted_position_totals_allocates_carino_residual_by_selected_weight():
+    period_slice_df = pd.DataFrame(
+        {
+            "position_id": ["A", "B"],
+            "smoothed_contribution": [0.01, 0.02],
+            "smoothed_local_contribution": [0.008, 0.018],
+        }
+    )
+    average_weight_df = pd.DataFrame(
+        {
+            "position_id": ["A", "B"],
+            "average_weight": [0.25, 0.75],
+            "reset_aware_average_weight_shadow": [0.50, 0.50],
+        }
+    )
+
+    totals_result = build_residual_adjusted_position_totals(
+        period_slice_df=period_slice_df,
+        average_weight_df=average_weight_df,
+        total_portfolio_return=0.04,
+        smoothing_method="CARINO",
+        average_weight_columns=["average_weight", "reset_aware_average_weight_shadow"],
+        residual_allocation_weight_column="selected_average_weight",
+        selected_average_weight_source_column="reset_aware_average_weight_shadow",
+    )
+
+    assert totals_result.residual_allocation_applied
+    assert totals_result.totals_df["selected_average_weight"].tolist() == [0.50, 0.50]
+    assert totals_result.totals_df["total_contribution"].tolist() == pytest.approx([0.015, 0.025])
+    assert totals_result.totals_df["fx_contribution"].tolist() == pytest.approx([0.007, 0.007])
 
 
 def test_residual_adjusted_position_timeseries_handles_missing_targets_and_missing_weight_signal():
@@ -472,6 +646,31 @@ def test_average_weight_shadow_helper_classifies_materiality_and_cutover_readine
         position_reset_without_portfolio_reset_days=0,
         timeseries_total_delta_periods=1,
     ) == {"weight_residual", "flow_balance", "reset_alignment", "timeseries_reconciliation"}
+    ready_assessment = _assess_average_weight_shadow_cutover(
+        max_shadow_delta_bp=600,
+        average_weight_sum_residual_bp=0,
+        position_flow_residual_days=0,
+        portfolio_reset_without_position_reset_days=0,
+        position_reset_without_portfolio_reset_days=0,
+        timeseries_total_delta_periods=0,
+    )
+    blocked_assessment = _assess_average_weight_shadow_cutover(
+        max_shadow_delta_bp=600,
+        average_weight_sum_residual_bp=50,
+        position_flow_residual_days=1,
+        portfolio_reset_without_position_reset_days=1,
+        position_reset_without_portfolio_reset_days=0,
+        timeseries_total_delta_periods=1,
+    )
+    assert ready_assessment.is_cutover_candidate
+    assert ready_assessment.blocker_reason_codes == set()
+    assert not blocked_assessment.is_cutover_candidate
+    assert blocked_assessment.blocker_reason_codes == {
+        "weight_residual",
+        "flow_balance",
+        "reset_alignment",
+        "timeseries_reconciliation",
+    }
     assert (
         _classify_average_weight_methodology_status(
             max_shadow_delta_bp=600,
@@ -508,6 +707,15 @@ def test_average_weight_shadow_helper_classifies_materiality_and_cutover_readine
         )
         == "NO_MATERIAL_SHADOW"
     )
+    response_status = _build_average_weight_methodology_status(
+        max_shadow_delta_bp=600,
+        is_cutover_candidate=False,
+        is_promoted=False,
+        blocker_reason_codes={"timeseries_reconciliation", "flow_balance"},
+    )
+    assert response_status.status == "BLOCKED"
+    assert response_status.is_material_shadow
+    assert response_status.blocker_reason_codes == ["flow_balance", "timeseries_reconciliation"]
 
 
 def test_build_hierarchy_from_adjusted_position_series_handles_empty_and_unclassified_paths():

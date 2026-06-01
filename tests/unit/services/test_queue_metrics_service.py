@@ -1,4 +1,34 @@
-from app.services.queue_metrics_service import DurableQueueCollector
+import logging
+
+from app.services.queue_metrics_service import DurableQueueCollector, _load_metric_source
+
+
+def test_load_metric_source_returns_value_and_availability():
+    source, available = _load_metric_source(lambda: "metric-source")
+
+    assert source == "metric-source"
+    assert available is True
+
+
+def test_load_metric_source_suppresses_source_failures():
+    source, available = _load_metric_source(lambda: (_ for _ in ()).throw(RuntimeError("source unavailable")))
+
+    assert source is None
+    assert available is False
+
+
+def test_load_metric_source_logs_source_failures(caplog):
+    caplog.set_level(logging.WARNING, logger="app.services.queue_metrics_service")
+
+    source, available = _load_metric_source(
+        lambda: (_ for _ in ()).throw(RuntimeError("source unavailable")),
+        source_name="compute queue stats",
+    )
+
+    assert source is None
+    assert available is False
+    assert "Queue metric source load failed for compute queue stats." in caplog.text
+    assert "RuntimeError: source unavailable" in caplog.text
 
 
 def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
@@ -139,7 +169,6 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
             },
         )(),
     )
-
     metrics = list(DurableQueueCollector().collect())
     metric_names = {metric.name for metric in metrics}
 
@@ -217,6 +246,14 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
     }
     assert recovery_threshold_samples["active_run_age_seconds"] == 1800
     assert recovery_threshold_samples["reclaim_count"] == 2
+    runtime_threshold_metric = next(
+        metric for metric in metrics if metric.name == "lotus_performance_runtime_retention_policy_threshold"
+    )
+    runtime_threshold_samples = {
+        sample.labels["threshold"]: sample.value for sample in runtime_threshold_metric.samples
+    }
+    assert runtime_threshold_samples["active_run_age_seconds"] == 1800
+    assert runtime_threshold_samples["reclaim_count"] == 3
 
 
 def test_queue_metrics_collector_exposes_store_unavailability_without_false_zero_backlog(monkeypatch):
@@ -446,7 +483,6 @@ def test_queue_metrics_collector_emits_governed_action_reclaim_pressure_breaches
             },
         )(),
     )
-
     metrics = list(DurableQueueCollector().collect())
 
     recovery_breach_metric = next(
@@ -597,6 +633,7 @@ def test_queue_metrics_collector_emits_governed_action_lease_metrics(monkeypatch
             },
         )(),
     )
+    monkeypatch.setattr("app.services.queue_metric_builders.age_seconds_since", lambda timestamp_utc: 42.0)
 
     metrics = list(DurableQueueCollector().collect())
 
@@ -609,7 +646,7 @@ def test_queue_metrics_collector_emits_governed_action_lease_metrics(monkeypatch
         for metric in metrics
         if metric.name == "lotus_performance_recovery_drill_latest_reclaimed_action_age_seconds"
     )
-    assert recovery_reclaimed.samples[0].value >= 0
+    assert recovery_reclaimed.samples[0].value == 42
     recovery_reclaimed_count = next(
         metric for metric in metrics if metric.name == "lotus_performance_recovery_drill_reclaimed_actions"
     )
@@ -623,7 +660,7 @@ def test_queue_metrics_collector_emits_governed_action_lease_metrics(monkeypatch
         for metric in metrics
         if metric.name == "lotus_performance_runtime_retention_latest_reclaimed_action_age_seconds"
     )
-    assert runtime_retention_reclaimed.samples[0].value >= 0
+    assert runtime_retention_reclaimed.samples[0].value == 42
     runtime_retention_reclaimed_count = next(
         metric for metric in metrics if metric.name == "lotus_performance_runtime_retention_reclaimed_actions"
     )

@@ -1,4 +1,7 @@
+import logging
+
 from app.services.operator_action_replay_service import (
+    _load_payload,
     resolve_recovery_drill_manual_replay,
     resolve_runtime_retention_manual_replay,
 )
@@ -162,6 +165,19 @@ def test_runtime_retention_manual_replay_rejects_different_operator_or_tenant(tm
         )
         is None
     )
+    assert (
+        resolve_runtime_retention_manual_replay(
+            snapshot,
+            artifact_directory=artifact_dir,
+            operator_id="ops-user",
+            tenant_id="tenant-a",
+            correlation_id="corr-2",
+            apply=False,
+            retention_days=None,
+            job_id="ticket-7",
+        )
+        is None
+    )
 
 
 def test_recovery_drill_manual_replay_returns_matching_evidence(tmp_path):
@@ -295,6 +311,17 @@ def test_recovery_drill_manual_replay_rejects_different_operator_or_tenant(tmp_p
         )
         is None
     )
+    assert (
+        resolve_recovery_drill_manual_replay(
+            snapshot,
+            artifact_directory=artifact_dir,
+            operator_id="ops-user",
+            tenant_id="tenant-a",
+            correlation_id="corr-2",
+            backup_identifier="backup-123",
+        )
+        is None
+    )
 
 
 def test_runtime_retention_manual_replay_handles_missing_correlation_and_unreadable_payload(tmp_path):
@@ -346,6 +373,90 @@ def test_runtime_retention_manual_replay_handles_missing_correlation_and_unreada
         )
         is None
     )
+    assert (
+        resolve_runtime_retention_manual_replay(
+            snapshot,
+            artifact_directory=artifact_dir,
+            operator_id="ops-user",
+            tenant_id="tenant-a",
+            correlation_id="corr-1",
+            apply=False,
+            retention_days=30,
+            job_id="ticket-7",
+        )
+        is None
+    )
+
+
+def test_operator_action_replay_payload_loader_logs_unreadable_invalid_and_non_object_payloads(
+    tmp_path, monkeypatch, caplog
+):
+    artifact_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
+    artifact_dir.mkdir(parents=True)
+    unreadable_path = artifact_dir / "unreadable.json"
+    unreadable_path.write_text("{}", encoding="utf-8")
+    invalid_path = artifact_dir / "invalid.json"
+    invalid_path.write_text("{", encoding="utf-8")
+    list_path = artifact_dir / "list.json"
+    list_path.write_text("[1, 2]", encoding="utf-8")
+
+    def _raise_os_error(self, *args, **kwargs):
+        if self == unreadable_path:
+            raise OSError("payload unreadable")
+        return original_read_text(self, *args, **kwargs)
+
+    original_read_text = type(unreadable_path).read_text
+    monkeypatch.setattr(type(unreadable_path), "read_text", _raise_os_error)
+
+    with caplog.at_level(logging.WARNING, logger="app.services.operator_action_replay_service"):
+        assert _load_payload(artifact_directory=artifact_dir, evidence_file_name="unreadable.json") is None
+        assert _load_payload(artifact_directory=artifact_dir, evidence_file_name="invalid.json") is None
+        assert _load_payload(artifact_directory=artifact_dir, evidence_file_name="list.json") is None
+
+    assert "Operator action replay evidence unreadable: unreadable.json" in caplog.text
+    assert "OSError: payload unreadable" in caplog.text
+    assert "Operator action replay evidence invalid JSON: invalid.json" in caplog.text
+    assert "Operator action replay evidence ignored because payload is not an object: list.json" in caplog.text
+
+
+def test_runtime_retention_manual_replay_rejects_evidence_outside_artifact_directory(tmp_path):
+    artifact_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
+    artifact_dir.mkdir(parents=True)
+    outside_payload_path = tmp_path / "outside-runtime-retention.json"
+    outside_payload_path.write_text(__import__("json").dumps({"ok": True}), encoding="utf-8")
+    snapshot = RuntimeRetentionHistorySnapshot(
+        status="available",
+        artifact_directory=str(artifact_dir),
+        latest_file_name="../outside-runtime-retention.json",
+        retained_file_names=["../outside-runtime-retention.json"],
+        retention_limit=30,
+        retention_max_age_days=90,
+        entries=[
+            RuntimeRetentionHistoryEntry(
+                evidence_file_name="../outside-runtime-retention.json",
+                generated_at_utc="2026-03-15T00:00:00Z",
+                operator_id="ops-user",
+                tenant_id="tenant-a",
+                correlation_id="corr-1",
+                trigger_mode="manual",
+                job_id="ticket-7",
+                cleanup_mode="dry_run",
+                status="planned",
+                retention_days=30,
+                prunable_execution_count=1,
+                prunable_compute_job_count=1,
+                prunable_async_result_count=1,
+                prunable_lineage_record_count=1,
+                prunable_lineage_artifact_count=1,
+            )
+        ],
+        total_entries=1,
+        matched_entries=1,
+        returned_entries=1,
+        next_offset=None,
+        applied_filters={},
+    )
+
     assert (
         resolve_runtime_retention_manual_replay(
             snapshot,
@@ -453,6 +564,49 @@ def test_recovery_drill_manual_replay_handles_missing_correlation_and_unreadable
         )
         is None
     )
+    assert (
+        resolve_recovery_drill_manual_replay(
+            snapshot,
+            artifact_directory=artifact_dir,
+            operator_id="ops-user",
+            tenant_id="tenant-a",
+            correlation_id="corr-1",
+            backup_identifier="backup-123",
+        )
+        is None
+    )
+
+
+def test_recovery_drill_manual_replay_rejects_evidence_outside_artifact_directory(tmp_path):
+    artifact_dir = tmp_path / "artifacts" / "durable-recovery-drill"
+    artifact_dir.mkdir(parents=True)
+    outside_payload_path = tmp_path / "outside-recovery-drill.json"
+    outside_payload_path.write_text(__import__("json").dumps({"ok": True}), encoding="utf-8")
+    snapshot = RecoveryDrillHistorySnapshot(
+        status="available",
+        artifact_directory=str(artifact_dir),
+        latest_file_name="../outside-recovery-drill.json",
+        retained_file_names=["../outside-recovery-drill.json"],
+        retention_limit=30,
+        retention_max_age_days=90,
+        entries=[
+            RecoveryDrillHistoryEntry(
+                evidence_file_name="../outside-recovery-drill.json",
+                generated_at_utc="2026-03-15T00:00:00Z",
+                operator_id="ops-user",
+                tenant_id="tenant-a",
+                correlation_id="corr-1",
+                backup_identifier="backup-123",
+                status="passed",
+            )
+        ],
+        total_entries=1,
+        matched_entries=1,
+        returned_entries=1,
+        next_offset=None,
+        applied_filters={},
+    )
+
     assert (
         resolve_recovery_drill_manual_replay(
             snapshot,

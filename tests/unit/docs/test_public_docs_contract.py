@@ -25,6 +25,24 @@ def test_readme_uses_current_twr_contract_terms():
     assert "google.com/search" not in readme
 
 
+def test_readme_enterprise_readiness_evidence_is_grounded():
+    readme = _read("README.md")
+    readme_flat = " ".join(readme.split())
+
+    assert "Enterprise Readiness Evidence" in readme
+    assert "implementation-backed analytics service" in readme_flat
+    assert "`lotus-core` owns source data" in readme_flat
+    assert "`lotus-performance` owns performance methodology" in readme_flat
+    assert (
+        "runtime status, work-item, recovery, recovery-drill, retention, health, readiness, and metrics" in readme_flat
+    )
+    assert "domain-data-product declarations" in readme
+    assert "OpenAPI quality gates" in readme_flat
+    assert "no-alias governance" in readme
+    assert "This is not a blanket production certification for every client environment." in readme
+    assert "target deployment, entitlement model, SLOs" in readme_flat
+
+
 def test_user_guide_documents_async_execution_surfaces():
     guide = _read("docs/Portfolio Performance Analytics - A User Guide.md")
 
@@ -72,6 +90,10 @@ def test_runtime_status_docs_reflect_certified_operator_contract():
     assert "Downstream Consumers" in certification
     assert "Test Pyramid Assessment" in certification
     assert "No duplicate lotus-performance runtime-status endpoint" in certification
+    assert "app.services.runtime_status_lifecycle" in certification
+    assert "app.services.runtime_status_queue" in certification
+    assert "Compute and lineage queue component assembly" in certification
+    assert "Recovery-drill and runtime-retention component assembly" in certification
 
 
 def test_runtime_work_items_docs_reflect_certified_operator_contract():
@@ -132,6 +154,8 @@ def test_recovery_drills_docs_reflect_certified_operator_contract():
     assert "Downstream Consumers" in certification
     assert "Test Pyramid Assessment" in certification
     assert "No duplicate lotus-performance recovery-drill endpoint" in certification
+    assert "app.services.operator_action_history_manifest" in certification
+    assert "app.services.operator_action_history_filters" in certification
 
 
 def test_runtime_retention_docs_reflect_certified_operator_contract():
@@ -151,6 +175,8 @@ def test_runtime_retention_docs_reflect_certified_operator_contract():
     assert "Downstream Consumers" in certification
     assert "Test Pyramid Assessment" in certification
     assert "No duplicate lotus-performance runtime-retention endpoint" in certification
+    assert "app.services.operator_action_history_manifest" in certification
+    assert "app.services.operator_action_history_filters" in certification
 
 
 def test_platform_surfaces_docs_reflect_certified_operational_contract():
@@ -167,6 +193,8 @@ def test_platform_surfaces_docs_reflect_certified_operational_contract():
     assert "lotus_performance_compute_queue_degradation_breach" in complete_reference
     assert "GET /metrics" in certification
     assert "GET /health/ready" in certification
+    assert "app.services.queue_metric_builders" in certification
+    assert "source-to-builder wiring" in certification
     assert "Test Pyramid Assessment" in certification
     assert "no duplicate lotus-performance health or metrics endpoint" in certification.lower()
 
@@ -262,6 +290,20 @@ def test_twr_documentation_map_and_wiki_navigation_are_present():
     assert "TimeWeightedReturnAnalytics:v1" in supported_features
     assert "composite TWR is supported only through `POST /performance/composites/twr`" in supported_features
     assert "lotus-performance:TimeWeightedReturnAnalytics:v1" in mesh_data_products
+
+
+def test_architecture_wiki_explains_runtime_and_non_functional_posture():
+    wiki_architecture = _read("wiki/Architecture.md")
+
+    assert "Application wiring" in wiki_architecture
+    assert "Request Lifecycle" in wiki_architecture
+    assert "Non-Functional Architecture" in wiki_architecture
+    assert "performance-compute-executor" in wiki_architecture
+    assert "performance-lineage-worker" in wiki_architecture
+    assert "OpenAPI, API vocabulary, no-alias guard" in wiki_architecture
+    assert "`lotus-performance` owns performance methodology" in wiki_architecture
+    assert "`lotus-core` owns source" in wiki_architecture
+    assert "runtime-control surfaces are operator contracts" in wiki_architecture
 
 
 def test_attribution_documentation_map_and_wiki_navigation_are_present():
@@ -610,8 +652,19 @@ def test_standalone_guide_uses_current_engine_api():
     assert "google.com/search" not in guide
 
 
+def test_engine_config_docs_describe_current_calendar_contract():
+    engine_config = _read("docs/technical/engine_config.md")
+    engine_config_flat = " ".join(engine_config.split())
+
+    assert "placeholder" not in engine_config.lower()
+    assert "Optional exchange-calendar identifier preserved in the request" in engine_config
+    assert "venue-specific holiday calendars are not applied" in engine_config_flat
+    assert not engine_config.rstrip().endswith("````")
+
+
 def test_contribution_guide_uses_current_request_shape():
     guide = _read("docs/guides/contribution.md")
+    guide_flat = " ".join(guide.split())
     api_reference = _read("docs/guides/api_reference.md")
     readme = _read("README.md")
 
@@ -624,6 +677,8 @@ def test_contribution_guide_uses_current_request_shape():
     assert "position_contributions[].average_weight" in guide
     assert "levels[].rows[].weight_avg" in guide
     assert "position_contributions` remains the first-class output" in guide
+    assert "`lookthrough` is accepted as a compatibility request block only" in guide
+    assert "does not decompose fund or structured-product holdings" in guide_flat
     assert "app.models.contribution_analytics_requests.ContributionAnalyticsRequest" in api_reference
     assert (
         "stateful mode sources portfolio and position timeseries from lotus-core query-control-plane" in api_reference
@@ -631,6 +686,7 @@ def test_contribution_guide_uses_current_request_shape():
     assert (
         "position-level `average_weight` and grouped `weight_avg` are both emitted in percentage units" in api_reference
     )
+    assert "fund or structured-product decomposition is not performed inside lotus-performance" in api_reference
     assert 'input_mode: "stateless" | "stateful"' in readme
     assert "lotus-performance stamps source consumer identity server-side" in readme
 

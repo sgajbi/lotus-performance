@@ -18,7 +18,8 @@ from app.services.stateful_position_row_service import (
     PositionValueBasis,
     split_position_cash_flows_in_value_basis,
 )
-from app.services.stateful_upstream_errors import stateful_control_plane_unavailable_detail
+from app.services.stateful_retrieval_metadata import parse_retrieval_metadata as _parse_retrieval_metadata
+from app.services.stateful_upstream_errors import raise_for_stateful_control_plane_unavailable
 from app.services.valuation_points_service import portfolio_timeseries_to_valuation_points
 
 
@@ -74,14 +75,10 @@ async def retrieve_stateful_contribution_source_input(
         include_cash_flows=include_cash_flows,
         filters=filters,
     )
-    if upstream_status >= status.HTTP_400_BAD_REQUEST:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=stateful_control_plane_unavailable_detail(
-                source_label="stateful position timeseries source",
-                upstream_status=upstream_status,
-            ),
-        )
+    raise_for_stateful_control_plane_unavailable(
+        source_label="stateful position timeseries source",
+        upstream_status=upstream_status,
+    )
 
     position_source = parse_stateful_position_timeseries_payload(upstream_payload)
     return StatefulContributionSourceInput(
@@ -301,15 +298,3 @@ def _validate_stateful_both_currency_support(
                 "include currencies different from report_ccy."
             ),
         )
-
-
-def _parse_retrieval_metadata(payload: dict[str, object]) -> RetrievalMetadata:
-    metadata_raw = payload.get("retrieval_metadata")
-    if not isinstance(metadata_raw, dict):
-        return RetrievalMetadata(chunk_count=1, page_count=1)
-    chunk_count = metadata_raw.get("chunk_count")
-    page_count = metadata_raw.get("page_count")
-    return RetrievalMetadata(
-        chunk_count=int(chunk_count) if isinstance(chunk_count, int) and chunk_count > 0 else 1,
-        page_count=int(page_count) if isinstance(page_count, int) and page_count > 0 else 1,
-    )

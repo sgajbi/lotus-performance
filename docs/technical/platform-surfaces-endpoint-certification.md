@@ -19,6 +19,15 @@ integration, or operator workflow endpoint.
 `GET /health`, `GET /health/live`, and `GET /health/ready` are operational contracts. `GET /metrics`
 is the Prometheus scrape contract for platform observability and alerting.
 
+Implementation ownership is split so scrape-source collection and metric construction remain
+reviewable:
+
+| Module | Ownership |
+| --- | --- |
+| `app.services.queue_metrics_service` | Prometheus collector orchestration, runtime metric source loading, availability sample emission, and source-to-builder wiring. |
+| `app.services.queue_metric_builders` | Reusable queue, lineage storage, recovery-drill, runtime-retention, policy-threshold, latest-age, and prunable-item metric construction with governed labels. |
+| `app.services.runtime_status_policy` | Shared runtime threshold extraction used by both `/integration/runtime-status` and `/metrics` runtime breach samples. |
+
 ## Behavior And Feature Checks
 
 Certified behavior:

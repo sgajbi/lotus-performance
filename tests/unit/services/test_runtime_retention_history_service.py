@@ -2,9 +2,13 @@ import json
 
 import pytest
 
+from app.services.operator_action_history_manifest import validate_history_manifest_payload
 from app.services.runtime_retention_history_service import (
+    RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON,
+    RUNTIME_RETENTION_MANIFEST_INVALID_REASON,
+    RUNTIME_RETENTION_MANIFEST_UNREADABLE_REASON,
     _build_applied_filters,
-    _validate_manifest_payload,
+    _validate_manifest_entry,
     build_runtime_retention_history_snapshot,
 )
 
@@ -13,7 +17,7 @@ def test_runtime_retention_history_reports_unavailable_when_manifest_missing(tmp
     snapshot = build_runtime_retention_history_snapshot(artifact_directory=tmp_path / "missing")
 
     assert snapshot.status == "unavailable"
-    assert snapshot.reason == "runtime_retention_artifact_directory_missing"
+    assert snapshot.reason == RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON
 
 
 def test_runtime_retention_history_reports_unavailable_when_manifest_invalid(tmp_path):
@@ -24,7 +28,7 @@ def test_runtime_retention_history_reports_unavailable_when_manifest_invalid(tmp
     snapshot = build_runtime_retention_history_snapshot(artifact_directory=artifact_dir)
 
     assert snapshot.status == "unavailable"
-    assert snapshot.reason == "runtime_retention_manifest_invalid"
+    assert snapshot.reason == RUNTIME_RETENTION_MANIFEST_INVALID_REASON
 
 
 def test_runtime_retention_history_reports_unavailable_when_manifest_unreadable(tmp_path, monkeypatch):
@@ -48,7 +52,7 @@ def test_runtime_retention_history_reports_unavailable_when_manifest_unreadable(
     snapshot = build_runtime_retention_history_snapshot(artifact_directory=artifact_dir)
 
     assert snapshot.status == "unavailable"
-    assert snapshot.reason == "runtime_retention_manifest_unreadable"
+    assert snapshot.reason == RUNTIME_RETENTION_MANIFEST_UNREADABLE_REASON
 
 
 def test_runtime_retention_history_applies_filters_and_paging(tmp_path):
@@ -338,10 +342,48 @@ def test_runtime_retention_history_applies_generated_before_and_offset_filters(t
             },
             "latest file not retained",
         ),
+        (
+            {
+                "latest_file_name": "../outside.json",
+                "retained_file_names": ["../outside.json"],
+                "entries": [],
+            },
+            "unsafe latest file name",
+        ),
+        (
+            {
+                "latest_file_name": None,
+                "retained_file_names": ["nested/evidence.json"],
+                "entries": [],
+            },
+            "unsafe retained file name",
+        ),
+        (
+            {
+                "latest_file_name": None,
+                "retained_file_names": ["ok"],
+                "entries": [
+                    {
+                        "evidence_file_name": "../outside.json",
+                        "generated_at_utc": "b",
+                        "operator_id": "c",
+                        "cleanup_mode": "d",
+                        "status": "ok",
+                        "retention_days": 1,
+                        "prunable_execution_count": 1,
+                        "prunable_compute_job_count": 1,
+                        "prunable_async_result_count": 1,
+                        "prunable_lineage_record_count": 1,
+                        "prunable_lineage_artifact_count": 1,
+                    }
+                ],
+            },
+            "unsafe entry evidence file name",
+        ),
     ],
 )
 def test_runtime_retention_history_manifest_validator_rejects_invalid_payloads(payload, reason):
-    assert _validate_manifest_payload(payload) is None, reason
+    assert validate_history_manifest_payload(payload, validate_entry=_validate_manifest_entry) is None, reason
 
 
 def test_runtime_retention_history_build_applied_filters_omits_empty_values():

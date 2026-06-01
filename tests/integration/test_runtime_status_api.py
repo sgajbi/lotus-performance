@@ -23,7 +23,7 @@ def _isolate_runtime_assurance_history(mocker):
         shutil.rmtree(settings.LINEAGE_STORAGE_PATH)
     os.makedirs(settings.LINEAGE_STORAGE_PATH, exist_ok=True)
     mocker.patch(
-        "app.services.runtime_status_service.build_operator_action_lease_snapshot",
+        "app.services.runtime_status_operator_action.build_operator_action_lease_snapshot",
         side_effect=lambda **kwargs: type(
             "LeaseSnapshot",
             (),
@@ -37,7 +37,7 @@ def _isolate_runtime_assurance_history(mocker):
         )(),
     )
     mocker.patch(
-        "app.services.runtime_status_service.build_recovery_drill_history_snapshot",
+        "app.services.runtime_status_lifecycle.build_recovery_drill_history_snapshot",
         return_value=RecoveryDrillHistorySnapshot(
             status="available",
             artifact_directory="artifacts/durable-recovery-drill",
@@ -63,7 +63,7 @@ def _isolate_runtime_assurance_history(mocker):
         ),
     )
     mocker.patch(
-        "app.services.runtime_status_service.build_runtime_retention_history_snapshot",
+        "app.services.runtime_status_lifecycle.build_runtime_retention_history_snapshot",
         return_value=RuntimeRetentionHistorySnapshot(
             status="available",
             artifact_directory="artifacts/runtime-retention-cleanup",
@@ -96,7 +96,7 @@ def _isolate_runtime_assurance_history(mocker):
         ),
     )
     mocker.patch(
-        "app.services.runtime_status_service.run_runtime_retention_cleanup",
+        "app.services.runtime_status_retention_preview.run_runtime_retention_cleanup",
         return_value=RuntimeRetentionCleanupSummary(
             dry_run=True,
             retention_days=30,
@@ -197,7 +197,7 @@ def test_runtime_status_reports_durable_queue_state():
 
 def test_runtime_status_reports_active_governed_action_visibility(mocker):
     mocker.patch(
-        "app.services.runtime_status_service.build_operator_action_lease_snapshot",
+        "app.services.runtime_status_operator_action.build_operator_action_lease_snapshot",
         side_effect=[
             type(
                 "LeaseSnapshot",
@@ -324,7 +324,7 @@ def test_runtime_status_reports_governed_action_reclaim_pressure_degradation(moc
     settings.RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT = 2
     settings.RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT = 3
     mocker.patch(
-        "app.services.runtime_status_service.build_operator_action_lease_snapshot",
+        "app.services.runtime_status_operator_action.build_operator_action_lease_snapshot",
         side_effect=[
             type(
                 "LeaseSnapshot",
@@ -395,7 +395,7 @@ def test_runtime_status_reports_governed_active_run_age_degradation(mocker):
     settings.RUNTIME_STATUS_RECOVERY_DRILL_ACTIVE_RUN_AGE_DEGRADE_SECONDS = 60.0
     settings.RUNTIME_STATUS_RUNTIME_RETENTION_ACTIVE_RUN_AGE_DEGRADE_SECONDS = 120.0
     mocker.patch(
-        "app.services.runtime_status_service.build_operator_action_lease_snapshot",
+        "app.services.runtime_status_operator_action.build_operator_action_lease_snapshot",
         side_effect=[
             type(
                 "LeaseSnapshot",
@@ -467,7 +467,7 @@ def test_runtime_status_reports_runtime_retention_failure_and_age_policy(mocker)
     original_threshold = settings.RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS
     settings.RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS = 300.0
     mocker.patch(
-        "app.services.runtime_status_service.build_runtime_retention_history_snapshot",
+        "app.services.runtime_status_lifecycle.build_runtime_retention_history_snapshot",
         return_value=RuntimeRetentionHistorySnapshot(
             status="available",
             artifact_directory="artifacts/runtime-retention-cleanup",
@@ -502,7 +502,7 @@ def test_runtime_status_reports_runtime_retention_failure_and_age_policy(mocker)
         ),
     )
     mocker.patch(
-        "app.services.runtime_status_service.run_runtime_retention_cleanup",
+        "app.services.runtime_status_retention_preview.run_runtime_retention_cleanup",
         return_value=type(
             "RuntimeRetentionPreview",
             (),
@@ -591,7 +591,7 @@ def test_runtime_status_reports_unavailable_durable_store(mocker):
 
 def test_runtime_status_reports_unavailable_recovery_history_snapshot(mocker):
     mocker.patch(
-        "app.services.runtime_status_service.build_recovery_drill_history_snapshot",
+        "app.services.runtime_status_lifecycle.build_recovery_drill_history_snapshot",
         return_value=RecoveryDrillHistorySnapshot(
             status="unavailable",
             artifact_directory="artifacts/durable-recovery-drill",
@@ -623,7 +623,7 @@ def test_runtime_status_reports_unavailable_recovery_history_snapshot(mocker):
 
 def test_runtime_status_reports_unavailable_lineage_storage(mocker):
     mocker.patch(
-        "app.services.runtime_status_service.check_lineage_storage_ready",
+        "app.services.runtime_status_queue.check_lineage_storage_ready",
         return_value=type("StorageStatus", (), {"is_ready": False, "reason": "lineage_storage_path_missing"})(),
     )
 
@@ -642,7 +642,7 @@ def test_runtime_status_reports_unavailable_lineage_storage(mocker):
 
 def test_runtime_status_reports_degraded_lineage_storage_capacity_pressure(mocker):
     mocker.patch(
-        "app.services.runtime_status_service.get_lineage_storage_capacity",
+        "app.services.runtime_status_queue.get_lineage_storage_capacity",
         return_value=type(
             "Capacity",
             (),
@@ -1060,7 +1060,7 @@ def test_runtime_status_reports_recovery_drill_failure_and_age_policy(mocker):
     settings.RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS = 300.0
 
     mocker.patch(
-        "app.services.runtime_status_service.build_recovery_drill_history_snapshot",
+        "app.services.runtime_status_lifecycle.build_recovery_drill_history_snapshot",
         return_value=RecoveryDrillHistorySnapshot(
             status="available",
             artifact_directory="artifacts/durable-recovery-drill",
