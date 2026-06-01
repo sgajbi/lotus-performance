@@ -14,6 +14,7 @@ from app.enterprise_readiness import (
     _RESPONSE_REASON_KEY,
     _allowed_audit_metadata,
     _apply_enterprise_policy_header,
+    _audit_correlation_id,
     _audit_event_payload,
     _audit_identity_from_headers,
     _audit_timestamp_utc,
@@ -250,6 +251,18 @@ def test_audit_event_payload_redacts_metadata_and_includes_policy_version(monkey
     assert payload["policy_version"] == "2.1.0"
     assert payload["metadata"] == {"token": "***REDACTED***", "safe": "ok"}
     assert datetime.fromisoformat(payload["timestamp_utc"]).tzinfo is not None
+
+
+@pytest.mark.parametrize(
+    ("correlation_id", "expected"),
+    [
+        ("corr-1", "corr-1"),
+        (None, ""),
+        ("", ""),
+    ],
+)
+def test_audit_correlation_id_normalizes_missing_value(correlation_id, expected):
+    assert _audit_correlation_id(correlation_id) == expected
 
 
 def test_audit_timestamp_utc_uses_timezone_aware_iso_timestamp():

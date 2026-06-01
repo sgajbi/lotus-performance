@@ -409,11 +409,15 @@ def _audit_event_payload(
         "actor_id": actor_id,
         "tenant_id": tenant_id,
         "role": role,
-        "correlation_id": correlation_id or "",
+        "correlation_id": _audit_correlation_id(correlation_id),
         "timestamp_utc": _audit_timestamp_utc(),
         "policy_version": enterprise_policy_version(),
         "metadata": redact_sensitive(metadata),
     }
+
+
+def _audit_correlation_id(correlation_id: str | None) -> str:
+    return correlation_id or ""
 
 
 def _audit_timestamp_utc() -> str:
