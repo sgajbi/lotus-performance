@@ -238,7 +238,7 @@ def _required_evidence_string(payload: dict[str, Any], key: str) -> str:
     value = payload[key]
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{key} must be a nonblank string")
-    return value
+    return value.strip()
 
 
 def _optional_evidence_string(payload: dict[str, Any], key: str) -> str | None:

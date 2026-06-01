@@ -349,6 +349,69 @@ def test_runtime_retention_execution_skips_invalid_manifest_entry_shapes(tmp_pat
     assert "2026-03-15t00-00-00z.json" in caplog.text
 
 
+def test_runtime_retention_manifest_rebuild_normalizes_required_entry_identities(tmp_path):
+    output_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
+    output_dir.mkdir(parents=True)
+    legacy = output_dir / "2026-03-15t00-00-00z.json"
+    legacy.write_text(
+        json.dumps(
+            {
+                "evidence_file_name": "2026-03-15t00-00-00z.json",
+                "generated_at_utc": "2026-03-15T00:00:00Z",
+                "operator_id": " ops ",
+                "tenant_id": None,
+                "correlation_id": None,
+                "trigger_mode": " manual ",
+                "job_id": None,
+                "cleanup_mode": " dry_run ",
+                "status": " planned ",
+                "retention_days": 30,
+                "prunable_execution_count": 1,
+                "prunable_compute_job_count": 1,
+                "prunable_async_result_count": 1,
+                "prunable_lineage_record_count": 1,
+                "prunable_lineage_artifact_count": 1,
+            }
+        ),
+        encoding="utf-8",
+    )
+    evidence = RuntimeRetentionCleanupEvidence(
+        cleanup_name="runtime_retention_cleanup",
+        generated_at_utc="2026-03-16T00:00:00Z",
+        evidence_file_name="2026-03-16t00-00-00z.json",
+        operator_id="ops",
+        tenant_id=None,
+        correlation_id=None,
+        trigger_mode="manual",
+        job_id=None,
+        cleanup_mode="dry_run",
+        status="planned",
+        retention_days=30,
+        cutoff_utc="2026-02-15T00:00:00Z",
+        prunable_execution_count=1,
+        prunable_compute_job_count=1,
+        prunable_async_result_count=1,
+        prunable_lineage_record_count=1,
+        prunable_lineage_artifact_count=1,
+    )
+
+    _persist_evidence_history(
+        output_dir=output_dir,
+        evidence=evidence,
+        retention_limit=5,
+        retention_max_age_days=90,
+    )
+
+    manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
+    legacy_entry = next(
+        entry for entry in manifest["entries"] if entry["evidence_file_name"] == "2026-03-15t00-00-00z.json"
+    )
+    assert legacy_entry["operator_id"] == "ops"
+    assert legacy_entry["trigger_mode"] == "manual"
+    assert legacy_entry["cleanup_mode"] == "dry_run"
+    assert legacy_entry["status"] == "planned"
+
+
 def test_runtime_retention_execution_atomic_write_cleans_up_temp_file_on_replace_failure(tmp_path, monkeypatch):
     output_path = tmp_path / "artifacts" / "runtime-retention-cleanup" / "latest.json"
     original_replace = type(output_path).replace
