@@ -205,7 +205,7 @@ def test_contribution_service_uses_runtime_app_version(mocker):
         "app.services.contribution_service._calculate_daily_instrument_contributions",
         return_value=pd.DataFrame(
             {
-                "perf_date": [pd.Timestamp("2025-01-01").date(), pd.Timestamp("2025-01-02").date()],
+                "perf_date": [pd.Timestamp("2025-01-01T10:00:00Z"), "2025-01-02"],
                 "position_id": ["A", "A"],
                 "smoothed_contribution": [0.01, 0.02],
                 "smoothed_local_contribution": [0.01, 0.02],

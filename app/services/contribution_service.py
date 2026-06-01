@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import pandas as pd
 from fastapi import HTTPException, status
 
 from app.core.config import get_settings
@@ -10,6 +9,7 @@ from app.models.contribution_responses import (
     ContributionResponse,
     SinglePeriodContributionResult,
 )
+from app.services.analytics_observation_dates import observation_date_series
 from app.services.calculation_supportability_service import (
     build_calculation_supportability,
     record_supportability_metric,
@@ -104,9 +104,9 @@ def calculate_contribution(
         daily_contributions_df = _calculate_daily_instrument_contributions(
             instruments_df, portfolio_results_df, request.weighting_scheme, request.smoothing
         )
-        daily_contributions_df[PortfolioColumns.PERF_DATE.value] = pd.to_datetime(
+        daily_contributions_df[PortfolioColumns.PERF_DATE.value] = observation_date_series(
             daily_contributions_df[PortfolioColumns.PERF_DATE.value]
-        ).dt.date
+        )
         average_weight_sum_residual_bp = 0
         average_weight_audit_state = AverageWeightShadowAuditState()
 
