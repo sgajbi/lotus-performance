@@ -64,6 +64,8 @@ _ENV_ENTERPRISE_SECRET_ROTATION_DAYS = "ENTERPRISE_SECRET_ROTATION_DAYS"
 _ENV_ENTERPRISE_FEATURE_FLAGS_JSON = "ENTERPRISE_FEATURE_FLAGS_JSON"
 _ENV_ENTERPRISE_CAPABILITY_RULES_JSON = "ENTERPRISE_CAPABILITY_RULES_JSON"
 _ENV_ENTERPRISE_PRIVILEGED_READ_RULES_JSON = "ENTERPRISE_PRIVILEGED_READ_RULES_JSON"
+_ENV_SWITCH_DISABLED_DEFAULT = "false"
+_ENV_ENABLED_VALUES = frozenset({"1", "true", "yes", "on"})
 _DEFAULT_MAX_WRITE_PAYLOAD_BYTES = 1_048_576
 _DEFAULT_SECRET_ROTATION_DAYS = 90
 _WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
@@ -99,19 +101,19 @@ def _is_privileged_read_method(method: str) -> bool:
 
 
 def _env_enabled(name: str, default: str = "true") -> bool:
-    return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "on"}
+    return os.getenv(name, default).strip().lower() in _ENV_ENABLED_VALUES
 
 
 def _privileged_read_authz_enabled() -> bool:
-    return _env_enabled(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, "false")
+    return _env_enabled(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, _ENV_SWITCH_DISABLED_DEFAULT)
 
 
 def _write_authz_enabled() -> bool:
-    return _env_enabled(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "false")
+    return _env_enabled(_ENV_ENTERPRISE_ENFORCE_AUTHZ, _ENV_SWITCH_DISABLED_DEFAULT)
 
 
 def _runtime_config_enforcement_enabled() -> bool:
-    return _env_enabled(_ENV_ENTERPRISE_ENFORCE_RUNTIME_CONFIG, "false")
+    return _env_enabled(_ENV_ENTERPRISE_ENFORCE_RUNTIME_CONFIG, _ENV_SWITCH_DISABLED_DEFAULT)
 
 
 def _primary_key_configured() -> bool:

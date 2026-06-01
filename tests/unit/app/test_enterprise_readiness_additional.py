@@ -31,6 +31,7 @@ from app.enterprise_readiness import (
     _ENTERPRISE_AUDIT_EVENT_NAME,
     _ENTERPRISE_AUDIT_EXTRA_KEY,
     _ENTERPRISE_POLICY_VERSION_HEADER,
+    _ENV_ENABLED_VALUES,
     _ENV_ENTERPRISE_CAPABILITY_RULES_JSON,
     _ENV_ENTERPRISE_ENFORCE_AUTHZ,
     _ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ,
@@ -40,6 +41,7 @@ from app.enterprise_readiness import (
     _ENV_ENTERPRISE_PRIMARY_KEY_ID,
     _ENV_ENTERPRISE_PRIVILEGED_READ_RULES_JSON,
     _ENV_ENTERPRISE_SECRET_ROTATION_DAYS,
+    _ENV_SWITCH_DISABLED_DEFAULT,
     _HTTP_STATUS_FORBIDDEN,
     _HTTP_STATUS_PAYLOAD_TOO_LARGE,
     _MISSING_CAPABILITY_REASON,
@@ -72,6 +74,7 @@ from app.enterprise_readiness import (
     _denied_request_action,
     _emit_allowed_audit_event,
     _enterprise_runtime_config_issues,
+    _env_enabled,
     _feature_flag_enabled,
     _has_required_capability,
     _has_service_identity,
@@ -135,6 +138,16 @@ def test_is_write_method_normalizes_method_case(method, expected):
 )
 def test_is_privileged_read_method_normalizes_method_case(method, expected):
     assert _is_privileged_read_method(method) is expected
+
+
+def test_env_enabled_uses_governed_enabled_tokens_and_disabled_default(monkeypatch):
+    env_name = "ENTERPRISE_TEST_SWITCH"
+    for configured in _ENV_ENABLED_VALUES:
+        monkeypatch.setenv(env_name, configured)
+        assert _env_enabled(env_name, _ENV_SWITCH_DISABLED_DEFAULT) is True
+
+    monkeypatch.delenv(env_name, raising=False)
+    assert _env_enabled(env_name, _ENV_SWITCH_DISABLED_DEFAULT) is False
 
 
 @pytest.mark.parametrize(
