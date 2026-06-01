@@ -212,7 +212,7 @@ def redact_sensitive(value: Any) -> Any:
     if isinstance(value, dict):
         output: dict[str, Any] = {}
         for key, item in value.items():
-            if key.lower() in _REDACT_FIELDS:
+            if str(key).lower() in _REDACT_FIELDS:
                 output[key] = "***REDACTED***"
             else:
                 output[key] = redact_sensitive(item)

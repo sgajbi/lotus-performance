@@ -48,6 +48,13 @@ def test_redaction_masks_sensitive_values():
     assert redacted["nested"][1]["safe"] == "ok"
 
 
+def test_redaction_handles_non_string_metadata_keys():
+    payload = {1: {"token": "abc"}, "safe": "ok"}
+    redacted = redact_sensitive(payload)
+    assert redacted[1]["token"] == "***REDACTED***"
+    assert redacted["safe"] == "ok"
+
+
 def test_authorize_write_request_enforces_required_headers_when_enabled(monkeypatch):
     monkeypatch.setenv("ENTERPRISE_ENFORCE_AUTHZ", "true")
     allowed, reason = authorize_write_request("POST", "/analytics", {})
