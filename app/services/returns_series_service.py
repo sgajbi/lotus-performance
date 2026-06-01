@@ -45,6 +45,7 @@ from app.services.execution_registry import execution_registry
 from app.services.portfolio_source_service import (
     build_stateful_input_service,
 )
+from app.services.service_identity import LOTUS_PERFORMANCE_CONSUMER_SYSTEM
 from app.services.stateful_benchmark_input_service import build_stateful_benchmark_input
 from app.services.stateful_performance_input_service import retrieve_stateful_portfolio_input
 from app.services.stateful_retrieval_metadata import parse_zero_default_retrieval_metadata
@@ -56,7 +57,6 @@ from engine.benchmarks import benchmark_return_points_to_dataframe, calculate_be
 from engine.compute import run_calculations
 from engine.schema import PortfolioColumns
 
-DEFAULT_STATEFUL_CONSUMER_SYSTEM = "lotus-performance"
 RETURN_POINT_QUANTUM = Decimal("0.000000000001")
 
 
@@ -817,7 +817,7 @@ async def resolve_stateful_returns_series_request(
             start_date=resolved_window.start_date,
             end_date=resolved_window.end_date,
             reporting_currency=request.reporting_currency,
-            consumer_system=DEFAULT_STATEFUL_CONSUMER_SYSTEM,
+            consumer_system=LOTUS_PERFORMANCE_CONSUMER_SYSTEM,
         )
     except HTTPException as exc:
         if exc.status_code == status.HTTP_503_SERVICE_UNAVAILABLE:

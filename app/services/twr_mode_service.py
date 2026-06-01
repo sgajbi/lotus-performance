@@ -12,6 +12,7 @@ from app.models.requests import PerformanceRequest
 from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode
 from app.services.execution_registry import execution_registry
 from app.services.portfolio_source_service import build_stateful_input_service
+from app.services.service_identity import LOTUS_PERFORMANCE_CONSUMER_SYSTEM
 from app.services.stateful_benchmark_input_service import build_stateful_benchmark_input
 from app.services.stateful_input_service import StatefulInputService
 from app.services.stateful_performance_input_service import (
@@ -24,8 +25,6 @@ from app.services.stateful_upstream_errors import (
 )
 from app.services.stateless_benchmark_input_service import normalize_stateless_component_observations
 from core.errors import HTTP_422_UNPROCESSABLE
-
-DEFAULT_STATEFUL_CONSUMER_SYSTEM = "lotus-performance"
 
 
 @dataclass(frozen=True)
@@ -99,7 +98,7 @@ async def resolve_twr_request(
                 start_date=resolved_start_date,
                 end_date=request.report_end_date,
                 reporting_currency=request.report_ccy,
-                consumer_system=DEFAULT_STATEFUL_CONSUMER_SYSTEM,
+                consumer_system=LOTUS_PERFORMANCE_CONSUMER_SYSTEM,
             )
             retrieval_details.update(
                 {

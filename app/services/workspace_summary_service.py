@@ -39,6 +39,7 @@ from app.services.analytics_observation_dates import observation_date_series
 from app.services.execution_lifecycle_service import complete_execution_with_lineage
 from app.services.execution_registry import execution_registry
 from app.services.portfolio_source_service import build_stateful_input_service
+from app.services.service_identity import LOTUS_PERFORMANCE_CONSUMER_SYSTEM
 from app.services.stateful_benchmark_input_service import build_stateful_benchmark_input
 from app.services.stateful_performance_input_service import (
     build_stateful_portfolio_valuation_input,
@@ -64,8 +65,6 @@ from core.workspace_periods import ResolvedWorkspacePeriod, resolve_workspace_pe
 from engine.compute import run_calculations
 from engine.mwr import calculate_money_weighted_return
 from engine.schema import PortfolioColumns
-
-DEFAULT_STATEFUL_CONSUMER_SYSTEM = "lotus-performance"
 
 
 @dataclass(frozen=True)
@@ -226,7 +225,7 @@ def _resolve_workspace_portfolio_input(
             start_date=master_start_date,
             end_date=request.report_end_date,
             reporting_currency=request.report_ccy,
-            consumer_system=DEFAULT_STATEFUL_CONSUMER_SYSTEM,
+            consumer_system=LOTUS_PERFORMANCE_CONSUMER_SYSTEM,
         )
     )
     normalized = build_stateful_portfolio_valuation_input(
