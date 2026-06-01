@@ -34,6 +34,10 @@ _REDACT_FIELDS = {
 }
 
 
+def _is_write_method(method: str) -> bool:
+    return method.upper() in _WRITE_METHODS
+
+
 def _env_enabled(name: str, default: str = "true") -> bool:
     return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "on"}
 
@@ -210,7 +214,7 @@ def _allowed_audit_metadata(*, method: str, path: str, status_code: int) -> dict
     write_capability = _required_capability(method, path)
     privileged_read_capability = _required_privileged_read_capability(method, path)
     required_capability = privileged_read_capability if method_upper == "GET" else write_capability
-    if method_upper not in _WRITE_METHODS and not (
+    if not _is_write_method(method) and not (
         method_upper == "GET"
         and _env_enabled("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "false")
         and privileged_read_capability is not None
@@ -266,7 +270,7 @@ def _write_payload_too_large(
     headers: Mapping[str, Any],
     max_write_payload_bytes: int,
 ) -> bool:
-    return method in _WRITE_METHODS and _content_length(headers) > max_write_payload_bytes
+    return _is_write_method(method) and _content_length(headers) > max_write_payload_bytes
 
 
 def _authorize_with_required_capability(
@@ -291,7 +295,7 @@ def _authorize_with_required_capability(
 
 
 def authorize_write_request(method: str, path: str, headers: dict[str, str]) -> tuple[bool, str | None]:
-    if method.upper() not in _WRITE_METHODS or not _env_enabled("ENTERPRISE_ENFORCE_AUTHZ", "false"):
+    if not _is_write_method(method) or not _env_enabled("ENTERPRISE_ENFORCE_AUTHZ", "false"):
         return True, None
 
     return _authorize_with_required_capability(
