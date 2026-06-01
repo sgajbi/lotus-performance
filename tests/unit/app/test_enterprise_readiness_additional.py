@@ -5,6 +5,7 @@ import pytest
 from fastapi import Response
 
 from app.enterprise_readiness import (
+    _ENTERPRISE_AUDIT_EVENT_NAME,
     _ENTERPRISE_POLICY_VERSION_HEADER,
     _allowed_audit_metadata,
     _apply_enterprise_policy_header,
@@ -34,6 +35,7 @@ from app.enterprise_readiness import (
     _write_payload_too_large,
     authorize_privileged_read_request,
     authorize_write_request,
+    emit_audit_event,
     load_capability_rules,
     load_privileged_read_rules,
     validate_enterprise_runtime_config,
@@ -238,6 +240,23 @@ def test_audit_event_payload_redacts_metadata_and_includes_policy_version(monkey
     assert payload["policy_version"] == "2.1.0"
     assert payload["metadata"] == {"token": "***REDACTED***", "safe": "ok"}
     assert datetime.fromisoformat(payload["timestamp_utc"]).tzinfo is not None
+
+
+def test_emit_audit_event_uses_governed_logger_event_name(mocker):
+    logger_info = mocker.patch("app.enterprise_readiness.logger.info")
+
+    emit_audit_event(
+        action="POST /analytics",
+        actor_id="actor-1",
+        tenant_id="tenant-1",
+        role="operator",
+        correlation_id="corr-1",
+        metadata={"safe": "ok"},
+    )
+
+    logger_info.assert_called_once()
+    assert logger_info.call_args.args == (_ENTERPRISE_AUDIT_EVENT_NAME,)
+    assert logger_info.call_args.kwargs["extra"]["audit"]["action"] == "POST /analytics"
 
 
 def test_apply_enterprise_policy_header_sets_normalized_policy_version(monkeypatch):

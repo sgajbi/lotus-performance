@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 logger = logging.getLogger("enterprise_readiness")
 
 _SERVICE_NAME = "lotus-performance"
+_ENTERPRISE_AUDIT_EVENT_NAME = "enterprise_audit_event"
 _ENTERPRISE_POLICY_VERSION_HEADER = "X-Enterprise-Policy-Version"
 _WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 _REQUIRED_HEADERS = {"x-actor-id", "x-tenant-id", "x-role", "x-correlation-id"}
@@ -403,7 +404,7 @@ def emit_audit_event(
     metadata: dict[str, Any],
 ) -> None:
     logger.info(
-        "enterprise_audit_event",
+        _ENTERPRISE_AUDIT_EVENT_NAME,
         extra={
             "audit": _audit_event_payload(
                 action=action,
