@@ -193,6 +193,21 @@ def _allowed_audit_metadata(*, method: str, path: str, status_code: int) -> dict
     }
 
 
+def _authorization_denied_response(
+    *,
+    method: str,
+    path: str,
+    reason: str | None,
+    audit_identity: dict[str, str],
+) -> JSONResponse:
+    emit_audit_event(
+        action=f"DENY {method} {path}",
+        **audit_identity,
+        metadata={"reason": reason},
+    )
+    return JSONResponse(status_code=403, content={"detail": "authorization_policy_denied", "reason": reason})
+
+
 def _authorize_with_required_capability(
     *,
     method: str,
@@ -300,21 +315,21 @@ def build_enterprise_audit_middleware() -> Callable[
         audit_identity = _audit_identity_from_headers(request.headers)
         authorized, reason = authorize_write_request(request.method, request.url.path, dict(request.headers))
         if not authorized:
-            emit_audit_event(
-                action=f"DENY {request.method} {request.url.path}",
-                **audit_identity,
-                metadata={"reason": reason},
+            return _authorization_denied_response(
+                method=request.method,
+                path=request.url.path,
+                reason=reason,
+                audit_identity=audit_identity,
             )
-            return JSONResponse(status_code=403, content={"detail": "authorization_policy_denied", "reason": reason})
 
         authorized, reason = authorize_privileged_read_request(request.method, request.url.path, dict(request.headers))
         if not authorized:
-            emit_audit_event(
-                action=f"DENY {request.method} {request.url.path}",
-                **audit_identity,
-                metadata={"reason": reason},
+            return _authorization_denied_response(
+                method=request.method,
+                path=request.url.path,
+                reason=reason,
+                audit_identity=audit_identity,
             )
-            return JSONResponse(status_code=403, content={"detail": "authorization_policy_denied", "reason": reason})
 
         response = await call_next(request)
         response.headers["X-Enterprise-Policy-Version"] = enterprise_policy_version()

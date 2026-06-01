@@ -5,6 +5,7 @@ import pytest
 from app.enterprise_readiness import (
     _allowed_audit_metadata,
     _audit_identity_from_headers,
+    _authorization_denied_response,
     _header_capabilities,
     _load_capability_rule_family,
     _normalized_headers,
@@ -110,6 +111,36 @@ def test_allowed_audit_metadata_requires_privileged_read_enforcement(monkeypatch
         "required_capability": "operations.runtime.read",
         "governed_surface": "/integration/runtime-status",
     }
+
+
+def test_authorization_denied_response_emits_audit_and_structured_reason(mocker):
+    emit = mocker.patch("app.enterprise_readiness.emit_audit_event")
+
+    response = _authorization_denied_response(
+        method="POST",
+        path="/integration/recovery-drills/run",
+        reason="missing_capability:operations.runtime.manage",
+        audit_identity={
+            "actor_id": "actor-1",
+            "tenant_id": "tenant-1",
+            "role": "operator",
+            "correlation_id": "corr-1",
+        },
+    )
+
+    assert response.status_code == 403
+    assert json.loads(response.body) == {
+        "detail": "authorization_policy_denied",
+        "reason": "missing_capability:operations.runtime.manage",
+    }
+    emit.assert_called_once_with(
+        action="DENY POST /integration/recovery-drills/run",
+        actor_id="actor-1",
+        tenant_id="tenant-1",
+        role="operator",
+        correlation_id="corr-1",
+        metadata={"reason": "missing_capability:operations.runtime.manage"},
+    )
 
 
 def test_authorize_write_request_allows_when_no_capability_rule_matches(monkeypatch):
