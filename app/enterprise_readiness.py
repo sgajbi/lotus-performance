@@ -524,14 +524,15 @@ def _should_redact_field(field: Any) -> bool:
     return _normalized_redaction_field(field) in _REDACT_FIELDS
 
 
+def _redacted_mapping_value(*, field: Any, value: Any) -> Any:
+    return _REDACTED_VALUE if _should_redact_field(field) else redact_sensitive(value)
+
+
 def redact_sensitive(value: Any) -> Any:
     if isinstance(value, dict):
         output: dict[str, Any] = {}
         for key, item in value.items():
-            if _should_redact_field(key):
-                output[key] = _REDACTED_VALUE
-            else:
-                output[key] = redact_sensitive(item)
+            output[key] = _redacted_mapping_value(field=key, value=item)
         return output
     if isinstance(value, list):
         return [redact_sensitive(item) for item in value]

@@ -113,6 +113,7 @@ from app.enterprise_readiness import (
     _payload_too_large_response,
     _primary_key_configured,
     _privileged_read_authz_enabled,
+    _redacted_mapping_value,
     _request_action,
     _required_capability,
     _required_capability_from_rules,
@@ -448,6 +449,13 @@ def test_redaction_field_predicates_normalize_keys():
     assert _normalized_redaction_field("Token") == "token"
     assert _should_redact_field("Authorization")
     assert not _should_redact_field("safe")
+
+
+def test_redacted_mapping_value_masks_sensitive_fields_and_recurses_safe_values():
+    assert _redacted_mapping_value(field="token", value="secret") == _REDACTED_VALUE
+    assert _redacted_mapping_value(field="safe", value={"authorization": "Bearer secret"}) == {
+        "authorization": _REDACTED_VALUE
+    }
 
 
 def test_audit_timestamp_utc_uses_timezone_aware_iso_timestamp():
