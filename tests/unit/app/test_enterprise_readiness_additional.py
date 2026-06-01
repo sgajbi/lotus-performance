@@ -91,6 +91,7 @@ from app.enterprise_readiness import (
     _enterprise_runtime_config_issues,
     _env_enabled,
     _feature_flag_enabled,
+    _governed_surface_for_capability,
     _has_required_capability,
     _has_service_identity,
     _header_capabilities,
@@ -338,6 +339,17 @@ def test_has_required_capability_accepts_absent_requirement_and_exact_token():
     assert _has_required_capability(normalized, None)
     assert _has_required_capability(normalized, _CAPABILITY_OPERATIONS_RUNTIME_READ)
     assert not _has_required_capability(normalized, _CAPABILITY_OPERATIONS_RUNTIME_MANAGE)
+
+
+def test_governed_surface_for_capability_tracks_only_capability_bound_paths():
+    assert (
+        _governed_surface_for_capability(
+            path=_PATH_RUNTIME_STATUS,
+            required_capability=_CAPABILITY_OPERATIONS_RUNTIME_READ,
+        )
+        == _PATH_RUNTIME_STATUS
+    )
+    assert _governed_surface_for_capability(path=_PATH_RUNTIME_STATUS, required_capability=None) is None
 
 
 def test_missing_required_headers_reports_sorted_blank_or_missing_fields():

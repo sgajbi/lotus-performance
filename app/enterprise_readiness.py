@@ -322,6 +322,10 @@ def _has_required_capability(normalized_headers: Mapping[str, str], required_cap
     return required_capability is None or required_capability in _header_capabilities(normalized_headers)
 
 
+def _governed_surface_for_capability(*, path: str, required_capability: str | None) -> str | None:
+    return path if required_capability is not None else None
+
+
 def _missing_required_headers(normalized_headers: Mapping[str, str]) -> list[str]:
     return sorted(header for header in _REQUIRED_HEADERS if not normalized_headers.get(header))
 
@@ -355,7 +359,10 @@ def _allowed_audit_metadata(*, method: str, path: str, status_code: int) -> dict
             _AUDIT_ACCESS_MODE_PRIVILEGED_READ if is_privileged_read else _AUDIT_ACCESS_MODE_WRITE
         ),
         _AUDIT_METADATA_REQUIRED_CAPABILITY_KEY: required_capability,
-        _AUDIT_METADATA_GOVERNED_SURFACE_KEY: path if required_capability is not None else None,
+        _AUDIT_METADATA_GOVERNED_SURFACE_KEY: _governed_surface_for_capability(
+            path=path,
+            required_capability=required_capability,
+        ),
     }
 
 
