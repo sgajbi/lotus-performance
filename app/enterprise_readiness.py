@@ -86,6 +86,10 @@ def load_feature_flags() -> dict[str, dict[str, dict[str, bool]]]:
     return _load_json_map("ENTERPRISE_FEATURE_FLAGS_JSON")
 
 
+def _dict_value(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
 def _normalized_capability_rule_overrides(configured: dict[str, Any]) -> dict[str, str]:
     rules: dict[str, str] = {}
     for key, value in configured.items():
@@ -114,15 +118,15 @@ def load_privileged_read_rules() -> dict[str, str]:
 
 def is_feature_enabled(feature_key: str, tenant_id: str, role: str) -> bool:
     flags = load_feature_flags()
-    feature = flags.get(feature_key, {})
-    tenant = feature.get(tenant_id, {})
+    feature = _dict_value(flags.get(feature_key))
+    tenant = _dict_value(feature.get(tenant_id))
     value = tenant.get(role)
     if isinstance(value, bool):
         return value
     fallback = tenant.get("*")
     if isinstance(fallback, bool):
         return fallback
-    global_default = feature.get("*", {}).get("*")
+    global_default = _dict_value(feature.get("*")).get("*")
     return bool(global_default) if isinstance(global_default, bool) else False
 
 

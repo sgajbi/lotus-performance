@@ -22,6 +22,23 @@ def test_feature_flags_resolution(monkeypatch):
     assert is_feature_enabled("analytics.risk", "tenant-x", "viewer") is False
 
 
+def test_feature_flags_fail_closed_for_malformed_nested_values(monkeypatch):
+    monkeypatch.setenv(
+        "ENTERPRISE_FEATURE_FLAGS_JSON",
+        json.dumps(
+            {
+                "analytics.risk": True,
+                "analytics.performance": {"tenant-x": "enabled"},
+                "analytics.reporting": {"tenant-x": {"analyst": "yes"}, "*": "enabled"},
+            }
+        ),
+    )
+
+    assert is_feature_enabled("analytics.risk", "tenant-x", "analyst") is False
+    assert is_feature_enabled("analytics.performance", "tenant-x", "analyst") is False
+    assert is_feature_enabled("analytics.reporting", "tenant-x", "analyst") is False
+
+
 def test_redaction_masks_sensitive_values():
     payload = {"token": "abc", "nested": [{"ssn": "123"}, {"safe": "ok"}]}
     redacted = redact_sensitive(payload)
