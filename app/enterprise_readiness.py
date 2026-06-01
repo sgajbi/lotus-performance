@@ -228,6 +228,13 @@ def _path_matches_rule(path: str, rule_path: str) -> bool:
     return path == normalized_rule_path or path.startswith(f"{normalized_rule_path}/")
 
 
+def _capability_rule_path_for_method(*, rule_key: str, method: str) -> str | None:
+    prefix = f"{method.upper()} "
+    if not rule_key.upper().startswith(prefix):
+        return None
+    return rule_key[len(prefix) :]
+
+
 def _load_capability_rule_family(*, env_name: str, defaults: dict[str, str]) -> dict[str, str]:
     rules = dict(defaults)
     configured = _load_json_map(env_name)
@@ -259,10 +266,9 @@ def is_feature_enabled(feature_key: str, tenant_id: str, role: str) -> bool:
 
 
 def _required_capability_from_rules(*, method: str, path: str, rules: dict[str, str]) -> str | None:
-    method = method.upper()
     for key, capability in rules.items():
-        prefix = f"{method} "
-        if key.upper().startswith(prefix) and _path_matches_rule(path, key[len(prefix) :]):
+        rule_path = _capability_rule_path_for_method(rule_key=key, method=method)
+        if rule_path is not None and _path_matches_rule(path, rule_path):
             return capability
     return None
 

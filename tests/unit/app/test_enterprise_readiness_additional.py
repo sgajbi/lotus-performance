@@ -76,6 +76,7 @@ from app.enterprise_readiness import (
     _authorization_denied,
     _authorization_denied_response,
     _authorize_enterprise_request,
+    _capability_rule_path_for_method,
     _content_length,
     _denied_request_action,
     _emit_allowed_audit_event,
@@ -277,6 +278,17 @@ def test_required_capability_matches_exact_or_child_paths_only():
         == _CAPABILITY_OPERATIONS_RUNTIME_MANAGE
     )
     assert _required_capability("POST", "/integration/runtime-retention-cleanups/run-extra") is None
+
+
+def test_capability_rule_path_for_method_extracts_matching_rule_path():
+    assert (
+        _capability_rule_path_for_method(rule_key=_RULE_RUNTIME_STATUS_READ, method="get")
+        == "/integration/runtime-status"
+    )
+
+
+def test_capability_rule_path_for_method_ignores_other_methods():
+    assert _capability_rule_path_for_method(rule_key=_RULE_RUNTIME_STATUS_READ, method="POST") is None
 
 
 def test_required_capability_from_rules_is_shared_for_authz_rule_families():
