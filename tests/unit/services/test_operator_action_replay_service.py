@@ -76,7 +76,7 @@ def test_runtime_retention_manual_replay_returns_matching_evidence(tmp_path):
         correlation_id="corr-1",
         apply=False,
         retention_days=None,
-        job_id="ticket-7",
+        job_id=" ticket-7 ",
     )
 
     assert replay is not None

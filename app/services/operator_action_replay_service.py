@@ -9,6 +9,7 @@ from typing import Any
 from app.services.operator_action_evidence_paths import resolve_evidence_file_path
 from app.services.operator_action_identity import (
     operator_action_correlation_matches,
+    operator_action_optional_identity_matches,
     operator_action_required_identity_matches,
 )
 from app.services.recovery_drill_history_service import RecoveryDrillHistoryEntry, RecoveryDrillHistorySnapshot
@@ -119,7 +120,7 @@ def _runtime_retention_entry_matches(
         return False
     if retention_days is not None and entry.retention_days != retention_days:
         return False
-    if entry.job_id != job_id:
+    if not operator_action_optional_identity_matches(entry.job_id, job_id):
         return False
     return True
 
