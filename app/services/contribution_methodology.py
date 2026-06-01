@@ -6,6 +6,7 @@ from typing import Any
 import pandas as pd
 
 from app.models.contribution_responses import AverageWeightMethodologyStatus, PositionContribution
+from app.services.analytics_observation_dates import observation_date_series
 from engine.schema import PortfolioColumns
 
 RESET_AWARE_AVERAGE_WEIGHT_MODE_OFF = "OFF"
@@ -70,10 +71,11 @@ def _calculate_reset_aware_average_weight_shadow(
         current_average_weights["reset_aware_average_weight_shadow"] = current_average_weights["average_weight"]
         return current_average_weights, 0, 0, 0
 
-    portfolio_window = portfolio_period_slice_df.sort_values(PortfolioColumns.PERF_DATE.value).copy()
-    portfolio_window[PortfolioColumns.PERF_DATE.value] = pd.to_datetime(
+    portfolio_window = portfolio_period_slice_df.copy()
+    portfolio_window[PortfolioColumns.PERF_DATE.value] = observation_date_series(
         portfolio_window[PortfolioColumns.PERF_DATE.value]
-    ).dt.date
+    )
+    portfolio_window = portfolio_window.sort_values(PortfolioColumns.PERF_DATE.value)
 
     active_reset_mask = (
         pd.to_numeric(portfolio_window[PortfolioColumns.PERF_RESET.value], errors="coerce").fillna(0) == 1
@@ -92,7 +94,7 @@ def _calculate_reset_aware_average_weight_shadow(
     else:
         shadow_totals = (
             period_slice_df[
-                pd.to_datetime(period_slice_df[PortfolioColumns.PERF_DATE.value]).dt.date.isin(
+                observation_date_series(period_slice_df[PortfolioColumns.PERF_DATE.value]).isin(
                     set(valid_portfolio_days)
                 )
             ]

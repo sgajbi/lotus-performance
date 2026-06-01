@@ -245,10 +245,10 @@ def test_calculate_reset_aware_average_weight_shadow_ignores_pre_reset_history_a
         {
             "position_id": ["A", "A", "A", "A"],
             "perf_date": [
-                pd.Timestamp("2025-01-01").date(),
-                pd.Timestamp("2025-01-02").date(),
-                pd.Timestamp("2025-01-03").date(),
-                pd.Timestamp("2025-01-04").date(),
+                pd.Timestamp("2025-01-01T10:00:00Z"),
+                "2025-01-02",
+                pd.Timestamp("2025-01-03T10:00:00Z"),
+                "2025-01-04",
             ],
             "daily_weight": [0.50, 0.50, 0.30, 0.40],
         }
@@ -256,10 +256,10 @@ def test_calculate_reset_aware_average_weight_shadow_ignores_pre_reset_history_a
     portfolio_period_slice_df = pd.DataFrame(
         {
             "perf_date": [
-                pd.Timestamp("2025-01-01").date(),
-                pd.Timestamp("2025-01-02").date(),
-                pd.Timestamp("2025-01-03").date(),
-                pd.Timestamp("2025-01-04").date(),
+                "2025-01-01",
+                pd.Timestamp("2025-01-02T10:00:00Z"),
+                "2025-01-03",
+                pd.Timestamp("2025-01-04T10:00:00Z"),
             ],
             "perf_reset": [0, 0, 1, 0],
             "nip": [0, 0, 0, 1],
