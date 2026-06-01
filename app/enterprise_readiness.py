@@ -322,6 +322,28 @@ def redact_sensitive(value: Any) -> Any:
     return value
 
 
+def _audit_event_payload(
+    *,
+    action: str,
+    actor_id: str,
+    tenant_id: str,
+    role: str,
+    correlation_id: str | None,
+    metadata: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "service": _SERVICE_NAME,
+        "action": action,
+        "actor_id": actor_id,
+        "tenant_id": tenant_id,
+        "role": role,
+        "correlation_id": correlation_id or "",
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "policy_version": enterprise_policy_version(),
+        "metadata": redact_sensitive(metadata),
+    }
+
+
 def emit_audit_event(
     *,
     action: str,
@@ -334,17 +356,14 @@ def emit_audit_event(
     logger.info(
         "enterprise_audit_event",
         extra={
-            "audit": {
-                "service": _SERVICE_NAME,
-                "action": action,
-                "actor_id": actor_id,
-                "tenant_id": tenant_id,
-                "role": role,
-                "correlation_id": correlation_id or "",
-                "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-                "policy_version": enterprise_policy_version(),
-                "metadata": redact_sensitive(metadata),
-            }
+            "audit": _audit_event_payload(
+                action=action,
+                actor_id=actor_id,
+                tenant_id=tenant_id,
+                role=role,
+                correlation_id=correlation_id,
+                metadata=metadata,
+            )
         },
     )
 

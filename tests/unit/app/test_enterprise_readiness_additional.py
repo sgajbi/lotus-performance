@@ -1,9 +1,11 @@
 import json
+from datetime import datetime
 
 import pytest
 
 from app.enterprise_readiness import (
     _allowed_audit_metadata,
+    _audit_event_payload,
     _audit_identity_from_headers,
     _authorization_denied_response,
     _authorize_enterprise_request,
@@ -93,6 +95,29 @@ def test_missing_required_headers_reports_sorted_blank_or_missing_fields():
 )
 def test_has_service_identity_accepts_service_identity_or_authorization(headers, expected):
     assert _has_service_identity(_normalized_headers(headers)) is expected
+
+
+def test_audit_event_payload_redacts_metadata_and_includes_policy_version(monkeypatch):
+    monkeypatch.setenv("ENTERPRISE_POLICY_VERSION", " 2.1.0 ")
+
+    payload = _audit_event_payload(
+        action="POST /analytics",
+        actor_id="actor-1",
+        tenant_id="tenant-1",
+        role="operator",
+        correlation_id=None,
+        metadata={"token": "secret", "safe": "ok"},
+    )
+
+    assert payload["service"] == "lotus-performance"
+    assert payload["action"] == "POST /analytics"
+    assert payload["actor_id"] == "actor-1"
+    assert payload["tenant_id"] == "tenant-1"
+    assert payload["role"] == "operator"
+    assert payload["correlation_id"] == ""
+    assert payload["policy_version"] == "2.1.0"
+    assert payload["metadata"] == {"token": "***REDACTED***", "safe": "ok"}
+    assert datetime.fromisoformat(payload["timestamp_utc"]).tzinfo is not None
 
 
 def test_audit_identity_from_headers_normalizes_case_and_defaults():
