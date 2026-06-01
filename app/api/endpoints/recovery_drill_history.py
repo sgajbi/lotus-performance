@@ -48,13 +48,28 @@ async def get_recovery_drill_history(
         int, Query(ge=0, description="Zero-based offset into the filtered retained recovery-drill history.")
     ] = 0,
     operator_id: Annotated[
-        str | None, Query(description="Filter retained recovery-drill history by operator or automation identity.")
+        str | None,
+        Query(
+            description="Filter retained recovery-drill history by operator or automation identity.",
+            min_length=1,
+            pattern=r".*\S.*",
+        ),
     ] = None,
     backup_identifier: Annotated[
-        str | None, Query(description="Filter retained recovery-drill history by backup or restore-set identifier.")
+        str | None,
+        Query(
+            description="Filter retained recovery-drill history by backup or restore-set identifier.",
+            min_length=1,
+            pattern=r".*\S.*",
+        ),
     ] = None,
     status: Annotated[
-        str | None, Query(description="Filter retained recovery-drill history by drill outcome status.")
+        str | None,
+        Query(
+            description="Filter retained recovery-drill history by drill outcome status.",
+            min_length=1,
+            pattern=r".*\S.*",
+        ),
     ] = None,
     generated_after: Annotated[
         str | None,
