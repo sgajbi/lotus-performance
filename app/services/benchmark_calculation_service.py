@@ -20,6 +20,7 @@ from app.models.responses import (
     ComparativeReturnValue,
     ComparativeSummary,
 )
+from app.services.analytics_observation_dates import observation_date_series
 from common.enums import Frequency
 from core.periods import resolve_periods
 from engine.benchmarks import benchmark_return_points_to_dataframe, calculate_benchmark_returns
@@ -69,9 +70,9 @@ def calculate_benchmark_artifacts(
         effective_period_start = benchmark_request.benchmark_start_date
         max_weight_sum_deviation = 0.0
 
-    daily_returns_df["date"] = pd.to_datetime(daily_returns_df["date"]).dt.date
+    daily_returns_df["date"] = observation_date_series(daily_returns_df["date"])
     if not component_contributions_df.empty:
-        component_contributions_df["date"] = pd.to_datetime(component_contributions_df["date"]).dt.date
+        component_contributions_df["date"] = observation_date_series(component_contributions_df["date"])
 
     results_by_period: dict[str, SinglePeriodBenchmarkResult] = {}
     for period in resolved_periods:
@@ -173,7 +174,7 @@ def _build_benchmark_breakdowns(
         for _, frequency_df in grouped_rows:
             if frequency != Frequency.DAILY:
                 frequency_df = frequency_df.reset_index(drop=True)
-                frequency_df["date"] = pd.to_datetime(frequency_df["date"]).dt.date
+                frequency_df["date"] = observation_date_series(frequency_df["date"])
             frequency_df = frequency_df.sort_values("date").reset_index(drop=True)
             period_end = frequency_df["date"].iloc[-1]
             cumulative_df = sorted_period_df[sorted_period_df["date"] <= period_end].copy()
