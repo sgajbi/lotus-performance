@@ -8,7 +8,7 @@ from fastapi import HTTPException
 from app.api.endpoints import performance as performance_endpoint
 from app.models.twr_requests import TWRAnalyticsRequest
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
-from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR
+from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR, ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
 
 
 def _stateful_twr_payload() -> dict[str, object]:
@@ -168,7 +168,7 @@ async def test_workspace_summary_endpoint_records_http_exception_detail(mocker):
             },
         )(),
     )
-    mocker.patch("app.api.endpoints.performance.register_sync_execution_or_raise")
+    register_sync = mocker.patch("app.api.endpoints.performance.register_sync_execution_or_raise")
     mocker.patch("app.api.endpoints.performance.execution_registry.mark_running")
     mocker.patch(
         "app.api.endpoints.performance.calculate_workspace_summary",
@@ -183,6 +183,7 @@ async def test_workspace_summary_endpoint_records_http_exception_detail(mocker):
         performance_endpoint.calculate_workspace_summary_endpoint(request)
 
     assert exc_info.value.status_code == 422
+    assert register_sync.call_args.kwargs["analytics_type"] == ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
     assert failure_capture["message"] == "bad workspace"
 
 

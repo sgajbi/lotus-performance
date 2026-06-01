@@ -19,7 +19,7 @@ from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode, TWRResolv
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
 from app.models.workspace_summary_responses import WorkspaceSummaryAcceptedResponse, WorkspaceSummaryResponse
 from app.observability import record_mwr_solver_outcome
-from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR
+from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR, ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
 from app.services.async_result_service import resolve_async_result
 from app.services.attribution_mode_service import resolve_attribution_request
 from app.services.attribution_service import calculate_attribution
@@ -271,7 +271,7 @@ def calculate_workspace_summary_endpoint(
     if _should_offload_workspace_summary(request):
         return register_async_submission_or_raise(
             calculation_id=request.calculation_id,
-            analytics_type="WORKSPACE_SUMMARY",
+            analytics_type=ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
             portfolio_id=request.portfolio_id,
             requested_window=requested_window,
             input_fingerprint=input_fingerprint,
@@ -286,7 +286,7 @@ def calculate_workspace_summary_endpoint(
         )
     register_sync_execution_or_raise(
         calculation_id=request.calculation_id,
-        analytics_type="WORKSPACE_SUMMARY",
+        analytics_type=ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
         portfolio_id=request.portfolio_id,
         requested_window=requested_window,
         input_fingerprint=input_fingerprint,

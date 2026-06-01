@@ -20,6 +20,7 @@ from app.services import (
     returns_series_service,
     twr_service,
 )
+from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
 from app.services.async_result_store import AsyncResultStatus, AsyncResultStore
 from app.services.compute_job_store import ComputeJobStatus, ComputeJobStore
 from app.services.execution_registry import ExecutionRegistry
@@ -424,14 +425,14 @@ def test_compute_executor_worker_processes_pending_workspace_summary_job(tmp_pat
 
     execution_store.create_execution(
         calculation_id=calculation_id,
-        analytics_type="WORKSPACE_SUMMARY",
+        analytics_type=ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
         portfolio_id="P1",
         execution_mode="async",
         requested_window={},
     )
     job_store.enqueue_job(
         calculation_id=calculation_id,
-        analytics_type="WORKSPACE_SUMMARY",
+        analytics_type=ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
         request_payload=request_payload,
     )
 

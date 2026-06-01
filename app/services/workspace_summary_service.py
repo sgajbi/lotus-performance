@@ -36,6 +36,7 @@ from app.models.workspace_summary_responses import (
 )
 from app.precision_policy import to_decimal
 from app.services.analytics_observation_dates import observation_date_series
+from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
 from app.services.execution_lifecycle_service import complete_execution_with_lineage
 from app.services.execution_registry import execution_registry
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
@@ -117,7 +118,7 @@ def calculate_workspace_summary(
 
     complete_execution_with_lineage(
         calculation_id=request.calculation_id,
-        calculation_type="WORKSPACE_SUMMARY",
+        calculation_type=ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
         request_model=request,
         response_model=response,
         execution_details={

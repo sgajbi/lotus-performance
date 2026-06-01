@@ -11,6 +11,7 @@ from app.models.benchmark_analytics_requests import BenchmarkInputMode
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.requests import DailyInputData
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
+from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
 from app.services.workspace_summary_service import (
     ResolvedWorkspaceBenchmarkInput,
     WorkspaceTWRArtifacts,
@@ -30,6 +31,7 @@ from core.envelope import Diagnostics
 
 def test_workspace_summary_stateful_retrieval_uses_longest_requested_window(mocker):
     captured: dict[str, object] = {}
+    lineage_capture: dict[str, object] = {}
     mocker.patch(
         "app.services.workspace_summary_service.get_settings",
         return_value=SimpleNamespace(APP_VERSION="test-version"),
@@ -41,7 +43,10 @@ def test_workspace_summary_stateful_retrieval_uses_longest_requested_window(mock
     mocker.patch("app.services.workspace_summary_service.execution_registry.mark_running")
     mocker.patch("app.services.workspace_summary_service.execution_registry.start_stage")
     mocker.patch("app.services.workspace_summary_service.execution_registry.complete_stage")
-    mocker.patch("app.services.workspace_summary_service.complete_execution_with_lineage")
+    mocker.patch(
+        "app.services.workspace_summary_service.complete_execution_with_lineage",
+        side_effect=lambda **kwargs: lineage_capture.update(kwargs),
+    )
     mocker.patch(
         "app.services.workspace_summary_service.retrieve_stateful_portfolio_input",
         side_effect=lambda **kwargs: (
@@ -113,6 +118,7 @@ def test_workspace_summary_stateful_retrieval_uses_longest_requested_window(mock
 
     assert str(captured["start_date"]) == "2026-05-31"
     assert response.audit.counts["portfolio_chunk_count"] == 3
+    assert lineage_capture["calculation_type"] == ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
     assert set(response.results_by_period) == {"1D", "1M"}
     one_day = response.results_by_period["1D"]
     assert (

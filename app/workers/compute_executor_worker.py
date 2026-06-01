@@ -21,6 +21,7 @@ from app.models.inspection_requests import TWRInspectionRequest
 from app.models.returns_series import InputMode, ReturnsSeriesRequest
 from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode, TWRResolvedExecutionRequest
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
+from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
 from app.services.async_result_store import AsyncResultStore, async_result_store
 from app.services.attribution_mode_service import resolve_attribution_request
 from app.services.attribution_service import calculate_attribution
@@ -235,7 +236,7 @@ def _process_pending_jobs(
                     resolved_benchmark_id=resolved_benchmark_id,
                     benchmark_return_source=benchmark_return_source,
                 )
-            elif job.analytics_type == "WORKSPACE_SUMMARY":
+            elif job.analytics_type == ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY:
                 workspace_request = WorkspaceSummaryRequest.model_validate(job.request_payload)
                 input_fingerprint, calculation_hash = generate_canonical_hash(
                     workspace_request,
