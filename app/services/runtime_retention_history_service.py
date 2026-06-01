@@ -217,6 +217,8 @@ def _validate_manifest_entry(entry: Any) -> dict[str, str | int | None] | None:
         return None
     if not isinstance(trigger_mode, str):
         return None
+    if not trigger_mode.strip():
+        return None
     job_id = entry_strings["job_id"]
     if job_id is not None and not job_id.strip():
         return None
