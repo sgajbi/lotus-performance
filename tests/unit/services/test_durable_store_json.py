@@ -1,6 +1,10 @@
 import logging
 
-from app.services.durable_store_json import load_json_object_or_none, load_json_string_list_or_default
+from app.services.durable_store_json import (
+    load_json_object_or_none,
+    load_json_string_list_or_default,
+    read_json_object_file,
+)
 
 
 def test_load_json_object_or_none_returns_object_payload(caplog):
@@ -119,3 +123,22 @@ def test_load_json_string_list_or_default_returns_default_for_malformed_payloads
     assert invalid_shape == ["invalid_payload"]
     assert "Reason codes invalid JSON for row=row-1." in caplog.text
     assert "Reason codes is not a string list for row=row-2." in caplog.text
+
+
+def test_read_json_object_file_returns_object_payload(tmp_path):
+    payload_path = tmp_path / "payload.json"
+    payload_path.write_text('{"ok": true}', encoding="utf-8")
+
+    assert read_json_object_file(payload_path) == {"ok": True}
+
+
+def test_read_json_object_file_rejects_non_object_payload(tmp_path):
+    payload_path = tmp_path / "payload.json"
+    payload_path.write_text("[1, 2]", encoding="utf-8")
+
+    try:
+        read_json_object_file(payload_path, object_error_message="payload must be an object")
+    except TypeError as exc:
+        assert str(exc) == "payload must be an object"
+    else:
+        raise AssertionError("expected non-object payload to raise TypeError")

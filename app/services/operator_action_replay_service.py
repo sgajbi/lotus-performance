@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from app.services import operator_action_evidence_strings as _evidence_strings
+from app.services.durable_store_json import read_json_object_file
 from app.services.operator_action_evidence_paths import resolve_evidence_file_path
 from app.services.operator_action_identity import (
     operator_action_correlation_matches,
@@ -235,19 +236,21 @@ def _load_payload(*, artifact_directory: Path, evidence_file_name: str) -> dict[
     if path is None:
         return None
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        return read_json_object_file(
+            path,
+            object_error_message="operator action replay evidence payload must be an object",
+        )
     except OSError:
         logger.warning("Operator action replay evidence unreadable: %s", evidence_file_name, exc_info=True)
         return None
     except json.JSONDecodeError:
         logger.warning("Operator action replay evidence invalid JSON: %s", evidence_file_name, exc_info=True)
         return None
-    if not isinstance(payload, dict):
+    except TypeError:
         logger.warning(
             "Operator action replay evidence ignored because payload is not an object: %s", evidence_file_name
         )
         return None
-    return payload
 
 
 def _evidence_file_path(*, artifact_directory: Path, evidence_file_name: str) -> Path | None:
