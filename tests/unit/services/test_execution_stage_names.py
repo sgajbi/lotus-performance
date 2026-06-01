@@ -4,12 +4,14 @@ from app.services.execution_stage_names import (
     EXECUTION_STAGE_LINEAGE_MATERIALIZATION,
     EXECUTION_STAGE_NORMALIZATION,
     EXECUTION_STAGE_RETRIEVAL,
+    EXECUTION_STAGE_SUBMISSION,
 )
 
 
 def test_stateful_mode_execution_stage_names_are_canonical():
     assert EXECUTION_STAGE_RETRIEVAL == "retrieval"
     assert EXECUTION_STAGE_NORMALIZATION == "normalization"
+    assert EXECUTION_STAGE_SUBMISSION == "submission"
 
 
 def test_execution_lifecycle_stage_names_are_canonical():
