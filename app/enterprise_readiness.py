@@ -36,6 +36,9 @@ _REDACTED_VALUE = "***REDACTED***"
 _MISSING_HEADERS_REASON = "missing_headers"
 _MISSING_SERVICE_IDENTITY_REASON = "missing_service_identity"
 _MISSING_CAPABILITY_REASON = "missing_capability"
+_MISSING_POLICY_VERSION_ISSUE = "missing_policy_version"
+_SECRET_ROTATION_DAYS_OUT_OF_RANGE_ISSUE = "secret_rotation_days_out_of_range"
+_MISSING_PRIMARY_KEY_ID_ISSUE = "missing_primary_key_id"
 _CAPABILITIES_HEADER = "x-capabilities"
 _SERVICE_IDENTITY_HEADER = "x-service-identity"
 _AUTHORIZATION_HEADER = "authorization"
@@ -131,14 +134,14 @@ def enterprise_policy_version() -> str:
 def _enterprise_runtime_config_issues() -> list[str]:
     issues: list[str] = []
     if not _configured_enterprise_policy_version().strip():
-        issues.append("missing_policy_version")
+        issues.append(_MISSING_POLICY_VERSION_ISSUE)
 
     rotation_days = _env_int("ENTERPRISE_SECRET_ROTATION_DAYS", 90)
     if rotation_days <= 0 or rotation_days > 90:
-        issues.append("secret_rotation_days_out_of_range")
+        issues.append(_SECRET_ROTATION_DAYS_OUT_OF_RANGE_ISSUE)
 
     if _write_authz_enabled() and not _primary_key_configured():
-        issues.append("missing_primary_key_id")
+        issues.append(_MISSING_PRIMARY_KEY_ID_ISSUE)
 
     return issues
 

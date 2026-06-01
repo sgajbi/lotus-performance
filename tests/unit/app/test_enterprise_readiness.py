@@ -4,8 +4,11 @@ import pytest
 from fastapi import Request
 
 from app.enterprise_readiness import (
+    _MISSING_POLICY_VERSION_ISSUE,
+    _MISSING_PRIMARY_KEY_ID_ISSUE,
     _PAYLOAD_TOO_LARGE_DETAIL,
     _RESPONSE_DETAIL_KEY,
+    _SECRET_ROTATION_DAYS_OUT_OF_RANGE_ISSUE,
     authorize_privileged_read_request,
     authorize_write_request,
     build_enterprise_audit_middleware,
@@ -171,7 +174,7 @@ def test_authorize_privileged_read_request_enforces_required_headers_and_capabil
 def test_validate_enterprise_runtime_config_reports_rotation_issue(monkeypatch):
     monkeypatch.setenv("ENTERPRISE_SECRET_ROTATION_DAYS", "120")
     issues = validate_enterprise_runtime_config()
-    assert "secret_rotation_days_out_of_range" in issues
+    assert _SECRET_ROTATION_DAYS_OUT_OF_RANGE_ISSUE in issues
 
 
 def test_invalid_json_and_invalid_int_env_defaults(monkeypatch):
@@ -179,7 +182,7 @@ def test_invalid_json_and_invalid_int_env_defaults(monkeypatch):
     monkeypatch.setenv("ENTERPRISE_SECRET_ROTATION_DAYS", "not-a-number")
     assert is_feature_enabled("analytics.risk", "tenant-x", "analyst") is False
     issues = validate_enterprise_runtime_config()
-    assert "secret_rotation_days_out_of_range" not in issues
+    assert _SECRET_ROTATION_DAYS_OUT_OF_RANGE_ISSUE not in issues
 
 
 def test_validate_runtime_config_flags_missing_policy_and_key(monkeypatch):
@@ -187,8 +190,8 @@ def test_validate_runtime_config_flags_missing_policy_and_key(monkeypatch):
     monkeypatch.setenv("ENTERPRISE_ENFORCE_AUTHZ", "true")
     monkeypatch.delenv("ENTERPRISE_PRIMARY_KEY_ID", raising=False)
     issues = validate_enterprise_runtime_config()
-    assert "missing_policy_version" in issues
-    assert "missing_primary_key_id" in issues
+    assert _MISSING_POLICY_VERSION_ISSUE in issues
+    assert _MISSING_PRIMARY_KEY_ID_ISSUE in issues
     assert enterprise_policy_version() == "1.0.0"
 
 

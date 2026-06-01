@@ -32,11 +32,14 @@ from app.enterprise_readiness import (
     _ENTERPRISE_POLICY_VERSION_HEADER,
     _MISSING_CAPABILITY_REASON,
     _MISSING_HEADERS_REASON,
+    _MISSING_POLICY_VERSION_ISSUE,
+    _MISSING_PRIMARY_KEY_ID_ISSUE,
     _PAYLOAD_TOO_LARGE_DETAIL,
     _REDACTED_VALUE,
     _RESPONSE_DETAIL_KEY,
     _RESPONSE_REASON_KEY,
     _ROLE_HEADER,
+    _SECRET_ROTATION_DAYS_OUT_OF_RANGE_ISSUE,
     _SERVICE_IDENTITY_HEADER,
     _TENANT_ID_HEADER,
     _UNKNOWN_ACTOR_ID,
@@ -571,16 +574,16 @@ def test_enterprise_runtime_config_issues_reports_policy_rotation_and_key(monkey
     monkeypatch.delenv("ENTERPRISE_PRIMARY_KEY_ID", raising=False)
 
     assert _enterprise_runtime_config_issues() == [
-        "missing_policy_version",
-        "secret_rotation_days_out_of_range",
-        "missing_primary_key_id",
+        _MISSING_POLICY_VERSION_ISSUE,
+        _SECRET_ROTATION_DAYS_OUT_OF_RANGE_ISSUE,
+        _MISSING_PRIMARY_KEY_ID_ISSUE,
     ]
 
 
 def test_enterprise_runtime_config_issues_uses_default_for_invalid_rotation_days(monkeypatch):
     monkeypatch.setenv("ENTERPRISE_SECRET_ROTATION_DAYS", "invalid")
 
-    assert "secret_rotation_days_out_of_range" not in _enterprise_runtime_config_issues()
+    assert _SECRET_ROTATION_DAYS_OUT_OF_RANGE_ISSUE not in _enterprise_runtime_config_issues()
 
 
 def test_authorize_enterprise_request_preserves_write_denial_precedence(monkeypatch):
