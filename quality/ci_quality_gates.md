@@ -1,7 +1,7 @@
 # Lotus Performance Progressive CI Quality Gates
 
 Report date: 2026-06-02
-Branch: `feat/performance-hardening-wave-8`
+Branch: `feat/performance-hardening-wave-9`
 Baseline sources: `quality/baseline_report.md`, `quality/refactor_health_report.md`
 Mode: report-only gate map; this artifact introduces no new blocking CI gate.
 
@@ -58,7 +58,7 @@ No gate should move from one phase to the next until it has:
 | Migration smoke | Blocking in PR and main lanes | Keep blocking outside feature lane unless a migration-heavy slice needs earlier proof. |
 | Docker build | Blocking in PR and main lanes | Keep blocking; no new Docker gate is needed for report-only quality artifacts. |
 | Domain data product validation | Blocking locally through `make check` and repo-native command | Confirm whether GitHub workflows should include this explicitly before changing CI. |
-| Complexity and maintainability | Not yet measured; `radon`/`xenon` not configured | Add report-only complexity inventory before any max-complexity threshold. |
+| Complexity and maintainability | Measured in `quality/complexity_inventory.md` through `scripts/python_complexity_inventory.py` and `radon` | Keep report-only until a stable baseline, false-positive policy, and remediation guidance exist. |
 | Function-size hotspots | Measured in `quality/function_size_inventory.md` through a repo-native standard-library scanner | Use as refactor-planning evidence; do not block CI until stable thresholds and exclusions are agreed. |
 | Dead-code detection | Not yet measured; `vulture` not configured | Add report-only dead-code inventory with reviewed allowlist before blocking. |
 | Dependency hygiene | Not yet measured; `deptry` not configured | Add report-only unused/missing dependency inventory before blocking. |
@@ -84,12 +84,11 @@ No gate should move from one phase to the next until it has:
 
 The next hardening commits should stay small and add proof in this order:
 
-1. add report-only complexity inventory,
-2. add report-only dead-code and dependency-hygiene inventories,
-3. add architecture-boundary report-only checks for router, service, domain, and adapter imports,
-4. add API completeness inventory for descriptions, examples, and RFC 7807 responses,
-5. reduce measured function-size hotspots through bounded extraction slices,
-6. update `quality/refactor_health_report.md` as each dimension moves from `not-yet-measured` to `measured`.
+1. add report-only dead-code and dependency-hygiene inventories,
+2. add architecture-boundary report-only checks for router, service, domain, and adapter imports,
+3. add API completeness inventory for descriptions, examples, and RFC 7807 responses,
+4. reduce measured complexity and function-size hotspots through bounded extraction slices,
+5. update `quality/refactor_health_report.md` as each dimension moves from `not-yet-measured` to `measured`.
 
 ## Non-Goals For This Slice
 
@@ -98,6 +97,6 @@ This slice does not:
 1. change application behavior,
 2. change API or Swagger contracts,
 3. change workflow files,
-4. add dependencies,
-5. introduce new CI failures,
+4. introduce new CI failures,
+5. promote complexity measurement to a blocking CI threshold,
 6. claim enterprise-readiness completion.

@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-02
-Branch: `feat/performance-hardening-wave-8`
+Branch: `feat/performance-hardening-wave-9`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; no blocking gate is introduced by this artifact.
 
@@ -35,9 +35,9 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Max cyclomatic complexity | unknown | unknown | not-yet-measured | `radon` not installed |
-| High-complexity functions | unknown | unknown | not-yet-measured | `radon`/`xenon` not configured |
-| Average maintainability index | unknown | unknown | not-yet-measured | `radon` not installed |
+| Max cyclomatic complexity | unknown | 44 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
+| High-complexity functions | unknown | 21 | measured | rank D-F functions in `quality/complexity_inventory.md` |
+| Average maintainability index | unknown | 53.87 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
 | Largest functions by LOC | unknown | 509 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py` |
 
 ## Architecture
