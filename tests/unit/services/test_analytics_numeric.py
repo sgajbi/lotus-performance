@@ -1,6 +1,11 @@
 import pandas as pd
 
-from app.services.analytics_numeric import numeric_series, numeric_series_or_default, numeric_value
+from app.services.analytics_numeric import (
+    numeric_series,
+    numeric_series_or_default,
+    numeric_value,
+    valid_numeric_series,
+)
 
 
 def test_numeric_value_returns_default_for_invalid_or_non_scalar_values():
@@ -29,6 +34,15 @@ def test_numeric_series_preserves_index_and_coerces_invalid_values_to_default():
 
     assert result.index.tolist() == ["a", "b"]
     assert result.tolist() == [1.5, -1.0]
+
+
+def test_valid_numeric_series_drops_invalid_values_and_preserves_valid_indexes():
+    series = pd.Series(["1.5", "bad", 2], index=["a", "b", "c"])
+
+    result = valid_numeric_series(series)
+
+    assert result.index.tolist() == ["a", "c"]
+    assert result.tolist() == [1.5, 2.0]
 
 
 def test_numeric_series_or_default_coerces_invalid_values_to_default():

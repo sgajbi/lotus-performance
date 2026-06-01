@@ -22,6 +22,11 @@ def numeric_series(values: pd.Series, default: Any = 0) -> pd.Series:
     return pd.to_numeric(values, errors="coerce").fillna(default)
 
 
+def valid_numeric_series(values: pd.Series) -> pd.Series:
+    """Coerce a Series to numeric values and discard invalid observations."""
+    return pd.to_numeric(values, errors="coerce").dropna()
+
+
 def numeric_series_or_default(df: pd.DataFrame, column_name: str, default: Any = 0) -> pd.Series:
     """Return a numeric Series for a column, or a default-filled fallback aligned to the frame index."""
     if column_name not in df.columns:

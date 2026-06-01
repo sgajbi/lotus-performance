@@ -55,6 +55,7 @@ from app.services.contribution_series import (
 )
 from app.services.contribution_smoothing import _count_carino_invalid_domain_days
 from core.envelope import Diagnostics
+from engine.schema import PortfolioColumns
 
 
 def test_contribution_as_numeric_returns_default_for_non_numeric():
@@ -223,6 +224,12 @@ def test_contribution_reset_helpers_cover_empty_and_zero_paths(mocker):
         == 0.0
     )
     assert _count_carino_invalid_domain_days(pd.DataFrame()) == 0
+    assert (
+        _count_carino_invalid_domain_days(
+            pd.DataFrame({PortfolioColumns.DAILY_ROR.value: ["bad", "-100.0", "-101.0", "2.5"]})
+        )
+        == 2
+    )
     diagnostics = _build_portfolio_engine_diagnostics(pd.DataFrame(), pd.Timestamp("2025-01-01").date())
     assert diagnostics.nip_days == 0
     assert diagnostics.reset_days == 0

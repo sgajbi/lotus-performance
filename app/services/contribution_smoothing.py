@@ -3,6 +3,7 @@ from __future__ import annotations
 import pandas as pd
 
 from app.models.contribution_responses import ContributionSmoothingEvidence
+from app.services.analytics_numeric import valid_numeric_series
 from app.services.contribution_methodology import _as_numeric
 from engine.schema import PortfolioColumns
 
@@ -18,10 +19,7 @@ def _count_carino_invalid_domain_days(portfolio_period_slice_df: pd.DataFrame) -
     if portfolio_period_slice_df.empty or PortfolioColumns.DAILY_ROR.value not in portfolio_period_slice_df.columns:
         return 0
 
-    daily_returns = pd.to_numeric(
-        portfolio_period_slice_df[PortfolioColumns.DAILY_ROR.value],
-        errors="coerce",
-    )
+    daily_returns = valid_numeric_series(portfolio_period_slice_df[PortfolioColumns.DAILY_ROR.value])
     return int((1 + (daily_returns / 100) <= 0).sum())
 
 
@@ -82,7 +80,7 @@ def _build_contribution_smoothing_evidence(
     carino_factor_min = None
     carino_factor_max = None
     if "carino_factor" in period_slice_df.columns:
-        factors = pd.to_numeric(period_slice_df["carino_factor"], errors="coerce").dropna()
+        factors = valid_numeric_series(period_slice_df["carino_factor"])
         if not factors.empty:
             carino_factor_min = _as_numeric(factors.min(), default=None)
             carino_factor_max = _as_numeric(factors.max(), default=None)
