@@ -194,7 +194,7 @@ def _recovery_drill_payload_matches_entry(
         and _optional_str_fields_valid(payload, ("tenant_id", "correlation_id"))
         and _required_int_fields_present(payload, ("compute_job_processed_count", "processed_payload_count"))
         and isinstance(owned_tables_present, list)
-        and all(isinstance(item, str) for item in owned_tables_present)
+        and all(isinstance(item, str) and item.strip() for item in owned_tables_present)
         and type(payload.get("materialized_artifact_exists")) is bool
         and payload["evidence_file_name"] == entry.evidence_file_name
         and payload["generated_at_utc"] == entry.generated_at_utc
