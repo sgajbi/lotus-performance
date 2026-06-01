@@ -10,6 +10,7 @@ from typing import Any
 from app.services.durable_store_json import read_json_file
 from app.services.operator_action_evidence_paths import is_safe_evidence_file_name
 from app.services.operator_action_evidence_strings import optional_evidence_string, required_evidence_string
+from app.services.runtime_status_time import parse_utc_datetime
 
 logger = logging.getLogger(__name__)
 
@@ -153,6 +154,17 @@ def validate_history_entry_strings(
         **required_strings,
         **optional_strings,
     }
+
+
+def validate_history_entry_generated_at_utc(entry_strings: HistoryEntryStrings) -> str | None:
+    generated_at_utc = entry_strings.get("generated_at_utc")
+    if not isinstance(generated_at_utc, str):
+        return None
+    try:
+        parse_utc_datetime(generated_at_utc)
+    except ValueError:
+        return None
+    return generated_at_utc
 
 
 def build_history_manifest_payload(

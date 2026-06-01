@@ -5,6 +5,7 @@ from app.services.operator_action_history_manifest import (
     HistoryManifestReadReasons,
     build_history_manifest_payload,
     read_history_manifest_payload,
+    validate_history_entry_generated_at_utc,
     validate_history_entry_strings,
     validate_history_manifest_header,
     validate_history_manifest_payload,
@@ -229,6 +230,18 @@ def test_validate_history_entry_strings_rejects_bad_required_or_optional_values(
         )
         is None
     )
+
+
+def test_validate_history_entry_generated_at_utc_accepts_parseable_timestamp():
+    assert (
+        validate_history_entry_generated_at_utc({"generated_at_utc": "2026-03-15T00:00:00Z"}) == "2026-03-15T00:00:00Z"
+    )
+
+
+def test_validate_history_entry_generated_at_utc_rejects_missing_or_unparseable_timestamp():
+    assert validate_history_entry_generated_at_utc({}) is None
+    assert validate_history_entry_generated_at_utc({"generated_at_utc": None}) is None
+    assert validate_history_entry_generated_at_utc({"generated_at_utc": "not-a-timestamp"}) is None
 
 
 def test_build_history_manifest_payload_projects_header_and_entries():
