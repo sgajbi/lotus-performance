@@ -6,6 +6,12 @@ from fastapi import Response
 
 from app.enterprise_readiness import (
     _ACTOR_ID_HEADER,
+    _AUDIT_ACCESS_MODE_PRIVILEGED_READ,
+    _AUDIT_ACCESS_MODE_WRITE,
+    _AUDIT_METADATA_ACCESS_MODE_KEY,
+    _AUDIT_METADATA_GOVERNED_SURFACE_KEY,
+    _AUDIT_METADATA_REQUIRED_CAPABILITY_KEY,
+    _AUDIT_METADATA_STATUS_CODE_KEY,
     _AUDIT_PAYLOAD_ACTION_KEY,
     _AUDIT_PAYLOAD_ACTOR_ID_KEY,
     _AUDIT_PAYLOAD_CORRELATION_ID_KEY,
@@ -373,20 +379,20 @@ def test_audit_identity_from_headers_uses_governed_missing_value_fallbacks():
 
 def test_allowed_audit_metadata_classifies_write_surfaces():
     assert _allowed_audit_metadata(method="POST", path="/analytics", status_code=202) == {
-        "status_code": 202,
-        "access_mode": "write",
-        "required_capability": None,
-        "governed_surface": None,
+        _AUDIT_METADATA_STATUS_CODE_KEY: 202,
+        _AUDIT_METADATA_ACCESS_MODE_KEY: _AUDIT_ACCESS_MODE_WRITE,
+        _AUDIT_METADATA_REQUIRED_CAPABILITY_KEY: None,
+        _AUDIT_METADATA_GOVERNED_SURFACE_KEY: None,
     }
     assert _allowed_audit_metadata(
         method="POST",
         path="/integration/recovery-drills/run",
         status_code=200,
     ) == {
-        "status_code": 200,
-        "access_mode": "write",
-        "required_capability": "operations.runtime.manage",
-        "governed_surface": "/integration/recovery-drills/run",
+        _AUDIT_METADATA_STATUS_CODE_KEY: 200,
+        _AUDIT_METADATA_ACCESS_MODE_KEY: _AUDIT_ACCESS_MODE_WRITE,
+        _AUDIT_METADATA_REQUIRED_CAPABILITY_KEY: "operations.runtime.manage",
+        _AUDIT_METADATA_GOVERNED_SURFACE_KEY: "/integration/recovery-drills/run",
     }
 
 
@@ -396,10 +402,10 @@ def test_allowed_audit_metadata_requires_privileged_read_enforcement(monkeypatch
 
     monkeypatch.setenv("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "true")
     assert _allowed_audit_metadata(method="GET", path="/integration/runtime-status", status_code=200) == {
-        "status_code": 200,
-        "access_mode": "privileged_read",
-        "required_capability": "operations.runtime.read",
-        "governed_surface": "/integration/runtime-status",
+        _AUDIT_METADATA_STATUS_CODE_KEY: 200,
+        _AUDIT_METADATA_ACCESS_MODE_KEY: _AUDIT_ACCESS_MODE_PRIVILEGED_READ,
+        _AUDIT_METADATA_REQUIRED_CAPABILITY_KEY: "operations.runtime.read",
+        _AUDIT_METADATA_GOVERNED_SURFACE_KEY: "/integration/runtime-status",
     }
 
 

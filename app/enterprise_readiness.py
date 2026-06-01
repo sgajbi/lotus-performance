@@ -22,6 +22,12 @@ _AUDIT_PAYLOAD_CORRELATION_ID_KEY = "correlation_id"
 _AUDIT_PAYLOAD_TIMESTAMP_UTC_KEY = "timestamp_utc"
 _AUDIT_PAYLOAD_POLICY_VERSION_KEY = "policy_version"
 _AUDIT_PAYLOAD_METADATA_KEY = "metadata"
+_AUDIT_METADATA_STATUS_CODE_KEY = "status_code"
+_AUDIT_METADATA_ACCESS_MODE_KEY = "access_mode"
+_AUDIT_METADATA_REQUIRED_CAPABILITY_KEY = "required_capability"
+_AUDIT_METADATA_GOVERNED_SURFACE_KEY = "governed_surface"
+_AUDIT_ACCESS_MODE_WRITE = "write"
+_AUDIT_ACCESS_MODE_PRIVILEGED_READ = "privileged_read"
 _RESPONSE_DETAIL_KEY = "detail"
 _RESPONSE_REASON_KEY = "reason"
 _AUTHORIZATION_POLICY_DENIED_DETAIL = "authorization_policy_denied"
@@ -270,10 +276,12 @@ def _allowed_audit_metadata(*, method: str, path: str, status_code: int) -> dict
     ):
         return None
     return {
-        "status_code": status_code,
-        "access_mode": "privileged_read" if is_privileged_read else "write",
-        "required_capability": required_capability,
-        "governed_surface": path if required_capability is not None else None,
+        _AUDIT_METADATA_STATUS_CODE_KEY: status_code,
+        _AUDIT_METADATA_ACCESS_MODE_KEY: (
+            _AUDIT_ACCESS_MODE_PRIVILEGED_READ if is_privileged_read else _AUDIT_ACCESS_MODE_WRITE
+        ),
+        _AUDIT_METADATA_REQUIRED_CAPABILITY_KEY: required_capability,
+        _AUDIT_METADATA_GOVERNED_SURFACE_KEY: path if required_capability is not None else None,
     }
 
 
