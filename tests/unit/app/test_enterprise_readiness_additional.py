@@ -24,6 +24,7 @@ from app.enterprise_readiness import (
     _AUTHORIZATION_HEADER,
     _AUTHORIZATION_POLICY_DENIED_DETAIL,
     _CAPABILITIES_HEADER,
+    _CONTENT_LENGTH_HEADER,
     _CORRELATION_ID_HEADER,
     _DEFAULT_TENANT_ID,
     _ENTERPRISE_AUDIT_EVENT_NAME,
@@ -484,9 +485,9 @@ def test_emit_allowed_audit_event_uses_method_path_action_and_identity(mocker):
     ("headers", "expected"),
     [
         ({}, 0),
-        ({"content-length": "42"}, 42),
-        ({"content-length": "invalid"}, 0),
-        ({"content-length": None}, 0),
+        ({_CONTENT_LENGTH_HEADER: "42"}, 42),
+        ({_CONTENT_LENGTH_HEADER: "invalid"}, 0),
+        ({_CONTENT_LENGTH_HEADER: None}, 0),
     ],
 )
 def test_content_length_parses_invalid_values_as_zero(headers, expected):
@@ -496,10 +497,10 @@ def test_content_length_parses_invalid_values_as_zero(headers, expected):
 @pytest.mark.parametrize(
     ("method", "headers", "expected"),
     [
-        ("POST", {"content-length": "11"}, True),
-        ("PATCH", {"content-length": "10"}, False),
-        ("GET", {"content-length": "11"}, False),
-        ("POST", {"content-length": "invalid"}, False),
+        ("POST", {_CONTENT_LENGTH_HEADER: "11"}, True),
+        ("PATCH", {_CONTENT_LENGTH_HEADER: "10"}, False),
+        ("GET", {_CONTENT_LENGTH_HEADER: "11"}, False),
+        ("POST", {_CONTENT_LENGTH_HEADER: "invalid"}, False),
     ],
 )
 def test_write_payload_too_large_applies_only_to_write_methods(method, headers, expected):

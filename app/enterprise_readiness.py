@@ -36,6 +36,8 @@ _REDACTED_VALUE = "***REDACTED***"
 _CAPABILITIES_HEADER = "x-capabilities"
 _SERVICE_IDENTITY_HEADER = "x-service-identity"
 _AUTHORIZATION_HEADER = "authorization"
+_CONTENT_LENGTH_HEADER = "content-length"
+_MISSING_CONTENT_LENGTH = "0"
 _ACTOR_ID_HEADER = "x-actor-id"
 _TENANT_ID_HEADER = "x-tenant-id"
 _ROLE_HEADER = "x-role"
@@ -334,7 +336,7 @@ def _emit_allowed_audit_event(
 
 def _content_length(headers: Mapping[str, Any]) -> int:
     try:
-        return int(headers.get("content-length", "0"))
+        return int(headers.get(_CONTENT_LENGTH_HEADER, _MISSING_CONTENT_LENGTH))
     except (TypeError, ValueError):
         return 0
 
