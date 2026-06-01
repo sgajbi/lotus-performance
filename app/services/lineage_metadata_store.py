@@ -20,6 +20,7 @@ from app.services.durable_store_inspection import (
     apply_min_age_filter,
     build_inspection_query_context,
 )
+from app.services.durable_store_json import load_json_object_or_none
 from app.services.durable_store_pagination import next_offset_or_none, recovery_cursor_or_none
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
 from app.services.durable_store_time import (
@@ -1233,14 +1234,17 @@ lineage_metadata_store = RuntimeStoreProxy(get_lineage_metadata_store)
 
 
 def _load_payload_details(details_json: str, *, calculation_id: str) -> dict[str, str] | None:
-    try:
-        payload = json.loads(details_json)
-    except json.JSONDecodeError:
-        logger.warning("Lineage payload details invalid JSON for calculation_id=%s.", calculation_id)
+    payload = load_json_object_or_none(
+        details_json,
+        logger=logger,
+        payload_name="Lineage payload details",
+        identity_name="calculation_id",
+        identity_value=calculation_id,
+        empty_is_absent=False,
+    )
+    if payload is None:
         return None
-    if not isinstance(payload, dict) or not all(
-        isinstance(key, str) and isinstance(value, str) for key, value in payload.items()
-    ):
+    if not all(isinstance(key, str) and isinstance(value, str) for key, value in payload.items()):
         logger.warning("Lineage payload details are not a string object for calculation_id=%s.", calculation_id)
         return None
     return payload
