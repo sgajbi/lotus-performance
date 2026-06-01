@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
 
+from app.services.durable_store_time import elapsed_seconds_since
 from app.services.operator_action_identity import (
     operator_action_actor_matches,
     operator_action_optional_identity_matches,
@@ -83,7 +84,7 @@ def enforce_runtime_retention_apply_preview(
         )
 
     current_time = now_utc or datetime.now(UTC)
-    elapsed_seconds = (current_time - _parse_utc_timestamp(preview_entry.generated_at_utc)).total_seconds()
+    elapsed_seconds = elapsed_seconds_since(current_time, parse_utc_datetime(preview_entry.generated_at_utc))
     if elapsed_seconds <= preview_max_age_seconds:
         return
 
@@ -175,9 +176,8 @@ def _enforce_manual_action_cooldown(
     if cooldown_seconds <= 0 or latest_generated_at_utc is None or latest_evidence_file_name is None:
         return
 
-    latest_generated_at = _parse_utc_timestamp(latest_generated_at_utc)
     current_time = now_utc or datetime.now(UTC)
-    elapsed_seconds = (current_time - latest_generated_at).total_seconds()
+    elapsed_seconds = elapsed_seconds_since(current_time, parse_utc_datetime(latest_generated_at_utc))
     retry_after_seconds = math.ceil(cooldown_seconds - elapsed_seconds)
     if retry_after_seconds <= 0:
         return
@@ -196,7 +196,3 @@ def _enforce_manual_action_cooldown(
         },
         headers={"Retry-After": str(retry_after_seconds)},
     )
-
-
-def _parse_utc_timestamp(value: str) -> datetime:
-    return parse_utc_datetime(value)
