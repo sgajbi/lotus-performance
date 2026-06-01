@@ -47,8 +47,8 @@ def test_execute_runtime_retention_cleanup_persists_scheduled_evidence(tmp_path,
     evidence = execute_runtime_retention_cleanup(
         apply=False,
         operator_id="runtime-retention-automation",
-        trigger_mode="scheduled",
-        job_id="retention-nightly",
+        trigger_mode=" scheduled ",
+        job_id=" retention-nightly ",
     )
 
     latest = json.loads((output_dir / "latest.json").read_text(encoding="utf-8"))
@@ -59,6 +59,44 @@ def test_execute_runtime_retention_cleanup_persists_scheduled_evidence(tmp_path,
     assert latest["operator_id"] == "runtime-retention-automation"
     assert latest["trigger_mode"] == "scheduled"
     assert latest["job_id"] == "retention-nightly"
+
+
+def test_execute_runtime_retention_cleanup_rejects_blank_trigger_mode(tmp_path, monkeypatch):
+    output_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
+    cleanup_called = False
+    monkeypatch.setattr(
+        "app.services.runtime_retention_execution_service.get_settings",
+        lambda: type(
+            "Settings",
+            (),
+            {
+                "RUNTIME_RETENTION_ARTIFACT_PATH": output_dir,
+                "RUNTIME_RETENTION_HISTORY_LIMIT": 30,
+                "RUNTIME_RETENTION_HISTORY_MAX_AGE_DAYS": 90,
+            },
+        )(),
+    )
+
+    def _run_runtime_retention_cleanup(retention_days, dry_run):
+        nonlocal cleanup_called
+        cleanup_called = True
+        raise AssertionError("cleanup should not run for invalid evidence identity")
+
+    monkeypatch.setattr(
+        "app.services.runtime_retention_execution_service.run_runtime_retention_cleanup",
+        _run_runtime_retention_cleanup,
+    )
+
+    with pytest.raises(ValueError, match="trigger_mode must not be blank"):
+        execute_runtime_retention_cleanup(
+            apply=False,
+            operator_id="runtime-retention-automation",
+            trigger_mode=" ",
+            job_id="retention-nightly",
+        )
+
+    assert not cleanup_called
+    assert not output_dir.exists()
 
 
 def test_runtime_retention_execution_prunes_stale_history_by_limit_and_age(tmp_path, monkeypatch):
