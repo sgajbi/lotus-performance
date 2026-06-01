@@ -28,6 +28,11 @@ def test_operator_action_actor_matches_canonicalized_identities():
 
     assert operator_action_actor_matches(entry, operator_id=" ops-user ", tenant_id=" ")
     assert not operator_action_actor_matches(entry, operator_id=" ", tenant_id=None)
+    assert not operator_action_actor_matches(
+        _IdentityEntry(operator_id=" ", tenant_id=None, correlation_id=None),
+        operator_id=" ",
+        tenant_id=None,
+    )
 
 
 def test_operator_action_correlation_matches_operator_tenant_and_correlation():
@@ -67,6 +72,7 @@ def test_operator_action_correlation_matches_canonicalized_identities():
 def test_operator_action_required_identity_matches_canonicalized_values():
     assert operator_action_required_identity_matches("backup-123", " backup-123 ")
     assert not operator_action_required_identity_matches("backup-123", " ")
+    assert not operator_action_required_identity_matches(" ", " ")
 
 
 def test_operator_action_optional_identity_matches_canonicalized_values():

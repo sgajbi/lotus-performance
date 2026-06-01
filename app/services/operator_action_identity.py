@@ -2,6 +2,11 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from app.services.operator_action_evidence_strings import (
+    normalize_optional_evidence_identifier,
+    normalize_required_evidence_identifier,
+)
+
 
 class OperatorActionActorIdentity(Protocol):
     @property
@@ -22,9 +27,9 @@ def operator_action_actor_matches(
     operator_id: str,
     tenant_id: str | None,
 ) -> bool:
-    return _normalize_required_identity(entry.operator_id) == _normalize_required_identity(
-        operator_id
-    ) and _normalize_optional_identity(entry.tenant_id) == _normalize_optional_identity(tenant_id)
+    return _required_identity_matches(entry.operator_id, operator_id) and _optional_identity_matches(
+        entry.tenant_id, tenant_id
+    )
 
 
 def operator_action_correlation_matches(
@@ -36,23 +41,34 @@ def operator_action_correlation_matches(
 ) -> bool:
     return operator_action_actor_matches(
         entry, operator_id=operator_id, tenant_id=tenant_id
-    ) and _normalize_optional_identity(entry.correlation_id) == _normalize_required_identity(correlation_id)
+    ) and _required_identity_matches(entry.correlation_id or "", correlation_id)
 
 
 def operator_action_required_identity_matches(entry_value: str, candidate_value: str) -> bool:
-    return _normalize_required_identity(entry_value) == _normalize_required_identity(candidate_value)
+    return _required_identity_matches(entry_value, candidate_value)
 
 
 def operator_action_optional_identity_matches(entry_value: str | None, candidate_value: str | None) -> bool:
-    return _normalize_optional_identity(entry_value) == _normalize_optional_identity(candidate_value)
+    return _optional_identity_matches(entry_value, candidate_value)
 
 
 def _normalize_required_identity(value: str) -> str:
-    return value.strip()
+    return normalize_required_evidence_identifier(value, field_name="operator_action_identity")
 
 
 def _normalize_optional_identity(value: str | None) -> str | None:
-    if value is None:
-        return None
-    normalized = value.strip()
-    return normalized or None
+    return normalize_optional_evidence_identifier(value)
+
+
+def _required_identity_matches(entry_value: str, candidate_value: str) -> bool:
+    try:
+        return _normalize_required_identity(entry_value) == _normalize_required_identity(candidate_value)
+    except ValueError:
+        return False
+
+
+def _optional_identity_matches(entry_value: str | None, candidate_value: str | None) -> bool:
+    try:
+        return _normalize_optional_identity(entry_value) == _normalize_optional_identity(candidate_value)
+    except ValueError:
+        return False
