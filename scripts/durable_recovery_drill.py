@@ -469,7 +469,7 @@ def _optional_evidence_string(payload: dict[str, Any], key: str) -> str | None:
         return None
     if not isinstance(value, str):
         raise ValueError(f"{key} must be a string when present")
-    return value
+    return value.strip() or None
 
 
 def _read_recovery_drill_evidence_payload(path: Path) -> dict[str, Any]:
