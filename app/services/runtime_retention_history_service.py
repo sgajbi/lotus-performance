@@ -139,15 +139,18 @@ def build_runtime_retention_history_snapshot(
         )
         for entry in manifest_payload["entries"]
     ]
-    filtered_entries = _filter_entries(
+    filtered_entries = filter_history_entries(
         entries=all_entries,
-        operator_id=operator_id,
-        trigger_mode=trigger_mode,
-        job_id=job_id,
-        cleanup_mode=cleanup_mode,
-        status_filter=status_filter,
+        exact_filters=(
+            (operator_id, lambda entry: entry.operator_id),
+            (trigger_mode, lambda entry: entry.trigger_mode),
+            (job_id, lambda entry: entry.job_id),
+            (cleanup_mode, lambda entry: entry.cleanup_mode),
+            (status_filter, lambda entry: entry.status),
+        ),
         generated_after=generated_after,
         generated_before=generated_before,
+        get_generated_at_utc=lambda entry: entry.generated_at_utc,
     )
     page = paginate_history_entries(filtered_entries, limit=limit, offset=offset)
 
@@ -229,29 +232,3 @@ def _validate_manifest_entry(entry: Any) -> dict[str, str | int | None] | None:
     validated_entry["correlation_id"] = entry_strings["correlation_id"]
     validated_entry["job_id"] = job_id
     return validated_entry
-
-
-def _filter_entries(
-    *,
-    entries: list[RuntimeRetentionHistoryEntry],
-    operator_id: str | None,
-    trigger_mode: str | None,
-    job_id: str | None,
-    cleanup_mode: str | None,
-    status_filter: str | None,
-    generated_after: str | None,
-    generated_before: str | None,
-) -> list[RuntimeRetentionHistoryEntry]:
-    return filter_history_entries(
-        entries,
-        exact_filters=(
-            (operator_id, lambda entry: entry.operator_id),
-            (trigger_mode, lambda entry: entry.trigger_mode),
-            (job_id, lambda entry: entry.job_id),
-            (cleanup_mode, lambda entry: entry.cleanup_mode),
-            (status_filter, lambda entry: entry.status),
-        ),
-        generated_after=generated_after,
-        generated_before=generated_before,
-        get_generated_at_utc=lambda entry: entry.generated_at_utc,
-    )
