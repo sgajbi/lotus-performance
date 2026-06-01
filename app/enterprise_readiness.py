@@ -144,8 +144,12 @@ def _is_privileged_read_method(method: str) -> bool:
     return _normalized_http_method(method) == _HTTP_METHOD_GET
 
 
+def _env_value(name: str, default: str) -> str:
+    return os.getenv(name, default)
+
+
 def _env_enabled(name: str, default: str = "true") -> bool:
-    return os.getenv(name, default).strip().lower() in _ENV_ENABLED_VALUES
+    return _env_value(name, default).strip().lower() in _ENV_ENABLED_VALUES
 
 
 def _privileged_read_authz_enabled() -> bool:
@@ -161,7 +165,7 @@ def _runtime_config_enforcement_enabled() -> bool:
 
 
 def _primary_key_configured() -> bool:
-    return bool(os.getenv(_ENV_ENTERPRISE_PRIMARY_KEY_ID, _EMPTY_ENV_VALUE).strip())
+    return bool(_env_value(_ENV_ENTERPRISE_PRIMARY_KEY_ID, _EMPTY_ENV_VALUE).strip())
 
 
 def _max_write_payload_bytes() -> int:
@@ -169,7 +173,7 @@ def _max_write_payload_bytes() -> int:
 
 
 def _load_json_map(name: str) -> dict[str, Any]:
-    raw = os.getenv(name, _EMPTY_JSON_OBJECT)
+    raw = _env_value(name, _EMPTY_JSON_OBJECT)
     try:
         parsed = json.loads(raw)
     except json.JSONDecodeError:
@@ -178,7 +182,7 @@ def _load_json_map(name: str) -> dict[str, Any]:
 
 
 def _env_int(name: str, default: int) -> int:
-    return _parse_int_or_default(os.getenv(name, str(default)), default)
+    return _parse_int_or_default(_env_value(name, str(default)), default)
 
 
 def _parse_int_or_default(value: Any, default: int) -> int:
@@ -189,7 +193,7 @@ def _parse_int_or_default(value: Any, default: int) -> int:
 
 
 def _configured_enterprise_policy_version() -> str:
-    return os.getenv(_ENV_ENTERPRISE_POLICY_VERSION, _DEFAULT_ENTERPRISE_POLICY_VERSION)
+    return _env_value(_ENV_ENTERPRISE_POLICY_VERSION, _DEFAULT_ENTERPRISE_POLICY_VERSION)
 
 
 def _normalized_enterprise_policy_version() -> str:

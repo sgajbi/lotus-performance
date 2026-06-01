@@ -95,6 +95,7 @@ from app.enterprise_readiness import (
     _emit_allowed_audit_event,
     _enterprise_runtime_config_issues,
     _env_enabled,
+    _env_value,
     _feature_flag_enabled,
     _governed_surface_for_capability,
     _has_required_capability,
@@ -189,6 +190,15 @@ def test_env_enabled_uses_governed_enabled_tokens_and_disabled_default(monkeypat
 
     monkeypatch.delenv(env_name, raising=False)
     assert _env_enabled(env_name, _ENV_SWITCH_DISABLED_DEFAULT) is False
+
+
+def test_env_value_uses_configured_value_or_default(monkeypatch):
+    env_name = "ENTERPRISE_TEST_VALUE"
+    monkeypatch.setenv(env_name, "configured")
+    assert _env_value(env_name, "fallback") == "configured"
+
+    monkeypatch.delenv(env_name, raising=False)
+    assert _env_value(env_name, "fallback") == "fallback"
 
 
 def test_load_json_map_fails_closed_for_missing_invalid_or_non_object_json(monkeypatch):
