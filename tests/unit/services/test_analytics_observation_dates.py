@@ -5,6 +5,7 @@ import pytest
 from app.services.analytics_observation_dates import (
     latest_observation_date,
     normalize_observation_date,
+    observation_date_series,
     observation_date_set,
 )
 
@@ -26,6 +27,13 @@ def test_observation_date_set_normalizes_unique_date_values():
         date(2026, 3, 31),
         date(2026, 4, 1),
     }
+
+
+def test_observation_date_series_normalizes_ordered_date_values():
+    assert list(observation_date_series(["2026-03-31T09:00:00Z", date(2026, 4, 1)])) == [
+        date(2026, 3, 31),
+        date(2026, 4, 1),
+    ]
 
 
 def test_normalize_observation_date_rejects_invalid_date_values():
