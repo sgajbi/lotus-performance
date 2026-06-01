@@ -31,6 +31,7 @@ from app.services.execution_lifecycle_service import (
     record_execution_failure,
 )
 from app.services.execution_registry import execution_registry
+from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
 from app.services.mwr_mode_service import resolve_mwr_request
 from app.services.stateful_execution_policy_service import (
     finalize_resolved_stateful_execution,
@@ -594,7 +595,7 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
                 input_fingerprint=input_fingerprint,
                 calculation_hash=calculation_hash,
             )
-        execution_registry.start_stage(request.calculation_id, "execution")
+        execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_EXECUTION)
         execution_stage_started = True
         mwr_result = calculate_money_weighted_return(
             begin_mv=mwr_request.begin_mv,

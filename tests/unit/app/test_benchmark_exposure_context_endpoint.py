@@ -7,6 +7,7 @@ from fastapi import HTTPException
 
 from app.api.endpoints import benchmark_exposure_context as benchmark_exposure_context_endpoint
 from app.models.benchmark_exposure_context import BenchmarkExposureContextRequest
+from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
 
 
 def _request() -> BenchmarkExposureContextRequest:
@@ -65,9 +66,9 @@ async def test_benchmark_exposure_context_endpoint_registers_and_completes_execu
         calculation_hash=None,
     )
     mark_running.assert_called_once_with(request.calculation_id)
-    start_stage.assert_called_once_with(request.calculation_id, "execution")
+    start_stage.assert_called_once_with(request.calculation_id, EXECUTION_STAGE_EXECUTION)
     builder.assert_awaited_once_with(request=request, stateful_input_service=stateful_input_service)
-    complete_stage.assert_called_once_with(request.calculation_id, "execution", details={"row_count": 1})
+    complete_stage.assert_called_once_with(request.calculation_id, EXECUTION_STAGE_EXECUTION, details={"row_count": 1})
     mark_complete.assert_called_once_with(request.calculation_id)
     record_failure.assert_not_called()
 

@@ -7,6 +7,7 @@ from app.models.benchmark_exposure_context import BenchmarkExposureContextReques
 from app.services.benchmark_exposure_context_service import build_benchmark_exposure_context
 from app.services.execution_lifecycle_service import record_execution_failure
 from app.services.execution_registry import execution_registry
+from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
 from app.services.portfolio_source_service import build_stateful_input_service
 from app.services.submission_fencing_service import register_sync_execution_or_raise
 
@@ -46,7 +47,7 @@ async def get_benchmark_exposure_context(
     execution_registry.mark_running(request.calculation_id)
     execution_stage_started = False
     try:
-        execution_registry.start_stage(request.calculation_id, "execution")
+        execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_EXECUTION)
         execution_stage_started = True
         response = await build_benchmark_exposure_context(
             request=request,
@@ -54,7 +55,7 @@ async def get_benchmark_exposure_context(
         )
         execution_registry.complete_stage(
             request.calculation_id,
-            "execution",
+            EXECUTION_STAGE_EXECUTION,
             details={"row_count": len(response.rows)},
         )
         execution_registry.mark_complete(request.calculation_id)
