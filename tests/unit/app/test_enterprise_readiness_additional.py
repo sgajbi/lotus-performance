@@ -19,6 +19,7 @@ from app.enterprise_readiness import (
     _AUTHORIZATION_POLICY_DENIED_DETAIL,
     _CAPABILITIES_HEADER,
     _CORRELATION_ID_HEADER,
+    _DEFAULT_TENANT_ID,
     _ENTERPRISE_AUDIT_EVENT_NAME,
     _ENTERPRISE_AUDIT_EXTRA_KEY,
     _ENTERPRISE_POLICY_VERSION_HEADER,
@@ -29,6 +30,8 @@ from app.enterprise_readiness import (
     _ROLE_HEADER,
     _SERVICE_IDENTITY_HEADER,
     _TENANT_ID_HEADER,
+    _UNKNOWN_ACTOR_ID,
+    _UNKNOWN_ROLE,
     _allowed_audit_metadata,
     _apply_enterprise_policy_header,
     _audit_correlation_id,
@@ -353,9 +356,18 @@ def test_audit_identity_from_headers_normalizes_case_and_defaults():
 
     assert identity == {
         "actor_id": "actor-1",
-        "tenant_id": "default",
+        "tenant_id": _DEFAULT_TENANT_ID,
         "role": "operator",
         "correlation_id": "corr-1",
+    }
+
+
+def test_audit_identity_from_headers_uses_governed_missing_value_fallbacks():
+    assert _audit_identity_from_headers({}) == {
+        "actor_id": _UNKNOWN_ACTOR_ID,
+        "tenant_id": _DEFAULT_TENANT_ID,
+        "role": _UNKNOWN_ROLE,
+        "correlation_id": "",
     }
 
 

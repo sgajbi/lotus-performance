@@ -34,6 +34,9 @@ _ACTOR_ID_HEADER = "x-actor-id"
 _TENANT_ID_HEADER = "x-tenant-id"
 _ROLE_HEADER = "x-role"
 _CORRELATION_ID_HEADER = "x-correlation-id"
+_UNKNOWN_ACTOR_ID = "unknown"
+_DEFAULT_TENANT_ID = "default"
+_UNKNOWN_ROLE = "unknown"
 _WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 _REQUIRED_HEADERS = {_ACTOR_ID_HEADER, _TENANT_ID_HEADER, _ROLE_HEADER, _CORRELATION_ID_HEADER}
 _DEFAULT_CAPABILITY_RULES = {
@@ -250,9 +253,9 @@ def _has_service_identity(normalized_headers: Mapping[str, str]) -> bool:
 def _audit_identity_from_headers(headers: Mapping[str, Any]) -> dict[str, str]:
     normalized = _normalized_headers(headers)
     return {
-        "actor_id": normalized.get(_ACTOR_ID_HEADER) or "unknown",
-        "tenant_id": normalized.get(_TENANT_ID_HEADER) or "default",
-        "role": normalized.get(_ROLE_HEADER) or "unknown",
+        "actor_id": normalized.get(_ACTOR_ID_HEADER) or _UNKNOWN_ACTOR_ID,
+        "tenant_id": normalized.get(_TENANT_ID_HEADER) or _DEFAULT_TENANT_ID,
+        "role": normalized.get(_ROLE_HEADER) or _UNKNOWN_ROLE,
         "correlation_id": normalized.get(_CORRELATION_ID_HEADER, ""),
     }
 
