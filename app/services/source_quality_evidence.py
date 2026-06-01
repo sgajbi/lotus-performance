@@ -5,9 +5,8 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Literal
 
-import pandas as pd
-
 from app.models.source_quality import PerformanceSourceQualityEvidence
+from app.services.analytics_observation_dates import latest_observation_date, normalize_observation_date
 from app.services.source_cashflow_taxonomy import classify_cashflow_type
 
 
@@ -36,7 +35,7 @@ def build_portfolio_source_quality_evidence(
             skipped_observation_count += 1
         else:
             try:
-                normalized_dates.append(pd.Timestamp(valuation_date).date())
+                normalized_dates.append(normalize_observation_date(valuation_date))
                 values_by_date[valuation_date].add((Decimal(str(begin_mv)), Decimal(str(end_mv))))
             except (InvalidOperation, TypeError, ValueError):
                 skipped_observation_count += 1
@@ -51,12 +50,12 @@ def build_portfolio_source_quality_evidence(
                     unsupported_cashflow_count += 1
 
     source_conflict_count = sum(max(len(values) - 1, 0) for values in values_by_date.values())
-    latest_observation_date = max(normalized_dates) if normalized_dates else None
+    latest_source_observation_date = latest_observation_date(normalized_dates)
     warnings = _source_quality_warnings(
         skipped_observation_count=skipped_observation_count,
         unsupported_cashflow_count=unsupported_cashflow_count,
         source_conflict_count=source_conflict_count,
-        latest_observation_date=latest_observation_date,
+        latest_observation_date=latest_source_observation_date,
         report_end_date=report_end_date,
     )
     quality_state = "clean"
@@ -75,7 +74,7 @@ def build_portfolio_source_quality_evidence(
         skipped_observation_count=skipped_observation_count,
         unsupported_cashflow_count=unsupported_cashflow_count,
         source_conflict_count=source_conflict_count,
-        latest_observation_date=latest_observation_date,
+        latest_observation_date=latest_source_observation_date,
         report_end_date=report_end_date,
         warnings=warnings,
         source_classification_counts=dict(sorted(source_classifications.items())),

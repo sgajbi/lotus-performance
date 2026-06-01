@@ -1,6 +1,8 @@
 from datetime import date
 
-from app.services.analytics_observation_dates import latest_observation_date
+import pytest
+
+from app.services.analytics_observation_dates import latest_observation_date, normalize_observation_date
 
 
 def test_latest_observation_date_normalizes_mixed_date_values():
@@ -13,3 +15,8 @@ def test_latest_observation_date_normalizes_mixed_date_values():
 
 def test_latest_observation_date_returns_none_when_no_values_exist():
     assert latest_observation_date([None]) is None
+
+
+def test_normalize_observation_date_rejects_invalid_date_values():
+    with pytest.raises(ValueError):
+        normalize_observation_date("not-a-date")
