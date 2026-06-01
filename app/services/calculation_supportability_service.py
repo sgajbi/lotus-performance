@@ -3,8 +3,6 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-import pandas as pd
-
 from app.models.responses import (
     PerformanceCalculationSupportability,
     PerformanceFreshnessBucket,
@@ -13,6 +11,7 @@ from app.models.responses import (
 )
 from app.models.source_quality import PerformanceSourceQualityEvidence
 from app.observability import record_analytics_freshness_bucket, record_calculation_supportability
+from app.services.analytics_observation_dates import normalize_observation_date
 
 
 def resolve_freshness_bucket(
@@ -22,8 +21,8 @@ def resolve_freshness_bucket(
 ) -> PerformanceFreshnessBucket:
     if latest_observation_date is None or report_end_date is None:
         return "unknown"
-    latest = pd.Timestamp(latest_observation_date).date()
-    expected = pd.Timestamp(report_end_date).date()
+    latest = normalize_observation_date(latest_observation_date)
+    expected = normalize_observation_date(report_end_date)
     if latest >= expected:
         return "current"
     if latest == expected:
