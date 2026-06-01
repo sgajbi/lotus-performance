@@ -11,6 +11,7 @@ from app.models.benchmark_responses import (
     BenchmarkAcceptedResponse,
     BenchmarkPerformanceResponse,
 )
+from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_BENCHMARK
 from app.services.async_result_service import resolve_async_result
 from app.services.benchmark_mode_service import resolve_benchmark_request
 from app.services.benchmark_service import calculate_benchmark_response
@@ -70,7 +71,7 @@ async def calculate_benchmark_endpoint(
     ):
         replay_response = replay_promoted_stateful_async_execution(
             calculation_id=request.calculation_id,
-            analytics_type="BENCHMARK",
+            analytics_type=ANALYTICS_WORKFLOW_BENCHMARK,
             source_request_fingerprint=input_fingerprint,
             accepted_response_factory=_accepted_response,
         )
@@ -79,7 +80,7 @@ async def calculate_benchmark_endpoint(
 
         register_sync_execution_or_raise(
             calculation_id=request.calculation_id,
-            analytics_type="BENCHMARK",
+            analytics_type=ANALYTICS_WORKFLOW_BENCHMARK,
             portfolio_id=request.benchmark_id,
             requested_window=_build_execution_window(
                 request,
@@ -101,7 +102,7 @@ async def calculate_benchmark_endpoint(
                 )
             accepted_response = finalize_resolved_stateful_execution(
                 calculation_id=request.calculation_id,
-                analytics_type="BENCHMARK",
+                analytics_type=ANALYTICS_WORKFLOW_BENCHMARK,
                 requested_window=_build_execution_window(
                     request,
                     source_request_fingerprint=source_request_fingerprint,
@@ -146,7 +147,7 @@ async def calculate_benchmark_endpoint(
     if _should_offload_benchmark(request):
         return register_async_submission_or_raise(
             calculation_id=request.calculation_id,
-            analytics_type="BENCHMARK",
+            analytics_type=ANALYTICS_WORKFLOW_BENCHMARK,
             portfolio_id=request.benchmark_id,
             requested_window=_build_execution_window(request),
             input_fingerprint=source_request_fingerprint,
@@ -162,7 +163,7 @@ async def calculate_benchmark_endpoint(
 
     register_sync_execution_or_raise(
         calculation_id=request.calculation_id,
-        analytics_type="BENCHMARK",
+        analytics_type=ANALYTICS_WORKFLOW_BENCHMARK,
         portfolio_id=request.benchmark_id,
         requested_window=_build_execution_window(request),
         input_fingerprint=source_request_fingerprint,

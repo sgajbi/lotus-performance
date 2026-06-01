@@ -3,6 +3,7 @@ from __future__ import annotations
 from app.models.benchmark_analytics_requests import BenchmarkInputMode, BenchmarkReturnSource
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.benchmark_responses import BenchmarkPerformanceResponse
+from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_BENCHMARK
 from app.services.benchmark_calculation_service import calculate_benchmark_artifacts
 from app.services.execution_lifecycle_service import complete_execution_with_lineage
 from app.services.execution_registry import execution_registry
@@ -69,7 +70,7 @@ def calculate_benchmark_response(
 
     complete_execution_with_lineage(
         calculation_id=benchmark_request.calculation_id,
-        calculation_type="BENCHMARK",
+        calculation_type=ANALYTICS_WORKFLOW_BENCHMARK,
         request_model=request_artifact_model,
         response_model=response_model,
         execution_details={

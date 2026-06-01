@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from app.api.endpoints import benchmark as benchmark_endpoint
 from app.models.benchmark_analytics_requests import BenchmarkAnalyticsRequest, BenchmarkInputMode
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
+from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_BENCHMARK
 from app.services.benchmark_mode_service import ResolvedBenchmarkRequest
 
 
@@ -66,11 +67,14 @@ async def test_benchmark_endpoint_replays_promoted_stateful_async_execution(mock
         "app.api.endpoints.benchmark.replay_promoted_stateful_async_execution",
         return_value=replay_response,
     )
+    replay_promoted = benchmark_endpoint.replay_promoted_stateful_async_execution
     register_sync = mocker.patch("app.api.endpoints.benchmark.register_sync_execution_or_raise")
 
     response = await benchmark_endpoint.calculate_benchmark_endpoint(request)
 
     assert response == replay_response
+    replay_promoted.assert_called_once()
+    assert replay_promoted.call_args.kwargs["analytics_type"] == ANALYTICS_WORKFLOW_BENCHMARK
     register_sync.assert_not_called()
 
 
@@ -105,7 +109,7 @@ async def test_benchmark_endpoint_returns_accepted_response_when_resolved_statef
             input_count=2,
         ),
     )
-    mocker.patch(
+    finalize_resolved = mocker.patch(
         "app.api.endpoints.benchmark.finalize_resolved_stateful_execution",
         return_value=accepted_response,
     )
@@ -114,6 +118,8 @@ async def test_benchmark_endpoint_returns_accepted_response_when_resolved_statef
     response = await benchmark_endpoint.calculate_benchmark_endpoint(request)
 
     assert response == accepted_response
+    finalize_resolved.assert_called_once()
+    assert finalize_resolved.call_args.kwargs["analytics_type"] == ANALYTICS_WORKFLOW_BENCHMARK
     calculate_benchmark.assert_not_called()
 
 
@@ -299,6 +305,7 @@ async def test_benchmark_endpoint_offloads_large_requests(mocker):
 
     assert response == accepted_response
     register_async.assert_called_once()
+    assert register_async.call_args.kwargs["analytics_type"] == ANALYTICS_WORKFLOW_BENCHMARK
 
 
 @pytest.mark.asyncio
