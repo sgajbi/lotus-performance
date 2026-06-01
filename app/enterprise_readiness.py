@@ -38,6 +38,10 @@ def _is_write_method(method: str) -> bool:
     return method.upper() in _WRITE_METHODS
 
 
+def _is_privileged_read_method(method: str) -> bool:
+    return method.upper() == "GET"
+
+
 def _env_enabled(name: str, default: str = "true") -> bool:
     return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "on"}
 
@@ -210,19 +214,19 @@ def _audit_identity_from_headers(headers: Mapping[str, Any]) -> dict[str, str]:
 
 
 def _allowed_audit_metadata(*, method: str, path: str, status_code: int) -> dict[str, Any] | None:
-    method_upper = method.upper()
     write_capability = _required_capability(method, path)
     privileged_read_capability = _required_privileged_read_capability(method, path)
-    required_capability = privileged_read_capability if method_upper == "GET" else write_capability
+    is_privileged_read = _is_privileged_read_method(method)
+    required_capability = privileged_read_capability if is_privileged_read else write_capability
     if not _is_write_method(method) and not (
-        method_upper == "GET"
+        is_privileged_read
         and _env_enabled("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "false")
         and privileged_read_capability is not None
     ):
         return None
     return {
         "status_code": status_code,
-        "access_mode": "privileged_read" if method_upper == "GET" else "write",
+        "access_mode": "privileged_read" if is_privileged_read else "write",
         "required_capability": required_capability,
         "governed_surface": path if required_capability is not None else None,
     }
@@ -307,7 +311,7 @@ def authorize_write_request(method: str, path: str, headers: dict[str, str]) -> 
 
 
 def authorize_privileged_read_request(method: str, path: str, headers: dict[str, str]) -> tuple[bool, str | None]:
-    if method.upper() != "GET" or not _env_enabled("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "false"):
+    if not _is_privileged_read_method(method) or not _env_enabled("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "false"):
         return True, None
 
     required_capability = _required_privileged_read_capability(method, path)
