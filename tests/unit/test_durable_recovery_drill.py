@@ -271,10 +271,10 @@ def test_recovery_drill_manifest_rebuild_normalizes_optional_entry_identities(tm
             {
                 "evidence_file_name": "legacy.json",
                 "generated_at_utc": datetime.now(UTC).isoformat(),
-                "operator_id": "legacy-operator",
+                "operator_id": " legacy-operator ",
                 "tenant_id": " tenant-legacy ",
                 "correlation_id": " ",
-                "backup_identifier": "backup-legacy",
+                "backup_identifier": " backup-legacy ",
                 "status": "passed",
             }
         ),
@@ -309,8 +309,10 @@ def test_recovery_drill_manifest_rebuild_normalizes_optional_entry_identities(tm
 
     manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
     legacy_entry = next(entry for entry in manifest["entries"] if entry["evidence_file_name"] == "legacy.json")
+    assert legacy_entry["operator_id"] == "legacy-operator"
     assert legacy_entry["tenant_id"] == "tenant-legacy"
     assert legacy_entry["correlation_id"] is None
+    assert legacy_entry["backup_identifier"] == "backup-legacy"
 
 
 def test_write_text_atomic_does_not_leave_partial_target(tmp_path, mocker):
