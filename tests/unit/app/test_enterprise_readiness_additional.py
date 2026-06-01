@@ -4,6 +4,7 @@ from datetime import datetime
 import pytest
 from fastapi import Response
 
+from app import enterprise_runtime_config
 from app.enterprise_readiness import (
     _ACTOR_ID_HEADER,
     _AUDIT_ACCESS_MODE_PRIVILEGED_READ,
@@ -200,6 +201,11 @@ def test_env_value_uses_configured_value_or_default(monkeypatch):
 
     monkeypatch.delenv(env_name, raising=False)
     assert _env_value(env_name, "fallback") == "fallback"
+
+
+def test_enterprise_readiness_reexports_runtime_config_boundary():
+    assert _env_value is enterprise_runtime_config._env_value
+    assert validate_enterprise_runtime_config is enterprise_runtime_config.validate_enterprise_runtime_config
 
 
 def test_load_json_map_fails_closed_for_missing_invalid_or_non_object_json(monkeypatch):
