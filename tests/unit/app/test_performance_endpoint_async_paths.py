@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from app.api.endpoints import performance as performance_endpoint
 from app.models.twr_requests import TWRAnalyticsRequest
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
+from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR
 
 
 def _stateful_twr_payload() -> dict[str, object]:
@@ -39,11 +40,14 @@ async def test_twr_endpoint_replays_promoted_stateful_async_execution(mocker):
         "app.api.endpoints.performance.replay_promoted_stateful_async_execution",
         return_value=replay_response,
     )
+    replay_promoted = performance_endpoint.replay_promoted_stateful_async_execution
     register_sync = mocker.patch("app.api.endpoints.performance.register_sync_execution_or_raise")
 
     response = await performance_endpoint.calculate_twr_endpoint(request)
 
     assert response == replay_response
+    replay_promoted.assert_called_once()
+    assert replay_promoted.call_args.kwargs["analytics_type"] == ANALYTICS_WORKFLOW_TWR
     register_sync.assert_not_called()
 
 
@@ -72,7 +76,7 @@ async def test_twr_endpoint_offloads_large_requests_before_resolution(mocker):
             {"APP_VERSION": "runtime-version", "TWR_EXECUTOR_WINDOW_DAYS": 30, "TWR_EXECUTOR_INPUT_COUNT": 2},
         )(),
     )
-    mocker.patch(
+    register_async = mocker.patch(
         "app.api.endpoints.performance.register_async_submission_or_raise",
         return_value=accepted_response,
     )
@@ -81,6 +85,8 @@ async def test_twr_endpoint_offloads_large_requests_before_resolution(mocker):
     response = await performance_endpoint.calculate_twr_endpoint(request)
 
     assert response == accepted_response
+    register_async.assert_called_once()
+    assert register_async.call_args.kwargs["analytics_type"] == ANALYTICS_WORKFLOW_TWR
     resolve_request.assert_not_called()
 
 

@@ -28,6 +28,7 @@ from app.services.analytics_observation_dates import (
     observation_date_series,
     observation_timestamp_series,
 )
+from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR
 from app.services.benchmark_calculation_service import calculate_benchmark_artifacts
 from app.services.calculation_supportability_service import (
     build_calculation_supportability,
@@ -719,7 +720,7 @@ def calculate_twr_response(
 
     complete_execution_with_lineage(
         calculation_id=performance_request.calculation_id,
-        calculation_type="TWR",
+        calculation_type=ANALYTICS_WORKFLOW_TWR,
         request_model=request_artifact_model,
         response_model=response_model,
         execution_details=execution_details,

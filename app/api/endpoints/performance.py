@@ -19,6 +19,7 @@ from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode, TWRResolv
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
 from app.models.workspace_summary_responses import WorkspaceSummaryAcceptedResponse, WorkspaceSummaryResponse
 from app.observability import record_mwr_solver_outcome
+from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR
 from app.services.async_result_service import resolve_async_result
 from app.services.attribution_mode_service import resolve_attribution_request
 from app.services.attribution_service import calculate_attribution
@@ -364,7 +365,7 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest) -> PerformanceRes
     if _should_offload_twr(request):
         return register_async_submission_or_raise(
             calculation_id=request.calculation_id,
-            analytics_type="TWR",
+            analytics_type=ANALYTICS_WORKFLOW_TWR,
             portfolio_id=request.portfolio_id,
             requested_window=requested_window,
             input_fingerprint=input_fingerprint,
@@ -379,7 +380,7 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest) -> PerformanceRes
     if request.input_mode == TWRInputMode.STATEFUL:
         replay_response = replay_promoted_stateful_async_execution(
             calculation_id=request.calculation_id,
-            analytics_type="TWR",
+            analytics_type=ANALYTICS_WORKFLOW_TWR,
             source_request_fingerprint=source_request_fingerprint,
             accepted_response_factory=_accepted_twr_response,
         )
@@ -393,7 +394,7 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest) -> PerformanceRes
 
     register_sync_execution_or_raise(
         calculation_id=request.calculation_id,
-        analytics_type="TWR",
+        analytics_type=ANALYTICS_WORKFLOW_TWR,
         portfolio_id=request.portfolio_id,
         requested_window=requested_window,
         input_fingerprint=input_fingerprint,
@@ -425,7 +426,7 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest) -> PerformanceRes
             if request.input_mode == TWRInputMode.STATEFUL:
                 accepted_response = finalize_resolved_stateful_execution(
                     calculation_id=request.calculation_id,
-                    analytics_type="TWR",
+                    analytics_type=ANALYTICS_WORKFLOW_TWR,
                     requested_window=_build_twr_execution_window(
                         request,
                         input_count=resolved_input_count,
