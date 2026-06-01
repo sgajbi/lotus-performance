@@ -13,6 +13,7 @@ from typing import Any, Iterator, cast
 from fastapi import HTTPException, status
 
 from app.services.durable_store_json import read_json_file
+from app.services.durable_store_time import format_timestamp
 from app.services.operator_action_evidence_strings import (
     is_optional_evidence_string,
     is_required_evidence_int,
@@ -500,7 +501,7 @@ def _reclaim_stale_lock(
                 tenant_id=active_lease.tenant_id,
                 governed_target=active_lease.governed_target,
                 acquired_at_utc=active_lease.acquired_at_utc,
-                reclaimed_at_utc=current_time.isoformat().replace("+00:00", "Z"),
+                reclaimed_at_utc=format_timestamp(current_time) or "",
                 stale_after_seconds=stale_after_seconds,
                 reclaim_count=0,
             ),
