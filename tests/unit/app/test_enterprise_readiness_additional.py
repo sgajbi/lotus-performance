@@ -30,6 +30,8 @@ from app.enterprise_readiness import (
     _ENTERPRISE_AUDIT_EVENT_NAME,
     _ENTERPRISE_AUDIT_EXTRA_KEY,
     _ENTERPRISE_POLICY_VERSION_HEADER,
+    _HTTP_STATUS_FORBIDDEN,
+    _HTTP_STATUS_PAYLOAD_TOO_LARGE,
     _MISSING_CAPABILITY_REASON,
     _MISSING_HEADERS_REASON,
     _MISSING_POLICY_VERSION_ISSUE,
@@ -346,7 +348,7 @@ def test_emit_audit_event_uses_governed_logger_event_name(mocker):
 def test_payload_too_large_response_uses_governed_response_envelope():
     response = _payload_too_large_response()
 
-    assert response.status_code == 413
+    assert response.status_code == _HTTP_STATUS_PAYLOAD_TOO_LARGE
     assert json.loads(response.body) == {_RESPONSE_DETAIL_KEY: _PAYLOAD_TOO_LARGE_DETAIL}
 
 
@@ -434,7 +436,7 @@ def test_authorization_denied_response_emits_audit_and_structured_reason(mocker)
         },
     )
 
-    assert response.status_code == 403
+    assert response.status_code == _HTTP_STATUS_FORBIDDEN
     assert json.loads(response.body) == {
         _RESPONSE_DETAIL_KEY: _AUTHORIZATION_POLICY_DENIED_DETAIL,
         _RESPONSE_REASON_KEY: "missing_capability:operations.runtime.manage",

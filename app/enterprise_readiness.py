@@ -32,6 +32,8 @@ _RESPONSE_DETAIL_KEY = "detail"
 _RESPONSE_REASON_KEY = "reason"
 _AUTHORIZATION_POLICY_DENIED_DETAIL = "authorization_policy_denied"
 _PAYLOAD_TOO_LARGE_DETAIL = "payload_too_large"
+_HTTP_STATUS_FORBIDDEN = 403
+_HTTP_STATUS_PAYLOAD_TOO_LARGE = 413
 _REDACTED_VALUE = "***REDACTED***"
 _MISSING_HEADERS_REASON = "missing_headers"
 _MISSING_SERVICE_IDENTITY_REASON = "missing_service_identity"
@@ -306,7 +308,7 @@ def _authorization_denied_response(
         metadata=_authorization_denial_metadata(reason),
     )
     return JSONResponse(
-        status_code=403,
+        status_code=_HTTP_STATUS_FORBIDDEN,
         content={
             _RESPONSE_DETAIL_KEY: _AUTHORIZATION_POLICY_DENIED_DETAIL,
             _RESPONSE_REASON_KEY: reason,
@@ -357,7 +359,10 @@ def _write_payload_too_large(
 
 
 def _payload_too_large_response() -> JSONResponse:
-    return JSONResponse(status_code=413, content={_RESPONSE_DETAIL_KEY: _PAYLOAD_TOO_LARGE_DETAIL})
+    return JSONResponse(
+        status_code=_HTTP_STATUS_PAYLOAD_TOO_LARGE,
+        content={_RESPONSE_DETAIL_KEY: _PAYLOAD_TOO_LARGE_DETAIL},
+    )
 
 
 def _missing_headers_reason(missing_headers: list[str]) -> str:

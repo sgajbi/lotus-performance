@@ -4,6 +4,8 @@ import pytest
 from fastapi import Request
 
 from app.enterprise_readiness import (
+    _HTTP_STATUS_FORBIDDEN,
+    _HTTP_STATUS_PAYLOAD_TOO_LARGE,
     _MISSING_POLICY_VERSION_ISSUE,
     _MISSING_PRIMARY_KEY_ID_ISSUE,
     _PAYLOAD_TOO_LARGE_DETAIL,
@@ -213,7 +215,7 @@ async def test_middleware_blocks_oversized_payload(monkeypatch):
     }
     request = Request(scope)
     response = await middleware(request, lambda req: None)  # pragma: no cover
-    assert response.status_code == 413
+    assert response.status_code == _HTTP_STATUS_PAYLOAD_TOO_LARGE
     assert json.loads(response.body) == {_RESPONSE_DETAIL_KEY: _PAYLOAD_TOO_LARGE_DETAIL}
 
 
@@ -235,7 +237,7 @@ async def test_middleware_denies_missing_service_identity(monkeypatch):
     }
     request = Request(scope)
     response = await middleware(request, lambda req: None)  # pragma: no cover
-    assert response.status_code == 403
+    assert response.status_code == _HTTP_STATUS_FORBIDDEN
 
 
 @pytest.mark.asyncio
@@ -259,7 +261,7 @@ async def test_middleware_normalizes_blank_denied_audit_identity(monkeypatch, mo
 
     response = await middleware(request, lambda req: None)  # pragma: no cover
 
-    assert response.status_code == 403
+    assert response.status_code == _HTTP_STATUS_FORBIDDEN
     assert emit.call_args.kwargs["actor_id"] == "unknown"
     assert emit.call_args.kwargs["tenant_id"] == "tenant-a"
     assert emit.call_args.kwargs["role"] == "unknown"
@@ -314,7 +316,7 @@ async def test_middleware_denies_privileged_read_without_identity_headers(monkey
     }
     request = Request(scope)
     response = await middleware(request, lambda req: None)  # pragma: no cover
-    assert response.status_code == 403
+    assert response.status_code == _HTTP_STATUS_FORBIDDEN
 
 
 @pytest.mark.asyncio
