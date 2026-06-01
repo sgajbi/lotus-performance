@@ -78,6 +78,16 @@ def test_build_applied_history_filters_trims_optional_string_filters():
     }
 
 
+def test_build_applied_history_filters_preserves_integer_optional_filters():
+    assert build_applied_history_filters(
+        limit=None,
+        offset=0,
+        optional_filters=(("retention_days", 30),),
+        generated_after=None,
+        generated_before=None,
+    ) == {"retention_days": 30}
+
+
 def test_build_applied_history_filters_omits_empty_common_values():
     assert (
         build_applied_history_filters(
