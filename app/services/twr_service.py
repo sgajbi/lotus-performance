@@ -25,6 +25,7 @@ from app.models.twr_requests import TWRInputMode
 from app.services.analytics_observation_dates import (
     normalize_observation_date,
     observation_date_series,
+    observation_timestamp_series,
 )
 from app.services.benchmark_calculation_service import calculate_benchmark_artifacts
 from app.services.calculation_supportability_service import (
@@ -306,7 +307,7 @@ def _iter_frequency_windows(
         return daily_windows
 
     local_df = period_df.copy()
-    local_df[date_column] = pd.to_datetime(local_df[date_column])
+    local_df[date_column] = observation_timestamp_series(local_df[date_column])
     indexed = local_df.set_index(local_df[date_column])
     freq_map = {
         Frequency.WEEKLY: "W-FRI",
