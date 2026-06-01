@@ -6,7 +6,7 @@ from typing import Any
 import pandas as pd
 
 from app.models.contribution_responses import AverageWeightMethodologyStatus, PositionContribution
-from app.services.analytics_numeric import numeric_series_or_default, numeric_value
+from app.services.analytics_numeric import numeric_series, numeric_series_or_default, numeric_value
 from app.services.analytics_observation_dates import observation_date_series
 from engine.schema import PortfolioColumns
 
@@ -72,16 +72,14 @@ def _calculate_reset_aware_average_weight_shadow(
     )
     portfolio_window = portfolio_window.sort_values(PortfolioColumns.PERF_DATE.value)
 
-    active_reset_mask = (
-        pd.to_numeric(portfolio_window[PortfolioColumns.PERF_RESET.value], errors="coerce").fillna(0) == 1
-    )
+    active_reset_mask = numeric_series(portfolio_window[PortfolioColumns.PERF_RESET.value]) == 1
     if active_reset_mask.any():
         last_reset_index = portfolio_window[active_reset_mask].index[-1]
         portfolio_window = portfolio_window.loc[last_reset_index:]
 
-    valid_portfolio_days = portfolio_window[
-        pd.to_numeric(portfolio_window[PortfolioColumns.NIP.value], errors="coerce").fillna(0) != 1
-    ][PortfolioColumns.PERF_DATE.value]
+    valid_portfolio_days = portfolio_window[numeric_series(portfolio_window[PortfolioColumns.NIP.value]) != 1][
+        PortfolioColumns.PERF_DATE.value
+    ]
     valid_day_count = int(valid_portfolio_days.nunique())
 
     if valid_day_count == 0:
@@ -161,7 +159,7 @@ def _calculate_average_weight_sum_residual_bp_from_ratio_series(average_weight_s
     """Measures how far a ratio-based weight series drifts from a full 100% portfolio weight."""
     if average_weight_series.empty:
         return 0
-    total_average_weight_percentage = pd.to_numeric(average_weight_series, errors="coerce").fillna(0.0).sum() * 100
+    total_average_weight_percentage = numeric_series(average_weight_series, default=0.0).sum() * 100
     return _to_percentage_point_basis_points(abs(total_average_weight_percentage - 100.0))
 
 

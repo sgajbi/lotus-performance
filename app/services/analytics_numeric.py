@@ -17,8 +17,13 @@ def numeric_value(value: Any, default: Any = 0) -> Any:
     return numeric
 
 
+def numeric_series(values: pd.Series, default: Any = 0) -> pd.Series:
+    """Coerce a Series to numeric values, filling invalid values with the default."""
+    return pd.to_numeric(values, errors="coerce").fillna(default)
+
+
 def numeric_series_or_default(df: pd.DataFrame, column_name: str, default: Any = 0) -> pd.Series:
     """Return a numeric Series for a column, or a default-filled fallback aligned to the frame index."""
     if column_name not in df.columns:
         return pd.Series(default, index=df.index)
-    return pd.to_numeric(df[column_name], errors="coerce").fillna(default)
+    return numeric_series(df[column_name], default=default)
