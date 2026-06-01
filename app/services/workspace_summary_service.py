@@ -133,7 +133,7 @@ def calculate_workspace_summary(
     )
     execution_registry.complete_stage(
         request.calculation_id,
-        "execution",
+        EXECUTION_STAGE_EXECUTION,
         details={
             "report_end_date": str(request.report_end_date),
             "requested_periods": [item.period.value for item in request.periods],

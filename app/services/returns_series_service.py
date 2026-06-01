@@ -777,7 +777,7 @@ async def _calculate_returns_series(
         )
         execution_registry.complete_stage(
             request.calculation_id,
-            "execution",
+            EXECUTION_STAGE_EXECUTION,
             details={"requested_points": requested_points, "returned_points": returned_points},
         )
         execution_registry.mark_complete(request.calculation_id)
