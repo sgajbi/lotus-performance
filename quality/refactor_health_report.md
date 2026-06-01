@@ -74,7 +74,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Bandit high findings | unknown | unknown | not-yet-measured | `bandit` not installed |
 | Bandit medium findings | unknown | unknown | not-yet-measured | `bandit` not installed |
-| Dependency vulnerabilities | unknown | unknown | planned-gate | `pip-audit 2.10.0` available but audit run not captured |
+| Dependency vulnerabilities | unknown | 0 | measured | `quality/dependency_security_report.md` via repo-native dependency-health audit |
 | Dependency hygiene findings | unknown | unknown | not-yet-measured | `deptry` not installed |
 
 ## Operational Readiness
@@ -112,4 +112,3 @@ Future commits should update this report when they:
 4. add a new CI quality gate,
 5. convert a `not-yet-measured` dimension into `measured`,
 6. convert a report-only measurement into a regression-blocking or strict gate.
-

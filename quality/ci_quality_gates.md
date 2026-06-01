@@ -52,7 +52,7 @@ No gate should move from one phase to the next until it has:
 | Integration and e2e tests | Blocking in PR and main lanes | Keep blocking at merge/release lanes; use targeted local subsets during slices. |
 | Combined line coverage | Blocking at 99 percent in PR and main lanes | Capture branch-coverage posture before adding a stricter branch gate. |
 | Dependency verification | Blocking through `python -m pip check` and dependency-health scripts | Keep blocking; preserve project-scoped dependency-health evidence. |
-| Dependency vulnerabilities | `pip-audit` is available and security audit is already blocking through repo script | Record audit output in future quality reports before changing thresholds. |
+| Dependency vulnerabilities | `pip-audit` is available, security audit is already blocking through repo script, and report-only output is captured in `quality/dependency_security_report.md` | Keep the report current when dependency pins, audit tooling, or exception policy changes. |
 | OpenAPI quality | Blocking through `scripts/openapi_quality_gate.py` | Add report-only endpoint completeness inventory before adding stricter examples/error-response gates. |
 | API vocabulary and no-alias governance | Blocking in feature, PR, and main lanes | Keep blocking and preserve RFC-0067 vocabulary discipline. |
 | Migration smoke | Blocking in PR and main lanes | Keep blocking outside feature lane unless a migration-heavy slice needs earlier proof. |
@@ -85,10 +85,9 @@ The next hardening commits should stay small and add proof in this order:
 
 1. add report-only complexity inventory,
 2. add report-only dead-code and dependency-hygiene inventories,
-3. capture dependency vulnerability audit output as a durable quality artifact,
-4. add architecture-boundary report-only checks for router, service, domain, and adapter imports,
-5. add API completeness inventory for descriptions, examples, and RFC 7807 responses,
-6. update `quality/refactor_health_report.md` as each dimension moves from `not-yet-measured` to `measured`.
+3. add architecture-boundary report-only checks for router, service, domain, and adapter imports,
+4. add API completeness inventory for descriptions, examples, and RFC 7807 responses,
+5. update `quality/refactor_health_report.md` as each dimension moves from `not-yet-measured` to `measured`.
 
 ## Non-Goals For This Slice
 
@@ -100,4 +99,3 @@ This slice does not:
 4. add dependencies,
 5. introduce new CI failures,
 6. claim enterprise-readiness completion.
-
