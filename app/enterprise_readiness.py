@@ -192,13 +192,17 @@ def _configured_enterprise_policy_version() -> str:
     return os.getenv(_ENV_ENTERPRISE_POLICY_VERSION, _DEFAULT_ENTERPRISE_POLICY_VERSION)
 
 
+def _normalized_enterprise_policy_version() -> str:
+    return _configured_enterprise_policy_version().strip()
+
+
 def enterprise_policy_version() -> str:
-    return _configured_enterprise_policy_version().strip() or _DEFAULT_ENTERPRISE_POLICY_VERSION
+    return _normalized_enterprise_policy_version() or _DEFAULT_ENTERPRISE_POLICY_VERSION
 
 
 def _enterprise_runtime_config_issues() -> list[str]:
     issues: list[str] = []
-    if not _configured_enterprise_policy_version().strip():
+    if not _normalized_enterprise_policy_version():
         issues.append(_MISSING_POLICY_VERSION_ISSUE)
 
     rotation_days = _env_int(_ENV_ENTERPRISE_SECRET_ROTATION_DAYS, _DEFAULT_SECRET_ROTATION_DAYS)

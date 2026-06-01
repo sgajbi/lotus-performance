@@ -108,6 +108,7 @@ from app.enterprise_readiness import (
     _missing_capability_reason,
     _missing_headers_reason,
     _missing_required_headers,
+    _normalized_enterprise_policy_version,
     _normalized_headers,
     _normalized_http_method,
     _normalized_redaction_field,
@@ -222,6 +223,12 @@ def test_runtime_config_invalid_message_uses_governed_prefix():
     assert _runtime_config_invalid_message(issues) == (
         f"{_RUNTIME_CONFIG_INVALID_PREFIX}:{_DIAGNOSTIC_LIST_SEPARATOR.join(issues)}"
     )
+
+
+def test_normalized_enterprise_policy_version_trims_configured_value(monkeypatch):
+    monkeypatch.setenv(_ENV_ENTERPRISE_POLICY_VERSION, " 2.0.0 ")
+
+    assert _normalized_enterprise_policy_version() == "2.0.0"
 
 
 @pytest.mark.parametrize(
