@@ -7,6 +7,10 @@ from app.enterprise_readiness import (
     _DEFAULT_ENTERPRISE_POLICY_VERSION,
     _ENV_ENTERPRISE_ENFORCE_AUTHZ,
     _ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ,
+    _ENV_ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES,
+    _ENV_ENTERPRISE_POLICY_VERSION,
+    _ENV_ENTERPRISE_PRIMARY_KEY_ID,
+    _ENV_ENTERPRISE_SECRET_ROTATION_DAYS,
     _HTTP_STATUS_FORBIDDEN,
     _HTTP_STATUS_PAYLOAD_TOO_LARGE,
     _MISSING_POLICY_VERSION_ISSUE,
@@ -177,23 +181,23 @@ def test_authorize_privileged_read_request_enforces_required_headers_and_capabil
 
 
 def test_validate_enterprise_runtime_config_reports_rotation_issue(monkeypatch):
-    monkeypatch.setenv("ENTERPRISE_SECRET_ROTATION_DAYS", "120")
+    monkeypatch.setenv(_ENV_ENTERPRISE_SECRET_ROTATION_DAYS, "120")
     issues = validate_enterprise_runtime_config()
     assert _SECRET_ROTATION_DAYS_OUT_OF_RANGE_ISSUE in issues
 
 
 def test_invalid_json_and_invalid_int_env_defaults(monkeypatch):
     monkeypatch.setenv("ENTERPRISE_FEATURE_FLAGS_JSON", "{bad")
-    monkeypatch.setenv("ENTERPRISE_SECRET_ROTATION_DAYS", "not-a-number")
+    monkeypatch.setenv(_ENV_ENTERPRISE_SECRET_ROTATION_DAYS, "not-a-number")
     assert is_feature_enabled("analytics.risk", "tenant-x", "analyst") is False
     issues = validate_enterprise_runtime_config()
     assert _SECRET_ROTATION_DAYS_OUT_OF_RANGE_ISSUE not in issues
 
 
 def test_validate_runtime_config_flags_missing_policy_and_key(monkeypatch):
-    monkeypatch.setenv("ENTERPRISE_POLICY_VERSION", " ")
+    monkeypatch.setenv(_ENV_ENTERPRISE_POLICY_VERSION, " ")
     monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "true")
-    monkeypatch.delenv("ENTERPRISE_PRIMARY_KEY_ID", raising=False)
+    monkeypatch.delenv(_ENV_ENTERPRISE_PRIMARY_KEY_ID, raising=False)
     issues = validate_enterprise_runtime_config()
     assert _MISSING_POLICY_VERSION_ISSUE in issues
     assert _MISSING_PRIMARY_KEY_ID_ISSUE in issues
@@ -201,14 +205,14 @@ def test_validate_runtime_config_flags_missing_policy_and_key(monkeypatch):
 
 
 def test_enterprise_policy_version_trims_configured_value(monkeypatch):
-    monkeypatch.setenv("ENTERPRISE_POLICY_VERSION", " 2.0.0 ")
+    monkeypatch.setenv(_ENV_ENTERPRISE_POLICY_VERSION, " 2.0.0 ")
     assert enterprise_policy_version() == "2.0.0"
 
 
 @pytest.mark.asyncio
 async def test_middleware_blocks_oversized_payload(monkeypatch):
     monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "false")
-    monkeypatch.setenv("ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES", "1")
+    monkeypatch.setenv(_ENV_ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES, "1")
     middleware = build_enterprise_audit_middleware()
     scope = {
         "type": "http",
@@ -275,7 +279,7 @@ async def test_middleware_normalizes_blank_denied_audit_identity(monkeypatch, mo
 @pytest.mark.asyncio
 async def test_middleware_accepts_invalid_content_length_and_sets_policy_header(monkeypatch, mocker):
     monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "false")
-    monkeypatch.setenv("ENTERPRISE_POLICY_VERSION", "2.0.0")
+    monkeypatch.setenv(_ENV_ENTERPRISE_POLICY_VERSION, "2.0.0")
     middleware = build_enterprise_audit_middleware()
     emit = mocker.patch("app.enterprise_readiness.emit_audit_event")
 

@@ -26,6 +26,7 @@ from app.enterprise_readiness import (
     _CAPABILITIES_HEADER,
     _CONTENT_LENGTH_HEADER,
     _CORRELATION_ID_HEADER,
+    _DEFAULT_MAX_WRITE_PAYLOAD_BYTES,
     _DEFAULT_TENANT_ID,
     _ENTERPRISE_AUDIT_EVENT_NAME,
     _ENTERPRISE_AUDIT_EXTRA_KEY,
@@ -33,6 +34,10 @@ from app.enterprise_readiness import (
     _ENV_ENTERPRISE_ENFORCE_AUTHZ,
     _ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ,
     _ENV_ENTERPRISE_ENFORCE_RUNTIME_CONFIG,
+    _ENV_ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES,
+    _ENV_ENTERPRISE_POLICY_VERSION,
+    _ENV_ENTERPRISE_PRIMARY_KEY_ID,
+    _ENV_ENTERPRISE_SECRET_ROTATION_DAYS,
     _HTTP_STATUS_FORBIDDEN,
     _HTTP_STATUS_PAYLOAD_TOO_LARGE,
     _MISSING_CAPABILITY_REASON,
@@ -96,8 +101,8 @@ from app.enterprise_readiness import (
 
 
 def test_validate_enterprise_runtime_config_raises_when_enforcement_enabled(monkeypatch):
-    monkeypatch.setenv("ENTERPRISE_POLICY_VERSION", " ")
-    monkeypatch.setenv("ENTERPRISE_SECRET_ROTATION_DAYS", "120")
+    monkeypatch.setenv(_ENV_ENTERPRISE_POLICY_VERSION, " ")
+    monkeypatch.setenv(_ENV_ENTERPRISE_SECRET_ROTATION_DAYS, "120")
     monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_RUNTIME_CONFIG, "true")
 
     with pytest.raises(RuntimeError, match="enterprise_runtime_config_invalid"):
@@ -185,7 +190,7 @@ def test_runtime_config_enforcement_enabled_uses_governed_env_switch(monkeypatch
     ],
 )
 def test_primary_key_configured_requires_non_blank_value(monkeypatch, configured, expected):
-    monkeypatch.setenv("ENTERPRISE_PRIMARY_KEY_ID", configured)
+    monkeypatch.setenv(_ENV_ENTERPRISE_PRIMARY_KEY_ID, configured)
 
     assert _primary_key_configured() is expected
 
@@ -194,12 +199,12 @@ def test_primary_key_configured_requires_non_blank_value(monkeypatch, configured
     ("configured", "expected"),
     [
         ("512", 512),
-        ("invalid", 1_048_576),
-        ("", 1_048_576),
+        ("invalid", _DEFAULT_MAX_WRITE_PAYLOAD_BYTES),
+        ("", _DEFAULT_MAX_WRITE_PAYLOAD_BYTES),
     ],
 )
 def test_max_write_payload_bytes_uses_configured_int_or_default(monkeypatch, configured, expected):
-    monkeypatch.setenv("ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES", configured)
+    monkeypatch.setenv(_ENV_ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES, configured)
 
     assert _max_write_payload_bytes() == expected
 
@@ -273,7 +278,7 @@ def test_has_service_identity_accepts_service_identity_or_authorization(headers,
 
 
 def test_audit_event_payload_redacts_metadata_and_includes_policy_version(monkeypatch):
-    monkeypatch.setenv("ENTERPRISE_POLICY_VERSION", " 2.1.0 ")
+    monkeypatch.setenv(_ENV_ENTERPRISE_POLICY_VERSION, " 2.1.0 ")
 
     payload = _audit_event_payload(
         action="POST /analytics",
@@ -356,7 +361,7 @@ def test_payload_too_large_response_uses_governed_response_envelope():
 
 
 def test_apply_enterprise_policy_header_sets_normalized_policy_version(monkeypatch):
-    monkeypatch.setenv("ENTERPRISE_POLICY_VERSION", " 2.2.0 ")
+    monkeypatch.setenv(_ENV_ENTERPRISE_POLICY_VERSION, " 2.2.0 ")
     response = Response()
 
     returned = _apply_enterprise_policy_header(response)
@@ -573,10 +578,10 @@ def test_feature_flag_enabled_fails_closed_for_malformed_blocks():
 
 
 def test_enterprise_runtime_config_issues_reports_policy_rotation_and_key(monkeypatch):
-    monkeypatch.setenv("ENTERPRISE_POLICY_VERSION", " ")
-    monkeypatch.setenv("ENTERPRISE_SECRET_ROTATION_DAYS", "91")
+    monkeypatch.setenv(_ENV_ENTERPRISE_POLICY_VERSION, " ")
+    monkeypatch.setenv(_ENV_ENTERPRISE_SECRET_ROTATION_DAYS, "91")
     monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "true")
-    monkeypatch.delenv("ENTERPRISE_PRIMARY_KEY_ID", raising=False)
+    monkeypatch.delenv(_ENV_ENTERPRISE_PRIMARY_KEY_ID, raising=False)
 
     assert _enterprise_runtime_config_issues() == [
         _MISSING_POLICY_VERSION_ISSUE,
@@ -586,7 +591,7 @@ def test_enterprise_runtime_config_issues_reports_policy_rotation_and_key(monkey
 
 
 def test_enterprise_runtime_config_issues_uses_default_for_invalid_rotation_days(monkeypatch):
-    monkeypatch.setenv("ENTERPRISE_SECRET_ROTATION_DAYS", "invalid")
+    monkeypatch.setenv(_ENV_ENTERPRISE_SECRET_ROTATION_DAYS, "invalid")
 
     assert _SECRET_ROTATION_DAYS_OUT_OF_RANGE_ISSUE not in _enterprise_runtime_config_issues()
 

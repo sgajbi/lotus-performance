@@ -57,6 +57,12 @@ _UNKNOWN_ROLE = "unknown"
 _ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ = "ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ"
 _ENV_ENTERPRISE_ENFORCE_AUTHZ = "ENTERPRISE_ENFORCE_AUTHZ"
 _ENV_ENTERPRISE_ENFORCE_RUNTIME_CONFIG = "ENTERPRISE_ENFORCE_RUNTIME_CONFIG"
+_ENV_ENTERPRISE_PRIMARY_KEY_ID = "ENTERPRISE_PRIMARY_KEY_ID"
+_ENV_ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES = "ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES"
+_ENV_ENTERPRISE_POLICY_VERSION = "ENTERPRISE_POLICY_VERSION"
+_ENV_ENTERPRISE_SECRET_ROTATION_DAYS = "ENTERPRISE_SECRET_ROTATION_DAYS"
+_DEFAULT_MAX_WRITE_PAYLOAD_BYTES = 1_048_576
+_DEFAULT_SECRET_ROTATION_DAYS = 90
 _WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 _REQUIRED_HEADERS = {_ACTOR_ID_HEADER, _TENANT_ID_HEADER, _ROLE_HEADER, _CORRELATION_ID_HEADER}
 _DEFAULT_CAPABILITY_RULES = {
@@ -106,11 +112,11 @@ def _runtime_config_enforcement_enabled() -> bool:
 
 
 def _primary_key_configured() -> bool:
-    return bool(os.getenv("ENTERPRISE_PRIMARY_KEY_ID", "").strip())
+    return bool(os.getenv(_ENV_ENTERPRISE_PRIMARY_KEY_ID, "").strip())
 
 
 def _max_write_payload_bytes() -> int:
-    return _env_int("ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES", 1_048_576)
+    return _env_int(_ENV_ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES, _DEFAULT_MAX_WRITE_PAYLOAD_BYTES)
 
 
 def _load_json_map(name: str) -> dict[str, Any]:
@@ -130,7 +136,7 @@ def _env_int(name: str, default: int) -> int:
 
 
 def _configured_enterprise_policy_version() -> str:
-    return os.getenv("ENTERPRISE_POLICY_VERSION", _DEFAULT_ENTERPRISE_POLICY_VERSION)
+    return os.getenv(_ENV_ENTERPRISE_POLICY_VERSION, _DEFAULT_ENTERPRISE_POLICY_VERSION)
 
 
 def enterprise_policy_version() -> str:
@@ -142,8 +148,8 @@ def _enterprise_runtime_config_issues() -> list[str]:
     if not _configured_enterprise_policy_version().strip():
         issues.append(_MISSING_POLICY_VERSION_ISSUE)
 
-    rotation_days = _env_int("ENTERPRISE_SECRET_ROTATION_DAYS", 90)
-    if rotation_days <= 0 or rotation_days > 90:
+    rotation_days = _env_int(_ENV_ENTERPRISE_SECRET_ROTATION_DAYS, _DEFAULT_SECRET_ROTATION_DAYS)
+    if rotation_days <= 0 or rotation_days > _DEFAULT_SECRET_ROTATION_DAYS:
         issues.append(_SECRET_ROTATION_DAYS_OUT_OF_RANGE_ISSUE)
 
     if _write_authz_enabled() and not _primary_key_configured():
