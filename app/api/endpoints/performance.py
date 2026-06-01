@@ -19,7 +19,11 @@ from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode, TWRResolv
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
 from app.models.workspace_summary_responses import WorkspaceSummaryAcceptedResponse, WorkspaceSummaryResponse
 from app.observability import record_mwr_solver_outcome
-from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR, ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
+from app.services.analytics_workflow_types import (
+    ANALYTICS_WORKFLOW_MWR,
+    ANALYTICS_WORKFLOW_TWR,
+    ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
+)
 from app.services.async_result_service import resolve_async_result
 from app.services.attribution_mode_service import resolve_attribution_request
 from app.services.attribution_service import calculate_attribution
@@ -564,7 +568,7 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
     input_fingerprint, calculation_hash = generate_canonical_hash(request, active_settings.APP_VERSION)
     register_sync_execution_or_raise(
         calculation_id=request.calculation_id,
-        analytics_type="MWR",
+        analytics_type=ANALYTICS_WORKFLOW_MWR,
         portfolio_id=request.portfolio_id,
         requested_window={
             "as_of": str(request.as_of),
@@ -711,7 +715,7 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
 
     complete_execution_with_lineage(
         calculation_id=request.calculation_id,
-        calculation_type="MWR",
+        calculation_type=ANALYTICS_WORKFLOW_MWR,
         request_model=mwr_request if request.input_mode == MWRInputMode.STATEFUL else request,
         response_model=response_model,
         execution_details={"cashflows": len(mwr_request.cash_flows)},
