@@ -30,6 +30,8 @@ from app.enterprise_readiness import (
     _ENTERPRISE_AUDIT_EVENT_NAME,
     _ENTERPRISE_AUDIT_EXTRA_KEY,
     _ENTERPRISE_POLICY_VERSION_HEADER,
+    _MISSING_CAPABILITY_REASON,
+    _MISSING_HEADERS_REASON,
     _PAYLOAD_TOO_LARGE_DETAIL,
     _REDACTED_VALUE,
     _RESPONSE_DETAIL_KEY,
@@ -61,6 +63,8 @@ from app.enterprise_readiness import (
     _is_write_method,
     _load_capability_rule_family,
     _max_write_payload_bytes,
+    _missing_capability_reason,
+    _missing_headers_reason,
     _missing_required_headers,
     _normalized_headers,
     _payload_too_large_response,
@@ -445,6 +449,15 @@ def test_authorization_denial_metadata_uses_governed_reason_key():
         _RESPONSE_REASON_KEY: "missing_service_identity",
     }
     assert _authorization_denial_metadata(None) == {_RESPONSE_REASON_KEY: None}
+
+
+def test_authorization_reason_helpers_use_governed_reason_tokens():
+    assert _missing_headers_reason([_ACTOR_ID_HEADER, _ROLE_HEADER]) == (
+        f"{_MISSING_HEADERS_REASON}:{_ACTOR_ID_HEADER},{_ROLE_HEADER}"
+    )
+    assert _missing_capability_reason("operations.runtime.manage") == (
+        f"{_MISSING_CAPABILITY_REASON}:operations.runtime.manage"
+    )
 
 
 def test_request_action_helpers_format_governed_audit_actions():

@@ -33,6 +33,9 @@ _RESPONSE_REASON_KEY = "reason"
 _AUTHORIZATION_POLICY_DENIED_DETAIL = "authorization_policy_denied"
 _PAYLOAD_TOO_LARGE_DETAIL = "payload_too_large"
 _REDACTED_VALUE = "***REDACTED***"
+_MISSING_HEADERS_REASON = "missing_headers"
+_MISSING_SERVICE_IDENTITY_REASON = "missing_service_identity"
+_MISSING_CAPABILITY_REASON = "missing_capability"
 _CAPABILITIES_HEADER = "x-capabilities"
 _SERVICE_IDENTITY_HEADER = "x-service-identity"
 _AUTHORIZATION_HEADER = "authorization"
@@ -354,6 +357,14 @@ def _payload_too_large_response() -> JSONResponse:
     return JSONResponse(status_code=413, content={_RESPONSE_DETAIL_KEY: _PAYLOAD_TOO_LARGE_DETAIL})
 
 
+def _missing_headers_reason(missing_headers: list[str]) -> str:
+    return f"{_MISSING_HEADERS_REASON}:{','.join(missing_headers)}"
+
+
+def _missing_capability_reason(required_capability: str | None) -> str:
+    return f"{_MISSING_CAPABILITY_REASON}:{required_capability}"
+
+
 def _authorize_with_required_capability(
     *,
     method: str,
@@ -364,13 +375,13 @@ def _authorize_with_required_capability(
     normalized = _normalized_headers(headers)
     missing = _missing_required_headers(normalized)
     if missing:
-        return False, f"missing_headers:{','.join(missing)}"
+        return False, _missing_headers_reason(missing)
 
     if not _has_service_identity(normalized):
-        return False, "missing_service_identity"
+        return False, _MISSING_SERVICE_IDENTITY_REASON
 
     if not _has_required_capability(normalized, required_capability):
-        return False, f"missing_capability:{required_capability}"
+        return False, _missing_capability_reason(required_capability)
 
     return True, None
 
