@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-import json
 import logging
-import os
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 from uuid import UUID
 
@@ -16,7 +15,7 @@ from app.models.responses import PerformanceResponse
 from app.models.twr_requests import TWRAnalyticsRequest, TWRResolvedExecutionRequest
 from app.services.async_result_store import async_result_store
 from app.services.compute_job_store import compute_job_store
-from app.services.durable_store_json import load_json_object_or_none
+from app.services.durable_store_json import load_json_object_or_none, read_json_file
 from app.services.lineage_metadata_store import lineage_metadata_store
 
 logger = logging.getLogger(__name__)
@@ -56,15 +55,14 @@ def load_existing_twr_calculation_artifacts(calculation_id: UUID) -> ExistingTWR
             ),
         )
 
-    response_path = os.path.join(get_settings().LINEAGE_STORAGE_PATH, str(calculation_id), "response.json")
-    request_path = os.path.join(get_settings().LINEAGE_STORAGE_PATH, str(calculation_id), "request.json")
-    if os.path.exists(response_path):
-        with open(response_path, "r", encoding="utf-8") as response_file:
-            response_payload = json.load(response_file)
+    lineage_directory = Path(get_settings().LINEAGE_STORAGE_PATH) / str(calculation_id)
+    response_path = lineage_directory / "response.json"
+    request_path = lineage_directory / "request.json"
+    if response_path.exists():
+        response_payload = read_json_file(response_path)
         request_payload = None
-        if os.path.exists(request_path):
-            with open(request_path, "r", encoding="utf-8") as request_file:
-                request_payload = json.load(request_file)
+        if request_path.exists():
+            request_payload = read_json_file(request_path)
         return ExistingTWRCalculationArtifacts(
             response_model=PerformanceResponse.model_validate(response_payload),
             request_payload=request_payload,
@@ -121,10 +119,9 @@ def _load_request_payload(calculation_id: UUID, *, wait_seconds: float = 0.0) ->
             if request_payload is not None:
                 return request_payload
 
-        request_path = os.path.join(get_settings().LINEAGE_STORAGE_PATH, str(calculation_id), "request.json")
-        if os.path.exists(request_path):
-            with open(request_path, "r", encoding="utf-8") as request_file:
-                return json.load(request_file)
+        request_path = Path(get_settings().LINEAGE_STORAGE_PATH) / str(calculation_id) / "request.json"
+        if request_path.exists():
+            return read_json_file(request_path)
         compute_job = compute_job_store.get_job(calculation_id)
         if compute_job is not None:
             return compute_job.request_payload
