@@ -129,17 +129,43 @@ def validate_history_entry_strings(
     required_keys: tuple[str, ...],
     optional_keys: tuple[str, ...],
 ) -> HistoryEntryStrings | None:
-    if any(not isinstance(entry.get(key), str) or not entry[key].strip() for key in required_keys):
+    required_strings: dict[str, str] = {}
+    for key in required_keys:
+        normalized_value = _normalize_required_history_string(entry.get(key))
+        if normalized_value is None:
+            return None
+        required_strings[key] = normalized_value
+
+    evidence_file_name = required_strings.get("evidence_file_name")
+    if evidence_file_name is None or not is_safe_evidence_file_name(evidence_file_name):
         return None
-    evidence_file_name = entry.get("evidence_file_name")
-    if not isinstance(evidence_file_name, str) or not is_safe_evidence_file_name(evidence_file_name):
-        return None
-    if any(entry.get(key) is not None and not isinstance(entry.get(key), str) for key in optional_keys):
-        return None
+
+    optional_strings: dict[str, str | None] = {}
+    for key in optional_keys:
+        is_valid, normalized_value = _normalize_optional_history_string(entry.get(key))
+        if not is_valid:
+            return None
+        optional_strings[key] = normalized_value
+
     return {
-        **{key: entry[key] for key in required_keys},
-        **{key: entry.get(key) for key in optional_keys},
+        **required_strings,
+        **optional_strings,
     }
+
+
+def _normalize_required_history_string(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip()
+    return normalized or None
+
+
+def _normalize_optional_history_string(value: Any) -> tuple[bool, str | None]:
+    if value is None:
+        return True, None
+    if not isinstance(value, str):
+        return False, None
+    return True, value.strip() or None
 
 
 def build_history_manifest_payload(
