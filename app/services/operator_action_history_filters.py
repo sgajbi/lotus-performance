@@ -66,7 +66,7 @@ def build_applied_history_filters(
     if offset > 0:
         filters["offset"] = offset
     for key, value in optional_filters:
-        normalized_value = _normalize_optional_history_filter(value)
+        normalized_value = normalize_optional_evidence_identifier(value) if isinstance(value, str) else value
         if normalized_value is not None:
             filters[key] = normalized_value
     if generated_after is not None:
@@ -86,7 +86,11 @@ def filter_history_entries(
 ) -> list[HistoryEntryT]:
     filtered = entries
     for expected_value, read_value in exact_filters:
-        normalized_expected = _normalize_optional_history_filter(expected_value)
+        normalized_expected = (
+            normalize_optional_evidence_identifier(expected_value)
+            if isinstance(expected_value, str)
+            else expected_value
+        )
         if isinstance(normalized_expected, str):
             filtered = [entry for entry in filtered if read_value(entry) == normalized_expected]
 
@@ -101,9 +105,3 @@ def filter_history_entries(
             if generated_at_within_bounds(get_generated_at_utc(entry), bounds=generated_at_bounds)
         ]
     return filtered
-
-
-def _normalize_optional_history_filter(value: str | int | None) -> str | int | None:
-    if isinstance(value, str):
-        return normalize_optional_evidence_identifier(value)
-    return value
