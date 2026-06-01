@@ -308,6 +308,10 @@ def _write_payload_too_large(
     return _is_write_method(method) and _content_length(headers) > max_write_payload_bytes
 
 
+def _payload_too_large_response() -> JSONResponse:
+    return JSONResponse(status_code=413, content={_RESPONSE_DETAIL_KEY: _PAYLOAD_TOO_LARGE_DETAIL})
+
+
 def _authorize_with_required_capability(
     *,
     method: str,
@@ -439,7 +443,7 @@ def build_enterprise_audit_middleware() -> Callable[
             headers=request.headers,
             max_write_payload_bytes=_max_write_payload_bytes(),
         ):
-            return JSONResponse(status_code=413, content={_RESPONSE_DETAIL_KEY: _PAYLOAD_TOO_LARGE_DETAIL})
+            return _payload_too_large_response()
 
         audit_identity = _audit_identity_from_headers(request.headers)
         authorized, reason = _authorize_enterprise_request(
