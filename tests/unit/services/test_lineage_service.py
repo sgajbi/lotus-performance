@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 from pydantic import BaseModel
 
+from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR_INSPECTION
 from app.services.execution_stage_names import (
     EXECUTION_STAGE_ARTIFACT_MATERIALIZATION,
     EXECUTION_STAGE_LINEAGE_MATERIALIZATION,
@@ -20,7 +21,10 @@ class MockModel(BaseModel):
 
 
 def test_resolve_artifact_stage_name_uses_canonical_stage_names():
-    assert resolve_artifact_stage_name(calculation_type="TWR_INSPECTION") == EXECUTION_STAGE_ARTIFACT_MATERIALIZATION
+    assert (
+        resolve_artifact_stage_name(calculation_type=ANALYTICS_WORKFLOW_TWR_INSPECTION)
+        == EXECUTION_STAGE_ARTIFACT_MATERIALIZATION
+    )
     assert resolve_artifact_stage_name(calculation_type="TWR") == EXECUTION_STAGE_LINEAGE_MATERIALIZATION
 
 

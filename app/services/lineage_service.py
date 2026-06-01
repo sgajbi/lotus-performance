@@ -12,6 +12,7 @@ import pandas as pd
 from pydantic import BaseModel
 
 from app.core.config import get_settings
+from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR_INSPECTION
 from app.services.durable_store_time import format_timestamp
 from app.services.execution_registry import ExecutionRegistry, execution_registry
 from app.services.execution_stage_names import (
@@ -24,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 def resolve_artifact_stage_name(*, calculation_type: str) -> str:
-    if calculation_type == "TWR_INSPECTION":
+    if calculation_type == ANALYTICS_WORKFLOW_TWR_INSPECTION:
         return EXECUTION_STAGE_ARTIFACT_MATERIALIZATION
     return EXECUTION_STAGE_LINEAGE_MATERIALIZATION
 
