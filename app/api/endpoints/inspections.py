@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse, Response
 from app.core.config import get_settings
 from app.models.inspection_requests import TWRInspectionRequest
 from app.models.inspection_responses import TWRInspectionAcceptedResponse, TWRInspectionResponse
+from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR_INSPECTION
 from app.services.async_result_service import resolve_async_result
 from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import LineageStatus, lineage_metadata_store
@@ -61,7 +62,7 @@ def submit_twr_inspection(request: TWRInspectionRequest):
     }
     return register_async_submission_or_raise(
         calculation_id=request.inspection_id,
-        analytics_type="TWR_INSPECTION",
+        analytics_type=ANALYTICS_WORKFLOW_TWR_INSPECTION,
         portfolio_id=portfolio_id,
         requested_window=requested_window,
         input_fingerprint=input_fingerprint,
@@ -149,7 +150,11 @@ def get_twr_inspection_artifact(
     ),
 ):
     record = lineage_metadata_store.get_record(inspection_id)
-    if record is None or record.calculation_type != "TWR_INSPECTION" or record.status != LineageStatus.COMPLETE:
+    if (
+        record is None
+        or record.calculation_type != ANALYTICS_WORKFLOW_TWR_INSPECTION
+        or record.status != LineageStatus.COMPLETE
+    ):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inspection artifact not found.")
     if artifact_name not in record.artifact_names:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inspection artifact not found.")

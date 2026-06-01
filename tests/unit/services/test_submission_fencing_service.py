@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from app.services.compute_job_store import ComputeJobRegistrationResult, ComputeJobRegistrationStatus
 from app.services.execution_registry import ExecutionRegistrationResult, ExecutionRegistrationStatus
+from app.services.execution_stage_names import EXECUTION_STAGE_SUBMISSION
 from app.services.submission_fencing_service import (
     promote_existing_execution_to_async_submission_or_raise,
     register_async_submission_or_raise,
@@ -61,8 +62,10 @@ def test_register_async_submission_does_not_bootstrap_schema_per_request(mocker)
     assert response.status_code == 202
     register_execution.assert_called_once()
     register_job.assert_called_once()
-    start_stage.assert_called_once_with(calculation_id, "submission")
-    complete_stage.assert_called_once_with(calculation_id, "submission", details={"offload_reason": "large_input"})
+    start_stage.assert_called_once_with(calculation_id, EXECUTION_STAGE_SUBMISSION)
+    complete_stage.assert_called_once_with(
+        calculation_id, EXECUTION_STAGE_SUBMISSION, details={"offload_reason": "large_input"}
+    )
 
 
 def test_register_async_submission_replay_does_not_reopen_submission_stage(mocker):
@@ -129,8 +132,10 @@ def test_register_async_submission_replay_self_heals_missing_job(mocker):
     )
 
     assert response.status_code == 202
-    start_stage.assert_called_once_with(calculation_id, "submission")
-    complete_stage.assert_called_once_with(calculation_id, "submission", details={"offload_reason": "large_input"})
+    start_stage.assert_called_once_with(calculation_id, EXECUTION_STAGE_SUBMISSION)
+    complete_stage.assert_called_once_with(
+        calculation_id, EXECUTION_STAGE_SUBMISSION, details={"offload_reason": "large_input"}
+    )
 
 
 def test_register_async_submission_conflict_on_job_payload_drift_raises_409(mocker):
@@ -188,7 +193,7 @@ def test_register_async_submission_cleans_up_new_execution_on_job_conflict(mocke
         )
 
     assert exc_info.value.status_code == 409
-    start_stage.assert_called_once_with(calculation_id, "submission")
+    start_stage.assert_called_once_with(calculation_id, EXECUTION_STAGE_SUBMISSION)
     delete_execution.assert_called_once_with(calculation_id)
 
 
@@ -291,10 +296,10 @@ def test_promote_existing_execution_defers_execution_mutation_until_job_registra
     register_job.assert_called_once()
     update_contract.assert_called_once()
     update_identity.assert_called_once()
-    start_stage.assert_called_once_with(calculation_id, "submission")
+    start_stage.assert_called_once_with(calculation_id, EXECUTION_STAGE_SUBMISSION)
     complete_stage.assert_called_once_with(
         calculation_id,
-        "submission",
+        EXECUTION_STAGE_SUBMISSION,
         details={"offload_reason": "large_resolved_stateful_contribution"},
     )
 

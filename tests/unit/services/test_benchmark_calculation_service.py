@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pandas as pd
@@ -83,6 +84,48 @@ def test_calculate_benchmark_artifacts_builds_calculated_period_results_with_opt
     assert period_result.benchmark.summary.period_return.fx == pytest.approx(0.32)
 
 
+def test_calculate_benchmark_artifacts_normalizes_mixed_date_like_artifact_rows(monkeypatch):
+    request = _calculated_request(include_timeseries=True)
+
+    monkeypatch.setattr(
+        benchmark_calculation_service,
+        "calculate_benchmark_returns",
+        lambda component_observations: SimpleNamespace(
+            daily_returns_df=pd.DataFrame(
+                {
+                    "date": [pd.Timestamp("2025-01-01T15:00:00Z"), "2025-01-02"],
+                    "benchmark_return": [0.01, 0.02],
+                    "benchmark_return_local": [0.008, 0.009],
+                    "benchmark_return_fx": [0.002, 0.011],
+                }
+            ),
+            component_contributions_df=pd.DataFrame(
+                {
+                    "date": ["2025-01-01", pd.Timestamp("2025-01-02T11:00:00Z")],
+                    "component_id": ["IDX_1", "IDX_1"],
+                    "weight_bop": [1.0, 1.0],
+                    "component_return": [0.01, 0.02],
+                    "contribution": [0.01, 0.02],
+                }
+            ),
+            notes=[],
+            effective_period_start=date(2025, 1, 1),
+            max_weight_sum_deviation=0.0,
+        ),
+    )
+
+    artifacts = benchmark_calculation_service.calculate_benchmark_artifacts(request)
+
+    assert list(artifacts.daily_returns_df["date"]) == [date(2025, 1, 1), date(2025, 1, 2)]
+    assert list(artifacts.component_contributions_df["date"]) == [date(2025, 1, 1), date(2025, 1, 2)]
+    period_result = artifacts.results_by_period["ITD"]
+    assert [row.date for row in period_result.daily_returns or []] == [date(2025, 1, 1), date(2025, 1, 2)]
+    assert [row.date for row in period_result.component_contributions or []] == [
+        date(2025, 1, 1),
+        date(2025, 1, 2),
+    ]
+
+
 def test_calculate_benchmark_artifacts_omits_timeseries_when_not_requested():
     request = _calculated_request(include_timeseries=False)
 
@@ -155,7 +198,11 @@ def test_benchmark_calculation_helpers_cover_breakdown_and_scaling_edges():
 def test_benchmark_breakdowns_label_weekly_quarterly_and_yearly_periods():
     df = pd.DataFrame(
         {
-            "date": [date(2025, 1, 3), date(2025, 3, 31), date(2025, 12, 31)],
+            "date": [
+                pd.Timestamp("2025-01-03T10:00:00Z"),
+                "2025-03-31",
+                pd.Timestamp("2025-12-31T10:00:00Z"),
+            ],
             "benchmark_return": [0.01, 0.02, 0.03],
             "benchmark_return_local": [0.01, 0.02, 0.03],
             "benchmark_return_fx": [0.0, 0.0, 0.0],

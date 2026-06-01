@@ -15,6 +15,7 @@ from app.models.contribution_requests import ContributionRequest
 from app.models.contribution_responses import PositionContributionSeries, PositionDailyContribution
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
 from app.services import attribution_service, contribution_service
+from app.services.attribution_service import _slice_attribution_effects_by_period
 from common.enums import AttributionModel, LinkingMethod, PeriodType
 
 
@@ -205,7 +206,7 @@ def test_contribution_service_uses_runtime_app_version(mocker):
         "app.services.contribution_service._calculate_daily_instrument_contributions",
         return_value=pd.DataFrame(
             {
-                "perf_date": [pd.Timestamp("2025-01-01").date(), pd.Timestamp("2025-01-02").date()],
+                "perf_date": [pd.Timestamp("2025-01-01T10:00:00Z"), "2025-01-02"],
                 "position_id": ["A", "A"],
                 "smoothed_contribution": [0.01, 0.02],
                 "smoothed_local_contribution": [0.01, 0.02],
@@ -2219,3 +2220,25 @@ def test_attribution_service_uses_runtime_app_version(mocker):
 
     assert response.meta.engine_version == "runtime-version"
     assert captured["response_model"].meta.engine_version == "runtime-version"
+
+
+def test_slice_attribution_effects_by_period_uses_timestamp_boundaries():
+    effects_df = pd.DataFrame(
+        {"total_effect": [0.1, 0.2, 0.3]},
+        index=pd.MultiIndex.from_tuples(
+            [
+                (pd.Timestamp("2025-01-01T12:00:00"), "Tech"),
+                (pd.Timestamp("2025-01-02T12:00:00"), "Tech"),
+                (pd.Timestamp("2025-01-03T12:00:00"), "Tech"),
+            ],
+            names=["date", "group"],
+        ),
+    )
+
+    period_df = _slice_attribution_effects_by_period(
+        effects_df,
+        start_date=pd.Timestamp("2025-01-02").date(),
+        end_date=pd.Timestamp("2025-01-03").date(),
+    )
+
+    assert period_df["total_effect"].tolist() == [0.2]

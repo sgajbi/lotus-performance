@@ -13,7 +13,7 @@ from typing import Any, Iterator, cast
 from fastapi import HTTPException, status
 
 from app.services.durable_store_json import read_json_file
-from app.services.durable_store_time import format_timestamp
+from app.services.durable_store_time import elapsed_seconds_since, format_timestamp
 from app.services.operator_action_evidence_strings import (
     is_optional_evidence_string,
     is_required_evidence_int,
@@ -238,7 +238,7 @@ def build_operator_action_lease_snapshot(
     typed_leases = tuple(
         sorted(
             (lease for lease in leases if isinstance(lease, ActiveOperatorActionLease)),
-            key=lambda item: _parse_utc(item.acquired_at_utc),
+            key=lambda item: parse_utc_datetime(item.acquired_at_utc),
         )
     )
     return OperatorActionLeaseSnapshot(
@@ -265,7 +265,7 @@ _RECLAIM_HISTORY_LIMIT = 20
 
 def _normalize_lease_metadata(metadata: OperatorActionLeaseMetadata) -> OperatorActionLeaseMetadata:
     acquired_at_utc = normalize_required_evidence_identifier(metadata.acquired_at_utc, field_name="acquired_at_utc")
-    _parse_utc(acquired_at_utc)
+    parse_utc_datetime(acquired_at_utc)
     return OperatorActionLeaseMetadata(
         action_name=normalize_required_evidence_identifier(metadata.action_name, field_name="action_name"),
         operator_id=normalize_required_evidence_identifier(metadata.operator_id, field_name="operator_id"),
@@ -305,7 +305,7 @@ def _read_active_operator_action_lease(*, lock_path: Path) -> ActiveOperatorActi
     governed_target_value = cast(str, governed_target)
     acquired_at_utc_value = cast(str, acquired_at_utc)
     try:
-        _parse_utc(acquired_at_utc_value)
+        parse_utc_datetime(acquired_at_utc_value)
     except ValueError:
         return _INVALID_LEASE
     return ActiveOperatorActionLease(
@@ -453,8 +453,8 @@ def _parse_reclaimed_event_payload(
     stale_after_seconds = cast(Any, stale_after_seconds)
     action_key_value = cast(str, action_key)
     try:
-        _parse_utc(acquired_at_utc_value)
-        _parse_utc(reclaimed_at_utc_value)
+        parse_utc_datetime(acquired_at_utc_value)
+        parse_utc_datetime(reclaimed_at_utc_value)
     except ValueError:
         return _INVALID_LEASE
     return ReclaimedOperatorActionLeaseEvent(
@@ -470,10 +470,6 @@ def _parse_reclaimed_event_payload(
     )
 
 
-def _parse_utc(timestamp_utc: str) -> datetime:
-    return parse_utc_datetime(timestamp_utc)
-
-
 def _reclaim_stale_lock(
     *,
     lock_path: Path,
@@ -487,8 +483,8 @@ def _reclaim_stale_lock(
     if not isinstance(active_lease, ActiveOperatorActionLease):
         return False
     current_time = now_utc or datetime.now(UTC)
-    acquired_at = _parse_utc(active_lease.acquired_at_utc)
-    if (current_time - acquired_at).total_seconds() <= stale_after_seconds:
+    acquired_at = parse_utc_datetime(active_lease.acquired_at_utc)
+    if elapsed_seconds_since(current_time, acquired_at) <= stale_after_seconds:
         return False
     lock_path.unlink(missing_ok=True)
     try:

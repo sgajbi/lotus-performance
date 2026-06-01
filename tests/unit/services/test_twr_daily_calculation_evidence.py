@@ -1,6 +1,12 @@
 import pandas as pd
+import pytest
 
-from app.services.twr_service import _build_daily_calculation_evidence
+from app.services.twr_service import (
+    _build_daily_calculation_evidence,
+    _calculate_total_return_from_reset_slice,
+    _iter_frequency_windows,
+)
+from common.enums import Frequency
 from engine.schema import PortfolioColumns
 
 
@@ -77,6 +83,22 @@ def test_daily_calculation_evidence_before_effective_start_is_not_calculated():
     assert evidence.episode_status == "not_in_period"
     assert "BEFORE_EFFECTIVE_PERIOD_START" in evidence.reason_codes
     assert "BEFORE_EFFECTIVE_PERIOD_START" in evidence.warnings
+
+
+def test_daily_calculation_evidence_normalizes_mixed_date_like_boundaries():
+    evidence = _build_daily_calculation_evidence(
+        _row(
+            **{
+                PortfolioColumns.PERF_DATE.value: pd.Timestamp("2025-01-02T15:00:00Z"),
+                PortfolioColumns.EFFECTIVE_PERIOD_START_DATE.value: "2025-01-03",
+            }
+        ),
+        metric_basis="NET",
+    )
+
+    assert evidence.status == "not_calculated"
+    assert evidence.episode_status == "not_in_period"
+    assert "BEFORE_EFFECTIVE_PERIOD_START" in evidence.reason_codes
 
 
 def test_daily_calculation_evidence_records_reset_and_no_investment_reason_codes():
@@ -181,3 +203,56 @@ def test_daily_calculation_evidence_records_full_withdrawal_and_refunding_semant
 
     assert "FULL_WITHDRAWAL_DAY" in full_withdrawal.reason_codes
     assert "REFUNDING_DAY" in refunding.reason_codes
+
+
+def test_reset_slice_total_return_normalizes_mixed_date_like_boundaries():
+    daily_results_df = pd.DataFrame(
+        [
+            {
+                PortfolioColumns.PERF_DATE.value: pd.Timestamp("2025-01-01T21:00:00Z"),
+                PortfolioColumns.FINAL_CUM_ROR.value: 10.0,
+                PortfolioColumns.DAILY_ROR.value: 10.0,
+                PortfolioColumns.PERF_RESET.value: 0,
+            },
+            {
+                PortfolioColumns.PERF_DATE.value: "2025-01-02",
+                PortfolioColumns.FINAL_CUM_ROR.value: 21.0,
+                PortfolioColumns.DAILY_ROR.value: 10.0,
+                PortfolioColumns.PERF_RESET.value: 1,
+            },
+        ]
+    )
+
+    decomposition = _calculate_total_return_from_reset_slice(
+        daily_results_df.iloc[[1]].copy(),
+        daily_results_df,
+    )
+
+    assert decomposition.base == pytest.approx(10.0)
+    assert decomposition.local == decomposition.base
+    assert decomposition.fx == 0.0
+
+
+def test_frequency_windows_normalize_mixed_date_like_values_for_resampling():
+    period_df = pd.DataFrame(
+        {
+            PortfolioColumns.PERF_DATE.value: [
+                pd.Timestamp("2025-01-03T10:00:00Z"),
+                "2025-01-31",
+                pd.Timestamp("2025-02-28T10:00:00Z"),
+            ],
+            PortfolioColumns.DAILY_ROR.value: [1.0, 2.0, 3.0],
+            PortfolioColumns.PERF_RESET.value: [0, 0, 0],
+        }
+    )
+
+    windows = _iter_frequency_windows(
+        period_df,
+        date_column=PortfolioColumns.PERF_DATE.value,
+        frequency=Frequency.MONTHLY,
+    )
+
+    assert [(label, start_date.isoformat(), end_date.isoformat()) for label, start_date, end_date, _ in windows] == [
+        ("2025-01", "2025-01-03", "2025-01-31"),
+        ("2025-02", "2025-02-28", "2025-02-28"),
+    ]

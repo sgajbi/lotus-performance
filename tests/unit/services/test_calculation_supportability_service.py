@@ -49,6 +49,18 @@ def test_calculation_supportability_marks_lagged_observations_stale() -> None:
     assert supportability.freshness_bucket == "stale"
 
 
+def test_calculation_supportability_normalizes_date_like_freshness_inputs() -> None:
+    supportability = build_calculation_supportability(
+        input_row_count=4,
+        resolved_period_count=1,
+        latest_observation_date="2026-03-31T12:00:00Z",
+        report_end_date=date(2026, 3, 31),
+    )
+
+    assert supportability.state == "ready"
+    assert supportability.freshness_bucket == "current"
+
+
 def test_calculation_supportability_marks_source_quality_degraded() -> None:
     evidence = PerformanceSourceQualityEvidence(
         source_product="PortfolioTimeseriesInput",

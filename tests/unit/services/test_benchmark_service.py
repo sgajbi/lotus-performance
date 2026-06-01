@@ -10,6 +10,7 @@ import pytest
 from app.models.benchmark_analytics_requests import BenchmarkInputMode
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.services import benchmark_service
+from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_BENCHMARK
 
 
 @dataclass
@@ -137,6 +138,7 @@ def test_calculate_benchmark_response_builds_response_and_records_lineage(mocker
     assert response.audit.residual_applied_bp == pytest.approx(10.0)
     assert response.diagnostics.notes == ["all good"]
     assert response.meta.engine_version == "runtime-version"
+    assert lineage_capture["calculation_type"] == ANALYTICS_WORKFLOW_BENCHMARK
     assert lineage_capture["request_model"] == request
     assert lineage_capture["response_model"] == response
 

@@ -5,6 +5,7 @@ from uuid import UUID
 
 from app.models.inspection_requests import TWRInspectionRequest
 from app.models.inspection_responses import TWRInspectionResponse
+from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR_INSPECTION
 from app.services.lineage_metadata_store import lineage_metadata_store
 
 INSPECTION_ARTIFACT_FILENAMES = (
@@ -32,7 +33,7 @@ def enqueue_twr_inspection_artifacts(
         details.update(artifact_payloads)
     lineage_metadata_store.enqueue_lineage_payload(
         calculation_id=inspection_id,
-        calculation_type="TWR_INSPECTION",
+        calculation_type=ANALYTICS_WORKFLOW_TWR_INSPECTION,
         request_json=request_model.model_dump_json(indent=2),
         response_json=response_model.model_dump_json(indent=2),
         details=details,

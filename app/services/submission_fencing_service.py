@@ -17,6 +17,7 @@ from app.services.execution_registry import (
     ExecutionRegistrationStatus,
     execution_registry,
 )
+from app.services.execution_stage_names import EXECUTION_STAGE_SUBMISSION
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +82,7 @@ def register_async_submission_or_raise(
 
     created_execution = registration.status == ExecutionRegistrationStatus.CREATED
     if created_execution:
-        execution_registry.start_stage(calculation_id, "submission")
+        execution_registry.start_stage(calculation_id, EXECUTION_STAGE_SUBMISSION)
 
     try:
         job_registration = compute_job_store.register_job(
@@ -121,17 +122,17 @@ def register_async_submission_or_raise(
     if created_execution:
         execution_registry.complete_stage(
             calculation_id,
-            "submission",
+            EXECUTION_STAGE_SUBMISSION,
             details={"offload_reason": offload_reason},
         )
     elif (
         registration.status == ExecutionRegistrationStatus.REPLAY
         and job_registration.status == ComputeJobRegistrationStatus.CREATED
     ):
-        execution_registry.start_stage(calculation_id, "submission")
+        execution_registry.start_stage(calculation_id, EXECUTION_STAGE_SUBMISSION)
         execution_registry.complete_stage(
             calculation_id,
-            "submission",
+            EXECUTION_STAGE_SUBMISSION,
             details={"offload_reason": offload_reason},
         )
 
@@ -173,10 +174,10 @@ def promote_existing_execution_to_async_submission_or_raise(
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
     )
-    execution_registry.start_stage(calculation_id, "submission")
+    execution_registry.start_stage(calculation_id, EXECUTION_STAGE_SUBMISSION)
     execution_registry.complete_stage(
         calculation_id,
-        "submission",
+        EXECUTION_STAGE_SUBMISSION,
         details={"offload_reason": offload_reason},
     )
     accepted = accepted_response_factory(calculation_id)

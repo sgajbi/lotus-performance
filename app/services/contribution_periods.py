@@ -5,6 +5,7 @@ from datetime import date
 
 import pandas as pd
 
+from app.services.analytics_observation_dates import observation_date_series, observation_date_set
 from app.services.contribution_diagnostics import _calculate_position_flow_balance_counts
 from app.services.contribution_methodology import (
     _calculate_reset_aware_average_weight_shadow,
@@ -45,8 +46,8 @@ def _slice_contribution_period_frames(
     start_date: date,
     end_date: date,
 ) -> ContributionPeriodFrames:
-    contribution_date_series = pd.to_datetime(daily_contributions_df[PortfolioColumns.PERF_DATE.value]).dt.date
-    portfolio_date_series = pd.to_datetime(portfolio_results_df[PortfolioColumns.PERF_DATE.value]).dt.date
+    contribution_date_series = observation_date_series(daily_contributions_df[PortfolioColumns.PERF_DATE.value])
+    portfolio_date_series = observation_date_series(portfolio_results_df[PortfolioColumns.PERF_DATE.value])
 
     return ContributionPeriodFrames(
         period_slice_df=daily_contributions_df[
@@ -92,11 +93,9 @@ def _extract_reset_dates(period_df: pd.DataFrame) -> set[date]:
         return set()
 
     reset_rows = _numeric_series_or_default(period_df, PortfolioColumns.PERF_RESET.value) == 1
-    return set(
-        pd.to_datetime(
-            period_df.loc[
-                reset_rows,
-                PortfolioColumns.PERF_DATE.value,
-            ]
-        ).dt.date
+    return observation_date_set(
+        period_df.loc[
+            reset_rows,
+            PortfolioColumns.PERF_DATE.value,
+        ]
     )

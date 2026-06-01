@@ -12,7 +12,6 @@ from app.services.operator_action_lease_service import (
     OPERATOR_ACTION_RECLAIM_HISTORY_INVALID_REASON,
     OperatorActionLeaseMetadata,
     _parse_reclaimed_event_payload,
-    _parse_utc,
     _read_active_operator_action_lease,
     _read_latest_reclaimed_lease,
     _read_recent_reclaimed_leases,
@@ -589,13 +588,35 @@ def test_write_latest_reclaimed_lease_increments_prior_count_and_history(tmp_pat
     assert history[0]["reclaim_count"] == 3
 
 
-def test_parse_utc_and_reclaim_stale_lock_invalid_paths(tmp_path):
-    assert _parse_utc("2026-03-15T00:00:00").tzinfo == UTC
+def test_reclaim_stale_lock_invalid_paths(tmp_path):
     lock_path = tmp_path / "bad.lock"
     lock_path.write_text('{"action_name":"recovery_drill"}', encoding="utf-8")
     assert (
         _reclaim_stale_lock(
             lock_path=lock_path,
+            stale_after_seconds=30.0,
+            action_key="key",
+            now_utc=datetime(2026, 3, 15, 1, 0, tzinfo=UTC),
+        )
+        is False
+    )
+
+    future_lock_path = tmp_path / "future.lock"
+    future_lock_path.write_text(
+        json.dumps(
+            {
+                "action_name": "recovery_drill",
+                "operator_id": "ops-user",
+                "tenant_id": None,
+                "governed_target": "backup-1",
+                "acquired_at_utc": "2026-03-15T01:05:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert (
+        _reclaim_stale_lock(
+            lock_path=future_lock_path,
             stale_after_seconds=30.0,
             action_key="key",
             now_utc=datetime(2026, 3, 15, 1, 0, tzinfo=UTC),

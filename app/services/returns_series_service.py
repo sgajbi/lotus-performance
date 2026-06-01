@@ -32,6 +32,8 @@ from app.models.returns_series import (
     SeriesGap,
 )
 from app.observability import correlation_id_var, request_id_var, trace_id_var
+from app.services.analytics_numeric import numeric_value
+from app.services.analytics_observation_dates import observation_timestamp_series
 from app.services.error_details import (
     insufficient_data_detail,
     invalid_request_detail,
@@ -40,9 +42,15 @@ from app.services.error_details import (
     upstream_contract_violation_detail,
 )
 from app.services.execution_registry import execution_registry
+from app.services.execution_stage_names import (
+    EXECUTION_STAGE_EXECUTION,
+    EXECUTION_STAGE_NORMALIZATION,
+    EXECUTION_STAGE_RETRIEVAL,
+)
 from app.services.portfolio_source_service import (
     build_stateful_input_service,
 )
+from app.services.service_identity import LOTUS_PERFORMANCE_CONSUMER_SYSTEM
 from app.services.stateful_benchmark_input_service import build_stateful_benchmark_input
 from app.services.stateful_performance_input_service import retrieve_stateful_portfolio_input
 from app.services.stateful_retrieval_metadata import parse_zero_default_retrieval_metadata
@@ -54,7 +62,6 @@ from engine.benchmarks import benchmark_return_points_to_dataframe, calculate_be
 from engine.compute import run_calculations
 from engine.schema import PortfolioColumns
 
-DEFAULT_STATEFUL_CONSUMER_SYSTEM = "lotus-performance"
 RETURN_POINT_QUANTUM = Decimal("0.000000000001")
 
 
@@ -124,8 +131,19 @@ def to_dataframe(points: Iterable[ReturnPoint], *, series_type: str) -> pd.DataF
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=invalid_request_detail(f"{series_type} series contains duplicate dates."),
         )
-    df["date"] = pd.to_datetime(df["date"])
+    df["date"] = _return_timestamp_series(df["date"])
     return df.sort_values("date")
+
+
+def _return_timestamp_series(values: Iterable[object]) -> pd.Series:
+    return observation_timestamp_series(values)
+
+
+def _daily_return_percentage_to_ratio(value: object) -> Decimal | None:
+    numeric = numeric_value(value, default=None)
+    if numeric is None:
+        return None
+    return Decimal(str(numeric)) / Decimal("100")
 
 
 def filter_window(df: pd.DataFrame, *, resolved_window: ResolvedWindow) -> pd.DataFrame:
@@ -372,10 +390,9 @@ def daily_ror_from_portfolio_timeseries(
         )
     output_df = pd.DataFrame(
         {
-            "date": pd.to_datetime(daily_results_df[PortfolioColumns.PERF_DATE.value]),
+            "date": _return_timestamp_series(daily_results_df[PortfolioColumns.PERF_DATE.value]),
             "return_value": [
-                (Decimal(str(value)) / Decimal("100") if not pd.isna(pd.to_numeric(value, errors="coerce")) else None)
-                for value in daily_results_df[PortfolioColumns.DAILY_ROR.value]
+                _daily_return_percentage_to_ratio(value) for value in daily_results_df[PortfolioColumns.DAILY_ROR.value]
             ],
         }
     )
@@ -460,7 +477,7 @@ def _benchmark_daily_returns_to_dataframe(daily_returns_df: pd.DataFrame) -> pd.
             detail=insufficient_data_detail("Benchmark series is empty."),
         )
     benchmark_df = daily_returns_df[["date", "benchmark_return"]].copy()
-    benchmark_df["date"] = pd.to_datetime(benchmark_df["date"])
+    benchmark_df["date"] = _return_timestamp_series(benchmark_df["date"])
     benchmark_df = benchmark_df.rename(columns={"benchmark_return": "return_value"}).sort_values("date")
     if benchmark_df["date"].duplicated().any():
         raise HTTPException(
@@ -599,8 +616,8 @@ async def _calculate_returns_series(
                 calendar_policy=request.data_policy.calendar_policy,
             )
 
-        active_stage = "execution"
-        execution_registry.start_stage(request.calculation_id, "execution")
+        active_stage = EXECUTION_STAGE_EXECUTION
+        execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_EXECUTION)
         if request.data_policy.missing_data_policy == MissingDataPolicy.STRICT_INTERSECTION:
             common_dates = set(portfolio_df["date"])
             if benchmark_df is not None:
@@ -760,7 +777,7 @@ async def _calculate_returns_series(
         )
         execution_registry.complete_stage(
             request.calculation_id,
-            "execution",
+            EXECUTION_STAGE_EXECUTION,
             details={"requested_points": requested_points, "returned_points": returned_points},
         )
         execution_registry.mark_complete(request.calculation_id)
@@ -793,7 +810,7 @@ async def resolve_stateful_returns_series_request(
             detail=invalid_request_detail("stateful_input is required in stateful mode."),
         )
 
-    execution_registry.start_stage(request.calculation_id, "retrieval")
+    execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL)
     stateful_input_service = build_stateful_input_service(settings=active_settings)
     try:
         portfolio_source = await retrieve_stateful_portfolio_input(
@@ -805,7 +822,7 @@ async def resolve_stateful_returns_series_request(
             start_date=resolved_window.start_date,
             end_date=resolved_window.end_date,
             reporting_currency=request.reporting_currency,
-            consumer_system=DEFAULT_STATEFUL_CONSUMER_SYSTEM,
+            consumer_system=LOTUS_PERFORMANCE_CONSUMER_SYSTEM,
         )
     except HTTPException as exc:
         if exc.status_code == status.HTTP_503_SERVICE_UNAVAILABLE:
@@ -952,7 +969,7 @@ async def resolve_stateful_returns_series_request(
 
     execution_registry.complete_stage(
         request.calculation_id,
-        "retrieval",
+        EXECUTION_STAGE_RETRIEVAL,
         details={
             "portfolio_observations": len(observations),
             "benchmark_points": benchmark_source_details.get("benchmark_points", len(benchmark_points or [])),
@@ -968,7 +985,7 @@ async def resolve_stateful_returns_series_request(
         },
     )
 
-    execution_registry.start_stage(request.calculation_id, "normalization")
+    execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_NORMALIZATION)
     portfolio_df = resample_returns(
         daily_ror_from_portfolio_timeseries(
             observations=observations,
@@ -1002,7 +1019,7 @@ async def resolve_stateful_returns_series_request(
         )
     execution_registry.complete_stage(
         request.calculation_id,
-        "normalization",
+        EXECUTION_STAGE_NORMALIZATION,
         details={
             "portfolio_points": len(portfolio_df),
             "benchmark_points": len(benchmark_df) if benchmark_df is not None else 0,

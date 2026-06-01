@@ -1,7 +1,6 @@
 # app/api/endpoints/contribution.py
 from uuid import UUID
 
-import pandas as pd
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import JSONResponse
 
@@ -15,6 +14,7 @@ from app.models.contribution_responses import (
     ContributionAcceptedResponse,
     ContributionResponse,
 )
+from app.services.analytics_numeric import numeric_value
 from app.services.async_result_service import resolve_async_result
 from app.services.contribution_mode_service import resolve_contribution_request
 from app.services.contribution_service import calculate_contribution
@@ -33,10 +33,7 @@ router = APIRouter()
 
 
 def _as_numeric(value: object, default=0):
-    numeric = pd.to_numeric(value, errors="coerce")
-    if pd.isna(numeric):
-        return default
-    return numeric
+    return numeric_value(value, default=default)
 
 
 def _should_offload_contribution(request: ContributionAnalyticsRequest | ContributionRequest) -> bool:

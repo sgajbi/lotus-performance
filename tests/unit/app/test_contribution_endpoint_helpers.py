@@ -55,6 +55,7 @@ from app.services.contribution_series import (
 )
 from app.services.contribution_smoothing import _count_carino_invalid_domain_days
 from core.envelope import Diagnostics
+from engine.schema import PortfolioColumns
 
 
 def test_contribution_as_numeric_returns_default_for_non_numeric():
@@ -223,6 +224,12 @@ def test_contribution_reset_helpers_cover_empty_and_zero_paths(mocker):
         == 0.0
     )
     assert _count_carino_invalid_domain_days(pd.DataFrame()) == 0
+    assert (
+        _count_carino_invalid_domain_days(
+            pd.DataFrame({PortfolioColumns.DAILY_ROR.value: ["bad", "-100.0", "-101.0", "2.5"]})
+        )
+        == 2
+    )
     diagnostics = _build_portfolio_engine_diagnostics(pd.DataFrame(), pd.Timestamp("2025-01-01").date())
     assert diagnostics.nip_days == 0
     assert diagnostics.reset_days == 0
@@ -245,10 +252,10 @@ def test_calculate_reset_aware_average_weight_shadow_ignores_pre_reset_history_a
         {
             "position_id": ["A", "A", "A", "A"],
             "perf_date": [
-                pd.Timestamp("2025-01-01").date(),
-                pd.Timestamp("2025-01-02").date(),
-                pd.Timestamp("2025-01-03").date(),
-                pd.Timestamp("2025-01-04").date(),
+                pd.Timestamp("2025-01-01T10:00:00Z"),
+                "2025-01-02",
+                pd.Timestamp("2025-01-03T10:00:00Z"),
+                "2025-01-04",
             ],
             "daily_weight": [0.50, 0.50, 0.30, 0.40],
         }
@@ -256,10 +263,10 @@ def test_calculate_reset_aware_average_weight_shadow_ignores_pre_reset_history_a
     portfolio_period_slice_df = pd.DataFrame(
         {
             "perf_date": [
-                pd.Timestamp("2025-01-01").date(),
-                pd.Timestamp("2025-01-02").date(),
-                pd.Timestamp("2025-01-03").date(),
-                pd.Timestamp("2025-01-04").date(),
+                "2025-01-01",
+                pd.Timestamp("2025-01-02T10:00:00Z"),
+                "2025-01-03",
+                pd.Timestamp("2025-01-04T10:00:00Z"),
             ],
             "perf_reset": [0, 0, 1, 0],
             "nip": [0, 0, 0, 1],
@@ -393,16 +400,16 @@ def test_calculate_grouped_return_reset_alignment_counts_detects_misaligned_rese
     instruments_df = pd.DataFrame(
         {
             "position_id": ["A", "A"],
-            "perf_date": [pd.Timestamp("2025-01-01").date(), pd.Timestamp("2025-01-03").date()],
+            "perf_date": [pd.Timestamp("2025-01-01T10:00:00Z"), "2025-01-03"],
             "perf_reset": [0, 1],
         }
     )
     portfolio_results_df = pd.DataFrame(
         {
             "perf_date": [
-                pd.Timestamp("2025-01-01").date(),
-                pd.Timestamp("2025-01-02").date(),
-                pd.Timestamp("2025-01-03").date(),
+                "2025-01-01",
+                pd.Timestamp("2025-01-02T10:00:00Z"),
+                "2025-01-03",
             ],
             "perf_reset": [0, 1, 0],
         }
@@ -422,9 +429,9 @@ def test_calculate_position_flow_balance_counts_sizes_non_flow_neutral_days():
     instruments_df = pd.DataFrame(
         {
             "perf_date": [
-                pd.Timestamp("2025-01-01").date(),
-                pd.Timestamp("2025-01-01").date(),
-                pd.Timestamp("2025-01-02").date(),
+                pd.Timestamp("2025-01-01T10:00:00Z"),
+                "2025-01-01",
+                pd.Timestamp("2025-01-02T11:00:00Z"),
             ],
             "bod_cf": [100, -90, 0],
             "eod_cf": [0, 0, 10],
@@ -432,7 +439,7 @@ def test_calculate_position_flow_balance_counts_sizes_non_flow_neutral_days():
     )
     portfolio_results_df = pd.DataFrame(
         {
-            "perf_date": [pd.Timestamp("2025-01-01").date(), pd.Timestamp("2025-01-02").date()],
+            "perf_date": ["2025-01-01", pd.Timestamp("2025-01-02T12:00:00Z")],
             "begin_mv": [1000, 1000],
             "bod_cf": [0, 0],
             "eod_cf": [0, 0],

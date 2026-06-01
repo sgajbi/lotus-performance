@@ -19,6 +19,11 @@ from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode, TWRResolv
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
 from app.models.workspace_summary_responses import WorkspaceSummaryAcceptedResponse, WorkspaceSummaryResponse
 from app.observability import record_mwr_solver_outcome
+from app.services.analytics_workflow_types import (
+    ANALYTICS_WORKFLOW_MWR,
+    ANALYTICS_WORKFLOW_TWR,
+    ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
+)
 from app.services.async_result_service import resolve_async_result
 from app.services.attribution_mode_service import resolve_attribution_request
 from app.services.attribution_service import calculate_attribution
@@ -31,6 +36,7 @@ from app.services.execution_lifecycle_service import (
     record_execution_failure,
 )
 from app.services.execution_registry import execution_registry
+from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
 from app.services.mwr_mode_service import resolve_mwr_request
 from app.services.stateful_execution_policy_service import (
     finalize_resolved_stateful_execution,
@@ -269,7 +275,7 @@ def calculate_workspace_summary_endpoint(
     if _should_offload_workspace_summary(request):
         return register_async_submission_or_raise(
             calculation_id=request.calculation_id,
-            analytics_type="WORKSPACE_SUMMARY",
+            analytics_type=ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
             portfolio_id=request.portfolio_id,
             requested_window=requested_window,
             input_fingerprint=input_fingerprint,
@@ -284,7 +290,7 @@ def calculate_workspace_summary_endpoint(
         )
     register_sync_execution_or_raise(
         calculation_id=request.calculation_id,
-        analytics_type="WORKSPACE_SUMMARY",
+        analytics_type=ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
         portfolio_id=request.portfolio_id,
         requested_window=requested_window,
         input_fingerprint=input_fingerprint,
@@ -363,7 +369,7 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest) -> PerformanceRes
     if _should_offload_twr(request):
         return register_async_submission_or_raise(
             calculation_id=request.calculation_id,
-            analytics_type="TWR",
+            analytics_type=ANALYTICS_WORKFLOW_TWR,
             portfolio_id=request.portfolio_id,
             requested_window=requested_window,
             input_fingerprint=input_fingerprint,
@@ -378,7 +384,7 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest) -> PerformanceRes
     if request.input_mode == TWRInputMode.STATEFUL:
         replay_response = replay_promoted_stateful_async_execution(
             calculation_id=request.calculation_id,
-            analytics_type="TWR",
+            analytics_type=ANALYTICS_WORKFLOW_TWR,
             source_request_fingerprint=source_request_fingerprint,
             accepted_response_factory=_accepted_twr_response,
         )
@@ -392,7 +398,7 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest) -> PerformanceRes
 
     register_sync_execution_or_raise(
         calculation_id=request.calculation_id,
-        analytics_type="TWR",
+        analytics_type=ANALYTICS_WORKFLOW_TWR,
         portfolio_id=request.portfolio_id,
         requested_window=requested_window,
         input_fingerprint=input_fingerprint,
@@ -424,7 +430,7 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest) -> PerformanceRes
             if request.input_mode == TWRInputMode.STATEFUL:
                 accepted_response = finalize_resolved_stateful_execution(
                     calculation_id=request.calculation_id,
-                    analytics_type="TWR",
+                    analytics_type=ANALYTICS_WORKFLOW_TWR,
                     requested_window=_build_twr_execution_window(
                         request,
                         input_count=resolved_input_count,
@@ -562,7 +568,7 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
     input_fingerprint, calculation_hash = generate_canonical_hash(request, active_settings.APP_VERSION)
     register_sync_execution_or_raise(
         calculation_id=request.calculation_id,
-        analytics_type="MWR",
+        analytics_type=ANALYTICS_WORKFLOW_MWR,
         portfolio_id=request.portfolio_id,
         requested_window={
             "as_of": str(request.as_of),
@@ -594,7 +600,7 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
                 input_fingerprint=input_fingerprint,
                 calculation_hash=calculation_hash,
             )
-        execution_registry.start_stage(request.calculation_id, "execution")
+        execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_EXECUTION)
         execution_stage_started = True
         mwr_result = calculate_money_weighted_return(
             begin_mv=mwr_request.begin_mv,
@@ -709,7 +715,7 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
 
     complete_execution_with_lineage(
         calculation_id=request.calculation_id,
-        calculation_type="MWR",
+        calculation_type=ANALYTICS_WORKFLOW_MWR,
         request_model=mwr_request if request.input_mode == MWRInputMode.STATEFUL else request,
         response_model=response_model,
         execution_details={"cashflows": len(mwr_request.cash_flows)},

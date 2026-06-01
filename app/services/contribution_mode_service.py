@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException
 
 from app.core.config import Settings
 from app.models.contribution_analytics_requests import (
@@ -11,14 +11,15 @@ from app.models.contribution_analytics_requests import (
 )
 from app.models.contribution_requests import ContributionRequest
 from app.services.execution_registry import execution_registry
+from app.services.execution_stage_names import EXECUTION_STAGE_NORMALIZATION, EXECUTION_STAGE_RETRIEVAL
+from app.services.input_mode_validation import require_stateful_input
 from app.services.portfolio_source_service import build_stateful_input_service
+from app.services.service_identity import LOTUS_PERFORMANCE_CONSUMER_SYSTEM
 from app.services.stateful_contribution_input_service import (
     build_stateful_contribution_input,
     retrieve_stateful_contribution_source_input,
 )
 from app.services.stateful_input_service import RetrievalMetadata
-
-DEFAULT_STATEFUL_CONSUMER_SYSTEM = "lotus-performance"
 
 
 @dataclass(frozen=True)
@@ -41,15 +42,10 @@ async def resolve_contribution_request(
             position_count=len(contribution_request.positions_data),
         )
 
-    stateful_input = request.stateful_input
-    if stateful_input is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="stateful_input is required when input_mode=stateful",
-        )
+    stateful_input = require_stateful_input(request.stateful_input)
 
     stateful_input_service = build_stateful_input_service(settings=settings)
-    execution_registry.start_stage(request.calculation_id, "retrieval")
+    execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL)
     try:
         source_input = await retrieve_stateful_contribution_source_input(
             settings=settings,
@@ -60,14 +56,14 @@ async def resolve_contribution_request(
             report_start_date=request.report_start_date,
             report_end_date=request.report_end_date,
             reporting_currency=request.report_ccy,
-            consumer_system=DEFAULT_STATEFUL_CONSUMER_SYSTEM,
+            consumer_system=LOTUS_PERFORMANCE_CONSUMER_SYSTEM,
             dimensions=list(stateful_input.dimensions),
             include_cash_flows=stateful_input.include_cash_flows,
             filters=stateful_input.filters.model_dump(mode="python"),
         )
         execution_registry.complete_stage(
             request.calculation_id,
-            "retrieval",
+            EXECUTION_STAGE_RETRIEVAL,
             details={
                 "portfolio_observations": len(source_input.portfolio_input.observations),
                 "position_rows": len(source_input.position_rows),
@@ -78,10 +74,10 @@ async def resolve_contribution_request(
             },
         )
     except HTTPException as exc:
-        execution_registry.fail_stage(request.calculation_id, "retrieval", str(exc.detail))
+        execution_registry.fail_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL, str(exc.detail))
         raise
 
-    execution_registry.start_stage(request.calculation_id, "normalization")
+    execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_NORMALIZATION)
     try:
         normalized_input = build_stateful_contribution_input(
             source_input=source_input,
@@ -92,14 +88,14 @@ async def resolve_contribution_request(
         )
         execution_registry.complete_stage(
             request.calculation_id,
-            "normalization",
+            EXECUTION_STAGE_NORMALIZATION,
             details={
                 "portfolio_points": len(normalized_input.portfolio_data.valuation_points),
                 "positions": len(normalized_input.positions_data),
             },
         )
     except Exception as exc:
-        execution_registry.fail_stage(request.calculation_id, "normalization", str(exc))
+        execution_registry.fail_stage(request.calculation_id, EXECUTION_STAGE_NORMALIZATION, str(exc))
         raise
 
     return ResolvedContributionRequest(

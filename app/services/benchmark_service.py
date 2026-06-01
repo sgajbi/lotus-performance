@@ -3,9 +3,11 @@ from __future__ import annotations
 from app.models.benchmark_analytics_requests import BenchmarkInputMode, BenchmarkReturnSource
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.benchmark_responses import BenchmarkPerformanceResponse
+from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_BENCHMARK
 from app.services.benchmark_calculation_service import calculate_benchmark_artifacts
 from app.services.execution_lifecycle_service import complete_execution_with_lineage
 from app.services.execution_registry import execution_registry
+from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
 from core.envelope import Audit, Diagnostics, Meta
 
 
@@ -18,7 +20,7 @@ def calculate_benchmark_response(
     engine_version: str,
     request_artifact_model,
 ) -> BenchmarkPerformanceResponse:
-    execution_registry.start_stage(benchmark_request.calculation_id, "execution")
+    execution_registry.start_stage(benchmark_request.calculation_id, EXECUTION_STAGE_EXECUTION)
     try:
         benchmark_artifacts = calculate_benchmark_artifacts(
             benchmark_request,
@@ -63,12 +65,12 @@ def calculate_benchmark_response(
             ),
         )
     except Exception as exc:
-        execution_registry.fail_stage(benchmark_request.calculation_id, "execution", str(exc))
+        execution_registry.fail_stage(benchmark_request.calculation_id, EXECUTION_STAGE_EXECUTION, str(exc))
         raise
 
     complete_execution_with_lineage(
         calculation_id=benchmark_request.calculation_id,
-        calculation_type="BENCHMARK",
+        calculation_type=ANALYTICS_WORKFLOW_BENCHMARK,
         request_model=request_artifact_model,
         response_model=response_model,
         execution_details={

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any
-
 import pandas as pd
 from fastapi import HTTPException, status
 
@@ -9,6 +7,7 @@ from app.core.config import get_settings
 from app.models.attribution_analytics_requests import AttributionInputMode
 from app.models.attribution_requests import AttributionRequest
 from app.models.attribution_responses import AttributionResponse
+from app.services.analytics_observation_dates import latest_observation_date
 from app.services.calculation_supportability_service import (
     build_calculation_supportability,
     record_supportability_metric,
@@ -18,6 +17,7 @@ from app.services.execution_lifecycle_service import (
     record_execution_failure,
 )
 from app.services.execution_registry import execution_registry
+from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
 from core.envelope import Meta
 from core.periods import resolve_periods
 from engine.attribution import aggregate_attribution_results, run_attribution_calculations
@@ -41,7 +41,7 @@ def _count_attribution_input_rows(request: AttributionRequest) -> int:
 
 
 def _latest_attribution_observation_date(request: AttributionRequest):
-    dates: list[Any] = []
+    dates: list[object] = []
     if request.portfolio_data is not None:
         dates.extend(point.perf_date for point in request.portfolio_data.valuation_points)
     for instrument in request.instruments_data or []:
@@ -50,7 +50,19 @@ def _latest_attribution_observation_date(request: AttributionRequest):
         dates.extend(observation.get("date") for observation in group.observations if observation.get("date"))
     for group in request.benchmark_groups_data:
         dates.extend(observation.date for observation in group.observations)
-    return max(pd.Timestamp(point).date() for point in dates) if dates else None
+    return latest_observation_date(dates)
+
+
+def _slice_attribution_effects_by_period(
+    effects_df: pd.DataFrame,
+    *,
+    start_date,
+    end_date,
+) -> pd.DataFrame:
+    effect_dates = effects_df.index.get_level_values("date")
+    start_timestamp = pd.Timestamp(start_date)
+    end_timestamp = pd.Timestamp(end_date)
+    return effects_df[(effect_dates >= start_timestamp) & (effect_dates <= end_timestamp)].copy()
 
 
 def calculate_attribution(
@@ -68,7 +80,7 @@ def calculate_attribution(
     lineage_stage_started = False
 
     try:
-        execution_registry.start_stage(request.calculation_id, "execution")
+        execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_EXECUTION)
         execution_stage_started = True
         periods_to_resolve = [analysis.period for analysis in request.analyses]
         resolved_periods = resolve_periods(
@@ -92,10 +104,11 @@ def calculate_attribution(
 
         results_by_period = {}
         for period in resolved_periods:
-            period_slice_df = effects_df[
-                (effects_df.index.get_level_values("date") >= pd.to_datetime(period.start_date))
-                & (effects_df.index.get_level_values("date") <= pd.to_datetime(period.end_date))
-            ].copy()
+            period_slice_df = _slice_attribution_effects_by_period(
+                effects_df,
+                start_date=period.start_date,
+                end_date=period.end_date,
+            )
 
             if period_slice_df.empty:
                 continue

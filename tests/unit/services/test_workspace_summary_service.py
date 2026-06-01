@@ -7,13 +7,18 @@ import pandas as pd
 import pytest
 from fastapi import HTTPException
 
+from app.models.benchmark_analytics_requests import BenchmarkInputMode
+from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.requests import DailyInputData
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
+from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
 from app.services.workspace_summary_service import (
+    ResolvedWorkspaceBenchmarkInput,
     WorkspaceTWRArtifacts,
     _annualize_percentage,
     _build_economic_context,
     _build_mwr_cash_flows,
+    _build_workspace_benchmark_daily_df,
     _date_from_boundary,
     _decimal_or_zero,
     _resolve_stateful_portfolio_start_date,
@@ -26,6 +31,7 @@ from core.envelope import Diagnostics
 
 def test_workspace_summary_stateful_retrieval_uses_longest_requested_window(mocker):
     captured: dict[str, object] = {}
+    lineage_capture: dict[str, object] = {}
     mocker.patch(
         "app.services.workspace_summary_service.get_settings",
         return_value=SimpleNamespace(APP_VERSION="test-version"),
@@ -37,7 +43,10 @@ def test_workspace_summary_stateful_retrieval_uses_longest_requested_window(mock
     mocker.patch("app.services.workspace_summary_service.execution_registry.mark_running")
     mocker.patch("app.services.workspace_summary_service.execution_registry.start_stage")
     mocker.patch("app.services.workspace_summary_service.execution_registry.complete_stage")
-    mocker.patch("app.services.workspace_summary_service.complete_execution_with_lineage")
+    mocker.patch(
+        "app.services.workspace_summary_service.complete_execution_with_lineage",
+        side_effect=lambda **kwargs: lineage_capture.update(kwargs),
+    )
     mocker.patch(
         "app.services.workspace_summary_service.retrieve_stateful_portfolio_input",
         side_effect=lambda **kwargs: (
@@ -75,7 +84,7 @@ def test_workspace_summary_stateful_retrieval_uses_longest_requested_window(mock
         return_value=WorkspaceTWRArtifacts(
             daily_results_df=pd.DataFrame(
                 {
-                    "perf_date": [pd.Timestamp("2026-05-30").date(), pd.Timestamp("2026-06-30").date()],
+                    "perf_date": [pd.Timestamp("2026-05-30T10:00:00Z"), "2026-06-30"],
                     "daily_ror": [1.0, 0.990099],
                     "perf_reset": [False, False],
                     "final_cum_ror": [1.0, 2.0],
@@ -109,6 +118,7 @@ def test_workspace_summary_stateful_retrieval_uses_longest_requested_window(mock
 
     assert str(captured["start_date"]) == "2026-05-31"
     assert response.audit.counts["portfolio_chunk_count"] == 3
+    assert lineage_capture["calculation_type"] == ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
     assert set(response.results_by_period) == {"1D", "1M"}
     one_day = response.results_by_period["1D"]
     assert (
@@ -191,7 +201,7 @@ def test_workspace_summary_stateful_linked_benchmark_resolves_assignment_once(mo
         return_value=WorkspaceTWRArtifacts(
             daily_results_df=pd.DataFrame(
                 {
-                    "perf_date": [pd.Timestamp("2026-01-02").date()],
+                    "perf_date": [pd.Timestamp("2026-01-02T10:00:00Z")],
                     "daily_ror": [1.0],
                     "perf_reset": [False],
                     "final_cum_ror": [1.0],
@@ -507,3 +517,32 @@ def test_date_from_boundary_rejects_unsupported_boundary_values():
 
 def test_date_from_boundary_accepts_pandas_timestamp():
     assert _date_from_boundary(pd.Timestamp("2026-01-02")) == date(2026, 1, 2)
+
+
+def test_build_workspace_benchmark_daily_df_uses_observation_date_series():
+    benchmark_request = BenchmarkPerformanceRequest.model_validate(
+        {
+            "benchmark_id": "BMK_VENDOR",
+            "benchmark_start_date": "2026-03-30",
+            "report_end_date": "2026-03-31",
+            "benchmark_currency": "USD",
+            "return_source": "vendor_series",
+            "benchmark_return_points": [
+                {"perf_date": "2026-03-30", "benchmark_return": 0.01},
+                {"perf_date": "2026-03-31", "benchmark_return": 0.02},
+            ],
+            "analyses": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
+            "report_start_date": "2026-03-30",
+        }
+    )
+    benchmark_input = ResolvedWorkspaceBenchmarkInput(
+        benchmark_request=benchmark_request,
+        input_mode=BenchmarkInputMode.STATELESS,
+        benchmark_id="BMK_VENDOR",
+        source_details={},
+    )
+
+    daily_df = _build_workspace_benchmark_daily_df(benchmark_input)
+
+    assert daily_df is not None
+    assert daily_df["date"].tolist() == [date(2026, 3, 30), date(2026, 3, 31)]

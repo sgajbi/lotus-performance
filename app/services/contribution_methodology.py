@@ -6,6 +6,8 @@ from typing import Any
 import pandas as pd
 
 from app.models.contribution_responses import AverageWeightMethodologyStatus, PositionContribution
+from app.services.analytics_numeric import numeric_series, numeric_series_or_default, numeric_value
+from app.services.analytics_observation_dates import observation_date_series
 from engine.schema import PortfolioColumns
 
 RESET_AWARE_AVERAGE_WEIGHT_MODE_OFF = "OFF"
@@ -31,17 +33,11 @@ def _to_percentage_point_basis_points(percentage_point_delta: Any) -> int:
 
 
 def _as_numeric(value: Any, default: Any = 0) -> Any:
-    numeric = pd.to_numeric(value, errors="coerce")
-    if pd.isna(numeric):
-        return default
-    return numeric
+    return numeric_value(value, default=default)
 
 
 def _numeric_series_or_default(df: pd.DataFrame, column_name: str) -> pd.Series:
-    """Returns a numeric Series for a column, or a zero-filled fallback aligned to the frame index."""
-    if column_name not in df.columns:
-        return pd.Series(0, index=df.index)
-    return pd.to_numeric(df[column_name], errors="coerce").fillna(0)
+    return numeric_series_or_default(df, column_name)
 
 
 def _calculate_reset_aware_average_weight_shadow(
@@ -70,21 +66,20 @@ def _calculate_reset_aware_average_weight_shadow(
         current_average_weights["reset_aware_average_weight_shadow"] = current_average_weights["average_weight"]
         return current_average_weights, 0, 0, 0
 
-    portfolio_window = portfolio_period_slice_df.sort_values(PortfolioColumns.PERF_DATE.value).copy()
-    portfolio_window[PortfolioColumns.PERF_DATE.value] = pd.to_datetime(
+    portfolio_window = portfolio_period_slice_df.copy()
+    portfolio_window[PortfolioColumns.PERF_DATE.value] = observation_date_series(
         portfolio_window[PortfolioColumns.PERF_DATE.value]
-    ).dt.date
-
-    active_reset_mask = (
-        pd.to_numeric(portfolio_window[PortfolioColumns.PERF_RESET.value], errors="coerce").fillna(0) == 1
     )
+    portfolio_window = portfolio_window.sort_values(PortfolioColumns.PERF_DATE.value)
+
+    active_reset_mask = numeric_series(portfolio_window[PortfolioColumns.PERF_RESET.value]) == 1
     if active_reset_mask.any():
         last_reset_index = portfolio_window[active_reset_mask].index[-1]
         portfolio_window = portfolio_window.loc[last_reset_index:]
 
-    valid_portfolio_days = portfolio_window[
-        pd.to_numeric(portfolio_window[PortfolioColumns.NIP.value], errors="coerce").fillna(0) != 1
-    ][PortfolioColumns.PERF_DATE.value]
+    valid_portfolio_days = portfolio_window[numeric_series(portfolio_window[PortfolioColumns.NIP.value]) != 1][
+        PortfolioColumns.PERF_DATE.value
+    ]
     valid_day_count = int(valid_portfolio_days.nunique())
 
     if valid_day_count == 0:
@@ -92,7 +87,7 @@ def _calculate_reset_aware_average_weight_shadow(
     else:
         shadow_totals = (
             period_slice_df[
-                pd.to_datetime(period_slice_df[PortfolioColumns.PERF_DATE.value]).dt.date.isin(
+                observation_date_series(period_slice_df[PortfolioColumns.PERF_DATE.value]).isin(
                     set(valid_portfolio_days)
                 )
             ]
@@ -164,7 +159,7 @@ def _calculate_average_weight_sum_residual_bp_from_ratio_series(average_weight_s
     """Measures how far a ratio-based weight series drifts from a full 100% portfolio weight."""
     if average_weight_series.empty:
         return 0
-    total_average_weight_percentage = pd.to_numeric(average_weight_series, errors="coerce").fillna(0.0).sum() * 100
+    total_average_weight_percentage = numeric_series(average_weight_series, default=0.0).sum() * 100
     return _to_percentage_point_basis_points(abs(total_average_weight_percentage - 100.0))
 
 

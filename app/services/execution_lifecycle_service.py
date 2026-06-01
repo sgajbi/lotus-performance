@@ -4,6 +4,7 @@ from typing import Any
 from uuid import UUID
 
 from app.services.execution_registry import execution_registry
+from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION, EXECUTION_STAGE_LINEAGE_MATERIALIZATION
 from app.services.lineage_service import lineage_service
 
 
@@ -15,9 +16,9 @@ def record_execution_failure(
     lineage_stage_started: bool = False,
 ) -> None:
     if lineage_stage_started:
-        execution_registry.fail_stage(calculation_id, "lineage_materialization", message)
+        execution_registry.fail_stage(calculation_id, EXECUTION_STAGE_LINEAGE_MATERIALIZATION, message)
     elif execution_stage_started:
-        execution_registry.fail_stage(calculation_id, "execution", message)
+        execution_registry.fail_stage(calculation_id, EXECUTION_STAGE_EXECUTION, message)
     execution_registry.mark_failed(calculation_id, message)
 
 
@@ -32,10 +33,10 @@ def complete_execution_with_lineage(
 ) -> None:
     execution_registry.complete_stage(
         calculation_id,
-        "execution",
+        EXECUTION_STAGE_EXECUTION,
         details=execution_details or {},
     )
-    execution_registry.start_stage(calculation_id, "lineage_materialization")
+    execution_registry.start_stage(calculation_id, EXECUTION_STAGE_LINEAGE_MATERIALIZATION)
     try:
         lineage_service.enqueue_capture(
             calculation_id=calculation_id,

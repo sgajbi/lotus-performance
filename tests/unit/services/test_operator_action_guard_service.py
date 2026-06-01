@@ -6,7 +6,6 @@ from fastapi import HTTPException
 from app.services.operator_action_guard_service import (
     _find_latest_recovery_drill_entry,
     _find_latest_runtime_retention_entry,
-    _parse_utc_timestamp,
     enforce_recovery_drill_manual_run_cooldown,
     enforce_runtime_retention_apply_preview,
     enforce_runtime_retention_manual_run_cooldown,
@@ -235,6 +234,55 @@ def test_runtime_retention_manual_run_cooldown_matches_canonicalized_job_id():
 
     assert exc_info.value.status_code == 409
     assert exc_info.value.detail["code"] == "runtime_retention_manual_run_cooldown_active"
+
+
+def test_runtime_retention_manual_run_cooldown_clamps_future_evidence_age():
+    snapshot = RuntimeRetentionHistorySnapshot(
+        status="available",
+        artifact_directory="artifacts/runtime-retention-cleanup",
+        latest_file_name="2026-03-15t00-05-00z.json",
+        retained_file_names=["2026-03-15t00-05-00z.json"],
+        retention_limit=30,
+        retention_max_age_days=90,
+        entries=[
+            RuntimeRetentionHistoryEntry(
+                evidence_file_name="2026-03-15t00-05-00z.json",
+                generated_at_utc="2026-03-15T00:05:00Z",
+                operator_id="ops-user",
+                tenant_id=None,
+                correlation_id="corr-1",
+                trigger_mode="manual",
+                job_id="ticket-7",
+                cleanup_mode="dry_run",
+                status="planned",
+                retention_days=30,
+                prunable_execution_count=1,
+                prunable_compute_job_count=1,
+                prunable_async_result_count=1,
+                prunable_lineage_record_count=1,
+                prunable_lineage_artifact_count=1,
+            )
+        ],
+        total_entries=1,
+        matched_entries=1,
+        returned_entries=1,
+        next_offset=None,
+        applied_filters={"limit": 1, "trigger_mode": "manual"},
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        enforce_runtime_retention_manual_run_cooldown(
+            snapshot,
+            apply=False,
+            operator_id="ops-user",
+            tenant_id=None,
+            retention_days=30,
+            job_id="ticket-7",
+            cooldown_seconds=300.0,
+            now_utc=datetime(2026, 3, 15, 0, 0, 0, tzinfo=UTC),
+        )
+
+    assert exc_info.value.headers == {"Retry-After": "300"}
 
 
 def test_runtime_retention_apply_preview_rejects_missing_matching_dry_run():
@@ -500,4 +548,3 @@ def test_find_latest_helpers_and_resolvers_cover_mismatch_paths():
         )
         is None
     )
-    assert _parse_utc_timestamp("2026-03-15T00:00:00").tzinfo == UTC

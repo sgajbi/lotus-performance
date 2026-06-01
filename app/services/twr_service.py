@@ -22,6 +22,13 @@ from app.models.responses import (
     TWRBenchmarkContext,
 )
 from app.models.twr_requests import TWRInputMode
+from app.services.analytics_numeric import numeric_value
+from app.services.analytics_observation_dates import (
+    normalize_observation_date,
+    observation_date_series,
+    observation_timestamp_series,
+)
+from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR
 from app.services.benchmark_calculation_service import calculate_benchmark_artifacts
 from app.services.calculation_supportability_service import (
     build_calculation_supportability,
@@ -29,6 +36,7 @@ from app.services.calculation_supportability_service import (
 )
 from app.services.execution_lifecycle_service import complete_execution_with_lineage
 from app.services.execution_registry import execution_registry
+from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
 from common.enums import Frequency
 from core.envelope import Audit, Diagnostics, Meta
 from core.periods import resolve_periods
@@ -38,11 +46,7 @@ from engine.schema import PortfolioColumns
 
 
 def _as_numeric(value: object, default=0):
-    try:
-        numeric = float(str(value))
-    except (TypeError, ValueError):
-        return default
-    return numeric
+    return numeric_value(value, default=default)
 
 
 def _get_total_cum_ror(row: pd.Series | None, prefix: str = "") -> float:
@@ -57,8 +61,8 @@ def _calculate_total_return_from_reset_slice(
     df_slice: pd.DataFrame, daily_results_df: pd.DataFrame
 ) -> PortfolioReturnDecomposition:
     end_row = df_slice.iloc[-1]
-    full_perf_dates = pd.to_datetime(daily_results_df[PortfolioColumns.PERF_DATE.value]).dt.date
-    slice_min_date = pd.to_datetime(df_slice[PortfolioColumns.PERF_DATE.value].min()).date()
+    full_perf_dates = observation_date_series(daily_results_df[PortfolioColumns.PERF_DATE.value])
+    slice_min_date = normalize_observation_date(df_slice[PortfolioColumns.PERF_DATE.value].min())
     day_before_mask = full_perf_dates < slice_min_date
     day_before_row = daily_results_df[day_before_mask].iloc[-1] if day_before_mask.any() else None
 
@@ -195,8 +199,8 @@ def _build_daily_calculation_evidence(
     perf_date_raw = row.get(PortfolioColumns.PERF_DATE.value)
     effective_start_raw = row.get(PortfolioColumns.EFFECTIVE_PERIOD_START_DATE.value)
     if perf_date_raw is not None and effective_start_raw is not None and pd.notna(effective_start_raw):
-        perf_date = pd.to_datetime(str(perf_date_raw)).date()
-        effective_start = pd.to_datetime(str(effective_start_raw)).date()
+        perf_date = normalize_observation_date(perf_date_raw)
+        effective_start = normalize_observation_date(effective_start_raw)
         if perf_date < effective_start:
             status = "not_calculated"
             linkability_status = "not_calculated"
@@ -302,7 +306,7 @@ def _iter_frequency_windows(
         return daily_windows
 
     local_df = period_df.copy()
-    local_df[date_column] = pd.to_datetime(local_df[date_column])
+    local_df[date_column] = observation_timestamp_series(local_df[date_column])
     indexed = local_df.set_index(local_df[date_column])
     freq_map = {
         Frequency.WEEKLY: "W-FRI",
@@ -317,7 +321,7 @@ def _iter_frequency_windows(
             continue
         period_timestamp = pd.Timestamp(str(raw_period_timestamp))
         group_df = group_df.copy()
-        group_df[date_column] = pd.to_datetime(group_df[date_column]).dt.date
+        group_df[date_column] = observation_date_series(group_df[date_column])
         start_date = group_df[date_column].min()
         end_date = group_df[date_column].max()
         if frequency == Frequency.MONTHLY:
@@ -508,7 +512,7 @@ def calculate_twr_response(
         if isinstance(benchmark_return_source, BenchmarkReturnSource)
         else BenchmarkReturnSource(str(benchmark_return_source))
     )
-    execution_registry.start_stage(performance_request.calculation_id, "execution")
+    execution_registry.start_stage(performance_request.calculation_id, EXECUTION_STAGE_EXECUTION)
 
     daily_results_df: pd.DataFrame | None = None
     benchmark_artifacts = None
@@ -536,13 +540,13 @@ def calculate_twr_response(
             calculate_benchmark_artifacts(benchmark_request) if benchmark_request is not None else None
         )
     except Exception as exc:
-        execution_registry.fail_stage(performance_request.calculation_id, "execution", str(exc))
+        execution_registry.fail_stage(performance_request.calculation_id, EXECUTION_STAGE_EXECUTION, str(exc))
         raise
 
     results_by_period: dict[str, SinglePeriodPerformanceResult] = {}
-    daily_results_df[PortfolioColumns.PERF_DATE.value] = pd.to_datetime(
+    daily_results_df[PortfolioColumns.PERF_DATE.value] = observation_date_series(
         daily_results_df[PortfolioColumns.PERF_DATE.value]
-    ).dt.date
+    )
 
     for period in resolved_periods:
         period_slice_df = daily_results_df[
@@ -716,7 +720,7 @@ def calculate_twr_response(
 
     complete_execution_with_lineage(
         calculation_id=performance_request.calculation_id,
-        calculation_type="TWR",
+        calculation_type=ANALYTICS_WORKFLOW_TWR,
         request_model=request_artifact_model,
         response_model=response_model,
         execution_details=execution_details,
