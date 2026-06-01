@@ -11,6 +11,10 @@ def is_optional_evidence_string(value: object) -> TypeGuard[str | None]:
     return value is None or is_required_evidence_string(value)
 
 
+def is_required_evidence_int(value: object) -> TypeGuard[int]:
+    return type(value) is int
+
+
 def required_evidence_string_fields_present(payload: dict[str, Any], keys: tuple[str, ...]) -> bool:
     return all(is_required_evidence_string(payload.get(key)) for key in keys)
 
@@ -20,11 +24,11 @@ def optional_evidence_string_fields_valid(payload: dict[str, Any], keys: tuple[s
 
 
 def required_evidence_int_fields_present(payload: dict[str, Any], keys: tuple[str, ...]) -> bool:
-    return all(type(payload.get(key)) is int for key in keys)
+    return all(is_required_evidence_int(payload.get(key)) for key in keys)
 
 
 def optional_evidence_int_fields_valid(payload: dict[str, Any], keys: tuple[str, ...]) -> bool:
-    return all(payload.get(key) is None or type(payload.get(key)) is int for key in keys)
+    return all(payload.get(key) is None or is_required_evidence_int(payload.get(key)) for key in keys)
 
 
 def required_evidence_bool_fields_present(payload: dict[str, Any], keys: tuple[str, ...]) -> bool:

@@ -24,6 +24,7 @@ OPERATOR_ACTION_RECLAIM_HISTORY_INVALID_REASON = "operator_action_reclaim_histor
 logger = logging.getLogger(__name__)
 
 _is_optional_lease_string = _evidence_strings.is_optional_evidence_string
+_is_required_lease_int = _evidence_strings.is_required_evidence_int
 _is_required_lease_string = _evidence_strings.is_required_evidence_string
 _normalize_optional_lease_string = _evidence_strings.normalize_optional_evidence_identifier
 _normalize_required_lease_string = _evidence_strings.normalize_required_evidence_identifier
@@ -434,7 +435,7 @@ def _parse_reclaimed_event_payload(
         return _INVALID_LEASE
     if not isinstance(stale_after_seconds, (int, float)):
         return _INVALID_LEASE
-    if not isinstance(reclaim_count, int):
+    if not _is_required_lease_int(reclaim_count):
         return _INVALID_LEASE
     if not _is_required_lease_string(action_key):
         return _INVALID_LEASE
