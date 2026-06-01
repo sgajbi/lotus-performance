@@ -5,6 +5,7 @@ from typing import Any, Awaitable, Callable, Mapping
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
 
+from app import enterprise_feature_flags as _feature_flags
 from app import enterprise_runtime_config as _runtime_config
 
 _DEFAULT_ENTERPRISE_POLICY_VERSION = _runtime_config._DEFAULT_ENTERPRISE_POLICY_VERSION
@@ -45,6 +46,10 @@ _runtime_config_invalid_message = _runtime_config._runtime_config_invalid_messag
 _write_authz_enabled = _runtime_config._write_authz_enabled
 enterprise_policy_version = _runtime_config.enterprise_policy_version
 validate_enterprise_runtime_config = _runtime_config.validate_enterprise_runtime_config
+_dict_value = _feature_flags._dict_value
+_feature_flag_enabled = _feature_flags._feature_flag_enabled
+is_feature_enabled = _feature_flags.is_feature_enabled
+load_feature_flags = _feature_flags.load_feature_flags
 
 logger = logging.getLogger("enterprise_readiness")
 
@@ -161,33 +166,6 @@ def _is_privileged_read_method(method: str) -> bool:
     return _normalized_http_method(method) == _HTTP_METHOD_GET
 
 
-def load_feature_flags() -> dict[str, dict[str, dict[str, bool]]]:
-    return _load_json_map(_ENV_ENTERPRISE_FEATURE_FLAGS_JSON)
-
-
-def _dict_value(value: Any) -> dict[str, Any]:
-    return value if isinstance(value, dict) else {}
-
-
-def _feature_flag_enabled(
-    *,
-    flags: dict[str, Any],
-    feature_key: str,
-    tenant_id: str,
-    role: str,
-) -> bool:
-    feature = _dict_value(flags.get(feature_key))
-    tenant = _dict_value(feature.get(tenant_id))
-    value = tenant.get(role)
-    if isinstance(value, bool):
-        return value
-    fallback = tenant.get("*")
-    if isinstance(fallback, bool):
-        return fallback
-    global_default = _dict_value(feature.get("*")).get("*")
-    return bool(global_default) if isinstance(global_default, bool) else False
-
-
 def _normalized_capability_rule_overrides(configured: dict[str, Any]) -> dict[str, str]:
     rules: dict[str, str] = {}
     for key, value in configured.items():
@@ -230,15 +208,6 @@ def load_privileged_read_rules() -> dict[str, str]:
     return _load_capability_rule_family(
         env_name=_ENV_ENTERPRISE_PRIVILEGED_READ_RULES_JSON,
         defaults=_DEFAULT_PRIVILEGED_READ_RULES,
-    )
-
-
-def is_feature_enabled(feature_key: str, tenant_id: str, role: str) -> bool:
-    return _feature_flag_enabled(
-        flags=load_feature_flags(),
-        feature_key=feature_key,
-        tenant_id=tenant_id,
-        role=role,
     )
 
 
