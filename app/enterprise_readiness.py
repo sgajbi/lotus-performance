@@ -54,6 +54,9 @@ _CORRELATION_ID_HEADER = "x-correlation-id"
 _UNKNOWN_ACTOR_ID = "unknown"
 _DEFAULT_TENANT_ID = "default"
 _UNKNOWN_ROLE = "unknown"
+_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ = "ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ"
+_ENV_ENTERPRISE_ENFORCE_AUTHZ = "ENTERPRISE_ENFORCE_AUTHZ"
+_ENV_ENTERPRISE_ENFORCE_RUNTIME_CONFIG = "ENTERPRISE_ENFORCE_RUNTIME_CONFIG"
 _WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 _REQUIRED_HEADERS = {_ACTOR_ID_HEADER, _TENANT_ID_HEADER, _ROLE_HEADER, _CORRELATION_ID_HEADER}
 _DEFAULT_CAPABILITY_RULES = {
@@ -91,15 +94,15 @@ def _env_enabled(name: str, default: str = "true") -> bool:
 
 
 def _privileged_read_authz_enabled() -> bool:
-    return _env_enabled("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "false")
+    return _env_enabled(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, "false")
 
 
 def _write_authz_enabled() -> bool:
-    return _env_enabled("ENTERPRISE_ENFORCE_AUTHZ", "false")
+    return _env_enabled(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "false")
 
 
 def _runtime_config_enforcement_enabled() -> bool:
-    return _env_enabled("ENTERPRISE_ENFORCE_RUNTIME_CONFIG", "false")
+    return _env_enabled(_ENV_ENTERPRISE_ENFORCE_RUNTIME_CONFIG, "false")
 
 
 def _primary_key_configured() -> bool:

@@ -30,6 +30,9 @@ from app.enterprise_readiness import (
     _ENTERPRISE_AUDIT_EVENT_NAME,
     _ENTERPRISE_AUDIT_EXTRA_KEY,
     _ENTERPRISE_POLICY_VERSION_HEADER,
+    _ENV_ENTERPRISE_ENFORCE_AUTHZ,
+    _ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ,
+    _ENV_ENTERPRISE_ENFORCE_RUNTIME_CONFIG,
     _HTTP_STATUS_FORBIDDEN,
     _HTTP_STATUS_PAYLOAD_TOO_LARGE,
     _MISSING_CAPABILITY_REASON,
@@ -95,7 +98,7 @@ from app.enterprise_readiness import (
 def test_validate_enterprise_runtime_config_raises_when_enforcement_enabled(monkeypatch):
     monkeypatch.setenv("ENTERPRISE_POLICY_VERSION", " ")
     monkeypatch.setenv("ENTERPRISE_SECRET_ROTATION_DAYS", "120")
-    monkeypatch.setenv("ENTERPRISE_ENFORCE_RUNTIME_CONFIG", "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_RUNTIME_CONFIG, "true")
 
     with pytest.raises(RuntimeError, match="enterprise_runtime_config_invalid"):
         validate_enterprise_runtime_config()
@@ -137,7 +140,7 @@ def test_is_privileged_read_method_normalizes_method_case(method, expected):
     ],
 )
 def test_privileged_read_authz_enabled_uses_governed_env_switch(monkeypatch, configured, expected):
-    monkeypatch.setenv("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", configured)
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, configured)
 
     assert _privileged_read_authz_enabled() is expected
 
@@ -152,7 +155,7 @@ def test_privileged_read_authz_enabled_uses_governed_env_switch(monkeypatch, con
     ],
 )
 def test_write_authz_enabled_uses_governed_env_switch(monkeypatch, configured, expected):
-    monkeypatch.setenv("ENTERPRISE_ENFORCE_AUTHZ", configured)
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, configured)
 
     assert _write_authz_enabled() is expected
 
@@ -167,7 +170,7 @@ def test_write_authz_enabled_uses_governed_env_switch(monkeypatch, configured, e
     ],
 )
 def test_runtime_config_enforcement_enabled_uses_governed_env_switch(monkeypatch, configured, expected):
-    monkeypatch.setenv("ENTERPRISE_ENFORCE_RUNTIME_CONFIG", configured)
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_RUNTIME_CONFIG, configured)
 
     assert _runtime_config_enforcement_enabled() is expected
 
@@ -409,10 +412,10 @@ def test_allowed_audit_metadata_classifies_write_surfaces():
 
 
 def test_allowed_audit_metadata_requires_privileged_read_enforcement(monkeypatch):
-    monkeypatch.setenv("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "false")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, "false")
     assert _allowed_audit_metadata(method="GET", path="/integration/runtime-status", status_code=200) is None
 
-    monkeypatch.setenv("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, "true")
     assert _allowed_audit_metadata(method="GET", path="/integration/runtime-status", status_code=200) == {
         _AUDIT_METADATA_STATUS_CODE_KEY: 200,
         _AUDIT_METADATA_ACCESS_MODE_KEY: _AUDIT_ACCESS_MODE_PRIVILEGED_READ,
@@ -572,7 +575,7 @@ def test_feature_flag_enabled_fails_closed_for_malformed_blocks():
 def test_enterprise_runtime_config_issues_reports_policy_rotation_and_key(monkeypatch):
     monkeypatch.setenv("ENTERPRISE_POLICY_VERSION", " ")
     monkeypatch.setenv("ENTERPRISE_SECRET_ROTATION_DAYS", "91")
-    monkeypatch.setenv("ENTERPRISE_ENFORCE_AUTHZ", "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "true")
     monkeypatch.delenv("ENTERPRISE_PRIMARY_KEY_ID", raising=False)
 
     assert _enterprise_runtime_config_issues() == [
@@ -589,8 +592,8 @@ def test_enterprise_runtime_config_issues_uses_default_for_invalid_rotation_days
 
 
 def test_authorize_enterprise_request_preserves_write_denial_precedence(monkeypatch):
-    monkeypatch.setenv("ENTERPRISE_ENFORCE_AUTHZ", "true")
-    monkeypatch.setenv("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, "true")
 
     allowed, reason = _authorize_enterprise_request(method="POST", path="/analytics", headers={})
 
@@ -599,8 +602,8 @@ def test_authorize_enterprise_request_preserves_write_denial_precedence(monkeypa
 
 
 def test_authorize_enterprise_request_applies_privileged_read_after_write_allows(monkeypatch):
-    monkeypatch.setenv("ENTERPRISE_ENFORCE_AUTHZ", "true")
-    monkeypatch.setenv("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, "true")
     headers = {
         "X-Actor-Id": "a1",
         "X-Tenant-Id": "t1",
@@ -621,7 +624,7 @@ def test_authorize_enterprise_request_applies_privileged_read_after_write_allows
 
 
 def test_authorize_write_request_allows_when_no_capability_rule_matches(monkeypatch):
-    monkeypatch.setenv("ENTERPRISE_ENFORCE_AUTHZ", "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "true")
     monkeypatch.setenv(
         "ENTERPRISE_CAPABILITY_RULES_JSON",
         json.dumps({"POST /analytics": "analytics.write"}),
@@ -698,14 +701,14 @@ def test_privileged_read_rule_loader_ignores_blank_default_override(monkeypatch)
 
 
 def test_authorize_privileged_read_request_allows_unmatched_paths(monkeypatch):
-    monkeypatch.setenv("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, "true")
     allowed, reason = authorize_privileged_read_request("GET", "/integration/capabilities", {})
     assert allowed is True
     assert reason is None
 
 
 def test_privileged_read_authorization_does_not_match_adjacent_prefix(monkeypatch):
-    monkeypatch.setenv("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, "true")
     allowed, reason = authorize_privileged_read_request("GET", "/integration/runtime-status-extra", {})
     assert allowed is True
     assert reason is None

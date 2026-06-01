@@ -5,6 +5,8 @@ from fastapi import Request
 
 from app.enterprise_readiness import (
     _DEFAULT_ENTERPRISE_POLICY_VERSION,
+    _ENV_ENTERPRISE_ENFORCE_AUTHZ,
+    _ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ,
     _HTTP_STATUS_FORBIDDEN,
     _HTTP_STATUS_PAYLOAD_TOO_LARGE,
     _MISSING_POLICY_VERSION_ISSUE,
@@ -64,14 +66,14 @@ def test_redaction_handles_non_string_metadata_keys():
 
 
 def test_authorize_write_request_enforces_required_headers_when_enabled(monkeypatch):
-    monkeypatch.setenv("ENTERPRISE_ENFORCE_AUTHZ", "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "true")
     allowed, reason = authorize_write_request("POST", "/analytics", {})
     assert allowed is False
     assert reason.startswith("missing_headers:")
 
 
 def test_authorize_write_request_rejects_blank_required_headers(monkeypatch):
-    monkeypatch.setenv("ENTERPRISE_ENFORCE_AUTHZ", "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "true")
     headers = {
         "X-Actor-Id": " ",
         "X-Tenant-Id": "t1",
@@ -87,7 +89,7 @@ def test_authorize_write_request_rejects_blank_required_headers(monkeypatch):
 
 
 def test_authorize_write_request_enforces_capability_rules(monkeypatch):
-    monkeypatch.setenv("ENTERPRISE_ENFORCE_AUTHZ", "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "true")
     monkeypatch.setenv(
         "ENTERPRISE_CAPABILITY_RULES_JSON",
         json.dumps({"POST /analytics": "analytics.write"}),
@@ -111,7 +113,7 @@ def test_authorize_write_request_enforces_capability_rules(monkeypatch):
 
 
 def test_authorize_write_request_requires_runtime_manage_capability_for_retention_run(monkeypatch):
-    monkeypatch.setenv("ENTERPRISE_ENFORCE_AUTHZ", "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "true")
     headers = {
         "X-Actor-Id": "a1",
         "X-Tenant-Id": "t1",
@@ -131,7 +133,7 @@ def test_authorize_write_request_requires_runtime_manage_capability_for_retentio
 
 
 def test_authorize_write_request_requires_runtime_manage_capability_for_recovery_drill_run(monkeypatch):
-    monkeypatch.setenv("ENTERPRISE_ENFORCE_AUTHZ", "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "true")
     headers = {
         "X-Actor-Id": "a1",
         "X-Tenant-Id": "t1",
@@ -151,7 +153,7 @@ def test_authorize_write_request_requires_runtime_manage_capability_for_recovery
 
 
 def test_authorize_privileged_read_request_enforces_required_headers_and_capability(monkeypatch):
-    monkeypatch.setenv("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, "true")
     denied, denied_reason = authorize_privileged_read_request("GET", "/integration/runtime-status", {})
     assert denied is False
     assert denied_reason.startswith("missing_headers:")
@@ -190,7 +192,7 @@ def test_invalid_json_and_invalid_int_env_defaults(monkeypatch):
 
 def test_validate_runtime_config_flags_missing_policy_and_key(monkeypatch):
     monkeypatch.setenv("ENTERPRISE_POLICY_VERSION", " ")
-    monkeypatch.setenv("ENTERPRISE_ENFORCE_AUTHZ", "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "true")
     monkeypatch.delenv("ENTERPRISE_PRIMARY_KEY_ID", raising=False)
     issues = validate_enterprise_runtime_config()
     assert _MISSING_POLICY_VERSION_ISSUE in issues
@@ -205,7 +207,7 @@ def test_enterprise_policy_version_trims_configured_value(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_middleware_blocks_oversized_payload(monkeypatch):
-    monkeypatch.setenv("ENTERPRISE_ENFORCE_AUTHZ", "false")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "false")
     monkeypatch.setenv("ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES", "1")
     middleware = build_enterprise_audit_middleware()
     scope = {
@@ -222,7 +224,7 @@ async def test_middleware_blocks_oversized_payload(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_middleware_denies_missing_service_identity(monkeypatch):
-    monkeypatch.setenv("ENTERPRISE_ENFORCE_AUTHZ", "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "true")
     middleware = build_enterprise_audit_middleware()
     scope = {
         "type": "http",
@@ -243,7 +245,7 @@ async def test_middleware_denies_missing_service_identity(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_middleware_normalizes_blank_denied_audit_identity(monkeypatch, mocker):
-    monkeypatch.setenv("ENTERPRISE_ENFORCE_AUTHZ", "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "true")
     middleware = build_enterprise_audit_middleware()
     emit = mocker.patch("app.enterprise_readiness.emit_audit_event")
     scope = {
@@ -272,7 +274,7 @@ async def test_middleware_normalizes_blank_denied_audit_identity(monkeypatch, mo
 
 @pytest.mark.asyncio
 async def test_middleware_accepts_invalid_content_length_and_sets_policy_header(monkeypatch, mocker):
-    monkeypatch.setenv("ENTERPRISE_ENFORCE_AUTHZ", "false")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "false")
     monkeypatch.setenv("ENTERPRISE_POLICY_VERSION", "2.0.0")
     middleware = build_enterprise_audit_middleware()
     emit = mocker.patch("app.enterprise_readiness.emit_audit_event")
@@ -306,8 +308,8 @@ async def test_middleware_accepts_invalid_content_length_and_sets_policy_header(
 
 @pytest.mark.asyncio
 async def test_middleware_denies_privileged_read_without_identity_headers(monkeypatch):
-    monkeypatch.setenv("ENTERPRISE_ENFORCE_AUTHZ", "false")
-    monkeypatch.setenv("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "false")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, "true")
     middleware = build_enterprise_audit_middleware()
     scope = {
         "type": "http",
@@ -322,8 +324,8 @@ async def test_middleware_denies_privileged_read_without_identity_headers(monkey
 
 @pytest.mark.asyncio
 async def test_middleware_audits_allowed_privileged_read_with_governed_surface_metadata(monkeypatch, mocker):
-    monkeypatch.setenv("ENTERPRISE_ENFORCE_AUTHZ", "false")
-    monkeypatch.setenv("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "false")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, "true")
     middleware = build_enterprise_audit_middleware()
     emit = mocker.patch("app.enterprise_readiness.emit_audit_event")
 
@@ -362,8 +364,8 @@ async def test_middleware_audits_allowed_privileged_read_with_governed_surface_m
 
 @pytest.mark.asyncio
 async def test_middleware_audits_allowed_governed_write_with_capability_metadata(monkeypatch, mocker):
-    monkeypatch.setenv("ENTERPRISE_ENFORCE_AUTHZ", "true")
-    monkeypatch.setenv("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "false")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, "false")
     middleware = build_enterprise_audit_middleware()
     emit = mocker.patch("app.enterprise_readiness.emit_audit_event")
 
