@@ -293,6 +293,13 @@ def authorize_privileged_read_request(method: str, path: str, headers: dict[str,
     )
 
 
+def _authorize_enterprise_request(*, method: str, path: str, headers: dict[str, str]) -> tuple[bool, str | None]:
+    authorized, reason = authorize_write_request(method, path, headers)
+    if not authorized:
+        return authorized, reason
+    return authorize_privileged_read_request(method, path, headers)
+
+
 def redact_sensitive(value: Any) -> Any:
     if isinstance(value, dict):
         output: dict[str, Any] = {}
@@ -348,16 +355,11 @@ def build_enterprise_audit_middleware() -> Callable[
             return JSONResponse(status_code=413, content={"detail": "payload_too_large"})
 
         audit_identity = _audit_identity_from_headers(request.headers)
-        authorized, reason = authorize_write_request(request.method, request.url.path, dict(request.headers))
-        if not authorized:
-            return _authorization_denied_response(
-                method=request.method,
-                path=request.url.path,
-                reason=reason,
-                audit_identity=audit_identity,
-            )
-
-        authorized, reason = authorize_privileged_read_request(request.method, request.url.path, dict(request.headers))
+        authorized, reason = _authorize_enterprise_request(
+            method=request.method,
+            path=request.url.path,
+            headers=dict(request.headers),
+        )
         if not authorized:
             return _authorization_denied_response(
                 method=request.method,

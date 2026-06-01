@@ -6,6 +6,7 @@ from app.enterprise_readiness import (
     _allowed_audit_metadata,
     _audit_identity_from_headers,
     _authorization_denied_response,
+    _authorize_enterprise_request,
     _content_length,
     _enterprise_runtime_config_issues,
     _feature_flag_enabled,
@@ -227,6 +228,38 @@ def test_enterprise_runtime_config_issues_uses_default_for_invalid_rotation_days
     monkeypatch.setenv("ENTERPRISE_SECRET_ROTATION_DAYS", "invalid")
 
     assert "secret_rotation_days_out_of_range" not in _enterprise_runtime_config_issues()
+
+
+def test_authorize_enterprise_request_preserves_write_denial_precedence(monkeypatch):
+    monkeypatch.setenv("ENTERPRISE_ENFORCE_AUTHZ", "true")
+    monkeypatch.setenv("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "true")
+
+    allowed, reason = _authorize_enterprise_request(method="POST", path="/analytics", headers={})
+
+    assert allowed is False
+    assert reason and reason.startswith("missing_headers:")
+
+
+def test_authorize_enterprise_request_applies_privileged_read_after_write_allows(monkeypatch):
+    monkeypatch.setenv("ENTERPRISE_ENFORCE_AUTHZ", "true")
+    monkeypatch.setenv("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "true")
+    headers = {
+        "X-Actor-Id": "a1",
+        "X-Tenant-Id": "t1",
+        "X-Role": "operator",
+        "X-Correlation-Id": "c1",
+        "X-Service-Identity": "lotus-performance",
+        "X-Capabilities": "analytics.read",
+    }
+
+    allowed, reason = _authorize_enterprise_request(
+        method="GET",
+        path="/integration/runtime-status",
+        headers=headers,
+    )
+
+    assert allowed is False
+    assert reason == "missing_capability:operations.runtime.read"
 
 
 def test_authorize_write_request_allows_when_no_capability_rule_matches(monkeypatch):
