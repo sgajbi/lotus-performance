@@ -26,7 +26,6 @@ from app.enterprise_readiness import (
     _CAPABILITIES_HEADER,
     _CAPABILITY_OPERATIONS_RUNTIME_MANAGE,
     _CAPABILITY_OPERATIONS_RUNTIME_READ,
-    _CAPABILITY_RULE_METHOD_PATH_SEPARATOR,
     _CONTENT_LENGTH_HEADER,
     _CORRELATION_ID_HEADER,
     _DEFAULT_MAX_WRITE_PAYLOAD_BYTES,
@@ -84,6 +83,7 @@ from app.enterprise_readiness import (
     _authorization_denied,
     _authorization_denied_response,
     _authorize_enterprise_request,
+    _capability_rule_key,
     _capability_rule_path_for_method,
     _content_length,
     _denied_request_action,
@@ -301,9 +301,13 @@ def test_capability_rule_path_for_method_extracts_matching_rule_path():
 
 
 def test_capability_rule_path_uses_governed_method_path_separator():
-    rule_key = f"{_HTTP_METHOD_GET}{_CAPABILITY_RULE_METHOD_PATH_SEPARATOR}{_PATH_RUNTIME_STATUS}"
+    rule_key = _capability_rule_key(method=_HTTP_METHOD_GET, path=_PATH_RUNTIME_STATUS)
 
     assert _capability_rule_path_for_method(rule_key=rule_key, method=_HTTP_METHOD_GET) == _PATH_RUNTIME_STATUS
+
+
+def test_capability_rule_key_normalizes_method_and_joins_path():
+    assert _capability_rule_key(method="get", path=_PATH_RUNTIME_STATUS) == _RULE_RUNTIME_STATUS_READ
 
 
 def test_capability_rule_path_for_method_ignores_other_methods():
