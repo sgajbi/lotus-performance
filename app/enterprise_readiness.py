@@ -365,6 +365,14 @@ def _missing_capability_reason(required_capability: str | None) -> str:
     return f"{_MISSING_CAPABILITY_REASON}:{required_capability}"
 
 
+def _authorization_allowed() -> tuple[bool, None]:
+    return True, None
+
+
+def _authorization_denied(reason: str) -> tuple[bool, str]:
+    return False, reason
+
+
 def _authorize_with_required_capability(
     *,
     method: str,
@@ -375,20 +383,20 @@ def _authorize_with_required_capability(
     normalized = _normalized_headers(headers)
     missing = _missing_required_headers(normalized)
     if missing:
-        return False, _missing_headers_reason(missing)
+        return _authorization_denied(_missing_headers_reason(missing))
 
     if not _has_service_identity(normalized):
-        return False, _MISSING_SERVICE_IDENTITY_REASON
+        return _authorization_denied(_MISSING_SERVICE_IDENTITY_REASON)
 
     if not _has_required_capability(normalized, required_capability):
-        return False, _missing_capability_reason(required_capability)
+        return _authorization_denied(_missing_capability_reason(required_capability))
 
-    return True, None
+    return _authorization_allowed()
 
 
 def authorize_write_request(method: str, path: str, headers: dict[str, str]) -> tuple[bool, str | None]:
     if not _is_write_method(method) or not _write_authz_enabled():
-        return True, None
+        return _authorization_allowed()
 
     return _authorize_with_required_capability(
         method=method,
@@ -400,11 +408,11 @@ def authorize_write_request(method: str, path: str, headers: dict[str, str]) -> 
 
 def authorize_privileged_read_request(method: str, path: str, headers: dict[str, str]) -> tuple[bool, str | None]:
     if not _is_privileged_read_method(method) or not _privileged_read_authz_enabled():
-        return True, None
+        return _authorization_allowed()
 
     required_capability = _required_privileged_read_capability(method, path)
     if required_capability is None:
-        return True, None
+        return _authorization_allowed()
 
     return _authorize_with_required_capability(
         method=method,

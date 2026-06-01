@@ -48,7 +48,9 @@ from app.enterprise_readiness import (
     _audit_identity_from_headers,
     _audit_metadata,
     _audit_timestamp_utc,
+    _authorization_allowed,
     _authorization_denial_metadata,
+    _authorization_denied,
     _authorization_denied_response,
     _authorize_enterprise_request,
     _content_length,
@@ -458,6 +460,11 @@ def test_authorization_reason_helpers_use_governed_reason_tokens():
     assert _missing_capability_reason("operations.runtime.manage") == (
         f"{_MISSING_CAPABILITY_REASON}:operations.runtime.manage"
     )
+
+
+def test_authorization_result_helpers_return_governed_tuple_shape():
+    assert _authorization_allowed() == (True, None)
+    assert _authorization_denied("missing_service_identity") == (False, "missing_service_identity")
 
 
 def test_request_action_helpers_format_governed_audit_actions():
