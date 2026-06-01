@@ -30,6 +30,8 @@ link the commit, command, or CI artifact that proves the change.
 | Largest Python file LOC | 2,399 | 2,399 | measured | largest-file inventory in baseline report |
 | Largest production file LOC | 1,156 | 1,156 | measured | `app/services/lineage_metadata_store.py` |
 | Duplicate code hotspots | unknown | unknown | not-yet-measured | clone/duplication tooling not configured |
+| Dead-code candidates at 60% confidence | unknown | 438 | measured | `quality/dead_code_inventory.md` via `scripts/python_dead_code_inventory.py` |
+| Dead-code candidates at 80% confidence | unknown | 0 | measured | `quality/dead_code_inventory.md` via `scripts/python_dead_code_inventory.py` |
 
 ## Complexity And Maintainability
 
