@@ -69,3 +69,7 @@ def test_recovery_drill_schemas_document_all_request_and_output_fields():
     assert "Compute jobs processed" in run_properties["compute_job_processed_count"]["description"]
     assert "Lineage payloads processed" in run_properties["processed_payload_count"]["description"]
     assert "lineage artifact exists" in run_properties["materialized_artifact_exists"]["description"]
+
+    request_properties = schemas["RecoveryDrillRunRequest"]["properties"]
+    assert request_properties["backup_identifier"]["minLength"] == 1
+    assert request_properties["backup_identifier"]["pattern"] == r".*\S.*"

@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
@@ -15,6 +16,18 @@ def test_recovery_drill_run_api_rejects_missing_operator_identity():
 
     assert response.status_code == 400
     assert response.json() == {"detail": "missing_operator_identity"}
+
+
+@pytest.mark.parametrize("backup_identifier", ["", "   "])
+def test_recovery_drill_run_api_rejects_blank_backup_identifier(backup_identifier):
+    with TestClient(app) as client:
+        response = client.post(
+            "/integration/recovery-drills/run",
+            json={"backup_identifier": backup_identifier},
+        )
+
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["loc"] == ["body", "backup_identifier"]
 
 
 def test_recovery_drill_run_api_persists_enterprise_context(tmp_path, monkeypatch):
