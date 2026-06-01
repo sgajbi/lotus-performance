@@ -8,7 +8,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.models.benchmark_requests import BenchmarkComponentObservation
-from app.models.returns_series import CalendarPolicy, ReturnsFrequency, ReturnsSeriesRequest
+from app.models.returns_series import CalendarPolicy, ReturnPoint, ReturnsFrequency, ReturnsSeriesRequest
 from app.services import portfolio_source_service, returns_series_service, stateful_input_service
 from app.services.execution_registry import ExecutionRegistry
 from app.services.stateful_benchmark_input_service import StatefulBenchmarkNormalizedInput
@@ -37,6 +37,33 @@ def test_build_active_return_points_uses_aligned_arithmetic_difference():
     assert active_points is not None
     assert [point.date.isoformat() for point in active_points] == ["2026-02-24", "2026-02-25"]
     assert [str(point.return_value) for point in active_points] == ["0.004000000000", "-0.003000000000"]
+
+
+def test_to_dataframe_normalizes_mixed_date_like_return_points_to_timestamps():
+    df = returns_series_service.to_dataframe(
+        [
+            ReturnPoint(date="2026-02-24", return_value=Decimal("0.002")),
+            ReturnPoint(date=pd.Timestamp("2026-02-23T10:00:00Z").date(), return_value=Decimal("0.001")),
+        ],
+        series_type="portfolio",
+    )
+
+    assert [value.date().isoformat() for value in df["date"]] == ["2026-02-23", "2026-02-24"]
+
+
+def test_benchmark_daily_returns_to_dataframe_preserves_index_during_timestamp_normalization():
+    source_df = pd.DataFrame(
+        {
+            "date": ["2026-02-23", pd.Timestamp("2026-02-24T10:00:00Z")],
+            "benchmark_return": [Decimal("0.001"), Decimal("0.002")],
+        },
+        index=[10, 11],
+    )
+
+    benchmark_df = returns_series_service._benchmark_daily_returns_to_dataframe(source_df)
+
+    assert [value.date().isoformat() for value in benchmark_df["date"]] == ["2026-02-23", "2026-02-24"]
+    assert benchmark_df["return_value"].tolist() == [Decimal("0.001"), Decimal("0.002")]
 
 
 def test_build_cumulative_active_return_points_uses_cumulative_excess_not_linked_active():

@@ -124,8 +124,13 @@ def to_dataframe(points: Iterable[ReturnPoint], *, series_type: str) -> pd.DataF
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=invalid_request_detail(f"{series_type} series contains duplicate dates."),
         )
-    df["date"] = pd.to_datetime(df["date"])
+    df["date"] = _return_timestamp_series(df["date"])
     return df.sort_values("date")
+
+
+def _return_timestamp_series(values: Iterable[object]) -> pd.Series:
+    index = values.index if isinstance(values, pd.Series) else None
+    return pd.to_datetime(pd.Series(values, index=index), utc=True).dt.tz_localize(None)
 
 
 def filter_window(df: pd.DataFrame, *, resolved_window: ResolvedWindow) -> pd.DataFrame:
@@ -372,7 +377,7 @@ def daily_ror_from_portfolio_timeseries(
         )
     output_df = pd.DataFrame(
         {
-            "date": pd.to_datetime(daily_results_df[PortfolioColumns.PERF_DATE.value]),
+            "date": _return_timestamp_series(daily_results_df[PortfolioColumns.PERF_DATE.value]),
             "return_value": [
                 (Decimal(str(value)) / Decimal("100") if not pd.isna(pd.to_numeric(value, errors="coerce")) else None)
                 for value in daily_results_df[PortfolioColumns.DAILY_ROR.value]
@@ -460,7 +465,7 @@ def _benchmark_daily_returns_to_dataframe(daily_returns_df: pd.DataFrame) -> pd.
             detail=insufficient_data_detail("Benchmark series is empty."),
         )
     benchmark_df = daily_returns_df[["date", "benchmark_return"]].copy()
-    benchmark_df["date"] = pd.to_datetime(benchmark_df["date"])
+    benchmark_df["date"] = _return_timestamp_series(benchmark_df["date"])
     benchmark_df = benchmark_df.rename(columns={"benchmark_return": "return_value"}).sort_values("date")
     if benchmark_df["date"].duplicated().any():
         raise HTTPException(
