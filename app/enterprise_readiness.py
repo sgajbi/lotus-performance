@@ -187,6 +187,10 @@ def _missing_required_headers(normalized_headers: Mapping[str, str]) -> list[str
     return sorted(header for header in _REQUIRED_HEADERS if not normalized_headers.get(header))
 
 
+def _has_service_identity(normalized_headers: Mapping[str, str]) -> bool:
+    return bool(normalized_headers.get("x-service-identity") or normalized_headers.get("authorization"))
+
+
 def _audit_identity_from_headers(headers: Mapping[str, Any]) -> dict[str, str]:
     normalized = _normalized_headers(headers)
     return {
@@ -259,7 +263,7 @@ def _authorize_with_required_capability(
     if missing:
         return False, f"missing_headers:{','.join(missing)}"
 
-    if not (normalized.get("x-service-identity") or normalized.get("authorization")):
+    if not _has_service_identity(normalized):
         return False, "missing_service_identity"
 
     if required_capability:

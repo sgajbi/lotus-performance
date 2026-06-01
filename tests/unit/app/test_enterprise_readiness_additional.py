@@ -10,6 +10,7 @@ from app.enterprise_readiness import (
     _content_length,
     _enterprise_runtime_config_issues,
     _feature_flag_enabled,
+    _has_service_identity,
     _header_capabilities,
     _load_capability_rule_family,
     _missing_required_headers,
@@ -79,6 +80,19 @@ def test_missing_required_headers_reports_sorted_blank_or_missing_fields():
     )
 
     assert _missing_required_headers(normalized) == ["x-actor-id", "x-role"]
+
+
+@pytest.mark.parametrize(
+    ("headers", "expected"),
+    [
+        ({"X-Service-Identity": "lotus-performance"}, True),
+        ({"Authorization": "Bearer token"}, True),
+        ({"X-Service-Identity": " ", "Authorization": ""}, False),
+        ({}, False),
+    ],
+)
+def test_has_service_identity_accepts_service_identity_or_authorization(headers, expected):
+    assert _has_service_identity(_normalized_headers(headers)) is expected
 
 
 def test_audit_identity_from_headers_normalizes_case_and_defaults():
