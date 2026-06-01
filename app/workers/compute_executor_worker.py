@@ -22,7 +22,10 @@ from app.models.returns_series import InputMode, ReturnsSeriesRequest
 from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode, TWRResolvedExecutionRequest
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
 from app.services.analytics_workflow_types import (
+    ANALYTICS_WORKFLOW_ATTRIBUTION,
     ANALYTICS_WORKFLOW_BENCHMARK,
+    ANALYTICS_WORKFLOW_CONTRIBUTION,
+    ANALYTICS_WORKFLOW_RETURNS_SERIES,
     ANALYTICS_WORKFLOW_TWR,
     ANALYTICS_WORKFLOW_TWR_INSPECTION,
     ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
@@ -115,7 +118,7 @@ def _process_pending_jobs(
             lease_seconds=current_lease_seconds,
         )
         try:
-            if job.analytics_type == "ReturnsSeries":
+            if job.analytics_type == ANALYTICS_WORKFLOW_RETURNS_SERIES:
                 (
                     request,
                     source_input_mode,
@@ -133,7 +136,7 @@ def _process_pending_jobs(
                             resolved_benchmark_return_source_override=resolved_benchmark_return_source_override,
                         )
                     )
-            elif job.analytics_type == "Attribution":
+            elif job.analytics_type == ANALYTICS_WORKFLOW_ATTRIBUTION:
                 (
                     attribution_request,
                     attribution_input_mode,
@@ -160,7 +163,7 @@ def _process_pending_jobs(
                     resolved_benchmark_id=resolved_benchmark_id,
                     resolved_benchmark_return_source=resolved_benchmark_return_source,
                 )
-            elif job.analytics_type == "Contribution":
+            elif job.analytics_type == ANALYTICS_WORKFLOW_CONTRIBUTION:
                 contribution_request, contribution_input_mode = _resolve_async_contribution_job_request(
                     job.request_payload,
                     settings=active_settings,

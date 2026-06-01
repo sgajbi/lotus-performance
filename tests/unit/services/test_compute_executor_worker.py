@@ -21,7 +21,10 @@ from app.services import (
     twr_service,
 )
 from app.services.analytics_workflow_types import (
+    ANALYTICS_WORKFLOW_ATTRIBUTION,
     ANALYTICS_WORKFLOW_BENCHMARK,
+    ANALYTICS_WORKFLOW_CONTRIBUTION,
+    ANALYTICS_WORKFLOW_RETURNS_SERIES,
     ANALYTICS_WORKFLOW_TWR,
     ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
 )
@@ -84,14 +87,14 @@ def test_compute_executor_worker_processes_pending_returns_series_job(tmp_path, 
 
     execution_store.create_execution(
         calculation_id=calculation_id,
-        analytics_type="ReturnsSeries",
+        analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
         portfolio_id="P1",
         execution_mode="async",
         requested_window={},
     )
     job_store.enqueue_job(
         calculation_id=calculation_id,
-        analytics_type="ReturnsSeries",
+        analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
         request_payload=request.model_dump(mode="json"),
     )
 
@@ -145,14 +148,14 @@ def test_compute_executor_worker_processes_resolved_stateful_returns_series_job(
 
     execution_store.create_execution(
         calculation_id=calculation_id,
-        analytics_type="ReturnsSeries",
+        analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
         portfolio_id="P1",
         execution_mode="async",
         requested_window={},
     )
     job_store.enqueue_job(
         calculation_id=calculation_id,
-        analytics_type="ReturnsSeries",
+        analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
         request_payload={
             "resolved_request": resolved_request.model_dump(mode="json"),
             "source_input_mode": "stateful",
@@ -374,14 +377,14 @@ def test_compute_executor_worker_processes_pending_contribution_job(tmp_path, mo
 
     execution_store.create_execution(
         calculation_id=calculation_id,
-        analytics_type="Contribution",
+        analytics_type=ANALYTICS_WORKFLOW_CONTRIBUTION,
         portfolio_id="P1",
         execution_mode="async",
         requested_window={},
     )
     job_store.enqueue_job(
         calculation_id=calculation_id,
-        analytics_type="Contribution",
+        analytics_type=ANALYTICS_WORKFLOW_CONTRIBUTION,
         request_payload=request.model_dump(mode="json"),
     )
 
@@ -559,7 +562,7 @@ def test_compute_executor_worker_updates_identity_for_stateful_contribution_job(
 
     execution_store.create_execution(
         calculation_id=calculation_id,
-        analytics_type="Contribution",
+        analytics_type=ANALYTICS_WORKFLOW_CONTRIBUTION,
         portfolio_id="P1",
         execution_mode="async",
         requested_window={},
@@ -568,7 +571,7 @@ def test_compute_executor_worker_updates_identity_for_stateful_contribution_job(
     )
     job_store.enqueue_job(
         calculation_id=calculation_id,
-        analytics_type="Contribution",
+        analytics_type=ANALYTICS_WORKFLOW_CONTRIBUTION,
         request_payload=analytics_request.model_dump(mode="json"),
     )
 
@@ -635,14 +638,14 @@ def test_compute_executor_worker_processes_pending_attribution_job(tmp_path, mon
 
     execution_store.create_execution(
         calculation_id=calculation_id,
-        analytics_type="Attribution",
+        analytics_type=ANALYTICS_WORKFLOW_ATTRIBUTION,
         portfolio_id="P1",
         execution_mode="async",
         requested_window={},
     )
     job_store.enqueue_job(
         calculation_id=calculation_id,
-        analytics_type="Attribution",
+        analytics_type=ANALYTICS_WORKFLOW_ATTRIBUTION,
         request_payload=request.model_dump(mode="json"),
     )
 
@@ -711,14 +714,14 @@ def test_compute_executor_worker_processes_resolved_stateful_attribution_job(tmp
 
     execution_store.create_execution(
         calculation_id=calculation_id,
-        analytics_type="Attribution",
+        analytics_type=ANALYTICS_WORKFLOW_ATTRIBUTION,
         portfolio_id="P1",
         execution_mode="async",
         requested_window={},
     )
     job_store.enqueue_job(
         calculation_id=calculation_id,
-        analytics_type="Attribution",
+        analytics_type=ANALYTICS_WORKFLOW_ATTRIBUTION,
         request_payload={
             "resolved_request": resolved_request.model_dump(mode="json"),
             "source_input_mode": "stateful",
@@ -767,7 +770,7 @@ def test_compute_executor_worker_marks_failed_and_handles_missing_execution(tmp_
     )
     job_store.enqueue_job(
         calculation_id=calculation_id,
-        analytics_type="ReturnsSeries",
+        analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
         request_payload=request.model_dump(mode="json"),
         max_attempts=1,
     )
@@ -816,14 +819,14 @@ def test_compute_executor_worker_requeues_retryable_failure(tmp_path, monkeypatc
     )
     execution_store.create_execution(
         calculation_id=calculation_id,
-        analytics_type="ReturnsSeries",
+        analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
         portfolio_id="P1",
         execution_mode="async",
         requested_window={},
     )
     job_store.enqueue_job(
         calculation_id=calculation_id,
-        analytics_type="ReturnsSeries",
+        analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
         request_payload=request.model_dump(mode="json"),
         max_attempts=2,
     )
@@ -869,14 +872,14 @@ def test_compute_executor_worker_marks_failed_after_retry_budget_exhausted(tmp_p
     )
     execution_store.create_execution(
         calculation_id=calculation_id,
-        analytics_type="ReturnsSeries",
+        analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
         portfolio_id="P1",
         execution_mode="async",
         requested_window={},
     )
     job_store.enqueue_job(
         calculation_id=calculation_id,
-        analytics_type="ReturnsSeries",
+        analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
         request_payload=request.model_dump(mode="json"),
         max_attempts=1,
     )
@@ -927,14 +930,14 @@ def test_compute_executor_worker_reconciles_stale_running_job(tmp_path, monkeypa
     )
     execution_store.create_execution(
         calculation_id=calculation_id,
-        analytics_type="ReturnsSeries",
+        analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
         portfolio_id="P1",
         execution_mode="async",
         requested_window={},
     )
     job_store.enqueue_job(
         calculation_id=calculation_id,
-        analytics_type="ReturnsSeries",
+        analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
         request_payload=request.model_dump(mode="json"),
         max_attempts=1,
     )
@@ -973,7 +976,7 @@ def test_compute_executor_worker_records_terminal_failure_when_execution_missing
 
     compute_executor_worker._record_terminal_failure(
         calculation_id=calculation_id,
-        analytics_type="ReturnsSeries",
+        analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
         error_message="boom",
         error_type="RuntimeError",
         missing_execution_log_message="Execution record missing for compute job %s",
