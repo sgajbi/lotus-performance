@@ -17,6 +17,7 @@ _RESPONSE_DETAIL_KEY = "detail"
 _RESPONSE_REASON_KEY = "reason"
 _AUTHORIZATION_POLICY_DENIED_DETAIL = "authorization_policy_denied"
 _PAYLOAD_TOO_LARGE_DETAIL = "payload_too_large"
+_REDACTED_VALUE = "***REDACTED***"
 _WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 _REQUIRED_HEADERS = {"x-actor-id", "x-tenant-id", "x-role", "x-correlation-id"}
 _DEFAULT_CAPABILITY_RULES = {
@@ -385,7 +386,7 @@ def redact_sensitive(value: Any) -> Any:
         output: dict[str, Any] = {}
         for key, item in value.items():
             if str(key).lower() in _REDACT_FIELDS:
-                output[key] = "***REDACTED***"
+                output[key] = _REDACTED_VALUE
             else:
                 output[key] = redact_sensitive(item)
         return output

@@ -10,6 +10,7 @@ from app.enterprise_readiness import (
     _ENTERPRISE_AUDIT_EXTRA_KEY,
     _ENTERPRISE_POLICY_VERSION_HEADER,
     _PAYLOAD_TOO_LARGE_DETAIL,
+    _REDACTED_VALUE,
     _RESPONSE_DETAIL_KEY,
     _RESPONSE_REASON_KEY,
     _allowed_audit_metadata,
@@ -250,7 +251,7 @@ def test_audit_event_payload_redacts_metadata_and_includes_policy_version(monkey
     assert payload["role"] == "operator"
     assert payload["correlation_id"] == ""
     assert payload["policy_version"] == "2.1.0"
-    assert payload["metadata"] == {"token": "***REDACTED***", "safe": "ok"}
+    assert payload["metadata"] == {"token": _REDACTED_VALUE, "safe": "ok"}
     assert datetime.fromisoformat(payload["timestamp_utc"]).tzinfo is not None
 
 
@@ -275,8 +276,8 @@ def test_audit_metadata_redacts_sensitive_nested_values():
         }
     ) == {
         "safe": "ok",
-        "nested": {"authorization": "***REDACTED***"},
-        "items": [{"token": "***REDACTED***"}],
+        "nested": {"authorization": _REDACTED_VALUE},
+        "items": [{"token": _REDACTED_VALUE}],
     }
 
 
