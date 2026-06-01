@@ -7,6 +7,7 @@ from app.enterprise_readiness import (
     authorize_privileged_read_request,
     authorize_write_request,
     build_enterprise_audit_middleware,
+    enterprise_policy_version,
     is_feature_enabled,
     redact_sensitive,
     validate_enterprise_runtime_config,
@@ -179,6 +180,12 @@ def test_validate_runtime_config_flags_missing_policy_and_key(monkeypatch):
     issues = validate_enterprise_runtime_config()
     assert "missing_policy_version" in issues
     assert "missing_primary_key_id" in issues
+    assert enterprise_policy_version() == "1.0.0"
+
+
+def test_enterprise_policy_version_trims_configured_value(monkeypatch):
+    monkeypatch.setenv("ENTERPRISE_POLICY_VERSION", " 2.0.0 ")
+    assert enterprise_policy_version() == "2.0.0"
 
 
 @pytest.mark.asyncio

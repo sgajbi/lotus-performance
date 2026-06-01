@@ -61,13 +61,17 @@ def _normalized_header(headers: Mapping[str, str], name: str, default: str = "")
     return str(value).strip() or default
 
 
-def enterprise_policy_version() -> str:
+def _configured_enterprise_policy_version() -> str:
     return os.getenv("ENTERPRISE_POLICY_VERSION", "1.0.0")
+
+
+def enterprise_policy_version() -> str:
+    return _configured_enterprise_policy_version().strip() or "1.0.0"
 
 
 def validate_enterprise_runtime_config() -> list[str]:
     issues: list[str] = []
-    if not enterprise_policy_version().strip():
+    if not _configured_enterprise_policy_version().strip():
         issues.append("missing_policy_version")
 
     rotation_days = _env_int("ENTERPRISE_SECRET_ROTATION_DAYS", 90)
