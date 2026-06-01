@@ -45,6 +45,11 @@ from app.enterprise_readiness import (
     _ENV_ENTERPRISE_PRIVILEGED_READ_RULES_JSON,
     _ENV_ENTERPRISE_SECRET_ROTATION_DAYS,
     _ENV_SWITCH_DISABLED_DEFAULT,
+    _HTTP_METHOD_DELETE,
+    _HTTP_METHOD_GET,
+    _HTTP_METHOD_PATCH,
+    _HTTP_METHOD_POST,
+    _HTTP_METHOD_PUT,
     _HTTP_STATUS_FORBIDDEN,
     _HTTP_STATUS_PAYLOAD_TOO_LARGE,
     _MISSING_CAPABILITY_REASON,
@@ -147,6 +152,12 @@ def test_is_write_method_normalizes_method_case(method, expected):
 )
 def test_is_privileged_read_method_normalizes_method_case(method, expected):
     assert _is_privileged_read_method(method) is expected
+
+
+def test_governed_http_method_tokens_drive_enterprise_method_predicates():
+    assert _is_privileged_read_method(_HTTP_METHOD_GET)
+    for method in {_HTTP_METHOD_POST, _HTTP_METHOD_PUT, _HTTP_METHOD_PATCH, _HTTP_METHOD_DELETE}:
+        assert _is_write_method(method)
 
 
 def test_env_enabled_uses_governed_enabled_tokens_and_disabled_default(monkeypatch):

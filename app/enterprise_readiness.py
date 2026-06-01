@@ -71,14 +71,19 @@ _DEFAULT_MAX_WRITE_PAYLOAD_BYTES = 1_048_576
 _DEFAULT_SECRET_ROTATION_DAYS = 90
 _CAPABILITY_OPERATIONS_RUNTIME_MANAGE = "operations.runtime.manage"
 _CAPABILITY_OPERATIONS_RUNTIME_READ = "operations.runtime.read"
-_RULE_RUNTIME_RETENTION_CLEANUP_RUN_WRITE = "POST /integration/runtime-retention-cleanups/run"
-_RULE_RECOVERY_DRILL_RUN_WRITE = "POST /integration/recovery-drills/run"
-_RULE_RUNTIME_STATUS_READ = "GET /integration/runtime-status"
-_RULE_RUNTIME_WORK_ITEMS_READ = "GET /integration/runtime-work-items"
-_RULE_RUNTIME_RECOVERIES_READ = "GET /integration/runtime-recoveries"
-_RULE_RECOVERY_DRILLS_READ = "GET /integration/recovery-drills"
-_RULE_RUNTIME_RETENTION_CLEANUPS_READ = "GET /integration/runtime-retention-cleanups"
-_WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+_HTTP_METHOD_DELETE = "DELETE"
+_HTTP_METHOD_GET = "GET"
+_HTTP_METHOD_PATCH = "PATCH"
+_HTTP_METHOD_POST = "POST"
+_HTTP_METHOD_PUT = "PUT"
+_RULE_RUNTIME_RETENTION_CLEANUP_RUN_WRITE = f"{_HTTP_METHOD_POST} /integration/runtime-retention-cleanups/run"
+_RULE_RECOVERY_DRILL_RUN_WRITE = f"{_HTTP_METHOD_POST} /integration/recovery-drills/run"
+_RULE_RUNTIME_STATUS_READ = f"{_HTTP_METHOD_GET} /integration/runtime-status"
+_RULE_RUNTIME_WORK_ITEMS_READ = f"{_HTTP_METHOD_GET} /integration/runtime-work-items"
+_RULE_RUNTIME_RECOVERIES_READ = f"{_HTTP_METHOD_GET} /integration/runtime-recoveries"
+_RULE_RECOVERY_DRILLS_READ = f"{_HTTP_METHOD_GET} /integration/recovery-drills"
+_RULE_RUNTIME_RETENTION_CLEANUPS_READ = f"{_HTTP_METHOD_GET} /integration/runtime-retention-cleanups"
+_WRITE_METHODS = {_HTTP_METHOD_POST, _HTTP_METHOD_PUT, _HTTP_METHOD_PATCH, _HTTP_METHOD_DELETE}
 _REQUIRED_HEADERS = {_ACTOR_ID_HEADER, _TENANT_ID_HEADER, _ROLE_HEADER, _CORRELATION_ID_HEADER}
 _DEFAULT_CAPABILITY_RULES = {
     _RULE_RUNTIME_RETENTION_CLEANUP_RUN_WRITE: _CAPABILITY_OPERATIONS_RUNTIME_MANAGE,
@@ -107,7 +112,7 @@ def _is_write_method(method: str) -> bool:
 
 
 def _is_privileged_read_method(method: str) -> bool:
-    return method.upper() == "GET"
+    return method.upper() == _HTTP_METHOD_GET
 
 
 def _env_enabled(name: str, default: str = "true") -> bool:
