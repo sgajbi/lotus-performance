@@ -12,6 +12,7 @@ from app.enterprise_readiness import (
     _authorization_denied_response,
     _authorize_enterprise_request,
     _content_length,
+    _emit_allowed_audit_event,
     _enterprise_runtime_config_issues,
     _feature_flag_enabled,
     _has_service_identity,
@@ -209,6 +210,31 @@ def test_authorization_denied_response_emits_audit_and_structured_reason(mocker)
         role="operator",
         correlation_id="corr-1",
         metadata={"reason": "missing_capability:operations.runtime.manage"},
+    )
+
+
+def test_emit_allowed_audit_event_uses_method_path_action_and_identity(mocker):
+    emit = mocker.patch("app.enterprise_readiness.emit_audit_event")
+
+    _emit_allowed_audit_event(
+        method="GET",
+        path="/integration/runtime-status",
+        audit_identity={
+            "actor_id": "actor-1",
+            "tenant_id": "tenant-1",
+            "role": "operator",
+            "correlation_id": "corr-1",
+        },
+        metadata={"status_code": 200, "access_mode": "privileged_read"},
+    )
+
+    emit.assert_called_once_with(
+        action="GET /integration/runtime-status",
+        actor_id="actor-1",
+        tenant_id="tenant-1",
+        role="operator",
+        correlation_id="corr-1",
+        metadata={"status_code": 200, "access_mode": "privileged_read"},
     )
 
 

@@ -235,6 +235,20 @@ def _authorization_denied_response(
     return JSONResponse(status_code=403, content={"detail": "authorization_policy_denied", "reason": reason})
 
 
+def _emit_allowed_audit_event(
+    *,
+    method: str,
+    path: str,
+    audit_identity: dict[str, str],
+    metadata: dict[str, Any],
+) -> None:
+    emit_audit_event(
+        action=f"{method} {path}",
+        **audit_identity,
+        metadata=metadata,
+    )
+
+
 def _content_length(headers: Mapping[str, Any]) -> int:
     try:
         return int(headers.get("content-length", "0"))
@@ -408,9 +422,10 @@ def build_enterprise_audit_middleware() -> Callable[
             status_code=response.status_code,
         )
         if allowed_audit_metadata is not None:
-            emit_audit_event(
-                action=f"{request.method} {request.url.path}",
-                **audit_identity,
+            _emit_allowed_audit_event(
+                method=request.method,
+                path=request.url.path,
+                audit_identity=audit_identity,
                 metadata=allowed_audit_metadata,
             )
         return response
