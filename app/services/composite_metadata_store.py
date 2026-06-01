@@ -11,7 +11,7 @@ from sqlalchemy import Date, Index, String, Text, create_engine, select, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.models.composites import CompositeDefinition, CompositeMemberReturnFact, CompositeMembership
-from app.services.durable_store_json import load_json_object_or_none
+from app.services.durable_store_json import load_json_object_or_none, load_json_string_list_or_default
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
 
 logger = logging.getLogger(__name__)
@@ -324,12 +324,11 @@ def _load_json_object(raw_payload: str, *, row_identifier: str, payload_name: st
 
 
 def _load_reason_codes(raw_payload: str, *, row_identifier: str) -> list[str]:
-    try:
-        payload = json.loads(raw_payload)
-    except json.JSONDecodeError:
-        logger.warning("Composite member return reason codes invalid JSON for row=%s.", row_identifier)
-        return [INVALID_COMPOSITE_REASON_CODES_PAYLOAD]
-    if not isinstance(payload, list) or not all(isinstance(item, str) and item for item in payload):
-        logger.warning("Composite member return reason codes are not a string list for row=%s.", row_identifier)
-        return [INVALID_COMPOSITE_REASON_CODES_PAYLOAD]
-    return payload
+    return load_json_string_list_or_default(
+        raw_payload,
+        logger=logger,
+        payload_name="Composite member return reason codes",
+        identity_name="row",
+        identity_value=row_identifier,
+        default_value=[INVALID_COMPOSITE_REASON_CODES_PAYLOAD],
+    )

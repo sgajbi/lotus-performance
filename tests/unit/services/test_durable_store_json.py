@@ -1,6 +1,6 @@
 import logging
 
-from app.services.durable_store_json import load_json_object_or_none
+from app.services.durable_store_json import load_json_object_or_none, load_json_string_list_or_default
 
 
 def test_load_json_object_or_none_returns_object_payload(caplog):
@@ -75,3 +75,47 @@ def test_load_json_object_or_none_can_treat_empty_payload_as_invalid(caplog):
 
     assert payload is None
     assert "Required payload invalid JSON for calculation_id=calc-1." in caplog.text
+
+
+def test_load_json_string_list_or_default_returns_valid_string_list(caplog):
+    logger = logging.getLogger("tests.durable_store_json")
+
+    with caplog.at_level(logging.WARNING, logger="tests.durable_store_json"):
+        payload = load_json_string_list_or_default(
+            '["missing_final_valuation"]',
+            logger=logger,
+            payload_name="Reason codes",
+            identity_name="row",
+            identity_value="row-1",
+            default_value=["invalid_payload"],
+        )
+
+    assert payload == ["missing_final_valuation"]
+    assert caplog.text == ""
+
+
+def test_load_json_string_list_or_default_returns_default_for_malformed_payloads(caplog):
+    logger = logging.getLogger("tests.durable_store_json")
+
+    with caplog.at_level(logging.WARNING, logger="tests.durable_store_json"):
+        invalid_json = load_json_string_list_or_default(
+            "{not-json",
+            logger=logger,
+            payload_name="Reason codes",
+            identity_name="row",
+            identity_value="row-1",
+            default_value=["invalid_payload"],
+        )
+        invalid_shape = load_json_string_list_or_default(
+            '["", 1]',
+            logger=logger,
+            payload_name="Reason codes",
+            identity_name="row",
+            identity_value="row-2",
+            default_value=["invalid_payload"],
+        )
+
+    assert invalid_json == ["invalid_payload"]
+    assert invalid_shape == ["invalid_payload"]
+    assert "Reason codes invalid JSON for row=row-1." in caplog.text
+    assert "Reason codes is not a string list for row=row-2." in caplog.text

@@ -25,3 +25,23 @@ def load_json_object_or_none(
         logger.warning("%s is not an object for %s=%s.", payload_name, identity_name, identity_value)
         return None
     return payload
+
+
+def load_json_string_list_or_default(
+    raw_payload: str,
+    *,
+    logger: logging.Logger,
+    payload_name: str,
+    identity_name: str,
+    identity_value: str,
+    default_value: list[str],
+) -> list[str]:
+    try:
+        payload = json.loads(raw_payload)
+    except json.JSONDecodeError:
+        logger.warning("%s invalid JSON for %s=%s.", payload_name, identity_name, identity_value)
+        return default_value
+    if not isinstance(payload, list) or not all(isinstance(item, str) and item for item in payload):
+        logger.warning("%s is not a string list for %s=%s.", payload_name, identity_name, identity_value)
+        return default_value
+    return payload
