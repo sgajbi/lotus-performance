@@ -129,7 +129,7 @@ def validate_history_entry_strings(
     required_keys: tuple[str, ...],
     optional_keys: tuple[str, ...],
 ) -> HistoryEntryStrings | None:
-    if any(not isinstance(entry.get(key), str) for key in required_keys):
+    if any(not isinstance(entry.get(key), str) or not entry[key].strip() for key in required_keys):
         return None
     evidence_file_name = entry.get("evidence_file_name")
     if not isinstance(evidence_file_name, str) or not is_safe_evidence_file_name(evidence_file_name):

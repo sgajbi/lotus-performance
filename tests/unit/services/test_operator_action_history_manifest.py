@@ -217,6 +217,18 @@ def test_validate_history_entry_strings_rejects_bad_required_or_optional_values(
         )
         is None
     )
+    assert (
+        validate_history_entry_strings(
+            {
+                "evidence_file_name": "evidence.json",
+                "generated_at_utc": "2026-03-15T00:00:00Z",
+                "operator_id": "   ",
+            },
+            required_keys=("evidence_file_name", "generated_at_utc", "operator_id"),
+            optional_keys=(),
+        )
+        is None
+    )
 
 
 def test_build_history_manifest_payload_projects_header_and_entries():
