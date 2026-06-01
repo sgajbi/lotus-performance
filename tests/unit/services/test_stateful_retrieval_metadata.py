@@ -24,6 +24,13 @@ def test_parse_retrieval_metadata_uses_configured_defaults_for_invalid_counts():
     ) == RetrievalMetadata(chunk_count=0, page_count=0)
 
 
+def test_parse_retrieval_metadata_defaults_invalid_counts_to_one():
+    assert parse_retrieval_metadata({"retrieval_metadata": {"chunk_count": 0, "page_count": "3"}}) == RetrievalMetadata(
+        chunk_count=1,
+        page_count=1,
+    )
+
+
 def test_parse_retrieval_metadata_defaults_boolean_counts():
     assert parse_retrieval_metadata(
         {"retrieval_metadata": {"chunk_count": True, "page_count": True}},

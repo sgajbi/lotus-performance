@@ -14,7 +14,7 @@ from app.services.portfolio_source_service import (
 )
 from app.services.source_quality_evidence import build_portfolio_source_quality_evidence
 from app.services.stateful_input_service import RetrievalMetadata, StatefulInputService
-from app.services.stateful_retrieval_metadata import parse_retrieval_metadata as _parse_retrieval_metadata
+from app.services.stateful_retrieval_metadata import parse_retrieval_metadata
 from app.services.stateful_upstream_errors import raise_for_stateful_control_plane_unavailable
 from app.services.valuation_points_service import portfolio_timeseries_to_valuation_points
 from core.errors import HTTP_422_UNPROCESSABLE
@@ -107,7 +107,7 @@ async def retrieve_stateful_portfolio_input(
         observations=portfolio_source.observations,
         portfolio_currency=portfolio_source.portfolio_currency,
         reporting_currency=portfolio_source.reporting_currency,
-        retrieval_metadata=_parse_retrieval_metadata(upstream_payload),
+        retrieval_metadata=parse_retrieval_metadata(upstream_payload),
     )
 
 

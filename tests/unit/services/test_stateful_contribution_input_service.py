@@ -9,7 +9,6 @@ from fastapi import HTTPException
 
 from app.services.stateful_contribution_input_service import (
     StatefulContributionSourceInput,
-    _parse_retrieval_metadata,
     _position_meta_from_row,
     _position_row_to_daily_point,
     _split_position_cash_flows,
@@ -371,7 +370,7 @@ def test_split_position_cash_flows_handles_non_list_and_fee_accumulation():
     assert fees == Decimal("-0.5")
 
 
-def test_position_meta_and_retrieval_metadata_defaults():
+def test_position_meta_from_row_preserves_source_metadata():
     assert _position_meta_from_row(
         {
             "security_id": "SEC_1",
@@ -393,7 +392,6 @@ def test_position_meta_and_retrieval_metadata_defaults():
             "source_contract": "PositionTimeseriesInput:v1",
         },
     }
-    assert _parse_retrieval_metadata({}) == RetrievalMetadata(chunk_count=1, page_count=1)
 
 
 def test_build_stateful_contribution_input_skips_rows_without_usable_values():
@@ -461,9 +459,3 @@ def test_position_row_to_daily_point_returns_none_when_date_or_values_are_missin
         )
         is None
     )
-
-
-def test_parse_retrieval_metadata_defaults_invalid_counts_to_one():
-    assert _parse_retrieval_metadata(
-        {"retrieval_metadata": {"chunk_count": 0, "page_count": "3"}}
-    ) == RetrievalMetadata(chunk_count=1, page_count=1)

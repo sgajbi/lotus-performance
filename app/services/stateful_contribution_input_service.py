@@ -18,7 +18,7 @@ from app.services.stateful_position_row_service import (
     PositionValueBasis,
     split_position_cash_flows_in_value_basis,
 )
-from app.services.stateful_retrieval_metadata import parse_retrieval_metadata as _parse_retrieval_metadata
+from app.services.stateful_retrieval_metadata import parse_retrieval_metadata
 from app.services.stateful_upstream_errors import raise_for_stateful_control_plane_unavailable
 from app.services.valuation_points_service import portfolio_timeseries_to_valuation_points
 
@@ -84,7 +84,7 @@ async def retrieve_stateful_contribution_source_input(
     return StatefulContributionSourceInput(
         portfolio_input=portfolio_input,
         position_rows=position_source.rows,
-        position_retrieval_metadata=_parse_retrieval_metadata(upstream_payload),
+        position_retrieval_metadata=parse_retrieval_metadata(upstream_payload),
     )
 
 

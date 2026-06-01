@@ -23,7 +23,7 @@ from app.services.stateful_position_row_service import (
     PositionValueBasis,
     split_position_cash_flows_in_value_basis,
 )
-from app.services.stateful_retrieval_metadata import parse_retrieval_metadata as _parse_retrieval_metadata
+from app.services.stateful_retrieval_metadata import parse_retrieval_metadata
 from app.services.stateful_upstream_errors import (
     raise_for_stateful_control_plane_unavailable,
     raise_for_stateful_source_unavailable,
@@ -159,7 +159,7 @@ async def retrieve_stateful_attribution_source_input(
     return StatefulAttributionSourceInput(
         portfolio_input=portfolio_input,
         position_rows=position_rows,
-        position_retrieval_metadata=_parse_retrieval_metadata(upstream_payload),
+        position_retrieval_metadata=parse_retrieval_metadata(upstream_payload),
         benchmark_id=benchmark_id,
         benchmark_component_observations=benchmark_input.component_observations,
         benchmark_source_details=benchmark_input.source_details,
