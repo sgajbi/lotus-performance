@@ -4,6 +4,7 @@ import pytest
 
 from app.enterprise_readiness import (
     _required_capability,
+    _required_capability_from_rules,
     authorize_privileged_read_request,
     authorize_write_request,
     load_capability_rules,
@@ -36,6 +37,15 @@ def test_required_capability_matches_exact_or_child_paths_only():
         == "operations.runtime.manage"
     )
     assert _required_capability("POST", "/integration/runtime-retention-cleanups/run-extra") is None
+
+
+def test_required_capability_from_rules_is_shared_for_authz_rule_families():
+    rules = {"GET /integration/runtime-status": "operations.runtime.read"}
+    assert (
+        _required_capability_from_rules(method="get", path="/integration/runtime-status/details", rules=rules)
+        == "operations.runtime.read"
+    )
+    assert _required_capability_from_rules(method="POST", path="/integration/runtime-status", rules=rules) is None
 
 
 def test_authorize_write_request_allows_when_no_capability_rule_matches(monkeypatch):

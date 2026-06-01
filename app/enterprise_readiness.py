@@ -139,22 +139,21 @@ def is_feature_enabled(feature_key: str, tenant_id: str, role: str) -> bool:
     return bool(global_default) if isinstance(global_default, bool) else False
 
 
-def _required_capability(method: str, path: str) -> str | None:
+def _required_capability_from_rules(*, method: str, path: str, rules: dict[str, str]) -> str | None:
     method = method.upper()
-    for key, capability in load_capability_rules().items():
+    for key, capability in rules.items():
         prefix = f"{method} "
         if key.upper().startswith(prefix) and _path_matches_rule(path, key[len(prefix) :]):
             return capability
     return None
+
+
+def _required_capability(method: str, path: str) -> str | None:
+    return _required_capability_from_rules(method=method, path=path, rules=load_capability_rules())
 
 
 def _required_privileged_read_capability(method: str, path: str) -> str | None:
-    method = method.upper()
-    for key, capability in load_privileged_read_rules().items():
-        prefix = f"{method} "
-        if key.upper().startswith(prefix) and _path_matches_rule(path, key[len(prefix) :]):
-            return capability
-    return None
+    return _required_capability_from_rules(method=method, path=path, rules=load_privileged_read_rules())
 
 
 def _authorize_with_required_capability(
