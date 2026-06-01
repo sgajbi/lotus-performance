@@ -472,7 +472,7 @@ def test_runtime_retention_manual_replay_rejects_evidence_outside_artifact_direc
     )
 
 
-def test_runtime_retention_manual_replay_rejects_mismatched_cleanup_shape(tmp_path):
+def test_runtime_retention_manual_replay_rejects_mismatched_cleanup_payload(tmp_path, caplog):
     artifact_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
     artifact_dir.mkdir(parents=True)
     payload = {"ok": True}
@@ -510,18 +510,68 @@ def test_runtime_retention_manual_replay_rejects_mismatched_cleanup_shape(tmp_pa
         applied_filters={},
     )
 
-    assert (
-        resolve_runtime_retention_manual_replay(
+    with caplog.at_level(logging.WARNING, logger="app.services.operator_action_replay_service"):
+        replay = resolve_runtime_retention_manual_replay(
             snapshot,
             artifact_directory=artifact_dir,
             operator_id="ops-user",
             tenant_id="tenant-a",
             correlation_id="corr-1",
-            apply=False,
-            retention_days=30,
+            apply=True,
+            retention_days=60,
             job_id="job-1",
         )
-        is None
+
+    assert replay is None
+    assert (
+        "Operator action replay evidence ignored because payload does not match runtime retention history entry: evidence.json"
+        in caplog.text
+    )
+
+
+def test_recovery_drill_manual_replay_rejects_mismatched_payload(tmp_path, caplog):
+    artifact_dir = tmp_path / "artifacts" / "durable-recovery-drill"
+    artifact_dir.mkdir(parents=True)
+    (artifact_dir / "evidence.json").write_text(__import__("json").dumps({"ok": True}), encoding="utf-8")
+    snapshot = RecoveryDrillHistorySnapshot(
+        status="available",
+        artifact_directory=str(artifact_dir),
+        latest_file_name="evidence.json",
+        retained_file_names=["evidence.json"],
+        retention_limit=30,
+        retention_max_age_days=90,
+        entries=[
+            RecoveryDrillHistoryEntry(
+                evidence_file_name="evidence.json",
+                generated_at_utc="2026-03-15T00:00:00Z",
+                operator_id="ops-user",
+                tenant_id="tenant-a",
+                correlation_id="corr-1",
+                backup_identifier="backup-123",
+                status="passed",
+            )
+        ],
+        total_entries=1,
+        matched_entries=1,
+        returned_entries=1,
+        next_offset=None,
+        applied_filters={},
+    )
+
+    with caplog.at_level(logging.WARNING, logger="app.services.operator_action_replay_service"):
+        replay = resolve_recovery_drill_manual_replay(
+            snapshot,
+            artifact_directory=artifact_dir,
+            operator_id="ops-user",
+            tenant_id="tenant-a",
+            correlation_id="corr-1",
+            backup_identifier="backup-123",
+        )
+
+    assert replay is None
+    assert (
+        "Operator action replay evidence ignored because payload does not match recovery drill history entry: evidence.json"
+        in caplog.text
     )
 
 
