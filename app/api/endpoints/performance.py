@@ -1,6 +1,4 @@
 # app/api/endpoints/performance.py
-from dataclasses import asdict
-from decimal import Decimal
 from uuid import UUID
 
 import pandas as pd
@@ -19,7 +17,6 @@ from app.models.responses import PerformanceResponse, TWRAcceptedResponse
 from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode, TWRResolvedExecutionRequest
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
 from app.models.workspace_summary_responses import WorkspaceSummaryAcceptedResponse, WorkspaceSummaryResponse
-from app.observability import record_mwr_solver_outcome
 from app.services.analytics_workflow_types import (
     ANALYTICS_WORKFLOW_MWR,
     ANALYTICS_WORKFLOW_TWR,
@@ -28,17 +25,13 @@ from app.services.analytics_workflow_types import (
 from app.services.async_result_service import resolve_async_result
 from app.services.attribution_mode_service import resolve_attribution_request
 from app.services.attribution_service import calculate_attribution
-from app.services.calculation_supportability_service import (
-    build_calculation_supportability,
-    record_supportability_metric,
-)
 from app.services.execution_lifecycle_service import (
     complete_execution_with_lineage,
     record_execution_failure,
 )
 from app.services.execution_registry import execution_registry
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
-from app.services.mwr_calculation_service import calculate_mwr_result
+from app.services.mwr_calculation_service import build_mwr_response, calculate_mwr_result
 from app.services.mwr_mode_service import resolve_mwr_request
 from app.services.reproducibility_service import generate_request_fingerprint, generate_value_fingerprint
 from app.services.stateful_execution_policy_service import (
@@ -52,7 +45,6 @@ from app.services.submission_fencing_service import (
 from app.services.twr_mode_service import resolve_twr_request
 from app.services.twr_service import calculate_twr_response
 from app.services.workspace_summary_service import calculate_workspace_summary, workspace_longest_requested_window_days
-from core.envelope import Audit, Diagnostics, Meta
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
 
 router = APIRouter(tags=["Performance"])
@@ -615,77 +607,14 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
             detail=f"An unexpected error occurred during MWR calculation: {str(e)}",
         )
 
-    meta = Meta(
-        calculation_id=request.calculation_id,
-        engine_version=active_settings.APP_VERSION,
-        precision_mode=mwr_request.precision_mode,
-        annualization=mwr_request.annualization,
-        calendar=mwr_request.calendar,
-        periods={"type": "EXPLICIT", "start": str(mwr_result.start_date), "end": str(mwr_result.end_date)},
+    response_model = build_mwr_response(
+        request=request,
+        resolved_request=resolved_request,
+        mwr_result=mwr_result,
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
+        engine_version=active_settings.APP_VERSION,
     )
-    diagnostics = Diagnostics(
-        nip_days=0,
-        reset_days=0,
-        effective_period_start=mwr_result.start_date,
-        notes=mwr_result.notes,
-    )
-    audit = Audit(counts={"cashflows": len(mwr_request.cash_flows)})
-    calculation_supportability = build_calculation_supportability(
-        input_row_count=len(mwr_request.cash_flows) + 2,
-        resolved_period_count=1,
-        latest_observation_date=mwr_result.end_date,
-        report_end_date=mwr_request.as_of,
-        minimum_input_row_count=2,
-    )
-    record_supportability_metric(operation="mwr", supportability=calculation_supportability)
-    record_mwr_solver_outcome(
-        input_mode=request.input_mode.value,
-        method=mwr_result.method,
-        status=mwr_result.status,
-        reason_codes=mwr_result.reason_codes,
-        fallback_used=mwr_result.fallback_from is not None or mwr_result.is_approximation,
-    )
-    reporting_currency = (
-        resolved_request.currency_evidence.reporting_currency
-        if resolved_request.currency_evidence is not None
-        else mwr_request.report_ccy or mwr_request.currency
-    )
-
-    response_payload = {
-        "calculation_id": request.calculation_id,
-        "portfolio_id": request.portfolio_id,
-        "input_mode": request.input_mode,
-        "money_weighted_return": mwr_result.mwr,
-        "mwr_annualized": mwr_result.mwr_annualized,
-        "method": mwr_result.method,
-        "status": mwr_result.status,
-        "reason_codes": mwr_result.reason_codes,
-        "warnings": mwr_result.warnings,
-        "holding_period_return": mwr_result.holding_period_return,
-        "is_annualized_primary": mwr_result.is_annualized_primary,
-        "fallback_from": mwr_result.fallback_from,
-        "fallback_reason": mwr_result.fallback_reason,
-        "is_approximation": mwr_result.is_approximation,
-        "start_date": mwr_result.start_date,
-        "end_date": mwr_result.end_date,
-        "notes": mwr_result.notes,
-        "convergence": mwr_result.convergence,
-        "cashflows_used": mwr_request.cash_flows if mwr_request.emit_cashflows_used else None,
-        "reporting_currency": reporting_currency,
-        "currency_evidence": (
-            _decimal_safe_dataclass_payload(resolved_request.currency_evidence)
-            if resolved_request.currency_evidence is not None
-            else None
-        ),
-        "calculation_supportability": calculation_supportability,
-        "meta": meta,
-        "diagnostics": diagnostics,
-        "audit": audit,
-    }
-
-    response_model = MoneyWeightedReturnResponse.model_validate(response_payload)
 
     lineage_df_data = [
         {"date": str(mwr_request.start_date or mwr_request.as_of), "type": "begin_mv", "amount": mwr_request.begin_mv}
@@ -706,21 +635,6 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
     )
 
     return response_model
-
-
-def _decimal_safe_dataclass_payload(value: object) -> object:
-    payload = asdict(value)
-    return _stringify_decimals(payload)
-
-
-def _stringify_decimals(value: object) -> object:
-    if isinstance(value, Decimal):
-        return str(value)
-    if isinstance(value, list):
-        return [_stringify_decimals(item) for item in value]
-    if isinstance(value, dict):
-        return {key: _stringify_decimals(item) for key, item in value.items()}
-    return value
 
 
 @router.post(
