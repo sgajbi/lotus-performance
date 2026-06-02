@@ -81,6 +81,10 @@ def test_twr_inspection_openapi_explains_supportability_purpose() -> None:
     assert "support_brief.md" in artifact_route["parameters"][1]["description"]
     assert "404" in artifact_route["responses"]
     assert "503" in artifact_route["responses"]
+    artifact_404_schema = artifact_route["responses"]["404"]["content"]["application/json"]["schema"]
+    artifact_503_schema = artifact_route["responses"]["503"]["content"]["application/json"]["schema"]
+    assert artifact_404_schema["$ref"].endswith("/ErrorDetailResponse")
+    assert artifact_503_schema["$ref"].endswith("/ErrorDetailResponse")
 
 
 def test_twr_inspection_openapi_uses_domain_specific_schema_examples() -> None:

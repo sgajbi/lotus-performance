@@ -133,10 +133,14 @@ def get_twr_inspection(inspection_id: UUID):
             },
         },
         404: {
+            "model": ErrorDetailResponse,
             "description": "Inspection record or artifact name was not found for the supplied inspection_id.",
+            "content": {"application/json": {"example": {"detail": "Inspection artifact not found."}}},
         },
         503: {
+            "model": ErrorDetailResponse,
             "description": "The artifact is declared in durable metadata but is missing from storage.",
+            "content": {"application/json": {"example": {"detail": "Inspection artifact is missing from storage."}}},
         },
     },
 )
