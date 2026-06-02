@@ -57,11 +57,11 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | OpenAPI lint findings | unknown | unknown | not-yet-measured | Spectral not configured |
 | OpenAPI operations | unknown | 36 | measured | `quality/api_completeness_inventory.md` via `scripts/openapi_completeness_inventory.py` |
-| API completeness findings | unknown | 32 | measured | `quality/api_completeness_inventory.md` via `scripts/openapi_completeness_inventory.py` |
+| API completeness findings | unknown | 30 | measured | `quality/api_completeness_inventory.md` via `scripts/openapi_completeness_inventory.py` |
 | Operations missing descriptions | unknown | 0 | measured | `MISSING_DESCRIPTION` absent from `quality/api_completeness_inventory.md` |
 | JSON error responses missing examples | unknown | 0 | measured | `ERROR_JSON_MISSING_EXAMPLE` absent from `quality/api_completeness_inventory.md` |
-| JSON error responses missing explicit schema | unknown | 14 | measured | `ERROR_JSON_MISSING_SCHEMA` in `quality/api_completeness_inventory.md` |
-| Error responses not expressed as problem-detail contracts | unknown | 18 | measured | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` in `quality/api_completeness_inventory.md` |
+| JSON error responses missing explicit schema | unknown | 13 | measured | `ERROR_JSON_MISSING_SCHEMA` in `quality/api_completeness_inventory.md` |
+| Error responses not expressed as problem-detail contracts | unknown | 17 | measured | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` in `quality/api_completeness_inventory.md` |
 
 ## Testing
 

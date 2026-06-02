@@ -10,6 +10,10 @@ def test_execution_openapi_documents_polling_contract() -> None:
     assert "async work accepted by TWR" in operation["description"]
     assert "endpoint-specific result route" in operation["description"]
     assert "404" in operation["responses"]
+    not_found_json = operation["responses"]["404"]["content"]["application/json"]
+    assert not_found_json["schema"]["$ref"].endswith("/ErrorDetailResponse")
+    assert spec["components"]["schemas"]["ErrorDetailResponse"]["properties"]["detail"]["description"]
+    assert not_found_json["example"] == {"detail": "Execution data not found for the given calculation_id."}
     assert operation["parameters"][0]["name"] == "calculation_id"
     assert "Durable calculation identifier" in operation["parameters"][0]["description"]
 
