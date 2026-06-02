@@ -10,16 +10,16 @@ Mode: report-only API governance inventory; no blocking gate changed.
 | Metric | Value |
 | --- | ---: |
 | OpenAPI operations | 36 |
-| API completeness findings | 22 |
+| API completeness findings | 18 |
 | Distinct rules | 2 |
-| Endpoints with findings | 5 |
+| Endpoints with findings | 4 |
 
 ## Findings By Rule
 
 | Rule | Count |
 | --- | ---: |
-| `ERROR_JSON_MISSING_SCHEMA` | 11 |
-| `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | 11 |
+| `ERROR_JSON_MISSING_SCHEMA` | 9 |
+| `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | 9 |
 
 ## Most Affected Endpoints
 
@@ -28,7 +28,6 @@ Mode: report-only API governance inventory; no blocking gate changed.
 | `POST /performance/attribution` | 8 |
 | `GET /performance/attribution/results/{calculation_id}` | 4 |
 | `POST /performance/composites/twr` | 4 |
-| `GET /performance/lineage/{calculation_id}/artifacts/{artifact_name}` | 4 |
 | `POST /performance/composites/inspect` | 2 |
 
 ## Interpretation
@@ -58,16 +57,12 @@ consumers can generate clients, reason about failure modes, and certify error-ha
 | 7 | `ERROR_JSON_MISSING_SCHEMA` | `POST /performance/composites/inspect` | `404` | JSON error response is missing an explicit schema. |
 | 8 | `ERROR_JSON_MISSING_SCHEMA` | `POST /performance/composites/twr` | `404` | JSON error response is missing an explicit schema. |
 | 9 | `ERROR_JSON_MISSING_SCHEMA` | `POST /performance/composites/twr` | `422` | JSON error response is missing an explicit schema. |
-| 10 | `ERROR_JSON_MISSING_SCHEMA` | `GET /performance/lineage/{calculation_id}/artifacts/{artifact_name}` | `404` | JSON error response is missing an explicit schema. |
-| 11 | `ERROR_JSON_MISSING_SCHEMA` | `GET /performance/lineage/{calculation_id}/artifacts/{artifact_name}` | `503` | JSON error response is missing an explicit schema. |
-| 12 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `POST /performance/attribution` | `400` | Error response does not expose application/problem+json or a named error/problem schema. |
-| 13 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `POST /performance/attribution` | `409` | Error response does not expose application/problem+json or a named error/problem schema. |
-| 14 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `POST /performance/attribution` | `422` | Error response does not expose application/problem+json or a named error/problem schema. |
-| 15 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `POST /performance/attribution` | `500` | Error response does not expose application/problem+json or a named error/problem schema. |
-| 16 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `GET /performance/attribution/results/{calculation_id}` | `404` | Error response does not expose application/problem+json or a named error/problem schema. |
-| 17 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `GET /performance/attribution/results/{calculation_id}` | `409` | Error response does not expose application/problem+json or a named error/problem schema. |
-| 18 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `POST /performance/composites/inspect` | `404` | Error response does not expose application/problem+json or a named error/problem schema. |
-| 19 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `POST /performance/composites/twr` | `404` | Error response does not expose application/problem+json or a named error/problem schema. |
-| 20 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `POST /performance/composites/twr` | `422` | Error response does not expose application/problem+json or a named error/problem schema. |
-| 21 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `GET /performance/lineage/{calculation_id}/artifacts/{artifact_name}` | `404` | Error response does not expose application/problem+json or a named error/problem schema. |
-| 22 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `GET /performance/lineage/{calculation_id}/artifacts/{artifact_name}` | `503` | Error response does not expose application/problem+json or a named error/problem schema. |
+| 10 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `POST /performance/attribution` | `400` | Error response does not expose application/problem+json or a named error/problem schema. |
+| 11 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `POST /performance/attribution` | `409` | Error response does not expose application/problem+json or a named error/problem schema. |
+| 12 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `POST /performance/attribution` | `422` | Error response does not expose application/problem+json or a named error/problem schema. |
+| 13 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `POST /performance/attribution` | `500` | Error response does not expose application/problem+json or a named error/problem schema. |
+| 14 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `GET /performance/attribution/results/{calculation_id}` | `404` | Error response does not expose application/problem+json or a named error/problem schema. |
+| 15 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `GET /performance/attribution/results/{calculation_id}` | `409` | Error response does not expose application/problem+json or a named error/problem schema. |
+| 16 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `POST /performance/composites/inspect` | `404` | Error response does not expose application/problem+json or a named error/problem schema. |
+| 17 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `POST /performance/composites/twr` | `404` | Error response does not expose application/problem+json or a named error/problem schema. |
+| 18 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `POST /performance/composites/twr` | `422` | Error response does not expose application/problem+json or a named error/problem schema. |

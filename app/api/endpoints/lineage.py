@@ -182,10 +182,12 @@ async def get_lineage_data(
             "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}},
         },
         404: {
+            "model": ErrorDetailResponse,
             "description": "The lineage record is missing, incomplete, failed, or the artifact name is not declared.",
             "content": {"application/json": {"example": {"detail": "Lineage artifact not found."}}},
         },
         503: {
+            "model": ErrorDetailResponse,
             "description": "The manifest or declared artifact file is missing or inconsistent in storage.",
             "content": {"application/json": {"example": {"detail": "Lineage artifact is missing from storage."}}},
         },

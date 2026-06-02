@@ -24,6 +24,10 @@ def test_lineage_openapi_documents_inventory_and_artifact_routes() -> None:
     assert "200" in artifact_get["responses"]
     assert "404" in artifact_get["responses"]
     assert "503" in artifact_get["responses"]
+    artifact_404_schema = artifact_get["responses"]["404"]["content"]["application/json"]["schema"]
+    artifact_503_schema = artifact_get["responses"]["503"]["content"]["application/json"]["schema"]
+    assert artifact_404_schema["$ref"].endswith("/ErrorDetailResponse")
+    assert artifact_503_schema["$ref"].endswith("/ErrorDetailResponse")
     assert [parameter["name"] for parameter in artifact_get["parameters"]] == ["calculation_id", "artifact_name"]
 
 
