@@ -2,15 +2,17 @@
 
 Report date: 2026-06-02
 Branch: `feat/performance-hardening-wave-9`
-Mode: report-only API completeness rules; this artifact introduces no new blocking CI gate.
+Mode: report-only API completeness rules; the current clean inventory is guarded by a focused unit
+test but this artifact introduces no separate CI workflow gate.
 
 ## Purpose
 
 This document defines the current report-only API completeness inventory used by the performance
 hardening stream. The repository already has a blocking OpenAPI gate in
-`scripts/openapi_quality_gate.py`; this inventory does not replace it. It gives maintainers a
-measurable backlog for API documentation and error-contract hardening before stricter gates are
-promoted.
+`scripts/openapi_quality_gate.py`; this inventory does not replace it. The inventory now has zero
+current findings and `tests/unit/scripts/test_openapi_completeness_inventory.py` guards the shipped
+`main.app.openapi()` output against regression while maintainers decide whether any stricter
+standalone gate is worth promoting.
 
 ## Local Command
 
@@ -40,10 +42,10 @@ blocking OpenAPI quality gate.
 
 ## Promotion Guidance
 
-Do not promote these rules directly to a blocking gate until:
+Do not promote these rules directly to a standalone blocking gate until:
 
-1. the current findings are either fixed or intentionally baselined,
+1. the clean current inventory has stayed stable across repeated Remote Feature Lane runs,
 2. FastAPI-generated validation-error examples remain stable or move to a shared problem-detail model,
 3. domain error responses have reusable schemas and examples,
 4. the blocking OpenAPI quality gate and this inventory are reconciled to avoid duplicate failures,
-5. Remote Feature Lane has run the report repeatedly without nondeterministic output.
+5. the unit-level regression guard proves useful enough to justify a separate workflow gate.

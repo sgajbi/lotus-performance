@@ -1,3 +1,4 @@
+from main import app
 from scripts.openapi_completeness_inventory import (
     OpenApiCompletenessFinding,
     collect_openapi_completeness_findings,
@@ -136,6 +137,12 @@ def test_collect_openapi_completeness_findings_accepts_composed_error_contracts(
     }
 
     assert collect_openapi_completeness_findings(schema) == []
+
+
+def test_lotus_performance_openapi_completeness_inventory_is_clean():
+    findings = collect_openapi_completeness_findings(app.openapi())
+
+    assert findings == []
 
 
 def test_render_markdown_summarizes_openapi_findings():
