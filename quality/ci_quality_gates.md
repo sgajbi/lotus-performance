@@ -53,7 +53,7 @@ No gate should move from one phase to the next until it has:
 | Combined line coverage | Blocking at 99 percent in PR and main lanes | Capture branch-coverage posture before adding a stricter branch gate. |
 | Dependency verification | Blocking through `python -m pip check` and dependency-health scripts | Keep blocking; preserve project-scoped dependency-health evidence. |
 | Dependency vulnerabilities | `pip-audit` is available, security audit is already blocking through repo script, and report-only output is captured in `quality/dependency_security_report.md` | Keep the report current when dependency pins, audit tooling, or exception policy changes. |
-| OpenAPI quality | Blocking through `scripts/openapi_quality_gate.py`; measured further through `quality/api_completeness_inventory.md` | Keep the blocking gate and use the report-only inventory to reduce error example/schema/problem-detail gaps before adding stricter gates. |
+| OpenAPI quality | Blocking through `scripts/openapi_quality_gate.py`; measured further through `quality/api_completeness_inventory.md`; validation-error example gaps are closed | Keep the blocking gate and use the report-only inventory to reduce explicit error-schema and problem-detail gaps before adding stricter gates. |
 | API vocabulary and no-alias governance | Blocking in feature, PR, and main lanes | Keep blocking and preserve RFC-0067 vocabulary discipline. |
 | Migration smoke | Blocking in PR and main lanes | Keep blocking outside feature lane unless a migration-heavy slice needs earlier proof. |
 | Docker build | Blocking in PR and main lanes | Keep blocking; no new Docker gate is needed for report-only quality artifacts. |

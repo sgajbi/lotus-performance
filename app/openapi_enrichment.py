@@ -90,6 +90,16 @@ OPERATION_JSON_EXAMPLES: dict[tuple[str, str], dict[str, Any]] = {
         },
     },
 }
+HTTP_VALIDATION_ERROR_EXAMPLE: dict[str, Any] = {
+    "detail": [
+        {
+            "type": "missing",
+            "loc": ["body", "portfolio_id"],
+            "msg": "Field required",
+            "input": {},
+        }
+    ]
+}
 
 
 def _to_snake_case(value: str) -> str:
@@ -245,6 +255,32 @@ def _build_schema_example(
     return _infer_example(name_hint, schema)
 
 
+def _is_http_validation_error_schema(json_content: dict[str, Any]) -> bool:
+    schema = json_content.get("schema")
+    if not isinstance(schema, dict):
+        return False
+    ref = schema.get("$ref")
+    return isinstance(ref, str) and ref.endswith("/HTTPValidationError")
+
+
+def _ensure_error_response_examples(responses: dict[str, Any]) -> None:
+    for code, response in responses.items():
+        if not (str(code).startswith("4") or str(code).startswith("5") or str(code) == "default"):
+            continue
+        if not isinstance(response, dict):
+            continue
+        content = response.get("content", {})
+        if not isinstance(content, dict):
+            continue
+        json_content = content.get("application/json")
+        if not isinstance(json_content, dict):
+            continue
+        if "example" in json_content or "examples" in json_content:
+            continue
+        if _is_http_validation_error_schema(json_content):
+            json_content["example"] = copy.deepcopy(HTTP_VALIDATION_ERROR_EXAMPLE)
+
+
 def _infer_enum_descriptions(prop_name: str, prop_schema: dict[str, Any]) -> list[str] | None:
     enum_values = prop_schema.get("enum")
     if not isinstance(enum_values, list) or not enum_values:
@@ -313,6 +349,7 @@ def _ensure_operation_documentation(schema: dict[str, Any]) -> None:
                 )
                 if not has_error:
                     responses["default"] = {"description": "Unexpected error response."}
+                _ensure_error_response_examples(responses)
                 for code, response in responses.items():
                     if not str(code).startswith("2") or not isinstance(response, dict):
                         continue

@@ -316,8 +316,7 @@ def render_markdown(schema: Mapping[str, Any], findings: Sequence[OpenApiComplet
     for index, finding in enumerate(findings[:limit], start=1):
         response = finding.response_code or ""
         lines.append(
-            f"| {index} | `{finding.rule}` | `{finding.method} {finding.path}` | "
-            f"`{response}` | {finding.description} |"
+            f"| {index} | `{finding.rule}` | `{finding.method} {finding.path}` | `{response}` | {finding.description} |"
         )
     return "\n".join(lines)
 

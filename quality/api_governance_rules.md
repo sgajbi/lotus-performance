@@ -43,8 +43,7 @@ blocking OpenAPI quality gate.
 Do not promote these rules directly to a blocking gate until:
 
 1. the current findings are either fixed or intentionally baselined,
-2. FastAPI-generated validation errors have a documented exception or shared problem-detail model,
+2. FastAPI-generated validation-error examples remain stable or move to a shared problem-detail model,
 3. domain error responses have reusable schemas and examples,
 4. the blocking OpenAPI quality gate and this inventory are reconciled to avoid duplicate failures,
 5. Remote Feature Lane has run the report repeatedly without nondeterministic output.
-

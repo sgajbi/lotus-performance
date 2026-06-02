@@ -178,6 +178,56 @@ def test_enrich_openapi_schema_fills_operation_schema_and_examples():
     assert nested_ref_prop["x-lotus-semantic-id"] == "lotus.nested_ref"
 
 
+def test_enrich_openapi_schema_adds_fastapi_validation_error_examples():
+    schema = {
+        "paths": {
+            "/performance/example": {
+                "post": {
+                    "responses": {
+                        "200": {
+                            "description": "ok",
+                            "content": {"application/json": {"schema": {"type": "object"}}},
+                        },
+                        "422": {
+                            "description": "Validation Error",
+                            "content": {
+                                "application/json": {"schema": {"$ref": "#/components/schemas/HTTPValidationError"}}
+                            },
+                        },
+                    },
+                }
+            },
+            "/performance/domain-error": {
+                "post": {
+                    "responses": {
+                        "200": {
+                            "description": "ok",
+                            "content": {"application/json": {"schema": {"type": "object"}}},
+                        },
+                        "422": {
+                            "description": "Domain error",
+                            "content": {"application/json": {"example": {"detail": "already documented"}}},
+                        },
+                    },
+                }
+            },
+        },
+        "components": {"schemas": {"HTTPValidationError": {"type": "object"}}},
+    }
+
+    enriched = enrich_openapi_schema(schema)
+
+    validation_json = enriched["paths"]["/performance/example"]["post"]["responses"]["422"]["content"][
+        "application/json"
+    ]
+    domain_json = enriched["paths"]["/performance/domain-error"]["post"]["responses"]["422"]["content"][
+        "application/json"
+    ]
+    assert validation_json["example"]["detail"][0]["loc"] == ["body", "portfolio_id"]
+    assert validation_json["example"]["detail"][0]["msg"] == "Field required"
+    assert domain_json["example"] == {"detail": "already documented"}
+
+
 def test_enrich_openapi_schema_uses_contract_valid_twr_request_example():
     schema = {
         "paths": {
