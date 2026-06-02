@@ -39,6 +39,7 @@ from app.services.execution_lifecycle_service import (
 from app.services.execution_registry import execution_registry
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
 from app.services.mwr_mode_service import resolve_mwr_request
+from app.services.reproducibility_service import generate_request_fingerprint, generate_value_fingerprint
 from app.services.stateful_execution_policy_service import (
     finalize_resolved_stateful_execution,
     replay_promoted_stateful_async_execution,
@@ -51,7 +52,6 @@ from app.services.twr_mode_service import resolve_twr_request
 from app.services.twr_service import calculate_twr_response
 from app.services.workspace_summary_service import calculate_workspace_summary
 from core.envelope import Audit, Diagnostics, Meta
-from core.repro import generate_canonical_hash, generate_canonical_hash_from_value
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
 from engine.mwr import calculate_money_weighted_return
 
@@ -64,8 +64,8 @@ def _generate_twr_request_hashes(request: TWRAnalyticsRequest, *, engine_version
             exclude={"performance_start_date"},
             mode="json",
         )
-        return generate_canonical_hash_from_value(canonical_payload, engine_version)
-    return generate_canonical_hash(request, engine_version)
+        return generate_value_fingerprint(canonical_payload, engine_version)
+    return generate_request_fingerprint(request, engine_version)
 
 
 def _build_resolved_twr_identity_payload(
@@ -264,7 +264,7 @@ def calculate_workspace_summary_endpoint(
 ) -> WorkspaceSummaryResponse | JSONResponse:
     """Calculates multi-horizon workspace summary analytics in one source-owned response."""
     settings = get_settings()
-    input_fingerprint, calculation_hash = generate_canonical_hash(request, settings.APP_VERSION)
+    input_fingerprint, calculation_hash = generate_request_fingerprint(request, settings.APP_VERSION)
     requested_window = {
         "report_end_date": str(request.report_end_date),
         "requested_periods": [item.period.value for item in request.periods],
@@ -424,7 +424,7 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest) -> PerformanceRes
         )
         benchmark_work_units = _twr_resolved_benchmark_work_units(resolved_request.benchmark_request)
         if resolved_request.input_mode == TWRInputMode.STATEFUL or resolved_request.benchmark_request is not None:
-            input_fingerprint, calculation_hash = generate_canonical_hash_from_value(
+            input_fingerprint, calculation_hash = generate_value_fingerprint(
                 resolved_twr_identity_payload,
                 settings.APP_VERSION,
             )
@@ -570,7 +570,7 @@ async def get_twr_result(calculation_id: UUID) -> PerformanceResponse | JSONResp
 async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
     """Calculates the money-weighted return (MWR) for a portfolio over a given period."""
     active_settings = get_settings()
-    input_fingerprint, calculation_hash = generate_canonical_hash(request, active_settings.APP_VERSION)
+    input_fingerprint, calculation_hash = generate_request_fingerprint(request, active_settings.APP_VERSION)
     register_sync_execution_or_raise(
         calculation_id=request.calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_MWR,
@@ -596,7 +596,7 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
         resolved_request = await resolve_mwr_request(request, settings=active_settings)
         mwr_request = resolved_request.mwr_request
         if resolved_request.input_mode == MWRInputMode.STATEFUL:
-            input_fingerprint, calculation_hash = generate_canonical_hash(
+            input_fingerprint, calculation_hash = generate_request_fingerprint(
                 mwr_request,
                 active_settings.APP_VERSION,
             )
@@ -831,7 +831,7 @@ async def calculate_attribution_endpoint(request: AttributionAnalyticsRequest) -
     active return into allocation, selection, and interaction effects.
     """
     active_settings = get_settings()
-    input_fingerprint, calculation_hash = generate_canonical_hash(request, active_settings.APP_VERSION)
+    input_fingerprint, calculation_hash = generate_request_fingerprint(request, active_settings.APP_VERSION)
     source_request_fingerprint = input_fingerprint
     requested_window = _build_attribution_execution_window(
         request,
@@ -881,7 +881,7 @@ async def calculate_attribution_endpoint(request: AttributionAnalyticsRequest) -
     try:
         resolved = await resolve_attribution_request(request, settings=active_settings)
         if resolved.input_mode == AttributionInputMode.STATEFUL:
-            input_fingerprint, calculation_hash = generate_canonical_hash(
+            input_fingerprint, calculation_hash = generate_request_fingerprint(
                 resolved.attribution_request,
                 active_settings.APP_VERSION,
             )
