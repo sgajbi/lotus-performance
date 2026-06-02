@@ -22,6 +22,11 @@ def test_composite_twr_openapi_documents_persisted_fact_contract() -> None:
         "no_persisted_member_return_facts"
     ]["value"]
     assert no_facts_example["detail"]["code"] == "NO_MEMBER_RETURN_FACTS"
+    composite_422_schema_refs = {
+        schema["$ref"].rsplit("/", maxsplit=1)[-1]
+        for schema in composite_post["responses"]["422"]["content"]["application/json"]["schema"]["oneOf"]
+    }
+    assert composite_422_schema_refs == {"CompositeErrorResponse", "HTTPValidationError"}
     invalid_window_example = composite_post["responses"]["422"]["content"]["application/json"]["examples"][
         "invalid_window"
     ]["value"]

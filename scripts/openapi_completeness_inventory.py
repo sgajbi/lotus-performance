@@ -64,11 +64,19 @@ def _is_error_response_code(code: str) -> bool:
     return code == "default" or code.startswith(ERROR_RESPONSE_PREFIXES)
 
 
-def _schema_ref(schema: Mapping[str, Any] | None) -> str:
+def _schema_refs(schema: Mapping[str, Any] | None) -> list[str]:
     if not schema:
-        return ""
+        return []
     ref = schema.get("$ref")
-    return str(ref) if ref else ""
+    refs = [str(ref)] if ref else []
+    for composition_key in ("oneOf", "anyOf", "allOf"):
+        composition_items = schema.get(composition_key)
+        if not isinstance(composition_items, Sequence) or isinstance(composition_items, str):
+            continue
+        for item in composition_items:
+            if isinstance(item, Mapping):
+                refs.extend(_schema_refs(item))
+    return refs
 
 
 def _has_problem_detail_contract(response: Mapping[str, Any]) -> bool:
@@ -78,7 +86,7 @@ def _has_problem_detail_contract(response: Mapping[str, Any]) -> bool:
         return True
     json_media = _json_media(content)
     schema = json_media.get("schema") if json_media else None
-    return "Problem" in _schema_ref(schema) or "Error" in _schema_ref(schema)
+    return any("Problem" in ref or "Error" in ref for ref in _schema_refs(schema))
 
 
 def _success_json_responses(operation: Mapping[str, Any]) -> list[tuple[str, Mapping[str, Any]]]:

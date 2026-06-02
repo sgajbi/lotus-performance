@@ -39,6 +39,12 @@ NO_MEMBER_RETURN_FACTS_RESPONSE = {
     "description": "The request window is invalid or no persisted member-return facts can support it.",
     "content": {
         "application/json": {
+            "schema": {
+                "oneOf": [
+                    {"$ref": "#/components/schemas/CompositeErrorResponse"},
+                    {"$ref": "#/components/schemas/HTTPValidationError"},
+                ]
+            },
             "examples": {
                 "no_persisted_member_return_facts": {
                     "summary": "No persisted member-return facts exist for the requested window.",
@@ -66,7 +72,7 @@ NO_MEMBER_RETURN_FACTS_RESPONSE = {
                         ]
                     },
                 },
-            }
+            },
         }
     },
 }

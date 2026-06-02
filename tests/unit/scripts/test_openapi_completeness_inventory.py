@@ -96,6 +96,48 @@ def test_collect_openapi_completeness_findings_accepts_problem_detail_error_cont
     assert collect_openapi_completeness_findings(schema) == []
 
 
+def test_collect_openapi_completeness_findings_accepts_composed_error_contracts():
+    schema = {
+        "paths": {
+            "/performance/example": {
+                "post": {
+                    "summary": "Example",
+                    "description": "Example operation.",
+                    "tags": ["Performance"],
+                    "operationId": "example",
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"type": "object"},
+                                    "example": {"status": "ok"},
+                                }
+                            },
+                        },
+                        "422": {
+                            "description": "Invalid",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "oneOf": [
+                                            {"$ref": "#/components/schemas/CompositeErrorResponse"},
+                                            {"$ref": "#/components/schemas/HTTPValidationError"},
+                                        ]
+                                    },
+                                    "example": {"detail": {"code": "NO_MEMBER_RETURN_FACTS"}},
+                                }
+                            },
+                        },
+                    },
+                }
+            }
+        }
+    }
+
+    assert collect_openapi_completeness_findings(schema) == []
+
+
 def test_render_markdown_summarizes_openapi_findings():
     schema = {
         "paths": {
