@@ -64,7 +64,7 @@ No gate should move from one phase to the next until it has:
 | Dependency hygiene | Measured in `quality/dependency_hygiene_report.md` through `scripts/python_dependency_hygiene_inventory.py` and `deptry`; direct imported transitive dependencies are closed, leaving four runtime-review DEP002 findings | Review runtime-only declarations before blocking. |
 | Python security scanning | Not yet measured through `bandit` | Add report-only Bandit run and compare with existing dependency-health security audit. |
 | OpenAPI Spectral linting | Not configured; no `.spectral.yaml` present | Decide whether Spectral adds value beyond the existing OpenAPI gate before adding it. |
-| Architecture boundaries | Not configured; no `.importlinter` contract present | Start with report-only import-boundary contracts for routers, services, domain, and adapters. |
+| Architecture boundaries | Measured in `quality/architecture_boundary_inventory.md` through `scripts/python_architecture_boundary_inventory.py`; first report shows 25 import-boundary findings | Classify current findings and reduce router/domain boundary drift before adding import-linter or regression-blocking gates. |
 | Public docstring coverage | Not configured; `interrogate` not present | Measure before deciding whether public docstrings are a useful gate for this service. |
 | Router and middleware thinness | Custom checks not implemented | Add repo-native report-only scripts for direct-infra imports and oversized boundary modules. |
 | RFC 7807 error consistency | Custom check not implemented | Add report-only inventory for error response coverage before blocking. |
@@ -84,8 +84,8 @@ No gate should move from one phase to the next until it has:
 
 The next hardening commits should stay small and add proof in this order:
 
-1. add architecture-boundary report-only checks for router, service, domain, and adapter imports,
-2. add API completeness inventory for descriptions, examples, and RFC 7807 responses,
+1. add API completeness inventory for descriptions, examples, and RFC 7807 responses,
+2. reduce measured architecture-boundary findings through bounded router/domain extraction slices,
 3. reduce measured complexity, function-size, and reviewed dead-code hotspots through bounded slices,
 4. review runtime-only dependency declarations before removing or allowlisting them,
 5. update `quality/refactor_health_report.md` as each dimension moves from `not-yet-measured` to `measured`.

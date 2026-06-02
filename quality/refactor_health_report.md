@@ -46,9 +46,9 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Import boundary violations | unknown | unknown | not-yet-measured | `.importlinter` not configured |
-| Routers importing infrastructure directly | unknown | unknown | not-yet-measured | router-thinness check not implemented |
-| Domain/application importing framework or infra code | unknown | unknown | not-yet-measured | architecture boundary check not implemented |
+| Import boundary violations | unknown | 25 | measured | `quality/architecture_boundary_inventory.md` via `scripts/python_architecture_boundary_inventory.py` |
+| Routers importing infrastructure directly | unknown | 11 | measured | `ROUTER_DIRECT_BOUNDARY_IMPORT` in `quality/architecture_boundary_inventory.md` |
+| Domain/application importing framework or infra code | unknown | 14 | measured | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` in `quality/architecture_boundary_inventory.md` |
 | Large production service hotspots | 3 | 3 | measured | `lineage_metadata_store.py`, `compute_job_store.py`, `stateful_input_service.py` exceed 1,000 LOC |
 
 ## API Quality
