@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, status
 
 from app.models.composites import (
+    CompositeErrorResponse,
     CompositeInspectionRequest,
     CompositeInspectionResponse,
     CompositeMemberContributionResponse,
@@ -21,6 +22,7 @@ router = APIRouter(tags=["Performance"])
 
 
 COMPOSITE_NOT_FOUND_RESPONSE = {
+    "model": CompositeErrorResponse,
     "description": "Composite definition was not found in the durable composite metadata store.",
     "content": {
         "application/json": {

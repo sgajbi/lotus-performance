@@ -246,6 +246,21 @@ class CompositeTWRRequest(BaseModel):
         return self
 
 
+class CompositeErrorDetail(BaseModel):
+    code: str = Field(
+        description="Stable machine-readable composite error code.",
+        examples=["COMPOSITE_NOT_FOUND"],
+    )
+    message: str = Field(
+        description="Human-readable composite error message.",
+        examples=["Composite definition 'MISSING_COMPOSITE' was not found."],
+    )
+
+
+class CompositeErrorResponse(BaseModel):
+    detail: CompositeErrorDetail = Field(description="Structured composite error detail.")
+
+
 class CompositeMemberContributionResponse(BaseModel):
     portfolio_id: str = Field(description="Member portfolio identifier.", examples=["PB_SG_GLOBAL_BAL_001"])
     period_start: dt_date = Field(description="Inclusive member contribution period start.", examples=["2026-01-01"])
