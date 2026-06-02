@@ -56,9 +56,11 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | OpenAPI lint findings | unknown | unknown | not-yet-measured | Spectral not configured |
-| Endpoints missing descriptions | unknown | unknown | planned-gate | OpenAPI completeness check exists only partially through repo scripts/tests |
-| Endpoints missing examples | unknown | unknown | planned-gate | OpenAPI completeness inventory not generated |
-| Endpoints missing error responses | unknown | unknown | planned-gate | RFC 7807/problem-details check not implemented |
+| OpenAPI operations | unknown | 36 | measured | `quality/api_completeness_inventory.md` via `scripts/openapi_completeness_inventory.py` |
+| Operations missing descriptions | unknown | 0 | measured | `MISSING_DESCRIPTION` absent from `quality/api_completeness_inventory.md` |
+| JSON error responses missing examples | unknown | 28 | measured | `ERROR_JSON_MISSING_EXAMPLE` in `quality/api_completeness_inventory.md` |
+| JSON error responses missing explicit schema | unknown | 14 | measured | `ERROR_JSON_MISSING_SCHEMA` in `quality/api_completeness_inventory.md` |
+| Error responses not expressed as problem-detail contracts | unknown | 24 | measured | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` in `quality/api_completeness_inventory.md` |
 
 ## Testing
 
