@@ -50,7 +50,7 @@ from app.services.submission_fencing_service import (
 )
 from app.services.twr_mode_service import resolve_twr_request
 from app.services.twr_service import calculate_twr_response
-from app.services.workspace_summary_service import calculate_workspace_summary
+from app.services.workspace_summary_service import calculate_workspace_summary, workspace_longest_requested_window_days
 from core.envelope import Audit, Diagnostics, Meta
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
 from engine.mwr import calculate_money_weighted_return
@@ -220,20 +220,7 @@ def _workspace_requested_input_count(request: WorkspaceSummaryRequest) -> int:
 
 
 def _workspace_longest_requested_window_days(request: WorkspaceSummaryRequest) -> int:
-    if request.input_mode != TWRInputMode.STATEFUL:
-        return 0
-    if any(period.period.value == "SI" for period in request.periods) and request.performance_start_date is None:
-        return 10_000
-    from core.workspace_periods import resolve_workspace_periods
-
-    assumed_start = request.performance_start_date or request.report_start_date or request.report_end_date
-    resolved_periods = resolve_workspace_periods(
-        [item.period for item in request.periods],
-        as_of=request.report_end_date,
-        performance_start_date=assumed_start,
-        explicit_start_date=request.report_start_date,
-    )
-    return max((period.end_date - period.start_date).days for period in resolved_periods) if resolved_periods else 0
+    return workspace_longest_requested_window_days(request)
 
 
 def _should_offload_workspace_summary(request: WorkspaceSummaryRequest) -> bool:
