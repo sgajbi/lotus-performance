@@ -778,12 +778,14 @@ def _stringify_decimals(value: object) -> object:
             },
         },
         400: {
+            "model": ErrorDetailResponse,
             "description": (
                 "Invalid attribution request shape, unsupported resolved period window, or invalid engine input."
             ),
             "content": {"application/json": {"example": {"detail": "Invalid Input: analyses list cannot be empty"}}},
         },
         409: {
+            "model": ErrorDetailResponse,
             "description": "Duplicate attribution submission conflict or failed async execution state.",
             "content": {"application/json": {"example": {"detail": "Duplicate submission payload does not match."}}},
         },
@@ -795,16 +797,23 @@ def _stringify_decimals(value: object) -> object:
             ),
             "content": {
                 "application/json": {
+                    "schema": {
+                        "oneOf": [
+                            {"$ref": "#/components/schemas/ErrorDetailResponse"},
+                            {"$ref": "#/components/schemas/HTTPValidationError"},
+                        ]
+                    },
                     "example": {
                         "detail": (
                             "Stateful attribution input requires fx.rates when currency_mode=BOTH and sourced "
                             "positions include currencies different from report_ccy."
                         )
-                    }
+                    },
                 }
             },
         },
         500: {
+            "model": ErrorDetailResponse,
             "description": "Unexpected attribution request resolution or calculation failure.",
             "content": {
                 "application/json": {

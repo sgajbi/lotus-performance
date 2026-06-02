@@ -16,6 +16,14 @@ def test_attribution_openapi_documents_private_banking_usage_and_error_paths() -
     assert "missing FX" in attribution_post["responses"]["422"]["description"]
     assert "unsupported grouping dimension" in attribution_post["responses"]["422"]["description"]
     assert "unexpected attribution request resolution" in attribution_post["responses"]["500"]["description"].lower()
+    for status_code in ("400", "409", "500"):
+        post_error_schema = attribution_post["responses"][status_code]["content"]["application/json"]["schema"]
+        assert post_error_schema["$ref"].endswith("/ErrorDetailResponse")
+    post_422_schema_refs = {
+        schema["$ref"].rpartition("/")[-1]
+        for schema in attribution_post["responses"]["422"]["content"]["application/json"]["schema"]["oneOf"]
+    }
+    assert post_422_schema_refs == {"ErrorDetailResponse", "HTTPValidationError"}
 
     attribution_result = spec["paths"]["/performance/attribution/results/{calculation_id}"]["get"]
     assert "previously accepted" in attribution_result["description"]
