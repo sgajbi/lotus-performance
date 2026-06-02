@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse, Response
 from app.core.config import get_settings
 from app.models.inspection_requests import TWRInspectionRequest
 from app.models.inspection_responses import TWRInspectionAcceptedResponse, TWRInspectionResponse
+from app.models.platform_surfaces import ErrorDetailResponse
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR_INSPECTION
 from app.services.async_result_service import resolve_async_result
 from app.services.execution_registry import execution_registry
@@ -87,7 +88,11 @@ def submit_twr_inspection(request: TWRInspectionRequest):
             "description": "The TWR supportability inspection is still pending.",
         },
         404: {
+            "model": ErrorDetailResponse,
             "description": "No durable TWR inspection result exists for the supplied inspection_id.",
+            "content": {
+                "application/json": {"example": {"detail": "Inspection result not found for the given inspection_id."}}
+            },
         },
     },
 )

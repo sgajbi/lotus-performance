@@ -72,6 +72,8 @@ def test_twr_inspection_openapi_explains_supportability_purpose() -> None:
     assert "supportability inspection" in inspection_result["description"]
     assert "202" in inspection_result["responses"]
     assert "404" in inspection_result["responses"]
+    inspection_result_404_schema = inspection_result["responses"]["404"]["content"]["application/json"]["schema"]
+    assert inspection_result_404_schema["$ref"].endswith("/ErrorDetailResponse")
 
     artifact_route = spec["paths"]["/performance/inspections/{inspection_id}/artifacts/{artifact_name}"]["get"]
     assert "evidence artifact" in artifact_route["summary"].lower()

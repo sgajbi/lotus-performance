@@ -10,16 +10,16 @@ Mode: report-only API governance inventory; no blocking gate changed.
 | Metric | Value |
 | --- | ---: |
 | OpenAPI operations | 36 |
-| API completeness findings | 29 |
+| API completeness findings | 28 |
 | Distinct rules | 2 |
-| Endpoints with findings | 8 |
+| Endpoints with findings | 7 |
 
 ## Findings By Rule
 
 | Rule | Count |
 | --- | ---: |
 | `ERROR_JSON_MISSING_SCHEMA` | 13 |
-| `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | 16 |
+| `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | 15 |
 
 ## Most Affected Endpoints
 
@@ -32,7 +32,6 @@ Mode: report-only API governance inventory; no blocking gate changed.
 | `GET /performance/lineage/{calculation_id}/artifacts/{artifact_name}` | 4 |
 | `POST /performance/composites/inspect` | 2 |
 | `GET /performance/inspections/{inspection_id}/artifacts/{artifact_name}` | 2 |
-| `GET /performance/inspections/{inspection_id}` | 1 |
 
 ## Interpretation
 
@@ -74,10 +73,9 @@ consumers can generate clients, reason about failure modes, and certify error-ha
 | 20 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `POST /performance/composites/inspect` | `404` | Error response does not expose application/problem+json or a named error/problem schema. |
 | 21 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `POST /performance/composites/twr` | `404` | Error response does not expose application/problem+json or a named error/problem schema. |
 | 22 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `POST /performance/composites/twr` | `422` | Error response does not expose application/problem+json or a named error/problem schema. |
-| 23 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `GET /performance/inspections/{inspection_id}` | `404` | Error response does not expose application/problem+json or a named error/problem schema. |
-| 24 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `GET /performance/inspections/{inspection_id}/artifacts/{artifact_name}` | `404` | Error response does not expose application/problem+json or a named error/problem schema. |
-| 25 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `GET /performance/inspections/{inspection_id}/artifacts/{artifact_name}` | `503` | Error response does not expose application/problem+json or a named error/problem schema. |
-| 26 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `GET /performance/lineage/{calculation_id}` | `404` | Error response does not expose application/problem+json or a named error/problem schema. |
-| 27 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `GET /performance/lineage/{calculation_id}` | `503` | Error response does not expose application/problem+json or a named error/problem schema. |
-| 28 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `GET /performance/lineage/{calculation_id}/artifacts/{artifact_name}` | `404` | Error response does not expose application/problem+json or a named error/problem schema. |
-| 29 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `GET /performance/lineage/{calculation_id}/artifacts/{artifact_name}` | `503` | Error response does not expose application/problem+json or a named error/problem schema. |
+| 23 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `GET /performance/inspections/{inspection_id}/artifacts/{artifact_name}` | `404` | Error response does not expose application/problem+json or a named error/problem schema. |
+| 24 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `GET /performance/inspections/{inspection_id}/artifacts/{artifact_name}` | `503` | Error response does not expose application/problem+json or a named error/problem schema. |
+| 25 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `GET /performance/lineage/{calculation_id}` | `404` | Error response does not expose application/problem+json or a named error/problem schema. |
+| 26 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `GET /performance/lineage/{calculation_id}` | `503` | Error response does not expose application/problem+json or a named error/problem schema. |
+| 27 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `GET /performance/lineage/{calculation_id}/artifacts/{artifact_name}` | `404` | Error response does not expose application/problem+json or a named error/problem schema. |
+| 28 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `GET /performance/lineage/{calculation_id}/artifacts/{artifact_name}` | `503` | Error response does not expose application/problem+json or a named error/problem schema. |
