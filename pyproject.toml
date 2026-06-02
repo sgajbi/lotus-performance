@@ -17,12 +17,15 @@ packages = [
 python = ">=3.11,<3.14"
 fastapi = ">=0.136.3"
 uvicorn = ">=0.20.0"
+httpx = "^0.28.1"
+numpy = "^2.3.2"
 pandas = ">=1.0.0"
 pydantic = ">=2.0.0"
 pydantic-settings = "^2.10.1"
 scipy = "^1.11.0"
 orjson = "^3.11.6"
 prometheus-fastapi-instrumentator = "^8.0.0"
+prometheus-client = "^0.25.0"
 SQLAlchemy = "^2.0.39"
 psycopg = {version = "^3.2.6", extras = ["binary"]}
 
