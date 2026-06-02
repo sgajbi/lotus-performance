@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from app.core.config import get_settings
 from app.models.lineage_responses import ArtifactLink, LineageManifest, LineageResponse
+from app.models.platform_surfaces import ErrorDetailResponse
 from app.services.durable_store_json import read_json_file
 from app.services.lineage_metadata_store import LineageStatus, lineage_metadata_store
 from app.services.lineage_service import LineageService
@@ -83,12 +84,14 @@ def _ensure_declared_artifacts_exist(*, calculation_id: UUID, artifact_names: li
     ),
     responses={
         404: {
+            "model": ErrorDetailResponse,
             "description": "No lineage record exists, or a completed lineage record has no manifest.",
             "content": {
                 "application/json": {"example": {"detail": "Lineage data not found for the given calculation_id."}}
             },
         },
         503: {
+            "model": ErrorDetailResponse,
             "description": "Lineage storage or manifest integrity is degraded.",
             "content": {
                 "application/json": {"example": {"detail": "Lineage manifest is inconsistent with durable metadata."}}
