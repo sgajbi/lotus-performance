@@ -14,8 +14,8 @@ from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR_INSPECT
 from app.services.async_result_service import resolve_async_result
 from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import LineageStatus, lineage_metadata_store
+from app.services.reproducibility_service import generate_request_fingerprint
 from app.services.submission_fencing_service import register_async_submission_or_raise
-from core.repro import generate_canonical_hash
 
 router = APIRouter(tags=["Performance"])
 
@@ -49,7 +49,7 @@ def _inspection_storage_path(*, inspection_id: UUID, artifact_name: str | None =
     status_code=status.HTTP_202_ACCEPTED,
 )
 def submit_twr_inspection(request: TWRInspectionRequest):
-    input_fingerprint, calculation_hash = generate_canonical_hash(request, get_settings().APP_VERSION)
+    input_fingerprint, calculation_hash = generate_request_fingerprint(request, get_settings().APP_VERSION)
     portfolio_id = request.request.portfolio_id if request.request is not None else None
     if portfolio_id is None and request.subject_calculation_id is not None:
         existing = execution_registry.get_execution(request.subject_calculation_id)
