@@ -55,6 +55,8 @@ def test_twr_openapi_documents_async_execution_contract() -> None:
     assert "previously returned 202 Accepted" in twr_result["description"]
     assert "202" in twr_result["responses"]
     assert "404" in twr_result["responses"]
+    twr_result_404_schema = twr_result["responses"]["404"]["content"]["application/json"]["schema"]
+    assert twr_result_404_schema["$ref"].endswith("/ErrorDetailResponse")
 
 
 def test_twr_inspection_openapi_explains_supportability_purpose() -> None:

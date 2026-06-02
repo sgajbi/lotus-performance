@@ -14,6 +14,7 @@ from app.models.attribution_responses import AttributionAcceptedResponse, Attrib
 from app.models.benchmark_analytics_requests import BenchmarkInputMode, BenchmarkReturnSource
 from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest, MWRInputMode
 from app.models.mwr_responses import MoneyWeightedReturnResponse
+from app.models.platform_surfaces import ErrorDetailResponse
 from app.models.responses import PerformanceResponse, TWRAcceptedResponse
 from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode, TWRResolvedExecutionRequest
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
@@ -527,7 +528,11 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest) -> PerformanceRes
             "description": "The async TWR calculation is still pending.",
         },
         404: {
+            "model": ErrorDetailResponse,
             "description": "No async TWR result exists for the supplied calculation_id.",
+            "content": {
+                "application/json": {"example": {"detail": "Async TWR result not found for the given calculation_id."}}
+            },
         },
     },
 )

@@ -10,16 +10,16 @@ Mode: report-only API governance inventory; no blocking gate changed.
 | Metric | Value |
 | --- | ---: |
 | OpenAPI operations | 36 |
-| API completeness findings | 30 |
+| API completeness findings | 29 |
 | Distinct rules | 2 |
-| Endpoints with findings | 9 |
+| Endpoints with findings | 8 |
 
 ## Findings By Rule
 
 | Rule | Count |
 | --- | ---: |
 | `ERROR_JSON_MISSING_SCHEMA` | 13 |
-| `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | 17 |
+| `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | 16 |
 
 ## Most Affected Endpoints
 
@@ -33,7 +33,6 @@ Mode: report-only API governance inventory; no blocking gate changed.
 | `POST /performance/composites/inspect` | 2 |
 | `GET /performance/inspections/{inspection_id}/artifacts/{artifact_name}` | 2 |
 | `GET /performance/inspections/{inspection_id}` | 1 |
-| `GET /performance/twr/results/{calculation_id}` | 1 |
 
 ## Interpretation
 
@@ -82,4 +81,3 @@ consumers can generate clients, reason about failure modes, and certify error-ha
 | 27 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `GET /performance/lineage/{calculation_id}` | `503` | Error response does not expose application/problem+json or a named error/problem schema. |
 | 28 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `GET /performance/lineage/{calculation_id}/artifacts/{artifact_name}` | `404` | Error response does not expose application/problem+json or a named error/problem schema. |
 | 29 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `GET /performance/lineage/{calculation_id}/artifacts/{artifact_name}` | `503` | Error response does not expose application/problem+json or a named error/problem schema. |
-| 30 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `GET /performance/twr/results/{calculation_id}` | `404` | Error response does not expose application/problem+json or a named error/problem schema. |
