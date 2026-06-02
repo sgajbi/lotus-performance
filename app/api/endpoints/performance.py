@@ -38,6 +38,7 @@ from app.services.execution_lifecycle_service import (
 )
 from app.services.execution_registry import execution_registry
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
+from app.services.mwr_calculation_service import calculate_mwr_result
 from app.services.mwr_mode_service import resolve_mwr_request
 from app.services.reproducibility_service import generate_request_fingerprint, generate_value_fingerprint
 from app.services.stateful_execution_policy_service import (
@@ -53,7 +54,6 @@ from app.services.twr_service import calculate_twr_response
 from app.services.workspace_summary_service import calculate_workspace_summary, workspace_longest_requested_window_days
 from core.envelope import Audit, Diagnostics, Meta
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
-from engine.mwr import calculate_money_weighted_return
 
 router = APIRouter(tags=["Performance"])
 
@@ -594,16 +594,7 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
             )
         execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_EXECUTION)
         execution_stage_started = True
-        mwr_result = calculate_money_weighted_return(
-            begin_mv=mwr_request.begin_mv,
-            end_mv=mwr_request.end_mv,
-            cash_flows=mwr_request.cash_flows,
-            calculation_method=mwr_request.mwr_method,
-            annualization=mwr_request.annualization,
-            as_of=mwr_request.as_of,
-            start_date=mwr_request.start_date,
-            solver=mwr_request.solver,
-        )
+        mwr_result = calculate_mwr_result(mwr_request)
     except HTTPException:
         record_execution_failure(
             calculation_id=request.calculation_id,

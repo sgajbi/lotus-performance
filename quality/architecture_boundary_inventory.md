@@ -20,7 +20,7 @@ python scripts/python_architecture_boundary_inventory.py --limit 40
 
 | Metric | Value |
 | --- | ---: |
-| Architecture boundary findings | 17 |
+| Architecture boundary findings | 16 |
 | Distinct rules | 2 |
 | Distinct files | 11 |
 
@@ -29,13 +29,13 @@ python scripts/python_architecture_boundary_inventory.py --limit 40
 | Rule | Count |
 | --- | ---: |
 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | 14 |
-| `ROUTER_DIRECT_BOUNDARY_IMPORT` | 3 |
+| `ROUTER_DIRECT_BOUNDARY_IMPORT` | 2 |
 
 ## Findings By Area
 
 | Area | Count |
 | --- | ---: |
-| API routers | 3 |
+| API routers | 2 |
 | Core | 1 |
 | Engine | 13 |
 
@@ -57,9 +57,8 @@ python scripts/python_architecture_boundary_inventory.py --limit 40
 | 12 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/mwr.py:8` | `app.models.mwr_requests` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
 | 13 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/mwr.py:9` | `app.models.mwr_responses` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
 | 14 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/runtime.py:8` | `adapters.api_adapter` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
-| 15 | `ROUTER_DIRECT_BOUNDARY_IMPORT` | `app/api/endpoints/performance.py:54` | `core.envelope` | API routers should route through app services/use cases instead of direct domain, engine, or infrastructure imports. |
-| 16 | `ROUTER_DIRECT_BOUNDARY_IMPORT` | `app/api/endpoints/performance.py:55` | `engine.exceptions` | API routers should route through app services/use cases instead of direct domain, engine, or infrastructure imports. |
-| 17 | `ROUTER_DIRECT_BOUNDARY_IMPORT` | `app/api/endpoints/performance.py:56` | `engine.mwr` | API routers should route through app services/use cases instead of direct domain, engine, or infrastructure imports. |
+| 15 | `ROUTER_DIRECT_BOUNDARY_IMPORT` | `app/api/endpoints/performance.py:55` | `core.envelope` | API routers should route through app services/use cases instead of direct domain, engine, or infrastructure imports. |
+| 16 | `ROUTER_DIRECT_BOUNDARY_IMPORT` | `app/api/endpoints/performance.py:56` | `engine.exceptions` | API routers should route through app services/use cases instead of direct domain, engine, or infrastructure imports. |
 
 ## Interpretation
 
