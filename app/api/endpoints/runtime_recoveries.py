@@ -5,9 +5,9 @@ from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query
 
+from app.api.http_status import HTTP_422_UNPROCESSABLE
 from app.models.runtime_recoveries import RuntimeRecoveriesResponse, build_runtime_recoveries_response
 from app.services.runtime_recovery_service import build_runtime_recovery_snapshot
-from core.errors import HTTP_422_UNPROCESSABLE
 
 router = APIRouter(tags=["Integration"])
 

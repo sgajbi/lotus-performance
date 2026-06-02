@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, status
 
+from app.api.http_status import HTTP_422_UNPROCESSABLE
 from app.models.composites import (
     CompositeErrorResponse,
     CompositeInspectionRequest,
@@ -16,7 +17,6 @@ from app.services.composite_calculation_service import (
     calculate_composite_twr_from_persisted_facts,
 )
 from app.services.composite_inspection_service import inspect_composite_twr_from_persisted_facts
-from core.errors import HTTP_422_UNPROCESSABLE
 
 router = APIRouter(tags=["Performance"])
 
