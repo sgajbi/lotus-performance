@@ -100,6 +100,41 @@ HTTP_VALIDATION_ERROR_EXAMPLE: dict[str, Any] = {
         }
     ]
 }
+PROBLEM_DETAIL_SCHEMA_NAME = "ProblemDetail"
+PROBLEM_DETAIL_EXAMPLE: dict[str, Any] = {
+    "type": "about:blank",
+    "title": "Unexpected error response",
+    "status": 500,
+    "detail": "The service returned an unexpected error response.",
+}
+PROBLEM_DETAIL_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "description": "RFC 7807-style problem detail envelope for documented error responses.",
+    "properties": {
+        "type": {
+            "type": "string",
+            "description": "Problem type URI or about:blank when no more specific type is available.",
+            "example": "about:blank",
+        },
+        "title": {
+            "type": "string",
+            "description": "Short human-readable problem title.",
+            "example": "Unexpected error response",
+        },
+        "status": {
+            "type": "integer",
+            "description": "HTTP status code associated with the problem.",
+            "example": 500,
+        },
+        "detail": {
+            "type": "string",
+            "description": "Human-readable detail for the specific failure.",
+            "example": "The service returned an unexpected error response.",
+        },
+    },
+    "required": ["type", "title", "status", "detail"],
+    "example": PROBLEM_DETAIL_EXAMPLE,
+}
 
 
 def _to_snake_case(value: str) -> str:
@@ -281,6 +316,18 @@ def _ensure_error_response_examples(responses: dict[str, Any]) -> None:
             json_content["example"] = copy.deepcopy(HTTP_VALIDATION_ERROR_EXAMPLE)
 
 
+def _problem_detail_response(description: str = "Unexpected error response.") -> dict[str, Any]:
+    return {
+        "description": description,
+        "content": {
+            "application/problem+json": {
+                "schema": {"$ref": f"#/components/schemas/{PROBLEM_DETAIL_SCHEMA_NAME}"},
+                "example": copy.deepcopy(PROBLEM_DETAIL_EXAMPLE),
+            }
+        },
+    }
+
+
 def _infer_enum_descriptions(prop_name: str, prop_schema: dict[str, Any]) -> list[str] | None:
     enum_values = prop_schema.get("enum")
     if not isinstance(enum_values, list) or not enum_values:
@@ -348,7 +395,7 @@ def _ensure_operation_documentation(schema: dict[str, Any]) -> None:
                     for code in responses
                 )
                 if not has_error:
-                    responses["default"] = {"description": "Unexpected error response."}
+                    responses["default"] = _problem_detail_response()
                 _ensure_error_response_examples(responses)
                 for code, response in responses.items():
                     if not str(code).startswith("2") or not isinstance(response, dict):
@@ -396,6 +443,7 @@ def _ensure_schema_documentation(schema: dict[str, Any]) -> None:
     schemas = components.get("schemas", {})
     if not isinstance(schemas, dict):
         return
+    schemas.setdefault(PROBLEM_DETAIL_SCHEMA_NAME, copy.deepcopy(PROBLEM_DETAIL_SCHEMA))
     for model_name, model_schema in schemas.items():
         if not isinstance(model_schema, dict):
             continue

@@ -53,7 +53,7 @@ No gate should move from one phase to the next until it has:
 | Combined line coverage | Blocking at 99 percent in PR and main lanes | Capture branch-coverage posture before adding a stricter branch gate. |
 | Dependency verification | Blocking through `python -m pip check` and dependency-health scripts | Keep blocking; preserve project-scoped dependency-health evidence. |
 | Dependency vulnerabilities | `pip-audit` is available, security audit is already blocking through repo script, and report-only output is captured in `quality/dependency_security_report.md` | Keep the report current when dependency pins, audit tooling, or exception policy changes. |
-| OpenAPI quality | Blocking through `scripts/openapi_quality_gate.py`; measured further through `quality/api_completeness_inventory.md`; validation-error example gaps are closed | Keep the blocking gate and use the report-only inventory to reduce explicit error-schema and problem-detail gaps before adding stricter gates. |
+| OpenAPI quality | Blocking through `scripts/openapi_quality_gate.py`; measured further through `quality/api_completeness_inventory.md`; validation-error examples and default problem-detail schemas are covered | Keep the blocking gate and use the report-only inventory to reduce explicit domain error-schema and problem-detail gaps before adding stricter gates. |
 | API vocabulary and no-alias governance | Blocking in feature, PR, and main lanes | Keep blocking and preserve RFC-0067 vocabulary discipline. |
 | Migration smoke | Blocking in PR and main lanes | Keep blocking outside feature lane unless a migration-heavy slice needs earlier proof. |
 | Docker build | Blocking in PR and main lanes | Keep blocking; no new Docker gate is needed for report-only quality artifacts. |
@@ -67,7 +67,7 @@ No gate should move from one phase to the next until it has:
 | Architecture boundaries | Measured in `quality/architecture_boundary_inventory.md` through `scripts/python_architecture_boundary_inventory.py`; first report shows 25 import-boundary findings | Classify current findings and reduce router/domain boundary drift before adding import-linter or regression-blocking gates. |
 | Public docstring coverage | Not configured; `interrogate` not present | Measure before deciding whether public docstrings are a useful gate for this service. |
 | Router and middleware thinness | Custom checks not implemented | Add repo-native report-only scripts for direct-infra imports and oversized boundary modules. |
-| RFC 7807 error consistency | Measured report-only through `scripts/openapi_completeness_inventory.py`; current inventory shows 24 error responses not expressed as problem-detail contracts | Introduce shared problem-detail schemas/examples before considering regression blocking. |
+| RFC 7807 error consistency | Measured report-only through `scripts/openapi_completeness_inventory.py`; current inventory shows 18 domain error responses not expressed as problem-detail contracts | Continue moving domain error responses to shared problem-detail schemas/examples before considering regression blocking. |
 | Observability and operational contracts | Tests exist but no scorecard metric exists | Generate endpoint/service coverage score for correlation IDs, logs, metrics, and readiness. |
 
 ## Recommended Lane Placement For New Gates

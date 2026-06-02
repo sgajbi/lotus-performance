@@ -144,6 +144,9 @@ def test_enrich_openapi_schema_fills_operation_schema_and_examples():
     assert health_get["description"] == "GET operation for /health in lotus-performance."
     assert health_get["tags"] == ["Health"]
     assert "default" in health_get["responses"]
+    default_error = health_get["responses"]["default"]["content"]["application/problem+json"]
+    assert default_error["schema"]["$ref"] == "#/components/schemas/ProblemDetail"
+    assert default_error["example"]["status"] == 500
     assert health_get["responses"]["200"]["content"]["application/json"]["example"]["status"] == "ok"
 
     perf_post = enriched["paths"]["/performance/twr"]["post"]
@@ -176,6 +179,10 @@ def test_enrich_openapi_schema_fills_operation_schema_and_examples():
     assert nested_ref_prop["description"] == "health response field: nested ref."
     assert nested_ref_prop["example"] == {"count": 1}
     assert nested_ref_prop["x-lotus-semantic-id"] == "lotus.nested_ref"
+
+    problem_schema = enriched["components"]["schemas"]["ProblemDetail"]
+    assert problem_schema["description"].startswith("RFC 7807")
+    assert problem_schema["properties"]["status"]["example"] == 500
 
 
 def test_enrich_openapi_schema_adds_fastapi_validation_error_examples():
