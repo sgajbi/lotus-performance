@@ -22,6 +22,10 @@ def test_attribution_openapi_documents_private_banking_usage_and_error_paths() -
     for status_code in ("202", "404", "409"):
         assert status_code in attribution_result["responses"]
     assert "Async attribution result not found" in str(attribution_result["responses"]["404"])
+    result_404_schema = attribution_result["responses"]["404"]["content"]["application/json"]["schema"]
+    result_409_schema = attribution_result["responses"]["409"]["content"]["application/json"]["schema"]
+    assert result_404_schema["$ref"].endswith("/ErrorDetailResponse")
+    assert result_409_schema["$ref"].endswith("/ErrorDetailResponse")
 
 
 def test_attribution_openapi_documents_status_reason_and_supportability_fields() -> None:

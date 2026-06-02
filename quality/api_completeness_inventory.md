@@ -10,23 +10,22 @@ Mode: report-only API governance inventory; no blocking gate changed.
 | Metric | Value |
 | --- | ---: |
 | OpenAPI operations | 36 |
-| API completeness findings | 12 |
+| API completeness findings | 8 |
 | Distinct rules | 2 |
-| Endpoints with findings | 2 |
+| Endpoints with findings | 1 |
 
 ## Findings By Rule
 
 | Rule | Count |
 | --- | ---: |
-| `ERROR_JSON_MISSING_SCHEMA` | 6 |
-| `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | 6 |
+| `ERROR_JSON_MISSING_SCHEMA` | 4 |
+| `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | 4 |
 
 ## Most Affected Endpoints
 
 | Endpoint | Findings |
 | --- | ---: |
 | `POST /performance/attribution` | 8 |
-| `GET /performance/attribution/results/{calculation_id}` | 4 |
 
 ## Interpretation
 
@@ -50,11 +49,7 @@ consumers can generate clients, reason about failure modes, and certify error-ha
 | 2 | `ERROR_JSON_MISSING_SCHEMA` | `POST /performance/attribution` | `409` | JSON error response is missing an explicit schema. |
 | 3 | `ERROR_JSON_MISSING_SCHEMA` | `POST /performance/attribution` | `422` | JSON error response is missing an explicit schema. |
 | 4 | `ERROR_JSON_MISSING_SCHEMA` | `POST /performance/attribution` | `500` | JSON error response is missing an explicit schema. |
-| 5 | `ERROR_JSON_MISSING_SCHEMA` | `GET /performance/attribution/results/{calculation_id}` | `404` | JSON error response is missing an explicit schema. |
-| 6 | `ERROR_JSON_MISSING_SCHEMA` | `GET /performance/attribution/results/{calculation_id}` | `409` | JSON error response is missing an explicit schema. |
-| 7 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `POST /performance/attribution` | `400` | Error response does not expose application/problem+json or a named error/problem schema. |
-| 8 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `POST /performance/attribution` | `409` | Error response does not expose application/problem+json or a named error/problem schema. |
-| 9 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `POST /performance/attribution` | `422` | Error response does not expose application/problem+json or a named error/problem schema. |
-| 10 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `POST /performance/attribution` | `500` | Error response does not expose application/problem+json or a named error/problem schema. |
-| 11 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `GET /performance/attribution/results/{calculation_id}` | `404` | Error response does not expose application/problem+json or a named error/problem schema. |
-| 12 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `GET /performance/attribution/results/{calculation_id}` | `409` | Error response does not expose application/problem+json or a named error/problem schema. |
+| 5 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `POST /performance/attribution` | `400` | Error response does not expose application/problem+json or a named error/problem schema. |
+| 6 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `POST /performance/attribution` | `409` | Error response does not expose application/problem+json or a named error/problem schema. |
+| 7 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `POST /performance/attribution` | `422` | Error response does not expose application/problem+json or a named error/problem schema. |
+| 8 | `ERROR_RESPONSE_NOT_PROBLEM_DETAIL` | `POST /performance/attribution` | `500` | Error response does not expose application/problem+json or a named error/problem schema. |

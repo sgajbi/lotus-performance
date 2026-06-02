@@ -1008,6 +1008,7 @@ def _accepted_attribution_response(calculation_id) -> AttributionAcceptedRespons
             "description": "Attribution execution is still pending or running.",
         },
         404: {
+            "model": ErrorDetailResponse,
             "description": "No async attribution execution exists for the supplied calculation id.",
             "content": {
                 "application/json": {
@@ -1016,6 +1017,7 @@ def _accepted_attribution_response(calculation_id) -> AttributionAcceptedRespons
             },
         },
         409: {
+            "model": ErrorDetailResponse,
             "description": "The async attribution execution failed and no completed result is available.",
             "content": {"application/json": {"example": {"detail": "Async attribution execution failed."}}},
         },
