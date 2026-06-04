@@ -1,10 +1,15 @@
+from typing import Protocol
+
 import numpy as np
 import pandas as pd
 
-from app.models.contribution_requests import Smoothing
 from engine.schema import PortfolioColumns
 
 CARINO_ZERO_RETURN_TOLERANCE = 1e-12
+
+
+class ContributionSmoothingLike(Protocol):
+    method: str
 
 
 def _calculate_carino_factor_for_return(portfolio_return: float) -> float:
@@ -43,7 +48,7 @@ def _calculate_carino_factors(ror_series: pd.Series) -> pd.Series:
 def apply_contribution_smoothing(
     contribution_df: pd.DataFrame,
     portfolio_df: pd.DataFrame,
-    smoothing: Smoothing,
+    smoothing: ContributionSmoothingLike,
 ) -> pd.DataFrame:
     """Adds smoothed contribution columns to a daily contribution frame.
 

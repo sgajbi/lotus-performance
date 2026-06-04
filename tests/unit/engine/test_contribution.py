@@ -1,4 +1,6 @@
 # tests/unit/engine/test_contribution.py
+from dataclasses import dataclass
+
 import pandas as pd
 import pytest
 
@@ -14,7 +16,13 @@ from engine.contribution import (
     build_hierarchical_contribution_result,
     calculate_hierarchical_contribution,
 )
+from engine.contribution_smoothing import apply_contribution_smoothing
 from engine.runtime import base_only_engine_config
+
+
+@dataclass(frozen=True)
+class StructuralSmoothing:
+    method: str
 
 
 @pytest.fixture
@@ -82,6 +90,34 @@ def test_calculate_daily_contributions_smoothing(prepared_data_fixture):
     assert stock_a_day_1["raw_contribution"] == pytest.approx(0.012)
     assert stock_a_day_1["smoothed_contribution"] != pytest.approx(0.012)
     assert stock_a_day_1["smoothed_contribution"] == pytest.approx(0.01205617, abs=1e-8)
+
+
+def test_apply_contribution_smoothing_accepts_structural_smoothing_config():
+    contribution_df = pd.DataFrame(
+        [
+            {
+                "perf_date": pd.Timestamp("2025-01-01"),
+                "raw_local_contribution": 0.01,
+                "raw_fx_contribution": 0.002,
+                "raw_contribution": 0.012,
+            }
+        ]
+    )
+    portfolio_df = pd.DataFrame(
+        [
+            {
+                "perf_date": pd.Timestamp("2025-01-01"),
+                "daily_ror": 1.2,
+            }
+        ]
+    )
+
+    result_df = apply_contribution_smoothing(contribution_df, portfolio_df, StructuralSmoothing(method="NONE"))
+
+    row = result_df.iloc[0]
+    assert row["smoothed_local_contribution"] == pytest.approx(0.01)
+    assert row["smoothed_fx_contribution"] == pytest.approx(0.002)
+    assert row["smoothed_contribution"] == pytest.approx(0.012)
 
 
 def test_calculate_carino_factors():
