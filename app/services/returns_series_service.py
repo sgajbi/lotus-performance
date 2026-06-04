@@ -513,6 +513,55 @@ def risk_free_points_to_dataframe(*, points: list[dict[str, Any]]) -> pd.DataFra
     return to_dataframe(normalized_points, series_type="risk_free")
 
 
+def _apply_strict_intersection_policy(
+    *,
+    portfolio_df: pd.DataFrame,
+    benchmark_df: pd.DataFrame | None,
+    risk_free_df: pd.DataFrame | None,
+    missing_data_policy: MissingDataPolicy,
+) -> tuple[pd.DataFrame, pd.DataFrame | None, pd.DataFrame | None]:
+    if missing_data_policy != MissingDataPolicy.STRICT_INTERSECTION:
+        return portfolio_df, benchmark_df, risk_free_df
+
+    common_dates = set(portfolio_df["date"])
+    if benchmark_df is not None:
+        common_dates &= set(benchmark_df["date"])
+    if risk_free_df is not None:
+        common_dates &= set(risk_free_df["date"])
+    if not common_dates:
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail=insufficient_data_detail("No overlapping dates across selected series."),
+        )
+
+    portfolio_df = portfolio_df[portfolio_df["date"].isin(common_dates)].sort_values("date")
+    if benchmark_df is not None:
+        benchmark_df = benchmark_df[benchmark_df["date"].isin(common_dates)].sort_values("date")
+    if risk_free_df is not None:
+        risk_free_df = risk_free_df[risk_free_df["date"].isin(common_dates)].sort_values("date")
+    return portfolio_df, benchmark_df, risk_free_df
+
+
+def _apply_selected_fill_method(
+    *,
+    portfolio_df: pd.DataFrame,
+    benchmark_df: pd.DataFrame | None,
+    risk_free_df: pd.DataFrame | None,
+    fill_method: FillMethod,
+) -> tuple[pd.DataFrame, pd.DataFrame | None, pd.DataFrame | None]:
+    if fill_method == FillMethod.FORWARD_FILL:
+        if benchmark_df is not None:
+            benchmark_df = benchmark_df.set_index("date").reindex(portfolio_df["date"]).ffill().reset_index()
+        if risk_free_df is not None:
+            risk_free_df = risk_free_df.set_index("date").reindex(portfolio_df["date"]).ffill().reset_index()
+    elif fill_method == FillMethod.ZERO_FILL:
+        if benchmark_df is not None:
+            benchmark_df = benchmark_df.set_index("date").reindex(portfolio_df["date"]).fillna(0.0).reset_index()
+        if risk_free_df is not None:
+            risk_free_df = risk_free_df.set_index("date").reindex(portfolio_df["date"]).fillna(0.0).reset_index()
+    return portfolio_df, benchmark_df, risk_free_df
+
+
 async def calculate_returns_series(
     request: ReturnsSeriesRequest,
     *,
@@ -618,33 +667,18 @@ async def _calculate_returns_series(
 
         active_stage = EXECUTION_STAGE_EXECUTION
         execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_EXECUTION)
-        if request.data_policy.missing_data_policy == MissingDataPolicy.STRICT_INTERSECTION:
-            common_dates = set(portfolio_df["date"])
-            if benchmark_df is not None:
-                common_dates &= set(benchmark_df["date"])
-            if risk_free_df is not None:
-                common_dates &= set(risk_free_df["date"])
-            if not common_dates:
-                raise HTTPException(
-                    status_code=HTTP_422_UNPROCESSABLE,
-                    detail=insufficient_data_detail("No overlapping dates across selected series."),
-                )
-            portfolio_df = portfolio_df[portfolio_df["date"].isin(common_dates)].sort_values("date")
-            if benchmark_df is not None:
-                benchmark_df = benchmark_df[benchmark_df["date"].isin(common_dates)].sort_values("date")
-            if risk_free_df is not None:
-                risk_free_df = risk_free_df[risk_free_df["date"].isin(common_dates)].sort_values("date")
-
-        if request.data_policy.fill_method == FillMethod.FORWARD_FILL:
-            if benchmark_df is not None:
-                benchmark_df = benchmark_df.set_index("date").reindex(portfolio_df["date"]).ffill().reset_index()
-            if risk_free_df is not None:
-                risk_free_df = risk_free_df.set_index("date").reindex(portfolio_df["date"]).ffill().reset_index()
-        elif request.data_policy.fill_method == FillMethod.ZERO_FILL:
-            if benchmark_df is not None:
-                benchmark_df = benchmark_df.set_index("date").reindex(portfolio_df["date"]).fillna(0.0).reset_index()
-            if risk_free_df is not None:
-                risk_free_df = risk_free_df.set_index("date").reindex(portfolio_df["date"]).fillna(0.0).reset_index()
+        portfolio_df, benchmark_df, risk_free_df = _apply_strict_intersection_policy(
+            portfolio_df=portfolio_df,
+            benchmark_df=benchmark_df,
+            risk_free_df=risk_free_df,
+            missing_data_policy=request.data_policy.missing_data_policy,
+        )
+        portfolio_df, benchmark_df, risk_free_df = _apply_selected_fill_method(
+            portfolio_df=portfolio_df,
+            benchmark_df=benchmark_df,
+            risk_free_df=risk_free_df,
+            fill_method=request.data_policy.fill_method,
+        )
 
         portfolio_return_points = points_from_df(portfolio_df)
         cumulative_portfolio_return_points = build_cumulative_return_points(portfolio_df)

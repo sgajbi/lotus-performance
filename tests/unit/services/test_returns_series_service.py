@@ -8,7 +8,14 @@ import pytest
 from fastapi import HTTPException
 
 from app.models.benchmark_requests import BenchmarkComponentObservation
-from app.models.returns_series import CalendarPolicy, ReturnPoint, ReturnsFrequency, ReturnsSeriesRequest
+from app.models.returns_series import (
+    CalendarPolicy,
+    FillMethod,
+    MissingDataPolicy,
+    ReturnPoint,
+    ReturnsFrequency,
+    ReturnsSeriesRequest,
+)
 from app.services import portfolio_source_service, returns_series_service, stateful_input_service
 from app.services.execution_registry import ExecutionRegistry
 from app.services.stateful_benchmark_input_service import StatefulBenchmarkNormalizedInput
@@ -180,6 +187,73 @@ def test_detect_gaps_does_not_flag_weekends_under_business_calendar():
 
     assert [gap.gap_days for gap in business_gaps] == [1]
     assert [gap.gap_days for gap in calendar_gaps] == [2]
+
+
+def test_strict_intersection_policy_aligns_selected_series():
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24", "2026-02-25"]),
+            "return_value": [Decimal("0.0100"), Decimal("0.0200")],
+        }
+    )
+    benchmark_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-25", "2026-02-26"]),
+            "return_value": [Decimal("0.0010"), Decimal("0.0020")],
+        }
+    )
+
+    aligned_portfolio, aligned_benchmark, aligned_risk_free = returns_series_service._apply_strict_intersection_policy(
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+        risk_free_df=None,
+        missing_data_policy=MissingDataPolicy.STRICT_INTERSECTION,
+    )
+
+    assert list(aligned_portfolio["date"].dt.date) == [pd.Timestamp("2026-02-25").date()]
+    assert aligned_benchmark is not None
+    assert list(aligned_benchmark["date"].dt.date) == [pd.Timestamp("2026-02-25").date()]
+    assert aligned_risk_free is None
+
+
+def test_strict_intersection_policy_rejects_no_overlap():
+    portfolio_df = pd.DataFrame({"date": pd.to_datetime(["2026-02-24"]), "return_value": [Decimal("0.0100")]})
+    benchmark_df = pd.DataFrame({"date": pd.to_datetime(["2026-02-25"]), "return_value": [Decimal("0.0010")]})
+
+    with pytest.raises(HTTPException) as exc:
+        returns_series_service._apply_strict_intersection_policy(
+            portfolio_df=portfolio_df,
+            benchmark_df=benchmark_df,
+            risk_free_df=None,
+            missing_data_policy=MissingDataPolicy.STRICT_INTERSECTION,
+        )
+
+    assert exc.value.status_code == 422
+
+
+def test_selected_fill_method_aligns_optional_series_to_portfolio_dates():
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24", "2026-02-25", "2026-02-26"]),
+            "return_value": [Decimal("0.0100"), Decimal("0.0200"), Decimal("0.0300")],
+        }
+    )
+    benchmark_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24", "2026-02-26"]),
+            "return_value": [Decimal("0.0010"), Decimal("0.0030")],
+        }
+    )
+
+    _, filled_benchmark, _ = returns_series_service._apply_selected_fill_method(
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+        risk_free_df=None,
+        fill_method=FillMethod.FORWARD_FILL,
+    )
+
+    assert filled_benchmark is not None
+    assert list(filled_benchmark["return_value"]) == [Decimal("0.0010"), Decimal("0.0010"), Decimal("0.0030")]
 
 
 def _build_stateful_request(**overrides):
