@@ -26,10 +26,10 @@ python scripts/python_function_size_inventory.py --limit 15
 | 4 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:54` | 288 |
 | 5 | `_process_pending_jobs` | `app/workers/compute_executor_worker.py:59` | 256 |
 | 6 | `analyze_portfolio_position_reconciliation` | `app/services/inspection/reconciliation.py:82` | 250 |
-| 7 | `_calculate_returns_series` | `app/services/returns_series_service.py:657` | 250 |
-| 8 | `calculate_twr_response` | `app/services/twr_service.py:496` | 234 |
-| 9 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:909` | 226 |
-| 10 | `build_runtime_status_response` | `app/models/runtime_status.py:613` | 215 |
+| 7 | `calculate_twr_response` | `app/services/twr_service.py:496` | 234 |
+| 8 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:935` | 226 |
+| 9 | `build_runtime_status_response` | `app/models/runtime_status.py:613` | 215 |
+| 10 | `_calculate_returns_series` | `app/services/returns_series_service.py:723` | 210 |
 | 11 | `calculate_asset_weighted_composite_twr` | `engine/composites.py:92` | 197 |
 | 12 | `DurableQueueCollector.collect` | `app/services/queue_metrics_service.py:227` | 188 |
 | 13 | `build_attribution_supportability_evidence` | `engine/attribution_supportability.py:42` | 184 |

@@ -562,6 +562,72 @@ def _apply_selected_fill_method(
     return portfolio_df, benchmark_df, risk_free_df
 
 
+def _returns_series_input_dataframe(
+    *,
+    points: list[ReturnPoint],
+    series_type: str,
+    resolved_window: ResolvedWindow,
+    frequency: ReturnsFrequency,
+    calendar_policy: CalendarPolicy,
+) -> pd.DataFrame:
+    series_df = resample_returns(
+        filter_window(
+            to_dataframe(points, series_type=series_type),
+            resolved_window=resolved_window,
+        ),
+        frequency=frequency,
+    )
+    return apply_calendar_policy(
+        series_df,
+        frequency=frequency,
+        calendar_policy=calendar_policy,
+    )
+
+
+def _prepare_stateless_returns_series_dataframes(
+    *,
+    request: ReturnsSeriesRequest,
+    resolved_window: ResolvedWindow,
+) -> tuple[pd.DataFrame, pd.DataFrame | None, pd.DataFrame | None]:
+    stateless_input = request.stateless_input
+    if stateless_input is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=invalid_request_detail("stateless_input is required in stateless mode."),
+        )
+
+    portfolio_df = _returns_series_input_dataframe(
+        points=stateless_input.portfolio_returns,
+        series_type="portfolio",
+        resolved_window=resolved_window,
+        frequency=request.frequency,
+        calendar_policy=request.data_policy.calendar_policy,
+    )
+    benchmark_df = (
+        _returns_series_input_dataframe(
+            points=stateless_input.benchmark_returns or [],
+            series_type="benchmark",
+            resolved_window=resolved_window,
+            frequency=request.frequency,
+            calendar_policy=request.data_policy.calendar_policy,
+        )
+        if request.series_selection.include_benchmark
+        else None
+    )
+    risk_free_df = (
+        _returns_series_input_dataframe(
+            points=stateless_input.risk_free_returns or [],
+            series_type="risk_free",
+            resolved_window=resolved_window,
+            frequency=request.frequency,
+            calendar_policy=request.data_policy.calendar_policy,
+        )
+        if request.series_selection.include_risk_free
+        else None
+    )
+    return portfolio_df, benchmark_df, risk_free_df
+
+
 async def _resolve_stateful_returns_series_benchmark_id(
     *,
     request: ReturnsSeriesRequest,
@@ -697,50 +763,10 @@ async def _calculate_returns_series(
             )
             resolved_window = resolve_window(request)
 
-        stateless_input = request.stateless_input
-        if stateless_input is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=invalid_request_detail("stateless_input is required in stateless mode."),
-            )
-        portfolio_df = resample_returns(
-            filter_window(
-                to_dataframe(stateless_input.portfolio_returns, series_type="portfolio"),
-                resolved_window=resolved_window,
-            ),
-            frequency=request.frequency,
+        portfolio_df, benchmark_df, risk_free_df = _prepare_stateless_returns_series_dataframes(
+            request=request,
+            resolved_window=resolved_window,
         )
-        portfolio_df = apply_calendar_policy(
-            portfolio_df,
-            frequency=request.frequency,
-            calendar_policy=request.data_policy.calendar_policy,
-        )
-        if request.series_selection.include_benchmark:
-            benchmark_df = resample_returns(
-                filter_window(
-                    to_dataframe(stateless_input.benchmark_returns or [], series_type="benchmark"),
-                    resolved_window=resolved_window,
-                ),
-                frequency=request.frequency,
-            )
-            benchmark_df = apply_calendar_policy(
-                benchmark_df,
-                frequency=request.frequency,
-                calendar_policy=request.data_policy.calendar_policy,
-            )
-        if request.series_selection.include_risk_free:
-            risk_free_df = resample_returns(
-                filter_window(
-                    to_dataframe(stateless_input.risk_free_returns or [], series_type="risk_free"),
-                    resolved_window=resolved_window,
-                ),
-                frequency=request.frequency,
-            )
-            risk_free_df = apply_calendar_policy(
-                risk_free_df,
-                frequency=request.frequency,
-                calendar_policy=request.data_policy.calendar_policy,
-            )
 
         active_stage = EXECUTION_STAGE_EXECUTION
         execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_EXECUTION)

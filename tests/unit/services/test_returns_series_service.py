@@ -10,11 +10,17 @@ from fastapi import HTTPException
 from app.models.benchmark_requests import BenchmarkComponentObservation
 from app.models.returns_series import (
     CalendarPolicy,
+    DataPolicy,
     FillMethod,
+    InputMode,
+    MetricBasis,
     MissingDataPolicy,
     ReturnPoint,
     ReturnsFrequency,
     ReturnsSeriesRequest,
+    ReturnsWindow,
+    ReturnsWindowMode,
+    SeriesSelection,
 )
 from app.services import portfolio_source_service, returns_series_service, stateful_input_service
 from app.services.execution_registry import ExecutionRegistry
@@ -254,6 +260,73 @@ def test_selected_fill_method_aligns_optional_series_to_portfolio_dates():
 
     assert filled_benchmark is not None
     assert list(filled_benchmark["return_value"]) == [Decimal("0.0010"), Decimal("0.0010"), Decimal("0.0030")]
+
+
+def test_prepare_stateless_returns_series_dataframes_respects_selected_series():
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-26",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-24", "to_date": "2026-02-26"},
+            "frequency": "DAILY",
+            "series_selection": {"include_portfolio": True, "include_benchmark": True, "include_risk_free": False},
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_returns": [
+                    {"date": "2026-02-24", "return_value": "0.0100"},
+                    {"date": "2026-02-25", "return_value": "0.0200"},
+                    {"date": "2026-02-26", "return_value": "0.0300"},
+                ],
+                "benchmark_returns": [
+                    {"date": "2026-02-24", "return_value": "0.0010"},
+                    {"date": "2026-02-25", "return_value": "0.0020"},
+                    {"date": "2026-02-26", "return_value": "0.0030"},
+                ],
+            },
+        }
+    )
+    resolved_window = returns_series_service.resolve_window(request)
+
+    portfolio_df, benchmark_df, risk_free_df = returns_series_service._prepare_stateless_returns_series_dataframes(
+        request=request,
+        resolved_window=resolved_window,
+    )
+
+    assert list(portfolio_df["return_value"]) == [Decimal("0.0100"), Decimal("0.0200"), Decimal("0.0300")]
+    assert benchmark_df is not None
+    assert list(benchmark_df["return_value"]) == [Decimal("0.0010"), Decimal("0.0020"), Decimal("0.0030")]
+    assert risk_free_df is None
+
+
+def test_prepare_stateless_returns_series_dataframes_requires_stateless_input():
+    request = ReturnsSeriesRequest.model_construct(
+        portfolio_id="P1",
+        as_of_date=pd.Timestamp("2026-02-26").date(),
+        window=ReturnsWindow.model_construct(
+            mode=ReturnsWindowMode.EXPLICIT,
+            from_date=pd.Timestamp("2026-02-24").date(),
+            to_date=pd.Timestamp("2026-02-26").date(),
+        ),
+        frequency=ReturnsFrequency.DAILY,
+        metric_basis=MetricBasis.NET,
+        reporting_currency=None,
+        series_selection=SeriesSelection(),
+        benchmark=None,
+        risk_free=None,
+        data_policy=DataPolicy(),
+        input_mode=InputMode.STATELESS,
+        stateless_input=None,
+        stateful_input=None,
+    )
+    resolved_window = returns_series_service.resolve_window(request)
+
+    with pytest.raises(HTTPException) as exc:
+        returns_series_service._prepare_stateless_returns_series_dataframes(
+            request=request,
+            resolved_window=resolved_window,
+        )
+
+    assert exc.value.status_code == 400
 
 
 @pytest.mark.asyncio
