@@ -21,21 +21,20 @@ python scripts/python_dependency_hygiene_inventory.py --limit 30
 
 | Metric | Value |
 | --- | ---: |
-| Total dependency hygiene findings | 3 |
+| Total dependency hygiene findings | 2 |
 | Distinct issue codes | 1 |
-| Distinct modules | 3 |
+| Distinct modules | 2 |
 
 ## Findings By Code
 
 | Code | Count |
 | --- | ---: |
-| DEP002 | 3 |
+| DEP002 | 2 |
 
 ## Findings By Module
 
 | Module | Count |
 | --- | ---: |
-| `orjson` | 1 |
 | `psycopg` | 1 |
 | `uvicorn` | 1 |
 
@@ -43,22 +42,21 @@ python scripts/python_dependency_hygiene_inventory.py --limit 30
 
 | Area | Count |
 | --- | ---: |
-| Dependency declarations | 3 |
+| Dependency declarations | 2 |
 
 ## Findings
 
 | Rank | Code | Module | Location | Message |
 | ---: | --- | --- | --- | --- |
-| 1 | DEP002 | `orjson` | `pyproject.toml` | 'orjson' defined as a dependency but not used in the codebase |
-| 2 | DEP002 | `psycopg` | `pyproject.toml` | 'psycopg' defined as a dependency but not used in the codebase |
-| 3 | DEP002 | `uvicorn` | `pyproject.toml` | 'uvicorn' defined as a dependency but not used in the codebase |
+| 1 | DEP002 | `psycopg` | `pyproject.toml` | 'psycopg' defined as a dependency but not used in the codebase |
+| 2 | DEP002 | `uvicorn` | `pyproject.toml` | 'uvicorn' defined as a dependency but not used in the codebase |
 
 ## Interpretation
 
-The earlier `DEP003` findings are closed: production imports of `numpy`, `httpx`, and
-`prometheus_client` now have direct runtime declarations. The remaining `DEP002` findings need
-separate review because `uvicorn` can be a runtime entrypoint dependency, `orjson` may be framework
-configuration support, and `psycopg` can be an optional database runtime dependency.
+The earlier `DEP003` findings are closed: production imports of `numpy`, `httpx`,
+`prometheus_client`, and `orjson` now have direct runtime declarations. The remaining `DEP002`
+findings need separate review because `uvicorn` is a runtime entrypoint dependency and `psycopg`
+can be an optional database runtime dependency.
 
 Future slices should review `DEP002` entries against runtime, Docker, migration, and optional
 analytics behavior before removing anything.

@@ -80,7 +80,7 @@ link the commit, command, or CI artifact that proves the change.
 | Bandit high findings | unknown | unknown | not-yet-measured | `bandit` not installed |
 | Bandit medium findings | unknown | unknown | not-yet-measured | `bandit` not installed |
 | Dependency vulnerabilities | unknown | 0 | measured | `quality/dependency_security_report.md` via repo-native dependency-health audit |
-| Dependency hygiene findings | unknown | 3 | measured | `quality/dependency_hygiene_report.md` via `scripts/python_dependency_hygiene_inventory.py` |
+| Dependency hygiene findings | unknown | 2 | measured | `quality/dependency_hygiene_report.md` via `scripts/python_dependency_hygiene_inventory.py` |
 
 ## Operational Readiness
 

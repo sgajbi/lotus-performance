@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_PATHS = ("app", "engine", "core", "adapters")
+DEFAULT_PATHS = (".",)
 DEFAULT_FIRST_PARTY = ("app", "engine", "core", "adapters", "common", "scripts")
 
 
