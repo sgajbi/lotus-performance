@@ -50,6 +50,7 @@ No gate should move from one phase to the next until it has:
 | mypy typecheck | Blocking in feature, PR, and main lanes | Keep blocking; expand typed boundary cleanup through normal refactor slices. |
 | Unit tests | Blocking in feature, PR, and main lanes | Keep blocking; add focused tests when refactoring hotspots. |
 | Integration and e2e tests | Blocking in PR and main lanes | Keep blocking at merge/release lanes; use targeted local subsets during slices. |
+| Test taxonomy | Measured in `quality/test_taxonomy_inventory.md` through `scripts/python_test_taxonomy_inventory.py`; current AST inventory shows 453 integration/API/runtime test functions and 107 contract/governance test functions | Keep report-only until taxonomy labels and uncategorized-test policy are stable. |
 | Combined line coverage | Blocking at 99 percent in PR and main lanes | Capture branch-coverage posture before adding a stricter branch gate. |
 | Dependency verification | Blocking through `python -m pip check` and dependency-health scripts | Keep blocking; preserve project-scoped dependency-health evidence. |
 | Dependency vulnerabilities | `pip-audit` is available, security audit is already blocking through repo script, and report-only output is captured in `quality/dependency_security_report.md` | Keep the report current when dependency pins, audit tooling, or exception policy changes. |
