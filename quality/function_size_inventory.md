@@ -34,7 +34,7 @@ python scripts/python_function_size_inventory.py --limit 15
 | 12 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:503` | 172 |
 | 13 | `resolve_twr_request` | `app/services/twr_mode_service.py:44` | 165 |
 | 14 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:67` | 159 |
-| 15 | `calculate_twr_response` | `app/services/twr_service.py:612` | 151 |
+| 15 | `calculate_twr_response` | `app/services/twr_service.py:738` | 151 |
 
 ## Interpretation
 
