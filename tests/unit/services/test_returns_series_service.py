@@ -487,6 +487,69 @@ def test_prepare_stateless_returns_series_dataframes_requires_stateless_input():
     assert exc.value.status_code == 400
 
 
+def test_build_stateful_returns_series_frames_normalizes_vendor_benchmark_and_risk_free_points():
+    request = _build_stateful_request(
+        reporting_currency="USD",
+        series_selection={"include_portfolio": True, "include_benchmark": True, "include_risk_free": True},
+    )
+    resolved_window = returns_series_service.resolve_window(request)
+
+    frames = returns_series_service._build_stateful_returns_series_frames(
+        request=request,
+        resolved_window=resolved_window,
+        observations=[
+            {"valuation_date": "2026-02-23", "beginning_market_value": "100", "ending_market_value": "101"},
+            {"valuation_date": "2026-02-24", "beginning_market_value": "101", "ending_market_value": "102"},
+            {"valuation_date": "2026-02-25", "beginning_market_value": "102", "ending_market_value": "103"},
+        ],
+        portfolio_performance_start_date=pd.Timestamp("2026-02-23").date(),
+        benchmark_points=[
+            {"series_date": "2026-02-23", "benchmark_return": "0.001"},
+            {"series_date": "2026-02-25", "benchmark_return": "0.003"},
+        ],
+        benchmark_df=None,
+        risk_free_points=[
+            {"series_date": "2026-02-24", "value": "0.0001"},
+            {"series_date": "2026-02-25", "value": "0.0002"},
+        ],
+    )
+
+    assert not frames.portfolio_df.empty
+    assert frames.benchmark_df is not None
+    assert [value.date().isoformat() for value in frames.benchmark_df["date"]] == ["2026-02-23", "2026-02-25"]
+    assert [str(value) for value in frames.benchmark_df["return_value"]] == ["0.001", "0.003"]
+    assert frames.risk_free_df is not None
+    assert [value.date().isoformat() for value in frames.risk_free_df["date"]] == ["2026-02-24", "2026-02-25"]
+    assert [str(value) for value in frames.risk_free_df["return_value"]] == ["0.0001", "0.0002"]
+
+
+def test_build_stateful_returns_series_frames_preserves_calculated_benchmark_frame():
+    request = _build_stateful_request()
+    resolved_window = returns_series_service.resolve_window(request)
+    benchmark_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24"]),
+            "return_value": [Decimal("0.001")],
+        }
+    )
+
+    frames = returns_series_service._build_stateful_returns_series_frames(
+        request=request,
+        resolved_window=resolved_window,
+        observations=[
+            {"valuation_date": "2026-02-23", "beginning_market_value": "100", "ending_market_value": "101"},
+            {"valuation_date": "2026-02-24", "beginning_market_value": "101", "ending_market_value": "102"},
+        ],
+        portfolio_performance_start_date=pd.Timestamp("2026-02-23").date(),
+        benchmark_points=None,
+        benchmark_df=benchmark_df,
+        risk_free_points=None,
+    )
+
+    assert frames.benchmark_df is benchmark_df
+    assert frames.risk_free_df is None
+
+
 @pytest.mark.asyncio
 async def test_resolve_stateful_returns_series_benchmark_id_uses_assignment_when_missing():
     request = _build_stateful_request()

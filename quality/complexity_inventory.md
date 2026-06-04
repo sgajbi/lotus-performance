@@ -20,7 +20,7 @@ python scripts/python_complexity_inventory.py --limit 20
 
 | Metric | Value |
 | --- | ---: |
-| Max cyclomatic complexity | 24 |
+| Max cyclomatic complexity | 22 |
 | High-complexity functions (rank D-F) | 9 |
 | Average maintainability index | 55.84 |
 
@@ -28,9 +28,9 @@ python scripts/python_complexity_inventory.py --limit 20
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1046` | 24 | D |
-| 2 | `ReturnsSeriesRequest` | class | `app/models/returns_series.py:244` | 22 | D |
-| 3 | `analyze_portfolio_position_reconciliation` | function | `app/services/inspection/reconciliation.py:82` | 22 | D |
+| 1 | `ReturnsSeriesRequest` | class | `app/models/returns_series.py:244` | 22 | D |
+| 2 | `analyze_portfolio_position_reconciliation` | function | `app/services/inspection/reconciliation.py:82` | 22 | D |
+| 3 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1103` | 22 | D |
 | 4 | `calculate_benchmark_returns` | function | `engine/benchmarks.py:35` | 22 | D |
 | 5 | `calculate_money_weighted_return` | function | `engine/mwr.py:264` | 22 | D |
 | 6 | `validate_selection` | method | `app/models/returns_series.py:318` | 21 | D |
@@ -44,7 +44,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | 14 | `calculate_daily_ror` | function | `engine/ror.py:18` | 20 | C |
 | 15 | `_ensure_schema_documentation` | function | `app/openapi_enrichment.py:510` | 19 | C |
 | 16 | `_expected_daily_evidence_semantics` | function | `app/services/inspection/calculation_consistency.py:416` | 19 | C |
-| 17 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:886` | 19 | C |
+| 17 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:943` | 19 | C |
 | 18 | `_prepare_hierarchical_data` | function | `engine/contribution.py:152` | 19 | C |
 | 19 | `_xirr` | function | `engine/mwr.py:53` | 19 | C |
 | 20 | `validate_mode_payloads` | method | `app/models/workspace_summary_requests.py:251` | 18 | C |
@@ -76,10 +76,10 @@ python scripts/python_complexity_inventory.py --limit 20
 
 ## Interpretation
 
-The highest complexity functions are concentrated in returns-series resolution and calculation,
-TWR mode resolution, MWR calculation, benchmark returns, integration capability reporting,
-attribution supportability, and stateful input assembly. These are real refactor-planning hotspots,
-not evidence that a single local extraction should change behavior.
+The highest complexity functions are concentrated in returns-series modeling and resolution,
+reconciliation, benchmark returns, MWR calculation, TWR inspection, integration capability
+reporting, and stateful input assembly. These are real refactor-planning hotspots, not evidence
+that a single local extraction should change behavior.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests

@@ -101,6 +101,13 @@ class _StatefulBenchmarkSeriesSource:
     benchmark_work_units: int
 
 
+@dataclass(frozen=True)
+class _StatefulReturnsSeriesFrames:
+    portfolio_df: pd.DataFrame
+    benchmark_df: pd.DataFrame | None
+    risk_free_df: pd.DataFrame | None
+
+
 def period_start(as_of_date: date, period: ReturnsRelativePeriod, year: int | None) -> date:
     as_of = pd.Timestamp(as_of_date)
     if period == ReturnsRelativePeriod.MTD:
@@ -654,6 +661,56 @@ def _prepare_stateless_returns_series_dataframes(
     return portfolio_df, benchmark_df, risk_free_df
 
 
+def _build_stateful_returns_series_frames(
+    *,
+    request: ReturnsSeriesRequest,
+    resolved_window: ResolvedWindow,
+    observations: list[dict[str, object]],
+    portfolio_performance_start_date: date,
+    benchmark_points: list[dict[str, Any]] | None,
+    benchmark_df: pd.DataFrame | None,
+    risk_free_points: list[dict[str, Any]] | None,
+) -> _StatefulReturnsSeriesFrames:
+    portfolio_df = resample_returns(
+        daily_ror_from_portfolio_timeseries(
+            observations=observations,
+            performance_start_date=portfolio_performance_start_date,
+            resolved_window=resolved_window,
+            metric_basis=request.metric_basis.value,
+        ),
+        frequency=request.frequency,
+    )
+    resolved_benchmark_df = benchmark_df
+    if benchmark_points is not None:
+        resolved_benchmark_df = resample_returns(
+            filter_window(
+                core_points_to_dataframe(
+                    points=benchmark_points,
+                    date_key="series_date",
+                    value_key="benchmark_return",
+                    series_type="benchmark",
+                ),
+                resolved_window=resolved_window,
+            ),
+            frequency=request.frequency,
+        )
+
+    risk_free_df: pd.DataFrame | None = None
+    if risk_free_points is not None:
+        risk_free_df = resample_returns(
+            filter_window(
+                risk_free_points_to_dataframe(points=risk_free_points),
+                resolved_window=resolved_window,
+            ),
+            frequency=request.frequency,
+        )
+    return _StatefulReturnsSeriesFrames(
+        portfolio_df=portfolio_df,
+        benchmark_df=resolved_benchmark_df,
+        risk_free_df=risk_free_df,
+    )
+
+
 async def _resolve_stateful_returns_series_benchmark_id(
     *,
     request: ReturnsSeriesRequest,
@@ -1163,37 +1220,18 @@ async def resolve_stateful_returns_series_request(
     )
 
     execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_NORMALIZATION)
-    portfolio_df = resample_returns(
-        daily_ror_from_portfolio_timeseries(
-            observations=observations,
-            performance_start_date=portfolio_source.performance_start_date,
-            resolved_window=resolved_window,
-            metric_basis=request.metric_basis.value,
-        ),
-        frequency=request.frequency,
+    normalized_frames = _build_stateful_returns_series_frames(
+        request=request,
+        resolved_window=resolved_window,
+        observations=observations,
+        portfolio_performance_start_date=portfolio_source.performance_start_date,
+        benchmark_points=benchmark_points,
+        benchmark_df=benchmark_df,
+        risk_free_points=risk_free_points,
     )
-    if benchmark_points is not None:
-        benchmark_df = resample_returns(
-            filter_window(
-                core_points_to_dataframe(
-                    points=benchmark_points,
-                    date_key="series_date",
-                    value_key="benchmark_return",
-                    series_type="benchmark",
-                ),
-                resolved_window=resolved_window,
-            ),
-            frequency=request.frequency,
-        )
-    risk_free_df: pd.DataFrame | None = None
-    if risk_free_points is not None:
-        risk_free_df = resample_returns(
-            filter_window(
-                risk_free_points_to_dataframe(points=risk_free_points),
-                resolved_window=resolved_window,
-            ),
-            frequency=request.frequency,
-        )
+    portfolio_df = normalized_frames.portfolio_df
+    benchmark_df = normalized_frames.benchmark_df
+    risk_free_df = normalized_frames.risk_free_df
     execution_registry.complete_stage(
         request.calculation_id,
         EXECUTION_STAGE_NORMALIZATION,
