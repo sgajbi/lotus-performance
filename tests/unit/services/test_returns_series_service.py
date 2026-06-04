@@ -111,6 +111,78 @@ def test_build_cumulative_active_return_points_uses_cumulative_excess_not_linked
     ]
 
 
+def test_build_returns_series_point_outputs_emits_selected_point_families():
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23", "2026-02-24"]),
+            "return_value": [Decimal("0.0100"), Decimal("0.0200")],
+        }
+    )
+    benchmark_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23", "2026-02-24"]),
+            "return_value": [Decimal("0.0050"), Decimal("0.0150")],
+        }
+    )
+    risk_free_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23", "2026-02-24"]),
+            "return_value": [Decimal("0.0001"), Decimal("0.0002")],
+        }
+    )
+
+    outputs = returns_series_service._build_returns_series_point_outputs(
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+        risk_free_df=risk_free_df,
+    )
+
+    assert [str(point.return_value) for point in outputs.portfolio_return_points] == [
+        "0.010000000000",
+        "0.020000000000",
+    ]
+    assert outputs.benchmark_return_points is not None
+    assert [str(point.return_value) for point in outputs.benchmark_return_points] == [
+        "0.005000000000",
+        "0.015000000000",
+    ]
+    assert outputs.risk_free_return_points is not None
+    assert [str(point.return_value) for point in outputs.risk_free_return_points] == [
+        "0.000100000000",
+        "0.000200000000",
+    ]
+    assert outputs.active_return_points is not None
+    assert [str(point.return_value) for point in outputs.active_return_points] == ["0.005000000000", "0.005000000000"]
+    assert outputs.cumulative_active_return_points is not None
+    assert [str(point.return_value) for point in outputs.cumulative_active_return_points] == [
+        "0.005000000000",
+        "0.010125000000",
+    ]
+
+
+def test_build_returns_series_point_outputs_omits_unselected_optional_families():
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23"]),
+            "return_value": [Decimal("0.0100")],
+        }
+    )
+
+    outputs = returns_series_service._build_returns_series_point_outputs(
+        portfolio_df=portfolio_df,
+        benchmark_df=None,
+        risk_free_df=None,
+    )
+
+    assert len(outputs.portfolio_return_points) == 1
+    assert outputs.benchmark_return_points is None
+    assert outputs.cumulative_benchmark_return_points is None
+    assert outputs.risk_free_return_points is None
+    assert outputs.cumulative_risk_free_return_points is None
+    assert outputs.active_return_points is None
+    assert outputs.cumulative_active_return_points is None
+
+
 def test_risk_free_points_to_dataframe_converts_annualized_rates_to_daily_returns():
     risk_free_df = returns_series_service.risk_free_points_to_dataframe(
         points=[

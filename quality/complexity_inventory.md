@@ -28,13 +28,13 @@ python scripts/python_complexity_inventory.py --limit 20
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:723` | 27 | D |
-| 2 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:935` | 27 | D |
-| 3 | `_build_daily_calculation_evidence` | function | `app/services/twr_service.py:166` | 27 | D |
-| 4 | `_process_pending_jobs` | function | `app/workers/compute_executor_worker.py:59` | 27 | D |
-| 5 | `calculate_asset_weighted_composite_twr` | function | `engine/composites.py:240` | 27 | D |
-| 6 | `_build_schema_example` | function | `app/openapi_enrichment.py:230` | 26 | D |
-| 7 | `_prepare_data_from_instruments` | function | `engine/attribution.py:221` | 26 | D |
+| 1 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:962` | 27 | D |
+| 2 | `_build_daily_calculation_evidence` | function | `app/services/twr_service.py:166` | 27 | D |
+| 3 | `_process_pending_jobs` | function | `app/workers/compute_executor_worker.py:59` | 27 | D |
+| 4 | `calculate_asset_weighted_composite_twr` | function | `engine/composites.py:240` | 27 | D |
+| 5 | `_build_schema_example` | function | `app/openapi_enrichment.py:230` | 26 | D |
+| 6 | `_prepare_data_from_instruments` | function | `engine/attribution.py:221` | 26 | D |
+| 7 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:759` | 25 | D |
 | 8 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:44` | 25 | D |
 | 9 | `calculate_money_weighted_return` | function | `engine/mwr.py:186` | 25 | D |
 | 10 | `build_source_economics_findings` | function | `app/services/inspection/source_economics_findings.py:7` | 24 | D |

@@ -75,6 +75,18 @@ class ResolvedStatefulReturnsSeriesRequest:
     benchmark_work_units: int
 
 
+@dataclass(frozen=True)
+class _ReturnsSeriesPointOutputs:
+    portfolio_return_points: list[ReturnPoint]
+    cumulative_portfolio_return_points: list[ReturnPoint] | None
+    benchmark_return_points: list[ReturnPoint] | None
+    cumulative_benchmark_return_points: list[ReturnPoint] | None
+    risk_free_return_points: list[ReturnPoint] | None
+    cumulative_risk_free_return_points: list[ReturnPoint] | None
+    active_return_points: list[ReturnPoint] | None
+    cumulative_active_return_points: list[ReturnPoint] | None
+
+
 def period_start(as_of_date: date, period: ReturnsRelativePeriod, year: int | None) -> date:
     as_of = pd.Timestamp(as_of_date)
     if period == ReturnsRelativePeriod.MTD:
@@ -705,6 +717,30 @@ async def _retrieve_stateful_returns_series_risk_free(
     return risk_free_points, risk_free_payload
 
 
+def _build_returns_series_point_outputs(
+    *,
+    portfolio_df: pd.DataFrame,
+    benchmark_df: pd.DataFrame | None,
+    risk_free_df: pd.DataFrame | None,
+) -> _ReturnsSeriesPointOutputs:
+    return _ReturnsSeriesPointOutputs(
+        portfolio_return_points=points_from_df(portfolio_df),
+        cumulative_portfolio_return_points=build_cumulative_return_points(portfolio_df),
+        benchmark_return_points=points_from_df(benchmark_df) if benchmark_df is not None else None,
+        cumulative_benchmark_return_points=build_cumulative_return_points(benchmark_df),
+        risk_free_return_points=points_from_df(risk_free_df) if risk_free_df is not None else None,
+        cumulative_risk_free_return_points=build_cumulative_return_points(risk_free_df),
+        active_return_points=build_active_return_points(
+            portfolio_df=portfolio_df,
+            benchmark_df=benchmark_df,
+        ),
+        cumulative_active_return_points=build_cumulative_active_return_points(
+            portfolio_df=portfolio_df,
+            benchmark_df=benchmark_df,
+        ),
+    )
+
+
 async def calculate_returns_series(
     request: ReturnsSeriesRequest,
     *,
@@ -783,28 +819,19 @@ async def _calculate_returns_series(
             fill_method=request.data_policy.fill_method,
         )
 
-        portfolio_return_points = points_from_df(portfolio_df)
-        cumulative_portfolio_return_points = build_cumulative_return_points(portfolio_df)
-        benchmark_return_points = points_from_df(benchmark_df) if benchmark_df is not None else None
-        cumulative_benchmark_return_points = build_cumulative_return_points(benchmark_df)
-        risk_free_return_points = points_from_df(risk_free_df) if risk_free_df is not None else None
-        cumulative_risk_free_return_points = build_cumulative_return_points(risk_free_df)
-        active_return_points = build_active_return_points(
+        point_outputs = _build_returns_series_point_outputs(
             portfolio_df=portfolio_df,
             benchmark_df=benchmark_df,
-        )
-        cumulative_active_return_points = build_cumulative_active_return_points(
-            portfolio_df=portfolio_df,
-            benchmark_df=benchmark_df,
+            risk_free_df=risk_free_df,
         )
 
         if effective_input_mode == InputMode.STATEFUL:
             resolved_stateful_payload = _build_stateful_resolved_returns_payload(
                 request=request,
                 resolved_window=resolved_window,
-                portfolio_records=_records_from_points(portfolio_return_points) or [],
-                benchmark_records=_records_from_points(benchmark_return_points),
-                risk_free_records=_records_from_points(risk_free_return_points),
+                portfolio_records=_records_from_points(point_outputs.portfolio_return_points) or [],
+                benchmark_records=_records_from_points(point_outputs.benchmark_return_points),
+                risk_free_records=_records_from_points(point_outputs.risk_free_return_points),
                 resolved_benchmark_id=resolved_benchmark_id,
                 resolved_benchmark_return_source=(
                     resolved_benchmark_return_source.value if resolved_benchmark_id else None
@@ -851,14 +878,14 @@ async def _calculate_returns_series(
                 else None
             ),
             series=ReturnsSeriesPayload(
-                portfolio_returns=portfolio_return_points,
-                cumulative_portfolio_returns=cumulative_portfolio_return_points,
-                benchmark_returns=benchmark_return_points,
-                cumulative_benchmark_returns=cumulative_benchmark_return_points,
-                risk_free_returns=risk_free_return_points,
-                cumulative_risk_free_returns=cumulative_risk_free_return_points,
-                active_returns=active_return_points,
-                cumulative_active_returns=cumulative_active_return_points,
+                portfolio_returns=point_outputs.portfolio_return_points,
+                cumulative_portfolio_returns=point_outputs.cumulative_portfolio_return_points,
+                benchmark_returns=point_outputs.benchmark_return_points,
+                cumulative_benchmark_returns=point_outputs.cumulative_benchmark_return_points,
+                risk_free_returns=point_outputs.risk_free_return_points,
+                cumulative_risk_free_returns=point_outputs.cumulative_risk_free_return_points,
+                active_returns=point_outputs.active_return_points,
+                cumulative_active_returns=point_outputs.cumulative_active_return_points,
             ),
             provenance=ReturnsProvenance(
                 input_mode=effective_input_mode,
