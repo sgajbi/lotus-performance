@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Quality Scorecard
 
 Report date: 2026-06-04
-Branch: `feat/performance-hardening-wave-10`
+Branch: `feat/performance-hardening-wave-11`
 Baseline source: `quality/baseline_report.md`
 Current source: `quality/refactor_health_report.md`
 Mode: phase-zero scorecard; no blocking gate is introduced by this artifact.
@@ -43,7 +43,7 @@ metrics in each section are updated with each meaningful slice.
 | Routers with infrastructure imports | unknown | 0 | n/a | measured | `quality/architecture_boundary_inventory.md`; `quality/refactor_health_report.md` |
 | Domain/application with infra/framework imports | unknown | 0 | n/a | measured | `quality/architecture_boundary_inventory.md`; `quality/refactor_health_report.md` |
 | Large production service hotspots (LOC > 1000) | 3 | 3 | 0 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
-| Router/middleware oversized function findings (`--threshold 80`) | unknown | 5 | n/a | measured | `quality/router_middleware_thinness_inventory.md`; `quality/refactor_health_report.md` |
+| Router/middleware oversized function findings (`--threshold 80`) | unknown | 4 | n/a | measured | `quality/router_middleware_thinness_inventory.md`; `quality/refactor_health_report.md` |
 
 ### API Quality
 
