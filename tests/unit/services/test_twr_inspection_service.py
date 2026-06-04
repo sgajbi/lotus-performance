@@ -57,6 +57,148 @@ def fake_registry(monkeypatch) -> _FakeExecutionRegistry:
     return registry
 
 
+def test_run_source_quality_assessment_records_success_outputs(fake_registry, monkeypatch):
+    monkeypatch.setattr(
+        service,
+        "run_source_quality_checks",
+        lambda **_kwargs: SimpleNamespace(
+            findings=[],
+            evidence_summary={"invalid_capital_base_count": 0},
+            artifact_payload={"invalid_capital_base_count": 0},
+        ),
+    )
+
+    outputs = service._run_source_quality_assessment(
+        inspection_id=uuid4(),
+        performance_request=_build_performance_request(),
+        inspection_profile=TWRInspectionProfile.CANONICAL_VALIDATION,
+    )
+
+    assert outputs.findings == []
+    assert outputs.completed_check_families == ["source_quality", "economic_plausibility"]
+    assert outputs.failed_check_families == []
+    assert outputs.evidence_summary == {"invalid_capital_base_count": 0}
+    assert outputs.artifact_payloads == {"source_quality_summary.json": '{\n  "invalid_capital_base_count": 0\n}'}
+    assert EXECUTION_STAGE_SOURCE_QUALITY_ASSESSMENT in fake_registry.completed_stages
+
+
+def test_run_source_quality_assessment_preserves_failure_outputs(fake_registry, monkeypatch):
+    def raise_source_quality_failure(**_kwargs):
+        raise RuntimeError("source quality dependency unavailable")
+
+    monkeypatch.setattr(service, "run_source_quality_checks", raise_source_quality_failure)
+
+    outputs = service._run_source_quality_assessment(
+        inspection_id=uuid4(),
+        performance_request=_build_performance_request(),
+        inspection_profile=TWRInspectionProfile.CANONICAL_VALIDATION,
+    )
+
+    assert outputs.completed_check_families == []
+    assert outputs.failed_check_families == ["source_quality", "economic_plausibility"]
+    assert outputs.evidence_summary == {}
+    assert outputs.artifact_payloads == {}
+    assert outputs.findings[0].code == "INSPECTION_CHECK_FAMILY_FAILED"
+    assert outputs.findings[0].evidence["stage"] == EXECUTION_STAGE_SOURCE_QUALITY_ASSESSMENT
+    assert (EXECUTION_STAGE_SOURCE_QUALITY_ASSESSMENT, "source quality dependency unavailable") in (
+        fake_registry.failed_stages
+    )
+
+
+def test_run_reconciliation_assessment_records_success_outputs(fake_registry, monkeypatch):
+    monkeypatch.setattr(
+        service,
+        "run_reconciliation_checks",
+        lambda **_kwargs: SimpleNamespace(
+            findings=[],
+            evidence_summary={"position_rows_checked": 2},
+            artifact_payload={"position_rows_checked": 2},
+        ),
+    )
+
+    outputs = service._run_reconciliation_assessment(
+        inspection_id=uuid4(),
+        performance_request=_build_performance_request(),
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        inspection_profile=TWRInspectionProfile.CANONICAL_VALIDATION,
+    )
+
+    assert outputs.findings == []
+    assert outputs.completed_check_families == ["reconciliation"]
+    assert outputs.failed_check_families == []
+    assert outputs.evidence_summary == {"position_rows_checked": 2}
+    assert outputs.artifact_payloads == {"reconciliation_summary.json": '{\n  "position_rows_checked": 2\n}'}
+    assert EXECUTION_STAGE_SOURCE_STATE_RECONCILIATION in fake_registry.completed_stages
+
+
+def test_run_reconciliation_assessment_preserves_failure_outputs(fake_registry, monkeypatch):
+    def raise_reconciliation_failure(**_kwargs):
+        raise RuntimeError("position source down")
+
+    monkeypatch.setattr(service, "run_reconciliation_checks", raise_reconciliation_failure)
+
+    outputs = service._run_reconciliation_assessment(
+        inspection_id=uuid4(),
+        performance_request=_build_performance_request(),
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        inspection_profile=TWRInspectionProfile.CANONICAL_VALIDATION,
+    )
+
+    assert outputs.completed_check_families == []
+    assert outputs.failed_check_families == ["reconciliation"]
+    assert outputs.evidence_summary == {}
+    assert outputs.artifact_payloads == {}
+    assert outputs.findings[0].code == "INSPECTION_CHECK_FAMILY_FAILED"
+    assert outputs.findings[0].evidence["stage"] == EXECUTION_STAGE_SOURCE_STATE_RECONCILIATION
+    assert (EXECUTION_STAGE_SOURCE_STATE_RECONCILIATION, "position source down") in fake_registry.failed_stages
+
+
+def test_run_source_economics_assessment_records_success_outputs(fake_registry, monkeypatch):
+    monkeypatch.setattr(
+        service,
+        "run_source_economics_checks",
+        lambda **_kwargs: SimpleNamespace(
+            findings=[],
+            evidence_summary={"cashflow_rows_checked": 3},
+            artifact_payload={"cashflow_rows_checked": 3},
+        ),
+    )
+
+    outputs = service._run_source_economics_assessment(
+        inspection_id=uuid4(),
+        performance_request=_build_performance_request(),
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+    )
+
+    assert outputs.findings == []
+    assert outputs.completed_check_families == ["cashflow_classification"]
+    assert outputs.failed_check_families == []
+    assert outputs.evidence_summary == {"cashflow_rows_checked": 3}
+    assert outputs.artifact_payloads == {"source_economics_summary.json": '{\n  "cashflow_rows_checked": 3\n}'}
+    assert EXECUTION_STAGE_SOURCE_ECONOMICS_ASSESSMENT in fake_registry.completed_stages
+
+
+def test_run_source_economics_assessment_preserves_failure_outputs(fake_registry, monkeypatch):
+    def raise_source_economics_failure(**_kwargs):
+        raise RuntimeError("portfolio source down")
+
+    monkeypatch.setattr(service, "run_source_economics_checks", raise_source_economics_failure)
+
+    outputs = service._run_source_economics_assessment(
+        inspection_id=uuid4(),
+        performance_request=_build_performance_request(),
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+    )
+
+    assert outputs.completed_check_families == []
+    assert outputs.failed_check_families == ["cashflow_classification"]
+    assert outputs.evidence_summary == {}
+    assert outputs.artifact_payloads == {}
+    assert outputs.findings[0].code == "INSPECTION_CHECK_FAMILY_FAILED"
+    assert outputs.findings[0].evidence["stage"] == EXECUTION_STAGE_SOURCE_ECONOMICS_ASSESSMENT
+    assert (EXECUTION_STAGE_SOURCE_ECONOMICS_ASSESSMENT, "portfolio source down") in fake_registry.failed_stages
+
+
 def test_twr_inspection_preserves_runtime_finding_when_only_check_family_fails(fake_registry, monkeypatch):
     def raise_source_quality_failure(**_kwargs):
         raise RuntimeError("source quality dependency unavailable")
@@ -295,6 +437,42 @@ def test_twr_inspection_reports_no_check_family_when_subject_has_no_inspectable_
     assert "runtime skeleton" not in response.findings[0].summary
 
 
+def test_build_twr_inspection_response_adds_no_check_finding_and_support_brief(monkeypatch):
+    monkeypatch.setattr(
+        service,
+        "generate_twr_inspection_support_brief",
+        lambda inspection: SimpleNamespace(
+            generation_status="generated",
+            workflow_pack_run=None,
+            artifact_markdown=f"# Support brief for {inspection.inspection_id}",
+        ),
+    )
+    request = TWRInspectionRequest(
+        subject_type=TWRInspectionSubjectType.TWR_REQUEST,
+        request=_build_twr_request(),
+    )
+
+    synthesis = service._build_twr_inspection_response(
+        request=request,
+        subject_calculation_id=None,
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        consistency_findings=[],
+        source_quality_findings=[],
+        reconciliation_findings=[],
+        source_economics_findings=[],
+        completed_check_families=[],
+        failed_check_families=[],
+        evidence_summary={"artifact_queue_enabled": True},
+        artifact_payloads={},
+    )
+
+    assert synthesis.support_brief_generation_status == "generated"
+    assert synthesis.response.findings[0].code == "INSPECTION_NO_CHECK_FAMILY_EXECUTED"
+    assert synthesis.response.evidence_summary["support_brief_generation_status"] == "generated"
+    assert synthesis.artifact_payloads["support_brief.md"].startswith("# Support brief")
+    assert "support_brief.md" in synthesis.response.artifacts
+
+
 def test_twr_inspection_verdict_and_window_helpers_cover_clean_and_unscoped_paths():
     assert (
         service._synthesize_verdict(
@@ -316,6 +494,41 @@ def test_twr_inspection_verdict_and_window_helpers_cover_clean_and_unscoped_path
         None,
         None,
     )
+
+
+def test_build_twr_inspection_artifact_links_keeps_required_and_available_artifacts():
+    inspection_id = uuid4()
+    links = service._build_twr_inspection_artifact_links(
+        inspection_id=inspection_id,
+        artifact_payloads={
+            "source_quality_summary.json": "{}",
+            "source_economics_summary.json": "{}",
+            "support_brief.md": "brief",
+        },
+    )
+
+    assert links == {
+        "inspection_summary.json": f"/performance/inspections/{inspection_id}/artifacts/inspection_summary.json",
+        "findings.json": f"/performance/inspections/{inspection_id}/artifacts/findings.json",
+        "source_quality_summary.json": (
+            f"/performance/inspections/{inspection_id}/artifacts/source_quality_summary.json"
+        ),
+        "source_economics_summary.json": (
+            f"/performance/inspections/{inspection_id}/artifacts/source_economics_summary.json"
+        ),
+        "support_brief.md": f"/performance/inspections/{inspection_id}/artifacts/support_brief.md",
+    }
+    assert "reconciliation_summary.json" not in links
+
+
+def test_build_twr_inspection_artifact_links_omits_unavailable_optional_artifacts():
+    inspection_id = uuid4()
+    links = service._build_twr_inspection_artifact_links(inspection_id=inspection_id, artifact_payloads={})
+
+    assert links == {
+        "inspection_summary.json": f"/performance/inspections/{inspection_id}/artifacts/inspection_summary.json",
+        "findings.json": f"/performance/inspections/{inspection_id}/artifacts/findings.json",
+    }
 
 
 def _build_twr_request() -> TWRAnalyticsRequest:

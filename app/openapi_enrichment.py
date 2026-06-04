@@ -227,6 +227,71 @@ def _resolve_schema(schema: dict[str, Any], components: dict[str, Any]) -> dict[
     return components.get("schemas", {}).get(ref.rsplit("/", 1)[-1], {})
 
 
+def _explicit_schema_example(schema: dict[str, Any]) -> Any | None:
+    if schema.get("example") is not None:
+        return copy.deepcopy(schema["example"])
+    examples = schema.get("examples")
+    if isinstance(examples, list) and examples:
+        return copy.deepcopy(examples[0])
+    if isinstance(examples, dict) and examples:
+        first = next(iter(examples.values()))
+        if isinstance(first, dict) and first.get("value") is not None:
+            return copy.deepcopy(first["value"])
+    return None
+
+
+def _composed_schema_example(
+    schema: dict[str, Any],
+    *,
+    components: dict[str, Any],
+    seen_refs: set[str],
+    name_hint: str,
+) -> Any | None:
+    for composition_key in ("oneOf", "anyOf"):
+        variants = schema.get(composition_key)
+        if not isinstance(variants, list) or not variants:
+            continue
+        first = variants[0]
+        if isinstance(first, dict):
+            return _build_schema_example(first, components=components, seen_refs=seen_refs, name_hint=name_hint)
+    return None
+
+
+def _object_schema_example(
+    schema: dict[str, Any],
+    *,
+    components: dict[str, Any],
+    seen_refs: set[str],
+) -> dict[str, Any]:
+    output: dict[str, Any] = {}
+    for prop_name, prop_schema in schema.get("properties", {}).items():
+        if isinstance(prop_schema, dict):
+            output[prop_name] = _build_schema_example(
+                prop_schema,
+                components=components,
+                seen_refs=seen_refs,
+                name_hint=prop_name,
+            )
+    return output or {"key": "value"}
+
+
+def _array_schema_example(
+    schema: dict[str, Any],
+    *,
+    components: dict[str, Any],
+    seen_refs: set[str],
+    name_hint: str,
+) -> list[Any]:
+    item_schema = schema.get("items", {})
+    if isinstance(item_schema, dict):
+        return [
+            _build_schema_example(
+                item_schema, components=components, seen_refs=seen_refs, name_hint=f"{name_hint}_item"
+            )
+        ]
+    return ["VALUE"]
+
+
 def _build_schema_example(
     schema: dict[str, Any],
     *,
@@ -247,46 +312,33 @@ def _build_schema_example(
             name_hint=ref.rsplit("/", 1)[-1],
         )
 
-    if schema.get("example") is not None:
-        return copy.deepcopy(schema["example"])
-    examples = schema.get("examples")
-    if isinstance(examples, list) and examples:
-        return copy.deepcopy(examples[0])
-    if isinstance(examples, dict) and examples:
-        first = next(iter(examples.values()))
-        if isinstance(first, dict) and first.get("value") is not None:
-            return copy.deepcopy(first["value"])
+    explicit_example = _explicit_schema_example(schema)
+    if explicit_example is not None:
+        return explicit_example
 
-    if "oneOf" in schema and isinstance(schema["oneOf"], list) and schema["oneOf"]:
-        first = schema["oneOf"][0]
-        if isinstance(first, dict):
-            return _build_schema_example(first, components=components, seen_refs=seen, name_hint=name_hint)
-    if "anyOf" in schema and isinstance(schema["anyOf"], list) and schema["anyOf"]:
-        first = schema["anyOf"][0]
-        if isinstance(first, dict):
-            return _build_schema_example(first, components=components, seen_refs=seen, name_hint=name_hint)
+    composed_example = _composed_schema_example(
+        schema,
+        components=components,
+        seen_refs=seen,
+        name_hint=name_hint,
+    )
+    if composed_example is not None:
+        return composed_example
 
     schema_type = schema.get("type")
     if schema_type == "object" or isinstance(schema.get("properties"), dict):
-        output: dict[str, Any] = {}
-        for prop_name, prop_schema in schema.get("properties", {}).items():
-            if isinstance(prop_schema, dict):
-                output[prop_name] = _build_schema_example(
-                    prop_schema,
-                    components=components,
-                    seen_refs=seen,
-                    name_hint=prop_name,
-                )
-        if output:
-            return output
-        return {"key": "value"}
+        return _object_schema_example(
+            schema,
+            components=components,
+            seen_refs=seen,
+        )
     if schema_type == "array":
-        item_schema = schema.get("items", {})
-        if isinstance(item_schema, dict):
-            return [
-                _build_schema_example(item_schema, components=components, seen_refs=seen, name_hint=f"{name_hint}_item")
-            ]
-        return ["VALUE"]
+        return _array_schema_example(
+            schema,
+            components=components,
+            seen_refs=seen,
+            name_hint=name_hint,
+        )
     return _infer_example(name_hint, schema)
 
 
@@ -336,6 +388,77 @@ def _infer_enum_descriptions(prop_name: str, prop_schema: dict[str, Any]) -> lis
     return [f"Allowed {readable_name} value: {value}." for value in enum_values]
 
 
+def _ensure_request_body_example(
+    *,
+    path: str,
+    request_body: dict[str, Any],
+    components: dict[str, Any],
+) -> None:
+    content = request_body.get("content", {})
+    if not isinstance(content, dict):
+        return
+    json_content = content.get("application/json")
+    if not isinstance(json_content, dict):
+        return
+    request_schema = json_content.get("schema", {})
+    operation_example = OPERATION_JSON_EXAMPLES.get((path, "request"))
+    if operation_example is not None:
+        json_content["example"] = copy.deepcopy(operation_example)
+    elif isinstance(request_schema, dict) and "example" not in json_content and "examples" not in json_content:
+        json_content["example"] = _build_schema_example(
+            request_schema,
+            components=components,
+            name_hint="request_body",
+        )
+
+
+def _ensure_operation_response_documentation(
+    *,
+    path: str,
+    responses: dict[str, Any],
+    components: dict[str, Any],
+) -> None:
+    has_error = any(
+        str(code).startswith("4") or str(code).startswith("5") or str(code) == "default" for code in responses
+    )
+    if not has_error:
+        responses["default"] = _problem_detail_response()
+    _ensure_error_response_examples(responses)
+    for code, response in responses.items():
+        if not str(code).startswith("2") or not isinstance(response, dict):
+            continue
+        content = response.get("content", {})
+        if not isinstance(content, dict):
+            continue
+        if path == "/metrics":
+            metrics_example = (
+                "# HELP lotus_performance_durable_queue_store_availability Durable queue store availability.\n"
+                "# TYPE lotus_performance_durable_queue_store_availability gauge\n"
+                'lotus_performance_durable_queue_store_availability{store="compute"} 1.0\n'
+            )
+            response["content"] = {
+                "text/plain": {
+                    "schema": {"type": "string", "description": "Prometheus exposition format payload."},
+                    "example": metrics_example,
+                }
+            }
+            continue
+        json_content = content.get("application/json")
+        if not isinstance(json_content, dict):
+            continue
+        response_schema = json_content.get("schema", {})
+        operation_example = OPERATION_JSON_EXAMPLES.get((path, "response"))
+        if operation_example is not None:
+            json_content["example"] = copy.deepcopy(operation_example)
+            continue
+        if isinstance(response_schema, dict) and "example" not in json_content and "examples" not in json_content:
+            json_content["example"] = _build_schema_example(
+                response_schema,
+                components=components,
+                name_hint="response_body",
+            )
+
+
 def _ensure_operation_documentation(schema: dict[str, Any]) -> None:
     paths = schema.get("paths", {})
     components = schema.get("components", {})
@@ -369,71 +492,19 @@ def _ensure_operation_documentation(schema: dict[str, Any]) -> None:
 
             request_body = operation.get("requestBody")
             if isinstance(request_body, dict):
-                content = request_body.get("content", {})
-                if isinstance(content, dict):
-                    json_content = content.get("application/json")
-                    if isinstance(json_content, dict):
-                        request_schema = json_content.get("schema", {})
-                        operation_example = OPERATION_JSON_EXAMPLES.get((path, "request"))
-                        if operation_example is not None:
-                            json_content["example"] = copy.deepcopy(operation_example)
-                        elif (
-                            isinstance(request_schema, dict)
-                            and "example" not in json_content
-                            and "examples" not in json_content
-                        ):
-                            json_content["example"] = _build_schema_example(
-                                request_schema,
-                                components=components,
-                                name_hint="request_body",
-                            )
+                _ensure_request_body_example(
+                    path=path,
+                    request_body=request_body,
+                    components=components,
+                )
 
             responses = operation.get("responses")
             if isinstance(responses, dict):
-                has_error = any(
-                    str(code).startswith("4") or str(code).startswith("5") or str(code) == "default"
-                    for code in responses
+                _ensure_operation_response_documentation(
+                    path=path,
+                    responses=responses,
+                    components=components,
                 )
-                if not has_error:
-                    responses["default"] = _problem_detail_response()
-                _ensure_error_response_examples(responses)
-                for code, response in responses.items():
-                    if not str(code).startswith("2") or not isinstance(response, dict):
-                        continue
-                    content = response.get("content", {})
-                    if not isinstance(content, dict):
-                        continue
-                    if path == "/metrics":
-                        metrics_example = (
-                            "# HELP lotus_performance_durable_queue_store_availability Durable queue store availability.\n"
-                            "# TYPE lotus_performance_durable_queue_store_availability gauge\n"
-                            'lotus_performance_durable_queue_store_availability{store="compute"} 1.0\n'
-                        )
-                        response["content"] = {
-                            "text/plain": {
-                                "schema": {"type": "string", "description": "Prometheus exposition format payload."},
-                                "example": metrics_example,
-                            }
-                        }
-                        continue
-                    json_content = content.get("application/json")
-                    if not isinstance(json_content, dict):
-                        continue
-                    response_schema = json_content.get("schema", {})
-                    operation_example = OPERATION_JSON_EXAMPLES.get((path, "response"))
-                    if operation_example is not None:
-                        json_content["example"] = copy.deepcopy(operation_example)
-                        continue
-                    if (
-                        isinstance(response_schema, dict)
-                        and "example" not in json_content
-                        and "examples" not in json_content
-                    ):
-                        json_content["example"] = _build_schema_example(
-                            response_schema,
-                            components=components,
-                            name_hint="response_body",
-                        )
 
 
 def _ensure_schema_documentation(schema: dict[str, Any]) -> None:

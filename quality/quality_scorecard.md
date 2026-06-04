@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Quality Scorecard
 
-Report date: 2026-06-04
-Branch: `feat/performance-hardening-wave-11`
+Report date: 2026-06-05
+Branch: `feat/performance-hardening-wave-12`
 Baseline source: `quality/baseline_report.md`
 Current source: `quality/refactor_health_report.md`
 Mode: phase-zero scorecard; no blocking gate is introduced by this artifact.
@@ -18,22 +18,22 @@ metrics in each section are updated with each meaningful slice.
 
 | Metric | Baseline | Current | Delta | Status | Evidence |
 | --- | ---: | ---: | ---: | --- | --- |
-| Python files | 480 | 480 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python files | 480 | 535 | 55 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Python package markers | 18 | 18 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Python LOC | 104,454 | 104,454 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python LOC | 104,454 | 112,104 | 7,650 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest Python file LOC | 2,399 | 2,399 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 1,156 | 0 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
-| Python test modules | 228 | 228 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 2,035 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python test modules | 228 | 252 | 24 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 2,215 | 180 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 
 ### Complexity And Maintainability
 
 | Metric | Baseline | Current | Delta | Status | Evidence |
 | --- | ---: | ---: | ---: | --- | --- |
-| Max cyclomatic complexity | unknown | 44 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
-| High-complexity functions (D-F) | unknown | 21 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
-| Average maintainability index | unknown | 53.87 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
-| Largest functions by LOC | unknown | 509 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md` |
+| Max cyclomatic complexity | unknown | 20 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
+| High-complexity functions (D-F) | unknown | 0 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
+| Average maintainability index | unknown | 55.81 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
+| Largest functions by LOC | unknown | 389 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md` |
 
 ### Architecture
 
@@ -43,7 +43,7 @@ metrics in each section are updated with each meaningful slice.
 | Routers with infrastructure imports | unknown | 0 | n/a | measured | `quality/architecture_boundary_inventory.md`; `quality/refactor_health_report.md` |
 | Domain/application with infra/framework imports | unknown | 0 | n/a | measured | `quality/architecture_boundary_inventory.md`; `quality/refactor_health_report.md` |
 | Large production service hotspots (LOC > 1000) | 3 | 3 | 0 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
-| Router/middleware oversized function findings (`--threshold 80`) | unknown | 4 | n/a | measured | `quality/router_middleware_thinness_inventory.md`; `quality/refactor_health_report.md` |
+| Router/middleware oversized function findings (`--threshold 80`) | unknown | 0 | n/a | measured | `quality/router_middleware_thinness_inventory.md`; `quality/refactor_health_report.md` |
 
 ### API Quality
 
@@ -59,8 +59,8 @@ metrics in each section are updated with each meaningful slice.
 
 | Metric | Baseline | Current | Delta | Status | Evidence |
 | --- | ---: | ---: | ---: | --- | --- |
-| Line coverage | unknown | unknown | n/a | not-yet-measured | `quality/refactor_health_report.md` |
-| Branch coverage | unknown | unknown | n/a | not-yet-measured | `quality/refactor_health_report.md` |
+| Line coverage | unknown | 99% | n/a | measured | `quality/coverage_inventory.md`; `quality/refactor_health_report.md` |
+| Branch coverage | unknown | not configured | n/a | not-yet-measured | `quality/coverage_inventory.md`; `quality/refactor_health_report.md` |
 | Integration/API/runtime test functions | unknown | 453 | n/a | measured | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md` |
 | Contract/governance test functions | unknown | 107 | n/a | measured | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md` |
 
@@ -98,8 +98,8 @@ metrics in each section are updated with each meaningful slice.
 | Signal | Value | Note |
 | --- | ---: | --- |
 | Total metrics tracked | 39 | All metrics in this file are measured or explicitly called out as not-yet-measured. |
-| Measured metrics | 37 | Remaining gaps are primarily line/branch coverage and a few baseline historical values remain for future slices. |
-| Not-yet-measured metrics | 2 | Line coverage and branch coverage remain untracked on this stream. |
+| Measured metrics | 38 | Remaining gaps are primarily branch coverage and a few baseline historical values remain for future slices. |
+| Not-yet-measured metrics | 1 | Branch coverage remains unconfigured and untracked on this stream. |
 
 ## Method Note
 

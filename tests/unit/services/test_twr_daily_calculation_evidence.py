@@ -4,6 +4,8 @@ import pytest
 from app.services.twr_service import (
     _build_daily_calculation_evidence,
     _calculate_total_return_from_reset_slice,
+    _classify_daily_calculation_evidence,
+    _daily_calculation_evidence_inputs,
     _iter_frequency_windows,
 )
 from common.enums import Frequency
@@ -45,6 +47,28 @@ def test_daily_calculation_evidence_gross_excludes_management_fees():
 
     assert evidence.management_fees == 3.0
     assert evidence.performance_pnl == 10.0
+
+
+def test_daily_calculation_evidence_inputs_compute_flow_neutralized_values():
+    inputs = _daily_calculation_evidence_inputs(_row(), metric_basis="NET")
+
+    assert inputs.begin_mv == 1000.0
+    assert inputs.end_mv == 1010.0
+    assert inputs.signed_adjusted_capital == 1000.0
+    assert inputs.adjusted_capital == 1000.0
+    assert inputs.performance_pnl == 13.0
+    assert inputs.daily_return == 1.3
+
+
+def test_classify_daily_calculation_evidence_marks_no_investment_without_reset_boundary():
+    row = _row(**{PortfolioColumns.NIP.value: 1})
+    inputs = _daily_calculation_evidence_inputs(row, metric_basis="NET")
+
+    classification = _classify_daily_calculation_evidence(row, inputs=inputs)
+
+    assert classification.linkability_status == "not_calculated"
+    assert classification.episode_status == "no_investment"
+    assert "NO_INVESTMENT_PERIOD" in classification.reason_codes
 
 
 def test_daily_calculation_evidence_zero_adjusted_capital_is_not_calculated():

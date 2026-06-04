@@ -349,14 +349,14 @@ def test_returns_series_stateful_fetches_benchmark_and_risk_free(monkeypatch):
         _mock_get_portfolio_analytics_timeseries,
     )
     monkeypatch.setattr(
-        "app.api.endpoints.returns_series.CoreIntegrationService.get_benchmark_assignment",
+        "app.services.core_integration_service.CoreIntegrationService.get_benchmark_assignment",
         _mock_get_benchmark_assignment,
     )
     monkeypatch.setattr(
         "app.services.returns_series_service.build_stateful_benchmark_input", _mock_build_stateful_benchmark_input
     )
     monkeypatch.setattr(
-        "app.api.endpoints.returns_series.CoreIntegrationService.get_risk_free_series",
+        "app.services.core_integration_service.CoreIntegrationService.get_risk_free_series",
         _mock_get_risk_free_series,
     )
 
@@ -447,7 +447,7 @@ def test_returns_series_stateful_provenance_uses_resolved_series_identity(monkey
         _mock_get_portfolio_analytics_timeseries,
     )
     monkeypatch.setattr(
-        "app.api.endpoints.returns_series.CoreIntegrationService.get_benchmark_assignment",
+        "app.services.core_integration_service.CoreIntegrationService.get_benchmark_assignment",
         _mock_get_benchmark_assignment,
     )
     monkeypatch.setattr(
@@ -512,11 +512,11 @@ def test_returns_series_stateful_vendor_series_override_uses_core_benchmark_seri
         _mock_get_portfolio_analytics_timeseries,
     )
     monkeypatch.setattr(
-        "app.api.endpoints.returns_series.CoreIntegrationService.get_benchmark_assignment",
+        "app.services.core_integration_service.CoreIntegrationService.get_benchmark_assignment",
         _mock_get_benchmark_assignment,
     )
     monkeypatch.setattr(
-        "app.api.endpoints.returns_series.CoreIntegrationService.get_benchmark_return_series",
+        "app.services.core_integration_service.CoreIntegrationService.get_benchmark_return_series",
         _mock_get_benchmark_return_series,
     )
     monkeypatch.setattr(
@@ -981,7 +981,7 @@ def test_returns_series_stateful_short_window_offloads_on_resolved_workload(monk
         )
 
     monkeypatch.setattr(
-        "app.api.endpoints.returns_series.resolve_stateful_returns_series_request",
+        "app.services.returns_series_calculation_workflow_service.resolve_stateful_returns_series_request",
         _mock_resolve_stateful_returns_series_request,
     )
 
@@ -1118,7 +1118,7 @@ def test_returns_series_stateful_benchmark_assignment_error_mapping(monkeypatch)
         _mock_get_portfolio_analytics_timeseries,
     )
     monkeypatch.setattr(
-        "app.api.endpoints.returns_series.CoreIntegrationService.get_benchmark_assignment",
+        "app.services.core_integration_service.CoreIntegrationService.get_benchmark_assignment",
         _mock_get_benchmark_assignment,
     )
     payload = {

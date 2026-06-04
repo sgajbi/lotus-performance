@@ -241,6 +241,49 @@ class StatefulInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+def _validate_returns_series_input_envelopes(
+    *,
+    input_mode: InputMode,
+    stateless_input: StatelessInput | None,
+    stateful_input: StatefulInput | None,
+) -> None:
+    if input_mode == InputMode.STATELESS and stateless_input is None:
+        raise ValueError("stateless_input is required when input_mode=stateless")
+    if input_mode == InputMode.STATEFUL and stateful_input is None:
+        raise ValueError("stateful_input is required when input_mode=stateful")
+    if input_mode == InputMode.STATELESS and stateful_input is not None:
+        raise ValueError("stateful_input must be null when input_mode=stateless")
+    if input_mode == InputMode.STATEFUL and stateless_input is not None:
+        raise ValueError("stateless_input must be null when input_mode=stateful")
+
+
+def _validate_returns_series_stateless_selection_inputs(
+    *,
+    input_mode: InputMode,
+    series_selection: SeriesSelection,
+    stateless_input: StatelessInput | None,
+) -> None:
+    if input_mode != InputMode.STATELESS:
+        return
+    if series_selection.include_benchmark and (not stateless_input or not stateless_input.benchmark_returns):
+        raise ValueError("benchmark_returns are required when include_benchmark=true in stateless mode")
+    if series_selection.include_risk_free and (not stateless_input or not stateless_input.risk_free_returns):
+        raise ValueError("risk_free_returns are required when include_risk_free=true in stateless mode")
+
+
+def _validate_returns_series_stateless_benchmark_override(
+    *,
+    input_mode: InputMode,
+    benchmark: BenchmarkSpec | None,
+) -> None:
+    if input_mode != InputMode.STATELESS or benchmark is None:
+        return
+    if benchmark.benchmark_id is not None:
+        raise ValueError("benchmark.benchmark_id is only supported in stateful mode for returns-series")
+    if benchmark.return_source != BenchmarkReturnSource.CALCULATED:
+        raise ValueError("benchmark.return_source is only supported in stateful mode for returns-series")
+
+
 class ReturnsSeriesRequest(BaseModel):
     calculation_id: UUID = Field(
         default_factory=uuid4,
@@ -316,25 +359,20 @@ class ReturnsSeriesRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_selection(self) -> "ReturnsSeriesRequest":
-        if self.input_mode == InputMode.STATELESS and self.stateless_input is None:
-            raise ValueError("stateless_input is required when input_mode=stateless")
-        if self.input_mode == InputMode.STATEFUL and self.stateful_input is None:
-            raise ValueError("stateful_input is required when input_mode=stateful")
-        if self.input_mode == InputMode.STATELESS and self.stateful_input is not None:
-            raise ValueError("stateful_input must be null when input_mode=stateless")
-        if self.input_mode == InputMode.STATEFUL and self.stateless_input is not None:
-            raise ValueError("stateless_input must be null when input_mode=stateful")
-        if self.series_selection.include_benchmark and self.input_mode == InputMode.STATELESS:
-            if not self.stateless_input or not self.stateless_input.benchmark_returns:
-                raise ValueError("benchmark_returns are required when include_benchmark=true in stateless mode")
-        if self.series_selection.include_risk_free and self.input_mode == InputMode.STATELESS:
-            if not self.stateless_input or not self.stateless_input.risk_free_returns:
-                raise ValueError("risk_free_returns are required when include_risk_free=true in stateless mode")
-        if self.input_mode == InputMode.STATELESS and self.benchmark is not None:
-            if self.benchmark.benchmark_id is not None:
-                raise ValueError("benchmark.benchmark_id is only supported in stateful mode for returns-series")
-            if self.benchmark.return_source != BenchmarkReturnSource.CALCULATED:
-                raise ValueError("benchmark.return_source is only supported in stateful mode for returns-series")
+        _validate_returns_series_input_envelopes(
+            input_mode=self.input_mode,
+            stateless_input=self.stateless_input,
+            stateful_input=self.stateful_input,
+        )
+        _validate_returns_series_stateless_selection_inputs(
+            input_mode=self.input_mode,
+            series_selection=self.series_selection,
+            stateless_input=self.stateless_input,
+        )
+        _validate_returns_series_stateless_benchmark_override(
+            input_mode=self.input_mode,
+            benchmark=self.benchmark,
+        )
         return self
 
 

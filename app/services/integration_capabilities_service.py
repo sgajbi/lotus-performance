@@ -89,15 +89,8 @@ def _calculation_supportability_enabled(flags: IntegrationCapabilityFlags) -> bo
     )
 
 
-def build_integration_capabilities_report(
-    *,
-    feature_limit: int = 100,
-    workflow_limit: int = 50,
-) -> IntegrationCapabilitiesReport:
-    flags = read_capability_flags()
-    supported_input_modes = _supported_input_modes(flags)
-
-    features = [
+def _build_feature_capabilities(flags: IntegrationCapabilityFlags) -> list[dict[str, object]]:
+    return [
         {
             "key": "performance.analytics.twr",
             "enabled": flags.twr_enabled,
@@ -172,7 +165,9 @@ def build_integration_capabilities_report(
         },
     ]
 
-    workflows = [
+
+def _build_workflow_capabilities(flags: IntegrationCapabilityFlags) -> list[dict[str, object]]:
+    return [
         {
             "workflow_key": "performance_snapshot",
             "enabled": flags.twr_enabled and flags.mwr_enabled and flags.benchmark_enabled,
@@ -221,7 +216,120 @@ def build_integration_capabilities_report(
         },
     ]
 
-    analytics_surfaces = [
+
+def _twr_inspection_contract_notes(flags: IntegrationCapabilityFlags) -> list[str]:
+    if not flags.twr_enabled:
+        return []
+    return [
+        "supports inspection of an existing TWR calculation or a proposed TWR request payload",
+        "inspection profiles expose bounded support_triage, canonical_validation, and deep_reconciliation behavior",
+        "artifact retrieval includes inspection_summary.json, findings.json, and source_quality_summary.json, plus reconciliation_summary.json and source_economics_summary.json when stateful source-economics checks run",
+        "stateful reconciliation inspection covers portfolio-position tie-out and unexplained position begin-value carry-forward breaks",
+        'stateful portfolio and position valuation normalization share the source cash-flow taxonomy used by inspection; operational expenses must arrive as canonical cash_flow_type="fee" with source_classification="EXPENSE"',
+        "source-economics inspection now covers fee and external cash-flow classification and normalization mismatches, duplicate source signals, positive fee sign anomalies, fee or external source-total mismatches, external timing-bucket contradictions, governed alias cash_flow_type labels, unsupported cash_flow_type labels, and non-canonical cash_flow_type labels",
+    ]
+
+
+def _twr_inspection_options(flags: IntegrationCapabilityFlags) -> list[dict[str, object]]:
+    if not flags.twr_enabled:
+        return []
+    return [
+        {
+            "key": "subject_type",
+            "supported_values": ["twr_calculation", "twr_request"],
+            "required_when": "always",
+            "notes": [
+                "twr_calculation inspects an existing durable TWR execution identity",
+                "twr_request inspects a proposed TWR request payload without mutating the normal TWR contract",
+            ],
+        },
+        {
+            "key": "inspection_profile",
+            "supported_values": ["support_triage", "canonical_validation", "deep_reconciliation"],
+            "required_when": "always",
+            "notes": [
+                "support_triage is the default bounded supportability workflow",
+                "canonical_validation is the governed profile for canonical portfolio validation",
+                "deep_reconciliation adds heavier stateful reconciliation evidence for upstream escalation",
+            ],
+        },
+    ]
+
+
+def _workspace_summary_contract_notes(flags: IntegrationCapabilityFlags) -> list[str]:
+    if not flags.workspace_summary_enabled:
+        return []
+    return [
+        "supports multi-horizon workspace periods including 1D, 2D, 5D, 10D, 1M, 3M, 6M, YTD, 1Y, 2Y, 5Y, 10Y, SI, and EXPLICIT",
+        "summary and breakdown rows emit period_return, cumulative_return, and annualized_return; for periods up to one year annualized_return equals cumulative_return",
+        "resolves the longest requested window once and derives shorter requested periods from the same sourced data",
+    ]
+
+
+def _workspace_summary_options(flags: IntegrationCapabilityFlags) -> list[dict[str, object]]:
+    if not flags.workspace_summary_enabled:
+        return []
+    return [
+        {
+            "key": "benchmark_mode",
+            "supported_values": ["user_input_stateless", "linked_stateful"],
+            "required_when": "benchmark or benchmark-aware blocks are requested",
+            "notes": [
+                "stateless workspace summary requires an explicit benchmark payload when include_benchmark=true",
+                "stateful workspace summary can resolve the linked benchmark from lotus-core assignment",
+            ],
+        }
+    ]
+
+
+def _attribution_stateful_restrictions(flags: IntegrationCapabilityFlags) -> list[str]:
+    if not flags.stateful_mode_enabled or not flags.attribution_enabled:
+        return []
+    return [
+        "mode=by_instrument only",
+        "group_by limited to asset_class, sector, country, currency",
+        "currency_mode=BOTH requires report_ccy and fx.rates for mixed-currency positions",
+    ]
+
+
+def _mandate_performance_health_contract_notes(flags: IntegrationCapabilityFlags) -> list[str]:
+    if not flags.twr_enabled:
+        return []
+    return [
+        "emits bounded lotus-performance-owned active-return health posture for lotus-manage DPM supportability.",
+        "does not create mandate actions, rebalance waves, client communications, orders, OMS, or execution instructions",
+    ]
+
+
+def _benchmark_exposure_context_enabled(flags: IntegrationCapabilityFlags) -> bool:
+    return flags.benchmark_enabled and flags.stateful_mode_enabled
+
+
+def _benchmark_exposure_stateful_restrictions(flags: IntegrationCapabilityFlags) -> list[str]:
+    if not _benchmark_exposure_context_enabled(flags):
+        return []
+    return [
+        "lotus-core remains the benchmark composition system of record",
+        "POSITION, SECTOR, ASSET_CLASS, and ISSUER grouping dimensions are supported",
+        "ISSUER groups use lotus-core index-catalog issuer_id and issuer_name classification labels",
+    ]
+
+
+def _benchmark_exposure_contract_notes(flags: IntegrationCapabilityFlags) -> list[str]:
+    if not _benchmark_exposure_context_enabled(flags):
+        return []
+    return [
+        "returns a lineage-backed benchmark exposure view aligned to benchmark performance context",
+        "intended for lotus-risk stateful ACTIVE_RISK attribution integration",
+    ]
+
+
+def _build_analytics_surfaces(
+    *,
+    flags: IntegrationCapabilityFlags,
+    supported_input_modes: list[str],
+) -> list[dict[str, object]]:
+    return [
         {
             "key": "twr",
             "path": "/performance/twr",
@@ -246,43 +354,8 @@ def build_integration_capabilities_report(
             "poll_path_template": "/performance/executions/{calculation_id}",
             "result_path_template": "/performance/inspections/{inspection_id}",
             "stateful_restrictions": [],
-            "contract_notes": (
-                [
-                    "supports inspection of an existing TWR calculation or a proposed TWR request payload",
-                    "inspection profiles expose bounded support_triage, canonical_validation, and deep_reconciliation behavior",
-                    "artifact retrieval includes inspection_summary.json, findings.json, and source_quality_summary.json, plus reconciliation_summary.json and source_economics_summary.json when stateful source-economics checks run",
-                    "stateful reconciliation inspection covers portfolio-position tie-out and unexplained position begin-value carry-forward breaks",
-                    'stateful portfolio and position valuation normalization share the source cash-flow taxonomy used by inspection; operational expenses must arrive as canonical cash_flow_type="fee" with source_classification="EXPENSE"',
-                    "source-economics inspection now covers fee and external cash-flow classification and normalization mismatches, duplicate source signals, positive fee sign anomalies, fee or external source-total mismatches, external timing-bucket contradictions, governed alias cash_flow_type labels, unsupported cash_flow_type labels, and non-canonical cash_flow_type labels",
-                ]
-                if flags.twr_enabled
-                else []
-            ),
-            "options": (
-                [
-                    {
-                        "key": "subject_type",
-                        "supported_values": ["twr_calculation", "twr_request"],
-                        "required_when": "always",
-                        "notes": [
-                            "twr_calculation inspects an existing durable TWR execution identity",
-                            "twr_request inspects a proposed TWR request payload without mutating the normal TWR contract",
-                        ],
-                    },
-                    {
-                        "key": "inspection_profile",
-                        "supported_values": ["support_triage", "canonical_validation", "deep_reconciliation"],
-                        "required_when": "always",
-                        "notes": [
-                            "support_triage is the default bounded supportability workflow",
-                            "canonical_validation is the governed profile for canonical portfolio validation",
-                            "deep_reconciliation adds heavier stateful reconciliation evidence for upstream escalation",
-                        ],
-                    },
-                ]
-                if flags.twr_enabled
-                else []
-            ),
+            "contract_notes": _twr_inspection_contract_notes(flags),
+            "options": _twr_inspection_options(flags),
         },
         {
             "key": "mwr",
@@ -317,30 +390,8 @@ def build_integration_capabilities_report(
             "poll_path_template": "/performance/executions/{calculation_id}",
             "result_path_template": "/performance/workspace-summary/results/{calculation_id}",
             "stateful_restrictions": [],
-            "contract_notes": (
-                [
-                    "supports multi-horizon workspace periods including 1D, 2D, 5D, 10D, 1M, 3M, 6M, YTD, 1Y, 2Y, 5Y, 10Y, SI, and EXPLICIT",
-                    "summary and breakdown rows emit period_return, cumulative_return, and annualized_return; for periods up to one year annualized_return equals cumulative_return",
-                    "resolves the longest requested window once and derives shorter requested periods from the same sourced data",
-                ]
-                if flags.workspace_summary_enabled
-                else []
-            ),
-            "options": (
-                [
-                    {
-                        "key": "benchmark_mode",
-                        "supported_values": ["user_input_stateless", "linked_stateful"],
-                        "required_when": "benchmark or benchmark-aware blocks are requested",
-                        "notes": [
-                            "stateless workspace summary requires an explicit benchmark payload when include_benchmark=true",
-                            "stateful workspace summary can resolve the linked benchmark from lotus-core assignment",
-                        ],
-                    }
-                ]
-                if flags.workspace_summary_enabled
-                else []
-            ),
+            "contract_notes": _workspace_summary_contract_notes(flags),
+            "options": _workspace_summary_options(flags),
         },
         {
             "key": "contribution",
@@ -362,15 +413,7 @@ def build_integration_capabilities_report(
             "supports_async": True,
             "poll_path_template": "/performance/executions/{calculation_id}",
             "result_path_template": "/performance/attribution/results/{calculation_id}",
-            "stateful_restrictions": (
-                [
-                    "mode=by_instrument only",
-                    "group_by limited to asset_class, sector, country, currency",
-                    "currency_mode=BOTH requires report_ccy and fx.rates for mixed-currency positions",
-                ]
-                if flags.stateful_mode_enabled and flags.attribution_enabled
-                else []
-            ),
+            "stateful_restrictions": _attribution_stateful_restrictions(flags),
             "contract_notes": [],
             "options": [],
         },
@@ -383,14 +426,7 @@ def build_integration_capabilities_report(
             "poll_path_template": None,
             "result_path_template": None,
             "stateful_restrictions": [],
-            "contract_notes": (
-                [
-                    "emits bounded lotus-performance-owned active-return health posture for lotus-manage DPM supportability.",
-                    "does not create mandate actions, rebalance waves, client communications, orders, OMS, or execution instructions",
-                ]
-                if flags.twr_enabled
-                else []
-            ),
+            "contract_notes": _mandate_performance_health_contract_notes(flags),
             "options": [],
         },
         {
@@ -408,37 +444,31 @@ def build_integration_capabilities_report(
         {
             "key": "benchmark_exposure_context",
             "path": "/integration/benchmarks/exposure-context",
-            "enabled": flags.benchmark_enabled and flags.stateful_mode_enabled,
+            "enabled": _benchmark_exposure_context_enabled(flags),
             "supported_input_modes": ["stateful"] if flags.stateful_mode_enabled else [],
             "supports_async": False,
             "poll_path_template": None,
             "result_path_template": None,
-            "stateful_restrictions": (
-                [
-                    "lotus-core remains the benchmark composition system of record",
-                    "POSITION, SECTOR, ASSET_CLASS, and ISSUER grouping dimensions are supported",
-                    "ISSUER groups use lotus-core index-catalog issuer_id and issuer_name classification labels",
-                ]
-                if flags.benchmark_enabled and flags.stateful_mode_enabled
-                else []
-            ),
-            "contract_notes": (
-                [
-                    "returns a lineage-backed benchmark exposure view aligned to benchmark performance context",
-                    "intended for lotus-risk stateful ACTIVE_RISK attribution integration",
-                ]
-                if flags.benchmark_enabled and flags.stateful_mode_enabled
-                else []
-            ),
+            "stateful_restrictions": _benchmark_exposure_stateful_restrictions(flags),
+            "contract_notes": _benchmark_exposure_contract_notes(flags),
             "options": [],
         },
     ]
 
+
+def build_integration_capabilities_report(
+    *,
+    feature_limit: int = 100,
+    workflow_limit: int = 50,
+) -> IntegrationCapabilitiesReport:
+    flags = read_capability_flags()
+    supported_input_modes = _supported_input_modes(flags)
+
     return IntegrationCapabilitiesReport(
         supported_input_modes=supported_input_modes,
-        features=features[:feature_limit],
-        workflows=workflows[:workflow_limit],
-        analytics_surfaces=analytics_surfaces,
+        features=_build_feature_capabilities(flags)[:feature_limit],
+        workflows=_build_workflow_capabilities(flags)[:workflow_limit],
+        analytics_surfaces=_build_analytics_surfaces(flags=flags, supported_input_modes=supported_input_modes),
         generated_at=datetime.now(UTC),
         as_of_date=date.today(),
         policy_version=flags.policy_version,

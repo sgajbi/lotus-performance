@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from dataclasses import dataclass
 from threading import Event
 from typing import Any, Callable, Coroutine
 from uuid import UUID
@@ -35,7 +36,7 @@ from app.services.attribution_mode_service import resolve_attribution_request
 from app.services.attribution_service import calculate_attribution
 from app.services.benchmark_mode_service import resolve_benchmark_request
 from app.services.benchmark_service import calculate_benchmark_response
-from app.services.compute_job_store import ComputeJobStore, compute_job_store
+from app.services.compute_job_store import ComputeJobRecord, ComputeJobStore, ReconciledJobRecord, compute_job_store
 from app.services.contribution_mode_service import resolve_contribution_request
 from app.services.contribution_service import calculate_contribution
 from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
@@ -50,6 +51,19 @@ from core.repro import generate_canonical_hash, generate_canonical_hash_from_val
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class _ComputeJobExecutionContext:
+    settings: Any
+    execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry]
+    returns_series_calculator: Callable[..., Coroutine[Any, Any, Any]]
+    contribution_calculator: Callable[..., Any]
+    attribution_calculator: Callable[..., Any]
+    benchmark_calculator: Callable[..., Any]
+    twr_calculator: Callable[..., Any]
+    workspace_summary_calculator: Callable[..., Any]
+    inspection_calculator: Callable[[TWRInspectionRequest], Any]
 
 
 def process_pending_jobs(*, limit: int | None = None, settings=None) -> int:
@@ -87,24 +101,24 @@ def _process_pending_jobs(
     active_twr_calculator = twr_calculator or calculate_twr_response
     active_workspace_summary_calculator = workspace_summary_calculator or calculate_workspace_summary
     active_inspection_calculator = inspection_calculator or run_twr_inspection
+    execution_context = _ComputeJobExecutionContext(
+        settings=active_settings,
+        execution_store=active_execution_store,
+        returns_series_calculator=active_returns_series_calculator,
+        contribution_calculator=active_contribution_calculator,
+        attribution_calculator=active_attribution_calculator,
+        benchmark_calculator=active_benchmark_calculator,
+        twr_calculator=active_twr_calculator,
+        workspace_summary_calculator=active_workspace_summary_calculator,
+        inspection_calculator=active_inspection_calculator,
+    )
     reconciled = active_job_store.reconcile_stale_jobs()
     for reconciled_job in reconciled:
-        if reconciled_job.reconciled_status.value == "failed":
-            _record_terminal_failure(
-                calculation_id=reconciled_job.calculation_id,
-                analytics_type=reconciled_job.analytics_type,
-                error_message=reconciled_job.error_message,
-                error_type=reconciled_job.error_type,
-                missing_execution_log_message="Execution record missing for reconciled compute job %s",
-                result_store=active_result_store,
-                execution_store=active_execution_store,
-            )
-        else:
-            logger.warning(
-                "Requeued stale compute job %s after expired %s lease",
-                reconciled_job.calculation_id,
-                reconciled_job.previous_status.value,
-            )
+        _handle_reconciled_stale_job(
+            reconciled_job,
+            result_store=active_result_store,
+            execution_store=active_execution_store,
+        )
     pending = active_job_store.lease_pending_jobs(
         worker_id=current_worker_id,
         limit=batch_size,
@@ -118,158 +132,7 @@ def _process_pending_jobs(
             lease_seconds=current_lease_seconds,
         )
         try:
-            if job.analytics_type == ANALYTICS_WORKFLOW_RETURNS_SERIES:
-                (
-                    request,
-                    source_input_mode,
-                    resolved_benchmark_id_override,
-                    resolved_benchmark_return_source_override,
-                ) = _resolve_async_returns_series_job_request(job.request_payload)
-                if source_input_mode == request.input_mode:
-                    response = asyncio.run(active_returns_series_calculator(request))
-                else:
-                    response = asyncio.run(
-                        active_returns_series_calculator(
-                            request,
-                            source_input_mode=source_input_mode,
-                            resolved_benchmark_id_override=resolved_benchmark_id_override,
-                            resolved_benchmark_return_source_override=resolved_benchmark_return_source_override,
-                        )
-                    )
-            elif job.analytics_type == ANALYTICS_WORKFLOW_ATTRIBUTION:
-                (
-                    attribution_request,
-                    attribution_input_mode,
-                    resolved_benchmark_id,
-                    resolved_benchmark_return_source,
-                ) = _resolve_async_attribution_job_request(
-                    job.request_payload,
-                    settings=active_settings,
-                )
-                input_fingerprint, calculation_hash = generate_canonical_hash(
-                    attribution_request,
-                    active_settings.APP_VERSION,
-                )
-                active_execution_store.update_execution_identity(
-                    job.calculation_id,
-                    input_fingerprint=input_fingerprint,
-                    calculation_hash=calculation_hash,
-                )
-                response = active_attribution_calculator(
-                    attribution_request,
-                    input_fingerprint=input_fingerprint,
-                    calculation_hash=calculation_hash,
-                    input_mode=attribution_input_mode,
-                    resolved_benchmark_id=resolved_benchmark_id,
-                    resolved_benchmark_return_source=resolved_benchmark_return_source,
-                )
-            elif job.analytics_type == ANALYTICS_WORKFLOW_CONTRIBUTION:
-                contribution_request, contribution_input_mode = _resolve_async_contribution_job_request(
-                    job.request_payload,
-                    settings=active_settings,
-                )
-                input_fingerprint, calculation_hash = generate_canonical_hash(
-                    contribution_request,
-                    active_settings.APP_VERSION,
-                )
-                active_execution_store.update_execution_identity(
-                    job.calculation_id,
-                    input_fingerprint=input_fingerprint,
-                    calculation_hash=calculation_hash,
-                )
-                response = active_contribution_calculator(
-                    contribution_request,
-                    input_fingerprint=input_fingerprint,
-                    calculation_hash=calculation_hash,
-                    input_mode=contribution_input_mode,
-                )
-            elif job.analytics_type == ANALYTICS_WORKFLOW_BENCHMARK:
-                benchmark_request, benchmark_input_mode = _resolve_async_benchmark_job_request(
-                    job.request_payload,
-                    settings=active_settings,
-                )
-                input_fingerprint, calculation_hash = generate_canonical_hash(
-                    benchmark_request,
-                    active_settings.APP_VERSION,
-                )
-                active_execution_store.update_execution_identity(
-                    job.calculation_id,
-                    input_fingerprint=input_fingerprint,
-                    calculation_hash=calculation_hash,
-                )
-                response = active_benchmark_calculator(
-                    benchmark_request,
-                    input_fingerprint=input_fingerprint,
-                    calculation_hash=calculation_hash,
-                    input_mode=benchmark_input_mode,
-                    engine_version=active_settings.APP_VERSION,
-                    request_artifact_model=benchmark_request,
-                )
-            elif job.analytics_type == ANALYTICS_WORKFLOW_TWR:
-                (
-                    twr_request,
-                    twr_input_mode,
-                    request_artifact_model,
-                    portfolio_id,
-                    resolved_benchmark_id,
-                    twr_benchmark_input_mode,
-                    benchmark_return_source,
-                    should_update_identity,
-                ) = _resolve_async_twr_job_request(job.request_payload, settings=active_settings)
-                if should_update_identity:
-                    input_fingerprint, calculation_hash = generate_canonical_hash_from_value(
-                        request_artifact_model,
-                        active_settings.APP_VERSION,
-                    )
-                    active_execution_store.update_execution_identity(
-                        job.calculation_id,
-                        input_fingerprint=input_fingerprint,
-                        calculation_hash=calculation_hash,
-                    )
-                else:
-                    input_fingerprint, calculation_hash = generate_canonical_hash(
-                        TWRAnalyticsRequest.model_validate(job.request_payload),
-                        active_settings.APP_VERSION,
-                    )
-                response = active_twr_calculator(
-                    twr_request.portfolio,
-                    portfolio_id=portfolio_id,
-                    input_mode=twr_input_mode,
-                    input_fingerprint=input_fingerprint,
-                    calculation_hash=calculation_hash,
-                    engine_version=active_settings.APP_VERSION,
-                    request_artifact_model=request_artifact_model,
-                    benchmark_request=twr_request.benchmark,
-                    benchmark_input_mode=twr_benchmark_input_mode,
-                    resolved_benchmark_id=resolved_benchmark_id,
-                    benchmark_return_source=benchmark_return_source,
-                )
-            elif job.analytics_type == ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY:
-                workspace_request = WorkspaceSummaryRequest.model_validate(job.request_payload)
-                input_fingerprint, calculation_hash = generate_canonical_hash(
-                    workspace_request,
-                    active_settings.APP_VERSION,
-                )
-                active_execution_store.update_execution_identity(
-                    job.calculation_id,
-                    input_fingerprint=input_fingerprint,
-                    calculation_hash=calculation_hash,
-                )
-                response = active_workspace_summary_calculator(workspace_request, settings=active_settings)
-            elif job.analytics_type == ANALYTICS_WORKFLOW_TWR_INSPECTION:
-                inspection_request = TWRInspectionRequest.model_validate(job.request_payload)
-                input_fingerprint, calculation_hash = generate_canonical_hash(
-                    inspection_request,
-                    active_settings.APP_VERSION,
-                )
-                active_execution_store.update_execution_identity(
-                    job.calculation_id,
-                    input_fingerprint=input_fingerprint,
-                    calculation_hash=calculation_hash,
-                )
-                response = active_inspection_calculator(inspection_request)
-            else:
-                raise ValueError(f"Unsupported compute job analytics_type: {job.analytics_type}")
+            response = _execute_compute_job(job, execution_context)
             active_result_store.record_success(
                 calculation_id=job.calculation_id,
                 analytics_type=job.analytics_type,
@@ -277,41 +140,242 @@ def _process_pending_jobs(
             )
             active_job_store.mark_complete(job.calculation_id, response_payload=response.model_dump(mode="json"))
         except Exception as exc:
-            if _is_retryable_exception(exc):
-                will_retry = active_job_store.mark_retryable_failure(
-                    job.calculation_id,
-                    error_message=str(exc),
-                    error_type=type(exc).__name__,
-                )
-                if will_retry:
-                    logger.warning("Retrying compute job %s after %s", job.calculation_id, type(exc).__name__)
-                else:
-                    _record_terminal_failure(
-                        calculation_id=job.calculation_id,
-                        analytics_type=job.analytics_type,
-                        error_message=str(exc),
-                        error_type=type(exc).__name__,
-                        missing_execution_log_message="Execution record missing for compute job %s",
-                        result_store=active_result_store,
-                        execution_store=active_execution_store,
-                    )
-            else:
-                active_job_store.mark_failed(
-                    job.calculation_id,
-                    error_message=str(exc),
-                    error_type=type(exc).__name__,
-                )
-                _record_terminal_failure(
-                    calculation_id=job.calculation_id,
-                    analytics_type=job.analytics_type,
-                    error_message=str(exc),
-                    error_type=type(exc).__name__,
-                    missing_execution_log_message="Execution record missing for compute job %s",
-                    result_store=active_result_store,
-                    execution_store=active_execution_store,
-                )
+            _handle_compute_job_failure(
+                job,
+                exc,
+                job_store=active_job_store,
+                result_store=active_result_store,
+                execution_store=active_execution_store,
+            )
         processed += 1
     return processed
+
+
+def _execute_compute_job(job: ComputeJobRecord, context: _ComputeJobExecutionContext) -> Any:
+    if job.analytics_type == ANALYTICS_WORKFLOW_RETURNS_SERIES:
+        return _execute_returns_series_job(job, context)
+    if job.analytics_type == ANALYTICS_WORKFLOW_ATTRIBUTION:
+        return _execute_attribution_job(job, context)
+    if job.analytics_type == ANALYTICS_WORKFLOW_CONTRIBUTION:
+        return _execute_contribution_job(job, context)
+    if job.analytics_type == ANALYTICS_WORKFLOW_BENCHMARK:
+        return _execute_benchmark_job(job, context)
+    if job.analytics_type == ANALYTICS_WORKFLOW_TWR:
+        return _execute_twr_job(job, context)
+    if job.analytics_type == ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY:
+        return _execute_workspace_summary_job(job, context)
+    if job.analytics_type == ANALYTICS_WORKFLOW_TWR_INSPECTION:
+        return _execute_twr_inspection_job(job, context)
+    raise ValueError(f"Unsupported compute job analytics_type: {job.analytics_type}")
+
+
+def _execute_returns_series_job(job: ComputeJobRecord, context: _ComputeJobExecutionContext) -> Any:
+    (
+        request,
+        source_input_mode,
+        resolved_benchmark_id_override,
+        resolved_benchmark_return_source_override,
+    ) = _resolve_async_returns_series_job_request(job.request_payload)
+    if source_input_mode == request.input_mode:
+        return asyncio.run(context.returns_series_calculator(request))
+    return asyncio.run(
+        context.returns_series_calculator(
+            request,
+            source_input_mode=source_input_mode,
+            resolved_benchmark_id_override=resolved_benchmark_id_override,
+            resolved_benchmark_return_source_override=resolved_benchmark_return_source_override,
+        )
+    )
+
+
+def _update_execution_identity(
+    job: ComputeJobRecord,
+    context: _ComputeJobExecutionContext,
+    request_artifact_model: Any,
+) -> tuple[str, str]:
+    input_fingerprint, calculation_hash = generate_canonical_hash(
+        request_artifact_model,
+        context.settings.APP_VERSION,
+    )
+    context.execution_store.update_execution_identity(
+        job.calculation_id,
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+    )
+    return input_fingerprint, calculation_hash
+
+
+def _execute_attribution_job(job: ComputeJobRecord, context: _ComputeJobExecutionContext) -> Any:
+    (
+        attribution_request,
+        attribution_input_mode,
+        resolved_benchmark_id,
+        resolved_benchmark_return_source,
+    ) = _resolve_async_attribution_job_request(
+        job.request_payload,
+        settings=context.settings,
+    )
+    input_fingerprint, calculation_hash = _update_execution_identity(job, context, attribution_request)
+    return context.attribution_calculator(
+        attribution_request,
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+        input_mode=attribution_input_mode,
+        resolved_benchmark_id=resolved_benchmark_id,
+        resolved_benchmark_return_source=resolved_benchmark_return_source,
+    )
+
+
+def _execute_contribution_job(job: ComputeJobRecord, context: _ComputeJobExecutionContext) -> Any:
+    contribution_request, contribution_input_mode = _resolve_async_contribution_job_request(
+        job.request_payload,
+        settings=context.settings,
+    )
+    input_fingerprint, calculation_hash = _update_execution_identity(job, context, contribution_request)
+    return context.contribution_calculator(
+        contribution_request,
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+        input_mode=contribution_input_mode,
+    )
+
+
+def _execute_benchmark_job(job: ComputeJobRecord, context: _ComputeJobExecutionContext) -> Any:
+    benchmark_request, benchmark_input_mode = _resolve_async_benchmark_job_request(
+        job.request_payload,
+        settings=context.settings,
+    )
+    input_fingerprint, calculation_hash = _update_execution_identity(job, context, benchmark_request)
+    return context.benchmark_calculator(
+        benchmark_request,
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+        input_mode=benchmark_input_mode,
+        engine_version=context.settings.APP_VERSION,
+        request_artifact_model=benchmark_request,
+    )
+
+
+def _execute_twr_job(job: ComputeJobRecord, context: _ComputeJobExecutionContext) -> Any:
+    (
+        twr_request,
+        twr_input_mode,
+        request_artifact_model,
+        portfolio_id,
+        resolved_benchmark_id,
+        twr_benchmark_input_mode,
+        benchmark_return_source,
+        should_update_identity,
+    ) = _resolve_async_twr_job_request(job.request_payload, settings=context.settings)
+    if should_update_identity:
+        input_fingerprint, calculation_hash = generate_canonical_hash_from_value(
+            request_artifact_model,
+            context.settings.APP_VERSION,
+        )
+        context.execution_store.update_execution_identity(
+            job.calculation_id,
+            input_fingerprint=input_fingerprint,
+            calculation_hash=calculation_hash,
+        )
+    else:
+        input_fingerprint, calculation_hash = generate_canonical_hash(
+            TWRAnalyticsRequest.model_validate(job.request_payload),
+            context.settings.APP_VERSION,
+        )
+    return context.twr_calculator(
+        twr_request.portfolio,
+        portfolio_id=portfolio_id,
+        input_mode=twr_input_mode,
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+        engine_version=context.settings.APP_VERSION,
+        request_artifact_model=request_artifact_model,
+        benchmark_request=twr_request.benchmark,
+        benchmark_input_mode=twr_benchmark_input_mode,
+        resolved_benchmark_id=resolved_benchmark_id,
+        benchmark_return_source=benchmark_return_source,
+    )
+
+
+def _execute_workspace_summary_job(job: ComputeJobRecord, context: _ComputeJobExecutionContext) -> Any:
+    workspace_request = WorkspaceSummaryRequest.model_validate(job.request_payload)
+    _update_execution_identity(job, context, workspace_request)
+    return context.workspace_summary_calculator(workspace_request, settings=context.settings)
+
+
+def _execute_twr_inspection_job(job: ComputeJobRecord, context: _ComputeJobExecutionContext) -> Any:
+    inspection_request = TWRInspectionRequest.model_validate(job.request_payload)
+    _update_execution_identity(job, context, inspection_request)
+    return context.inspection_calculator(inspection_request)
+
+
+def _handle_compute_job_failure(
+    job: ComputeJobRecord,
+    exc: Exception,
+    *,
+    job_store: ComputeJobStore | RuntimeStoreProxy[ComputeJobStore],
+    result_store: AsyncResultStore | RuntimeStoreProxy[AsyncResultStore],
+    execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry],
+) -> None:
+    error_message = str(exc)
+    error_type = type(exc).__name__
+    if _is_retryable_exception(exc):
+        will_retry = job_store.mark_retryable_failure(
+            job.calculation_id,
+            error_message=error_message,
+            error_type=error_type,
+        )
+        if will_retry:
+            logger.warning("Retrying compute job %s after %s", job.calculation_id, error_type)
+            return
+        _record_terminal_failure(
+            calculation_id=job.calculation_id,
+            analytics_type=job.analytics_type,
+            error_message=error_message,
+            error_type=error_type,
+            missing_execution_log_message="Execution record missing for compute job %s",
+            result_store=result_store,
+            execution_store=execution_store,
+        )
+        return
+    job_store.mark_failed(
+        job.calculation_id,
+        error_message=error_message,
+        error_type=error_type,
+    )
+    _record_terminal_failure(
+        calculation_id=job.calculation_id,
+        analytics_type=job.analytics_type,
+        error_message=error_message,
+        error_type=error_type,
+        missing_execution_log_message="Execution record missing for compute job %s",
+        result_store=result_store,
+        execution_store=execution_store,
+    )
+
+
+def _handle_reconciled_stale_job(
+    reconciled_job: ReconciledJobRecord,
+    *,
+    result_store: AsyncResultStore | RuntimeStoreProxy[AsyncResultStore],
+    execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry],
+) -> None:
+    if reconciled_job.reconciled_status.value == "failed":
+        _record_terminal_failure(
+            calculation_id=reconciled_job.calculation_id,
+            analytics_type=reconciled_job.analytics_type,
+            error_message=reconciled_job.error_message,
+            error_type=reconciled_job.error_type,
+            missing_execution_log_message="Execution record missing for reconciled compute job %s",
+            result_store=result_store,
+            execution_store=execution_store,
+        )
+        return
+    logger.warning(
+        "Requeued stale compute job %s after expired %s lease",
+        reconciled_job.calculation_id,
+        reconciled_job.previous_status.value,
+    )
 
 
 def _is_retryable_exception(exc: Exception) -> bool:

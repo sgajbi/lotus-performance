@@ -1,15 +1,15 @@
 from uuid import uuid4
 
-from app.api.endpoints.benchmark import (
-    _accepted_response,
-    _benchmark_requested_input_count,
-    _build_execution_window,
-    _should_offload_benchmark,
-    _should_offload_resolved_benchmark,
-    _should_persist_resolved_benchmark_request,
-    _should_preemptively_offload_stateful_benchmark,
-)
 from app.models.benchmark_analytics_requests import BenchmarkAnalyticsRequest
+from app.services.benchmark_calculation_workflow_service import (
+    accepted_benchmark_response,
+    benchmark_requested_input_count,
+    build_benchmark_execution_window,
+    should_offload_benchmark,
+    should_offload_resolved_benchmark,
+    should_persist_resolved_benchmark_request,
+    should_preemptively_offload_stateful_benchmark,
+)
 
 
 def _base_payload():
@@ -86,13 +86,13 @@ def test_benchmark_endpoint_helper_counts_requested_inputs_and_persist_rules():
         }
     )
 
-    assert _benchmark_requested_input_count(observations_request) == 1
-    assert _benchmark_requested_input_count(price_points_request) == 2
-    assert _benchmark_requested_input_count(vendor_request) == 2
-    assert _benchmark_requested_input_count(stateful_request) == 0
-    assert _should_persist_resolved_benchmark_request(observations_request) is False
-    assert _should_persist_resolved_benchmark_request(price_points_request) is True
-    assert _should_persist_resolved_benchmark_request(stateful_request) is True
+    assert benchmark_requested_input_count(observations_request) == 1
+    assert benchmark_requested_input_count(price_points_request) == 2
+    assert benchmark_requested_input_count(vendor_request) == 2
+    assert benchmark_requested_input_count(stateful_request) == 0
+    assert should_persist_resolved_benchmark_request(observations_request) is False
+    assert should_persist_resolved_benchmark_request(price_points_request) is True
+    assert should_persist_resolved_benchmark_request(stateful_request) is True
 
 
 def test_benchmark_endpoint_helpers_build_execution_window_and_acceptance(mocker):
@@ -117,7 +117,7 @@ def test_benchmark_endpoint_helpers_build_execution_window_and_acceptance(mocker
         }
     )
     mocker.patch(
-        "app.api.endpoints.benchmark.get_settings",
+        "app.services.benchmark_calculation_workflow_service.get_settings",
         return_value=type(
             "Settings",
             (),
@@ -125,11 +125,11 @@ def test_benchmark_endpoint_helpers_build_execution_window_and_acceptance(mocker
         )(),
     )
 
-    assert _should_preemptively_offload_stateful_benchmark(stateful_request) is True
-    assert _should_offload_benchmark(request) is True
-    assert _should_offload_resolved_benchmark(1) is True
-    assert _build_execution_window(request)["input_count"] == 1
-    assert _build_execution_window(request, source_request_fingerprint="fp", input_count=5) == {
+    assert should_preemptively_offload_stateful_benchmark(stateful_request) is True
+    assert should_offload_benchmark(request) is True
+    assert should_offload_resolved_benchmark(1) is True
+    assert build_benchmark_execution_window(request)["input_count"] == 1
+    assert build_benchmark_execution_window(request, source_request_fingerprint="fp", input_count=5) == {
         "benchmark_start_date": "2025-01-01",
         "report_end_date": "2025-01-31",
         "requested_periods": ["ITD"],
@@ -140,7 +140,7 @@ def test_benchmark_endpoint_helpers_build_execution_window_and_acceptance(mocker
     }
 
     calculation_id = uuid4()
-    accepted = _accepted_response(calculation_id)
+    accepted = accepted_benchmark_response(calculation_id)
     assert accepted.calculation_id == calculation_id
     assert accepted.poll_path == f"/performance/executions/{calculation_id}"
     assert accepted.result_path == f"/performance/benchmark/results/{calculation_id}"

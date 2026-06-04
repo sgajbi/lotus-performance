@@ -12,6 +12,8 @@ from app.services.execution_stage_names import EXECUTION_STAGE_NORMALIZATION
 from app.services.twr_mode_service import (
     _build_resolved_twr_benchmark_request,
     _resolve_default_stateful_benchmark_input,
+    _resolve_twr_portfolio_source_input,
+    _resolve_twr_retrieval_inputs,
     resolve_twr_request,
 )
 
@@ -236,6 +238,64 @@ async def test_resolve_twr_request_allows_missing_stateful_start_date(monkeypatc
 
 
 @pytest.mark.asyncio
+async def test_resolve_twr_portfolio_source_input_reports_retrieval_details_from_derived_start():
+    class _StatefulPortfolioStub:
+        captured_start_date = None
+
+        async def get_portfolio_reference(self, **kwargs):  # noqa: ARG002
+            return 200, {"portfolio_open_date": "2024-01-15"}
+
+        async def get_portfolio_timeseries(self, **kwargs):
+            self.captured_start_date = kwargs["start_date"]
+            return (
+                200,
+                {
+                    "portfolio_open_date": "2024-01-15",
+                    "observations": [
+                        {
+                            "valuation_date": "2025-01-02",
+                            "beginning_market_value": "1010",
+                            "ending_market_value": "1020.1",
+                        },
+                        {
+                            "valuation_date": "2025-01-01",
+                            "beginning_market_value": "1000",
+                            "ending_market_value": "1010",
+                        },
+                    ],
+                    "retrieval_metadata": {"chunk_count": 3, "page_count": 2},
+                },
+            )
+
+    stateful_input_service = _StatefulPortfolioStub()
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+
+    resolved = await _resolve_twr_portfolio_source_input(
+        request=request,
+        settings=_settings(),
+        stateful_input_service=stateful_input_service,
+    )
+
+    assert stateful_input_service.captured_start_date.isoformat() == "2024-01-15"
+    assert resolved.benchmark_start_date.isoformat() == "2025-01-01"
+    assert resolved.retrieval_details == {
+        "portfolio_observations": 2,
+        "portfolio_chunk_count": 3,
+        "portfolio_page_count": 2,
+    }
+
+
+@pytest.mark.asyncio
 async def test_resolve_twr_request_fails_normalization_stage_for_invalid_observations(monkeypatch):
     async def _mock_fetch_stateful_portfolio_timeseries(**kwargs):  # noqa: ARG001
         return (
@@ -276,6 +336,95 @@ async def test_resolve_twr_request_fails_normalization_stage_for_invalid_observa
     assert execution is not None
     stages = {stage.stage_name: stage for stage in execution.stages}
     assert stages[EXECUTION_STAGE_NORMALIZATION].status.value == "failed"
+
+
+@pytest.mark.asyncio
+async def test_resolve_twr_retrieval_inputs_carries_portfolio_details(monkeypatch):
+    portfolio_input = object()
+
+    async def _portfolio_resolution(**kwargs):  # noqa: ARG001
+        return SimpleNamespace(
+            portfolio_input=portfolio_input,
+            benchmark_start_date=None,
+            retrieval_details={"portfolio_observations": 2, "portfolio_chunk_count": 1},
+        )
+
+    monkeypatch.setattr(
+        "app.services.twr_mode_service._resolve_twr_portfolio_source_input",
+        _portfolio_resolution,
+    )
+
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+
+    resolution = await _resolve_twr_retrieval_inputs(
+        request=request,
+        settings=_settings(),
+        stateful_input_service=object(),
+    )
+
+    assert resolution.portfolio_input is portfolio_input
+    assert resolution.benchmark_resolution is None
+    assert resolution.retrieval_details == {"portfolio_observations": 2, "portfolio_chunk_count": 1}
+
+
+@pytest.mark.asyncio
+async def test_resolve_twr_retrieval_inputs_uses_request_benchmark_start_when_portfolio_not_retrieved(monkeypatch):
+    captured: dict[str, object] = {}
+
+    async def _benchmark_resolution(**kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(
+            benchmark_id="BMK_1",
+            benchmark_request=object(),
+            source_details={"benchmark_components": 1},
+        )
+
+    monkeypatch.setattr(
+        "app.services.twr_mode_service._resolve_twr_benchmark_source_input",
+        _benchmark_resolution,
+    )
+
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "performance_start_date": "2024-12-31",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1020.1},
+            ],
+            "benchmark": {
+                "input_mode": "stateful",
+                "return_source": "calculated",
+                "stateful_input": {},
+            },
+        }
+    )
+
+    resolution = await _resolve_twr_retrieval_inputs(
+        request=request,
+        settings=_settings(),
+        stateful_input_service=object(),
+    )
+
+    assert resolution.portfolio_input is None
+    assert resolution.benchmark_resolution is not None
+    assert resolution.benchmark_start_date.isoformat() == "2025-01-01"
+    assert captured["benchmark_start_date"].isoformat() == "2025-01-01"
+    assert resolution.retrieval_details == {"benchmark_components": 1}
 
 
 @pytest.mark.asyncio

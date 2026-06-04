@@ -7,8 +7,22 @@ import pandas as pd
 import pytest
 from fastapi import HTTPException
 
+from app.models.benchmark_analytics_requests import BenchmarkReturnSource
 from app.models.benchmark_requests import BenchmarkComponentObservation
-from app.models.returns_series import CalendarPolicy, ReturnPoint, ReturnsFrequency, ReturnsSeriesRequest
+from app.models.returns_series import (
+    CalendarPolicy,
+    DataPolicy,
+    FillMethod,
+    InputMode,
+    MetricBasis,
+    MissingDataPolicy,
+    ReturnPoint,
+    ReturnsFrequency,
+    ReturnsSeriesRequest,
+    ReturnsWindow,
+    ReturnsWindowMode,
+    SeriesSelection,
+)
 from app.services import portfolio_source_service, returns_series_service, stateful_input_service
 from app.services.execution_registry import ExecutionRegistry
 from app.services.stateful_benchmark_input_service import StatefulBenchmarkNormalizedInput
@@ -98,6 +112,164 @@ def test_build_cumulative_active_return_points_uses_cumulative_excess_not_linked
     ]
 
 
+def test_build_returns_series_point_outputs_emits_selected_point_families():
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23", "2026-02-24"]),
+            "return_value": [Decimal("0.0100"), Decimal("0.0200")],
+        }
+    )
+    benchmark_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23", "2026-02-24"]),
+            "return_value": [Decimal("0.0050"), Decimal("0.0150")],
+        }
+    )
+    risk_free_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23", "2026-02-24"]),
+            "return_value": [Decimal("0.0001"), Decimal("0.0002")],
+        }
+    )
+
+    outputs = returns_series_service._build_returns_series_point_outputs(
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+        risk_free_df=risk_free_df,
+    )
+
+    assert [str(point.return_value) for point in outputs.portfolio_return_points] == [
+        "0.010000000000",
+        "0.020000000000",
+    ]
+    assert outputs.benchmark_return_points is not None
+    assert [str(point.return_value) for point in outputs.benchmark_return_points] == [
+        "0.005000000000",
+        "0.015000000000",
+    ]
+    assert outputs.risk_free_return_points is not None
+    assert [str(point.return_value) for point in outputs.risk_free_return_points] == [
+        "0.000100000000",
+        "0.000200000000",
+    ]
+    assert outputs.active_return_points is not None
+    assert [str(point.return_value) for point in outputs.active_return_points] == ["0.005000000000", "0.005000000000"]
+    assert outputs.cumulative_active_return_points is not None
+    assert [str(point.return_value) for point in outputs.cumulative_active_return_points] == [
+        "0.005000000000",
+        "0.010125000000",
+    ]
+
+
+def test_build_returns_series_point_outputs_omits_unselected_optional_families():
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23"]),
+            "return_value": [Decimal("0.0100")],
+        }
+    )
+
+    outputs = returns_series_service._build_returns_series_point_outputs(
+        portfolio_df=portfolio_df,
+        benchmark_df=None,
+        risk_free_df=None,
+    )
+
+    assert len(outputs.portfolio_return_points) == 1
+    assert outputs.benchmark_return_points is None
+    assert outputs.cumulative_benchmark_return_points is None
+    assert outputs.risk_free_return_points is None
+    assert outputs.cumulative_risk_free_return_points is None
+    assert outputs.active_return_points is None
+    assert outputs.cumulative_active_return_points is None
+
+
+def test_build_returns_series_diagnostics_reports_coverage_gaps_and_market_warning():
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-26",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-26"},
+            "frequency": "DAILY",
+            "series_selection": {"include_portfolio": True, "include_benchmark": True, "include_risk_free": False},
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_returns": [
+                    {"date": "2026-02-23", "return_value": "0.0100"},
+                    {"date": "2026-02-25", "return_value": "0.0200"},
+                ],
+                "benchmark_returns": [
+                    {"date": "2026-02-23", "return_value": "0.0010"},
+                    {"date": "2026-02-26", "return_value": "0.0020"},
+                ],
+            },
+            "data_policy": {"calendar_policy": "MARKET", "missing_data_policy": "ALLOW_PARTIAL"},
+        }
+    )
+    resolved_window = returns_series_service.resolve_window(request)
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23", "2026-02-25"]),
+            "return_value": [Decimal("0.0100"), Decimal("0.0200")],
+        }
+    )
+    benchmark_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23", "2026-02-26"]),
+            "return_value": [Decimal("0.0010"), Decimal("0.0020")],
+        }
+    )
+
+    result = returns_series_service._build_returns_series_diagnostics(
+        request=request,
+        resolved_window=resolved_window,
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+        risk_free_df=None,
+    )
+
+    assert result.requested_points == 4
+    assert result.returned_points == 2
+    assert result.diagnostics.coverage.missing_points == 2
+    assert result.diagnostics.warnings == ["MARKET calendar policy currently uses business-day approximation."]
+    assert {gap.series_type for gap in result.diagnostics.gaps} == {"portfolio", "benchmark"}
+
+
+def test_build_returns_series_diagnostics_enforces_fail_fast_missing_points():
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-26",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-24", "to_date": "2026-02-26"},
+            "frequency": "DAILY",
+            "series_selection": {"include_portfolio": True, "include_benchmark": False, "include_risk_free": False},
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_returns": [
+                    {"date": "2026-02-24", "return_value": "0.0100"},
+                ],
+            },
+            "data_policy": {"missing_data_policy": "FAIL_FAST"},
+        }
+    )
+    resolved_window = returns_series_service.resolve_window(request)
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24"]),
+            "return_value": [Decimal("0.0100")],
+        }
+    )
+
+    with pytest.raises(HTTPException, match="Missing 2 required points under FAIL_FAST policy"):
+        returns_series_service._build_returns_series_diagnostics(
+            request=request,
+            resolved_window=resolved_window,
+            portfolio_df=portfolio_df,
+            benchmark_df=None,
+            risk_free_df=None,
+        )
+
+
 def test_risk_free_points_to_dataframe_converts_annualized_rates_to_daily_returns():
     risk_free_df = returns_series_service.risk_free_points_to_dataframe(
         points=[
@@ -180,6 +352,466 @@ def test_detect_gaps_does_not_flag_weekends_under_business_calendar():
 
     assert [gap.gap_days for gap in business_gaps] == [1]
     assert [gap.gap_days for gap in calendar_gaps] == [2]
+
+
+def test_strict_intersection_policy_aligns_selected_series():
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24", "2026-02-25"]),
+            "return_value": [Decimal("0.0100"), Decimal("0.0200")],
+        }
+    )
+    benchmark_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-25", "2026-02-26"]),
+            "return_value": [Decimal("0.0010"), Decimal("0.0020")],
+        }
+    )
+
+    aligned_portfolio, aligned_benchmark, aligned_risk_free = returns_series_service._apply_strict_intersection_policy(
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+        risk_free_df=None,
+        missing_data_policy=MissingDataPolicy.STRICT_INTERSECTION,
+    )
+
+    assert list(aligned_portfolio["date"].dt.date) == [pd.Timestamp("2026-02-25").date()]
+    assert aligned_benchmark is not None
+    assert list(aligned_benchmark["date"].dt.date) == [pd.Timestamp("2026-02-25").date()]
+    assert aligned_risk_free is None
+
+
+def test_strict_intersection_policy_rejects_no_overlap():
+    portfolio_df = pd.DataFrame({"date": pd.to_datetime(["2026-02-24"]), "return_value": [Decimal("0.0100")]})
+    benchmark_df = pd.DataFrame({"date": pd.to_datetime(["2026-02-25"]), "return_value": [Decimal("0.0010")]})
+
+    with pytest.raises(HTTPException) as exc:
+        returns_series_service._apply_strict_intersection_policy(
+            portfolio_df=portfolio_df,
+            benchmark_df=benchmark_df,
+            risk_free_df=None,
+            missing_data_policy=MissingDataPolicy.STRICT_INTERSECTION,
+        )
+
+    assert exc.value.status_code == 422
+
+
+def test_selected_fill_method_aligns_optional_series_to_portfolio_dates():
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24", "2026-02-25", "2026-02-26"]),
+            "return_value": [Decimal("0.0100"), Decimal("0.0200"), Decimal("0.0300")],
+        }
+    )
+    benchmark_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24", "2026-02-26"]),
+            "return_value": [Decimal("0.0010"), Decimal("0.0030")],
+        }
+    )
+
+    _, filled_benchmark, _ = returns_series_service._apply_selected_fill_method(
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+        risk_free_df=None,
+        fill_method=FillMethod.FORWARD_FILL,
+    )
+
+    assert filled_benchmark is not None
+    assert list(filled_benchmark["return_value"]) == [Decimal("0.0010"), Decimal("0.0010"), Decimal("0.0030")]
+
+
+def test_prepare_stateless_returns_series_dataframes_respects_selected_series():
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-26",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-24", "to_date": "2026-02-26"},
+            "frequency": "DAILY",
+            "series_selection": {"include_portfolio": True, "include_benchmark": True, "include_risk_free": False},
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_returns": [
+                    {"date": "2026-02-24", "return_value": "0.0100"},
+                    {"date": "2026-02-25", "return_value": "0.0200"},
+                    {"date": "2026-02-26", "return_value": "0.0300"},
+                ],
+                "benchmark_returns": [
+                    {"date": "2026-02-24", "return_value": "0.0010"},
+                    {"date": "2026-02-25", "return_value": "0.0020"},
+                    {"date": "2026-02-26", "return_value": "0.0030"},
+                ],
+            },
+        }
+    )
+    resolved_window = returns_series_service.resolve_window(request)
+
+    portfolio_df, benchmark_df, risk_free_df = returns_series_service._prepare_stateless_returns_series_dataframes(
+        request=request,
+        resolved_window=resolved_window,
+    )
+
+    assert list(portfolio_df["return_value"]) == [Decimal("0.0100"), Decimal("0.0200"), Decimal("0.0300")]
+    assert benchmark_df is not None
+    assert list(benchmark_df["return_value"]) == [Decimal("0.0010"), Decimal("0.0020"), Decimal("0.0030")]
+    assert risk_free_df is None
+
+
+def test_prepare_stateless_returns_series_dataframes_requires_stateless_input():
+    request = ReturnsSeriesRequest.model_construct(
+        portfolio_id="P1",
+        as_of_date=pd.Timestamp("2026-02-26").date(),
+        window=ReturnsWindow.model_construct(
+            mode=ReturnsWindowMode.EXPLICIT,
+            from_date=pd.Timestamp("2026-02-24").date(),
+            to_date=pd.Timestamp("2026-02-26").date(),
+        ),
+        frequency=ReturnsFrequency.DAILY,
+        metric_basis=MetricBasis.NET,
+        reporting_currency=None,
+        series_selection=SeriesSelection(),
+        benchmark=None,
+        risk_free=None,
+        data_policy=DataPolicy(),
+        input_mode=InputMode.STATELESS,
+        stateless_input=None,
+        stateful_input=None,
+    )
+    resolved_window = returns_series_service.resolve_window(request)
+
+    with pytest.raises(HTTPException) as exc:
+        returns_series_service._prepare_stateless_returns_series_dataframes(
+            request=request,
+            resolved_window=resolved_window,
+        )
+
+    assert exc.value.status_code == 400
+
+
+def test_build_stateful_returns_series_frames_normalizes_vendor_benchmark_and_risk_free_points():
+    request = _build_stateful_request(
+        reporting_currency="USD",
+        series_selection={"include_portfolio": True, "include_benchmark": True, "include_risk_free": True},
+    )
+    resolved_window = returns_series_service.resolve_window(request)
+
+    frames = returns_series_service._build_stateful_returns_series_frames(
+        request=request,
+        resolved_window=resolved_window,
+        observations=[
+            {"valuation_date": "2026-02-23", "beginning_market_value": "100", "ending_market_value": "101"},
+            {"valuation_date": "2026-02-24", "beginning_market_value": "101", "ending_market_value": "102"},
+            {"valuation_date": "2026-02-25", "beginning_market_value": "102", "ending_market_value": "103"},
+        ],
+        portfolio_performance_start_date=pd.Timestamp("2026-02-23").date(),
+        benchmark_points=[
+            {"series_date": "2026-02-23", "benchmark_return": "0.001"},
+            {"series_date": "2026-02-25", "benchmark_return": "0.003"},
+        ],
+        benchmark_df=None,
+        risk_free_points=[
+            {"series_date": "2026-02-24", "value": "0.0001"},
+            {"series_date": "2026-02-25", "value": "0.0002"},
+        ],
+    )
+
+    assert not frames.portfolio_df.empty
+    assert frames.benchmark_df is not None
+    assert [value.date().isoformat() for value in frames.benchmark_df["date"]] == ["2026-02-23", "2026-02-25"]
+    assert [str(value) for value in frames.benchmark_df["return_value"]] == ["0.001", "0.003"]
+    assert frames.risk_free_df is not None
+    assert [value.date().isoformat() for value in frames.risk_free_df["date"]] == ["2026-02-24", "2026-02-25"]
+    assert [str(value) for value in frames.risk_free_df["return_value"]] == ["0.0001", "0.0002"]
+
+
+def test_build_stateful_returns_series_frames_preserves_calculated_benchmark_frame():
+    request = _build_stateful_request()
+    resolved_window = returns_series_service.resolve_window(request)
+    benchmark_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24"]),
+            "return_value": [Decimal("0.001")],
+        }
+    )
+
+    frames = returns_series_service._build_stateful_returns_series_frames(
+        request=request,
+        resolved_window=resolved_window,
+        observations=[
+            {"valuation_date": "2026-02-23", "beginning_market_value": "100", "ending_market_value": "101"},
+            {"valuation_date": "2026-02-24", "beginning_market_value": "101", "ending_market_value": "102"},
+        ],
+        portfolio_performance_start_date=pd.Timestamp("2026-02-23").date(),
+        benchmark_points=None,
+        benchmark_df=benchmark_df,
+        risk_free_points=None,
+    )
+
+    assert frames.benchmark_df is benchmark_df
+    assert frames.risk_free_df is None
+
+
+@pytest.mark.asyncio
+async def test_resolve_stateful_returns_series_benchmark_id_uses_assignment_when_missing():
+    request = _build_stateful_request()
+
+    class Service:
+        async def get_benchmark_assignment(self, **kwargs):  # noqa: ARG002
+            return 200, {"benchmark_id": "BMK_CORE"}
+
+    benchmark_id = await returns_series_service._resolve_stateful_returns_series_benchmark_id(
+        request=request,
+        stateful_input_service=Service(),
+        resolved_benchmark_id=None,
+    )
+
+    assert benchmark_id == "BMK_CORE"
+
+
+@pytest.mark.asyncio
+async def test_resolve_stateful_returns_series_benchmark_id_rejects_missing_assignment():
+    request = _build_stateful_request()
+
+    class Service:
+        async def get_benchmark_assignment(self, **kwargs):  # noqa: ARG002
+            return 404, {}
+
+    with pytest.raises(HTTPException) as exc:
+        await returns_series_service._resolve_stateful_returns_series_benchmark_id(
+            request=request,
+            stateful_input_service=Service(),
+            resolved_benchmark_id=None,
+        )
+
+    assert exc.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_resolve_stateful_returns_series_benchmark_id_rejects_invalid_payload():
+    request = _build_stateful_request()
+
+    class Service:
+        async def get_benchmark_assignment(self, **kwargs):  # noqa: ARG002
+            return 200, {"benchmark_id": None}
+
+    with pytest.raises(HTTPException) as exc:
+        await returns_series_service._resolve_stateful_returns_series_benchmark_id(
+            request=request,
+            stateful_input_service=Service(),
+            resolved_benchmark_id=None,
+        )
+
+    assert exc.value.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_retrieve_stateful_returns_series_risk_free_uses_core_series():
+    request = _build_stateful_request(
+        reporting_currency="USD",
+        series_selection={"include_portfolio": True, "include_benchmark": False, "include_risk_free": True},
+    )
+    resolved_window = returns_series_service.resolve_window(request)
+
+    class Service:
+        async def get_risk_free_series(self, **kwargs):  # noqa: ARG002
+            return 200, {"points": [{"series_date": "2026-02-25", "value": "0.0001"}]}
+
+    points, payload = await returns_series_service._retrieve_stateful_returns_series_risk_free(
+        request=request,
+        stateful_input_service=Service(),
+        resolved_window=resolved_window,
+    )
+
+    assert points == [{"series_date": "2026-02-25", "value": "0.0001"}]
+    assert payload == {"points": points}
+
+
+@pytest.mark.asyncio
+async def test_retrieve_stateful_returns_series_risk_free_requires_reporting_currency():
+    request = _build_stateful_request(
+        series_selection={"include_portfolio": True, "include_benchmark": False, "include_risk_free": True},
+    )
+    resolved_window = returns_series_service.resolve_window(request)
+
+    with pytest.raises(HTTPException) as exc:
+        await returns_series_service._retrieve_stateful_returns_series_risk_free(
+            request=request,
+            stateful_input_service=object(),
+            resolved_window=resolved_window,
+        )
+
+    assert exc.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_retrieve_stateful_returns_series_risk_free_rejects_invalid_payload():
+    request = _build_stateful_request(
+        reporting_currency="USD",
+        series_selection={"include_portfolio": True, "include_benchmark": False, "include_risk_free": True},
+    )
+    resolved_window = returns_series_service.resolve_window(request)
+
+    class Service:
+        async def get_risk_free_series(self, **kwargs):  # noqa: ARG002
+            return 200, {"points": None}
+
+    with pytest.raises(HTTPException) as exc:
+        await returns_series_service._retrieve_stateful_returns_series_risk_free(
+            request=request,
+            stateful_input_service=Service(),
+            resolved_window=resolved_window,
+        )
+
+    assert exc.value.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_retrieve_stateful_returns_series_vendor_benchmark_uses_core_series():
+    request = _build_stateful_request(benchmark={"benchmark_id": "BMK", "return_source": "vendor_series"})
+    resolved_window = returns_series_service.resolve_window(request)
+
+    class Service:
+        async def get_benchmark_return_series(self, **kwargs):  # noqa: ARG002
+            return 200, {
+                "points": [{"series_date": "2026-02-25", "benchmark_return": "0.001"}],
+                "retrieval_metadata": {"chunk_count": 1, "page_count": 1},
+            }
+
+    source = await returns_series_service._retrieve_stateful_returns_series_vendor_benchmark(
+        request=request,
+        stateful_input_service=Service(),
+        resolved_window=resolved_window,
+        benchmark_id="BMK",
+    )
+
+    assert source.benchmark_points == [{"series_date": "2026-02-25", "benchmark_return": "0.001"}]
+    assert source.benchmark_source_details["benchmark_points"] == 1
+    assert source.benchmark_source_details["benchmark_chunk_count"] == 1
+    assert source.benchmark_work_units == 1
+
+
+@pytest.mark.asyncio
+async def test_retrieve_stateful_returns_series_vendor_benchmark_maps_source_errors():
+    request = _build_stateful_request(benchmark={"benchmark_id": "BMK", "return_source": "vendor_series"})
+    resolved_window = returns_series_service.resolve_window(request)
+
+    class MissingService:
+        async def get_benchmark_return_series(self, **kwargs):  # noqa: ARG002
+            return 404, {}
+
+    with pytest.raises(HTTPException) as exc_missing:
+        await returns_series_service._retrieve_stateful_returns_series_vendor_benchmark(
+            request=request,
+            stateful_input_service=MissingService(),
+            resolved_window=resolved_window,
+            benchmark_id="BMK",
+        )
+    assert exc_missing.value.status_code == 404
+
+    class UnavailableService:
+        async def get_benchmark_return_series(self, **kwargs):  # noqa: ARG002
+            return 503, {}
+
+    with pytest.raises(HTTPException) as exc_unavailable:
+        await returns_series_service._retrieve_stateful_returns_series_vendor_benchmark(
+            request=request,
+            stateful_input_service=UnavailableService(),
+            resolved_window=resolved_window,
+            benchmark_id="BMK",
+        )
+    assert exc_unavailable.value.status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_retrieve_stateful_returns_series_vendor_benchmark_rejects_invalid_payload():
+    request = _build_stateful_request(benchmark={"benchmark_id": "BMK", "return_source": "vendor_series"})
+    resolved_window = returns_series_service.resolve_window(request)
+
+    class Service:
+        async def get_benchmark_return_series(self, **kwargs):  # noqa: ARG002
+            return 200, {"points": None}
+
+    with pytest.raises(HTTPException) as exc:
+        await returns_series_service._retrieve_stateful_returns_series_vendor_benchmark(
+            request=request,
+            stateful_input_service=Service(),
+            resolved_window=resolved_window,
+            benchmark_id="BMK",
+        )
+
+    assert exc.value.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_resolve_stateful_returns_series_benchmark_source_skips_unselected_benchmark():
+    request = _build_stateful_request(
+        series_selection={"include_portfolio": True, "include_benchmark": False, "include_risk_free": False}
+    )
+    resolved_window = returns_series_service.resolve_window(request)
+
+    resolution = await returns_series_service._resolve_stateful_returns_series_benchmark_source(
+        request=request,
+        stateful_input_service=object(),
+        resolved_window=resolved_window,
+        resolved_benchmark_id=None,
+        resolved_benchmark_return_source=BenchmarkReturnSource.CALCULATED,
+    )
+
+    assert resolution.benchmark_id is None
+    assert resolution.benchmark_points is None
+    assert resolution.benchmark_df is None
+    assert resolution.benchmark_source_details == {}
+    assert resolution.benchmark_work_units == 0
+
+
+@pytest.mark.asyncio
+async def test_resolve_stateful_returns_series_benchmark_source_builds_calculated_frame(monkeypatch):
+    request = _build_stateful_request(benchmark={"benchmark_id": "BMK", "return_source": "calculated"})
+    resolved_window = returns_series_service.resolve_window(request)
+
+    async def _build_benchmark(**kwargs):  # noqa: ARG001
+        return StatefulBenchmarkNormalizedInput(
+            benchmark_currency="USD",
+            component_observations=[
+                BenchmarkComponentObservation(
+                    component_id="IDX1",
+                    perf_date="2026-02-23",
+                    weight_bop=1.0,
+                    component_currency="USD",
+                    component_return=0.001,
+                ),
+                BenchmarkComponentObservation(
+                    component_id="IDX1",
+                    perf_date="2026-02-24",
+                    weight_bop=1.0,
+                    component_currency="USD",
+                    component_return=0.002,
+                ),
+            ],
+            benchmark_return_points=[],
+            source_details={"benchmark_components": 1, "component_observations": 2},
+        )
+
+    monkeypatch.setattr(returns_series_service, "build_stateful_benchmark_input", _build_benchmark)
+
+    resolution = await returns_series_service._resolve_stateful_returns_series_benchmark_source(
+        request=request,
+        stateful_input_service=object(),
+        resolved_window=resolved_window,
+        resolved_benchmark_id="BMK",
+        resolved_benchmark_return_source=BenchmarkReturnSource.CALCULATED,
+    )
+
+    assert resolution.benchmark_id == "BMK"
+    assert resolution.benchmark_points is None
+    assert resolution.benchmark_df is not None
+    assert [value.date().isoformat() for value in resolution.benchmark_df["date"]] == ["2026-02-23", "2026-02-24"]
+    assert resolution.benchmark_source_details == {
+        "benchmark_components": 1,
+        "component_observations": 2,
+        "benchmark_points": 2,
+    }
+    assert resolution.benchmark_work_units == 2
 
 
 def _build_stateful_request(**overrides):

@@ -6,7 +6,11 @@ from app.core.config import get_settings
 from app.models.contribution_analytics_requests import ContributionInputMode
 from app.models.contribution_requests import ContributionRequest
 from app.models.contribution_responses import (
+    AverageWeightMethodologyStatus,
     ContributionResponse,
+    DailyContribution,
+    PositionContribution,
+    PositionContributionSeries,
     SinglePeriodContributionResult,
 )
 from app.services.analytics_observation_dates import observation_date_series
@@ -35,6 +39,7 @@ from app.services.contribution_methodology import (
     _normalize_reset_aware_average_weight_mode,
 )
 from app.services.contribution_periods import (
+    ContributionPeriodMethodologyContext,
     _build_contribution_period_methodology_context,
     _slice_contribution_period_frames,
 )
@@ -66,6 +71,108 @@ from engine.contribution import (
     _prepare_hierarchical_data,
 )
 from engine.schema import PortfolioColumns
+
+
+def _build_period_average_weight_methodology_status(
+    *,
+    period_methodology_context: ContributionPeriodMethodologyContext,
+    average_weight_sum_residual_bp: int,
+    timeseries_total_delta_periods: int,
+    average_weight_audit_state: AverageWeightShadowAuditState,
+    is_promoted: bool = False,
+) -> AverageWeightMethodologyStatus:
+    cutover_assessment = _assess_average_weight_shadow_cutover(
+        max_shadow_delta_bp=period_methodology_context.max_shadow_delta_bp,
+        average_weight_sum_residual_bp=average_weight_sum_residual_bp,
+        position_flow_residual_days=period_methodology_context.position_flow_balance_counts[
+            "position_flow_residual_days"
+        ],
+        portfolio_reset_without_position_reset_days=(
+            period_methodology_context.portfolio_reset_without_position_reset_days
+        ),
+        position_reset_without_portfolio_reset_days=(
+            period_methodology_context.position_reset_without_portfolio_reset_days
+        ),
+        timeseries_total_delta_periods=timeseries_total_delta_periods,
+    )
+    period_cutover_blockers = average_weight_audit_state.record_cutover_assessment(
+        is_cutover_candidate=cutover_assessment.is_cutover_candidate,
+        blocker_reason_codes=cutover_assessment.blocker_reason_codes,
+        is_promoted=is_promoted,
+    )
+    return _build_average_weight_methodology_status(
+        max_shadow_delta_bp=period_methodology_context.max_shadow_delta_bp,
+        is_cutover_candidate=cutover_assessment.is_cutover_candidate,
+        is_promoted=is_promoted,
+        blocker_reason_codes=period_cutover_blockers,
+    )
+
+
+def _record_period_timeseries_total_delta(
+    *,
+    daily_series: list[DailyContribution] | None,
+    period_total_contribution: float,
+    average_weight_audit_state: AverageWeightShadowAuditState,
+) -> int:
+    if daily_series is None:
+        return 0
+
+    daily_timeseries_total = sum(point.total_contribution for point in daily_series)
+    if abs(daily_timeseries_total - period_total_contribution) <= 1e-9:
+        return 0
+
+    average_weight_audit_state.record_timeseries_total_delta()
+    return 1
+
+
+def _select_period_average_weight_column(
+    *,
+    period_methodology_context: ContributionPeriodMethodologyContext,
+    reset_aware_average_weight_mode: str,
+) -> tuple[str, bool]:
+    active_average_weight_sum_residual_bp = _calculate_average_weight_sum_residual_bp_from_ratio_series(
+        period_methodology_context.average_weight_shadow_df["average_weight"]
+    )
+    active_average_weight_cutover_assessment = _assess_average_weight_shadow_cutover(
+        max_shadow_delta_bp=period_methodology_context.max_shadow_delta_bp,
+        average_weight_sum_residual_bp=active_average_weight_sum_residual_bp,
+        position_flow_residual_days=period_methodology_context.position_flow_balance_counts[
+            "position_flow_residual_days"
+        ],
+        portfolio_reset_without_position_reset_days=(
+            period_methodology_context.portfolio_reset_without_position_reset_days
+        ),
+        position_reset_without_portfolio_reset_days=(
+            period_methodology_context.position_reset_without_portfolio_reset_days
+        ),
+        timeseries_total_delta_periods=0,
+    )
+    use_reset_aware_average_weight = (
+        reset_aware_average_weight_mode == RESET_AWARE_AVERAGE_WEIGHT_MODE_CANDIDATE_PERIODS
+        and active_average_weight_cutover_assessment.is_cutover_candidate
+    )
+    selected_average_weight_column = (
+        "reset_aware_average_weight_shadow" if use_reset_aware_average_weight else "average_weight"
+    )
+    return selected_average_weight_column, use_reset_aware_average_weight
+
+
+def _build_period_contribution_series_outputs(
+    *,
+    period_slice_df,
+    position_contributions: list[PositionContribution],
+    emit_timeseries: bool,
+    emit_by_position_timeseries: bool,
+    force_position_series: bool = False,
+) -> tuple[list[PositionContributionSeries], list[DailyContribution] | None, list[PositionContributionSeries] | None]:
+    position_series = (
+        _build_residual_adjusted_position_timeseries(period_slice_df, position_contributions)
+        if emit_by_position_timeseries or emit_timeseries or force_position_series
+        else []
+    )
+    daily_series = _build_residual_adjusted_daily_contribution_series(position_series) if emit_timeseries else None
+    emitted_position_series = position_series if emit_by_position_timeseries else None
+    return position_series, daily_series, emitted_position_series
 
 
 def calculate_contribution(
@@ -157,17 +264,13 @@ def calculate_contribution(
                     period_end_date=period.end_date,
                     average_weight_column="average_weight",
                 )
-                position_series = (
-                    _build_residual_adjusted_position_timeseries(period_slice_df, position_contributions)
-                    if request.emit.by_position_timeseries or request.emit.timeseries or request.hierarchy
-                    else []
+                position_series, daily_series, emitted_position_series = _build_period_contribution_series_outputs(
+                    period_slice_df=period_slice_df,
+                    position_contributions=position_contributions,
+                    emit_timeseries=request.emit.timeseries,
+                    emit_by_position_timeseries=request.emit.by_position_timeseries,
+                    force_position_series=True,
                 )
-                daily_series = (
-                    _build_residual_adjusted_daily_contribution_series(position_series)
-                    if request.emit.timeseries
-                    else None
-                )
-                emitted_position_series = position_series if request.emit.by_position_timeseries else None
                 period_results = _build_hierarchy_from_adjusted_position_series(
                     period_slice_df=period_slice_df,
                     position_series=position_series,
@@ -192,35 +295,16 @@ def calculate_contribution(
                     residual_allocation_applied=position_totals_result.residual_allocation_applied,
                     residual_allocation_basis="average_weight",
                 )
-                period_timeseries_total_delta_periods = 0
-                if daily_series is not None:
-                    daily_timeseries_total = sum(point.total_contribution for point in daily_series)
-                    if abs(daily_timeseries_total - period_total_contribution) > 1e-9:
-                        period_timeseries_total_delta_periods = 1
-                        average_weight_audit_state.record_timeseries_total_delta()
-                cutover_assessment = _assess_average_weight_shadow_cutover(
-                    max_shadow_delta_bp=period_methodology_context.max_shadow_delta_bp,
+                period_timeseries_total_delta_periods = _record_period_timeseries_total_delta(
+                    daily_series=daily_series,
+                    period_total_contribution=period_total_contribution,
+                    average_weight_audit_state=average_weight_audit_state,
+                )
+                period_methodology_status = _build_period_average_weight_methodology_status(
+                    period_methodology_context=period_methodology_context,
                     average_weight_sum_residual_bp=period_average_weight_sum_residual_bp,
-                    position_flow_residual_days=period_methodology_context.position_flow_balance_counts[
-                        "position_flow_residual_days"
-                    ],
-                    portfolio_reset_without_position_reset_days=(
-                        period_methodology_context.portfolio_reset_without_position_reset_days
-                    ),
-                    position_reset_without_portfolio_reset_days=(
-                        period_methodology_context.position_reset_without_portfolio_reset_days
-                    ),
                     timeseries_total_delta_periods=period_timeseries_total_delta_periods,
-                )
-                hierarchy_period_cutover_blockers = average_weight_audit_state.record_cutover_assessment(
-                    is_cutover_candidate=cutover_assessment.is_cutover_candidate,
-                    blocker_reason_codes=cutover_assessment.blocker_reason_codes,
-                )
-                period_methodology_status = _build_average_weight_methodology_status(
-                    max_shadow_delta_bp=period_methodology_context.max_shadow_delta_bp,
-                    is_cutover_candidate=cutover_assessment.is_cutover_candidate,
-                    is_promoted=False,
-                    blocker_reason_codes=hierarchy_period_cutover_blockers,
+                    average_weight_audit_state=average_weight_audit_state,
                 )
                 results_by_period[period.name] = SinglePeriodContributionResult(
                     total_portfolio_return=total_portfolio_return * 100,
@@ -259,29 +343,9 @@ def calculate_contribution(
                     sum_shadow_delta_bp=period_methodology_context.sum_shadow_delta_bp,
                 )
 
-                active_average_weight_sum_residual_bp = _calculate_average_weight_sum_residual_bp_from_ratio_series(
-                    period_methodology_context.average_weight_shadow_df["average_weight"]
-                )
-                active_average_weight_cutover_assessment = _assess_average_weight_shadow_cutover(
-                    max_shadow_delta_bp=period_methodology_context.max_shadow_delta_bp,
-                    average_weight_sum_residual_bp=active_average_weight_sum_residual_bp,
-                    position_flow_residual_days=period_methodology_context.position_flow_balance_counts[
-                        "position_flow_residual_days"
-                    ],
-                    portfolio_reset_without_position_reset_days=(
-                        period_methodology_context.portfolio_reset_without_position_reset_days
-                    ),
-                    position_reset_without_portfolio_reset_days=(
-                        period_methodology_context.position_reset_without_portfolio_reset_days
-                    ),
-                    timeseries_total_delta_periods=0,
-                )
-                use_reset_aware_average_weight = (
-                    reset_aware_average_weight_mode == RESET_AWARE_AVERAGE_WEIGHT_MODE_CANDIDATE_PERIODS
-                    and active_average_weight_cutover_assessment.is_cutover_candidate
-                )
-                selected_average_weight_column = (
-                    "reset_aware_average_weight_shadow" if use_reset_aware_average_weight else "average_weight"
+                selected_average_weight_column, use_reset_aware_average_weight = _select_period_average_weight_column(
+                    period_methodology_context=period_methodology_context,
+                    reset_aware_average_weight_mode=reset_aware_average_weight_mode,
                 )
 
                 total_portfolio_return = _calculate_reset_aware_period_portfolio_return(
@@ -312,21 +376,15 @@ def calculate_contribution(
                     _calculate_average_weight_sum_residual_bp(position_contributions),
                 )
 
-                position_series = (
-                    _build_residual_adjusted_position_timeseries(period_slice_df, position_contributions)
-                    if request.emit.by_position_timeseries or request.emit.timeseries
-                    else []
+                position_series, daily_series, emitted_position_series = _build_period_contribution_series_outputs(
+                    period_slice_df=period_slice_df,
+                    position_contributions=position_contributions,
+                    emit_timeseries=request.emit.timeseries,
+                    emit_by_position_timeseries=request.emit.by_position_timeseries,
                 )
-                daily_series = (
-                    _build_residual_adjusted_daily_contribution_series(position_series)
-                    if request.emit.timeseries
-                    else None
-                )
-                emitted_position_series = position_series if request.emit.by_position_timeseries else None
                 period_average_weight_sum_residual_bp = _calculate_average_weight_sum_residual_bp(
                     position_contributions
                 )
-                period_timeseries_total_delta_periods = 0
                 period_total_contribution = sum(pc.total_contribution for pc in position_contributions)
                 smoothing_evidence = _build_contribution_smoothing_evidence(
                     period_slice_df=period_slice_df,
@@ -337,35 +395,17 @@ def calculate_contribution(
                     residual_allocation_applied=position_totals_result.residual_allocation_applied,
                     residual_allocation_basis=selected_average_weight_column,
                 )
-                if daily_series is not None:
-                    daily_timeseries_total = sum(point.total_contribution for point in daily_series)
-                    if abs(daily_timeseries_total - period_total_contribution) > 1e-9:
-                        period_timeseries_total_delta_periods = 1
-                        average_weight_audit_state.record_timeseries_total_delta()
-                cutover_assessment = _assess_average_weight_shadow_cutover(
-                    max_shadow_delta_bp=period_methodology_context.max_shadow_delta_bp,
+                period_timeseries_total_delta_periods = _record_period_timeseries_total_delta(
+                    daily_series=daily_series,
+                    period_total_contribution=period_total_contribution,
+                    average_weight_audit_state=average_weight_audit_state,
+                )
+                period_methodology_status = _build_period_average_weight_methodology_status(
+                    period_methodology_context=period_methodology_context,
                     average_weight_sum_residual_bp=period_average_weight_sum_residual_bp,
-                    position_flow_residual_days=period_methodology_context.position_flow_balance_counts[
-                        "position_flow_residual_days"
-                    ],
-                    portfolio_reset_without_position_reset_days=(
-                        period_methodology_context.portfolio_reset_without_position_reset_days
-                    ),
-                    position_reset_without_portfolio_reset_days=(
-                        period_methodology_context.position_reset_without_portfolio_reset_days
-                    ),
                     timeseries_total_delta_periods=period_timeseries_total_delta_periods,
-                )
-                period_cutover_blockers = average_weight_audit_state.record_cutover_assessment(
-                    is_cutover_candidate=cutover_assessment.is_cutover_candidate,
-                    blocker_reason_codes=cutover_assessment.blocker_reason_codes,
+                    average_weight_audit_state=average_weight_audit_state,
                     is_promoted=use_reset_aware_average_weight,
-                )
-                period_methodology_status = _build_average_weight_methodology_status(
-                    max_shadow_delta_bp=period_methodology_context.max_shadow_delta_bp,
-                    is_cutover_candidate=cutover_assessment.is_cutover_candidate,
-                    is_promoted=use_reset_aware_average_weight,
-                    blocker_reason_codes=period_cutover_blockers,
                 )
                 results_by_period[period.name] = SinglePeriodContributionResult(
                     total_portfolio_return=total_portfolio_return * 100,

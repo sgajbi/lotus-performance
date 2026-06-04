@@ -38,15 +38,7 @@ def calculate_benchmark_returns(
     if not component_observations:
         raise ValueError("component_observations must not be empty")
 
-    has_any_local = any(observation.component_return_local is not None for observation in component_observations)
-    has_any_fx = any(observation.component_return_fx is not None for observation in component_observations)
-    if has_any_local != has_any_fx:
-        raise ValueError("component_return_local and component_return_fx must be supplied together")
-    if has_any_local and not all(
-        observation.component_return_local is not None and observation.component_return_fx is not None
-        for observation in component_observations
-    ):
-        raise ValueError("component_return_local and component_return_fx must be populated for every observation")
+    has_any_local = _uses_local_fx_component_returns(component_observations)
 
     records = [
         {
@@ -121,6 +113,21 @@ def calculate_benchmark_returns(
         max_weight_sum_deviation=float(max_weight_sum_deviation_decimal),
         notes=notes,
     )
+
+
+def _uses_local_fx_component_returns(
+    component_observations: Sequence[BenchmarkComponentObservationLike],
+) -> bool:
+    has_any_local = any(observation.component_return_local is not None for observation in component_observations)
+    has_any_fx = any(observation.component_return_fx is not None for observation in component_observations)
+    if has_any_local != has_any_fx:
+        raise ValueError("component_return_local and component_return_fx must be supplied together")
+    if has_any_local and not all(
+        observation.component_return_local is not None and observation.component_return_fx is not None
+        for observation in component_observations
+    ):
+        raise ValueError("component_return_local and component_return_fx must be populated for every observation")
+    return has_any_local
 
 
 def benchmark_return_points_to_dataframe(

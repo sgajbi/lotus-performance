@@ -1,4 +1,5 @@
 # engine/mwr.py
+from dataclasses import dataclass
 from datetime import date
 from math import exp, isfinite, log
 from typing import Literal, Sequence
@@ -183,66 +184,48 @@ def _dietz_denominator(*, begin_mv, cash_flows, start_date, end_date, method):
     return begin_mv + weighted_cash_flows
 
 
-def calculate_money_weighted_return(
+@dataclass(frozen=True)
+class _MWRXirrAttempt:
+    result: MWRResult | None
+    notes: list[str]
+    reason_code: str | None = None
+
+
+def _calculate_xirr_mwr_attempt(
+    *,
     begin_mv: float,
     end_mv: float,
     cash_flows: Sequence[CashFlowLike],
-    calculation_method: Literal["XIRR", "MODIFIED_DIETZ", "DIETZ"],
     annualization: Annualization,
-    as_of: date,
-    start_date: date | None = None,
+    start_date: date,
+    end_date: date,
+    period_days: int,
     solver=None,
-) -> MWRResult:
-    """
-    Orchestrates the MWR calculation using the specified method and fallback logic.
-    Returns a simple MWRResult data object.
-    """
-    notes = []
-    all_dates = [cf.date for cf in cash_flows]
-    if start_date is None:
-        if not all_dates:
-            start_date = as_of
-        else:
-            start_date = min(all_dates)
-    end_date = as_of
-    period_days = (end_date - start_date).days if end_date > start_date else 0
+) -> _MWRXirrAttempt:
+    xirr_start_date = start_date
+    dates = [xirr_start_date] + [cf.date for cf in cash_flows] + [end_date]
+    values = [-begin_mv] + [-cf.amount for cf in cash_flows] + [end_mv]
 
-    if begin_mv == 0 and end_mv == 0 and not cash_flows:
-        notes.append("No economic content in MWR inputs.")
-        return MWRResult(
-            mwr=0.0,
-            method="DIETZ",
-            start_date=start_date,
-            end_date=end_date,
-            notes=notes,
-            status="NOT_APPLICABLE",
-            reason_codes=["NO_ECONOMIC_CONTENT"],
-        )
-
-    if calculation_method == "XIRR":
-        xirr_start_date = start_date
-        dates = [xirr_start_date] + [cf.date for cf in cash_flows] + [end_date]
-        values = [-begin_mv] + [-cf.amount for cf in cash_flows] + [end_mv]
-
-        xirr_result = _xirr(
-            np.array(values),
-            np.array(dates),
-            annualization=annualization,
-            rate_lower_bound=getattr(solver, "rate_lower_bound", -0.999999999),
-            rate_upper_bound=getattr(solver, "rate_upper_bound", 1000.0),
-            root_scan_steps=getattr(solver, "root_scan_steps", 512),
-            tolerance=getattr(solver, "tolerance", 1e-10),
-            max_iter=getattr(solver, "max_iter", 200),
-        )
-        convergence = MWRConvergence(**xirr_result.get("convergence", {}))
-        if xirr_result["converged"]:
-            rate = xirr_result["rate"]
-            notes.append(xirr_result["notes"])
-            holding_period_return = None
-            if period_days > 0:
-                day_count = _day_count_denominator(annualization)
-                holding_period_return = (((1 + rate) ** (period_days / day_count)) - 1) * 100
-            return MWRResult(
+    xirr_result = _xirr(
+        np.array(values),
+        np.array(dates),
+        annualization=annualization,
+        rate_lower_bound=getattr(solver, "rate_lower_bound", -0.999999999),
+        rate_upper_bound=getattr(solver, "rate_upper_bound", 1000.0),
+        root_scan_steps=getattr(solver, "root_scan_steps", 512),
+        tolerance=getattr(solver, "tolerance", 1e-10),
+        max_iter=getattr(solver, "max_iter", 200),
+    )
+    convergence = MWRConvergence(**xirr_result.get("convergence", {}))
+    notes = [xirr_result["notes"]]
+    if xirr_result["converged"]:
+        rate = xirr_result["rate"]
+        holding_period_return = None
+        if period_days > 0:
+            day_count = _day_count_denominator(annualization)
+            holding_period_return = (((1 + rate) ** (period_days / day_count)) - 1) * 100
+        return _MWRXirrAttempt(
+            result=MWRResult(
                 mwr=rate * 100,
                 mwr_annualized=rate * 100,
                 method="XIRR",
@@ -253,11 +236,14 @@ def calculate_money_weighted_return(
                 holding_period_return=holding_period_return,
                 is_annualized_primary=True,
                 is_approximation=False,
-            )
-        notes.append(xirr_result["notes"])
-        reason_code = xirr_result.get("reason_code", "SOLVER_DID_NOT_CONVERGE")
-        if reason_code == "NO_ECONOMIC_CONTENT":
-            return MWRResult(
+            ),
+            notes=notes,
+        )
+
+    reason_code = xirr_result.get("reason_code", "SOLVER_DID_NOT_CONVERGE")
+    if reason_code == "NO_ECONOMIC_CONTENT":
+        return _MWRXirrAttempt(
+            result=MWRResult(
                 mwr=0.0,
                 method="DIETZ",
                 start_date=start_date,
@@ -266,9 +252,28 @@ def calculate_money_weighted_return(
                 convergence=convergence,
                 status="NOT_APPLICABLE",
                 reason_codes=[reason_code],
-            )
-        notes.append("XIRR failed, falling back to Modified Dietz.")
+            ),
+            notes=notes,
+            reason_code=reason_code,
+        )
 
+    notes.append("XIRR failed, falling back to Modified Dietz.")
+    return _MWRXirrAttempt(result=None, notes=notes, reason_code=reason_code)
+
+
+def _calculate_dietz_mwr_result(
+    *,
+    begin_mv: float,
+    end_mv: float,
+    cash_flows: Sequence[CashFlowLike],
+    calculation_method: Literal["XIRR", "MODIFIED_DIETZ", "DIETZ"],
+    annualization: Annualization,
+    start_date: date,
+    end_date: date,
+    period_days: int,
+    notes: list[str],
+    xirr_fallback_reason_code: str | None = None,
+) -> MWRResult:
     net_cash_flow = sum(cf.amount for cf in cash_flows)
     dietz_method: Literal["MODIFIED_DIETZ", "DIETZ"] = (
         "MODIFIED_DIETZ" if calculation_method in {"XIRR", "MODIFIED_DIETZ"} else "DIETZ"
@@ -296,13 +301,13 @@ def calculate_money_weighted_return(
     periodic_rate = numerator / denominator
 
     mwr_annualized = None
-    if annualization.enabled:
-        if period_days > 0:
-            ppy = 365.25 if annualization.basis == "ACT/ACT" else 365.0
-            scale = ppy / period_days
-            mwr_annualized = ((1 + periodic_rate) ** scale - 1) * 100
+    if annualization.enabled and period_days > 0:
+        ppy = 365.25 if annualization.basis == "ACT/ACT" else 365.0
+        scale = ppy / period_days
+        mwr_annualized = ((1 + periodic_rate) ** scale - 1) * 100
 
     fallback_used = calculation_method == "XIRR"
+    fallback_reason_code = xirr_fallback_reason_code or "SOLVER_DID_NOT_CONVERGE"
     return MWRResult(
         mwr=periodic_rate * 100,
         mwr_annualized=mwr_annualized,
@@ -311,11 +316,78 @@ def calculate_money_weighted_return(
         end_date=end_date,
         notes=notes,
         status="FALLBACK_USED" if fallback_used else "CALCULATED",
-        reason_codes=([reason_code, "DIETZ_FALLBACK_USED"] if fallback_used else []),
+        reason_codes=([fallback_reason_code, "DIETZ_FALLBACK_USED"] if fallback_used else []),
         warnings=(["FALLBACK_METHOD_USED"] if fallback_used else []),
         holding_period_return=periodic_rate * 100,
         is_annualized_primary=False,
         fallback_from="XIRR" if fallback_used else None,
-        fallback_reason=reason_code if fallback_used else None,
+        fallback_reason=fallback_reason_code if fallback_used else None,
         is_approximation=True,
+    )
+
+
+def calculate_money_weighted_return(
+    begin_mv: float,
+    end_mv: float,
+    cash_flows: Sequence[CashFlowLike],
+    calculation_method: Literal["XIRR", "MODIFIED_DIETZ", "DIETZ"],
+    annualization: Annualization,
+    as_of: date,
+    start_date: date | None = None,
+    solver=None,
+) -> MWRResult:
+    """
+    Orchestrates the MWR calculation using the specified method and fallback logic.
+    Returns a simple MWRResult data object.
+    """
+    notes = []
+    all_dates = [cf.date for cf in cash_flows]
+    if start_date is None:
+        if not all_dates:
+            start_date = as_of
+        else:
+            start_date = min(all_dates)
+    end_date = as_of
+    period_days = (end_date - start_date).days if end_date > start_date else 0
+    reason_code: str | None = None
+
+    if begin_mv == 0 and end_mv == 0 and not cash_flows:
+        notes.append("No economic content in MWR inputs.")
+        return MWRResult(
+            mwr=0.0,
+            method="DIETZ",
+            start_date=start_date,
+            end_date=end_date,
+            notes=notes,
+            status="NOT_APPLICABLE",
+            reason_codes=["NO_ECONOMIC_CONTENT"],
+        )
+
+    if calculation_method == "XIRR":
+        xirr_attempt = _calculate_xirr_mwr_attempt(
+            begin_mv=begin_mv,
+            end_mv=end_mv,
+            cash_flows=cash_flows,
+            annualization=annualization,
+            start_date=start_date,
+            end_date=end_date,
+            period_days=period_days,
+            solver=solver,
+        )
+        if xirr_attempt.result is not None:
+            return xirr_attempt.result
+        notes.extend(xirr_attempt.notes)
+        reason_code = xirr_attempt.reason_code
+
+    return _calculate_dietz_mwr_result(
+        begin_mv=begin_mv,
+        end_mv=end_mv,
+        cash_flows=cash_flows,
+        calculation_method=calculation_method,
+        annualization=annualization,
+        start_date=start_date,
+        end_date=end_date,
+        period_days=period_days,
+        notes=notes,
+        xirr_fallback_reason_code=reason_code,
     )

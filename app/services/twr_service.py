@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import date
 from decimal import Decimal
 
 import pandas as pd
@@ -29,7 +31,7 @@ from app.services.analytics_observation_dates import (
     observation_timestamp_series,
 )
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR
-from app.services.benchmark_calculation_service import calculate_benchmark_artifacts
+from app.services.benchmark_calculation_service import BenchmarkCalculationArtifacts, calculate_benchmark_artifacts
 from app.services.calculation_supportability_service import (
     build_calculation_supportability,
     record_supportability_metric,
@@ -39,9 +41,10 @@ from app.services.execution_registry import execution_registry
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
 from common.enums import Frequency
 from core.envelope import Audit, Diagnostics, Meta
-from core.periods import resolve_periods
+from core.periods import ResolvedPeriod, resolve_periods
 from engine.breakdown import generate_performance_breakdowns
 from engine.compute import run_calculations
+from engine.diagnostics import EngineDiagnostics
 from engine.schema import PortfolioColumns
 
 
@@ -161,13 +164,33 @@ def _link_return_series(series: pd.Series) -> float:
 from app.services.twr_benchmark_supportability import build_twr_benchmark_supportability_evidence  # noqa: E402
 
 
-def _build_daily_calculation_evidence(
+@dataclass(frozen=True)
+class _DailyCalculationEvidenceInputs:
+    begin_mv: float
+    end_mv: float
+    bod_cf: float
+    eod_cf: float
+    management_fees: float
+    signed_adjusted_capital: float
+    adjusted_capital: float
+    performance_pnl: float  # monetary-float-allow
+    daily_return: float  # monetary-float-allow
+
+
+@dataclass(frozen=True)
+class _DailyCalculationEvidenceClassification:
+    status: str
+    linkability_status: str
+    episode_status: str
+    reason_codes: list[str]
+    warnings: list[str]
+
+
+def _daily_calculation_evidence_inputs(
     row: pd.Series,
     *,
     metric_basis: str,
-) -> object:
-    from app.models.responses import TWRDailyCalculationEvidence
-
+) -> _DailyCalculationEvidenceInputs:
     begin_mv = _as_numeric(row.get(PortfolioColumns.BEGIN_MV.value, 0))
     bod_cf = _as_numeric(row.get(PortfolioColumns.BOD_CF.value, 0))
     eod_cf = _as_numeric(row.get(PortfolioColumns.EOD_CF.value, 0))
@@ -178,36 +201,91 @@ def _build_daily_calculation_evidence(
     performance_pnl = end_mv - bod_cf - begin_mv - eod_cf
     if metric_basis == "NET":
         performance_pnl += management_fees
+    return _DailyCalculationEvidenceInputs(
+        begin_mv=begin_mv,
+        end_mv=end_mv,
+        bod_cf=bod_cf,
+        eod_cf=eod_cf,
+        management_fees=management_fees,
+        signed_adjusted_capital=signed_adjusted_capital,
+        adjusted_capital=adjusted_capital,
+        performance_pnl=performance_pnl,
+        daily_return=_as_numeric(row.get(PortfolioColumns.DAILY_ROR.value, 0)),
+    )
 
-    status = "calculated" if adjusted_capital != 0 else "not_calculated"
+
+def _classify_daily_calculation_evidence(
+    row: pd.Series,
+    *,
+    inputs: _DailyCalculationEvidenceInputs,
+) -> _DailyCalculationEvidenceClassification:
+    classification = _initial_daily_calculation_classification(inputs)
+    classification = _with_effective_period_classification(row, classification=classification)
+    classification = _with_reset_no_investment_classification(row, classification=classification)
+    classification = _with_cashflow_reason_codes(inputs, classification=classification)
+    return _with_daily_return_linkability(inputs, classification=classification)
+
+
+def _initial_daily_calculation_classification(
+    inputs: _DailyCalculationEvidenceInputs,
+) -> _DailyCalculationEvidenceClassification:
+    status = "calculated" if inputs.adjusted_capital != 0 else "not_calculated"
     linkability_status = "linkable"
-    episode_status = "open"
     reason_codes = ["FLOW_NEUTRALIZED_DAILY_RETURN"]
     warnings: list[str] = []
 
-    if adjusted_capital == 0:
+    if inputs.adjusted_capital == 0:
         reason_codes.append("ZERO_ADJUSTED_CAPITAL")
         warnings.append("ZERO_ADJUSTED_CAPITAL")
         linkability_status = "not_calculated"
-    elif signed_adjusted_capital < 0:
+    elif inputs.signed_adjusted_capital < 0:
         reason_codes.append("NEGATIVE_ADJUSTED_CAPITAL_INPUT")
         warnings.append("NEGATIVE_ADJUSTED_CAPITAL_INPUT")
-    elif adjusted_capital < 1e-8:
+    elif inputs.adjusted_capital < 1e-8:
         reason_codes.append("NEAR_ZERO_ADJUSTED_CAPITAL")
         warnings.append("NEAR_ZERO_ADJUSTED_CAPITAL")
 
+    return _DailyCalculationEvidenceClassification(
+        status=status,
+        linkability_status=linkability_status,
+        episode_status="open",
+        reason_codes=reason_codes,
+        warnings=warnings,
+    )
+
+
+def _with_effective_period_classification(
+    row: pd.Series,
+    *,
+    classification: _DailyCalculationEvidenceClassification,
+) -> _DailyCalculationEvidenceClassification:
     perf_date_raw = row.get(PortfolioColumns.PERF_DATE.value)
     effective_start_raw = row.get(PortfolioColumns.EFFECTIVE_PERIOD_START_DATE.value)
-    if perf_date_raw is not None and effective_start_raw is not None and pd.notna(effective_start_raw):
-        perf_date = normalize_observation_date(perf_date_raw)
-        effective_start = normalize_observation_date(effective_start_raw)
-        if perf_date < effective_start:
-            status = "not_calculated"
-            linkability_status = "not_calculated"
-            episode_status = "not_in_period"
-            reason_codes.append("BEFORE_EFFECTIVE_PERIOD_START")
-            warnings.append("BEFORE_EFFECTIVE_PERIOD_START")
+    if perf_date_raw is None or effective_start_raw is None or pd.isna(effective_start_raw):
+        return classification
 
+    perf_date = normalize_observation_date(perf_date_raw)
+    effective_start = normalize_observation_date(effective_start_raw)
+    if perf_date >= effective_start:
+        return classification
+
+    return _DailyCalculationEvidenceClassification(
+        status="not_calculated",
+        linkability_status="not_calculated",
+        episode_status="not_in_period",
+        reason_codes=[*classification.reason_codes, "BEFORE_EFFECTIVE_PERIOD_START"],
+        warnings=[*classification.warnings, "BEFORE_EFFECTIVE_PERIOD_START"],
+    )
+
+
+def _with_reset_no_investment_classification(
+    row: pd.Series,
+    *,
+    classification: _DailyCalculationEvidenceClassification,
+) -> _DailyCalculationEvidenceClassification:
+    linkability_status = classification.linkability_status
+    episode_status = classification.episode_status
+    reason_codes = list(classification.reason_codes)
     if _as_numeric(row.get(PortfolioColumns.PERF_RESET.value, 0)) == 1:
         reason_codes.append("RESET_DAY")
         episode_status = "reset_boundary"
@@ -220,40 +298,90 @@ def _build_daily_calculation_evidence(
         if linkability_status == "linkable":
             linkability_status = "not_calculated"
 
-    if end_mv == 0 and eod_cf < 0:
+    return _DailyCalculationEvidenceClassification(
+        status=classification.status,
+        linkability_status=linkability_status,
+        episode_status=episode_status,
+        reason_codes=reason_codes,
+        warnings=classification.warnings,
+    )
+
+
+def _with_cashflow_reason_codes(
+    inputs: _DailyCalculationEvidenceInputs,
+    *,
+    classification: _DailyCalculationEvidenceClassification,
+) -> _DailyCalculationEvidenceClassification:
+    reason_codes = list(classification.reason_codes)
+    if inputs.end_mv == 0 and inputs.eod_cf < 0:
         reason_codes.append("FULL_WITHDRAWAL_DAY")
-    if begin_mv <= 0 and bod_cf > 0:
+    if inputs.begin_mv <= 0 and inputs.bod_cf > 0:
         reason_codes.append("REFUNDING_DAY")
 
-    daily_return = _as_numeric(row.get(PortfolioColumns.DAILY_ROR.value, 0))
-    if daily_return == -100:
+    return _DailyCalculationEvidenceClassification(
+        status=classification.status,
+        linkability_status=classification.linkability_status,
+        episode_status=classification.episode_status,
+        reason_codes=reason_codes,
+        warnings=classification.warnings,
+    )
+
+
+def _with_daily_return_linkability(
+    inputs: _DailyCalculationEvidenceInputs,
+    *,
+    classification: _DailyCalculationEvidenceClassification,
+) -> _DailyCalculationEvidenceClassification:
+    linkability_status = classification.linkability_status
+    reason_codes = list(classification.reason_codes)
+    warnings = list(classification.warnings)
+    if inputs.daily_return == -100:
         reason_codes.append("FULL_LOSS_RETURN")
         warnings.append("FULL_LOSS_RETURN")
         if linkability_status == "linkable":
             linkability_status = "not_linkable"
-    elif daily_return < -100:
+    elif inputs.daily_return < -100:
         reason_codes.append("BELOW_FULL_LOSS_RETURN")
         warnings.append("BELOW_FULL_LOSS_RETURN")
         if linkability_status == "linkable":
             linkability_status = "not_linkable"
 
-    return TWRDailyCalculationEvidence(
-        begin_mv=begin_mv,
-        end_mv=end_mv,
-        bod_cf=bod_cf,
-        eod_cf=eod_cf,
-        external_inflows=sum(value for value in (bod_cf, eod_cf) if value > 0),
-        external_outflows=abs(sum(value for value in (bod_cf, eod_cf) if value < 0)),
-        management_fees=management_fees,
-        signed_adjusted_capital=signed_adjusted_capital,
-        adjusted_capital=adjusted_capital,
-        performance_pnl=performance_pnl,
-        daily_return=daily_return,
-        status=status,
+    return _DailyCalculationEvidenceClassification(
+        status=classification.status,
         linkability_status=linkability_status,
-        episode_status=episode_status,
+        episode_status=classification.episode_status,
         reason_codes=reason_codes,
         warnings=warnings,
+    )
+
+
+def _build_daily_calculation_evidence(
+    row: pd.Series,
+    *,
+    metric_basis: str,
+) -> object:
+    from app.models.responses import TWRDailyCalculationEvidence
+
+    inputs = _daily_calculation_evidence_inputs(row, metric_basis=metric_basis)
+    classification = _classify_daily_calculation_evidence(row, inputs=inputs)
+
+    return TWRDailyCalculationEvidence(
+        begin_mv=inputs.begin_mv,
+        end_mv=inputs.end_mv,
+        bod_cf=inputs.bod_cf,
+        eod_cf=inputs.eod_cf,
+        external_inflows=sum(value for value in (inputs.bod_cf, inputs.eod_cf) if value > 0),
+        external_outflows=abs(sum(value for value in (inputs.bod_cf, inputs.eod_cf) if value < 0)),
+        management_fees=inputs.management_fees,
+        signed_adjusted_capital=inputs.signed_adjusted_capital,
+        adjusted_capital=inputs.adjusted_capital,
+        performance_pnl=inputs.performance_pnl,
+        daily_return=inputs.daily_return,
+        status=classification.status,
+        linkability_status=classification.linkability_status,
+        episode_status=classification.episode_status,
+        reason_codes=classification.reason_codes,
+        warnings=classification.warnings,
     )
 
 
@@ -493,56 +621,20 @@ def _resolve_twr_supportability(
     )
 
 
-def calculate_twr_response(
-    performance_request: PerformanceRequest,
+def _build_twr_results_by_period(
     *,
-    portfolio_id: str,
-    input_mode: TWRInputMode,
-    input_fingerprint: str,
-    calculation_hash: str,
-    engine_version: str,
-    request_artifact_model,
-    benchmark_request: BenchmarkPerformanceRequest | None = None,
-    benchmark_input_mode: BenchmarkInputMode | None = None,
-    resolved_benchmark_id: str | None = None,
-    benchmark_return_source: BenchmarkReturnSource | str = BenchmarkReturnSource.CALCULATED,
-) -> PerformanceResponse:
-    normalized_benchmark_return_source = (
-        benchmark_return_source
-        if isinstance(benchmark_return_source, BenchmarkReturnSource)
-        else BenchmarkReturnSource(str(benchmark_return_source))
-    )
-    execution_registry.start_stage(performance_request.calculation_id, EXECUTION_STAGE_EXECUTION)
-
-    daily_results_df: pd.DataFrame | None = None
-    benchmark_artifacts = None
-    try:
-        periods_to_resolve = [analysis.period for analysis in performance_request.analyses]
-        freqs_by_period = {analysis.period.value: analysis.frequencies for analysis in performance_request.analyses}
-
-        as_of_date = performance_request.report_end_date
-        resolved_periods = resolve_periods(
-            periods_to_resolve,
-            as_of_date,
-            performance_request.performance_start_date,
-            explicit_start_date=performance_request.report_start_date,
-        )
-        if not resolved_periods:
-            raise HTTPException(status_code=400, detail="No valid periods could be resolved.")
-
-        master_start_date = min(p.start_date for p in resolved_periods)
-        master_end_date = max(p.end_date for p in resolved_periods)
-
-        engine_config = create_engine_config(performance_request, master_start_date, master_end_date)
-        engine_df = create_engine_dataframe([item.model_dump() for item in performance_request.valuation_points])
-        daily_results_df, engine_diagnostics = run_calculations(engine_df, engine_config)
-        benchmark_artifacts = (
-            calculate_benchmark_artifacts(benchmark_request) if benchmark_request is not None else None
-        )
-    except Exception as exc:
-        execution_registry.fail_stage(performance_request.calculation_id, EXECUTION_STAGE_EXECUTION, str(exc))
-        raise
-
+    performance_request: PerformanceRequest,
+    resolved_periods: list[ResolvedPeriod],
+    freqs_by_period: dict[str, list[Frequency]],
+    daily_results_df: pd.DataFrame,
+    engine_diagnostics: EngineDiagnostics,
+    benchmark_artifacts: BenchmarkCalculationArtifacts | None,
+    benchmark_request: BenchmarkPerformanceRequest | None,
+    benchmark_input_mode: BenchmarkInputMode | None,
+    resolved_benchmark_id: str | None,
+    benchmark_return_source: BenchmarkReturnSource,
+    master_start_date: date,
+) -> dict[str, SinglePeriodPerformanceResult]:
     results_by_period: dict[str, SinglePeriodPerformanceResult] = {}
     daily_results_df[PortfolioColumns.PERF_DATE.value] = observation_date_series(
         daily_results_df[PortfolioColumns.PERF_DATE.value]
@@ -611,7 +703,7 @@ def calculate_twr_response(
                     benchmark_id=resolved_benchmark_id or benchmark_request.benchmark_id,
                     benchmark_currency=benchmark_request.benchmark_currency,
                     input_mode=(benchmark_input_mode or BenchmarkInputMode.STATELESS).value,
-                    return_source=normalized_benchmark_return_source.value,
+                    return_source=benchmark_return_source.value,
                 )
                 period_result.relative_performance = ComparativeAnalyticsBlock(
                     summary=ComparativeSummary(
@@ -639,6 +731,73 @@ def calculate_twr_response(
             ]
 
         results_by_period[period.name] = period_result
+
+    return results_by_period
+
+
+def calculate_twr_response(
+    performance_request: PerformanceRequest,
+    *,
+    portfolio_id: str,
+    input_mode: TWRInputMode,
+    input_fingerprint: str,
+    calculation_hash: str,
+    engine_version: str,
+    request_artifact_model,
+    benchmark_request: BenchmarkPerformanceRequest | None = None,
+    benchmark_input_mode: BenchmarkInputMode | None = None,
+    resolved_benchmark_id: str | None = None,
+    benchmark_return_source: BenchmarkReturnSource | str = BenchmarkReturnSource.CALCULATED,
+) -> PerformanceResponse:
+    normalized_benchmark_return_source = (
+        benchmark_return_source
+        if isinstance(benchmark_return_source, BenchmarkReturnSource)
+        else BenchmarkReturnSource(str(benchmark_return_source))
+    )
+    execution_registry.start_stage(performance_request.calculation_id, EXECUTION_STAGE_EXECUTION)
+
+    daily_results_df: pd.DataFrame | None = None
+    benchmark_artifacts = None
+    try:
+        periods_to_resolve = [analysis.period for analysis in performance_request.analyses]
+        freqs_by_period = {analysis.period.value: analysis.frequencies for analysis in performance_request.analyses}
+
+        as_of_date = performance_request.report_end_date
+        resolved_periods = resolve_periods(
+            periods_to_resolve,
+            as_of_date,
+            performance_request.performance_start_date,
+            explicit_start_date=performance_request.report_start_date,
+        )
+        if not resolved_periods:
+            raise HTTPException(status_code=400, detail="No valid periods could be resolved.")
+
+        master_start_date = min(p.start_date for p in resolved_periods)
+        master_end_date = max(p.end_date for p in resolved_periods)
+
+        engine_config = create_engine_config(performance_request, master_start_date, master_end_date)
+        engine_df = create_engine_dataframe([item.model_dump() for item in performance_request.valuation_points])
+        daily_results_df, engine_diagnostics = run_calculations(engine_df, engine_config)
+        benchmark_artifacts = (
+            calculate_benchmark_artifacts(benchmark_request) if benchmark_request is not None else None
+        )
+    except Exception as exc:
+        execution_registry.fail_stage(performance_request.calculation_id, EXECUTION_STAGE_EXECUTION, str(exc))
+        raise
+
+    results_by_period = _build_twr_results_by_period(
+        performance_request=performance_request,
+        resolved_periods=resolved_periods,
+        freqs_by_period=freqs_by_period,
+        daily_results_df=daily_results_df,
+        engine_diagnostics=engine_diagnostics,
+        benchmark_artifacts=benchmark_artifacts,
+        benchmark_request=benchmark_request,
+        benchmark_input_mode=benchmark_input_mode,
+        resolved_benchmark_id=resolved_benchmark_id,
+        benchmark_return_source=normalized_benchmark_return_source,
+        master_start_date=master_start_date,
+    )
 
     benchmark_row_count = len(benchmark_artifacts.daily_returns_df) if benchmark_artifacts is not None else 0
     benchmark_supportability_evidence = (

@@ -126,7 +126,7 @@ def _patch_shared_stateful_benchmark_sources(monkeypatch) -> None:
         _mock_get_portfolio_reference,
     )
     monkeypatch.setattr(
-        "app.api.endpoints.returns_series.CoreIntegrationService.get_benchmark_assignment",
+        "app.services.core_integration_service.CoreIntegrationService.get_benchmark_assignment",
         _mock_get_benchmark_assignment,
     )
     monkeypatch.setattr(

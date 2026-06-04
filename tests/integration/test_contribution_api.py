@@ -6,13 +6,13 @@ import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.endpoints.contribution import _build_execution_window
 from app.core.config import get_settings
 from app.models.contribution_analytics_requests import ContributionAnalyticsRequest
 from app.models.contribution_requests import ContributionRequest
 from app.observability_contracts import PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS
 from app.services.async_result_store import async_result_store
 from app.services.compute_job_store import compute_job_store
+from app.services.contribution_calculation_workflow_service import build_contribution_execution_window
 from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import lineage_metadata_store
 from core.repro import generate_canonical_hash
@@ -1852,7 +1852,7 @@ def test_contribution_async_replay_self_heals_missing_compute_job(client, happy_
             analytics_type="Contribution",
             portfolio_id=payload["portfolio_id"],
             execution_mode="async",
-            requested_window=_build_execution_window(request_model),
+            requested_window=build_contribution_execution_window(request_model),
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
         )

@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from app.api.endpoints import contribution as contribution_endpoint
 from app.models.contribution_analytics_requests import ContributionAnalyticsRequest, ContributionInputMode
 from app.models.contribution_requests import ContributionRequest
+from app.services import contribution_calculation_workflow_service
 from app.services.contribution_mode_service import ResolvedContributionRequest
 
 
@@ -44,9 +45,9 @@ def _stateless_contribution_request() -> ContributionRequest:
 @pytest.mark.asyncio
 async def test_contribution_endpoint_replays_promoted_stateful_async_execution(mocker):
     request = ContributionAnalyticsRequest.model_validate(_stateful_contribution_payload())
-    replay_response = contribution_endpoint._accepted_response(request.calculation_id)
+    replay_response = contribution_calculation_workflow_service.accepted_contribution_response(request.calculation_id)
     mocker.patch(
-        "app.api.endpoints.contribution.get_settings",
+        "app.services.contribution_calculation_workflow_service.get_settings",
         return_value=type(
             "Settings",
             (),
@@ -58,12 +59,14 @@ async def test_contribution_endpoint_replays_promoted_stateful_async_execution(m
         )(),
     )
     mocker.patch(
-        "app.api.endpoints.contribution.replay_promoted_stateful_async_execution",
+        "app.services.contribution_calculation_workflow_service.replay_promoted_stateful_async_execution",
         return_value=replay_response,
     )
-    register_sync = mocker.patch("app.api.endpoints.contribution.register_sync_execution_or_raise")
+    register_sync = mocker.patch(
+        "app.services.contribution_calculation_workflow_service.register_sync_execution_or_raise"
+    )
 
-    response = await contribution_endpoint.calculate_contribution_endpoint(request)
+    response = await contribution_calculation_workflow_service.calculate_contribution_workflow(request)
 
     assert response == replay_response
     register_sync.assert_not_called()
@@ -73,9 +76,9 @@ async def test_contribution_endpoint_replays_promoted_stateful_async_execution(m
 async def test_contribution_endpoint_returns_accepted_response_when_resolved_stateful_request_is_offloaded(mocker):
     request = ContributionAnalyticsRequest.model_validate(_stateful_contribution_payload())
     resolved_request = _stateless_contribution_request()
-    accepted_response = contribution_endpoint._accepted_response(request.calculation_id)
+    accepted_response = contribution_calculation_workflow_service.accepted_contribution_response(request.calculation_id)
     mocker.patch(
-        "app.api.endpoints.contribution.get_settings",
+        "app.services.contribution_calculation_workflow_service.get_settings",
         return_value=type(
             "Settings",
             (),
@@ -87,12 +90,12 @@ async def test_contribution_endpoint_returns_accepted_response_when_resolved_sta
         )(),
     )
     mocker.patch(
-        "app.api.endpoints.contribution.replay_promoted_stateful_async_execution",
+        "app.services.contribution_calculation_workflow_service.replay_promoted_stateful_async_execution",
         return_value=None,
     )
-    mocker.patch("app.api.endpoints.contribution.register_sync_execution_or_raise")
+    mocker.patch("app.services.contribution_calculation_workflow_service.register_sync_execution_or_raise")
     mocker.patch(
-        "app.api.endpoints.contribution.resolve_contribution_request",
+        "app.services.contribution_calculation_workflow_service.resolve_contribution_request",
         return_value=ResolvedContributionRequest(
             contribution_request=resolved_request,
             input_mode=ContributionInputMode.STATEFUL,
@@ -100,12 +103,14 @@ async def test_contribution_endpoint_returns_accepted_response_when_resolved_sta
         ),
     )
     mocker.patch(
-        "app.api.endpoints.contribution.finalize_resolved_stateful_execution",
+        "app.services.contribution_calculation_workflow_service.finalize_resolved_stateful_execution",
         return_value=accepted_response,
     )
-    calculate_contribution = mocker.patch("app.api.endpoints.contribution.calculate_contribution")
+    calculate_contribution = mocker.patch(
+        "app.services.contribution_calculation_workflow_service.calculate_contribution"
+    )
 
-    response = await contribution_endpoint.calculate_contribution_endpoint(request)
+    response = await contribution_calculation_workflow_service.calculate_contribution_workflow(request)
 
     assert response == accepted_response
     calculate_contribution.assert_not_called()
@@ -117,7 +122,7 @@ async def test_contribution_endpoint_executes_resolved_stateful_request_when_fin
     resolved_request = _stateless_contribution_request()
     expected_response = {"ok": True}
     mocker.patch(
-        "app.api.endpoints.contribution.get_settings",
+        "app.services.contribution_calculation_workflow_service.get_settings",
         return_value=type(
             "Settings",
             (),
@@ -129,12 +134,12 @@ async def test_contribution_endpoint_executes_resolved_stateful_request_when_fin
         )(),
     )
     mocker.patch(
-        "app.api.endpoints.contribution.replay_promoted_stateful_async_execution",
+        "app.services.contribution_calculation_workflow_service.replay_promoted_stateful_async_execution",
         return_value=None,
     )
-    mocker.patch("app.api.endpoints.contribution.register_sync_execution_or_raise")
+    mocker.patch("app.services.contribution_calculation_workflow_service.register_sync_execution_or_raise")
     mocker.patch(
-        "app.api.endpoints.contribution.resolve_contribution_request",
+        "app.services.contribution_calculation_workflow_service.resolve_contribution_request",
         return_value=ResolvedContributionRequest(
             contribution_request=resolved_request,
             input_mode=ContributionInputMode.STATEFUL,
@@ -142,15 +147,15 @@ async def test_contribution_endpoint_executes_resolved_stateful_request_when_fin
         ),
     )
     mocker.patch(
-        "app.api.endpoints.contribution.finalize_resolved_stateful_execution",
+        "app.services.contribution_calculation_workflow_service.finalize_resolved_stateful_execution",
         return_value=None,
     )
     calculate_contribution = mocker.patch(
-        "app.api.endpoints.contribution.calculate_contribution",
+        "app.services.contribution_calculation_workflow_service.calculate_contribution",
         return_value=expected_response,
     )
 
-    response = await contribution_endpoint.calculate_contribution_endpoint(request)
+    response = await contribution_calculation_workflow_service.calculate_contribution_workflow(request)
 
     assert response == expected_response
     calculate_contribution.assert_called_once()
@@ -161,7 +166,7 @@ async def test_contribution_endpoint_reraises_stateful_http_exceptions(mocker):
     request = ContributionAnalyticsRequest.model_validate(_stateful_contribution_payload())
     failure_capture: dict[str, object] = {}
     mocker.patch(
-        "app.api.endpoints.contribution.get_settings",
+        "app.services.contribution_calculation_workflow_service.get_settings",
         return_value=type(
             "Settings",
             (),
@@ -173,21 +178,21 @@ async def test_contribution_endpoint_reraises_stateful_http_exceptions(mocker):
         )(),
     )
     mocker.patch(
-        "app.api.endpoints.contribution.replay_promoted_stateful_async_execution",
+        "app.services.contribution_calculation_workflow_service.replay_promoted_stateful_async_execution",
         return_value=None,
     )
-    mocker.patch("app.api.endpoints.contribution.register_sync_execution_or_raise")
+    mocker.patch("app.services.contribution_calculation_workflow_service.register_sync_execution_or_raise")
     mocker.patch(
-        "app.api.endpoints.contribution.resolve_contribution_request",
+        "app.services.contribution_calculation_workflow_service.resolve_contribution_request",
         side_effect=HTTPException(status_code=422, detail="bad stateful request"),
     )
     mocker.patch(
-        "app.api.endpoints.contribution.record_execution_failure",
+        "app.services.contribution_calculation_workflow_service.record_execution_failure",
         side_effect=lambda **kwargs: failure_capture.update(kwargs),
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        await contribution_endpoint.calculate_contribution_endpoint(request)
+        await contribution_calculation_workflow_service.calculate_contribution_workflow(request)
 
     assert exc_info.value.status_code == 422
     assert exc_info.value.detail == "bad stateful request"
@@ -199,7 +204,7 @@ async def test_contribution_endpoint_maps_stateful_resolution_errors_to_http_500
     request = ContributionAnalyticsRequest.model_validate(_stateful_contribution_payload())
     failure_capture: dict[str, object] = {}
     mocker.patch(
-        "app.api.endpoints.contribution.get_settings",
+        "app.services.contribution_calculation_workflow_service.get_settings",
         return_value=type(
             "Settings",
             (),
@@ -211,21 +216,21 @@ async def test_contribution_endpoint_maps_stateful_resolution_errors_to_http_500
         )(),
     )
     mocker.patch(
-        "app.api.endpoints.contribution.replay_promoted_stateful_async_execution",
+        "app.services.contribution_calculation_workflow_service.replay_promoted_stateful_async_execution",
         return_value=None,
     )
-    mocker.patch("app.api.endpoints.contribution.register_sync_execution_or_raise")
+    mocker.patch("app.services.contribution_calculation_workflow_service.register_sync_execution_or_raise")
     mocker.patch(
-        "app.api.endpoints.contribution.resolve_contribution_request",
+        "app.services.contribution_calculation_workflow_service.resolve_contribution_request",
         side_effect=RuntimeError("resolver blew up"),
     )
     mocker.patch(
-        "app.api.endpoints.contribution.record_execution_failure",
+        "app.services.contribution_calculation_workflow_service.record_execution_failure",
         side_effect=lambda **kwargs: failure_capture.update(kwargs),
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        await contribution_endpoint.calculate_contribution_endpoint(request)
+        await contribution_calculation_workflow_service.calculate_contribution_workflow(request)
 
     assert exc_info.value.status_code == 500
     assert "resolver blew up" in str(exc_info.value.detail)
@@ -254,9 +259,9 @@ async def test_contribution_endpoint_offloads_large_sync_requests(mocker):
             },
         }
     )
-    accepted_response = contribution_endpoint._accepted_response(request.calculation_id)
+    accepted_response = contribution_calculation_workflow_service.accepted_contribution_response(request.calculation_id)
     mocker.patch(
-        "app.api.endpoints.contribution.get_settings",
+        "app.services.contribution_calculation_workflow_service.get_settings",
         return_value=type(
             "Settings",
             (),
@@ -268,11 +273,11 @@ async def test_contribution_endpoint_offloads_large_sync_requests(mocker):
         )(),
     )
     register_async = mocker.patch(
-        "app.api.endpoints.contribution.register_async_submission_or_raise",
+        "app.services.contribution_calculation_workflow_service.register_async_submission_or_raise",
         return_value=accepted_response,
     )
 
-    response = await contribution_endpoint.calculate_contribution_endpoint(request)
+    response = await contribution_calculation_workflow_service.calculate_contribution_workflow(request)
 
     assert response == accepted_response
     register_async.assert_called_once()
@@ -299,7 +304,7 @@ async def test_contribution_endpoint_maps_sync_resolution_errors_to_http_500(moc
     )
     failure_capture: dict[str, object] = {}
     mocker.patch(
-        "app.api.endpoints.contribution.get_settings",
+        "app.services.contribution_calculation_workflow_service.get_settings",
         return_value=type(
             "Settings",
             (),
@@ -310,18 +315,18 @@ async def test_contribution_endpoint_maps_sync_resolution_errors_to_http_500(moc
             },
         )(),
     )
-    mocker.patch("app.api.endpoints.contribution.register_sync_execution_or_raise")
+    mocker.patch("app.services.contribution_calculation_workflow_service.register_sync_execution_or_raise")
     mocker.patch(
-        "app.api.endpoints.contribution.resolve_contribution_request",
+        "app.services.contribution_calculation_workflow_service.resolve_contribution_request",
         side_effect=RuntimeError("sync resolver blew up"),
     )
     mocker.patch(
-        "app.api.endpoints.contribution.record_execution_failure",
+        "app.services.contribution_calculation_workflow_service.record_execution_failure",
         side_effect=lambda **kwargs: failure_capture.update(kwargs),
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        await contribution_endpoint.calculate_contribution_endpoint(request)
+        await contribution_calculation_workflow_service.calculate_contribution_workflow(request)
 
     assert exc_info.value.status_code == 500
     assert "sync resolver blew up" in str(exc_info.value.detail)
@@ -349,7 +354,7 @@ async def test_contribution_endpoint_executes_sync_resolved_request_when_not_off
     )
     expected_response = {"sync": True}
     mocker.patch(
-        "app.api.endpoints.contribution.get_settings",
+        "app.services.contribution_calculation_workflow_service.get_settings",
         return_value=type(
             "Settings",
             (),
@@ -360,9 +365,9 @@ async def test_contribution_endpoint_executes_sync_resolved_request_when_not_off
             },
         )(),
     )
-    mocker.patch("app.api.endpoints.contribution.register_sync_execution_or_raise")
+    mocker.patch("app.services.contribution_calculation_workflow_service.register_sync_execution_or_raise")
     mocker.patch(
-        "app.api.endpoints.contribution.resolve_contribution_request",
+        "app.services.contribution_calculation_workflow_service.resolve_contribution_request",
         return_value=ResolvedContributionRequest(
             contribution_request=_stateless_contribution_request(),
             input_mode=ContributionInputMode.STATELESS,
@@ -370,11 +375,11 @@ async def test_contribution_endpoint_executes_sync_resolved_request_when_not_off
         ),
     )
     calculate_contribution = mocker.patch(
-        "app.api.endpoints.contribution.calculate_contribution",
+        "app.services.contribution_calculation_workflow_service.calculate_contribution",
         return_value=expected_response,
     )
 
-    response = await contribution_endpoint.calculate_contribution_endpoint(request)
+    response = await contribution_calculation_workflow_service.calculate_contribution_workflow(request)
 
     assert response == expected_response
     calculate_contribution.assert_called_once()
@@ -401,7 +406,7 @@ async def test_contribution_endpoint_reraises_sync_http_exceptions(mocker):
     )
     failure_capture: dict[str, object] = {}
     mocker.patch(
-        "app.api.endpoints.contribution.get_settings",
+        "app.services.contribution_calculation_workflow_service.get_settings",
         return_value=type(
             "Settings",
             (),
@@ -412,18 +417,18 @@ async def test_contribution_endpoint_reraises_sync_http_exceptions(mocker):
             },
         )(),
     )
-    mocker.patch("app.api.endpoints.contribution.register_sync_execution_or_raise")
+    mocker.patch("app.services.contribution_calculation_workflow_service.register_sync_execution_or_raise")
     mocker.patch(
-        "app.api.endpoints.contribution.resolve_contribution_request",
+        "app.services.contribution_calculation_workflow_service.resolve_contribution_request",
         side_effect=HTTPException(status_code=422, detail="bad sync request"),
     )
     mocker.patch(
-        "app.api.endpoints.contribution.record_execution_failure",
+        "app.services.contribution_calculation_workflow_service.record_execution_failure",
         side_effect=lambda **kwargs: failure_capture.update(kwargs),
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        await contribution_endpoint.calculate_contribution_endpoint(request)
+        await contribution_calculation_workflow_service.calculate_contribution_workflow(request)
 
     assert exc_info.value.status_code == 422
     assert exc_info.value.detail == "bad sync request"
@@ -448,13 +453,13 @@ async def test_get_contribution_result_delegates_to_async_result_service(mocker)
 def test_contribution_endpoint_numeric_and_stateful_window_helpers_cover_stateful_shape(mocker):
     request = ContributionAnalyticsRequest.model_validate(_stateful_contribution_payload())
     mocker.patch(
-        "app.api.endpoints.contribution.get_settings",
+        "app.services.contribution_calculation_workflow_service.get_settings",
         return_value=type("Settings", (), {"CONTRIBUTION_EXECUTOR_WINDOW_DAYS": 1})(),
     )
 
     assert contribution_endpoint._as_numeric("4.5") == 4.5
-    assert contribution_endpoint._should_offload_contribution(request) is True
-    assert contribution_endpoint._build_execution_window(
+    assert contribution_calculation_workflow_service.should_offload_contribution(request) is True
+    assert contribution_calculation_workflow_service.build_contribution_execution_window(
         request,
         source_request_fingerprint="fp",
     ) == {
@@ -473,13 +478,16 @@ def test_contribution_endpoint_numeric_and_stateful_window_helpers_cover_statefu
         positions_data=[SimpleNamespace(), SimpleNamespace()],
     )
     mocker.patch(
-        "app.api.endpoints.contribution.get_settings",
+        "app.services.contribution_calculation_workflow_service.get_settings",
         return_value=type(
             "Settings",
             (),
             {"CONTRIBUTION_EXECUTOR_WINDOW_DAYS": 1, "CONTRIBUTION_EXECUTOR_POSITION_COUNT": 2},
         )(),
     )
-    assert contribution_endpoint._should_offload_contribution(stateless_request) is True
+    assert contribution_calculation_workflow_service.should_offload_contribution(stateless_request) is True
     legacy_request = _stateless_contribution_request()
-    assert contribution_endpoint._build_execution_window(legacy_request)["position_count"] == 1
+    assert (
+        contribution_calculation_workflow_service.build_contribution_execution_window(legacy_request)["position_count"]
+        == 1
+    )

@@ -207,6 +207,17 @@ def _build_attribution_group_result(
     )
 
 
+def _normalize_instrument_group_columns(full_df: pd.DataFrame, group_cols: list[str]) -> None:
+    for group_col in group_cols:
+        if group_col not in full_df.columns:
+            full_df[group_col] = "unknown"
+            continue
+        full_df[group_col] = full_df[group_col].where(
+            full_df[group_col].notna() & (full_df[group_col].astype(str).str.len() > 0),
+            "unknown",
+        )
+
+
 def _prepare_data_from_instruments(request: AttributionRequestLike) -> list[AttributionObservationGroup]:
     """
     Runs TWR engine on instrument data and aggregates returns and weights
@@ -236,62 +247,77 @@ def _prepare_data_from_instruments(request: AttributionRequestLike) -> list[Attr
 
     all_instruments = []
     for inst in request.instruments_data:
-        if not inst.valuation_points:
-            continue
-
-        inst_results = run_engine_for_valuation_points(
-            [item.model_dump() for item in inst.valuation_points],
-            twr_config,
-            force_base_only=not (request.currency_mode == "BOTH" and inst.meta.get("currency") != request.report_ccy),
+        instrument_panel = _build_instrument_attribution_panel(
+            inst=inst,
+            request=request,
+            twr_config=twr_config,
+            portfolio_bop_mv=portfolio_bop_mv,
         )
-        inst_results = inst_results.set_index(PortfolioColumns.PERF_DATE.value)
-
-        base_weight_series = _build_base_weight_series(inst.meta)
-        if base_weight_series is not None:
-            inst_bop_mv = base_weight_series.reindex(inst_results.index).fillna(0.0)
-        else:
-            inst_bop_mv = inst_results[PortfolioColumns.BEGIN_MV.value] + inst_results[PortfolioColumns.BOD_CF.value]
-        with np.errstate(divide="ignore", invalid="ignore"):
-            weight_bop = inst_bop_mv / portfolio_bop_mv
-        inst_results["weight_bop"] = weight_bop.replace([np.inf, -np.inf], np.nan).fillna(0.0)
-
-        inst_results.rename(
-            columns={
-                PortfolioColumns.DAILY_ROR.value: "return_base",
-                "local_ror": "return_local",
-                "fx_ror": "return_fx",
-            },
-            inplace=True,
-        )
-
-        if request.currency_mode == "BOTH" and inst.meta.get("currency") == request.report_ccy:
-            if "return_local" not in inst_results.columns:
-                inst_results["return_local"] = inst_results["return_base"]
-            if "return_fx" not in inst_results.columns:
-                inst_results["return_fx"] = 0.0
-
-        for col in ["return_base", "return_local", "return_fx"]:
-            if col in inst_results.columns:
-                inst_results[col] /= 100
-
-        for key, value in inst.meta.items():
-            inst_results[key] = value
-        all_instruments.append(inst_results.reset_index())
+        if instrument_panel is not None:
+            all_instruments.append(instrument_panel)
 
     if not all_instruments:
         return []
 
     full_df = pd.concat(all_instruments)
     group_cols = list(request.group_by)
-    for group_col in group_cols:
-        if group_col not in full_df.columns:
-            full_df[group_col] = "unknown"
-        else:
-            full_df[group_col] = full_df[group_col].where(
-                full_df[group_col].notna() & (full_df[group_col].astype(str).str.len() > 0),
-                "unknown",
-            )
+    _normalize_instrument_group_columns(full_df, group_cols)
 
+    aggregated_panel = _build_instrument_group_aggregation(full_df, group_cols)
+    return _build_instrument_attribution_groups(aggregated_panel, group_cols)
+
+
+def _build_instrument_attribution_panel(
+    *,
+    inst: AttributionInstrumentDataLike,
+    request: AttributionRequestLike,
+    twr_config: EngineConfig,
+    portfolio_bop_mv: pd.Series,
+) -> pd.DataFrame | None:
+    if not inst.valuation_points:
+        return None
+
+    inst_results = run_engine_for_valuation_points(
+        [item.model_dump() for item in inst.valuation_points],
+        twr_config,
+        force_base_only=not (request.currency_mode == "BOTH" and inst.meta.get("currency") != request.report_ccy),
+    )
+    inst_results = inst_results.set_index(PortfolioColumns.PERF_DATE.value)
+
+    base_weight_series = _build_base_weight_series(inst.meta)
+    if base_weight_series is not None:
+        inst_bop_mv = base_weight_series.reindex(inst_results.index).fillna(0.0)
+    else:
+        inst_bop_mv = inst_results[PortfolioColumns.BEGIN_MV.value] + inst_results[PortfolioColumns.BOD_CF.value]
+    with np.errstate(divide="ignore", invalid="ignore"):
+        weight_bop = inst_bop_mv / portfolio_bop_mv
+    inst_results["weight_bop"] = weight_bop.replace([np.inf, -np.inf], np.nan).fillna(0.0)
+
+    inst_results.rename(
+        columns={
+            PortfolioColumns.DAILY_ROR.value: "return_base",
+            "local_ror": "return_local",
+            "fx_ror": "return_fx",
+        },
+        inplace=True,
+    )
+
+    if request.currency_mode == "BOTH" and inst.meta.get("currency") == request.report_ccy:
+        if "return_local" not in inst_results.columns:
+            inst_results["return_local"] = inst_results["return_base"]
+        if "return_fx" not in inst_results.columns:
+            inst_results["return_fx"] = 0.0
+
+    for col in ["return_base", "return_local", "return_fx"]:
+        if col in inst_results.columns:
+            inst_results[col] /= 100
+
+    for key, value in inst.meta.items():
+        inst_results[key] = value
+    return inst_results.reset_index()
+
+
+def _build_instrument_group_aggregation(full_df: pd.DataFrame, group_cols: list[str]) -> pd.DataFrame:
     return_cols = ["return_base", "return_local", "return_fx"]
     for col in return_cols:
         if col in full_df.columns:
@@ -310,7 +336,13 @@ def _prepare_data_from_instruments(request: AttributionRequestLike) -> list[Attr
             aggregated_panel[col] = group_returns
 
     aggregated_panel.reset_index(inplace=True)
+    return aggregated_panel
 
+
+def _build_instrument_attribution_groups(
+    aggregated_panel: pd.DataFrame, group_cols: list[str]
+) -> list[AttributionObservationGroup]:
+    return_cols = ["return_base", "return_local", "return_fx"]
     output_groups = []
     for keys, group_df in aggregated_panel.groupby(group_cols):
         key_dict = {group_cols[i]: key_val for i, key_val in enumerate(keys if isinstance(keys, tuple) else [keys])}

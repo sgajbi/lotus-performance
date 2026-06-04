@@ -3,7 +3,11 @@ from datetime import date
 import pytest
 
 from app.models.benchmark_requests import BenchmarkComponentObservation, BenchmarkReturnPoint
-from engine.benchmarks import benchmark_return_points_to_dataframe, calculate_benchmark_returns
+from engine.benchmarks import (
+    _uses_local_fx_component_returns,
+    benchmark_return_points_to_dataframe,
+    calculate_benchmark_returns,
+)
 
 
 def test_calculate_benchmark_returns_aggregates_component_contributions():
@@ -71,6 +75,47 @@ def test_calculate_benchmark_returns_preserves_local_and_fx_components():
     assert contribution_row["component_currency"] == "EUR"
     assert float(contribution_row["local_contribution"]) == pytest.approx(0.02)
     assert float(contribution_row["fx_contribution"]) == pytest.approx(0.01)
+
+
+def test_uses_local_fx_component_returns_detects_complete_and_absent_modes():
+    assert not _uses_local_fx_component_returns(
+        [
+            BenchmarkComponentObservation(
+                component_id="IDX_A",
+                perf_date=date(2026, 1, 2),
+                weight_bop=1.0,
+                component_return=0.02,
+            )
+        ]
+    )
+    assert _uses_local_fx_component_returns(
+        [
+            BenchmarkComponentObservation(
+                component_id="IDX_A",
+                component_currency="EUR",
+                perf_date=date(2026, 1, 2),
+                weight_bop=1.0,
+                component_return=0.0302,
+                component_return_local=0.02,
+                component_return_fx=0.01,
+            )
+        ]
+    )
+
+
+def test_uses_local_fx_component_returns_rejects_incomplete_mode():
+    with pytest.raises(ValueError, match="must be supplied together"):
+        _uses_local_fx_component_returns(
+            [
+                BenchmarkComponentObservation(
+                    component_id="IDX_A",
+                    perf_date=date(2026, 1, 2),
+                    weight_bop=1.0,
+                    component_return=0.02,
+                    component_return_local=0.015,
+                )
+            ]
+        )
 
 
 def test_benchmark_return_points_to_dataframe_links_vendor_series():

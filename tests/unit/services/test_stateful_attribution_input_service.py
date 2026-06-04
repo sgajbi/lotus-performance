@@ -16,10 +16,13 @@ from app.services.stateful_attribution_input_service import (
     _normalize_group_value,
     _parse_index_catalog,
     _parse_position_rows,
+    _portfolio_market_values_by_date,
+    _position_market_value_totals_by_date,
     _position_meta_from_row,
     _position_row_to_base_weight_point,
     _position_row_to_daily_point,
     _split_position_cash_flows,
+    _stateful_portfolio_position_alignment_mismatches,
     _validate_stateful_both_currency_support,
     _validate_stateful_group_by,
     _validate_stateful_portfolio_position_alignment,
@@ -791,6 +794,74 @@ def test_stateful_attribution_alignment_validator_tolerates_unusable_rows_and_in
         ],
         reporting_currency=None,
     )
+
+
+def test_portfolio_market_values_by_date_skips_incomplete_observations():
+    values_by_date = _portfolio_market_values_by_date(
+        [
+            {"valuation_date": None, "beginning_market_value": "1", "ending_market_value": "2"},
+            {"valuation_date": "2025-01-01", "beginning_market_value": "100", "ending_market_value": "110"},
+            {"valuation_date": "2025-01-02", "beginning_market_value": None, "ending_market_value": "120"},
+        ]
+    )
+
+    assert values_by_date == {"2025-01-01": (Decimal("100"), Decimal("110"))}
+
+
+def test_position_market_value_totals_prefer_reporting_currency_and_fallback_to_portfolio_currency():
+    totals_by_date = _position_market_value_totals_by_date(
+        position_rows=[
+            {
+                "valuation_date": "2025-01-01",
+                "beginning_market_value_reporting_currency": "100",
+                "ending_market_value_reporting_currency": "110",
+                "beginning_market_value_portfolio_currency": "999",
+                "ending_market_value_portfolio_currency": "999",
+                "cash_flows": [{"amount": "-5", "cash_flow_type": "internal_trade_flow"}],
+            },
+            {
+                "valuation_date": "2025-01-01",
+                "beginning_market_value_portfolio_currency": "20",
+                "ending_market_value_portfolio_currency": "25",
+                "cash_flows": [{"amount": "2", "cash_flow_type": "external_contribution"}],
+            },
+        ],
+        reporting_currency="USD",
+    )
+
+    assert totals_by_date["2025-01-01"]["begin"] == Decimal("120")
+    assert totals_by_date["2025-01-01"]["end"] == Decimal("135")
+    assert totals_by_date["2025-01-01"]["internal_flow_abs"] == Decimal("5")
+
+
+def test_stateful_portfolio_position_alignment_mismatches_allows_internal_transfer_timing_noise():
+    mismatches = _stateful_portfolio_position_alignment_mismatches(
+        portfolio_by_date={"2025-01-01": (Decimal("100"), Decimal("100"))},
+        position_totals_by_date={
+            "2025-01-01": {
+                "begin": Decimal("95"),
+                "end": Decimal("95"),
+                "internal_flow_abs": Decimal("5"),
+            }
+        },
+    )
+
+    assert mismatches == []
+
+
+def test_stateful_portfolio_position_alignment_mismatches_reports_unexplained_gap():
+    mismatches = _stateful_portfolio_position_alignment_mismatches(
+        portfolio_by_date={"2025-01-01": (Decimal("100"), Decimal("110"))},
+        position_totals_by_date={
+            "2025-01-01": {
+                "begin": Decimal("90"),
+                "end": Decimal("105"),
+                "internal_flow_abs": Decimal("1"),
+            }
+        },
+    )
+
+    assert mismatches == ["2025-01-01 (portfolio begin/end=100/110, positions begin/end=90/105)"]
 
 
 def test_stateful_attribution_source_alignment_evidence_flags_unclassified_source_rows_and_benchmark_components():

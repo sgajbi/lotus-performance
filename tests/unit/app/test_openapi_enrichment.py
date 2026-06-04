@@ -1,9 +1,15 @@
 from app.openapi_enrichment import (
+    _array_schema_example,
     _build_schema_example,
     _canonical_term,
+    _composed_schema_example,
+    _ensure_operation_response_documentation,
+    _ensure_request_body_example,
+    _explicit_schema_example,
     _infer_description,
     _infer_example,
     _infer_schema_description,
+    _object_schema_example,
     _semantic_id,
     _to_snake_case,
     enrich_openapi_schema,
@@ -73,6 +79,175 @@ def test_build_schema_example_resolves_refs_and_nested_content():
     assert example["calculation_id"] == "2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e"
     assert example["result"]["status"] == "pending"
     assert example["result"]["values"] == [1]
+
+
+def test_schema_example_helpers_cover_explicit_composed_object_and_array_shapes():
+    components = {"schemas": {}}
+
+    assert _explicit_schema_example({"example": {"status": "ready"}}) == {"status": "ready"}
+    assert _explicit_schema_example({"examples": [{"status": "pending"}]}) == {"status": "pending"}
+    assert _explicit_schema_example({"examples": {"named": {"value": {"status": "complete"}}}}) == {
+        "status": "complete"
+    }
+    assert (
+        _composed_schema_example(
+            {"oneOf": [{"type": "string", "enum": ["NET", "GROSS"]}]},
+            components=components,
+            seen_refs=set(),
+            name_hint="metric_basis",
+        )
+        == "NET"
+    )
+    assert _object_schema_example(
+        {"type": "object", "properties": {"portfolio_id": {"type": "string"}}},
+        components=components,
+        seen_refs=set(),
+    ) == {"portfolio_id": "DEMO_DPM_EUR_001"}
+    assert _object_schema_example({"type": "object"}, components=components, seen_refs=set()) == {"key": "value"}
+    assert _array_schema_example(
+        {"type": "array", "items": {"type": "integer"}},
+        components=components,
+        seen_refs=set(),
+        name_hint="values",
+    ) == [1]
+    assert _array_schema_example(
+        {"type": "array", "items": "not-a-dict"},
+        components=components,
+        seen_refs=set(),
+        name_hint="values",
+    ) == ["VALUE"]
+
+
+def test_ensure_request_body_example_uses_operation_override():
+    request_body = {
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "properties": {"portfolio_id": {"type": "string"}},
+                }
+            }
+        }
+    }
+
+    _ensure_request_body_example(
+        path="/performance/twr",
+        request_body=request_body,
+        components={"schemas": {}},
+    )
+
+    example = request_body["content"]["application/json"]["example"]
+    assert example["input_mode"] == "stateless"
+    assert example["portfolio_id"] == "DEMO_DPM_EUR_001"
+
+
+def test_ensure_request_body_example_builds_schema_example_when_missing():
+    request_body = {
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "properties": {"portfolio_id": {"type": "string"}},
+                }
+            }
+        }
+    }
+
+    _ensure_request_body_example(
+        path="/custom/workflow",
+        request_body=request_body,
+        components={"schemas": {}},
+    )
+
+    assert request_body["content"]["application/json"]["example"] == {"portfolio_id": "DEMO_DPM_EUR_001"}
+
+
+def test_ensure_request_body_example_preserves_existing_examples():
+    request_body = {
+        "content": {
+            "application/json": {
+                "schema": {"type": "object", "properties": {"portfolio_id": {"type": "string"}}},
+                "examples": {"documented": {"value": {"portfolio_id": "EXISTING"}}},
+            }
+        }
+    }
+
+    _ensure_request_body_example(
+        path="/custom/workflow",
+        request_body=request_body,
+        components={"schemas": {}},
+    )
+
+    assert "example" not in request_body["content"]["application/json"]
+    assert request_body["content"]["application/json"]["examples"]["documented"]["value"]["portfolio_id"] == "EXISTING"
+
+
+def test_ensure_operation_response_documentation_adds_default_and_schema_example():
+    responses = {
+        "200": {
+            "description": "ok",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {"portfolio_id": {"type": "string"}},
+                    }
+                }
+            },
+        }
+    }
+
+    _ensure_operation_response_documentation(
+        path="/custom/workflow",
+        responses=responses,
+        components={"schemas": {}},
+    )
+
+    assert responses["default"]["content"]["application/problem+json"]["example"]["status"] == 500
+    assert responses["200"]["content"]["application/json"]["example"] == {"portfolio_id": "DEMO_DPM_EUR_001"}
+
+
+def test_ensure_operation_response_documentation_uses_operation_override():
+    responses = {
+        "200": {
+            "description": "ok",
+            "content": {"application/json": {"schema": {"type": "object"}}},
+        },
+        "422": {
+            "description": "Validation Error",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/HTTPValidationError"}}},
+        },
+    }
+
+    _ensure_operation_response_documentation(
+        path="/health",
+        responses=responses,
+        components={"schemas": {"HTTPValidationError": {"type": "object"}}},
+    )
+
+    assert responses["200"]["content"]["application/json"]["example"] == {"status": "ok"}
+    validation_example = responses["422"]["content"]["application/json"]["example"]
+    assert validation_example["detail"][0]["loc"] == ["body", "portfolio_id"]
+
+
+def test_ensure_operation_response_documentation_rewrites_metrics_response():
+    responses = {
+        "200": {
+            "description": "ok",
+            "content": {"application/json": {"schema": {"type": "object"}}},
+        }
+    }
+
+    _ensure_operation_response_documentation(
+        path="/metrics",
+        responses=responses,
+        components={"schemas": {}},
+    )
+
+    content = responses["200"]["content"]
+    assert "application/json" not in content
+    assert content["text/plain"]["schema"]["description"] == "Prometheus exposition format payload."
+    assert "lotus_performance_durable_queue_store_availability" in content["text/plain"]["example"]
 
 
 def test_enrich_openapi_schema_fills_operation_schema_and_examples():

@@ -700,7 +700,7 @@ def test_execution_api_tracks_resolved_async_returns_series_job_state(client, mo
         )
 
     monkeypatch.setattr(
-        "app.api.endpoints.returns_series.resolve_stateful_returns_series_request",
+        "app.services.returns_series_calculation_workflow_service.resolve_stateful_returns_series_request",
         _mock_resolve_stateful_returns_series_request,
     )
 
@@ -870,7 +870,9 @@ def test_execution_api_tracks_async_benchmark_job_state(client, monkeypatch):
             input_count=4,
         )
 
-    monkeypatch.setattr("app.api.endpoints.benchmark.resolve_benchmark_request", _mock_resolve_benchmark_request)
+    monkeypatch.setattr(
+        "app.services.benchmark_calculation_workflow_service.resolve_benchmark_request", _mock_resolve_benchmark_request
+    )
 
     payload = {
         "calculation_id": str(uuid4()),

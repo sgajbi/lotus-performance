@@ -441,7 +441,9 @@ def test_benchmark_results_endpoint_returns_async_stateful_result(client, monkey
             input_count=3,
         )
 
-    monkeypatch.setattr("app.api.endpoints.benchmark.resolve_benchmark_request", _mock_resolve_benchmark_request)
+    monkeypatch.setattr(
+        "app.services.benchmark_calculation_workflow_service.resolve_benchmark_request", _mock_resolve_benchmark_request
+    )
 
     payload = {
         "calculation_id": str(uuid4()),
@@ -626,7 +628,9 @@ def test_calculate_benchmark_endpoint_promotes_stateful_benchmark_to_async_on_re
             input_count=4,
         )
 
-    monkeypatch.setattr("app.api.endpoints.benchmark.resolve_benchmark_request", _mock_resolve_benchmark_request)
+    monkeypatch.setattr(
+        "app.services.benchmark_calculation_workflow_service.resolve_benchmark_request", _mock_resolve_benchmark_request
+    )
 
     payload = {
         "calculation_id": str(uuid4()),
@@ -684,7 +688,9 @@ def test_benchmark_endpoint_generates_calculation_id_for_async_stateful_request(
             input_count=4,
         )
 
-    monkeypatch.setattr("app.api.endpoints.benchmark.resolve_benchmark_request", _mock_resolve_benchmark_request)
+    monkeypatch.setattr(
+        "app.services.benchmark_calculation_workflow_service.resolve_benchmark_request", _mock_resolve_benchmark_request
+    )
 
     payload = {
         "benchmark_id": "BMK_GENERATED_ASYNC",

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from uuid import UUID
 
-from app.models.inspection_requests import TWRInspectionRequest
+from app.models.inspection_requests import TWRInspectionProfile, TWRInspectionRequest
 from app.models.inspection_responses import (
     TWRInspectionCheckCoverage,
     TWRInspectionFinding,
@@ -49,6 +50,22 @@ _ALL_CHECK_FAMILIES = [
     "reconciliation",
     "cashflow_classification",
 ]
+
+
+@dataclass(frozen=True)
+class _InspectionStageOutputs:
+    findings: list[TWRInspectionFinding]
+    completed_check_families: list[str]
+    failed_check_families: list[str]
+    evidence_summary: dict[str, object]
+    artifact_payloads: dict[str, str]
+
+
+@dataclass(frozen=True)
+class _InspectionResponseSynthesis:
+    response: TWRInspectionResponse
+    artifact_payloads: dict[str, str]
+    support_brief_generation_status: str
 
 
 def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
@@ -121,208 +138,67 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
 
     source_quality_findings: list[TWRInspectionFinding] = []
     if performance_request is not None:
-        execution_registry.start_stage(request.inspection_id, EXECUTION_STAGE_SOURCE_QUALITY_ASSESSMENT)
-        try:
-            source_quality_result = run_source_quality_checks(
-                performance_request=performance_request,
-                inspection_profile=request.inspection_profile,
-            )
-        except Exception as exc:
-            _record_check_failure(
-                inspection_id=request.inspection_id,
-                findings=source_quality_findings,
-                failed_check_families=failed_check_families,
-                families=["source_quality", "economic_plausibility"],
-                stage=EXECUTION_STAGE_SOURCE_QUALITY_ASSESSMENT,
-                error=exc,
-            )
-        else:
-            execution_registry.complete_stage(
-                request.inspection_id,
-                EXECUTION_STAGE_SOURCE_QUALITY_ASSESSMENT,
-                details=source_quality_result.evidence_summary,
-            )
-            source_quality_findings = source_quality_result.findings
-            completed_check_families.extend(["source_quality", "economic_plausibility"])
-            evidence_summary.update(source_quality_result.evidence_summary)
-            artifact_payloads["source_quality_summary.json"] = json.dumps(
-                source_quality_result.artifact_payload,
-                indent=2,
-            )
+        source_quality_outputs = _run_source_quality_assessment(
+            inspection_id=request.inspection_id,
+            performance_request=performance_request,
+            inspection_profile=request.inspection_profile,
+        )
+        source_quality_findings = source_quality_outputs.findings
+        completed_check_families.extend(source_quality_outputs.completed_check_families)
+        failed_check_families.extend(source_quality_outputs.failed_check_families)
+        evidence_summary.update(source_quality_outputs.evidence_summary)
+        artifact_payloads.update(source_quality_outputs.artifact_payloads)
 
     reconciliation_findings: list[TWRInspectionFinding] = []
     if resolved_execution_request is not None and subject.portfolio_id is not None:
-        execution_registry.start_stage(request.inspection_id, EXECUTION_STAGE_SOURCE_STATE_RECONCILIATION)
-        try:
-            reconciliation_result = run_reconciliation_checks(
-                performance_request=resolved_execution_request.portfolio,
-                portfolio_id=subject.portfolio_id,
-                inspection_profile=request.inspection_profile,
-            )
-        except Exception as exc:
-            _record_check_failure(
-                inspection_id=request.inspection_id,
-                findings=reconciliation_findings,
-                failed_check_families=failed_check_families,
-                families=["reconciliation"],
-                stage=EXECUTION_STAGE_SOURCE_STATE_RECONCILIATION,
-                error=exc,
-            )
-        else:
-            execution_registry.complete_stage(
-                request.inspection_id,
-                EXECUTION_STAGE_SOURCE_STATE_RECONCILIATION,
-                details=reconciliation_result.evidence_summary,
-            )
-            reconciliation_findings = reconciliation_result.findings
-            completed_check_families.append("reconciliation")
-            evidence_summary.update(reconciliation_result.evidence_summary)
-            artifact_payloads["reconciliation_summary.json"] = json.dumps(
-                reconciliation_result.artifact_payload,
-                indent=2,
-            )
+        reconciliation_outputs = _run_reconciliation_assessment(
+            inspection_id=request.inspection_id,
+            performance_request=resolved_execution_request.portfolio,
+            portfolio_id=subject.portfolio_id,
+            inspection_profile=request.inspection_profile,
+        )
+        reconciliation_findings = reconciliation_outputs.findings
+        completed_check_families.extend(reconciliation_outputs.completed_check_families)
+        failed_check_families.extend(reconciliation_outputs.failed_check_families)
+        evidence_summary.update(reconciliation_outputs.evidence_summary)
+        artifact_payloads.update(reconciliation_outputs.artifact_payloads)
 
     source_economics_findings: list[TWRInspectionFinding] = []
     if resolved_execution_request is not None and subject.portfolio_id is not None:
-        execution_registry.start_stage(request.inspection_id, EXECUTION_STAGE_SOURCE_ECONOMICS_ASSESSMENT)
-        try:
-            source_economics_result = run_source_economics_checks(
-                performance_request=resolved_execution_request.portfolio,
-                portfolio_id=subject.portfolio_id,
-            )
-        except Exception as exc:
-            _record_check_failure(
-                inspection_id=request.inspection_id,
-                findings=source_economics_findings,
-                failed_check_families=failed_check_families,
-                families=["cashflow_classification"],
-                stage=EXECUTION_STAGE_SOURCE_ECONOMICS_ASSESSMENT,
-                error=exc,
-            )
-        else:
-            execution_registry.complete_stage(
-                request.inspection_id,
-                EXECUTION_STAGE_SOURCE_ECONOMICS_ASSESSMENT,
-                details=source_economics_result.evidence_summary,
-            )
-            source_economics_findings = source_economics_result.findings
-            completed_check_families.append("cashflow_classification")
-            evidence_summary.update(source_economics_result.evidence_summary)
-            artifact_payloads["source_economics_summary.json"] = json.dumps(
-                source_economics_result.artifact_payload,
-                indent=2,
-            )
+        source_economics_outputs = _run_source_economics_assessment(
+            inspection_id=request.inspection_id,
+            performance_request=resolved_execution_request.portfolio,
+            portfolio_id=subject.portfolio_id,
+        )
+        source_economics_findings = source_economics_outputs.findings
+        completed_check_families.extend(source_economics_outputs.completed_check_families)
+        failed_check_families.extend(source_economics_outputs.failed_check_families)
+        evidence_summary.update(source_economics_outputs.evidence_summary)
+        artifact_payloads.update(source_economics_outputs.artifact_payloads)
 
     execution_registry.start_stage(request.inspection_id, EXECUTION_STAGE_FINDING_SYNTHESIS)
-    findings = [
-        *consistency_findings,
-        *source_quality_findings,
-        *reconciliation_findings,
-        *source_economics_findings,
-    ]
-    if failed_check_families:
-        evidence_summary["failed_check_families"] = failed_check_families
-    if not completed_check_families and not findings:
-        findings.append(_build_no_check_family_executed_finding())
-    pending_check_families = [family for family in _ALL_CHECK_FAMILIES if family not in completed_check_families]
-    verdict = _synthesize_verdict(
-        findings=findings,
-        completed_check_families=completed_check_families,
-        failed_check_families=failed_check_families,
-        pending_check_families=pending_check_families,
-    )
-    response = TWRInspectionResponse(
-        inspection_id=request.inspection_id,
-        subject_type=request.subject_type,
-        inspection_profile=request.inspection_profile,
+    response_synthesis = _build_twr_inspection_response(
+        request=request,
         subject_calculation_id=subject.subject_calculation_id,
         portfolio_id=subject.portfolio_id,
-        status="complete",
-        verdict=verdict,
-        findings=findings,
-        owner_summary=_build_owner_summary(findings),
+        consistency_findings=consistency_findings,
+        source_quality_findings=source_quality_findings,
+        reconciliation_findings=reconciliation_findings,
+        source_economics_findings=source_economics_findings,
+        completed_check_families=completed_check_families,
+        failed_check_families=failed_check_families,
         evidence_summary=evidence_summary,
-        check_coverage=TWRInspectionCheckCoverage(
-            completed_check_families=completed_check_families,
-            pending_check_families=pending_check_families,
-        ),
-        related_lineage=(
-            TWRInspectionRelatedLineage(
-                calculation_id=subject.subject_calculation_id,
-                lineage_path=(
-                    f"/performance/lineage/{subject.subject_calculation_id}"
-                    if subject.subject_calculation_id is not None
-                    else None
-                ),
-            )
-        ),
-        artifacts={
-            "inspection_summary.json": (
-                f"/performance/inspections/{request.inspection_id}/artifacts/inspection_summary.json"
-            ),
-            "findings.json": f"/performance/inspections/{request.inspection_id}/artifacts/findings.json",
-            **(
-                {
-                    "source_quality_summary.json": (
-                        f"/performance/inspections/{request.inspection_id}/artifacts/source_quality_summary.json"
-                    )
-                }
-                if "source_quality_summary.json" in artifact_payloads
-                else {}
-            ),
-            **(
-                {
-                    "reconciliation_summary.json": (
-                        f"/performance/inspections/{request.inspection_id}/artifacts/reconciliation_summary.json"
-                    )
-                }
-                if "reconciliation_summary.json" in artifact_payloads
-                else {}
-            ),
-            **(
-                {
-                    "source_economics_summary.json": (
-                        f"/performance/inspections/{request.inspection_id}/artifacts/source_economics_summary.json"
-                    )
-                }
-                if "source_economics_summary.json" in artifact_payloads
-                else {}
-            ),
-        },
-        workflow_pack_run=None,
-        generated_at_utc=format_timestamp(datetime.now(UTC)) or "",
+        artifact_payloads=artifact_payloads,
     )
-    support_brief_result = generate_twr_inspection_support_brief(inspection=response)
-    evidence_summary["support_brief_generation_status"] = support_brief_result.generation_status
-    if support_brief_result.workflow_pack_run is not None:
-        evidence_summary["support_brief_workflow_pack_run_id"] = support_brief_result.workflow_pack_run.run_id
-    if support_brief_result.artifact_markdown is not None:
-        artifact_payloads["support_brief.md"] = support_brief_result.artifact_markdown
-    response = response.model_copy(
-        update={
-            "evidence_summary": evidence_summary,
-            "artifacts": {
-                **response.artifacts,
-                **(
-                    {
-                        "support_brief.md": (
-                            f"/performance/inspections/{request.inspection_id}/artifacts/support_brief.md"
-                        )
-                    }
-                    if "support_brief.md" in artifact_payloads
-                    else {}
-                ),
-            },
-            "workflow_pack_run": support_brief_result.workflow_pack_run,
-        }
-    )
+    response = response_synthesis.response
+    artifact_payloads = response_synthesis.artifact_payloads
     execution_registry.complete_stage(
         request.inspection_id,
         EXECUTION_STAGE_FINDING_SYNTHESIS,
         details={
             "verdict": response.verdict.value,
             "finding_count": len(response.findings),
-            "support_brief_generation_status": support_brief_result.generation_status,
+            "support_brief_generation_status": response_synthesis.support_brief_generation_status,
         },
     )
 
@@ -339,6 +215,261 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
         raise
     execution_registry.mark_complete(request.inspection_id)
     return response
+
+
+def _build_twr_inspection_response(
+    *,
+    request: TWRInspectionRequest,
+    subject_calculation_id: UUID | None,
+    portfolio_id: str | None,
+    consistency_findings: list[TWRInspectionFinding],
+    source_quality_findings: list[TWRInspectionFinding],
+    reconciliation_findings: list[TWRInspectionFinding],
+    source_economics_findings: list[TWRInspectionFinding],
+    completed_check_families: list[str],
+    failed_check_families: list[str],
+    evidence_summary: dict[str, object],
+    artifact_payloads: dict[str, str],
+) -> _InspectionResponseSynthesis:
+    findings = [
+        *consistency_findings,
+        *source_quality_findings,
+        *reconciliation_findings,
+        *source_economics_findings,
+    ]
+    if failed_check_families:
+        evidence_summary["failed_check_families"] = failed_check_families
+    if not completed_check_families and not findings:
+        findings.append(_build_no_check_family_executed_finding())
+
+    pending_check_families = [family for family in _ALL_CHECK_FAMILIES if family not in completed_check_families]
+    verdict = _synthesize_verdict(
+        findings=findings,
+        completed_check_families=completed_check_families,
+        failed_check_families=failed_check_families,
+        pending_check_families=pending_check_families,
+    )
+    response = TWRInspectionResponse(
+        inspection_id=request.inspection_id,
+        subject_type=request.subject_type,
+        inspection_profile=request.inspection_profile,
+        subject_calculation_id=subject_calculation_id,
+        portfolio_id=portfolio_id,
+        status="complete",
+        verdict=verdict,
+        findings=findings,
+        owner_summary=_build_owner_summary(findings),
+        evidence_summary=evidence_summary,
+        check_coverage=TWRInspectionCheckCoverage(
+            completed_check_families=completed_check_families,
+            pending_check_families=pending_check_families,
+        ),
+        related_lineage=TWRInspectionRelatedLineage(
+            calculation_id=subject_calculation_id,
+            lineage_path=f"/performance/lineage/{subject_calculation_id}"
+            if subject_calculation_id is not None
+            else None,
+        ),
+        artifacts=_build_twr_inspection_artifact_links(
+            inspection_id=request.inspection_id,
+            artifact_payloads=artifact_payloads,
+        ),
+        workflow_pack_run=None,
+        generated_at_utc=format_timestamp(datetime.now(UTC)) or "",
+    )
+    support_brief_result = generate_twr_inspection_support_brief(inspection=response)
+    evidence_summary["support_brief_generation_status"] = support_brief_result.generation_status
+    if support_brief_result.workflow_pack_run is not None:
+        evidence_summary["support_brief_workflow_pack_run_id"] = support_brief_result.workflow_pack_run.run_id
+    if support_brief_result.artifact_markdown is not None:
+        artifact_payloads["support_brief.md"] = support_brief_result.artifact_markdown
+    response = response.model_copy(
+        update={
+            "evidence_summary": evidence_summary,
+            "artifacts": _build_twr_inspection_artifact_links(
+                inspection_id=request.inspection_id,
+                artifact_payloads=artifact_payloads,
+            ),
+            "workflow_pack_run": support_brief_result.workflow_pack_run,
+        }
+    )
+    return _InspectionResponseSynthesis(
+        response=response,
+        artifact_payloads=artifact_payloads,
+        support_brief_generation_status=support_brief_result.generation_status,
+    )
+
+
+def _run_source_quality_assessment(
+    *,
+    inspection_id: UUID,
+    performance_request: PerformanceRequest,
+    inspection_profile: TWRInspectionProfile,
+) -> _InspectionStageOutputs:
+    findings: list[TWRInspectionFinding] = []
+    failed_check_families: list[str] = []
+    execution_registry.start_stage(inspection_id, EXECUTION_STAGE_SOURCE_QUALITY_ASSESSMENT)
+    try:
+        source_quality_result = run_source_quality_checks(
+            performance_request=performance_request,
+            inspection_profile=inspection_profile,
+        )
+    except Exception as exc:
+        _record_check_failure(
+            inspection_id=inspection_id,
+            findings=findings,
+            failed_check_families=failed_check_families,
+            families=["source_quality", "economic_plausibility"],
+            stage=EXECUTION_STAGE_SOURCE_QUALITY_ASSESSMENT,
+            error=exc,
+        )
+        return _InspectionStageOutputs(
+            findings=findings,
+            completed_check_families=[],
+            failed_check_families=failed_check_families,
+            evidence_summary={},
+            artifact_payloads={},
+        )
+
+    execution_registry.complete_stage(
+        inspection_id,
+        EXECUTION_STAGE_SOURCE_QUALITY_ASSESSMENT,
+        details=source_quality_result.evidence_summary,
+    )
+    return _InspectionStageOutputs(
+        findings=source_quality_result.findings,
+        completed_check_families=["source_quality", "economic_plausibility"],
+        failed_check_families=[],
+        evidence_summary=source_quality_result.evidence_summary,
+        artifact_payloads={
+            "source_quality_summary.json": json.dumps(
+                source_quality_result.artifact_payload,
+                indent=2,
+            )
+        },
+    )
+
+
+def _run_reconciliation_assessment(
+    *,
+    inspection_id: UUID,
+    performance_request: PerformanceRequest,
+    portfolio_id: str,
+    inspection_profile: TWRInspectionProfile,
+) -> _InspectionStageOutputs:
+    findings: list[TWRInspectionFinding] = []
+    failed_check_families: list[str] = []
+    execution_registry.start_stage(inspection_id, EXECUTION_STAGE_SOURCE_STATE_RECONCILIATION)
+    try:
+        reconciliation_result = run_reconciliation_checks(
+            performance_request=performance_request,
+            portfolio_id=portfolio_id,
+            inspection_profile=inspection_profile,
+        )
+    except Exception as exc:
+        _record_check_failure(
+            inspection_id=inspection_id,
+            findings=findings,
+            failed_check_families=failed_check_families,
+            families=["reconciliation"],
+            stage=EXECUTION_STAGE_SOURCE_STATE_RECONCILIATION,
+            error=exc,
+        )
+        return _InspectionStageOutputs(
+            findings=findings,
+            completed_check_families=[],
+            failed_check_families=failed_check_families,
+            evidence_summary={},
+            artifact_payloads={},
+        )
+
+    execution_registry.complete_stage(
+        inspection_id,
+        EXECUTION_STAGE_SOURCE_STATE_RECONCILIATION,
+        details=reconciliation_result.evidence_summary,
+    )
+    return _InspectionStageOutputs(
+        findings=reconciliation_result.findings,
+        completed_check_families=["reconciliation"],
+        failed_check_families=[],
+        evidence_summary=reconciliation_result.evidence_summary,
+        artifact_payloads={
+            "reconciliation_summary.json": json.dumps(
+                reconciliation_result.artifact_payload,
+                indent=2,
+            )
+        },
+    )
+
+
+def _run_source_economics_assessment(
+    *,
+    inspection_id: UUID,
+    performance_request: PerformanceRequest,
+    portfolio_id: str,
+) -> _InspectionStageOutputs:
+    findings: list[TWRInspectionFinding] = []
+    failed_check_families: list[str] = []
+    execution_registry.start_stage(inspection_id, EXECUTION_STAGE_SOURCE_ECONOMICS_ASSESSMENT)
+    try:
+        source_economics_result = run_source_economics_checks(
+            performance_request=performance_request,
+            portfolio_id=portfolio_id,
+        )
+    except Exception as exc:
+        _record_check_failure(
+            inspection_id=inspection_id,
+            findings=findings,
+            failed_check_families=failed_check_families,
+            families=["cashflow_classification"],
+            stage=EXECUTION_STAGE_SOURCE_ECONOMICS_ASSESSMENT,
+            error=exc,
+        )
+        return _InspectionStageOutputs(
+            findings=findings,
+            completed_check_families=[],
+            failed_check_families=failed_check_families,
+            evidence_summary={},
+            artifact_payloads={},
+        )
+
+    execution_registry.complete_stage(
+        inspection_id,
+        EXECUTION_STAGE_SOURCE_ECONOMICS_ASSESSMENT,
+        details=source_economics_result.evidence_summary,
+    )
+    return _InspectionStageOutputs(
+        findings=source_economics_result.findings,
+        completed_check_families=["cashflow_classification"],
+        failed_check_families=[],
+        evidence_summary=source_economics_result.evidence_summary,
+        artifact_payloads={
+            "source_economics_summary.json": json.dumps(
+                source_economics_result.artifact_payload,
+                indent=2,
+            )
+        },
+    )
+
+
+def _build_twr_inspection_artifact_links(
+    *,
+    inspection_id: UUID,
+    artifact_payloads: dict[str, str],
+) -> dict[str, str]:
+    artifact_links = {
+        "inspection_summary.json": f"/performance/inspections/{inspection_id}/artifacts/inspection_summary.json",
+        "findings.json": f"/performance/inspections/{inspection_id}/artifacts/findings.json",
+    }
+    for artifact_name in (
+        "source_quality_summary.json",
+        "reconciliation_summary.json",
+        "source_economics_summary.json",
+        "support_brief.md",
+    ):
+        if artifact_name in artifact_payloads:
+            artifact_links[artifact_name] = f"/performance/inspections/{inspection_id}/artifacts/{artifact_name}"
+    return artifact_links
 
 
 def _synthesize_verdict(
