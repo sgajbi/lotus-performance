@@ -108,8 +108,8 @@ link the commit, command, or CI artifact that proves the change.
 | Endpoint certification docs | unknown | 20 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
 | API catalog files | unknown | 4 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
 | Docs regression test functions | unknown | 56 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
-| Public definitions missing docstrings | unknown | 1,001 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
-| Public definition docstring coverage percent | unknown | 10.86 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
+| Public definitions missing docstrings | unknown | 998 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
+| Public definition docstring coverage percent | unknown | 11.13 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
 
 ## Phase-Zero Interpretation
 

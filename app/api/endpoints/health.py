@@ -14,6 +14,7 @@ router = APIRouter(tags=["Health"])
     description="Returns basic process health for lotus-performance. Use this as a lightweight reachability probe, not as a durable readiness contract.",
 )
 async def health() -> HealthStatusResponse:
+    """Return lightweight process reachability for load balancers and smoke probes."""
     return HealthStatusResponse(status="ok")
 
 
@@ -24,6 +25,7 @@ async def health() -> HealthStatusResponse:
     description="Returns liveness for lotus-performance. This route answers whether the process is running, without checking durable metadata or lineage storage dependencies.",
 )
 async def health_live() -> HealthStatusResponse:
+    """Return liveness without checking durable runtime dependencies."""
     return HealthStatusResponse(status="live")
 
 
@@ -37,6 +39,7 @@ async def health_live() -> HealthStatusResponse:
     ),
 )
 async def health_ready(request: Request, response: Response) -> HealthStatusResponse:
+    """Return readiness after draining and durable metadata dependency checks."""
     if bool(getattr(request.app.state, "is_draining", False)):
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
         return HealthStatusResponse(status="draining")
