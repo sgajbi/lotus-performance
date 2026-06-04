@@ -183,6 +183,92 @@ def test_build_returns_series_point_outputs_omits_unselected_optional_families()
     assert outputs.cumulative_active_return_points is None
 
 
+def test_build_returns_series_diagnostics_reports_coverage_gaps_and_market_warning():
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-26",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-26"},
+            "frequency": "DAILY",
+            "series_selection": {"include_portfolio": True, "include_benchmark": True, "include_risk_free": False},
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_returns": [
+                    {"date": "2026-02-23", "return_value": "0.0100"},
+                    {"date": "2026-02-25", "return_value": "0.0200"},
+                ],
+                "benchmark_returns": [
+                    {"date": "2026-02-23", "return_value": "0.0010"},
+                    {"date": "2026-02-26", "return_value": "0.0020"},
+                ],
+            },
+            "data_policy": {"calendar_policy": "MARKET", "missing_data_policy": "ALLOW_PARTIAL"},
+        }
+    )
+    resolved_window = returns_series_service.resolve_window(request)
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23", "2026-02-25"]),
+            "return_value": [Decimal("0.0100"), Decimal("0.0200")],
+        }
+    )
+    benchmark_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23", "2026-02-26"]),
+            "return_value": [Decimal("0.0010"), Decimal("0.0020")],
+        }
+    )
+
+    result = returns_series_service._build_returns_series_diagnostics(
+        request=request,
+        resolved_window=resolved_window,
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+        risk_free_df=None,
+    )
+
+    assert result.requested_points == 4
+    assert result.returned_points == 2
+    assert result.diagnostics.coverage.missing_points == 2
+    assert result.diagnostics.warnings == ["MARKET calendar policy currently uses business-day approximation."]
+    assert {gap.series_type for gap in result.diagnostics.gaps} == {"portfolio", "benchmark"}
+
+
+def test_build_returns_series_diagnostics_enforces_fail_fast_missing_points():
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-26",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-24", "to_date": "2026-02-26"},
+            "frequency": "DAILY",
+            "series_selection": {"include_portfolio": True, "include_benchmark": False, "include_risk_free": False},
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_returns": [
+                    {"date": "2026-02-24", "return_value": "0.0100"},
+                ],
+            },
+            "data_policy": {"missing_data_policy": "FAIL_FAST"},
+        }
+    )
+    resolved_window = returns_series_service.resolve_window(request)
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24"]),
+            "return_value": [Decimal("0.0100")],
+        }
+    )
+
+    with pytest.raises(HTTPException, match="Missing 2 required points under FAIL_FAST policy"):
+        returns_series_service._build_returns_series_diagnostics(
+            request=request,
+            resolved_window=resolved_window,
+            portfolio_df=portfolio_df,
+            benchmark_df=None,
+            risk_free_df=None,
+        )
+
+
 def test_risk_free_points_to_dataframe_converts_annualized_rates_to_daily_returns():
     risk_free_df = returns_series_service.risk_free_points_to_dataframe(
         points=[

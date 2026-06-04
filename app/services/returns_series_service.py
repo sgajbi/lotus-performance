@@ -88,6 +88,13 @@ class _ReturnsSeriesPointOutputs:
 
 
 @dataclass(frozen=True)
+class _ReturnsSeriesDiagnosticsResult:
+    diagnostics: ReturnsDiagnostics
+    requested_points: int
+    returned_points: int
+
+
+@dataclass(frozen=True)
 class _StatefulBenchmarkSeriesSource:
     benchmark_points: list[dict[str, Any]]
     benchmark_source_details: dict[str, int]
@@ -791,6 +798,76 @@ def _build_returns_series_point_outputs(
     )
 
 
+def _build_returns_series_diagnostics(
+    *,
+    request: ReturnsSeriesRequest,
+    resolved_window: ResolvedWindow,
+    portfolio_df: pd.DataFrame,
+    benchmark_df: pd.DataFrame | None,
+    risk_free_df: pd.DataFrame | None,
+) -> _ReturnsSeriesDiagnosticsResult:
+    requested_points = date_range_count(
+        resolved_window, frequency=request.frequency, calendar_policy=request.data_policy.calendar_policy
+    )
+    returned_points = len(portfolio_df)
+    missing_points = max(requested_points - returned_points, 0)
+    if request.data_policy.missing_data_policy == MissingDataPolicy.FAIL_FAST and missing_points > 0:
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail=insufficient_data_detail(f"Missing {missing_points} required points under FAIL_FAST policy."),
+        )
+
+    warnings: list[str] = []
+    if request.data_policy.calendar_policy == CalendarPolicy.MARKET:
+        warnings.append("MARKET calendar policy currently uses business-day approximation.")
+
+    gaps = [
+        *detect_gaps(
+            portfolio_df,
+            frequency=request.frequency,
+            series_type="portfolio",
+            calendar_policy=request.data_policy.calendar_policy,
+        ),
+        *(
+            detect_gaps(
+                benchmark_df,
+                frequency=request.frequency,
+                series_type="benchmark",
+                calendar_policy=request.data_policy.calendar_policy,
+            )
+            if benchmark_df is not None
+            else []
+        ),
+        *(
+            detect_gaps(
+                risk_free_df,
+                frequency=request.frequency,
+                series_type="risk_free",
+                calendar_policy=request.data_policy.calendar_policy,
+            )
+            if risk_free_df is not None
+            else []
+        ),
+    ]
+    return _ReturnsSeriesDiagnosticsResult(
+        requested_points=requested_points,
+        returned_points=returned_points,
+        diagnostics=ReturnsDiagnostics(
+            coverage=SeriesCoverage(
+                requested_points=requested_points,
+                returned_points=returned_points,
+                missing_points=missing_points,
+                coverage_ratio=Decimal(str(round(returned_points / requested_points, 8)))
+                if requested_points
+                else Decimal("1"),
+            ),
+            gaps=gaps,
+            policy_applied=request.data_policy,
+            warnings=warnings,
+        ),
+    )
+
+
 async def calculate_returns_series(
     request: ReturnsSeriesRequest,
     *,
@@ -897,20 +974,13 @@ async def _calculate_returns_series(
                 calculation_hash=calculation_hash,
             )
 
-        requested_points = date_range_count(
-            resolved_window, frequency=request.frequency, calendar_policy=request.data_policy.calendar_policy
+        diagnostics_result = _build_returns_series_diagnostics(
+            request=request,
+            resolved_window=resolved_window,
+            portfolio_df=portfolio_df,
+            benchmark_df=benchmark_df,
+            risk_free_df=risk_free_df,
         )
-        returned_points = len(portfolio_df)
-        missing_points = max(requested_points - returned_points, 0)
-        if request.data_policy.missing_data_policy == MissingDataPolicy.FAIL_FAST and missing_points > 0:
-            raise HTTPException(
-                status_code=HTTP_422_UNPROCESSABLE,
-                detail=insufficient_data_detail(f"Missing {missing_points} required points under FAIL_FAST policy."),
-            )
-
-        warnings: list[str] = []
-        if request.data_policy.calendar_policy == CalendarPolicy.MARKET:
-            warnings.append("MARKET calendar policy currently uses business-day approximation.")
 
         response = ReturnsSeriesResponse(
             calculation_id=request.calculation_id,
@@ -942,46 +1012,7 @@ async def _calculate_returns_series(
                 input_fingerprint=input_fingerprint,
                 calculation_hash=calculation_hash,
             ),
-            diagnostics=ReturnsDiagnostics(
-                coverage=SeriesCoverage(
-                    requested_points=requested_points,
-                    returned_points=returned_points,
-                    missing_points=missing_points,
-                    coverage_ratio=Decimal(str(round(returned_points / requested_points, 8)))
-                    if requested_points
-                    else Decimal("1"),
-                ),
-                gaps=[
-                    *detect_gaps(
-                        portfolio_df,
-                        frequency=request.frequency,
-                        series_type="portfolio",
-                        calendar_policy=request.data_policy.calendar_policy,
-                    ),
-                    *(
-                        detect_gaps(
-                            benchmark_df,
-                            frequency=request.frequency,
-                            series_type="benchmark",
-                            calendar_policy=request.data_policy.calendar_policy,
-                        )
-                        if benchmark_df is not None
-                        else []
-                    ),
-                    *(
-                        detect_gaps(
-                            risk_free_df,
-                            frequency=request.frequency,
-                            series_type="risk_free",
-                            calendar_policy=request.data_policy.calendar_policy,
-                        )
-                        if risk_free_df is not None
-                        else []
-                    ),
-                ],
-                policy_applied=request.data_policy,
-                warnings=warnings,
-            ),
+            diagnostics=diagnostics_result.diagnostics,
             metadata=ReturnsMetadata(
                 generated_at=datetime.now(UTC),
                 correlation_id=correlation_id_var.get() or None,
@@ -992,7 +1023,10 @@ async def _calculate_returns_series(
         execution_registry.complete_stage(
             request.calculation_id,
             EXECUTION_STAGE_EXECUTION,
-            details={"requested_points": requested_points, "returned_points": returned_points},
+            details={
+                "requested_points": diagnostics_result.requested_points,
+                "returned_points": diagnostics_result.returned_points,
+            },
         )
         execution_registry.mark_complete(request.calculation_id)
         return response
