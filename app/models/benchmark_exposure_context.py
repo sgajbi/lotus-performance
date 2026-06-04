@@ -11,6 +11,8 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.returns_series import ReturnsFrequency
 
+_OPENAPI_ABSENT_PAGE_MARKER: str | None = None
+
 
 class BenchmarkExposureGroupingDimension(str, Enum):
     POSITION = "POSITION"
@@ -60,7 +62,7 @@ class BenchmarkExposureContextRequest(BaseModel):
                     "frequency": "DAILY",
                     "reporting_currency": "USD",
                     "grouping_dimensions": ["POSITION", "SECTOR", "ASSET_CLASS", "ISSUER"],
-                    "page": {"page_size": 1000, "page_token": None},
+                    "page": {"page_size": 1000, "page_token": _OPENAPI_ABSENT_PAGE_MARKER},
                 }
             ]
         },
@@ -217,7 +219,7 @@ class BenchmarkExposureContextResponse(BaseModel):
                             "weight": "0.600000",
                         }
                     ],
-                    "page": {"next_page_token": None},
+                    "page": {"next_page_token": _OPENAPI_ABSENT_PAGE_MARKER},
                     "metadata": {
                         "source_system": "lotus-core",
                         "served_by": "lotus-performance",
