@@ -101,10 +101,15 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| README completeness | unknown | unknown | planned-gate | public docs tests exist, but scorecard not generated |
-| Wiki/RFC/runbook coverage | unknown | unknown | planned-gate | docs tests exist, but coverage inventory not generated |
-| Public docstring coverage | unknown | unknown | not-yet-measured | `interrogate` not configured |
-| API catalog completeness | unknown | unknown | planned-gate | OpenAPI inventory score not generated |
+| README required markers | unknown | 8 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
+| Missing README required markers | unknown | 0 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
+| Wiki source pages | unknown | 20 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
+| Markdown documentation files | unknown | 230 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
+| Endpoint certification docs | unknown | 20 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
+| API catalog files | unknown | 4 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
+| Docs regression test functions | unknown | 56 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
+| Public definitions missing docstrings | unknown | 1,001 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
+| Public definition docstring coverage percent | unknown | 10.86 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
 
 ## Phase-Zero Interpretation
 
