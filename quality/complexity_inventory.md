@@ -35,10 +35,10 @@ python scripts/python_complexity_inventory.py --limit 20
 | 5 | `calculate_asset_weighted_composite_twr` | function | `engine/composites.py:240` | 27 | D |
 | 6 | `_build_schema_example` | function | `app/openapi_enrichment.py:230` | 26 | D |
 | 7 | `_prepare_data_from_instruments` | function | `engine/attribution.py:221` | 26 | D |
-| 8 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:64` | 25 | D |
-| 9 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:44` | 25 | D |
-| 10 | `calculate_money_weighted_return` | function | `engine/mwr.py:186` | 25 | D |
-| 11 | `build_source_economics_findings` | function | `app/services/inspection/source_economics_findings.py:7` | 24 | D |
+| 8 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:44` | 25 | D |
+| 9 | `calculate_money_weighted_return` | function | `engine/mwr.py:186` | 25 | D |
+| 10 | `build_source_economics_findings` | function | `app/services/inspection/source_economics_findings.py:7` | 24 | D |
+| 11 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:64` | 23 | D |
 | 12 | `ReturnsSeriesRequest` | class | `app/models/returns_series.py:244` | 22 | D |
 | 13 | `analyze_portfolio_position_reconciliation` | function | `app/services/inspection/reconciliation.py:82` | 22 | D |
 | 14 | `calculate_benchmark_returns` | function | `engine/benchmarks.py:35` | 22 | D |

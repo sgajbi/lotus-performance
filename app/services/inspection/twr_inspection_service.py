@@ -144,35 +144,17 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
 
     reconciliation_findings: list[TWRInspectionFinding] = []
     if resolved_execution_request is not None and subject.portfolio_id is not None:
-        execution_registry.start_stage(request.inspection_id, EXECUTION_STAGE_SOURCE_STATE_RECONCILIATION)
-        try:
-            reconciliation_result = run_reconciliation_checks(
-                performance_request=resolved_execution_request.portfolio,
-                portfolio_id=subject.portfolio_id,
-                inspection_profile=request.inspection_profile,
-            )
-        except Exception as exc:
-            _record_check_failure(
-                inspection_id=request.inspection_id,
-                findings=reconciliation_findings,
-                failed_check_families=failed_check_families,
-                families=["reconciliation"],
-                stage=EXECUTION_STAGE_SOURCE_STATE_RECONCILIATION,
-                error=exc,
-            )
-        else:
-            execution_registry.complete_stage(
-                request.inspection_id,
-                EXECUTION_STAGE_SOURCE_STATE_RECONCILIATION,
-                details=reconciliation_result.evidence_summary,
-            )
-            reconciliation_findings = reconciliation_result.findings
-            completed_check_families.append("reconciliation")
-            evidence_summary.update(reconciliation_result.evidence_summary)
-            artifact_payloads["reconciliation_summary.json"] = json.dumps(
-                reconciliation_result.artifact_payload,
-                indent=2,
-            )
+        reconciliation_outputs = _run_reconciliation_assessment(
+            inspection_id=request.inspection_id,
+            performance_request=resolved_execution_request.portfolio,
+            portfolio_id=subject.portfolio_id,
+            inspection_profile=request.inspection_profile,
+        )
+        reconciliation_findings = reconciliation_outputs.findings
+        completed_check_families.extend(reconciliation_outputs.completed_check_families)
+        failed_check_families.extend(reconciliation_outputs.failed_check_families)
+        evidence_summary.update(reconciliation_outputs.evidence_summary)
+        artifact_payloads.update(reconciliation_outputs.artifact_payloads)
 
     source_economics_findings: list[TWRInspectionFinding] = []
     if resolved_execution_request is not None and subject.portfolio_id is not None:
@@ -340,6 +322,58 @@ def _run_source_quality_assessment(
         artifact_payloads={
             "source_quality_summary.json": json.dumps(
                 source_quality_result.artifact_payload,
+                indent=2,
+            )
+        },
+    )
+
+
+def _run_reconciliation_assessment(
+    *,
+    inspection_id: UUID,
+    performance_request: PerformanceRequest,
+    portfolio_id: str,
+    inspection_profile: TWRInspectionProfile,
+) -> _InspectionStageOutputs:
+    findings: list[TWRInspectionFinding] = []
+    failed_check_families: list[str] = []
+    execution_registry.start_stage(inspection_id, EXECUTION_STAGE_SOURCE_STATE_RECONCILIATION)
+    try:
+        reconciliation_result = run_reconciliation_checks(
+            performance_request=performance_request,
+            portfolio_id=portfolio_id,
+            inspection_profile=inspection_profile,
+        )
+    except Exception as exc:
+        _record_check_failure(
+            inspection_id=inspection_id,
+            findings=findings,
+            failed_check_families=failed_check_families,
+            families=["reconciliation"],
+            stage=EXECUTION_STAGE_SOURCE_STATE_RECONCILIATION,
+            error=exc,
+        )
+        return _InspectionStageOutputs(
+            findings=findings,
+            completed_check_families=[],
+            failed_check_families=failed_check_families,
+            evidence_summary={},
+            artifact_payloads={},
+        )
+
+    execution_registry.complete_stage(
+        inspection_id,
+        EXECUTION_STAGE_SOURCE_STATE_RECONCILIATION,
+        details=reconciliation_result.evidence_summary,
+    )
+    return _InspectionStageOutputs(
+        findings=reconciliation_result.findings,
+        completed_check_families=["reconciliation"],
+        failed_check_families=[],
+        evidence_summary=reconciliation_result.evidence_summary,
+        artifact_payloads={
+            "reconciliation_summary.json": json.dumps(
+                reconciliation_result.artifact_payload,
                 indent=2,
             )
         },

@@ -105,6 +105,54 @@ def test_run_source_quality_assessment_preserves_failure_outputs(fake_registry, 
     )
 
 
+def test_run_reconciliation_assessment_records_success_outputs(fake_registry, monkeypatch):
+    monkeypatch.setattr(
+        service,
+        "run_reconciliation_checks",
+        lambda **_kwargs: SimpleNamespace(
+            findings=[],
+            evidence_summary={"position_rows_checked": 2},
+            artifact_payload={"position_rows_checked": 2},
+        ),
+    )
+
+    outputs = service._run_reconciliation_assessment(
+        inspection_id=uuid4(),
+        performance_request=_build_performance_request(),
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        inspection_profile=TWRInspectionProfile.CANONICAL_VALIDATION,
+    )
+
+    assert outputs.findings == []
+    assert outputs.completed_check_families == ["reconciliation"]
+    assert outputs.failed_check_families == []
+    assert outputs.evidence_summary == {"position_rows_checked": 2}
+    assert outputs.artifact_payloads == {"reconciliation_summary.json": '{\n  "position_rows_checked": 2\n}'}
+    assert EXECUTION_STAGE_SOURCE_STATE_RECONCILIATION in fake_registry.completed_stages
+
+
+def test_run_reconciliation_assessment_preserves_failure_outputs(fake_registry, monkeypatch):
+    def raise_reconciliation_failure(**_kwargs):
+        raise RuntimeError("position source down")
+
+    monkeypatch.setattr(service, "run_reconciliation_checks", raise_reconciliation_failure)
+
+    outputs = service._run_reconciliation_assessment(
+        inspection_id=uuid4(),
+        performance_request=_build_performance_request(),
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        inspection_profile=TWRInspectionProfile.CANONICAL_VALIDATION,
+    )
+
+    assert outputs.completed_check_families == []
+    assert outputs.failed_check_families == ["reconciliation"]
+    assert outputs.evidence_summary == {}
+    assert outputs.artifact_payloads == {}
+    assert outputs.findings[0].code == "INSPECTION_CHECK_FAMILY_FAILED"
+    assert outputs.findings[0].evidence["stage"] == EXECUTION_STAGE_SOURCE_STATE_RECONCILIATION
+    assert (EXECUTION_STAGE_SOURCE_STATE_RECONCILIATION, "position source down") in fake_registry.failed_stages
+
+
 def test_twr_inspection_preserves_runtime_finding_when_only_check_family_fails(fake_registry, monkeypatch):
     def raise_source_quality_failure(**_kwargs):
         raise RuntimeError("source quality dependency unavailable")
