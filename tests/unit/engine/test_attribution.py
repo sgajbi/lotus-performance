@@ -11,6 +11,7 @@ from engine.attribution import (
     _calculate_group_context_metrics,
     _calculate_single_period_effects,
     _link_effects_top_down,
+    _normalize_instrument_group_columns,
     _prepare_data_from_instruments,
     _prepare_panel_from_groups,
     aggregate_attribution_results,
@@ -418,6 +419,22 @@ def test_prepare_data_from_instruments_preserves_unclassified_weight():
     weights_by_sector = {group.key["sector"]: group.observations[0]["weight_bop"] for group in result_groups}
 
     assert weights_by_sector == pytest.approx({"Tech": 0.6, "unknown": 0.4})
+
+
+def test_normalize_instrument_group_columns_adds_missing_group_keys():
+    full_df = pd.DataFrame({"weight_bop": [1.0]})
+
+    _normalize_instrument_group_columns(full_df, ["sector"])
+
+    assert full_df["sector"].tolist() == ["unknown"]
+
+
+def test_normalize_instrument_group_columns_replaces_blank_and_null_group_keys():
+    full_df = pd.DataFrame({"sector": ["Tech", "", None]})
+
+    _normalize_instrument_group_columns(full_df, ["sector"])
+
+    assert full_df["sector"].tolist() == ["Tech", "unknown", "unknown"]
 
 
 def test_prepare_panel_from_groups_handles_empty_cases():

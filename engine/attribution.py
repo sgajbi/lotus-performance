@@ -207,6 +207,17 @@ def _build_attribution_group_result(
     )
 
 
+def _normalize_instrument_group_columns(full_df: pd.DataFrame, group_cols: list[str]) -> None:
+    for group_col in group_cols:
+        if group_col not in full_df.columns:
+            full_df[group_col] = "unknown"
+            continue
+        full_df[group_col] = full_df[group_col].where(
+            full_df[group_col].notna() & (full_df[group_col].astype(str).str.len() > 0),
+            "unknown",
+        )
+
+
 def _prepare_data_from_instruments(request: AttributionRequestLike) -> list[AttributionObservationGroup]:
     """
     Runs TWR engine on instrument data and aggregates returns and weights
@@ -283,14 +294,7 @@ def _prepare_data_from_instruments(request: AttributionRequestLike) -> list[Attr
 
     full_df = pd.concat(all_instruments)
     group_cols = list(request.group_by)
-    for group_col in group_cols:
-        if group_col not in full_df.columns:
-            full_df[group_col] = "unknown"
-        else:
-            full_df[group_col] = full_df[group_col].where(
-                full_df[group_col].notna() & (full_df[group_col].astype(str).str.len() > 0),
-                "unknown",
-            )
+    _normalize_instrument_group_columns(full_df, group_cols)
 
     return_cols = ["return_base", "return_local", "return_fx"]
     for col in return_cols:
