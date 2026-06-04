@@ -59,8 +59,8 @@ metrics in each section are updated with each meaningful slice.
 
 | Metric | Baseline | Current | Delta | Status | Evidence |
 | --- | ---: | ---: | ---: | --- | --- |
-| Line coverage | unknown | unknown | n/a | not-yet-measured | `quality/refactor_health_report.md` |
-| Branch coverage | unknown | unknown | n/a | not-yet-measured | `quality/refactor_health_report.md` |
+| Line coverage | unknown | 99% | n/a | measured | `quality/coverage_inventory.md`; `quality/refactor_health_report.md` |
+| Branch coverage | unknown | not configured | n/a | not-yet-measured | `quality/coverage_inventory.md`; `quality/refactor_health_report.md` |
 | Integration/API/runtime test functions | unknown | 453 | n/a | measured | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md` |
 | Contract/governance test functions | unknown | 107 | n/a | measured | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md` |
 
@@ -98,8 +98,8 @@ metrics in each section are updated with each meaningful slice.
 | Signal | Value | Note |
 | --- | ---: | --- |
 | Total metrics tracked | 39 | All metrics in this file are measured or explicitly called out as not-yet-measured. |
-| Measured metrics | 37 | Remaining gaps are primarily line/branch coverage and a few baseline historical values remain for future slices. |
-| Not-yet-measured metrics | 2 | Line coverage and branch coverage remain untracked on this stream. |
+| Measured metrics | 38 | Remaining gaps are primarily branch coverage and a few baseline historical values remain for future slices. |
+| Not-yet-measured metrics | 1 | Branch coverage remains unconfigured and untracked on this stream. |
 
 ## Method Note
 

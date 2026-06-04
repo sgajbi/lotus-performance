@@ -70,8 +70,8 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 252 | measured | `rg --files tests -g 'test_*.py'` |
 | Collected tests | 2,035 | 2,215 | measured | `python -m pytest --collect-only -q` |
-| Line coverage | unknown | unknown | not-yet-measured | coverage run not captured in baseline slice |
-| Branch coverage | unknown | unknown | not-yet-measured | branch coverage not configured as a scorecard input |
+| Line coverage | unknown | 99% | measured | `quality/coverage_inventory.md` via `make test-coverage` |
+| Branch coverage | unknown | not configured | not-yet-measured | `quality/coverage_inventory.md`; branch coverage is not configured in pytest-cov or coverage.py |
 | Integration/API/runtime test functions | unknown | 453 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
 | Contract/governance test functions | unknown | 107 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
 
