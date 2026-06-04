@@ -3,8 +3,8 @@ from typing import Dict, List
 
 import pandas as pd
 
-from app.precision_policy import quantize_performance
 from common.enums import Frequency
+from common.precision_policy import quantize_performance
 from core.annualize import annualize_return
 from core.envelope import Annualization
 from engine.schema import PortfolioColumns
