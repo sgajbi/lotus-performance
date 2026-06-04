@@ -6,7 +6,7 @@ import pytest
 
 from app.models.mwr_requests import CashFlow
 from core.envelope import Annualization
-from engine.mwr import _xirr, calculate_money_weighted_return
+from engine.mwr import _calculate_xirr_mwr_attempt, _xirr, calculate_money_weighted_return
 
 
 @pytest.mark.parametrize(
@@ -49,6 +49,44 @@ def test_calculate_mwr_xirr():
     )
     assert result.method == "XIRR"
     assert result.mwr == pytest.approx(36.86313651, abs=1e-6)
+
+
+def test_calculate_xirr_mwr_attempt_returns_successful_xirr_result():
+    attempt = _calculate_xirr_mwr_attempt(
+        begin_mv=1000.0,
+        end_mv=1300.0,
+        cash_flows=[
+            CashFlow(amount=100.0, date=date(2025, 2, 1)),
+            CashFlow(amount=50.0, date=date(2025, 4, 1)),
+            CashFlow(amount=-200.0, date=date(2025, 8, 1)),
+        ],
+        annualization=Annualization(enabled=False, basis="ACT/365"),
+        start_date=date(2025, 2, 1),
+        end_date=date(2025, 12, 31),
+        period_days=333,
+    )
+
+    assert attempt.reason_code is None
+    assert attempt.result is not None
+    assert attempt.result.method == "XIRR"
+    assert attempt.result.mwr == pytest.approx(36.86313651, abs=1e-6)
+
+
+def test_calculate_xirr_mwr_attempt_maps_no_economic_content_to_not_applicable():
+    attempt = _calculate_xirr_mwr_attempt(
+        begin_mv=0.0,
+        end_mv=0.0,
+        cash_flows=[],
+        annualization=Annualization(enabled=False, basis="ACT/365"),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 12, 31),
+        period_days=364,
+    )
+
+    assert attempt.reason_code == "NO_ECONOMIC_CONTENT"
+    assert attempt.result is not None
+    assert attempt.result.status == "NOT_APPLICABLE"
+    assert attempt.result.reason_codes == ["NO_ECONOMIC_CONTENT"]
 
 
 def test_calculate_mwr_xirr_fallback_to_dietz():

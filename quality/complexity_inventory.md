@@ -20,20 +20,20 @@ python scripts/python_complexity_inventory.py --limit 20
 
 | Metric | Value |
 | --- | ---: |
-| Max cyclomatic complexity | 25 |
+| Max cyclomatic complexity | 24 |
 | High-complexity functions (rank D-F) | 10 |
-| Average maintainability index | 55.85 |
+| Average maintainability index | 55.84 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `calculate_money_weighted_return` | function | `engine/mwr.py:186` | 25 | D |
-| 2 | `build_source_economics_findings` | function | `app/services/inspection/source_economics_findings.py:7` | 24 | D |
-| 3 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1046` | 24 | D |
-| 4 | `ReturnsSeriesRequest` | class | `app/models/returns_series.py:244` | 22 | D |
-| 5 | `analyze_portfolio_position_reconciliation` | function | `app/services/inspection/reconciliation.py:82` | 22 | D |
-| 6 | `calculate_benchmark_returns` | function | `engine/benchmarks.py:35` | 22 | D |
+| 1 | `build_source_economics_findings` | function | `app/services/inspection/source_economics_findings.py:7` | 24 | D |
+| 2 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1046` | 24 | D |
+| 3 | `ReturnsSeriesRequest` | class | `app/models/returns_series.py:244` | 22 | D |
+| 4 | `analyze_portfolio_position_reconciliation` | function | `app/services/inspection/reconciliation.py:82` | 22 | D |
+| 5 | `calculate_benchmark_returns` | function | `engine/benchmarks.py:35` | 22 | D |
+| 6 | `calculate_money_weighted_return` | function | `engine/mwr.py:264` | 22 | D |
 | 7 | `validate_selection` | method | `app/models/returns_series.py:318` | 21 | D |
 | 8 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:64` | 21 | D |
 | 9 | `build_integration_capabilities_report` | function | `app/services/integration_capabilities_service.py:92` | 21 | D |
@@ -47,7 +47,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | 17 | `_expected_daily_evidence_semantics` | function | `app/services/inspection/calculation_consistency.py:416` | 19 | C |
 | 18 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:886` | 19 | C |
 | 19 | `_prepare_hierarchical_data` | function | `engine/contribution.py:152` | 19 | C |
-| 20 | `_xirr` | function | `engine/mwr.py:52` | 19 | C |
+| 20 | `_xirr` | function | `engine/mwr.py:53` | 19 | C |
 
 ## Lowest Maintainability Index
 
