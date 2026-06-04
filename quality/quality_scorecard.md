@@ -18,7 +18,7 @@ metrics in each section are updated with each meaningful slice.
 
 | Metric | Baseline | Current | Delta | Status | Evidence |
 | --- | ---: | ---: | ---: | --- | --- |
-| Python files | 480 | 533 | 53 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python files | 480 | 534 | 54 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Python package markers | 18 | 18 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Python LOC | 104,454 | 109,639 | 5,185 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest Python file LOC | 2,399 | 2,399 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
@@ -43,7 +43,7 @@ metrics in each section are updated with each meaningful slice.
 | Routers with infrastructure imports | unknown | 0 | n/a | measured | `quality/architecture_boundary_inventory.md`; `quality/refactor_health_report.md` |
 | Domain/application with infra/framework imports | unknown | 0 | n/a | measured | `quality/architecture_boundary_inventory.md`; `quality/refactor_health_report.md` |
 | Large production service hotspots (LOC > 1000) | 3 | 3 | 0 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
-| Router/middleware oversized function findings (`--threshold 80`) | unknown | 1 | n/a | measured | `quality/router_middleware_thinness_inventory.md`; `quality/refactor_health_report.md` |
+| Router/middleware oversized function findings (`--threshold 80`) | unknown | 0 | n/a | measured | `quality/router_middleware_thinness_inventory.md`; `quality/refactor_health_report.md` |
 
 ### API Quality
 

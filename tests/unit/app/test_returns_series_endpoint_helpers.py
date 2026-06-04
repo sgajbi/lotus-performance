@@ -7,21 +7,6 @@ import pandas as pd
 import pytest
 from fastapi import HTTPException
 
-from app.api.endpoints.returns_series import (
-    _core_points_to_dataframe,
-    _date_range_count,
-    _detect_gaps,
-    _filter_window,
-    _period_start,
-    _points_from_df,
-    _portfolio_timeseries_to_valuation_points,
-    _resample_returns,
-    _resolve_window,
-    _should_offload_resolved_returns_series,
-    _should_offload_returns_series,
-    _to_dataframe,
-    get_returns_series,
-)
 from app.models.returns_series import (
     CalendarPolicy,
     DataPolicy,
@@ -39,6 +24,23 @@ from app.models.returns_series import (
     StatelessInput,
 )
 from app.services.execution_registry import execution_registry
+from app.services.returns_series_calculation_workflow_service import (
+    calculate_returns_series_workflow,
+    should_offload_resolved_returns_series,
+    should_offload_returns_series,
+)
+from app.services.returns_series_service import (
+    core_points_to_dataframe,
+    date_range_count,
+    detect_gaps,
+    filter_window,
+    period_start,
+    points_from_df,
+    portfolio_timeseries_to_valuation_points,
+    resample_returns,
+    resolve_window,
+    to_dataframe,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -60,19 +62,19 @@ def _reset_execution_registry() -> None:
     ],
 )
 def test_period_start_relative_periods(period: ReturnsRelativePeriod, expected: date):
-    assert _period_start(date(2026, 2, 27), period, None) == expected
+    assert period_start(date(2026, 2, 27), period, None) == expected
 
 
 def test_period_start_year_requires_year_and_accepts_valid_year():
     with pytest.raises(ValueError, match="year is required when period=YEAR"):
-        _period_start(date(2026, 2, 27), ReturnsRelativePeriod.YEAR, None)
+        period_start(date(2026, 2, 27), ReturnsRelativePeriod.YEAR, None)
 
-    assert _period_start(date(2026, 2, 27), ReturnsRelativePeriod.YEAR, 2024) == date(2024, 1, 1)
+    assert period_start(date(2026, 2, 27), ReturnsRelativePeriod.YEAR, 2024) == date(2024, 1, 1)
 
 
 def test_period_start_rejects_unsupported_period_value():
     with pytest.raises(ValueError, match="Unsupported period"):
-        _period_start(date(2026, 2, 27), "UNKNOWN", None)  # type: ignore[arg-type]
+        period_start(date(2026, 2, 27), "UNKNOWN", None)  # type: ignore[arg-type]
 
 
 def test_resolve_window_relative_success_and_missing_period_error():
@@ -87,7 +89,7 @@ def test_resolve_window_relative_success_and_missing_period_error():
             },
         }
     )
-    resolved = _resolve_window(valid_request)
+    resolved = resolve_window(valid_request)
     assert resolved.start_date == date(2026, 2, 1)
     assert resolved.end_date == date(2026, 2, 27)
     assert resolved.resolved_period_label == "MTD"
@@ -108,7 +110,7 @@ def test_resolve_window_relative_success_and_missing_period_error():
         stateful_input=None,
     )
     with pytest.raises(HTTPException) as exc:
-        _resolve_window(invalid_request)
+        resolve_window(invalid_request)
     assert exc.value.status_code == 400
 
 
@@ -124,13 +126,13 @@ def test_returns_window_normalizes_legacy_relative_period_aliases():
 
 def test_dataframe_and_window_helpers_handle_error_paths():
     with pytest.raises(HTTPException) as exc:
-        _to_dataframe([], series_type="portfolio")
+        to_dataframe([], series_type="portfolio")
     assert exc.value.status_code == 422
 
 
 def test_core_points_to_dataframe_skips_invalid_points_and_bad_values():
     with pytest.raises(HTTPException):
-        _core_points_to_dataframe(
+        core_points_to_dataframe(
             points=[
                 {"series_date": None, "benchmark_return": "0.01"},
                 {"series_date": "bad", "benchmark_return": "0.01"},
@@ -140,7 +142,7 @@ def test_core_points_to_dataframe_skips_invalid_points_and_bad_values():
             series_type="benchmark",
         )
 
-    df = _core_points_to_dataframe(
+    df = core_points_to_dataframe(
         points=[
             {"series_date": "2026-02-24", "benchmark_return": "0.01"},
             {"series_date": "2026-02-25", "benchmark_return": "0.02"},
@@ -153,7 +155,7 @@ def test_core_points_to_dataframe_skips_invalid_points_and_bad_values():
 
 
 def test_portfolio_timeseries_to_valuation_points_handles_cashflow_variants():
-    points = _portfolio_timeseries_to_valuation_points(
+    points = portfolio_timeseries_to_valuation_points(
         observations=[
             {"valuation_date": "2026-02-24", "beginning_market_value": "100", "ending_market_value": "101"},
             {
@@ -176,10 +178,10 @@ def test_portfolio_timeseries_to_valuation_points_handles_cashflow_variants():
     assert points[1]["mgmt_fees"] == Decimal("-0.1")
 
     with pytest.raises(HTTPException):
-        _portfolio_timeseries_to_valuation_points(observations=[{"valuation_date": None}])
+        portfolio_timeseries_to_valuation_points(observations=[{"valuation_date": None}])
 
     with pytest.raises(HTTPException) as exc:
-        _to_dataframe(
+        to_dataframe(
             [
                 ReturnPoint(date=date(2026, 2, 24), return_value=Decimal("0.001")),
                 ReturnPoint(date=date(2026, 2, 24), return_value=Decimal("0.002")),
@@ -188,7 +190,7 @@ def test_portfolio_timeseries_to_valuation_points_handles_cashflow_variants():
         )
     assert exc.value.status_code == 400
 
-    df = _to_dataframe(
+    df = to_dataframe(
         [
             ReturnPoint(date=date(2026, 2, 25), return_value=Decimal("0.002")),
             ReturnPoint(date=date(2026, 2, 24), return_value=Decimal("0.001")),
@@ -198,7 +200,7 @@ def test_portfolio_timeseries_to_valuation_points_handles_cashflow_variants():
     assert list(df["date"].dt.date) == [date(2026, 2, 24), date(2026, 2, 25)]
 
     with pytest.raises(HTTPException) as exc:
-        _filter_window(
+        filter_window(
             df,
             resolved_window=ResolvedWindow(start_date=date(2026, 3, 1), end_date=date(2026, 3, 2)),
         )
@@ -212,16 +214,16 @@ def test_resample_count_gap_and_point_helpers_cover_monthly_paths():
             "return_value": [Decimal("0.01"), Decimal("0.02"), Decimal("0.03")],
         }
     )
-    monthly = _resample_returns(df, frequency=ReturnsFrequency.MONTHLY)
+    monthly = resample_returns(df, frequency=ReturnsFrequency.MONTHLY)
     assert len(monthly) == 2
 
     resolved = ResolvedWindow(start_date=date(2026, 2, 1), end_date=date(2026, 2, 28))
-    assert _date_range_count(resolved, frequency=ReturnsFrequency.DAILY, calendar_policy=CalendarPolicy.CALENDAR) == 28
-    assert _date_range_count(resolved, frequency=ReturnsFrequency.WEEKLY, calendar_policy=CalendarPolicy.BUSINESS) == 4
-    assert _date_range_count(resolved, frequency=ReturnsFrequency.MONTHLY, calendar_policy=CalendarPolicy.BUSINESS) == 1
+    assert date_range_count(resolved, frequency=ReturnsFrequency.DAILY, calendar_policy=CalendarPolicy.CALENDAR) == 28
+    assert date_range_count(resolved, frequency=ReturnsFrequency.WEEKLY, calendar_policy=CalendarPolicy.BUSINESS) == 4
+    assert date_range_count(resolved, frequency=ReturnsFrequency.MONTHLY, calendar_policy=CalendarPolicy.BUSINESS) == 1
 
     tiny = pd.DataFrame({"date": pd.to_datetime(["2026-02-01"]), "return_value": [Decimal("0.01")]})
-    assert _detect_gaps(tiny, frequency=ReturnsFrequency.DAILY, series_type="portfolio") == []
+    assert detect_gaps(tiny, frequency=ReturnsFrequency.DAILY, series_type="portfolio") == []
 
     gappy = pd.DataFrame(
         {
@@ -229,11 +231,11 @@ def test_resample_count_gap_and_point_helpers_cover_monthly_paths():
             "return_value": [Decimal("0.01"), Decimal("0.02")],
         }
     )
-    gaps = _detect_gaps(gappy, frequency=ReturnsFrequency.DAILY, series_type="portfolio")
+    gaps = detect_gaps(gappy, frequency=ReturnsFrequency.DAILY, series_type="portfolio")
     assert len(gaps) == 1
     assert gaps[0].gap_days == 8
 
-    points = _points_from_df(monthly)
+    points = points_from_df(monthly)
     assert points[0].return_value.as_tuple().exponent == -12
 
 
@@ -259,7 +261,7 @@ async def test_get_returns_series_guards_stateless_mode_without_input():
         stateful_input=StatefulInput.model_construct(),
     )
     with pytest.raises(HTTPException) as exc:
-        await get_returns_series(request)
+        await calculate_returns_series_workflow(request)
     assert exc.value.status_code == 400
 
 
@@ -285,7 +287,7 @@ async def test_get_returns_series_guards_stateful_mode_without_input():
         stateful_input=None,
     )
     with pytest.raises(HTTPException) as exc:
-        await get_returns_series(request)
+        await calculate_returns_series_workflow(request)
     assert exc.value.status_code == 400
 
 
@@ -300,18 +302,18 @@ def test_should_offload_returns_series_uses_runtime_settings(mocker):
         }
     )
     mocker.patch(
-        "app.api.endpoints.returns_series.get_settings",
+        "app.services.returns_series_calculation_workflow_service.get_settings",
         return_value=type("Settings", (), {"RETURNS_SERIES_EXECUTOR_WINDOW_DAYS": 2})(),
     )
 
-    assert _should_offload_returns_series(request) is True
+    assert should_offload_returns_series(request) is True
 
 
 def test_should_offload_resolved_returns_series_uses_runtime_settings(mocker):
     mocker.patch(
-        "app.api.endpoints.returns_series.get_settings",
+        "app.services.returns_series_calculation_workflow_service.get_settings",
         return_value=type("Settings", (), {"RETURNS_SERIES_EXECUTOR_INPUT_COUNT": 3})(),
     )
 
-    assert _should_offload_resolved_returns_series(3) is True
-    assert _should_offload_resolved_returns_series(2) is False
+    assert should_offload_resolved_returns_series(3) is True
+    assert should_offload_resolved_returns_series(2) is False
