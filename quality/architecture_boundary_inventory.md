@@ -20,38 +20,34 @@ python scripts/python_architecture_boundary_inventory.py --limit 40
 
 | Metric | Value |
 | --- | ---: |
-| Architecture boundary findings | 1 |
-| Distinct rules | 1 |
-| Distinct files | 1 |
+| Architecture boundary findings | 0 |
+| Distinct rules | 0 |
+| Distinct files | 0 |
 
 ## Findings By Rule
 
 | Rule | Count |
 | --- | ---: |
-| `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | 1 |
 
 ## Findings By Area
 
 | Area | Count |
 | --- | ---: |
-| Core | 1 |
-| Engine | 0 |
 
 ## Findings
 
 | Rank | Rule | File | Import | Description |
 | ---: | --- | --- | --- | --- |
-| 1 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `core/errors.py:2` | `fastapi` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
 
 ## Interpretation
 
-The router boundary findings have been cleared: API modules no longer reach directly into `core` or
-`engine` for the measured rules. The remaining engine/core findings identify calculation and domain
-modules that still import application DTOs, adapters, or FastAPI primitives.
+The measured router, engine, and core boundary findings have been cleared for the current scanner
+rules: API modules no longer reach directly into `core` or `engine`, and engine/core modules no
+longer import application DTOs, adapters, or FastAPI primitives for the measured rules.
 
-These findings should be fixed through bounded behavior-preserving slices with characterization
-tests. The report is not a blocking gate yet; it is the baseline for progressively reducing
-boundary drift.
+Future boundary drift should be handled through bounded behavior-preserving slices with
+characterization tests. The report is not a blocking gate yet; it is the measured architecture
+boundary scorecard for the hardening stream.
 
 ## Gate Posture
 

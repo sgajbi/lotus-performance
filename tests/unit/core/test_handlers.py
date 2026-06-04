@@ -7,7 +7,8 @@ from app.core.exceptions import (
     InvalidInputDataError,
     MissingConfigurationError,
 )
-from app.core.handlers import performance_calculator_exception_handler
+from app.core.handlers import core_api_error_exception_handler, performance_calculator_exception_handler
+from core.errors import APIBadRequestError
 
 
 @pytest.mark.asyncio
@@ -38,3 +39,14 @@ async def test_performance_calculator_exception_handler(exception_class, expecte
     response_body = response.body.decode()
     assert "detail" in response_body
     assert f"Calculation Error: {test_message}" in response_body
+
+
+@pytest.mark.asyncio
+async def test_core_api_error_exception_handler_maps_status_and_detail():
+    mock_request = Request({"type": "http", "method": "POST", "url": "/mock-url"})
+    exc = APIBadRequestError("Invalid field value")
+
+    response = await core_api_error_exception_handler(mock_request, exc)
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "Invalid field value" in response.body.decode()
