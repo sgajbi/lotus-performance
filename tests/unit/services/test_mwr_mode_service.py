@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest, MWRInputMode
 from app.services.mwr_mode_service import resolve_mwr_request
 from app.services.stateful_mwr_input_service import (
+    _collect_stateful_mwr_cash_flows,
     _parse_decimal,
     build_stateful_mwr_input,
     build_stateful_mwr_input_for_window,
@@ -202,6 +203,35 @@ def test_build_stateful_mwr_input_captures_carry_forward_capital_breaks():
     ]
 
 
+def test_collect_stateful_mwr_cash_flows_combines_external_flows_and_carry_forward_adjustments():
+    collection = _collect_stateful_mwr_cash_flows(
+        observations=[
+            {
+                "valuation_date": "2025-01-01",
+                "beginning_market_value": "1000",
+                "ending_market_value": "1010",
+                "cash_flows": [{"amount": "100", "cash_flow_type": "external_flow"}],
+            },
+            {
+                "valuation_date": "2025-01-02",
+                "beginning_market_value": "1250",
+                "ending_market_value": "1260",
+                "cash_flows": [{"amount": "-25"}],
+            },
+        ],
+        reporting_currency="USD",
+    )
+
+    assert collection.cash_flows_by_date == {
+        date(2025, 1, 1): Decimal("100"),
+        date(2025, 1, 2): Decimal("215"),
+    }
+    assert [component.component_type for component in collection.cash_flow_components_by_date[date(2025, 1, 2)]] == [
+        "carry_forward_adjustment",
+        "source_cash_flow",
+    ]
+
+
 def test_build_stateful_mwr_input_excludes_operational_fees_from_capital_flows():
     source_input = StatefulPortfolioInput(
         performance_start_date=date(2025, 1, 1),
@@ -231,6 +261,27 @@ def test_build_stateful_mwr_input_excludes_operational_fees_from_capital_flows()
         ("2025-01-01", 100.0),
         ("2025-01-02", 15.0),
     ]
+
+
+def test_collect_stateful_mwr_cash_flows_excludes_fee_and_unsupported_economics():
+    collection = _collect_stateful_mwr_cash_flows(
+        observations=[
+            {
+                "valuation_date": "2025-01-01",
+                "beginning_market_value": "1000",
+                "ending_market_value": "1010",
+                "cash_flows": [
+                    {"amount": "100", "cash_flow_type": "external_flow"},
+                    {"amount": "-3", "cash_flow_type": "fee"},
+                    {"amount": "2", "cash_flow_type": "dividend"},
+                ],
+            }
+        ],
+        reporting_currency="USD",
+    )
+
+    assert collection.cash_flows_by_date == {date(2025, 1, 1): Decimal("100")}
+    assert len(collection.cash_flow_components_by_date[date(2025, 1, 1)]) == 1
 
 
 def test_build_stateful_mwr_input_skips_invalid_cash_flow_rows():

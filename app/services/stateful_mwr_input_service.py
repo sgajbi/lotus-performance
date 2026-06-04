@@ -90,6 +90,12 @@ class StatefulMWRInput:
     currency_evidence: MWRCurrencyEvidence
 
 
+@dataclass(frozen=True)
+class _StatefulMWRCashFlowCollection:
+    cash_flows_by_date: dict[Date, Decimal]
+    cash_flow_components_by_date: dict[Date, list[MWRCashFlowEvidenceComponent]]
+
+
 def build_stateful_mwr_input(*, source_input: StatefulPortfolioInput) -> StatefulMWRInput:
     return build_stateful_mwr_input_for_window(
         source_input=source_input,
@@ -113,56 +119,12 @@ def build_stateful_mwr_input_for_window(
         reporting_currency=reporting_currency,
     )
 
-    cash_flows_by_date: dict[Date, Decimal] = {}
-    cash_flow_components_by_date: dict[Date, list[MWRCashFlowEvidenceComponent]] = {}
-    previous_ending_market_value: Decimal | None = None
-    for observation in source_input.observations:
-        valuation_date_raw = observation.get("valuation_date")
-        if not isinstance(valuation_date_raw, str):
-            previous_ending_market_value = None
-            continue
-        valuation_date = Date.fromisoformat(valuation_date_raw)
-        beginning_market_value = _parse_decimal(observation.get("beginning_market_value"))
-        if beginning_market_value is not None and previous_ending_market_value is not None:
-            carry_forward_adjustment = beginning_market_value - previous_ending_market_value
-            if carry_forward_adjustment != 0:
-                cash_flows_by_date.setdefault(valuation_date, Decimal("0"))
-                cash_flows_by_date[valuation_date] += carry_forward_adjustment
-                cash_flow_components_by_date.setdefault(valuation_date, []).append(
-                    MWRCashFlowEvidenceComponent(
-                        component_type="carry_forward_adjustment",
-                        amount=carry_forward_adjustment,
-                        currency=reporting_currency,
-                    )
-                )
-        flows_raw = observation.get("cash_flows", [])
-        if not isinstance(flows_raw, list):
-            previous_ending_market_value = _parse_decimal(observation.get("ending_market_value"))
-            continue
-        for flow in flows_raw:
-            if not isinstance(flow, dict) or flow.get("amount") is None:
-                continue
-            cashflow_type = classify_cashflow_type(flow.get("cash_flow_type"))
-            if cashflow_type.economics_role not in {"external", "missing"}:
-                continue
-            amount = Decimal(str(flow["amount"]))
-            cash_flows_by_date.setdefault(valuation_date, Decimal("0"))
-            cash_flows_by_date[valuation_date] += amount
-            cash_flow_components_by_date.setdefault(valuation_date, []).append(
-                MWRCashFlowEvidenceComponent(
-                    component_type="source_cash_flow",
-                    amount=amount,
-                    currency=reporting_currency,
-                    cash_flow_type=str(flow.get("cash_flow_type")) if flow.get("cash_flow_type") is not None else None,
-                    flow_scope=str(flow.get("flow_scope")) if flow.get("flow_scope") is not None else None,
-                    source_classification=(
-                        str(flow.get("source_classification"))
-                        if flow.get("source_classification") is not None
-                        else None
-                    ),
-                )
-            )
-        previous_ending_market_value = _parse_decimal(observation.get("ending_market_value"))
+    cash_flow_collection = _collect_stateful_mwr_cash_flows(
+        observations=source_input.observations,
+        reporting_currency=reporting_currency,
+    )
+    cash_flows_by_date = cash_flow_collection.cash_flows_by_date
+    cash_flow_components_by_date = cash_flow_collection.cash_flow_components_by_date
 
     cash_flows = [
         CashFlow(amount=amount, date=cash_flow_date)
@@ -216,6 +178,68 @@ def build_stateful_mwr_input_for_window(
             ],
             cashflow_evidence=cashflow_evidence,
         ),
+    )
+
+
+def _collect_stateful_mwr_cash_flows(
+    *,
+    observations: list[dict[str, object]],
+    reporting_currency: str | None,
+) -> _StatefulMWRCashFlowCollection:
+    cash_flows_by_date: dict[Date, Decimal] = {}
+    cash_flow_components_by_date: dict[Date, list[MWRCashFlowEvidenceComponent]] = {}
+    previous_ending_market_value: Decimal | None = None
+    for observation in observations:
+        valuation_date_raw = observation.get("valuation_date")
+        if not isinstance(valuation_date_raw, str):
+            previous_ending_market_value = None
+            continue
+        valuation_date = Date.fromisoformat(valuation_date_raw)
+        beginning_market_value = _parse_decimal(observation.get("beginning_market_value"))
+        if beginning_market_value is not None and previous_ending_market_value is not None:
+            carry_forward_adjustment = beginning_market_value - previous_ending_market_value
+            if carry_forward_adjustment != 0:
+                cash_flows_by_date.setdefault(valuation_date, Decimal("0"))
+                cash_flows_by_date[valuation_date] += carry_forward_adjustment
+                cash_flow_components_by_date.setdefault(valuation_date, []).append(
+                    MWRCashFlowEvidenceComponent(
+                        component_type="carry_forward_adjustment",
+                        amount=carry_forward_adjustment,
+                        currency=reporting_currency,
+                    )
+                )
+        flows_raw = observation.get("cash_flows", [])
+        if not isinstance(flows_raw, list):
+            previous_ending_market_value = _parse_decimal(observation.get("ending_market_value"))
+            continue
+        for flow in flows_raw:
+            if not isinstance(flow, dict) or flow.get("amount") is None:
+                continue
+            cashflow_type = classify_cashflow_type(flow.get("cash_flow_type"))
+            if cashflow_type.economics_role not in {"external", "missing"}:
+                continue
+            amount = Decimal(str(flow["amount"]))
+            cash_flows_by_date.setdefault(valuation_date, Decimal("0"))
+            cash_flows_by_date[valuation_date] += amount
+            cash_flow_components_by_date.setdefault(valuation_date, []).append(
+                MWRCashFlowEvidenceComponent(
+                    component_type="source_cash_flow",
+                    amount=amount,
+                    currency=reporting_currency,
+                    cash_flow_type=str(flow.get("cash_flow_type")) if flow.get("cash_flow_type") is not None else None,
+                    flow_scope=str(flow.get("flow_scope")) if flow.get("flow_scope") is not None else None,
+                    source_classification=(
+                        str(flow.get("source_classification"))
+                        if flow.get("source_classification") is not None
+                        else None
+                    ),
+                )
+            )
+        previous_ending_market_value = _parse_decimal(observation.get("ending_market_value"))
+
+    return _StatefulMWRCashFlowCollection(
+        cash_flows_by_date=cash_flows_by_date,
+        cash_flow_components_by_date=cash_flow_components_by_date,
     )
 
 
