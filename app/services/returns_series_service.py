@@ -87,6 +87,13 @@ class _ReturnsSeriesPointOutputs:
     cumulative_active_return_points: list[ReturnPoint] | None
 
 
+@dataclass(frozen=True)
+class _StatefulBenchmarkSeriesSource:
+    benchmark_points: list[dict[str, Any]]
+    benchmark_source_details: dict[str, int]
+    benchmark_work_units: int
+
+
 def period_start(as_of_date: date, period: ReturnsRelativePeriod, year: int | None) -> date:
     as_of = pd.Timestamp(as_of_date)
     if period == ReturnsRelativePeriod.MTD:
@@ -717,6 +724,49 @@ async def _retrieve_stateful_returns_series_risk_free(
     return risk_free_points, risk_free_payload
 
 
+async def _retrieve_stateful_returns_series_vendor_benchmark(
+    *,
+    request: ReturnsSeriesRequest,
+    stateful_input_service: Any,
+    resolved_window: ResolvedWindow,
+    benchmark_id: str,
+) -> _StatefulBenchmarkSeriesSource:
+    benchmark_status, benchmark_payload = await stateful_input_service.get_benchmark_return_series(
+        benchmark_id=benchmark_id,
+        as_of_date=request.as_of_date,
+        start_date=resolved_window.start_date,
+        end_date=resolved_window.end_date,
+        frequency=core_frequency_label(request.frequency),
+        calculation_id=request.calculation_id,
+    )
+    if benchmark_status == status.HTTP_404_NOT_FOUND:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=resource_not_found_detail(f"No benchmark return series for {benchmark_id}."),
+        )
+    if benchmark_status >= status.HTTP_400_BAD_REQUEST:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=source_unavailable_detail(f"Benchmark return-series source unavailable ({benchmark_status})."),
+        )
+    benchmark_points = benchmark_payload.get("points")
+    if not isinstance(benchmark_points, list):
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail=upstream_contract_violation_detail("Benchmark return-series payload missing points list."),
+        )
+    benchmark_retrieval_metadata = parse_zero_default_retrieval_metadata(benchmark_payload)
+    return _StatefulBenchmarkSeriesSource(
+        benchmark_points=benchmark_points,
+        benchmark_source_details={
+            "benchmark_points": len(benchmark_points),
+            "benchmark_chunk_count": benchmark_retrieval_metadata.chunk_count,
+            "benchmark_page_count": benchmark_retrieval_metadata.page_count,
+        },
+        benchmark_work_units=len(benchmark_points),
+    )
+
+
 def _build_returns_series_point_outputs(
     *,
     portfolio_df: pd.DataFrame,
@@ -1015,39 +1065,15 @@ async def resolve_stateful_returns_series_request(
     benchmark_work_units = 0
     if request.series_selection.include_benchmark and benchmark_id:
         if resolved_benchmark_return_source == BenchmarkReturnSource.VENDOR_SERIES:
-            benchmark_status, benchmark_payload = await stateful_input_service.get_benchmark_return_series(
+            benchmark_source = await _retrieve_stateful_returns_series_vendor_benchmark(
+                request=request,
+                stateful_input_service=stateful_input_service,
+                resolved_window=resolved_window,
                 benchmark_id=benchmark_id,
-                as_of_date=request.as_of_date,
-                start_date=resolved_window.start_date,
-                end_date=resolved_window.end_date,
-                frequency=core_frequency_label(request.frequency),
-                calculation_id=request.calculation_id,
             )
-            if benchmark_status == status.HTTP_404_NOT_FOUND:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=resource_not_found_detail(f"No benchmark return series for {benchmark_id}."),
-                )
-            if benchmark_status >= status.HTTP_400_BAD_REQUEST:
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail=source_unavailable_detail(
-                        f"Benchmark return-series source unavailable ({benchmark_status})."
-                    ),
-                )
-            benchmark_points = benchmark_payload.get("points")
-            if not isinstance(benchmark_points, list):
-                raise HTTPException(
-                    status_code=HTTP_422_UNPROCESSABLE,
-                    detail=upstream_contract_violation_detail("Benchmark return-series payload missing points list."),
-                )
-            benchmark_retrieval_metadata = parse_zero_default_retrieval_metadata(benchmark_payload)
-            benchmark_source_details = {
-                "benchmark_points": len(benchmark_points),
-                "benchmark_chunk_count": benchmark_retrieval_metadata.chunk_count,
-                "benchmark_page_count": benchmark_retrieval_metadata.page_count,
-            }
-            benchmark_work_units = len(benchmark_points)
+            benchmark_points = benchmark_source.benchmark_points
+            benchmark_source_details = benchmark_source.benchmark_source_details
+            benchmark_work_units = benchmark_source.benchmark_work_units
         else:
             normalized_benchmark_input = await build_stateful_benchmark_input(
                 stateful_input_service=stateful_input_service,

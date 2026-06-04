@@ -28,16 +28,16 @@ python scripts/python_complexity_inventory.py --limit 20
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:962` | 27 | D |
-| 2 | `_build_daily_calculation_evidence` | function | `app/services/twr_service.py:166` | 27 | D |
-| 3 | `_process_pending_jobs` | function | `app/workers/compute_executor_worker.py:59` | 27 | D |
-| 4 | `calculate_asset_weighted_composite_twr` | function | `engine/composites.py:240` | 27 | D |
-| 5 | `_build_schema_example` | function | `app/openapi_enrichment.py:230` | 26 | D |
-| 6 | `_prepare_data_from_instruments` | function | `engine/attribution.py:221` | 26 | D |
-| 7 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:759` | 25 | D |
-| 8 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:44` | 25 | D |
-| 9 | `calculate_money_weighted_return` | function | `engine/mwr.py:186` | 25 | D |
-| 10 | `build_source_economics_findings` | function | `app/services/inspection/source_economics_findings.py:7` | 24 | D |
+| 1 | `_build_daily_calculation_evidence` | function | `app/services/twr_service.py:166` | 27 | D |
+| 2 | `_process_pending_jobs` | function | `app/workers/compute_executor_worker.py:59` | 27 | D |
+| 3 | `calculate_asset_weighted_composite_twr` | function | `engine/composites.py:240` | 27 | D |
+| 4 | `_build_schema_example` | function | `app/openapi_enrichment.py:230` | 26 | D |
+| 5 | `_prepare_data_from_instruments` | function | `engine/attribution.py:221` | 26 | D |
+| 6 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:809` | 25 | D |
+| 7 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:44` | 25 | D |
+| 8 | `calculate_money_weighted_return` | function | `engine/mwr.py:186` | 25 | D |
+| 9 | `build_source_economics_findings` | function | `app/services/inspection/source_economics_findings.py:7` | 24 | D |
+| 10 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1012` | 24 | D |
 | 11 | `ReturnsSeriesRequest` | class | `app/models/returns_series.py:244` | 22 | D |
 | 12 | `analyze_portfolio_position_reconciliation` | function | `app/services/inspection/reconciliation.py:82` | 22 | D |
 | 13 | `calculate_benchmark_returns` | function | `engine/benchmarks.py:35` | 22 | D |

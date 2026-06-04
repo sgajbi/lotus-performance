@@ -515,6 +515,83 @@ async def test_retrieve_stateful_returns_series_risk_free_rejects_invalid_payloa
     assert exc.value.status_code == 422
 
 
+@pytest.mark.asyncio
+async def test_retrieve_stateful_returns_series_vendor_benchmark_uses_core_series():
+    request = _build_stateful_request(benchmark={"benchmark_id": "BMK", "return_source": "vendor_series"})
+    resolved_window = returns_series_service.resolve_window(request)
+
+    class Service:
+        async def get_benchmark_return_series(self, **kwargs):  # noqa: ARG002
+            return 200, {
+                "points": [{"series_date": "2026-02-25", "benchmark_return": "0.001"}],
+                "retrieval_metadata": {"chunk_count": 1, "page_count": 1},
+            }
+
+    source = await returns_series_service._retrieve_stateful_returns_series_vendor_benchmark(
+        request=request,
+        stateful_input_service=Service(),
+        resolved_window=resolved_window,
+        benchmark_id="BMK",
+    )
+
+    assert source.benchmark_points == [{"series_date": "2026-02-25", "benchmark_return": "0.001"}]
+    assert source.benchmark_source_details["benchmark_points"] == 1
+    assert source.benchmark_source_details["benchmark_chunk_count"] == 1
+    assert source.benchmark_work_units == 1
+
+
+@pytest.mark.asyncio
+async def test_retrieve_stateful_returns_series_vendor_benchmark_maps_source_errors():
+    request = _build_stateful_request(benchmark={"benchmark_id": "BMK", "return_source": "vendor_series"})
+    resolved_window = returns_series_service.resolve_window(request)
+
+    class MissingService:
+        async def get_benchmark_return_series(self, **kwargs):  # noqa: ARG002
+            return 404, {}
+
+    with pytest.raises(HTTPException) as exc_missing:
+        await returns_series_service._retrieve_stateful_returns_series_vendor_benchmark(
+            request=request,
+            stateful_input_service=MissingService(),
+            resolved_window=resolved_window,
+            benchmark_id="BMK",
+        )
+    assert exc_missing.value.status_code == 404
+
+    class UnavailableService:
+        async def get_benchmark_return_series(self, **kwargs):  # noqa: ARG002
+            return 503, {}
+
+    with pytest.raises(HTTPException) as exc_unavailable:
+        await returns_series_service._retrieve_stateful_returns_series_vendor_benchmark(
+            request=request,
+            stateful_input_service=UnavailableService(),
+            resolved_window=resolved_window,
+            benchmark_id="BMK",
+        )
+    assert exc_unavailable.value.status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_retrieve_stateful_returns_series_vendor_benchmark_rejects_invalid_payload():
+    request = _build_stateful_request(benchmark={"benchmark_id": "BMK", "return_source": "vendor_series"})
+    resolved_window = returns_series_service.resolve_window(request)
+
+    class Service:
+        async def get_benchmark_return_series(self, **kwargs):  # noqa: ARG002
+            return 200, {"points": None}
+
+    with pytest.raises(HTTPException) as exc:
+        await returns_series_service._retrieve_stateful_returns_series_vendor_benchmark(
+            request=request,
+            stateful_input_service=Service(),
+            resolved_window=resolved_window,
+            benchmark_id="BMK",
+        )
+
+    assert exc.value.status_code == 422
+
+
 def _build_stateful_request(**overrides):
     payload = {
         "calculation_id": str(uuid4()),
