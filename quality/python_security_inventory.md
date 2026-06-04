@@ -25,6 +25,9 @@ python scripts/python_security_inventory.py --limit 30
 | Medium severity findings | 0 |
 | Low severity findings | 0 |
 | Distinct test IDs | 0 |
+| Lines scanned | 41002 |
+| `nosec` markers | 0 |
+| Targeted skipped tests | 2 |
 
 ## Findings By Severity
 
@@ -53,12 +56,13 @@ python scripts/python_security_inventory.py --limit 30
 
 ## Interpretation
 
-Bandit reports zero findings in the scanned first-party runtime paths. The earlier low-severity
-string-heuristic findings have been classified: OpenAPI null pagination examples and pagination
-validation messages now use neutral named constants, while the two enterprise runtime configuration
-strings that intentionally contain the word `secret` use targeted `# nosec B105` markers with a
-nearby code comment explaining that they are issue-code and environment-variable names, not
-credential material.
+Bandit reports zero findings in the scanned first-party runtime paths. The current scan covers
+41002 lines and reports two targeted skipped tests from reviewed `# nosec B105` markers. The
+earlier low-severity string-heuristic findings have been classified: OpenAPI null pagination
+examples and pagination validation messages now use neutral named constants, while the two
+enterprise runtime configuration strings that intentionally contain the word `secret` use targeted
+`# nosec B105` markers with a nearby code comment explaining that they are issue-code and
+environment-variable names, not credential material.
 
 ## Gate Posture
 

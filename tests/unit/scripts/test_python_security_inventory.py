@@ -1,4 +1,10 @@
-from scripts.python_security_inventory import BanditIssue, build_bandit_command, parse_bandit_payload, render_markdown
+from scripts.python_security_inventory import (
+    BanditIssue,
+    build_bandit_command,
+    parse_bandit_payload,
+    parse_bandit_scan,
+    render_markdown,
+)
 
 
 def test_build_bandit_command_scans_core_runtime_paths():
@@ -39,6 +45,15 @@ def test_parse_bandit_payload_normalizes_and_orders_issues():
     assert issues[1].filename == "app/models/example.py"
 
 
+def test_parse_bandit_scan_includes_totals_metrics():
+    scan = parse_bandit_scan({"metrics": {"_totals": {"loc": 123, "nosec": 2, "skipped_tests": 4}}, "results": []})
+
+    assert scan.issues == []
+    assert scan.lines_scanned == 123
+    assert scan.nosec_count == 2
+    assert scan.skipped_tests == 4
+
+
 def test_render_markdown_summarizes_bandit_findings():
     issues = [
         BanditIssue(
@@ -61,12 +76,15 @@ def test_render_markdown_summarizes_bandit_findings():
         ),
     ]
 
-    output = render_markdown(issues, limit=2)
+    output = render_markdown(issues, limit=2, lines_scanned=123, nosec_count=2, skipped_tests=4)
 
     assert "| Total Bandit findings | 2 |" in output
     assert "| High severity findings | 0 |" in output
     assert "| Medium severity findings | 1 |" in output
     assert "| Low severity findings | 1 |" in output
+    assert "| Lines scanned | 123 |" in output
+    assert "| `nosec` markers | 2 |" in output
+    assert "| Targeted skipped tests | 4 |" in output
     assert "| HIGH | 1 |" in output
     assert "| MEDIUM | 1 |" in output
     assert "| B105 | 1 |" in output

@@ -25,6 +25,14 @@ class BanditIssue:
     issue_text: str
 
 
+@dataclass(frozen=True)
+class BanditScan:
+    issues: list[BanditIssue]
+    lines_scanned: int
+    nosec_count: int
+    skipped_tests: int
+
+
 def _normalize_path(path: str) -> str:
     return path.replace("\\", "/")
 
@@ -64,7 +72,23 @@ def parse_bandit_payload(payload: Mapping[str, Any]) -> list[BanditIssue]:
     )
 
 
-def collect_bandit_issues(paths: Sequence[str] = DEFAULT_PATHS) -> list[BanditIssue]:
+def _int_metric(metrics: Mapping[str, Any], name: str) -> int:
+    value = metrics.get(name, 0)
+    return value if isinstance(value, int) else 0
+
+
+def parse_bandit_scan(payload: Mapping[str, Any]) -> BanditScan:
+    totals = payload.get("metrics", {}).get("_totals", {})
+    metrics = totals if isinstance(totals, Mapping) else {}
+    return BanditScan(
+        issues=parse_bandit_payload(payload),
+        lines_scanned=_int_metric(metrics, "loc"),
+        nosec_count=_int_metric(metrics, "nosec"),
+        skipped_tests=_int_metric(metrics, "skipped_tests"),
+    )
+
+
+def collect_bandit_scan(paths: Sequence[str] = DEFAULT_PATHS) -> BanditScan:
     completed = subprocess.run(
         build_bandit_command(paths),
         cwd=ROOT,
@@ -75,7 +99,11 @@ def collect_bandit_issues(paths: Sequence[str] = DEFAULT_PATHS) -> list[BanditIs
     if completed.returncode not in {0, 1}:
         raise RuntimeError(completed.stderr.strip() or completed.stdout.strip())
     payload = json.loads(completed.stdout or "{}")
-    return parse_bandit_payload(payload)
+    return parse_bandit_scan(payload)
+
+
+def collect_bandit_issues(paths: Sequence[str] = DEFAULT_PATHS) -> list[BanditIssue]:
+    return collect_bandit_scan(paths).issues
 
 
 def _count_by_path_prefix(issues: Sequence[BanditIssue], prefixes: Mapping[str, str]) -> Counter[str]:
@@ -94,7 +122,14 @@ def _count(issues: Sequence[BanditIssue], field: str) -> Counter[str]:
     return Counter(str(getattr(issue, field)) for issue in issues)
 
 
-def render_markdown(issues: Sequence[BanditIssue], *, limit: int) -> str:
+def render_markdown(
+    issues: Sequence[BanditIssue],
+    *,
+    limit: int,
+    lines_scanned: int = 0,
+    nosec_count: int = 0,
+    skipped_tests: int = 0,
+) -> str:
     severity_counts = _count(issues, "severity")
     confidence_counts = _count(issues, "confidence")
     test_counts = _count(issues, "test_id")
@@ -121,6 +156,9 @@ def render_markdown(issues: Sequence[BanditIssue], *, limit: int) -> str:
         f"| Medium severity findings | {severity_counts['MEDIUM']} |",
         f"| Low severity findings | {severity_counts['LOW']} |",
         f"| Distinct test IDs | {len(test_counts)} |",
+        f"| Lines scanned | {lines_scanned} |",
+        f"| `nosec` markers | {nosec_count} |",
+        f"| Targeted skipped tests | {skipped_tests} |",
         "",
         "## Findings By Severity",
         "",
@@ -170,7 +208,16 @@ def main() -> int:
     args = parser.parse_args()
 
     paths = tuple(args.paths or DEFAULT_PATHS)
-    print(render_markdown(collect_bandit_issues(paths), limit=args.limit))
+    scan = collect_bandit_scan(paths)
+    print(
+        render_markdown(
+            scan.issues,
+            limit=args.limit,
+            lines_scanned=scan.lines_scanned,
+            nosec_count=scan.nosec_count,
+            skipped_tests=scan.skipped_tests,
+        )
+    )
     return 0
 
 
