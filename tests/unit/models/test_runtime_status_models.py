@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
-from app.models.runtime_status import build_runtime_status_response
-from app.services.compute_job_store import ComputeQueueInspectionAnchors, ComputeQueueStats
+from app.models.runtime_status import _compute_queue_response, build_runtime_status_response
+from app.services.compute_job_store import ComputeQueueInspectionAnchors, ComputeQueueStats, ComputeRecoveryEvent
 from app.services.durability_health_service import DurabilityHealthStatus, LineageStorageCapacitySnapshot
 from app.services.lineage_metadata_store import LineageQueueInspectionAnchors, LineageQueueStats
 from app.services.runtime_status_domain import (
@@ -15,6 +15,83 @@ from app.services.runtime_status_domain import (
     RuntimeRetentionStatus,
     RuntimeStatusSnapshot,
 )
+
+
+def test_compute_queue_response_maps_stats_anchors_and_recoveries():
+    response = _compute_queue_response(
+        RuntimeQueueStatus(
+            status="degraded",
+            reason="compute_pending_age_exceeded",
+            degradation_reasons=("compute_pending_age_exceeded",),
+            degradation_details=(
+                RuntimeDegradationDetail(
+                    reason="compute_pending_age_exceeded",
+                    observed_value=120.0,
+                    threshold_value=30.0,
+                ),
+            ),
+            stats=ComputeQueueStats(
+                pending_count=1,
+                leased_count=2,
+                running_count=3,
+                failed_count=4,
+                complete_count=5,
+                retry_backlog_count=6,
+                lease_expired_count=7,
+                terminal_failure_count=8,
+                oldest_pending_age_seconds=120.0,
+                oldest_leased_age_seconds=90.0,
+                oldest_running_age_seconds=60.0,
+                reclaimable_count=9,
+            ),
+            inspection_anchors=ComputeQueueInspectionAnchors(
+                oldest_pending_calculation_id="calc-pending",
+                oldest_leased_calculation_id="calc-leased",
+                oldest_running_calculation_id="calc-running",
+                latest_terminal_failure_calculation_id="calc-failed",
+                latest_recovered_calculation_id="calc-recovered",
+            ),
+            recent_recoveries=(
+                ComputeRecoveryEvent(
+                    calculation_id="calc-recovered",
+                    analytics_type="ReturnsSeries",
+                    recovery_kind="retryable_failure",
+                    recovered_at_utc="2026-03-14T00:00:00Z",
+                    attempt_count=1,
+                    error_type="RuntimeError",
+                ),
+            ),
+        )
+    )
+
+    assert response.status == "degraded"
+    assert response.pending_jobs == 1
+    assert response.reclaimable_jobs == 9
+    assert response.degradation_details[0].reason == "compute_pending_age_exceeded"
+    assert response.inspection_anchors is not None
+    assert response.inspection_anchors.latest_recovered_calculation_id == "calc-recovered"
+    assert response.recent_recoveries[0].calculation_id == "calc-recovered"
+    assert response.recent_recoveries[0].error_type == "RuntimeError"
+
+
+def test_compute_queue_response_omits_optional_fields_when_stats_are_unavailable():
+    response = _compute_queue_response(
+        RuntimeQueueStatus(
+            status="unavailable",
+            reason="RuntimeError",
+            degradation_reasons=(),
+            degradation_details=(),
+            stats=None,
+            inspection_anchors=None,
+            recent_recoveries=(),
+        )
+    )
+
+    assert response.status == "unavailable"
+    assert response.reason == "RuntimeError"
+    assert response.pending_jobs is None
+    assert response.inspection_anchors is None
+    assert response.recent_recoveries == []
 
 
 def test_build_runtime_status_response_serializes_snapshot_details():
