@@ -5,6 +5,40 @@ from pydantic import BaseModel, Field, field_validator
 from app.services.runtime_retention_history_service import RuntimeRetentionHistorySnapshot
 
 
+class RuntimeRetentionHistoryQueryParams(BaseModel):
+    limit: int | None = Field(
+        default=None,
+        ge=1,
+        le=100,
+        description="Maximum number of retained runtime-retention cleanup entries to return.",
+    )
+    offset: int = Field(default=0, ge=0, description="Zero-based offset into the filtered retained history.")
+    operator_id: str | None = Field(
+        default=None, min_length=1, pattern=r".*\S.*", description="Operator or automation identity filter."
+    )
+    trigger_mode: str | None = Field(
+        default=None, min_length=1, pattern=r".*\S.*", description="Manual or scheduled trigger filter."
+    )
+    job_id: str | None = Field(
+        default=None, min_length=1, pattern=r".*\S.*", description="Scheduler or automation job identity filter."
+    )
+    cleanup_mode: str | None = Field(default=None, min_length=1, pattern=r".*\S.*", description="Cleanup mode filter.")
+    status: str | None = Field(
+        default=None,
+        min_length=1,
+        pattern=r".*\S.*",
+        description="Execution outcome status filter.",
+    )
+    generated_after: str | None = Field(
+        default=None,
+        description="Filter to entries generated at or after this UTC timestamp.",
+    )
+    generated_before: str | None = Field(
+        default=None,
+        description="Filter to entries generated at or before this UTC timestamp.",
+    )
+
+
 class RuntimeRetentionHistoryEntryResponse(BaseModel):
     evidence_file_name: str = Field(description="Timestamped runtime-retention cleanup evidence artifact file name.")
     generated_at_utc: str = Field(
