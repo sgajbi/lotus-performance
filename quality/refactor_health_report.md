@@ -88,10 +88,14 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Correlation ID coverage | unknown | unknown | planned-gate | observability tests exist, but endpoint coverage score not generated |
-| Structured logging coverage | unknown | unknown | planned-gate | logging contract score not generated |
-| Metrics coverage | unknown | unknown | planned-gate | Prometheus tests exist, but endpoint/service coverage score not generated |
-| Health/readiness completeness | unknown | unknown | planned-gate | health/readiness tests exist, but readiness score not generated |
+| Operational readiness implementation markers | unknown | 28 | measured | `quality/observability_readiness_inventory.md` via `scripts/python_observability_readiness_inventory.py` |
+| Missing operational readiness markers | unknown | 0 | measured | `quality/observability_readiness_inventory.md` via `scripts/python_observability_readiness_inventory.py` |
+| Correlation propagation markers | unknown | 6 | measured | `correlation_propagation` family in `quality/observability_readiness_inventory.md` |
+| Structured logging markers | unknown | 6 | measured | `structured_logging` family in `quality/observability_readiness_inventory.md` |
+| Metrics markers | unknown | 6 | measured | `metrics` family in `quality/observability_readiness_inventory.md` |
+| Health/readiness markers | unknown | 6 | measured | `health_readiness` family in `quality/observability_readiness_inventory.md` |
+| Health/metrics endpoint markers | unknown | 4 | measured | `health_metrics_endpoints` family in `quality/observability_readiness_inventory.md` |
+| Mapped observability/readiness test functions | unknown | 287 | measured | family-mapped test-function count in `quality/observability_readiness_inventory.md`; counts can overlap across families |
 
 ## Documentation
 
