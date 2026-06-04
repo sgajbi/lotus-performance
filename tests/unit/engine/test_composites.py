@@ -5,7 +5,11 @@ from datetime import date
 from decimal import Decimal
 
 from app.models.composites import CompositeMemberReturnFact
-from engine.composites import _blocked_composite_period_result, calculate_asset_weighted_composite_twr
+from engine.composites import (
+    _blocked_composite_period_result,
+    _build_ready_member_contributions,
+    calculate_asset_weighted_composite_twr,
+)
 
 
 @dataclass(frozen=True)
@@ -114,6 +118,39 @@ def test_blocked_composite_period_result_defaults_empty_metadata_lists():
     assert result.source_fingerprints == []
     assert result.restatement_versions == []
     assert result.reason_codes == ["no_ready_member_return_facts"]
+
+
+def test_build_ready_member_contributions_sorts_and_quantizes_member_rows():
+    weighted_return, member_contributions = _build_ready_member_contributions(
+        ready_facts=[
+            _fact(portfolio_id="P2", return_value="0.0300", beginning_market_value="300.00"),
+            _fact(portfolio_id="P1", return_value="0.0100", beginning_market_value="100.00"),
+        ],
+        beginning_assets=Decimal("400.00"),
+    )
+
+    assert str(weighted_return) == "0.025000"
+    assert [item.portfolio_id for item in member_contributions] == ["P1", "P2"]
+    assert [str(item.weight) for item in member_contributions] == [
+        "0.250000000000",
+        "0.750000000000",
+    ]
+    assert [str(item.contribution) for item in member_contributions] == [
+        "0.002500000000",
+        "0.022500000000",
+    ]
+    assert member_contributions[0].source_snapshot_id == "snapshot-P1-2026-01-31"
+    assert member_contributions[1].calculation_id == "calc-P2-2026-01-31"
+
+
+def test_build_ready_member_contributions_handles_empty_ready_facts():
+    weighted_return, member_contributions = _build_ready_member_contributions(
+        ready_facts=[],
+        beginning_assets=Decimal("400.00"),
+    )
+
+    assert weighted_return == Decimal("0")
+    assert member_contributions == []
 
 
 def test_asset_weighted_composite_twr_weights_member_returns_and_links_periods():

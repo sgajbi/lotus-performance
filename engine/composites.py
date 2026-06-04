@@ -123,6 +123,35 @@ def _blocked_composite_period_result(
     )
 
 
+def _build_ready_member_contributions(
+    *,
+    ready_facts: Sequence[CompositeMemberReturnFactLike],
+    beginning_assets: Decimal,
+) -> tuple[Decimal, list[CompositeMemberContribution]]:
+    weighted_return = Decimal("0")
+    member_contributions: list[CompositeMemberContribution] = []
+    for fact in sorted(ready_facts, key=lambda item: item.portfolio_id):
+        weight = fact.beginning_market_value / beginning_assets
+        contribution = fact.return_value * weight
+        weighted_return += contribution
+        member_contributions.append(
+            CompositeMemberContribution(
+                portfolio_id=fact.portfolio_id,
+                period_start=fact.period_start,
+                period_end=fact.period_end,
+                return_value=_quantize_decimal(fact.return_value, COMPOSITE_RETURN_QUANTUM),
+                beginning_market_value=_quantize_decimal(fact.beginning_market_value, COMPOSITE_ASSET_QUANTUM),
+                weight=_quantize_decimal(weight, COMPOSITE_RETURN_QUANTUM),
+                contribution=_quantize_decimal(contribution, COMPOSITE_RETURN_QUANTUM),
+                source_snapshot_id=fact.source_snapshot_id,
+                source_fingerprint=fact.source_fingerprint,
+                restatement_version=fact.restatement_version,
+                calculation_id=fact.calculation_id,
+            )
+        )
+    return weighted_return, member_contributions
+
+
 def calculate_asset_weighted_composite_twr(
     *,
     composite_id: str,
@@ -223,27 +252,10 @@ def calculate_asset_weighted_composite_twr(
             aggregate_reason_codes.add("mixed_member_reporting_currencies")
             continue
 
-        member_contributions: list[CompositeMemberContribution] = []
-        weighted_return = Decimal("0")
-        for fact in sorted(ready_facts, key=lambda item: item.portfolio_id):
-            weight = fact.beginning_market_value / beginning_assets
-            contribution = fact.return_value * weight
-            weighted_return += contribution
-            member_contributions.append(
-                CompositeMemberContribution(
-                    portfolio_id=fact.portfolio_id,
-                    period_start=fact.period_start,
-                    period_end=fact.period_end,
-                    return_value=_quantize_decimal(fact.return_value, COMPOSITE_RETURN_QUANTUM),
-                    beginning_market_value=_quantize_decimal(fact.beginning_market_value, COMPOSITE_ASSET_QUANTUM),
-                    weight=_quantize_decimal(weight, COMPOSITE_RETURN_QUANTUM),
-                    contribution=_quantize_decimal(contribution, COMPOSITE_RETURN_QUANTUM),
-                    source_snapshot_id=fact.source_snapshot_id,
-                    source_fingerprint=fact.source_fingerprint,
-                    restatement_version=fact.restatement_version,
-                    calculation_id=fact.calculation_id,
-                )
-            )
+        weighted_return, member_contributions = _build_ready_member_contributions(
+            ready_facts=ready_facts,
+            beginning_assets=beginning_assets,
+        )
 
         cumulative_growth *= Decimal("1") + weighted_return
         cumulative_return = cumulative_growth - Decimal("1")

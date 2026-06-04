@@ -20,7 +20,7 @@ python scripts/python_complexity_inventory.py --limit 15
 
 | Metric | Value |
 | --- | ---: |
-| Max cyclomatic complexity | 35 |
+| Max cyclomatic complexity | 34 |
 | High-complexity functions (rank D-F) | 21 |
 | Average maintainability index | 55.87 |
 
@@ -28,7 +28,7 @@ python scripts/python_complexity_inventory.py --limit 15
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `calculate_asset_weighted_composite_twr` | function | `engine/composites.py:126` | 35 | E |
+| 1 | `calculate_asset_weighted_composite_twr` | function | `engine/composites.py:155` | 34 | E |
 | 2 | `calculate_twr_response` | function | `app/services/twr_service.py:496` | 33 | E |
 | 3 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:54` | 31 | E |
 | 4 | `build_runtime_status_response` | function | `app/models/runtime_status.py:613` | 30 | D |
