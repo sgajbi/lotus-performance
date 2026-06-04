@@ -1,13 +1,12 @@
 # engine/mwr.py
 from datetime import date
 from math import exp, isfinite, log
-from typing import List, Literal
+from typing import Literal, Sequence
 
 import numpy as np
 
-from app.models.mwr_requests import CashFlow
-from app.models.mwr_responses import Convergence, MWRResult
 from core.envelope import Annualization
+from engine.mwr_types import CashFlowLike, MWRConvergence, MWRResult
 
 
 def _day_count_denominator(annualization: Annualization) -> float:
@@ -187,7 +186,7 @@ def _dietz_denominator(*, begin_mv, cash_flows, start_date, end_date, method):
 def calculate_money_weighted_return(
     begin_mv: float,
     end_mv: float,
-    cash_flows: List[CashFlow],
+    cash_flows: Sequence[CashFlowLike],
     calculation_method: Literal["XIRR", "MODIFIED_DIETZ", "DIETZ"],
     annualization: Annualization,
     as_of: date,
@@ -235,7 +234,7 @@ def calculate_money_weighted_return(
             tolerance=getattr(solver, "tolerance", 1e-10),
             max_iter=getattr(solver, "max_iter", 200),
         )
-        convergence = Convergence.model_validate(xirr_result.get("convergence", {}))
+        convergence = MWRConvergence(**xirr_result.get("convergence", {}))
         if xirr_result["converged"]:
             rate = xirr_result["rate"]
             notes.append(xirr_result["notes"])

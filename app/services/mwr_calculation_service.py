@@ -4,7 +4,7 @@ from typing import Any, cast
 
 from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest
 from app.models.mwr_requests import MoneyWeightedReturnRequest
-from app.models.mwr_responses import MoneyWeightedReturnResponse, MWRResult
+from app.models.mwr_responses import MoneyWeightedReturnResponse
 from app.observability import record_mwr_solver_outcome
 from app.services.calculation_supportability_service import (
     build_calculation_supportability,
@@ -13,6 +13,7 @@ from app.services.calculation_supportability_service import (
 from app.services.mwr_mode_service import ResolvedMWRRequest
 from core.envelope import Audit, Diagnostics, Meta
 from engine.mwr import calculate_money_weighted_return
+from engine.mwr_types import MWRResult
 
 
 def calculate_mwr_result(request: MoneyWeightedReturnRequest) -> MWRResult:
@@ -78,7 +79,7 @@ def build_mwr_response(
             "start_date": mwr_result.start_date,
             "end_date": mwr_result.end_date,
             "notes": mwr_result.notes,
-            "convergence": mwr_result.convergence,
+            "convergence": asdict(mwr_result.convergence) if mwr_result.convergence is not None else None,
             "cashflows_used": mwr_request.cash_flows if mwr_request.emit_cashflows_used else None,
             "reporting_currency": reporting_currency,
             "currency_evidence": (

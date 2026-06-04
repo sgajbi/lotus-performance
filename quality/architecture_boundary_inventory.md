@@ -20,22 +20,22 @@ python scripts/python_architecture_boundary_inventory.py --limit 40
 
 | Metric | Value |
 | --- | ---: |
-| Architecture boundary findings | 12 |
+| Architecture boundary findings | 10 |
 | Distinct rules | 1 |
-| Distinct files | 9 |
+| Distinct files | 8 |
 
 ## Findings By Rule
 
 | Rule | Count |
 | --- | ---: |
-| `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | 12 |
+| `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | 10 |
 
 ## Findings By Area
 
 | Area | Count |
 | --- | ---: |
 | Core | 1 |
-| Engine | 11 |
+| Engine | 9 |
 
 ## Findings
 
@@ -51,8 +51,6 @@ python scripts/python_architecture_boundary_inventory.py --limit 40
 | 8 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/composites.py:8` | `app.models.composites` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
 | 9 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/contribution.py:7` | `app.models.contribution_requests` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
 | 10 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/contribution_smoothing.py:4` | `app.models.contribution_requests` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
-| 11 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/mwr.py:8` | `app.models.mwr_requests` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
-| 12 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/mwr.py:9` | `app.models.mwr_responses` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
 
 ## Interpretation
 
