@@ -8,6 +8,8 @@ from app.models.composites import CompositeMemberReturnFact
 from engine.composites import (
     _blocked_composite_period_result,
     _blocked_composite_period_result_for_invalid_ready_facts,
+    _build_composite_period_fact_set,
+    _build_ready_composite_period_result,
     _build_ready_member_contributions,
     calculate_asset_weighted_composite_twr,
 )
@@ -152,6 +154,60 @@ def test_build_ready_member_contributions_handles_empty_ready_facts():
 
     assert weighted_return == Decimal("0")
     assert member_contributions == []
+
+
+def test_build_composite_period_fact_set_classifies_ready_and_excluded_metadata():
+    period_fact_set = _build_composite_period_fact_set(
+        period_start=date(2026, 1, 1),
+        period_end=date(2026, 1, 31),
+        facts=[
+            _fact(portfolio_id="P2", return_value="0.0200", beginning_market_value="200.00"),
+            _fact(portfolio_id="P1", return_value="0.0100", beginning_market_value="100.00"),
+            _fact(
+                portfolio_id="P3",
+                status="BLOCKED",
+                reason_codes=["missing_final_valuation", "upstream_twr_blocked"],
+            ),
+        ],
+    )
+
+    assert [fact.portfolio_id for fact in period_fact_set.ready_facts] == ["P2", "P1"]
+    assert [fact.portfolio_id for fact in period_fact_set.excluded_facts] == ["P3"]
+    assert period_fact_set.reason_codes == ["missing_final_valuation", "upstream_twr_blocked"]
+    assert period_fact_set.beginning_assets == Decimal("300.00")
+    assert period_fact_set.ending_assets == Decimal("202.00")
+    assert period_fact_set.ready_return_views == ["NET_ACTUAL"]
+    assert period_fact_set.ready_reporting_currencies == ["USD"]
+    assert period_fact_set.ready_source_fingerprints == [
+        "sha256:P1-2026-01-31",
+        "sha256:P2-2026-01-31",
+    ]
+    assert period_fact_set.ready_restatement_versions == ["v1"]
+
+
+def test_build_ready_composite_period_result_quantizes_and_links_growth():
+    period_fact_set = _build_composite_period_fact_set(
+        period_start=date(2026, 1, 1),
+        period_end=date(2026, 1, 31),
+        facts=[
+            _fact(portfolio_id="P1", return_value="0.0100", beginning_market_value="100.00"),
+            _fact(portfolio_id="P2", return_value="0.0300", beginning_market_value="300.00"),
+        ],
+    )
+
+    period_result, next_cumulative_growth = _build_ready_composite_period_result(
+        period_fact_set=period_fact_set,
+        cumulative_growth=Decimal("1.02"),
+    )
+
+    assert next_cumulative_growth == Decimal("1.04550000")
+    assert period_result.status == "READY"
+    assert str(period_result.return_value) == "0.025000000000"
+    assert str(period_result.cumulative_return) == "0.045500000000"
+    assert str(period_result.beginning_market_value) == "400.000000"
+    assert period_result.member_count == 2
+    assert period_result.excluded_member_count == 0
+    assert [item.portfolio_id for item in period_result.member_contributions] == ["P1", "P2"]
 
 
 def test_blocked_composite_period_result_for_invalid_ready_facts_blocks_empty_ready_set():

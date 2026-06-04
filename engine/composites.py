@@ -73,6 +73,21 @@ class CompositeCalculationResult:
     reason_codes: list[str]
 
 
+@dataclass(frozen=True)
+class _CompositePeriodFactSet:
+    period_start: dt_date
+    period_end: dt_date
+    ready_facts: list[CompositeMemberReturnFactLike]
+    excluded_facts: list[CompositeMemberReturnFactLike]
+    reason_codes: list[str]
+    beginning_assets: Decimal
+    ending_assets: Decimal
+    ready_return_views: list[str]
+    ready_reporting_currencies: list[str]
+    ready_source_fingerprints: list[str]
+    ready_restatement_versions: list[str]
+
+
 def _quantize_decimal(value: Decimal, quantum: Decimal) -> Decimal:
     if value == 0:
         return Decimal("0").quantize(quantum)
@@ -237,16 +252,96 @@ def _blocked_composite_period_result_for_invalid_ready_facts(
     return None
 
 
-def calculate_asset_weighted_composite_twr(
+def _build_composite_period_fact_set(
+    *,
+    period_start: dt_date,
+    period_end: dt_date,
+    facts: Sequence[CompositeMemberReturnFactLike],
+) -> _CompositePeriodFactSet:
+    ready_facts = [fact for fact in facts if str(fact.status) == COMPOSITE_MEMBER_READY_STATUS]
+    excluded_facts = [fact for fact in facts if str(fact.status) != COMPOSITE_MEMBER_READY_STATUS]
+    return _CompositePeriodFactSet(
+        period_start=period_start,
+        period_end=period_end,
+        ready_facts=ready_facts,
+        excluded_facts=excluded_facts,
+        reason_codes=sorted({code for fact in excluded_facts for code in fact.reason_codes}),
+        beginning_assets=sum((fact.beginning_market_value for fact in ready_facts), Decimal("0")),
+        ending_assets=sum((fact.ending_market_value for fact in ready_facts), Decimal("0")),
+        ready_return_views=sorted({str(fact.return_view) for fact in ready_facts}),
+        ready_reporting_currencies=sorted({fact.reporting_currency for fact in ready_facts}),
+        ready_source_fingerprints=sorted({fact.source_fingerprint for fact in ready_facts}),
+        ready_restatement_versions=sorted({fact.restatement_version for fact in ready_facts}),
+    )
+
+
+def _build_ready_composite_period_result(
+    *,
+    period_fact_set: _CompositePeriodFactSet,
+    cumulative_growth: Decimal,
+) -> tuple[CompositePeriodResult, Decimal]:
+    weighted_return, member_contributions = _build_ready_member_contributions(
+        ready_facts=period_fact_set.ready_facts,
+        beginning_assets=period_fact_set.beginning_assets,
+    )
+    next_cumulative_growth = cumulative_growth * (Decimal("1") + weighted_return)
+    cumulative_return = next_cumulative_growth - Decimal("1")
+    status = "READY" if not period_fact_set.excluded_facts else "DEGRADED"
+    return (
+        CompositePeriodResult(
+            period_start=period_fact_set.period_start,
+            period_end=period_fact_set.period_end,
+            status=status,
+            return_value=_quantize_decimal(weighted_return, COMPOSITE_RETURN_QUANTUM),
+            cumulative_return=_quantize_decimal(cumulative_return, COMPOSITE_RETURN_QUANTUM),
+            beginning_market_value=_quantize_decimal(period_fact_set.beginning_assets, COMPOSITE_ASSET_QUANTUM),
+            ending_market_value=_quantize_decimal(period_fact_set.ending_assets, COMPOSITE_ASSET_QUANTUM),
+            member_count=len(period_fact_set.ready_facts),
+            excluded_member_count=len(period_fact_set.excluded_facts),
+            dispersion_equal_weight=_sample_standard_deviation(
+                [fact.return_value for fact in period_fact_set.ready_facts]
+            ),
+            return_view=period_fact_set.ready_return_views[0],
+            reporting_currency=period_fact_set.ready_reporting_currencies[0],
+            source_fingerprints=period_fact_set.ready_source_fingerprints,
+            restatement_versions=period_fact_set.ready_restatement_versions,
+            reason_codes=period_fact_set.reason_codes,
+            member_contributions=member_contributions,
+        ),
+        next_cumulative_growth,
+    )
+
+
+def _group_composite_member_return_facts(
     *,
     composite_id: str,
     member_return_facts: Sequence[CompositeMemberReturnFactLike],
-) -> CompositeCalculationResult:
+) -> dict[tuple[dt_date, dt_date], list[CompositeMemberReturnFactLike]]:
     grouped_facts: dict[tuple[dt_date, dt_date], list[CompositeMemberReturnFactLike]] = defaultdict(list)
     for fact in member_return_facts:
         if fact.composite_id != composite_id:
             continue
         grouped_facts[(fact.period_start, fact.period_end)].append(fact)
+    return grouped_facts
+
+
+def _composite_calculation_status(period_results: Sequence[CompositePeriodResult]) -> str:
+    if all(period.status == "READY" for period in period_results):
+        return "READY"
+    if any(period.status == "READY" or period.status == "DEGRADED" for period in period_results):
+        return "DEGRADED"
+    return "BLOCKED"
+
+
+def calculate_asset_weighted_composite_twr(
+    *,
+    composite_id: str,
+    member_return_facts: Sequence[CompositeMemberReturnFactLike],
+) -> CompositeCalculationResult:
+    grouped_facts = _group_composite_member_return_facts(
+        composite_id=composite_id,
+        member_return_facts=member_return_facts,
+    )
 
     period_results: list[CompositePeriodResult] = []
     cumulative_growth = Decimal("1")
@@ -254,29 +349,24 @@ def calculate_asset_weighted_composite_twr(
 
     for period_start, period_end in sorted(grouped_facts):
         facts = grouped_facts[(period_start, period_end)]
-        ready_facts = [fact for fact in facts if str(fact.status) == COMPOSITE_MEMBER_READY_STATUS]
-        excluded_facts = [fact for fact in facts if str(fact.status) != COMPOSITE_MEMBER_READY_STATUS]
-        reason_codes = sorted({code for fact in excluded_facts for code in fact.reason_codes})
-        aggregate_reason_codes.update(reason_codes)
-
-        beginning_assets = sum((fact.beginning_market_value for fact in ready_facts), Decimal("0"))
-        ending_assets = sum((fact.ending_market_value for fact in ready_facts), Decimal("0"))
-        ready_return_views = sorted({str(fact.return_view) for fact in ready_facts})
-        ready_reporting_currencies = sorted({fact.reporting_currency for fact in ready_facts})
-        ready_source_fingerprints = sorted({fact.source_fingerprint for fact in ready_facts})
-        ready_restatement_versions = sorted({fact.restatement_version for fact in ready_facts})
+        period_fact_set = _build_composite_period_fact_set(
+            period_start=period_start,
+            period_end=period_end,
+            facts=facts,
+        )
+        aggregate_reason_codes.update(period_fact_set.reason_codes)
         blocked_period = _blocked_composite_period_result_for_invalid_ready_facts(
             period_start=period_start,
             period_end=period_end,
-            beginning_assets=beginning_assets,
-            ending_assets=ending_assets,
-            ready_facts=ready_facts,
-            excluded_facts=excluded_facts,
-            reason_codes=reason_codes,
-            ready_return_views=ready_return_views,
-            ready_reporting_currencies=ready_reporting_currencies,
-            ready_source_fingerprints=ready_source_fingerprints,
-            ready_restatement_versions=ready_restatement_versions,
+            beginning_assets=period_fact_set.beginning_assets,
+            ending_assets=period_fact_set.ending_assets,
+            ready_facts=period_fact_set.ready_facts,
+            excluded_facts=period_fact_set.excluded_facts,
+            reason_codes=period_fact_set.reason_codes,
+            ready_return_views=period_fact_set.ready_return_views,
+            ready_reporting_currencies=period_fact_set.ready_reporting_currencies,
+            ready_source_fingerprints=period_fact_set.ready_source_fingerprints,
+            ready_restatement_versions=period_fact_set.ready_restatement_versions,
         )
         if blocked_period is not None:
             period_result, aggregate_reason_code = blocked_period
@@ -284,34 +374,11 @@ def calculate_asset_weighted_composite_twr(
             aggregate_reason_codes.add(aggregate_reason_code)
             continue
 
-        weighted_return, member_contributions = _build_ready_member_contributions(
-            ready_facts=ready_facts,
-            beginning_assets=beginning_assets,
+        period_result, cumulative_growth = _build_ready_composite_period_result(
+            period_fact_set=period_fact_set,
+            cumulative_growth=cumulative_growth,
         )
-
-        cumulative_growth *= Decimal("1") + weighted_return
-        cumulative_return = cumulative_growth - Decimal("1")
-        status = "READY" if not excluded_facts else "DEGRADED"
-        period_results.append(
-            CompositePeriodResult(
-                period_start=period_start,
-                period_end=period_end,
-                status=status,
-                return_value=_quantize_decimal(weighted_return, COMPOSITE_RETURN_QUANTUM),
-                cumulative_return=_quantize_decimal(cumulative_return, COMPOSITE_RETURN_QUANTUM),
-                beginning_market_value=_quantize_decimal(beginning_assets, COMPOSITE_ASSET_QUANTUM),
-                ending_market_value=_quantize_decimal(ending_assets, COMPOSITE_ASSET_QUANTUM),
-                member_count=len(ready_facts),
-                excluded_member_count=len(excluded_facts),
-                dispersion_equal_weight=_sample_standard_deviation([fact.return_value for fact in ready_facts]),
-                return_view=ready_return_views[0],
-                reporting_currency=ready_reporting_currencies[0],
-                source_fingerprints=ready_source_fingerprints,
-                restatement_versions=ready_restatement_versions,
-                reason_codes=reason_codes,
-                member_contributions=member_contributions,
-            )
-        )
+        period_results.append(period_result)
 
     if not period_results:
         return CompositeCalculationResult(
@@ -326,16 +393,9 @@ def calculate_asset_weighted_composite_twr(
         (period.cumulative_return for period in reversed(period_results) if period.cumulative_return is not None),
         None,
     )
-    if all(period.status == "READY" for period in period_results):
-        status = "READY"
-    elif any(period.status == "READY" or period.status == "DEGRADED" for period in period_results):
-        status = "DEGRADED"
-    else:
-        status = "BLOCKED"
-
     return CompositeCalculationResult(
         composite_id=composite_id,
-        status=status,
+        status=_composite_calculation_status(period_results),
         period_results=period_results,
         cumulative_return=terminal_cumulative,
         reason_codes=sorted(aggregate_reason_codes),
