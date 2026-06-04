@@ -102,6 +102,15 @@ class _StatefulBenchmarkSeriesSource:
 
 
 @dataclass(frozen=True)
+class _StatefulBenchmarkResolution:
+    benchmark_id: str | None
+    benchmark_points: list[dict[str, Any]] | None
+    benchmark_df: pd.DataFrame | None
+    benchmark_source_details: dict[str, int]
+    benchmark_work_units: int
+
+
+@dataclass(frozen=True)
 class _StatefulReturnsSeriesFrames:
     portfolio_df: pd.DataFrame
     benchmark_df: pd.DataFrame | None
@@ -831,6 +840,80 @@ async def _retrieve_stateful_returns_series_vendor_benchmark(
     )
 
 
+async def _resolve_stateful_returns_series_benchmark_source(
+    *,
+    request: ReturnsSeriesRequest,
+    stateful_input_service: Any,
+    resolved_window: ResolvedWindow,
+    resolved_benchmark_id: str | None,
+    resolved_benchmark_return_source: BenchmarkReturnSource,
+) -> _StatefulBenchmarkResolution:
+    benchmark_id = await _resolve_stateful_returns_series_benchmark_id(
+        request=request,
+        stateful_input_service=stateful_input_service,
+        resolved_benchmark_id=resolved_benchmark_id,
+    )
+    if not request.series_selection.include_benchmark or not benchmark_id:
+        return _StatefulBenchmarkResolution(
+            benchmark_id=benchmark_id,
+            benchmark_points=None,
+            benchmark_df=None,
+            benchmark_source_details={},
+            benchmark_work_units=0,
+        )
+
+    if resolved_benchmark_return_source == BenchmarkReturnSource.VENDOR_SERIES:
+        benchmark_source = await _retrieve_stateful_returns_series_vendor_benchmark(
+            request=request,
+            stateful_input_service=stateful_input_service,
+            resolved_window=resolved_window,
+            benchmark_id=benchmark_id,
+        )
+        return _StatefulBenchmarkResolution(
+            benchmark_id=benchmark_id,
+            benchmark_points=benchmark_source.benchmark_points,
+            benchmark_df=None,
+            benchmark_source_details=benchmark_source.benchmark_source_details,
+            benchmark_work_units=benchmark_source.benchmark_work_units,
+        )
+
+    normalized_benchmark_input = await build_stateful_benchmark_input(
+        stateful_input_service=stateful_input_service,
+        calculation_id=request.calculation_id,
+        benchmark_id=benchmark_id,
+        as_of_date=request.as_of_date,
+        start_date=resolved_window.start_date,
+        end_date=resolved_window.end_date,
+        return_source=resolved_benchmark_return_source,
+    )
+    benchmark_input_df = (
+        calculate_benchmark_returns(normalized_benchmark_input.component_observations).daily_returns_df
+        if resolved_benchmark_return_source == BenchmarkReturnSource.CALCULATED
+        else benchmark_return_points_to_dataframe(normalized_benchmark_input.benchmark_return_points)
+    )
+    benchmark_df = resample_returns(
+        filter_window(
+            _benchmark_daily_returns_to_dataframe(benchmark_input_df),
+            resolved_window=resolved_window,
+        ),
+        frequency=request.frequency,
+    )
+    benchmark_source_details = {
+        **normalized_benchmark_input.source_details,
+        "benchmark_points": len(benchmark_df),
+    }
+    return _StatefulBenchmarkResolution(
+        benchmark_id=benchmark_id,
+        benchmark_points=None,
+        benchmark_df=benchmark_df,
+        benchmark_source_details=benchmark_source_details,
+        benchmark_work_units=normalized_benchmark_input.source_details.get(
+            "component_observations",
+            len(benchmark_df),
+        ),
+    )
+
+
 def _build_returns_series_point_outputs(
     *,
     portfolio_df: pd.DataFrame,
@@ -1143,57 +1226,14 @@ async def resolve_stateful_returns_series_request(
     observations = portfolio_source.observations
     resolved_benchmark_id: str | None = request.benchmark.benchmark_id if request.benchmark else None
     resolved_benchmark_return_source = _get_requested_benchmark_return_source(request)
-    benchmark_id = await _resolve_stateful_returns_series_benchmark_id(
+    benchmark_resolution = await _resolve_stateful_returns_series_benchmark_source(
         request=request,
         stateful_input_service=stateful_input_service,
+        resolved_window=resolved_window,
         resolved_benchmark_id=resolved_benchmark_id,
+        resolved_benchmark_return_source=resolved_benchmark_return_source,
     )
-    resolved_benchmark_id = benchmark_id
-
-    benchmark_points: list[dict[str, Any]] | None = None
-    benchmark_df: pd.DataFrame | None = None
-    benchmark_source_details: dict[str, int] = {}
-    benchmark_work_units = 0
-    if request.series_selection.include_benchmark and benchmark_id:
-        if resolved_benchmark_return_source == BenchmarkReturnSource.VENDOR_SERIES:
-            benchmark_source = await _retrieve_stateful_returns_series_vendor_benchmark(
-                request=request,
-                stateful_input_service=stateful_input_service,
-                resolved_window=resolved_window,
-                benchmark_id=benchmark_id,
-            )
-            benchmark_points = benchmark_source.benchmark_points
-            benchmark_source_details = benchmark_source.benchmark_source_details
-            benchmark_work_units = benchmark_source.benchmark_work_units
-        else:
-            normalized_benchmark_input = await build_stateful_benchmark_input(
-                stateful_input_service=stateful_input_service,
-                calculation_id=request.calculation_id,
-                benchmark_id=benchmark_id,
-                as_of_date=request.as_of_date,
-                start_date=resolved_window.start_date,
-                end_date=resolved_window.end_date,
-                return_source=resolved_benchmark_return_source,
-            )
-            benchmark_df = resample_returns(
-                filter_window(
-                    _benchmark_daily_returns_to_dataframe(
-                        calculate_benchmark_returns(normalized_benchmark_input.component_observations).daily_returns_df
-                        if resolved_benchmark_return_source == BenchmarkReturnSource.CALCULATED
-                        else benchmark_return_points_to_dataframe(normalized_benchmark_input.benchmark_return_points)
-                    ),
-                    resolved_window=resolved_window,
-                ),
-                frequency=request.frequency,
-            )
-            benchmark_source_details = {
-                **normalized_benchmark_input.source_details,
-                "benchmark_points": len(benchmark_df),
-            }
-            benchmark_work_units = normalized_benchmark_input.source_details.get(
-                "component_observations",
-                len(benchmark_df),
-            )
+    resolved_benchmark_id = benchmark_resolution.benchmark_id
 
     risk_free_points, risk_free_payload = await _retrieve_stateful_returns_series_risk_free(
         request=request,
@@ -1206,13 +1246,16 @@ async def resolve_stateful_returns_series_request(
         EXECUTION_STAGE_RETRIEVAL,
         details={
             "portfolio_observations": len(observations),
-            "benchmark_points": benchmark_source_details.get("benchmark_points", len(benchmark_points or [])),
-            "benchmark_work_units": benchmark_work_units,
+            "benchmark_points": benchmark_resolution.benchmark_source_details.get(
+                "benchmark_points",
+                len(benchmark_resolution.benchmark_points or []),
+            ),
+            "benchmark_work_units": benchmark_resolution.benchmark_work_units,
             "risk_free_points": len(risk_free_points or []),
             "portfolio_chunk_count": portfolio_source.retrieval_metadata.chunk_count,
             "portfolio_page_count": portfolio_source.retrieval_metadata.page_count,
-            "benchmark_chunk_count": benchmark_source_details.get("benchmark_chunk_count", 0),
-            "benchmark_page_count": benchmark_source_details.get("benchmark_page_count", 0),
+            "benchmark_chunk_count": benchmark_resolution.benchmark_source_details.get("benchmark_chunk_count", 0),
+            "benchmark_page_count": benchmark_resolution.benchmark_source_details.get("benchmark_page_count", 0),
             "risk_free_chunk_count": parse_zero_default_retrieval_metadata(risk_free_payload).chunk_count
             if risk_free_points is not None
             else 0,
@@ -1225,8 +1268,8 @@ async def resolve_stateful_returns_series_request(
         resolved_window=resolved_window,
         observations=observations,
         portfolio_performance_start_date=portfolio_source.performance_start_date,
-        benchmark_points=benchmark_points,
-        benchmark_df=benchmark_df,
+        benchmark_points=benchmark_resolution.benchmark_points,
+        benchmark_df=benchmark_resolution.benchmark_df,
         risk_free_points=risk_free_points,
     )
     portfolio_df = normalized_frames.portfolio_df
@@ -1274,12 +1317,12 @@ async def resolve_stateful_returns_series_request(
             },
         }
     )
-    input_count = len(observations) + benchmark_work_units + len(risk_free_points or [])
+    input_count = len(observations) + benchmark_resolution.benchmark_work_units + len(risk_free_points or [])
     return ResolvedStatefulReturnsSeriesRequest(
         request=resolved_request,
         identity_payload=identity_payload,
         input_count=input_count,
         resolved_benchmark_id=resolved_benchmark_id,
         resolved_benchmark_return_source=(resolved_benchmark_return_source.value if resolved_benchmark_id else None),
-        benchmark_work_units=benchmark_work_units,
+        benchmark_work_units=benchmark_resolution.benchmark_work_units,
     )

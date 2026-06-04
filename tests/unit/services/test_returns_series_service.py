@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 from fastapi import HTTPException
 
+from app.models.benchmark_analytics_requests import BenchmarkReturnSource
 from app.models.benchmark_requests import BenchmarkComponentObservation
 from app.models.returns_series import (
     CalendarPolicy,
@@ -739,6 +740,78 @@ async def test_retrieve_stateful_returns_series_vendor_benchmark_rejects_invalid
         )
 
     assert exc.value.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_resolve_stateful_returns_series_benchmark_source_skips_unselected_benchmark():
+    request = _build_stateful_request(
+        series_selection={"include_portfolio": True, "include_benchmark": False, "include_risk_free": False}
+    )
+    resolved_window = returns_series_service.resolve_window(request)
+
+    resolution = await returns_series_service._resolve_stateful_returns_series_benchmark_source(
+        request=request,
+        stateful_input_service=object(),
+        resolved_window=resolved_window,
+        resolved_benchmark_id=None,
+        resolved_benchmark_return_source=BenchmarkReturnSource.CALCULATED,
+    )
+
+    assert resolution.benchmark_id is None
+    assert resolution.benchmark_points is None
+    assert resolution.benchmark_df is None
+    assert resolution.benchmark_source_details == {}
+    assert resolution.benchmark_work_units == 0
+
+
+@pytest.mark.asyncio
+async def test_resolve_stateful_returns_series_benchmark_source_builds_calculated_frame(monkeypatch):
+    request = _build_stateful_request(benchmark={"benchmark_id": "BMK", "return_source": "calculated"})
+    resolved_window = returns_series_service.resolve_window(request)
+
+    async def _build_benchmark(**kwargs):  # noqa: ARG001
+        return StatefulBenchmarkNormalizedInput(
+            benchmark_currency="USD",
+            component_observations=[
+                BenchmarkComponentObservation(
+                    component_id="IDX1",
+                    perf_date="2026-02-23",
+                    weight_bop=1.0,
+                    component_currency="USD",
+                    component_return=0.001,
+                ),
+                BenchmarkComponentObservation(
+                    component_id="IDX1",
+                    perf_date="2026-02-24",
+                    weight_bop=1.0,
+                    component_currency="USD",
+                    component_return=0.002,
+                ),
+            ],
+            benchmark_return_points=[],
+            source_details={"benchmark_components": 1, "component_observations": 2},
+        )
+
+    monkeypatch.setattr(returns_series_service, "build_stateful_benchmark_input", _build_benchmark)
+
+    resolution = await returns_series_service._resolve_stateful_returns_series_benchmark_source(
+        request=request,
+        stateful_input_service=object(),
+        resolved_window=resolved_window,
+        resolved_benchmark_id="BMK",
+        resolved_benchmark_return_source=BenchmarkReturnSource.CALCULATED,
+    )
+
+    assert resolution.benchmark_id == "BMK"
+    assert resolution.benchmark_points is None
+    assert resolution.benchmark_df is not None
+    assert [value.date().isoformat() for value in resolution.benchmark_df["date"]] == ["2026-02-23", "2026-02-24"]
+    assert resolution.benchmark_source_details == {
+        "benchmark_components": 1,
+        "component_observations": 2,
+        "benchmark_points": 2,
+    }
+    assert resolution.benchmark_work_units == 2
 
 
 def _build_stateful_request(**overrides):

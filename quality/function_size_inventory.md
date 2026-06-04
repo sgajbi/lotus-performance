@@ -25,23 +25,23 @@ python scripts/python_function_size_inventory.py --limit 15
 | 3 | `analyze_portfolio_position_reconciliation` | `app/services/inspection/reconciliation.py:89` | 234 |
 | 4 | `DurableQueueCollector.collect` | `app/services/queue_metrics_service.py:227` | 188 |
 | 5 | `build_attribution_supportability_evidence` | `engine/attribution_supportability.py:42` | 184 |
-| 6 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:1103` | 183 |
-| 7 | `build_runtime_status_response` | `app/models/runtime_status.py:660` | 173 |
-| 8 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:503` | 172 |
-| 9 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:67` | 159 |
-| 10 | `_calculate_returns_series` | `app/services/returns_series_service.py:943` | 158 |
-| 11 | `calculate_twr_response` | `app/services/twr_service.py:738` | 151 |
-| 12 | `calculate_twr_workflow` | `app/services/twr_calculation_service.py:159` | 148 |
-| 13 | `aggregate_attribution_results` | `engine/attribution.py:586` | 148 |
-| 14 | `calculate_benchmark_workflow` | `app/services/benchmark_calculation_workflow_service.py:89` | 147 |
-| 15 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:71` | 147 |
+| 6 | `build_runtime_status_response` | `app/models/runtime_status.py:660` | 173 |
+| 7 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:503` | 172 |
+| 8 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:67` | 159 |
+| 9 | `_calculate_returns_series` | `app/services/returns_series_service.py:1026` | 158 |
+| 10 | `calculate_twr_response` | `app/services/twr_service.py:738` | 151 |
+| 11 | `calculate_twr_workflow` | `app/services/twr_calculation_service.py:159` | 148 |
+| 12 | `aggregate_attribution_results` | `engine/attribution.py:586` | 148 |
+| 13 | `calculate_benchmark_workflow` | `app/services/benchmark_calculation_workflow_service.py:89` | 147 |
+| 14 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:71` | 147 |
+| 15 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:1186` | 143 |
 
 ## Interpretation
 
 This is not a cyclomatic-complexity score. It is a deterministic hotspot inventory for refactor
 planning. The largest functions are concentrated in source-economics inspection, contribution,
-reconciliation, returns-series resolution,
-runtime-status assembly, queue metrics, and TWR workflow assembly.
+reconciliation, runtime-status assembly, queue metrics, returns-series execution, and TWR workflow
+assembly.
 
 Future refactor slices should use this report to choose bounded work where extraction, shared
 helpers, or narrower tests can reduce function size while preserving analytics truth and API
