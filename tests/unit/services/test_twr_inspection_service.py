@@ -437,6 +437,42 @@ def test_twr_inspection_reports_no_check_family_when_subject_has_no_inspectable_
     assert "runtime skeleton" not in response.findings[0].summary
 
 
+def test_build_twr_inspection_response_adds_no_check_finding_and_support_brief(monkeypatch):
+    monkeypatch.setattr(
+        service,
+        "generate_twr_inspection_support_brief",
+        lambda inspection: SimpleNamespace(
+            generation_status="generated",
+            workflow_pack_run=None,
+            artifact_markdown=f"# Support brief for {inspection.inspection_id}",
+        ),
+    )
+    request = TWRInspectionRequest(
+        subject_type=TWRInspectionSubjectType.TWR_REQUEST,
+        request=_build_twr_request(),
+    )
+
+    synthesis = service._build_twr_inspection_response(
+        request=request,
+        subject_calculation_id=None,
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        consistency_findings=[],
+        source_quality_findings=[],
+        reconciliation_findings=[],
+        source_economics_findings=[],
+        completed_check_families=[],
+        failed_check_families=[],
+        evidence_summary={"artifact_queue_enabled": True},
+        artifact_payloads={},
+    )
+
+    assert synthesis.support_brief_generation_status == "generated"
+    assert synthesis.response.findings[0].code == "INSPECTION_NO_CHECK_FAMILY_EXECUTED"
+    assert synthesis.response.evidence_summary["support_brief_generation_status"] == "generated"
+    assert synthesis.artifact_payloads["support_brief.md"].startswith("# Support brief")
+    assert "support_brief.md" in synthesis.response.artifacts
+
+
 def test_twr_inspection_verdict_and_window_helpers_cover_clean_and_unscoped_paths():
     assert (
         service._synthesize_verdict(

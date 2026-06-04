@@ -61,6 +61,13 @@ class _InspectionStageOutputs:
     artifact_payloads: dict[str, str]
 
 
+@dataclass(frozen=True)
+class _InspectionResponseSynthesis:
+    response: TWRInspectionResponse
+    artifact_payloads: dict[str, str]
+    support_brief_generation_status: str
+
+
 def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
     execution_registry.mark_running(request.inspection_id)
     execution_registry.start_stage(request.inspection_id, EXECUTION_STAGE_SUBJECT_RESOLUTION)
@@ -170,6 +177,60 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
         artifact_payloads.update(source_economics_outputs.artifact_payloads)
 
     execution_registry.start_stage(request.inspection_id, EXECUTION_STAGE_FINDING_SYNTHESIS)
+    response_synthesis = _build_twr_inspection_response(
+        request=request,
+        subject_calculation_id=subject.subject_calculation_id,
+        portfolio_id=subject.portfolio_id,
+        consistency_findings=consistency_findings,
+        source_quality_findings=source_quality_findings,
+        reconciliation_findings=reconciliation_findings,
+        source_economics_findings=source_economics_findings,
+        completed_check_families=completed_check_families,
+        failed_check_families=failed_check_families,
+        evidence_summary=evidence_summary,
+        artifact_payloads=artifact_payloads,
+    )
+    response = response_synthesis.response
+    artifact_payloads = response_synthesis.artifact_payloads
+    execution_registry.complete_stage(
+        request.inspection_id,
+        EXECUTION_STAGE_FINDING_SYNTHESIS,
+        details={
+            "verdict": response.verdict.value,
+            "finding_count": len(response.findings),
+            "support_brief_generation_status": response_synthesis.support_brief_generation_status,
+        },
+    )
+
+    execution_registry.start_stage(request.inspection_id, EXECUTION_STAGE_ARTIFACT_MATERIALIZATION)
+    try:
+        enqueue_twr_inspection_artifacts(
+            inspection_id=request.inspection_id,
+            request_model=request,
+            response_model=response,
+            artifact_payloads=artifact_payloads,
+        )
+    except Exception as exc:
+        execution_registry.fail_stage(request.inspection_id, EXECUTION_STAGE_ARTIFACT_MATERIALIZATION, str(exc))
+        raise
+    execution_registry.mark_complete(request.inspection_id)
+    return response
+
+
+def _build_twr_inspection_response(
+    *,
+    request: TWRInspectionRequest,
+    subject_calculation_id: UUID | None,
+    portfolio_id: str | None,
+    consistency_findings: list[TWRInspectionFinding],
+    source_quality_findings: list[TWRInspectionFinding],
+    reconciliation_findings: list[TWRInspectionFinding],
+    source_economics_findings: list[TWRInspectionFinding],
+    completed_check_families: list[str],
+    failed_check_families: list[str],
+    evidence_summary: dict[str, object],
+    artifact_payloads: dict[str, str],
+) -> _InspectionResponseSynthesis:
     findings = [
         *consistency_findings,
         *source_quality_findings,
@@ -180,6 +241,7 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
         evidence_summary["failed_check_families"] = failed_check_families
     if not completed_check_families and not findings:
         findings.append(_build_no_check_family_executed_finding())
+
     pending_check_families = [family for family in _ALL_CHECK_FAMILIES if family not in completed_check_families]
     verdict = _synthesize_verdict(
         findings=findings,
@@ -191,8 +253,8 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
         inspection_id=request.inspection_id,
         subject_type=request.subject_type,
         inspection_profile=request.inspection_profile,
-        subject_calculation_id=subject.subject_calculation_id,
-        portfolio_id=subject.portfolio_id,
+        subject_calculation_id=subject_calculation_id,
+        portfolio_id=portfolio_id,
         status="complete",
         verdict=verdict,
         findings=findings,
@@ -202,15 +264,11 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
             completed_check_families=completed_check_families,
             pending_check_families=pending_check_families,
         ),
-        related_lineage=(
-            TWRInspectionRelatedLineage(
-                calculation_id=subject.subject_calculation_id,
-                lineage_path=(
-                    f"/performance/lineage/{subject.subject_calculation_id}"
-                    if subject.subject_calculation_id is not None
-                    else None
-                ),
-            )
+        related_lineage=TWRInspectionRelatedLineage(
+            calculation_id=subject_calculation_id,
+            lineage_path=f"/performance/lineage/{subject_calculation_id}"
+            if subject_calculation_id is not None
+            else None,
         ),
         artifacts=_build_twr_inspection_artifact_links(
             inspection_id=request.inspection_id,
@@ -235,29 +293,11 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
             "workflow_pack_run": support_brief_result.workflow_pack_run,
         }
     )
-    execution_registry.complete_stage(
-        request.inspection_id,
-        EXECUTION_STAGE_FINDING_SYNTHESIS,
-        details={
-            "verdict": response.verdict.value,
-            "finding_count": len(response.findings),
-            "support_brief_generation_status": support_brief_result.generation_status,
-        },
+    return _InspectionResponseSynthesis(
+        response=response,
+        artifact_payloads=artifact_payloads,
+        support_brief_generation_status=support_brief_result.generation_status,
     )
-
-    execution_registry.start_stage(request.inspection_id, EXECUTION_STAGE_ARTIFACT_MATERIALIZATION)
-    try:
-        enqueue_twr_inspection_artifacts(
-            inspection_id=request.inspection_id,
-            request_model=request,
-            response_model=response,
-            artifact_payloads=artifact_payloads,
-        )
-    except Exception as exc:
-        execution_registry.fail_stage(request.inspection_id, EXECUTION_STAGE_ARTIFACT_MATERIALIZATION, str(exc))
-        raise
-    execution_registry.mark_complete(request.inspection_id)
-    return response
 
 
 def _run_source_quality_assessment(
