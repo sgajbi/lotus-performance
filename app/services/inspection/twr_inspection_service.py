@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from uuid import UUID
 
-from app.models.inspection_requests import TWRInspectionRequest
+from app.models.inspection_requests import TWRInspectionProfile, TWRInspectionRequest
 from app.models.inspection_responses import (
     TWRInspectionCheckCoverage,
     TWRInspectionFinding,
@@ -49,6 +50,15 @@ _ALL_CHECK_FAMILIES = [
     "reconciliation",
     "cashflow_classification",
 ]
+
+
+@dataclass(frozen=True)
+class _InspectionStageOutputs:
+    findings: list[TWRInspectionFinding]
+    completed_check_families: list[str]
+    failed_check_families: list[str]
+    evidence_summary: dict[str, object]
+    artifact_payloads: dict[str, str]
 
 
 def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
@@ -121,34 +131,16 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
 
     source_quality_findings: list[TWRInspectionFinding] = []
     if performance_request is not None:
-        execution_registry.start_stage(request.inspection_id, EXECUTION_STAGE_SOURCE_QUALITY_ASSESSMENT)
-        try:
-            source_quality_result = run_source_quality_checks(
-                performance_request=performance_request,
-                inspection_profile=request.inspection_profile,
-            )
-        except Exception as exc:
-            _record_check_failure(
-                inspection_id=request.inspection_id,
-                findings=source_quality_findings,
-                failed_check_families=failed_check_families,
-                families=["source_quality", "economic_plausibility"],
-                stage=EXECUTION_STAGE_SOURCE_QUALITY_ASSESSMENT,
-                error=exc,
-            )
-        else:
-            execution_registry.complete_stage(
-                request.inspection_id,
-                EXECUTION_STAGE_SOURCE_QUALITY_ASSESSMENT,
-                details=source_quality_result.evidence_summary,
-            )
-            source_quality_findings = source_quality_result.findings
-            completed_check_families.extend(["source_quality", "economic_plausibility"])
-            evidence_summary.update(source_quality_result.evidence_summary)
-            artifact_payloads["source_quality_summary.json"] = json.dumps(
-                source_quality_result.artifact_payload,
-                indent=2,
-            )
+        source_quality_outputs = _run_source_quality_assessment(
+            inspection_id=request.inspection_id,
+            performance_request=performance_request,
+            inspection_profile=request.inspection_profile,
+        )
+        source_quality_findings = source_quality_outputs.findings
+        completed_check_families.extend(source_quality_outputs.completed_check_families)
+        failed_check_families.extend(source_quality_outputs.failed_check_families)
+        evidence_summary.update(source_quality_outputs.evidence_summary)
+        artifact_payloads.update(source_quality_outputs.artifact_payloads)
 
     reconciliation_findings: list[TWRInspectionFinding] = []
     if resolved_execution_request is not None and subject.portfolio_id is not None:
@@ -302,6 +294,56 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
         raise
     execution_registry.mark_complete(request.inspection_id)
     return response
+
+
+def _run_source_quality_assessment(
+    *,
+    inspection_id: UUID,
+    performance_request: PerformanceRequest,
+    inspection_profile: TWRInspectionProfile,
+) -> _InspectionStageOutputs:
+    findings: list[TWRInspectionFinding] = []
+    failed_check_families: list[str] = []
+    execution_registry.start_stage(inspection_id, EXECUTION_STAGE_SOURCE_QUALITY_ASSESSMENT)
+    try:
+        source_quality_result = run_source_quality_checks(
+            performance_request=performance_request,
+            inspection_profile=inspection_profile,
+        )
+    except Exception as exc:
+        _record_check_failure(
+            inspection_id=inspection_id,
+            findings=findings,
+            failed_check_families=failed_check_families,
+            families=["source_quality", "economic_plausibility"],
+            stage=EXECUTION_STAGE_SOURCE_QUALITY_ASSESSMENT,
+            error=exc,
+        )
+        return _InspectionStageOutputs(
+            findings=findings,
+            completed_check_families=[],
+            failed_check_families=failed_check_families,
+            evidence_summary={},
+            artifact_payloads={},
+        )
+
+    execution_registry.complete_stage(
+        inspection_id,
+        EXECUTION_STAGE_SOURCE_QUALITY_ASSESSMENT,
+        details=source_quality_result.evidence_summary,
+    )
+    return _InspectionStageOutputs(
+        findings=source_quality_result.findings,
+        completed_check_families=["source_quality", "economic_plausibility"],
+        failed_check_families=[],
+        evidence_summary=source_quality_result.evidence_summary,
+        artifact_payloads={
+            "source_quality_summary.json": json.dumps(
+                source_quality_result.artifact_payload,
+                indent=2,
+            )
+        },
+    )
 
 
 def _build_twr_inspection_artifact_links(

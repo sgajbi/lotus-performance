@@ -57,6 +57,54 @@ def fake_registry(monkeypatch) -> _FakeExecutionRegistry:
     return registry
 
 
+def test_run_source_quality_assessment_records_success_outputs(fake_registry, monkeypatch):
+    monkeypatch.setattr(
+        service,
+        "run_source_quality_checks",
+        lambda **_kwargs: SimpleNamespace(
+            findings=[],
+            evidence_summary={"invalid_capital_base_count": 0},
+            artifact_payload={"invalid_capital_base_count": 0},
+        ),
+    )
+
+    outputs = service._run_source_quality_assessment(
+        inspection_id=uuid4(),
+        performance_request=_build_performance_request(),
+        inspection_profile=TWRInspectionProfile.CANONICAL_VALIDATION,
+    )
+
+    assert outputs.findings == []
+    assert outputs.completed_check_families == ["source_quality", "economic_plausibility"]
+    assert outputs.failed_check_families == []
+    assert outputs.evidence_summary == {"invalid_capital_base_count": 0}
+    assert outputs.artifact_payloads == {"source_quality_summary.json": '{\n  "invalid_capital_base_count": 0\n}'}
+    assert EXECUTION_STAGE_SOURCE_QUALITY_ASSESSMENT in fake_registry.completed_stages
+
+
+def test_run_source_quality_assessment_preserves_failure_outputs(fake_registry, monkeypatch):
+    def raise_source_quality_failure(**_kwargs):
+        raise RuntimeError("source quality dependency unavailable")
+
+    monkeypatch.setattr(service, "run_source_quality_checks", raise_source_quality_failure)
+
+    outputs = service._run_source_quality_assessment(
+        inspection_id=uuid4(),
+        performance_request=_build_performance_request(),
+        inspection_profile=TWRInspectionProfile.CANONICAL_VALIDATION,
+    )
+
+    assert outputs.completed_check_families == []
+    assert outputs.failed_check_families == ["source_quality", "economic_plausibility"]
+    assert outputs.evidence_summary == {}
+    assert outputs.artifact_payloads == {}
+    assert outputs.findings[0].code == "INSPECTION_CHECK_FAMILY_FAILED"
+    assert outputs.findings[0].evidence["stage"] == EXECUTION_STAGE_SOURCE_QUALITY_ASSESSMENT
+    assert (EXECUTION_STAGE_SOURCE_QUALITY_ASSESSMENT, "source quality dependency unavailable") in (
+        fake_registry.failed_stages
+    )
+
+
 def test_twr_inspection_preserves_runtime_finding_when_only_check_family_fails(fake_registry, monkeypatch):
     def raise_source_quality_failure(**_kwargs):
         raise RuntimeError("source quality dependency unavailable")

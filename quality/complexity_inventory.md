@@ -28,14 +28,14 @@ python scripts/python_complexity_inventory.py --limit 20
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:54` | 27 | D |
-| 2 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:723` | 27 | D |
-| 3 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:935` | 27 | D |
-| 4 | `_build_daily_calculation_evidence` | function | `app/services/twr_service.py:166` | 27 | D |
-| 5 | `_process_pending_jobs` | function | `app/workers/compute_executor_worker.py:59` | 27 | D |
-| 6 | `calculate_asset_weighted_composite_twr` | function | `engine/composites.py:240` | 27 | D |
-| 7 | `_build_schema_example` | function | `app/openapi_enrichment.py:230` | 26 | D |
-| 8 | `_prepare_data_from_instruments` | function | `engine/attribution.py:221` | 26 | D |
+| 1 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:723` | 27 | D |
+| 2 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:935` | 27 | D |
+| 3 | `_build_daily_calculation_evidence` | function | `app/services/twr_service.py:166` | 27 | D |
+| 4 | `_process_pending_jobs` | function | `app/workers/compute_executor_worker.py:59` | 27 | D |
+| 5 | `calculate_asset_weighted_composite_twr` | function | `engine/composites.py:240` | 27 | D |
+| 6 | `_build_schema_example` | function | `app/openapi_enrichment.py:230` | 26 | D |
+| 7 | `_prepare_data_from_instruments` | function | `engine/attribution.py:221` | 26 | D |
+| 8 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:64` | 25 | D |
 | 9 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:44` | 25 | D |
 | 10 | `calculate_money_weighted_return` | function | `engine/mwr.py:186` | 25 | D |
 | 11 | `build_source_economics_findings` | function | `app/services/inspection/source_economics_findings.py:7` | 24 | D |
@@ -71,9 +71,9 @@ python scripts/python_complexity_inventory.py --limit 20
 
 ## Interpretation
 
-The highest complexity functions are concentrated in TWR inspection, returns-series resolution and
-calculation, TWR evidence assembly, worker dispatch, composite TWR, OpenAPI schema-example
-generation, attribution instrument preparation, MWR calculation, source-economics inspection,
+The highest complexity functions are concentrated in returns-series resolution and calculation,
+TWR evidence assembly, worker dispatch, composite TWR, OpenAPI schema-example generation,
+attribution instrument preparation, TWR inspection, MWR calculation, source-economics inspection,
 benchmark returns, integration capability reporting, and stateful input assembly. These are real
 refactor-planning hotspots, not evidence that a single local extraction should change behavior.
 
