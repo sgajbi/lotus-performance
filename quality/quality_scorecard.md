@@ -43,6 +43,7 @@ metrics in each section are updated with each meaningful slice.
 | Routers with infrastructure imports | unknown | 0 | n/a | measured | `quality/architecture_boundary_inventory.md`; `quality/refactor_health_report.md` |
 | Domain/application with infra/framework imports | unknown | 0 | n/a | measured | `quality/architecture_boundary_inventory.md`; `quality/refactor_health_report.md` |
 | Large production service hotspots (LOC > 1000) | 3 | 3 | 0 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
+| Router/middleware oversized function findings (`--threshold 80`) | unknown | 9 | n/a | measured | `quality/router_middleware_thinness_inventory.md`; `quality/refactor_health_report.md` |
 
 ### API Quality
 
@@ -96,9 +97,9 @@ metrics in each section are updated with each meaningful slice.
 
 | Signal | Value | Note |
 | --- | ---: | --- |
-| Total metrics tracked | 38 | All metrics in this file are measured or explicitly called out as not-yet-measured. |
-| Measured metrics | 36 | Remaining gaps are primarily line/branch coverage and true trend baselines for some architecture/API dimensions. |
-| Not-yet-measured metrics | 3 | Line coverage, branch coverage, and a few baseline historical values remain for future slices. |
+| Total metrics tracked | 39 | All metrics in this file are measured or explicitly called out as not-yet-measured. |
+| Measured metrics | 37 | Remaining gaps are primarily line/branch coverage and a few baseline historical values remain for future slices. |
+| Not-yet-measured metrics | 2 | Line coverage and branch coverage remain untracked on this stream. |
 
 ## Method Note
 

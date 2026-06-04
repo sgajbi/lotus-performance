@@ -50,6 +50,7 @@ link the commit, command, or CI artifact that proves the change.
 | Routers importing infrastructure directly | unknown | 0 | measured | `ROUTER_DIRECT_BOUNDARY_IMPORT` in `quality/architecture_boundary_inventory.md` |
 | Domain/application importing framework or infra code | unknown | 0 | measured | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` absent from `quality/architecture_boundary_inventory.md` |
 | Large production service hotspots | 3 | 3 | measured | `lineage_metadata_store.py`, `compute_job_store.py`, `stateful_input_service.py` exceed 1,000 LOC |
+| Router/middleware oversized function findings (`--threshold 80`) | unknown | 9 | measured | `quality/router_middleware_thinness_inventory.md` via `scripts/python_router_middleware_thinness_inventory.py` |
 
 ## API Quality
 
