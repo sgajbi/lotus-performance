@@ -85,6 +85,32 @@ def _running_compute_job(
     return job_store, execution_store, result_store, job
 
 
+def _compute_job_record(
+    *,
+    calculation_id,
+    analytics_type: str,
+    request_payload: dict,
+) -> ComputeJobRecord:
+    return ComputeJobRecord(
+        calculation_id=calculation_id,
+        analytics_type=analytics_type,
+        job_status=ComputeJobStatus.RUNNING,
+        request_payload=request_payload,
+        response_payload=None,
+        error_message=None,
+        error_type=None,
+        attempt_count=0,
+        max_attempts=1,
+        worker_id="worker-test",
+        leased_at_utc=None,
+        lease_expires_at_utc=None,
+        last_error_at_utc=None,
+        created_at_utc="2026-01-01T00:00:00+00:00",
+        started_at_utc="2026-01-01T00:00:00+00:00",
+        completed_at_utc=None,
+    )
+
+
 def test_compute_executor_worker_processes_pending_returns_series_job(tmp_path, monkeypatch):
     execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
     execution_store.create_schema()
@@ -144,6 +170,79 @@ def test_compute_executor_worker_processes_pending_returns_series_job(tmp_path, 
     result = result_store.get_result(calculation_id)
     assert result is not None
     assert result.result_status == AsyncResultStatus.COMPLETE
+
+
+def test_compute_executor_worker_dispatches_benchmark_job_and_updates_execution_identity(tmp_path):
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    calculation_id = uuid4()
+    execution_store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_BENCHMARK,
+        portfolio_id="BMK_1",
+        execution_mode="async",
+        requested_window={},
+    )
+    request = BenchmarkPerformanceRequest.model_validate(
+        {
+            "calculation_id": str(calculation_id),
+            "benchmark_id": "BMK_1",
+            "benchmark_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "benchmark_currency": "USD",
+            "return_source": "calculated",
+            "component_observations": [
+                {
+                    "component_id": "IDX_1",
+                    "perf_date": "2025-01-01",
+                    "weight_bop": 1.0,
+                    "component_return": 0.01,
+                }
+            ],
+        }
+    )
+    captured: dict = {}
+
+    async def _unused_async(*args, **kwargs):  # noqa: ARG001
+        raise AssertionError("unexpected async calculator")
+
+    def _unused(*args, **kwargs):  # noqa: ARG001
+        raise AssertionError("unexpected calculator")
+
+    def _benchmark_calculator(request_arg, **kwargs):
+        captured["request"] = request_arg
+        captured.update(kwargs)
+        return SimpleNamespace(model_dump=lambda mode: {"status": "complete", "mode": mode})
+
+    context = compute_executor_worker._ComputeJobExecutionContext(
+        settings=_worker_settings(APP_VERSION="9.9.9"),
+        execution_store=execution_store,
+        returns_series_calculator=_unused_async,
+        contribution_calculator=_unused,
+        attribution_calculator=_unused,
+        benchmark_calculator=_benchmark_calculator,
+        twr_calculator=_unused,
+        workspace_summary_calculator=_unused,
+        inspection_calculator=_unused,
+    )
+    job = _compute_job_record(
+        calculation_id=calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_BENCHMARK,
+        request_payload=request.model_dump(mode="json"),
+    )
+
+    response = compute_executor_worker._execute_compute_job(job, context)
+
+    assert response.model_dump(mode="json") == {"status": "complete", "mode": "json"}
+    assert captured["request"] == request
+    assert captured["input_mode"] == compute_executor_worker.BenchmarkInputMode.STATEFUL
+    assert captured["engine_version"] == "9.9.9"
+    assert captured["request_artifact_model"] == request
+    execution = execution_store.get_execution(calculation_id)
+    assert execution is not None
+    assert execution.input_fingerprint
+    assert execution.calculation_hash
 
 
 def test_compute_executor_worker_processes_resolved_stateful_returns_series_job(tmp_path, monkeypatch):
