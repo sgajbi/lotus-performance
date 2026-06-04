@@ -63,6 +63,7 @@ completed benchmark payload.
 async def calculate_benchmark_endpoint(
     request: BenchmarkAnalyticsRequest,
 ) -> BenchmarkPerformanceResponse | JSONResponse:
+    """Calculate or enqueue benchmark performance using stateless or stateful inputs."""
     settings = get_settings()
     source_request_fingerprint, source_request_hash = generate_request_fingerprint(request, settings.APP_VERSION)
     input_fingerprint, calculation_hash = source_request_fingerprint, source_request_hash
@@ -217,6 +218,7 @@ async def calculate_benchmark_endpoint(
     description=BENCHMARK_RESULT_ENDPOINT_DESCRIPTION,
 )
 async def get_benchmark_result(calculation_id: UUID) -> BenchmarkPerformanceResponse | JSONResponse:
+    """Return a completed async benchmark calculation or its accepted/failed status."""
     return resolve_async_result(
         calculation_id=calculation_id,
         response_model=BenchmarkPerformanceResponse,
