@@ -20,41 +20,39 @@ python scripts/python_architecture_boundary_inventory.py --limit 40
 
 | Metric | Value |
 | --- | ---: |
-| Architecture boundary findings | 14 |
+| Architecture boundary findings | 12 |
 | Distinct rules | 1 |
-| Distinct files | 10 |
+| Distinct files | 9 |
 
 ## Findings By Rule
 
 | Rule | Count |
 | --- | ---: |
-| `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | 14 |
+| `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | 12 |
 
 ## Findings By Area
 
 | Area | Count |
 | --- | ---: |
 | Core | 1 |
-| Engine | 13 |
+| Engine | 11 |
 
 ## Findings
 
 | Rank | Rule | File | Import | Description |
 | ---: | --- | --- | --- | --- |
 | 1 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `core/errors.py:2` | `fastapi` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
-| 2 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/attribution.py:7` | `adapters.api_adapter` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
-| 3 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/attribution.py:8` | `app.models.attribution_requests` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
-| 4 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/attribution.py:14` | `app.models.attribution_responses` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
-| 5 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/attribution_supportability.py:5` | `app.models.attribution_requests` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
-| 6 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/attribution_supportability.py:6` | `app.models.attribution_responses` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
-| 7 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/benchmarks.py:9` | `app.models.benchmark_requests` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
-| 8 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/breakdown.py:6` | `app.precision_policy` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
-| 9 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/composites.py:8` | `app.models.composites` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
-| 10 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/contribution.py:7` | `app.models.contribution_requests` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
-| 11 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/contribution_smoothing.py:4` | `app.models.contribution_requests` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
-| 12 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/mwr.py:8` | `app.models.mwr_requests` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
-| 13 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/mwr.py:9` | `app.models.mwr_responses` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
-| 14 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/runtime.py:8` | `adapters.api_adapter` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
+| 2 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/attribution.py:7` | `app.models.attribution_requests` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
+| 3 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/attribution.py:13` | `app.models.attribution_responses` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
+| 4 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/attribution_supportability.py:5` | `app.models.attribution_requests` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
+| 5 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/attribution_supportability.py:6` | `app.models.attribution_responses` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
+| 6 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/benchmarks.py:9` | `app.models.benchmark_requests` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
+| 7 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/breakdown.py:6` | `app.precision_policy` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
+| 8 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/composites.py:8` | `app.models.composites` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
+| 9 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/contribution.py:7` | `app.models.contribution_requests` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
+| 10 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/contribution_smoothing.py:4` | `app.models.contribution_requests` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
+| 11 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/mwr.py:8` | `app.models.mwr_requests` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
+| 12 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/mwr.py:9` | `app.models.mwr_responses` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
 
 ## Interpretation
 

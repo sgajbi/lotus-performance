@@ -4,7 +4,6 @@ from typing import Dict, List, Tuple
 import numpy as np
 import pandas as pd
 
-from adapters.api_adapter import create_engine_dataframe
 from app.models.attribution_requests import (
     AttributionModel,
     AttributionRequest,
@@ -27,6 +26,7 @@ from engine.attribution_supportability import (
     classify_attribution_residual,
 )
 from engine.config import EngineConfig
+from engine.dataframe import create_engine_dataframe_from_valuation_points
 from engine.runtime import run_engine_for_valuation_points
 from engine.schema import PortfolioColumns
 
@@ -137,7 +137,9 @@ def _prepare_data_from_instruments(request: AttributionRequest) -> List[Portfoli
         hedging=request.hedging,
     )
 
-    portfolio_df = create_engine_dataframe([item.model_dump() for item in request.portfolio_data.valuation_points])
+    portfolio_df = create_engine_dataframe_from_valuation_points(
+        [item.model_dump() for item in request.portfolio_data.valuation_points]
+    )
     portfolio_df[PortfolioColumns.PERF_DATE.value] = pd.to_datetime(portfolio_df[PortfolioColumns.PERF_DATE.value])
     portfolio_df = portfolio_df.set_index(PortfolioColumns.PERF_DATE.value)
     portfolio_bop_mv = portfolio_df[PortfolioColumns.BEGIN_MV.value] + portfolio_df[PortfolioColumns.BOD_CF.value]
